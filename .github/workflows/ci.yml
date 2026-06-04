@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_ENV: test
+  DATABASE_URL: postgresql://test:test@localhost:5432/test?schema=public
+  JWT_ACCESS_SECRET: ci-test-access-secret-at-least-32-characters-long
+  JWT_REFRESH_SECRET: ci-test-refresh-secret-at-least-32-characters-long
+  JWT_ACCESS_EXPIRY: 15m
+  JWT_REFRESH_EXPIRY: 7d
+  AI_PROVIDER: anthropic
+  AI_API_KEY: test-key
+  AI_MODEL: test-model
+  REDIS_HOST: localhost
+  REDIS_PORT: 6379
+
+jobs:
+  quality:
+    name: Quality Gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Check for any
+        run: grep -r ': any' src/ --include='*.ts' && exit 1 || exit 0
+
+      - name: Check for skipped tests
+        run: grep -rE 'it\.skip|test\.skip|xdescribe|TODO.*test' src/ --include='*.ts' && exit 1 || exit 0
+
+      - name: Check for console.log
+        run: grep -r 'console\.log' src/ --include='*.ts' && exit 1 || exit 0
+
+      - name: Generate Prisma Client
+        run: pnpm prisma generate
+
+      - name: Unit Tests
+        run: pnpm test
+
+      - name: E2E Tests
+        run: pnpm test:e2e
+
+      - name: Security Audit
+        run: pnpm audit --audit-level=high || true

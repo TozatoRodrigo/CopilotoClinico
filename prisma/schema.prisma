@@ -1,0 +1,176 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum EncounterStatus {
+  draft
+  in_review
+  finalized
+  cancelled
+}
+
+enum DocumentType {
+  soap
+  sbar
+  prescricao
+  alta
+  atestado
+}
+
+enum SubscriptionStatus {
+  active
+  inactive
+  trial
+}
+
+model Physician {
+  id                 String             @id @default(uuid()) @db.Uuid
+  crmUf              String             @map("crm_uf") @db.Char(2)
+  crmNumber          String             @map("crm_number")
+  email              String             @unique @db.VarChar(255)
+  passwordHash       String             @map("password_hash")
+  name               String?            @db.VarChar(255)
+  mfaEnabled         Boolean            @default(false) @map("mfa_enabled")
+  mfaSecret          String?            @map("mfa_secret")
+  subscriptionStatus SubscriptionStatus @default(trial) @map("subscription_status")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  encounters    Encounter[]
+  documents     Document[]
+  consents      Consent[]
+  refreshTokens RefreshToken[]
+
+  @@map("physicians")
+}
+
+model Encounter {
+  id          String          @id @default(uuid()) @db.Uuid
+  physicianId String          @map("physician_id") @db.Uuid
+  vertical    String          @default("trauma")
+  context     Json?
+  patientRef  String          @map("patient_ref") @db.VarChar(50)
+  status      EncounterStatus @default(draft)
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  physician       Physician       @relation(fields: [physicianId], references: [id], onDelete: Cascade)
+  aiInteractions  AiInteraction[]
+  documents       Document[]
+
+  @@index([physicianId])
+  @@map("encounters")
+}
+
+model AiInteraction {
+  id                String   @id @default(uuid()) @db.Uuid
+  encounterId       String   @map("encounter_id") @db.Uuid
+  inputRedacted     String?  @map("input_redacted") @db.Text
+  retrievedChunkIds String[] @map("retrieved_chunk_ids")
+  model             String
+  params            Json?
+  rawOutput         Json     @map("raw_output")
+  citations         Json?
+  uncertainty       Boolean  @default(false)
+  uncertaintyReason String?  @map("uncertainty_reason") @db.Text
+  latencyMs         Int      @map("latency_ms")
+  cost              Float    @default(0)
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  encounter Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+
+  @@index([encounterId])
+  @@map("ai_interactions")
+}
+
+model Document {
+  id             String       @id @default(uuid()) @db.Uuid
+  encounterId    String       @map("encounter_id") @db.Uuid
+  physicianId    String       @map("physician_id") @db.Uuid
+  type           DocumentType
+  content        Json
+  physicianEdits Json?        @map("physician_edits")
+  confirmedBy    String?      @map("confirmed_by") @db.Uuid
+  confirmedAt    DateTime?    @map("confirmed_at")
+  pdfObjectKey   String?      @map("pdf_object_key")
+  contentHash    String?      @map("content_hash") @db.Char(64)
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  encounter Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  physician Physician @relation(fields: [physicianId], references: [id], onDelete: Cascade)
+
+  @@index([encounterId])
+  @@index([physicianId])
+  @@map("documents")
+}
+
+model GuidelineChunk {
+  id            String               @id @default(uuid()) @db.Uuid
+  source        String
+  sourceVersion String               @map("source_version")
+  specialty     String
+  evidenceLevel String?              @map("evidence_level")
+  text          String               @db.Text
+  textTsv       Unsupported("tsvector")?
+  embedding     Unsupported("vector(1536)")?
+  metadata      Json?
+  validFrom     DateTime             @default(now()) @map("valid_from")
+  validTo       DateTime?            @map("valid_to")
+  createdAt     DateTime             @default(now()) @map("created_at")
+
+  @@index([source, sourceVersion])
+  @@index([specialty])
+  @@map("guideline_chunks")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  actorId    String   @map("actor_id")
+  action     String
+  entity     String
+  entityId   String   @map("entity_id")
+  beforeHash String?  @map("before_hash") @db.Char(64)
+  afterHash  String?  @map("after_hash") @db.Char(64)
+  payload    Json?
+  ip         String?  @db.VarChar(45)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([entity, entityId])
+  @@index([actorId])
+  @@index([createdAt])
+  @@map("audit_log")
+}
+
+model Consent {
+  id          String    @id @default(uuid()) @db.Uuid
+  physicianId String    @map("physician_id") @db.Uuid
+  scope       String
+  grantedAt   DateTime  @default(now()) @map("granted_at")
+  revokedAt   DateTime? @map("revoked_at")
+
+  physician Physician @relation(fields: [physicianId], references: [id], onDelete: Cascade)
+
+  @@index([physicianId])
+  @@map("consents")
+}
+
+model RefreshToken {
+  id          String   @id @default(uuid()) @db.Uuid
+  physicianId String   @map("physician_id") @db.Uuid
+  tokenHash   String   @map("token_hash") @db.VarChar(64)
+  expiresAt   DateTime @map("expires_at")
+  revoked     Boolean  @default(false)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  physician Physician @relation(fields: [physicianId], references: [id], onDelete: Cascade)
+
+  @@index([tokenHash])
+  @@index([physicianId])
+  @@map("refresh_tokens")
+}
