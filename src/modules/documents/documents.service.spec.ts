@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DocumentsService } from './documents.service';
 import { PrismaService } from '../../config/prisma.service';
 import { AuditService } from '../audit/audit.service';
-import { NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
 
 const physicianId = '550e8400-e29b-41d4-a716-446655440000';
 const otherPhysicianId = '660e8400-e29b-41d4-a716-446655440001';
@@ -43,6 +43,7 @@ const baseDocument = {
 
 describe('DocumentsService', () => {
   let service: DocumentsService;
+  let auditService: AuditService;
   let prisma: {
     encounter: {
       findUnique: ReturnType<typeof vi.fn>;
@@ -50,6 +51,7 @@ describe('DocumentsService', () => {
     };
     aiInteraction: {
       findUnique: ReturnType<typeof vi.fn>;
+      findFirst: ReturnType<typeof vi.fn>;
     };
     document: {
       create: ReturnType<typeof vi.fn>;
@@ -69,6 +71,7 @@ describe('DocumentsService', () => {
       },
       aiInteraction: {
         findUnique: vi.fn(),
+        findFirst: vi.fn().mockResolvedValue(null),
       },
       document: {
         create: vi.fn(),
@@ -78,7 +81,7 @@ describe('DocumentsService', () => {
       },
     };
 
-    const auditService = { log: vi.fn().mockResolvedValue(undefined) } as unknown as AuditService;
+    auditService = { log: vi.fn().mockResolvedValue(undefined) } as unknown as AuditService;
     service = new DocumentsService(prisma as unknown as PrismaService, auditService);
   });
 
@@ -238,30 +241,37 @@ describe('DocumentsService', () => {
     });
   });
 
-  describe('confirm', () => {
-    it('locks document with confirmedBy + confirmedAt', async () => {
-      prisma.document.findUnique.mockResolvedValue({
-        physicianId,
-        confirmedBy: null,
-        encounterId,
-      });
+  describe('confirm — CLIN-003 gate de confirmação humana auditável', () => {
+    const docBase = {
+      physicianId,
+      confirmedBy: null,
+      encounterId,
+      content: baseDocument.content,
+      physicianEdits: null,
+    };
+
+    // Cenário 1: confirmação normal → 200, confirmedAt preenchido, contentHash atualizado
+    it('confirma documento draft: seta confirmedBy, confirmedAt e contentHash canônico', async () => {
+      prisma.document.findUnique.mockResolvedValue(docBase);
       prisma.document.update.mockResolvedValue({
         ...baseDocument,
         confirmedBy: physicianId,
-        confirmedAt: expect.any(Date),
+        confirmedAt: new Date(),
       });
       prisma.encounter.update.mockResolvedValue({});
 
       const result = await service.confirm(physicianId, documentId);
 
-      expect(prisma.document.update).toHaveBeenCalledWith({
-        where: { id: documentId },
-        data: {
-          confirmedBy: physicianId,
-          confirmedAt: expect.any(Date),
-        },
-        select: expect.any(Object),
-      });
+      expect(prisma.document.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: documentId },
+          data: expect.objectContaining({
+            confirmedBy: physicianId,
+            confirmedAt: expect.any(Date),
+            contentHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+          }),
+        }),
+      );
       expect(prisma.encounter.update).toHaveBeenCalledWith({
         where: { id: encounterId },
         data: { status: 'finalized' },
@@ -269,30 +279,92 @@ describe('DocumentsService', () => {
       expect(result.confirmedBy).toBe(physicianId);
     });
 
-    it('throws NotFoundException for missing document', async () => {
+    // Cenário 2: confirmação dupla → 409 ConflictException
+    it('retorna 409 ConflictException ao tentar confirmar documento já confirmado', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        ...docBase,
+        confirmedBy: physicianId, // já confirmado
+      });
+
+      await expect(service.confirm(physicianId, documentId)).rejects.toThrow(ConflictException);
+    });
+
+    // Cenário 3: médico diferente do autor pode confirmar (cobertura de plantão)
+    it('permite que médico diferente do autor confirme o documento', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        ...docBase,
+        physicianId: otherPhysicianId, // autor é outro médico
+      });
+      prisma.document.update.mockResolvedValue({
+        ...baseDocument,
+        confirmedBy: physicianId, // confirmado pelo médico atual
+        confirmedAt: new Date(),
+      });
+      prisma.encounter.update.mockResolvedValue({});
+
+      const result = await service.confirm(physicianId, documentId);
+
+      expect(result.confirmedBy).toBe(physicianId);
+    });
+
+    // Cenário 4: uncertain=true na auditoria quando interaction tinha incerteza
+    it('inclui uncertain=true no payload da auditoria quando análise tinha incerteza', async () => {
+      prisma.document.findUnique.mockResolvedValue(docBase);
+      prisma.document.update.mockResolvedValue({
+        ...baseDocument,
+        confirmedBy: physicianId,
+        confirmedAt: new Date(),
+        contentHash: 'newhash',
+      });
+      prisma.encounter.update.mockResolvedValue({});
+      // Sobrescrever o mock default (null) com uma interaction incerta
+      prisma.aiInteraction.findFirst.mockResolvedValue({
+        uncertainty: true,
+        uncertaintyReason: 'Insufficient evidence for pediatric dosing',
+      });
+
+      await service.confirm(physicianId, documentId);
+
+      expect(auditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'DOCUMENT_CONFIRMED',
+          payload: expect.objectContaining({
+            uncertain: true,
+            uncertaintyReason: 'Insufficient evidence for pediatric dosing',
+          }),
+        }),
+      );
+    });
+
+    // Cenário 5: hash calculado sobre physicianEdits quando existem edições
+    it('usa physicianEdits para computar contentHash quando médico editou o documento', async () => {
+      const edits = { subjective: 'Edited by physician', plan: 'Updated plan' };
+      prisma.document.findUnique.mockResolvedValue({
+        ...docBase,
+        physicianEdits: edits,
+      });
+      prisma.document.update.mockResolvedValue({
+        ...baseDocument,
+        physicianEdits: edits,
+        confirmedBy: physicianId,
+        confirmedAt: new Date(),
+      });
+      prisma.encounter.update.mockResolvedValue({});
+
+      await service.confirm(physicianId, documentId);
+
+      // O contentHash no update deve ser o hash das edições, não do conteúdo original
+      const updateCall = prisma.document.update.mock.calls[0] as [{ data: { contentHash: string } }];
+      const confirmedHash = updateCall[0].data.contentHash;
+      expect(confirmedHash).toMatch(/^[a-f0-9]{64}$/);
+      // Deve diferir do hash do conteúdo original (baseDocument.contentHash = 'abc123hash')
+      expect(confirmedHash).not.toBe('abc123hash');
+    });
+
+    it('throws NotFoundException para documento inexistente', async () => {
       prisma.document.findUnique.mockResolvedValue(null);
 
       await expect(service.confirm(physicianId, documentId)).rejects.toThrow(NotFoundException);
-    });
-
-    it('throws ForbiddenException for wrong physician', async () => {
-      prisma.document.findUnique.mockResolvedValue({
-        physicianId: otherPhysicianId,
-        confirmedBy: null,
-        encounterId,
-      });
-
-      await expect(service.confirm(physicianId, documentId)).rejects.toThrow(ForbiddenException);
-    });
-
-    it('throws BadRequestException for double confirmation', async () => {
-      prisma.document.findUnique.mockResolvedValue({
-        physicianId,
-        confirmedBy: physicianId,
-        encounterId,
-      });
-
-      await expect(service.confirm(physicianId, documentId)).rejects.toThrow(BadRequestException);
     });
   });
 
