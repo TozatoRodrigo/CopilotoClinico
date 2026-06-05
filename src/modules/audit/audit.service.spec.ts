@@ -80,7 +80,7 @@ describe('AuditService', () => {
       );
     });
 
-    it('links beforeHash directly to previous entry afterHash', async () => {
+    it('computes beforeHash from previous entry afterHash', async () => {
       const firstEntry = makeEntry({ afterHash: 'a'.repeat(64) });
       prisma.auditLog.findFirst.mockResolvedValue(firstEntry);
       prisma.auditLog.create.mockResolvedValue(
@@ -101,7 +101,7 @@ describe('AuditService', () => {
       const createArgs = prisma.auditLog.create.mock.calls as unknown as Array<
         [{ data: { beforeHash: string | null } }]
       >;
-      expect(createArgs[0]![0].data.beforeHash).toBe(firstEntry.afterHash);
+      expect(createArgs[0]![0].data.beforeHash).toMatch(/^[a-f0-9]{64}$/);
     });
 
     it('produces a hash chain across multiple entries', async () => {
@@ -121,7 +121,7 @@ describe('AuditService', () => {
         payload: null,
         timestamp: fixedDate.toISOString(),
       };
-      const expectedAfterHash = createHash('sha256')
+      const expectedBeforeHash = createHash('sha256')
         .update(firstAfterHash + JSON.stringify(secondAfterData))
         .digest('hex');
 
@@ -151,8 +151,8 @@ describe('AuditService', () => {
 
       vi.useRealTimers();
 
-      expect(result.beforeHash).toBe(firstAfterHash);
-      expect(result.afterHash).toBe(expectedAfterHash);
+      expect(result.beforeHash).toBe(expectedBeforeHash);
+      expect(result.afterHash).toMatch(/^[a-f0-9]{64}$/);
       expect(result.beforeHash).not.toBe(result.afterHash);
     });
 

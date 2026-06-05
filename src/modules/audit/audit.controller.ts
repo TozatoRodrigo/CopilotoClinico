@@ -5,7 +5,7 @@ import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import { auditQuerySchema } from './schemas/audit.schemas';
 import type { AuditQueryInput } from './schemas/audit.schemas';
 
-@Controller('audit')
+@Controller('v1/audit')
 @UseGuards(JwtAuthGuard)
 export class AuditController {
   constructor(private readonly auditService: AuditService) {}
@@ -15,10 +15,9 @@ export class AuditController {
     @Request() req: { user: { physicianId: string } },
     @Query(new ZodValidationPipe(auditQuerySchema)) query: AuditQueryInput,
   ) {
-    const result = await this.auditService.query({
+    return this.auditService.query({
       ...query,
       actorId: req.user.physicianId,
     });
-    return { data: result.items, total: result.total };
   }
 }

@@ -13,10 +13,7 @@ interface JwtPayload {
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(@Inject(ConfigService) config: ConfigService) {
     super({
-      jwtFromRequest: ExtractJwt.fromExtractors([
-        ExtractJwt.fromAuthHeaderAsBearerToken(),
-        extractJwtFromCookie,
-      ]),
+      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       secretOrKey: config.getOrThrow<string>('JWT_ACCESS_SECRET'),
     });
@@ -25,17 +22,4 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   validate(payload: JwtPayload) {
     return { sub: payload.sub, email: payload.email, physicianId: payload.physicianId };
   }
-}
-
-function extractJwtFromCookie(request: { headers: { cookie?: string } }): string | null {
-  const cookieHeader = request.headers.cookie;
-  if (!cookieHeader) return null;
-
-  const token = cookieHeader
-    .split(';')
-    .map((part) => part.trim())
-    .find((part) => part.startsWith('copiloto_access_token='))
-    ?.slice('copiloto_access_token='.length);
-
-  return token ?? null;
 }

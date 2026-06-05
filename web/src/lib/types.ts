@@ -7,6 +7,7 @@ export interface Physician {
 }
 
 export interface AuthResponse {
+  accessToken: string;
   physician: Physician;
 }
 
@@ -29,31 +30,24 @@ export interface EncounterContext {
 }
 
 export interface CopilotAnalysis {
-  interactionId: string;
-  output: CopilotOutput;
+  recommendations: CopilotRecommendation[];
   citations: Citation[];
-  metadata?: Record<string, unknown>;
+  uncertainty: boolean;
+  uncertaintyReason: string | null;
 }
 
 export interface CopilotRecommendation {
-  action: string;
-  rationale: string;
-  citationChunkId: string;
-  confidence: number;
-}
-
-export interface CopilotOutput {
-  reasoning: string;
-  recommendations: CopilotRecommendation[];
-  uncertainty: boolean;
-  uncertaintyReason: string | null;
+  category: string;
+  title: string;
+  description: string;
+  urgency: "low" | "medium" | "high" | "critical";
+  evidenceLevel: string;
 }
 
 export interface Citation {
   source: string;
   chunkId: string;
-  sourceVersion: string;
-  text: string;
+  relevance: number;
 }
 
 export interface Document {

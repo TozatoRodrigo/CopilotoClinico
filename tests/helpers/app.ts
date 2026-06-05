@@ -1,6 +1,7 @@
 import { FastifyAdapter } from '@nestjs/platform-fastify';
 import { NestFastifyApplication } from '@nestjs/platform-fastify';
 import { Test } from '@nestjs/testing';
+import { AppModule } from '../../src/app.module';
 import { PrismaService } from '../../src/config/prisma.service';
 import { AiGatewayService } from '../../src/modules/ai-gateway/ai-gateway.service';
 
@@ -8,15 +9,8 @@ process.env.JWT_ACCESS_SECRET =
   process.env.JWT_ACCESS_SECRET ?? 'test-access-secret-min-32-characters-long!!';
 process.env.JWT_REFRESH_SECRET =
   process.env.JWT_REFRESH_SECRET ?? 'test-refresh-secret-min-32-characters-long!!';
-process.env.DATABASE_URL =
-  process.env.DATABASE_URL ?? 'postgresql://test:test@localhost:5432/test?schema=public';
-process.env.AI_PROVIDER = process.env.AI_PROVIDER ?? 'openai';
-process.env.AI_API_KEY = process.env.AI_API_KEY ?? 'test-key';
-process.env.AI_MODEL = process.env.AI_MODEL ?? 'test-model';
-process.env.AI_EMBEDDING_MODEL = process.env.AI_EMBEDDING_MODEL ?? 'test-embedding-model';
 
 export async function buildApp(): Promise<NestFastifyApplication> {
-  const { AppModule } = await import('../../src/app.module');
   const moduleFixture = await Test.createTestingModule({
     imports: [AppModule],
   })
@@ -24,7 +18,6 @@ export async function buildApp(): Promise<NestFastifyApplication> {
     .useValue({
       $connect: () => Promise.resolve(),
       $disconnect: () => Promise.resolve(),
-      $queryRaw: () => Promise.resolve([{ ok: 1 }]),
     })
     .overrideProvider(AiGatewayService)
     .useValue({

@@ -30,17 +30,17 @@ const TYPE_LABELS: Record<DocType, string> = {
 };
 
 const SOAP_FIELDS = [
-  { key: "subjective", label: "Subjetivo" },
-  { key: "objective", label: "Objetivo" },
-  { key: "assessment", label: "Avaliação" },
-  { key: "plan", label: "Plano" },
+  { key: "subjetivo", label: "Subjetivo" },
+  { key: "objetivo", label: "Objetivo" },
+  { key: "avaliacao", label: "Avaliação" },
+  { key: "plano", label: "Plano" },
 ] as const;
 
 const SBAR_FIELDS = [
-  { key: "situation", label: "Situação" },
+  { key: "situacao", label: "Situação" },
   { key: "background", label: "Background" },
-  { key: "assessment", label: "Avaliação" },
-  { key: "recommendation", label: "Recomendação" },
+  { key: "avaliacao", label: "Avaliação" },
+  { key: "recomendacao", label: "Recomendação" },
 ] as const;
 
 function isConfirmed(doc: Document): boolean {

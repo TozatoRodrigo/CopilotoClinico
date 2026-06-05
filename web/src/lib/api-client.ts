@@ -15,6 +15,11 @@ class ApiClient {
     this.baseUrl = baseUrl;
   }
 
+  private getToken(): string | null {
+    if (typeof window === "undefined") return null;
+    return localStorage.getItem("auth_token");
+  }
+
   private buildUrl(path: string, params?: Record<string, string>): string {
     const url = new URL(`${this.baseUrl}${path}`);
     if (params) {
@@ -29,7 +34,6 @@ class ApiClient {
     method: HttpMethod,
     path: string,
     options: RequestOptions = {},
-    retry = true,
   ): Promise<T> {
     const { params, body, headers: customHeaders } = options;
     const url = this.buildUrl(path, params);
@@ -39,21 +43,22 @@ class ApiClient {
       ...customHeaders,
     };
 
+    const token = this.getToken();
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
     const response = await fetch(url, {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
-      credentials: "include",
     });
 
     if (response.status === 401) {
-      if (retry && path !== "/auth/refresh" && path !== "/auth/login") {
-        const refreshed = await this.tryRefresh();
-        if (refreshed) {
-          return this.request<T>(method, path, options, false);
-        }
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("auth_token");
+        window.location.href = "/login";
       }
-      if (typeof window !== "undefined") window.location.href = "/login";
       throw new ApiError(401, "Sessão expirada. Faça login novamente.");
     }
 
@@ -90,15 +95,6 @@ class ApiClient {
 
   delete<T>(path: string): Promise<T> {
     return this.request<T>("DELETE", path);
-  }
-
-  private async tryRefresh(): Promise<boolean> {
-    const response = await fetch(this.buildUrl("/auth/refresh"), {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-    });
-    return response.ok;
   }
 }
 

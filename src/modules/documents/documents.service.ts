@@ -7,7 +7,6 @@ import {
 import { createHash } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../config/prisma.service';
-import { AuditService } from '../audit/audit.service';
 import { GenerateDocumentInput, EditDocumentInput } from './schemas/document.schemas';
 import { generateSOAP } from './generators/soap.generator';
 import { generateSBAR } from './generators/sbar.generator';
@@ -23,15 +22,11 @@ const DOCUMENT_SELECT = {
   confirmedAt: true,
   contentHash: true,
   createdAt: true,
-  updatedAt: true,
 } as const;
 
 @Injectable()
 export class DocumentsService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly audit: AuditService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async generate(physicianId: string, encounterId: string, input: GenerateDocumentInput) {
     const encounter = await this.prisma.encounter.findUnique({
@@ -44,13 +39,10 @@ export class DocumentsService {
 
     const interaction = await this.prisma.aiInteraction.findUnique({
       where: { id: input.aiInteractionId },
-      select: { encounterId: true, rawOutput: true },
+      select: { rawOutput: true },
     });
 
     if (!interaction) throw new NotFoundException('AI interaction not found');
-    if (interaction.encounterId !== encounterId) {
-      throw new ForbiddenException('AI interaction does not belong to encounter');
-    }
 
     const copilotOutput = interaction.rawOutput as unknown as CopilotOutput;
     const caseText = copilotOutput.reasoning;
@@ -88,22 +80,16 @@ export class DocumentsService {
   async edit(physicianId: string, documentId: string, input: EditDocumentInput) {
     const doc = await this.prisma.document.findUnique({
       where: { id: documentId },
-      select: { physicianId: true, confirmedBy: true, content: true },
+      select: { physicianId: true, confirmedBy: true },
     });
 
     if (!doc) throw new NotFoundException('Document not found');
     if (doc.physicianId !== physicianId) throw new ForbiddenException('Access denied');
     if (doc.confirmedBy) throw new ForbiddenException('Confirmed documents cannot be edited');
 
-    const effectiveContent = input.physicianEdits;
-    const contentHash = createHash('sha256').update(JSON.stringify(effectiveContent)).digest('hex');
-
     return this.prisma.document.update({
       where: { id: documentId },
-      data: {
-        physicianEdits: effectiveContent as unknown as Prisma.InputJsonObject,
-        contentHash,
-      },
+      data: { physicianEdits: input.physicianEdits as unknown as Prisma.InputJsonObject },
       select: DOCUMENT_SELECT,
     });
   }
@@ -111,12 +97,7 @@ export class DocumentsService {
   async confirm(physicianId: string, documentId: string) {
     const doc = await this.prisma.document.findUnique({
       where: { id: documentId },
-      select: {
-        physicianId: true,
-        confirmedBy: true,
-        encounterId: true,
-        contentHash: true,
-      },
+      select: { physicianId: true, confirmedBy: true, encounterId: true },
     });
 
     if (!doc) throw new NotFoundException('Document not found');
@@ -139,18 +120,6 @@ export class DocumentsService {
         data: { status: 'finalized' },
       })
       .catch(() => {});
-
-    await this.audit.log({
-      actorId: physicianId,
-      action: 'DOCUMENT_CONFIRMED',
-      entity: 'document',
-      entityId: documentId,
-      payload: {
-        encounterId: doc.encounterId,
-        contentHash: doc.contentHash,
-        confirmedAt: now.toISOString(),
-      },
-    });
 
     return confirmed;
   }

@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 
 function createMockConfig(overrides: Record<string, string> = {}) {
   return new ConfigService({
-    AI_PROVIDER: 'openai',
+    AI_PROVIDER: 'anthropic',
     AI_API_KEY: 'test-key',
     AI_BASE_URL: 'https://test.api.com',
     AI_MODEL: 'test-model',
@@ -30,9 +30,9 @@ describe('AiGatewayService', () => {
 
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       mockFetchResponse({
-        choices: [{ message: { content: 'test response' } }],
+        content: [{ text: 'test response' }],
         model: 'test-model',
-        usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
+        usage: { input_tokens: 10, output_tokens: 20 },
       }) as Response,
     );
 
@@ -61,11 +61,12 @@ describe('AiGatewayService', () => {
       });
 
       expect(fetch).toHaveBeenCalledWith(
-        'https://test.api.com/v1/chat/completions',
+        'https://test.api.com/v1/messages',
         expect.objectContaining({
           method: 'POST',
           headers: expect.objectContaining({
-            authorization: 'Bearer test-key',
+            'x-api-key': 'test-key',
+            'anthropic-version': '2023-06-01',
           }),
         }),
       );
@@ -92,21 +93,12 @@ describe('AiGatewayService', () => {
     });
 
     it('separates system message from other messages for anthropic', async () => {
-      const config = createMockConfig({ AI_PROVIDER: 'anthropic' });
-      const anthropicService = new AiGatewayService(config);
-      vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-        mockFetchResponse({
-          content: [{ text: 'test response' }],
-          model: 'test-model',
-          usage: { input_tokens: 10, output_tokens: 20 },
-        }) as Response,
-      );
       const messages = [
         { role: 'system' as const, content: 'System prompt' },
         { role: 'user' as const, content: 'User message' },
       ];
 
-      await anthropicService.complete({ messages });
+      await service.complete({ messages });
 
       const fetchCall = vi.mocked(fetch).mock.calls[0];
       const body = JSON.parse(fetchCall?.[1]?.body as string) as Record<string, unknown>;
@@ -165,24 +157,24 @@ describe('AiGatewayService', () => {
   });
 
   describe('provider selection', () => {
-    it('selects openai provider by default', () => {
+    it('selects anthropic provider by default', () => {
       const config = createMockConfig();
       const svc = new AiGatewayService(config);
-      expect(svc.getProviderName()).toBe('openai');
+      expect(svc.getProviderName()).toBe('anthropic');
     });
 
-    it('selects anthropic provider when configured', () => {
+    it('selects openai provider when configured', () => {
       vi.spyOn(globalThis, 'fetch').mockResolvedValue(
         mockFetchResponse({
-          choices: [{ message: { content: 'test response' } }],
+          content: [{ text: 'test response' }],
           model: 'test-model',
-          usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
+          usage: { input_tokens: 10, output_tokens: 20 },
         }) as Response,
       );
 
-      const config = createMockConfig({ AI_PROVIDER: 'anthropic' });
+      const config = createMockConfig({ AI_PROVIDER: 'openai' });
       const svc = new AiGatewayService(config);
-      expect(svc.getProviderName()).toBe('anthropic');
+      expect(svc.getProviderName()).toBe('openai');
     });
 
     it('uses openai completions endpoint when openai provider', async () => {

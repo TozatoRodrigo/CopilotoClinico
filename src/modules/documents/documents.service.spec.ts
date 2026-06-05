@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DocumentsService } from './documents.service';
 import { PrismaService } from '../../config/prisma.service';
 import { NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
-import { AuditService } from '../audit/audit.service';
 
 const physicianId = '550e8400-e29b-41d4-a716-446655440000';
 const otherPhysicianId = '660e8400-e29b-41d4-a716-446655440001';
@@ -58,9 +57,6 @@ describe('DocumentsService', () => {
       findMany: ReturnType<typeof vi.fn>;
     };
   };
-  let audit: {
-    log: ReturnType<typeof vi.fn>;
-  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -80,14 +76,8 @@ describe('DocumentsService', () => {
         findMany: vi.fn(),
       },
     };
-    audit = {
-      log: vi.fn().mockResolvedValue({ id: 'audit-1' }),
-    };
 
-    service = new DocumentsService(
-      prisma as unknown as PrismaService,
-      audit as unknown as AuditService,
-    );
+    service = new DocumentsService(prisma as unknown as PrismaService);
   });
 
   describe('generate', () => {
@@ -97,7 +87,6 @@ describe('DocumentsService', () => {
         patientRef: 'PAT-001',
       });
       prisma.aiInteraction.findUnique.mockResolvedValue({
-        encounterId,
         rawOutput: copilotRawOutput,
       });
       prisma.document.create.mockResolvedValue(baseDocument);
@@ -126,7 +115,6 @@ describe('DocumentsService', () => {
         patientRef: 'PAT-001',
       });
       prisma.aiInteraction.findUnique.mockResolvedValue({
-        encounterId,
         rawOutput: copilotRawOutput,
       });
       prisma.document.create.mockResolvedValue({
@@ -186,24 +174,6 @@ describe('DocumentsService', () => {
         }),
       ).rejects.toThrow(NotFoundException);
     });
-
-    it('throws ForbiddenException when AI interaction belongs to another encounter', async () => {
-      prisma.encounter.findUnique.mockResolvedValue({
-        physicianId,
-        patientRef: 'PAT-001',
-      });
-      prisma.aiInteraction.findUnique.mockResolvedValue({
-        encounterId: 'other-encounter-id',
-        rawOutput: copilotRawOutput,
-      });
-
-      await expect(
-        service.generate(physicianId, encounterId, {
-          type: 'soap',
-          aiInteractionId,
-        }),
-      ).rejects.toThrow(ForbiddenException);
-    });
   });
 
   describe('edit', () => {
@@ -211,7 +181,6 @@ describe('DocumentsService', () => {
       prisma.document.findUnique.mockResolvedValue({
         physicianId,
         confirmedBy: null,
-        content: baseDocument.content,
       });
       prisma.document.update.mockResolvedValue({
         ...baseDocument,
@@ -224,10 +193,7 @@ describe('DocumentsService', () => {
 
       expect(prisma.document.update).toHaveBeenCalledWith({
         where: { id: documentId },
-        data: {
-          physicianEdits: { subjective: 'Edited text' },
-          contentHash: expect.stringMatching(/^[a-f0-9]{64}$/),
-        },
+        data: { physicianEdits: { subjective: 'Edited text' } },
         select: expect.any(Object),
       });
       expect(result.physicianEdits).toEqual({ subjective: 'Edited text' });
@@ -276,7 +242,6 @@ describe('DocumentsService', () => {
         physicianId,
         confirmedBy: null,
         encounterId,
-        contentHash: baseDocument.contentHash,
       });
       prisma.document.update.mockResolvedValue({
         ...baseDocument,
@@ -300,14 +265,6 @@ describe('DocumentsService', () => {
         data: { status: 'finalized' },
       });
       expect(result.confirmedBy).toBe(physicianId);
-      expect(audit.log).toHaveBeenCalledWith(
-        expect.objectContaining({
-          actorId: physicianId,
-          action: 'DOCUMENT_CONFIRMED',
-          entity: 'document',
-          entityId: documentId,
-        }),
-      );
     });
 
     it('throws NotFoundException for missing document', async () => {

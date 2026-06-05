@@ -17,7 +17,28 @@ import { useOnlineStatus } from "@/components/providers/offline-provider";
 import { addToQueue, processQueue } from "@/lib/offline-queue";
 import { Mic, MicOff } from "lucide-react";
 import { toast } from "sonner";
-import type { CopilotAnalysis, EncounterContext } from "@/lib/types";
+import type { EncounterContext } from "@/lib/types";
+
+interface Recommendation {
+  category: string;
+  title: string;
+  description: string;
+  urgency: "low" | "medium" | "high" | "critical";
+  evidenceLevel: string;
+}
+
+interface Citation {
+  source: string;
+  chunkId: string;
+  relevance: number;
+}
+
+interface CopilotResponse {
+  recommendations: Recommendation[];
+  citations: Citation[];
+  uncertainty: boolean;
+  uncertaintyReason: string | null;
+}
 
 interface ContextChip {
   key: keyof EncounterContext;
@@ -79,8 +100,8 @@ export default function CapturePage({
   const processOfflineQueue = useCallback(async () => {
     await processQueue(async (item) => {
       try {
-        await apiClient.post<CopilotAnalysis>(
-          `/encounters/${item.encounterId}/copilot/analyze`,
+        await apiClient.post<CopilotResponse>(
+          `/copilot/${item.encounterId}/analyze`,
           { caseText: item.caseText, context: item.context },
         );
         return { success: true, encounterId: item.encounterId };
@@ -123,14 +144,14 @@ export default function CapturePage({
     setUncertaintyReason(null);
 
     try {
-      const result = await apiClient.post<CopilotAnalysis>(
-        `/encounters/${encounterId}/copilot/analyze`,
+      const result = await apiClient.post<CopilotResponse>(
+        `/copilot/${encounterId}/analyze`,
         { caseText: caseText.trim(), context },
       );
 
-      if (result.output.uncertainty) {
+      if (result.uncertainty) {
         setUncertainty(true);
-        setUncertaintyReason(result.output.uncertaintyReason);
+        setUncertaintyReason(result.uncertaintyReason);
       }
 
       sessionStorage.setItem(

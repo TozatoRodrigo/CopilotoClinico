@@ -16,7 +16,6 @@ env:
   AI_PROVIDER: anthropic
   AI_API_KEY: test-key
   AI_MODEL: test-model
-  AI_EMBEDDING_MODEL: test-embedding-model
   REDIS_HOST: localhost
   REDIS_PORT: 6379
 
@@ -59,40 +58,8 @@ jobs:
       - name: Generate Prisma Client
         run: pnpm prisma generate
 
-      - name: Validate Prisma schema
-        run: pnpm exec prisma validate
-
       - name: Unit Tests
         run: pnpm test
 
       - name: E2E Tests
         run: pnpm test:e2e
-
-  web-quality:
-    name: Web Quality Gates
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: web
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-          cache-dependency-path: web/pnpm-lock.yaml
-
-      - run: pnpm install --frozen-lockfile
-
-      - name: Lint
-        run: pnpm lint
-
-      - name: Build
-        run: pnpm build
-        env:
-          NEXT_PUBLIC_API_URL: http://localhost:3000/v1

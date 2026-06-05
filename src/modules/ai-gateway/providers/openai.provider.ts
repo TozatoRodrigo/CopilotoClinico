@@ -16,8 +16,7 @@ export class OpenAIProvider implements AIProvider {
   private readonly baseUrl: string;
 
   constructor(private readonly config: ConfigService) {
-    this.apiKey =
-      this.config.get<string>('OPENAI_API_KEY') ?? this.config.getOrThrow<string>('AI_API_KEY');
+    this.apiKey = this.config.getOrThrow<string>('AI_API_KEY');
     this.baseUrl = this.config.get<string>('AI_BASE_URL', 'https://api.openai.com');
   }
 
