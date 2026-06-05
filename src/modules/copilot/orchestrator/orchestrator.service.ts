@@ -28,6 +28,23 @@ export interface OrchestratorResult {
   };
 }
 
+/**
+ * LGPD-005: Redação explícita do patientRef no texto clínico.
+ *
+ * Mesmo após LGPD-001 (patientRef como identificador opaco), o médico pode
+ * digitar o valor do patientRef no texto livre do caso clínico. Esta função
+ * garante que o valor nunca chegue ao provider de IA, independente da camada
+ * de pseudonimização da integração hospitalar.
+ *
+ * Defense-in-depth: opera APÓS maskPII() para cobrir casos que o filtro
+ * geral de PII não captura (ex: identificadores de prontuário específicos).
+ */
+function redactPatientRef(text: string, patientRef: string): string {
+  if (!patientRef) return text;
+  // Substituir todas as ocorrências, case-sensitive
+  return text.split(patientRef).join('[PATIENT_REF_REDACTED]');
+}
+
 @Injectable()
 export class OrchestratorService {
   private readonly logger = new Logger(OrchestratorService.name);
@@ -46,14 +63,21 @@ export class OrchestratorService {
   ): Promise<OrchestratorResult> {
     const start = Date.now();
 
-    await this.encounters.findById(physicianId, encounterId);
+    // Buscar encounter para obter patientRef — necessário para redação explícita (LGPD-005)
+    const encounter = await this.encounters.findById(physicianId, encounterId);
 
+    // Camada 1: filtro geral de PII (CPF, CNPJ, telefone, email, CEP, datas, RG)
     const piiResult = maskPII(input.caseText);
     this.logger.debug(
       `PII detection: ${piiResult.hasPII ? 'FOUND' : 'NONE'} (${piiResult.detections.length} items)`,
     );
 
-    const injectionResult = scanForInjection(piiResult.redacted);
+    // Camada 2: redação explícita do patientRef (LGPD-005 defense-in-depth)
+    // Garante que o identificador do paciente nunca chegue ao provider de IA,
+    // mesmo que o médico o tenha digitado no texto livre do caso clínico.
+    const fullyRedacted = redactPatientRef(piiResult.redacted, encounter.patientRef);
+
+    const injectionResult = scanForInjection(fullyRedacted);
     if (!injectionResult.safe) {
       this.logger.warn(`Injection detected: ${injectionResult.reasons.join(', ')}`);
       throw new BadRequestException({
@@ -62,7 +86,7 @@ export class OrchestratorService {
       });
     }
 
-    const retrievalResult = await this.retrieval.search(piiResult.redacted, 5);
+    const retrievalResult = await this.retrieval.search(fullyRedacted, 5);
     this.logger.debug(`Retrieved ${retrievalResult.totalRetrieved} chunks`);
 
     const encounterContext: EncounterContext = {
@@ -73,7 +97,7 @@ export class OrchestratorService {
     };
 
     const prompt = buildPrompt({
-      caseText: piiResult.redacted,
+      caseText: fullyRedacted,
       retrievedChunks: retrievalResult.chunks.map((c) => ({
         chunkId: c.id,
         text: c.text,
@@ -99,7 +123,7 @@ export class OrchestratorService {
       await this.prisma.aiInteraction.create({
         data: {
           encounterId,
-          inputRedacted: piiResult.redacted,
+          inputRedacted: fullyRedacted,
           retrievedChunkIds: prompt.retrievedChunkIds,
           model: completion.model,
           rawOutput: {
@@ -122,7 +146,7 @@ export class OrchestratorService {
     const interaction = await this.prisma.aiInteraction.create({
       data: {
         encounterId,
-        inputRedacted: piiResult.redacted,
+        inputRedacted: fullyRedacted,
         retrievedChunkIds: prompt.retrievedChunkIds,
         model: completion.model,
         rawOutput: validation.output,
