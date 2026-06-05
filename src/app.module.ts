@@ -5,6 +5,10 @@ import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AiGatewayModule } from './modules/ai-gateway/ai-gateway.module';
 import { DocumentsModule } from './modules/documents/documents.module';
+import { EncountersModule } from './modules/encounters/encounters.module';
+import { CopilotModule } from './modules/copilot/copilot.module';
+import { LgpdModule } from './modules/lgpd/lgpd.module';
+import { AuditModule } from './modules/audit/audit.module';
 
 @Module({
   imports: [
@@ -16,7 +20,11 @@ import { DocumentsModule } from './modules/documents/documents.module';
     HealthModule,
     AuthModule,
     AiGatewayModule,
+    EncountersModule,
     DocumentsModule,
+    CopilotModule,
+    AuditModule,
+    LgpdModule,
   ],
 })
 export class AppModule {}
