@@ -88,6 +88,23 @@ export default function DashboardPage() {
         </Button>
       </PageHeader>
 
+      {/* Banner IAM-001 — CRM não verificado.
+          Exibido enquanto crmVerified=false para manter honestidade sobre
+          o estado real do sistema. Remoção depende de verificação real (R1). */}
+      {physician && !physician.crmVerified && (
+        <Alert className="border-orange-500/50 bg-orange-50 text-orange-800 dark:bg-orange-900/20 dark:text-orange-200">
+          <AlertTitle className="font-semibold">
+            CRM não verificado
+          </AlertTitle>
+          <AlertDescription>
+            Seu CRM ({physician.crmUf} {physician.crmNumber}) ainda não foi validado contra o
+            Conselho Federal de Medicina. Documentos gerados serão marcados como{" "}
+            <strong>"CRM pendente de verificação"</strong>. A verificação automática estará
+            disponível em breve.
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardContent className="pt-4">

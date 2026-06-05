@@ -55,6 +55,7 @@ export class AuthService {
         crmUf: true,
         crmNumber: true,
         name: true,
+        crmVerified: true,
         createdAt: true,
       },
     });
@@ -119,6 +120,7 @@ export class AuthService {
         crmUf: physician.crmUf,
         crmNumber: physician.crmNumber,
         name: physician.name,
+        crmVerified: physician.crmVerified,
       },
       ...tokens,
     };
@@ -179,6 +181,33 @@ export class AuthService {
     });
 
     return { accessToken, refreshToken };
+  }
+
+  /**
+   * Retorna o perfil completo do médico autenticado, incluindo crmVerified.
+   * Usado pelo endpoint GET /auth/me para que o frontend possa mostrar
+   * o estado de verificação do CRM sem depender apenas do token JWT cached.
+   */
+  async getMe(physicianId: string) {
+    const physician = await this.prisma.physician.findUnique({
+      where: { id: physicianId },
+      select: {
+        id: true,
+        email: true,
+        crmUf: true,
+        crmNumber: true,
+        name: true,
+        crmVerified: true,
+        subscriptionStatus: true,
+        createdAt: true,
+      },
+    });
+
+    if (!physician) {
+      throw new UnauthorizedException('Physician not found');
+    }
+
+    return physician;
   }
 
   private hashToken(token: string): string {

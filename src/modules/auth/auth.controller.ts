@@ -1,6 +1,7 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, Inject, Req } from '@nestjs/common';
+import { Controller, Get, Post, Body, HttpCode, HttpStatus, Inject, Req, UseGuards, Request } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
+import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { registerSchema, loginSchema, refreshSchema } from './schemas/auth.schemas';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import { RegisterInput, LoginInput, RefreshInput } from './schemas/auth.schemas';
@@ -44,5 +45,16 @@ export class AuthController {
     @Req() req: RequestWithIp,
   ) {
     return this.authService.refresh(body, extractIp(req));
+  }
+
+  /**
+   * Retorna o perfil do médico autenticado incluindo crmVerified.
+   * Útil para o frontend verificar o estado de verificação de CRM
+   * após o login, sem precisar decodificar o JWT (que pode estar cached).
+   */
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  async me(@Request() req: { user: { physicianId: string } }) {
+    return this.authService.getMe(req.user.physicianId);
   }
 }

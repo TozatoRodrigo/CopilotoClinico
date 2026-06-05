@@ -8,6 +8,8 @@ interface Physician {
   email: string;
   crmUf: string;
   crmNumber: string;
+  /** false = CRM não verificado contra fonte oficial. Verificação real planejada para R1. */
+  crmVerified: boolean;
 }
 
 interface AuthState {
