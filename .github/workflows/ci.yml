@@ -18,6 +18,7 @@ env:
   AI_MODEL: test-model
   REDIS_HOST: localhost
   REDIS_PORT: 6379
+  INTERNAL_SERVICE_TOKEN: ci-internal-service-token-at-least-32-characters
 
 jobs:
   # ──────────────────────────────────────────────────────────
@@ -71,7 +72,7 @@ jobs:
   # ──────────────────────────────────────────────────────────
   # Job 2: Integration Tests (requerem PostgreSQL real)
   # Testa comportamentos que só podem ser verificados contra
-  # um banco real: triggers, constraints, etc.
+  # um banco real: triggers, constraints, hash chain, etc.
   # ──────────────────────────────────────────────────────────
   integration:
     name: Integration Tests
