@@ -37,10 +37,7 @@ describe('validateOutput', () => {
   });
 
   it('rejects output that fails schema validation', () => {
-    const result = validateOutput(
-      JSON.stringify({ reasoning: '' }),
-      VALID_CHUNK_IDS,
-    );
+    const result = validateOutput(JSON.stringify({ reasoning: '' }), VALID_CHUNK_IDS);
     expect(result.valid).toBe(false);
     expect(result.output).toBeNull();
     expect(result.errors[0]).toBe('Schema validation failed');
@@ -259,8 +256,15 @@ describe('CopilotOutputSchema', () => {
   it('accepts confidence at boundary 0', () => {
     const result = CopilotOutputSchema.safeParse({
       reasoning: 'test',
-      recommendations: [],
-      uncertainty: true,
+      recommendations: [
+        {
+          action: 'A',
+          rationale: 'R',
+          citationChunkId: 'chunk-1',
+          confidence: 0,
+        },
+      ],
+      uncertainty: false,
       uncertaintyReason: null,
     });
     expect(result.success).toBe(true);

@@ -7,7 +7,11 @@
  * Referência: https://app.clickup.com/t/90132565680/86ahx6fj7
  */
 import { describe, it, expect } from 'vitest';
-import { createEncounterSchema, isValidPatientRef, PATIENT_REF_VALIDATION_ERROR } from './encounter.schemas';
+import {
+  createEncounterSchema,
+  isValidPatientRef,
+  PATIENT_REF_VALIDATION_ERROR,
+} from './encounter.schemas';
 
 const validContext = { hasCT: false, isSus: false, hasLab: false, hasICU: false };
 

@@ -33,13 +33,15 @@ export class EncountersService {
       select: ENCOUNTER_SELECT,
     });
 
-    await this.auditService.log({
-      actorId: physicianId,
-      action: 'ENCOUNTER_CREATED',
-      entity: 'Encounter',
-      entityId: encounter.id,
-      payload: { vertical: encounter.vertical },
-    }).catch(() => undefined);
+    await this.auditService
+      .log({
+        actorId: physicianId,
+        action: 'ENCOUNTER_CREATED',
+        entity: 'Encounter',
+        entityId: encounter.id,
+        payload: { vertical: encounter.vertical },
+      })
+      .catch(() => undefined);
 
     return encounter;
   }
@@ -129,13 +131,15 @@ export class EncountersService {
       select: ENCOUNTER_SELECT,
     });
 
-    await this.auditService.log({
-      actorId: physicianId,
-      action: 'ENCOUNTER_UPDATED',
-      entity: 'Encounter',
-      entityId: encounterId,
-      payload: { previousStatus: encounter.status, newStatus: updated.status },
-    }).catch(() => undefined);
+    await this.auditService
+      .log({
+        actorId: physicianId,
+        action: 'ENCOUNTER_UPDATED',
+        entity: 'Encounter',
+        entityId: encounterId,
+        payload: { previousStatus: encounter.status, newStatus: updated.status },
+      })
+      .catch(() => undefined);
 
     return updated;
   }

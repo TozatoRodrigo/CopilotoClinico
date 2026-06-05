@@ -51,9 +51,7 @@ describe('CopilotService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     orchestratorMock = { analyze: vi.fn() };
-    service = new CopilotService(
-      orchestratorMock as unknown as OrchestratorService,
-    );
+    service = new CopilotService(orchestratorMock as unknown as OrchestratorService);
   });
 
   describe('analyze', () => {
@@ -62,11 +60,7 @@ describe('CopilotService', () => {
 
       await service.analyze(physicianId, encounterId, input);
 
-      expect(orchestratorMock.analyze).toHaveBeenCalledWith(
-        physicianId,
-        encounterId,
-        input,
-      );
+      expect(orchestratorMock.analyze).toHaveBeenCalledWith(physicianId, encounterId, input);
     });
 
     it('returns orchestrator result', async () => {

@@ -124,7 +124,15 @@ export class AuditService {
     while (true) {
       const page: Pick<
         AuditLog,
-        'id' | 'actorId' | 'action' | 'entity' | 'entityId' | 'payload' | 'createdAt' | 'afterHash' | 'beforeHash'
+        | 'id'
+        | 'actorId'
+        | 'action'
+        | 'entity'
+        | 'entityId'
+        | 'payload'
+        | 'createdAt'
+        | 'afterHash'
+        | 'beforeHash'
       >[] = await this.prisma.auditLog.findMany({
         orderBy: { createdAt: 'asc' },
         take: VERIFY_CHAIN_PAGE_SIZE,

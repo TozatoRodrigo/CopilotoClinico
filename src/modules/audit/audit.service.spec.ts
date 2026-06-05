@@ -43,14 +43,17 @@ function computeAfterHash(entry: {
 }
 
 /** Computa beforeHash com a mesma lógica do AuditService.log() */
-function computeBeforeHash(prevAfterHash: string, entry: {
-  actorId: string;
-  action: string;
-  entity: string;
-  entityId: string;
-  payload: Record<string, unknown> | null;
-  createdAt: Date;
-}): string {
+function computeBeforeHash(
+  prevAfterHash: string,
+  entry: {
+    actorId: string;
+    action: string;
+    entity: string;
+    entityId: string;
+    payload: Record<string, unknown> | null;
+    createdAt: Date;
+  },
+): string {
   const afterData = {
     actorId: entry.actorId,
     action: entry.action,
@@ -59,7 +62,9 @@ function computeBeforeHash(prevAfterHash: string, entry: {
     payload: entry.payload,
     timestamp: entry.createdAt.toISOString(),
   };
-  return createHash('sha256').update(prevAfterHash + JSON.stringify(afterData)).digest('hex');
+  return createHash('sha256')
+    .update(prevAfterHash + JSON.stringify(afterData))
+    .digest('hex');
 }
 
 describe('AuditService', () => {
@@ -258,9 +263,7 @@ describe('AuditService', () => {
         payload: { foo: 'bar' },
         timestamp: fixedDate.toISOString(),
       };
-      const expectedHash = createHash('sha256')
-        .update(JSON.stringify(expectedData))
-        .digest('hex');
+      const expectedHash = createHash('sha256').update(JSON.stringify(expectedData)).digest('hex');
 
       expect(capturedAfterHash).toBe(expectedHash);
     });
@@ -386,13 +389,18 @@ describe('AuditService', () => {
         entityId,
         payload: null,
         createdAt: date,
-        afterHash: computeAfterHash({ actorId, action: 'create', entity: 'encounter', entityId, payload: null, createdAt: date }),
+        afterHash: computeAfterHash({
+          actorId,
+          action: 'create',
+          entity: 'encounter',
+          entityId,
+          payload: null,
+          createdAt: date,
+        }),
         beforeHash: null,
       };
 
-      prisma.auditLog.findMany
-        .mockResolvedValueOnce([entry])
-        .mockResolvedValueOnce([]);
+      prisma.auditLog.findMany.mockResolvedValueOnce([entry]).mockResolvedValueOnce([]);
 
       const result = await service.verifyChain();
 
@@ -403,16 +411,55 @@ describe('AuditService', () => {
       const date1 = new Date('2025-01-01T00:00:00.000Z');
       const date2 = new Date('2025-01-02T00:00:00.000Z');
 
-      const firstAfterHash = computeAfterHash({ actorId, action: 'create', entity: 'encounter', entityId, payload: null, createdAt: date1 });
-      const secondAfterHash = computeAfterHash({ actorId, action: 'update', entity: 'encounter', entityId, payload: null, createdAt: date2 });
-      const secondBeforeHash = computeBeforeHash(firstAfterHash, { actorId, action: 'update', entity: 'encounter', entityId, payload: null, createdAt: date2 });
+      const firstAfterHash = computeAfterHash({
+        actorId,
+        action: 'create',
+        entity: 'encounter',
+        entityId,
+        payload: null,
+        createdAt: date1,
+      });
+      const secondAfterHash = computeAfterHash({
+        actorId,
+        action: 'update',
+        entity: 'encounter',
+        entityId,
+        payload: null,
+        createdAt: date2,
+      });
+      const secondBeforeHash = computeBeforeHash(firstAfterHash, {
+        actorId,
+        action: 'update',
+        entity: 'encounter',
+        entityId,
+        payload: null,
+        createdAt: date2,
+      });
 
-      const entry1 = { id: 'audit-1', actorId, action: 'create', entity: 'encounter', entityId, payload: null, createdAt: date1, afterHash: firstAfterHash, beforeHash: null };
-      const entry2 = { id: 'audit-2', actorId, action: 'update', entity: 'encounter', entityId, payload: null, createdAt: date2, afterHash: secondAfterHash, beforeHash: secondBeforeHash };
+      const entry1 = {
+        id: 'audit-1',
+        actorId,
+        action: 'create',
+        entity: 'encounter',
+        entityId,
+        payload: null,
+        createdAt: date1,
+        afterHash: firstAfterHash,
+        beforeHash: null,
+      };
+      const entry2 = {
+        id: 'audit-2',
+        actorId,
+        action: 'update',
+        entity: 'encounter',
+        entityId,
+        payload: null,
+        createdAt: date2,
+        afterHash: secondAfterHash,
+        beforeHash: secondBeforeHash,
+      };
 
-      prisma.auditLog.findMany
-        .mockResolvedValueOnce([entry1, entry2])
-        .mockResolvedValueOnce([]);
+      prisma.auditLog.findMany.mockResolvedValueOnce([entry1, entry2]).mockResolvedValueOnce([]);
 
       const result = await service.verifyChain();
 
@@ -429,7 +476,7 @@ describe('AuditService', () => {
         entityId,
         payload: null,
         createdAt: date,
-        afterHash: 'tampered'.padEnd(64, '0'),  // hash incorreto
+        afterHash: 'tampered'.padEnd(64, '0'), // hash incorreto
         beforeHash: null,
       };
 
@@ -447,16 +494,48 @@ describe('AuditService', () => {
       const date1 = new Date('2025-01-01T00:00:00.000Z');
       const date2 = new Date('2025-01-02T00:00:00.000Z');
 
-      const firstAfterHash = computeAfterHash({ actorId, action: 'create', entity: 'encounter', entityId, payload: null, createdAt: date1 });
-      const secondAfterHash = computeAfterHash({ actorId, action: 'update', entity: 'encounter', entityId, payload: null, createdAt: date2 });
+      const firstAfterHash = computeAfterHash({
+        actorId,
+        action: 'create',
+        entity: 'encounter',
+        entityId,
+        payload: null,
+        createdAt: date1,
+      });
+      const secondAfterHash = computeAfterHash({
+        actorId,
+        action: 'update',
+        entity: 'encounter',
+        entityId,
+        payload: null,
+        createdAt: date2,
+      });
 
-      const entry1 = { id: 'audit-1', actorId, action: 'create', entity: 'encounter', entityId, payload: null, createdAt: date1, afterHash: firstAfterHash, beforeHash: null };
+      const entry1 = {
+        id: 'audit-1',
+        actorId,
+        action: 'create',
+        entity: 'encounter',
+        entityId,
+        payload: null,
+        createdAt: date1,
+        afterHash: firstAfterHash,
+        beforeHash: null,
+      };
       // beforeHash corrompido — aponta para hash inexistente
-      const entry2 = { id: 'audit-2', actorId, action: 'update', entity: 'encounter', entityId, payload: null, createdAt: date2, afterHash: secondAfterHash, beforeHash: 'wrong'.padEnd(64, '0') };
+      const entry2 = {
+        id: 'audit-2',
+        actorId,
+        action: 'update',
+        entity: 'encounter',
+        entityId,
+        payload: null,
+        createdAt: date2,
+        afterHash: secondAfterHash,
+        beforeHash: 'wrong'.padEnd(64, '0'),
+      };
 
-      prisma.auditLog.findMany
-        .mockResolvedValueOnce([entry1, entry2])
-        .mockResolvedValueOnce([]);
+      prisma.auditLog.findMany.mockResolvedValueOnce([entry1, entry2]).mockResolvedValueOnce([]);
 
       const result = await service.verifyChain();
 
@@ -475,17 +554,22 @@ describe('AuditService', () => {
         entityId,
         payload: null,
         createdAt: date,
-        afterHash: computeAfterHash({ actorId, action: 'create', entity: 'encounter', entityId, payload: null, createdAt: date }),
+        afterHash: computeAfterHash({
+          actorId,
+          action: 'create',
+          entity: 'encounter',
+          entityId,
+          payload: null,
+          createdAt: date,
+        }),
         beforeHash: null,
       };
 
-      prisma.auditLog.findMany
-        .mockResolvedValueOnce([entry])   // página 1
-        .mockResolvedValueOnce([]);       // página 2 (vazia — para loop)
+      prisma.auditLog.findMany.mockResolvedValueOnce([entry]);
 
       const result = await service.verifyChain();
 
-      expect(prisma.auditLog.findMany).toHaveBeenCalledTimes(2);
+      expect(prisma.auditLog.findMany).toHaveBeenCalledTimes(1);
       expect(result.valid).toBe(true);
       expect(result.count).toBe(1);
     });

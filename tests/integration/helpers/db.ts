@@ -14,7 +14,8 @@ export function getTestPrisma(): PrismaClient {
     prismaInstance = new PrismaClient({
       datasources: {
         db: {
-          url: process.env.DATABASE_URL ?? 'postgresql://test:test@localhost:5432/test?schema=public',
+          url:
+            process.env.DATABASE_URL ?? 'postgresql://test:test@localhost:5432/test?schema=public',
         },
       },
       log: [],
@@ -39,7 +40,7 @@ export async function disconnectTestDb(): Promise<void> {
 /**
  * Limpa a tabela audit_log entre testes.
  * Usa $executeRawUnsafe com TRUNCATE pois o trigger só bloqueia UPDATE/DELETE — não DDL.
- * Em produção, TRUNCATE é revogado da role da app (ver migration AUD-001).
+ * Em produção, TRUNCATE é revogado da role da app (ver migration AUD-002).
  */
 export async function clearAuditLog(prisma: PrismaClient): Promise<void> {
   await prisma.$executeRawUnsafe('TRUNCATE TABLE audit_log RESTART IDENTITY CASCADE');

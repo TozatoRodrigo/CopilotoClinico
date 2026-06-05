@@ -131,9 +131,9 @@ describe('LgpdService', () => {
     it('throws NotFoundException when no active consent exists', async () => {
       prisma.consent.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.revokeConsent(physicianId, 'ai_processing'),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.revokeConsent(physicianId, 'ai_processing')).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -174,24 +174,12 @@ describe('LgpdService', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
       };
-      const encounters = [
-        { id: 'enc-1', physicianId, vertical: 'trauma', patientRef: 'PAT-001' },
-      ];
-      const documents = [
-        { id: 'doc-1', physicianId, encounterId: 'enc-1', type: 'soap' },
-      ];
-      const aiInteractions = [
-        { id: 'ai-1', encounterId: 'enc-1', model: 'gpt-4' },
-      ];
-      const consents = [
-        { id: consentId, physicianId, scope: 'ai_processing' },
-      ];
-      const auditLog = [
-        { id: 'log-1', actorId: physicianId, action: 'LOGIN' },
-      ];
-      const refreshTokens = [
-        { id: 'rt-1', physicianId, tokenHash: 'hash' },
-      ];
+      const encounters = [{ id: 'enc-1', physicianId, vertical: 'trauma', patientRef: 'PAT-001' }];
+      const documents = [{ id: 'doc-1', physicianId, encounterId: 'enc-1', type: 'soap' }];
+      const aiInteractions = [{ id: 'ai-1', encounterId: 'enc-1', model: 'gpt-4' }];
+      const consents = [{ id: consentId, physicianId, scope: 'ai_processing' }];
+      const auditLog = [{ id: 'log-1', actorId: physicianId, action: 'LOGIN' }];
+      const refreshTokens = [{ id: 'rt-1', physicianId, tokenHash: 'hash' }];
 
       prisma.physician.findUnique.mockResolvedValue(physician);
       prisma.encounter.findMany.mockResolvedValue(encounters);
@@ -242,9 +230,7 @@ describe('LgpdService', () => {
     it('throws NotFoundException for missing physician', async () => {
       prisma.physician.findUnique.mockResolvedValue(null);
 
-      await expect(service.exportPhysicianData(physicianId)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.exportPhysicianData(physicianId)).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -266,8 +252,8 @@ describe('LgpdService', () => {
 
       prisma.physician.findUnique.mockResolvedValue(physician);
 
-      prisma.$transaction.mockImplementation(
-        async (cb: (tx: typeof prisma) => Promise<void>) => cb(prisma),
+      prisma.$transaction.mockImplementation(async (cb: (tx: typeof prisma) => Promise<void>) =>
+        cb(prisma),
       );
 
       prisma.encounter.deleteMany.mockResolvedValue({ count: 2 });
@@ -310,7 +296,6 @@ describe('LgpdService', () => {
         data: {
           name: 'ERASED',
           email: `erased-${physicianId}@erased.com`,
-          mfaSecret: null,
         },
       });
       expect(prisma.auditLog.create).toHaveBeenCalledWith({
@@ -327,9 +312,7 @@ describe('LgpdService', () => {
     it('throws NotFoundException for missing physician', async () => {
       prisma.physician.findUnique.mockResolvedValue(null);
 
-      await expect(service.requestErasure(physicianId)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.requestErasure(physicianId)).rejects.toThrow(NotFoundException);
     });
   });
 });

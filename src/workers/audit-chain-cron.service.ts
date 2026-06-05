@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Cron } from '@nestjs/schedule';
 import { AuditService } from '../modules/audit/audit.service';
 
 /**
@@ -25,9 +25,7 @@ export class AuditChainCronService {
       const result = await this.auditService.verifyChain();
 
       if (result.valid) {
-        this.logger.log(
-          `Audit chain verification PASSED — ${result.count} records verified`,
-        );
+        this.logger.log(`Audit chain verification PASSED — ${result.count} records verified`);
       } else {
         // Nível ERROR para acionar alertas externos
         this.logger.error(
@@ -39,7 +37,10 @@ export class AuditChainCronService {
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      this.logger.error(`Audit chain verification failed with exception: ${message}`, err instanceof Error ? err.stack : undefined);
+      this.logger.error(
+        `Audit chain verification failed with exception: ${message}`,
+        err instanceof Error ? err.stack : undefined,
+      );
     }
   }
 }

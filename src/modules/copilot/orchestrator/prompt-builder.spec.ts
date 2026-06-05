@@ -7,9 +7,7 @@ import {
 } from './prompt-builder';
 
 function makeChunks(
-  overrides: Partial<RetrievedContext>[] = [
-    { chunkId: 'default-0', text: 'default evidence' },
-  ],
+  overrides: Partial<RetrievedContext>[] = [{ chunkId: 'default-0', text: 'default evidence' }],
 ): RetrievedContext[] {
   return overrides.map((o, i) => ({
     chunkId: o.chunkId ?? `chunk-${i}`,
@@ -66,9 +64,7 @@ describe('buildPrompt', () => {
   it('includes citation IDs in evidence blocks', () => {
     const result = buildPrompt(
       makeInput({
-        retrievedChunks: makeChunks([
-          { chunkId: 'abc-123', text: 'some evidence' },
-        ]),
+        retrievedChunks: makeChunks([{ chunkId: 'abc-123', text: 'some evidence' }]),
       }),
     );
 
@@ -102,26 +98,20 @@ describe('buildPrompt', () => {
   });
 
   it('returns empty retrievedChunkIds when no chunks provided', () => {
-    const result = buildPrompt(
-      makeInput({ retrievedChunks: [] }),
-    );
+    const result = buildPrompt(makeInput({ retrievedChunks: [] }));
 
     expect(result.retrievedChunkIds).toEqual([]);
   });
 
   it('includes no evidence warning when no chunks', () => {
-    const result = buildPrompt(
-      makeInput({ retrievedChunks: [] }),
-    );
+    const result = buildPrompt(makeInput({ retrievedChunks: [] }));
 
     expect(result.user).toContain('WARNING: No relevant guideline evidence was found');
     expect(result.user).toContain('uncertainty');
   });
 
   it('does not include guideline_evidence tags when no chunks', () => {
-    const result = buildPrompt(
-      makeInput({ retrievedChunks: [] }),
-    );
+    const result = buildPrompt(makeInput({ retrievedChunks: [] }));
 
     expect(result.user).not.toContain('<guideline_evidence');
   });
@@ -139,18 +129,12 @@ describe('buildPrompt', () => {
     const result = buildPrompt(makeInput());
 
     expect(result.system).toContain('MANDATORY RULES');
-    expect(result.system).toContain(
-      'NEVER fabricate or hallucinate guideline references',
-    );
+    expect(result.system).toContain('NEVER fabricate or hallucinate guideline references');
     expect(result.system).toContain('physician-to-physician only');
   });
 
   it('extracts chunk IDs correctly', () => {
-    const chunks = makeChunks([
-      { chunkId: 'alpha' },
-      { chunkId: 'beta' },
-      { chunkId: 'gamma' },
-    ]);
+    const chunks = makeChunks([{ chunkId: 'alpha' }, { chunkId: 'beta' }, { chunkId: 'gamma' }]);
     const result = buildPrompt(makeInput({ retrievedChunks: chunks }));
 
     expect(result.retrievedChunkIds).toEqual(['alpha', 'beta', 'gamma']);
