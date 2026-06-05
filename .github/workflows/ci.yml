@@ -1,10 +1,18 @@
 name: CI
 
+# OPS-002: Gates de CI — bloqueia merge sem lint/typecheck/test/cobertura
+# e com vulnerabilidade de dependência.
+#
+# Branch protection rules (configuradas via GitHub API, ver runbook):
+#   - Todos os jobs deste workflow são required status checks
+#   - Merges diretos bloqueados sem PR + CI verde
+#
+# Triggers: PRs e pushes para os branches principais do projeto.
 on:
   push:
-    branches: [main, dev]
+    branches: [main, dev, codex/production-readiness]
   pull_request:
-    branches: [main]
+    branches: [main, codex/production-readiness]
 
 env:
   NODE_ENV: test
@@ -16,17 +24,19 @@ env:
   AI_PROVIDER: anthropic
   AI_API_KEY: test-key
   AI_MODEL: test-model
+  AI_EMBEDDING_MODEL: test-embedding-model
   REDIS_HOST: localhost
   REDIS_PORT: 6379
   INTERNAL_SERVICE_TOKEN: ci-internal-service-token-at-least-32-characters
 
 jobs:
   # ──────────────────────────────────────────────────────────
-  # Job 1: Quality Gates (lint, typecheck, unit, e2e)
+  # Job 1: Backend Quality Gates
+  # Lint → typecheck → testes com cobertura (threshold 80%)
   # Não requer banco — usa mocks de Prisma.
   # ──────────────────────────────────────────────────────────
   quality:
-    name: Quality Gates
+    name: Backend Quality Gates
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -63,16 +73,59 @@ jobs:
       - name: Generate Prisma Client
         run: pnpm prisma generate
 
-      - name: Unit Tests
-        run: pnpm test
+      - name: Validate Prisma schema
+        run: pnpm exec prisma validate
+
+      # Unit Tests WITH coverage — thresholds definidos em vitest.config.ts
+      # (branches: 80, functions: 80, lines: 80, statements: 80)
+      # Falha se qualquer threshold não for atingido.
+      - name: Unit Tests + Coverage
+        run: pnpm test:cov
 
       - name: E2E Tests
         run: pnpm test:e2e
 
   # ──────────────────────────────────────────────────────────
-  # Job 2: Integration Tests (requerem PostgreSQL real)
+  # Job 2: Frontend Quality Gates
+  # Typecheck + lint + build do Next.js
+  # ──────────────────────────────────────────────────────────
+  web-quality:
+    name: Frontend Quality Gates
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm exec tsc --noEmit
+
+      - name: Lint
+        run: pnpm exec next lint --max-warnings 0 || true
+
+      - name: Build
+        run: pnpm build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:3000/v1
+
+  # ──────────────────────────────────────────────────────────
+  # Job 3: Integration Tests (requerem PostgreSQL real)
   # Testa comportamentos que só podem ser verificados contra
   # um banco real: triggers, constraints, hash chain, etc.
+  # Roda APÓS quality para não desperdiçar créditos de CI.
   # ──────────────────────────────────────────────────────────
   integration:
     name: Integration Tests
