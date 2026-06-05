@@ -4,6 +4,7 @@ import { PrismaModule } from './config/prisma.module';
 import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AiGatewayModule } from './modules/ai-gateway/ai-gateway.module';
+import { DocumentsModule } from './modules/documents/documents.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { AiGatewayModule } from './modules/ai-gateway/ai-gateway.module';
     HealthModule,
     AuthModule,
     AiGatewayModule,
+    DocumentsModule,
   ],
 })
 export class AppModule {}

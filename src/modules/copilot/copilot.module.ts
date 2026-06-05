@@ -1,10 +1,16 @@
 import { Module } from '@nestjs/common';
+import { CopilotController } from './copilot.controller';
+import { CopilotService } from './copilot.service';
+import { OrchestratorService } from './orchestrator/orchestrator.service';
 import { RetrievalService } from './retrieval/retrieval.service';
 import { AiGatewayModule } from '../ai-gateway/ai-gateway.module';
+import { AuthModule } from '../auth/auth.module';
+import { EncountersModule } from '../encounters/encounters.module';
 
 @Module({
-  imports: [AiGatewayModule],
-  providers: [RetrievalService],
-  exports: [RetrievalService],
+  imports: [AiGatewayModule, AuthModule, EncountersModule],
+  controllers: [CopilotController],
+  providers: [CopilotService, OrchestratorService, RetrievalService],
+  exports: [CopilotService, OrchestratorService],
 })
 export class CopilotModule {}
