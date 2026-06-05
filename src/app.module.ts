@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './config/prisma.module';
 import { ThrottlerConfigModule } from './config/throttler.config';
 import { HealthModule } from './modules/health/health.module';
@@ -17,6 +18,7 @@ import { AuditModule } from './modules/audit/audit.module';
       isGlobal: true,
       envFilePath: ['.env.local', '.env'],
     }),
+    ScheduleModule.forRoot(),
     ThrottlerConfigModule,
     PrismaModule,
     HealthModule,
