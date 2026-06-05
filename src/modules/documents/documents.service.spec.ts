@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DocumentsService } from './documents.service';
 import { PrismaService } from '../../config/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 
 const physicianId = '550e8400-e29b-41d4-a716-446655440000';
@@ -77,7 +78,8 @@ describe('DocumentsService', () => {
       },
     };
 
-    service = new DocumentsService(prisma as unknown as PrismaService);
+    const auditService = { log: vi.fn().mockResolvedValue(undefined) } as unknown as AuditService;
+    service = new DocumentsService(prisma as unknown as PrismaService, auditService);
   });
 
   describe('generate', () => {

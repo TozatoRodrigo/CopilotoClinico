@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../../config/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { ConflictException, UnauthorizedException } from '@nestjs/common';
@@ -71,10 +72,15 @@ describe('AuthService', () => {
       JWT_REFRESH_EXPIRY: '7d',
     });
 
+    const auditService = {
+      log: vi.fn().mockResolvedValue(undefined),
+    } as unknown as AuditService;
+
     service = new AuthService(
       prisma as unknown as PrismaService,
       jwt,
       config,
+      auditService,
     );
   });
 

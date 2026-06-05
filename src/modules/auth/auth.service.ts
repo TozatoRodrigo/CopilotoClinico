@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { createHash } from 'crypto';
 import { PrismaService } from '../../config/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { RegisterInput, LoginInput, RefreshInput } from './schemas/auth.schemas';
 
 type JwtExpiry = NonNullable<JwtSignOptions['expiresIn']>;
@@ -19,6 +20,7 @@ export class AuthService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(JwtService) private readonly jwt: JwtService,
     @Inject(ConfigService) private readonly config: ConfigService,
+    private readonly auditService: AuditService,
   ) {
     this.accessSecret = this.config.getOrThrow<string>('JWT_ACCESS_SECRET');
     this.refreshSecret = this.config.getOrThrow<string>('JWT_REFRESH_SECRET');
@@ -29,7 +31,7 @@ export class AuthService {
     ) as unknown as JwtExpiry;
   }
 
-  async register(input: RegisterInput) {
+  async register(input: RegisterInput, ip?: string) {
     const existing = await this.prisma.physician.findUnique({
       where: { email: input.email },
     });
@@ -57,22 +59,57 @@ export class AuthService {
       },
     });
 
+    await this.auditSilently({
+      actorId: physician.id,
+      action: 'AUTH_REGISTER',
+      entity: 'Physician',
+      entityId: physician.id,
+      payload: { email: physician.email, crmUf: physician.crmUf },
+      ip,
+    });
+
     const tokens = await this.generateTokens(physician.id, physician.email);
     return { physician, ...tokens };
   }
 
-  async login(input: LoginInput) {
+  async login(input: LoginInput, ip?: string) {
     const physician = await this.prisma.physician.findUnique({
       where: { email: input.email },
     });
+
     if (!physician) {
+      // Auditar tentativa falhada sem revelar se o e-mail existe
+      await this.auditSilently({
+        actorId: 'unknown',
+        action: 'AUTH_LOGIN_FAILED',
+        entity: 'Physician',
+        entityId: 'unknown',
+        payload: { reason: 'physician_not_found' },
+        ip,
+      });
       throw new UnauthorizedException('Invalid credentials');
     }
 
     const passwordValid = await bcrypt.compare(input.password, physician.passwordHash);
     if (!passwordValid) {
+      await this.auditSilently({
+        actorId: physician.id,
+        action: 'AUTH_LOGIN_FAILED',
+        entity: 'Physician',
+        entityId: physician.id,
+        payload: { reason: 'invalid_password' },
+        ip,
+      });
       throw new UnauthorizedException('Invalid credentials');
     }
+
+    await this.auditSilently({
+      actorId: physician.id,
+      action: 'AUTH_LOGIN',
+      entity: 'Physician',
+      entityId: physician.id,
+      ip,
+    });
 
     const tokens = await this.generateTokens(physician.id, physician.email);
     return {
@@ -87,7 +124,7 @@ export class AuthService {
     };
   }
 
-  async refresh(input: RefreshInput) {
+  async refresh(input: RefreshInput, ip?: string) {
     const tokenHash = this.hashToken(input.refreshToken);
 
     const storedToken = await this.prisma.refreshToken.findFirst({
@@ -102,6 +139,14 @@ export class AuthService {
     await this.prisma.refreshToken.update({
       where: { id: storedToken.id },
       data: { revoked: true },
+    });
+
+    await this.auditSilently({
+      actorId: storedToken.physician.id,
+      action: 'AUTH_TOKEN_REFRESH',
+      entity: 'Physician',
+      entityId: storedToken.physician.id,
+      ip,
     });
 
     const tokens = await this.generateTokens(storedToken.physician.id, storedToken.physician.email);
@@ -138,5 +183,13 @@ export class AuthService {
 
   private hashToken(token: string): string {
     return createHash('sha256').update(token).digest('hex');
+  }
+
+  /**
+   * Auditoria nunca deve bloquear o fluxo principal.
+   * Falhas são logadas mas não propagadas.
+   */
+  private async auditSilently(params: Parameters<AuditService['log']>[0]): Promise<void> {
+    await this.auditService.log(params).catch(() => undefined);
   }
 }

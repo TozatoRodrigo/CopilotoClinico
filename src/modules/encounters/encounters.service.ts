@@ -1,13 +1,28 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../config/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { CreateEncounterInput, UpdateEncounterInput } from './schemas/encounter.schemas';
+
+const ENCOUNTER_SELECT = {
+  id: true,
+  physicianId: true,
+  vertical: true,
+  context: true,
+  patientRef: true,
+  status: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
 
 @Injectable()
 export class EncountersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditService: AuditService,
+  ) {}
 
   async create(physicianId: string, input: CreateEncounterInput) {
-    return this.prisma.encounter.create({
+    const encounter = await this.prisma.encounter.create({
       data: {
         physicianId,
         patientRef: input.patientRef,
@@ -15,17 +30,18 @@ export class EncountersService {
         context: input.context,
         status: 'draft',
       },
-      select: {
-        id: true,
-        physicianId: true,
-        vertical: true,
-        context: true,
-        patientRef: true,
-        status: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+      select: ENCOUNTER_SELECT,
     });
+
+    await this.auditService.log({
+      actorId: physicianId,
+      action: 'ENCOUNTER_CREATED',
+      entity: 'Encounter',
+      entityId: encounter.id,
+      payload: { vertical: encounter.vertical },
+    }).catch(() => undefined);
+
+    return encounter;
   }
 
   async findById(physicianId: string, encounterId: string) {
@@ -65,13 +81,8 @@ export class EncountersService {
       },
     });
 
-    if (!encounter) {
-      throw new NotFoundException('Encounter not found');
-    }
-
-    if (encounter.physicianId !== physicianId) {
-      throw new ForbiddenException('Access denied');
-    }
+    if (!encounter) throw new NotFoundException('Encounter not found');
+    if (encounter.physicianId !== physicianId) throw new ForbiddenException('Access denied');
 
     return encounter;
   }
@@ -106,31 +117,26 @@ export class EncountersService {
       select: { physicianId: true, status: true },
     });
 
-    if (!encounter) {
-      throw new NotFoundException('Encounter not found');
-    }
-
-    if (encounter.physicianId !== physicianId) {
-      throw new ForbiddenException('Access denied');
-    }
-
+    if (!encounter) throw new NotFoundException('Encounter not found');
+    if (encounter.physicianId !== physicianId) throw new ForbiddenException('Access denied');
     if (encounter.status === 'finalized' && input.status !== 'cancelled') {
       throw new ForbiddenException('Finalized encounters cannot be updated');
     }
 
-    return this.prisma.encounter.update({
+    const updated = await this.prisma.encounter.update({
       where: { id: encounterId },
       data: input,
-      select: {
-        id: true,
-        physicianId: true,
-        vertical: true,
-        context: true,
-        patientRef: true,
-        status: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+      select: ENCOUNTER_SELECT,
     });
+
+    await this.auditService.log({
+      actorId: physicianId,
+      action: 'ENCOUNTER_UPDATED',
+      entity: 'Encounter',
+      entityId: encounterId,
+      payload: { previousStatus: encounter.status, newStatus: updated.status },
+    }).catch(() => undefined);
+
+    return updated;
   }
 }
