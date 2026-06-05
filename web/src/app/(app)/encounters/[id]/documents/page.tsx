@@ -32,6 +32,16 @@ import { toast } from "sonner";
 
 type DocType = Document["type"];
 
+interface AiInteractionSummary {
+  id: string;
+  uncertainty: boolean;
+  uncertaintyReason: string | null;
+}
+
+interface EncounterWithInteractions {
+  aiInteractions: AiInteractionSummary[];
+}
+
 const TYPE_LABELS: Record<DocType, string> = {
   soap: "SOAP",
   sbar: "SBAR",
@@ -73,6 +83,10 @@ export default function DocumentsPage({
   const [generateOpen, setGenerateOpen] = useState(false);
   const [generateType, setGenerateType] = useState<DocType>("soap");
   const [generating, setGenerating] = useState(false);
+  // Uncertainty state: tracks if the most recent AI interaction flagged uncertainty.
+  // Used to warn the physician before they confirm a document derived from uncertain analysis.
+  const [hasUncertainInteraction, setHasUncertainInteraction] = useState(false);
+  const [uncertainReason, setUncertainReason] = useState<string | null>(null);
   const refreshRef = useRef<() => Promise<void>>(async () => {});
 
   useEffect(() => {
@@ -80,10 +94,24 @@ export default function DocumentsPage({
       try {
         setLoading(true);
         setError(null);
-        const docs = await apiClient.get<Document[]>(
-          `/encounters/${encounterId}/documents`,
-        );
+
+        // Buscar documentos e encounter (com aiInteractions) em paralelo
+        const [docs, encounter] = await Promise.all([
+          apiClient.get<Document[]>(`/encounters/${encounterId}/documents`),
+          apiClient.get<EncounterWithInteractions>(`/encounters/${encounterId}`),
+        ]);
+
         setDocuments(docs);
+
+        // Verificar se a interação mais recente tinha incerteza
+        const latestInteraction = encounter.aiInteractions?.[0];
+        if (latestInteraction?.uncertainty) {
+          setHasUncertainInteraction(true);
+          setUncertainReason(latestInteraction.uncertaintyReason);
+        } else {
+          setHasUncertainInteraction(false);
+          setUncertainReason(null);
+        }
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "Erro ao carregar documentos.",
@@ -164,6 +192,19 @@ export default function DocumentsPage({
         </Button>
       </div>
 
+      {/* Banner de incerteza — visível quando a análise do copiloto sinalizou evidência insuficiente */}
+      {hasUncertainInteraction && (
+        <Alert className="border-yellow-500/50 bg-yellow-50 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200">
+          <AlertTitle className="font-semibold">
+            ⚠️ Análise com evidência insuficiente
+          </AlertTitle>
+          <AlertDescription>
+            {uncertainReason ??
+              "O copiloto sinalizou incerteza na análise deste atendimento. Revise cuidadosamente antes de confirmar qualquer documento."}
+          </AlertDescription>
+        </Alert>
+      )}
+
       {documents.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-4 py-12">
@@ -242,9 +283,23 @@ export default function DocumentsPage({
             <DialogTitle>Confirmar Documento</DialogTitle>
             <DialogDescription>
               Tem certeza que deseja confirmar este documento? Esta ação é
-              irreversível.
+              irreversível e ficará registrada na trilha de auditoria.
             </DialogDescription>
           </DialogHeader>
+
+          {/* Aviso de incerteza dentro do dialog de confirmação — CLIN-001 */}
+          {hasUncertainInteraction && (
+            <Alert className="border-yellow-500/50 bg-yellow-50 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200">
+              <AlertTitle className="text-sm font-semibold">
+                ⚠️ Atenção: análise com incerteza
+              </AlertTitle>
+              <AlertDescription className="text-sm">
+                {uncertainReason ??
+                  "O copiloto indicou evidência insuficiente para este caso. Ao confirmar, você declara que revisou o documento e assume responsabilidade pelo conteúdo."}
+              </AlertDescription>
+            </Alert>
+          )}
+
           <DialogFooter>
             <Button
               variant="outline"

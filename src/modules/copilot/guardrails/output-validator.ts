@@ -7,12 +7,20 @@ const RecommendationSchema = z.object({
   confidence: z.number().min(0).max(1),
 });
 
-export const CopilotOutputSchema = z.object({
-  reasoning: z.string().min(1),
-  recommendations: z.array(RecommendationSchema).min(0),
-  uncertainty: z.boolean(),
-  uncertaintyReason: z.string().nullable(),
-});
+export const CopilotOutputSchema = z
+  .object({
+    reasoning: z.string().min(1),
+    recommendations: z.array(RecommendationSchema).min(0),
+    uncertainty: z.boolean(),
+    uncertaintyReason: z.string().nullable(),
+  })
+  .refine(
+    (data) => !data.uncertainty || (data.uncertaintyReason !== null && data.uncertaintyReason.length > 0),
+    {
+      message: 'uncertaintyReason is required and must be non-empty when uncertainty is true',
+      path: ['uncertaintyReason'],
+    },
+  );
 
 export type CopilotOutput = z.infer<typeof CopilotOutputSchema>;
 

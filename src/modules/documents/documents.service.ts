@@ -132,15 +132,30 @@ export class DocumentsService {
       .update({ where: { id: doc.encounterId }, data: { status: 'finalized' } })
       .catch(() => {});
 
+    // Verificar se o documento foi gerado a partir de uma análise com incerteza.
+    // Isso é auditado explicitamente para rastreabilidade médico-legal:
+    // o médico confirmou um documento derivado de análise incerta.
+    const recentInteraction = await this.prisma.aiInteraction.findFirst({
+      where: { encounterId: doc.encounterId },
+      orderBy: { createdAt: 'desc' },
+      select: { uncertainty: true, uncertaintyReason: true },
+    });
+
     // DOCUMENT_CONFIRMED = assunção de responsabilidade médico-legal.
     // afterHash do conteúdo garante rastreabilidade do que foi confirmado.
+    // uncertain=true no payload sinaliza que o médico confirmou com ciência da incerteza.
     await this.auditService.log({
       actorId: physicianId,
       action: 'DOCUMENT_CONFIRMED',
       entity: 'Document',
       entityId: documentId,
       afterHash: confirmed.contentHash ?? undefined,
-      payload: { encounterId: doc.encounterId, confirmedAt: now.toISOString() },
+      payload: {
+        encounterId: doc.encounterId,
+        confirmedAt: now.toISOString(),
+        uncertain: recentInteraction?.uncertainty ?? false,
+        uncertaintyReason: recentInteraction?.uncertaintyReason ?? null,
+      },
     }).catch(() => undefined);
 
     return confirmed;
