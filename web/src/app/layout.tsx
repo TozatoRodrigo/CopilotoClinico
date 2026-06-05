@@ -1,9 +1,11 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/providers/theme-provider";
+import { OfflineProvider } from "@/components/providers/offline-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/lib/auth-store";
+import { ServiceWorkerRegistrar } from "@/components/providers/sw-registrar";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -18,8 +20,17 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Copiloto Clínico de Plantão",
-  description:
-    "Assistência inteligente para médicos de emergência",
+  description: "Assistência inteligente para médicos de emergência",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Copiloto Clínico",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0f766e",
 };
 
 export default function RootLayout({
@@ -36,10 +47,13 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <ThemeProvider>
           <AuthProvider>
-            <TooltipProvider>
-              {children}
-              <Toaster />
-            </TooltipProvider>
+            <OfflineProvider>
+              <TooltipProvider>
+                {children}
+                <Toaster />
+                <ServiceWorkerRegistrar />
+              </TooltipProvider>
+            </OfflineProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

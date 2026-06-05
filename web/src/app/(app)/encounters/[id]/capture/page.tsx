@@ -1,19 +1,23 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useState, useEffect, useCallback } from "react";
 import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-
-interface CopilotContext {
-  hasCT: boolean;
-  isSus: boolean;
-  hasLab: boolean;
-  hasICU: boolean;
-}
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { useVoiceInput } from "@/hooks/use-voice-input";
+import { useOnlineStatus } from "@/components/providers/offline-provider";
+import { addToQueue, processQueue } from "@/lib/offline-queue";
+import { Mic, MicOff } from "lucide-react";
+import { toast } from "sonner";
+import type { EncounterContext } from "@/lib/types";
 
 interface Recommendation {
   category: string;
@@ -37,7 +41,7 @@ interface CopilotResponse {
 }
 
 interface ContextChip {
-  key: keyof CopilotContext;
+  key: keyof EncounterContext;
   label: string;
 }
 
@@ -56,9 +60,10 @@ export default function CapturePage({
   params: Promise<{ id: string }>;
 }) {
   const { id: encounterId } = use(params);
+  const { isOnline } = useOnlineStatus();
 
   const [caseText, setCaseText] = useState("");
-  const [context, setContext] = useState<CopilotContext>({
+  const [context, setContext] = useState<EncounterContext>({
     hasCT: false,
     isSus: false,
     hasLab: false,
@@ -71,14 +76,67 @@ export default function CapturePage({
     null,
   );
 
+  const {
+    isListening,
+    startListening,
+    stopListening,
+    isSupported: isVoiceSupported,
+    error: voiceError,
+  } = useVoiceInput();
+
+  useEffect(() => {
+    if (voiceError) {
+      toast.error(voiceError);
+    }
+  }, [voiceError]);
+
+  const handleVoiceTranscript = useCallback((text: string) => {
+    setCaseText((prev) => {
+      const separator = prev.trim() ? " " : "";
+      return prev + separator + text;
+    });
+  }, []);
+
+  const processOfflineQueue = useCallback(async () => {
+    await processQueue(async (item) => {
+      try {
+        await apiClient.post<CopilotResponse>(
+          `/copilot/${item.encounterId}/analyze`,
+          { caseText: item.caseText, context: item.context },
+        );
+        return { success: true, encounterId: item.encounterId };
+      } catch {
+        return { success: false, encounterId: item.encounterId };
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (isOnline) {
+      processOfflineQueue();
+    }
+  }, [isOnline, processOfflineQueue]);
+
   const isValid = caseText.trim().length >= MIN_CHARS;
 
-  function toggleContext(key: keyof CopilotContext) {
+  function toggleContext(key: keyof EncounterContext) {
     setContext((prev) => ({ ...prev, [key]: !prev[key] }));
   }
 
   async function handleSubmit() {
     if (!isValid || loading) return;
+
+    if (!isOnline) {
+      await addToQueue({
+        encounterId,
+        caseText: caseText.trim(),
+        context,
+      });
+      toast.info(
+        "Sem conexão. Análise será enviada quando voltar online.",
+      );
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -126,14 +184,62 @@ export default function CapturePage({
             >
               Descreva o caso clínico
             </label>
-            <Textarea
-              id="case-text"
-              placeholder="Descreva o caso clínico do paciente, incluindo sinais, sintomas, histórico e achados relevantes..."
-              className="min-h-[200px] resize-y"
-              value={caseText}
-              onChange={(e) => setCaseText(e.target.value)}
-              disabled={loading}
-            />
+            <div className="relative">
+              <Textarea
+                id="case-text"
+                placeholder="Descreva o caso clínico do paciente, incluindo sinais, sintomas, histórico e achados relevantes..."
+                className="min-h-[200px] resize-y pr-12"
+                value={caseText}
+                onChange={(e) => setCaseText(e.target.value)}
+                disabled={loading}
+              />
+              <div className="absolute bottom-2 right-2">
+                {isVoiceSupported ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className={
+                      isListening
+                        ? "animate-pulse bg-red-500/20 text-red-500 hover:bg-red-500/30 hover:text-red-500"
+                        : ""
+                    }
+                    onClick={() =>
+                      isListening
+                        ? stopListening()
+                        : startListening(handleVoiceTranscript)
+                    }
+                    disabled={loading}
+                    aria-label={isListening ? "Parar gravação" : "Iniciar gravação"}
+                  >
+                    {isListening ? (
+                      <MicOff className="size-4" />
+                    ) : (
+                      <Mic className="size-4" />
+                    )}
+                  </Button>
+                ) : (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          disabled
+                          aria-label="Entrada por voz não suportada"
+                        >
+                          <Mic className="size-4 opacity-50" />
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Navegador não suporta entrada por voz
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
+            </div>
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>
                 {caseText.trim().length < MIN_CHARS
