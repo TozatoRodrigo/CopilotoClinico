@@ -18,6 +18,7 @@ const navLinks = [
   { href: "/patients", label: "Pacientes" },
   { href: "/protocols", label: "Protocolos" },
   { href: "/shifts", label: "Plantões" },
+  { href: "/audit", label: "Auditoria" },
 ];
 
 function ThemeToggle() {
