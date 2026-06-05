@@ -2,7 +2,7 @@
 
 import { use, useState, useEffect, useRef } from "react";
 import { apiClient } from "@/lib/api-client";
-import type { Document } from "@/lib/types";
+import type { CopilotAnalysis, Document } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -117,8 +117,16 @@ export default function DocumentsPage({
   async function handleGenerate() {
     setGenerating(true);
     try {
+      const result = await apiClient.get<CopilotAnalysis | null>(
+        `/encounters/${encounterId}/copilot/result`,
+      );
+      if (!result?.interactionId) {
+        toast.error("Execute uma análise do copiloto antes de gerar documentos.");
+        return;
+      }
       await apiClient.post(`/encounters/${encounterId}/documents`, {
         type: generateType,
+        aiInteractionId: result.interactionId,
       });
       toast.success("Documento gerado com sucesso.");
       setGenerateOpen(false);

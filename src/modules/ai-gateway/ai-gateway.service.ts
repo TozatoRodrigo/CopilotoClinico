@@ -18,7 +18,7 @@ export class AiGatewayService {
   private readonly defaultEmbeddingModel: string;
 
   constructor(private readonly config: ConfigService) {
-    const providerName = this.config.get<string>('AI_PROVIDER', 'anthropic');
+    const providerName = this.config.get<string>('AI_PROVIDER', 'openai');
     this.defaultModel = this.config.getOrThrow<string>('AI_MODEL');
     this.defaultEmbeddingModel = this.config.getOrThrow<string>('AI_EMBEDDING_MODEL');
 

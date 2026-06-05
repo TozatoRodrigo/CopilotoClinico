@@ -29,7 +29,7 @@ enum SubscriptionStatus {
 }
 
 model Physician {
-  id                 String             @id @default(uuid()) @db.Uuid
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   crmUf              String             @map("crm_uf") @db.Char(2)
   crmNumber          String             @map("crm_number")
   email              String             @unique @db.VarChar(255)
@@ -46,11 +46,12 @@ model Physician {
   consents      Consent[]
   refreshTokens RefreshToken[]
 
+  @@unique([crmUf, crmNumber])
   @@map("physicians")
 }
 
 model Encounter {
-  id          String          @id @default(uuid()) @db.Uuid
+  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   physicianId String          @map("physician_id") @db.Uuid
   vertical    String          @default("trauma")
   context     Json?
@@ -68,7 +69,7 @@ model Encounter {
 }
 
 model AiInteraction {
-  id                String   @id @default(uuid()) @db.Uuid
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   encounterId       String   @map("encounter_id") @db.Uuid
   inputRedacted     String?  @map("input_redacted") @db.Text
   retrievedChunkIds String[] @map("retrieved_chunk_ids")
@@ -89,7 +90,7 @@ model AiInteraction {
 }
 
 model Document {
-  id             String       @id @default(uuid()) @db.Uuid
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   encounterId    String       @map("encounter_id") @db.Uuid
   physicianId    String       @map("physician_id") @db.Uuid
   type           DocumentType
@@ -111,13 +112,13 @@ model Document {
 }
 
 model GuidelineChunk {
-  id            String               @id @default(uuid()) @db.Uuid
+  id            String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   source        String
   sourceVersion String               @map("source_version")
   specialty     String
   evidenceLevel String?              @map("evidence_level")
   text          String               @db.Text
-  textTsv       Unsupported("tsvector")?
+  textTsv       Unsupported("tsvector")? @map("text_tsv")
   embedding     Unsupported("vector(1536)")?
   metadata      Json?
   validFrom     DateTime             @default(now()) @map("valid_from")
@@ -130,7 +131,7 @@ model GuidelineChunk {
 }
 
 model AuditLog {
-  id         String   @id @default(uuid()) @db.Uuid
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   actorId    String   @map("actor_id")
   action     String
   entity     String
@@ -148,7 +149,7 @@ model AuditLog {
 }
 
 model Consent {
-  id          String    @id @default(uuid()) @db.Uuid
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   physicianId String    @map("physician_id") @db.Uuid
   scope       String
   grantedAt   DateTime  @default(now()) @map("granted_at")
@@ -161,7 +162,7 @@ model Consent {
 }
 
 model RefreshToken {
-  id          String   @id @default(uuid()) @db.Uuid
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   physicianId String   @map("physician_id") @db.Uuid
   tokenHash   String   @map("token_hash") @db.VarChar(64)
   expiresAt   DateTime @map("expires_at")

@@ -28,12 +28,8 @@ interface Encounter {
 interface Document {
   id: string;
   type: string;
-  status: string;
+  confirmedBy: string | null;
   createdAt: string;
-}
-
-interface DocumentsResponse {
-  data: Document[];
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -81,10 +77,10 @@ export default function EncounterDetailPage({
       try {
         const [enc, docs] = await Promise.all([
           apiClient.get<Encounter>(`/encounters/${id}`),
-          apiClient.get<DocumentsResponse>(`/documents`, { encounterId: id }),
+          apiClient.get<Document[]>(`/encounters/${id}/documents`),
         ]);
         setEncounter(enc);
-        setDocuments(docs.data);
+        setDocuments(docs);
       } catch (err) {
         if (err instanceof ApiError) {
           setError(err.message);
@@ -199,7 +195,9 @@ export default function EncounterDetailPage({
                     {new Date(doc.createdAt).toLocaleDateString("pt-BR")}
                   </p>
                 </div>
-                <Badge variant="outline">{doc.status}</Badge>
+                <Badge variant="outline">
+                  {doc.confirmedBy ? "Confirmado" : "Rascunho"}
+                </Badge>
               </div>
             ))}
           </div>

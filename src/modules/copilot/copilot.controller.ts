@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Param, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards, Request } from '@nestjs/common';
 import { CopilotService } from './copilot.service';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
@@ -20,5 +20,13 @@ export class CopilotController {
       encounterId,
       body as Parameters<typeof this.copilotService.analyze>[2],
     );
+  }
+
+  @Get('result')
+  async result(
+    @Request() req: { user: { physicianId: string } },
+    @Param('encounterId') encounterId: string,
+  ) {
+    return this.copilotService.findLatestResult(req.user.physicianId, encounterId);
   }
 }

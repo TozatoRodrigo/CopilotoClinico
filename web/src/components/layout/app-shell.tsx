@@ -2,6 +2,8 @@
 
 import { useTheme } from "next-themes";
 import { useState } from "react";
+import { apiClient } from "@/lib/api-client";
+import { useAuth } from "@/lib/auth-store";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -63,6 +65,14 @@ function ThemeToggle() {
 }
 
 function UserMenu() {
+  const { physician, logout } = useAuth();
+
+  async function handleLogout() {
+    await apiClient.post("/auth/logout").catch(() => undefined);
+    logout();
+    window.location.href = "/login";
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -77,8 +87,10 @@ function UserMenu() {
       <DropdownMenuContent align="end" className="w-56">
         <div className="flex items-center justify-start gap-2 p-2">
           <div className="flex flex-col space-y-0.5">
-            <p className="text-sm font-medium">Dr. Exemplo</p>
-            <p className="text-xs text-muted-foreground">dr@hospital.com</p>
+            <p className="text-sm font-medium">{physician?.name ?? "Médico"}</p>
+            <p className="text-xs text-muted-foreground">
+              {physician?.email ?? "Sessão ativa"}
+            </p>
           </div>
         </div>
         <DropdownMenuSeparator />
@@ -89,7 +101,7 @@ function UserMenu() {
           <a href="/settings">Configurações</a>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem className="text-destructive">
+        <DropdownMenuItem className="text-destructive" onClick={() => void handleLogout()}>
           Sair
         </DropdownMenuItem>
       </DropdownMenuContent>

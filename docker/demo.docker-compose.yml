@@ -57,6 +57,11 @@ services:
       JWT_ACCESS_SECRET: demo-secret-change-in-production-min-32-chars!!
       JWT_REFRESH_SECRET: demo-refresh-secret-change-in-production-min-32!!
       JWT_SECRET: demo-secret-change-in-production
+      AI_PROVIDER: openai
+      AI_API_KEY: ${OPENAI_API_KEY:-test-key}
+      AI_MODEL: gpt-4.1-mini
+      AI_EMBEDDING_MODEL: text-embedding-3-small
+      AI_BASE_URL: https://api.openai.com
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       NODE_ENV: production

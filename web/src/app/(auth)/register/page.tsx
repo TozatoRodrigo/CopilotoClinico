@@ -106,7 +106,7 @@ export default function RegisterPage() {
         crmUf: form.crmUf,
         crmNumber: form.crmNumber,
       });
-      login(data.accessToken, data.physician);
+      login(data.physician);
       toast.success("Cadastro realizado com sucesso!");
       window.location.href = "/dashboard";
     } catch (err) {

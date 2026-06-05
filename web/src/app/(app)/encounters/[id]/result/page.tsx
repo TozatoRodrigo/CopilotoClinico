@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useState } from "react";
+import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,50 +14,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-
-type Urgency = "low" | "medium" | "high" | "critical";
-
-interface Recommendation {
-  category: string;
-  title: string;
-  description: string;
-  urgency: Urgency;
-  evidenceLevel: string;
-}
-
-interface Citation {
-  source: string;
-  chunkId: string;
-  relevance: number;
-}
-
-interface CopilotResponse {
-  recommendations: Recommendation[];
-  citations: Citation[];
-  uncertainty: boolean;
-  uncertaintyReason: string | null;
-}
-
-const URGENCY_ORDER: Record<Urgency, number> = {
-  critical: 0,
-  high: 1,
-  medium: 2,
-  low: 3,
-};
-
-const URGENCY_STYLES: Record<Urgency, string> = {
-  critical: "bg-red-100 text-red-800 border-red-300 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700",
-  high: "bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700",
-  medium: "bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-700",
-  low: "bg-green-100 text-green-800 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700",
-};
-
-const URGENCY_LABELS: Record<Urgency, string> = {
-  critical: "Crítico",
-  high: "Alto",
-  medium: "Médio",
-  low: "Baixo",
-};
+import type { CopilotAnalysis } from "@/lib/types";
 
 const STORAGE_KEY_PREFIX = "copilot_result_";
 
@@ -66,10 +24,11 @@ export default function ResultPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: encounterId } = use(params);
+  const router = useRouter();
   const [generatingDoc, setGeneratingDoc] = useState<string | null>(null);
   const [docError, setDocError] = useState<string | null>(null);
 
-  let result: CopilotResponse | null = null;
+  let result: CopilotAnalysis | null = null;
   let parseError = false;
 
   try {
@@ -77,7 +36,7 @@ export default function ResultPage({
       `${STORAGE_KEY_PREFIX}${encounterId}`,
     );
     if (stored) {
-      result = JSON.parse(stored) as CopilotResponse;
+      result = JSON.parse(stored) as CopilotAnalysis;
     }
   } catch {
     parseError = true;
@@ -102,20 +61,26 @@ export default function ResultPage({
     );
   }
 
-  const sortedRecommendations = [...result.recommendations].sort(
-    (a, b) => URGENCY_ORDER[a.urgency] - URGENCY_ORDER[b.urgency],
+  const analysis = result;
+
+  const sortedRecommendations = [...analysis.output.recommendations].sort(
+    (a, b) => b.confidence - a.confidence,
   );
 
   async function handleGenerateDocument(type: "soap" | "sbar") {
     setGeneratingDoc(type);
     setDocError(null);
+    const interactionId = analysis.interactionId;
 
     try {
-      const doc = await apiClient.post<{ id: string }>("/documents", {
-        encounterId,
-        type,
-      });
-      window.location.href = `/encounters/${encounterId}/documents/${doc.id}`;
+      const doc = await apiClient.post<{ id: string }>(
+        `/encounters/${encounterId}/documents`,
+        {
+          type,
+          aiInteractionId: interactionId,
+        },
+      );
+      router.push(`/encounters/${encounterId}/documents/${doc.id}/edit`);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Erro ao gerar documento.";
@@ -131,15 +96,15 @@ export default function ResultPage({
           Resultado da Análise
         </h1>
         <Badge variant="secondary">
-          {result.recommendations.length} recomendações
+          {analysis.output.recommendations.length} recomendações
         </Badge>
       </div>
 
-      {result.uncertainty && (
+      {analysis.output.uncertainty && (
         <Alert className="border-yellow-500/50 bg-yellow-50 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200">
           <AlertTitle>Incerteza na análise</AlertTitle>
           <AlertDescription>
-            {result.uncertaintyReason ??
+            {analysis.output.uncertaintyReason ??
               "O copiloto indicou incerteza nesta análise. Recomenda-se revisão adicional."}
           </AlertDescription>
         </Alert>
@@ -152,42 +117,39 @@ export default function ResultPage({
             <CardHeader>
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="space-y-1">
-                  <CardTitle className="text-base">{rec.title}</CardTitle>
-                  <CardDescription>{rec.description}</CardDescription>
+                  <CardTitle className="text-base">{rec.action}</CardTitle>
+                  <CardDescription>{rec.rationale}</CardDescription>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  <Badge variant="outline">{rec.category}</Badge>
-                  <span
-                    className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${URGENCY_STYLES[rec.urgency]}`}
-                  >
-                    {URGENCY_LABELS[rec.urgency]}
-                  </span>
+                  <Badge variant="outline">
+                    {Math.round(rec.confidence * 100)}%
+                  </Badge>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">
-                Nível de evidência: {rec.evidenceLevel}
+                Fonte: {rec.citationChunkId}
               </p>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {result.citations.length > 0 && (
+      {analysis.citations.length > 0 && (
         <>
           <Separator />
           <div className="space-y-3">
             <h2 className="text-lg font-semibold">Citações</h2>
             <div className="space-y-2">
-              {result.citations.map((citation, index) => (
+              {analysis.citations.map((citation, index) => (
                 <div
                   key={index}
                   className="flex items-center justify-between rounded-lg border bg-muted/30 px-4 py-2 text-sm"
                 >
                   <span className="font-medium">{citation.source}</span>
                   <span className="text-muted-foreground">
-                    Relevância: {(citation.relevance * 100).toFixed(0)}%
+                    Versão: {citation.sourceVersion}
                   </span>
                 </div>
               ))}

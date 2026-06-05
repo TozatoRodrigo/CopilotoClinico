@@ -16,7 +16,8 @@ export class AnthropicProvider implements AIProvider {
   private readonly baseUrl: string;
 
   constructor(private readonly config: ConfigService) {
-    this.apiKey = this.config.getOrThrow<string>('AI_API_KEY');
+    this.apiKey =
+      this.config.get<string>('ANTHROPIC_API_KEY') ?? this.config.getOrThrow<string>('AI_API_KEY');
     this.baseUrl = this.config.get<string>('AI_BASE_URL', 'https://api.anthropic.com');
   }
 
@@ -74,40 +75,7 @@ export class AnthropicProvider implements AIProvider {
   }
 
   async embed(params: EmbeddingParams): Promise<EmbeddingResponse> {
-    const url = `${this.baseUrl}/v1/embeddings`;
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': this.apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: params.model,
-        input: params.texts,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      this.logger.error(`Anthropic embed error: ${response.status} ${errorText}`);
-      throw new Error(`AI provider embed error: ${response.status}`);
-    }
-
-    const data = (await response.json()) as {
-      data: Array<{ embedding: number[] }>;
-      model: string;
-      usage: { prompt_tokens: number; total_tokens: number };
-    };
-
-    return {
-      embeddings: data.data.map((d) => d.embedding),
-      model: data.model,
-      usage: {
-        promptTokens: data.usage.prompt_tokens,
-        totalTokens: data.usage.total_tokens,
-      },
-    };
+    void params;
+    throw new Error(`Provider ${this.name} does not support embeddings in this gateway`);
   }
 }

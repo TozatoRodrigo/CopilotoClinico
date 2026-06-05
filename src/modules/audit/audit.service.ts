@@ -22,6 +22,14 @@ export class AuditService {
 
   async log(params: LogParams): Promise<AuditLog> {
     const timestamp = new Date();
+    let beforeHash = params.beforeHash;
+    if (!beforeHash) {
+      const lastEntry = await this.prisma.auditLog.findFirst({
+        orderBy: { createdAt: 'desc' },
+        select: { afterHash: true },
+      });
+      beforeHash = lastEntry?.afterHash ?? undefined;
+    }
 
     const afterData = {
       actorId: params.actorId,
@@ -31,20 +39,9 @@ export class AuditService {
       payload: params.payload ?? null,
       timestamp: timestamp.toISOString(),
     };
-    const afterHash = createHash('sha256').update(JSON.stringify(afterData)).digest('hex');
-
-    let beforeHash = params.beforeHash;
-    if (!beforeHash) {
-      const lastEntry = await this.prisma.auditLog.findFirst({
-        orderBy: { createdAt: 'desc' },
-        select: { afterHash: true },
-      });
-      if (lastEntry?.afterHash) {
-        beforeHash = createHash('sha256')
-          .update(lastEntry.afterHash + JSON.stringify(afterData))
-          .digest('hex');
-      }
-    }
+    const afterHash = createHash('sha256')
+      .update((beforeHash ?? '') + JSON.stringify(afterData))
+      .digest('hex');
 
     return this.prisma.auditLog.create({
       data: {
@@ -52,7 +49,7 @@ export class AuditService {
         action: params.action,
         entity: params.entity,
         entityId: params.entityId,
-        beforeHash,
+        beforeHash: beforeHash ?? null,
         afterHash,
         payload: params.payload ? (params.payload as unknown as Prisma.InputJsonValue) : undefined,
         ip: params.ip,
