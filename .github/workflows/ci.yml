@@ -62,13 +62,16 @@ jobs:
         run: pnpm lint
 
       - name: Check for any
-        run: grep -r ': any' src/ --include='*.ts' && exit 1 || exit 0
+        run: |
+          grep -r ': any' src/ --include='*.ts' && exit 1 || exit 0
 
       - name: Check for skipped tests
-        run: grep -rE 'it\.skip|test\.skip|xdescribe|TODO.*test' src/ --include='*.ts' && exit 1 || exit 0
+        run: |
+          grep -rE 'it\.skip|test\.skip|xdescribe|TODO.*test' src/ --include='*.ts' && exit 1 || exit 0
 
       - name: Check for console.log
-        run: grep -r 'console\.log' src/ --include='*.ts' && exit 1 || exit 0
+        run: |
+          grep -r 'console\.log' src/ --include='*.ts' && exit 1 || exit 0
 
       - name: Generate Prisma Client
         run: pnpm prisma generate
