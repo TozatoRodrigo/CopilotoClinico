@@ -2,8 +2,10 @@
 
 import { useTheme } from "next-themes";
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-store";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -110,6 +112,8 @@ function UserMenu() {
 }
 
 function MobileNav() {
+  const pathname = usePathname();
+
   return (
     <Sheet>
       <SheetTrigger asChild>
@@ -125,15 +129,23 @@ function MobileNav() {
       <SheetContent side="left" className="w-72">
         <SheetTitle className="text-primary font-semibold">Copiloto Clínico</SheetTitle>
         <nav className="flex flex-col gap-1 mt-6">
-          {navLinks.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
-              className="flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
-            >
-              {link.label}
-            </a>
-          ))}
+          {navLinks.map((link) => {
+            const isActive = pathname === link.href || pathname.startsWith(link.href + "/");
+            return (
+              <a
+                key={link.href}
+                href={link.href}
+                className={cn(
+                  "flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  isActive
+                    ? "bg-accent text-accent-foreground"
+                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                )}
+              >
+                {link.label}
+              </a>
+            );
+          })}
         </nav>
       </SheetContent>
     </Sheet>
@@ -141,6 +153,8 @@ function MobileNav() {
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+
   return (
     <div className="min-h-screen flex flex-col">
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -153,16 +167,24 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </svg>
             <span className="hidden md:inline">Copiloto Clínico</span>
           </a>
-          <nav className="hidden md:flex items-center gap-6 text-sm">
-            {navLinks.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                className="transition-colors hover:text-foreground/80 text-foreground/60"
-              >
-                {link.label}
-              </a>
-            ))}
+          <nav className="hidden md:flex items-center gap-1 text-sm">
+            {navLinks.map((link) => {
+              const isActive = pathname === link.href || pathname.startsWith(link.href + "/");
+              return (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  className={cn(
+                    "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                    isActive
+                      ? "bg-accent text-accent-foreground"
+                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                  )}
+                >
+                  {link.label}
+                </a>
+              );
+            })}
           </nav>
           <div className="flex-1" />
           <div className="flex items-center gap-2">
