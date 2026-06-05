@@ -7,6 +7,7 @@ import {
 import { createHash } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../config/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import { GenerateDocumentInput, EditDocumentInput } from './schemas/document.schemas';
 import { generateSOAP } from './generators/soap.generator';
 import { generateSBAR } from './generators/sbar.generator';
@@ -26,7 +27,10 @@ const DOCUMENT_SELECT = {
 
 @Injectable()
 export class DocumentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditService: AuditService,
+  ) {}
 
   async generate(physicianId: string, encounterId: string, input: GenerateDocumentInput) {
     const encounter = await this.prisma.encounter.findUnique({
@@ -65,16 +69,20 @@ export class DocumentsService {
     const contentStr = JSON.stringify(content);
     const contentHash = createHash('sha256').update(contentStr).digest('hex');
 
-    return this.prisma.document.create({
-      data: {
-        encounterId,
-        physicianId,
-        type: input.type,
-        content,
-        contentHash,
-      },
+    const document = await this.prisma.document.create({
+      data: { encounterId, physicianId, type: input.type, content, contentHash },
       select: DOCUMENT_SELECT,
     });
+
+    await this.auditService.log({
+      actorId: physicianId,
+      action: 'DOCUMENT_GENERATED',
+      entity: 'Document',
+      entityId: document.id,
+      payload: { encounterId, type: input.type, contentHash },
+    }).catch(() => undefined);
+
+    return document;
   }
 
   async edit(physicianId: string, documentId: string, input: EditDocumentInput) {
@@ -87,11 +95,20 @@ export class DocumentsService {
     if (doc.physicianId !== physicianId) throw new ForbiddenException('Access denied');
     if (doc.confirmedBy) throw new ForbiddenException('Confirmed documents cannot be edited');
 
-    return this.prisma.document.update({
+    const updated = await this.prisma.document.update({
       where: { id: documentId },
       data: { physicianEdits: input.physicianEdits as unknown as Prisma.InputJsonObject },
       select: DOCUMENT_SELECT,
     });
+
+    await this.auditService.log({
+      actorId: physicianId,
+      action: 'DOCUMENT_EDITED',
+      entity: 'Document',
+      entityId: documentId,
+    }).catch(() => undefined);
+
+    return updated;
   }
 
   async confirm(physicianId: string, documentId: string) {
@@ -107,19 +124,24 @@ export class DocumentsService {
     const now = new Date();
     const confirmed = await this.prisma.document.update({
       where: { id: documentId },
-      data: {
-        confirmedBy: physicianId,
-        confirmedAt: now,
-      },
+      data: { confirmedBy: physicianId, confirmedAt: now },
       select: DOCUMENT_SELECT,
     });
 
     await this.prisma.encounter
-      .update({
-        where: { id: doc.encounterId },
-        data: { status: 'finalized' },
-      })
+      .update({ where: { id: doc.encounterId }, data: { status: 'finalized' } })
       .catch(() => {});
+
+    // DOCUMENT_CONFIRMED = assunção de responsabilidade médico-legal.
+    // afterHash do conteúdo garante rastreabilidade do que foi confirmado.
+    await this.auditService.log({
+      actorId: physicianId,
+      action: 'DOCUMENT_CONFIRMED',
+      entity: 'Document',
+      entityId: documentId,
+      afterHash: confirmed.contentHash ?? undefined,
+      payload: { encounterId: doc.encounterId, confirmedAt: now.toISOString() },
+    }).catch(() => undefined);
 
     return confirmed;
   }
