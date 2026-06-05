@@ -45,10 +45,16 @@ export class DocumentsService {
   ) {}
 
   async generate(physicianId: string, encounterId: string, input: GenerateDocumentInput) {
-    const encounter = await this.prisma.encounter.findUnique({
-      where: { id: encounterId },
-      select: { physicianId: true, patientRef: true },
-    });
+    const [encounter, physician] = await Promise.all([
+      this.prisma.encounter.findUnique({
+        where: { id: encounterId },
+        select: { physicianId: true, patientRef: true },
+      }),
+      this.prisma.physician.findUnique({
+        where: { id: physicianId },
+        select: { crmVerified: true },
+      }),
+    ]);
 
     if (!encounter) throw new NotFoundException('Encounter not found');
     if (encounter.physicianId !== physicianId) throw new ForbiddenException('Access denied');
@@ -90,7 +96,14 @@ export class DocumentsService {
       action: 'DOCUMENT_GENERATED',
       entity: 'Document',
       entityId: document.id,
-      payload: { encounterId, type: input.type, contentHash },
+      payload: {
+        encounterId,
+        type: input.type,
+        contentHash,
+        // IAM-001: registrar estado de verificação no momento da geração.
+        // Permite auditoria regulatória: "documento gerado com CRM não verificado".
+        crmVerifiedAtGeneration: physician?.crmVerified ?? false,
+      },
     }).catch(() => undefined);
 
     return document;

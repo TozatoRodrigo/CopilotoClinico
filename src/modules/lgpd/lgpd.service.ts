@@ -62,6 +62,7 @@ export class LgpdService {
         email: true,
         name: true,
         mfaEnabled: true,
+        crmVerified: true,
         subscriptionStatus: true,
         createdAt: true,
         updatedAt: true,
