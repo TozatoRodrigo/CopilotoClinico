@@ -1,0 +1,170 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { apiClient, ApiError } from "@/lib/api-client";
+import { useAuth } from "@/lib/auth-store";
+import { PageHeader } from "@/components/layout/page-header";
+import { SectionCard } from "@/components/layout/section-card";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+
+interface Encounter {
+  id: string;
+  patientRef: string;
+  vertical: string;
+  status: string;
+  context: {
+    hasCT: boolean;
+    isSus: boolean;
+    hasLab: boolean;
+    hasICU: boolean;
+  };
+  createdAt: string;
+}
+
+interface EncountersResponse {
+  data: Encounter[];
+  total: number;
+}
+
+const VERTICAL_LABELS: Record<string, string> = {
+  trauma: "Trauma",
+  cardiac: "Cardíaco",
+  pediatric: "Pediátrico",
+  neuro: "Neuro",
+  general: "Geral",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  draft: "Rascunho",
+  in_review: "Em Revisão",
+  finalized: "Finalizado",
+  cancelled: "Cancelado",
+};
+
+const STATUS_VARIANTS: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+  draft: "outline",
+  in_review: "secondary",
+  finalized: "default",
+  cancelled: "destructive",
+};
+
+export default function DashboardPage() {
+  const { physician } = useAuth();
+  const [encounters, setEncounters] = useState<Encounter[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchEncounters() {
+      try {
+        const response = await apiClient.get<EncountersResponse>("/encounters");
+        setEncounters(response.data.slice(0, 5));
+      } catch (err) {
+        if (err instanceof ApiError) {
+          setError(err.message);
+        } else {
+          setError("Erro ao carregar atendimentos.");
+        }
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchEncounters();
+  }, []);
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Painel"
+        description={`Bem-vindo de volta, Dr. ${physician?.name?.split(" ")[0] ?? "Médico"}`}
+      >
+        <Button asChild>
+          <Link href="/encounters/new">Novo Atendimento</Link>
+        </Button>
+      </PageHeader>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardContent className="pt-4">
+            <p className="text-sm text-muted-foreground">Atendimentos Hoje</p>
+            <p className="text-3xl font-bold">7</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <p className="text-sm text-muted-foreground">Revisões Pendentes</p>
+            <p className="text-3xl font-bold">3</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <p className="text-sm text-muted-foreground">Documentos Confirmados</p>
+            <p className="text-3xl font-bold">12</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <SectionCard title="Atendimentos Recentes" badge={String(encounters.length)}>
+        {loading && (
+          <div className="space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-10 w-full" />
+            ))}
+          </div>
+        )}
+        {error && (
+          <Alert variant="destructive">
+            <AlertTitle>Erro</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        {!loading && !error && encounters.length === 0 && (
+          <p className="text-sm text-muted-foreground py-4">
+            Nenhum atendimento encontrado.
+          </p>
+        )}
+        {!loading && !error && encounters.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-muted-foreground">
+                  <th className="pb-2 font-medium">Paciente</th>
+                  <th className="pb-2 font-medium">Vertical</th>
+                  <th className="pb-2 font-medium">Status</th>
+                  <th className="pb-2 font-medium">Data</th>
+                  <th className="pb-2 font-medium" />
+                </tr>
+              </thead>
+              <tbody>
+                {encounters.map((enc) => (
+                  <tr key={enc.id} className="border-b last:border-0">
+                    <td className="py-2">{enc.patientRef}</td>
+                    <td className="py-2">{VERTICAL_LABELS[enc.vertical] ?? enc.vertical}</td>
+                    <td className="py-2">
+                      <Badge variant={STATUS_VARIANTS[enc.status] ?? "outline"}>
+                        {STATUS_LABELS[enc.status] ?? enc.status}
+                      </Badge>
+                    </td>
+                    <td className="py-2">
+                      {new Date(enc.createdAt).toLocaleDateString("pt-BR")}
+                    </td>
+                    <td className="py-2 text-right">
+                      <Button variant="ghost" size="sm" asChild>
+                        <a href={`/encounters/${enc.id}`}>Ver</a>
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </SectionCard>
+    </div>
+  );
+}

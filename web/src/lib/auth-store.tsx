@@ -4,10 +4,10 @@ import { createContext, useContext, useState, useCallback } from "react";
 
 interface Physician {
   id: string;
-  name: string;
+  name: string | null;
   email: string;
- crm: string;
-  specialty: string;
+  crmUf: string;
+  crmNumber: string;
 }
 
 interface AuthState {
