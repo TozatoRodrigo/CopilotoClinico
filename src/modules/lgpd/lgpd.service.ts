@@ -11,7 +11,7 @@ import type {
 } from '@prisma/client';
 
 export interface PhysicianDataExport {
-  physician: Omit<Physician, 'passwordHash' | 'mfaSecret'>;
+  physician: Omit<Physician, 'passwordHash'>;
   encounters: Encounter[];
   documents: DocumentRecord[];
   aiInteractions: AiInteraction[];
@@ -61,7 +61,6 @@ export class LgpdService {
         crmNumber: true,
         email: true,
         name: true,
-        mfaEnabled: true,
         crmVerified: true,
         subscriptionStatus: true,
         createdAt: true,
@@ -124,7 +123,6 @@ export class LgpdService {
         data: {
           name: 'ERASED',
           email: `erased-${physicianId}@erased.com`,
-          mfaSecret: null,
         },
       });
 
