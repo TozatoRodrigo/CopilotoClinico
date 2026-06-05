@@ -118,6 +118,32 @@ describe('validateOutput', () => {
     );
   });
 
+  it('rejects output with uncertainty=true but null uncertaintyReason', () => {
+    const result = validateOutput(
+      makeValidOutput({ uncertainty: true, uncertaintyReason: null }),
+      VALID_CHUNK_IDS,
+    );
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes('uncertaintyReason'))).toBe(true);
+  });
+
+  it('rejects output with uncertainty=true but empty string uncertaintyReason', () => {
+    const result = validateOutput(
+      makeValidOutput({ uncertainty: true, uncertaintyReason: '' }),
+      VALID_CHUNK_IDS,
+    );
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.includes('uncertaintyReason'))).toBe(true);
+  });
+
+  it('accepts output with uncertainty=false and null uncertaintyReason', () => {
+    const result = validateOutput(
+      makeValidOutput({ uncertainty: false, uncertaintyReason: null }),
+      VALID_CHUNK_IDS,
+    );
+    expect(result.valid).toBe(true);
+  });
+
   it('handles JSON wrapped in markdown code blocks', () => {
     const raw = '```json\n' + makeValidOutput() + '\n```';
     const result = validateOutput(raw, VALID_CHUNK_IDS);
