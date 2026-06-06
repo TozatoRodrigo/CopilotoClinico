@@ -10,6 +10,7 @@ import { scanForInjection } from '../guardrails/injection-defense';
 import { buildPrompt, type EncounterContext } from './prompt-builder';
 import { validateOutput, type CopilotOutput } from '../guardrails/output-validator';
 import type { AnalyzeInput } from '../schemas/copilot.schemas';
+import { calculateInferenceCost } from './model-pricing';
 
 export interface RecommendationSource {
   chunkId: string;
@@ -145,6 +146,10 @@ export class OrchestratorService {
         { role: 'user', content: prompt.user },
       ],
     });
+    const inferenceCost = calculateInferenceCost({
+      model: completion.model,
+      usage: completion.usage,
+    });
 
     const validation = validateOutput(completion.content, prompt.retrievedChunkIds);
 
@@ -164,7 +169,7 @@ export class OrchestratorService {
           uncertainty: true,
           uncertaintyReason: 'Output validation failed',
           latencyMs: Date.now() - start,
-          cost: completion.usage.totalTokens * 0.00001,
+          cost: inferenceCost,
         },
       });
 
@@ -202,7 +207,7 @@ export class OrchestratorService {
         uncertainty: enrichedOutput.uncertainty,
         uncertaintyReason: enrichedOutput.uncertaintyReason,
         latencyMs: Date.now() - start,
-        cost: completion.usage.totalTokens * 0.00001,
+        cost: inferenceCost,
       },
     });
 
@@ -229,7 +234,7 @@ export class OrchestratorService {
         injectionDetected: !injectionResult.safe,
         chunksRetrieved: retrievalResult.totalRetrieved,
         latencyMs: Date.now() - start,
-        cost: completion.usage.totalTokens * 0.00001,
+        cost: inferenceCost,
         model: completion.model,
       },
     };

@@ -141,7 +141,7 @@ describe('OrchestratorService', () => {
       expect(result.metadata.piiDetected).toBe(false);
       expect(result.metadata.injectionDetected).toBe(false);
       expect(result.metadata.latencyMs).toBeGreaterThanOrEqual(0);
-      expect(result.metadata.cost).toBe(300 * 0.00001);
+      expect(result.metadata.cost).toBe(0.0033);
     });
 
     it('throws BadRequestException when injection detected', async () => {
@@ -268,7 +268,7 @@ describe('OrchestratorService', () => {
       expect(createCall.data.encounterId).toBe(encounterId);
       expect(createCall.data.model).toBe('claude-3-sonnet');
       expect(createCall.data.retrievedChunkIds).toEqual(['chunk-1', 'chunk-2']);
-      expect(createCall.data.cost).toBe(300 * 0.00001);
+      expect(createCall.data.cost).toBe(0.0033);
       expect(createCall.data.rawOutput).toEqual(
         expect.objectContaining({
           reasoning: expect.any(String),
