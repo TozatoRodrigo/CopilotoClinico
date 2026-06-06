@@ -4,6 +4,7 @@ import { PrismaService } from '../../../config/prisma.service';
 import { AiGatewayService } from '../../ai-gateway/ai-gateway.service';
 import { RetrievalService } from '../retrieval/retrieval.service';
 import { EncountersService } from '../../encounters/encounters.service';
+import { AuditService } from '../../audit/audit.service';
 import { maskPII } from '../guardrails/pii-filter';
 import { scanForInjection } from '../guardrails/injection-defense';
 import { buildPrompt, type EncounterContext } from './prompt-builder';
@@ -70,6 +71,7 @@ export class OrchestratorService {
     private readonly aiGateway: AiGatewayService,
     private readonly retrieval: RetrievalService,
     private readonly encounters: EncountersService,
+    private readonly auditService: AuditService,
   ) {}
 
   async analyze(
@@ -96,6 +98,19 @@ export class OrchestratorService {
     const injectionResult = scanForInjection(fullyRedacted);
     if (!injectionResult.safe) {
       this.logger.warn(`Injection detected: ${injectionResult.reasons.join(', ')}`);
+      await this.auditService.log({
+        actorId: physicianId,
+        action: 'PROMPT_INJECTION_DETECTED',
+        entity: 'Encounter',
+        entityId: encounterId,
+        payload: {
+          reasons: injectionResult.reasons,
+          confidence: injectionResult.confidence,
+          piiDetected: piiResult.hasPII,
+          patientRefRedacted: piiResult.redacted !== fullyRedacted,
+          inputLength: input.caseText.length,
+        },
+      });
       throw new BadRequestException({
         message: 'Input contains potentially unsafe content',
         reasons: injectionResult.reasons,
