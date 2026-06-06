@@ -118,6 +118,7 @@ A tabela `audit_log` é **append-only** por design:
 │                                                         │
 │  ⛔ UPDATE/DELETE bloqueados por trigger PostgreSQL      │
 │  ⛔ TRUNCATE revogado da role da aplicação               │
+│  🔒 Escrita serializada via advisory lock transacional   │
 │  🔄 Verificação diária às 02:00 UTC (AuditChainCron)    │
 └─────────────────────────────────────────────────────────┘
 ```

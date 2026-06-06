@@ -70,6 +70,8 @@ function computeBeforeHash(
 describe('AuditService', () => {
   let service: AuditService;
   let prisma: {
+    $executeRaw: ReturnType<typeof vi.fn>;
+    $transaction: ReturnType<typeof vi.fn>;
     auditLog: {
       create: ReturnType<typeof vi.fn>;
       findFirst: ReturnType<typeof vi.fn>;
@@ -82,6 +84,10 @@ describe('AuditService', () => {
     vi.clearAllMocks();
 
     prisma = {
+      $executeRaw: vi.fn(),
+      $transaction: vi.fn(async (callback: (tx: typeof prisma) => Promise<unknown>) =>
+        callback(prisma),
+      ),
       auditLog: {
         create: vi.fn(),
         findFirst: vi.fn(),
@@ -266,6 +272,49 @@ describe('AuditService', () => {
       const expectedHash = createHash('sha256').update(JSON.stringify(expectedData)).digest('hex');
 
       expect(capturedAfterHash).toBe(expectedHash);
+    });
+
+    it('serializes chain writes inside a transaction with an advisory lock', async () => {
+      prisma.auditLog.findFirst.mockResolvedValue(null);
+      prisma.auditLog.create.mockResolvedValue(makeEntry({ beforeHash: null }));
+
+      await service.log({
+        actorId,
+        action: 'create',
+        entity: 'encounter',
+        entityId,
+      });
+
+      expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+        isolationLevel: 'ReadCommitted',
+      });
+      expect(prisma.$executeRaw).toHaveBeenCalledOnce();
+      expect(prisma.$executeRaw.mock.invocationCallOrder[0]).toBeLessThan(
+        prisma.auditLog.findFirst.mock.invocationCallOrder[0]!,
+      );
+      expect(prisma.auditLog.findFirst.mock.invocationCallOrder[0]).toBeLessThan(
+        prisma.auditLog.create.mock.invocationCallOrder[0]!,
+      );
+    });
+
+    it('retries serializable transaction conflicts before failing the audit write', async () => {
+      prisma.$transaction
+        .mockRejectedValueOnce({ code: 'P2034' })
+        .mockImplementationOnce(async (callback: (tx: typeof prisma) => Promise<unknown>) =>
+          callback(prisma),
+        );
+      prisma.auditLog.findFirst.mockResolvedValue(null);
+      prisma.auditLog.create.mockResolvedValue(makeEntry({ beforeHash: null }));
+
+      await service.log({
+        actorId,
+        action: 'create',
+        entity: 'encounter',
+        entityId,
+      });
+
+      expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+      expect(prisma.auditLog.create).toHaveBeenCalledOnce();
     });
   });
 

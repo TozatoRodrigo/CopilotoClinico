@@ -6,6 +6,8 @@ import type { AuditLog } from '@prisma/client';
 import type { AuditQueryInput } from './schemas/audit.schemas';
 
 const VERIFY_CHAIN_PAGE_SIZE = 1000;
+const AUDIT_CHAIN_ADVISORY_LOCK_ID = 7_314_061;
+const AUDIT_CHAIN_TRANSACTION_MAX_ATTEMPTS = 5;
 
 interface LogParams {
   actorId: string;
@@ -32,46 +34,83 @@ export class AuditService {
   constructor(private readonly prisma: PrismaService) {}
 
   async log(params: LogParams): Promise<AuditLog> {
-    let timestamp = new Date();
-    const lastEntry = await this.prisma.auditLog.findFirst({
-      orderBy: { createdAt: 'desc' },
-      select: { afterHash: true, createdAt: true },
-    });
+    for (let attempt = 1; attempt <= AUDIT_CHAIN_TRANSACTION_MAX_ATTEMPTS; attempt++) {
+      try {
+        return await this.writeAuditLogEntry(params);
+      } catch (err: unknown) {
+        if (
+          attempt < AUDIT_CHAIN_TRANSACTION_MAX_ATTEMPTS &&
+          this.isSerializableTransactionConflict(err)
+        ) {
+          continue;
+        }
 
-    if (lastEntry && timestamp <= lastEntry.createdAt) {
-      timestamp = new Date(lastEntry.createdAt.getTime() + 1);
+        throw err;
+      }
     }
 
-    const afterData = {
-      actorId: params.actorId,
-      action: params.action,
-      entity: params.entity,
-      entityId: params.entityId,
-      payload: params.payload ?? null,
-      timestamp: timestamp.toISOString(),
-    };
-    const afterHash = createHash('sha256').update(JSON.stringify(afterData)).digest('hex');
+    throw new Error('Audit chain write failed after retry attempts');
+  }
 
-    let beforeHash = params.beforeHash;
-    if (!beforeHash && lastEntry?.afterHash) {
-      beforeHash = createHash('sha256')
-        .update(lastEntry.afterHash + JSON.stringify(afterData))
-        .digest('hex');
-    }
+  private async writeAuditLogEntry(params: LogParams): Promise<AuditLog> {
+    return this.prisma.$transaction(
+      async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(${AUDIT_CHAIN_ADVISORY_LOCK_ID})`;
 
-    return this.prisma.auditLog.create({
-      data: {
-        actorId: params.actorId,
-        action: params.action,
-        entity: params.entity,
-        entityId: params.entityId,
-        beforeHash,
-        afterHash,
-        payload: params.payload ? (params.payload as unknown as Prisma.InputJsonValue) : undefined,
-        ip: params.ip,
-        createdAt: timestamp,
+        let timestamp = new Date();
+        const lastEntry = await tx.auditLog.findFirst({
+          orderBy: { createdAt: 'desc' },
+          select: { afterHash: true, createdAt: true },
+        });
+
+        if (lastEntry && timestamp <= lastEntry.createdAt) {
+          timestamp = new Date(lastEntry.createdAt.getTime() + 1);
+        }
+
+        const afterData = {
+          actorId: params.actorId,
+          action: params.action,
+          entity: params.entity,
+          entityId: params.entityId,
+          payload: params.payload ?? null,
+          timestamp: timestamp.toISOString(),
+        };
+        const afterHash = createHash('sha256').update(JSON.stringify(afterData)).digest('hex');
+
+        let beforeHash = params.beforeHash;
+        if (!beforeHash && lastEntry?.afterHash) {
+          beforeHash = createHash('sha256')
+            .update(lastEntry.afterHash + JSON.stringify(afterData))
+            .digest('hex');
+        }
+
+        return tx.auditLog.create({
+          data: {
+            actorId: params.actorId,
+            action: params.action,
+            entity: params.entity,
+            entityId: params.entityId,
+            beforeHash,
+            afterHash,
+            payload: params.payload
+              ? (params.payload as unknown as Prisma.InputJsonValue)
+              : undefined,
+            ip: params.ip,
+            createdAt: timestamp,
+          },
+        });
       },
-    });
+      { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
+    );
+  }
+
+  private isSerializableTransactionConflict(err: unknown): boolean {
+    return (
+      typeof err === 'object' &&
+      err !== null &&
+      'code' in err &&
+      (err as { code?: unknown }).code === 'P2034'
+    );
   }
 
   async query(params: AuditQueryInput): Promise<{ items: AuditLog[]; total: number }> {
