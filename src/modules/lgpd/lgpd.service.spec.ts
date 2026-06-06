@@ -191,16 +191,49 @@ describe('LgpdService', () => {
 
       const result = await service.exportPhysicianData(physicianId);
 
-      expect(result.physician).toEqual(physician);
-      expect(result.encounters).toEqual(encounters);
-      expect(result.documents).toEqual(documents);
-      expect(result.aiInteractions).toEqual(aiInteractions);
-      expect(result.consents).toEqual(consents);
-      expect(result.auditLog).toEqual(auditLog);
-      expect(result.refreshTokens).toEqual(refreshTokens);
+      expect(result).toEqual({
+        exportVersion: 'lgpd-portability-v1',
+        generatedAt: expect.any(String),
+        dataSubject: {
+          type: 'physician',
+          id: physicianId,
+        },
+        data: {
+          physician,
+          encounters,
+          documents,
+          aiInteractions,
+          consents,
+          auditLog,
+        },
+      });
+      expect(JSON.stringify(result)).not.toContain('tokenHash');
+      expect(JSON.stringify(result)).not.toContain('hash');
+      expect(JSON.stringify(result)).not.toContain('refreshTokens');
       expect(prisma.aiInteraction.findMany).toHaveBeenCalledWith({
         where: { encounterId: { in: ['enc-1'] } },
       });
+    });
+
+    it('does not query refresh tokens for portability exports', async () => {
+      prisma.physician.findUnique.mockResolvedValue({
+        id: physicianId,
+        crmUf: 'SP',
+        crmNumber: '123456',
+        email: 'test@test.com',
+        name: 'Dr Test',
+        subscriptionStatus: 'trial',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      prisma.encounter.findMany.mockResolvedValue([]);
+      prisma.document.findMany.mockResolvedValue([]);
+      prisma.consent.findMany.mockResolvedValue([]);
+      prisma.auditLog.findMany.mockResolvedValue([]);
+
+      await service.exportPhysicianData(physicianId);
+
+      expect(prisma.refreshToken.findMany).not.toHaveBeenCalled();
     });
 
     it('returns empty aiInteractions when physician has no encounters', async () => {
@@ -223,7 +256,7 @@ describe('LgpdService', () => {
 
       const result = await service.exportPhysicianData(physicianId);
 
-      expect(result.aiInteractions).toEqual([]);
+      expect(result.data.aiInteractions).toEqual([]);
       expect(prisma.aiInteraction.findMany).not.toHaveBeenCalled();
     });
 

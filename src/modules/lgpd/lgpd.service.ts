@@ -7,17 +7,23 @@ import type {
   Document as DocumentRecord,
   AiInteraction,
   AuditLog,
-  RefreshToken,
 } from '@prisma/client';
 
 export interface PhysicianDataExport {
-  physician: Omit<Physician, 'passwordHash'>;
-  encounters: Encounter[];
-  documents: DocumentRecord[];
-  aiInteractions: AiInteraction[];
-  consents: Consent[];
-  auditLog: AuditLog[];
-  refreshTokens: RefreshToken[];
+  exportVersion: 'lgpd-portability-v1';
+  generatedAt: string;
+  dataSubject: {
+    type: 'physician';
+    id: string;
+  };
+  data: {
+    physician: Omit<Physician, 'passwordHash'>;
+    encounters: Encounter[];
+    documents: DocumentRecord[];
+    aiInteractions: AiInteraction[];
+    consents: Consent[];
+    auditLog: AuditLog[];
+  };
 }
 
 @Injectable()
@@ -78,11 +84,10 @@ export class LgpdService {
 
     const encounterIds = encounters.map((e) => e.id);
 
-    const [documents, consents, auditLog, refreshTokens, aiInteractions] = await Promise.all([
+    const [documents, consents, auditLog, aiInteractions] = await Promise.all([
       this.prisma.document.findMany({ where: { physicianId } }),
       this.prisma.consent.findMany({ where: { physicianId } }),
       this.prisma.auditLog.findMany({ where: { actorId: physicianId } }),
-      this.prisma.refreshToken.findMany({ where: { physicianId } }),
       encounterIds.length > 0
         ? this.prisma.aiInteraction.findMany({
             where: { encounterId: { in: encounterIds } },
@@ -91,13 +96,20 @@ export class LgpdService {
     ]);
 
     return {
-      physician,
-      encounters,
-      documents,
-      aiInteractions,
-      consents,
-      auditLog,
-      refreshTokens,
+      exportVersion: 'lgpd-portability-v1',
+      generatedAt: new Date().toISOString(),
+      dataSubject: {
+        type: 'physician',
+        id: physicianId,
+      },
+      data: {
+        physician,
+        encounters,
+        documents,
+        aiInteractions,
+        consents,
+        auditLog,
+      },
     };
   }
 
