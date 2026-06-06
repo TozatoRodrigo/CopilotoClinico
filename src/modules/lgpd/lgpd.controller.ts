@@ -18,6 +18,11 @@ export class LgpdController {
     return this.lgpdService.grantConsent(req.user.sub, body.scope);
   }
 
+  @Get('consent')
+  async listConsentScopes(@Request() req: { user: { sub: string } }) {
+    return this.lgpdService.listConsentScopes(req.user.sub);
+  }
+
   @Delete('consent/:scope')
   async revokeConsent(@Request() req: { user: { sub: string } }, @Param('scope') scope: string) {
     return this.lgpdService.revokeConsent(req.user.sub, scope);

@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../config/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { consentScopes, type ConsentScope } from './schemas/lgpd.schemas';
 import type {
   Physician,
   Consent,
@@ -27,6 +28,13 @@ export interface PhysicianDataExport {
   };
 }
 
+export interface ConsentScopeStatus {
+  scope: ConsentScope;
+  granted: boolean;
+  grantedAt: Date | null;
+  revokedAt: Date | null;
+}
+
 @Injectable()
 export class LgpdService {
   constructor(
@@ -35,31 +43,88 @@ export class LgpdService {
   ) {}
 
   async grantConsent(physicianId: string, scope: string): Promise<Consent> {
-    return this.prisma.consent.create({
-      data: { physicianId, scope },
+    const consentScope = this.parseConsentScope(scope);
+    const activeConsent = await this.prisma.consent.findFirst({
+      where: { physicianId, scope: consentScope, revokedAt: null },
+    });
+
+    if (activeConsent) {
+      return activeConsent;
+    }
+
+    const consent = await this.prisma.consent.create({
+      data: { physicianId, scope: consentScope },
+    });
+
+    await this.auditService.log({
+      actorId: physicianId,
+      action: 'CONSENT_GRANTED',
+      entity: 'Consent',
+      entityId: consent.id,
+      payload: { scope: consentScope },
+    });
+
+    return consent;
+  }
+
+  async listConsentScopes(physicianId: string): Promise<ConsentScopeStatus[]> {
+    const consents = await this.prisma.consent.findMany({
+      where: { physicianId },
+      orderBy: { grantedAt: 'desc' },
+    });
+
+    return consentScopes.map((scope) => {
+      const latestConsent = consents.find((consent) => consent.scope === scope);
+
+      return {
+        scope,
+        granted: latestConsent?.revokedAt === null,
+        grantedAt: latestConsent?.grantedAt ?? null,
+        revokedAt: latestConsent?.revokedAt ?? null,
+      };
     });
   }
 
   async revokeConsent(physicianId: string, scope: string): Promise<Consent> {
+    const consentScope = this.parseConsentScope(scope);
     const consent = await this.prisma.consent.findFirst({
-      where: { physicianId, scope, revokedAt: null },
+      where: { physicianId, scope: consentScope, revokedAt: null },
     });
 
     if (!consent) {
       throw new NotFoundException('Active consent not found');
     }
 
-    return this.prisma.consent.update({
+    const revokedConsent = await this.prisma.consent.update({
       where: { id: consent.id },
       data: { revokedAt: new Date() },
     });
+
+    await this.auditService.log({
+      actorId: physicianId,
+      action: 'CONSENT_REVOKED',
+      entity: 'Consent',
+      entityId: consent.id,
+      payload: { scope: consentScope },
+    });
+
+    return revokedConsent;
   }
 
   async checkConsent(physicianId: string, scope: string): Promise<boolean> {
+    const consentScope = this.parseConsentScope(scope);
     const consent = await this.prisma.consent.findFirst({
-      where: { physicianId, scope, revokedAt: null },
+      where: { physicianId, scope: consentScope, revokedAt: null },
     });
     return consent !== null;
+  }
+
+  private parseConsentScope(scope: string): ConsentScope {
+    if (!consentScopes.includes(scope as ConsentScope)) {
+      throw new BadRequestException(`Unsupported consent scope: ${scope}`);
+    }
+
+    return scope as ConsentScope;
   }
 
   async exportPhysicianData(physicianId: string): Promise<PhysicianDataExport> {

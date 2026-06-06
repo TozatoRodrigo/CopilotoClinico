@@ -6,6 +6,7 @@ describe('LgpdController', () => {
   let controller: LgpdController;
   let lgpdServiceMock: {
     grantConsent: ReturnType<typeof vi.fn>;
+    listConsentScopes: ReturnType<typeof vi.fn>;
     revokeConsent: ReturnType<typeof vi.fn>;
     exportPhysicianData: ReturnType<typeof vi.fn>;
     requestErasure: ReturnType<typeof vi.fn>;
@@ -17,6 +18,7 @@ describe('LgpdController', () => {
     vi.clearAllMocks();
     lgpdServiceMock = {
       grantConsent: vi.fn(),
+      listConsentScopes: vi.fn(),
       revokeConsent: vi.fn(),
       exportPhysicianData: vi.fn(),
       requestErasure: vi.fn(),
@@ -35,6 +37,16 @@ describe('LgpdController', () => {
       'ai_processing',
     );
     expect(result).toBe(consent);
+  });
+
+  it('delegates consent scope listing for authenticated physician', async () => {
+    const scopes = [{ scope: 'ai_processing', granted: true }];
+    lgpdServiceMock.listConsentScopes.mockResolvedValue(scopes);
+
+    const result = await controller.listConsentScopes(req);
+
+    expect(lgpdServiceMock.listConsentScopes).toHaveBeenCalledWith('physician-001');
+    expect(result).toBe(scopes);
   });
 
   it('delegates consent revoke with requested scope', async () => {

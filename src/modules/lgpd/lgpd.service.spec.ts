@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { LgpdService } from './lgpd.service';
 import { PrismaService } from '../../config/prisma.service';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 const physicianId = '550e8400-e29b-41d4-a716-446655440000';
 const consentId = '660e8400-e29b-41d4-a716-446655440001';
@@ -93,14 +93,52 @@ describe('LgpdService', () => {
         grantedAt: new Date(),
         revokedAt: null,
       };
+      prisma.consent.findFirst.mockResolvedValue(null);
       prisma.consent.create.mockResolvedValue(consent);
 
       const result = await service.grantConsent(physicianId, 'ai_processing');
 
+      expect(prisma.consent.findFirst).toHaveBeenCalledWith({
+        where: { physicianId, scope: 'ai_processing', revokedAt: null },
+      });
       expect(prisma.consent.create).toHaveBeenCalledWith({
         data: { physicianId, scope: 'ai_processing' },
       });
+      expect(auditService.log).toHaveBeenCalledWith({
+        actorId: physicianId,
+        action: 'CONSENT_GRANTED',
+        entity: 'Consent',
+        entityId: consentId,
+        payload: { scope: 'ai_processing' },
+      });
       expect(result).toEqual(consent);
+    });
+
+    it('returns the active consent without creating duplicates for the same scope', async () => {
+      const activeConsent = {
+        id: consentId,
+        physicianId,
+        scope: 'ai_processing',
+        grantedAt: new Date(),
+        revokedAt: null,
+      };
+      prisma.consent.findFirst.mockResolvedValue(activeConsent);
+
+      const result = await service.grantConsent(physicianId, 'ai_processing');
+
+      expect(prisma.consent.create).not.toHaveBeenCalled();
+      expect(auditService.log).not.toHaveBeenCalled();
+      expect(result).toBe(activeConsent);
+    });
+
+    it('rejects unsupported consent scopes before writing data', async () => {
+      await expect(service.grantConsent(physicianId, 'unknown_scope')).rejects.toThrow(
+        BadRequestException,
+      );
+
+      expect(prisma.consent.findFirst).not.toHaveBeenCalled();
+      expect(prisma.consent.create).not.toHaveBeenCalled();
+      expect(auditService.log).not.toHaveBeenCalled();
     });
   });
 
@@ -129,6 +167,13 @@ describe('LgpdService', () => {
         where: { id: consentId },
         data: { revokedAt: expect.any(Date) },
       });
+      expect(auditService.log).toHaveBeenCalledWith({
+        actorId: physicianId,
+        action: 'CONSENT_REVOKED',
+        entity: 'Consent',
+        entityId: consentId,
+        payload: { scope: 'ai_processing' },
+      });
       expect(result.revokedAt).not.toBeNull();
     });
 
@@ -138,6 +183,16 @@ describe('LgpdService', () => {
       await expect(service.revokeConsent(physicianId, 'ai_processing')).rejects.toThrow(
         NotFoundException,
       );
+    });
+
+    it('rejects unsupported consent scopes before revoking data', async () => {
+      await expect(service.revokeConsent(physicianId, 'unknown_scope')).rejects.toThrow(
+        BadRequestException,
+      );
+
+      expect(prisma.consent.findFirst).not.toHaveBeenCalled();
+      expect(prisma.consent.update).not.toHaveBeenCalled();
+      expect(auditService.log).not.toHaveBeenCalled();
     });
   });
 
@@ -162,6 +217,66 @@ describe('LgpdService', () => {
       const result = await service.checkConsent(physicianId, 'ai_processing');
 
       expect(result).toBe(false);
+    });
+
+    it('rejects unsupported consent scopes before checking data', async () => {
+      await expect(service.checkConsent(physicianId, 'unknown_scope')).rejects.toThrow(
+        BadRequestException,
+      );
+
+      expect(prisma.consent.findFirst).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('listConsentScopes', () => {
+    it('returns current consent status for every supported scope', async () => {
+      const aiGrantedAt = new Date('2026-01-01T00:00:00.000Z');
+      const analyticsGrantedAt = new Date('2026-01-02T00:00:00.000Z');
+      const analyticsRevokedAt = new Date('2026-01-03T00:00:00.000Z');
+
+      prisma.consent.findMany.mockResolvedValue([
+        {
+          id: 'consent-ai',
+          physicianId,
+          scope: 'ai_processing',
+          grantedAt: aiGrantedAt,
+          revokedAt: null,
+        },
+        {
+          id: 'consent-analytics',
+          physicianId,
+          scope: 'analytics',
+          grantedAt: analyticsGrantedAt,
+          revokedAt: analyticsRevokedAt,
+        },
+      ]);
+
+      const result = await service.listConsentScopes(physicianId);
+
+      expect(prisma.consent.findMany).toHaveBeenCalledWith({
+        where: { physicianId },
+        orderBy: { grantedAt: 'desc' },
+      });
+      expect(result).toEqual([
+        {
+          scope: 'ai_processing',
+          granted: true,
+          grantedAt: aiGrantedAt,
+          revokedAt: null,
+        },
+        {
+          scope: 'data_sharing',
+          granted: false,
+          grantedAt: null,
+          revokedAt: null,
+        },
+        {
+          scope: 'analytics',
+          granted: false,
+          grantedAt: analyticsGrantedAt,
+          revokedAt: analyticsRevokedAt,
+        },
+      ]);
     });
   });
 
