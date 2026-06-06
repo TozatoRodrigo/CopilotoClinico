@@ -1,4 +1,5 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../config/prisma.service';
 import { AiGatewayService } from '../../ai-gateway/ai-gateway.service';
 import { RetrievalService } from '../retrieval/retrieval.service';
@@ -9,9 +10,24 @@ import { buildPrompt, type EncounterContext } from './prompt-builder';
 import { validateOutput, type CopilotOutput } from '../guardrails/output-validator';
 import type { AnalyzeInput } from '../schemas/copilot.schemas';
 
+export interface RecommendationSource {
+  chunkId: string;
+  source: string;
+  sourceVersion: string;
+  sourceText: string;
+  sourceUrl: string;
+}
+
+export type EnrichedRecommendation = CopilotOutput['recommendations'][number] &
+  RecommendationSource;
+
+export type EnrichedCopilotOutput = Omit<CopilotOutput, 'recommendations'> & {
+  recommendations: EnrichedRecommendation[];
+};
+
 export interface OrchestratorResult {
   interactionId: string;
-  output: CopilotOutput;
+  output: EnrichedCopilotOutput;
   citations: Array<{
     chunkId: string;
     source: string;
@@ -143,22 +159,39 @@ export class OrchestratorService {
       });
     }
 
+    const enrichedOutput: EnrichedCopilotOutput = {
+      ...validation.output,
+      recommendations: validation.output.recommendations.map((rec) => {
+        const chunk = retrievalResult.chunks.find((c) => c.id === rec.citationChunkId);
+        return {
+          ...rec,
+          chunkId: rec.citationChunkId,
+          source: chunk?.source ?? 'Unknown',
+          sourceVersion: chunk?.sourceVersion ?? 'Unknown',
+          sourceText: chunk?.text ?? '',
+          sourceUrl: `/v1/guidelines/chunks/${rec.citationChunkId}`,
+        };
+      }),
+    };
+
     const interaction = await this.prisma.aiInteraction.create({
       data: {
         encounterId,
         inputRedacted: fullyRedacted,
         retrievedChunkIds: prompt.retrievedChunkIds,
         model: completion.model,
-        rawOutput: validation.output,
-        citations: { recommendations: validation.output.recommendations },
-        uncertainty: validation.output.uncertainty,
-        uncertaintyReason: validation.output.uncertaintyReason,
+        rawOutput: enrichedOutput as unknown as Prisma.InputJsonValue,
+        citations: {
+          recommendations: enrichedOutput.recommendations,
+        } as unknown as Prisma.InputJsonValue,
+        uncertainty: enrichedOutput.uncertainty,
+        uncertaintyReason: enrichedOutput.uncertaintyReason,
         latencyMs: Date.now() - start,
         cost: completion.usage.totalTokens * 0.00001,
       },
     });
 
-    const citations = validation.output.recommendations.map((rec) => {
+    const citations = enrichedOutput.recommendations.map((rec) => {
       const chunk = retrievalResult.chunks.find((c) => c.id === rec.citationChunkId);
       return {
         chunkId: rec.citationChunkId,
@@ -174,7 +207,7 @@ export class OrchestratorService {
 
     return {
       interactionId: interaction.id,
-      output: validation.output,
+      output: enrichedOutput,
       citations,
       metadata: {
         piiDetected: piiResult.hasPII,

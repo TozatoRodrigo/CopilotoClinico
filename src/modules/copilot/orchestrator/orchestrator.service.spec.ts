@@ -318,5 +318,52 @@ describe('OrchestratorService', () => {
         text: 'Guideline text about chest pain workup',
       });
     });
+
+    it('enriches each recommendation with confidence, source version, and chunk link', async () => {
+      encountersMock.findById.mockResolvedValue({
+        id: encounterId,
+        physicianId,
+        patientRef: 'PRN-001',
+      });
+      retrievalMock.search.mockResolvedValue({
+        chunks: mockChunks,
+        totalRetrieved: 2,
+      });
+      aiGatewayMock.complete.mockResolvedValue({
+        content: validLLMOutput,
+        model: 'claude-3-sonnet',
+        usage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 },
+        latencyMs: 1500,
+      });
+      prismaMock.aiInteraction.create.mockResolvedValue({ id: 'interaction-001' });
+      encountersMock.update.mockResolvedValue({});
+
+      const result = await service.analyze(physicianId, encounterId, validInput);
+
+      expect(result.output.recommendations[0]).toEqual(
+        expect.objectContaining({
+          confidence: 0.9,
+          source: 'diretriz-dor-toracica',
+          sourceVersion: '1.0',
+          sourceText: 'Guideline text about chest pain workup',
+          sourceUrl: '/v1/guidelines/chunks/chunk-1',
+        }),
+      );
+      expect(prismaMock.aiInteraction.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            rawOutput: expect.objectContaining({
+              recommendations: [
+                expect.objectContaining({
+                  source: 'diretriz-dor-toracica',
+                  sourceVersion: '1.0',
+                  sourceUrl: '/v1/guidelines/chunks/chunk-1',
+                }),
+              ],
+            }),
+          }),
+        }),
+      );
+    });
   });
 });

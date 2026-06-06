@@ -17,28 +17,7 @@ import { useOnlineStatus } from "@/components/providers/offline-provider";
 import { addToQueue, processQueue } from "@/lib/offline-queue";
 import { Mic, MicOff } from "lucide-react";
 import { toast } from "sonner";
-import type { EncounterContext } from "@/lib/types";
-
-interface Recommendation {
-  category: string;
-  title: string;
-  description: string;
-  urgency: "low" | "medium" | "high" | "critical";
-  evidenceLevel: string;
-}
-
-interface Citation {
-  source: string;
-  chunkId: string;
-  relevance: number;
-}
-
-interface CopilotResponse {
-  recommendations: Recommendation[];
-  citations: Citation[];
-  uncertainty: boolean;
-  uncertaintyReason: string | null;
-}
+import type { CopilotAnalysis, CopilotAnalyzeResponse, EncounterContext } from "@/lib/types";
 
 interface ContextChip {
   key: keyof EncounterContext;
@@ -100,8 +79,8 @@ export default function CapturePage({
   const processOfflineQueue = useCallback(async () => {
     await processQueue(async (item) => {
       try {
-        await apiClient.post<CopilotResponse>(
-          `/copilot/${item.encounterId}/analyze`,
+        await apiClient.post<CopilotAnalyzeResponse>(
+          `/encounters/${item.encounterId}/copilot/analyze`,
           { caseText: item.caseText, context: item.context },
         );
         return { success: true, encounterId: item.encounterId };
@@ -144,19 +123,23 @@ export default function CapturePage({
     setUncertaintyReason(null);
 
     try {
-      const result = await apiClient.post<CopilotResponse>(
-        `/copilot/${encounterId}/analyze`,
+      const result = await apiClient.post<CopilotAnalyzeResponse>(
+        `/encounters/${encounterId}/copilot/analyze`,
         { caseText: caseText.trim(), context },
       );
+      const analysis: CopilotAnalysis = {
+        ...result.output,
+        citations: result.citations,
+      };
 
-      if (result.uncertainty) {
+      if (analysis.uncertainty) {
         setUncertainty(true);
-        setUncertaintyReason(result.uncertaintyReason);
+        setUncertaintyReason(analysis.uncertaintyReason);
       }
 
       sessionStorage.setItem(
         `copilot_result_${encounterId}`,
-        JSON.stringify(result),
+        JSON.stringify(analysis),
       );
       window.location.href = `/encounters/${encounterId}/result`;
     } catch (err) {

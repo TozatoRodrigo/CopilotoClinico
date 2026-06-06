@@ -11,6 +11,7 @@ import { EncountersModule } from './modules/encounters/encounters.module';
 import { CopilotModule } from './modules/copilot/copilot.module';
 import { LgpdModule } from './modules/lgpd/lgpd.module';
 import { AuditModule } from './modules/audit/audit.module';
+import { GuidelinesModule } from './modules/guidelines/guidelines.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { AuditModule } from './modules/audit/audit.module';
     EncountersModule,
     DocumentsModule,
     CopilotModule,
+    GuidelinesModule,
     AuditModule,
     LgpdModule,
   ],
