@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './config/prisma.module';
 import { ThrottlerConfigModule } from './config/throttler.config';
+import { ThrottlerBehindProxyGuard } from './shared/guards/throttler-behind-proxy.guard';
 import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AiGatewayModule } from './modules/ai-gateway/ai-gateway.module';
@@ -31,6 +33,12 @@ import { GuidelinesModule } from './modules/guidelines/guidelines.module';
     GuidelinesModule,
     AuditModule,
     LgpdModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerBehindProxyGuard,
+    },
   ],
 })
 export class AppModule {}
