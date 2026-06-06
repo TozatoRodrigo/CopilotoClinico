@@ -9,7 +9,7 @@ import { AuditService } from '../modules/audit/audit.service';
  * Em caso de cadeia corrompida, loga em nível ERROR para acionar alertas
  * externos (ex: Sentry, PagerDuty) via integração de log.
  *
- * Referência: AUD-003 — https://app.clickup.com/t/90132565680/86ahx6f8b
+ * Referência: AUD-004 — https://app.clickup.com/t/90132565680/86ahx6ft7
  */
 @Injectable()
 export class AuditChainCronService {
