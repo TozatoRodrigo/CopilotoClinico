@@ -53,6 +53,9 @@ jobs:
       - name: Security Audit
         run: pnpm audit --audit-level=moderate
 
+      - name: Generate Prisma Client
+        run: pnpm prisma generate
+
       - name: Typecheck
         run: pnpm typecheck
 
@@ -70,9 +73,6 @@ jobs:
       - name: Check for console.log
         run: |
           grep -r 'console\.log' src/ --include='*.ts' && exit 1 || exit 0
-
-      - name: Generate Prisma Client
-        run: pnpm prisma generate
 
       - name: Validate Prisma schema
         run: pnpm exec prisma validate
