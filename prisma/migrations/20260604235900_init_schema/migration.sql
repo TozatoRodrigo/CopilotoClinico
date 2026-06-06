@@ -21,7 +21,6 @@ CREATE TABLE "physicians" (
     "email" VARCHAR(255) NOT NULL,
     "password_hash" TEXT NOT NULL,
     "name" VARCHAR(255),
-    "crm_verified" BOOLEAN NOT NULL DEFAULT false,
     "subscription_status" "SubscriptionStatus" NOT NULL DEFAULT 'trial',
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
