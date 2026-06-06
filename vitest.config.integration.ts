@@ -9,11 +9,7 @@ export default defineConfig({
     testTimeout: 60000,
     // Testes de integração rodam sequencialmente para evitar
     // conflitos em transações de banco compartilhado
+    fileParallelism: false,
     pool: 'forks',
-    poolOptions: {
-      forks: {
-        singleFork: true,
-      },
-    },
   },
 });
