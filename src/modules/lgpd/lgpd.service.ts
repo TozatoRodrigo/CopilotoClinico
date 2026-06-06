@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../config/prisma.service';
+import { AuditService } from '../audit/audit.service';
 import type {
   Physician,
   Consent,
@@ -28,7 +29,10 @@ export interface PhysicianDataExport {
 
 @Injectable()
 export class LgpdService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditService: AuditService,
+  ) {}
 
   async grantConsent(physicianId: string, scope: string): Promise<Consent> {
     return this.prisma.consent.create({
@@ -116,6 +120,11 @@ export class LgpdService {
   async requestErasure(physicianId: string): Promise<{
     status: string;
     estimatedCompletion: Date;
+    erased: {
+      encounters: number;
+      consents: number;
+      refreshTokens: number;
+    };
   }> {
     const physician = await this.prisma.physician.findUnique({
       where: { id: physicianId },
@@ -125,30 +134,38 @@ export class LgpdService {
       throw new NotFoundException('Physician not found');
     }
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.encounter.deleteMany({ where: { physicianId } });
-      await tx.consent.deleteMany({ where: { physicianId } });
-      await tx.refreshToken.deleteMany({ where: { physicianId } });
+    const erased = await this.prisma.$transaction(async (tx) => {
+      const encounters = await tx.encounter.deleteMany({ where: { physicianId } });
+      const consents = await tx.consent.deleteMany({ where: { physicianId } });
+      const refreshTokens = await tx.refreshToken.deleteMany({ where: { physicianId } });
 
       await tx.physician.update({
         where: { id: physicianId },
         data: {
           name: 'ERASED',
           email: `erased-${physicianId}@erased.com`,
+          passwordHash: `erased:${physicianId}`,
         },
       });
 
-      await tx.auditLog.create({
-        data: {
-          actorId: physicianId,
-          action: 'DATA_ERASURE',
-          entity: 'Physician',
-          entityId: physicianId,
-          payload: { reason: 'LGPD Art. 18, VI - Data erasure request' },
-        },
-      });
+      return {
+        encounters: encounters.count,
+        consents: consents.count,
+        refreshTokens: refreshTokens.count,
+      };
     });
 
-    return { status: 'completed', estimatedCompletion: new Date() };
+    await this.auditService.log({
+      actorId: physicianId,
+      action: 'DATA_ERASURE',
+      entity: 'Physician',
+      entityId: physicianId,
+      payload: {
+        reason: 'LGPD Art. 18, VI - Data erasure request',
+        erased,
+      },
+    });
+
+    return { status: 'completed', estimatedCompletion: new Date(), erased };
   }
 }

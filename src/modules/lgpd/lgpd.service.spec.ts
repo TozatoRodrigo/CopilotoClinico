@@ -32,13 +32,15 @@ describe('LgpdService', () => {
     };
     auditLog: {
       findMany: ReturnType<typeof vi.fn>;
-      create: ReturnType<typeof vi.fn>;
     };
     refreshToken: {
       findMany: ReturnType<typeof vi.fn>;
       deleteMany: ReturnType<typeof vi.fn>;
     };
     $transaction: ReturnType<typeof vi.fn>;
+  };
+  let auditService: {
+    log: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(() => {
@@ -68,7 +70,6 @@ describe('LgpdService', () => {
       },
       auditLog: {
         findMany: vi.fn(),
-        create: vi.fn(),
       },
       refreshToken: {
         findMany: vi.fn(),
@@ -76,8 +77,11 @@ describe('LgpdService', () => {
       },
       $transaction: vi.fn(),
     };
+    auditService = {
+      log: vi.fn(),
+    };
 
-    service = new LgpdService(prisma as unknown as PrismaService);
+    service = new LgpdService(prisma as unknown as PrismaService, auditService as never);
   });
 
   describe('grantConsent', () => {
@@ -296,9 +300,9 @@ describe('LgpdService', () => {
         ...physician,
         name: 'ERASED',
         email: `erased-${physicianId}@erased.com`,
-        mfaSecret: null,
+        passwordHash: `erased:${physicianId}`,
       });
-      prisma.auditLog.create.mockResolvedValue({
+      auditService.log.mockResolvedValue({
         id: 'log-1',
         actorId: physicianId,
         action: 'DATA_ERASURE',
@@ -315,6 +319,11 @@ describe('LgpdService', () => {
 
       expect(result.status).toBe('completed');
       expect(result.estimatedCompletion).toBeInstanceOf(Date);
+      expect(result.erased).toEqual({
+        encounters: 2,
+        consents: 1,
+        refreshTokens: 1,
+      });
       expect(prisma.encounter.deleteMany).toHaveBeenCalledWith({
         where: { physicianId },
       });
@@ -329,15 +338,21 @@ describe('LgpdService', () => {
         data: {
           name: 'ERASED',
           email: `erased-${physicianId}@erased.com`,
+          passwordHash: `erased:${physicianId}`,
         },
       });
-      expect(prisma.auditLog.create).toHaveBeenCalledWith({
-        data: {
-          actorId: physicianId,
-          action: 'DATA_ERASURE',
-          entity: 'Physician',
-          entityId: physicianId,
-          payload: { reason: 'LGPD Art. 18, VI - Data erasure request' },
+      expect(auditService.log).toHaveBeenCalledWith({
+        actorId: physicianId,
+        action: 'DATA_ERASURE',
+        entity: 'Physician',
+        entityId: physicianId,
+        payload: {
+          reason: 'LGPD Art. 18, VI - Data erasure request',
+          erased: {
+            encounters: 2,
+            consents: 1,
+            refreshTokens: 1,
+          },
         },
       });
     });
