@@ -286,7 +286,7 @@ describe('AuditService', () => {
       });
 
       expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
-        isolationLevel: 'Serializable',
+        isolationLevel: 'ReadCommitted',
       });
       expect(prisma.$executeRaw).toHaveBeenCalledOnce();
       expect(prisma.$executeRaw.mock.invocationCallOrder[0]).toBeLessThan(

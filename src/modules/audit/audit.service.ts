@@ -7,7 +7,7 @@ import type { AuditQueryInput } from './schemas/audit.schemas';
 
 const VERIFY_CHAIN_PAGE_SIZE = 1000;
 const AUDIT_CHAIN_ADVISORY_LOCK_ID = 7_314_061;
-const AUDIT_CHAIN_TRANSACTION_MAX_ATTEMPTS = 3;
+const AUDIT_CHAIN_TRANSACTION_MAX_ATTEMPTS = 5;
 
 interface LogParams {
   actorId: string;
@@ -100,7 +100,7 @@ export class AuditService {
           },
         });
       },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
     );
   }
 
