@@ -296,6 +296,26 @@ describe('AuditService', () => {
         prisma.auditLog.create.mock.invocationCallOrder[0]!,
       );
     });
+
+    it('retries serializable transaction conflicts before failing the audit write', async () => {
+      prisma.$transaction
+        .mockRejectedValueOnce({ code: 'P2034' })
+        .mockImplementationOnce(async (callback: (tx: typeof prisma) => Promise<unknown>) =>
+          callback(prisma),
+        );
+      prisma.auditLog.findFirst.mockResolvedValue(null);
+      prisma.auditLog.create.mockResolvedValue(makeEntry({ beforeHash: null }));
+
+      await service.log({
+        actorId,
+        action: 'create',
+        entity: 'encounter',
+        entityId,
+      });
+
+      expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+      expect(prisma.auditLog.create).toHaveBeenCalledOnce();
+    });
   });
 
   // ─────────────────────────────────────────────────
