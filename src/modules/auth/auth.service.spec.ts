@@ -76,12 +76,7 @@ describe('AuthService', () => {
       log: vi.fn().mockResolvedValue(undefined),
     } as unknown as AuditService;
 
-    service = new AuthService(
-      prisma as unknown as PrismaService,
-      jwt,
-      config,
-      auditService,
-    );
+    service = new AuthService(prisma as unknown as PrismaService, jwt, config, auditService);
   });
 
   describe('register', () => {
@@ -116,6 +111,7 @@ describe('AuthService', () => {
             email: true,
             crmUf: true,
             crmNumber: true,
+            crmVerified: true,
             name: true,
             createdAt: true,
           },
@@ -245,9 +241,9 @@ describe('AuthService', () => {
         revoked: true,
       });
 
-      await expect(
-        service.refresh({ refreshToken: 'revoked-token' }),
-      ).rejects.toThrow(UnauthorizedException);
+      await expect(service.refresh({ refreshToken: 'revoked-token' })).rejects.toThrow(
+        UnauthorizedException,
+      );
 
       expect(prisma.refreshToken.update).not.toHaveBeenCalled();
     });
@@ -258,17 +254,17 @@ describe('AuthService', () => {
         expiresAt: new Date(Date.now() - 86400000),
       });
 
-      await expect(
-        service.refresh({ refreshToken: 'expired-token' }),
-      ).rejects.toThrow(UnauthorizedException);
+      await expect(service.refresh({ refreshToken: 'expired-token' })).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
 
     it('rejects unknown token', async () => {
       prisma.refreshToken.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.refresh({ refreshToken: 'unknown-token' }),
-      ).rejects.toThrow(UnauthorizedException);
+      await expect(service.refresh({ refreshToken: 'unknown-token' })).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
   });
 });

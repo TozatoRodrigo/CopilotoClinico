@@ -15,7 +15,8 @@ export const CopilotOutputSchema = z
     uncertaintyReason: z.string().nullable(),
   })
   .refine(
-    (data) => !data.uncertainty || (data.uncertaintyReason !== null && data.uncertaintyReason.length > 0),
+    (data) =>
+      !data.uncertainty || (data.uncertaintyReason !== null && data.uncertaintyReason.length > 0),
     {
       message: 'uncertaintyReason is required and must be non-empty when uncertainty is true',
       path: ['uncertaintyReason'],

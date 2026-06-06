@@ -32,7 +32,15 @@ export class AuditService {
   constructor(private readonly prisma: PrismaService) {}
 
   async log(params: LogParams): Promise<AuditLog> {
-    const timestamp = new Date();
+    let timestamp = new Date();
+    const lastEntry = await this.prisma.auditLog.findFirst({
+      orderBy: { createdAt: 'desc' },
+      select: { afterHash: true, createdAt: true },
+    });
+
+    if (lastEntry && timestamp <= lastEntry.createdAt) {
+      timestamp = new Date(lastEntry.createdAt.getTime() + 1);
+    }
 
     const afterData = {
       actorId: params.actorId,
@@ -45,16 +53,10 @@ export class AuditService {
     const afterHash = createHash('sha256').update(JSON.stringify(afterData)).digest('hex');
 
     let beforeHash = params.beforeHash;
-    if (!beforeHash) {
-      const lastEntry = await this.prisma.auditLog.findFirst({
-        orderBy: { createdAt: 'desc' },
-        select: { afterHash: true },
-      });
-      if (lastEntry?.afterHash) {
-        beforeHash = createHash('sha256')
-          .update(lastEntry.afterHash + JSON.stringify(afterData))
-          .digest('hex');
-      }
+    if (!beforeHash && lastEntry?.afterHash) {
+      beforeHash = createHash('sha256')
+        .update(lastEntry.afterHash + JSON.stringify(afterData))
+        .digest('hex');
     }
 
     return this.prisma.auditLog.create({
@@ -67,6 +69,7 @@ export class AuditService {
         afterHash,
         payload: params.payload ? (params.payload as unknown as Prisma.InputJsonValue) : undefined,
         ip: params.ip,
+        createdAt: timestamp,
       },
     });
   }
@@ -124,7 +127,15 @@ export class AuditService {
     while (true) {
       const page: Pick<
         AuditLog,
-        'id' | 'actorId' | 'action' | 'entity' | 'entityId' | 'payload' | 'createdAt' | 'afterHash' | 'beforeHash'
+        | 'id'
+        | 'actorId'
+        | 'action'
+        | 'entity'
+        | 'entityId'
+        | 'payload'
+        | 'createdAt'
+        | 'afterHash'
+        | 'beforeHash'
       >[] = await this.prisma.auditLog.findMany({
         orderBy: { createdAt: 'asc' },
         take: VERIFY_CHAIN_PAGE_SIZE,

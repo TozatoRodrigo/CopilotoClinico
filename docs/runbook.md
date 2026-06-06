@@ -29,8 +29,12 @@ O cron `AuditChainCronService` executa isso automaticamente às 02:00 UTC e loga
 ### Aplicar migrations em produção
 
 ```bash
-DATABASE_URL=<prod_url> pnpm prisma migrate deploy
+DATABASE_URL="$MIGRATION_DATABASE_URL" pnpm prisma migrate deploy
 ```
+
+`MIGRATION_DATABASE_URL` deve apontar para a role owner/admin do banco. A API
+deve continuar usando `DATABASE_URL` com o usuário LOGIN membro de
+`copiloto_app`, sem privilégios de DDL e sem `DELETE`/`TRUNCATE` em `audit_log`.
 
 ⚠️ **ATENÇÃO — audit_log:** Qualquer migration que altere a tabela `audit_log` (ex: adicionar coluna) precisa de revisão manual. O trigger `audit_log_no_update_delete` bloqueia `UPDATE`/`DELETE` mas **não bloqueia DDL**. Verificar que a migration não remove dados existentes.
 
@@ -38,8 +42,8 @@ DATABASE_URL=<prod_url> pnpm prisma migrate deploy
 
 ```bash
 # Requer PostgreSQL rodando com migrations aplicadas
-DATABASE_URL=postgresql://test:test@localhost:5432/test pnpm prisma migrate deploy
-DATABASE_URL=postgresql://test:test@localhost:5432/test pnpm test:integration
+DATABASE_URL=postgresql://test:test@localhost:5432/test?schema=public pnpm prisma migrate deploy
+DATABASE_URL=postgresql://test:test@localhost:5432/test?schema=public pnpm test:integration
 ```
 
 ---
@@ -53,6 +57,7 @@ DATABASE_URL=postgresql://test:test@localhost:5432/test pnpm test:integration
 | `20260605000000_aud_001_audit_log_append_only` | Trigger append-only + REVOKE TRUNCATE |
 | `20260605010000_iam_001_crm_verified` | Coluna `crm_verified` em physicians |
 | `20260605020000_iam_003_remove_mfa_fields` | Remove `mfa_enabled` e `mfa_secret` (dead code) |
+| `20260605030000_aud_002_db_least_privilege` | Role `copiloto_app` com menor privilégio para runtime |
 
 ### Rollback de Migration
 
@@ -71,7 +76,8 @@ Prisma não suporta rollback automático. Para reverter:
 | `JWT_REFRESH_SECRET` | Refresh tokens inválidos |
 | `INTERNAL_SERVICE_TOKEN` | Endpoint `/audit/verify-chain` inacessível |
 | `AI_API_KEY` | Análise clínica indisponível |
-| `DATABASE_URL` | Sistema completamente indisponível |
+| `DATABASE_URL` | Sistema completamente indisponível ou rodando com privilégios excessivos |
+| `MIGRATION_DATABASE_URL` | Migrations indisponíveis ou executadas com usuário incorreto |
 
 ---
 
@@ -96,6 +102,7 @@ Para uma auditoria regulatória do CFM, verificar:
 - [ ] Todos os documentos confirmados têm `DOCUMENT_CONFIRMED` com `afterHash`
 - [ ] Cadeia de hash está íntegra (`POST /audit/verify-chain`)
 - [ ] Trigger `audit_log_no_update_delete` está ativo no banco
+- [ ] Role runtime não consegue `TRUNCATE`/`DROP TABLE audit_log`
 - [ ] Logs de login existem para todos os acessos (`AUTH_LOGIN`)
 
 ---

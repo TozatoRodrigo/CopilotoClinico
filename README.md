@@ -45,7 +45,8 @@ Editar `.env` com suas chaves:
 
 | Variável | Obrigatória | Descrição |
 |---|---|---|
-| `DATABASE_URL` | ✅ | PostgreSQL (já preenchida para docker-compose local) |
+| `DATABASE_URL` | ✅ | PostgreSQL runtime da aplicação, usando a role de menor privilégio |
+| `MIGRATION_DATABASE_URL` | ✅ | PostgreSQL owner/admin, usado apenas para Prisma migrations |
 | `JWT_ACCESS_SECRET` | ✅ | Mínimo 32 caracteres |
 | `JWT_REFRESH_SECRET` | ✅ | Mínimo 32 caracteres |
 | `AI_API_KEY` | ✅ | Chave do provider de IA (Anthropic ou OpenAI) |
@@ -66,7 +67,7 @@ Aguarda PostgreSQL e Redis ficarem healthy (~ 10 segundos).
 ### 4. Aplicar migrations e gerar Prisma client
 
 ```bash
-pnpm prisma migrate deploy
+DATABASE_URL="$MIGRATION_DATABASE_URL" pnpm prisma migrate deploy
 pnpm prisma generate
 ```
 
@@ -97,7 +98,7 @@ pnpm test
 pnpm test:e2e
 
 # Integration tests (requer PostgreSQL com migrations)
-DATABASE_URL=postgresql://test:test@localhost:5432/test pnpm test:integration
+DATABASE_URL=postgresql://test:test@localhost:5432/test?schema=public pnpm test:integration
 ```
 
 ### CI

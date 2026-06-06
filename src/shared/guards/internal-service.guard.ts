@@ -16,7 +16,9 @@ export class InternalServiceGuard implements CanActivate {
   constructor(private readonly config: ConfigService) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const request = context.switchToHttp().getRequest<{ headers: Record<string, string | string[] | undefined> }>();
+    const request = context
+      .switchToHttp()
+      .getRequest<{ headers: Record<string, string | string[] | undefined> }>();
     const token = request.headers['x-internal-token'];
     const expected = this.config.get<string>('INTERNAL_SERVICE_TOKEN');
 

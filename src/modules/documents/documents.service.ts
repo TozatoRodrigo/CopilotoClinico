@@ -91,20 +91,22 @@ export class DocumentsService {
       select: DOCUMENT_SELECT,
     });
 
-    await this.auditService.log({
-      actorId: physicianId,
-      action: 'DOCUMENT_GENERATED',
-      entity: 'Document',
-      entityId: document.id,
-      payload: {
-        encounterId,
-        type: input.type,
-        contentHash,
-        // IAM-001: registrar estado de verificação no momento da geração.
-        // Permite auditoria regulatória: "documento gerado com CRM não verificado".
-        crmVerifiedAtGeneration: physician?.crmVerified ?? false,
-      },
-    }).catch(() => undefined);
+    await this.auditService
+      .log({
+        actorId: physicianId,
+        action: 'DOCUMENT_GENERATED',
+        entity: 'Document',
+        entityId: document.id,
+        payload: {
+          encounterId,
+          type: input.type,
+          contentHash,
+          // IAM-001: registrar estado de verificação no momento da geração.
+          // Permite auditoria regulatória: "documento gerado com CRM não verificado".
+          crmVerifiedAtGeneration: physician?.crmVerified ?? false,
+        },
+      })
+      .catch(() => undefined);
 
     return document;
   }
@@ -125,12 +127,14 @@ export class DocumentsService {
       select: DOCUMENT_SELECT,
     });
 
-    await this.auditService.log({
-      actorId: physicianId,
-      action: 'DOCUMENT_EDITED',
-      entity: 'Document',
-      entityId: documentId,
-    }).catch(() => undefined);
+    await this.auditService
+      .log({
+        actorId: physicianId,
+        action: 'DOCUMENT_EDITED',
+        entity: 'Document',
+        entityId: documentId,
+      })
+      .catch(() => undefined);
 
     return updated;
   }
@@ -194,20 +198,22 @@ export class DocumentsService {
     // DOCUMENT_CONFIRMED = assunção de responsabilidade médico-legal.
     // afterHash = hash do conteúdo exato que foi confirmado (reproduzível).
     // uncertain=true no payload = médico confirmou com ciência da incerteza.
-    await this.auditService.log({
-      actorId: physicianId,
-      action: 'DOCUMENT_CONFIRMED',
-      entity: 'Document',
-      entityId: documentId,
-      afterHash: contentHash,
-      payload: {
-        encounterId: doc.encounterId,
-        confirmedAt: now.toISOString(),
-        authorPhysicianId: doc.physicianId,
-        uncertain: recentInteraction?.uncertainty ?? false,
-        uncertaintyReason: recentInteraction?.uncertaintyReason ?? null,
-      },
-    }).catch(() => undefined);
+    await this.auditService
+      .log({
+        actorId: physicianId,
+        action: 'DOCUMENT_CONFIRMED',
+        entity: 'Document',
+        entityId: documentId,
+        afterHash: contentHash,
+        payload: {
+          encounterId: doc.encounterId,
+          confirmedAt: now.toISOString(),
+          authorPhysicianId: doc.physicianId,
+          uncertain: recentInteraction?.uncertainty ?? false,
+          uncertaintyReason: recentInteraction?.uncertaintyReason ?? null,
+        },
+      })
+      .catch(() => undefined);
 
     return confirmed;
   }

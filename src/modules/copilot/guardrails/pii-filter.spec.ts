@@ -53,9 +53,7 @@ describe('maskPII', () => {
   });
 
   it('masks multiple PII types in same text', () => {
-    const result = maskPII(
-      'Paciente joao@email.com CPF 123.456.789-00 tel (11) 91234-5678',
-    );
+    const result = maskPII('Paciente joao@email.com CPF 123.456.789-00 tel (11) 91234-5678');
     expect(result.redacted).toContain('[REDACTED_EMAIL]');
     expect(result.redacted).toContain('[REDACTED_CPF]');
     expect(result.redacted).toContain('[REDACTED_PHONE]');

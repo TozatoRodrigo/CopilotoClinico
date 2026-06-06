@@ -1,21 +1,22 @@
-version: "3.9"
-
 services:
   postgres:
     image: pgvector/pgvector:pg16
     container_name: copiloto-postgres
     environment:
-      POSTGRES_USER: copiloto
-      POSTGRES_PASSWORD: copiloto_dev
+      POSTGRES_USER: ${POSTGRES_OWNER_USER:-copiloto_owner}
+      POSTGRES_PASSWORD: ${POSTGRES_OWNER_PASSWORD:-copiloto_owner_dev}
       POSTGRES_DB: copiloto_clinico
+      POSTGRES_APP_USER: ${POSTGRES_APP_USER:-copiloto_app_user}
+      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:-copiloto_app_dev}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
     networks:
       - backend
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U copiloto -d copiloto_clinico"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d copiloto_clinico"]
       interval: 5s
       timeout: 5s
       retries: 5

@@ -49,6 +49,9 @@ describe('DocumentsService', () => {
       findUnique: ReturnType<typeof vi.fn>;
       update: ReturnType<typeof vi.fn>;
     };
+    physician: {
+      findUnique: ReturnType<typeof vi.fn>;
+    };
     aiInteraction: {
       findUnique: ReturnType<typeof vi.fn>;
       findFirst: ReturnType<typeof vi.fn>;
@@ -68,6 +71,9 @@ describe('DocumentsService', () => {
       encounter: {
         findUnique: vi.fn(),
         update: vi.fn(),
+      },
+      physician: {
+        findUnique: vi.fn().mockResolvedValue({ crmVerified: true }),
       },
       aiInteraction: {
         findUnique: vi.fn(),
@@ -354,7 +360,9 @@ describe('DocumentsService', () => {
       await service.confirm(physicianId, documentId);
 
       // O contentHash no update deve ser o hash das edições, não do conteúdo original
-      const updateCall = prisma.document.update.mock.calls[0] as [{ data: { contentHash: string } }];
+      const updateCall = prisma.document.update.mock.calls[0] as [
+        { data: { contentHash: string } },
+      ];
       const confirmedHash = updateCall[0].data.contentHash;
       expect(confirmedHash).toMatch(/^[a-f0-9]{64}$/);
       // Deve diferir do hash do conteúdo original (baseDocument.contentHash = 'abc123hash')

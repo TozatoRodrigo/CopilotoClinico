@@ -120,12 +120,10 @@ describe('EncountersService', () => {
     it('throws NotFoundException for missing encounter', async () => {
       prisma.encounter.findUnique.mockResolvedValue(null);
 
-      await expect(service.findById(physicianId, encounterId)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.findById(physicianId, encounterId)).rejects.toThrow(NotFoundException);
     });
 
-    it('throws ForbiddenException for another physician\'s encounter', async () => {
+    it("throws ForbiddenException for another physician's encounter", async () => {
       prisma.encounter.findUnique.mockResolvedValue({
         ...baseEncounter,
         physicianId: otherPhysicianId,
@@ -133,9 +131,7 @@ describe('EncountersService', () => {
         documents: [],
       });
 
-      await expect(service.findById(physicianId, encounterId)).rejects.toThrow(
-        ForbiddenException,
-      );
+      await expect(service.findById(physicianId, encounterId)).rejects.toThrow(ForbiddenException);
     });
   });
 
@@ -248,7 +244,7 @@ describe('EncountersService', () => {
       expect(result.status).toBe('cancelled');
     });
 
-    it('throws ForbiddenException for another physician\'s encounter', async () => {
+    it("throws ForbiddenException for another physician's encounter", async () => {
       prisma.encounter.findUnique.mockResolvedValue({
         physicianId: otherPhysicianId,
         status: 'draft',

@@ -1,4 +1,15 @@
-import { Controller, Get, Post, Body, HttpCode, HttpStatus, Inject, Req, UseGuards, Request } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  HttpCode,
+  HttpStatus,
+  Inject,
+  Req,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';

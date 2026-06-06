@@ -85,12 +85,8 @@ describe('RetrievalService', () => {
 
       expect(result.totalRetrieved).toBe(3);
       expect(result.chunks).toHaveLength(3);
-      expect(result.chunks[0]!.score).toBeGreaterThanOrEqual(
-        result.chunks[1]!.score,
-      );
-      expect(result.chunks[1]!.score).toBeGreaterThanOrEqual(
-        result.chunks[2]!.score,
-      );
+      expect(result.chunks[0]!.score).toBeGreaterThanOrEqual(result.chunks[1]!.score);
+      expect(result.chunks[1]!.score).toBeGreaterThanOrEqual(result.chunks[2]!.score);
       expect(result.chunks[0]!.id).toBe('chunk-2');
     });
 
@@ -99,9 +95,7 @@ describe('RetrievalService', () => {
         embeddings: [[0.1, 0.2]],
       });
 
-      prismaMock.$queryRaw
-        .mockResolvedValueOnce([])
-        .mockResolvedValueOnce([]);
+      prismaMock.$queryRaw.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
 
       const result = await service.search('nonexistent query');
 

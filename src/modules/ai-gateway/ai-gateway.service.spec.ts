@@ -250,9 +250,7 @@ describe('AiGatewayService', () => {
       expect(debugCalls).toContainEqual(
         expect.stringContaining('Completion request: model=test-model, messages=1'),
       );
-      expect(debugCalls).toContainEqual(
-        expect.stringContaining('Completion response:'),
-      );
+      expect(debugCalls).toContainEqual(expect.stringContaining('Completion response:'));
     });
   });
 });

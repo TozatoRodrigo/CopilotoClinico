@@ -41,7 +41,14 @@ function computeAfterHash(entry: {
 
 function computeBeforeHash(
   prevAfterHash: string,
-  entry: { actorId: string; action: string; entity: string; entityId: string; payload: Record<string, unknown> | null; createdAt: Date },
+  entry: {
+    actorId: string;
+    action: string;
+    entity: string;
+    entityId: string;
+    payload: Record<string, unknown> | null;
+    createdAt: Date;
+  },
 ): string {
   const data = {
     actorId: entry.actorId,
@@ -51,7 +58,9 @@ function computeBeforeHash(
     payload: entry.payload,
     timestamp: entry.createdAt.toISOString(),
   };
-  return createHash('sha256').update(prevAfterHash + JSON.stringify(data)).digest('hex');
+  return createHash('sha256')
+    .update(prevAfterHash + JSON.stringify(data))
+    .digest('hex');
 }
 
 // ── instancia AuditService com o Prisma real ─────────────────────────
@@ -59,6 +68,15 @@ async function buildAuditService(prisma: PrismaClient) {
   // Importação dinâmica para garantir que o PrismaClient de teste seja injetado
   const { AuditService } = await import('../../src/modules/audit/audit.service');
   return new AuditService(prisma as never);
+}
+
+async function withAuditLogTriggerDisabled(prisma: PrismaClient, action: () => Promise<unknown>) {
+  await prisma.$executeRawUnsafe('ALTER TABLE audit_log DISABLE TRIGGER audit_log_no_update_delete');
+  try {
+    await action();
+  } finally {
+    await prisma.$executeRawUnsafe('ALTER TABLE audit_log ENABLE TRIGGER audit_log_no_update_delete');
+  }
 }
 
 describe('AUD-003 — verifyChain() integration (real PostgreSQL)', () => {
@@ -94,9 +112,24 @@ describe('AUD-003 — verifyChain() integration (real PostgreSQL)', () => {
     const service = await buildAuditService(prisma);
 
     // Inserir via service para garantir que os hashes sejam gerados corretamente
-    await service.log({ actorId: TEST_ACTOR_ID, action: 'CREATE', entity: 'Encounter', entityId: TEST_ENTITY_ID });
-    await service.log({ actorId: TEST_ACTOR_ID, action: 'UPDATE', entity: 'Encounter', entityId: TEST_ENTITY_ID });
-    await service.log({ actorId: TEST_ACTOR_ID, action: 'CONFIRM', entity: 'Document', entityId: TEST_ENTITY_ID });
+    await service.log({
+      actorId: TEST_ACTOR_ID,
+      action: 'CREATE',
+      entity: 'Encounter',
+      entityId: TEST_ENTITY_ID,
+    });
+    await service.log({
+      actorId: TEST_ACTOR_ID,
+      action: 'UPDATE',
+      entity: 'Encounter',
+      entityId: TEST_ENTITY_ID,
+    });
+    await service.log({
+      actorId: TEST_ACTOR_ID,
+      action: 'CONFIRM',
+      entity: 'Document',
+      entityId: TEST_ENTITY_ID,
+    });
 
     const result = await service.verifyChain();
 
@@ -111,12 +144,20 @@ describe('AUD-003 — verifyChain() integration (real PostgreSQL)', () => {
   it('detecta afterHash corrompido e retorna valid=false com brokenAt', async () => {
     const service = await buildAuditService(prisma);
 
-    await service.log({ actorId: TEST_ACTOR_ID, action: 'CREATE', entity: 'Encounter', entityId: TEST_ENTITY_ID });
-    const [corrupted] = await prisma.$queryRaw<Array<{ id: string }>>`SELECT id FROM audit_log LIMIT 1`;
+    await service.log({
+      actorId: TEST_ACTOR_ID,
+      action: 'CREATE',
+      entity: 'Encounter',
+      entityId: TEST_ENTITY_ID,
+    });
+    const [corrupted] = await prisma.$queryRaw<
+      Array<{ id: string }>
+    >`SELECT id FROM audit_log LIMIT 1`;
 
-    // Corrompe via SQL direto no superuser de testes (o trigger bloqueia app role, não superuser)
-    await prisma.$executeRawUnsafe(
-      `UPDATE audit_log SET after_hash = '${'f'.repeat(64)}' WHERE id = '${corrupted!.id}'`,
+    await withAuditLogTriggerDisabled(prisma, () =>
+      prisma.$executeRawUnsafe(
+        `UPDATE audit_log SET after_hash = '${'f'.repeat(64)}' WHERE id = '${corrupted!.id}'`,
+      ),
     );
 
     const result = await service.verifyChain();
@@ -132,16 +173,28 @@ describe('AUD-003 — verifyChain() integration (real PostgreSQL)', () => {
   it('detecta beforeHash corrompido e retorna valid=false', async () => {
     const service = await buildAuditService(prisma);
 
-    await service.log({ actorId: TEST_ACTOR_ID, action: 'CREATE', entity: 'Encounter', entityId: TEST_ENTITY_ID });
-    await service.log({ actorId: TEST_ACTOR_ID, action: 'UPDATE', entity: 'Encounter', entityId: TEST_ENTITY_ID });
+    await service.log({
+      actorId: TEST_ACTOR_ID,
+      action: 'CREATE',
+      entity: 'Encounter',
+      entityId: TEST_ENTITY_ID,
+    });
+    await service.log({
+      actorId: TEST_ACTOR_ID,
+      action: 'UPDATE',
+      entity: 'Encounter',
+      entityId: TEST_ENTITY_ID,
+    });
 
     // Pega o segundo registro (o que tem beforeHash)
     const [, second] = await prisma.$queryRaw<Array<{ id: string }>>`
       SELECT id FROM audit_log ORDER BY created_at ASC
     `;
 
-    await prisma.$executeRawUnsafe(
-      `UPDATE audit_log SET before_hash = '${'0'.repeat(64)}' WHERE id = '${second!.id}'`,
+    await withAuditLogTriggerDisabled(prisma, () =>
+      prisma.$executeRawUnsafe(
+        `UPDATE audit_log SET before_hash = '${'0'.repeat(64)}' WHERE id = '${second!.id}'`,
+      ),
     );
 
     const result = await service.verifyChain();
