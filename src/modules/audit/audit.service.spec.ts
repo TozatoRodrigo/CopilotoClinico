@@ -112,7 +112,7 @@ describe('AuditService', () => {
 
       expect(prisma.auditLog.findFirst).toHaveBeenCalledWith({
         orderBy: { createdAt: 'desc' },
-        select: { afterHash: true },
+        select: { afterHash: true, createdAt: true },
       });
       expect(result.beforeHash).toBeNull();
       expect(prisma.auditLog.create).toHaveBeenCalledWith(

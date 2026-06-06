@@ -70,6 +70,15 @@ async function buildAuditService(prisma: PrismaClient) {
   return new AuditService(prisma as never);
 }
 
+async function withAuditLogTriggerDisabled(prisma: PrismaClient, action: () => Promise<unknown>) {
+  await prisma.$executeRawUnsafe('ALTER TABLE audit_log DISABLE TRIGGER audit_log_no_update_delete');
+  try {
+    await action();
+  } finally {
+    await prisma.$executeRawUnsafe('ALTER TABLE audit_log ENABLE TRIGGER audit_log_no_update_delete');
+  }
+}
+
 describe('AUD-003 — verifyChain() integration (real PostgreSQL)', () => {
   let prisma: PrismaClient;
 
@@ -145,9 +154,10 @@ describe('AUD-003 — verifyChain() integration (real PostgreSQL)', () => {
       Array<{ id: string }>
     >`SELECT id FROM audit_log LIMIT 1`;
 
-    // Corrompe via SQL direto no superuser de testes (o trigger bloqueia app role, não superuser)
-    await prisma.$executeRawUnsafe(
-      `UPDATE audit_log SET after_hash = '${'f'.repeat(64)}' WHERE id = '${corrupted!.id}'`,
+    await withAuditLogTriggerDisabled(prisma, () =>
+      prisma.$executeRawUnsafe(
+        `UPDATE audit_log SET after_hash = '${'f'.repeat(64)}' WHERE id = '${corrupted!.id}'`,
+      ),
     );
 
     const result = await service.verifyChain();
@@ -181,8 +191,10 @@ describe('AUD-003 — verifyChain() integration (real PostgreSQL)', () => {
       SELECT id FROM audit_log ORDER BY created_at ASC
     `;
 
-    await prisma.$executeRawUnsafe(
-      `UPDATE audit_log SET before_hash = '${'0'.repeat(64)}' WHERE id = '${second!.id}'`,
+    await withAuditLogTriggerDisabled(prisma, () =>
+      prisma.$executeRawUnsafe(
+        `UPDATE audit_log SET before_hash = '${'0'.repeat(64)}' WHERE id = '${second!.id}'`,
+      ),
     );
 
     const result = await service.verifyChain();
