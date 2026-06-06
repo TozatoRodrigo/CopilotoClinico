@@ -43,6 +43,11 @@ describe('AuthService', () => {
       update: ReturnType<typeof vi.fn>;
       create: ReturnType<typeof vi.fn>;
     };
+    loginSecurityState: {
+      findUnique: ReturnType<typeof vi.fn>;
+      upsert: ReturnType<typeof vi.fn>;
+      update: ReturnType<typeof vi.fn>;
+    };
   };
   let jwt: JwtService;
 
@@ -58,6 +63,11 @@ describe('AuthService', () => {
         findFirst: vi.fn(),
         update: vi.fn(),
         create: vi.fn(),
+      },
+      loginSecurityState: {
+        findUnique: vi.fn(),
+        upsert: vi.fn(),
+        update: vi.fn(),
       },
     };
 
@@ -162,6 +172,7 @@ describe('AuthService', () => {
   describe('login', () => {
     it('returns tokens for valid credentials', async () => {
       prisma.physician.findUnique.mockResolvedValue(mockPhysician);
+      prisma.loginSecurityState.findUnique.mockResolvedValue(null);
       vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
 
       const result = await service.login({
@@ -173,6 +184,7 @@ describe('AuthService', () => {
       expect(result).toHaveProperty('physician');
       expect(result).toHaveProperty('accessToken');
       expect(result).toHaveProperty('refreshToken');
+      expect(prisma.loginSecurityState.update).not.toHaveBeenCalled();
       expect(result.physician).toEqual({
         id: mockPhysician.id,
         email: mockPhysician.email,
@@ -184,6 +196,7 @@ describe('AuthService', () => {
 
     it('rejects wrong password with UnauthorizedException', async () => {
       prisma.physician.findUnique.mockResolvedValue(mockPhysician);
+      prisma.loginSecurityState.findUnique.mockResolvedValue(null);
       vi.mocked(bcrypt.compare).mockResolvedValue(false as never);
 
       await expect(
@@ -192,10 +205,24 @@ describe('AuthService', () => {
           password: 'WrongPassword1!',
         }),
       ).rejects.toThrow(UnauthorizedException);
+
+      expect(prisma.loginSecurityState.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            identifierHash: expect.any(String),
+          },
+          create: expect.objectContaining({
+            failedCount: 1,
+            physicianId: mockPhysician.id,
+            lockedUntil: null,
+          }),
+        }),
+      );
     });
 
     it('rejects non-existent email with UnauthorizedException', async () => {
       prisma.physician.findUnique.mockResolvedValue(null);
+      prisma.loginSecurityState.findUnique.mockResolvedValue(null);
 
       await expect(
         service.login({
@@ -205,6 +232,104 @@ describe('AuthService', () => {
       ).rejects.toThrow(UnauthorizedException);
 
       expect(bcrypt.compare).not.toHaveBeenCalled();
+      expect(prisma.loginSecurityState.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({
+            failedCount: 1,
+            physicianId: null,
+            lockedUntil: null,
+          }),
+        }),
+      );
+    });
+
+    it('locks login after the configured number of failed attempts', async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-06-06T12:00:00.000Z'));
+
+      try {
+        prisma.physician.findUnique.mockResolvedValue(mockPhysician);
+        prisma.loginSecurityState.findUnique.mockResolvedValue({
+          identifierHash: 'hash',
+          physicianId: mockPhysician.id,
+          failedCount: 4,
+          lockedUntil: null,
+          lastFailedAt: new Date('2026-06-06T11:59:00.000Z'),
+        });
+        vi.mocked(bcrypt.compare).mockResolvedValue(false as never);
+
+        await expect(
+          service.login({
+            email: 'doctor@example.com',
+            password: 'WrongPassword1!',
+          }),
+        ).rejects.toThrow(UnauthorizedException);
+
+        expect(prisma.loginSecurityState.upsert).toHaveBeenCalledWith(
+          expect.objectContaining({
+            update: expect.objectContaining({
+              failedCount: 5,
+              lockedUntil: new Date('2026-06-06T12:15:00.000Z'),
+            }),
+          }),
+        );
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('rejects locked accounts before comparing passwords', async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-06-06T12:00:00.000Z'));
+
+      try {
+        prisma.loginSecurityState.findUnique.mockResolvedValue({
+          identifierHash: 'hash',
+          physicianId: mockPhysician.id,
+          failedCount: 5,
+          lockedUntil: new Date('2026-06-06T12:10:00.000Z'),
+          lastFailedAt: new Date('2026-06-06T11:59:00.000Z'),
+        });
+
+        await expect(
+          service.login({
+            email: 'doctor@example.com',
+            password: 'StrongP@ss1',
+          }),
+        ).rejects.toThrow(UnauthorizedException);
+
+        expect(bcrypt.compare).not.toHaveBeenCalled();
+        expect(prisma.physician.findUnique).not.toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('clears failed login state after a successful login', async () => {
+      prisma.physician.findUnique.mockResolvedValue(mockPhysician);
+      prisma.loginSecurityState.findUnique.mockResolvedValue({
+        identifierHash: 'hash',
+        physicianId: mockPhysician.id,
+        failedCount: 2,
+        lockedUntil: null,
+        lastFailedAt: new Date('2026-06-06T11:59:00.000Z'),
+      });
+      vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
+
+      await service.login({
+        email: 'doctor@example.com',
+        password: 'StrongP@ss1',
+      });
+
+      expect(prisma.loginSecurityState.update).toHaveBeenCalledWith({
+        where: { identifierHash: expect.any(String) },
+        data: {
+          failedCount: 0,
+          lockedUntil: null,
+          lastFailedAt: null,
+          physicianId: mockPhysician.id,
+        },
+      });
     });
   });
 
