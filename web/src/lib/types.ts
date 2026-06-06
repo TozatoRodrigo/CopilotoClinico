@@ -32,6 +32,7 @@ export interface EncounterContext {
 }
 
 export interface CopilotAnalysis {
+  reasoning: string;
   recommendations: CopilotRecommendation[];
   citations: Citation[];
   uncertainty: boolean;
@@ -39,17 +40,35 @@ export interface CopilotAnalysis {
 }
 
 export interface CopilotRecommendation {
-  category: string;
-  title: string;
-  description: string;
-  urgency: "low" | "medium" | "high" | "critical";
-  evidenceLevel: string;
+  action: string;
+  rationale: string;
+  citationChunkId: string;
+  confidence: number;
+  source: string;
+  sourceVersion: string;
+  sourceText: string;
+  sourceUrl: string;
 }
 
 export interface Citation {
   source: string;
+  sourceVersion: string;
   chunkId: string;
-  relevance: number;
+  text: string;
+}
+
+export interface CopilotAnalyzeResponse {
+  interactionId: string;
+  output: CopilotAnalysis;
+  citations: Citation[];
+  metadata: {
+    piiDetected: boolean;
+    injectionDetected: boolean;
+    chunksRetrieved: number;
+    latencyMs: number;
+    cost: number;
+    model: string;
+  };
 }
 
 export interface Document {
