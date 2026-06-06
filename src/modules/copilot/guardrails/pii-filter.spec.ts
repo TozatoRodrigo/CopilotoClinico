@@ -3,17 +3,29 @@ import { maskPII } from './pii-filter';
 
 describe('maskPII', () => {
   it('masks formatted CPF numbers', () => {
-    const result = maskPII('Paciente CPF 123.456.789-00 internado');
+    const result = maskPII('Paciente CPF 529.982.247-25 internado');
     expect(result.redacted).toBe('Paciente CPF [REDACTED_CPF] internado');
     expect(result.detections[0]!.type).toBe('cpf');
-    expect(result.detections[0]!.original).toBe('123.456.789-00');
+    expect(result.detections[0]!.original).toBe('529.982.247-25');
     expect(result.hasPII).toBe(true);
   });
 
   it('masks unformatted CPF numbers', () => {
-    const result = maskPII('CPF do paciente: 12345678900');
+    const result = maskPII('CPF do paciente: 52998224725');
     expect(result.redacted).toBe('CPF do paciente: [REDACTED_CPF]');
-    expect(result.detections[0]!.original).toBe('12345678900');
+    expect(result.detections[0]!.original).toBe('52998224725');
+  });
+
+  it('does not mask invalid CPF-like clinical numbers', () => {
+    const result = maskPII('Paciente com protocolo 111.111.111-11 e PA 120x80');
+    expect(result.redacted).toBe('Paciente com protocolo 111.111.111-11 e PA 120x80');
+    expect(result.hasPII).toBe(false);
+  });
+
+  it('masks CNS and Cartao SUS identifiers', () => {
+    const result = maskPII('Cartao SUS 898001160497536 vinculado ao paciente');
+    expect(result.redacted).toBe('Cartao SUS [REDACTED_CNS] vinculado ao paciente');
+    expect(result.detections[0]!.type).toBe('cns');
   });
 
   it('masks email addresses', () => {
@@ -46,6 +58,12 @@ describe('maskPII', () => {
     expect(result.detections[0]!.type).toBe('date');
   });
 
+  it('preserves clinical event dates without birth-date context', () => {
+    const result = maskPII('Dor iniciou em 15/03/2024, retorno em 20/03/2024');
+    expect(result.redacted).toBe('Dor iniciou em 15/03/2024, retorno em 20/03/2024');
+    expect(result.hasPII).toBe(false);
+  });
+
   it('masks RG numbers', () => {
     const result = maskPII('RG: 12.345.678-9');
     expect(result.redacted).toBe('RG: [REDACTED_RG]');
@@ -53,7 +71,7 @@ describe('maskPII', () => {
   });
 
   it('masks multiple PII types in same text', () => {
-    const result = maskPII('Paciente joao@email.com CPF 123.456.789-00 tel (11) 91234-5678');
+    const result = maskPII('Paciente joao@email.com CPF 529.982.247-25 tel (11) 91234-5678');
     expect(result.redacted).toContain('[REDACTED_EMAIL]');
     expect(result.redacted).toContain('[REDACTED_CPF]');
     expect(result.redacted).toContain('[REDACTED_PHONE]');
