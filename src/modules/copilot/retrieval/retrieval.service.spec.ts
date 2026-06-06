@@ -141,5 +141,20 @@ describe('RetrievalService', () => {
         },
       });
     });
+
+    it('uses index-compatible vector distance SQL for semantic search', async () => {
+      aiGatewayMock.embed.mockResolvedValue({
+        embeddings: [[0.1]],
+      });
+
+      prismaMock.$queryRaw.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+
+      await service.search('test query', 3);
+
+      const semanticQuery = String(prismaMock.$queryRaw.mock.calls[0]![0]);
+      expect(semanticQuery).toContain('embedding <=>');
+      expect(semanticQuery).toContain('embedding IS NOT NULL');
+      expect(semanticQuery).not.toContain('embedding::text::vector');
+    });
   });
 });

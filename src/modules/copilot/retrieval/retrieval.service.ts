@@ -61,11 +61,12 @@ export class RetrievalService {
     const vectorStr = `[${embedding.join(',')}]`;
 
     const results = await this.prisma.$queryRaw<Array<{ id: string; similarity: number }>>`
-      SELECT id, 1 - (embedding::text::vector <=> ${vectorStr}::vector) as similarity
+      SELECT id, 1 - (embedding <=> ${vectorStr}::vector) as similarity
       FROM guideline_chunks
-      WHERE valid_from <= NOW()
+      WHERE embedding IS NOT NULL
+        AND valid_from <= NOW()
         AND (valid_to IS NULL OR valid_to > NOW())
-      ORDER BY embedding::text::vector <=> ${vectorStr}::vector
+      ORDER BY embedding <=> ${vectorStr}::vector
       LIMIT ${limit}
     `;
 
