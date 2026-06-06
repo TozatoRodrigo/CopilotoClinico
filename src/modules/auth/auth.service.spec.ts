@@ -5,9 +5,9 @@ import { AuditService } from '../audit/audit.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { ConflictException, UnauthorizedException } from '@nestjs/common';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 
-vi.mock('bcrypt', () => ({
+vi.mock('bcryptjs', () => ({
   hash: vi.fn(),
   compare: vi.fn(),
 }));

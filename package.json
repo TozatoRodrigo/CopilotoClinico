@@ -33,7 +33,7 @@
     "@nestjs/swagger": "^11.0.0",
     "@nestjs/throttler": "^6.5.0",
     "@prisma/client": "^6.0.0",
-    "bcrypt": "^6.0.0",
+    "bcryptjs": "^2.4.3",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "ioredis": "^5.4.1",
@@ -49,8 +49,7 @@
     "@nestjs/cli": "^11.0.0",
     "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.0.0",
-    "@rollup/rollup-darwin-arm64": "^4.61.1",
-    "@types/bcrypt": "^6.0.0",
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.0.0",
     "@types/passport-jwt": "^4.0.1",
     "@types/supertest": "^6.0.2",
@@ -70,11 +69,13 @@
   },
   "packageManager": "pnpm@10.33.0",
   "pnpm": {
+    "overrides": {
+      "rollup": "npm:@rollup/wasm-node"
+    },
     "onlyBuiltDependencies": [
       "@nestjs/core",
       "@prisma/client",
       "@prisma/engines",
-      "bcrypt",
       "esbuild",
       "prisma"
     ]
