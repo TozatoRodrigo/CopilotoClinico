@@ -4,6 +4,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './config/prisma.module';
 import { ThrottlerConfigModule } from './config/throttler.config';
+import { CryptoModule } from './shared/crypto/crypto.module';
 import { ThrottlerBehindProxyGuard } from './shared/guards/throttler-behind-proxy.guard';
 import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -24,6 +25,7 @@ import { GuidelinesModule } from './modules/guidelines/guidelines.module';
     ScheduleModule.forRoot(),
     ThrottlerConfigModule,
     PrismaModule,
+    CryptoModule,
     HealthModule,
     AuthModule,
     AiGatewayModule,
