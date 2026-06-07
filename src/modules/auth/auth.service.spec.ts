@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AuthService } from './auth.service';
+import { MfaService } from './mfa.service';
 import { PrismaService } from '../../config/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { JwtService } from '@nestjs/jwt';
@@ -19,6 +20,8 @@ const mockPhysician = {
   crmNumber: '123456',
   name: 'Dr. Test',
   passwordHash: 'hashed-password',
+  crmVerified: false,
+  mfaEnabled: false,
   createdAt: new Date('2025-01-01'),
 };
 
@@ -86,7 +89,14 @@ describe('AuthService', () => {
       log: vi.fn().mockResolvedValue(undefined),
     } as unknown as AuditService;
 
-    service = new AuthService(prisma as unknown as PrismaService, jwt, config, auditService);
+    const mfaService = {
+      setupMfa: vi.fn(),
+      enableMfa: vi.fn(),
+      verifyMfaCode: vi.fn(),
+      disableMfa: vi.fn(),
+    } as unknown as MfaService;
+
+    service = new AuthService(prisma as unknown as PrismaService, jwt, config, auditService, mfaService);
   });
 
   describe('register', () => {
@@ -185,12 +195,14 @@ describe('AuthService', () => {
       expect(result).toHaveProperty('accessToken');
       expect(result).toHaveProperty('refreshToken');
       expect(prisma.loginSecurityState.update).not.toHaveBeenCalled();
+      if (!('physician' in result)) throw new Error('Expected non-MFA login result');
       expect(result.physician).toEqual({
         id: mockPhysician.id,
         email: mockPhysician.email,
         crmUf: mockPhysician.crmUf,
         crmNumber: mockPhysician.crmNumber,
         name: mockPhysician.name,
+        crmVerified: mockPhysician.crmVerified,
       });
     });
 

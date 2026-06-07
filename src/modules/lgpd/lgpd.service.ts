@@ -19,7 +19,7 @@ export interface PhysicianDataExport {
     id: string;
   };
   data: {
-    physician: Omit<Physician, 'passwordHash' | 'mfaSecret'>;
+    physician: Omit<Physician, 'passwordHash' | 'mfaSecret' | 'mfaEnabled'>;
     encounters: Encounter[];
     documents: DocumentRecord[];
     aiInteractions: AiInteraction[];
