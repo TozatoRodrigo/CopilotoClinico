@@ -9,6 +9,8 @@ process.env.JWT_ACCESS_SECRET =
   process.env.JWT_ACCESS_SECRET ?? 'test-access-secret-min-32-characters-long!!';
 process.env.JWT_REFRESH_SECRET =
   process.env.JWT_REFRESH_SECRET ?? 'test-refresh-secret-min-32-characters-long!!';
+process.env.FIELD_ENCRYPTION_KEY =
+  process.env.FIELD_ENCRYPTION_KEY ?? '0000000000000000000000000000000000000000000000000000000000000000';
 
 export async function buildApp(): Promise<NestFastifyApplication> {
   const moduleFixture = await Test.createTestingModule({

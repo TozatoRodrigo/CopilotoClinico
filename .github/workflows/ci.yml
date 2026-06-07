@@ -28,6 +28,7 @@ env:
   REDIS_HOST: localhost
   REDIS_PORT: 6379
   INTERNAL_SERVICE_TOKEN: ci-internal-service-token-at-least-32-characters
+  FIELD_ENCRYPTION_KEY: 0000000000000000000000000000000000000000000000000000000000000000
 
 jobs:
   # ──────────────────────────────────────────────────────────
