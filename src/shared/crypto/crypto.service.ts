@@ -13,7 +13,7 @@ export class CryptoService implements OnModuleInit {
   constructor(@Inject(ConfigService) private readonly config: ConfigService) {}
 
   onModuleInit(): void {
-    const raw = this.config.getOrThrow<string>('FIELD_ENCRYPTION_KEY');
+    const raw = this.config.getOrThrow<string>('FIELD_ENCRYPTION_KEY').trim();
     if (!/^[0-9a-fA-F]{64}$/.test(raw)) {
       throw new Error(
         `FIELD_ENCRYPTION_KEY must be a ${KEY_HEX_LENGTH}-char hex string (32 bytes). ` +
