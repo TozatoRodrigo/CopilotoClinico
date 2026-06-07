@@ -26,6 +26,28 @@ export const refreshSchema = z.object({
   refreshToken: z.string().min(1),
 });
 
+export const mfaEnableSchema = z.object({
+  totpCode: z
+    .string()
+    .length(6)
+    .regex(/^\d{6}$/, 'TOTP code must be exactly 6 digits'),
+});
+
+export const mfaVerifySchema = z.object({
+  mfaToken: z.string().min(1, 'mfaToken is required'),
+  code: z.string().min(1, 'code is required'),
+});
+
+export const mfaDisableSchema = z.object({
+  totpCode: z
+    .string()
+    .length(6)
+    .regex(/^\d{6}$/, 'TOTP code must be exactly 6 digits'),
+});
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RefreshInput = z.infer<typeof refreshSchema>;
+export type MfaEnableInput = z.infer<typeof mfaEnableSchema>;
+export type MfaVerifyInput = z.infer<typeof mfaVerifySchema>;
+export type MfaDisableInput = z.infer<typeof mfaDisableSchema>;

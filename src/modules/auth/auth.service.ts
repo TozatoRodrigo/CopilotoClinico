@@ -1,4 +1,10 @@
-import { Injectable, Inject, UnauthorizedException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  UnauthorizedException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
@@ -6,6 +12,10 @@ import { createHash } from 'crypto';
 import { PrismaService } from '../../config/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { RegisterInput, LoginInput, RefreshInput } from './schemas/auth.schemas';
+import { MfaService } from './mfa.service';
+
+const MFA_PENDING_SCOPE = 'mfa_pending' as const;
+const MFA_TOKEN_EXPIRY = '5m';
 
 type JwtExpiry = NonNullable<JwtSignOptions['expiresIn']>;
 
@@ -27,7 +37,8 @@ export class AuthService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(JwtService) private readonly jwt: JwtService,
     @Inject(ConfigService) private readonly config: ConfigService,
-    private readonly auditService: AuditService,
+    @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(MfaService) private readonly mfaService: MfaService,
   ) {
     this.accessSecret = this.config.getOrThrow<string>('JWT_ACCESS_SECRET');
     this.refreshSecret = this.config.getOrThrow<string>('JWT_REFRESH_SECRET');
@@ -155,6 +166,19 @@ export class AuthService {
       });
     }
 
+    // Se MFA estiver ativo, emite token intermediário em vez dos tokens completos
+    if (physician.mfaEnabled) {
+      const mfaToken = await this.issueMfaPendingToken(physician.id, physician.email);
+      await this.auditSilently({
+        actorId: physician.id,
+        action: 'AUTH_LOGIN_MFA_REQUIRED',
+        entity: 'Physician',
+        entityId: physician.id,
+        ip,
+      });
+      return { mfaRequired: true, mfaToken };
+    }
+
     await this.auditSilently({
       actorId: physician.id,
       action: 'AUTH_LOGIN',
@@ -165,6 +189,7 @@ export class AuthService {
 
     const tokens = await this.generateTokens(physician.id, physician.email);
     return {
+      mfaRequired: false,
       physician: {
         id: physician.id,
         email: physician.email,
@@ -175,6 +200,79 @@ export class AuthService {
       },
       ...tokens,
     };
+  }
+
+  /**
+   * Segunda etapa do login quando MFA está ativo.
+   * Valida o mfaToken intermediário, verifica o código TOTP/backup,
+   * e emite os tokens de acesso completos.
+   */
+  async verifyMfaLogin(mfaToken: string, code: string, ip?: string) {
+    let physicianId: string;
+    let email: string;
+
+    try {
+      const payload = await this.jwt.verifyAsync<{
+        sub: string;
+        email: string;
+        physicianId: string;
+        scope: string;
+      }>(mfaToken, { secret: this.accessSecret });
+
+      if (payload.scope !== MFA_PENDING_SCOPE) {
+        throw new Error('Invalid token scope');
+      }
+
+      physicianId = payload.physicianId;
+      email = payload.email;
+    } catch {
+      throw new UnauthorizedException('Invalid or expired MFA token');
+    }
+
+    await this.mfaService.verifyMfaCode(physicianId, code, ip);
+
+    await this.auditSilently({
+      actorId: physicianId,
+      action: 'AUTH_LOGIN',
+      entity: 'Physician',
+      entityId: physicianId,
+      payload: { mfa: true },
+      ip,
+    });
+
+    const physician = await this.prisma.physician.findUnique({
+      where: { id: physicianId },
+      select: {
+        id: true,
+        email: true,
+        crmUf: true,
+        crmNumber: true,
+        name: true,
+        crmVerified: true,
+      },
+    });
+
+    if (!physician) throw new UnauthorizedException('Physician not found');
+
+    const tokens = await this.generateTokens(physicianId, email);
+    return { mfaRequired: false, physician, ...tokens };
+  }
+
+  private async issueMfaPendingToken(physicianId: string, email: string): Promise<string> {
+    return this.jwt.signAsync(
+      { sub: physicianId, email, physicianId, scope: MFA_PENDING_SCOPE },
+      { secret: this.accessSecret, expiresIn: MFA_TOKEN_EXPIRY },
+    );
+  }
+
+  /**
+   * Lança BadRequestException se o physician não tiver MFA configurado,
+   * para que o caller possa retornar 400 em vez de 401.
+   */
+  assertMfaNotRequired(mfaEnabled: boolean): void {
+    if (mfaEnabled) {
+      throw new BadRequestException('MFA is already enabled');
+    }
   }
 
   async refresh(input: RefreshInput, ip?: string) {
@@ -249,6 +347,7 @@ export class AuthService {
         crmNumber: true,
         name: true,
         crmVerified: true,
+        mfaEnabled: true,
         subscriptionStatus: true,
         createdAt: true,
       },

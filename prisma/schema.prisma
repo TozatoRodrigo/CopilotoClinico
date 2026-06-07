@@ -36,15 +36,17 @@ model Physician {
   passwordHash       String             @map("password_hash")
   name               String?            @db.VarChar(255)
   crmVerified        Boolean            @default(false) @map("crm_verified")
+  mfaEnabled         Boolean            @default(false) @map("mfa_enabled")
   mfaSecret          String?            @map("mfa_secret") @db.Text
   subscriptionStatus SubscriptionStatus @default(trial) @map("subscription_status")
   createdAt          DateTime           @default(now()) @map("created_at")
   updatedAt          DateTime           @updatedAt @map("updated_at")
 
-  encounters    Encounter[]
-  documents     Document[]
-  consents      Consent[]
-  refreshTokens RefreshToken[]
+  encounters     Encounter[]
+  documents      Document[]
+  consents       Consent[]
+  refreshTokens  RefreshToken[]
+  mfaBackupCodes MfaBackupCode[]
 
   @@map("physicians")
 }
@@ -187,4 +189,17 @@ model RefreshToken {
   @@index([tokenHash])
   @@index([physicianId])
   @@map("refresh_tokens")
+}
+
+model MfaBackupCode {
+  id          String    @id @default(uuid()) @db.Uuid
+  physicianId String    @map("physician_id") @db.Uuid
+  codeHash    String    @map("code_hash") @db.Char(64)
+  usedAt      DateTime? @map("used_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  physician Physician @relation(fields: [physicianId], references: [id], onDelete: Cascade)
+
+  @@index([physicianId])
+  @@map("mfa_backup_codes")
 }
