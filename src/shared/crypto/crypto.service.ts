@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, Inject, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 
@@ -10,7 +10,7 @@ const KEY_HEX_LENGTH = 64; // 32 bytes expressed as hex
 export class CryptoService implements OnModuleInit {
   private key!: Buffer;
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(@Inject(ConfigService) private readonly config: ConfigService) {}
 
   onModuleInit(): void {
     const raw = this.config.getOrThrow<string>('FIELD_ENCRYPTION_KEY');
