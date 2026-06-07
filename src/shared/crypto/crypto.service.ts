@@ -36,7 +36,9 @@ export class CryptoService implements OnModuleInit {
     if (parts.length !== 3) {
       throw new Error('Invalid encrypted field format; expected iv:authTag:ciphertext');
     }
-    const [ivHex, authTagHex, ciphertextHex] = parts;
+    const ivHex = parts[0] as string;
+    const authTagHex = parts[1] as string;
+    const ciphertextHex = parts[2] as string;
     const iv = Buffer.from(ivHex, 'hex');
     const authTag = Buffer.from(authTagHex, 'hex');
     const ciphertext = Buffer.from(ciphertextHex, 'hex');

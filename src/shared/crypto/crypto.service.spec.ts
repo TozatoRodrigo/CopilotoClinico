@@ -1,4 +1,4 @@
-import { Test } from '@nestjs/testing';
+import { describe, it, expect } from 'vitest';
 import { ConfigService } from '@nestjs/config';
 import { CryptoService } from './crypto.service';
 
@@ -66,7 +66,7 @@ describe('CryptoService', () => {
     it('throws on tampered ciphertext (auth tag mismatch)', () => {
       const svc = buildService();
       const encrypted = svc.encrypt('secret');
-      const [iv, tag, ct] = encrypted.split(':');
+      const [iv, tag, ct] = encrypted.split(':') as [string, string, string];
       const tampered = `${iv}:${tag}:${ct.slice(0, -2)}ff`;
       expect(() => svc.decrypt(tampered)).toThrow();
     });
