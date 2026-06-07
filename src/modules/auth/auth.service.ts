@@ -242,7 +242,14 @@ export class AuthService {
 
     const physician = await this.prisma.physician.findUnique({
       where: { id: physicianId },
-      select: { id: true, email: true, crmUf: true, crmNumber: true, name: true, crmVerified: true },
+      select: {
+        id: true,
+        email: true,
+        crmUf: true,
+        crmNumber: true,
+        name: true,
+        crmVerified: true,
+      },
     });
 
     if (!physician) throw new UnauthorizedException('Physician not found');

@@ -5,7 +5,7 @@ import {
   UnauthorizedException,
   NotFoundException,
 } from '@nestjs/common';
-import { generateSecret, generateURI, generateSync, verifySync } from 'otplib';
+import { generateSecret, generateURI, verifySync } from 'otplib';
 import { createHash, randomBytes } from 'crypto';
 import { PrismaService } from '../../config/prisma.service';
 import { CryptoService } from '../../shared/crypto/crypto.service';
