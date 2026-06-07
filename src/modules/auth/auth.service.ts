@@ -37,7 +37,7 @@ export class AuthService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(JwtService) private readonly jwt: JwtService,
     @Inject(ConfigService) private readonly config: ConfigService,
-    private readonly auditService: AuditService,
+    @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(MfaService) private readonly mfaService: MfaService,
   ) {
     this.accessSecret = this.config.getOrThrow<string>('JWT_ACCESS_SECRET');
