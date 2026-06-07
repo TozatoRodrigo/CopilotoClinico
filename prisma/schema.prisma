@@ -36,6 +36,7 @@ model Physician {
   passwordHash       String             @map("password_hash")
   name               String?            @db.VarChar(255)
   crmVerified        Boolean            @default(false) @map("crm_verified")
+  mfaSecret          String?            @map("mfa_secret") @db.Text
   subscriptionStatus SubscriptionStatus @default(trial) @map("subscription_status")
   createdAt          DateTime           @default(now()) @map("created_at")
   updatedAt          DateTime           @updatedAt @map("updated_at")
