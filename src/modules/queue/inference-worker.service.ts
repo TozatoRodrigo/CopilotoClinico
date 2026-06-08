@@ -33,8 +33,8 @@ export class InferenceWorkerService implements OnModuleInit, OnModuleDestroy {
 
   onModuleInit(): void {
     const redisUrl = this.config.getOrThrow<string>('REDIS_URL');
-    const concurrency = this.config.get<number>('INFERENCE_QUEUE_CONCURRENCY', DEFAULT_CONCURRENCY);
-    const rateLimit = this.config.get<number>('INFERENCE_QUEUE_RATE_PER_SEC', 10);
+    const concurrency = Number(this.config.get('INFERENCE_QUEUE_CONCURRENCY', DEFAULT_CONCURRENCY));
+    const rateLimit = Number(this.config.get('INFERENCE_QUEUE_RATE_PER_SEC', 10));
 
     this.connection = new IORedis(redisUrl, { maxRetriesPerRequest: null });
 

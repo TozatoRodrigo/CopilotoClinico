@@ -1,0 +1,4 @@
+# Atalho para desenvolvimento local — delega ao compose completo em docker/
+# Uso: docker compose up -d
+include:
+  - path: docker/docker-compose.yml
