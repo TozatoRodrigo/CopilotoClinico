@@ -11,6 +11,9 @@ import { AuditService } from '../audit/audit.service';
 import { GenerateDocumentInput, EditDocumentInput } from './schemas/document.schemas';
 import { generateSOAP } from './generators/soap.generator';
 import { generateSBAR } from './generators/sbar.generator';
+import { generatePrescricao } from './generators/prescricao.generator';
+import { generateAlta } from './generators/alta.generator';
+import { generateAtestado } from './generators/atestado.generator';
 import type { CopilotOutput } from '../copilot/guardrails/output-validator';
 
 const DOCUMENT_SELECT = {
@@ -69,6 +72,8 @@ export class DocumentsService {
     const copilotOutput = interaction.rawOutput as unknown as CopilotOutput;
     const caseText = copilotOutput.reasoning;
 
+    const patientRef = encounter.patientRef ?? undefined;
+
     let content: Prisma.InputJsonValue;
     switch (input.type) {
       case 'soap':
@@ -76,6 +81,27 @@ export class DocumentsService {
         break;
       case 'sbar':
         content = generateSBAR(caseText, copilotOutput) as unknown as Prisma.InputJsonObject;
+        break;
+      case 'prescricao':
+        content = generatePrescricao(
+          caseText,
+          copilotOutput,
+          patientRef,
+        ) as unknown as Prisma.InputJsonObject;
+        break;
+      case 'alta':
+        content = generateAlta(
+          caseText,
+          copilotOutput,
+          patientRef,
+        ) as unknown as Prisma.InputJsonObject;
+        break;
+      case 'atestado':
+        content = generateAtestado(
+          caseText,
+          copilotOutput,
+          patientRef,
+        ) as unknown as Prisma.InputJsonObject;
         break;
       default:
         content = {
