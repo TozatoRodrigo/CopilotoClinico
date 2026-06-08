@@ -57,7 +57,7 @@ describe('generatePrescricao', () => {
 
     const result = generatePrescricao('Caso clínico sem medicamentos claros.', outputSemMed);
 
-    expect(result.medicamentos[0].medicamento).toContain('⚠');
+    expect(result.medicamentos[0]?.medicamento).toContain('⚠');
     expect(result.avisoRevisao).not.toBeNull();
   });
 
