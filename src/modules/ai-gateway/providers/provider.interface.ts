@@ -38,6 +38,7 @@ export interface EmbeddingResponse {
 
 export interface AIProvider {
   complete(params: CompletionParams): Promise<CompletionResponse>;
+  completeStream(params: CompletionParams): AsyncGenerator<string>;
   embed(params: EmbeddingParams): Promise<EmbeddingResponse>;
   readonly name: string;
 }

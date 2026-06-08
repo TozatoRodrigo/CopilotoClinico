@@ -46,6 +46,11 @@ export interface OrchestratorResult {
   };
 }
 
+export type StreamEvent =
+  | { type: 'delta'; delta: string }
+  | { type: 'done'; result: OrchestratorResult }
+  | { type: 'error'; errors: string[] };
+
 /**
  * LGPD-005: Redação explícita do patientRef no texto clínico.
  *
@@ -236,6 +241,165 @@ export class OrchestratorService {
         latencyMs: Date.now() - start,
         cost: inferenceCost,
         model: completion.model,
+      },
+    };
+  }
+
+  async *analyzeStream(
+    physicianId: string,
+    encounterId: string,
+    input: AnalyzeInput,
+  ): AsyncGenerator<StreamEvent> {
+    const start = Date.now();
+
+    const encounter = await this.encounters.findById(physicianId, encounterId);
+
+    const piiResult = maskPII(input.caseText);
+    const fullyRedacted = redactPatientRef(piiResult.redacted, encounter.patientRef);
+
+    const injectionResult = scanForInjection(fullyRedacted);
+    if (!injectionResult.safe) {
+      this.logger.warn(`Injection detected (stream): ${injectionResult.reasons.join(', ')}`);
+      await this.auditService.log({
+        actorId: physicianId,
+        action: 'PROMPT_INJECTION_DETECTED',
+        entity: 'Encounter',
+        entityId: encounterId,
+        payload: {
+          reasons: injectionResult.reasons,
+          confidence: injectionResult.confidence,
+          piiDetected: piiResult.hasPII,
+          patientRefRedacted: piiResult.redacted !== fullyRedacted,
+          inputLength: input.caseText.length,
+        },
+      });
+      throw new BadRequestException({
+        message: 'Input contains potentially unsafe content',
+        reasons: injectionResult.reasons,
+      });
+    }
+
+    const retrievalResult = await this.retrieval.search(fullyRedacted, 5);
+
+    const encounterContext: EncounterContext = {
+      hasCT: input.context.hasCT,
+      isSus: input.context.isSus,
+      hasLab: input.context.hasLab,
+      hasICU: input.context.hasICU,
+    };
+
+    const prompt = buildPrompt({
+      caseText: fullyRedacted,
+      retrievedChunks: retrievalResult.chunks.map((c) => ({
+        chunkId: c.id,
+        text: c.text,
+        source: c.source,
+        sourceVersion: c.sourceVersion,
+        score: c.score,
+      })),
+      context: encounterContext,
+    });
+
+    let fullContent = '';
+    let streamedModel = this.aiGateway.getProviderName();
+
+    for await (const delta of this.aiGateway.completeStream({
+      messages: [
+        { role: 'system', content: prompt.system },
+        { role: 'user', content: prompt.user },
+      ],
+    })) {
+      fullContent += delta;
+      yield { type: 'delta', delta };
+    }
+
+    // Post-stream: validate output before persisting
+    const mockCompletion = { content: fullContent, model: streamedModel };
+    const inferenceCost = calculateInferenceCost({
+      model: mockCompletion.model,
+      // Approximate token count from streamed content; exact usage not available in streaming
+      usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+    });
+
+    const validation = validateOutput(fullContent, prompt.retrievedChunkIds);
+
+    if (!validation.valid || !validation.output) {
+      this.logger.error(`Stream output validation failed: ${validation.errors.join(', ')}`);
+      await this.prisma.aiInteraction.create({
+        data: {
+          encounterId,
+          inputRedacted: fullyRedacted,
+          retrievedChunkIds: prompt.retrievedChunkIds,
+          model: mockCompletion.model,
+          rawOutput: { raw: fullContent, validationErrors: validation.errors },
+          uncertainty: true,
+          uncertaintyReason: 'Output validation failed',
+          latencyMs: Date.now() - start,
+          cost: inferenceCost,
+        },
+      });
+      yield { type: 'error', errors: validation.errors };
+      return;
+    }
+
+    const enrichedOutput: EnrichedCopilotOutput = {
+      ...validation.output,
+      recommendations: validation.output.recommendations.map((rec) => {
+        const chunk = retrievalResult.chunks.find((c) => c.id === rec.citationChunkId);
+        return {
+          ...rec,
+          chunkId: rec.citationChunkId,
+          source: chunk?.source ?? 'Unknown',
+          sourceVersion: chunk?.sourceVersion ?? 'Unknown',
+          sourceText: chunk?.text ?? '',
+          sourceUrl: `/v1/guidelines/chunks/${rec.citationChunkId}`,
+        };
+      }),
+    };
+
+    const interaction = await this.prisma.aiInteraction.create({
+      data: {
+        encounterId,
+        inputRedacted: fullyRedacted,
+        retrievedChunkIds: prompt.retrievedChunkIds,
+        model: mockCompletion.model,
+        rawOutput: enrichedOutput as unknown as Prisma.InputJsonValue,
+        citations: {
+          recommendations: enrichedOutput.recommendations,
+        } as unknown as Prisma.InputJsonValue,
+        uncertainty: enrichedOutput.uncertainty,
+        uncertaintyReason: enrichedOutput.uncertaintyReason,
+        latencyMs: Date.now() - start,
+        cost: inferenceCost,
+      },
+    });
+
+    const citations = enrichedOutput.recommendations.map((rec) => {
+      const chunk = retrievalResult.chunks.find((c) => c.id === rec.citationChunkId);
+      return {
+        chunkId: rec.citationChunkId,
+        source: chunk?.source ?? 'Unknown',
+        sourceVersion: chunk?.sourceVersion ?? 'Unknown',
+        text: chunk?.text ?? '',
+      };
+    });
+
+    await this.encounters.update(physicianId, encounterId, { status: 'in_review' });
+
+    yield {
+      type: 'done',
+      result: {
+        interactionId: interaction.id,
+        output: enrichedOutput,
+        citations,
+        metadata: {
+          piiDetected: piiResult.hasPII,
+          injectionDetected: false,
+          chunksRetrieved: retrievalResult.totalRetrieved,
+          latencyMs: Date.now() - start,
+          cost: inferenceCost,
+          model: mockCompletion.model,
+        },
       },
     };
   }

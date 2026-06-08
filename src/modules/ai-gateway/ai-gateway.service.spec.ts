@@ -231,6 +231,126 @@ describe('AiGatewayService', () => {
     });
   });
 
+  describe('PERF-003: decoupled embedding provider', () => {
+    it('uses openai for embeddings when completion is anthropic', async () => {
+      const config = createMockConfig({
+        AI_PROVIDER: 'anthropic',
+        OPENAI_API_KEY: 'openai-embed-key',
+      });
+      const svc = new AiGatewayService(config);
+
+      expect(svc.getProviderName()).toBe('anthropic');
+      expect(svc.getEmbeddingProviderName()).toBe('openai');
+    });
+
+    it('uses EMBEDDING_API_KEY for embeddings when set', async () => {
+      const config = createMockConfig({
+        AI_PROVIDER: 'anthropic',
+        EMBEDDING_API_KEY: 'dedicated-embed-key',
+        EMBEDDING_BASE_URL: 'https://embed.api.com',
+      });
+      const svc = new AiGatewayService(config);
+
+      vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        mockFetchResponse({
+          data: [{ embedding: [0.1] }],
+          model: 'test-embedding-model',
+          usage: { prompt_tokens: 1, total_tokens: 1 },
+        }) as Response,
+      );
+
+      await svc.embed(['test']);
+
+      expect(fetch).toHaveBeenCalledWith(
+        'https://embed.api.com/v1/embeddings',
+        expect.objectContaining({
+          headers: expect.objectContaining({ authorization: 'Bearer dedicated-embed-key' }),
+        }),
+      );
+    });
+
+    it('keeps same provider for both when AI_PROVIDER=openai', () => {
+      const config = createMockConfig({ AI_PROVIDER: 'openai' });
+      const svc = new AiGatewayService(config);
+
+      expect(svc.getProviderName()).toBe('openai');
+      expect(svc.getEmbeddingProviderName()).toBe('openai');
+    });
+  });
+
+  describe('RT-001: completeStream', () => {
+    function makeSseStream(lines: string[]): ReadableStream<Uint8Array> {
+      const encoder = new TextEncoder();
+      return new ReadableStream({
+        start(controller) {
+          for (const line of lines) {
+            controller.enqueue(encoder.encode(line + '\n'));
+          }
+          controller.close();
+        },
+      });
+    }
+
+    it('yields text deltas from anthropic streaming response', async () => {
+      const config = createMockConfig({ AI_PROVIDER: 'anthropic' });
+      const svc = new AiGatewayService(config);
+
+      vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+        ok: true,
+        body: makeSseStream([
+          'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Hello"}}',
+          'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":" world"}}',
+          'data: [DONE]',
+        ]),
+      } as unknown as Response);
+
+      const chunks: string[] = [];
+      for await (const delta of svc.completeStream({ messages: [{ role: 'user', content: 'Hi' }] })) {
+        chunks.push(delta);
+      }
+
+      expect(chunks).toEqual(['Hello', ' world']);
+    });
+
+    it('yields text deltas from openai streaming response', async () => {
+      const config = createMockConfig({ AI_PROVIDER: 'openai' });
+      const svc = new AiGatewayService(config);
+
+      vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+        ok: true,
+        body: makeSseStream([
+          'data: {"choices":[{"delta":{"content":"Oi"},"finish_reason":null}]}',
+          'data: {"choices":[{"delta":{"content":" médico"},"finish_reason":null}]}',
+          'data: [DONE]',
+        ]),
+      } as unknown as Response);
+
+      const chunks: string[] = [];
+      for await (const delta of svc.completeStream({ messages: [{ role: 'user', content: 'Hi' }] })) {
+        chunks.push(delta);
+      }
+
+      expect(chunks).toEqual(['Oi', ' médico']);
+    });
+
+    it('throws when stream response is not ok', async () => {
+      const config = createMockConfig({ AI_PROVIDER: 'anthropic' });
+      const svc = new AiGatewayService(config);
+
+      vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+        ok: false,
+        status: 429,
+        text: () => Promise.resolve('rate limited'),
+      } as unknown as Response);
+
+      await expect(async () => {
+        for await (const _ of svc.completeStream({ messages: [{ role: 'user', content: 'Hi' }] })) {
+          // consume
+        }
+      }).rejects.toThrow('AI provider error: 429');
+    });
+  });
+
   describe('logging', () => {
     it('logs completion request metadata', async () => {
       const debugCalls: Array<string> = [];

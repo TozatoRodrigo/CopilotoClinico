@@ -6,6 +6,7 @@ describe('CopilotService', () => {
   let service: CopilotService;
   let orchestratorMock: {
     analyze: ReturnType<typeof vi.fn>;
+    analyzeStream: ReturnType<typeof vi.fn>;
   };
 
   const physicianId = 'phys-001';
@@ -50,7 +51,7 @@ describe('CopilotService', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    orchestratorMock = { analyze: vi.fn() };
+    orchestratorMock = { analyze: vi.fn(), analyzeStream: vi.fn() };
     service = new CopilotService(orchestratorMock as unknown as OrchestratorService);
   });
 
@@ -71,6 +72,34 @@ describe('CopilotService', () => {
       expect(result).toEqual(orchestratorResult);
       expect(result.interactionId).toBe('interaction-001');
       expect(result.output.recommendations).toHaveLength(1);
+    });
+  });
+
+  describe('RT-001: stream', () => {
+    async function* fakeGen() {
+      yield { type: 'delta' as const, delta: 'hello' };
+      yield { type: 'done' as const, result: orchestratorResult };
+    }
+
+    it('delegates to orchestrator.analyzeStream', () => {
+      orchestratorMock.analyzeStream.mockReturnValue(fakeGen());
+
+      service.stream(physicianId, encounterId, input);
+
+      expect(orchestratorMock.analyzeStream).toHaveBeenCalledWith(physicianId, encounterId, input);
+    });
+
+    it('returns the async generator from orchestrator', async () => {
+      orchestratorMock.analyzeStream.mockReturnValue(fakeGen());
+
+      const gen = service.stream(physicianId, encounterId, input);
+      const events = [];
+      for await (const event of gen) {
+        events.push(event);
+      }
+
+      expect(events[0]).toEqual({ type: 'delta', delta: 'hello' });
+      expect(events[1]?.type).toBe('done');
     });
   });
 });
