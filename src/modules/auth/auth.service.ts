@@ -337,6 +337,26 @@ export class AuthService {
    * Usado pelo endpoint GET /auth/me para que o frontend possa mostrar
    * o estado de verificação do CRM sem depender apenas do token JWT cached.
    */
+  async logout(physicianId: string, refreshToken?: string, ip?: string): Promise<void> {
+    if (refreshToken) {
+      const tokenHash = this.hashToken(refreshToken);
+      await this.prisma.refreshToken
+        .updateMany({
+          where: { tokenHash, physicianId, revoked: false },
+          data: { revoked: true },
+        })
+        .catch(() => undefined);
+    }
+
+    await this.auditSilently({
+      actorId: physicianId,
+      action: 'AUTH_LOGOUT',
+      entity: 'Physician',
+      entityId: physicianId,
+      ip,
+    });
+  }
+
   async getMe(physicianId: string) {
     const physician = await this.prisma.physician.findUnique({
       where: { id: physicianId },

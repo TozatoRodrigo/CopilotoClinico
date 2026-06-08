@@ -19,6 +19,7 @@ import {
   registerSchema,
   loginSchema,
   refreshSchema,
+  logoutSchema,
   mfaEnableSchema,
   mfaVerifySchema,
   mfaDisableSchema,
@@ -28,6 +29,7 @@ import {
   RegisterInput,
   LoginInput,
   RefreshInput,
+  LogoutInput,
   MfaEnableInput,
   MfaVerifyInput,
   MfaDisableInput,
@@ -75,6 +77,17 @@ export class AuthController {
     @Req() req: RequestWithIp,
   ) {
     return this.authService.refresh(body, extractIp(req));
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  async logout(
+    @Request() req: { user: { physicianId: string }; ip?: string; ips?: string[] },
+    @Body(new ZodValidationPipe(logoutSchema)) body: LogoutInput,
+  ) {
+    await this.authService.logout(req.user.physicianId, body.refreshToken, extractIp(req));
+    return { message: 'Logged out successfully' };
   }
 
   /**

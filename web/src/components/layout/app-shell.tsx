@@ -17,11 +17,10 @@ import {
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
+// TODO: adicionar /patients, /protocols, /shifts quando features existirem
 const navLinks = [
   { href: "/dashboard", label: "Painel" },
-  { href: "/patients", label: "Pacientes" },
-  { href: "/protocols", label: "Protocolos" },
-  { href: "/shifts", label: "Plantões" },
+  { href: "/encounters", label: "Atendimentos" },
   { href: "/audit", label: "Auditoria" },
 ];
 
@@ -96,12 +95,7 @@ function UserMenu() {
           </div>
         </div>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <a href="/profile">Perfil</a>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <a href="/settings">Configurações</a>
-        </DropdownMenuItem>
+        {/* TODO: /profile e /settings quando implementados */}
         <DropdownMenuSeparator />
         <DropdownMenuItem className="text-destructive" onClick={() => void handleLogout()}>
           Sair

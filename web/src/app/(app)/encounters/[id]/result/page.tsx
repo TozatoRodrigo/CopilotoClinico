@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useState, useEffect } from "react";
 import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,9 +13,18 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { CopilotAnalysis } from "@/lib/types";
 
 const STORAGE_KEY_PREFIX = "copilot_result_";
+
+interface LatestInteractionResponse {
+  interactionId: string;
+  output: CopilotAnalysis;
+  citations: CopilotAnalysis["citations"];
+  uncertainty: boolean;
+  uncertaintyReason: string | null;
+}
 
 function confidencePercent(confidence: number): string {
   return `${Math.round(confidence * 100)}%`;
@@ -27,45 +36,52 @@ export default function ResultPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: encounterId } = use(params);
+  const [result, setResult] = useState<CopilotAnalysis | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [generatingDoc, setGeneratingDoc] = useState<string | null>(null);
   const [docError, setDocError] = useState<string | null>(null);
 
-  let result: CopilotAnalysis | null = null;
-  let parseError = false;
+  useEffect(() => {
+    const storageKey = `${STORAGE_KEY_PREFIX}${encounterId}`;
 
-  try {
-    const stored = sessionStorage.getItem(
-      `${STORAGE_KEY_PREFIX}${encounterId}`,
-    );
-    if (stored) {
-      result = JSON.parse(stored) as CopilotAnalysis;
+    // Try sessionStorage first (fast path — just navigated from capture)
+    try {
+      const stored = sessionStorage.getItem(storageKey);
+      if (stored) {
+        const parsed = JSON.parse(stored) as CopilotAnalysis;
+        setResult(parsed);
+        setLoading(false);
+        return;
+      }
+    } catch {
+      // fall through to API
     }
-  } catch {
-    parseError = true;
-  }
 
-  if (!result || parseError) {
-    return (
-      <div className="container mx-auto max-w-3xl px-4 py-8">
-        <Card>
-          <CardContent className="flex flex-col items-center gap-4 py-12">
-            <p className="text-muted-foreground">
-              Nenhum resultado de análise encontrado.
-            </p>
-            <Button asChild>
-              <a href={`/encounters/${encounterId}/capture`}>
-                Ir para análise
-              </a>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  const sortedRecommendations = [...result.recommendations].sort(
-    (a, b) => b.confidence - a.confidence,
-  );
+    // Fetch from API (page reload or direct navigation)
+    apiClient
+      .get<LatestInteractionResponse>(`/encounters/${encounterId}/copilot/latest`)
+      .then((data) => {
+        const analysis: CopilotAnalysis = {
+          ...data.output,
+          citations: data.citations,
+          uncertainty: data.uncertainty,
+          uncertaintyReason: data.uncertaintyReason,
+        };
+        setResult(analysis);
+        // Repopulate sessionStorage so subsequent navigation is fast
+        try {
+          sessionStorage.setItem(storageKey, JSON.stringify(analysis));
+        } catch {
+          // storage quota — non-critical
+        }
+      })
+      .catch((err) => {
+        const message = err instanceof Error ? err.message : "Erro ao carregar análise.";
+        setFetchError(message);
+      })
+      .finally(() => setLoading(false));
+  }, [encounterId]);
 
   async function handleGenerateDocument(type: "soap" | "sbar") {
     setGeneratingDoc(type);
@@ -84,6 +100,51 @@ export default function ResultPage({
       setGeneratingDoc(null);
     }
   }
+
+  if (loading) {
+    return (
+      <div className="container mx-auto max-w-3xl space-y-6 px-4 py-8">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-6 w-28" />
+        </div>
+        <div className="space-y-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-32 w-full" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (fetchError || !result) {
+    return (
+      <div className="container mx-auto max-w-3xl px-4 py-8">
+        <Card>
+          <CardContent className="flex flex-col items-center gap-4 py-12">
+            {fetchError && (
+              <Alert variant="destructive" className="mb-2">
+                <AlertTitle>Erro ao carregar análise</AlertTitle>
+                <AlertDescription>{fetchError}</AlertDescription>
+              </Alert>
+            )}
+            <p className="text-muted-foreground">
+              Nenhum resultado de análise encontrado.
+            </p>
+            <Button asChild>
+              <a href={`/encounters/${encounterId}/capture`}>
+                Ir para análise
+              </a>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const sortedRecommendations = [...result.recommendations].sort(
+    (a, b) => b.confidence - a.confidence,
+  );
 
   return (
     <div className="container mx-auto max-w-3xl space-y-6 px-4 py-8">
