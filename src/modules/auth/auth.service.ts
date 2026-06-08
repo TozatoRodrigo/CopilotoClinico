@@ -386,7 +386,11 @@ export class AuthService {
     const result = await this.crmChecker.check(crmUf, crmNumber);
 
     if (result.source === 'unavailable') {
-      await this.crmVerification.requestVerification(physicianId).catch(() => undefined);
+      // CRM_VERIFICATION_URL not configured — skip auto-verification silently.
+      // Admin can trigger manual verification via POST /crm-verification/request.
+      this.logger.debug(
+        `CRM_VERIFICATION_URL not configured — skipping auto-verification for physician ${physicianId}`,
+      );
       return;
     }
 
