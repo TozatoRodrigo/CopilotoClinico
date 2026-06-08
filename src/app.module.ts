@@ -17,6 +17,7 @@ import { AuditModule } from './modules/audit/audit.module';
 import { GuidelinesModule } from './modules/guidelines/guidelines.module';
 import { PhysiciansModule } from './modules/physicians/physicians.module';
 import { ObservabilityModule } from './modules/observability/observability.module';
+import { AudioModule } from './modules/audio/audio.module';
 import { PiiLogSanitizerInterceptor } from './shared/interceptors/pii-log-sanitizer.interceptor';
 
 @Module({
@@ -40,6 +41,7 @@ import { PiiLogSanitizerInterceptor } from './shared/interceptors/pii-log-saniti
     LgpdModule,
     PhysiciansModule,
     ObservabilityModule,
+    AudioModule,
   ],
   providers: [
     {

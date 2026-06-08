@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Get,
   Body,
   Param,
   UseGuards,
@@ -57,5 +58,19 @@ export class CopilotController {
         }
       })();
     });
+  }
+
+  @Post('analyze/async')
+  analyzeAsync(
+    @Request() req: { user: { physicianId: string } },
+    @Param('encounterId') encounterId: string,
+    @Body(new ZodValidationPipe(analyzeSchema)) body: AnalyzeInput,
+  ) {
+    return this.copilotService.analyzeAsync(req.user.physicianId, encounterId, body);
+  }
+
+  @Get('jobs/:jobId')
+  getJobStatus(@Param('jobId') jobId: string) {
+    return this.copilotService.getJobStatus(jobId);
   }
 }

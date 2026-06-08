@@ -85,6 +85,7 @@ model Encounter {
   physician       Physician       @relation(fields: [physicianId], references: [id], onDelete: Cascade)
   aiInteractions  AiInteraction[]
   documents       Document[]
+  audioCaptures   AudioCapture[]
 
   @@index([physicianId])
   @@map("encounters")
@@ -209,6 +210,36 @@ model MfaBackupCode {
 
   @@index([physicianId])
   @@map("mfa_backup_codes")
+}
+
+enum AudioCaptureStatus {
+  pending
+  transcribing
+  completed
+  failed
+  deleted
+}
+
+model AudioCapture {
+  id               String              @id @default(uuid()) @db.Uuid
+  encounterId      String              @map("encounter_id") @db.Uuid
+  physicianId      String              @map("physician_id") @db.Uuid
+  encryptedContent String              @map("encrypted_content") @db.Text
+  mimeType         String              @map("mime_type") @db.VarChar(100)
+  sizeBytes        Int                 @map("size_bytes")
+  status           AudioCaptureStatus  @default(pending)
+  jobId            String?             @map("job_id") @db.VarChar(255)
+  transcribedText  String?             @map("transcribed_text") @db.Text
+  retainUntil      DateTime            @map("retain_until")
+  createdAt        DateTime            @default(now()) @map("created_at")
+  updatedAt        DateTime            @updatedAt @map("updated_at")
+
+  encounter Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+
+  @@index([encounterId])
+  @@index([physicianId])
+  @@index([retainUntil])
+  @@map("audio_captures")
 }
 
 model CrmVerificationRequest {
