@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './config/prisma.module';
 import { ThrottlerConfigModule } from './config/throttler.config';
@@ -16,6 +16,8 @@ import { LgpdModule } from './modules/lgpd/lgpd.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { GuidelinesModule } from './modules/guidelines/guidelines.module';
 import { PhysiciansModule } from './modules/physicians/physicians.module';
+import { ObservabilityModule } from './modules/observability/observability.module';
+import { PiiLogSanitizerInterceptor } from './shared/interceptors/pii-log-sanitizer.interceptor';
 
 @Module({
   imports: [
@@ -37,11 +39,16 @@ import { PhysiciansModule } from './modules/physicians/physicians.module';
     AuditModule,
     LgpdModule,
     PhysiciansModule,
+    ObservabilityModule,
   ],
   providers: [
     {
       provide: APP_GUARD,
       useClass: ThrottlerBehindProxyGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: PiiLogSanitizerInterceptor,
     },
   ],
 })
