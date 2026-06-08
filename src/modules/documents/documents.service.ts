@@ -1,6 +1,7 @@
 import {
   Injectable,
   Inject,
+  Logger,
   NotFoundException,
   ForbiddenException,
   ConflictException,
@@ -9,12 +10,14 @@ import { createHash } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../config/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { StorageService } from '../storage/storage.service';
 import { GenerateDocumentInput, EditDocumentInput } from './schemas/document.schemas';
 import { generateSOAP } from './generators/soap.generator';
 import { generateSBAR } from './generators/sbar.generator';
 import { generatePrescricao } from './generators/prescricao.generator';
 import { generateAlta } from './generators/alta.generator';
 import { generateAtestado } from './generators/atestado.generator';
+import { buildDocumentPdf } from './pdf/document-pdf.builder';
 import type { CopilotOutput } from '../copilot/guardrails/output-validator';
 
 const DOCUMENT_SELECT = {
@@ -43,9 +46,12 @@ function canonicalHash(obj: unknown): string {
 
 @Injectable()
 export class DocumentsService {
+  private readonly logger = new Logger(DocumentsService.name);
+
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(StorageService) private readonly storage: StorageService,
   ) {}
 
   async generate(physicianId: string, encounterId: string, input: GenerateDocumentInput) {
@@ -189,6 +195,7 @@ export class DocumentsService {
         encounterId: true,
         content: true,
         physicianEdits: true,
+        type: true,
       },
     });
 
@@ -242,7 +249,48 @@ export class DocumentsService {
       })
       .catch(() => undefined);
 
+    // Upload PDF to storage (non-blocking, graceful degradation)
+    setImmediate(() => {
+      this.uploadDocumentPdf(confirmed.id, doc.encounterId, physicianId, confirmed, now).catch(
+        (err) => this.logger.error(`PDF upload failed for document ${confirmed.id}`, err),
+      );
+    });
+
     return confirmed;
+  }
+
+  private async uploadDocumentPdf(
+    documentId: string,
+    encounterId: string,
+    physicianId: string,
+    doc: { type: string; content: unknown; id: string },
+    confirmedAt: Date,
+  ): Promise<void> {
+    if (!this.storage.isAvailable()) return;
+    const pdfBuffer = await buildDocumentPdf({
+      type: doc.type,
+      content: doc.content as Record<string, unknown>,
+      confirmedAt,
+      physicianId,
+    });
+    const key = `documents/${encounterId}/${documentId}.pdf`;
+    await this.storage.upload(key, pdfBuffer, 'application/pdf');
+    await this.prisma.document.update({
+      where: { id: documentId },
+      data: { pdfObjectKey: key },
+    });
+    this.logger.log(`PDF stored: ${key}`);
+  }
+
+  async getDownloadUrl(physicianId: string, documentId: string): Promise<string | null> {
+    const doc = await this.prisma.document.findUnique({
+      where: { id: documentId },
+      select: { physicianId: true, pdfObjectKey: true },
+    });
+    if (!doc) throw new NotFoundException('Document not found');
+    if (doc.physicianId !== physicianId) throw new ForbiddenException('Access denied');
+    if (!doc.pdfObjectKey) return null;
+    return this.storage.getPresignedUrl(doc.pdfObjectKey);
   }
 
   async findByEncounter(physicianId: string, encounterId: string) {

@@ -1,6 +1,7 @@
 import { Injectable, Logger, Inject } from '@nestjs/common';
 import { PrismaService } from '../../config/prisma.service';
 import { AiGatewayService } from '../ai-gateway/ai-gateway.service';
+import { AuditService } from '../audit/audit.service';
 import { chunkText } from './ingestion/chunking';
 
 export interface IngestGuidelineInput {
@@ -11,7 +12,7 @@ export interface IngestGuidelineInput {
   evidenceLevel?: string;
 }
 
-interface IngestedChunk {
+export interface IngestedChunk {
   id: string;
   text: string;
 }
@@ -23,6 +24,7 @@ export class GuidelinesService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(AiGatewayService) private readonly aiGateway: AiGatewayService,
+    @Inject(AuditService) private readonly auditService: AuditService,
   ) {}
 
   async ingest(input: IngestGuidelineInput): Promise<IngestedChunk[]> {
@@ -77,6 +79,21 @@ export class GuidelinesService {
     }
 
     this.logger.log(`Ingested ${created.length} chunks successfully`);
+
+    await this.auditService
+      .log({
+        actorId: 'system',
+        action: 'GUIDELINE_INGESTED',
+        entity: 'GuidelineChunk',
+        entityId: `${input.source}@${input.sourceVersion}`,
+        payload: {
+          source: input.source,
+          sourceVersion: input.sourceVersion,
+          chunks: created.length,
+        },
+      })
+      .catch(() => undefined);
+
     return created;
   }
 
@@ -95,5 +112,75 @@ export class GuidelinesService {
         validTo: true,
       },
     });
+  }
+
+  async listSources(): Promise<
+    Array<{
+      source: string;
+      sourceVersion: string;
+      chunkCount: number;
+      active: boolean;
+      validFrom: Date;
+      validTo: Date | null;
+    }>
+  > {
+    const rows = await this.prisma.guidelineChunk.findMany({
+      select: {
+        source: true,
+        sourceVersion: true,
+        validFrom: true,
+        validTo: true,
+      },
+      distinct: ['source', 'sourceVersion'],
+      orderBy: [{ source: 'asc' }, { validFrom: 'desc' }],
+    });
+
+    const result = await Promise.all(
+      rows.map(async (row) => {
+        const chunkCount = await this.prisma.guidelineChunk.count({
+          where: { source: row.source, sourceVersion: row.sourceVersion, validTo: null },
+        });
+        return {
+          source: row.source,
+          sourceVersion: row.sourceVersion,
+          chunkCount,
+          active: row.validTo === null,
+          validFrom: row.validFrom,
+          validTo: row.validTo,
+        };
+      }),
+    );
+
+    return result;
+  }
+
+  async deactivateSource(
+    source: string,
+    sourceVersion: string,
+    actorId = 'system',
+  ): Promise<{ deactivated: number }> {
+    const now = new Date();
+    const result = await this.prisma.guidelineChunk.updateMany({
+      where: { source, sourceVersion, validTo: null },
+      data: { validTo: now },
+    });
+
+    await this.auditService
+      .log({
+        actorId,
+        action: 'GUIDELINE_DEACTIVATED',
+        entity: 'GuidelineChunk',
+        entityId: `${source}@${sourceVersion}`,
+        payload: {
+          source,
+          sourceVersion,
+          deactivated: result.count,
+          deactivatedAt: now.toISOString(),
+        },
+      })
+      .catch(() => undefined);
+
+    this.logger.log(`Deactivated ${result.count} chunks for ${source} v${sourceVersion}`);
+    return { deactivated: result.count };
   }
 }

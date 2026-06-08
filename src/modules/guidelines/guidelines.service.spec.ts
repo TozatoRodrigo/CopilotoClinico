@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { GuidelinesService, type IngestGuidelineInput } from './guidelines.service';
 import { PrismaService } from '../../config/prisma.service';
 import { AiGatewayService } from '../ai-gateway/ai-gateway.service';
+import { AuditService } from '../audit/audit.service';
 
 const baseIngestInput: IngestGuidelineInput = {
   text: 'Hypertension should be treated with ACE inhibitors as first-line therapy.',
@@ -19,12 +20,16 @@ describe('GuidelinesService', () => {
     guidelineChunk: {
       create: ReturnType<typeof vi.fn>;
       findUnique: ReturnType<typeof vi.fn>;
+      findMany: ReturnType<typeof vi.fn>;
+      count: ReturnType<typeof vi.fn>;
+      updateMany: ReturnType<typeof vi.fn>;
     };
     $executeRaw: ReturnType<typeof vi.fn>;
   };
   let aiGateway: {
     embed: ReturnType<typeof vi.fn>;
   };
+  let auditService: { log: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -33,6 +38,9 @@ describe('GuidelinesService', () => {
       guidelineChunk: {
         create: vi.fn(),
         findUnique: vi.fn(),
+        findMany: vi.fn(),
+        count: vi.fn(),
+        updateMany: vi.fn(),
       },
       $executeRaw: vi.fn().mockResolvedValue(1),
     };
@@ -41,9 +49,12 @@ describe('GuidelinesService', () => {
       embed: vi.fn().mockResolvedValue({ embeddings: [mockEmbedding] }),
     };
 
+    auditService = { log: vi.fn().mockResolvedValue(undefined) };
+
     service = new GuidelinesService(
       prisma as unknown as PrismaService,
       aiGateway as unknown as AiGatewayService,
+      auditService as unknown as AuditService,
     );
   });
 
@@ -95,6 +106,21 @@ describe('GuidelinesService', () => {
       expect(prisma.guidelineChunk.create).not.toHaveBeenCalled();
       expect(prisma.$executeRaw).not.toHaveBeenCalled();
     });
+
+    it('logs audit event after ingestion', async () => {
+      prisma.guidelineChunk.create.mockResolvedValue({ id: 'chunk-uuid-1' });
+
+      await service.ingest(baseIngestInput);
+
+      expect(auditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actorId: 'system',
+          action: 'GUIDELINE_INGESTED',
+          entity: 'GuidelineChunk',
+          entityId: `${baseIngestInput.source}@${baseIngestInput.sourceVersion}`,
+        }),
+      );
+    });
   });
 
   describe('getChunkById', () => {
@@ -138,6 +164,83 @@ describe('GuidelinesService', () => {
       const result = await service.getChunkById('non-existent');
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe('listSources', () => {
+    it('returns aggregated source list with chunk counts', async () => {
+      const now = new Date();
+      prisma.guidelineChunk.findMany.mockResolvedValue([
+        { source: 'WHO HTN 2023', sourceVersion: '1.0', validFrom: now, validTo: null },
+        {
+          source: 'CFM 2022',
+          sourceVersion: '2.0',
+          validFrom: now,
+          validTo: new Date('2025-01-01'),
+        },
+      ]);
+      prisma.guidelineChunk.count.mockResolvedValueOnce(3).mockResolvedValueOnce(0);
+
+      const result = await service.listSources();
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toMatchObject({
+        source: 'WHO HTN 2023',
+        sourceVersion: '1.0',
+        chunkCount: 3,
+        active: true,
+      });
+      expect(result[1]).toMatchObject({
+        source: 'CFM 2022',
+        sourceVersion: '2.0',
+        chunkCount: 0,
+        active: false,
+      });
+    });
+
+    it('returns empty array when no guidelines exist', async () => {
+      prisma.guidelineChunk.findMany.mockResolvedValue([]);
+
+      const result = await service.listSources();
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('deactivateSource', () => {
+    it('sets validTo on active chunks and returns count', async () => {
+      prisma.guidelineChunk.updateMany.mockResolvedValue({ count: 5 });
+
+      const result = await service.deactivateSource('WHO HTN 2023', '1.0');
+
+      expect(prisma.guidelineChunk.updateMany).toHaveBeenCalledWith({
+        where: { source: 'WHO HTN 2023', sourceVersion: '1.0', validTo: null },
+        data: { validTo: expect.any(Date) },
+      });
+      expect(result).toEqual({ deactivated: 5 });
+    });
+
+    it('logs audit event after deactivation', async () => {
+      prisma.guidelineChunk.updateMany.mockResolvedValue({ count: 2 });
+
+      await service.deactivateSource('CFM 2022', '2.0', 'admin-user-id');
+
+      expect(auditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actorId: 'admin-user-id',
+          action: 'GUIDELINE_DEACTIVATED',
+          entity: 'GuidelineChunk',
+          entityId: 'CFM 2022@2.0',
+        }),
+      );
+    });
+
+    it('returns zero deactivated when no active chunks exist', async () => {
+      prisma.guidelineChunk.updateMany.mockResolvedValue({ count: 0 });
+
+      const result = await service.deactivateSource('NONEXISTENT', '1.0');
+
+      expect(result).toEqual({ deactivated: 0 });
     });
   });
 });

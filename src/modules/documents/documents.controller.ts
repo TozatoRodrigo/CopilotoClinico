@@ -8,12 +8,14 @@ import {
   UseGuards,
   Request,
   Inject,
+  Res,
 } from '@nestjs/common';
 import { DocumentsService } from './documents.service';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import { generateDocumentSchema, editDocumentSchema } from './schemas/document.schemas';
 import type { GenerateDocumentInput, EditDocumentInput } from './schemas/document.schemas';
+import type { FastifyReply } from 'fastify';
 
 @Controller('encounters/:encounterId/documents')
 @UseGuards(JwtAuthGuard)
@@ -49,5 +51,18 @@ export class DocumentsController {
   @Post(':id/confirm')
   async confirm(@Request() req: { user: { physicianId: string } }, @Param('id') id: string) {
     return this.documentsService.confirm(req.user.physicianId, id);
+  }
+
+  @Get(':id/download')
+  async download(
+    @Request() req: { user: { physicianId: string } },
+    @Param('id') id: string,
+    @Res() res: FastifyReply,
+  ) {
+    const url = await this.documentsService.getDownloadUrl(req.user.physicianId, id);
+    if (!url) {
+      return res.status(404).send({ message: 'PDF not available' });
+    }
+    return res.redirect(url);
   }
 }

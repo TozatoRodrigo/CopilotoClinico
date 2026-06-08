@@ -19,6 +19,8 @@ import { PhysiciansModule } from './modules/physicians/physicians.module';
 import { ObservabilityModule } from './modules/observability/observability.module';
 import { AudioModule } from './modules/audio/audio.module';
 import { RedisModule } from './modules/redis/redis.module';
+import { StorageModule } from './modules/storage/storage.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { PiiLogSanitizerInterceptor } from './shared/interceptors/pii-log-sanitizer.interceptor';
 
 @Module({
@@ -44,6 +46,8 @@ import { PiiLogSanitizerInterceptor } from './shared/interceptors/pii-log-saniti
     ObservabilityModule,
     AudioModule,
     RedisModule,
+    StorageModule,
+    AnalyticsModule,
   ],
   providers: [
     {
