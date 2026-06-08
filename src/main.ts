@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { ValidationPipe, Logger } from '@nestjs/common';
 import helmet from '@fastify/helmet';
+import cookie from '@fastify/cookie';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -13,6 +14,8 @@ async function bootstrap() {
   );
 
   app.setGlobalPrefix(process.env.API_PREFIX ?? 'v1');
+
+  await app.register(cookie);
 
   await app.register(helmet, {
     contentSecurityPolicy: {

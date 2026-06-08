@@ -13,7 +13,7 @@ describe('Health Check (e2e)', () => {
     await app.close();
   });
 
-  it('GET /v1/health returns 200 with status ok', async () => {
+  it('GET /v1/health returns 200 with status and dependency breakdown', async () => {
     const response = await app.inject({
       method: 'GET',
       url: '/v1/health',
@@ -21,9 +21,12 @@ describe('Health Check (e2e)', () => {
 
     expect(response.statusCode).toBe(200);
 
-    const body = response.json();
-    expect(body).toHaveProperty('status', 'ok');
+    const body = response.json<{ status: string; timestamp: string; dependencies: Record<string, unknown> }>();
+    expect(['ok', 'degraded']).toContain(body.status);
     expect(body).toHaveProperty('timestamp');
+    expect(body.dependencies).toHaveProperty('database');
+    expect(body.dependencies).toHaveProperty('ai');
+    expect(body.dependencies).toHaveProperty('redis');
   });
 
   it('GET /v1/health returns valid ISO timestamp', async () => {
@@ -32,7 +35,7 @@ describe('Health Check (e2e)', () => {
       url: '/v1/health',
     });
 
-    const body = response.json();
+    const body = response.json<{ timestamp: string }>();
     const parsedDate = new Date(body.timestamp);
     expect(parsedDate.getTime()).not.toBeNaN();
   });

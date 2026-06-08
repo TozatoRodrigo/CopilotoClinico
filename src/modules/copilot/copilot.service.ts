@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { OrchestratorService } from './orchestrator/orchestrator.service';
 import { InferenceQueueService } from '../queue/inference-queue.service';
 import { PrismaService } from '../../config/prisma.service';
@@ -8,9 +8,9 @@ import type { OrchestratorResult, StreamEvent } from './orchestrator/orchestrato
 @Injectable()
 export class CopilotService {
   constructor(
-    private readonly orchestrator: OrchestratorService,
-    private readonly queue: InferenceQueueService,
-    private readonly prisma: PrismaService,
+    @Inject(OrchestratorService) private readonly orchestrator: OrchestratorService,
+    @Inject(InferenceQueueService) private readonly queue: InferenceQueueService,
+    @Inject(PrismaService) private readonly prisma: PrismaService,
   ) {}
 
   async analyze(

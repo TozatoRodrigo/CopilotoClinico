@@ -23,6 +23,7 @@ export async function buildApp(): Promise<NestFastifyApplication> {
     .useValue({
       $connect: () => Promise.resolve(),
       $disconnect: () => Promise.resolve(),
+      $queryRaw: () => Promise.resolve([{ 1: 1 }]),
     })
     .overrideProvider(AiGatewayService)
     .useValue({

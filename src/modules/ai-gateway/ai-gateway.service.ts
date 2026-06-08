@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   AIProvider,
@@ -33,7 +33,7 @@ export class AiGatewayService {
   private readonly defaultModel: string;
   private readonly defaultEmbeddingModel: string;
 
-  constructor(private readonly config: ConfigService) {
+  constructor(@Inject(ConfigService) private readonly config: ConfigService) {
     this.defaultModel = this.config.getOrThrow<string>('AI_MODEL');
     this.defaultEmbeddingModel = this.config.getOrThrow<string>('AI_EMBEDDING_MODEL');
 

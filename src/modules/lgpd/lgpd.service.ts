@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../config/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { consentScopes, type ConsentScope } from './schemas/lgpd.schemas';
@@ -38,8 +38,8 @@ export interface ConsentScopeStatus {
 @Injectable()
 export class LgpdService {
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly auditService: AuditService,
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(AuditService) private readonly auditService: AuditService,
   ) {}
 
   async grantConsent(physicianId: string, scope: string): Promise<Consent> {

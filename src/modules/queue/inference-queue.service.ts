@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Injectable, Inject, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Queue } from 'bullmq';
 import IORedis from 'ioredis';
@@ -17,7 +17,7 @@ export class InferenceQueueService implements OnModuleInit, OnModuleDestroy {
   private queue!: Queue<InferenceJobData, InferenceJobResult>;
   private connection!: IORedis;
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(@Inject(ConfigService) private readonly config: ConfigService) {}
 
   onModuleInit(): void {
     const redisUrl = this.config.getOrThrow<string>('REDIS_URL');

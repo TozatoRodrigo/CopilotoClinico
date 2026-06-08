@@ -47,7 +47,7 @@ export default function LoginPage() {
         email,
         password,
       });
-      login(data.accessToken, data.physician);
+      login(data.physician);
       toast.success("Login realizado com sucesso!");
       window.location.href = "/dashboard";
     } catch (err) {
