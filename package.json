@@ -23,6 +23,8 @@
     "seed:guidelines": "ts-node --project tsconfig.json -e \"require('ts-node/register')\" prisma/seeds/guidelines-seed.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1064.0",
+    "@aws-sdk/s3-request-presigner": "^3.1064.0",
     "@fastify/cookie": "^11.0.2",
     "@fastify/helmet": "^13.0.2",
     "@nestjs/common": "^11.0.0",
@@ -44,6 +46,7 @@
     "otplib": "^13.4.1",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
+    "pdfkit": "^0.19.0",
     "pino": "^9.5.0",
     "pino-pretty": "^13.0.0",
     "reflect-metadata": "^0.2.2",
@@ -58,6 +61,7 @@
     "@types/node": "^22.0.0",
     "@types/otplib": "^10.0.0",
     "@types/passport-jwt": "^4.0.1",
+    "@types/pdfkit": "^0.17.6",
     "@types/supertest": "^6.0.2",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",

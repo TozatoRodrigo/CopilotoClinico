@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DocumentsService } from './documents.service';
 import { PrismaService } from '../../config/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { StorageService } from '../storage/storage.service';
 import { NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
 
 const physicianId = '550e8400-e29b-41d4-a716-446655440000';
@@ -44,6 +45,7 @@ const baseDocument = {
 describe('DocumentsService', () => {
   let service: DocumentsService;
   let auditService: AuditService;
+  let storageService: { isAvailable: ReturnType<typeof vi.fn>; upload: ReturnType<typeof vi.fn>; getPresignedUrl: ReturnType<typeof vi.fn> };
   let prisma: {
     encounter: {
       findUnique: ReturnType<typeof vi.fn>;
@@ -88,7 +90,16 @@ describe('DocumentsService', () => {
     };
 
     auditService = { log: vi.fn().mockResolvedValue(undefined) } as unknown as AuditService;
-    service = new DocumentsService(prisma as unknown as PrismaService, auditService);
+    storageService = {
+      isAvailable: vi.fn().mockReturnValue(false),
+      upload: vi.fn(),
+      getPresignedUrl: vi.fn(),
+    };
+    service = new DocumentsService(
+      prisma as unknown as PrismaService,
+      auditService,
+      storageService as unknown as StorageService,
+    );
   });
 
   describe('generate', () => {
@@ -405,6 +416,50 @@ describe('DocumentsService', () => {
       });
 
       await expect(service.findByEncounter(physicianId, encounterId)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+  });
+
+  describe('getDownloadUrl', () => {
+    it('returns presigned URL when pdfObjectKey exists', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        physicianId,
+        pdfObjectKey: 'documents/enc-1/doc-1.pdf',
+      });
+      storageService.getPresignedUrl.mockResolvedValue('https://minio/presigned-url');
+
+      const result = await service.getDownloadUrl(physicianId, documentId);
+
+      expect(result).toBe('https://minio/presigned-url');
+    });
+
+    it('returns null when pdfObjectKey is not set', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        physicianId,
+        pdfObjectKey: null,
+      });
+
+      const result = await service.getDownloadUrl(physicianId, documentId);
+
+      expect(result).toBeNull();
+    });
+
+    it('throws NotFoundException for non-existent document', async () => {
+      prisma.document.findUnique.mockResolvedValue(null);
+
+      await expect(service.getDownloadUrl(physicianId, documentId)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('throws ForbiddenException when physician does not own document', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        physicianId: otherPhysicianId,
+        pdfObjectKey: 'documents/enc-1/doc-1.pdf',
+      });
+
+      await expect(service.getDownloadUrl(physicianId, documentId)).rejects.toThrow(
         ForbiddenException,
       );
     });
