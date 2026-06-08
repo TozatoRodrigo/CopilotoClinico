@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { NotFoundException } from '@nestjs/common';
 import { CopilotService } from './copilot.service';
 import { OrchestratorService } from './orchestrator/orchestrator.service';
 import { InferenceQueueService } from '../queue/inference-queue.service';
+import { PrismaService } from '../../config/prisma.service';
 
 describe('CopilotService', () => {
   let service: CopilotService;
@@ -54,6 +56,11 @@ describe('CopilotService', () => {
     },
   };
 
+  let prismaMock: {
+    encounter: { findFirst: ReturnType<typeof vi.fn> };
+    aiInteraction: { findFirst: ReturnType<typeof vi.fn> };
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
     orchestratorMock = { analyze: vi.fn(), analyzeStream: vi.fn() };
@@ -61,9 +68,14 @@ describe('CopilotService', () => {
       enqueueAnalyze: vi.fn().mockResolvedValue('job-123'),
       getJobStatus: vi.fn().mockResolvedValue({ jobId: 'job-123', status: 'active', progress: 10 }),
     };
+    prismaMock = {
+      encounter: { findFirst: vi.fn() },
+      aiInteraction: { findFirst: vi.fn() },
+    };
     service = new CopilotService(
       orchestratorMock as unknown as OrchestratorService,
       queueMock as unknown as InferenceQueueService,
+      prismaMock as unknown as PrismaService,
     );
   });
 
@@ -128,6 +140,49 @@ describe('CopilotService', () => {
       const result = await service.getJobStatus('job-123');
       expect(result.status).toBe('active');
       expect(queueMock.getJobStatus).toHaveBeenCalledWith('job-123');
+    });
+  });
+
+  describe('getLatestInteraction', () => {
+    const mockInteraction = {
+      id: 'interaction-001',
+      rawOutput: { recommendations: [], uncertainty: false, uncertaintyReason: null },
+      citations: [],
+      uncertainty: false,
+      uncertaintyReason: null,
+      createdAt: new Date('2026-06-08'),
+    };
+
+    it('returns the most recent AI interaction for the encounter', async () => {
+      prismaMock.encounter.findFirst.mockResolvedValue({ id: encounterId });
+      prismaMock.aiInteraction.findFirst.mockResolvedValue(mockInteraction);
+
+      const result = await service.getLatestInteraction(physicianId, encounterId);
+
+      expect(result.interactionId).toBe('interaction-001');
+      expect(result.output).toEqual(mockInteraction.rawOutput);
+      expect(prismaMock.encounter.findFirst).toHaveBeenCalledWith({
+        where: { id: encounterId, physicianId },
+        select: { id: true },
+      });
+    });
+
+    it('throws NotFoundException when encounter does not belong to physician', async () => {
+      prismaMock.encounter.findFirst.mockResolvedValue(null);
+
+      await expect(service.getLatestInteraction(physicianId, encounterId)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(prismaMock.aiInteraction.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('throws NotFoundException when no interactions exist', async () => {
+      prismaMock.encounter.findFirst.mockResolvedValue({ id: encounterId });
+      prismaMock.aiInteraction.findFirst.mockResolvedValue(null);
+
+      await expect(service.getLatestInteraction(physicianId, encounterId)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 });

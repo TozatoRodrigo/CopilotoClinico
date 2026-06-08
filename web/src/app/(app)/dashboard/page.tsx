@@ -31,6 +31,12 @@ interface EncountersResponse {
   total: number;
 }
 
+interface DashboardStats {
+  todayCount: number;
+  pendingReviews: number;
+  confirmedDocuments: number;
+}
+
 const VERTICAL_LABELS: Record<string, string> = {
   trauma: "Trauma",
   cardiac: "Cardíaco",
@@ -56,14 +62,19 @@ const STATUS_VARIANTS: Record<string, "default" | "secondary" | "destructive" | 
 export default function DashboardPage() {
   const { physician } = useAuth();
   const [encounters, setEncounters] = useState<Encounter[]>([]);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchEncounters() {
+    async function fetchData() {
       try {
-        const response = await apiClient.get<EncountersResponse>("/encounters");
-        setEncounters(response.data.slice(0, 5));
+        const [encountersResponse, statsResponse] = await Promise.all([
+          apiClient.get<EncountersResponse>("/encounters"),
+          apiClient.get<DashboardStats>("/encounters/stats"),
+        ]);
+        setEncounters(encountersResponse.data.slice(0, 5));
+        setStats(statsResponse);
       } catch (err) {
         if (err instanceof ApiError) {
           setError(err.message);
@@ -74,7 +85,7 @@ export default function DashboardPage() {
         setLoading(false);
       }
     }
-    fetchEncounters();
+    fetchData();
   }, []);
 
   return (
@@ -109,19 +120,31 @@ export default function DashboardPage() {
         <Card>
           <CardContent className="pt-4">
             <p className="text-sm text-muted-foreground">Atendimentos Hoje</p>
-            <p className="text-3xl font-bold">7</p>
+            {loading ? (
+              <Skeleton className="mt-1 h-9 w-16" />
+            ) : (
+              <p className="text-3xl font-bold">{stats?.todayCount ?? 0}</p>
+            )}
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
             <p className="text-sm text-muted-foreground">Revisões Pendentes</p>
-            <p className="text-3xl font-bold">3</p>
+            {loading ? (
+              <Skeleton className="mt-1 h-9 w-16" />
+            ) : (
+              <p className="text-3xl font-bold">{stats?.pendingReviews ?? 0}</p>
+            )}
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
             <p className="text-sm text-muted-foreground">Documentos Confirmados</p>
-            <p className="text-3xl font-bold">12</p>
+            {loading ? (
+              <Skeleton className="mt-1 h-9 w-16" />
+            ) : (
+              <p className="text-3xl font-bold">{stats?.confirmedDocuments ?? 0}</p>
+            )}
           </CardContent>
         </Card>
       </div>

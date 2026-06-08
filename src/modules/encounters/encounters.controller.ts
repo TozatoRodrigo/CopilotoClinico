@@ -29,6 +29,11 @@ export class EncountersController {
     return this.encountersService.create(req.user.physicianId, body);
   }
 
+  @Get('stats')
+  async stats(@Request() req: { user: { physicianId: string } }) {
+    return this.encountersService.getDashboardStats(req.user.physicianId);
+  }
+
   @Get()
   async findAll(
     @Request() req: { user: { physicianId: string } },

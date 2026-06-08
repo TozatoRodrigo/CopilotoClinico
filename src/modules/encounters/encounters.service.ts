@@ -143,4 +143,23 @@ export class EncountersService {
 
     return updated;
   }
+
+  async getDashboardStats(physicianId: string) {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const [todayCount, pendingReviews, confirmedDocuments] = await Promise.all([
+      this.prisma.encounter.count({
+        where: { physicianId, createdAt: { gte: todayStart } },
+      }),
+      this.prisma.encounter.count({
+        where: { physicianId, status: 'in_review' },
+      }),
+      this.prisma.document.count({
+        where: { physicianId, confirmedBy: { not: null } },
+      }),
+    ]);
+
+    return { todayCount, pendingReviews, confirmedDocuments };
+  }
 }

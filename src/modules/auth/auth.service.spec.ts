@@ -44,6 +44,7 @@ describe('AuthService', () => {
     refreshToken: {
       findFirst: ReturnType<typeof vi.fn>;
       update: ReturnType<typeof vi.fn>;
+      updateMany: ReturnType<typeof vi.fn>;
       create: ReturnType<typeof vi.fn>;
     };
     loginSecurityState: {
@@ -65,6 +66,7 @@ describe('AuthService', () => {
       refreshToken: {
         findFirst: vi.fn(),
         update: vi.fn(),
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
         create: vi.fn(),
       },
       loginSecurityState: {
@@ -342,6 +344,33 @@ describe('AuthService', () => {
           physicianId: mockPhysician.id,
         },
       });
+    });
+  });
+
+  describe('logout', () => {
+    it('revokes the provided refresh token', async () => {
+      prisma.refreshToken.update = vi.fn();
+      const updateMany = vi.fn().mockResolvedValue({ count: 1 });
+      prisma.refreshToken.updateMany = updateMany;
+
+      await service.logout(mockPhysician.id, 'some-refresh-token');
+
+      expect(updateMany).toHaveBeenCalledWith({
+        where: expect.objectContaining({
+          physicianId: mockPhysician.id,
+          revoked: false,
+        }),
+        data: { revoked: true },
+      });
+    });
+
+    it('succeeds without a refresh token (idempotent)', async () => {
+      await expect(service.logout(mockPhysician.id)).resolves.toBeUndefined();
+    });
+
+    it('succeeds even if token revocation fails (idempotent)', async () => {
+      prisma.refreshToken.updateMany = vi.fn().mockRejectedValue(new Error('db error'));
+      await expect(service.logout(mockPhysician.id, 'bad-token')).resolves.toBeUndefined();
     });
   });
 
