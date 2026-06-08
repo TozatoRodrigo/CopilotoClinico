@@ -30,7 +30,7 @@ function makeConfig() {
   return new ConfigService({ REDIS_URL: 'redis://localhost:6379', INFERENCE_QUEUE_CONCURRENCY: '2' });
 }
 
-function makeJob(data: unknown, updateProgress = vi.fn().mockResolvedValue(undefined)) {
+function makeJob<T>(data: T, updateProgress = vi.fn().mockResolvedValue(undefined)) {
   return { data, id: 'test-job', name: 'test', updateProgress };
 }
 
