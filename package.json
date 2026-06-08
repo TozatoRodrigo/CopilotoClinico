@@ -19,7 +19,8 @@
     "test:integration": "vitest run --config ./vitest.config.integration.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "seed:guidelines": "ts-node --project tsconfig.json -e \"require('ts-node/register')\" prisma/seeds/guidelines-seed.ts"
   },
   "dependencies": {
     "@fastify/helmet": "^13.0.2",
