@@ -1,4 +1,4 @@
-import { Controller, Get, HttpCode, HttpStatus, Inject } from '@nestjs/common';
+import { Controller, Get, HttpStatus, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../config/prisma.service';
 

@@ -111,7 +111,8 @@ export class AuthController {
     @Req() req: FastifyRequest & RequestWithIp,
     @Res({ passthrough: true }) res: FastifyReply,
   ) {
-    const refreshToken = (req.cookies as Record<string, string>)?.refresh_token ?? body.refreshToken;
+    const refreshToken =
+      (req.cookies as Record<string, string>)?.refresh_token ?? body.refreshToken;
     if (!refreshToken) throw new UnauthorizedException('No refresh token provided');
     const tokens = await this.authService.refresh({ refreshToken }, extractIp(req));
     setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
@@ -122,7 +123,13 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
   async logout(
-    @Request() req: { user: { physicianId: string }; ip?: string; ips?: string[]; cookies?: Record<string, string> },
+    @Request()
+    req: {
+      user: { physicianId: string };
+      ip?: string;
+      ips?: string[];
+      cookies?: Record<string, string>;
+    },
     @Body(new ZodValidationPipe(logoutSchema)) body: LogoutInput,
     @Res({ passthrough: true }) res: FastifyReply,
   ) {
