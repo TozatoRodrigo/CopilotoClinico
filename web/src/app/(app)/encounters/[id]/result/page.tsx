@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,6 +37,7 @@ export default function ResultPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: encounterId } = use(params);
+  const router = useRouter();
   const [result, setResult] = useState<CopilotAnalysis | null>(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -92,7 +94,7 @@ export default function ResultPage({
         encounterId,
         type,
       });
-      window.location.href = `/encounters/${encounterId}/documents/${doc.id}`;
+      router.push(`/encounters/${encounterId}/documents/${doc.id}`);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Erro ao gerar documento.";

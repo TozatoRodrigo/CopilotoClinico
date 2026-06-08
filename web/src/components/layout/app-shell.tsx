@@ -2,7 +2,7 @@
 
 import { useTheme } from "next-themes";
 import { useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-store";
 import { cn } from "@/lib/utils";
@@ -67,11 +67,12 @@ function ThemeToggle() {
 
 function UserMenu() {
   const { physician, logout } = useAuth();
+  const router = useRouter();
 
   async function handleLogout() {
     await apiClient.post("/auth/logout").catch(() => undefined);
     logout();
-    window.location.href = "/login";
+    router.push("/login");
   }
 
   return (

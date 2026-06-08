@@ -1,6 +1,7 @@
 import { Controller, Get, HttpStatus, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../config/prisma.service';
+import { RedisService } from '../redis/redis.service';
 
 type DependencyStatus = 'ok' | 'degraded' | 'unavailable';
 
@@ -25,6 +26,7 @@ export class HealthController {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(ConfigService) private readonly config: ConfigService,
+    @Inject(RedisService) private readonly redis: RedisService,
   ) {}
 
   @Get()
@@ -79,11 +81,15 @@ export class HealthController {
     return { status: 'ok' };
   }
 
-  private checkRedis(): HealthDependency {
+  private async checkRedis(): Promise<HealthDependency> {
     const url = this.config.get<string>('REDIS_URL');
     if (!url) {
-      return { status: 'unavailable', reason: 'REDIS_URL not configured' };
+      return { status: 'degraded', reason: 'REDIS_URL not configured' };
     }
-    return { status: 'ok' };
+    const result = await this.redis.ping();
+    if (result.ok) {
+      return { status: 'ok', latencyMs: result.latencyMs };
+    }
+    return { status: 'degraded', reason: 'Redis ping failed', latencyMs: result.latencyMs };
   }
 }

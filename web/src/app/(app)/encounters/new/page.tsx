@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { apiClient, ApiError } from "@/lib/api-client";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -54,6 +55,7 @@ const CONTEXT_CHIPS: ContextChip[] = [
 ];
 
 export default function NewEncounterPage() {
+  const router = useRouter();
   const [patientRef, setPatientRef] = useState("");
   const [vertical, setVertical] = useState("trauma");
   const [context, setContext] = useState<EncounterContext>({
@@ -83,7 +85,7 @@ export default function NewEncounterPage() {
         context,
       };
       const response = await apiClient.post<CreateEncounterResponse>("/encounters", body);
-      window.location.href = `/encounters/${response.id}/capture`;
+      router.push(`/encounters/${response.id}/capture`);
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);

@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Sentry, initSentry } from "@/lib/sentry";
 
 export default function AppError({
   error,
@@ -10,11 +12,12 @@ export default function AppError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const router = useRouter();
+
   useEffect(() => {
     console.error("[AppError]", error);
-    if (typeof window !== "undefined" && "Sentry" in window) {
-      (window as unknown as { Sentry: { captureException: (e: unknown) => void } }).Sentry.captureException(error);
-    }
+    initSentry();
+    Sentry.captureException(error);
   }, [error]);
 
   return (
@@ -25,7 +28,7 @@ export default function AppError({
       </p>
       <div className="flex gap-3">
         <Button onClick={reset}>Tentar novamente</Button>
-        <Button variant="outline" onClick={() => (window.location.href = "/dashboard")}>
+        <Button variant="outline" onClick={() => router.push("/dashboard")}>
           Ir para o início
         </Button>
       </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -39,6 +40,7 @@ export default function CapturePage({
   params: Promise<{ id: string }>;
 }) {
   const { id: encounterId } = use(params);
+  const router = useRouter();
   const { isOnline } = useOnlineStatus();
 
   const [caseText, setCaseText] = useState("");
@@ -141,7 +143,7 @@ export default function CapturePage({
         `copilot_result_${encounterId}`,
         JSON.stringify(analysis),
       );
-      window.location.href = `/encounters/${encounterId}/result`;
+      router.push(`/encounters/${encounterId}/result`);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Erro ao analisar o caso.";

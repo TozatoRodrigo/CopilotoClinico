@@ -1,6 +1,7 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../config/prisma.service';
 import { AiGatewayService } from '../../ai-gateway/ai-gateway.service';
+import { RedisService } from '../../redis/redis.service';
 import {
   reciprocalRankFuse,
   sortByScore,
@@ -20,10 +21,18 @@ export class RetrievalService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(AiGatewayService) private readonly aiGateway: AiGatewayService,
+    @Inject(RedisService) private readonly redis: RedisService,
   ) {}
 
   async search(query: string, topK: number = 5): Promise<RetrievalResult> {
     this.logger.debug(`Hybrid search: query="${query.substring(0, 50)}...", topK=${topK}`);
+
+    const cacheKey = `retrieval:${Buffer.from(query).toString('base64').slice(0, 64)}:${topK}`;
+    const cached = await this.redis.get(cacheKey);
+    if (cached) {
+      this.logger.debug('Retrieval cache hit');
+      return JSON.parse(cached) as RetrievalResult;
+    }
 
     const embeddingResponse = await this.aiGateway.embed([query]);
     const queryEmbedding = embeddingResponse.embeddings[0];
@@ -51,10 +60,13 @@ export class RetrievalService {
       score: fusedScores.get(chunk.id) ?? 0,
     }));
 
-    return {
+    const result: RetrievalResult = {
       chunks: sortByScore(scored),
       totalRetrieved: scored.length,
     };
+
+    await this.redis.set(cacheKey, JSON.stringify(result), 60);
+    return result;
   }
 
   private async semanticSearch(embedding: number[], limit: number): Promise<SearchHit[]> {

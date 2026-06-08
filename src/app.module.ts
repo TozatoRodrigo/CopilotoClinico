@@ -18,6 +18,7 @@ import { GuidelinesModule } from './modules/guidelines/guidelines.module';
 import { PhysiciansModule } from './modules/physicians/physicians.module';
 import { ObservabilityModule } from './modules/observability/observability.module';
 import { AudioModule } from './modules/audio/audio.module';
+import { RedisModule } from './modules/redis/redis.module';
 import { PiiLogSanitizerInterceptor } from './shared/interceptors/pii-log-sanitizer.interceptor';
 
 @Module({
@@ -42,6 +43,7 @@ import { PiiLogSanitizerInterceptor } from './shared/interceptors/pii-log-saniti
     PhysiciansModule,
     ObservabilityModule,
     AudioModule,
+    RedisModule,
   ],
   providers: [
     {

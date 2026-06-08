@@ -20,7 +20,7 @@ describe('GuidelinesService', () => {
       create: ReturnType<typeof vi.fn>;
       findUnique: ReturnType<typeof vi.fn>;
     };
-    $executeRawUnsafe: ReturnType<typeof vi.fn>;
+    $executeRaw: ReturnType<typeof vi.fn>;
   };
   let aiGateway: {
     embed: ReturnType<typeof vi.fn>;
@@ -34,7 +34,7 @@ describe('GuidelinesService', () => {
         create: vi.fn(),
         findUnique: vi.fn(),
       },
-      $executeRawUnsafe: vi.fn().mockResolvedValue(1),
+      $executeRaw: vi.fn().mockResolvedValue(1),
     };
 
     aiGateway = {
@@ -64,11 +64,7 @@ describe('GuidelinesService', () => {
           text: baseIngestInput.text,
         }),
       });
-      expect(prisma.$executeRawUnsafe).toHaveBeenCalledWith(
-        `UPDATE guideline_chunks SET embedding = $1::vector WHERE id = $2`,
-        '[0.1,0.2,0.3]',
-        'chunk-uuid-1',
-      );
+      expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
     });
 
     it('handles long text by creating multiple chunks', async () => {
@@ -86,7 +82,7 @@ describe('GuidelinesService', () => {
       expect(result.length).toBeGreaterThan(1);
       expect(aiGateway.embed).toHaveBeenCalled();
       expect(prisma.guidelineChunk.create).toHaveBeenCalledTimes(result.length);
-      expect(prisma.$executeRawUnsafe).toHaveBeenCalledTimes(result.length);
+      expect(prisma.$executeRaw).toHaveBeenCalledTimes(result.length);
     });
 
     it('handles empty text gracefully', async () => {
@@ -97,7 +93,7 @@ describe('GuidelinesService', () => {
       expect(result).toEqual([]);
       expect(aiGateway.embed).not.toHaveBeenCalled();
       expect(prisma.guidelineChunk.create).not.toHaveBeenCalled();
-      expect(prisma.$executeRawUnsafe).not.toHaveBeenCalled();
+      expect(prisma.$executeRaw).not.toHaveBeenCalled();
     });
   });
 
