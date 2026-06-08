@@ -99,7 +99,7 @@ describe('CopilotService', () => {
       }
 
       expect(events[0]).toEqual({ type: 'delta', delta: 'hello' });
-      expect(events[1].type).toBe('done');
+      expect(events[1]?.type).toBe('done');
     });
   });
 });

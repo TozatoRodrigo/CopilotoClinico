@@ -60,8 +60,8 @@ describe('CopilotController', () => {
         context: { hasCT: true, isSus: false, hasLab: true, hasICU: false },
       });
       expect(events).toHaveLength(2);
-      expect(events[0].data).toEqual({ type: 'delta', delta: 'hello' });
-      expect(events[1].data).toMatchObject({ type: 'done' });
+      expect(events[0]?.data).toEqual({ type: 'delta', delta: 'hello' });
+      expect(events[1]?.data).toMatchObject({ type: 'done' });
     });
 
     it('completes observable after done event', async () => {
