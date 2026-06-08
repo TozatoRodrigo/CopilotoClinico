@@ -15,6 +15,7 @@ import { CopilotModule } from './modules/copilot/copilot.module';
 import { LgpdModule } from './modules/lgpd/lgpd.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { GuidelinesModule } from './modules/guidelines/guidelines.module';
+import { PhysiciansModule } from './modules/physicians/physicians.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { GuidelinesModule } from './modules/guidelines/guidelines.module';
     GuidelinesModule,
     AuditModule,
     LgpdModule,
+    PhysiciansModule,
   ],
   providers: [
     {
