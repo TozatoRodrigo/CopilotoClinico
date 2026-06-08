@@ -83,13 +83,25 @@ export class DocumentsService {
         content = generateSBAR(caseText, copilotOutput) as unknown as Prisma.InputJsonObject;
         break;
       case 'prescricao':
-        content = generatePrescricao(caseText, copilotOutput, patientRef) as unknown as Prisma.InputJsonObject;
+        content = generatePrescricao(
+          caseText,
+          copilotOutput,
+          patientRef,
+        ) as unknown as Prisma.InputJsonObject;
         break;
       case 'alta':
-        content = generateAlta(caseText, copilotOutput, patientRef) as unknown as Prisma.InputJsonObject;
+        content = generateAlta(
+          caseText,
+          copilotOutput,
+          patientRef,
+        ) as unknown as Prisma.InputJsonObject;
         break;
       case 'atestado':
-        content = generateAtestado(caseText, copilotOutput, patientRef) as unknown as Prisma.InputJsonObject;
+        content = generateAtestado(
+          caseText,
+          copilotOutput,
+          patientRef,
+        ) as unknown as Prisma.InputJsonObject;
         break;
       default:
         content = {

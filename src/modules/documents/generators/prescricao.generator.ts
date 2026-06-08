@@ -17,9 +17,6 @@ export interface MedicamentoItem {
   duracao: string;
 }
 
-const MED_PATTERN =
-  /([A-ZÀ-Ú][a-zA-ZÀ-ú\s]+?)\s+(\d+[\d,.]*\s*(?:mg|g|mcg|UI|ml|%)[^,;.]*)?(?:,\s*(?:via\s+)?([a-zA-ZÀ-ú]+))?,\s*([^,;.]+(?:x|vezes)[^,;.]+)(?:,\s*(?:por\s+)?(\d+[\s\w]+))?/gi;
-
 function extractMedicamentos(text: string): MedicamentoItem[] {
   const items: MedicamentoItem[] = [];
   const lines = text.split(/[\n;]/);
@@ -78,7 +75,8 @@ export function generatePrescricao(
       ? medicamentos
       : [
           {
-            medicamento: '⚠ Nenhum medicamento identificado automaticamente — preencher manualmente',
+            medicamento:
+              '⚠ Nenhum medicamento identificado automaticamente — preencher manualmente',
             dosagem: '',
             via: '',
             frequencia: '',
@@ -88,8 +86,10 @@ export function generatePrescricao(
     orientacoes:
       orientacoesLines.length > 0
         ? orientacoesLines.join('\n')
-        : copilotOutput.recommendations.slice(0, 3).map((r) => `- ${r.action}`).join('\n') ||
-          'Orientações a serem preenchidas pelo médico',
+        : copilotOutput.recommendations
+            .slice(0, 3)
+            .map((r) => `- ${r.action}`)
+            .join('\n') || 'Orientações a serem preenchidas pelo médico',
     incerteza: copilotOutput.uncertainty,
     avisoRevisao: copilotOutput.uncertainty
       ? `REVISÃO OBRIGATÓRIA: ${copilotOutput.uncertaintyReason ?? 'Evidência insuficiente — prescrição requer validação médica antes de dispensação'}`
