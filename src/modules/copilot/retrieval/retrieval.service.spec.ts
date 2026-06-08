@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { RetrievalService } from './retrieval.service';
 import { PrismaService } from '../../../config/prisma.service';
 import { AiGatewayService } from '../../ai-gateway/ai-gateway.service';
+import { RedisService } from '../../redis/redis.service';
 
 describe('RetrievalService', () => {
   let service: RetrievalService;
@@ -29,9 +30,15 @@ describe('RetrievalService', () => {
       embed: vi.fn(),
     };
 
+    const redisMock = {
+      get: vi.fn().mockResolvedValue(null),
+      set: vi.fn().mockResolvedValue(undefined),
+    } as unknown as RedisService;
+
     service = new RetrievalService(
       prismaMock as unknown as PrismaService,
       aiGatewayMock as unknown as AiGatewayService,
+      redisMock,
     );
   });
 

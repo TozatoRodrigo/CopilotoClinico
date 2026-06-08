@@ -2,6 +2,7 @@
 
 import { useState, useMemo, type FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-store";
 import { apiClient } from "@/lib/api-client";
 import type { AuthResponse } from "@/lib/types";
@@ -59,6 +60,7 @@ function getPasswordStrength(password: string): {
 
 export default function RegisterPage() {
   const { login } = useAuth();
+  const router = useRouter();
   const [form, setForm] = useState<FormState>({
     name: "",
     email: "",
@@ -108,7 +110,7 @@ export default function RegisterPage() {
       });
       login(data.physician);
       toast.success("Cadastro realizado com sucesso!");
-      window.location.href = "/dashboard";
+      router.push("/dashboard");
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Erro ao criar conta.";

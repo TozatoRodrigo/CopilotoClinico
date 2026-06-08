@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { Sentry, initSentry } from "@/lib/sentry";
 
 export default function EncountersError({
   error,
@@ -12,9 +13,8 @@ export default function EncountersError({
 }) {
   useEffect(() => {
     console.error("[EncountersError]", error);
-    if (typeof window !== "undefined" && "Sentry" in window) {
-      (window as unknown as { Sentry: { captureException: (e: unknown) => void } }).Sentry.captureException(error);
-    }
+    initSentry();
+    Sentry.captureException(error);
   }, [error]);
 
   return (

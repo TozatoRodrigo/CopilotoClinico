@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-store";
 import { apiClient } from "@/lib/api-client";
 import type { AuthResponse } from "@/lib/types";
@@ -22,6 +23,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function LoginPage() {
   const { login } = useAuth();
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -49,7 +51,7 @@ export default function LoginPage() {
       });
       login(data.physician);
       toast.success("Login realizado com sucesso!");
-      window.location.href = "/dashboard";
+      router.push("/dashboard");
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Erro ao fazer login.";

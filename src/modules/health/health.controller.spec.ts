@@ -3,13 +3,15 @@ import { HealthController } from './health.controller';
 
 const mockPrisma = { $queryRaw: vi.fn().mockResolvedValue([{ 1: 1 }]) };
 const mockConfig = { get: vi.fn() };
+const mockRedis = { ping: vi.fn().mockResolvedValue({ ok: true, latencyMs: 1 }) };
 
 describe('HealthController', () => {
   let controller: HealthController;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    controller = new HealthController(mockPrisma as never, mockConfig as never);
+    mockRedis.ping.mockResolvedValue({ ok: true, latencyMs: 1 });
+    controller = new HealthController(mockPrisma as never, mockConfig as never, mockRedis as never);
   });
 
   it('returns status ok when all dependencies healthy', async () => {

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { PrismaService } from '../../config/prisma.service';
 import { AiGatewayService } from '../ai-gateway/ai-gateway.service';
 import { chunkText } from './ingestion/chunking';
@@ -21,8 +21,8 @@ export class GuidelinesService {
   private readonly logger = new Logger(GuidelinesService.name);
 
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly aiGateway: AiGatewayService,
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(AiGatewayService) private readonly aiGateway: AiGatewayService,
   ) {}
 
   async ingest(input: IngestGuidelineInput): Promise<IngestedChunk[]> {
@@ -67,11 +67,8 @@ export class GuidelinesService {
         },
       });
 
-      await this.prisma.$executeRawUnsafe(
-        `UPDATE guideline_chunks SET embedding = $1::vector WHERE id = $2`,
-        embeddingStr,
-        record.id,
-      );
+      await this.prisma
+        .$executeRaw`UPDATE "guideline_chunks" SET embedding = ${embeddingStr}::vector WHERE id = ${record.id}::uuid`;
 
       created.push({
         id: record.id,
