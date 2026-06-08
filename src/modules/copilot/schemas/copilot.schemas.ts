@@ -13,3 +13,15 @@ export const analyzeSchema = z.object({
 });
 
 export type AnalyzeInput = z.infer<typeof analyzeSchema>;
+
+const boolParam = z.preprocess((v) => v === 'true' || v === true, z.boolean()).default(false);
+
+export const streamQuerySchema = z.object({
+  caseText: z.string().min(10, 'Case text must be at least 10 characters'),
+  hasCT: boolParam,
+  isSus: boolParam,
+  hasLab: boolParam,
+  hasICU: boolParam,
+});
+
+export type StreamQuery = z.infer<typeof streamQuerySchema>;
