@@ -1,12 +1,17 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { CopilotService } from './copilot.service';
 import { OrchestratorService } from './orchestrator/orchestrator.service';
+import { InferenceQueueService } from '../queue/inference-queue.service';
 
 describe('CopilotService', () => {
   let service: CopilotService;
   let orchestratorMock: {
     analyze: ReturnType<typeof vi.fn>;
     analyzeStream: ReturnType<typeof vi.fn>;
+  };
+  let queueMock: {
+    enqueueAnalyze: ReturnType<typeof vi.fn>;
+    getJobStatus: ReturnType<typeof vi.fn>;
   };
 
   const physicianId = 'phys-001';
@@ -52,7 +57,14 @@ describe('CopilotService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     orchestratorMock = { analyze: vi.fn(), analyzeStream: vi.fn() };
-    service = new CopilotService(orchestratorMock as unknown as OrchestratorService);
+    queueMock = {
+      enqueueAnalyze: vi.fn().mockResolvedValue('job-123'),
+      getJobStatus: vi.fn().mockResolvedValue({ jobId: 'job-123', status: 'active', progress: 10 }),
+    };
+    service = new CopilotService(
+      orchestratorMock as unknown as OrchestratorService,
+      queueMock as unknown as InferenceQueueService,
+    );
   });
 
   describe('analyze', () => {
@@ -100,6 +112,22 @@ describe('CopilotService', () => {
 
       expect(events[0]).toEqual({ type: 'delta', delta: 'hello' });
       expect(events[1]?.type).toBe('done');
+    });
+  });
+
+  describe('RT-002: analyzeAsync', () => {
+    it('enqueues analyze job and returns jobId', async () => {
+      const result = await service.analyzeAsync(physicianId, encounterId, input);
+      expect(result).toEqual({ jobId: 'job-123' });
+      expect(queueMock.enqueueAnalyze).toHaveBeenCalledWith({ physicianId, encounterId, input });
+    });
+  });
+
+  describe('RT-002: getJobStatus', () => {
+    it('returns job status from queue service', async () => {
+      const result = await service.getJobStatus('job-123');
+      expect(result.status).toBe('active');
+      expect(queueMock.getJobStatus).toHaveBeenCalledWith('job-123');
     });
   });
 });
