@@ -17,6 +17,7 @@ describe('WhisperService', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     service = new WhisperService(makeConfig());
+    service.onModuleInit();
   });
 
   it('returns trimmed transcript on success', async () => {
@@ -47,6 +48,7 @@ describe('WhisperService', () => {
 
   it('uses custom base url when configured', async () => {
     const customService = new WhisperService(makeConfig({ WHISPER_BASE_URL: 'https://custom.api/v1' }));
+    customService.onModuleInit();
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
       text: vi.fn().mockResolvedValue('ok'),

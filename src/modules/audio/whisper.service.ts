@@ -1,16 +1,18 @@
-import { Injectable, Logger, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, Logger, InternalServerErrorException, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 const WHISPER_MODEL = 'whisper-large-v3';
 const TRANSCRIPTION_PATH = '/audio/transcriptions';
 
 @Injectable()
-export class WhisperService {
+export class WhisperService implements OnModuleInit {
   private readonly logger = new Logger(WhisperService.name);
-  private readonly baseUrl: string;
-  private readonly apiKey: string;
+  private baseUrl!: string;
+  private apiKey!: string;
 
-  constructor(private readonly config: ConfigService) {
+  constructor(private readonly config: ConfigService) {}
+
+  onModuleInit(): void {
     this.baseUrl = this.config.get<string>('WHISPER_BASE_URL', 'https://api.groq.com/openai/v1');
     this.apiKey = this.config.getOrThrow<string>('WHISPER_API_KEY');
   }
