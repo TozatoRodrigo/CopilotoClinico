@@ -56,7 +56,7 @@ describe('MfaService.setupMfa', () => {
     await expect(service.setupMfa(PHYSICIAN_ID)).rejects.toThrow(BadRequestException);
   });
 
-  it('returns otpauthUri and 8 backup codes', async () => {
+  it('returns otpauthUri, 8 backup codes and qrCode', async () => {
     const { service, prisma, crypto } = buildMocks();
     vi.mocked(prisma.physician.findUnique).mockResolvedValue({
       id: PHYSICIAN_ID,
@@ -72,6 +72,7 @@ describe('MfaService.setupMfa', () => {
     expect(result.otpauthUri).toMatch(/^otpauth:\/\/totp\//);
     expect(result.backupCodes).toHaveLength(8);
     result.backupCodes.forEach((code) => expect(code).toMatch(/^[0-9a-f]{8}$/));
+    expect(result.qrCode).toMatch(/^data:image\/png;base64,/);
     expect(crypto.encrypt).toHaveBeenCalledOnce();
   });
 
@@ -249,5 +250,57 @@ describe('MfaService.disableMfa', () => {
       mfaSecret: null,
     });
     expect(prisma.mfaBackupCode.deleteMany).toHaveBeenCalledWith({ where: { physicianId: PHYSICIAN_ID } });
+  });
+});
+
+// ── resetMfa (admin) ─────────────────────────────────────────────────────────
+
+describe('MfaService.resetMfa', () => {
+  const ADMIN_ID = 'admin-uuid-001';
+
+  it('throws NotFoundException when physician does not exist', async () => {
+    const { service, prisma } = buildMocks();
+    vi.mocked(prisma.physician.findUnique).mockResolvedValue(null);
+    await expect(service.resetMfa(PHYSICIAN_ID, ADMIN_ID)).rejects.toThrow(NotFoundException);
+  });
+
+  it('clears mfaEnabled, mfaSecret and backup codes for any physician', async () => {
+    const { service, prisma } = buildMocks();
+    vi.mocked(prisma.physician.findUnique).mockResolvedValue({
+      id: PHYSICIAN_ID,
+      mfaEnabled: true,
+    } as never);
+    vi.mocked(prisma.physician.update).mockResolvedValue({} as never);
+    vi.mocked(prisma.mfaBackupCode.deleteMany).mockResolvedValue({ count: 8 } as never);
+
+    await service.resetMfa(PHYSICIAN_ID, ADMIN_ID);
+
+    const updateCall = vi.mocked(prisma.physician.update).mock.calls[0];
+    expect((updateCall?.[0] as { data: unknown }).data).toEqual({
+      mfaEnabled: false,
+      mfaSecret: null,
+    });
+    expect(prisma.mfaBackupCode.deleteMany).toHaveBeenCalledWith({ where: { physicianId: PHYSICIAN_ID } });
+  });
+
+  it('dispatches audit event with adminId as actorId', async () => {
+    const { service, prisma, audit } = buildMocks();
+    vi.mocked(prisma.physician.findUnique).mockResolvedValue({
+      id: PHYSICIAN_ID,
+      mfaEnabled: true,
+    } as never);
+    vi.mocked(prisma.physician.update).mockResolvedValue({} as never);
+    vi.mocked(prisma.mfaBackupCode.deleteMany).mockResolvedValue({ count: 0 } as never);
+
+    await service.resetMfa(PHYSICIAN_ID, ADMIN_ID);
+
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorId: ADMIN_ID,
+        action: 'AUTH_MFA_ADMIN_RESET',
+        entity: 'Physician',
+        entityId: PHYSICIAN_ID,
+      }),
+    );
   });
 });

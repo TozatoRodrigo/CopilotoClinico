@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { generateSecret, generateURI, verifySync } from 'otplib';
 import { createHash, randomBytes } from 'crypto';
+import QRCode from 'qrcode';
 import { PrismaService } from '../../config/prisma.service';
 import { CryptoService } from '../../shared/crypto/crypto.service';
 import { AuditService } from '../audit/audit.service';
@@ -20,15 +21,14 @@ export class MfaService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(CryptoService) private readonly crypto: CryptoService,
-    private readonly auditService: AuditService,
+    @Inject(AuditService) private readonly auditService: AuditService,
   ) {}
 
-  /**
-   * Gera e persiste um novo segredo TOTP + 8 backup codes para o médico.
-   * MFA não fica ativo até que enableMfa() seja chamado com código válido.
-   * Pode ser chamado novamente para resetar o setup enquanto mfaEnabled=false.
-   */
-  async setupMfa(physicianId: string): Promise<{ otpauthUri: string; backupCodes: string[] }> {
+  async setupMfa(physicianId: string): Promise<{
+    otpauthUri: string;
+    backupCodes: string[];
+    qrCode: string;
+  }> {
     const physician = await this.prisma.physician.findUnique({
       where: { id: physicianId },
       select: { id: true, email: true, mfaEnabled: true },
@@ -59,6 +59,7 @@ export class MfaService {
     });
 
     const otpauthUri = generateURI({ issuer: APP_NAME, label: physician.email, secret });
+    const qrCode = await QRCode.toDataURL(otpauthUri);
 
     await this.auditSilently({
       actorId: physicianId,
@@ -67,13 +68,9 @@ export class MfaService {
       entityId: physicianId,
     });
 
-    return { otpauthUri, backupCodes };
+    return { otpauthUri, backupCodes, qrCode };
   }
 
-  /**
-   * Confirma o setup do MFA verificando o primeiro código TOTP.
-   * Após isso mfaEnabled=true e o login passará a exigir TOTP.
-   */
   async enableMfa(physicianId: string, totpCode: string): Promise<void> {
     const physician = await this.prisma.physician.findUnique({
       where: { id: physicianId },
@@ -110,10 +107,6 @@ export class MfaService {
     });
   }
 
-  /**
-   * Valida um código MFA (TOTP ou backup code) durante o login.
-   * Backup codes são de uso único; são marcados com usedAt após uso.
-   */
   async verifyMfaCode(physicianId: string, code: string, ip?: string): Promise<void> {
     const physician = await this.prisma.physician.findUnique({
       where: { id: physicianId },
@@ -126,20 +119,17 @@ export class MfaService {
 
     const secret = this.crypto.decrypt(physician.mfaSecret);
 
-    // 1. Tenta TOTP (verifySync throws TokenLengthError for non-6-digit tokens in otplib v13)
     let totpValid = false;
     try {
       const totpResult = verifySync({ token: code, secret });
       totpValid = totpResult.valid;
     } catch {
-      // Invalid token format — treat as failed TOTP and try backup code
       totpValid = false;
     }
     if (totpValid) {
       return;
     }
 
-    // 2. Tenta backup code
     const codeHash = createHash('sha256').update(code).digest('hex');
     const backupCode = await this.prisma.mfaBackupCode.findFirst({
       where: { physicianId, codeHash, usedAt: null },
@@ -164,10 +154,6 @@ export class MfaService {
     throw new UnauthorizedException('Invalid MFA code');
   }
 
-  /**
-   * Desativa o MFA após confirmar o código TOTP atual.
-   * Remove segredo e todos os backup codes.
-   */
   async disableMfa(physicianId: string, totpCode: string): Promise<void> {
     const physician = await this.prisma.physician.findUnique({
       where: { id: physicianId },
@@ -201,6 +187,30 @@ export class MfaService {
     await this.auditSilently({
       actorId: physicianId,
       action: 'AUTH_MFA_DISABLED',
+      entity: 'Physician',
+      entityId: physicianId,
+    });
+  }
+
+  async resetMfa(physicianId: string, adminId: string): Promise<void> {
+    const physician = await this.prisma.physician.findUnique({
+      where: { id: physicianId },
+      select: { id: true, mfaEnabled: true },
+    });
+
+    if (!physician) throw new NotFoundException('Physician not found');
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.physician.update({
+        where: { id: physicianId },
+        data: { mfaEnabled: false, mfaSecret: null },
+      });
+      await tx.mfaBackupCode.deleteMany({ where: { physicianId } });
+    });
+
+    await this.auditSilently({
+      actorId: adminId,
+      action: 'AUTH_MFA_ADMIN_RESET',
       entity: 'Physician',
       entityId: physicianId,
     });

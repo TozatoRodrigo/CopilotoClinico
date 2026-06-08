@@ -1,6 +1,7 @@
 import {
   Injectable,
   Inject,
+  Logger,
   UnauthorizedException,
   ConflictException,
   BadRequestException,
@@ -13,6 +14,8 @@ import { PrismaService } from '../../config/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { RegisterInput, LoginInput, RefreshInput } from './schemas/auth.schemas';
 import { MfaService } from './mfa.service';
+import { CrmVerificationService } from '../physicians/crm-verification.service';
+import { CrmCheckerService } from '../physicians/crm-checker.service';
 
 const MFA_PENDING_SCOPE = 'mfa_pending' as const;
 const MFA_TOKEN_EXPIRY = '5m';
@@ -25,6 +28,7 @@ const DEFAULT_LOGIN_LOCKOUT_DURATION_MS = 15 * 60 * 1000;
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
   private readonly accessSecret: string;
   private readonly refreshSecret: string;
   private readonly accessExpiry: JwtExpiry;
@@ -39,6 +43,8 @@ export class AuthService {
     @Inject(ConfigService) private readonly config: ConfigService,
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(MfaService) private readonly mfaService: MfaService,
+    @Inject(CrmVerificationService) private readonly crmVerification: CrmVerificationService,
+    @Inject(CrmCheckerService) private readonly crmChecker: CrmCheckerService,
   ) {
     this.accessSecret = this.config.getOrThrow<string>('JWT_ACCESS_SECRET');
     this.refreshSecret = this.config.getOrThrow<string>('JWT_REFRESH_SECRET');
@@ -99,6 +105,14 @@ export class AuthService {
       ip,
     });
 
+    setImmediate(() => {
+      this.runCrmAutoVerification(
+        physician.id,
+        physician.crmUf as string,
+        physician.crmNumber as string,
+      ).catch((err) => this.logger.error('CRM auto-verification failed', err));
+    });
+
     const tokens = await this.generateTokens(physician.id, physician.email);
     return { physician, ...tokens };
   }
@@ -128,7 +142,6 @@ export class AuthService {
 
     if (!physician) {
       await this.recordFailedLogin(identifierHash, null, securityState);
-      // Auditar tentativa falhada sem revelar se o e-mail existe
       await this.auditSilently({
         actorId: 'unknown',
         action: 'AUTH_LOGIN_FAILED',
@@ -166,7 +179,6 @@ export class AuthService {
       });
     }
 
-    // Se MFA estiver ativo, emite token intermediário em vez dos tokens completos
     if (physician.mfaEnabled) {
       const mfaToken = await this.issueMfaPendingToken(physician.id, physician.email);
       await this.auditSilently({
@@ -202,11 +214,6 @@ export class AuthService {
     };
   }
 
-  /**
-   * Segunda etapa do login quando MFA está ativo.
-   * Valida o mfaToken intermediário, verifica o código TOTP/backup,
-   * e emite os tokens de acesso completos.
-   */
   async verifyMfaLogin(mfaToken: string, code: string, ip?: string) {
     let physicianId: string;
     let email: string;
@@ -265,10 +272,6 @@ export class AuthService {
     );
   }
 
-  /**
-   * Lança BadRequestException se o physician não tiver MFA configurado,
-   * para que o caller possa retornar 400 em vez de 401.
-   */
   assertMfaNotRequired(mfaEnabled: boolean): void {
     if (mfaEnabled) {
       throw new BadRequestException('MFA is already enabled');
@@ -332,11 +335,6 @@ export class AuthService {
     return { accessToken, refreshToken };
   }
 
-  /**
-   * Retorna o perfil completo do médico autenticado, incluindo crmVerified.
-   * Usado pelo endpoint GET /auth/me para que o frontend possa mostrar
-   * o estado de verificação do CRM sem depender apenas do token JWT cached.
-   */
   async logout(physicianId: string, refreshToken?: string, ip?: string): Promise<void> {
     if (refreshToken) {
       const tokenHash = this.hashToken(refreshToken);
@@ -378,6 +376,39 @@ export class AuthService {
     }
 
     return physician;
+  }
+
+  private async runCrmAutoVerification(
+    physicianId: string,
+    crmUf: string,
+    crmNumber: string,
+  ): Promise<void> {
+    const result = await this.crmChecker.check(crmUf, crmNumber);
+
+    if (result.source === 'unavailable') {
+      await this.crmVerification.requestVerification(physicianId).catch(() => undefined);
+      return;
+    }
+
+    if (result.valid) {
+      const request = await this.prisma.crmVerificationRequest.create({
+        data: { physicianId },
+      });
+      await this.crmVerification.approve(
+        request.id,
+        'system-auto',
+        `Auto-verified via ${result.source}`,
+      );
+    } else {
+      const request = await this.prisma.crmVerificationRequest.create({
+        data: { physicianId },
+      });
+      await this.crmVerification.reject(
+        request.id,
+        'system-auto',
+        `Auto-check returned invalid: ${result.raw ?? 'no details'}`,
+      );
+    }
   }
 
   private hashToken(token: string): string {
@@ -431,10 +462,6 @@ export class AuthService {
     return Number.isFinite(value) && value > 0 ? value : fallback;
   }
 
-  /**
-   * Auditoria nunca deve bloquear o fluxo principal.
-   * Falhas são logadas mas não propagadas.
-   */
   private async auditSilently(params: Parameters<AuditService['log']>[0]): Promise<void> {
     await this.auditService.log(params).catch(() => undefined);
   }
