@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../config/prisma.service';
 import { AiGatewayService } from '../../ai-gateway/ai-gateway.service';
 import {
@@ -18,8 +18,8 @@ export class RetrievalService {
   private readonly logger = new Logger(RetrievalService.name);
 
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly aiGateway: AiGatewayService,
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(AiGatewayService) private readonly aiGateway: AiGatewayService,
   ) {}
 
   async search(query: string, topK: number = 5): Promise<RetrievalResult> {

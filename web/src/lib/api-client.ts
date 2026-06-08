@@ -15,11 +15,6 @@ class ApiClient {
     this.baseUrl = baseUrl;
   }
 
-  private getToken(): string | null {
-    if (typeof window === "undefined") return null;
-    return localStorage.getItem("auth_token");
-  }
-
   private buildUrl(path: string, params?: Record<string, string>): string {
     const url = new URL(`${this.baseUrl}${path}`);
     if (params) {
@@ -43,20 +38,15 @@ class ApiClient {
       ...customHeaders,
     };
 
-    const token = this.getToken();
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
-    }
-
     const response = await fetch(url, {
       method,
       headers,
+      credentials: "include",
       body: body ? JSON.stringify(body) : undefined,
     });
 
     if (response.status === 401) {
       if (typeof window !== "undefined") {
-        localStorage.removeItem("auth_token");
         window.location.href = "/login";
       }
       throw new ApiError(401, "Sessão expirada. Faça login novamente.");

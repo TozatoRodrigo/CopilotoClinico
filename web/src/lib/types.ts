@@ -9,7 +9,6 @@ export interface Physician {
 }
 
 export interface AuthResponse {
-  accessToken: string;
   physician: Physician;
 }
 

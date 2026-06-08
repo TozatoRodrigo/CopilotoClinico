@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../config/prisma.service';
@@ -31,7 +31,7 @@ export interface ChainVerificationResult {
 export class AuditService {
   private readonly logger = new Logger(AuditService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
 
   async log(params: LogParams): Promise<AuditLog> {
     for (let attempt = 1; attempt <= AUDIT_CHAIN_TRANSACTION_MAX_ATTEMPTS; attempt++) {

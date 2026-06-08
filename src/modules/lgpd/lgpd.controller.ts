@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Body, Param, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Param, UseGuards, Request, Inject } from '@nestjs/common';
 import { LgpdService } from './lgpd.service';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
@@ -8,7 +8,7 @@ import { GrantConsentInput, RequestErasureInput } from './schemas/lgpd.schemas';
 @Controller('lgpd')
 @UseGuards(JwtAuthGuard)
 export class LgpdController {
-  constructor(private readonly lgpdService: LgpdService) {}
+  constructor(@Inject(LgpdService) private readonly lgpdService: LgpdService) {}
 
   @Post('consent')
   async grantConsent(

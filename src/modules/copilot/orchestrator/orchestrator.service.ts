@@ -1,4 +1,4 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, Inject, Logger, BadRequestException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../config/prisma.service';
 import { AiGatewayService } from '../../ai-gateway/ai-gateway.service';
@@ -73,11 +73,11 @@ export class OrchestratorService {
   private readonly logger = new Logger(OrchestratorService.name);
 
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly aiGateway: AiGatewayService,
-    private readonly retrieval: RetrievalService,
-    private readonly encounters: EncountersService,
-    private readonly auditService: AuditService,
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(AiGatewayService) private readonly aiGateway: AiGatewayService,
+    @Inject(RetrievalService) private readonly retrieval: RetrievalService,
+    @Inject(EncountersService) private readonly encounters: EncountersService,
+    @Inject(AuditService) private readonly auditService: AuditService,
   ) {}
 
   async analyze(

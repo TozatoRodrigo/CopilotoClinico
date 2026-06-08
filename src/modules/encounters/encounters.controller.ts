@@ -9,6 +9,7 @@ import {
   UseGuards,
   Request,
   ParseIntPipe,
+  Inject,
 } from '@nestjs/common';
 import { EncountersService } from './encounters.service';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
@@ -19,7 +20,7 @@ import { CreateEncounterInput, UpdateEncounterInput } from './schemas/encounter.
 @Controller('encounters')
 @UseGuards(JwtAuthGuard)
 export class EncountersController {
-  constructor(private readonly encountersService: EncountersService) {}
+  constructor(@Inject(EncountersService) private readonly encountersService: EncountersService) {}
 
   @Post()
   async create(

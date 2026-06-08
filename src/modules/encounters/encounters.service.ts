@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../config/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CreateEncounterInput, UpdateEncounterInput } from './schemas/encounter.schemas';
@@ -17,8 +17,8 @@ const ENCOUNTER_SELECT = {
 @Injectable()
 export class EncountersService {
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly auditService: AuditService,
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(AuditService) private readonly auditService: AuditService,
   ) {}
 
   async create(physicianId: string, input: CreateEncounterInput) {

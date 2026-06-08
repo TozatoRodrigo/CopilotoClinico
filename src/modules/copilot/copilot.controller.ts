@@ -9,6 +9,7 @@ import {
   Query,
   Sse,
   MessageEvent,
+  Inject,
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { CopilotService } from './copilot.service';
@@ -20,7 +21,7 @@ import type { AnalyzeInput, StreamQuery } from './schemas/copilot.schemas';
 @Controller('encounters/:encounterId/copilot')
 @UseGuards(JwtAuthGuard)
 export class CopilotController {
-  constructor(private readonly copilotService: CopilotService) {}
+  constructor(@Inject(CopilotService) private readonly copilotService: CopilotService) {}
 
   @Post('analyze')
   async analyze(

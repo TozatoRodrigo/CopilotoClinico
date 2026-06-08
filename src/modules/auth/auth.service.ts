@@ -275,7 +275,7 @@ export class AuthService {
     }
   }
 
-  async refresh(input: RefreshInput, ip?: string) {
+  async refresh(input: RefreshInput & { refreshToken: string }, ip?: string) {
     const tokenHash = this.hashToken(input.refreshToken);
 
     const storedToken = await this.prisma.refreshToken.findFirst({

@@ -23,6 +23,7 @@
     "seed:guidelines": "ts-node --project tsconfig.json -e \"require('ts-node/register')\" prisma/seeds/guidelines-seed.ts"
   },
   "dependencies": {
+    "@fastify/cookie": "^11.0.2",
     "@fastify/helmet": "^13.0.2",
     "@nestjs/common": "^11.0.0",
     "@nestjs/config": "^4.0.0",
@@ -63,6 +64,7 @@
     "eslint": "^9.0.0",
     "eslint-config-prettier": "^10.0.0",
     "eslint-plugin-prettier": "^5.0.0",
+    "fastify": "^5.8.5",
     "prettier": "^3.4.0",
     "prisma": "^6.0.0",
     "source-map-support": "^0.5.21",

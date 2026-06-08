@@ -8,10 +8,13 @@ import {
   HttpStatus,
   Inject,
   Req,
+  Res,
   UseGuards,
   Request,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
+import { FastifyReply, FastifyRequest } from 'fastify';
 import { AuthService } from './auth.service';
 import { MfaService } from './mfa.service';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
@@ -40,8 +43,25 @@ interface RequestWithIp {
   ips?: string[];
 }
 
+const COOKIE_BASE = {
+  httpOnly: true,
+  sameSite: 'strict' as const,
+  path: '/',
+  secure: process.env.NODE_ENV === 'production',
+};
+
 function extractIp(req: RequestWithIp): string | undefined {
   return (req.ips?.[0] ?? req.ip) || undefined;
+}
+
+function setAuthCookies(res: FastifyReply, accessToken: string, refreshToken: string) {
+  res.setCookie('access_token', accessToken, COOKIE_BASE);
+  res.setCookie('refresh_token', refreshToken, COOKIE_BASE);
+}
+
+function clearAuthCookies(res: FastifyReply) {
+  res.clearCookie('access_token', { path: '/' });
+  res.clearCookie('refresh_token', { path: '/' });
 }
 
 @Controller('auth')
@@ -55,9 +75,12 @@ export class AuthController {
   @Throttle({ auth: { limit: 5, ttl: 60000 } })
   async register(
     @Body(new ZodValidationPipe(registerSchema)) body: RegisterInput,
-    @Req() req: RequestWithIp,
+    @Req() req: FastifyRequest & RequestWithIp,
+    @Res({ passthrough: true }) res: FastifyReply,
   ) {
-    return this.authService.register(body, extractIp(req));
+    const result = await this.authService.register(body, extractIp(req));
+    setAuthCookies(res, result.accessToken, result.refreshToken);
+    return { physician: result.physician };
   }
 
   @Post('login')
@@ -65,34 +88,50 @@ export class AuthController {
   @Throttle({ auth: { limit: 5, ttl: 60000 } })
   async login(
     @Body(new ZodValidationPipe(loginSchema)) body: LoginInput,
-    @Req() req: RequestWithIp,
+    @Req() req: FastifyRequest & RequestWithIp,
+    @Res({ passthrough: true }) res: FastifyReply,
   ) {
-    return this.authService.login(body, extractIp(req));
+    const result = await this.authService.login(body, extractIp(req));
+    if ('mfaRequired' in result && result.mfaRequired) {
+      return result;
+    }
+    const { accessToken, refreshToken, ...rest } = result as {
+      accessToken: string;
+      refreshToken: string;
+      physician: unknown;
+    };
+    setAuthCookies(res, accessToken, refreshToken);
+    return rest;
   }
 
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   async refresh(
     @Body(new ZodValidationPipe(refreshSchema)) body: RefreshInput,
-    @Req() req: RequestWithIp,
+    @Req() req: FastifyRequest & RequestWithIp,
+    @Res({ passthrough: true }) res: FastifyReply,
   ) {
-    return this.authService.refresh(body, extractIp(req));
+    const refreshToken = (req.cookies as Record<string, string>)?.refresh_token ?? body.refreshToken;
+    if (!refreshToken) throw new UnauthorizedException('No refresh token provided');
+    const tokens = await this.authService.refresh({ refreshToken }, extractIp(req));
+    setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
+    return {};
   }
 
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
   async logout(
-    @Request() req: { user: { physicianId: string }; ip?: string; ips?: string[] },
+    @Request() req: { user: { physicianId: string }; ip?: string; ips?: string[]; cookies?: Record<string, string> },
     @Body(new ZodValidationPipe(logoutSchema)) body: LogoutInput,
+    @Res({ passthrough: true }) res: FastifyReply,
   ) {
-    await this.authService.logout(req.user.physicianId, body.refreshToken, extractIp(req));
+    const refreshToken = req.cookies?.refresh_token ?? body.refreshToken;
+    await this.authService.logout(req.user.physicianId, refreshToken, extractIp(req));
+    clearAuthCookies(res);
     return { message: 'Logged out successfully' };
   }
 
-  /**
-   * Retorna o perfil do médico autenticado incluindo crmVerified e mfaEnabled.
-   */
   @Get('me')
   @UseGuards(JwtAuthGuard)
   async me(@Request() req: { user: { physicianId: string } }) {
@@ -101,21 +140,12 @@ export class AuthController {
 
   // ── MFA endpoints ──────────────────────────────────────────────────────────
 
-  /**
-   * Passo 1: Gera segredo TOTP + 8 backup codes.
-   * O médico deve escanear o QR code e depois chamar POST /auth/mfa/enable.
-   * Os backup codes são exibidos uma única vez aqui.
-   */
   @Post('mfa/setup')
   @UseGuards(JwtAuthGuard)
   async mfaSetup(@Request() req: { user: { physicianId: string } }) {
     return this.mfaService.setupMfa(req.user.physicianId);
   }
 
-  /**
-   * Passo 2: Confirma o setup enviando o primeiro código TOTP válido.
-   * A partir daqui o login passa a exigir MFA.
-   */
   @Post('mfa/enable')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(JwtAuthGuard)
@@ -126,25 +156,25 @@ export class AuthController {
     await this.mfaService.enableMfa(req.user.physicianId, body.totpCode);
   }
 
-  /**
-   * Segunda etapa do login quando mfaRequired=true.
-   * Recebe o mfaToken (curta duração) retornado pelo POST /auth/login
-   * e o código TOTP ou backup code.
-   */
   @Post('mfa/verify')
   @HttpCode(HttpStatus.OK)
   @Throttle({ auth: { limit: 5, ttl: 300000 } })
   async mfaVerify(
     @Body(new ZodValidationPipe(mfaVerifySchema)) body: MfaVerifyInput,
-    @Req() req: RequestWithIp,
+    @Req() req: FastifyRequest & RequestWithIp,
+    @Res({ passthrough: true }) res: FastifyReply,
   ) {
-    return this.authService.verifyMfaLogin(body.mfaToken, body.code, extractIp(req));
+    const result = await this.authService.verifyMfaLogin(body.mfaToken, body.code, extractIp(req));
+    const { accessToken, refreshToken, ...rest } = result as {
+      accessToken: string;
+      refreshToken: string;
+      mfaRequired: boolean;
+      physician: unknown;
+    };
+    setAuthCookies(res, accessToken, refreshToken);
+    return rest;
   }
 
-  /**
-   * Desativa o MFA confirmando com o código TOTP atual.
-   * Remove segredo e todos os backup codes.
-   */
   @Delete('mfa')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(JwtAuthGuard)

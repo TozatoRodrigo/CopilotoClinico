@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Inject,
   NotFoundException,
   ForbiddenException,
   ConflictException,
@@ -43,8 +44,8 @@ function canonicalHash(obj: unknown): string {
 @Injectable()
 export class DocumentsService {
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly auditService: AuditService,
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(AuditService) private readonly auditService: AuditService,
   ) {}
 
   async generate(physicianId: string, encounterId: string, input: GenerateDocumentInput) {
