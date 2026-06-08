@@ -364,7 +364,9 @@ export class OrchestratorService {
         retrievedChunkIds: prompt.retrievedChunkIds,
         model: mockCompletion.model,
         rawOutput: enrichedOutput as unknown as Prisma.InputJsonValue,
-        citations: { recommendations: enrichedOutput.recommendations } as unknown as Prisma.InputJsonValue,
+        citations: {
+          recommendations: enrichedOutput.recommendations,
+        } as unknown as Prisma.InputJsonValue,
         uncertainty: enrichedOutput.uncertainty,
         uncertaintyReason: enrichedOutput.uncertaintyReason,
         latencyMs: Date.now() - start,

@@ -1,4 +1,14 @@
-import { Controller, Post, Body, Param, UseGuards, Request, Query, Sse, MessageEvent } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Param,
+  UseGuards,
+  Request,
+  Query,
+  Sse,
+  MessageEvent,
+} from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { CopilotService } from './copilot.service';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
