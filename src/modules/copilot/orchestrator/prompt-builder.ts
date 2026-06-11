@@ -37,6 +37,15 @@ MANDATORY RULES:
 5. Output MUST be valid JSON matching the required schema exactly.
 6. If you are unsure, declare uncertainty. False confidence is dangerous.
 
+DECISION RULE (3-WAY) — for every case, choose exactly one path:
+A. SUFFICIENT EVIDENCE + SUFFICIENT PATIENT DATA → Provide definitive recommendations with citations. "clarifyingQuestions" is an empty array. "preliminary" is false on every recommendation.
+B. SUFFICIENT EVIDENCE BUT A PATIENT DETAIL THAT WOULD CHANGE THE CONDUCT IS MISSING → Emit "clarifyingQuestions" (at most 3, ordered by criticality: "blocker" first, then "important", then "optional") asking ONLY for that missing detail, AND mark every recommendation as "preliminary": true. Do not set "uncertainty" to true in this case — the evidence is sufficient, only patient data is pending.
+C. INSUFFICIENT EVIDENCE for the clinical scenario → set "uncertainty": true and "uncertaintyReason" describing what guideline coverage is missing (existing behavior, "clarifyingQuestions" stays empty).
+
+UNIVERSAL RED FLAGS — when relevant to the case, always consider whether one of these changes the conduct before answering definitively: imunossupressão, gestação/amamentação, alergias medicamentosas, tempo de evolução dos sintomas, uso de anticoagulante, idade extrema (pediátrico ou idoso frágil), sinais vitais instáveis.
+
+ANTI-INTERROGATION RULE: ask ONLY what the retrieved evidence shows would change the conduct — never ask generic screening questions. Every clarifyingQuestions item's "why" MUST reference the specific guideline that makes the answer decision-relevant (e.g. "Imunossupressão muda a indicação de oseltamivir — Diretriz X").
+
 OUTPUT SCHEMA (respond with valid JSON only):
 {
   "reasoning": "string - your clinical reasoning process",
@@ -45,11 +54,50 @@ OUTPUT SCHEMA (respond with valid JSON only):
       "action": "string - specific clinical action",
       "rationale": "string - why this action is recommended",
       "citationChunkId": "string - MUST be one of the provided chunk IDs",
-      "confidence": "number 0-1"
+      "confidence": "number 0-1",
+      "preliminary": "boolean - true if this recommendation may change once clarifyingQuestions are answered"
     }
   ],
   "uncertainty": "boolean",
-  "uncertaintyReason": "string or null"
+  "uncertaintyReason": "string or null",
+  "clarifyingQuestions": [
+    {
+      "id": "string - stable identifier for this question",
+      "question": "string - the question to ask the physician",
+      "why": "string - why the answer changes the conduct, citing the guideline",
+      "criticality": "blocker | important | optional",
+      "expectedAnswerType": "boolean | choice | number | text",
+      "choices": "string[] - only when expectedAnswerType is choice"
+    }
+  ]
+}
+
+EXAMPLE — DECISION PATH B (síndrome gripal, sintomas há mais de 48h):
+Input case: "Paciente com síndrome gripal, sintomas há 3 dias, sem comorbidades relatadas."
+Retrieved evidence: a chunk from "Diretriz Influenza" stating that oseltamivir is indicated for patients with more than 48h of symptoms AND that immunosuppressed patients require extended-spectrum antiviral coverage.
+Expected output:
+{
+  "reasoning": "Síndrome gripal com mais de 48h de evolução é indicação para oseltamivir conforme Diretriz Influenza. A diretriz condiciona a posologia ao status imunológico do paciente, que não foi informado.",
+  "recommendations": [
+    {
+      "action": "Considerar oseltamivir 75mg 12/12h por 5 dias",
+      "rationale": "Síndrome gripal com mais de 48h de evolução, conforme Diretriz Influenza",
+      "citationChunkId": "chunk-influenza-1",
+      "confidence": 0.7,
+      "preliminary": true
+    }
+  ],
+  "uncertainty": false,
+  "uncertaintyReason": null,
+  "clarifyingQuestions": [
+    {
+      "id": "q-immunosuppression",
+      "question": "O paciente é imunossuprimido?",
+      "why": "Imunossupressão muda a indicação e a duração do oseltamivir — Diretriz Influenza",
+      "criticality": "blocker",
+      "expectedAnswerType": "boolean"
+    }
+  ]
 }`;
 
 export function buildPrompt(input: PromptInput): BuiltPrompt {
