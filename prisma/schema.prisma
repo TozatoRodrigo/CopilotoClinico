@@ -40,6 +40,13 @@ enum ProtocolNodeType {
   outcome
 }
 
+enum GuidelineChunkStatus {
+  pending_review
+  approved
+  rejected
+  superseded
+}
+
 model Physician {
   id                 String             @id @default(uuid()) @db.Uuid
   crmUf              String             @map("crm_uf") @db.Char(2)
@@ -53,6 +60,8 @@ model Physician {
   subscriptionStatus SubscriptionStatus @default(trial) @map("subscription_status")
   createdAt          DateTime           @default(now()) @map("created_at")
   updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  isCurator          Boolean            @default(false) @map("is_curator")
 
   encounters            Encounter[]
   documents             Document[]
@@ -162,12 +171,16 @@ model GuidelineChunk {
   textTsv       Unsupported("tsvector")?
   embedding     Unsupported("vector(1536)")?
   metadata      Json?
+  status        GuidelineChunkStatus @default(pending_review)
+  reviewedBy    String?              @map("reviewed_by") @db.Uuid
+  reviewedAt    DateTime?            @map("reviewed_at")
   validFrom     DateTime             @default(now()) @map("valid_from")
   validTo       DateTime?            @map("valid_to")
   createdAt     DateTime             @default(now()) @map("created_at")
 
   @@index([source, sourceVersion])
   @@index([specialty])
+  @@index([status])
   @@map("guideline_chunks")
 }
 

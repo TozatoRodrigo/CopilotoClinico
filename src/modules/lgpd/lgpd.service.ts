@@ -137,6 +137,7 @@ export class LgpdService {
         email: true,
         name: true,
         crmVerified: true,
+        isCurator: true,
         subscriptionStatus: true,
         createdAt: true,
         updatedAt: true,

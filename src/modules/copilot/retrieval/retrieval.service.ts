@@ -76,6 +76,7 @@ export class RetrievalService {
       SELECT id, 1 - (embedding <=> ${vectorStr}::vector) as similarity
       FROM guideline_chunks
       WHERE embedding IS NOT NULL
+        AND status = 'approved'
         AND valid_from <= NOW()
         AND (valid_to IS NULL OR valid_to > NOW())
       ORDER BY embedding <=> ${vectorStr}::vector
@@ -93,6 +94,7 @@ export class RetrievalService {
       SELECT id, ts_rank(text_tsv, plainto_tsquery('portuguese', ${query})) as rank
       FROM guideline_chunks
       WHERE text_tsv @@ plainto_tsquery('portuguese', ${query})
+        AND status = 'approved'
         AND valid_from <= NOW()
         AND (valid_to IS NULL OR valid_to > NOW())
       ORDER BY rank DESC
