@@ -11,16 +11,19 @@ function makeCopilotOutput(overrides: Partial<CopilotOutput> = {}): CopilotOutpu
         rationale: 'BP consistently above 140/90',
         citationChunkId: 'chunk-1',
         confidence: 0.85,
+        preliminary: false,
       },
       {
         action: 'Order renal function panel',
         rationale: 'Baseline before medication',
         citationChunkId: 'chunk-2',
         confidence: 0.9,
+        preliminary: false,
       },
     ],
     uncertainty: false,
     uncertaintyReason: null,
+    clarifyingQuestions: [],
     ...overrides,
   };
 }

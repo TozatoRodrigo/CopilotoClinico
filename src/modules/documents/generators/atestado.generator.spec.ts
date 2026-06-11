@@ -10,10 +10,12 @@ const baseOutput: CopilotOutput = {
       rationale: 'Recuperação pós-crise',
       citationChunkId: 'c1',
       confidence: 0.85,
+      preliminary: false,
     },
   ],
   uncertainty: false,
   uncertaintyReason: null,
+  clarifyingQuestions: [],
 };
 
 describe('generateAtestado', () => {

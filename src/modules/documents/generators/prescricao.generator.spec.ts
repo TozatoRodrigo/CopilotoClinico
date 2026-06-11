@@ -10,22 +10,26 @@ const baseOutput: CopilotOutput = {
       rationale: 'Antiagregação imediata',
       citationChunkId: 'c1',
       confidence: 0.95,
+      preliminary: false,
     },
     {
       action: 'Administrar Clopidogrel 300mg VO',
       rationale: 'Dupla antiagregação',
       citationChunkId: 'c2',
       confidence: 0.93,
+      preliminary: false,
     },
     {
       action: 'Orientar repouso relativo nas próximas 24h',
       rationale: 'Reduzir demanda miocárdica',
       citationChunkId: 'c3',
       confidence: 0.85,
+      preliminary: false,
     },
   ],
   uncertainty: false,
   uncertaintyReason: null,
+  clarifyingQuestions: [],
 };
 
 describe('generatePrescricao', () => {
@@ -50,6 +54,7 @@ describe('generatePrescricao', () => {
           action: 'Orientar repouso',
           rationale: 'Recuperação',
           citationChunkId: 'c1',
+          preliminary: false,
           confidence: 0.8,
         },
       ],

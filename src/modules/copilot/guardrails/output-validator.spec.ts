@@ -220,6 +220,82 @@ describe('validateOutput', () => {
     );
   });
 
+  it('accepts output with valid clarifyingQuestions', () => {
+    const result = validateOutput(
+      makeValidOutput({
+        clarifyingQuestions: [
+          {
+            id: 'q1',
+            question: 'O paciente é imunossuprimido?',
+            why: 'Define necessidade de cobertura antibiótica ampliada',
+            criticality: 'important',
+            expectedAnswerType: 'boolean',
+          },
+        ],
+      }),
+      VALID_CHUNK_IDS,
+    );
+    expect(result.valid).toBe(true);
+    expect(result.output?.clarifyingQuestions).toHaveLength(1);
+  });
+
+  it('rejects output with a blocker clarifying question and a non-preliminary recommendation', () => {
+    const result = validateOutput(
+      makeValidOutput({
+        clarifyingQuestions: [
+          {
+            id: 'q1',
+            question: 'Há quanto tempo iniciaram os sintomas?',
+            why: 'Define se o quadro é agudo ou crônico',
+            criticality: 'blocker',
+            expectedAnswerType: 'choice',
+            choices: ['<48h', '>=48h'],
+          },
+        ],
+      }),
+      VALID_CHUNK_IDS,
+    );
+    expect(result.valid).toBe(false);
+    expect(result.output).toBeNull();
+    expect(result.errors[0]).toBe('Schema validation failed');
+    expect(result.errors.some((e) => e.includes('recommendations'))).toBe(true);
+  });
+
+  it('accepts output with a blocker clarifying question when recommendations are marked preliminary', () => {
+    const result = validateOutput(
+      makeValidOutput({
+        recommendations: [
+          {
+            action: 'Initiate ACE inhibitor therapy',
+            rationale: 'BP consistently above 140/90',
+            citationChunkId: 'chunk-1',
+            confidence: 0.85,
+            preliminary: true,
+          },
+        ],
+        clarifyingQuestions: [
+          {
+            id: 'q1',
+            question: 'O paciente é imunossuprimido?',
+            why: 'Define necessidade de cobertura antibiótica ampliada',
+            criticality: 'blocker',
+            expectedAnswerType: 'boolean',
+          },
+        ],
+      }),
+      VALID_CHUNK_IDS,
+    );
+    expect(result.valid).toBe(true);
+    expect(result.output?.recommendations[0]?.preliminary).toBe(true);
+  });
+
+  it('remains backward-compatible with output that has no clarifyingQuestions field', () => {
+    const result = validateOutput(makeValidOutput(), VALID_CHUNK_IDS);
+    expect(result.valid).toBe(true);
+    expect(result.output?.clarifyingQuestions).toEqual([]);
+    expect(result.output?.recommendations[0]?.preliminary).toBe(false);
+  });
+
   it('accepts valid output when all chunk IDs match', () => {
     const result = validateOutput(
       makeValidOutput({
