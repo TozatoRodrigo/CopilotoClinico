@@ -1,4 +1,5 @@
-import { Injectable, Inject, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, Inject, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../config/prisma.service';
 import { AiGatewayService } from '../../ai-gateway/ai-gateway.service';
@@ -9,8 +10,10 @@ import { maskPII } from '../guardrails/pii-filter';
 import { scanForInjection } from '../guardrails/injection-defense';
 import { buildPrompt, type EncounterContext } from './prompt-builder';
 import { validateOutput, type CopilotOutput } from '../guardrails/output-validator';
-import type { AnalyzeInput } from '../schemas/copilot.schemas';
+import type { AnalyzeInput, RespondInput } from '../schemas/copilot.schemas';
 import { calculateInferenceCost } from './model-pricing';
+
+const DEFAULT_MAX_TURNS = 5;
 
 export interface RecommendationSource {
   chunkId: string;
@@ -51,6 +54,13 @@ export type StreamEvent =
   | { type: 'done'; result: OrchestratorResult }
   | { type: 'error'; errors: string[] };
 
+export interface AnsweredQuestion {
+  questionId: string;
+  question: string;
+  answer: string;
+  turnIndex: number;
+}
+
 /**
  * LGPD-005: Redação explícita do patientRef no texto clínico.
  *
@@ -78,6 +88,7 @@ export class OrchestratorService {
     @Inject(RetrievalService) private readonly retrieval: RetrievalService,
     @Inject(EncountersService) private readonly encounters: EncountersService,
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(ConfigService) private readonly config: ConfigService,
   ) {}
 
   async analyze(
@@ -400,6 +411,216 @@ export class OrchestratorService {
           cost: inferenceCost,
           model: mockCompletion.model,
         },
+      },
+    };
+  }
+
+  async continueAnalysis(
+    physicianId: string,
+    encounterId: string,
+    input: RespondInput,
+  ): Promise<OrchestratorResult> {
+    const start = Date.now();
+
+    const encounter = await this.encounters.findById(physicianId, encounterId);
+
+    const parentInteraction = await this.prisma.aiInteraction.findFirst({
+      where: { id: input.interactionId, encounterId },
+    });
+    if (!parentInteraction) {
+      throw new NotFoundException('Interaction not found');
+    }
+
+    const maxTurns = this.config.get<number>('COPILOT_MAX_TURNS', DEFAULT_MAX_TURNS);
+    const newTurnIndex = parentInteraction.turnIndex + 1;
+    if (newTurnIndex >= maxTurns) {
+      throw new BadRequestException({
+        message: `Maximum number of conversation turns (${maxTurns}) reached for this encounter`,
+      });
+    }
+    const forceFinal = newTurnIndex === maxTurns - 1;
+
+    const parentOutput = parentInteraction.rawOutput as unknown as EnrichedCopilotOutput;
+    const clarifyingQuestions = parentOutput.clarifyingQuestions ?? [];
+
+    // Camada 1+2: PII mask + redação patientRef nas respostas do médico (LGPD-005)
+    const piiResults = input.answers.map((a) => maskPII(String(a.answer)));
+    const piiDetected = piiResults.some((r) => r.hasPII);
+    const redactedAnswers = piiResults.map((r) =>
+      redactPatientRef(r.redacted, encounter.patientRef),
+    );
+
+    const injectionResult = scanForInjection(redactedAnswers.join('\n'));
+    if (!injectionResult.safe) {
+      this.logger.warn(`Injection detected (respond): ${injectionResult.reasons.join(', ')}`);
+      await this.auditService.log({
+        actorId: physicianId,
+        action: 'PROMPT_INJECTION_DETECTED',
+        entity: 'Encounter',
+        entityId: encounterId,
+        payload: {
+          reasons: injectionResult.reasons,
+          confidence: injectionResult.confidence,
+          piiDetected,
+          patientRefRedacted:
+            piiResults.map((r) => r.redacted).join('\n') !== redactedAnswers.join('\n'),
+          inputLength: input.answers.reduce((sum, a) => sum + String(a.answer).length, 0),
+        },
+      });
+      throw new BadRequestException({
+        message: 'Input contains potentially unsafe content',
+        reasons: injectionResult.reasons,
+      });
+    }
+
+    const newAnswers: AnsweredQuestion[] = input.answers.map((a, index) => {
+      const question = clarifyingQuestions.find((q) => q.id === a.questionId);
+      return {
+        questionId: a.questionId,
+        question: question?.question ?? a.questionId,
+        answer: redactedAnswers[index] ?? '',
+        turnIndex: parentInteraction.turnIndex,
+      };
+    });
+
+    const previousAnswers =
+      (parentInteraction.answeredQuestions as unknown as AnsweredQuestion[] | null) ?? [];
+    const allAnsweredQuestions = [...previousAnswers, ...newAnswers];
+
+    const qaBlock = allAnsweredQuestions
+      .map((qa) => `P: ${qa.question}\nR: ${qa.answer}`)
+      .join('\n\n');
+
+    const baseCaseText = parentInteraction.inputRedacted ?? '';
+    const augmentedCaseText = `${baseCaseText}\n\n--- Informações adicionais fornecidas pelo médico ---\n${qaBlock}`;
+
+    const retrievalResult = await this.retrieval.search(augmentedCaseText, 5);
+    this.logger.debug(`Retrieved ${retrievalResult.totalRetrieved} chunks (respond)`);
+
+    const encounterContext = (encounter.context as unknown as EncounterContext | null) ?? {
+      hasCT: false,
+      isSus: false,
+      hasLab: false,
+      hasICU: false,
+    };
+
+    const prompt = buildPrompt({
+      caseText: augmentedCaseText,
+      retrievedChunks: retrievalResult.chunks.map((c) => ({
+        chunkId: c.id,
+        text: c.text,
+        source: c.source,
+        sourceVersion: c.sourceVersion,
+        score: c.score,
+      })),
+      context: encounterContext,
+      additionalInstructions: forceFinal
+        ? 'Este é o último turno permitido para esta análise. NÃO inclua novas clarifyingQuestions (a lista deve ficar vazia). Forneça recomendações finais com base nas informações disponíveis; se ainda houver incerteza, defina uncertainty=true e descreva uncertaintyReason, mas inclua recomendações preliminares quando possível.'
+        : undefined,
+    });
+
+    const completion = await this.aiGateway.complete({
+      messages: [
+        { role: 'system', content: prompt.system },
+        { role: 'user', content: prompt.user },
+      ],
+    });
+    const inferenceCost = calculateInferenceCost({
+      model: completion.model,
+      usage: completion.usage,
+    });
+
+    const validation = validateOutput(completion.content, prompt.retrievedChunkIds);
+
+    if (!validation.valid || !validation.output) {
+      this.logger.error(`Output validation failed (respond): ${validation.errors.join(', ')}`);
+
+      await this.prisma.aiInteraction.create({
+        data: {
+          encounterId,
+          inputRedacted: baseCaseText,
+          retrievedChunkIds: prompt.retrievedChunkIds,
+          model: completion.model,
+          rawOutput: {
+            raw: completion.content,
+            validationErrors: validation.errors,
+          },
+          uncertainty: true,
+          uncertaintyReason: 'Output validation failed',
+          latencyMs: Date.now() - start,
+          cost: inferenceCost,
+          turnIndex: newTurnIndex,
+          parentInteractionId: parentInteraction.id,
+          answeredQuestions: allAnsweredQuestions as unknown as Prisma.InputJsonValue,
+        },
+      });
+
+      throw new BadRequestException({
+        message: 'AI output validation failed',
+        errors: validation.errors,
+      });
+    }
+
+    const enrichedOutput: EnrichedCopilotOutput = {
+      ...validation.output,
+      recommendations: validation.output.recommendations.map((rec) => {
+        const chunk = retrievalResult.chunks.find((c) => c.id === rec.citationChunkId);
+        return {
+          ...rec,
+          chunkId: rec.citationChunkId,
+          source: chunk?.source ?? 'Unknown',
+          sourceVersion: chunk?.sourceVersion ?? 'Unknown',
+          sourceText: chunk?.text ?? '',
+          sourceUrl: `/v1/guidelines/chunks/${rec.citationChunkId}`,
+        };
+      }),
+    };
+
+    const interaction = await this.prisma.aiInteraction.create({
+      data: {
+        encounterId,
+        inputRedacted: baseCaseText,
+        retrievedChunkIds: prompt.retrievedChunkIds,
+        model: completion.model,
+        rawOutput: enrichedOutput as unknown as Prisma.InputJsonValue,
+        citations: {
+          recommendations: enrichedOutput.recommendations,
+        } as unknown as Prisma.InputJsonValue,
+        uncertainty: enrichedOutput.uncertainty,
+        uncertaintyReason: enrichedOutput.uncertaintyReason,
+        latencyMs: Date.now() - start,
+        cost: inferenceCost,
+        turnIndex: newTurnIndex,
+        parentInteractionId: parentInteraction.id,
+        answeredQuestions: allAnsweredQuestions as unknown as Prisma.InputJsonValue,
+      },
+    });
+
+    const citations = enrichedOutput.recommendations.map((rec) => {
+      const chunk = retrievalResult.chunks.find((c) => c.id === rec.citationChunkId);
+      return {
+        chunkId: rec.citationChunkId,
+        source: chunk?.source ?? 'Unknown',
+        sourceVersion: chunk?.sourceVersion ?? 'Unknown',
+        text: chunk?.text ?? '',
+      };
+    });
+
+    await this.encounters.update(physicianId, encounterId, {
+      status: 'in_review',
+    });
+
+    return {
+      interactionId: interaction.id,
+      output: enrichedOutput,
+      citations,
+      metadata: {
+        piiDetected,
+        injectionDetected: !injectionResult.safe,
+        chunksRetrieved: retrievalResult.totalRetrieved,
+        latencyMs: Date.now() - start,
+        cost: inferenceCost,
+        model: completion.model,
       },
     };
   }

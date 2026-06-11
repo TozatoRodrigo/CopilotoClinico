@@ -10,6 +10,7 @@ describe('CopilotService', () => {
   let orchestratorMock: {
     analyze: ReturnType<typeof vi.fn>;
     analyzeStream: ReturnType<typeof vi.fn>;
+    continueAnalysis: ReturnType<typeof vi.fn>;
   };
   let queueMock: {
     enqueueAnalyze: ReturnType<typeof vi.fn>;
@@ -63,7 +64,7 @@ describe('CopilotService', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    orchestratorMock = { analyze: vi.fn(), analyzeStream: vi.fn() };
+    orchestratorMock = { analyze: vi.fn(), analyzeStream: vi.fn(), continueAnalysis: vi.fn() };
     queueMock = {
       enqueueAnalyze: vi.fn().mockResolvedValue('job-123'),
       getJobStatus: vi.fn().mockResolvedValue({ jobId: 'job-123', status: 'active', progress: 10 }),
@@ -96,6 +97,26 @@ describe('CopilotService', () => {
       expect(result).toEqual(orchestratorResult);
       expect(result.interactionId).toBe('interaction-001');
       expect(result.output.recommendations).toHaveLength(1);
+    });
+  });
+
+  describe('DEC-002: respond', () => {
+    const respondInput = {
+      interactionId: 'interaction-001',
+      answers: [{ questionId: 'q1', answer: 'sim' }],
+    };
+
+    it('delegates to orchestrator.continueAnalysis', async () => {
+      orchestratorMock.continueAnalysis.mockResolvedValue(orchestratorResult);
+
+      const result = await service.respond(physicianId, encounterId, respondInput);
+
+      expect(orchestratorMock.continueAnalysis).toHaveBeenCalledWith(
+        physicianId,
+        encounterId,
+        respondInput,
+      );
+      expect(result).toEqual(orchestratorResult);
     });
   });
 

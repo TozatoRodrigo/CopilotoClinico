@@ -5,13 +5,15 @@ import { AiGatewayService } from '../../ai-gateway/ai-gateway.service';
 import { RetrievalService } from '../retrieval/retrieval.service';
 import { EncountersService } from '../../encounters/encounters.service';
 import { AuditService } from '../../audit/audit.service';
-import { BadRequestException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 describe('OrchestratorService', () => {
   let service: OrchestratorService;
   let prismaMock: {
     aiInteraction: {
       create: ReturnType<typeof vi.fn>;
+      findFirst: ReturnType<typeof vi.fn>;
     };
   };
   let aiGatewayMock: {
@@ -28,6 +30,9 @@ describe('OrchestratorService', () => {
   };
   let auditMock: {
     log: ReturnType<typeof vi.fn>;
+  };
+  let configMock: {
+    get: ReturnType<typeof vi.fn>;
   };
 
   const physicianId = 'phys-001';
@@ -76,7 +81,7 @@ describe('OrchestratorService', () => {
 
   function createMocks() {
     prismaMock = {
-      aiInteraction: { create: vi.fn() },
+      aiInteraction: { create: vi.fn(), findFirst: vi.fn() },
     };
     aiGatewayMock = {
       complete: vi.fn(),
@@ -86,6 +91,7 @@ describe('OrchestratorService', () => {
     retrievalMock = { search: vi.fn() };
     encountersMock = { findById: vi.fn(), update: vi.fn() };
     auditMock = { log: vi.fn().mockResolvedValue({ id: 'audit-001' }) };
+    configMock = { get: vi.fn((_key: string, defaultValue?: unknown) => defaultValue) };
   }
 
   function createService(): OrchestratorService {
@@ -95,6 +101,7 @@ describe('OrchestratorService', () => {
       retrievalMock as unknown as RetrievalService,
       encountersMock as unknown as EncountersService,
       auditMock as unknown as AuditService,
+      configMock as unknown as ConfigService,
     );
   }
 
@@ -481,6 +488,225 @@ describe('OrchestratorService', () => {
       expect(errorEvent).toBeDefined();
       expect(errorEvent!.type).toBe('error');
       expect(errorEvent!.errors).toBeDefined();
+    });
+  });
+
+  describe('DEC-002: continueAnalysis', () => {
+    const parentInteractionId = 'interaction-parent';
+
+    function makeParentInteraction(overrides: Record<string, unknown> = {}) {
+      return {
+        id: parentInteractionId,
+        encounterId,
+        turnIndex: 0,
+        inputRedacted: 'Paciente com pneumonia comunitária, tosse produtiva há 3 dias.',
+        answeredQuestions: null,
+        rawOutput: {
+          reasoning: 'Avaliação inicial',
+          recommendations: [],
+          uncertainty: false,
+          uncertaintyReason: null,
+          clarifyingQuestions: [
+            {
+              id: 'q1',
+              question: 'O paciente é imunossuprimido?',
+              why: 'Define cobertura antibiótica',
+              criticality: 'blocker',
+              expectedAnswerType: 'boolean',
+            },
+          ],
+        },
+        ...overrides,
+      };
+    }
+
+    const validRespondLLMOutput = JSON.stringify({
+      reasoning: 'Com base na resposta, paciente imunossuprimido requer cobertura ampliada',
+      recommendations: [
+        {
+          action: 'Iniciar antibioticoterapia de amplo espectro',
+          rationale: 'Paciente imunossuprimido',
+          citationChunkId: 'chunk-1',
+          confidence: 0.88,
+        },
+      ],
+      uncertainty: false,
+      uncertaintyReason: null,
+      clarifyingQuestions: [],
+    });
+
+    function setupHappyPath() {
+      encountersMock.findById.mockResolvedValue({
+        id: encounterId,
+        physicianId,
+        patientRef: 'PRN-001',
+        context: { hasCT: false, isSus: false, hasLab: false, hasICU: false },
+      });
+      retrievalMock.search.mockResolvedValue({ chunks: mockChunks, totalRetrieved: 2 });
+      aiGatewayMock.complete.mockResolvedValue({
+        content: validRespondLLMOutput,
+        model: 'claude-3-sonnet',
+        usage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 },
+        latencyMs: 1200,
+      });
+      prismaMock.aiInteraction.create.mockResolvedValue({ id: 'interaction-002' });
+      encountersMock.update.mockResolvedValue({});
+    }
+
+    it('throws NotFoundException when interactionId does not belong to the encounter', async () => {
+      encountersMock.findById.mockResolvedValue({
+        id: encounterId,
+        physicianId,
+        patientRef: 'PRN-001',
+        context: {},
+      });
+      prismaMock.aiInteraction.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.continueAnalysis(physicianId, encounterId, {
+          interactionId: 'unknown-id',
+          answers: [{ questionId: 'q1', answer: 'sim' }],
+        }),
+      ).rejects.toThrow(NotFoundException);
+
+      expect(retrievalMock.search).not.toHaveBeenCalled();
+    });
+
+    it('persists follow-up interaction with incremented turnIndex and parentInteractionId', async () => {
+      setupHappyPath();
+      prismaMock.aiInteraction.findFirst.mockResolvedValue(makeParentInteraction());
+
+      const result = await service.continueAnalysis(physicianId, encounterId, {
+        interactionId: parentInteractionId,
+        answers: [{ questionId: 'q1', answer: 'sim, em uso de corticoide' }],
+      });
+
+      expect(prismaMock.aiInteraction.findFirst).toHaveBeenCalledWith({
+        where: { id: parentInteractionId, encounterId },
+      });
+      expect(prismaMock.aiInteraction.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            turnIndex: 1,
+            parentInteractionId,
+            answeredQuestions: [
+              expect.objectContaining({
+                questionId: 'q1',
+                question: 'O paciente é imunossuprimido?',
+                answer: 'sim, em uso de corticoide',
+                turnIndex: 0,
+              }),
+            ],
+          }),
+        }),
+      );
+      expect(result.interactionId).toBe('interaction-002');
+      expect(result.output.reasoning).toContain('imunossuprimido');
+    });
+
+    it('includes the new answers in the retrieval query so retrieval reflects new information', async () => {
+      setupHappyPath();
+      prismaMock.aiInteraction.findFirst.mockResolvedValue(makeParentInteraction());
+
+      await service.continueAnalysis(physicianId, encounterId, {
+        interactionId: parentInteractionId,
+        answers: [{ questionId: 'q1', answer: 'sim, paciente imunossuprimido em uso de corticoide' }],
+      });
+
+      const retrievalQuery = retrievalMock.search.mock.calls[0]![0] as string;
+      expect(retrievalQuery).toContain('imunossuprimido');
+      expect(retrievalQuery).toContain('O paciente é imunossuprimido?');
+    });
+
+    it('redacts CPF in physician answers before sending to retrieval and persisting', async () => {
+      setupHappyPath();
+      prismaMock.aiInteraction.findFirst.mockResolvedValue(makeParentInteraction());
+
+      const cpf = '529.982.247-25';
+      const result = await service.continueAnalysis(physicianId, encounterId, {
+        interactionId: parentInteractionId,
+        answers: [{ questionId: 'q1', answer: `Não, CPF do paciente é ${cpf}` }],
+      });
+
+      const retrievalQuery = retrievalMock.search.mock.calls[0]![0] as string;
+      expect(retrievalQuery).not.toContain(cpf);
+      expect(retrievalQuery).toContain('[REDACTED_CPF]');
+
+      const createCall = prismaMock.aiInteraction.create.mock.calls[0]![0] as {
+        data: { answeredQuestions: Array<{ answer: string }> };
+      };
+      expect(createCall.data.answeredQuestions[0]!.answer).not.toContain(cpf);
+      expect(result.metadata.piiDetected).toBe(true);
+    });
+
+    it('throws BadRequestException when COPILOT_MAX_TURNS is reached (6th turn blocked)', async () => {
+      configMock.get.mockImplementation((key: string, defaultValue?: unknown) =>
+        key === 'COPILOT_MAX_TURNS' ? 5 : defaultValue,
+      );
+      encountersMock.findById.mockResolvedValue({
+        id: encounterId,
+        physicianId,
+        patientRef: 'PRN-001',
+        context: {},
+      });
+      prismaMock.aiInteraction.findFirst.mockResolvedValue(makeParentInteraction({ turnIndex: 4 }));
+
+      await expect(
+        service.continueAnalysis(physicianId, encounterId, {
+          interactionId: parentInteractionId,
+          answers: [{ questionId: 'q1', answer: 'sim' }],
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(retrievalMock.search).not.toHaveBeenCalled();
+    });
+
+    it('forces a final answer with no further clarifying questions on the last allowed turn', async () => {
+      configMock.get.mockImplementation((key: string, defaultValue?: unknown) =>
+        key === 'COPILOT_MAX_TURNS' ? 5 : defaultValue,
+      );
+      setupHappyPath();
+      prismaMock.aiInteraction.findFirst.mockResolvedValue(makeParentInteraction({ turnIndex: 3 }));
+
+      await service.continueAnalysis(physicianId, encounterId, {
+        interactionId: parentInteractionId,
+        answers: [{ questionId: 'q1', answer: 'sim' }],
+      });
+
+      const promptArg = aiGatewayMock.complete.mock.calls[0]![0] as {
+        messages: Array<{ role: string; content: string }>;
+      };
+      const userMessage = promptArg.messages.find((m) => m.role === 'user')!;
+      expect(userMessage.content).toContain('último turno permitido');
+
+      expect(prismaMock.aiInteraction.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ turnIndex: 4 }) }),
+      );
+    });
+
+    it('accumulates answeredQuestions across multiple turns', async () => {
+      setupHappyPath();
+      prismaMock.aiInteraction.findFirst.mockResolvedValue(
+        makeParentInteraction({
+          turnIndex: 1,
+          answeredQuestions: [
+            { questionId: 'q0', question: 'Pergunta anterior?', answer: 'Resposta anterior', turnIndex: 0 },
+          ],
+        }),
+      );
+
+      await service.continueAnalysis(physicianId, encounterId, {
+        interactionId: parentInteractionId,
+        answers: [{ questionId: 'q1', answer: 'não' }],
+      });
+
+      const createCall = prismaMock.aiInteraction.create.mock.calls[0]![0] as {
+        data: { answeredQuestions: Array<{ questionId: string }>; turnIndex: number };
+      };
+      expect(createCall.data.answeredQuestions).toHaveLength(2);
+      expect(createCall.data.answeredQuestions[0]!.questionId).toBe('q0');
+      expect(createCall.data.answeredQuestions[1]!.questionId).toBe('q1');
+      expect(createCall.data.turnIndex).toBe(2);
     });
   });
 });
