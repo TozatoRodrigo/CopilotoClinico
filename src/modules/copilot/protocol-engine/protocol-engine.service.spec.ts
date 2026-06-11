@@ -256,7 +256,7 @@ describe('ProtocolEngineService', () => {
         .map(([params]) => params.payload as { nodeId: string; nextNodeId: string });
 
       // Reconstrói o caminho a partir dos pares (nodeId -> nextNodeId)
-      const reconstructedPath = [stepCalls[0].nodeId, ...stepCalls.map((s) => s.nextNodeId)];
+      const reconstructedPath = [stepCalls[0]!.nodeId, ...stepCalls.map((s) => s.nextNodeId)];
       expect(reconstructedPath).toEqual(['q1', 'q2', 'o2']);
     });
   });
