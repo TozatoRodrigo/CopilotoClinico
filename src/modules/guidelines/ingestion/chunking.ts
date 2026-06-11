@@ -4,6 +4,8 @@ export interface ChunkInput {
   sourceVersion: string;
   specialty: string;
   evidenceLevel?: string;
+  cenario?: string;
+  redFlags?: string[];
 }
 
 export interface ChunkResult {
@@ -14,6 +16,8 @@ export interface ChunkResult {
     sourceVersion: string;
     specialty: string;
     evidenceLevel?: string;
+    cenario?: string;
+    redFlags?: string[];
     charStart: number;
     charEnd: number;
   };
@@ -23,7 +27,7 @@ const CHUNK_SIZE = 500;
 const OVERLAP = 50;
 
 export function chunkText(input: ChunkInput): ChunkResult[] {
-  const { text, source, sourceVersion, specialty, evidenceLevel } = input;
+  const { text, source, sourceVersion, specialty, evidenceLevel, cenario, redFlags } = input;
 
   if (text.length === 0) {
     return [];
@@ -39,6 +43,8 @@ export function chunkText(input: ChunkInput): ChunkResult[] {
           sourceVersion,
           specialty,
           evidenceLevel,
+          cenario,
+          redFlags,
           charStart: 0,
           charEnd: text.length,
         },
@@ -63,6 +69,8 @@ export function chunkText(input: ChunkInput): ChunkResult[] {
           sourceVersion,
           specialty,
           evidenceLevel,
+          cenario,
+          redFlags,
           charStart: position,
           charEnd: end,
         },

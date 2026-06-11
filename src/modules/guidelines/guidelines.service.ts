@@ -12,6 +12,8 @@ export interface IngestGuidelineInput {
   specialty: string;
   evidenceLevel?: string;
   institutionId?: string | null;
+  cenario?: string;
+  redFlags?: string[];
 }
 
 export interface IngestedChunk {
@@ -298,6 +300,8 @@ export class GuidelinesService {
       sourceVersion: input.sourceVersion,
       specialty: input.specialty,
       evidenceLevel: input.evidenceLevel,
+      cenario: input.cenario,
+      redFlags: input.redFlags,
     });
 
     this.logger.log(`Created ${chunks.length} chunks from guideline`);
@@ -326,6 +330,8 @@ export class GuidelinesService {
           text: chunk.text,
           status,
           metadata: {
+            cenario: chunk.metadata.cenario ?? null,
+            redFlags: chunk.metadata.redFlags ?? [],
             charStart: chunk.metadata.charStart,
             charEnd: chunk.metadata.charEnd,
             chunkIndex: chunk.index,

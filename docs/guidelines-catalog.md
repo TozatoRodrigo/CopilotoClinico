@@ -1,6 +1,6 @@
 # Catálogo de Diretrizes Clínicas — CopilotoClínico
 
-Versão: 1.0 | Criado: 2026-06-08 | Sprint 4
+Versão: 2.0 | Criado: 2026-06-08 | Atualizado: 2026-06-11 | Sprint 4
 
 ## Política de uso
 
@@ -147,12 +147,61 @@ Versão: 1.0 | Criado: 2026-06-08 | Sprint 4
 - [ ] Walkthrough com 2 médicos externos (ex.: Dr. Bruno).
 
 ---
+## Pacote de Curadoria KB-001 — Top 20 queixas de PS
 
+> **Status: rascunho técnico para ingestão via KB-002.** O pacote em
+> `docs/guidelines/drafts/kb-001-top20-ps/` foi preparado para revisão do
+> Dr. João antes de qualquer aprovação em produção. Cada arquivo já inclui os
+> metadados `cenario` e `red_flags`, usados pelo pipeline de ingestão e pelo
+> prompt de decisão para perguntas realmente decisoras.
+
+### Cenários incluídos no pacote
+
+| # | Cenário | Arquivo |
+|---|---|---|
+| 1 | Síndrome gripal / IVAS | `01-sindrome-gripal-ivas.md` |
+| 2 | Dor torácica | `02-dor-toracica.md` |
+| 3 | Dispneia / DPOC exacerbado | `03-dispneia-dpoc.md` |
+| 4 | Dor abdominal aguda | `04-dor-abdominal-aguda.md` |
+| 5 | Cefaleia | `05-cefaleia.md` |
+| 6 | Lombalgia | `06-lombalgia.md` |
+| 7 | ITU / pielonefrite | `07-itu-pielonefrite.md` |
+| 8 | Pneumonia comunitária | `08-pneumonia-comunitaria.md` |
+| 9 | Celulite / erisipela | `09-celulite-erisipela.md` |
+| 10 | Gastroenterite / desidratação | `10-gastroenterite-desidratacao.md` |
+| 11 | Crise hipertensiva | `11-crise-hipertensiva.md` |
+| 12 | Hipoglicemia / hiperglicemia | `12-hipoglicemia-hiperglicemia.md` |
+| 13 | Crise convulsiva | `13-crise-convulsiva.md` |
+| 14 | Intoxicação exógena | `14-intoxicacao-exogena.md` |
+| 15 | Anafilaxia / urticária | `15-anafilaxia-urticaria.md` |
+| 16 | Vertigem | `16-vertigem.md` |
+| 17 | Febre sem foco no adulto | `17-febre-sem-foco-adulto.md` |
+| 18 | TVP / TEP suspeito | `18-tvp-tep-suspeito.md` |
+| 19 | Cólica renal | `19-colica-renal.md` |
+| 20 | Transtorno de ansiedade / agitação no PS | `20-ansiedade-agitacao-ps.md` |
+
+### Como usar este pacote
+
+1. Revisar os 20 arquivos com o Dr. João e ajustar linguagem clínica.
+2. Ingerir o diretório com `pnpm ingest:guidelines docs/guidelines/drafts/kb-001-top20-ps`.
+3. Aprovar/rejeitar os chunks pendentes via endpoints de curadoria do KB-002.
+4. Registrar nesta seção a validação clínica assinada por cenário (nome, CRM e data).
+
+### Pendências para fechar KB-001
+
+- [ ] Registrar validação clínica assinada dos 20 cenários no catálogo.
+- [ ] Rodar ingestão em ambiente com banco/embeddings disponíveis.
+- [ ] Aprovar os chunks relevantes em curadoria humana.
+- [ ] Executar suíte de avaliação sintética após ingestão aprovada.
+- [ ] Confirmar retrieval top-3 do caso canônico “gripe >48h” em ambiente integrado.
+
+---
 ## Processo de revisão
 
 1. Verificar se novas diretrizes das sociedades-fonte foram publicadas
 2. Criar PR com novos chunks no seed
 3. Atualizar versão neste documento
-4. Rodar `npx ts-node prisma/seeds/guidelines-seed.ts` em staging para validar
+4. Para pacotes em curadoria, ingerir via `pnpm ingest:guidelines <diretório>`
+5. Rodar `npx ts-node prisma/seeds/guidelines-seed.ts` em staging apenas para seeds auto-aprovados
 
 **Próxima revisão:** Dezembro 2026

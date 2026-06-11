@@ -6,6 +6,8 @@ const baseInput: Omit<ChunkInput, 'text'> = {
   sourceVersion: '2023.1',
   specialty: 'cardiology',
   evidenceLevel: 'A',
+  cenario: 'crise_hipertensiva',
+  redFlags: ['dor toracica', 'deficit neurologico focal'],
 };
 
 describe('chunkText', () => {
@@ -48,6 +50,8 @@ describe('chunkText', () => {
       expect(chunk.metadata.sourceVersion).toBe(baseInput.sourceVersion);
       expect(chunk.metadata.specialty).toBe(baseInput.specialty);
       expect(chunk.metadata.evidenceLevel).toBe(baseInput.evidenceLevel);
+      expect(chunk.metadata.cenario).toBe(baseInput.cenario);
+      expect(chunk.metadata.redFlags).toEqual(baseInput.redFlags);
     }
   });
 

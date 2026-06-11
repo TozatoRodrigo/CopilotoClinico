@@ -79,4 +79,22 @@ describe('parseGuidelineDocument', () => {
 
     expect(result.meta.institutionId).toBe('880e8400-e29b-41d4-a716-446655440003');
   });
+
+  it('KB-001: parses cenario and red_flags for draft curation packs', () => {
+    const raw = [
+      '---',
+      'source: Manejo da síndrome gripal no PS',
+      'sourceVersion: MS 2023',
+      'specialty: emergencia',
+      'cenario: sindrome_gripal',
+      'red_flags: dispneia | SpO2 < 95% | hipotensao',
+      '---',
+      'Corpo',
+    ].join('\n');
+
+    const result = parseGuidelineDocument(raw);
+
+    expect(result.meta.cenario).toBe('sindrome_gripal');
+    expect(result.meta.redFlags).toEqual(['dispneia', 'SpO2 < 95%', 'hipotensao']);
+  });
 });
