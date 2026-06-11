@@ -98,10 +98,24 @@ export class ProtocolsService {
     return this.findById(protocol.id);
   }
 
-  async findAll(filters: { specialty?: string; status?: ProtocolStatus } = {}) {
+  /**
+   * PROT-004: isolamento de protocolos por instituição. Sem `institutionId`,
+   * retorna apenas protocolos globais (institutionId IS NULL). Com
+   * `institutionId`, retorna globais + os da própria instituição — protocolos
+   * de outras instituições nunca aparecem na listagem.
+   */
+  async findAll(
+    filters: { specialty?: string; status?: ProtocolStatus; institutionId?: string | null } = {},
+  ) {
     const where: Prisma.ProtocolWhereInput = {};
     if (filters.specialty) where.specialty = filters.specialty;
     if (filters.status) where.status = filters.status;
+
+    if (filters.institutionId) {
+      where.OR = [{ institutionId: null }, { institutionId: filters.institutionId }];
+    } else {
+      where.institutionId = null;
+    }
 
     return this.prisma.protocol.findMany({
       where,
@@ -109,12 +123,27 @@ export class ProtocolsService {
     });
   }
 
-  async findById(id: string) {
+  /**
+   * PROT-004: quando `institutionId` é informado, protocolos de outras
+   * instituições são tratados como inexistentes (NotFoundException), sem
+   * vazar sua existência. Chamadas internas (publish, reviseAsNewVersion,
+   * create) não informam `institutionId` e não sofrem essa checagem.
+   */
+  async findById(id: string, institutionId?: string | null) {
     const protocol = await this.prisma.protocol.findUnique({
       where: { id },
       include: PROTOCOL_WITH_GRAPH_INCLUDE,
     });
     if (!protocol) throw new NotFoundException('Protocol not found');
+
+    if (
+      institutionId !== undefined &&
+      protocol.institutionId !== null &&
+      protocol.institutionId !== institutionId
+    ) {
+      throw new NotFoundException('Protocol not found');
+    }
+
     return protocol;
   }
 

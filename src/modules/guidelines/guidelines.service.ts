@@ -11,6 +11,7 @@ export interface IngestGuidelineInput {
   sourceVersion: string;
   specialty: string;
   evidenceLevel?: string;
+  institutionId?: string | null;
 }
 
 export interface IngestedChunk {
@@ -67,6 +68,7 @@ export class GuidelinesService {
           source: input.source,
           sourceVersion: input.sourceVersion,
           chunks: created.length,
+          institutionId: input.institutionId ?? null,
         },
       })
       .catch(() => undefined);
@@ -96,6 +98,7 @@ export class GuidelinesService {
       where: {
         source: input.source,
         sourceVersion: { not: input.sourceVersion },
+        institutionId: input.institutionId ?? null,
         status: { in: [GuidelineChunkStatus.approved, GuidelineChunkStatus.pending_review] },
       },
       data: { status: GuidelineChunkStatus.superseded },
@@ -112,6 +115,7 @@ export class GuidelinesService {
           sourceVersion: input.sourceVersion,
           chunksCreated: created.length,
           superseded: superseded.count,
+          institutionId: input.institutionId ?? null,
         },
       })
       .catch(() => undefined);
@@ -318,6 +322,7 @@ export class GuidelinesService {
           sourceVersion: chunk.metadata.sourceVersion,
           specialty: chunk.metadata.specialty,
           evidenceLevel: chunk.metadata.evidenceLevel ?? null,
+          institutionId: input.institutionId ?? null,
           text: chunk.text,
           status,
           metadata: {

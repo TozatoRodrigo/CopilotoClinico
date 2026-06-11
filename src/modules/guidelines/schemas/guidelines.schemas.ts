@@ -6,6 +6,7 @@ export const ingestGuidelineSchema = z.object({
   sourceVersion: z.string().min(1),
   specialty: z.string().min(1),
   evidenceLevel: z.string().optional(),
+  institutionId: z.string().uuid().optional(),
 });
 
 export const deactivateGuidelineSchema = z.object({

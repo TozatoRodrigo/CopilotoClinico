@@ -71,6 +71,7 @@ async function main(): Promise<void> {
           sourceVersion: meta.sourceVersion,
           specialty: meta.specialty,
           evidenceLevel: meta.evidenceLevel,
+          institutionId: meta.institutionId,
         });
 
         results.push({ ...result, file: filePath });

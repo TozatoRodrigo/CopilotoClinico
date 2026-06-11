@@ -1,11 +1,13 @@
 import { Injectable, Inject, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../config/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { InstitutionsService } from '../institutions/institutions.service';
 import { CreateEncounterInput, UpdateEncounterInput } from './schemas/encounter.schemas';
 
 const ENCOUNTER_SELECT = {
   id: true,
   physicianId: true,
+  institutionId: true,
   vertical: true,
   context: true,
   patientRef: true,
@@ -19,12 +21,16 @@ export class EncountersService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(InstitutionsService) private readonly institutionsService: InstitutionsService,
   ) {}
 
   async create(physicianId: string, input: CreateEncounterInput) {
+    const institutionId = await this.resolveInstitutionId(physicianId, input.institutionId);
+
     const encounter = await this.prisma.encounter.create({
       data: {
         physicianId,
+        institutionId,
         patientRef: input.patientRef,
         vertical: input.vertical,
         context: input.context,
@@ -39,11 +45,34 @@ export class EncountersService {
         action: 'ENCOUNTER_CREATED',
         entity: 'Encounter',
         entityId: encounter.id,
-        payload: { vertical: encounter.vertical },
+        payload: { vertical: encounter.vertical, institutionId: encounter.institutionId },
       })
       .catch(() => undefined);
 
     return encounter;
+  }
+
+  /**
+   * PROT-004: resolve a instituição do atendimento.
+   * - Se informada explicitamente, o médico precisa pertencer a ela.
+   * - Caso contrário, usa a instituição única do médico (default), ou
+   *   permanece global (null) se ele não tiver vínculo ou tiver mais de um.
+   */
+  private async resolveInstitutionId(
+    physicianId: string,
+    requestedInstitutionId?: string,
+  ): Promise<string | null> {
+    const institutions = await this.institutionsService.listForPhysician(physicianId);
+
+    if (requestedInstitutionId) {
+      const belongs = institutions.some((i) => i.id === requestedInstitutionId);
+      if (!belongs) {
+        throw new ForbiddenException('Médico não pertence à instituição informada');
+      }
+      return requestedInstitutionId;
+    }
+
+    return institutions.length === 1 ? institutions[0]!.id : null;
   }
 
   async findById(physicianId: string, encounterId: string) {
@@ -52,6 +81,7 @@ export class EncountersService {
       select: {
         id: true,
         physicianId: true,
+        institutionId: true,
         vertical: true,
         context: true,
         patientRef: true,
