@@ -15,6 +15,7 @@ import { CopilotModule } from './modules/copilot/copilot.module';
 import { LgpdModule } from './modules/lgpd/lgpd.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { GuidelinesModule } from './modules/guidelines/guidelines.module';
+import { ProtocolsModule } from './modules/protocols/protocols.module';
 import { PhysiciansModule } from './modules/physicians/physicians.module';
 import { ObservabilityModule } from './modules/observability/observability.module';
 import { AudioModule } from './modules/audio/audio.module';
@@ -40,6 +41,7 @@ import { PiiLogSanitizerInterceptor } from './shared/interceptors/pii-log-saniti
     DocumentsModule,
     CopilotModule,
     GuidelinesModule,
+    ProtocolsModule,
     AuditModule,
     LgpdModule,
     PhysiciansModule,

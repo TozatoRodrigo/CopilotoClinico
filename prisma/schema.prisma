@@ -28,6 +28,18 @@ enum SubscriptionStatus {
   trial
 }
 
+enum ProtocolStatus {
+  draft
+  published
+  retired
+}
+
+enum ProtocolNodeType {
+  question
+  action
+  outcome
+}
+
 model Physician {
   id                 String             @id @default(uuid()) @db.Uuid
   crmUf              String             @map("crm_uf") @db.Char(2)
@@ -246,6 +258,57 @@ model AudioCapture {
   @@index([physicianId])
   @@index([retainUntil])
   @@map("audio_captures")
+}
+
+model Protocol {
+  id            String         @id @default(uuid()) @db.Uuid
+  name          String
+  specialty     String
+  version       Int            @default(1)
+  status        ProtocolStatus @default(draft)
+  institutionId String?        @map("institution_id") @db.Uuid
+  sourceRef     String?        @map("source_ref")
+  createdBy     String         @map("created_by") @db.Uuid
+  publishedAt   DateTime?      @map("published_at")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  nodes ProtocolNode[]
+
+  @@index([name, specialty, institutionId])
+  @@index([status])
+  @@map("protocols")
+}
+
+model ProtocolNode {
+  id         String           @id @default(uuid()) @db.Uuid
+  protocolId String           @map("protocol_id") @db.Uuid
+  nodeType   ProtocolNodeType @map("node_type")
+  content    Json
+  order      Int
+  createdAt  DateTime         @default(now()) @map("created_at")
+
+  protocol      Protocol       @relation(fields: [protocolId], references: [id], onDelete: Cascade)
+  outgoingEdges ProtocolEdge[] @relation("ProtocolEdgeFrom")
+  incomingEdges ProtocolEdge[] @relation("ProtocolEdgeTo")
+
+  @@index([protocolId])
+  @@map("protocol_nodes")
+}
+
+model ProtocolEdge {
+  id         String   @id @default(uuid()) @db.Uuid
+  fromNodeId String   @map("from_node_id") @db.Uuid
+  toNodeId   String   @map("to_node_id") @db.Uuid
+  condition  Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  fromNode ProtocolNode @relation("ProtocolEdgeFrom", fields: [fromNodeId], references: [id], onDelete: Cascade)
+  toNode   ProtocolNode @relation("ProtocolEdgeTo", fields: [toNodeId], references: [id], onDelete: Cascade)
+
+  @@index([fromNodeId])
+  @@index([toNodeId])
+  @@map("protocol_edges")
 }
 
 model CrmVerificationRequest {
