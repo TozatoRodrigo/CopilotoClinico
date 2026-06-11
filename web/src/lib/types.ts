@@ -72,6 +72,8 @@ export interface Citation {
   sourceVersion: string;
   chunkId: string;
   text: string;
+  institutionId?: string | null;
+  origin?: 'institutional' | 'public';
 }
 
 export interface CopilotAnalyzeResponse {

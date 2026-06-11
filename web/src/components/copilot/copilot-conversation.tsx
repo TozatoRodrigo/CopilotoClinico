@@ -104,8 +104,19 @@ export function CopilotConversation({ encounterId, initial }: CopilotConversatio
                   className="space-y-1 rounded-lg border bg-muted/30 px-4 py-2 text-sm"
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <span className="font-medium">
-                      {citation.source} v{citation.sourceVersion}
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="truncate font-medium">
+                        {citation.source} v{citation.sourceVersion}
+                      </span>
+                      {citation.origin === "institutional" ? (
+                        <Badge variant="secondary" className="shrink-0">
+                          Protocolo institucional
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="shrink-0">
+                          Diretriz pública
+                        </Badge>
+                      )}
                     </span>
                     <a
                       className="shrink-0 text-muted-foreground underline underline-offset-4"

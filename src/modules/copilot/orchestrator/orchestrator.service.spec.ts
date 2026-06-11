@@ -64,6 +64,7 @@ describe('OrchestratorService', () => {
       sourceVersion: '1.0',
       specialty: 'cardiologia',
       evidenceLevel: 'A',
+      institutionId: null,
       score: 0.95,
       metadata: {},
     },
@@ -74,6 +75,7 @@ describe('OrchestratorService', () => {
       sourceVersion: '2.0',
       specialty: 'cardiologia',
       evidenceLevel: 'B',
+      institutionId: null,
       score: 0.88,
       metadata: {},
     },
@@ -378,7 +380,44 @@ describe('OrchestratorService', () => {
         source: 'diretriz-dor-toracica',
         sourceVersion: '1.0',
         text: 'Guideline text about chest pain workup',
+        institutionId: null,
+        origin: 'public',
       });
+    });
+
+    it('PROT-004: labels citations from institutional chunks as "institutional" with the institutionId', async () => {
+      encountersMock.findById.mockResolvedValue({
+        id: encounterId,
+        physicianId,
+        institutionId: 'institution-a',
+        patientRef: 'PRN-001',
+      });
+      retrievalMock.search.mockResolvedValue({
+        chunks: [{ ...mockChunks[0], institutionId: 'institution-a' }],
+        totalRetrieved: 1,
+      });
+      aiGatewayMock.complete.mockResolvedValue({
+        content: validLLMOutput,
+        model: 'claude-3-sonnet',
+        usage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 },
+        latencyMs: 1500,
+      });
+      prismaMock.aiInteraction.create.mockResolvedValue({ id: 'interaction-001' });
+      encountersMock.update.mockResolvedValue({});
+
+      const result = await service.analyze(physicianId, encounterId, validInput);
+
+      expect(retrievalMock.search).toHaveBeenCalledWith(
+        expect.any(String),
+        5,
+        'institution-a',
+      );
+      expect(result.citations[0]).toEqual(
+        expect.objectContaining({
+          institutionId: 'institution-a',
+          origin: 'institutional',
+        }),
+      );
     });
 
     it('RT-001: enriches each recommendation with confidence, source version, and chunk link', async () => {

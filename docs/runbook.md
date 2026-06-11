@@ -46,6 +46,136 @@ DATABASE_URL=postgresql://test:test@localhost:5432/test?schema=public pnpm prism
 DATABASE_URL=postgresql://test:test@localhost:5432/test?schema=public pnpm test:integration
 ```
 
+### Ingestão e revisão de diretrizes (KB-002)
+
+A ingestão em lote de diretrizes clínicas usa um pipeline de curadoria: nenhum
+chunk entra em produção (retrieval) sem aprovação humana.
+
+**1. Preparar os arquivos**
+
+Cada arquivo `.md`/`.txt` deve começar com um front-matter `key: value`
+delimitado por `---`, com os campos obrigatórios `source`, `sourceVersion`
+(ou `version`) e `specialty`, e opcionalmente `evidenceLevel`:
+
+```
+---
+source: Diretriz Dor Torácica AMB 2026
+sourceVersion: 2.0
+specialty: cardiologia
+evidenceLevel: A
+---
+
+Conteúdo da diretriz...
+```
+
+**2. Rodar a ingestão em lote**
+
+```bash
+pnpm ingest:guidelines ./caminho/para/diretrizes
+```
+
+O script processa todos os arquivos `.md`/`.txt` do diretório, gera os
+embeddings e grava os chunks com `status = pending_review`. Chunks
+`approved`/`pending_review` de versões anteriores da mesma `source` são
+marcados como `superseded` (não são apagados — preserva rastreabilidade de
+análises antigas). O comando imprime um relatório com os chunks criados por
+arquivo e encerra com código de saída não-zero se algum arquivo falhar.
+
+**3. Revisar e aprovar/rejeitar chunks pendentes**
+
+Endpoints restritos a usuários com `isCurator = true` (`Physician.isCurator`,
+flag provisória até existir RBAC completo):
+
+```bash
+# Listar chunks pendentes de revisão
+curl http://localhost:3000/v1/guidelines/pending \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+
+# Aprovar um chunk
+curl -X POST http://localhost:3000/v1/guidelines/chunks/$CHUNK_ID/approve \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+
+# Rejeitar um chunk (motivo opcional)
+curl -X POST http://localhost:3000/v1/guidelines/chunks/$CHUNK_ID/reject \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"reason": "Texto desatualizado"}'
+```
+
+Aprovações e rejeições são registradas na trilha de auditoria
+(`GUIDELINE_APPROVED` / `GUIDELINE_REJECTED`) com o id do revisor. Apenas
+chunks `approved` aparecem no retrieval do copiloto — `pending_review`,
+`rejected` e `superseded` são sempre excluídos.
+
+**4. Conceder permissão de curador**
+
+Como ainda não há RBAC completo, a permissão é concedida diretamente via
+banco:
+
+```sql
+UPDATE physicians SET is_curator = true WHERE email = 'curador@exemplo.com';
+```
+
+---
+
+## Multi-tenancy institucional (PROT-004)
+
+Hospitais clientes podem ter protocolos e diretrizes próprios, isolados de
+outras instituições e do conteúdo público (`institution_id IS NULL`). Ver
+[ADR-009](./decisions/ADR-009-institutional-multi-tenancy.md) para o modelo
+completo.
+
+**1. Criar uma instituição**
+
+Endpoint restrito a `InternalServiceGuard`:
+
+```bash
+curl -X POST http://localhost:3000/v1/institutions \
+  -H "x-internal-token: $INTERNAL_SERVICE_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Hospital Central", "cnes": "1234567", "status": "active"}'
+```
+
+**2. Vincular médicos à instituição**
+
+```bash
+curl -X POST http://localhost:3000/v1/institutions/$INSTITUTION_ID/physicians \
+  -H "x-internal-token: $INTERNAL_SERVICE_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"physicianId": "<uuid-do-medico>"}'
+```
+
+Um médico pode pertencer a múltiplas instituições (`PhysicianInstitution` é
+N:N). Médicos sem vínculo, ou vinculados a mais de uma instituição sem
+informar `institutionId` explicitamente, só enxergam conteúdo global
+(`institution_id IS NULL`).
+
+**3. Ingerir protocolos/diretrizes institucionais**
+
+Adicionar `institutionId: <uuid>` no front-matter do arquivo (ver seção
+KB-002 acima):
+
+```
+---
+source: Protocolo Sepse Hospital Central
+sourceVersion: 1.0
+specialty: emergencia
+institutionId: <uuid-da-instituicao>
+---
+```
+
+Sem `institutionId`, o conteúdo é global (visível a todas as instituições).
+Re-ingestão de uma nova versão só marca como `superseded` chunks da **mesma**
+`institutionId` — versões institucional e global da "mesma" fonte coexistem
+sem se invalidar.
+
+**4. Verificar isolamento**
+
+`ProtocolsService.findById`/`findAll` e `RetrievalService.search` filtram por
+`institution_id IS NULL OR institution_id = :institutionId` no SQL — não
+apenas na resposta. Acesso a um protocolo de outra instituição retorna `404`
+(nunca `403`, para não confirmar a existência do recurso).
+
 ---
 
 ## Migrações
@@ -58,6 +188,9 @@ DATABASE_URL=postgresql://test:test@localhost:5432/test?schema=public pnpm test:
 | `20260605010000_iam_001_crm_verified` | Coluna `crm_verified` em physicians |
 | `20260605020000_iam_003_remove_mfa_fields` | Remove `mfa_enabled` e `mfa_secret` (dead code) |
 | `20260605030000_aud_002_db_least_privilege` | Role `copiloto_app` com menor privilégio para runtime |
+| `20260606111800_perf_001_guideline_embedding_ivfflat` | Índice ivfflat para `guideline_chunks.embedding` |
+| `20260613090000_kb_002_guideline_review_pipeline` | Status de revisão (`pending_review`/`approved`/`rejected`/`superseded`) em `guideline_chunks` + `is_curator` em physicians |
+| `20260614100000_prot_004_institution_multi_tenancy` | Tabelas `institutions`/`physician_institutions` + `institution_id` em `protocols`/`guideline_chunks`/`encounters` |
 
 ### Rollback de Migration
 

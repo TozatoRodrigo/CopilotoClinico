@@ -1,9 +1,11 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../config/prisma.service';
 import { AiGatewayService } from '../../ai-gateway/ai-gateway.service';
 import { RedisService } from '../../redis/redis.service';
 import {
   reciprocalRankFuse,
+  applyInstitutionBoost,
   sortByScore,
   type RetrievedChunk,
   type SearchHit,
@@ -24,10 +26,21 @@ export class RetrievalService {
     @Inject(RedisService) private readonly redis: RedisService,
   ) {}
 
-  async search(query: string, topK: number = 5): Promise<RetrievalResult> {
+  /**
+   * @param institutionId Instituição do encounter (PROT-004). `undefined`/`null`
+   * restringe a busca a conteúdo global (institution_id IS NULL). Quando
+   * informado, a busca retorna conteúdo global + da instituição (isolamento
+   * hard via WHERE — chunks de outras instituições nunca são retornados) e
+   * aplica boost de ranking aos chunks institucionais.
+   */
+  async search(
+    query: string,
+    topK: number = 5,
+    institutionId?: string | null,
+  ): Promise<RetrievalResult> {
     this.logger.debug(`Hybrid search: query="${query.substring(0, 50)}...", topK=${topK}`);
 
-    const cacheKey = `retrieval:${Buffer.from(query).toString('base64').slice(0, 64)}:${topK}`;
+    const cacheKey = `retrieval:${Buffer.from(query).toString('base64').slice(0, 64)}:${topK}:${institutionId ?? 'global'}`;
     const cached = await this.redis.get(cacheKey);
     if (cached) {
       this.logger.debug('Retrieval cache hit');
@@ -40,12 +53,18 @@ export class RetrievalService {
       throw new Error('Failed to generate query embedding');
     }
 
-    const semanticHits = await this.semanticSearch(queryEmbedding, topK * 2);
-    const keywordHits = await this.keywordSearch(query, topK * 2);
+    const semanticHits = await this.semanticSearch(queryEmbedding, topK * 2, institutionId);
+    const keywordHits = await this.keywordSearch(query, topK * 2, institutionId);
 
     const fusedScores = reciprocalRankFuse(semanticHits, keywordHits);
 
-    const sortedIds = [...fusedScores.entries()]
+    const chunkInstitutions = new Map<string, string | null>();
+    for (const hit of [...semanticHits, ...keywordHits]) {
+      chunkInstitutions.set(hit.chunkId, hit.institutionId);
+    }
+    const boostedScores = applyInstitutionBoost(fusedScores, chunkInstitutions, institutionId);
+
+    const sortedIds = [...boostedScores.entries()]
       .sort(([, a], [, b]) => b - a)
       .slice(0, topK)
       .map(([id]) => id);
@@ -57,7 +76,7 @@ export class RetrievalService {
     const chunks = await this.fetchChunks(sortedIds);
     const scored = chunks.map((chunk) => ({
       ...chunk,
-      score: fusedScores.get(chunk.id) ?? 0,
+      score: boostedScores.get(chunk.id) ?? 0,
     }));
 
     const result: RetrievalResult = {
@@ -69,15 +88,35 @@ export class RetrievalService {
     return result;
   }
 
-  private async semanticSearch(embedding: number[], limit: number): Promise<SearchHit[]> {
+  /**
+   * PROT-004: filtro hard de isolamento — sem instituição informada, apenas
+   * conteúdo global (institution_id IS NULL); com instituição informada,
+   * conteúdo global + da própria instituição. Conteúdo de outras
+   * instituições nunca é incluído no resultado da query.
+   */
+  private institutionFilter(institutionId?: string | null): Prisma.Sql {
+    return institutionId
+      ? Prisma.sql`AND (institution_id IS NULL OR institution_id = ${institutionId}::uuid)`
+      : Prisma.sql`AND institution_id IS NULL`;
+  }
+
+  private async semanticSearch(
+    embedding: number[],
+    limit: number,
+    institutionId?: string | null,
+  ): Promise<SearchHit[]> {
     const vectorStr = `[${embedding.join(',')}]`;
 
-    const results = await this.prisma.$queryRaw<Array<{ id: string; similarity: number }>>`
-      SELECT id, 1 - (embedding <=> ${vectorStr}::vector) as similarity
+    const results = await this.prisma.$queryRaw<
+      Array<{ id: string; similarity: number; institution_id: string | null }>
+    >`
+      SELECT id, 1 - (embedding <=> ${vectorStr}::vector) as similarity, institution_id
       FROM guideline_chunks
       WHERE embedding IS NOT NULL
+        AND status = 'approved'
         AND valid_from <= NOW()
         AND (valid_to IS NULL OR valid_to > NOW())
+        ${this.institutionFilter(institutionId)}
       ORDER BY embedding <=> ${vectorStr}::vector
       LIMIT ${limit}
     `;
@@ -85,16 +124,25 @@ export class RetrievalService {
     return results.map((r) => ({
       chunkId: r.id,
       score: r.similarity,
+      institutionId: r.institution_id,
     }));
   }
 
-  private async keywordSearch(query: string, limit: number): Promise<SearchHit[]> {
-    const results = await this.prisma.$queryRaw<Array<{ id: string; rank: number }>>`
-      SELECT id, ts_rank(text_tsv, plainto_tsquery('portuguese', ${query})) as rank
+  private async keywordSearch(
+    query: string,
+    limit: number,
+    institutionId?: string | null,
+  ): Promise<SearchHit[]> {
+    const results = await this.prisma.$queryRaw<
+      Array<{ id: string; rank: number; institution_id: string | null }>
+    >`
+      SELECT id, ts_rank(text_tsv, plainto_tsquery('portuguese', ${query})) as rank, institution_id
       FROM guideline_chunks
       WHERE text_tsv @@ plainto_tsquery('portuguese', ${query})
+        AND status = 'approved'
         AND valid_from <= NOW()
         AND (valid_to IS NULL OR valid_to > NOW())
+        ${this.institutionFilter(institutionId)}
       ORDER BY rank DESC
       LIMIT ${limit}
     `;
@@ -102,6 +150,7 @@ export class RetrievalService {
     return results.map((r) => ({
       chunkId: r.id,
       score: r.rank,
+      institutionId: r.institution_id,
     }));
   }
 
@@ -115,6 +164,7 @@ export class RetrievalService {
         sourceVersion: true,
         specialty: true,
         evidenceLevel: true,
+        institutionId: true,
         metadata: true,
       },
     });
@@ -126,6 +176,7 @@ export class RetrievalService {
       sourceVersion: c.sourceVersion,
       specialty: c.specialty,
       evidenceLevel: c.evidenceLevel,
+      institutionId: c.institutionId,
       metadata: (c.metadata ?? {}) as unknown as Record<string, unknown>,
     }));
   }

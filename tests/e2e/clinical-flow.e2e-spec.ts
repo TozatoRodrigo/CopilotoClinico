@@ -204,6 +204,10 @@ function buildPrismaMock() {
       findMany: vi.fn().mockResolvedValue([]),
     },
 
+    physicianInstitution: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
+
     document: {
       create: vi.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) =>
         Promise.resolve({

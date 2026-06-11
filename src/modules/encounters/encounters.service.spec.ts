@@ -2,15 +2,18 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { EncountersService } from './encounters.service';
 import { PrismaService } from '../../config/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { InstitutionsService } from '../institutions/institutions.service';
 import { NotFoundException, ForbiddenException } from '@nestjs/common';
 
 const physicianId = '550e8400-e29b-41d4-a716-446655440000';
 const otherPhysicianId = '660e8400-e29b-41d4-a716-446655440001';
 const encounterId = '770e8400-e29b-41d4-a716-446655440002';
+const institutionId = '880e8400-e29b-41d4-a716-446655440003';
 
 const baseEncounter = {
   id: encounterId,
   physicianId,
+  institutionId: null as string | null,
   vertical: 'trauma',
   patientRef: 'PAT-001',
   status: 'draft' as const,
@@ -36,6 +39,7 @@ describe('EncountersService', () => {
       update: ReturnType<typeof vi.fn>;
     };
   };
+  let institutionsService: { listForPhysician: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -50,12 +54,18 @@ describe('EncountersService', () => {
       },
     };
 
+    institutionsService = { listForPhysician: vi.fn().mockResolvedValue([]) };
+
     const auditService = { log: vi.fn().mockResolvedValue(undefined) } as unknown as AuditService;
-    service = new EncountersService(prisma as unknown as PrismaService, auditService);
+    service = new EncountersService(
+      prisma as unknown as PrismaService,
+      auditService,
+      institutionsService as unknown as InstitutionsService,
+    );
   });
 
   describe('create', () => {
-    it('creates encounter with pseudonymized patientRef', async () => {
+    it('creates encounter with pseudonymized patientRef and no institution by default', async () => {
       prisma.encounter.create.mockResolvedValue(baseEncounter);
 
       const result = await service.create(physicianId, createInput);
@@ -63,6 +73,7 @@ describe('EncountersService', () => {
       expect(prisma.encounter.create).toHaveBeenCalledWith({
         data: {
           physicianId,
+          institutionId: null,
           patientRef: createInput.patientRef,
           vertical: createInput.vertical,
           context: createInput.context,
@@ -71,6 +82,7 @@ describe('EncountersService', () => {
         select: {
           id: true,
           physicianId: true,
+          institutionId: true,
           vertical: true,
           context: true,
           patientRef: true,
@@ -80,6 +92,55 @@ describe('EncountersService', () => {
         },
       });
       expect(result).toEqual(baseEncounter);
+    });
+
+    it('defaults to the physician sole institution when none is requested', async () => {
+      institutionsService.listForPhysician.mockResolvedValue([{ id: institutionId }]);
+      prisma.encounter.create.mockResolvedValue({ ...baseEncounter, institutionId });
+
+      await service.create(physicianId, createInput);
+
+      expect(prisma.encounter.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ institutionId }) }),
+      );
+    });
+
+    it('does not default when physician belongs to multiple institutions', async () => {
+      institutionsService.listForPhysician.mockResolvedValue([
+        { id: institutionId },
+        { id: 'another-institution' },
+      ]);
+      prisma.encounter.create.mockResolvedValue(baseEncounter);
+
+      await service.create(physicianId, createInput);
+
+      expect(prisma.encounter.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ institutionId: null }) }),
+      );
+    });
+
+    it('accepts an explicit institutionId when the physician belongs to it', async () => {
+      institutionsService.listForPhysician.mockResolvedValue([
+        { id: institutionId },
+        { id: 'another-institution' },
+      ]);
+      prisma.encounter.create.mockResolvedValue({ ...baseEncounter, institutionId });
+
+      await service.create(physicianId, { ...createInput, institutionId });
+
+      expect(prisma.encounter.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ institutionId }) }),
+      );
+    });
+
+    it('rejects an explicit institutionId the physician does not belong to', async () => {
+      institutionsService.listForPhysician.mockResolvedValue([{ id: 'another-institution' }]);
+
+      await expect(
+        service.create(physicianId, { ...createInput, institutionId }),
+      ).rejects.toThrow(ForbiddenException);
+
+      expect(prisma.encounter.create).not.toHaveBeenCalled();
     });
   });
 
@@ -203,6 +264,7 @@ describe('EncountersService', () => {
         select: {
           id: true,
           physicianId: true,
+          institutionId: true,
           vertical: true,
           context: true,
           patientRef: true,

@@ -50,12 +50,12 @@ describe('RetrievalService', () => {
 
       prismaMock.$queryRaw
         .mockResolvedValueOnce([
-          { id: 'chunk-1', similarity: 0.95 },
-          { id: 'chunk-2', similarity: 0.85 },
+          { id: 'chunk-1', similarity: 0.95, institution_id: null },
+          { id: 'chunk-2', similarity: 0.85, institution_id: null },
         ])
         .mockResolvedValueOnce([
-          { id: 'chunk-2', rank: 0.8 },
-          { id: 'chunk-3', rank: 0.6 },
+          { id: 'chunk-2', rank: 0.8, institution_id: null },
+          { id: 'chunk-3', rank: 0.6, institution_id: null },
         ]);
 
       prismaMock.guidelineChunk.findMany.mockResolvedValue([
@@ -66,6 +66,7 @@ describe('RetrievalService', () => {
           sourceVersion: '1.0',
           specialty: 'cardiologia',
           evidenceLevel: 'A',
+          institutionId: null,
           metadata: { page: 1 },
         },
         {
@@ -75,6 +76,7 @@ describe('RetrievalService', () => {
           sourceVersion: '2.0',
           specialty: 'neurologia',
           evidenceLevel: 'B',
+          institutionId: null,
           metadata: null,
         },
         {
@@ -84,6 +86,7 @@ describe('RetrievalService', () => {
           sourceVersion: '1.0',
           specialty: 'ortopedia',
           evidenceLevel: null,
+          institutionId: null,
           metadata: { section: 'intro' },
         },
       ]);
@@ -116,8 +119,8 @@ describe('RetrievalService', () => {
       });
 
       prismaMock.$queryRaw
-        .mockResolvedValueOnce([{ id: 'c1', similarity: 0.9 }])
-        .mockResolvedValueOnce([{ id: 'c1', rank: 0.5 }]);
+        .mockResolvedValueOnce([{ id: 'c1', similarity: 0.9, institution_id: null }])
+        .mockResolvedValueOnce([{ id: 'c1', rank: 0.5, institution_id: null }]);
 
       prismaMock.guidelineChunk.findMany.mockResolvedValue([
         {
@@ -127,6 +130,7 @@ describe('RetrievalService', () => {
           sourceVersion: 'v1',
           specialty: 'spec',
           evidenceLevel: null,
+          institutionId: null,
           metadata: null,
         },
       ]);
@@ -144,6 +148,7 @@ describe('RetrievalService', () => {
           sourceVersion: true,
           specialty: true,
           evidenceLevel: true,
+          institutionId: true,
           metadata: true,
         },
       });
@@ -162,6 +167,78 @@ describe('RetrievalService', () => {
       expect(semanticQuery).toContain('embedding <=>');
       expect(semanticQuery).toContain('embedding IS NOT NULL');
       expect(semanticQuery).not.toContain('embedding::text::vector');
+    });
+
+    function findInstitutionFilterSql(callArgs: unknown[]): string {
+      const fragment = callArgs.find(
+        (arg): arg is { sql: string } =>
+          typeof arg === 'object' && arg !== null && 'sql' in arg && 'values' in arg,
+      );
+      return fragment?.sql ?? '';
+    }
+
+    it('restricts queries to global content (institution_id IS NULL) when no institution is given', async () => {
+      aiGatewayMock.embed.mockResolvedValue({ embeddings: [[0.1]] });
+      prismaMock.$queryRaw.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+
+      await service.search('test query', 3);
+
+      expect(findInstitutionFilterSql(prismaMock.$queryRaw.mock.calls[0]!)).toContain(
+        'institution_id IS NULL',
+      );
+      expect(findInstitutionFilterSql(prismaMock.$queryRaw.mock.calls[1]!)).toContain(
+        'institution_id IS NULL',
+      );
+    });
+
+    it('includes global and institution-matching content when institutionId is given', async () => {
+      aiGatewayMock.embed.mockResolvedValue({ embeddings: [[0.1]] });
+      prismaMock.$queryRaw.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+
+      await service.search('test query', 3, 'institution-a');
+
+      expect(findInstitutionFilterSql(prismaMock.$queryRaw.mock.calls[0]!)).toContain(
+        'institution_id IS NULL OR institution_id =',
+      );
+    });
+
+    it('boosts a chunk from the encounter institution above an equivalently-scored global chunk', async () => {
+      aiGatewayMock.embed.mockResolvedValue({ embeddings: [[0.1]] });
+
+      prismaMock.$queryRaw
+        .mockResolvedValueOnce([
+          { id: 'global-chunk', similarity: 0.5, institution_id: null },
+          { id: 'institutional-chunk', similarity: 0.5, institution_id: 'institution-a' },
+        ])
+        .mockResolvedValueOnce([]);
+
+      prismaMock.guidelineChunk.findMany.mockResolvedValue([
+        {
+          id: 'global-chunk',
+          text: 'Diretriz pública',
+          source: 'diretriz-publica',
+          sourceVersion: '1.0',
+          specialty: 'clinica',
+          evidenceLevel: 'A',
+          institutionId: null,
+          metadata: {},
+        },
+        {
+          id: 'institutional-chunk',
+          text: 'Protocolo institucional',
+          source: 'protocolo-hc-x',
+          sourceVersion: '2.0',
+          specialty: 'clinica',
+          evidenceLevel: 'A',
+          institutionId: 'institution-a',
+          metadata: {},
+        },
+      ]);
+
+      const result = await service.search('caso clinico', 5, 'institution-a');
+
+      expect(result.chunks[0]!.id).toBe('institutional-chunk');
+      expect(result.chunks[0]!.institutionId).toBe('institution-a');
     });
   });
 });
