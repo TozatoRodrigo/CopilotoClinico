@@ -152,6 +152,7 @@ model Encounter {
   aiInteractions  AiInteraction[]
   documents       Document[]
   audioCaptures   AudioCapture[]
+  protocolRuns    ProtocolRun[]
 
   @@index([physicianId])
   @@index([institutionId])
@@ -338,6 +339,7 @@ model Protocol {
 
   institution Institution? @relation(fields: [institutionId], references: [id], onDelete: SetNull)
   nodes       ProtocolNode[]
+  runs        ProtocolRun[]
 
   @@index([name, specialty, institutionId])
   @@index([status])
@@ -373,6 +375,33 @@ model ProtocolEdge {
   @@index([fromNodeId])
   @@index([toNodeId])
   @@map("protocol_edges")
+}
+
+enum ProtocolRunStatus {
+  in_progress
+  completed
+  abandoned
+}
+
+model ProtocolRun {
+  id              String            @id @default(uuid()) @db.Uuid
+  encounterId     String            @map("encounter_id") @db.Uuid
+  protocolId      String            @map("protocol_id") @db.Uuid
+  protocolVersion Int               @map("protocol_version")
+  currentNodeId   String            @map("current_node_id") @db.Uuid
+  status          ProtocolRunStatus @default(in_progress)
+  answers         Json?
+  abandonReason   String?           @map("abandon_reason")
+  startedBy       String            @map("started_by") @db.Uuid
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  encounter Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  protocol  Protocol  @relation(fields: [protocolId], references: [id])
+
+  @@index([encounterId])
+  @@index([protocolId])
+  @@map("protocol_runs")
 }
 
 model CrmVerificationRequest {
