@@ -102,6 +102,52 @@ Versão: 1.0 | Criado: 2026-06-08 | Sprint 4
 
 ---
 
+## Protocolos executáveis (PROT-003)
+
+> **Status: rascunho técnico aguardando curadoria clínica.** Os 3 protocolos
+> piloto abaixo foram convertidos para o formato `ProtocolNode`/`ProtocolEdge`
+> (engine PROT-002) em `prisma/seeds/data/pilot-protocols.ts` e seedados via
+> `npm run seed:protocols`. Cada nó de ação/desfecho carrega a citação da
+> diretriz-fonte. **Nenhum dos três tem ainda registro de validação clínica
+> assinada (nome + CRM + data) pelo Dr. João** — pendente da sessão de
+> curadoria descrita no escopo da PROT-003. Não usar em atendimento real até
+> essa validação ser concluída e registrada nesta seção.
+
+### Síndrome gripal no PS
+
+| Campo | Valor |
+|---|---|
+| Especialidade | `emergencia` |
+| Fontes | Protocolo MS — Síndrome Gripal (2023); Diretriz SBI — Síndrome Gripal (2022) |
+| Fluxo | tempo de sintomas (>48h?) → imunossuprimido/gestante/grupo de risco? → critérios de SRAG → conduta (oseltamivir / sintomáticos / internação) |
+| Validação clínica | ⏳ pendente (Dr. João — nome, CRM, data) |
+
+### Sepse — bundle 1ª hora
+
+| Campo | Valor |
+|---|---|
+| Especialidade | `medicina_intensiva` |
+| Fontes | Surviving Sepsis Campaign 2021 |
+| Fluxo | triagem (qSOFA/NEWS) → lactato + hemoculturas → antibiótico em 1h → cristaloide 30mL/kg → reavaliação → vasopressor se refratário |
+| Validação clínica | ⏳ pendente (Dr. João — nome, CRM, data) |
+
+### Dor torácica no PS
+
+| Campo | Valor |
+|---|---|
+| Especialidade | `cardiologia` |
+| Fontes | Diretriz AHA/ACC STEMI (2013/2022-update); Diretriz AHA/ACC SCA (2022); Diretriz SBC — SCA sem Supra (2021) |
+| Fluxo | ECG em 10min → supra de ST? → tempo porta-balão/trombólise → estratificação HEART/TIMI + troponina seriada |
+| Validação clínica | ⏳ pendente (Dr. João — nome, CRM, data) |
+
+**Pendências para fechar a PROT-003:**
+- [ ] Sessão de curadoria com Dr. João (validar cada nó/condição/conduta) e registrar a ata como fonte.
+- [ ] Preencher "Validação clínica" das 3 tabelas acima (nome, CRM, data).
+- [ ] Demo gravada do caso "gripe >48h + imunossuprimido" percorrendo o protocolo até a conduta.
+- [ ] Walkthrough com 2 médicos externos (ex.: Dr. Bruno).
+
+---
+
 ## Processo de revisão
 
 1. Verificar se novas diretrizes das sociedades-fonte foram publicadas
