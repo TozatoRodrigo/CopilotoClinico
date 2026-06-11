@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { apiClient } from "@/lib/api-client";
 import type { AuditEntry } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,17 @@ const ENTITY_OPTIONS = [
   { value: "ai_interaction", label: "Interação IA" },
   { value: "consent", label: "Consentimento" },
 ];
+
+// DEC-005: rótulos em PT-BR para os eventos do loop de decisão conversacional do copiloto.
+const ACTION_LABELS: Record<string, string> = {
+  COPILOT_QUESTIONS_EMITTED: "Copiloto enviou perguntas de esclarecimento",
+  COPILOT_QUESTION_ANSWERED: "Médico respondeu perguntas do copiloto",
+  COPILOT_ANALYSIS_REFINED: "Copiloto refinou a análise",
+};
+
+function actionLabel(action: string): string {
+  return ACTION_LABELS[action] ?? action;
+}
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleString("pt-BR");
@@ -238,23 +250,42 @@ export default function AuditPage() {
             </div>
             {entries.map((entry) => (
               <div key={entry.id}>
-                <button
-                  type="button"
-                  className="grid w-full grid-cols-[1fr_1fr_1fr_1fr_1fr] gap-4 px-4 py-3 text-sm text-left hover:bg-muted/30 transition-colors"
+                <div
+                  role="button"
+                  tabIndex={0}
+                  className="grid w-full grid-cols-[1fr_1fr_1fr_1fr_1fr] gap-4 px-4 py-3 text-sm text-left hover:bg-muted/30 transition-colors cursor-pointer"
                   onClick={() =>
                     setExpandedId((prev) =>
                       prev === entry.id ? null : entry.id,
                     )
                   }
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setExpandedId((prev) =>
+                        prev === entry.id ? null : entry.id,
+                      );
+                    }
+                  }}
                 >
                   <span>{formatDate(entry.createdAt)}</span>
-                  <span className="font-medium">{entry.action}</span>
+                  <span className="font-medium">{actionLabel(entry.action)}</span>
                   <span>{entry.entity}</span>
                   <span className="truncate font-mono text-xs">
-                    {entry.entityId}
+                    {entry.entity === "Encounter" ? (
+                      <Link
+                        href={`/encounters/${entry.entityId}/result`}
+                        className="text-primary hover:underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {entry.entityId}
+                      </Link>
+                    ) : (
+                      entry.entityId
+                    )}
                   </span>
                   <span className="font-mono text-xs">{entry.ip ?? "—"}</span>
-                </button>
+                </div>
                 {expandedId === entry.id && (
                   <div className="border-t bg-muted/20 px-4 py-3">
                     <pre className="overflow-x-auto rounded bg-background p-3 text-xs">

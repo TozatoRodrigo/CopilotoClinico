@@ -1,5 +1,6 @@
 import { Injectable, Inject, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { createHash } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../config/prisma.service';
 import { AiGatewayService } from '../../ai-gateway/ai-gateway.service';
@@ -241,6 +242,14 @@ export class OrchestratorService {
       status: 'in_review',
     });
 
+    await this.logQuestionsEmittedIfAny(
+      physicianId,
+      encounterId,
+      interaction.id,
+      0,
+      enrichedOutput.clarifyingQuestions,
+    );
+
     return {
       interactionId: interaction.id,
       output: enrichedOutput,
@@ -254,6 +263,33 @@ export class OrchestratorService {
         model: completion.model,
       },
     };
+  }
+
+  /**
+   * DEC-005: registra COPILOT_QUESTIONS_EMITTED na cadeia de auditoria
+   * sempre que a análise (inicial ou de um turno subsequente) gera novas
+   * perguntas de esclarecimento para o médico.
+   */
+  private async logQuestionsEmittedIfAny(
+    physicianId: string,
+    encounterId: string,
+    interactionId: string,
+    turnIndex: number,
+    questions: EnrichedCopilotOutput['clarifyingQuestions'],
+  ): Promise<void> {
+    if (!questions?.length) return;
+
+    await this.auditService.log({
+      actorId: physicianId,
+      action: 'COPILOT_QUESTIONS_EMITTED',
+      entity: 'Encounter',
+      entityId: encounterId,
+      payload: {
+        interactionId,
+        turnIndex,
+        questionIds: questions.map((q) => q.id),
+      },
+    });
   }
 
   async *analyzeStream(
@@ -397,6 +433,14 @@ export class OrchestratorService {
 
     await this.encounters.update(physicianId, encounterId, { status: 'in_review' });
 
+    await this.logQuestionsEmittedIfAny(
+      physicianId,
+      encounterId,
+      interaction.id,
+      0,
+      enrichedOutput.clarifyingQuestions,
+    );
+
     yield {
       type: 'done',
       result: {
@@ -472,6 +516,22 @@ export class OrchestratorService {
         reasons: injectionResult.reasons,
       });
     }
+
+    // DEC-005: registra a submissão de respostas do médico na cadeia de
+    // auditoria. Por minimização de dados (LGPD), o conteúdo das respostas
+    // nunca é gravado em texto claro — apenas seu hash SHA-256.
+    await this.auditService.log({
+      actorId: physicianId,
+      action: 'COPILOT_QUESTION_ANSWERED',
+      entity: 'Encounter',
+      entityId: encounterId,
+      payload: {
+        interactionId: parentInteraction.id,
+        turnIndex: newTurnIndex,
+        questionIds: input.answers.map((a) => a.questionId),
+        answersHash: createHash('sha256').update(JSON.stringify(input.answers)).digest('hex'),
+      },
+    });
 
     const newAnswers: AnsweredQuestion[] = input.answers.map((a, index) => {
       const question = clarifyingQuestions.find((q) => q.id === a.questionId);
@@ -609,6 +669,28 @@ export class OrchestratorService {
     await this.encounters.update(physicianId, encounterId, {
       status: 'in_review',
     });
+
+    await this.auditService.log({
+      actorId: physicianId,
+      action: 'COPILOT_ANALYSIS_REFINED',
+      entity: 'Encounter',
+      entityId: encounterId,
+      payload: {
+        interactionId: interaction.id,
+        parentInteractionId: parentInteraction.id,
+        turnIndex: newTurnIndex,
+        uncertainty: enrichedOutput.uncertainty,
+        cost: inferenceCost,
+      },
+    });
+
+    await this.logQuestionsEmittedIfAny(
+      physicianId,
+      encounterId,
+      interaction.id,
+      newTurnIndex,
+      enrichedOutput.clarifyingQuestions,
+    );
 
     return {
       interactionId: interaction.id,
