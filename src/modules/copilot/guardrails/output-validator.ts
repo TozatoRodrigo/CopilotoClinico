@@ -5,6 +5,16 @@ const RecommendationSchema = z.object({
   rationale: z.string().min(1),
   citationChunkId: z.string().min(1),
   confidence: z.number().min(0).max(1),
+  preliminary: z.boolean().default(false),
+});
+
+const ClarifyingQuestionSchema = z.object({
+  id: z.string().min(1),
+  question: z.string().min(1),
+  why: z.string().min(1),
+  criticality: z.enum(['blocker', 'important', 'optional']),
+  expectedAnswerType: z.enum(['boolean', 'choice', 'number', 'text']),
+  choices: z.array(z.string()).optional(),
 });
 
 export const CopilotOutputSchema = z
@@ -13,6 +23,7 @@ export const CopilotOutputSchema = z
     recommendations: z.array(RecommendationSchema).min(0),
     uncertainty: z.boolean(),
     uncertaintyReason: z.string().nullable(),
+    clarifyingQuestions: z.array(ClarifyingQuestionSchema).default([]),
   })
   .refine(
     (data) =>
@@ -20,6 +31,21 @@ export const CopilotOutputSchema = z
     {
       message: 'uncertaintyReason is required and must be non-empty when uncertainty is true',
       path: ['uncertaintyReason'],
+    },
+  )
+  .refine(
+    (data) => {
+      const hasBlocker = data.clarifyingQuestions.some((q) => q.criticality === 'blocker');
+      if (!hasBlocker) return true;
+      return (
+        data.recommendations.length === 0 ||
+        data.recommendations.every((rec) => rec.preliminary)
+      );
+    },
+    {
+      message:
+        'When clarifyingQuestions contains a blocker item, recommendations must be empty or all marked as preliminary',
+      path: ['recommendations'],
     },
   );
 

@@ -36,6 +36,7 @@ export interface CopilotAnalysis {
   citations: Citation[];
   uncertainty: boolean;
   uncertaintyReason: string | null;
+  clarifyingQuestions: ClarifyingQuestion[];
 }
 
 export interface CopilotRecommendation {
@@ -43,10 +44,20 @@ export interface CopilotRecommendation {
   rationale: string;
   citationChunkId: string;
   confidence: number;
+  preliminary: boolean;
   source: string;
   sourceVersion: string;
   sourceText: string;
   sourceUrl: string;
+}
+
+export interface ClarifyingQuestion {
+  id: string;
+  question: string;
+  why: string;
+  criticality: 'blocker' | 'important' | 'optional';
+  expectedAnswerType: 'boolean' | 'choice' | 'number' | 'text';
+  choices?: string[];
 }
 
 export interface Citation {

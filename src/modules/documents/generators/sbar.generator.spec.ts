@@ -11,22 +11,26 @@ function makeCopilotOutput(overrides: Partial<CopilotOutput> = {}): CopilotOutpu
         rationale: 'BP consistently above 140/90',
         citationChunkId: 'chunk-1',
         confidence: 0.85,
+        preliminary: false,
       },
       {
         action: 'Order renal function panel',
         rationale: 'Baseline before medication',
         citationChunkId: 'chunk-2',
         confidence: 0.9,
+        preliminary: false,
       },
       {
         action: 'Schedule follow-up in 2 weeks',
         rationale: 'Monitor treatment response',
         citationChunkId: 'chunk-3',
         confidence: 0.75,
+        preliminary: false,
       },
     ],
     uncertainty: false,
     uncertaintyReason: null,
+    clarifyingQuestions: [],
     ...overrides,
   };
 }
@@ -58,6 +62,7 @@ describe('generateSBAR', () => {
       rationale: `Rationale ${i + 1}`,
       citationChunkId: `chunk-${i + 1}`,
       confidence: 0.8,
+      preliminary: false,
     }));
     const result = generateSBAR('Caso clínico', makeCopilotOutput({ recommendations: manyRecs }));
 

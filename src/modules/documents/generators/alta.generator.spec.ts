@@ -11,22 +11,26 @@ const baseOutput: CopilotOutput = {
       rationale: 'Seguimento pós-alta',
       citationChunkId: 'c1',
       confidence: 0.9,
+      preliminary: false,
     },
     {
       action: 'Manter Amoxicilina 500mg 8/8h por mais 5 dias',
       rationale: 'Completar antibioticoterapia',
       citationChunkId: 'c2',
       confidence: 0.88,
+      preliminary: false,
     },
     {
       action: 'Solicitar RX de controle em 4 semanas',
       rationale: 'Confirmar resolução da pneumonia',
       citationChunkId: 'c3',
       confidence: 0.85,
+      preliminary: false,
     },
   ],
   uncertainty: false,
   uncertaintyReason: null,
+  clarifyingQuestions: [],
 };
 
 describe('generateAlta', () => {
