@@ -55,7 +55,8 @@ chunk entra em produção (retrieval) sem aprovação humana.
 
 Cada arquivo `.md`/`.txt` deve começar com um front-matter `key: value`
 delimitado por `---`, com os campos obrigatórios `source`, `sourceVersion`
-(ou `version`) e `specialty`, e opcionalmente `evidenceLevel`:
+(ou `version`) e `specialty`, e opcionalmente `evidenceLevel`, `cenario`,
+`red_flags` e `institutionId`:
 
 ```
 ---
@@ -63,6 +64,8 @@ source: Diretriz Dor Torácica AMB 2026
 sourceVersion: 2.0
 specialty: cardiologia
 evidenceLevel: A
+cenario: dor_toracica
+red_flags: supra_ST | hipotensao | dor_refrataria
 ---
 
 Conteúdo da diretriz...

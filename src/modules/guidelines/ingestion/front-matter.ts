@@ -4,6 +4,8 @@ export interface GuidelineFrontMatter {
   specialty: string;
   evidenceLevel?: string;
   institutionId?: string;
+  cenario?: string;
+  redFlags?: string[];
 }
 
 export interface ParsedGuidelineDocument {
@@ -13,6 +15,17 @@ export interface ParsedGuidelineDocument {
 
 const FRONT_MATTER_PATTERN = /^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/;
 const REQUIRED_FIELDS: Array<keyof GuidelineFrontMatter> = ['source', 'sourceVersion', 'specialty'];
+
+function parseListField(value?: string): string[] | undefined {
+  if (!value) return undefined;
+
+  const items = value
+    .split(/[,|]/)
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+
+  return items.length > 0 ? items : undefined;
+}
 
 /**
  * Parser mínimo de front-matter `chave: valor` (sem dependência de YAML),
@@ -53,6 +66,8 @@ export function parseGuidelineDocument(raw: string): ParsedGuidelineDocument {
     specialty: fields.specialty,
     evidenceLevel: fields.evidenceLevel,
     institutionId: fields.institutionId,
+    cenario: fields.cenario,
+    redFlags: parseListField(fields.red_flags ?? fields.redFlags),
   };
 
   for (const field of REQUIRED_FIELDS) {

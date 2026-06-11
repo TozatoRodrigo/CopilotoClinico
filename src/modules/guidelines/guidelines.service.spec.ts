@@ -11,6 +11,8 @@ const baseIngestInput: IngestGuidelineInput = {
   sourceVersion: '1.0',
   specialty: 'cardiology',
   evidenceLevel: 'A',
+  cenario: 'crise_hipertensiva',
+  redFlags: ['dor toracica', 'deficit neurologico focal'],
 };
 
 const mockEmbedding = [0.1, 0.2, 0.3];
@@ -77,6 +79,10 @@ describe('GuidelinesService', () => {
           evidenceLevel: baseIngestInput.evidenceLevel,
           text: baseIngestInput.text,
           status: 'approved',
+          metadata: expect.objectContaining({
+            cenario: 'crise_hipertensiva',
+            redFlags: ['dor toracica', 'deficit neurologico focal'],
+          }),
         }),
       });
       expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);

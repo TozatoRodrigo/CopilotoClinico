@@ -72,6 +72,8 @@ async function main(): Promise<void> {
           specialty: meta.specialty,
           evidenceLevel: meta.evidenceLevel,
           institutionId: meta.institutionId,
+          cenario: meta.cenario,
+          redFlags: meta.redFlags,
         });
 
         results.push({ ...result, file: filePath });
