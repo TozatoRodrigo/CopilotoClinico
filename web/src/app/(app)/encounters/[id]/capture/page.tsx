@@ -15,7 +15,9 @@ import {
 } from "@/components/ui/tooltip";
 import { useVoiceInput } from "@/hooks/use-voice-input";
 import { useOnlineStatus } from "@/components/providers/offline-provider";
-import { addToQueue, processQueue } from "@/lib/offline-queue";
+import { addToQueue } from "@/lib/offline-queue";
+import { syncOfflineQueue } from "@/lib/copilot-queue";
+import { STORAGE_KEY_PREFIX } from "@/hooks/use-copilot-conversation";
 import { Mic, MicOff } from "lucide-react";
 import { toast } from "sonner";
 import type { CopilotAnalysis, CopilotAnalyzeResponse, EncounterContext } from "@/lib/types";
@@ -79,17 +81,7 @@ export default function CapturePage({
   }, []);
 
   const processOfflineQueue = useCallback(async () => {
-    await processQueue(async (item) => {
-      try {
-        await apiClient.post<CopilotAnalyzeResponse>(
-          `/encounters/${item.encounterId}/copilot/analyze`,
-          { caseText: item.caseText, context: item.context },
-        );
-        return { success: true, encounterId: item.encounterId };
-      } catch {
-        return { success: false, encounterId: item.encounterId };
-      }
-    });
+    await syncOfflineQueue();
   }, []);
 
   useEffect(() => {
@@ -109,6 +101,7 @@ export default function CapturePage({
 
     if (!isOnline) {
       await addToQueue({
+        type: "analyze",
         encounterId,
         caseText: caseText.trim(),
         context,
@@ -140,8 +133,8 @@ export default function CapturePage({
       }
 
       sessionStorage.setItem(
-        `copilot_result_${encounterId}`,
-        JSON.stringify(analysis),
+        `${STORAGE_KEY_PREFIX}${encounterId}`,
+        JSON.stringify({ interactionId: result.interactionId, analysis }),
       );
       router.push(`/encounters/${encounterId}/result`);
     } catch (err) {

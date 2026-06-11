@@ -1,12 +1,24 @@
-import type { EncounterContext } from "@/lib/types";
+import type { ClarifyingAnswer, EncounterContext } from "@/lib/types";
 
-interface QueueItem {
+interface AnalyzeQueueItem {
   id: string;
+  type: "analyze";
   encounterId: string;
   caseText: string;
   context: EncounterContext;
   createdAt: number;
 }
+
+interface RespondQueueItem {
+  id: string;
+  type: "respond";
+  encounterId: string;
+  interactionId: string;
+  answers: ClarifyingAnswer[];
+  createdAt: number;
+}
+
+export type QueueItem = AnalyzeQueueItem | RespondQueueItem;
 
 const DB_NAME = "copiloto_offline_queue";
 const DB_VERSION = 1;
@@ -43,18 +55,16 @@ function withStore<T>(
   );
 }
 
-export async function addToQueue(item: {
-  encounterId: string;
-  caseText: string;
-  context: EncounterContext;
-}): Promise<void> {
+export async function addToQueue(
+  item:
+    | Omit<AnalyzeQueueItem, "id" | "createdAt">
+    | Omit<RespondQueueItem, "id" | "createdAt">,
+): Promise<void> {
   const queueItem: QueueItem = {
+    ...item,
     id: crypto.randomUUID(),
-    encounterId: item.encounterId,
-    caseText: item.caseText,
-    context: item.context,
     createdAt: Date.now(),
-  };
+  } as QueueItem;
   await withStore("readwrite", (store) => store.add(queueItem));
 }
 

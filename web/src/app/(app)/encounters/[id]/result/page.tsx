@@ -4,20 +4,16 @@ import { use, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
+import { CopilotConversation } from "@/components/copilot/copilot-conversation";
+import {
+  STORAGE_KEY_PREFIX,
+  type StoredCopilotResult,
+} from "@/hooks/use-copilot-conversation";
 import type { CopilotAnalysis } from "@/lib/types";
-
-const STORAGE_KEY_PREFIX = "copilot_result_";
 
 interface LatestInteractionResponse {
   interactionId: string;
@@ -27,10 +23,6 @@ interface LatestInteractionResponse {
   uncertaintyReason: string | null;
 }
 
-function confidencePercent(confidence: number): string {
-  return `${Math.round(confidence * 100)}%`;
-}
-
 export default function ResultPage({
   params,
 }: {
@@ -38,7 +30,7 @@ export default function ResultPage({
 }) {
   const { id: encounterId } = use(params);
   const router = useRouter();
-  const [result, setResult] = useState<CopilotAnalysis | null>(null);
+  const [result, setResult] = useState<StoredCopilotResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [generatingDoc, setGeneratingDoc] = useState<string | null>(null);
@@ -51,7 +43,7 @@ export default function ResultPage({
     try {
       const stored = sessionStorage.getItem(storageKey);
       if (stored) {
-        const parsed = JSON.parse(stored) as CopilotAnalysis;
+        const parsed = JSON.parse(stored) as StoredCopilotResult;
         setResult(parsed);
         setLoading(false);
         return;
@@ -70,10 +62,14 @@ export default function ResultPage({
           uncertainty: data.uncertainty,
           uncertaintyReason: data.uncertaintyReason,
         };
-        setResult(analysis);
+        const stored: StoredCopilotResult = {
+          interactionId: data.interactionId,
+          analysis,
+        };
+        setResult(stored);
         // Repopulate sessionStorage so subsequent navigation is fast
         try {
-          sessionStorage.setItem(storageKey, JSON.stringify(analysis));
+          sessionStorage.setItem(storageKey, JSON.stringify(stored));
         } catch {
           // storage quota — non-critical
         }
@@ -144,99 +140,9 @@ export default function ResultPage({
     );
   }
 
-  const sortedRecommendations = [...result.recommendations].sort(
-    (a, b) => b.confidence - a.confidence,
-  );
-
   return (
     <div className="container mx-auto max-w-3xl space-y-6 px-4 py-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">
-          Resultado da Análise
-        </h1>
-        <Badge variant="secondary">
-          {result.recommendations.length} recomendações
-        </Badge>
-      </div>
-
-      {result.uncertainty && (
-        <Alert className="border-yellow-500/50 bg-yellow-50 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200">
-          <AlertTitle>Incerteza na análise</AlertTitle>
-          <AlertDescription>
-            {result.uncertaintyReason ??
-              "O copiloto indicou incerteza nesta análise. Recomenda-se revisão adicional."}
-          </AlertDescription>
-        </Alert>
-      )}
-
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold">Recomendações</h2>
-        {sortedRecommendations.map((rec, index) => (
-          <Card key={index}>
-            <CardHeader>
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="space-y-1">
-                  <CardTitle className="text-base">{rec.action}</CardTitle>
-                  <CardDescription>{rec.rationale}</CardDescription>
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <Badge variant="outline">
-                    Confiança: {confidencePercent(rec.confidence)}
-                  </Badge>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <p className="text-sm text-muted-foreground">
-                Fonte:{" "}
-                <a
-                  className="font-medium text-foreground underline underline-offset-4"
-                  href={rec.sourceUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {rec.source} v{rec.sourceVersion}
-                </a>
-              </p>
-              <p className="line-clamp-3 text-sm text-muted-foreground">
-                {rec.sourceText}
-              </p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {result.citations.length > 0 && (
-        <>
-          <Separator />
-          <div className="space-y-3">
-            <h2 className="text-lg font-semibold">Citações</h2>
-            <div className="space-y-2">
-              {result.citations.map((citation, index) => (
-                <div
-                  key={index}
-                  className="space-y-1 rounded-lg border bg-muted/30 px-4 py-2 text-sm"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="font-medium">
-                      {citation.source} v{citation.sourceVersion}
-                    </span>
-                    <a
-                      className="shrink-0 text-muted-foreground underline underline-offset-4"
-                      href={`/v1/guidelines/chunks/${citation.chunkId}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Ver trecho
-                    </a>
-                  </div>
-                  <p className="line-clamp-2 text-muted-foreground">{citation.text}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
+      <CopilotConversation encounterId={encounterId} initial={result} />
 
       {docError && (
         <Alert variant="destructive">
