@@ -60,6 +60,13 @@ export interface ClarifyingQuestion {
   choices?: string[];
 }
 
+export type ClarifyingAnswerValue = string | number | boolean;
+
+export interface ClarifyingAnswer {
+  questionId: string;
+  answer: ClarifyingAnswerValue;
+}
+
 export interface Citation {
   source: string;
   sourceVersion: string;
