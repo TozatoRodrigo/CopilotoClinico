@@ -38,8 +38,7 @@ export const CopilotOutputSchema = z
       const hasBlocker = data.clarifyingQuestions.some((q) => q.criticality === 'blocker');
       if (!hasBlocker) return true;
       return (
-        data.recommendations.length === 0 ||
-        data.recommendations.every((rec) => rec.preliminary)
+        data.recommendations.length === 0 || data.recommendations.every((rec) => rec.preliminary)
       );
     },
     {
