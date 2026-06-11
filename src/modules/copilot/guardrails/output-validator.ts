@@ -23,7 +23,10 @@ export const CopilotOutputSchema = z
     recommendations: z.array(RecommendationSchema).min(0),
     uncertainty: z.boolean(),
     uncertaintyReason: z.string().nullable(),
-    clarifyingQuestions: z.array(ClarifyingQuestionSchema).default([]),
+    clarifyingQuestions: z
+      .array(ClarifyingQuestionSchema)
+      .max(3, 'clarifyingQuestions must contain at most 3 items per turn')
+      .default([]),
   })
   .refine(
     (data) =>

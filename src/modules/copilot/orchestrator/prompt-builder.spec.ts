@@ -165,4 +165,60 @@ describe('buildPrompt', () => {
 
     expect(result.user).toContain('[Source: protocol-x v2.1]');
   });
+
+  describe('DEC-003: 3-way decision rule', () => {
+    it('documents the 3-way decision paths in the system prompt', () => {
+      const result = buildPrompt(makeInput());
+
+      expect(result.system).toContain('DECISION RULE (3-WAY)');
+      expect(result.system).toContain('SUFFICIENT EVIDENCE + SUFFICIENT PATIENT DATA');
+      expect(result.system).toContain('SUFFICIENT EVIDENCE BUT A PATIENT DETAIL');
+      expect(result.system).toContain('INSUFFICIENT EVIDENCE');
+    });
+
+    it('limits clarifyingQuestions to at most 3 per turn, ordered by criticality', () => {
+      const result = buildPrompt(makeInput());
+
+      expect(result.system).toContain('at most 3');
+      expect(result.system).toContain('"blocker" first, then "important", then "optional"');
+    });
+
+    it('includes the universal red-flags checklist', () => {
+      const result = buildPrompt(makeInput());
+
+      expect(result.system).toContain('UNIVERSAL RED FLAGS');
+      expect(result.system).toContain('imunossupressão');
+      expect(result.system).toContain('gestação/amamentação');
+      expect(result.system).toContain('alergias medicamentosas');
+      expect(result.system).toContain('tempo de evolução dos sintomas');
+      expect(result.system).toContain('uso de anticoagulante');
+      expect(result.system).toContain('idade extrema');
+      expect(result.system).toContain('sinais vitais instáveis');
+    });
+
+    it('includes the anti-interrogation rule requiring guideline-grounded "why"', () => {
+      const result = buildPrompt(makeInput());
+
+      expect(result.system).toContain('ANTI-INTERROGATION RULE');
+      expect(result.system).toContain('"why" MUST reference the specific guideline');
+    });
+
+    it('documents preliminary and clarifyingQuestions fields in the output schema', () => {
+      const result = buildPrompt(makeInput());
+
+      expect(result.system).toContain('"preliminary"');
+      expect(result.system).toContain('"clarifyingQuestions"');
+      expect(result.system).toContain('"criticality"');
+      expect(result.system).toContain('"expectedAnswerType"');
+    });
+
+    it('includes a few-shot example for the flu-syndrome >48h case', () => {
+      const result = buildPrompt(makeInput());
+
+      expect(result.system).toContain('EXAMPLE — DECISION PATH B');
+      expect(result.system).toContain('síndrome gripal');
+      expect(result.system).toContain('oseltamivir');
+      expect(result.system).toContain('"criticality": "blocker"');
+    });
+  });
 });

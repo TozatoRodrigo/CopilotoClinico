@@ -296,6 +296,64 @@ describe('validateOutput', () => {
     expect(result.output?.recommendations[0]?.preliminary).toBe(false);
   });
 
+  it('accepts output with exactly 3 clarifyingQuestions', () => {
+    const question = (id: string) => ({
+      id,
+      question: `Pergunta ${id}?`,
+      why: 'Define a conduta conforme a diretriz X',
+      criticality: 'important' as const,
+      expectedAnswerType: 'boolean' as const,
+    });
+    const result = validateOutput(
+      makeValidOutput({
+        recommendations: [
+          {
+            action: 'Initiate ACE inhibitor therapy',
+            rationale: 'BP consistently above 140/90',
+            citationChunkId: 'chunk-1',
+            confidence: 0.85,
+            preliminary: true,
+          },
+        ],
+        clarifyingQuestions: [question('q1'), question('q2'), question('q3')],
+      }),
+      VALID_CHUNK_IDS,
+    );
+    expect(result.valid).toBe(true);
+    expect(result.output?.clarifyingQuestions).toHaveLength(3);
+  });
+
+  it('rejects output with more than 3 clarifyingQuestions (DEC-003)', () => {
+    const question = (id: string) => ({
+      id,
+      question: `Pergunta ${id}?`,
+      why: 'Define a conduta conforme a diretriz X',
+      criticality: 'important' as const,
+      expectedAnswerType: 'boolean' as const,
+    });
+    const result = validateOutput(
+      makeValidOutput({
+        recommendations: [
+          {
+            action: 'Initiate ACE inhibitor therapy',
+            rationale: 'BP consistently above 140/90',
+            citationChunkId: 'chunk-1',
+            confidence: 0.85,
+            preliminary: true,
+          },
+        ],
+        clarifyingQuestions: [question('q1'), question('q2'), question('q3'), question('q4')],
+      }),
+      VALID_CHUNK_IDS,
+    );
+    expect(result.valid).toBe(false);
+    expect(result.output).toBeNull();
+    expect(result.errors[0]).toBe('Schema validation failed');
+    expect(
+      result.errors.some((e) => e.includes('clarifyingQuestions') && e.includes('at most 3')),
+    ).toBe(true);
+  });
+
   it('accepts valid output when all chunk IDs match', () => {
     const result = validateOutput(
       makeValidOutput({
