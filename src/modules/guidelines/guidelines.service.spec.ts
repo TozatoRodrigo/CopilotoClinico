@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { GuidelinesService, type IngestGuidelineInput } from './guidelines.service';
 import { PrismaService } from '../../config/prisma.service';
 import { AiGatewayService } from '../ai-gateway/ai-gateway.service';
@@ -22,6 +23,7 @@ describe('GuidelinesService', () => {
       findUnique: ReturnType<typeof vi.fn>;
       findMany: ReturnType<typeof vi.fn>;
       count: ReturnType<typeof vi.fn>;
+      update: ReturnType<typeof vi.fn>;
       updateMany: ReturnType<typeof vi.fn>;
     };
     $executeRaw: ReturnType<typeof vi.fn>;
@@ -40,6 +42,7 @@ describe('GuidelinesService', () => {
         findUnique: vi.fn(),
         findMany: vi.fn(),
         count: vi.fn(),
+        update: vi.fn(),
         updateMany: vi.fn(),
       },
       $executeRaw: vi.fn().mockResolvedValue(1),
@@ -73,6 +76,7 @@ describe('GuidelinesService', () => {
           specialty: baseIngestInput.specialty,
           evidenceLevel: baseIngestInput.evidenceLevel,
           text: baseIngestInput.text,
+          status: 'approved',
         }),
       });
       expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
@@ -120,6 +124,189 @@ describe('GuidelinesService', () => {
           entityId: `${baseIngestInput.source}@${baseIngestInput.sourceVersion}`,
         }),
       );
+    });
+  });
+
+  describe('ingestForReview', () => {
+    it('creates chunks as pending_review and audits GUIDELINE_BATCH_INGESTED', async () => {
+      prisma.guidelineChunk.create.mockResolvedValue({ id: 'chunk-uuid-1' });
+      prisma.guidelineChunk.updateMany.mockResolvedValue({ count: 0 });
+
+      const result = await service.ingestForReview(baseIngestInput);
+
+      expect(prisma.guidelineChunk.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ status: 'pending_review' }),
+      });
+      expect(result).toEqual({
+        source: baseIngestInput.source,
+        sourceVersion: baseIngestInput.sourceVersion,
+        chunksCreated: 1,
+        superseded: 0,
+      });
+      expect(auditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actorId: 'system',
+          action: 'GUIDELINE_BATCH_INGESTED',
+          entity: 'GuidelineChunk',
+          entityId: `${baseIngestInput.source}@${baseIngestInput.sourceVersion}`,
+          payload: expect.objectContaining({ chunksCreated: 1, superseded: 0 }),
+        }),
+      );
+    });
+
+    it('marks chunks from previous versions of the same source as superseded', async () => {
+      prisma.guidelineChunk.create.mockResolvedValue({ id: 'chunk-uuid-2' });
+      prisma.guidelineChunk.updateMany.mockResolvedValue({ count: 3 });
+
+      const result = await service.ingestForReview({ ...baseIngestInput, sourceVersion: '2.0' });
+
+      expect(prisma.guidelineChunk.updateMany).toHaveBeenCalledWith({
+        where: {
+          source: baseIngestInput.source,
+          sourceVersion: { not: '2.0' },
+          status: { in: ['approved', 'pending_review'] },
+        },
+        data: { status: 'superseded' },
+      });
+      expect(result.superseded).toBe(3);
+    });
+
+    it('handles empty text gracefully without auditing or superseding', async () => {
+      const result = await service.ingestForReview({ ...baseIngestInput, text: '' });
+
+      expect(result).toEqual({
+        source: baseIngestInput.source,
+        sourceVersion: baseIngestInput.sourceVersion,
+        chunksCreated: 0,
+        superseded: 0,
+      });
+      expect(prisma.guidelineChunk.updateMany).not.toHaveBeenCalled();
+      expect(auditService.log).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('listPending', () => {
+    it('returns chunks with status pending_review', async () => {
+      const pendingChunks = [
+        {
+          id: 'chunk-pending-1',
+          source: 'Diretriz X',
+          sourceVersion: '2.0',
+          specialty: 'clinica',
+          evidenceLevel: 'A',
+          text: 'Texto pendente',
+          metadata: {},
+          createdAt: new Date('2026-06-13'),
+        },
+      ];
+      prisma.guidelineChunk.findMany.mockResolvedValue(pendingChunks);
+
+      const result = await service.listPending();
+
+      expect(prisma.guidelineChunk.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { status: 'pending_review' } }),
+      );
+      expect(result).toEqual(pendingChunks);
+    });
+  });
+
+  describe('approveChunk', () => {
+    it('approves a pending chunk, records the reviewer and audits GUIDELINE_APPROVED', async () => {
+      const chunk = {
+        id: 'chunk-pending-1',
+        source: 'Diretriz X',
+        sourceVersion: '2.0',
+        status: 'pending_review',
+      };
+      prisma.guidelineChunk.findUnique.mockResolvedValue(chunk);
+      prisma.guidelineChunk.update.mockResolvedValue({
+        ...chunk,
+        status: 'approved',
+        reviewedBy: 'curator-1',
+        reviewedAt: new Date('2026-06-13'),
+      });
+
+      const result = await service.approveChunk('chunk-pending-1', 'curator-1');
+
+      expect(prisma.guidelineChunk.update).toHaveBeenCalledWith({
+        where: { id: 'chunk-pending-1' },
+        data: { status: 'approved', reviewedBy: 'curator-1', reviewedAt: expect.any(Date) },
+      });
+      expect(result.status).toBe('approved');
+      expect(auditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actorId: 'curator-1',
+          action: 'GUIDELINE_APPROVED',
+          entity: 'GuidelineChunk',
+          entityId: 'chunk-pending-1',
+        }),
+      );
+    });
+
+    it('throws NotFoundException for an unknown chunk id', async () => {
+      prisma.guidelineChunk.findUnique.mockResolvedValue(null);
+
+      await expect(service.approveChunk('missing-chunk', 'curator-1')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('throws ConflictException when the chunk is not pending_review', async () => {
+      prisma.guidelineChunk.findUnique.mockResolvedValue({
+        id: 'chunk-1',
+        source: 'Diretriz X',
+        sourceVersion: '1.0',
+        status: 'approved',
+      });
+
+      await expect(service.approveChunk('chunk-1', 'curator-1')).rejects.toThrow(ConflictException);
+      expect(prisma.guidelineChunk.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('rejectChunk', () => {
+    it('rejects a pending chunk, records the reviewer/reason and audits GUIDELINE_REJECTED', async () => {
+      const chunk = {
+        id: 'chunk-pending-1',
+        source: 'Diretriz X',
+        sourceVersion: '2.0',
+        status: 'pending_review',
+      };
+      prisma.guidelineChunk.findUnique.mockResolvedValue(chunk);
+      prisma.guidelineChunk.update.mockResolvedValue({
+        ...chunk,
+        status: 'rejected',
+        reviewedBy: 'curator-1',
+        reviewedAt: new Date('2026-06-13'),
+      });
+
+      const result = await service.rejectChunk('chunk-pending-1', 'curator-1', 'Texto desatualizado');
+
+      expect(prisma.guidelineChunk.update).toHaveBeenCalledWith({
+        where: { id: 'chunk-pending-1' },
+        data: { status: 'rejected', reviewedBy: 'curator-1', reviewedAt: expect.any(Date) },
+      });
+      expect(result.status).toBe('rejected');
+      expect(auditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actorId: 'curator-1',
+          action: 'GUIDELINE_REJECTED',
+          entity: 'GuidelineChunk',
+          entityId: 'chunk-pending-1',
+          payload: expect.objectContaining({ reason: 'Texto desatualizado' }),
+        }),
+      );
+    });
+
+    it('throws ConflictException when the chunk is not pending_review', async () => {
+      prisma.guidelineChunk.findUnique.mockResolvedValue({
+        id: 'chunk-1',
+        source: 'Diretriz X',
+        sourceVersion: '1.0',
+        status: 'rejected',
+      });
+
+      await expect(service.rejectChunk('chunk-1', 'curator-1')).rejects.toThrow(ConflictException);
     });
   });
 

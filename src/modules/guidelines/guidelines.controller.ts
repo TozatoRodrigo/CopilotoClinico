@@ -5,19 +5,23 @@ import {
   Patch,
   Body,
   Param,
+  Request,
   UseGuards,
   Inject,
   NotFoundException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { InternalServiceGuard } from '../../shared/guards/internal-service.guard';
+import { CuratorGuard } from '../../shared/guards/curator.guard';
 import { GuidelinesService } from './guidelines.service';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import {
   ingestGuidelineSchema,
   deactivateGuidelineSchema,
+  rejectGuidelineChunkSchema,
   type IngestGuidelineBody,
   type DeactivateGuidelineBody,
+  type RejectGuidelineChunkBody,
 } from './schemas/guidelines.schemas';
 
 @Controller('guidelines')
@@ -30,12 +34,37 @@ export class GuidelinesController {
     return this.guidelinesService.listSources();
   }
 
+  @Get('pending')
+  @UseGuards(JwtAuthGuard, CuratorGuard)
+  async listPending() {
+    return this.guidelinesService.listPending();
+  }
+
   @Get('chunks/:chunkId')
   @UseGuards(JwtAuthGuard)
   async getChunk(@Param('chunkId') chunkId: string) {
     const chunk = await this.guidelinesService.getChunkById(chunkId);
     if (!chunk) throw new NotFoundException('Guideline chunk not found');
     return chunk;
+  }
+
+  @Post('chunks/:chunkId/approve')
+  @UseGuards(JwtAuthGuard, CuratorGuard)
+  async approveChunk(
+    @Request() req: { user: { physicianId: string } },
+    @Param('chunkId') chunkId: string,
+  ) {
+    return this.guidelinesService.approveChunk(chunkId, req.user.physicianId);
+  }
+
+  @Post('chunks/:chunkId/reject')
+  @UseGuards(JwtAuthGuard, CuratorGuard)
+  async rejectChunk(
+    @Request() req: { user: { physicianId: string } },
+    @Param('chunkId') chunkId: string,
+    @Body(new ZodValidationPipe(rejectGuidelineChunkSchema)) body: RejectGuidelineChunkBody,
+  ) {
+    return this.guidelinesService.rejectChunk(chunkId, req.user.physicianId, body.reason);
   }
 
   @Post()

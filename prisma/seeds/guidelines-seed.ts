@@ -3,7 +3,7 @@
  * Fontes: resumos de diretrizes públicas — não copia texto integral protegido.
  * Ver docs/guidelines-catalog.md para catálogo completo com versões e referências.
  */
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, GuidelineChunkStatus } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -239,6 +239,7 @@ async function main() {
         evidenceLevel: chunk.evidenceLevel ?? null,
         text: chunk.text,
         metadata: chunk.metadata ?? {},
+        status: GuidelineChunkStatus.approved,
         validFrom: new Date(),
       },
     });
