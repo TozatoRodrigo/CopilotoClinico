@@ -7,6 +7,7 @@ import {
   HttpCode,
   HttpStatus,
   Inject,
+  Param,
   Req,
   Res,
   UseGuards,
@@ -18,6 +19,7 @@ import { FastifyReply, FastifyRequest } from 'fastify';
 import { AuthService } from './auth.service';
 import { MfaService } from './mfa.service';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
+import { InternalServiceGuard } from '../../shared/guards/internal-service.guard';
 import {
   registerSchema,
   loginSchema,
@@ -190,5 +192,12 @@ export class AuthController {
     @Body(new ZodValidationPipe(mfaDisableSchema)) body: MfaDisableInput,
   ) {
     await this.mfaService.disableMfa(req.user.physicianId, body.totpCode);
+  }
+
+  @Post('mfa/admin-reset/:physicianId')
+  @UseGuards(InternalServiceGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async mfaAdminReset(@Param('physicianId') physicianId: string) {
+    await this.mfaService.resetMfa(physicianId, 'admin');
   }
 }

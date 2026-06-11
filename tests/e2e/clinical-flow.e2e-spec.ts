@@ -274,6 +274,30 @@ function buildPrismaMock() {
       findFirst: vi.fn().mockResolvedValue(null),
       create: vi.fn().mockResolvedValue({ id: 'erasure-001', status: 'pending' }),
     },
+
+    crmVerificationRequest: {
+      findFirst: vi.fn().mockResolvedValue(null),
+      findUnique: vi.fn().mockResolvedValue(null),
+      findMany: vi.fn().mockResolvedValue([]),
+      create: vi.fn().mockResolvedValue({
+        id: 'crm-req-001',
+        physicianId: PHYSICIAN_ID,
+        status: 'PENDING',
+        requestedAt: new Date(),
+        resolvedAt: null,
+        resolvedBy: null,
+        notes: null,
+      }),
+      update: vi.fn().mockResolvedValue({
+        id: 'crm-req-001',
+        physicianId: PHYSICIAN_ID,
+        status: 'APPROVED',
+        requestedAt: new Date(),
+        resolvedAt: new Date(),
+        resolvedBy: 'system-auto',
+        notes: null,
+      }),
+    },
   };
 }
 

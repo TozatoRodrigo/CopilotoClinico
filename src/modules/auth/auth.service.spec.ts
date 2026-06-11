@@ -3,6 +3,8 @@ import { AuthService } from './auth.service';
 import { MfaService } from './mfa.service';
 import { PrismaService } from '../../config/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { CrmVerificationService } from '../physicians/crm-verification.service';
+import { CrmCheckerService } from '../physicians/crm-checker.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { ConflictException, UnauthorizedException } from '@nestjs/common';
@@ -98,7 +100,25 @@ describe('AuthService', () => {
       disableMfa: vi.fn(),
     } as unknown as MfaService;
 
-    service = new AuthService(prisma as unknown as PrismaService, jwt, config, auditService, mfaService);
+    const crmVerificationService = {
+      requestVerification: vi.fn().mockResolvedValue({}),
+      approve: vi.fn().mockResolvedValue({}),
+      reject: vi.fn().mockResolvedValue({}),
+    } as unknown as CrmVerificationService;
+
+    const crmCheckerService = {
+      check: vi.fn().mockResolvedValue({ valid: false, source: 'unavailable' }),
+    } as unknown as CrmCheckerService;
+
+    service = new AuthService(
+      prisma as unknown as PrismaService,
+      jwt,
+      config,
+      auditService,
+      mfaService,
+      crmVerificationService,
+      crmCheckerService,
+    );
   });
 
   describe('register', () => {
