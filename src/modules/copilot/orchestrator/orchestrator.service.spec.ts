@@ -427,6 +427,81 @@ describe('OrchestratorService', () => {
         }),
       );
     });
+
+    it('DEC-005: audits COPILOT_QUESTIONS_EMITTED when the first turn raises clarifying questions', async () => {
+      encountersMock.findById.mockResolvedValue({
+        id: encounterId,
+        physicianId,
+        patientRef: 'PRN-001',
+      });
+      retrievalMock.search.mockResolvedValue({
+        chunks: mockChunks,
+        totalRetrieved: 2,
+      });
+      const llmOutputWithQuestions = JSON.stringify({
+        reasoning: 'Quadro requer mais informações antes de recomendar conduta.',
+        recommendations: [],
+        uncertainty: true,
+        uncertaintyReason: 'Faltam informações sobre imunossupressão',
+        clarifyingQuestions: [
+          {
+            id: 'q1',
+            question: 'O paciente é imunossuprimido?',
+            why: 'Define cobertura antibiótica',
+            criticality: 'blocker',
+            expectedAnswerType: 'boolean',
+          },
+        ],
+      });
+      aiGatewayMock.complete.mockResolvedValue({
+        content: llmOutputWithQuestions,
+        model: 'claude-3-sonnet',
+        usage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 },
+        latencyMs: 1500,
+      });
+      prismaMock.aiInteraction.create.mockResolvedValue({ id: 'interaction-001' });
+      encountersMock.update.mockResolvedValue({});
+
+      await service.analyze(physicianId, encounterId, validInput);
+
+      expect(auditMock.log).toHaveBeenCalledWith({
+        actorId: physicianId,
+        action: 'COPILOT_QUESTIONS_EMITTED',
+        entity: 'Encounter',
+        entityId: encounterId,
+        payload: {
+          interactionId: 'interaction-001',
+          turnIndex: 0,
+          questionIds: ['q1'],
+        },
+      });
+    });
+
+    it('DEC-005: does not audit COPILOT_QUESTIONS_EMITTED when there are no clarifying questions', async () => {
+      encountersMock.findById.mockResolvedValue({
+        id: encounterId,
+        physicianId,
+        patientRef: 'PRN-001',
+      });
+      retrievalMock.search.mockResolvedValue({
+        chunks: mockChunks,
+        totalRetrieved: 2,
+      });
+      aiGatewayMock.complete.mockResolvedValue({
+        content: validLLMOutput,
+        model: 'claude-3-sonnet',
+        usage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 },
+        latencyMs: 1500,
+      });
+      prismaMock.aiInteraction.create.mockResolvedValue({ id: 'interaction-001' });
+      encountersMock.update.mockResolvedValue({});
+
+      await service.analyze(physicianId, encounterId, validInput);
+
+      expect(auditMock.log).not.toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'COPILOT_QUESTIONS_EMITTED' }),
+      );
+    });
   });
 
   describe('RT-001: analyzeStream', () => {
@@ -707,6 +782,256 @@ describe('OrchestratorService', () => {
       expect(createCall.data.answeredQuestions[0]!.questionId).toBe('q0');
       expect(createCall.data.answeredQuestions[1]!.questionId).toBe('q1');
       expect(createCall.data.turnIndex).toBe(2);
+    });
+
+    it('DEC-005: audits COPILOT_QUESTION_ANSWERED with a hash of the answers, never raw content', async () => {
+      setupHappyPath();
+      prismaMock.aiInteraction.findFirst.mockResolvedValue(makeParentInteraction());
+
+      const sensitiveAnswer = 'Sim, paciente está em uso de prednisona 40mg/dia há 3 semanas';
+      await service.continueAnalysis(physicianId, encounterId, {
+        interactionId: parentInteractionId,
+        answers: [{ questionId: 'q1', answer: sensitiveAnswer }],
+      });
+
+      const answeredCall = auditMock.log.mock.calls.find(
+        (call) => (call[0] as { action: string }).action === 'COPILOT_QUESTION_ANSWERED',
+      );
+      expect(answeredCall).toBeDefined();
+      expect(answeredCall![0]).toEqual({
+        actorId: physicianId,
+        action: 'COPILOT_QUESTION_ANSWERED',
+        entity: 'Encounter',
+        entityId: encounterId,
+        payload: {
+          interactionId: parentInteractionId,
+          turnIndex: 1,
+          questionIds: ['q1'],
+          answersHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+        },
+      });
+      expect(JSON.stringify(answeredCall![0])).not.toContain(sensitiveAnswer);
+      expect(JSON.stringify(answeredCall![0])).not.toContain('prednisona');
+    });
+
+    it('DEC-005: audits COPILOT_ANALYSIS_REFINED after persisting the refined interaction', async () => {
+      setupHappyPath();
+      prismaMock.aiInteraction.findFirst.mockResolvedValue(makeParentInteraction());
+
+      await service.continueAnalysis(physicianId, encounterId, {
+        interactionId: parentInteractionId,
+        answers: [{ questionId: 'q1', answer: 'sim' }],
+      });
+
+      expect(auditMock.log).toHaveBeenCalledWith({
+        actorId: physicianId,
+        action: 'COPILOT_ANALYSIS_REFINED',
+        entity: 'Encounter',
+        entityId: encounterId,
+        payload: {
+          interactionId: 'interaction-002',
+          parentInteractionId,
+          turnIndex: 1,
+          uncertainty: false,
+          cost: expect.any(Number),
+        },
+      });
+    });
+
+    it('DEC-005: audits COPILOT_QUESTIONS_EMITTED when a follow-up turn raises new clarifying questions', async () => {
+      setupHappyPath();
+      prismaMock.aiInteraction.findFirst.mockResolvedValue(makeParentInteraction());
+      aiGatewayMock.complete.mockResolvedValue({
+        content: JSON.stringify({
+          reasoning: 'Ainda há incerteza sobre o histórico recente do paciente',
+          recommendations: [],
+          uncertainty: true,
+          uncertaintyReason: 'Falta informação sobre antibioticoterapia recente',
+          clarifyingQuestions: [
+            {
+              id: 'q2',
+              question: 'O paciente já fez uso de antibiótico nas últimas 48h?',
+              why: 'Define ajuste de espectro',
+              criticality: 'important',
+              expectedAnswerType: 'boolean',
+            },
+          ],
+        }),
+        model: 'claude-3-sonnet',
+        usage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 },
+        latencyMs: 1200,
+      });
+
+      await service.continueAnalysis(physicianId, encounterId, {
+        interactionId: parentInteractionId,
+        answers: [{ questionId: 'q1', answer: 'sim' }],
+      });
+
+      expect(auditMock.log).toHaveBeenCalledWith({
+        actorId: physicianId,
+        action: 'COPILOT_QUESTIONS_EMITTED',
+        entity: 'Encounter',
+        entityId: encounterId,
+        payload: {
+          interactionId: 'interaction-002',
+          turnIndex: 1,
+          questionIds: ['q2'],
+        },
+      });
+    });
+
+    it('DEC-005: a 3-turn decision loop chains at least 5 audit events', async () => {
+      encountersMock.findById.mockResolvedValue({
+        id: encounterId,
+        physicianId,
+        patientRef: 'PRN-001',
+        context: { hasCT: false, isSus: false, hasLab: false, hasICU: false },
+      });
+      retrievalMock.search.mockResolvedValue({ chunks: mockChunks, totalRetrieved: 2 });
+      encountersMock.update.mockResolvedValue({});
+
+      // Turn 0 (analyze): emits one clarifying question.
+      aiGatewayMock.complete.mockResolvedValueOnce({
+        content: JSON.stringify({
+          reasoning: 'Avaliação inicial',
+          recommendations: [],
+          uncertainty: true,
+          uncertaintyReason: 'Falta informação sobre imunossupressão',
+          clarifyingQuestions: [
+            {
+              id: 'q1',
+              question: 'O paciente é imunossuprimido?',
+              why: 'Define cobertura antibiótica',
+              criticality: 'blocker',
+              expectedAnswerType: 'boolean',
+            },
+          ],
+        }),
+        model: 'claude-3-sonnet',
+        usage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 },
+        latencyMs: 1000,
+      });
+      prismaMock.aiInteraction.create.mockResolvedValueOnce({ id: 'interaction-0' });
+
+      await service.analyze(physicianId, encounterId, validInput);
+
+      // Turn 1 (continueAnalysis): answers q1, raises a new question q2.
+      prismaMock.aiInteraction.findFirst.mockResolvedValueOnce({
+        id: 'interaction-0',
+        encounterId,
+        turnIndex: 0,
+        inputRedacted: validInput.caseText,
+        answeredQuestions: null,
+        rawOutput: {
+          reasoning: 'Avaliação inicial',
+          recommendations: [],
+          uncertainty: true,
+          uncertaintyReason: 'Falta informação sobre imunossupressão',
+          clarifyingQuestions: [
+            {
+              id: 'q1',
+              question: 'O paciente é imunossuprimido?',
+              why: 'Define cobertura antibiótica',
+              criticality: 'blocker',
+              expectedAnswerType: 'boolean',
+            },
+          ],
+        },
+      });
+      aiGatewayMock.complete.mockResolvedValueOnce({
+        content: JSON.stringify({
+          reasoning: 'Imunossupressão confirmada',
+          recommendations: [],
+          uncertainty: true,
+          uncertaintyReason: 'Falta informação sobre antibioticoterapia recente',
+          clarifyingQuestions: [
+            {
+              id: 'q2',
+              question: 'O paciente já fez uso de antibiótico nas últimas 48h?',
+              why: 'Define ajuste de espectro',
+              criticality: 'important',
+              expectedAnswerType: 'boolean',
+            },
+          ],
+        }),
+        model: 'claude-3-sonnet',
+        usage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 },
+        latencyMs: 1100,
+      });
+      prismaMock.aiInteraction.create.mockResolvedValueOnce({ id: 'interaction-1' });
+
+      await service.continueAnalysis(physicianId, encounterId, {
+        interactionId: 'interaction-0',
+        answers: [{ questionId: 'q1', answer: 'sim' }],
+      });
+
+      // Turn 2 (continueAnalysis): answers q2, no further questions.
+      prismaMock.aiInteraction.findFirst.mockResolvedValueOnce({
+        id: 'interaction-1',
+        encounterId,
+        turnIndex: 1,
+        inputRedacted: validInput.caseText,
+        answeredQuestions: [
+          { questionId: 'q1', question: 'O paciente é imunossuprimido?', answer: 'sim', turnIndex: 0 },
+        ],
+        rawOutput: {
+          reasoning: 'Imunossupressão confirmada',
+          recommendations: [],
+          uncertainty: true,
+          uncertaintyReason: 'Falta informação sobre antibioticoterapia recente',
+          clarifyingQuestions: [
+            {
+              id: 'q2',
+              question: 'O paciente já fez uso de antibiótico nas últimas 48h?',
+              why: 'Define ajuste de espectro',
+              criticality: 'important',
+              expectedAnswerType: 'boolean',
+            },
+          ],
+        },
+      });
+      aiGatewayMock.complete.mockResolvedValueOnce({
+        content: JSON.stringify({
+          reasoning: 'Recomendação final com base nas respostas do médico',
+          recommendations: [
+            {
+              action: 'Iniciar antibioticoterapia de amplo espectro',
+              rationale: 'Paciente imunossuprimido sem uso recente de antibiótico',
+              citationChunkId: 'chunk-1',
+              confidence: 0.9,
+            },
+          ],
+          uncertainty: false,
+          uncertaintyReason: null,
+          clarifyingQuestions: [],
+        }),
+        model: 'claude-3-sonnet',
+        usage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 },
+        latencyMs: 1200,
+      });
+      prismaMock.aiInteraction.create.mockResolvedValueOnce({ id: 'interaction-2' });
+
+      await service.continueAnalysis(physicianId, encounterId, {
+        interactionId: 'interaction-1',
+        answers: [{ questionId: 'q2', answer: 'não' }],
+      });
+
+      // Turn 0: COPILOT_QUESTIONS_EMITTED (1)
+      // Turn 1: COPILOT_QUESTION_ANSWERED + COPILOT_ANALYSIS_REFINED + COPILOT_QUESTIONS_EMITTED (3)
+      // Turn 2: COPILOT_QUESTION_ANSWERED + COPILOT_ANALYSIS_REFINED (2)
+      const decisionLoopActions = auditMock.log.mock.calls
+        .map((call) => (call[0] as { action: string }).action)
+        .filter((action) => action.startsWith('COPILOT_'));
+
+      expect(decisionLoopActions.length).toBeGreaterThanOrEqual(5);
+      expect(decisionLoopActions).toEqual([
+        'COPILOT_QUESTIONS_EMITTED',
+        'COPILOT_QUESTION_ANSWERED',
+        'COPILOT_ANALYSIS_REFINED',
+        'COPILOT_QUESTIONS_EMITTED',
+        'COPILOT_QUESTION_ANSWERED',
+        'COPILOT_ANALYSIS_REFINED',
+      ]);
     });
   });
 });
