@@ -18,6 +18,7 @@ export interface PromptInput {
   retrievedChunks: RetrievedContext[];
   context: EncounterContext;
   vertical?: string;
+  additionalInstructions?: string;
 }
 
 export interface BuiltPrompt {
@@ -52,10 +53,14 @@ OUTPUT SCHEMA (respond with valid JSON only):
 }`;
 
 export function buildPrompt(input: PromptInput): BuiltPrompt {
+  const instructionsBlock = input.additionalInstructions
+    ? `\n\n${input.additionalInstructions}`
+    : '';
+
   if (input.retrievedChunks.length === 0) {
     return {
       system: SYSTEM_INSTRUCTION,
-      user: buildCaseOnlyUser(input),
+      user: `${buildCaseOnlyUser(input)}${instructionsBlock}`,
       retrievedChunkIds: [],
     };
   }
@@ -83,7 +88,7 @@ ${input.caseText}
 ${evidenceBlock}
 </guideline_evidence>
 ${contextBlock ? `\n${contextBlock}\n` : ''}
-Analyze this case and provide structured recommendations with citations.`;
+Analyze this case and provide structured recommendations with citations.${instructionsBlock}`;
 
   return {
     system: SYSTEM_INSTRUCTION,

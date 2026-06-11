@@ -15,8 +15,8 @@ import { Observable } from 'rxjs';
 import { CopilotService } from './copilot.service';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
-import { analyzeSchema, streamQuerySchema } from './schemas/copilot.schemas';
-import type { AnalyzeInput, StreamQuery } from './schemas/copilot.schemas';
+import { analyzeSchema, streamQuerySchema, respondSchema } from './schemas/copilot.schemas';
+import type { AnalyzeInput, StreamQuery, RespondInput } from './schemas/copilot.schemas';
 
 @Controller('encounters/:encounterId/copilot')
 @UseGuards(JwtAuthGuard)
@@ -59,6 +59,15 @@ export class CopilotController {
         }
       })();
     });
+  }
+
+  @Post('respond')
+  async respond(
+    @Request() req: { user: { physicianId: string } },
+    @Param('encounterId') encounterId: string,
+    @Body(new ZodValidationPipe(respondSchema)) body: RespondInput,
+  ) {
+    return this.copilotService.respond(req.user.physicianId, encounterId, body);
   }
 
   @Post('analyze/async')

@@ -92,23 +92,29 @@ model Encounter {
 }
 
 model AiInteraction {
-  id                String   @id @default(uuid()) @db.Uuid
-  encounterId       String   @map("encounter_id") @db.Uuid
-  inputRedacted     String?  @map("input_redacted") @db.Text
-  retrievedChunkIds String[] @map("retrieved_chunk_ids")
-  model             String
-  params            Json?
-  rawOutput         Json     @map("raw_output")
-  citations         Json?
-  uncertainty       Boolean  @default(false)
-  uncertaintyReason String?  @map("uncertainty_reason") @db.Text
-  latencyMs         Int      @map("latency_ms")
-  cost              Float    @default(0)
-  createdAt         DateTime @default(now()) @map("created_at")
+  id                  String   @id @default(uuid()) @db.Uuid
+  encounterId         String   @map("encounter_id") @db.Uuid
+  inputRedacted       String?  @map("input_redacted") @db.Text
+  retrievedChunkIds   String[] @map("retrieved_chunk_ids")
+  model               String
+  params              Json?
+  rawOutput           Json     @map("raw_output")
+  citations           Json?
+  uncertainty         Boolean  @default(false)
+  uncertaintyReason   String?  @map("uncertainty_reason") @db.Text
+  latencyMs           Int      @map("latency_ms")
+  cost                Float    @default(0)
+  turnIndex           Int      @default(0) @map("turn_index")
+  parentInteractionId String?  @map("parent_interaction_id") @db.Uuid
+  answeredQuestions   Json?    @map("answered_questions")
+  createdAt           DateTime @default(now()) @map("created_at")
 
-  encounter Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  encounter         Encounter       @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  parentInteraction AiInteraction?  @relation("InteractionThread", fields: [parentInteractionId], references: [id], onDelete: SetNull)
+  childInteractions AiInteraction[] @relation("InteractionThread")
 
   @@index([encounterId])
+  @@index([parentInteractionId])
   @@map("ai_interactions")
 }
 

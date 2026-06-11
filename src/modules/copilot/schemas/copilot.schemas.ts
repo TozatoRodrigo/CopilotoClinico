@@ -25,3 +25,17 @@ export const streamQuerySchema = z.object({
 });
 
 export type StreamQuery = z.infer<typeof streamQuerySchema>;
+
+export const respondSchema = z.object({
+  interactionId: z.string().uuid('interactionId must be a valid UUID'),
+  answers: z
+    .array(
+      z.object({
+        questionId: z.string().min(1),
+        answer: z.union([z.string(), z.number(), z.boolean()]),
+      }),
+    )
+    .min(1, 'At least one answer is required'),
+});
+
+export type RespondInput = z.infer<typeof respondSchema>;

@@ -8,6 +8,7 @@ describe('CopilotController', () => {
   let serviceMock: {
     analyze: ReturnType<typeof vi.fn>;
     stream: ReturnType<typeof vi.fn>;
+    respond: ReturnType<typeof vi.fn>;
   };
 
   const req = { user: { physicianId: 'phys-001' } };
@@ -26,7 +27,7 @@ describe('CopilotController', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    serviceMock = { analyze: vi.fn(), stream: vi.fn() };
+    serviceMock = { analyze: vi.fn(), stream: vi.fn(), respond: vi.fn() };
     controller = new CopilotController(serviceMock as unknown as CopilotService);
   });
 
@@ -37,6 +38,22 @@ describe('CopilotController', () => {
       const result = await controller.analyze(req, encounterId, body);
 
       expect(serviceMock.analyze).toHaveBeenCalledWith('phys-001', encounterId, body);
+      expect(result).toEqual(analyzeResult);
+    });
+  });
+
+  describe('DEC-002: respond', () => {
+    const respondBody = {
+      interactionId: 'interaction-001',
+      answers: [{ questionId: 'q1', answer: 'sim' }],
+    };
+
+    it('delegates to service.respond and returns result', async () => {
+      serviceMock.respond.mockResolvedValue(analyzeResult);
+
+      const result = await controller.respond(req, encounterId, respondBody);
+
+      expect(serviceMock.respond).toHaveBeenCalledWith('phys-001', encounterId, respondBody);
       expect(result).toEqual(analyzeResult);
     });
   });

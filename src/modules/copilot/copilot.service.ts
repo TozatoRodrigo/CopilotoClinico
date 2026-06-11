@@ -2,7 +2,7 @@ import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { OrchestratorService } from './orchestrator/orchestrator.service';
 import { InferenceQueueService } from '../queue/inference-queue.service';
 import { PrismaService } from '../../config/prisma.service';
-import type { AnalyzeInput } from './schemas/copilot.schemas';
+import type { AnalyzeInput, RespondInput } from './schemas/copilot.schemas';
 import type { OrchestratorResult, StreamEvent } from './orchestrator/orchestrator.service';
 
 @Injectable()
@@ -19,6 +19,14 @@ export class CopilotService {
     input: AnalyzeInput,
   ): Promise<OrchestratorResult> {
     return this.orchestrator.analyze(physicianId, encounterId, input);
+  }
+
+  async respond(
+    physicianId: string,
+    encounterId: string,
+    input: RespondInput,
+  ): Promise<OrchestratorResult> {
+    return this.orchestrator.continueAnalysis(physicianId, encounterId, input);
   }
 
   stream(
