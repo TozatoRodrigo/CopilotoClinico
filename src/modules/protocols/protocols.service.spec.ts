@@ -189,6 +189,81 @@ describe('ProtocolsService', () => {
     });
   });
 
+  describe('findAll', () => {
+    it('restricts to global protocols (institutionId IS NULL) when no institution is given', async () => {
+      prisma.protocol.findMany.mockResolvedValue([]);
+
+      await service.findAll({ specialty: 'clinica_geral' });
+
+      expect(prisma.protocol.findMany).toHaveBeenCalledWith({
+        where: { specialty: 'clinica_geral', institutionId: null },
+        orderBy: [{ name: 'asc' }, { version: 'desc' }],
+      });
+    });
+
+    it('includes global and institution-matching protocols when institutionId is given', async () => {
+      const institutionId = 'institution-a';
+      prisma.protocol.findMany.mockResolvedValue([]);
+
+      await service.findAll({ institutionId });
+
+      expect(prisma.protocol.findMany).toHaveBeenCalledWith({
+        where: { OR: [{ institutionId: null }, { institutionId }] },
+        orderBy: [{ name: 'asc' }, { version: 'desc' }],
+      });
+    });
+  });
+
+  describe('findById', () => {
+    it('returns a global protocol regardless of the requesting institution', async () => {
+      prisma.protocol.findUnique.mockResolvedValue({
+        id: protocolId,
+        institutionId: null,
+        nodes: [],
+      });
+
+      const result = await service.findById(protocolId, 'institution-a');
+
+      expect(result.id).toBe(protocolId);
+    });
+
+    it('returns a protocol belonging to the requesting institution', async () => {
+      prisma.protocol.findUnique.mockResolvedValue({
+        id: protocolId,
+        institutionId: 'institution-a',
+        nodes: [],
+      });
+
+      const result = await service.findById(protocolId, 'institution-a');
+
+      expect(result.id).toBe(protocolId);
+    });
+
+    it('throws NotFoundException for a protocol belonging to another institution', async () => {
+      prisma.protocol.findUnique.mockResolvedValue({
+        id: protocolId,
+        institutionId: 'institution-b',
+        nodes: [],
+      });
+
+      await expect(service.findById(protocolId, 'institution-a')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('does not enforce isolation when institutionId is not informed (internal calls)', async () => {
+      prisma.protocol.findUnique.mockResolvedValue({
+        id: protocolId,
+        institutionId: 'institution-b',
+        nodes: [],
+      });
+
+      const result = await service.findById(protocolId);
+
+      expect(result.id).toBe(protocolId);
+    });
+  });
+
   describe('publish', () => {
     it('throws NotFoundException when the protocol does not exist', async () => {
       prisma.protocol.findUnique.mockResolvedValue(null);

@@ -47,6 +47,11 @@ enum GuidelineChunkStatus {
   superseded
 }
 
+enum InstitutionStatus {
+  active
+  inactive
+}
+
 model Physician {
   id                 String             @id @default(uuid()) @db.Uuid
   crmUf              String             @map("crm_uf") @db.Char(2)
@@ -69,8 +74,46 @@ model Physician {
   refreshTokens         RefreshToken[]
   mfaBackupCodes        MfaBackupCode[]
   crmVerificationRequests CrmVerificationRequest[]
+  institutions          PhysicianInstitution[]
 
   @@map("physicians")
+}
+
+/**
+ * PROT-004: instituição de saúde (hospital/rede). Médico pode pertencer a N
+ * instituições (plantonista é multivínculo por natureza) via
+ * PhysicianInstitution. institutionId em GuidelineChunk/Encounter/Protocol é
+ * nullable — NULL representa conteúdo/atendimento global, visível a todas as
+ * instituições.
+ */
+model Institution {
+  id        String            @id @default(uuid()) @db.Uuid
+  name      String
+  cnes      String?           @db.VarChar(20)
+  status    InstitutionStatus @default(active)
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @updatedAt @map("updated_at")
+
+  physicians      PhysicianInstitution[]
+  guidelineChunks GuidelineChunk[]
+  encounters      Encounter[]
+  protocols       Protocol[]
+
+  @@map("institutions")
+}
+
+model PhysicianInstitution {
+  id            String   @id @default(uuid()) @db.Uuid
+  physicianId   String   @map("physician_id") @db.Uuid
+  institutionId String   @map("institution_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  physician   Physician   @relation(fields: [physicianId], references: [id], onDelete: Cascade)
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+
+  @@unique([physicianId, institutionId])
+  @@index([institutionId])
+  @@map("physician_institutions")
 }
 
 enum CrmVerificationStatus {
@@ -94,21 +137,24 @@ model LoginSecurityState {
 }
 
 model Encounter {
-  id          String          @id @default(uuid()) @db.Uuid
-  physicianId String          @map("physician_id") @db.Uuid
-  vertical    String          @default("trauma")
-  context     Json?
-  patientRef  String          @map("patient_ref") @db.VarChar(50)
-  status      EncounterStatus @default(draft)
-  createdAt   DateTime        @default(now()) @map("created_at")
-  updatedAt   DateTime        @updatedAt @map("updated_at")
+  id            String          @id @default(uuid()) @db.Uuid
+  physicianId   String          @map("physician_id") @db.Uuid
+  institutionId String?         @map("institution_id") @db.Uuid
+  vertical      String          @default("trauma")
+  context       Json?
+  patientRef    String          @map("patient_ref") @db.VarChar(50)
+  status        EncounterStatus @default(draft)
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
 
   physician       Physician       @relation(fields: [physicianId], references: [id], onDelete: Cascade)
+  institution     Institution?    @relation(fields: [institutionId], references: [id], onDelete: SetNull)
   aiInteractions  AiInteraction[]
   documents       Document[]
   audioCaptures   AudioCapture[]
 
   @@index([physicianId])
+  @@index([institutionId])
   @@map("encounters")
 }
 
@@ -172,15 +218,19 @@ model GuidelineChunk {
   embedding     Unsupported("vector(1536)")?
   metadata      Json?
   status        GuidelineChunkStatus @default(pending_review)
+  institutionId String?              @map("institution_id") @db.Uuid
   reviewedBy    String?              @map("reviewed_by") @db.Uuid
   reviewedAt    DateTime?            @map("reviewed_at")
   validFrom     DateTime             @default(now()) @map("valid_from")
   validTo       DateTime?            @map("valid_to")
   createdAt     DateTime             @default(now()) @map("created_at")
 
+  institution Institution? @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+
   @@index([source, sourceVersion])
   @@index([specialty])
   @@index([status])
+  @@index([institutionId])
   @@map("guideline_chunks")
 }
 
@@ -286,7 +336,8 @@ model Protocol {
   createdAt     DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
 
-  nodes ProtocolNode[]
+  institution Institution? @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  nodes       ProtocolNode[]
 
   @@index([name, specialty, institutionId])
   @@index([status])

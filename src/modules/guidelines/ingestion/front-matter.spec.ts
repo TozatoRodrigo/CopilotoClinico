@@ -63,4 +63,20 @@ describe('parseGuidelineDocument', () => {
 
     expect(() => parseGuidelineDocument(raw)).toThrow(/sourceVersion/);
   });
+
+  it('PROT-004: parses an optional institutionId from front-matter', () => {
+    const raw = [
+      '---',
+      'source: Protocolo HC-X',
+      'sourceVersion: 1.0',
+      'specialty: clinica',
+      'institutionId: 880e8400-e29b-41d4-a716-446655440003',
+      '---',
+      'Corpo',
+    ].join('\n');
+
+    const result = parseGuidelineDocument(raw);
+
+    expect(result.meta.institutionId).toBe('880e8400-e29b-41d4-a716-446655440003');
+  });
 });

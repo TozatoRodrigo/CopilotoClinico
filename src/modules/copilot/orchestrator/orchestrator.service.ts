@@ -39,6 +39,8 @@ export interface OrchestratorResult {
     source: string;
     sourceVersion: string;
     text: string;
+    institutionId: string | null;
+    origin: 'institutional' | 'public';
   }>;
   metadata: {
     piiDetected: boolean;
@@ -135,7 +137,7 @@ export class OrchestratorService {
       });
     }
 
-    const retrievalResult = await this.retrieval.search(fullyRedacted, 5);
+    const retrievalResult = await this.retrieval.search(fullyRedacted, 5, encounter.institutionId);
     this.logger.debug(`Retrieved ${retrievalResult.totalRetrieved} chunks`);
 
     const encounterContext: EncounterContext = {
@@ -235,6 +237,8 @@ export class OrchestratorService {
         source: chunk?.source ?? 'Unknown',
         sourceVersion: chunk?.sourceVersion ?? 'Unknown',
         text: chunk?.text ?? '',
+        institutionId: chunk?.institutionId ?? null,
+        origin: (chunk?.institutionId ? 'institutional' : 'public') as 'institutional' | 'public',
       };
     });
 
@@ -326,7 +330,7 @@ export class OrchestratorService {
       });
     }
 
-    const retrievalResult = await this.retrieval.search(fullyRedacted, 5);
+    const retrievalResult = await this.retrieval.search(fullyRedacted, 5, encounter.institutionId);
 
     const encounterContext: EncounterContext = {
       hasCT: input.context.hasCT,
@@ -428,6 +432,8 @@ export class OrchestratorService {
         source: chunk?.source ?? 'Unknown',
         sourceVersion: chunk?.sourceVersion ?? 'Unknown',
         text: chunk?.text ?? '',
+        institutionId: chunk?.institutionId ?? null,
+        origin: (chunk?.institutionId ? 'institutional' : 'public') as 'institutional' | 'public',
       };
     });
 
@@ -554,7 +560,11 @@ export class OrchestratorService {
     const baseCaseText = parentInteraction.inputRedacted ?? '';
     const augmentedCaseText = `${baseCaseText}\n\n--- Informações adicionais fornecidas pelo médico ---\n${qaBlock}`;
 
-    const retrievalResult = await this.retrieval.search(augmentedCaseText, 5);
+    const retrievalResult = await this.retrieval.search(
+      augmentedCaseText,
+      5,
+      encounter.institutionId,
+    );
     this.logger.debug(`Retrieved ${retrievalResult.totalRetrieved} chunks (respond)`);
 
     const encounterContext = (encounter.context as unknown as EncounterContext | null) ?? {
@@ -663,6 +673,8 @@ export class OrchestratorService {
         source: chunk?.source ?? 'Unknown',
         sourceVersion: chunk?.sourceVersion ?? 'Unknown',
         text: chunk?.text ?? '',
+        institutionId: chunk?.institutionId ?? null,
+        origin: (chunk?.institutionId ? 'institutional' : 'public') as 'institutional' | 'public',
       };
     });
 

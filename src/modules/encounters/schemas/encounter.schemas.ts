@@ -47,6 +47,7 @@ const patientRefSchema = z
 export const createEncounterSchema = z.object({
   patientRef: patientRefSchema,
   vertical: z.string().min(1).default('trauma'),
+  institutionId: z.string().uuid().optional(),
   context: z
     .object({
       hasCT: z.boolean().default(false),

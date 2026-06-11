@@ -118,6 +118,66 @@ UPDATE physicians SET is_curator = true WHERE email = 'curador@exemplo.com';
 
 ---
 
+## Multi-tenancy institucional (PROT-004)
+
+Hospitais clientes podem ter protocolos e diretrizes próprios, isolados de
+outras instituições e do conteúdo público (`institution_id IS NULL`). Ver
+[ADR-009](./decisions/ADR-009-institutional-multi-tenancy.md) para o modelo
+completo.
+
+**1. Criar uma instituição**
+
+Endpoint restrito a `InternalServiceGuard`:
+
+```bash
+curl -X POST http://localhost:3000/v1/institutions \
+  -H "x-internal-token: $INTERNAL_SERVICE_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Hospital Central", "cnes": "1234567", "status": "active"}'
+```
+
+**2. Vincular médicos à instituição**
+
+```bash
+curl -X POST http://localhost:3000/v1/institutions/$INSTITUTION_ID/physicians \
+  -H "x-internal-token: $INTERNAL_SERVICE_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"physicianId": "<uuid-do-medico>"}'
+```
+
+Um médico pode pertencer a múltiplas instituições (`PhysicianInstitution` é
+N:N). Médicos sem vínculo, ou vinculados a mais de uma instituição sem
+informar `institutionId` explicitamente, só enxergam conteúdo global
+(`institution_id IS NULL`).
+
+**3. Ingerir protocolos/diretrizes institucionais**
+
+Adicionar `institutionId: <uuid>` no front-matter do arquivo (ver seção
+KB-002 acima):
+
+```
+---
+source: Protocolo Sepse Hospital Central
+sourceVersion: 1.0
+specialty: emergencia
+institutionId: <uuid-da-instituicao>
+---
+```
+
+Sem `institutionId`, o conteúdo é global (visível a todas as instituições).
+Re-ingestão de uma nova versão só marca como `superseded` chunks da **mesma**
+`institutionId` — versões institucional e global da "mesma" fonte coexistem
+sem se invalidar.
+
+**4. Verificar isolamento**
+
+`ProtocolsService.findById`/`findAll` e `RetrievalService.search` filtram por
+`institution_id IS NULL OR institution_id = :institutionId` no SQL — não
+apenas na resposta. Acesso a um protocolo de outra instituição retorna `404`
+(nunca `403`, para não confirmar a existência do recurso).
+
+---
+
 ## Migrações
 
 ### Histórico de Migrations
@@ -130,6 +190,7 @@ UPDATE physicians SET is_curator = true WHERE email = 'curador@exemplo.com';
 | `20260605030000_aud_002_db_least_privilege` | Role `copiloto_app` com menor privilégio para runtime |
 | `20260606111800_perf_001_guideline_embedding_ivfflat` | Índice ivfflat para `guideline_chunks.embedding` |
 | `20260613090000_kb_002_guideline_review_pipeline` | Status de revisão (`pending_review`/`approved`/`rejected`/`superseded`) em `guideline_chunks` + `is_curator` em physicians |
+| `20260614100000_prot_004_institution_multi_tenancy` | Tabelas `institutions`/`physician_institutions` + `institution_id` em `protocols`/`guideline_chunks`/`encounters` |
 
 ### Rollback de Migration
 

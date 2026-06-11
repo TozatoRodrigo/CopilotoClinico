@@ -3,6 +3,7 @@ export interface GuidelineFrontMatter {
   sourceVersion: string;
   specialty: string;
   evidenceLevel?: string;
+  institutionId?: string;
 }
 
 export interface ParsedGuidelineDocument {
@@ -51,6 +52,7 @@ export function parseGuidelineDocument(raw: string): ParsedGuidelineDocument {
     sourceVersion,
     specialty: fields.specialty,
     evidenceLevel: fields.evidenceLevel,
+    institutionId: fields.institutionId,
   };
 
   for (const field of REQUIRED_FIELDS) {

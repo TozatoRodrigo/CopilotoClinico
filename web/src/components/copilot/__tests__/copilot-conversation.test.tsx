@@ -130,6 +130,33 @@ describe("CopilotConversation", () => {
     expect(screen.queryByText(/Preliminar/)).not.toBeInTheDocument();
   });
 
+  it("PROT-004: labels institutional and public citations with the correct badge", () => {
+    renderConversation({
+      ...analysisWithoutQuestions,
+      citations: [
+        {
+          source: "Protocolo Sepse Hospital Central",
+          sourceVersion: "1.0",
+          chunkId: "chunk-institutional",
+          text: "Bundle institucional de sepse.",
+          institutionId: "institution-a",
+          origin: "institutional",
+        },
+        {
+          source: "Diretriz SBC Sepse",
+          sourceVersion: "2.0",
+          chunkId: "chunk-public",
+          text: "Diretriz pública sobre sepse.",
+          institutionId: null,
+          origin: "public",
+        },
+      ],
+    });
+
+    expect(screen.getByText("Protocolo institucional")).toBeInTheDocument();
+    expect(screen.getByText("Diretriz pública")).toBeInTheDocument();
+  });
+
   it("shows the questions section, a dimmed preliminary recommendation, and a disabled reanalyze button", () => {
     renderConversation(analysisWithQuestions);
 

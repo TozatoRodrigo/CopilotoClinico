@@ -82,6 +82,26 @@ describe('GuidelinesService', () => {
       expect(prisma.$executeRaw).toHaveBeenCalledTimes(1);
     });
 
+    it('PROT-004: persists institutionId on chunks when provided', async () => {
+      prisma.guidelineChunk.create.mockResolvedValue({ id: 'chunk-uuid-1' });
+
+      await service.ingest({ ...baseIngestInput, institutionId: 'institution-a' });
+
+      expect(prisma.guidelineChunk.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ institutionId: 'institution-a' }),
+      });
+    });
+
+    it('PROT-004: defaults institutionId to null when not provided', async () => {
+      prisma.guidelineChunk.create.mockResolvedValue({ id: 'chunk-uuid-1' });
+
+      await service.ingest(baseIngestInput);
+
+      expect(prisma.guidelineChunk.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ institutionId: null }),
+      });
+    });
+
     it('handles long text by creating multiple chunks', async () => {
       const longText = 'X'.repeat(1200);
       const input: IngestGuidelineInput = { ...baseIngestInput, text: longText };
@@ -164,6 +184,7 @@ describe('GuidelinesService', () => {
         where: {
           source: baseIngestInput.source,
           sourceVersion: { not: '2.0' },
+          institutionId: null,
           status: { in: ['approved', 'pending_review'] },
         },
         data: { status: 'superseded' },
