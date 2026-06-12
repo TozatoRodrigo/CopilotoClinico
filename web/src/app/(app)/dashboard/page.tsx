@@ -4,15 +4,14 @@ import Link from "next/link";
 import { useDashboardStats, useEncounterList } from "@/lib/clinical-queries";
 import { useAuth } from "@/lib/auth-store";
 import { PageHeader } from "@/components/layout/page-header";
-import { SectionCard } from "@/components/layout/section-card";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { DataMetric } from "@/components/domain/data-metric";
 import { EmptyState } from "@/components/domain/empty-state";
 import { DEMO_CASE_PRESETS } from "@/lib/demo-case-presets";
+import { cn } from "@/lib/utils";
 
 const VERTICAL_LABELS: Record<string, string> = {
   trauma: "Trauma",
@@ -36,13 +35,31 @@ const STATUS_VARIANTS: Record<string, "default" | "secondary" | "destructive" | 
   cancelled: "destructive",
 };
 
+const STATUS_HREFS: Record<string, string> = {
+  draft: "/encounters?status=draft",
+  in_review: "/encounters?status=in_review",
+  finalized: "/encounters?status=finalized",
+};
+
 export default function DashboardPage() {
   const { physician } = useAuth();
-  const encountersQuery = useEncounterList({ limit: 5 });
   const statsQuery = useDashboardStats();
-  const encounters = encountersQuery.data?.data ?? [];
-  const loading = encountersQuery.isPending || statsQuery.isPending;
-  const error = encountersQuery.error?.message ?? statsQuery.error?.message ?? null;
+  const recentQuery = useEncounterList({ limit: 5 });
+  const draftsQuery = useEncounterList({ status: "draft", limit: 3 });
+  const reviewsQuery = useEncounterList({ status: "in_review", limit: 3 });
+
+  const loading = statsQuery.isPending || recentQuery.isPending;
+  const error =
+    statsQuery.error?.message ?? recentQuery.error?.message ?? null;
+
+  const recentEncounters = recentQuery.data?.data ?? [];
+  const drafts = draftsQuery.data?.data ?? [];
+  const reviews = reviewsQuery.data?.data ?? [];
+  const inProgress = [...drafts, ...reviews].sort(
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+  );
+
+  const todayStr = new Date().toISOString().slice(0, 10);
 
   return (
     <div className="space-y-6">
@@ -55,14 +72,9 @@ export default function DashboardPage() {
         </Button>
       </PageHeader>
 
-      {/* Banner IAM-001 — CRM não verificado.
-          Exibido enquanto crmVerified=false para manter honestidade sobre
-          o estado real do sistema. Remoção depende de verificação real (R1). */}
       {physician && !physician.crmVerified && (
         <Alert className="border-orange-500/50 bg-orange-50 text-orange-800 dark:bg-orange-900/20 dark:text-orange-200">
-          <AlertTitle className="font-semibold">
-            CRM não verificado
-          </AlertTitle>
+          <AlertTitle className="font-semibold">CRM não verificado</AlertTitle>
           <AlertDescription>
             Seu CRM ({physician.crmUf} {physician.crmNumber}) ainda não foi validado contra o
             Conselho Federal de Medicina. Documentos gerados serão marcados como{" "}
@@ -72,37 +84,92 @@ export default function DashboardPage() {
         </Alert>
       )}
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardContent className="pt-4">
-            <DataMetric
-              label="Atendimentos Hoje"
+      {loading ? (
+        <MetricsSkeleton />
+      ) : (
+        <div className="divide-x divide-border overflow-hidden rounded-lg border bg-card">
+          <div className="grid grid-cols-3">
+            <MetricLink
+              href={`/encounters?dateFrom=${todayStr}&dateTo=${todayStr}`}
+              label="Hoje"
               value={statsQuery.data?.todayCount ?? 0}
-              loading={loading}
             />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <DataMetric
-              label="Revisões Pendentes"
+            <MetricLink
+              href="/encounters?status=in_review"
+              label="Revisões"
               value={statsQuery.data?.pendingReviews ?? 0}
-              loading={loading}
             />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <DataMetric
-              label="Documentos Confirmados"
+            <MetricLink
+              href="/encounters"
+              label="Confirmados"
               value={statsQuery.data?.confirmedDocuments ?? 0}
-              loading={loading}
             />
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </div>
+      )}
 
-      <SectionCard title="Casos Piloto da Rodada 2" badge={String(DEMO_CASE_PRESETS.length)}>
+      {error && (
+        <Alert variant="destructive">
+          <AlertTitle>Erro</AlertTitle>
+          <AlertDescription className="flex items-center justify-between gap-3">
+            <span>{error}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                void statsQuery.refetch();
+                void recentQuery.refetch();
+              }}
+            >
+              Tentar novamente
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {!loading && inProgress.length > 0 && (
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Continuar de onde parou</h2>
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/encounters?status=draft">Ver todos</Link>
+            </Button>
+          </div>
+          <div className="space-y-2">
+            {inProgress.slice(0, 3).map((enc) => (
+              <Link
+                key={enc.id}
+                href={`/encounters/${enc.id}`}
+                className="flex items-center justify-between rounded-lg border bg-card px-4 py-3 transition-colors hover:bg-muted/50"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="font-medium">{enc.patientRef}</span>
+                  <Badge variant={STATUS_VARIANTS[enc.status] ?? "outline"} className="font-mono text-xs">
+                    {STATUS_LABELS[enc.status] ?? enc.status}
+                  </Badge>
+                </div>
+                <time
+                  dateTime={enc.updatedAt}
+                  className="font-mono text-xs text-muted-foreground"
+                >
+                  {new Date(enc.updatedAt).toLocaleString("pt-BR", {
+                    dateStyle: "short",
+                    timeStyle: "short",
+                  })}
+                </time>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Casos Piloto</h2>
+          <span className="text-sm text-muted-foreground">
+            {DEMO_CASE_PRESETS.length} casos
+          </span>
+        </div>
         <div className="grid gap-4 md:grid-cols-3">
           {DEMO_CASE_PRESETS.map((preset) => (
             <Card key={preset.slug} className="border-border/60">
@@ -133,71 +200,80 @@ export default function DashboardPage() {
             </Card>
           ))}
         </div>
-      </SectionCard>
+      </section>
 
-      <SectionCard title="Atendimentos Recentes" badge={String(encounters.length)}>
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Atendimentos Recentes</h2>
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/encounters">Ver todos</Link>
+          </Button>
+        </div>
+
         {loading && (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-10 w-full" />
+              <Skeleton key={i} className="h-12 w-full rounded-lg" />
             ))}
           </div>
         )}
-        {error && (
-          <Alert variant="destructive">
-            <AlertTitle>Erro</AlertTitle>
-            <AlertDescription className="flex items-center justify-between gap-3">
-              <span>{error}</span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  void encountersQuery.refetch();
-                  void statsQuery.refetch();
-                }}
-              >
-                Tentar novamente
-              </Button>
-            </AlertDescription>
-          </Alert>
-        )}
-        {!loading && !error && encounters.length === 0 && (
+
+        {!loading && recentEncounters.length === 0 && (
           <EmptyState
             title="Nenhum atendimento encontrado"
             description="Os atendimentos que você criar aparecerão aqui."
-            actionLabel="Novo Atendimento"
+            actionLabel="Criar primeiro atendimento"
             actionHref="/encounters/new"
           />
         )}
-        {!loading && !error && encounters.length > 0 && (
-          <div className="overflow-x-auto">
+
+        {!loading && recentEncounters.length > 0 && (
+          <div className="overflow-x-auto rounded-lg border">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b text-left text-muted-foreground">
-                  <th className="pb-2 font-medium">Paciente</th>
-                  <th className="pb-2 font-medium">Vertical</th>
-                  <th className="pb-2 font-medium">Status</th>
-                  <th className="pb-2 font-medium">Data</th>
-                  <th className="pb-2 font-medium" />
+                <tr className="border-b bg-muted/40 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                  <th className="px-4 py-2.5">Paciente</th>
+                  <th className="px-4 py-2.5">Vertical</th>
+                  <th className="px-4 py-2.5">Status</th>
+                  <th className="px-4 py-2.5">Data</th>
                 </tr>
               </thead>
               <tbody>
-                {encounters.map((enc) => (
-                  <tr key={enc.id} className="border-b last:border-0">
-                    <td className="py-2">{enc.patientRef}</td>
-                    <td className="py-2">{VERTICAL_LABELS[enc.vertical] ?? enc.vertical}</td>
-                    <td className="py-2">
-                      <Badge variant={STATUS_VARIANTS[enc.status] ?? "outline"}>
+                {recentEncounters.map((enc) => (
+                  <tr
+                    key={enc.id}
+                    className="cursor-pointer border-b last:border-0 transition-colors hover:bg-muted/50"
+                    onClick={() => {
+                      const href = STATUS_HREFS[enc.status]
+                        ? `/encounters/${enc.id}`
+                        : `/encounters/${enc.id}`;
+                      window.location.href = href;
+                    }}
+                    tabIndex={0}
+                    role="link"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        window.location.href = `/encounters/${enc.id}`;
+                      }
+                    }}
+                  >
+                    <td className="px-4 py-2.5 font-medium">{enc.patientRef}</td>
+                    <td className="px-4 py-2.5 text-muted-foreground">
+                      {VERTICAL_LABELS[enc.vertical] ?? enc.vertical}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <Badge
+                        variant={STATUS_VARIANTS[enc.status] ?? "outline"}
+                        className="font-mono text-xs"
+                      >
                         {STATUS_LABELS[enc.status] ?? enc.status}
                       </Badge>
                     </td>
-                    <td className="py-2">
-                      {new Date(enc.createdAt).toLocaleDateString("pt-BR")}
-                    </td>
-                    <td className="py-2 text-right">
-                      <Button variant="ghost" size="sm" asChild>
-                        <a href={`/encounters/${enc.id}`}>Ver</a>
-                      </Button>
+                    <td className="px-4 py-2.5">
+                      <time dateTime={enc.createdAt} className="font-mono text-xs text-muted-foreground">
+                        {new Date(enc.createdAt).toLocaleDateString("pt-BR")}
+                      </time>
                     </td>
                   </tr>
                 ))}
@@ -205,7 +281,44 @@ export default function DashboardPage() {
             </table>
           </div>
         )}
-      </SectionCard>
+      </section>
+    </div>
+  );
+}
+
+function MetricLink({
+  href,
+  label,
+  value,
+}: {
+  href: string;
+  label: string;
+  value: number;
+}) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "flex flex-col items-center gap-1 px-4 py-4 text-center transition-colors hover:bg-muted/50",
+      )}
+    >
+      <span className="font-mono text-3xl font-bold">{value}</span>
+      <span className="text-sm text-muted-foreground">{label}</span>
+    </Link>
+  );
+}
+
+function MetricsSkeleton() {
+  return (
+    <div className="divide-x divide-border overflow-hidden rounded-lg border bg-card">
+      <div className="grid grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="flex flex-col items-center gap-2 px-4 py-4">
+            <Skeleton className="h-9 w-12" />
+            <Skeleton className="h-4 w-16" />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
