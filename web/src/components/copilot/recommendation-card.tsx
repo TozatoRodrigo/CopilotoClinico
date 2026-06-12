@@ -36,7 +36,7 @@ export function RecommendationCard({ rec }: { rec: CopilotRecommendation }) {
     <Card
       className={cn(
         rec.preliminary && "opacity-60",
-        isStabilization && "border-red-300 bg-red-50/80 shadow-sm",
+        isStabilization && "border-clinical-amber/30 bg-clinical-amber-bg shadow-sm",
       )}
     >
       <CardHeader>

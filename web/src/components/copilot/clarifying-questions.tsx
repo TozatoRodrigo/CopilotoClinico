@@ -68,18 +68,14 @@ function ClarifyingQuestionCard({
   const isBlocker = question.criticality === "blocker";
 
   return (
-    <Card
-      className={cn(
-        isBlocker && "border-amber-500 dark:border-amber-500/70",
-      )}
-    >
+    <Card className={cn(isBlocker && "border-clinical-amber/60")}>
       <CardHeader className="space-y-2">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <CardTitle className="text-base">{question.question}</CardTitle>
           {isBlocker && (
             <Badge
               variant="outline"
-              className="border-amber-500 bg-amber-100 text-amber-900 dark:bg-amber-900/30 dark:text-amber-200"
+              className="border-clinical-amber/40 bg-clinical-amber-bg text-clinical-amber-foreground"
             >
               Muda a conduta
             </Badge>

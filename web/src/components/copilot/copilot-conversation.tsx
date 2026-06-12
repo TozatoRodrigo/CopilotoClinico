@@ -41,7 +41,7 @@ export function CopilotConversation({ encounterId, initial }: CopilotConversatio
       </div>
 
       {analysis.uncertainty && (
-        <Alert className="border-yellow-500/50 bg-yellow-50 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200">
+        <Alert className="border-clinical-amber/40 bg-clinical-amber-bg text-clinical-amber-foreground">
           <AlertTitle>Incerteza na análise</AlertTitle>
           <AlertDescription>
             {analysis.uncertaintyReason ??
@@ -67,7 +67,7 @@ export function CopilotConversation({ encounterId, initial }: CopilotConversatio
           )}
 
           {queued && (
-            <Alert className="border-yellow-500/50 bg-yellow-50 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200">
+            <Alert className="border-clinical-amber/40 bg-clinical-amber-bg text-clinical-amber-foreground">
               <AlertTitle>Resposta enfileirada</AlertTitle>
               <AlertDescription>
                 Sem conexão no momento. A resposta será enviada automaticamente quando você

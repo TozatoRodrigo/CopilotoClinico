@@ -120,6 +120,17 @@ jobs:
         run: |
           grep -rEn 'Geist|next/font/google.{0,40}Inter|from "lucide-react"' src/ --include='*.ts' --include='*.tsx' && exit 1 || exit 0
 
+      - name: Check contrast AA (A2 — paleta clínica)
+        run: node scripts/check-contrast.mjs
+
+      - name: Check for hardcoded colors in capture/result (A2 — design tokens)
+        run: |
+          grep -rEn '#[0-9a-fA-F]{3,8}|\b(red|blue|green|yellow|purple|pink|indigo|orange|amber|teal|cyan|emerald|rose|violet|fuchsia|lime|sky)-(50|100|200|300|400|500|600|700|800|900|950)\b' \
+            src/app/\(app\)/encounters/\[id\]/capture/page.tsx \
+            src/app/\(app\)/encounters/\[id\]/result/page.tsx \
+            src/components/copilot/*.tsx \
+            --include='*.tsx' && exit 1 || exit 0
+
       - name: Build
         run: pnpm build
         env:
