@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Warning, Info, ArrowRight } from "@phosphor-icons/react";
+import { Warning, Info, ArrowRight, ClipboardText } from "@phosphor-icons/react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +31,49 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { DecisionThread, type DecisionThreadItem } from "@/components/domain/decision-thread";
+import { CitationFootnote, CitationFootnoteSkeleton } from "@/components/domain/citation-footnote";
+import { BlockerQuestionCard } from "@/components/domain/blocker-question-card";
+import { UncertaintyBanner } from "@/components/domain/uncertainty-banner";
+import { ConfirmedSeal } from "@/components/domain/confirmed-seal";
+import { AuditHash } from "@/components/domain/audit-hash";
+import { EmptyState } from "@/components/domain/empty-state";
+import { ConnectionStatus } from "@/components/domain/connection-status";
+import { DataMetric } from "@/components/domain/data-metric";
+import { DEMO_CASE_PRESETS } from "@/lib/demo-case-presets";
+
+const GRIPAL_CASE = DEMO_CASE_PRESETS.find((preset) => preset.slug === "sindrome-gripal")!;
+
+const DECISION_THREAD_ITEMS: DecisionThreadItem[] = [
+  {
+    id: "1",
+    state: "analysis",
+    title: "Análise inicial gerada",
+    description: "Síndrome gripal há 3 dias, sem sinais de SRAG.",
+    timestamp: "09:12",
+  },
+  {
+    id: "2",
+    state: "question",
+    title: "Pergunta enviada: uso de imunossupressor?",
+    description: "Resposta muda a indicação de antiviral após 48 horas.",
+    timestamp: "09:13",
+  },
+  {
+    id: "3",
+    state: "conduct",
+    title: "Conduta atualizada: iniciar oseltamivir",
+    description: "Paciente confirmado em grupo de risco (uso de imunossupressor).",
+    timestamp: "09:15",
+    current: true,
+  },
+  {
+    id: "4",
+    state: "document",
+    title: "Documento gerado e assinado",
+    timestamp: "09:16",
+  },
+];
 
 export default function ComponentsSpecimenPage() {
   const [loading, setLoading] = useState(false);
@@ -265,6 +308,156 @@ export default function ComponentsSpecimenPage() {
             <p className="text-sm text-muted-foreground">
               Passe o mouse e aguarde 300ms para abrir.
             </p>
+          </CardContent>
+        </Card>
+      </section>
+
+      <div className="space-y-1 pt-6">
+        <h1 className="font-display text-3xl text-foreground">
+          Componentes de domínio
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          /dev/components — specimen dos componentes de domínio (A4), usando
+          o caso piloto &ldquo;{GRIPAL_CASE.title}&rdquo;.
+        </p>
+      </div>
+
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold text-foreground">DecisionThread</h2>
+        <Card>
+          <CardContent className="space-y-6">
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-muted-foreground">Modo ativo</p>
+              <DecisionThread items={DECISION_THREAD_ITEMS} mode="active" />
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-muted-foreground">Modo histórico</p>
+              <DecisionThread items={DECISION_THREAD_ITEMS} mode="history" />
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-muted-foreground">Carregando</p>
+              <DecisionThread items={[]} loading />
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-muted-foreground">Vazio</p>
+              <DecisionThread items={[]} />
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold text-foreground">CitationFootnote</h2>
+        <Card>
+          <CardContent className="space-y-4">
+            <CitationFootnote
+              source="Diretriz Influenza"
+              sourceVersion="3"
+              text="Pacientes com síndrome gripal e comorbidades imunossupressoras devem receber oseltamivir mesmo após 48 horas do início dos sintomas."
+              evidenceLevel="A"
+              origin="public"
+              href="https://example.com/diretriz"
+            />
+            <CitationFootnote
+              source="Protocolo institucional — Síndrome gripal"
+              sourceVersion="2"
+              text="Reavaliar grupo de risco em pacientes com doença autoimune em uso de imunossupressor."
+              origin="institutional"
+            />
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Carregando</p>
+              <CitationFootnoteSkeleton />
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold text-foreground">BlockerQuestionCard</h2>
+        <BlockerQuestionCard
+          question="Paciente faz uso atual de imunossupressor?"
+          why="A resposta muda a indicação de antiviral: pacientes em grupo de risco mantêm indicação de oseltamivir mesmo após 48 horas do início dos sintomas."
+          citation={{
+            source: "Diretriz Influenza",
+            sourceVersion: "3",
+            origin: "public",
+          }}
+        >
+          <div role="group" aria-label="Paciente faz uso atual de imunossupressor?" className="flex flex-wrap gap-2">
+            <Button type="button" className="h-11 px-4">Sim</Button>
+            <Button type="button" variant="outline" className="h-11 px-4">Não</Button>
+            <Button type="button" variant="outline" className="h-11 px-4">Não sei</Button>
+          </div>
+        </BlockerQuestionCard>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold text-foreground">UncertaintyBanner</h2>
+        <div className="space-y-3">
+          <UncertaintyBanner reason="Faltam dados sobre uso de imunossupressor para confirmar grupo de risco e indicação de antiviral." />
+          <UncertaintyBanner />
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold text-foreground">ConfirmedSeal</h2>
+        <div className="space-y-3">
+          <ConfirmedSeal
+            status="confirmed"
+            confirmedAt="2026-06-12T09:16:00-03:00"
+            physicianName="Dra. Ana Souza"
+            crm="CRM-SP 123456"
+            hash="9f2a7c1e8b4d6f3a0c5e7b1d2f4a6c8e"
+          />
+          <ConfirmedSeal status="pending" />
+          <ConfirmedSeal status="error" />
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold text-foreground">AuditHash</h2>
+        <Card>
+          <CardContent className="flex flex-wrap items-center gap-3">
+            <AuditHash hash="9f2a7c1e8b4d6f3a0c5e7b1d2f4a6c8e" href="/audit" />
+            <AuditHash status="loading" />
+            <AuditHash status="error" />
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold text-foreground">EmptyState</h2>
+        <Card>
+          <CardContent className="py-2">
+            <EmptyState
+              icon={<ClipboardText className="size-8" />}
+              title="Nenhum atendimento encontrado"
+              description="Os atendimentos que você criar aparecerão aqui."
+              actionLabel="Novo Atendimento"
+              actionHref="/encounters/new"
+            />
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold text-foreground">ConnectionStatus</h2>
+        <Card>
+          <CardContent className="flex flex-wrap items-center gap-3">
+            <ConnectionStatus status="online" />
+            <ConnectionStatus status="offline" />
+            <ConnectionStatus status="syncing" />
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold text-foreground">DataMetric</h2>
+        <Card>
+          <CardContent className="grid gap-4 sm:grid-cols-3">
+            <DataMetric label="Atendimentos Hoje" value={4} hint={GRIPAL_CASE.title} />
+            <DataMetric label="Revisões Pendentes" value={1} />
+            <DataMetric label="Carregando" loading />
           </CardContent>
         </Card>
       </section>

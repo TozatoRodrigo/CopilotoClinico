@@ -39,7 +39,8 @@ describe("RecommendationCard", () => {
 
     expect(screen.getByText("Confiança: 82%")).toBeInTheDocument();
     expect(screen.getByText("Conduta")).toBeInTheDocument();
-    const link = screen.getByRole("link", { name: "Diretriz Influenza v2024" });
+    expect(screen.getByText(baseRec.sourceText!)).toBeInTheDocument();
+    const link = screen.getByRole("link", { name: "Ver trecho completo" });
     expect(link).toHaveAttribute("href", baseRec.sourceUrl);
   });
 

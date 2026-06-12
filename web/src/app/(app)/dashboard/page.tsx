@@ -11,6 +11,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { DataMetric } from "@/components/domain/data-metric";
+import { EmptyState } from "@/components/domain/empty-state";
 import { DEMO_CASE_PRESETS } from "@/lib/demo-case-presets";
 
 interface Encounter {
@@ -120,32 +122,25 @@ export default function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardContent className="pt-4">
-            <p className="text-sm text-muted-foreground">Atendimentos Hoje</p>
-            {loading ? (
-              <Skeleton className="mt-1 h-9 w-16" />
-            ) : (
-              <p className="text-3xl font-bold">{stats?.todayCount ?? 0}</p>
-            )}
+            <DataMetric label="Atendimentos Hoje" value={stats?.todayCount ?? 0} loading={loading} />
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
-            <p className="text-sm text-muted-foreground">Revisões Pendentes</p>
-            {loading ? (
-              <Skeleton className="mt-1 h-9 w-16" />
-            ) : (
-              <p className="text-3xl font-bold">{stats?.pendingReviews ?? 0}</p>
-            )}
+            <DataMetric
+              label="Revisões Pendentes"
+              value={stats?.pendingReviews ?? 0}
+              loading={loading}
+            />
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
-            <p className="text-sm text-muted-foreground">Documentos Confirmados</p>
-            {loading ? (
-              <Skeleton className="mt-1 h-9 w-16" />
-            ) : (
-              <p className="text-3xl font-bold">{stats?.confirmedDocuments ?? 0}</p>
-            )}
+            <DataMetric
+              label="Documentos Confirmados"
+              value={stats?.confirmedDocuments ?? 0}
+              loading={loading}
+            />
           </CardContent>
         </Card>
       </div>
@@ -198,9 +193,12 @@ export default function DashboardPage() {
           </Alert>
         )}
         {!loading && !error && encounters.length === 0 && (
-          <p className="text-sm text-muted-foreground py-4">
-            Nenhum atendimento encontrado.
-          </p>
+          <EmptyState
+            title="Nenhum atendimento encontrado"
+            description="Os atendimentos que você criar aparecerão aqui."
+            actionLabel="Novo Atendimento"
+            actionHref="/encounters/new"
+          />
         )}
         {!loading && !error && encounters.length > 0 && (
           <div className="overflow-x-auto">

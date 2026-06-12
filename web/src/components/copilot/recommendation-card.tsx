@@ -6,6 +6,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { CitationFootnote } from "@/components/domain/citation-footnote";
 import { cn } from "@/lib/utils";
 import type { CopilotRecommendation } from "@/lib/types";
 
@@ -62,19 +63,13 @@ export function RecommendationCard({ rec }: { rec: CopilotRecommendation }) {
           </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-2">
-        <p className="text-sm text-muted-foreground">
-          Fonte:{" "}
-          <a
-            className="font-medium text-foreground underline underline-offset-4"
-            href={rec.sourceUrl}
-            target="_blank"
-            rel="noreferrer"
-          >
-            {rec.source} v{rec.sourceVersion}
-          </a>
-        </p>
-        <p className="line-clamp-3 text-sm text-muted-foreground">{rec.sourceText}</p>
+      <CardContent>
+        <CitationFootnote
+          source={rec.source}
+          sourceVersion={rec.sourceVersion}
+          text={rec.sourceText}
+          href={rec.sourceUrl}
+        />
       </CardContent>
     </Card>
   );
