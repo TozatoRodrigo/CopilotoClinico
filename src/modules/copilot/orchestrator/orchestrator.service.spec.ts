@@ -50,6 +50,7 @@ describe('OrchestratorService', () => {
         rationale: 'Standard workup for acute chest pain',
         citationChunkId: 'chunk-1',
         confidence: 0.9,
+        category: 'diagnostic',
       },
     ],
     uncertainty: false,
@@ -443,6 +444,7 @@ describe('OrchestratorService', () => {
 
       expect(result.output.recommendations[0]).toEqual(
         expect.objectContaining({
+          category: 'diagnostic',
           confidence: 0.9,
           source: 'diretriz-dor-toracica',
           sourceVersion: '1.0',
@@ -456,6 +458,7 @@ describe('OrchestratorService', () => {
             rawOutput: expect.objectContaining({
               recommendations: [
                 expect.objectContaining({
+                  category: 'diagnostic',
                   source: 'diretriz-dor-toracica',
                   sourceVersion: '1.0',
                   sourceUrl: '/v1/guidelines/chunks/chunk-1',
@@ -540,6 +543,54 @@ describe('OrchestratorService', () => {
       expect(auditMock.log).not.toHaveBeenCalledWith(
         expect.objectContaining({ action: 'COPILOT_QUESTIONS_EMITTED' }),
       );
+    });
+
+    it('DEC-007: sorts stabilization recommendations before other categories', async () => {
+      encountersMock.findById.mockResolvedValue({
+        id: encounterId,
+        physicianId,
+        patientRef: 'PRN-001',
+      });
+      retrievalMock.search.mockResolvedValue({
+        chunks: mockChunks,
+        totalRetrieved: 2,
+      });
+      aiGatewayMock.complete.mockResolvedValue({
+        content: JSON.stringify({
+          reasoning: 'Paciente instável com necessidade de estabilização inicial.',
+          recommendations: [
+            {
+              action: 'Solicitar troponina',
+              rationale: 'Elucidar etiologia',
+              citationChunkId: 'chunk-2',
+              confidence: 0.82,
+              category: 'diagnostic',
+            },
+            {
+              action: 'Iniciar oxigênio suplementar e monitorização contínua',
+              rationale: 'Hipoxemia e risco de deterioração imediata',
+              citationChunkId: 'chunk-1',
+              confidence: 0.76,
+              category: 'stabilization',
+            },
+          ],
+          uncertainty: false,
+          uncertaintyReason: null,
+        }),
+        model: 'claude-3-sonnet',
+        usage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 },
+        latencyMs: 1500,
+      });
+      prismaMock.aiInteraction.create.mockResolvedValue({ id: 'interaction-001' });
+      encountersMock.update.mockResolvedValue({});
+
+      const result = await service.analyze(physicianId, encounterId, validInput);
+
+      expect(result.output.recommendations.map((recommendation) => recommendation.category)).toEqual([
+        'stabilization',
+        'diagnostic',
+      ]);
+      expect(result.output.recommendations[0]?.action).toContain('oxigênio');
     });
   });
 

@@ -12,6 +12,7 @@ function makeCopilotOutput(overrides: Partial<CopilotOutput> = {}): CopilotOutpu
         citationChunkId: 'chunk-1',
         confidence: 0.85,
         preliminary: false,
+        category: 'therapeutic',
       },
       {
         action: 'Order renal function panel',
@@ -19,6 +20,7 @@ function makeCopilotOutput(overrides: Partial<CopilotOutput> = {}): CopilotOutpu
         citationChunkId: 'chunk-2',
         confidence: 0.9,
         preliminary: false,
+        category: 'diagnostic',
       },
       {
         action: 'Schedule follow-up in 2 weeks',
@@ -26,6 +28,7 @@ function makeCopilotOutput(overrides: Partial<CopilotOutput> = {}): CopilotOutpu
         citationChunkId: 'chunk-3',
         confidence: 0.75,
         preliminary: false,
+        category: 'verify',
       },
     ],
     uncertainty: false,
@@ -63,6 +66,7 @@ describe('generateSBAR', () => {
       citationChunkId: `chunk-${i + 1}`,
       confidence: 0.8,
       preliminary: false,
+      category: 'therapeutic' as const,
     }));
     const result = generateSBAR('Caso clínico', makeCopilotOutput({ recommendations: manyRecs }));
 

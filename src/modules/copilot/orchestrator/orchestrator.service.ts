@@ -15,6 +15,12 @@ import type { AnalyzeInput, RespondInput } from '../schemas/copilot.schemas';
 import { calculateInferenceCost } from './model-pricing';
 
 const DEFAULT_MAX_TURNS = 5;
+const RECOMMENDATION_CATEGORY_ORDER = {
+  stabilization: 0,
+  diagnostic: 1,
+  therapeutic: 2,
+  verify: 3,
+} as const;
 
 export interface RecommendationSource {
   chunkId: string;
@@ -62,6 +68,20 @@ export interface AnsweredQuestion {
   question: string;
   answer: string;
   turnIndex: number;
+}
+
+function sortRecommendations<T extends CopilotOutput['recommendations'][number]>(
+  recommendations: T[],
+): T[] {
+  return [...recommendations].sort((left, right) => {
+    const categoryDelta =
+      RECOMMENDATION_CATEGORY_ORDER[left.category] - RECOMMENDATION_CATEGORY_ORDER[right.category];
+    if (categoryDelta !== 0) {
+      return categoryDelta;
+    }
+
+    return right.confidence - left.confidence;
+  });
 }
 
 /**
@@ -200,7 +220,7 @@ export class OrchestratorService {
 
     const enrichedOutput: EnrichedCopilotOutput = {
       ...validation.output,
-      recommendations: validation.output.recommendations.map((rec) => {
+      recommendations: sortRecommendations(validation.output.recommendations).map((rec) => {
         const chunk = retrievalResult.chunks.find((c) => c.id === rec.citationChunkId);
         return {
           ...rec,
@@ -395,7 +415,7 @@ export class OrchestratorService {
 
     const enrichedOutput: EnrichedCopilotOutput = {
       ...validation.output,
-      recommendations: validation.output.recommendations.map((rec) => {
+      recommendations: sortRecommendations(validation.output.recommendations).map((rec) => {
         const chunk = retrievalResult.chunks.find((c) => c.id === rec.citationChunkId);
         return {
           ...rec,
@@ -633,7 +653,7 @@ export class OrchestratorService {
 
     const enrichedOutput: EnrichedCopilotOutput = {
       ...validation.output,
-      recommendations: validation.output.recommendations.map((rec) => {
+      recommendations: sortRecommendations(validation.output.recommendations).map((rec) => {
         const chunk = retrievalResult.chunks.find((c) => c.id === rec.citationChunkId);
         return {
           ...rec,

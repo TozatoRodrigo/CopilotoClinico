@@ -9,6 +9,7 @@ const baseRec: CopilotRecommendation = {
   citationChunkId: "chunk-1",
   confidence: 0.82,
   preliminary: false,
+  category: "therapeutic",
   source: "Diretriz Influenza",
   sourceVersion: "2024",
   sourceText: "Pacientes com síndrome gripal...",
@@ -37,7 +38,14 @@ describe("RecommendationCard", () => {
     render(<RecommendationCard rec={baseRec} />);
 
     expect(screen.getByText("Confiança: 82%")).toBeInTheDocument();
+    expect(screen.getByText("Conduta")).toBeInTheDocument();
     const link = screen.getByRole("link", { name: "Diretriz Influenza v2024" });
     expect(link).toHaveAttribute("href", baseRec.sourceUrl);
+  });
+
+  it('highlights stabilization recommendations with the "Agora" badge', () => {
+    render(<RecommendationCard rec={{ ...baseRec, category: "stabilization" }} />);
+
+    expect(screen.getByText("Agora")).toBeInTheDocument();
   });
 });

@@ -15,7 +15,9 @@ export function TurnHistory({ turns }: { turns: TurnRecord[] }) {
             <div className="mt-2 space-y-1 text-sm text-muted-foreground">
               <p>{turn.analysis.reasoning}</p>
               {turn.analysis.recommendations.map((rec, index) => (
-                <p key={index}>• {rec.action}</p>
+                <p key={index}>
+                  • {labelForCategory(rec.category)} {rec.action}
+                </p>
               ))}
             </div>
           </details>
@@ -23,4 +25,18 @@ export function TurnHistory({ turns }: { turns: TurnRecord[] }) {
       </div>
     </div>
   );
+}
+
+function labelForCategory(category?: string): string {
+  switch (category) {
+    case "stabilization":
+      return "[Agora]";
+    case "diagnostic":
+      return "[Diagnóstico]";
+    case "verify":
+      return "[Reavaliar]";
+    case "therapeutic":
+    default:
+      return "[Conduta]";
+  }
 }

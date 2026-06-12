@@ -11,6 +11,7 @@ import {
   useCopilotConversation,
   type StoredCopilotResult,
 } from "@/hooks/use-copilot-conversation";
+import type { CopilotRecommendation } from "@/lib/types";
 
 interface CopilotConversationProps {
   encounterId: string;
@@ -30,9 +31,7 @@ export function CopilotConversation({ encounterId, initial }: CopilotConversatio
     canReanalyze,
   } = useCopilotConversation(encounterId, initial);
 
-  const sortedRecommendations = [...analysis.recommendations].sort(
-    (a, b) => b.confidence - a.confidence,
-  );
+  const sortedRecommendations = [...analysis.recommendations].sort(compareRecommendations);
 
   return (
     <div className="space-y-6">
@@ -143,4 +142,21 @@ export function CopilotConversation({ encounterId, initial }: CopilotConversatio
       )}
     </div>
   );
+}
+
+function compareRecommendations(left: CopilotRecommendation, right: CopilotRecommendation): number {
+  const order = {
+    stabilization: 0,
+    diagnostic: 1,
+    therapeutic: 2,
+    verify: 3,
+  } as const;
+  const leftWeight = order[left.category ?? "therapeutic"];
+  const rightWeight = order[right.category ?? "therapeutic"];
+
+  if (leftWeight !== rightWeight) {
+    return leftWeight - rightWeight;
+  }
+
+  return right.confidence - left.confidence;
 }

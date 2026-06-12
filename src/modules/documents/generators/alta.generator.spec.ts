@@ -12,6 +12,7 @@ const baseOutput: CopilotOutput = {
       citationChunkId: 'c1',
       confidence: 0.9,
       preliminary: false,
+      category: 'therapeutic',
     },
     {
       action: 'Manter Amoxicilina 500mg 8/8h por mais 5 dias',
@@ -19,6 +20,7 @@ const baseOutput: CopilotOutput = {
       citationChunkId: 'c2',
       confidence: 0.88,
       preliminary: false,
+      category: 'therapeutic',
     },
     {
       action: 'Solicitar RX de controle em 4 semanas',
@@ -26,6 +28,7 @@ const baseOutput: CopilotOutput = {
       citationChunkId: 'c3',
       confidence: 0.85,
       preliminary: false,
+      category: 'diagnostic',
     },
   ],
   uncertainty: false,

@@ -39,12 +39,19 @@ export interface CopilotAnalysis {
   clarifyingQuestions: ClarifyingQuestion[];
 }
 
+export type RecommendationCategory =
+  | "stabilization"
+  | "diagnostic"
+  | "therapeutic"
+  | "verify";
+
 export interface CopilotRecommendation {
   action: string;
   rationale: string;
   citationChunkId: string;
   confidence: number;
   preliminary: boolean;
+  category?: RecommendationCategory;
   source: string;
   sourceVersion: string;
   sourceText: string;

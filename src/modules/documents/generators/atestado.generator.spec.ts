@@ -11,6 +11,7 @@ const baseOutput: CopilotOutput = {
       citationChunkId: 'c1',
       confidence: 0.85,
       preliminary: false,
+      category: 'therapeutic',
     },
   ],
   uncertainty: false,
