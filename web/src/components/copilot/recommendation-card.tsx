@@ -49,7 +49,7 @@ export function RecommendationCard({ rec }: { rec: CopilotRecommendation }) {
           </div>
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
             {categoryLabel && (
-              <Badge variant={isStabilization ? "destructive" : "outline"}>{categoryLabel}</Badge>
+              <Badge variant={isStabilization ? "warning" : "outline"}>{categoryLabel}</Badge>
             )}
             {rec.preliminary && (
               <Badge variant="secondary">
