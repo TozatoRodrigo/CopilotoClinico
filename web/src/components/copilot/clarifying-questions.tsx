@@ -72,14 +72,7 @@ function ClarifyingQuestionCard({
       <CardHeader className="space-y-2">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <CardTitle className="text-base">{question.question}</CardTitle>
-          {isBlocker && (
-            <Badge
-              variant="outline"
-              className="border-clinical-amber/40 bg-clinical-amber-bg text-clinical-amber-foreground"
-            >
-              Muda a conduta
-            </Badge>
-          )}
+          {isBlocker && <Badge variant="warning">Muda a conduta</Badge>}
         </div>
         <details className="text-sm text-muted-foreground">
           <summary className="cursor-pointer select-none">Por que essa pergunta?</summary>
