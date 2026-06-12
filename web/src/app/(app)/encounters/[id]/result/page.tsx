@@ -11,8 +11,16 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DecisionThread } from '@/components/copilot/decision-thread';
 import { STORAGE_KEY_PREFIX, type StoredCopilotResult } from '@/hooks/use-copilot-conversation';
-import type { CopilotAnalysis, LatestInteractionResponse } from '@/lib/types';
-import { FileText, ArrowsClockwise, ArrowLeft } from '@phosphor-icons/react';
+import type { CopilotAnalysis, DocumentType, LatestInteractionResponse } from '@/lib/types';
+import { FileText, ArrowsClockwise, ArrowLeft, CircleNotch } from '@phosphor-icons/react';
+
+const DOCUMENT_TYPES: { type: DocumentType; label: string }[] = [
+  { type: 'soap', label: 'SOAP' },
+  { type: 'sbar', label: 'SBAR' },
+  { type: 'prescricao', label: 'Prescrição' },
+  { type: 'alta', label: 'Alta' },
+  { type: 'atestado', label: 'Atestado' },
+];
 
 export default function ResultPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: encounterId } = use(params);
@@ -58,7 +66,7 @@ export default function ResultPage({ params }: { params: Promise<{ id: string }>
   const loading = resultQuery.isPending;
   const fetchError = resultQuery.error?.message ?? null;
 
-  async function handleGenerateDocument(type: 'soap' | 'sbar') {
+  async function handleGenerateDocument(type: DocumentType) {
     if (!result) return;
     setGeneratingDoc(type);
     setDocError(null);
@@ -162,35 +170,42 @@ export default function ResultPage({ params }: { params: Promise<{ id: string }>
           </Alert>
         )}
 
-        <footer className="mt-8 flex flex-col gap-3 border-t border-clinical-line pt-6 sm:flex-row sm:items-center">
-          <Button
-            onClick={() => handleGenerateDocument('soap')}
-            disabled={generatingDoc !== null}
-            className="h-11"
-          >
-            <FileText className="mr-2 size-4" />
-            {generatingDoc === 'soap' ? 'Gerando...' : 'Gerar SOAP'}
-          </Button>
-          <Button
-            onClick={() => handleGenerateDocument('sbar')}
-            disabled={generatingDoc !== null}
-            className="h-11"
-          >
-            <FileText className="mr-2 size-4" />
-            {generatingDoc === 'sbar' ? 'Gerando...' : 'Gerar SBAR'}
-          </Button>
-          <Button variant="outline" asChild className="h-11">
-            <a href={`/encounters/${encounterId}/capture`}>
-              <ArrowsClockwise className="mr-2 size-4" />
-              Nova Análise
-            </a>
-          </Button>
-          <Button variant="ghost" asChild className="h-11 ml-auto">
-            <a href={`/encounters/${encounterId}`}>
-              <ArrowLeft className="mr-2 size-4" />
-              Atendimento
-            </a>
-          </Button>
+        <footer className="mt-8 border-t border-clinical-line pt-6">
+          <p className="mb-3 font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Gerar documento
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {DOCUMENT_TYPES.map((dt) => (
+              <Button
+                key={dt.type}
+                onClick={() => handleGenerateDocument(dt.type)}
+                disabled={generatingDoc !== null}
+                variant={generatingDoc === dt.type ? 'default' : 'outline'}
+                className="h-11"
+              >
+                {generatingDoc === dt.type ? (
+                  <CircleNotch className="mr-2 size-4 animate-spin" />
+                ) : (
+                  <FileText className="mr-2 size-4" />
+                )}
+                {generatingDoc === dt.type ? 'Gerando...' : dt.label}
+              </Button>
+            ))}
+          </div>
+          <div className="mt-4 flex gap-3">
+            <Button variant="outline" asChild className="h-11">
+              <a href={`/encounters/${encounterId}/capture`}>
+                <ArrowsClockwise className="mr-2 size-4" />
+                Nova Análise
+              </a>
+            </Button>
+            <Button variant="ghost" asChild className="h-11 ml-auto">
+              <a href={`/encounters/${encounterId}`}>
+                <ArrowLeft className="mr-2 size-4" />
+                Atendimento
+              </a>
+            </Button>
+          </div>
         </footer>
       </div>
     </div>
