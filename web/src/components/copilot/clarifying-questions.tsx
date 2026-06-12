@@ -1,8 +1,7 @@
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { BlockerQuestionCard } from "@/components/domain/blocker-question-card";
 import type { ClarifyingAnswerValue, ClarifyingQuestion } from "@/lib/types";
 
 const CRITICALITY_ORDER: Record<ClarifyingQuestion["criticality"], number> = {
@@ -65,15 +64,18 @@ function ClarifyingQuestionCard({
   onChange: (value: ClarifyingAnswerValue) => void;
   disabled?: boolean;
 }) {
-  const isBlocker = question.criticality === "blocker";
+  if (question.criticality === "blocker") {
+    return (
+      <BlockerQuestionCard question={question.question} why={question.why}>
+        <AnswerInput question={question} value={value} onChange={onChange} disabled={disabled} size="lg" />
+      </BlockerQuestionCard>
+    );
+  }
 
   return (
-    <Card className={cn(isBlocker && "border-clinical-amber/60")}>
+    <Card>
       <CardHeader className="space-y-2">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <CardTitle className="text-base">{question.question}</CardTitle>
-          {isBlocker && <Badge variant="warning">Muda a conduta</Badge>}
-        </div>
+        <CardTitle className="text-base">{question.question}</CardTitle>
         <details className="text-sm text-muted-foreground">
           <summary className="cursor-pointer select-none">Por que essa pergunta?</summary>
           <p className="mt-1">{question.why}</p>
@@ -91,12 +93,16 @@ function AnswerInput({
   value,
   onChange,
   disabled,
+  size = "default",
 }: {
   question: ClarifyingQuestion;
   value: ClarifyingAnswerValue | undefined;
   onChange: (value: ClarifyingAnswerValue) => void;
   disabled?: boolean;
+  size?: "default" | "lg";
 }) {
+  const buttonSizeClass = size === "lg" ? "h-11 px-4" : undefined;
+
   switch (question.expectedAnswerType) {
     case "boolean":
       return (
@@ -109,6 +115,7 @@ function AnswerInput({
               aria-pressed={value === option.value}
               disabled={disabled}
               onClick={() => onChange(option.value)}
+              className={buttonSizeClass}
             >
               {option.label}
             </Button>
@@ -126,6 +133,7 @@ function AnswerInput({
               aria-pressed={value === choice}
               disabled={disabled}
               onClick={() => onChange(choice)}
+              className={buttonSizeClass}
             >
               {choice}
             </Button>

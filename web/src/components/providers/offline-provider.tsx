@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore, type ReactNode } from "react";
+import { ConnectionStatus } from "@/components/domain/connection-status";
 
 interface OnlineContextValue {
   isOnline: boolean;
@@ -50,8 +51,9 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
   return (
     <>
       {!isOnline && (
-        <div className="sticky top-0 z-50 bg-yellow-600 px-4 py-2 text-center text-sm font-medium text-white">
-          Você está offline. Funcionalidades limitadas.
+        <div className="sticky top-0 z-50 flex items-center justify-center gap-2 border-b border-clinical-amber/30 bg-clinical-amber-bg px-4 py-2 text-center text-sm text-clinical-amber-foreground">
+          <ConnectionStatus status="offline" />
+          <span>Funcionalidades limitadas até a conexão ser restabelecida.</span>
         </div>
       )}
       {children}

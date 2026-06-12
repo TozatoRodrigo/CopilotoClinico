@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import { apiClient } from "@/lib/api-client";
 import type { AuditEntry } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -22,6 +21,8 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/domain/empty-state";
+import { AuditHash } from "@/components/domain/audit-hash";
 import { toast } from "sonner";
 
 interface AuditFilters {
@@ -232,10 +233,11 @@ export default function AuditPage() {
         </Alert>
       ) : entries.length === 0 ? (
         <Card>
-          <CardContent className="flex items-center justify-center py-12">
-            <p className="text-muted-foreground">
-              Nenhum registro de auditoria encontrado.
-            </p>
+          <CardContent className="py-4">
+            <EmptyState
+              title="Nenhum registro de auditoria encontrado"
+              description="Ajuste os filtros ou aguarde novas ações no sistema."
+            />
           </CardContent>
         </Card>
       ) : (
@@ -271,18 +273,11 @@ export default function AuditPage() {
                   <span>{formatDate(entry.createdAt)}</span>
                   <span className="font-medium">{actionLabel(entry.action)}</span>
                   <span>{entry.entity}</span>
-                  <span className="truncate font-mono text-xs">
-                    {entry.entity === "Encounter" ? (
-                      <Link
-                        href={`/encounters/${entry.entityId}/result`}
-                        className="text-primary hover:underline"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {entry.entityId}
-                      </Link>
-                    ) : (
-                      entry.entityId
-                    )}
+                  <span className="truncate" onClick={(e) => e.stopPropagation()}>
+                    <AuditHash
+                      hash={entry.entityId}
+                      href={entry.entity === "Encounter" ? `/encounters/${entry.entityId}/result` : undefined}
+                    />
                   </span>
                   <span className="font-mono text-xs">{entry.ip ?? "—"}</span>
                 </div>

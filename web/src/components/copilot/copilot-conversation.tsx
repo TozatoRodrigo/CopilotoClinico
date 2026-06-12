@@ -7,6 +7,7 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { ClarifyingQuestions } from "@/components/copilot/clarifying-questions";
 import { RecommendationCard } from "@/components/copilot/recommendation-card";
 import { TurnHistory } from "@/components/copilot/turn-history";
+import { UncertaintyBanner } from "@/components/domain/uncertainty-banner";
 import {
   useCopilotConversation,
   type StoredCopilotResult,
@@ -40,15 +41,7 @@ export function CopilotConversation({ encounterId, initial }: CopilotConversatio
         <Badge variant="secondary">{analysis.recommendations.length} recomendações</Badge>
       </div>
 
-      {analysis.uncertainty && (
-        <Alert className="border-clinical-amber/40 bg-clinical-amber-bg text-clinical-amber-foreground">
-          <AlertTitle>Incerteza na análise</AlertTitle>
-          <AlertDescription>
-            {analysis.uncertaintyReason ??
-              "O copiloto indicou incerteza nesta análise. Recomenda-se revisão adicional."}
-          </AlertDescription>
-        </Alert>
-      )}
+      {analysis.uncertainty && <UncertaintyBanner reason={analysis.uncertaintyReason} />}
 
       {analysis.clarifyingQuestions.length > 0 && (
         <>
