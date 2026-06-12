@@ -5,43 +5,68 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { useVoiceInput } from "@/hooks/use-voice-input";
 import { useOnlineStatus } from "@/components/providers/offline-provider";
 import { addToQueue } from "@/lib/offline-queue";
 import { syncOfflineQueue } from "@/lib/copilot-queue";
 import { STORAGE_KEY_PREFIX } from "@/hooks/use-copilot-conversation";
-import { Microphone, MicrophoneSlash } from "@phosphor-icons/react";
+import { Microphone, MicrophoneSlash, WifiSlash } from "@phosphor-icons/react";
 import { toast } from "sonner";
-import type { CopilotAnalysis, CopilotAnalyzeResponse, EncounterContext } from "@/lib/types";
+import type {
+  CopilotAnalysis,
+  CopilotAnalyzeResponse,
+  EncounterContext,
+} from "@/lib/types";
 import { getDemoCasePreset } from "@/lib/demo-case-presets";
+import { cn } from "@/lib/utils";
 
-interface ContextChip {
-  key: keyof EncounterContext;
+interface ChipDef {
+  key: string;
   label: string;
 }
 
-const CONTEXT_CHIPS: ContextChip[] = [
+const RESOURCE_CHIPS: ChipDef[] = [
   { key: "hasCT", label: "TC" },
-  { key: "isSus", label: "SUS" },
   { key: "hasLab", label: "Labs" },
   { key: "hasICU", label: "UTI" },
+  { key: "isSus", label: "SUS" },
+];
+
+const RED_FLAG_CHIPS: ChipDef[] = [
+  { key: "immunosuppressed", label: "Imunossuprimido" },
+  { key: "pregnant", label: "Gestante" },
+  { key: "anticoagulant", label: "Anticoagulante" },
+  { key: "pediatric", label: "Pediátrico" },
+  { key: "elderly65", label: "65+" },
+  { key: "allergy", label: "Alergia" },
+];
+
+const COMPLAINT_TEMPLATES = [
+  "Dor torácica",
+  "Dispneia",
+  "Dor abdominal",
+  "Febre",
+  "Cefaleia",
+  "Síncope",
+  "Trauma",
+  "Síndrome gripal",
+  "Dor lombar",
+  "Vômitos",
+  "Corização/Sangramento",
+  "Alteração do sensório",
+  "Dor em membro",
+  "Disúria",
+  "Crise hipertensiva",
+  "Palpitação",
+  "Síndrome convulsiva",
+  "Prurido/Dermatite",
+  "Dor odontológica",
+  "Corpo estranho",
 ];
 
 const MIN_CHARS = 10;
-const EMPTY_CONTEXT: EncounterContext = {
-  hasCT: false,
-  isSus: false,
-  hasLab: false,
-  hasICU: false,
-};
 
 export default function CapturePage({
   params,
@@ -54,14 +79,15 @@ export default function CapturePage({
   const { isOnline } = useOnlineStatus();
   const demoPreset = getDemoCasePreset(searchParams.get("demoCase"));
 
-  const [caseText, setCaseText] = useState(() => demoPreset?.caseText ?? "");
-  const [context, setContext] = useState<EncounterContext>(() => demoPreset?.context ?? EMPTY_CONTEXT);
+  const [caseText, setCaseText] = useState(
+    () => demoPreset?.caseText ?? "",
+  );
+  const [context, setContext] = useState<EncounterContext>(
+    () => demoPreset?.context ?? { hasCT: false, isSus: false, hasLab: false, hasICU: false },
+  );
+  const [redFlags, setRedFlags] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [uncertainty, setUncertainty] = useState(false);
-  const [uncertaintyReason, setUncertaintyReason] = useState<string | null>(
-    null,
-  );
 
   const {
     isListening,
@@ -72,9 +98,7 @@ export default function CapturePage({
   } = useVoiceInput();
 
   useEffect(() => {
-    if (voiceError) {
-      toast.error(voiceError);
-    }
+    if (voiceError) toast.error(voiceError);
   }, [voiceError]);
 
   const handleVoiceTranscript = useCallback((text: string) => {
@@ -84,20 +108,25 @@ export default function CapturePage({
     });
   }, []);
 
-  const processOfflineQueue = useCallback(async () => {
-    await syncOfflineQueue();
-  }, []);
-
   useEffect(() => {
-    if (isOnline) {
-      processOfflineQueue();
-    }
-  }, [isOnline, processOfflineQueue]);
+    if (isOnline) syncOfflineQueue().catch(() => {});
+  }, [isOnline]);
 
   const isValid = caseText.trim().length >= MIN_CHARS;
 
-  function toggleContext(key: keyof EncounterContext) {
-    setContext((prev) => ({ ...prev, [key]: !prev[key] }));
+  function toggleContext(key: string) {
+    setContext((prev) => ({ ...prev, [key]: !prev[key as keyof EncounterContext] }));
+  }
+
+  function toggleRedFlag(key: string) {
+    setRedFlags((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  function applyTemplate(template: string) {
+    setCaseText((prev) => {
+      if (prev.trim()) return prev;
+      return template + ": ";
+    });
   }
 
   async function handleSubmit() {
@@ -110,16 +139,12 @@ export default function CapturePage({
         caseText: caseText.trim(),
         context,
       });
-      toast.info(
-        "Sem conexão. Análise será enviada quando voltar online.",
-      );
+      toast.info("Sem conexão. Análise será enviada quando voltar online.");
       return;
     }
 
     setLoading(true);
     setError(null);
-    setUncertainty(false);
-    setUncertaintyReason(null);
 
     try {
       const result = await apiClient.post<CopilotAnalyzeResponse>(
@@ -131,185 +156,177 @@ export default function CapturePage({
         citations: result.citations,
       };
 
-      if (analysis.uncertainty) {
-        setUncertainty(true);
-        setUncertaintyReason(analysis.uncertaintyReason);
-      }
-
       sessionStorage.setItem(
         `${STORAGE_KEY_PREFIX}${encounterId}`,
         JSON.stringify({ interactionId: result.interactionId, analysis }),
       );
       router.push(`/encounters/${encounterId}/result`);
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Erro ao analisar o caso.";
-      setError(message);
+      setError(err instanceof Error ? err.message : "Erro ao analisar o caso.");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="container mx-auto max-w-3xl px-4 py-8">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-xl">
-            Copiloto Clínico — Análise de Caso
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {demoPreset && (
-            <Alert>
-              <AlertTitle>{demoPreset.title}</AlertTitle>
-              <AlertDescription>{demoPreset.summary}</AlertDescription>
-            </Alert>
-          )}
+    <div className="flex min-h-[calc(100vh-4rem)] flex-col px-4 py-6">
+      {demoPreset && (
+        <Alert className="mb-4">
+          <AlertTitle>{demoPreset.title}</AlertTitle>
+          <AlertDescription>{demoPreset.summary}</AlertDescription>
+        </Alert>
+      )}
 
-          <div className="space-y-2">
-            <label
-              htmlFor="case-text"
-              className="text-sm font-medium text-foreground"
+      <section className="space-y-3">
+        <div className="flex flex-wrap gap-2">
+          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Recursos
+          </span>
+          {RESOURCE_CHIPS.map((chip) => (
+            <button
+              key={chip.key}
+              type="button"
+              onClick={() => toggleContext(chip.key)}
+              className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
-              Descreva o caso clínico
-            </label>
-            <div className="relative">
-              <Textarea
-                id="case-text"
-                placeholder="Descreva o caso clínico do paciente, incluindo sinais, sintomas, histórico e achados relevantes..."
-                className="min-h-[200px] resize-y pr-12"
-                value={caseText}
-                onChange={(e) => setCaseText(e.target.value)}
-                disabled={loading}
-              />
-              <div className="absolute bottom-2 right-2">
-                {isVoiceSupported ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    className={
-                      isListening
-                        ? "animate-pulse bg-destructive/15 text-destructive hover:bg-destructive/25 hover:text-destructive"
-                        : ""
-                    }
-                    onClick={() =>
-                      isListening
-                        ? stopListening()
-                        : startListening(handleVoiceTranscript)
-                    }
-                    disabled={loading}
-                    aria-label={isListening ? "Parar gravação" : "Iniciar gravação"}
-                  >
-                    {isListening ? (
-                      <MicrophoneSlash className="size-5" />
-                    ) : (
-                      <Microphone className="size-5" />
-                    )}
-                  </Button>
-                ) : (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-sm"
-                          disabled
-                          aria-label="Entrada por voz não suportada"
-                        >
-                          <Microphone className="size-5 opacity-50" />
-                        </Button>
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      Navegador não suporta entrada por voz
-                    </TooltipContent>
-                  </Tooltip>
-                )}
+              <Badge
+                variant={
+                  context[chip.key as keyof EncounterContext]
+                    ? "default"
+                    : "outline"
+                }
+                className="cursor-pointer select-none px-3 py-1 text-sm"
+              >
+                {chip.label}
+              </Badge>
+            </button>
+          ))}
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Red flags
+          </span>
+          {RED_FLAG_CHIPS.map((chip) => (
+            <button
+              key={chip.key}
+              type="button"
+              onClick={() => toggleRedFlag(chip.key)}
+              className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Badge
+                variant={redFlags[chip.key] ? "destructive" : "outline"}
+                className="cursor-pointer select-none px-3 py-1 text-sm"
+              >
+                {chip.label}
+              </Badge>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="mt-4">
+        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+          {COMPLAINT_TEMPLATES.map((template) => (
+            <button
+              key={template}
+              type="button"
+              onClick={() => applyTemplate(template)}
+              className="shrink-0 rounded-full border border-border/70 bg-card px-3 py-1 text-sm text-muted-foreground transition-colors hover:border-clinical-teal/40 hover:text-foreground"
+            >
+              {template}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="mt-6 flex flex-1 flex-col justify-end pb-4">
+        {isVoiceSupported && (
+          <div className="flex flex-col items-center gap-3">
+            <button
+              type="button"
+              onClick={() =>
+                isListening
+                  ? stopListening()
+                  : startListening(handleVoiceTranscript)
+              }
+              disabled={loading}
+              className={cn(
+                "flex size-16 items-center justify-center rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                isListening
+                  ? "bg-clinical-teal text-white shadow-lg shadow-clinical-teal/30 scale-105"
+                  : "bg-card border-2 border-clinical-teal/40 text-clinical-teal hover:bg-clinical-teal/10",
+                loading && "opacity-50 pointer-events-none",
+              )}
+              aria-label={isListening ? "Parar gravação" : "Iniciar gravação"}
+            >
+              {isListening ? (
+                <MicrophoneSlash className="size-8" weight="fill" />
+              ) : (
+                <Microphone className="size-8" weight="bold" />
+              )}
+            </button>
+            {isListening && (
+              <div className="flex items-center gap-1">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <span
+                    key={i}
+                    className="inline-block h-3 w-1 rounded-full bg-clinical-teal animate-pulse"
+                    style={{ animationDelay: `${i * 0.15}s`, height: `${8 + (i % 3) * 6}px` }}
+                  />
+                ))}
+                <span className="ml-2 text-sm text-clinical-teal">Ouvindo...</span>
               </div>
-            </div>
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>
-                {caseText.trim().length < MIN_CHARS
-                  ? `Mínimo de ${MIN_CHARS} caracteres`
-                  : "Texto válido"}
-              </span>
-              <span>{caseText.trim().length} caracteres</span>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <span className="text-sm font-medium text-foreground">
-              Contexto do atendimento
-            </span>
-            <div className="flex flex-wrap gap-2">
-              {CONTEXT_CHIPS.map((chip) => (
-                <Badge
-                  key={chip.key}
-                  variant={context[chip.key] ? "default" : "outline"}
-                  className="cursor-pointer select-none px-3 py-1.5 text-sm transition-colors hover:opacity-80"
-                  onClick={() => toggleContext(chip.key)}
-                >
-                  {chip.label}
-                </Badge>
-              ))}
-            </div>
-          </div>
-
-          {error && (
-            <Alert variant="destructive">
-              <AlertTitle>Erro</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          {uncertainty && (
-            <Alert className="border-clinical-amber/40 bg-clinical-amber-bg text-clinical-amber-foreground">
-              <AlertTitle>Incerteza detectada</AlertTitle>
-              <AlertDescription>
-                {uncertaintyReason ??
-                  "O copiloto indicou incerteza nesta análise. Recomenda-se revisão adicional."}
-              </AlertDescription>
-            </Alert>
-          )}
-
-          <Button
-            className="w-full"
-            size="lg"
-            disabled={!isValid || loading}
-            onClick={handleSubmit}
-          >
-            {loading ? (
-              <span className="flex items-center gap-2">
-                <svg
-                  className="size-4 animate-spin"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  />
-                </svg>
-                Analisando...
-              </span>
-            ) : (
-              "Analisar com Copiloto"
             )}
-          </Button>
-        </CardContent>
-      </Card>
+            {!isListening && (
+              <p className="text-sm text-muted-foreground">
+                Toque para ditar
+              </p>
+            )}
+          </div>
+        )}
+
+        <div className="mt-4">
+          <Textarea
+            placeholder="Ou digite o caso aqui..."
+            className="min-h-[100px] resize-y border-border/50 bg-transparent text-sm"
+            value={caseText}
+            onChange={(e) => setCaseText(e.target.value)}
+            disabled={loading}
+          />
+          <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
+            <span>
+              {caseText.trim().length < MIN_CHARS
+                ? `Mínimo ${MIN_CHARS} caracteres`
+                : "Pronto para analisar"}
+            </span>
+            <span className="font-mono">{caseText.trim().length}</span>
+          </div>
+        </div>
+      </section>
+
+      {!isOnline && (
+        <div className="mt-2 flex items-center gap-2 rounded-full border border-clinical-amber/30 bg-clinical-amber-bg px-3 py-1.5 text-xs text-clinical-amber-foreground">
+          <WifiSlash className="size-3.5" />
+          Sem conexão — análise será enviada ao reconectar
+        </div>
+      )}
+
+      {error && (
+        <Alert variant="destructive" className="mt-3">
+          <AlertTitle>Erro</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      <Button
+        className="mt-4 w-full"
+        size="lg"
+        disabled={!isValid || loading}
+        onClick={handleSubmit}
+      >
+        {loading ? "Analisando..." : "Analisar com Copiloto"}
+      </Button>
     </div>
   );
 }
