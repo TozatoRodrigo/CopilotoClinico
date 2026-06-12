@@ -1,29 +1,18 @@
 export const encounterVerticalValues = [
-  "trauma",
-  "cardiac",
-  "pediatric",
-  "neuro",
-  "general",
+  'trauma',
+  'cardiac',
+  'pediatric',
+  'neuro',
+  'general',
 ] as const;
 
 export type EncounterVertical = (typeof encounterVerticalValues)[number];
 
-export const encounterStatusValues = [
-  "draft",
-  "in_review",
-  "finalized",
-  "cancelled",
-] as const;
+export const encounterStatusValues = ['draft', 'in_review', 'finalized', 'cancelled'] as const;
 
 export type EncounterStatus = (typeof encounterStatusValues)[number];
 
-export const documentTypeValues = [
-  "soap",
-  "sbar",
-  "prescricao",
-  "alta",
-  "atestado",
-] as const;
+export const documentTypeValues = ['soap', 'sbar', 'prescricao', 'alta', 'atestado'] as const;
 
 export type DocumentType = (typeof documentTypeValues)[number];
 
@@ -152,11 +141,7 @@ export interface AuditQueryResponse {
   total: number;
 }
 
-export type RecommendationCategory =
-  | "stabilization"
-  | "diagnostic"
-  | "therapeutic"
-  | "verify";
+export type RecommendationCategory = 'stabilization' | 'diagnostic' | 'therapeutic' | 'verify';
 
 export interface CopilotRecommendation {
   action: string;
@@ -175,8 +160,8 @@ export interface ClarifyingQuestion {
   id: string;
   question: string;
   why: string;
-  criticality: "blocker" | "important" | "optional";
-  expectedAnswerType: "boolean" | "choice" | "number" | "text";
+  criticality: 'blocker' | 'important' | 'optional';
+  expectedAnswerType: 'boolean' | 'choice' | 'number' | 'text';
   choices?: string[];
 }
 
@@ -199,7 +184,7 @@ export interface Citation {
   chunkId: string;
   text: string;
   institutionId?: string | null;
-  origin?: "institutional" | "public";
+  origin?: 'institutional' | 'public';
 }
 
 export interface CopilotAnalysis {
@@ -228,7 +213,7 @@ export interface CopilotAnalyzeResponse {
 
 export interface LatestInteractionResponse {
   interactionId: string;
-  output: Omit<CopilotAnalysis, "citations" | "uncertainty" | "uncertaintyReason">;
+  output: Omit<CopilotAnalysis, 'citations' | 'uncertainty' | 'uncertaintyReason'>;
   citations: Citation[];
   uncertainty: boolean;
   uncertaintyReason: string | null;
