@@ -12,6 +12,7 @@ function makeCopilotOutput(overrides: Partial<CopilotOutput> = {}): CopilotOutpu
         citationChunkId: 'chunk-1',
         confidence: 0.85,
         preliminary: false,
+        category: 'therapeutic',
       },
       {
         action: 'Order renal function panel',
@@ -19,6 +20,7 @@ function makeCopilotOutput(overrides: Partial<CopilotOutput> = {}): CopilotOutpu
         citationChunkId: 'chunk-2',
         confidence: 0.9,
         preliminary: false,
+        category: 'diagnostic',
       },
     ],
     uncertainty: false,

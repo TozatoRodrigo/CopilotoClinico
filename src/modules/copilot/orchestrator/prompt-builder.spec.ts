@@ -207,9 +207,19 @@ describe('buildPrompt', () => {
       const result = buildPrompt(makeInput());
 
       expect(result.system).toContain('"preliminary"');
+      expect(result.system).toContain('"category"');
       expect(result.system).toContain('"clarifyingQuestions"');
       expect(result.system).toContain('"criticality"');
       expect(result.system).toContain('"expectedAnswerType"');
+    });
+
+    it('documents the emergency preceptor ordering rule for unstable patients', () => {
+      const result = buildPrompt(makeInput());
+
+      expect(result.system).toContain('PRECEPTOR DE EMERGÊNCIA RULE');
+      expect(result.system).toContain('"stabilization" FIRST');
+      expect(result.system).toContain('"diagnostic", then "therapeutic", then "verify"');
+      expect(result.system).toContain('do NOT include any "stabilization" recommendation');
     });
 
     it('includes a few-shot example for the flu-syndrome >48h case', () => {
@@ -219,6 +229,7 @@ describe('buildPrompt', () => {
       expect(result.system).toContain('síndrome gripal');
       expect(result.system).toContain('oseltamivir');
       expect(result.system).toContain('"criticality": "blocker"');
+      expect(result.system).toContain('"category": "therapeutic"');
     });
   });
 });

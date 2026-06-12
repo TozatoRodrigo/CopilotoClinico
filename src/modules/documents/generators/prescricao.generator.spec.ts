@@ -11,6 +11,7 @@ const baseOutput: CopilotOutput = {
       citationChunkId: 'c1',
       confidence: 0.95,
       preliminary: false,
+      category: 'therapeutic',
     },
     {
       action: 'Administrar Clopidogrel 300mg VO',
@@ -18,6 +19,7 @@ const baseOutput: CopilotOutput = {
       citationChunkId: 'c2',
       confidence: 0.93,
       preliminary: false,
+      category: 'therapeutic',
     },
     {
       action: 'Orientar repouso relativo nas próximas 24h',
@@ -25,6 +27,7 @@ const baseOutput: CopilotOutput = {
       citationChunkId: 'c3',
       confidence: 0.85,
       preliminary: false,
+      category: 'verify',
     },
   ],
   uncertainty: false,
@@ -56,6 +59,7 @@ describe('generatePrescricao', () => {
           citationChunkId: 'c1',
           preliminary: false,
           confidence: 0.8,
+          category: 'therapeutic',
         },
       ],
     };

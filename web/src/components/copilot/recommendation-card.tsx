@@ -13,16 +13,44 @@ function confidencePercent(confidence: number): string {
   return `${Math.round(confidence * 100)}%`;
 }
 
+function getCategoryLabel(category?: CopilotRecommendation["category"]): string | null {
+  switch (category) {
+    case "stabilization":
+      return "Agora";
+    case "diagnostic":
+      return "Diagnóstico";
+    case "therapeutic":
+      return "Conduta";
+    case "verify":
+      return "Reavaliar";
+    default:
+      return null;
+  }
+}
+
 export function RecommendationCard({ rec }: { rec: CopilotRecommendation }) {
+  const isStabilization = rec.category === "stabilization";
+  const categoryLabel = getCategoryLabel(rec.category);
+
   return (
-    <Card className={cn(rec.preliminary && "opacity-60")}>
+    <Card
+      className={cn(
+        rec.preliminary && "opacity-60",
+        isStabilization && "border-red-300 bg-red-50/80 shadow-sm",
+      )}
+    >
       <CardHeader>
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="space-y-1">
-            <CardTitle className="text-base">{rec.action}</CardTitle>
+            <CardTitle className={cn("text-base", isStabilization && "text-lg")}>
+              {rec.action}
+            </CardTitle>
             <CardDescription>{rec.rationale}</CardDescription>
           </div>
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+            {categoryLabel && (
+              <Badge variant={isStabilization ? "destructive" : "outline"}>{categoryLabel}</Badge>
+            )}
             {rec.preliminary && (
               <Badge variant="secondary">
                 Preliminar — responda as perguntas acima

@@ -1,11 +1,19 @@
 import { z } from 'zod';
 
+export const RecommendationCategorySchema = z.enum([
+  'stabilization',
+  'diagnostic',
+  'therapeutic',
+  'verify',
+]);
+
 const RecommendationSchema = z.object({
   action: z.string().min(1),
   rationale: z.string().min(1),
   citationChunkId: z.string().min(1),
   confidence: z.number().min(0).max(1),
   preliminary: z.boolean().default(false),
+  category: RecommendationCategorySchema.default('therapeutic'),
 });
 
 const ClarifyingQuestionSchema = z.object({

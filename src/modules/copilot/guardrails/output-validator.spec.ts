@@ -27,6 +27,7 @@ describe('validateOutput', () => {
     expect(result.output).not.toBeNull();
     expect(result.errors).toEqual([]);
     expect(result.unfoundedRecommendations).toEqual([]);
+    expect(result.output?.recommendations[0]?.category).toBe('therapeutic');
   });
 
   it('rejects non-JSON output', () => {
@@ -42,6 +43,26 @@ describe('validateOutput', () => {
     expect(result.output).toBeNull();
     expect(result.errors[0]).toBe('Schema validation failed');
     expect(result.errors.length).toBeGreaterThan(1);
+  });
+
+  it('accepts an explicit recommendation category from the LLM', () => {
+    const result = validateOutput(
+      makeValidOutput({
+        recommendations: [
+          {
+            action: 'Iniciar cristalóide EV',
+            rationale: 'Paciente instável hemodinamicamente',
+            citationChunkId: 'chunk-1',
+            confidence: 0.97,
+            category: 'stabilization',
+          },
+        ],
+      }),
+      VALID_CHUNK_IDS,
+    );
+
+    expect(result.valid).toBe(true);
+    expect(result.output?.recommendations[0]?.category).toBe('stabilization');
   });
 
   it('rejects output without citations when chunk IDs are provided but none match', () => {

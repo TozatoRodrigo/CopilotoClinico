@@ -32,6 +32,7 @@ vi.mock("sonner", () => ({
 
 const baseRecommendation = {
   citationChunkId: "chunk-1",
+  category: "therapeutic" as const,
   source: "Diretriz Influenza",
   sourceVersion: "2024",
   sourceText: "Pacientes com síndrome gripal e mais de 48h de evolução...",
@@ -165,6 +166,34 @@ describe("CopilotConversation", () => {
 
     const reanalyzeButton = screen.getByRole("button", { name: "Reanalisar" });
     expect(reanalyzeButton).toBeDisabled();
+  });
+
+  it('renders stabilization recommendations before diagnostic ones and labels them as "Agora"', () => {
+    renderConversation({
+      ...analysisWithoutQuestions,
+      recommendations: [
+        {
+          ...baseRecommendation,
+          action: "Solicitar gasometria arterial",
+          rationale: "Ajuda a definir gravidade",
+          confidence: 0.99,
+          preliminary: false,
+          category: "diagnostic",
+        },
+        {
+          ...baseRecommendation,
+          action: "Iniciar oxigênio suplementar e monitorização",
+          rationale: "Paciente hipoxêmico e em risco de deterioração",
+          confidence: 0.6,
+          preliminary: false,
+          category: "stabilization",
+        },
+      ],
+    });
+
+    const titles = screen.getAllByRole("heading", { level: 3 }).map((node) => node.textContent);
+    expect(titles[0]).toContain("Iniciar oxigênio suplementar e monitorização");
+    expect(screen.getByText("Agora")).toBeInTheDocument();
   });
 
   it("answering a question with one tap enables Reanalisar, and submitting refines the result", async () => {
