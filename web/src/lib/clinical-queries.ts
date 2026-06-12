@@ -25,8 +25,19 @@ export interface AuditFilters {
   to: string;
 }
 
+export interface EncounterListFilters {
+  page?: number;
+  limit?: number;
+  status?: string;
+  vertical?: string;
+  search?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
 export const clinicalQueryKeys = {
-  encounters: (limit?: number) => ["encounters", limit ?? "default"] as const,
+  encounters: (filters?: EncounterListFilters) =>
+    ["encounters", filters ?? "default"] as const,
   encounter: (encounterId: string) => ["encounter", encounterId] as const,
   encounterDocuments: (encounterId: string) => ["encounter-documents", encounterId] as const,
   audit: (filters: AuditFilters, offset: number, limit: number) =>
@@ -34,11 +45,21 @@ export const clinicalQueryKeys = {
   latestInteraction: (encounterId: string) => ["latest-interaction", encounterId] as const,
 };
 
-export function useEncounterList(limit?: number) {
+export function useEncounterList(filters?: EncounterListFilters) {
   return useQuery({
-    queryKey: clinicalQueryKeys.encounters(limit),
-    queryFn: () =>
-      apiClient.get<EncountersResponse>("/encounters", limit ? { limit: String(limit) } : undefined),
+    queryKey: clinicalQueryKeys.encounters(filters),
+    queryFn: () => {
+      const params: Record<string, string> = {};
+      if (filters?.page) params.page = String(filters.page);
+      if (filters?.limit) params.limit = String(filters.limit);
+      if (filters?.status) params.status = filters.status;
+      if (filters?.vertical) params.vertical = filters.vertical;
+      if (filters?.search) params.search = filters.search;
+      if (filters?.dateFrom) params.dateFrom = filters.dateFrom;
+      if (filters?.dateTo) params.dateTo = filters.dateTo;
+      return apiClient.get<EncountersResponse>("/encounters", params);
+    },
+    placeholderData: keepPreviousData,
   });
 }
 

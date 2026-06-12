@@ -38,7 +38,7 @@ const STATUS_VARIANTS: Record<string, "default" | "secondary" | "destructive" | 
 
 export default function DashboardPage() {
   const { physician } = useAuth();
-  const encountersQuery = useEncounterList(5);
+  const encountersQuery = useEncounterList({ limit: 5 });
   const statsQuery = useDashboardStats();
   const encounters = encountersQuery.data?.data ?? [];
   const loading = encountersQuery.isPending || statsQuery.isPending;

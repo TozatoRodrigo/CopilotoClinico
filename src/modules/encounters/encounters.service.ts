@@ -2,7 +2,7 @@ import { Injectable, Inject, NotFoundException, ForbiddenException } from '@nest
 import { PrismaService } from '../../config/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { InstitutionsService } from '../institutions/institutions.service';
-import { CreateEncounterInput, UpdateEncounterInput } from './schemas/encounter.schemas';
+import { CreateEncounterInput, UpdateEncounterInput, ListEncountersQuery } from './schemas/encounter.schemas';
 
 const ENCOUNTER_SELECT = {
   id: true,
@@ -120,12 +120,38 @@ export class EncountersService {
     return encounter;
   }
 
-  async findByPhysician(physicianId: string, page: number = 1, limit: number = 20) {
+  async findByPhysician(physicianId: string, query: ListEncountersQuery) {
+    const { page, limit, status, vertical, search, dateFrom, dateTo } = query;
     const skip = (page - 1) * limit;
+
+    const where: Record<string, unknown> = { physicianId };
+
+    if (status) {
+      where.status = status;
+    }
+
+    if (vertical) {
+      where.vertical = vertical;
+    }
+
+    if (search) {
+      where.patientRef = { contains: search, mode: 'insensitive' };
+    }
+
+    if (dateFrom || dateTo) {
+      const createdAt: Record<string, Date> = {};
+      if (dateFrom) {
+        createdAt.gte = new Date(`${dateFrom}T00:00:00.000Z`);
+      }
+      if (dateTo) {
+        createdAt.lte = new Date(`${dateTo}T23:59:59.999Z`);
+      }
+      where.createdAt = createdAt;
+    }
 
     const [encounters, total] = await Promise.all([
       this.prisma.encounter.findMany({
-        where: { physicianId },
+        where,
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
@@ -138,7 +164,7 @@ export class EncountersService {
           updatedAt: true,
         },
       }),
-      this.prisma.encounter.count({ where: { physicianId } }),
+      this.prisma.encounter.count({ where }),
     ]);
 
     return { data: encounters, meta: { page, limit, total } };
