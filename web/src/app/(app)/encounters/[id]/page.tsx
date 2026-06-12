@@ -1,40 +1,14 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
-import { apiClient, ApiError } from "@/lib/api-client";
+import { use } from "react";
+import { useEncounterDetail } from "@/lib/clinical-queries";
 import { PageHeader } from "@/components/layout/page-header";
 import { SectionCard } from "@/components/layout/section-card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-
-interface EncounterContext {
-  hasCT: boolean;
-  isSus: boolean;
-  hasLab: boolean;
-  hasICU: boolean;
-}
-
-interface Encounter {
-  id: string;
-  patientRef: string;
-  vertical: string;
-  status: string;
-  context: EncounterContext;
-  createdAt: string;
-}
-
-interface Document {
-  id: string;
-  type: string;
-  status: string;
-  createdAt: string;
-}
-
-interface DocumentsResponse {
-  data: Document[];
-}
+import type { EncounterContext } from "@/lib/types";
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Rascunho",
@@ -71,32 +45,11 @@ export default function EncounterDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const [encounter, setEncounter] = useState<Encounter | null>(null);
-  const [documents, setDocuments] = useState<Document[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const [enc, docs] = await Promise.all([
-          apiClient.get<Encounter>(`/encounters/${id}`),
-          apiClient.get<DocumentsResponse>(`/documents`, { encounterId: id }),
-        ]);
-        setEncounter(enc);
-        setDocuments(docs.data);
-      } catch (err) {
-        if (err instanceof ApiError) {
-          setError(err.message);
-        } else {
-          setError("Erro ao carregar atendimento.");
-        }
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchData();
-  }, [id]);
+  const encounterQuery = useEncounterDetail(id);
+  const encounter = encounterQuery.data;
+  const documents = encounter?.documents ?? [];
+  const loading = encounterQuery.isPending;
+  const error = encounterQuery.error?.message ?? null;
 
   if (loading) {
     return (
@@ -116,7 +69,12 @@ export default function EncounterDetailPage({
         </Button>
         <Alert variant="destructive">
           <AlertTitle>Erro</AlertTitle>
-          <AlertDescription>{error ?? "Atendimento não encontrado."}</AlertDescription>
+          <AlertDescription className="flex items-center justify-between gap-3">
+            <span>{error ?? "Atendimento não encontrado."}</span>
+            <Button variant="outline" size="sm" onClick={() => void encounterQuery.refetch()}>
+              Tentar novamente
+            </Button>
+          </AlertDescription>
         </Alert>
       </div>
     );
@@ -199,7 +157,9 @@ export default function EncounterDetailPage({
                     {new Date(doc.createdAt).toLocaleDateString("pt-BR")}
                   </p>
                 </div>
-                <Badge variant="outline">{doc.status}</Badge>
+                <Badge variant={doc.confirmedBy ? "default" : "outline"}>
+                  {doc.confirmedBy ? "Confirmado" : "Rascunho"}
+                </Badge>
               </div>
             ))}
           </div>

@@ -30,6 +30,7 @@ const DOCUMENT_SELECT = {
   confirmedAt: true,
   contentHash: true,
   createdAt: true,
+  updatedAt: true,
 } as const;
 
 /**

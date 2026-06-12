@@ -94,6 +94,7 @@ export class EncountersService {
             id: true,
             model: true,
             uncertainty: true,
+            uncertaintyReason: true,
             latencyMs: true,
             cost: true,
             createdAt: true,

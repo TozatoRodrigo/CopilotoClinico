@@ -194,8 +194,12 @@ describe("CopilotConversation", () => {
       ],
     });
 
-    const titles = screen.getAllByRole("heading", { level: 3 }).map((node) => node.textContent);
-    expect(titles[0]).toContain("Iniciar oxigênio suplementar e monitorização");
+    const stabilization = screen.getByText("Iniciar oxigênio suplementar e monitorização");
+    const diagnostic = screen.getByText("Solicitar gasometria arterial");
+
+    expect(
+      stabilization.compareDocumentPosition(diagnostic) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     expect(screen.getByText("Agora")).toBeInTheDocument();
   });
 

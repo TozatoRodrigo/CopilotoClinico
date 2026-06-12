@@ -1,7 +1,11 @@
 "use client";
 
-import { use, useState, useEffect, useRef } from "react";
-import { apiClient } from "@/lib/api-client";
+import { use, useState } from "react";
+import {
+  useConfirmDocument,
+  useEncounterDocument,
+  useUpdateDocument,
+} from "@/lib/clinical-queries";
 import type { Document } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -53,90 +57,24 @@ export default function DocumentEditPage({
   params: Promise<{ id: string; docId: string }>;
 }) {
   const { id: encounterId, docId } = use(params);
-  const [document, setDocument] = useState<Document | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [editedContent, setEditedContent] = useState<Record<string, unknown>>(
-    {},
-  );
-  const [rawJson, setRawJson] = useState("");
-  const [saving, setSaving] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [confirming, setConfirming] = useState(false);
-  const refreshRef = useRef<() => Promise<void>>(async () => {});
-
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        setLoading(true);
-        setError(null);
-        const docs = await apiClient.get<Document[]>(
-          `/encounters/${encounterId}/documents`,
-        );
-        const doc = docs.find((d) => d.id === docId) ?? null;
-        if (!doc) {
-          setError("Documento não encontrado.");
-          return;
-        }
-        setDocument(doc);
-        const content = doc.physicianEdits ?? doc.content;
-        setEditedContent(content);
-        setRawJson(JSON.stringify(content, null, 2));
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Erro ao carregar documento.",
-        );
-      } finally {
-        setLoading(false);
-      }
-    }
-    refreshRef.current = fetchData;
-    void fetchData();
-  }, [encounterId, docId]);
-
-  async function handleSave() {
-    if (!document) return;
-    setSaving(true);
-    try {
-      const contentToSave =
-        document.type === "soap" || document.type === "sbar"
-          ? editedContent
-          : JSON.parse(rawJson);
-      await apiClient.patch(
-        `/encounters/${encounterId}/documents/${docId}`,
-        { physicianEdits: contentToSave },
-      );
-      toast.success("Alterações salvas com sucesso.");
-      await refreshRef.current();
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Erro ao salvar alterações.",
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
+  const documentQuery = useEncounterDocument(encounterId, docId);
+  const updateDocument = useUpdateDocument(encounterId, docId);
+  const confirmDocument = useConfirmDocument(encounterId, docId);
+  const document = documentQuery.data;
+  const loading = documentQuery.isPending;
+  const error = documentQuery.error?.message ?? null;
 
   async function handleConfirm() {
-    setConfirming(true);
     try {
-      await apiClient.post(
-        `/encounters/${encounterId}/documents/${docId}/confirm`,
-      );
+      await confirmDocument.mutateAsync();
       toast.success("Documento confirmado com sucesso.");
       setConfirmOpen(false);
-      await refreshRef.current();
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Erro ao confirmar documento.",
       );
-    } finally {
-      setConfirming(false);
     }
-  }
-
-  function updateField(key: string, value: string) {
-    setEditedContent((prev) => ({ ...prev, [key]: value }));
   }
 
   if (loading) {
@@ -152,7 +90,12 @@ export default function DocumentEditPage({
     return (
       <Alert variant="destructive">
         <AlertTitle>Erro</AlertTitle>
-        <AlertDescription>{error ?? "Documento não encontrado."}</AlertDescription>
+        <AlertDescription className="flex items-center justify-between gap-3">
+          <span>{error ?? "Documento não encontrado."}</span>
+          <Button variant="outline" size="sm" onClick={() => void documentQuery.refetch()}>
+            Tentar novamente
+          </Button>
+        </AlertDescription>
       </Alert>
     );
   }
@@ -195,6 +138,82 @@ export default function DocumentEditPage({
         </Alert>
       )}
 
+      <DocumentEditor
+        key={`${document.id}:${document.updatedAt}`}
+        document={document}
+        locked={locked}
+        isSaving={updateDocument.isPending}
+        onSave={async (physicianEdits) => {
+          try {
+            await updateDocument.mutateAsync({ physicianEdits });
+            toast.success("Alterações salvas com sucesso.");
+          } catch (err) {
+            toast.error(
+              err instanceof Error ? err.message : "Erro ao salvar alterações.",
+            );
+          }
+        }}
+      />
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmar Documento</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja confirmar este documento? Esta ação é
+              irreversível.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmOpen(false)}
+              disabled={confirmDocument.isPending}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => void handleConfirm()}
+              disabled={confirmDocument.isPending}
+            >
+              {confirmDocument.isPending ? "Confirmando…" : "Confirmar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function DocumentEditor({
+  document,
+  locked,
+  isSaving,
+  onSave,
+}: {
+  document: Document;
+  locked: boolean;
+  isSaving: boolean;
+  onSave: (physicianEdits: Record<string, unknown>) => Promise<void>;
+}) {
+  const initialContent = document.physicianEdits ?? document.content;
+  const [editedContent, setEditedContent] = useState<Record<string, unknown>>(initialContent);
+  const [rawJson, setRawJson] = useState(() => JSON.stringify(initialContent, null, 2));
+
+  function updateField(key: string, value: string) {
+    setEditedContent((prev) => ({ ...prev, [key]: value }));
+  }
+
+  async function handleSave() {
+    const contentToSave =
+      document.type === "soap" || document.type === "sbar"
+        ? editedContent
+        : JSON.parse(rawJson);
+    await onSave(contentToSave);
+  }
+
+  return (
+    <>
       <div className="space-y-4">
         {document.type === "soap" && (
           <div className="space-y-4">
@@ -247,38 +266,11 @@ export default function DocumentEditPage({
 
       {!locked && (
         <div className="flex gap-2">
-          <Button onClick={() => void handleSave()} disabled={saving}>
-            {saving ? "Salvando…" : "Salvar Alterações"}
+          <Button onClick={() => void handleSave()} disabled={isSaving}>
+            {isSaving ? "Salvando…" : "Salvar Alterações"}
           </Button>
         </div>
       )}
-
-      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirmar Documento</DialogTitle>
-            <DialogDescription>
-              Tem certeza que deseja confirmar este documento? Esta ação é
-              irreversível.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setConfirmOpen(false)}
-              disabled={confirming}
-            >
-              Cancelar
-            </Button>
-            <Button
-              onClick={() => void handleConfirm()}
-              disabled={confirming}
-            >
-              {confirming ? "Confirmando…" : "Confirmar"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+    </>
   );
 }

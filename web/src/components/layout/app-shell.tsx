@@ -1,7 +1,7 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-store";
@@ -28,9 +28,11 @@ function ThemeToggle() {
   const { setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
-  if (typeof window !== "undefined" && !mounted) {
-    queueMicrotask(() => setMounted(true));
-  }
+  useEffect(() => {
+    // The toggle intentionally waits for client mount to avoid theme hydration mismatch.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMounted(true);
+  }, []);
 
   if (!mounted) {
     return (

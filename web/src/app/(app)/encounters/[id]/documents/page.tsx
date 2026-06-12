@@ -1,7 +1,12 @@
 "use client";
 
-import { use, useState, useEffect, useRef } from "react";
-import { apiClient } from "@/lib/api-client";
+import { use, useMemo, useState } from "react";
+import {
+  useConfirmDocument,
+  useEncounterDetail,
+  useEncounterDocuments,
+  useGenerateDocument,
+} from "@/lib/clinical-queries";
 import type { Document } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,10 +43,6 @@ interface AiInteractionSummary {
   uncertaintyReason: string | null;
 }
 
-interface EncounterWithInteractions {
-  aiInteractions: AiInteractionSummary[];
-}
-
 const TYPE_LABELS: Record<DocType, string> = {
   soap: "SOAP",
   sbar: "SBAR",
@@ -75,88 +76,52 @@ export default function DocumentsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: encounterId } = use(params);
-  const [documents, setDocuments] = useState<Document[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<Document | null>(null);
-  const [confirming, setConfirming] = useState(false);
   const [generateOpen, setGenerateOpen] = useState(false);
   const [generateType, setGenerateType] = useState<DocType>("soap");
-  const [generating, setGenerating] = useState(false);
-  // Uncertainty state: tracks if the most recent AI interaction flagged uncertainty.
-  // Used to warn the physician before they confirm a document derived from uncertain analysis.
-  const [hasUncertainInteraction, setHasUncertainInteraction] = useState(false);
-  const [uncertainReason, setUncertainReason] = useState<string | null>(null);
-  const refreshRef = useRef<() => Promise<void>>(async () => {});
+  const documentsQuery = useEncounterDocuments(encounterId);
+  const encounterQuery = useEncounterDetail(encounterId);
+  const generateDocument = useGenerateDocument(encounterId);
+  const confirmDocument = useConfirmDocument(encounterId, confirmTarget?.id ?? "");
+  const documents = documentsQuery.data ?? [];
+  const loading = documentsQuery.isPending || encounterQuery.isPending;
+  const error = documentsQuery.error?.message ?? encounterQuery.error?.message ?? null;
+  const latestInteraction = useMemo<AiInteractionSummary | null>(
+    () => encounterQuery.data?.aiInteractions?.[0] ?? null,
+    [encounterQuery.data?.aiInteractions],
+  );
+  const hasUncertainInteraction = latestInteraction?.uncertainty ?? false;
+  const uncertainReason = latestInteraction?.uncertaintyReason ?? null;
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        setLoading(true);
-        setError(null);
-
-        // Buscar documentos e encounter (com aiInteractions) em paralelo
-        const [docs, encounter] = await Promise.all([
-          apiClient.get<Document[]>(`/encounters/${encounterId}/documents`),
-          apiClient.get<EncounterWithInteractions>(`/encounters/${encounterId}`),
-        ]);
-
-        setDocuments(docs);
-
-        // Verificar se a interação mais recente tinha incerteza
-        const latestInteraction = encounter.aiInteractions?.[0];
-        if (latestInteraction?.uncertainty) {
-          setHasUncertainInteraction(true);
-          setUncertainReason(latestInteraction.uncertaintyReason);
-        } else {
-          setHasUncertainInteraction(false);
-          setUncertainReason(null);
-        }
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Erro ao carregar documentos.",
-        );
-      } finally {
-        setLoading(false);
-      }
-    }
-    refreshRef.current = fetchData;
-    void fetchData();
-  }, [encounterId]);
-
-  async function handleConfirm(doc: Document) {
-    setConfirming(true);
+  async function handleConfirm() {
     try {
-      await apiClient.post(
-        `/encounters/${encounterId}/documents/${doc.id}/confirm`,
-      );
+      await confirmDocument.mutateAsync();
       toast.success("Documento confirmado com sucesso.");
       setConfirmTarget(null);
-      await refreshRef.current();
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Erro ao confirmar documento.",
       );
-    } finally {
-      setConfirming(false);
     }
   }
 
   async function handleGenerate() {
-    setGenerating(true);
+    if (!latestInteraction) {
+      toast.error("Execute uma análise antes de gerar documentos.");
+      return;
+    }
+
     try {
-      await apiClient.post(`/encounters/${encounterId}/documents`, {
+      await generateDocument.mutateAsync({
         type: generateType,
+        aiInteractionId: latestInteraction.id,
       });
       toast.success("Documento gerado com sucesso.");
       setGenerateOpen(false);
-      await refreshRef.current();
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Erro ao gerar documento.",
       );
-    } finally {
-      setGenerating(false);
     }
   }
 
@@ -178,7 +143,19 @@ export default function DocumentsPage({
     return (
       <Alert variant="destructive">
         <AlertTitle>Erro</AlertTitle>
-        <AlertDescription>{error}</AlertDescription>
+        <AlertDescription className="flex items-center justify-between gap-3">
+          <span>{error}</span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              void documentsQuery.refetch();
+              void encounterQuery.refetch();
+            }}
+          >
+            Tentar novamente
+          </Button>
+        </AlertDescription>
       </Alert>
     );
   }
@@ -304,17 +281,17 @@ export default function DocumentsPage({
             <Button
               variant="outline"
               onClick={() => setConfirmTarget(null)}
-              disabled={confirming}
+              disabled={confirmDocument.isPending}
             >
               Cancelar
             </Button>
             <Button
               onClick={() => {
-                if (confirmTarget) void handleConfirm(confirmTarget);
+                if (confirmTarget) void handleConfirm();
               }}
-              disabled={confirming}
+              disabled={confirmDocument.isPending}
             >
-              {confirming ? "Confirmando…" : "Confirmar"}
+              {confirmDocument.isPending ? "Confirmando…" : "Confirmar"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -347,12 +324,15 @@ export default function DocumentsPage({
             <Button
               variant="outline"
               onClick={() => setGenerateOpen(false)}
-              disabled={generating}
+              disabled={generateDocument.isPending}
             >
               Cancelar
             </Button>
-            <Button onClick={() => void handleGenerate()} disabled={generating}>
-              {generating ? "Gerando…" : "Gerar"}
+            <Button
+              onClick={() => void handleGenerate()}
+              disabled={generateDocument.isPending}
+            >
+              {generateDocument.isPending ? "Gerando…" : "Gerar"}
             </Button>
           </DialogFooter>
         </DialogContent>

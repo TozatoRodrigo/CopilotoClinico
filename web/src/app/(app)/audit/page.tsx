@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { apiClient } from "@/lib/api-client";
+import { useState } from "react";
+import { useAuditEntries, type AuditFilters } from "@/lib/clinical-queries";
 import type { AuditEntry } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,13 +24,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/domain/empty-state";
 import { AuditHash } from "@/components/domain/audit-hash";
 import { toast } from "sonner";
-
-interface AuditFilters {
-  entity: string;
-  entityId: string;
-  from: string;
-  to: string;
-}
 
 const ENTITY_OPTIONS = [
   { value: "", label: "Todas" },
@@ -68,12 +61,8 @@ function downloadJson(data: AuditEntry[], filename: string) {
 }
 
 export default function AuditPage() {
-  const [entries, setEntries] = useState<AuditEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [offset, setOffset] = useState(0);
-  const [total, setTotal] = useState(0);
   const limit = 20;
   const [filters, setFilters] = useState<AuditFilters>({
     entity: "",
@@ -82,44 +71,11 @@ export default function AuditPage() {
     to: "",
   });
   const [appliedFilters, setAppliedFilters] = useState<AuditFilters>(filters);
-
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        setLoading(true);
-        setError(null);
-        const params: Record<string, string> = {
-          limit: String(limit),
-          offset: String(offset),
-        };
-        if (appliedFilters.entity && appliedFilters.entity !== "_all")
-          params.entity = appliedFilters.entity;
-        if (appliedFilters.entityId)
-          params.entityId = appliedFilters.entityId;
-        if (appliedFilters.from) params.from = appliedFilters.from;
-        if (appliedFilters.to) params.to = appliedFilters.to;
-
-        const result = await apiClient.get<
-          { data: AuditEntry[]; total: number } | AuditEntry[]
-        >("/audit", params);
-
-        if (Array.isArray(result)) {
-          setEntries(result);
-          setTotal(result.length);
-        } else {
-          setEntries(result.data);
-          setTotal(result.total);
-        }
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Erro ao carregar auditoria.",
-        );
-      } finally {
-        setLoading(false);
-      }
-    }
-    void fetchData();
-  }, [appliedFilters, offset]);
+  const auditQuery = useAuditEntries(appliedFilters, offset, limit);
+  const entries: AuditEntry[] = auditQuery.data?.items ?? [];
+  const total = auditQuery.data?.total ?? 0;
+  const loading = auditQuery.isPending;
+  const error = auditQuery.error?.message ?? null;
 
   function applyFilters() {
     setOffset(0);
@@ -229,7 +185,12 @@ export default function AuditPage() {
       ) : error ? (
         <Alert variant="destructive">
           <AlertTitle>Erro</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription className="flex items-center justify-between gap-3">
+            <span>{error}</span>
+            <Button variant="outline" size="sm" onClick={() => void auditQuery.refetch()}>
+              Tentar novamente
+            </Button>
+          </AlertDescription>
         </Alert>
       ) : entries.length === 0 ? (
         <Card>
@@ -307,7 +268,7 @@ export default function AuditPage() {
             <Button
               variant="outline"
               size="sm"
-              disabled={offset + limit >= total}
+              disabled={offset + limit >= total || auditQuery.isFetching}
               onClick={() => setOffset((prev) => prev + limit)}
             >
               Próximo

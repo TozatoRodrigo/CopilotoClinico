@@ -1,7 +1,8 @@
 import { z } from 'zod';
+import { documentTypeValues } from '../../../shared/contracts/clinical';
 
 export const generateDocumentSchema = z.object({
-  type: z.enum(['soap', 'sbar', 'prescricao', 'alta', 'atestado']),
+  type: z.enum(documentTypeValues),
   aiInteractionId: z.string().uuid(),
 });
 
