@@ -14,7 +14,6 @@ import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -24,7 +23,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ConfirmedSeal } from '@/components/domain/confirmed-seal';
 import { AuditHash } from '@/components/domain/audit-hash';
 import { toast } from 'sonner';
-import { ArrowLeft, FloppyDisk, SealCheck, Robot } from '@phosphor-icons/react';
+import { ArrowLeft, FloppyDisk, SealCheck, Robot, FilePdf } from '@phosphor-icons/react';
+import { useAuth } from '@/lib/auth-store';
 import { cn } from '@/lib/utils';
 
 type DocType = Document['type'];
@@ -102,13 +102,18 @@ export default function DocumentEditPage({
   const loading = documentQuery.isPending;
   const error = documentQuery.error?.message ?? null;
 
+  const { physician } = useAuth();
+  const [confirmError, setConfirmError] = useState<string | null>(null);
+
   async function handleConfirm() {
+    setConfirmError(null);
     try {
       await confirmDocument.mutateAsync();
       toast.success('Documento confirmado com sucesso.');
       setConfirmOpen(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao confirmar documento.');
+      const message = err instanceof Error ? err.message : 'Erro ao confirmar documento.';
+      setConfirmError(message);
     }
   }
 
@@ -211,25 +216,81 @@ export default function DocumentEditPage({
           }}
         />
 
+        {locked && document.contentHash && (
+          <div className="flex items-center gap-3 pt-4">
+            <a
+              href={`/api/encounters/${encounterId}/documents/${docId}/download`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-9 items-center gap-2 rounded-lg border border-clinical-line px-4 text-sm text-foreground hover:border-clinical-teal hover:text-clinical-teal"
+            >
+              <FilePdf className="size-4" />
+              Baixar PDF
+            </a>
+          </div>
+        )}
+
         <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-          <DialogContent>
+          <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Confirmar Documento</DialogTitle>
-              <DialogDescription>
-                Ao confirmar, você assume este documento como conteúdo próprio. Esta ação é
-                irreversível e fica registrada na trilha de auditoria.
-              </DialogDescription>
+              <DialogTitle className="flex items-center gap-2">
+                <SealCheck className="size-5 text-clinical-teal" />
+                Confirmar Documento
+              </DialogTitle>
             </DialogHeader>
-            <DialogFooter>
+
+            <div className="space-y-4 py-2">
+              <p className="text-sm text-foreground">
+                Ao confirmar, você assume este documento{' '}
+                <span className="font-medium">{TYPE_LABELS[document.type]}</span> como conteúdo
+                próprio.
+              </p>
+
+              {physician && (
+                <div className="rounded-lg border border-clinical-teal/30 bg-clinical-teal-tint px-4 py-3">
+                  <p className="text-sm font-medium text-clinical-teal-deep">
+                    Dr(a). {physician.name ?? '—'}
+                  </p>
+                  <p className="font-mono text-xs text-clinical-teal-deep/80">
+                    CRM {physician.crmUf}-{physician.crmNumber}
+                    {!physician.crmVerified && (
+                      <span className="ml-2 text-clinical-amber">CRM pendente de verificação</span>
+                    )}
+                  </p>
+                </div>
+              )}
+
+              <p className="text-sm text-muted-foreground">
+                Esta ação é <span className="font-medium text-foreground">irreversível</span>. O
+                documento será bloqueado para edição e registrado na trilha de auditoria com hash
+                criptográfico.
+              </p>
+            </div>
+
+            {confirmError && (
+              <Alert variant="destructive" className="mt-2">
+                <AlertTitle>Erro ao confirmar</AlertTitle>
+                <AlertDescription>
+                  {confirmError.includes('already confirmed')
+                    ? 'Este documento já foi confirmado.'
+                    : confirmError}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            <DialogFooter className="gap-2">
               <Button
                 variant="outline"
-                onClick={() => setConfirmOpen(false)}
+                onClick={() => {
+                  setConfirmOpen(false);
+                  setConfirmError(null);
+                }}
                 disabled={confirmDocument.isPending}
               >
                 Cancelar
               </Button>
               <Button onClick={() => void handleConfirm()} disabled={confirmDocument.isPending}>
-                {confirmDocument.isPending ? 'Confirmando…' : 'Confirmar'}
+                {confirmDocument.isPending ? 'Confirmando…' : 'Assumir este documento'}
               </Button>
             </DialogFooter>
           </DialogContent>
