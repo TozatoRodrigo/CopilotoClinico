@@ -88,7 +88,8 @@
   "pnpm": {
     "overrides": {
       "rollup": "npm:@rollup/wasm-node",
-      "ioredis": "5.10.1"
+      "ioredis": "5.10.1",
+      "esbuild": "0.28.1"
     },
     "onlyBuiltDependencies": [
       "@nestjs/core",

@@ -1,0 +1,457 @@
+'use client';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { BlockerQuestionCard } from '@/components/domain/blocker-question-card';
+import { RecommendationCard } from '@/components/copilot/recommendation-card';
+import { UncertaintyBanner } from '@/components/domain/uncertainty-banner';
+import { useCopilotConversation, type StoredCopilotResult } from '@/hooks/use-copilot-conversation';
+import type { ClarifyingAnswerValue, ClarifyingQuestion, CopilotRecommendation } from '@/lib/types';
+import { Circle, CheckCircle, ArrowClockwise, WifiSlash } from '@phosphor-icons/react';
+import { cn } from '@/lib/utils';
+
+interface DecisionThreadProps {
+  encounterId: string;
+  initial: StoredCopilotResult;
+}
+
+const CRITICALITY_ORDER: Record<ClarifyingQuestion['criticality'], number> = {
+  blocker: 0,
+  important: 1,
+  optional: 2,
+};
+
+const CATEGORY_ORDER: Record<string, number> = {
+  stabilization: 0,
+  diagnostic: 1,
+  therapeutic: 2,
+  verify: 3,
+};
+
+export function DecisionThread({ encounterId, initial }: DecisionThreadProps) {
+  const {
+    analysis,
+    turns,
+    answers,
+    setAnswer,
+    reanalyze,
+    reanalyzing,
+    respondError,
+    queued,
+    canReanalyze,
+  } = useCopilotConversation(encounterId, initial);
+
+  const hasBlockers = analysis.clarifyingQuestions.some((q) => q.criticality === 'blocker');
+  const allBlockersAnswered = analysis.clarifyingQuestions
+    .filter((q) => q.criticality === 'blocker')
+    .every((q) => answers[q.id] !== undefined);
+
+  const sortedQuestions = [...analysis.clarifyingQuestions].sort(
+    (a, b) => CRITICALITY_ORDER[a.criticality] - CRITICALITY_ORDER[b.criticality],
+  );
+
+  const sortedRecommendations = [...analysis.recommendations].sort((a, b) => {
+    const catDiff =
+      (CATEGORY_ORDER[a.category ?? 'therapeutic'] ?? 2) -
+      (CATEGORY_ORDER[b.category ?? 'therapeutic'] ?? 2);
+    if (catDiff !== 0) return catDiff;
+    return b.confidence - a.confidence;
+  });
+
+  const preliminaryRecs = sortedRecommendations.filter((r) => r.preliminary);
+  const definitiveRecs = sortedRecommendations.filter((r) => !r.preliminary);
+
+  return (
+    <div className="space-y-0">
+      <div className="relative pl-8">
+        <div className="absolute top-0 bottom-0 left-[11px] w-px bg-clinical-line" />
+
+        {analysis.uncertainty && (
+          <ThreadNode>
+            <UncertaintyBanner reason={analysis.uncertaintyReason} />
+          </ThreadNode>
+        )}
+
+        {sortedQuestions.length > 0 && (
+          <ThreadNode icon={hasBlockers && !allBlockersAnswered ? 'pending' : 'done'}>
+            <div className="space-y-3">
+              <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Perguntas do copiloto
+              </h2>
+              {sortedQuestions.map((question) => (
+                <QuestionCard
+                  key={question.id}
+                  question={question}
+                  value={answers[question.id]}
+                  onChange={(value) => setAnswer(question.id, value)}
+                  disabled={reanalyzing}
+                />
+              ))}
+
+              {respondError && (
+                <Alert variant="destructive" className="mt-3">
+                  <AlertTitle>Erro ao reanalisar</AlertTitle>
+                  <AlertDescription>{respondError}</AlertDescription>
+                </Alert>
+              )}
+
+              {queued && (
+                <Alert className="mt-3 border-clinical-amber/40 bg-clinical-amber-bg text-clinical-amber-foreground">
+                  <WifiSlash className="size-4 text-clinical-amber" />
+                  <AlertTitle>Resposta enfileirada</AlertTitle>
+                  <AlertDescription>
+                    Sem conexão. A resposta será enviada quando voltar online.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {analysis.clarifyingQuestions.length > 0 && (
+                <div
+                  className={cn(
+                    'overflow-hidden transition-all duration-300 ease-out',
+                    allBlockersAnswered ? 'mt-3 max-h-16 opacity-100' : 'max-h-0 opacity-0',
+                  )}
+                >
+                  <Button onClick={reanalyze} disabled={!canReanalyze} className="h-11">
+                    <ArrowClockwise className="mr-2 size-4" />
+                    {reanalyzing ? 'Reanalisando...' : 'Reanalisar com as respostas'}
+                  </Button>
+                </div>
+              )}
+            </div>
+          </ThreadNode>
+        )}
+
+        {preliminaryRecs.length > 0 && (
+          <ThreadNode icon="pending">
+            <div className="space-y-3">
+              <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Preliminares
+              </h2>
+              {preliminaryRecs.map((rec, i) => (
+                <div key={i} className="opacity-55">
+                  <RecommendationCard rec={rec} />
+                </div>
+              ))}
+            </div>
+          </ThreadNode>
+        )}
+
+        {definitiveRecs.length > 0 && (
+          <ThreadNode icon="done" accent="green">
+            <div className="space-y-3">
+              <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Conduta
+              </h2>
+              {definitiveRecs.map((rec, i) => (
+                <RecommendationCard key={i} rec={rec} />
+              ))}
+            </div>
+          </ThreadNode>
+        )}
+
+        {analysis.differentials.length > 0 && (
+          <ThreadNode icon="note">
+            <div className="space-y-3">
+              <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Já considerou?
+              </h2>
+              {analysis.differentials.map((d, i) => (
+                <div
+                  key={i}
+                  className="rounded-lg border border-clinical-line bg-white/60 px-4 py-3"
+                >
+                  <p className="font-medium text-foreground">{d.hypothesis}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{d.whyConsider}</p>
+                  <p className="mt-2 text-sm">
+                    <span className="font-medium text-foreground">O que diferencia:</span>{' '}
+                    <span className="text-muted-foreground">{d.whatDistinguishes}</span>
+                  </p>
+                </div>
+              ))}
+            </div>
+          </ThreadNode>
+        )}
+
+        {analysis.citations.length > 0 && (
+          <ThreadNode icon="cite">
+            <CitationsBlock citations={analysis.citations} />
+          </ThreadNode>
+        )}
+
+        {turns.length > 0 && <CollapsedTurns turns={turns} />}
+      </div>
+    </div>
+  );
+}
+
+function ThreadNode({
+  icon,
+  accent,
+  children,
+}: {
+  icon?: 'pending' | 'done' | 'note' | 'cite' | undefined;
+  accent?: 'green' | 'amber';
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="relative pb-6">
+      <div
+        className={cn(
+          'absolute -left-8 top-0.5 flex size-6 items-center justify-center rounded-full border-2',
+          icon === 'done' && accent === 'green'
+            ? 'border-clinical-green bg-clinical-green-bg text-clinical-green'
+            : icon === 'done'
+              ? 'border-clinical-teal bg-clinical-teal-tint text-clinical-teal'
+              : icon === 'pending'
+                ? 'border-clinical-amber bg-clinical-amber-bg text-clinical-amber'
+                : 'border-clinical-line bg-white text-muted-foreground',
+        )}
+      >
+        {icon === 'done' ? (
+          <CheckCircle weight="fill" className="size-3.5" />
+        ) : icon === 'pending' ? (
+          <Circle weight="fill" className="size-3.5" />
+        ) : (
+          <Circle className="size-3 text-clinical-line" />
+        )}
+      </div>
+      <div className="pt-0.5">{children}</div>
+    </div>
+  );
+}
+
+function QuestionCard({
+  question,
+  value,
+  onChange,
+  disabled,
+}: {
+  question: ClarifyingQuestion;
+  value: ClarifyingAnswerValue | undefined;
+  onChange: (value: ClarifyingAnswerValue) => void;
+  disabled?: boolean;
+}) {
+  const isBlocker = question.criticality === 'blocker';
+
+  if (isBlocker) {
+    return (
+      <BlockerQuestionCard question={question.question} why={question.why}>
+        <AnswerInput question={question} value={value} onChange={onChange} disabled={disabled} />
+      </BlockerQuestionCard>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-clinical-line bg-white/60 px-4 py-3">
+      <p className="font-medium text-foreground">{question.question}</p>
+      <details className="mt-1 text-sm text-muted-foreground">
+        <summary className="cursor-pointer select-none">Por que essa pergunta?</summary>
+        <p className="mt-1">{question.why}</p>
+      </details>
+      <div className="mt-2">
+        <AnswerInput question={question} value={value} onChange={onChange} disabled={disabled} />
+      </div>
+    </div>
+  );
+}
+
+const BOOLEAN_OPTIONS: { label: string; value: ClarifyingAnswerValue }[] = [
+  { label: 'Sim', value: true },
+  { label: 'Não', value: false },
+  { label: 'Não sei', value: 'unknown' },
+];
+
+function AnswerInput({
+  question,
+  value,
+  onChange,
+  disabled,
+}: {
+  question: ClarifyingQuestion;
+  value: ClarifyingAnswerValue | undefined;
+  onChange: (value: ClarifyingAnswerValue) => void;
+  disabled?: boolean;
+}) {
+  switch (question.expectedAnswerType) {
+    case 'boolean':
+      return (
+        <div role="group" aria-label={question.question} className="flex flex-wrap gap-2">
+          {BOOLEAN_OPTIONS.map((option) => (
+            <button
+              key={option.label}
+              type="button"
+              disabled={disabled}
+              aria-pressed={value === option.value}
+              onClick={() => onChange(option.value)}
+              className={cn(
+                'inline-flex h-11 min-w-[5rem] items-center justify-center rounded-lg border px-4 text-sm font-medium transition-colors duration-200',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clinical-teal',
+                'disabled:pointer-events-none disabled:opacity-50',
+                value === option.value
+                  ? 'border-clinical-teal bg-clinical-teal-tint text-clinical-teal-deep'
+                  : 'border-clinical-line bg-white text-foreground hover:bg-muted',
+              )}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      );
+    case 'choice':
+      return (
+        <div role="group" aria-label={question.question} className="flex flex-wrap gap-2">
+          {(question.choices ?? []).map((choice) => (
+            <button
+              key={choice}
+              type="button"
+              disabled={disabled}
+              aria-pressed={value === choice}
+              onClick={() => onChange(choice)}
+              className={cn(
+                'inline-flex h-11 items-center justify-center rounded-lg border px-4 text-sm font-medium transition-colors duration-200',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clinical-teal',
+                'disabled:pointer-events-none disabled:opacity-50',
+                value === choice
+                  ? 'border-clinical-teal bg-clinical-teal-tint text-clinical-teal-deep'
+                  : 'border-clinical-line bg-white text-foreground hover:bg-muted',
+              )}
+            >
+              {choice}
+            </button>
+          ))}
+        </div>
+      );
+    case 'number':
+      return (
+        <input
+          type="number"
+          inputMode="numeric"
+          aria-label={question.question}
+          value={value === undefined ? '' : String(value)}
+          disabled={disabled}
+          onChange={(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))}
+          className="h-11 w-full max-w-[12rem] rounded-lg border border-clinical-line bg-white px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clinical-teal disabled:opacity-50"
+        />
+      );
+    case 'text':
+    default:
+      return (
+        <input
+          type="text"
+          aria-label={question.question}
+          value={value === undefined ? '' : String(value)}
+          disabled={disabled}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-11 w-full rounded-lg border border-clinical-line bg-white px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clinical-teal disabled:opacity-50"
+        />
+      );
+  }
+}
+
+function CitationsBlock({
+  citations,
+}: {
+  citations: Array<{
+    source: string;
+    sourceVersion: string;
+    chunkId: string;
+    text: string;
+    origin?: 'institutional' | 'public';
+  }>;
+}) {
+  return (
+    <div className="space-y-2">
+      <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        Citações
+      </h2>
+      {citations.map((c, i) => (
+        <div key={i} className="rounded-lg border border-clinical-line bg-white/60 px-4 py-2">
+          <div className="flex items-center justify-between gap-3">
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="font-mono text-xs font-medium text-foreground">
+                {c.source} v{c.sourceVersion}
+              </span>
+              {c.origin === 'institutional' ? (
+                <Badge variant="secondary" className="shrink-0">
+                  Protocolo
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="shrink-0">
+                  Diretriz
+                </Badge>
+              )}
+            </span>
+            <a
+              className="shrink-0 font-mono text-xs text-clinical-teal underline underline-offset-4"
+              href={`/v1/guidelines/chunks/${c.chunkId}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              trecho
+            </a>
+          </div>
+          <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{c.text}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CollapsedTurns({
+  turns,
+}: {
+  turns: Array<{
+    turnIndex: number;
+    analysis: {
+      recommendations: CopilotRecommendation[];
+      clarifyingQuestions: Array<{ id: string }>;
+    };
+  }>;
+}) {
+  if (turns.length === 0) return null;
+
+  return (
+    <div className="space-y-1 pb-6">
+      <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        Turnos anteriores
+      </h2>
+      {turns.map((turn) => (
+        <details
+          key={turn.turnIndex}
+          className="group rounded-lg border border-clinical-line bg-white/40"
+        >
+          <summary className="flex cursor-pointer select-none items-center gap-2 px-4 py-2 font-mono text-xs text-muted-foreground hover:text-foreground">
+            <CheckCircle className="size-3 text-clinical-green" />
+            <span>
+              Turno {turn.turnIndex + 1} · {turn.analysis.clarifyingQuestions.length} pergunta
+              {turn.analysis.clarifyingQuestions.length !== 1 ? 's' : ''} respondida
+              {turn.analysis.clarifyingQuestions.length !== 1 ? 's' : ''}
+            </span>
+          </summary>
+          <div className="space-y-1 px-4 pb-3">
+            {turn.analysis.recommendations.map((rec, i) => (
+              <p key={i} className="font-mono text-xs text-muted-foreground">
+                {labelForCategory(rec.category)} {rec.action}
+              </p>
+            ))}
+          </div>
+        </details>
+      ))}
+    </div>
+  );
+}
+
+function labelForCategory(category?: string): string {
+  switch (category) {
+    case 'stabilization':
+      return '[Agora]';
+    case 'diagnostic':
+      return '[Diagnóstico]';
+    case 'verify':
+      return '[Reavaliar]';
+    default:
+      return '[Conduta]';
+  }
+}
