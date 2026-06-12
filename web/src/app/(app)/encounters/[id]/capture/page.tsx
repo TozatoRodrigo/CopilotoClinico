@@ -18,7 +18,7 @@ import { useOnlineStatus } from "@/components/providers/offline-provider";
 import { addToQueue } from "@/lib/offline-queue";
 import { syncOfflineQueue } from "@/lib/copilot-queue";
 import { STORAGE_KEY_PREFIX } from "@/hooks/use-copilot-conversation";
-import { Mic, MicOff } from "lucide-react";
+import { Microphone, MicrophoneSlash } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import type { CopilotAnalysis, CopilotAnalyzeResponse, EncounterContext } from "@/lib/types";
 import { getDemoCasePreset } from "@/lib/demo-case-presets";
@@ -208,9 +208,9 @@ export default function CapturePage({
                     aria-label={isListening ? "Parar gravação" : "Iniciar gravação"}
                   >
                     {isListening ? (
-                      <MicOff className="size-4" />
+                      <MicrophoneSlash className="size-5" />
                     ) : (
-                      <Mic className="size-4" />
+                      <Microphone className="size-5" />
                     )}
                   </Button>
                 ) : (
@@ -224,7 +224,7 @@ export default function CapturePage({
                           disabled
                           aria-label="Entrada por voz não suportada"
                         >
-                          <Mic className="size-4 opacity-50" />
+                          <Microphone className="size-5 opacity-50" />
                         </Button>
                       </span>
                     </TooltipTrigger>

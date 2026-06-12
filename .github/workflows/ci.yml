@@ -116,6 +116,10 @@ jobs:
       - name: Lint
         run: pnpm exec next lint --max-warnings 0 || true
 
+      - name: Check for Geist/Inter (A1 — identidade tipográfica Strivium)
+        run: |
+          grep -rEn 'Geist|next/font/google.{0,40}Inter|from "lucide-react"' src/ --include='*.ts' --include='*.tsx' && exit 1 || exit 0
+
       - name: Build
         run: pnpm build
         env:
