@@ -1,7 +1,9 @@
 "use client";
 
-import { use, useState, useEffect } from "react";
+import { use, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { useGenerateDocument } from "@/lib/clinical-queries";
 import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,15 +15,7 @@ import {
   STORAGE_KEY_PREFIX,
   type StoredCopilotResult,
 } from "@/hooks/use-copilot-conversation";
-import type { CopilotAnalysis } from "@/lib/types";
-
-interface LatestInteractionResponse {
-  interactionId: string;
-  output: CopilotAnalysis;
-  citations: CopilotAnalysis["citations"];
-  uncertainty: boolean;
-  uncertaintyReason: string | null;
-}
+import type { CopilotAnalysis, LatestInteractionResponse } from "@/lib/types";
 
 export default function ResultPage({
   params,
@@ -30,67 +24,59 @@ export default function ResultPage({
 }) {
   const { id: encounterId } = use(params);
   const router = useRouter();
-  const [result, setResult] = useState<StoredCopilotResult | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState<string | null>(null);
   const [generatingDoc, setGeneratingDoc] = useState<string | null>(null);
   const [docError, setDocError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const storageKey = `${STORAGE_KEY_PREFIX}${encounterId}`;
-
-    // Try sessionStorage first (fast path — just navigated from capture)
-    try {
-      const stored = sessionStorage.getItem(storageKey);
-      if (stored) {
-        const parsed = JSON.parse(stored) as StoredCopilotResult;
-        setResult(parsed);
-        setLoading(false);
-        return;
+  const generateDocument = useGenerateDocument(encounterId);
+  const resultQuery = useQuery({
+    queryKey: ["latest-interaction-result", encounterId],
+    initialData: () => {
+      try {
+        const stored = sessionStorage.getItem(`${STORAGE_KEY_PREFIX}${encounterId}`);
+        return stored ? (JSON.parse(stored) as StoredCopilotResult) : undefined;
+      } catch {
+        return undefined;
       }
-    } catch {
-      // fall through to API
-    }
-
-    // Fetch from API (page reload or direct navigation)
-    apiClient
-      .get<LatestInteractionResponse>(`/encounters/${encounterId}/copilot/latest`)
-      .then((data) => {
-        const analysis: CopilotAnalysis = {
-          ...data.output,
-          citations: data.citations,
-          uncertainty: data.uncertainty,
-          uncertaintyReason: data.uncertaintyReason,
-        };
-        const stored: StoredCopilotResult = {
-          interactionId: data.interactionId,
-          analysis,
-        };
-        setResult(stored);
-        // Repopulate sessionStorage so subsequent navigation is fast
-        try {
-          sessionStorage.setItem(storageKey, JSON.stringify(stored));
-        } catch {
-          // storage quota — non-critical
-        }
-      })
-      .catch((err) => {
-        const message = err instanceof Error ? err.message : "Erro ao carregar análise.";
-        setFetchError(message);
-      })
-      .finally(() => setLoading(false));
-  }, [encounterId]);
+    },
+    queryFn: async (): Promise<StoredCopilotResult> => {
+      const data = await apiClient.get<LatestInteractionResponse>(
+        `/encounters/${encounterId}/copilot/latest`,
+      );
+      const analysis: CopilotAnalysis = {
+        ...data.output,
+        citations: data.citations,
+        uncertainty: data.uncertainty,
+        uncertaintyReason: data.uncertaintyReason,
+      };
+      const stored: StoredCopilotResult = {
+        interactionId: data.interactionId,
+        analysis,
+      };
+      try {
+        sessionStorage.setItem(
+          `${STORAGE_KEY_PREFIX}${encounterId}`,
+          JSON.stringify(stored),
+        );
+      } catch {
+        // storage quota — non-critical
+      }
+      return stored;
+    },
+  });
+  const result = resultQuery.data ?? null;
+  const loading = resultQuery.isPending;
+  const fetchError = resultQuery.error?.message ?? null;
 
   async function handleGenerateDocument(type: "soap" | "sbar") {
+    if (!result) return;
     setGeneratingDoc(type);
     setDocError(null);
 
     try {
-      const doc = await apiClient.post<{ id: string }>("/documents", {
-        encounterId,
+      const doc = await generateDocument.mutateAsync({
         type,
+        aiInteractionId: result.interactionId,
       });
-      router.push(`/encounters/${encounterId}/documents/${doc.id}`);
+      router.push(`/encounters/${encounterId}/documents/${doc.id}/edit`);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Erro ao gerar documento.";
@@ -123,7 +109,12 @@ export default function ResultPage({
             {fetchError && (
               <Alert variant="destructive" className="mb-2">
                 <AlertTitle>Erro ao carregar análise</AlertTitle>
-                <AlertDescription>{fetchError}</AlertDescription>
+                <AlertDescription className="flex items-center justify-between gap-3">
+                  <span>{fetchError}</span>
+                  <Button variant="outline" size="sm" onClick={() => void resultQuery.refetch()}>
+                    Tentar novamente
+                  </Button>
+                </AlertDescription>
               </Alert>
             )}
             <p className="text-muted-foreground">

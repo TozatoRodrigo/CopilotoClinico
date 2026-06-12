@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { apiClient, ApiError } from "@/lib/api-client";
+import { useDashboardStats, useEncounterList } from "@/lib/clinical-queries";
 import { useAuth } from "@/lib/auth-store";
 import { PageHeader } from "@/components/layout/page-header";
 import { SectionCard } from "@/components/layout/section-card";
@@ -14,31 +13,6 @@ import { Badge } from "@/components/ui/badge";
 import { DataMetric } from "@/components/domain/data-metric";
 import { EmptyState } from "@/components/domain/empty-state";
 import { DEMO_CASE_PRESETS } from "@/lib/demo-case-presets";
-
-interface Encounter {
-  id: string;
-  patientRef: string;
-  vertical: string;
-  status: string;
-  context: {
-    hasCT: boolean;
-    isSus: boolean;
-    hasLab: boolean;
-    hasICU: boolean;
-  };
-  createdAt: string;
-}
-
-interface EncountersResponse {
-  data: Encounter[];
-  total: number;
-}
-
-interface DashboardStats {
-  todayCount: number;
-  pendingReviews: number;
-  confirmedDocuments: number;
-}
 
 const VERTICAL_LABELS: Record<string, string> = {
   trauma: "Trauma",
@@ -64,32 +38,11 @@ const STATUS_VARIANTS: Record<string, "default" | "secondary" | "destructive" | 
 
 export default function DashboardPage() {
   const { physician } = useAuth();
-  const [encounters, setEncounters] = useState<Encounter[]>([]);
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const [encountersResponse, statsResponse] = await Promise.all([
-          apiClient.get<EncountersResponse>("/encounters"),
-          apiClient.get<DashboardStats>("/encounters/stats"),
-        ]);
-        setEncounters(encountersResponse.data.slice(0, 5));
-        setStats(statsResponse);
-      } catch (err) {
-        if (err instanceof ApiError) {
-          setError(err.message);
-        } else {
-          setError("Erro ao carregar atendimentos.");
-        }
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchData();
-  }, []);
+  const encountersQuery = useEncounterList(5);
+  const statsQuery = useDashboardStats();
+  const encounters = encountersQuery.data?.data ?? [];
+  const loading = encountersQuery.isPending || statsQuery.isPending;
+  const error = encountersQuery.error?.message ?? statsQuery.error?.message ?? null;
 
   return (
     <div className="space-y-6">
@@ -113,7 +66,7 @@ export default function DashboardPage() {
           <AlertDescription>
             Seu CRM ({physician.crmUf} {physician.crmNumber}) ainda não foi validado contra o
             Conselho Federal de Medicina. Documentos gerados serão marcados como{" "}
-            <strong>"CRM pendente de verificação"</strong>. A verificação automática estará
+            <strong>&quot;CRM pendente de verificação&quot;</strong>. A verificação automática estará
             disponível em breve.
           </AlertDescription>
         </Alert>
@@ -122,14 +75,18 @@ export default function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardContent className="pt-4">
-            <DataMetric label="Atendimentos Hoje" value={stats?.todayCount ?? 0} loading={loading} />
+            <DataMetric
+              label="Atendimentos Hoje"
+              value={statsQuery.data?.todayCount ?? 0}
+              loading={loading}
+            />
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
             <DataMetric
               label="Revisões Pendentes"
-              value={stats?.pendingReviews ?? 0}
+              value={statsQuery.data?.pendingReviews ?? 0}
               loading={loading}
             />
           </CardContent>
@@ -138,7 +95,7 @@ export default function DashboardPage() {
           <CardContent className="pt-4">
             <DataMetric
               label="Documentos Confirmados"
-              value={stats?.confirmedDocuments ?? 0}
+              value={statsQuery.data?.confirmedDocuments ?? 0}
               loading={loading}
             />
           </CardContent>
@@ -189,7 +146,19 @@ export default function DashboardPage() {
         {error && (
           <Alert variant="destructive">
             <AlertTitle>Erro</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription className="flex items-center justify-between gap-3">
+              <span>{error}</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  void encountersQuery.refetch();
+                  void statsQuery.refetch();
+                }}
+              >
+                Tentar novamente
+              </Button>
+            </AlertDescription>
           </Alert>
         )}
         {!loading && !error && encounters.length === 0 && (

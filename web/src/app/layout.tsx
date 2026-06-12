@@ -3,6 +3,7 @@ import { DM_Sans, DM_Serif_Display, IBM_Plex_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { IconProvider } from "@/components/providers/icon-provider";
 import { OfflineProvider } from "@/components/providers/offline-provider";
+import { QueryProvider } from "@/components/providers/query-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/lib/auth-store";
@@ -63,15 +64,17 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <IconProvider>
           <ThemeProvider>
-            <AuthProvider>
-              <OfflineProvider>
-                <TooltipProvider>
-                  {children}
-                  <Toaster />
-                  <ServiceWorkerRegistrar />
-                </TooltipProvider>
-              </OfflineProvider>
-            </AuthProvider>
+            <QueryProvider>
+              <AuthProvider>
+                <OfflineProvider>
+                  <TooltipProvider>
+                    {children}
+                    <Toaster />
+                    <ServiceWorkerRegistrar />
+                  </TooltipProvider>
+                </OfflineProvider>
+              </AuthProvider>
+            </QueryProvider>
           </ThemeProvider>
         </IconProvider>
       </body>

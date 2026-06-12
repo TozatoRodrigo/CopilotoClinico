@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { encounterStatusValues } from '../../../shared/contracts/clinical';
 
 /**
  * Validação LGPD-001: patientRef deve ser um identificador opaco.
@@ -61,7 +62,7 @@ export const createEncounterSchema = z.object({
 export type CreateEncounterInput = z.infer<typeof createEncounterSchema>;
 
 export const updateEncounterSchema = z.object({
-  status: z.enum(['draft', 'in_review', 'finalized', 'cancelled']).optional(),
+  status: z.enum(encounterStatusValues).optional(),
   context: z
     .object({
       hasCT: z.boolean(),

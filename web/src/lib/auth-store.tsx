@@ -1,16 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useCallback } from "react";
-
-interface Physician {
-  id: string;
-  name: string | null;
-  email: string;
-  crmUf: string;
-  crmNumber: string;
-  /** false = CRM não verificado contra fonte oficial. */
-  crmVerified: boolean;
-}
+import type { Physician } from "@/lib/types";
 
 interface AuthState {
   physician: Physician | null;

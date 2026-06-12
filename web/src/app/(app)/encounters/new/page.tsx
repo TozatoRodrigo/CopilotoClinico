@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 import { apiClient, ApiError } from "@/lib/api-client";
@@ -19,23 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getDemoCasePreset } from "@/lib/demo-case-presets";
-
-interface EncounterContext {
-  hasCT: boolean;
-  isSus: boolean;
-  hasLab: boolean;
-  hasICU: boolean;
-}
-
-interface CreateEncounterBody {
-  patientRef: string;
-  vertical: string;
-  context: EncounterContext;
-}
-
-interface CreateEncounterResponse {
-  id: string;
-}
+import type { CreateEncounterRequest, CreateEncounterResponse, EncounterContext } from "@/lib/types";
 
 interface ContextChip {
   key: keyof EncounterContext;
@@ -57,29 +41,25 @@ const CONTEXT_CHIPS: ContextChip[] = [
   { key: "hasICU", label: "UTI" },
 ];
 
+const DEFAULT_CONTEXT: EncounterContext = {
+  hasCT: false,
+  isSus: false,
+  hasLab: false,
+  hasICU: false,
+};
+
 export default function NewEncounterPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const demoCaseSlug = searchParams.get("demoCase");
   const demoPreset = getDemoCasePreset(demoCaseSlug);
-  const [patientRef, setPatientRef] = useState("");
-  const [vertical, setVertical] = useState("trauma");
-  const [context, setContext] = useState<EncounterContext>({
-    hasCT: false,
-    isSus: false,
-    hasLab: false,
-    hasICU: false,
-  });
+  const [patientRef, setPatientRef] = useState(() => demoPreset?.patientRef ?? "");
+  const [vertical, setVertical] = useState<CreateEncounterRequest["vertical"]>(
+    () => (demoPreset?.vertical as CreateEncounterRequest["vertical"] | undefined) ?? "trauma",
+  );
+  const [context, setContext] = useState<EncounterContext>(() => demoPreset?.context ?? DEFAULT_CONTEXT);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!demoPreset) return;
-
-    setPatientRef(demoPreset.patientRef);
-    setVertical(demoPreset.vertical);
-    setContext(demoPreset.context);
-  }, [demoPreset]);
 
   function toggleContext(key: keyof EncounterContext) {
     setContext((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -93,7 +73,7 @@ export default function NewEncounterPage() {
     setError(null);
 
     try {
-      const body: CreateEncounterBody = {
+      const body: CreateEncounterRequest = {
         patientRef: patientRef.trim(),
         vertical,
         context,
@@ -145,7 +125,10 @@ export default function NewEncounterPage() {
 
             <div className="space-y-2">
               <Label>Vertical</Label>
-              <Select value={vertical} onValueChange={setVertical}>
+              <Select
+                value={vertical}
+                onValueChange={(value) => setVertical(value as CreateEncounterRequest["vertical"])}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>

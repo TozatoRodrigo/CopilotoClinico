@@ -36,6 +36,12 @@ const CONTEXT_CHIPS: ContextChip[] = [
 ];
 
 const MIN_CHARS = 10;
+const EMPTY_CONTEXT: EncounterContext = {
+  hasCT: false,
+  isSus: false,
+  hasLab: false,
+  hasICU: false,
+};
 
 export default function CapturePage({
   params,
@@ -48,13 +54,8 @@ export default function CapturePage({
   const { isOnline } = useOnlineStatus();
   const demoPreset = getDemoCasePreset(searchParams.get("demoCase"));
 
-  const [caseText, setCaseText] = useState("");
-  const [context, setContext] = useState<EncounterContext>({
-    hasCT: false,
-    isSus: false,
-    hasLab: false,
-    hasICU: false,
-  });
+  const [caseText, setCaseText] = useState(() => demoPreset?.caseText ?? "");
+  const [context, setContext] = useState<EncounterContext>(() => demoPreset?.context ?? EMPTY_CONTEXT);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uncertainty, setUncertainty] = useState(false);
@@ -75,13 +76,6 @@ export default function CapturePage({
       toast.error(voiceError);
     }
   }, [voiceError]);
-
-  useEffect(() => {
-    if (!demoPreset || caseText.trim()) return;
-
-    setCaseText(demoPreset.caseText);
-    setContext(demoPreset.context);
-  }, [caseText, demoPreset]);
 
   const handleVoiceTranscript = useCallback((text: string) => {
     setCaseText((prev) => {

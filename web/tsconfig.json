@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "baseUrl": ".",
     "target": "ES2017",
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
@@ -19,10 +20,12 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@contracts/*": ["../src/shared/contracts/*"]
     }
   },
   "include": [
+    "../src/shared/contracts/**/*.ts",
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
