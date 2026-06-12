@@ -1,7 +1,7 @@
 "use client";
 
 import { use, useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -21,6 +21,7 @@ import { STORAGE_KEY_PREFIX } from "@/hooks/use-copilot-conversation";
 import { Mic, MicOff } from "lucide-react";
 import { toast } from "sonner";
 import type { CopilotAnalysis, CopilotAnalyzeResponse, EncounterContext } from "@/lib/types";
+import { getDemoCasePreset } from "@/lib/demo-case-presets";
 
 interface ContextChip {
   key: keyof EncounterContext;
@@ -43,7 +44,9 @@ export default function CapturePage({
 }) {
   const { id: encounterId } = use(params);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isOnline } = useOnlineStatus();
+  const demoPreset = getDemoCasePreset(searchParams.get("demoCase"));
 
   const [caseText, setCaseText] = useState("");
   const [context, setContext] = useState<EncounterContext>({
@@ -72,6 +75,13 @@ export default function CapturePage({
       toast.error(voiceError);
     }
   }, [voiceError]);
+
+  useEffect(() => {
+    if (!demoPreset || caseText.trim()) return;
+
+    setCaseText(demoPreset.caseText);
+    setContext(demoPreset.context);
+  }, [caseText, demoPreset]);
 
   const handleVoiceTranscript = useCallback((text: string) => {
     setCaseText((prev) => {
@@ -155,6 +165,13 @@ export default function CapturePage({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {demoPreset && (
+            <Alert>
+              <AlertTitle>{demoPreset.title}</AlertTitle>
+              <AlertDescription>{demoPreset.summary}</AlertDescription>
+            </Alert>
+          )}
+
           <div className="space-y-2">
             <label
               htmlFor="case-text"
