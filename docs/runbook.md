@@ -46,6 +46,23 @@ DATABASE_URL=postgresql://test:test@localhost:5432/test?schema=public pnpm prism
 DATABASE_URL=postgresql://test:test@localhost:5432/test?schema=public pnpm test:integration
 ```
 
+### Rodar avaliação do pacote KB-001
+
+Após a curadoria/aprovação dos chunks do pacote `docs/guidelines/drafts/kb-001-top20-ps`,
+há duas validações específicas para os critérios de aceite do KB-001:
+
+```bash
+# Confere o pack de 40 casos sintéticos (2 por cenário)
+pnpm test:kb-001:synthetic
+
+# Valida retrieval do caso canônico "gripe >48h" contra PostgreSQL real
+DATABASE_URL=postgresql://test:test@localhost:5432/test?schema=public pnpm prisma migrate deploy
+KB001_INTEGRATION=1 DATABASE_URL=postgresql://test:test@localhost:5432/test?schema=public pnpm test:kb-001:integration
+```
+
+O teste de integração do KB-001 roda automaticamente no CI e fica `skip` em ambiente
+local até que `KB001_INTEGRATION=1` seja informado junto de um PostgreSQL de teste ativo.
+
 ### Ingestão e revisão de diretrizes (KB-002)
 
 A ingestão em lote de diretrizes clínicas usa um pipeline de curadoria: nenhum
