@@ -196,7 +196,7 @@ export default function CapturePage({
                     size="icon-sm"
                     className={
                       isListening
-                        ? "animate-pulse bg-red-500/20 text-red-500 hover:bg-red-500/30 hover:text-red-500"
+                        ? "animate-pulse bg-destructive/15 text-destructive hover:bg-destructive/25 hover:text-destructive"
                         : ""
                     }
                     onClick={() =>
@@ -271,7 +271,7 @@ export default function CapturePage({
           )}
 
           {uncertainty && (
-            <Alert className="border-yellow-500/50 bg-yellow-50 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200">
+            <Alert className="border-clinical-amber/40 bg-clinical-amber-bg text-clinical-amber-foreground">
               <AlertTitle>Incerteza detectada</AlertTitle>
               <AlertDescription>
                 {uncertaintyReason ??
