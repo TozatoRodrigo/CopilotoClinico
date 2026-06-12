@@ -177,6 +177,7 @@ describe("CopilotConversation", () => {
           action: "Solicitar gasometria arterial",
           rationale: "Ajuda a definir gravidade",
           confidence: 0.99,
+          preliminary: false,
           category: "diagnostic",
         },
         {
@@ -184,6 +185,7 @@ describe("CopilotConversation", () => {
           action: "Iniciar oxigênio suplementar e monitorização",
           rationale: "Paciente hipoxêmico e em risco de deterioração",
           confidence: 0.6,
+          preliminary: false,
           category: "stabilization",
         },
       ],
