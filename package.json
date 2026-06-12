@@ -17,6 +17,8 @@
     "test:cov": "vitest run --coverage",
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
     "test:integration": "vitest run --config ./vitest.config.integration.ts",
+    "test:kb-001:synthetic": "vitest run tests/kb-001-synthetic-cases.spec.ts",
+    "test:kb-001:integration": "vitest run --config ./vitest.config.integration.ts tests/integration/kb-001-top20-retrieval.integration-spec.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
