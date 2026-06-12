@@ -54,6 +54,7 @@ const MOCK_COPILOT_OUTPUT = {
   ],
   uncertainty: false,
   uncertaintyReason: null,
+  differentials: [],
   citations: [],
 };
 

@@ -16,6 +16,7 @@ const baseOutput: CopilotOutput = {
   ],
   uncertainty: false,
   uncertaintyReason: null,
+  differentials: [],
   clarifyingQuestions: [],
 };
 

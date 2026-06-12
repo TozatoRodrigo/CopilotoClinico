@@ -25,12 +25,19 @@ const ClarifyingQuestionSchema = z.object({
   choices: z.array(z.string()).optional(),
 });
 
+const DifferentialSchema = z.object({
+  hypothesis: z.string().min(1),
+  whyConsider: z.string().min(1),
+  whatDistinguishes: z.string().min(1),
+});
+
 export const CopilotOutputSchema = z
   .object({
     reasoning: z.string().min(1),
     recommendations: z.array(RecommendationSchema).min(0),
     uncertainty: z.boolean(),
     uncertaintyReason: z.string().nullable(),
+    differentials: z.array(DifferentialSchema).max(3).default([]),
     clarifyingQuestions: z
       .array(ClarifyingQuestionSchema)
       .max(3, 'clarifyingQuestions must contain at most 3 items per turn')

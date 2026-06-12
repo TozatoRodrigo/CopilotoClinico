@@ -23,6 +23,7 @@ const copilotRawOutput = {
   ],
   uncertainty: false,
   uncertaintyReason: null,
+  differentials: [],
 };
 
 const baseDocument = {

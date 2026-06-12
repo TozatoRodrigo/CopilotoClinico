@@ -48,7 +48,7 @@ describe('InferenceWorkerService', () => {
 
   const orchestratorResult = {
     interactionId: 'int-1',
-    output: { reasoning: '', recommendations: [], uncertainty: false, uncertaintyReason: null },
+    output: { reasoning: '', recommendations: [], uncertainty: false, uncertaintyReason: null, differentials: [] },
     citations: [],
     metadata: { piiDetected: false, injectionDetected: false, chunksRetrieved: 0, latencyMs: 100, cost: 0, model: 'm' },
   };

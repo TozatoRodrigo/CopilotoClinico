@@ -20,7 +20,7 @@ describe('CopilotController', () => {
 
   const analyzeResult = {
     interactionId: 'interaction-001',
-    output: { reasoning: 'test', recommendations: [], uncertainty: false, uncertaintyReason: null },
+    output: { reasoning: 'test', recommendations: [], uncertainty: false, uncertaintyReason: null, differentials: [] },
     citations: [],
     metadata: { piiDetected: false, injectionDetected: false, chunksRetrieved: 0, latencyMs: 100, cost: 0.001, model: 'test' },
   };

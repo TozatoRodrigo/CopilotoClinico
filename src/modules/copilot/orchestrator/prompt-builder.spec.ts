@@ -208,6 +208,7 @@ describe('buildPrompt', () => {
 
       expect(result.system).toContain('"preliminary"');
       expect(result.system).toContain('"category"');
+      expect(result.system).toContain('"differentials"');
       expect(result.system).toContain('"clarifyingQuestions"');
       expect(result.system).toContain('"criticality"');
       expect(result.system).toContain('"expectedAnswerType"');
@@ -222,6 +223,15 @@ describe('buildPrompt', () => {
       expect(result.system).toContain('do NOT include any "stabilization" recommendation');
     });
 
+    it('documents the anti-anchoring differentials rule', () => {
+      const result = buildPrompt(makeInput());
+
+      expect(result.system).toContain('ANTI-ANCHORING DIFFERENTIALS RULE');
+      expect(result.system).toContain('include up to 3 items in "differentials"');
+      expect(result.system).toContain('Differentials are reminders, not blockers');
+      expect(result.system).toContain('return "differentials": []');
+    });
+
     it('includes a few-shot example for the flu-syndrome >48h case', () => {
       const result = buildPrompt(makeInput());
 
@@ -230,6 +240,7 @@ describe('buildPrompt', () => {
       expect(result.system).toContain('oseltamivir');
       expect(result.system).toContain('"criticality": "blocker"');
       expect(result.system).toContain('"category": "therapeutic"');
+      expect(result.system).toContain('"differentials": []');
     });
   });
 });

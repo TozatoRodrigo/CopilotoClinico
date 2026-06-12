@@ -33,6 +33,7 @@ function makeCopilotOutput(overrides: Partial<CopilotOutput> = {}): CopilotOutpu
     ],
     uncertainty: false,
     uncertaintyReason: null,
+    differentials: [],
     clarifyingQuestions: [],
     ...overrides,
   };

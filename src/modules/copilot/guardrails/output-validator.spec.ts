@@ -65,6 +65,37 @@ describe('validateOutput', () => {
     expect(result.output?.recommendations[0]?.category).toBe('stabilization');
   });
 
+  it('accepts up to 3 anti-anchoring differentials and defaults to empty otherwise', () => {
+    const withDifferentials = validateOutput(
+      makeValidOutput({
+        differentials: [
+          {
+            hypothesis: 'Dissecção de aorta abdominal',
+            whyConsider: 'Lombalgia aguda em idoso hipertenso pode mascarar etiologia vascular.',
+            whatDistinguishes: 'Dor súbita intensa, pulso assimétrico e angioTC.',
+          },
+          {
+            hypothesis: 'Abscesso epidural',
+            whyConsider: 'Dor lombar com sinais sistêmicos pode ter foco infeccioso profundo.',
+            whatDistinguishes: 'Febre, déficit neurológico e ressonância.',
+          },
+          {
+            hypothesis: 'Cauda equina',
+            whyConsider: 'Atraso no reconhecimento muda prognóstico neurológico.',
+            whatDistinguishes: 'Anestesia em sela, retenção urinária e déficit motor.',
+          },
+        ],
+      }),
+      VALID_CHUNK_IDS,
+    );
+
+    expect(withDifferentials.valid).toBe(true);
+    expect(withDifferentials.output?.differentials).toHaveLength(3);
+
+    const defaulted = validateOutput(makeValidOutput(), VALID_CHUNK_IDS);
+    expect(defaulted.output?.differentials).toEqual([]);
+  });
+
   it('rejects output without citations when chunk IDs are provided but none match', () => {
     const result = validateOutput(
       makeValidOutput({

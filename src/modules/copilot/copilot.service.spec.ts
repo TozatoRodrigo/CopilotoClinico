@@ -38,6 +38,7 @@ describe('CopilotService', () => {
       ],
       uncertainty: false,
       uncertaintyReason: null,
+      differentials: [],
     },
     citations: [
       {
@@ -167,7 +168,7 @@ describe('CopilotService', () => {
   describe('getLatestInteraction', () => {
     const mockInteraction = {
       id: 'interaction-001',
-      rawOutput: { recommendations: [], uncertainty: false, uncertaintyReason: null },
+      rawOutput: { recommendations: [], uncertainty: false, uncertaintyReason: null, differentials: [] },
       citations: [],
       uncertainty: false,
       uncertaintyReason: null,

@@ -36,6 +36,7 @@ export interface CopilotAnalysis {
   citations: Citation[];
   uncertainty: boolean;
   uncertaintyReason: string | null;
+  differentials: DifferentialHypothesis[];
   clarifyingQuestions: ClarifyingQuestion[];
 }
 
@@ -65,6 +66,12 @@ export interface ClarifyingQuestion {
   criticality: 'blocker' | 'important' | 'optional';
   expectedAnswerType: 'boolean' | 'choice' | 'number' | 'text';
   choices?: string[];
+}
+
+export interface DifferentialHypothesis {
+  hypothesis: string;
+  whyConsider: string;
+  whatDistinguishes: string;
 }
 
 export type ClarifyingAnswerValue = string | number | boolean;
