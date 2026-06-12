@@ -2,7 +2,11 @@ import { Injectable, Inject, NotFoundException, ForbiddenException } from '@nest
 import { PrismaService } from '../../config/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { InstitutionsService } from '../institutions/institutions.service';
-import { CreateEncounterInput, UpdateEncounterInput, ListEncountersQuery } from './schemas/encounter.schemas';
+import {
+  CreateEncounterInput,
+  UpdateEncounterInput,
+  ListEncountersQuery,
+} from './schemas/encounter.schemas';
 
 const ENCOUNTER_SELECT = {
   id: true,

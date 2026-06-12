@@ -81,8 +81,14 @@ export const listEncountersQuerySchema = z.object({
   status: z.enum(encounterStatusValues).optional(),
   vertical: z.enum(encounterVerticalValues).optional(),
   search: z.string().max(100).optional(),
-  dateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  dateTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  dateFrom: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  dateTo: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
 });
 
 export type ListEncountersQuery = z.infer<typeof listEncountersQuerySchema>;
