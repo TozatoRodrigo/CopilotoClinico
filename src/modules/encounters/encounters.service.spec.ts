@@ -205,7 +205,7 @@ describe('EncountersService', () => {
       prisma.encounter.findMany.mockResolvedValue(encounters);
       prisma.encounter.count.mockResolvedValue(2);
 
-      const result = await service.findByPhysician(physicianId, 1, 20);
+      const result = await service.findByPhysician(physicianId, { page: 1, limit: 20 });
 
       expect(prisma.encounter.findMany).toHaveBeenCalledWith({
         where: { physicianId },
@@ -234,12 +234,97 @@ describe('EncountersService', () => {
       prisma.encounter.findMany.mockResolvedValue([]);
       prisma.encounter.count.mockResolvedValue(25);
 
-      const result = await service.findByPhysician(physicianId, 2, 10);
+      const result = await service.findByPhysician(physicianId, { page: 2, limit: 10 });
 
       expect(prisma.encounter.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ skip: 10, take: 10 }),
       );
       expect(result.meta).toEqual({ page: 2, limit: 10, total: 25 });
+    });
+
+    it('filters by status', async () => {
+      prisma.encounter.findMany.mockResolvedValue([]);
+      prisma.encounter.count.mockResolvedValue(0);
+
+      await service.findByPhysician(physicianId, { page: 1, limit: 20, status: 'draft' });
+
+      expect(prisma.encounter.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ status: 'draft' }),
+        }),
+      );
+    });
+
+    it('filters by vertical', async () => {
+      prisma.encounter.findMany.mockResolvedValue([]);
+      prisma.encounter.count.mockResolvedValue(0);
+
+      await service.findByPhysician(physicianId, { page: 1, limit: 20, vertical: 'trauma' });
+
+      expect(prisma.encounter.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ vertical: 'trauma' }),
+        }),
+      );
+    });
+
+    it('filters by patientRef search (case-insensitive)', async () => {
+      prisma.encounter.findMany.mockResolvedValue([]);
+      prisma.encounter.count.mockResolvedValue(0);
+
+      await service.findByPhysician(physicianId, { page: 1, limit: 20, search: 'PAT' });
+
+      expect(prisma.encounter.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ patientRef: { contains: 'PAT', mode: 'insensitive' } }),
+        }),
+      );
+    });
+
+    it('filters by date range', async () => {
+      prisma.encounter.findMany.mockResolvedValue([]);
+      prisma.encounter.count.mockResolvedValue(0);
+
+      await service.findByPhysician(physicianId, {
+        page: 1,
+        limit: 20,
+        dateFrom: '2025-01-01',
+        dateTo: '2025-01-31',
+      });
+
+      expect(prisma.encounter.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            createdAt: {
+              gte: expect.any(Date),
+              lte: expect.any(Date),
+            },
+          }),
+        }),
+      );
+    });
+
+    it('applies combined filters', async () => {
+      prisma.encounter.findMany.mockResolvedValue([]);
+      prisma.encounter.count.mockResolvedValue(0);
+
+      await service.findByPhysician(physicianId, {
+        page: 1,
+        limit: 20,
+        status: 'draft',
+        vertical: 'trauma',
+        search: 'PAT',
+      });
+
+      const whereArg = prisma.encounter.findMany.mock.calls[0]![0]!.where;
+      expect(whereArg).toEqual(
+        expect.objectContaining({
+          physicianId,
+          status: 'draft',
+          vertical: 'trauma',
+          patientRef: { contains: 'PAT', mode: 'insensitive' },
+        }),
+      );
     });
   });
 

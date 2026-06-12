@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { encounterStatusValues } from '../../../shared/contracts/clinical';
+import { encounterStatusValues, encounterVerticalValues } from '../../../shared/contracts/clinical';
 
 /**
  * Validação LGPD-001: patientRef deve ser um identificador opaco.
@@ -74,3 +74,21 @@ export const updateEncounterSchema = z.object({
 });
 
 export type UpdateEncounterInput = z.infer<typeof updateEncounterSchema>;
+
+export const listEncountersQuerySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  limit: z.coerce.number().int().positive().max(100).default(20),
+  status: z.enum(encounterStatusValues).optional(),
+  vertical: z.enum(encounterVerticalValues).optional(),
+  search: z.string().max(100).optional(),
+  dateFrom: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  dateTo: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+});
+
+export type ListEncountersQuery = z.infer<typeof listEncountersQuerySchema>;

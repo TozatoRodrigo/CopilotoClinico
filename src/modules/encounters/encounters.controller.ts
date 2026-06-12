@@ -8,14 +8,21 @@ import {
   Query,
   UseGuards,
   Request,
-  ParseIntPipe,
   Inject,
 } from '@nestjs/common';
 import { EncountersService } from './encounters.service';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
-import { createEncounterSchema, updateEncounterSchema } from './schemas/encounter.schemas';
-import { CreateEncounterInput, UpdateEncounterInput } from './schemas/encounter.schemas';
+import {
+  createEncounterSchema,
+  updateEncounterSchema,
+  listEncountersQuerySchema,
+} from './schemas/encounter.schemas';
+import type {
+  CreateEncounterInput,
+  UpdateEncounterInput,
+  ListEncountersQuery,
+} from './schemas/encounter.schemas';
 
 @Controller('encounters')
 @UseGuards(JwtAuthGuard)
@@ -38,10 +45,9 @@ export class EncountersController {
   @Get()
   async findAll(
     @Request() req: { user: { physicianId: string } },
-    @Query('page', new ParseIntPipe({ optional: true })) page?: number,
-    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+    @Query(new ZodValidationPipe(listEncountersQuerySchema)) query: ListEncountersQuery,
   ) {
-    return this.encountersService.findByPhysician(req.user.physicianId, page ?? 1, limit ?? 20);
+    return this.encountersService.findByPhysician(req.user.physicianId, query);
   }
 
   @Get(':id')
