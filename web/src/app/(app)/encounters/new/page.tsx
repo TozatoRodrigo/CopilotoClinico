@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { apiClient, ApiError } from "@/lib/api-client";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
   Select,
   SelectContent,
@@ -16,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { getDemoCasePreset } from "@/lib/demo-case-presets";
 
 interface EncounterContext {
   hasCT: boolean;
@@ -56,6 +59,9 @@ const CONTEXT_CHIPS: ContextChip[] = [
 
 export default function NewEncounterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const demoCaseSlug = searchParams.get("demoCase");
+  const demoPreset = getDemoCasePreset(demoCaseSlug);
   const [patientRef, setPatientRef] = useState("");
   const [vertical, setVertical] = useState("trauma");
   const [context, setContext] = useState<EncounterContext>({
@@ -66,6 +72,14 @@ export default function NewEncounterPage() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!demoPreset) return;
+
+    setPatientRef(demoPreset.patientRef);
+    setVertical(demoPreset.vertical);
+    setContext(demoPreset.context);
+  }, [demoPreset]);
 
   function toggleContext(key: keyof EncounterContext) {
     setContext((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -85,7 +99,10 @@ export default function NewEncounterPage() {
         context,
       };
       const response = await apiClient.post<CreateEncounterResponse>("/encounters", body);
-      router.push(`/encounters/${response.id}/capture`);
+      const captureUrl = demoPreset
+        ? `/encounters/${response.id}/capture?demoCase=${demoPreset.slug}`
+        : `/encounters/${response.id}/capture`;
+      router.push(captureUrl);
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
@@ -107,6 +124,13 @@ export default function NewEncounterPage() {
       <Card>
         <CardContent className="pt-4">
           <form onSubmit={handleSubmit} className="space-y-6">
+            {demoPreset && (
+              <Alert>
+                <AlertTitle>{demoPreset.title}</AlertTitle>
+                <AlertDescription>{demoPreset.summary}</AlertDescription>
+              </Alert>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="patientRef">Referência do Paciente</Label>
               <Input

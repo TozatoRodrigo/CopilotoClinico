@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { DEMO_CASE_PRESETS } from "@/lib/demo-case-presets";
 
 interface Encounter {
   id: string;
@@ -148,6 +149,39 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      <SectionCard title="Casos Piloto da Rodada 2" badge={String(DEMO_CASE_PRESETS.length)}>
+        <div className="grid gap-4 md:grid-cols-3">
+          {DEMO_CASE_PRESETS.map((preset) => (
+            <Card key={preset.slug} className="border-border/60">
+              <CardContent className="flex h-full flex-col gap-4 pt-4">
+                <div className="space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-medium">{preset.title}</p>
+                    <Badge variant="outline">
+                      {VERTICAL_LABELS[preset.vertical] ?? preset.vertical}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{preset.summary}</p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {preset.context.isSus && <Badge variant="secondary">SUS</Badge>}
+                  {preset.context.hasLab && <Badge variant="secondary">Laboratório</Badge>}
+                  {preset.context.hasICU && <Badge variant="secondary">UTI</Badge>}
+                  {preset.context.hasCT && <Badge variant="secondary">TC</Badge>}
+                </div>
+
+                <Button asChild className="mt-auto w-full">
+                  <Link href={`/encounters/new?demoCase=${preset.slug}`}>
+                    Abrir Caso Demo
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </SectionCard>
 
       <SectionCard title="Atendimentos Recentes" badge={String(encounters.length)}>
         {loading && (
