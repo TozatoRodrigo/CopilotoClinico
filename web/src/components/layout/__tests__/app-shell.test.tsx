@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { AppShell } from "../app-shell";
 
 vi.mock("next/navigation", () => ({
@@ -12,11 +12,19 @@ vi.mock("next-themes", () => ({
 }));
 
 vi.mock("@/lib/auth-store", () => ({
-  useAuth: () => ({ physician: { name: "Dr. Test", email: "dr@test.com" }, logout: vi.fn() }),
+  useAuth: () => ({
+    physician: { name: "Dr. Test", email: "dr@test.com" },
+    logout: vi.fn(),
+    role: "physician",
+  }),
 }));
 
 vi.mock("@/lib/api-client", () => ({
   apiClient: { post: vi.fn() },
+}));
+
+vi.mock("@/components/providers/offline-provider", () => ({
+  useOnlineStatus: () => ({ isOnline: true }),
 }));
 
 describe("AppShell navigation", () => {
@@ -24,28 +32,32 @@ describe("AppShell navigation", () => {
     vi.clearAllMocks();
   });
 
-  it("renders only existing routes — no ghost links", () => {
+  it("renders the physician shell links and quick actions", () => {
     render(<AppShell>content</AppShell>);
 
-    // Existing routes must be present
     const navLinks = screen.getAllByRole("link");
     const hrefs = navLinks.map((l) => l.getAttribute("href")).filter(Boolean);
 
     expect(hrefs).toContain("/dashboard");
     expect(hrefs).toContain("/encounters");
-    expect(hrefs).toContain("/audit");
+    expect(hrefs).toContain("/guidelines");
+    expect(screen.getByText("Ações rápidas")).toBeInTheDocument();
   });
 
-  it("does not render unimplemented routes", () => {
+  it("removes audit from the physician shell and exposes profile/settings", async () => {
     render(<AppShell>content</AppShell>);
 
     const navLinks = screen.getAllByRole("link");
     const hrefs = navLinks.map((l) => l.getAttribute("href")).filter(Boolean);
 
-    expect(hrefs).not.toContain("/patients");
-    expect(hrefs).not.toContain("/protocols");
-    expect(hrefs).not.toContain("/shifts");
-    expect(hrefs).not.toContain("/profile");
-    expect(hrefs).not.toContain("/settings");
+    expect(hrefs).not.toContain("/audit");
+
+    fireEvent.pointerDown(screen.getByRole("button", { name: /abrir menu do usuário/i }), {
+      button: 0,
+      ctrlKey: false,
+    });
+
+    expect(await screen.findByText("Perfil")).toBeInTheDocument();
+    expect(await screen.findByText("Configurações")).toBeInTheDocument();
   });
 });
