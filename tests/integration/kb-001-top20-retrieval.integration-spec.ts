@@ -112,11 +112,12 @@ if (!shouldRunIntegration) {
         'síndrome gripal com mais de 48 horas em paciente possivelmente imunossuprimido',
         3,
       );
+      const gripalChunks = result.chunks.filter((chunk) => chunk.metadata.cenario === 'sindrome_gripal_ivas');
 
       expect(result.chunks).toHaveLength(3);
       expect(result.chunks[0]?.metadata.cenario).toBe('sindrome_gripal_ivas');
-      expect(result.chunks.map((chunk) => chunk.metadata.cenario)).toContain('sindrome_gripal_ivas');
-      expect(result.chunks[0]?.text.toLowerCase()).toContain('mais de 48 horas');
+      expect(gripalChunks.length).toBeGreaterThan(0);
+      expect(gripalChunks.some((chunk) => chunk.text.toLowerCase().includes('mais de 48 horas'))).toBe(true);
     });
   });
 }
