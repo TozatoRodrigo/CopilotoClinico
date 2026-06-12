@@ -316,7 +316,7 @@ describe('EncountersService', () => {
         search: 'PAT',
       });
 
-      const whereArg = prisma.encounter.findMany.mock.calls[0][0].where;
+      const whereArg = prisma.encounter.findMany.mock.calls[0]![0]!.where;
       expect(whereArg).toEqual(
         expect.objectContaining({
           physicianId,
