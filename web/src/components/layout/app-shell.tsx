@@ -1,40 +1,93 @@
 "use client";
 
+import Link from "next/link";
+import {
+  BookOpen,
+  CaretRight,
+  ClipboardText,
+  Gear,
+  House,
+  Keyboard,
+  MagnifyingGlass,
+  MoonStars,
+  Plus,
+  ShieldCheck,
+  Stethoscope,
+} from "@phosphor-icons/react";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
-import { useAuth } from "@/lib/auth-store";
+import { ConnectionStatus } from "@/components/domain/connection-status";
+import { useOnlineStatus } from "@/components/providers/offline-provider";
+import { useAuth, type AppRole } from "@/lib/auth-store";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 
-// TODO: adicionar /patients, /protocols, /shifts quando features existirem
-const navLinks = [
-  { href: "/dashboard", label: "Painel" },
-  { href: "/encounters", label: "Atendimentos" },
-  { href: "/audit", label: "Auditoria" },
+type NavLink = {
+  href: string;
+  label: string;
+  shortLabel?: string;
+  icon: typeof House;
+};
+
+const NAV_BY_ROLE: Record<AppRole, NavLink[]> = {
+  physician: [
+    { href: "/dashboard", label: "Painel", icon: House },
+    { href: "/encounters", label: "Atendimentos", shortLabel: "Casos", icon: ClipboardText },
+    { href: "/guidelines", label: "Diretrizes", shortLabel: "Guias", icon: BookOpen },
+  ],
+  compliance: [
+    { href: "/dashboard", label: "Painel", icon: House },
+    { href: "/audit", label: "Auditoria", shortLabel: "Audit", icon: ShieldCheck },
+    { href: "/guidelines", label: "Diretrizes", shortLabel: "Guias", icon: BookOpen },
+  ],
+  admin: [
+    { href: "/dashboard", label: "Painel", icon: House },
+    { href: "/audit", label: "Auditoria", shortLabel: "Audit", icon: ShieldCheck },
+    { href: "/guidelines", label: "Diretrizes", shortLabel: "Guias", icon: BookOpen },
+  ],
+};
+
+const MOBILE_TABS: NavLink[] = [
+  { href: "/dashboard", label: "Painel", icon: House },
+  { href: "/encounters/new", label: "Novo", icon: Plus },
+  { href: "/encounters", label: "Atendimentos", shortLabel: "Casos", icon: ClipboardText },
+];
+
+const COMMAND_LINKS = [
+  { href: "/dashboard", label: "Ir para painel", description: "Visão geral, métricas e retomada de fluxo." },
+  { href: "/encounters/new", label: "Novo atendimento", description: "Começar captura de um caso." },
+  { href: "/encounters", label: "Atendimentos", description: "Fila rápida de casos recentes." },
+  { href: "/guidelines", label: "Diretrizes", description: "Acesso rápido ao catálogo clínico." },
+  { href: "/settings", label: "Configurações", description: "Preferências, shell e conectividade." },
 ];
 
 function ThemeToggle() {
   const { setTheme, resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    // The toggle intentionally waits for client mount to avoid theme hydration mismatch.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
+  if (!resolvedTheme) {
     return (
       <Button variant="ghost" size="icon" className="h-9 w-9">
         <span className="h-4 w-4" />
@@ -49,27 +102,92 @@ function ThemeToggle() {
       className="h-9 w-9"
       onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
     >
-      {resolvedTheme === "dark" ? (
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="4" />
-          <path d="M12 2v2" /><path d="M12 20v2" />
-          <path d="m4.93 4.93 1.41 1.41" /><path d="m17.66 17.66 1.41 1.41" />
-          <path d="M2 12h2" /><path d="M20 12h2" />
-          <path d="m6.34 17.66-1.41 1.41" /><path d="m19.07 4.93-1.41 1.41" />
-        </svg>
-      ) : (
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
-        </svg>
-      )}
+      <MoonStars className="size-4" />
       <span className="sr-only">Alternar tema</span>
     </Button>
   );
 }
 
+function QuickActions() {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    function handleShortcut(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setOpen((current) => !current);
+      }
+    }
+
+    window.addEventListener("keydown", handleShortcut);
+    return () => window.removeEventListener("keydown", handleShortcut);
+  }, []);
+
+  return (
+    <>
+      <Button
+        variant="outline"
+        className="hidden min-w-44 justify-between md:flex"
+        onClick={() => setOpen(true)}
+      >
+        <span className="flex items-center gap-2">
+          <MagnifyingGlass className="size-4" />
+          Ações rápidas
+        </span>
+        <Badge variant="outline">⌘K</Badge>
+      </Button>
+
+      <Button variant="ghost" size="icon" className="md:hidden h-9 w-9" onClick={() => setOpen(true)}>
+        <Keyboard className="size-4" />
+        <span className="sr-only">Abrir ações rápidas</span>
+      </Button>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle variant="brand">Ações rápidas</DialogTitle>
+            <DialogDescription>
+              Scaffold inicial da paleta global. A busca funcional entra na F3.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="relative">
+              <MagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                autoFocus
+                readOnly
+                value="Busque atalhos, diretrizes e atendimentos em breve…"
+                className="pl-9 text-muted-foreground"
+                aria-label="Busca rápida em scaffold"
+              />
+            </div>
+            <div className="space-y-2">
+              {COMMAND_LINKS.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setOpen(false)}
+                  className="flex items-center justify-between rounded-xl border border-border/70 px-4 py-3 transition-colors hover:border-clinical-teal/40 hover:bg-muted/40"
+                >
+                  <div>
+                    <p className="font-medium">{link.label}</p>
+                    <p className="text-sm text-muted-foreground">{link.description}</p>
+                  </div>
+                  <CaretRight className="size-4 text-muted-foreground" />
+                </Link>
+              ))}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 function UserMenu() {
-  const { physician, logout } = useAuth();
+  const { physician, logout, role } = useAuth();
   const router = useRouter();
+  const { isOnline } = useOnlineStatus();
 
   async function handleLogout() {
     await apiClient.post("/auth/logout").catch(() => undefined);
@@ -83,22 +201,46 @@ function UserMenu() {
         <Button variant="ghost" className="relative h-9 w-9 rounded-full">
           <Avatar className="h-9 w-9">
             <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-              DR
+              {(physician?.name ?? "Dr").slice(0, 2).toUpperCase()}
             </AvatarFallback>
           </Avatar>
+          <span className="sr-only">Abrir menu do usuário</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel>Conta</DropdownMenuLabel>
         <div className="flex items-center justify-start gap-2 p-2">
           <div className="flex flex-col space-y-0.5">
             <p className="text-sm font-medium">{physician?.name ?? "Médico"}</p>
             <p className="text-xs text-muted-foreground">
               {physician?.email ?? "Sessão ativa"}
             </p>
+            <div className="mt-2 flex items-center gap-2">
+              <Badge variant="secondary">{role}</Badge>
+              <ConnectionStatus status={isOnline ? "online" : "offline"} className="border-none bg-transparent px-0 py-0" />
+            </div>
           </div>
         </div>
         <DropdownMenuSeparator />
-        {/* TODO: /profile e /settings quando implementados */}
+        <DropdownMenuGroup>
+          <DropdownMenuItem asChild>
+            <Link href="/profile">
+              <Stethoscope className="size-4" />
+              Perfil
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/settings">
+              <Gear className="size-4" />
+              Configurações
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => router.push("/guidelines")}>
+            <BookOpen className="size-4" />
+            Diretrizes
+            <DropdownMenuShortcut>⌘K</DropdownMenuShortcut>
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem className="text-destructive" onClick={() => void handleLogout()}>
           Sair
@@ -108,7 +250,7 @@ function UserMenu() {
   );
 }
 
-function MobileNav() {
+function MobileNav({ links }: { links: NavLink[] }) {
   const pathname = usePathname();
 
   return (
@@ -125,22 +267,27 @@ function MobileNav() {
       </SheetTrigger>
       <SheetContent side="left" className="w-72">
         <SheetTitle className="text-primary font-semibold">Copiloto Clínico</SheetTitle>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Navegação contextual do papel atual.
+        </p>
         <nav className="flex flex-col gap-1 mt-6">
-          {navLinks.map((link) => {
+          {links.map((link) => {
             const isActive = pathname === link.href || pathname.startsWith(link.href + "/");
+            const Icon = link.icon;
             return (
-              <a
+              <Link
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  "flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                   isActive
                     ? "bg-accent text-accent-foreground"
                     : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                 )}
               >
+                <Icon className="size-4" />
                 {link.label}
-              </a>
+              </Link>
             );
           })}
         </nav>
@@ -151,48 +298,73 @@ function MobileNav() {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { role } = useAuth();
+  const links = NAV_BY_ROLE[role];
 
   return (
     <div className="min-h-screen flex flex-col">
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-14 items-center px-4 md:px-6">
-          <MobileNav />
-          <a href="/dashboard" className="flex items-center gap-2 font-semibold md:mr-6">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
-              <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
-              <path d="m9 12 2 2 4-4" />
-            </svg>
+          <MobileNav links={links} />
+          <Link href="/dashboard" className="flex items-center gap-2 font-semibold md:mr-6">
+            <Stethoscope className="size-5 text-primary" />
             <span className="hidden md:inline">Copiloto Clínico</span>
-          </a>
+          </Link>
           <nav className="hidden md:flex items-center gap-1 text-sm">
-            {navLinks.map((link) => {
+            {links.map((link) => {
               const isActive = pathname === link.href || pathname.startsWith(link.href + "/");
+              const Icon = link.icon;
               return (
-                <a
+                <Link
                   key={link.href}
                   href={link.href}
                   className={cn(
-                    "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                    "inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
                     isActive
                       ? "bg-accent text-accent-foreground"
                       : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                   )}
                 >
+                  <Icon className="size-4" />
                   {link.label}
-                </a>
+                </Link>
               );
             })}
           </nav>
           <div className="flex-1" />
           <div className="flex items-center gap-2">
+            <QuickActions />
             <ThemeToggle />
             <UserMenu />
           </div>
         </div>
       </header>
-      <main className="flex-1 container px-4 py-6 md:px-6">
+      <main className="flex-1 container px-4 py-6 pb-24 md:px-6 md:pb-6">
         {children}
       </main>
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 px-4 py-2 backdrop-blur md:hidden">
+        <div className="mx-auto flex max-w-md items-center justify-between gap-2">
+          {MOBILE_TABS.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = pathname === tab.href || pathname.startsWith(tab.href + "/");
+            return (
+              <Link
+                key={tab.href}
+                href={tab.href}
+                className={cn(
+                  "flex min-w-0 flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 text-xs font-medium transition-colors",
+                  isActive
+                    ? "bg-accent text-accent-foreground"
+                    : "text-muted-foreground hover:bg-accent/40 hover:text-foreground",
+                )}
+              >
+                <Icon className="size-4" />
+                <span>{tab.shortLabel ?? tab.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 }
