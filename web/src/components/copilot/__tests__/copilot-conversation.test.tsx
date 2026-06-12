@@ -53,6 +53,7 @@ const analysisWithQuestions: CopilotAnalysis = {
   citations: [],
   uncertainty: false,
   uncertaintyReason: null,
+  differentials: [],
   clarifyingQuestions: [
     {
       id: "q-immunosuppression",
@@ -78,6 +79,7 @@ const analysisWithoutQuestions: CopilotAnalysis = {
   citations: [],
   uncertainty: false,
   uncertaintyReason: null,
+  differentials: [],
   clarifyingQuestions: [],
 };
 
@@ -97,6 +99,7 @@ const respondResponse: CopilotAnalyzeResponse = {
     citations: [],
     uncertainty: false,
     uncertaintyReason: null,
+    differentials: [],
     clarifyingQuestions: [],
   },
   citations: [],
@@ -194,6 +197,23 @@ describe("CopilotConversation", () => {
     const titles = screen.getAllByRole("heading", { level: 3 }).map((node) => node.textContent);
     expect(titles[0]).toContain("Iniciar oxigênio suplementar e monitorização");
     expect(screen.getByText("Agora")).toBeInTheDocument();
+  });
+
+  it('renders the "Já considerou?" section when anti-anchoring differentials are present', () => {
+    renderConversation({
+      ...analysisWithoutQuestions,
+      differentials: [
+        {
+          hypothesis: "Etiologia vascular",
+          whyConsider: "Lombalgia aguda em idoso hipertenso pode ser mímico perigoso.",
+          whatDistinguishes: "Dor abrupta, alteração de pulsos e angioTC.",
+        },
+      ],
+    });
+
+    expect(screen.getByText("Já considerou?")).toBeInTheDocument();
+    expect(screen.getByText("Etiologia vascular")).toBeInTheDocument();
+    expect(screen.getByText(/O que diferencia:/)).toBeInTheDocument();
   });
 
   it("answering a question with one tap enables Reanalisar, and submitting refines the result", async () => {

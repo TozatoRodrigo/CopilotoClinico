@@ -91,6 +91,29 @@ export function CopilotConversation({ encounterId, initial }: CopilotConversatio
         ))}
       </div>
 
+      {analysis.differentials.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-lg font-semibold">Já considerou?</h2>
+          <div className="space-y-3">
+            {analysis.differentials.map((differential, index) => (
+              <div
+                key={index}
+                className="rounded-xl border border-foreground/10 bg-muted/20 px-4 py-3"
+              >
+                <p className="font-medium text-foreground">{differential.hypothesis}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{differential.whyConsider}</p>
+                <p className="mt-2 text-sm">
+                  <span className="font-medium text-foreground">O que diferencia:</span>{" "}
+                  <span className="text-muted-foreground">
+                    {differential.whatDistinguishes}
+                  </span>
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {analysis.citations.length > 0 && (
         <>
           <Separator />

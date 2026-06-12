@@ -592,6 +592,56 @@ describe('OrchestratorService', () => {
       ]);
       expect(result.output.recommendations[0]?.action).toContain('oxigênio');
     });
+
+    it('DEC-006: preserves anti-anchoring differentials for dangerous mimics', async () => {
+      encountersMock.findById.mockResolvedValue({
+        id: encounterId,
+        physicianId,
+        patientRef: 'PRN-001',
+      });
+      retrievalMock.search.mockResolvedValue({
+        chunks: mockChunks,
+        totalRetrieved: 2,
+      });
+      aiGatewayMock.complete.mockResolvedValue({
+        content: JSON.stringify({
+          reasoning: 'Lombalgia aguda em idoso hipertenso exige lembrar mímicos vasculares.',
+          recommendations: [
+            {
+              action: 'Controlar dor e reavaliar sinais neurológicos',
+              rationale: 'Conduta inicial para lombalgia sem instabilidade.',
+              citationChunkId: 'chunk-1',
+              confidence: 0.8,
+              category: 'therapeutic',
+            },
+          ],
+          uncertainty: false,
+          uncertaintyReason: null,
+          differentials: [
+            {
+              hypothesis: 'Etiologia vascular abdominal',
+              whyConsider:
+                'Homem idoso hipertenso com lombalgia aguda pode estar ancorado em causa osteomuscular.',
+              whatDistinguishes: 'Dor abrupta intensa, alteração de pulsos e angioTC.',
+            },
+          ],
+        }),
+        model: 'claude-3-sonnet',
+        usage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 },
+        latencyMs: 1500,
+      });
+      prismaMock.aiInteraction.create.mockResolvedValue({ id: 'interaction-001' });
+      encountersMock.update.mockResolvedValue({});
+
+      const result = await service.analyze(physicianId, encounterId, validInput);
+
+      expect(result.output.differentials).toEqual([
+        expect.objectContaining({
+          hypothesis: 'Etiologia vascular abdominal',
+          whatDistinguishes: expect.stringContaining('angioTC'),
+        }),
+      ]);
+    });
   });
 
   describe('RT-001: analyzeStream', () => {
