@@ -1,56 +1,63 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { useDashboardStats, useEncounterList } from "@/lib/clinical-queries";
-import { useAuth } from "@/lib/auth-store";
-import { PageHeader } from "@/components/layout/page-header";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { EmptyState } from "@/components/domain/empty-state";
-import { DEMO_CASE_PRESETS } from "@/lib/demo-case-presets";
-import { cn } from "@/lib/utils";
+import Link from 'next/link';
+import { useDashboardStats, useEncounterList } from '@/lib/clinical-queries';
+import { useAuth } from '@/lib/auth-store';
+import { PageHeader } from '@/components/layout/page-header';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { EmptyState } from '@/components/domain/empty-state';
+import { DEMO_CASE_PRESETS } from '@/lib/demo-case-presets';
+import { cn } from '@/lib/utils';
+import {
+  CheckCircle,
+  Circle,
+  ShieldCheck,
+  UserCircle,
+  SealCheck,
+  FirstAid,
+} from '@phosphor-icons/react';
 
 const VERTICAL_LABELS: Record<string, string> = {
-  trauma: "Trauma",
-  cardiac: "Cardíaco",
-  pediatric: "Pediátrico",
-  neuro: "Neuro",
-  general: "Geral",
+  trauma: 'Trauma',
+  cardiac: 'Cardíaco',
+  pediatric: 'Pediátrico',
+  neuro: 'Neuro',
+  general: 'Geral',
 };
 
 const STATUS_LABELS: Record<string, string> = {
-  draft: "Rascunho",
-  in_review: "Em Revisão",
-  finalized: "Finalizado",
-  cancelled: "Cancelado",
+  draft: 'Rascunho',
+  in_review: 'Em Revisão',
+  finalized: 'Finalizado',
+  cancelled: 'Cancelado',
 };
 
-const STATUS_VARIANTS: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  draft: "outline",
-  in_review: "secondary",
-  finalized: "default",
-  cancelled: "destructive",
+const STATUS_VARIANTS: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+  draft: 'outline',
+  in_review: 'secondary',
+  finalized: 'default',
+  cancelled: 'destructive',
 };
 
 const STATUS_HREFS: Record<string, string> = {
-  draft: "/encounters?status=draft",
-  in_review: "/encounters?status=in_review",
-  finalized: "/encounters?status=finalized",
+  draft: '/encounters?status=draft',
+  in_review: '/encounters?status=in_review',
+  finalized: '/encounters?status=finalized',
 };
 
 export default function DashboardPage() {
   const { physician } = useAuth();
   const statsQuery = useDashboardStats();
   const recentQuery = useEncounterList({ limit: 5 });
-  const draftsQuery = useEncounterList({ status: "draft", limit: 3 });
-  const reviewsQuery = useEncounterList({ status: "in_review", limit: 3 });
+  const draftsQuery = useEncounterList({ status: 'draft', limit: 3 });
+  const reviewsQuery = useEncounterList({ status: 'in_review', limit: 3 });
 
   const loading = statsQuery.isPending || recentQuery.isPending;
-  const error =
-    statsQuery.error?.message ?? recentQuery.error?.message ?? null;
+  const error = statsQuery.error?.message ?? recentQuery.error?.message ?? null;
 
   const recentEncounters = recentQuery.data?.data ?? [];
   const drafts = draftsQuery.data?.data ?? [];
@@ -65,24 +72,126 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <PageHeader
         title="Painel"
-        description={`Bem-vindo de volta, Dr. ${physician?.name?.split(" ")[0] ?? "Médico"}`}
+        description={`Bem-vindo de volta, Dr. ${physician?.name?.split(' ')[0] ?? 'Médico'}`}
       >
         <Button asChild>
           <Link href="/encounters/new">Novo Atendimento</Link>
         </Button>
       </PageHeader>
 
-      {physician && !physician.crmVerified && (
-        <Alert className="border-orange-500/50 bg-orange-50 text-orange-800 dark:bg-orange-900/20 dark:text-orange-200">
-          <AlertTitle className="font-semibold">CRM não verificado</AlertTitle>
-          <AlertDescription>
-            Seu CRM ({physician.crmUf} {physician.crmNumber}) ainda não foi validado contra o
-            Conselho Federal de Medicina. Documentos gerados serão marcados como{" "}
-            <strong>&quot;CRM pendente de verificação&quot;</strong>. A verificação automática estará
-            disponível em breve.
-          </AlertDescription>
-        </Alert>
-      )}
+      {physician &&
+        (() => {
+          const items = [
+            {
+              id: 'mfa',
+              label: 'Autenticação de dois fatores',
+              description: 'Proteja sua conta com MFA',
+              done: true,
+              href: '/settings',
+            },
+            {
+              id: 'profile',
+              label: 'Completar perfil',
+              description: 'Adicione seu nome completo',
+              done: !!physician.name,
+              href: '/settings',
+            },
+            {
+              id: 'crm',
+              label: 'Verificar CRM',
+              description: `${physician.crmUf} ${physician.crmNumber}`,
+              done: physician.crmVerified,
+              href: '/verificacao-crm',
+            },
+            {
+              id: 'first',
+              label: 'Primeiro atendimento',
+              description: 'Crie seu primeiro atendimento',
+              done:
+                (statsQuery.data?.todayCount ?? 0) > 0 ||
+                (statsQuery.data?.confirmedDocuments ?? 0) > 0,
+              href: '/encounters/new',
+            },
+          ];
+          const completedCount = items.filter((i) => i.done).length;
+          const allDone = completedCount === items.length;
+
+          if (allDone) return null;
+
+          return (
+            <div className="rounded-xl border border-clinical-teal/20 bg-clinical-teal-tint p-5">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-semibold text-clinical-ink">Checklist de ativação</h2>
+                  <p className="text-xs text-muted-foreground">
+                    {completedCount} de {items.length} concluídos
+                  </p>
+                </div>
+                <div className="flex items-center gap-1">
+                  {items.map((item) => (
+                    <div
+                      key={item.id}
+                      className={cn(
+                        'size-2 rounded-full',
+                        item.done ? 'bg-clinical-teal' : 'bg-clinical-line',
+                      )}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
+                {items.map((item) => {
+                  const Icon = item.done ? CheckCircle : Circle;
+                  const iconMap: Record<string, typeof ShieldCheck> = {
+                    mfa: ShieldCheck,
+                    profile: UserCircle,
+                    crm: SealCheck,
+                    first: FirstAid,
+                  };
+                  const ItemIcon = item.done ? CheckCircle : (iconMap[item.id] ?? Circle);
+                  return (
+                    <Link
+                      key={item.id}
+                      href={item.href}
+                      className={cn(
+                        'flex items-center gap-3 rounded-lg border px-4 py-3 transition-colors',
+                        item.done
+                          ? 'border-clinical-green/20 bg-white/60'
+                          : 'border-clinical-line bg-white hover:bg-muted/50',
+                      )}
+                    >
+                      <ItemIcon
+                        className={cn(
+                          'size-5 shrink-0',
+                          item.done ? 'text-clinical-green' : 'text-muted-foreground',
+                        )}
+                        weight={item.done ? 'fill' : 'regular'}
+                      />
+                      <div className="flex-1">
+                        <p
+                          className={cn(
+                            'text-sm font-medium',
+                            item.done ? 'text-muted-foreground line-through' : 'text-clinical-ink',
+                          )}
+                        >
+                          {item.label}
+                        </p>
+                        {!item.done && (
+                          <p className="text-xs text-muted-foreground">{item.description}</p>
+                        )}
+                      </div>
+                      {!item.done && (
+                        <Badge variant="outline" className="text-xs">
+                          Pendente
+                        </Badge>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
 
       {loading ? (
         <MetricsSkeleton />
@@ -144,17 +253,17 @@ export default function DashboardPage() {
               >
                 <div className="flex items-center gap-3">
                   <span className="font-medium">{enc.patientRef}</span>
-                  <Badge variant={STATUS_VARIANTS[enc.status] ?? "outline"} className="font-mono text-xs">
+                  <Badge
+                    variant={STATUS_VARIANTS[enc.status] ?? 'outline'}
+                    className="font-mono text-xs"
+                  >
                     {STATUS_LABELS[enc.status] ?? enc.status}
                   </Badge>
                 </div>
-                <time
-                  dateTime={enc.updatedAt}
-                  className="font-mono text-xs text-muted-foreground"
-                >
-                  {new Date(enc.updatedAt).toLocaleString("pt-BR", {
-                    dateStyle: "short",
-                    timeStyle: "short",
+                <time dateTime={enc.updatedAt} className="font-mono text-xs text-muted-foreground">
+                  {new Date(enc.updatedAt).toLocaleString('pt-BR', {
+                    dateStyle: 'short',
+                    timeStyle: 'short',
                   })}
                 </time>
               </Link>
@@ -166,9 +275,7 @@ export default function DashboardPage() {
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Casos Piloto</h2>
-          <span className="text-sm text-muted-foreground">
-            {DEMO_CASE_PRESETS.length} casos
-          </span>
+          <span className="text-sm text-muted-foreground">{DEMO_CASE_PRESETS.length} casos</span>
         </div>
         <div className="grid gap-4 md:grid-cols-3">
           {DEMO_CASE_PRESETS.map((preset) => (
@@ -192,9 +299,7 @@ export default function DashboardPage() {
                 </div>
 
                 <Button asChild className="mt-auto w-full">
-                  <Link href={`/encounters/new?demoCase=${preset.slug}`}>
-                    Abrir Caso Demo
-                  </Link>
+                  <Link href={`/encounters/new?demoCase=${preset.slug}`}>Abrir Caso Demo</Link>
                 </Button>
               </CardContent>
             </Card>
@@ -252,7 +357,7 @@ export default function DashboardPage() {
                     tabIndex={0}
                     role="link"
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
+                      if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
                         window.location.href = `/encounters/${enc.id}`;
                       }
@@ -264,15 +369,18 @@ export default function DashboardPage() {
                     </td>
                     <td className="px-4 py-2.5">
                       <Badge
-                        variant={STATUS_VARIANTS[enc.status] ?? "outline"}
+                        variant={STATUS_VARIANTS[enc.status] ?? 'outline'}
                         className="font-mono text-xs"
                       >
                         {STATUS_LABELS[enc.status] ?? enc.status}
                       </Badge>
                     </td>
                     <td className="px-4 py-2.5">
-                      <time dateTime={enc.createdAt} className="font-mono text-xs text-muted-foreground">
-                        {new Date(enc.createdAt).toLocaleDateString("pt-BR")}
+                      <time
+                        dateTime={enc.createdAt}
+                        className="font-mono text-xs text-muted-foreground"
+                      >
+                        {new Date(enc.createdAt).toLocaleDateString('pt-BR')}
                       </time>
                     </td>
                   </tr>
@@ -286,20 +394,12 @@ export default function DashboardPage() {
   );
 }
 
-function MetricLink({
-  href,
-  label,
-  value,
-}: {
-  href: string;
-  label: string;
-  value: number;
-}) {
+function MetricLink({ href, label, value }: { href: string; label: string; value: number }) {
   return (
     <Link
       href={href}
       className={cn(
-        "flex flex-col items-center gap-1 px-4 py-4 text-center transition-colors hover:bg-muted/50",
+        'flex flex-col items-center gap-1 px-4 py-4 text-center transition-colors hover:bg-muted/50',
       )}
     >
       <span className="font-mono text-3xl font-bold">{value}</span>
