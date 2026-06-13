@@ -26,4 +26,6 @@ export type {
   Physician,
   PhysicianRole,
   RecommendationCategory,
+  RedFlag,
+  RedFlagSeverity,
 } from "@contracts/clinical";

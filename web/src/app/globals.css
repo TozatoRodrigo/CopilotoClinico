@@ -70,6 +70,8 @@
   --color-clinical-green-bg: var(--green-bg);
   --color-clinical-green-foreground: var(--green-foreground);
   --color-clinical-error: var(--error);
+  --color-clinical-error-bg: var(--error-bg);
+  --color-clinical-error-foreground: var(--error-foreground);
 
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
@@ -125,6 +127,10 @@
   --green-foreground: oklch(0.3925 0.0896 152.54);
   --error: #b3382e;
   --error: oklch(0.5203 0.1609 28.52);
+  --error-bg: #fceeed;
+  --error-bg: oklch(0.9636 0.0203 28.52);
+  --error-foreground: #7c2d29;
+  --error-foreground: oklch(0.4084 0.0885 28.52);
 
   /* Mapeamento semântico (shadcn) — sempre derivado da paleta acima */
   --background: var(--paper);
@@ -184,6 +190,8 @@
   --green-bg: oklch(0.26 0.05 156.44);
   --green-foreground: oklch(0.9 0.04 160.62);
   --error: oklch(0.68 0.16 28.52);
+  --error-bg: oklch(0.28 0.06 28.52);
+  --error-foreground: oklch(0.92 0.04 28.52);
 }
 
 @layer base {

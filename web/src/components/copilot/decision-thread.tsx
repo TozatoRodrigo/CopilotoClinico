@@ -7,8 +7,8 @@ import { BlockerQuestionCard } from '@/components/domain/blocker-question-card';
 import { RecommendationCard } from '@/components/copilot/recommendation-card';
 import { UncertaintyBanner } from '@/components/domain/uncertainty-banner';
 import { useCopilotConversation, type StoredCopilotResult } from '@/hooks/use-copilot-conversation';
-import type { ClarifyingAnswerValue, ClarifyingQuestion, CopilotRecommendation } from '@/lib/types';
-import { Circle, CheckCircle, ArrowClockwise, WifiSlash } from '@phosphor-icons/react';
+import type { ClarifyingAnswerValue, ClarifyingQuestion, CopilotRecommendation, RedFlag } from '@/lib/types';
+import { Circle, CheckCircle, ArrowClockwise, WifiSlash, Warning, Siren } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 
 interface DecisionThreadProps {
@@ -66,6 +66,12 @@ export function DecisionThread({ encounterId, initial }: DecisionThreadProps) {
     <div className="space-y-0">
       <div className="relative pl-8">
         <div className="absolute top-0 bottom-0 left-[11px] w-px bg-clinical-line" />
+
+        {analysis.redFlags?.length > 0 && (
+          <ThreadNode icon="pending" accent="amber">
+            <RedFlagsBlock redFlags={analysis.redFlags} />
+          </ThreadNode>
+        )}
 
         {analysis.uncertainty && (
           <ThreadNode>
@@ -348,6 +354,67 @@ function AnswerInput({
         />
       );
   }
+}
+
+const RED_FLAG_SEVERITY_CONFIG: Record<RedFlag['severity'], { label: string; className: string; icon: typeof Siren }> = {
+  critical: {
+    label: 'Crítico',
+    className: 'border-clinical-error/40 bg-clinical-error-bg text-clinical-error-foreground',
+    icon: Siren,
+  },
+  high: {
+    label: 'Alto',
+    className: 'border-clinical-amber/40 bg-clinical-amber-bg text-clinical-amber-foreground',
+    icon: Warning,
+  },
+  moderate: {
+    label: 'Moderado',
+    className: 'border-clinical-line bg-white/60 text-foreground',
+    icon: Warning,
+  },
+};
+
+const SEVERITY_ORDER: Record<RedFlag['severity'], number> = {
+  critical: 0,
+  high: 1,
+  moderate: 2,
+};
+
+function RedFlagsBlock({ redFlags }: { redFlags: RedFlag[] }) {
+  const sorted = [...redFlags].sort(
+    (a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity],
+  );
+
+  return (
+    <div className="space-y-2">
+      <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-clinical-error">
+        Sinais de alarme
+      </h2>
+      {sorted.map((rf, i) => {
+        const config = RED_FLAG_SEVERITY_CONFIG[rf.severity];
+        const Icon = config.icon;
+        return (
+          <div
+            key={i}
+            className={cn('rounded-lg border px-4 py-3', config.className)}
+          >
+            <div className="flex items-start gap-2">
+              <Icon weight="fill" className="mt-0.5 size-4 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <p className="font-medium">{rf.finding}</p>
+                  <Badge variant="outline" className="shrink-0 text-[10px] uppercase">
+                    {config.label}
+                  </Badge>
+                </div>
+                <p className="mt-1 text-sm opacity-90">{rf.action}</p>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 function CitationsBlock({
