@@ -5,6 +5,7 @@ declare global {
         sub: string;
         email: string;
         physicianId: string;
+        role: string;
       };
     }
   }

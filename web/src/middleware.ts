@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 const AUTH_ROUTES = ["/login", "/register"];
 
+const STAFF_ONLY_ROUTES = ["/audit"];
+
 function isProtectedPath(pathname: string): boolean {
   return (
     !AUTH_ROUTES.some((r) => pathname === r || pathname.startsWith(r + "/")) &&
@@ -9,6 +11,17 @@ function isProtectedPath(pathname: string): boolean {
     !pathname.startsWith("/api") &&
     !pathname.includes(".")
   );
+}
+
+function getRoleFromCookie(request: NextRequest): string | undefined {
+  const physicianRaw = request.cookies.get("auth_physician")?.value;
+  if (!physicianRaw) return undefined;
+  try {
+    const parsed = JSON.parse(physicianRaw) as { role?: string };
+    return parsed.role;
+  } catch {
+    return undefined;
+  }
 }
 
 export function middleware(request: NextRequest) {
@@ -24,6 +37,13 @@ export function middleware(request: NextRequest) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("from", pathname);
     return NextResponse.redirect(loginUrl);
+  }
+
+  if (isAuthenticated && STAFF_ONLY_ROUTES.some((r) => pathname === r || pathname.startsWith(r + "/"))) {
+    const role = getRoleFromCookie(request);
+    if (role && role === "physician") {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
   }
 
   return NextResponse.next();
