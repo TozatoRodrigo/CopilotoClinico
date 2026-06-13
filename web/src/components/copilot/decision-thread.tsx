@@ -359,7 +359,7 @@ function AnswerInput({
 const RED_FLAG_SEVERITY_CONFIG: Record<RedFlag['severity'], { label: string; className: string; icon: typeof Siren }> = {
   critical: {
     label: 'Crítico',
-    className: 'border-red-500/40 bg-red-50 text-red-900',
+    className: 'border-clinical-error/40 bg-clinical-error-bg text-clinical-error-foreground',
     icon: Siren,
   },
   high: {
@@ -387,7 +387,7 @@ function RedFlagsBlock({ redFlags }: { redFlags: RedFlag[] }) {
 
   return (
     <div className="space-y-2">
-      <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-red-600">
+      <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-clinical-error">
         Sinais de alarme
       </h2>
       {sorted.map((rf, i) => {
