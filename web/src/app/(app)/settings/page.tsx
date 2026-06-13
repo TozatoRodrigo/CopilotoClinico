@@ -8,7 +8,6 @@ import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth-store';
 import { ProfileTab } from './_tabs/profile-tab';
-import { PrivacyTab } from './_tabs/privacy-tab';
 import {
   UserCircle,
   ShieldCheck,
