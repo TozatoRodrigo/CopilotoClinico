@@ -1,114 +1,176 @@
-import { Button } from "@/components/ui/button";
+'use client';
+
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
+import {
+  ShieldCheck,
+  Microphone,
+  Brain,
+  FileText,
+  Fingerprint,
+  Scales,
+} from '@phosphor-icons/react';
+
+const STEPS = [
+  {
+    icon: Microphone,
+    title: 'Capture o caso por voz',
+    description:
+      'Fale ou digite o quadro clínico. O copiloto identifica recursos disponíveis (TC, laboratório, UTI) e red flags automaticamente.',
+    direction: 'left' as const,
+  },
+  {
+    icon: Brain,
+    title: 'Receba recomendações fundamentadas',
+    description:
+      'Diretrizes clínicas (ACLS, ATLS, protocolos institucionais) com citação de fonte e nível de evidência. Perguntas bloqueadoras antes da conduta.',
+    direction: 'right' as const,
+  },
+  {
+    icon: FileText,
+    title: 'Gere documentos e confirme',
+    description:
+      'SOAP, SBAR, prescrição, alta ou atestado a partir da análise. Você revisa, edita e assina digitalmente com trilha de auditoria.',
+    direction: 'left' as const,
+  },
+];
+
+const PROOFS = [
+  {
+    icon: ShieldCheck,
+    label: 'LGPD compliant',
+    detail: 'Consentimento explícito, dados criptografados, direito ao esquecimento',
+  },
+  {
+    icon: Fingerprint,
+    label: 'MFA obrigatório',
+    detail: 'TOTP + backup codes — acesso protegido por padrão médico-legal',
+  },
+  {
+    icon: Scales,
+    label: 'CFM responsável',
+    detail: 'Copiloto, não substituto — você mantém decisão clínica e autoria do documento',
+  },
+];
 
 export default function HomePage() {
   return (
-    <div className="flex flex-col flex-1">
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-14 items-center px-4 md:px-6">
-          <div className="flex items-center gap-2 font-semibold">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
-              <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
-              <path d="m9 12 2 2 4-4" />
-            </svg>
+    <div className="flex min-h-screen flex-col bg-clinical-paper">
+      <header className="sticky top-0 z-50 border-b border-clinical-line bg-clinical-paper/95 backdrop-blur">
+        <div className="mx-auto flex h-14 max-w-5xl items-center px-4 md:px-6">
+          <span className="font-display text-lg tracking-tight text-clinical-ink">
             Copiloto Clínico
-          </div>
+          </span>
           <div className="flex-1" />
           <Button variant="ghost" size="sm" asChild>
-            <a href="/login">Entrar</a>
+            <Link href="/login">Entrar</Link>
           </Button>
         </div>
       </header>
 
       <main className="flex-1">
-        <section className="relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
-          <div className="container relative flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center px-4 text-center md:px-6">
-            <div className="mx-auto max-w-3xl space-y-6">
-              <div className="inline-flex items-center rounded-full border px-4 py-1.5 text-sm font-medium text-muted-foreground">
-                <span className="mr-2 inline-block h-2 w-2 rounded-full bg-primary animate-pulse" />
-                Assistência inteligente em tempo real
-              </div>
-
-              <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl">
-                Copiloto Clínico{" "}
-                <span className="text-primary">de Plantão</span>
+        <section className="mx-auto max-w-5xl px-4 pt-20 pb-24 md:px-6">
+          <div className="grid items-center gap-12 md:grid-cols-2 md:gap-16">
+            <div className="space-y-6">
+              <h1 className="font-display text-4xl leading-[1.1] tracking-tight text-clinical-ink md:text-5xl">
+                Seu copiloto <span className="text-clinical-teal">no plantão</span>
               </h1>
-
-              <p className="mx-auto max-w-2xl text-lg text-muted-foreground md:text-xl">
-                Assistência inteligente para médicos de emergência.
-                Protocolos clínicos, apoio decisional e gestão de plantões
-                em uma única plataforma.
+              <p className="max-w-md text-lg leading-relaxed text-muted-foreground">
+                Recomendações clínicas fundamentadas em diretrizes, no momento da decisão. Voz →
+                análise → documento — você confirma, o sistema registra.
               </p>
+              <div>
+                <Button size="lg" className="h-12 px-8 text-base" asChild>
+                  <Link href="/register">Criar conta com CRM</Link>
+                </Button>
+              </div>
+              <p className="font-mono text-xs text-muted-foreground">
+                Copiloto, não substituto — você mantém a decisão clínica.
+              </p>
+            </div>
 
-              <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-                <Button size="lg" className="text-base px-8" asChild>
-                  <a href="/login">Entrar</a>
-                </Button>
-                <Button size="lg" variant="outline" className="text-base px-8" asChild>
-                  <a href="#features">Saiba mais</a>
-                </Button>
+            <div className="relative">
+              <div className="rounded-xl border border-clinical-line bg-white p-6 shadow-2xs">
+                <div className="mb-4 flex items-center gap-2">
+                  <div className="size-2.5 rounded-full bg-clinical-teal" />
+                  <span className="font-mono text-xs text-muted-foreground">Captura</span>
+                </div>
+                <div className="space-y-2">
+                  <div className="rounded-lg bg-clinical-teal-tint px-3 py-2">
+                    <p className="text-sm text-clinical-teal-deep">
+                      "Paciente masculino, 62 anos, dor torácica em aperto há 40min, irrigação SUS,
+                      TC disponível…"
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="size-2 rounded-full bg-clinical-green" />
+                    <span>2 recomendações · 1 pergunta bloqueadora</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </section>
 
-        <section id="features" className="border-t bg-muted/30 py-20">
-          <div className="container px-4 md:px-6">
-            <div className="mx-auto max-w-5xl">
-              <div className="mb-12 text-center">
-                <h2 className="text-3xl font-bold tracking-tight">
-                  Construído para o ambiente de emergência
-                </h2>
-                <p className="mt-3 text-muted-foreground">
-                  Ferramentas projetadas para suportar decisões rápidas e precisas
-                </p>
-              </div>
-              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {[
-                  {
-                    title: "Protocolos Clínicos",
-                    description: "Acesso rápido a protocolos baseados em evidências para emergências.",
-                  },
-                  {
-                    title: "Gestão de Pacientes",
-                    description: "Registro e acompanhamento integrado de pacientes durante o plantão.",
-                  },
-                  {
-                    title: "Turno Inteligente",
-                    description: "Controle de plantões com handoff estruturado e seguro.",
-                  },
-                  {
-                    title: "Diagnóstico Assistido",
-                    description: "Sugestões diagnósticas baseadas em sintomas e sinais vitais.",
-                  },
-                  {
-                    title: "Prescrição Segura",
-                    description: "Verificação automática de interações e dosagens medicamentosas.",
-                  },
-                  {
-                    title: "Relatórios",
-                    description: "Relatórios detalhados de cada plantão para auditoria e melhoria.",
-                  },
-                ].map((feature) => (
+        <section className="border-t border-clinical-line bg-white py-20">
+          <div className="mx-auto max-w-5xl px-4 md:px-6">
+            <h2 className="mb-12 font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Como funciona
+            </h2>
+            <div className="space-y-16">
+              {STEPS.map((step) => (
+                <div
+                  key={step.title}
+                  className={`grid items-center gap-8 md:grid-cols-2 ${
+                    step.direction === 'right' ? 'md:[direction:rtl]' : ''
+                  }`}
+                >
                   <div
-                    key={feature.title}
-                    className="rounded-xl border bg-card p-6 shadow-sm transition-shadow hover:shadow-md"
+                    className={`space-y-3 ${
+                      step.direction === 'right' ? 'md:[direction:ltr]' : ''
+                    }`}
                   >
-                    <h3 className="mb-2 font-semibold">{feature.title}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {feature.description}
-                    </p>
+                    <step.icon className="size-8 text-clinical-teal" />
+                    <h3 className="font-display text-xl text-clinical-ink">{step.title}</h3>
+                    <p className="leading-relaxed text-muted-foreground">{step.description}</p>
                   </div>
-                ))}
-              </div>
+                  <div
+                    className={`flex items-center justify-center ${
+                      step.direction === 'right' ? 'md:[direction:ltr]' : ''
+                    }`}
+                  >
+                    <div className="size-40 rounded-2xl border border-clinical-line bg-clinical-paper" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="border-t border-clinical-line py-16">
+          <div className="mx-auto max-w-3xl px-4 md:px-6">
+            <h2 className="mb-8 text-center font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Segurança & conformidade
+            </h2>
+            <div className="grid gap-6 sm:grid-cols-3">
+              {PROOFS.map((proof) => (
+                <div
+                  key={proof.label}
+                  className="space-y-2 rounded-lg border border-clinical-line bg-white px-4 py-5 text-center"
+                >
+                  <proof.icon className="mx-auto size-7 text-clinical-teal" />
+                  <p className="font-medium text-foreground">{proof.label}</p>
+                  <p className="text-sm text-muted-foreground">{proof.detail}</p>
+                </div>
+              ))}
             </div>
           </div>
         </section>
       </main>
 
-      <footer className="border-t py-6">
-        <div className="container flex flex-col items-center gap-2 px-4 text-center md:px-6">
-          <p className="text-sm text-muted-foreground">
+      <footer className="border-t border-clinical-line py-6">
+        <div className="mx-auto max-w-5xl px-4 text-center md:px-6">
+          <p className="font-mono text-xs text-muted-foreground">
             &copy; {new Date().getFullYear()} Copiloto Clínico de Plantão
           </p>
         </div>
