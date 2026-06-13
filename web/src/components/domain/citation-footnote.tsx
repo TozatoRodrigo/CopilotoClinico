@@ -1,6 +1,8 @@
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Image, Table } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import type { EvidenceFigure, EvidenceTable } from "@/lib/types";
 
 export interface CitationFootnoteProps {
   source: string;
@@ -9,6 +11,8 @@ export interface CitationFootnoteProps {
   evidenceLevel?: string;
   href?: string;
   origin?: "institutional" | "public";
+  evidenceFigure?: EvidenceFigure | null;
+  evidenceTable?: EvidenceTable | null;
   className?: string;
 }
 
@@ -19,6 +23,8 @@ export function CitationFootnote({
   evidenceLevel,
   href,
   origin,
+  evidenceFigure,
+  evidenceTable,
   className,
 }: CitationFootnoteProps) {
   return (
@@ -32,6 +38,61 @@ export function CitationFootnote({
         {origin === "public" && <Badge variant="outline">Diretriz pública</Badge>}
       </div>
       {text && <p className="line-clamp-2 text-muted-foreground">{text}</p>}
+      {evidenceFigure && (
+        <figure className="space-y-1">
+          <a href={evidenceFigure.url} target="_blank" rel="noreferrer">
+            <img
+              src={evidenceFigure.url}
+              alt={evidenceFigure.caption ?? `Figura de evidência — ${source}`}
+              className="w-full rounded-lg border border-clinical-line"
+              loading="lazy"
+            />
+          </a>
+          {evidenceFigure.caption && (
+            <figcaption className="flex items-start gap-1 text-xs text-muted-foreground">
+              <Image className="mt-0.5 size-3 shrink-0" />
+              <span>{evidenceFigure.caption}</span>
+            </figcaption>
+          )}
+        </figure>
+      )}
+      {evidenceTable && (
+        <div className="space-y-1">
+          {evidenceTable.caption && (
+            <p className="flex items-start gap-1 text-xs text-muted-foreground">
+              <Table className="mt-0.5 size-3 shrink-0" />
+              <span>{evidenceTable.caption}</span>
+            </p>
+          )}
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-xs">
+              <thead>
+                <tr>
+                  {evidenceTable.columns.map((col, i) => (
+                    <th
+                      key={i}
+                      className="border border-clinical-line bg-muted/30 px-2 py-1 text-left font-medium text-foreground"
+                    >
+                      {col}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {evidenceTable.rows.map((row, ri) => (
+                  <tr key={ri}>
+                    {row.map((cell, ci) => (
+                      <td key={ci} className="border border-clinical-line px-2 py-1 text-muted-foreground">
+                        {cell}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
       {href && (
         <a
           href={href}

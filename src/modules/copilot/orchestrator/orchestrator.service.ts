@@ -97,8 +97,40 @@ function sortRecommendations<T extends CopilotOutput['recommendations'][number]>
  */
 function redactPatientRef(text: string, patientRef: string): string {
   if (!patientRef) return text;
-  // Substituir todas as ocorrências, case-sensitive
   return text.split(patientRef).join('[PATIENT_REF_REDACTED]');
+}
+
+interface ChunkMetadata {
+  metadata: Record<string, unknown>;
+}
+
+function extractEvidenceFromChunk(chunk: ChunkMetadata | undefined): {
+  evidenceFigure?: { url: string; caption?: string } | null;
+  evidenceTable?: { caption?: string; columns: string[]; rows: string[][] } | null;
+} {
+  if (!chunk?.metadata) return {};
+  const result: {
+    evidenceFigure?: { url: string; caption?: string } | null;
+    evidenceTable?: { caption?: string; columns: string[]; rows: string[][] } | null;
+  } = {};
+
+  const figure = chunk.metadata['evidenceFigure'] as { url?: string; caption?: string } | undefined;
+  if (figure?.url) {
+    result.evidenceFigure = { url: figure.url, caption: figure.caption };
+  }
+
+  const table = chunk.metadata['evidenceTable'] as
+    | { caption?: string; columns?: string[]; rows?: string[][] }
+    | undefined;
+  if (table?.columns && Array.isArray(table.columns) && table.rows && Array.isArray(table.rows)) {
+    result.evidenceTable = {
+      caption: table.caption,
+      columns: table.columns,
+      rows: table.rows,
+    };
+  }
+
+  return result;
 }
 
 @Injectable()
@@ -259,6 +291,7 @@ export class OrchestratorService {
         text: chunk?.text ?? '',
         institutionId: chunk?.institutionId ?? null,
         origin: (chunk?.institutionId ? 'institutional' : 'public') as 'institutional' | 'public',
+        ...extractEvidenceFromChunk(chunk),
       };
     });
 
@@ -454,6 +487,7 @@ export class OrchestratorService {
         text: chunk?.text ?? '',
         institutionId: chunk?.institutionId ?? null,
         origin: (chunk?.institutionId ? 'institutional' : 'public') as 'institutional' | 'public',
+        ...extractEvidenceFromChunk(chunk),
       };
     });
 
@@ -695,6 +729,7 @@ export class OrchestratorService {
         text: chunk?.text ?? '',
         institutionId: chunk?.institutionId ?? null,
         origin: (chunk?.institutionId ? 'institutional' : 'public') as 'institutional' | 'public',
+        ...extractEvidenceFromChunk(chunk),
       };
     });
 

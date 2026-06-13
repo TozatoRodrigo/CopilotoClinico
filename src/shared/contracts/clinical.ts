@@ -189,6 +189,17 @@ export interface ClarifyingAnswer {
   answer: ClarifyingAnswerValue;
 }
 
+export interface EvidenceFigure {
+  url: string;
+  caption?: string;
+}
+
+export interface EvidenceTable {
+  caption?: string;
+  columns: string[];
+  rows: string[][];
+}
+
 export interface Citation {
   source: string;
   sourceVersion: string;
@@ -196,6 +207,8 @@ export interface Citation {
   text: string;
   institutionId?: string | null;
   origin?: 'institutional' | 'public';
+  evidenceFigure?: EvidenceFigure | null;
+  evidenceTable?: EvidenceTable | null;
 }
 
 export interface CopilotAnalysis {

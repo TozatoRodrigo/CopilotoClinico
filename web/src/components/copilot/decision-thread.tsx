@@ -7,7 +7,7 @@ import { BlockerQuestionCard } from '@/components/domain/blocker-question-card';
 import { RecommendationCard } from '@/components/copilot/recommendation-card';
 import { UncertaintyBanner } from '@/components/domain/uncertainty-banner';
 import { useCopilotConversation, type StoredCopilotResult } from '@/hooks/use-copilot-conversation';
-import type { ClarifyingAnswerValue, ClarifyingQuestion, CopilotRecommendation, RedFlag } from '@/lib/types';
+import type { ClarifyingAnswerValue, ClarifyingQuestion, CopilotRecommendation, EvidenceFigure, EvidenceTable, RedFlag } from '@/lib/types';
 import { Circle, CheckCircle, ArrowClockwise, WifiSlash, Warning, Siren } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 
@@ -426,6 +426,8 @@ function CitationsBlock({
     chunkId: string;
     text: string;
     origin?: 'institutional' | 'public';
+    evidenceFigure?: EvidenceFigure | null;
+    evidenceTable?: EvidenceTable | null;
   }>;
 }) {
   return (
@@ -460,6 +462,55 @@ function CitationsBlock({
             </a>
           </div>
           <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{c.text}</p>
+          {c.evidenceFigure && (
+            <figure className="mt-2 space-y-1">
+              <a href={c.evidenceFigure.url} target="_blank" rel="noreferrer">
+                <img
+                  src={c.evidenceFigure.url}
+                  alt={c.evidenceFigure.caption ?? `Figura — ${c.source}`}
+                  className="w-full rounded-lg border border-clinical-line"
+                  loading="lazy"
+                />
+              </a>
+              {c.evidenceFigure.caption && (
+                <figcaption className="text-xs text-muted-foreground">
+                  {c.evidenceFigure.caption}
+                </figcaption>
+              )}
+            </figure>
+          )}
+          {c.evidenceTable && (
+            <div className="mt-2 overflow-x-auto">
+              {c.evidenceTable.caption && (
+                <p className="mb-1 text-xs text-muted-foreground">{c.evidenceTable.caption}</p>
+              )}
+              <table className="w-full border-collapse text-xs">
+                <thead>
+                  <tr>
+                    {c.evidenceTable.columns.map((col, ci) => (
+                      <th
+                        key={ci}
+                        className="border border-clinical-line bg-muted/30 px-2 py-1 text-left font-medium"
+                      >
+                        {col}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {c.evidenceTable.rows.map((row, ri) => (
+                    <tr key={ri}>
+                      {row.map((cell, cci) => (
+                        <td key={cci} className="border border-clinical-line px-2 py-1 text-muted-foreground">
+                          {cell}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       ))}
     </div>
