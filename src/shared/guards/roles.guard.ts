@@ -26,9 +26,7 @@ export class RolesGuard implements CanActivate {
     const userRole = request.user?.role;
 
     if (!userRole || !requiredRoles.includes(userRole)) {
-      throw new ForbiddenException(
-        `Acesso restrito a: ${requiredRoles.join(', ')}`,
-      );
+      throw new ForbiddenException(`Acesso restrito a: ${requiredRoles.join(', ')}`);
     }
 
     return true;

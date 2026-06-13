@@ -24,5 +24,6 @@ export type {
   GenerateDocumentRequest,
   LatestInteractionResponse,
   Physician,
+  PhysicianRole,
   RecommendationCategory,
 } from "@contracts/clinical";

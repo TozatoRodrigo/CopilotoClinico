@@ -307,7 +307,11 @@ export class AuthService {
       ip,
     });
 
-    const tokens = await this.generateTokens(storedToken.physician.id, storedToken.physician.email, storedToken.physician.role);
+    const tokens = await this.generateTokens(
+      storedToken.physician.id,
+      storedToken.physician.email,
+      storedToken.physician.role,
+    );
     return tokens;
   }
 
