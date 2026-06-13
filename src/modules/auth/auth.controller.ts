@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Delete,
   Body,
   HttpCode,
@@ -29,10 +30,6 @@ import {
   mfaVerifySchema,
   mfaDisableSchema,
   updateProfileSchema,
-} from './schemas/auth.schemas';
-import { Patch, ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
-import {
-  Patch,
   RegisterInput,
   LoginInput,
   RefreshInput,
@@ -42,6 +39,7 @@ import {
   MfaDisableInput,
   UpdateProfileInput,
 } from './schemas/auth.schemas';
+import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 
 interface RequestWithIp {
   ip?: string;
@@ -202,7 +200,6 @@ export class AuthController {
   async mfaDisable(
     @Request() req: { user: { physicianId: string } },
     @Body(new ZodValidationPipe(mfaDisableSchema)) body: MfaDisableInput,
-    UpdateProfileInput,
   ) {
     await this.mfaService.disableMfa(req.user.physicianId, body.totpCode);
   }
