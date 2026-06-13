@@ -23,6 +23,8 @@ export interface EncounterContext {
   hasICU: boolean;
 }
 
+export type PhysicianRole = 'PHYSICIAN' | 'COMPLIANCE' | 'ADMIN';
+
 export interface Physician {
   id: string;
   name: string | null;
@@ -30,6 +32,7 @@ export interface Physician {
   crmUf: string;
   crmNumber: string;
   crmVerified: boolean;
+  role: PhysicianRole;
 }
 
 export interface AuthResponse {

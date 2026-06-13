@@ -11,6 +11,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
+import { RolesGuard } from '../../shared/guards/roles.guard';
+import { Roles } from '../../shared/decorators/roles.decorator';
 import { InternalServiceGuard } from '../../shared/guards/internal-service.guard';
 import { CuratorGuard } from '../../shared/guards/curator.guard';
 import { GuidelinesService } from './guidelines.service';
@@ -35,7 +37,8 @@ export class GuidelinesController {
   }
 
   @Get('pending')
-  @UseGuards(JwtAuthGuard, CuratorGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, CuratorGuard)
+  @Roles('COMPLIANCE', 'ADMIN')
   async listPending() {
     return this.guidelinesService.listPending();
   }
@@ -49,7 +52,8 @@ export class GuidelinesController {
   }
 
   @Post('chunks/:chunkId/approve')
-  @UseGuards(JwtAuthGuard, CuratorGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, CuratorGuard)
+  @Roles('COMPLIANCE', 'ADMIN')
   async approveChunk(
     @Request() req: { user: { physicianId: string } },
     @Param('chunkId') chunkId: string,
@@ -58,7 +62,8 @@ export class GuidelinesController {
   }
 
   @Post('chunks/:chunkId/reject')
-  @UseGuards(JwtAuthGuard, CuratorGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, CuratorGuard)
+  @Roles('COMPLIANCE', 'ADMIN')
   async rejectChunk(
     @Request() req: { user: { physicianId: string } },
     @Param('chunkId') chunkId: string,
