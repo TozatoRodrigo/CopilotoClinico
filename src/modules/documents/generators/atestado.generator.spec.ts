@@ -18,6 +18,7 @@ const baseOutput: CopilotOutput = {
   uncertaintyReason: null,
   differentials: [],
   clarifyingQuestions: [],
+  redFlags: [],
 };
 
 describe('generateAtestado', () => {

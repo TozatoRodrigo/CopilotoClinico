@@ -23,6 +23,8 @@ export interface EncounterContext {
   hasICU: boolean;
 }
 
+export type PhysicianRole = 'PHYSICIAN' | 'COMPLIANCE' | 'ADMIN';
+
 export interface Physician {
   id: string;
   name: string | null;
@@ -30,6 +32,7 @@ export interface Physician {
   crmUf: string;
   crmNumber: string;
   crmVerified: boolean;
+  role: PhysicianRole;
 }
 
 export interface AuthResponse {
@@ -143,6 +146,14 @@ export interface AuditQueryResponse {
 
 export type RecommendationCategory = 'stabilization' | 'diagnostic' | 'therapeutic' | 'verify';
 
+export type RedFlagSeverity = 'critical' | 'high' | 'moderate';
+
+export interface RedFlag {
+  finding: string;
+  severity: RedFlagSeverity;
+  action: string;
+}
+
 export interface CopilotRecommendation {
   action: string;
   rationale: string;
@@ -202,6 +213,7 @@ export interface Citation {
 
 export interface CopilotAnalysis {
   reasoning: string;
+  redFlags: RedFlag[];
   recommendations: CopilotRecommendation[];
   citations: Citation[];
   uncertainty: boolean;

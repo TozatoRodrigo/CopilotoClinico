@@ -7,6 +7,14 @@ export const RecommendationCategorySchema = z.enum([
   'verify',
 ]);
 
+export const RedFlagSeveritySchema = z.enum(['critical', 'high', 'moderate']);
+
+export const RedFlagSchema = z.object({
+  finding: z.string().min(1),
+  severity: RedFlagSeveritySchema,
+  action: z.string().min(1),
+});
+
 const RecommendationSchema = z.object({
   action: z.string().min(1),
   rationale: z.string().min(1),
@@ -34,6 +42,7 @@ const DifferentialSchema = z.object({
 export const CopilotOutputSchema = z
   .object({
     reasoning: z.string().min(1),
+    redFlags: z.array(RedFlagSchema).default([]),
     recommendations: z.array(RecommendationSchema).min(0),
     uncertainty: z.boolean(),
     uncertaintyReason: z.string().nullable(),
@@ -63,6 +72,20 @@ export const CopilotOutputSchema = z
       message:
         'When clarifyingQuestions contains a blocker item, recommendations must be empty or all marked as preliminary',
       path: ['recommendations'],
+    },
+  )
+  .refine(
+    (data) => {
+      const hasCriticalRedFlag = data.redFlags.some((rf) => rf.severity === 'critical');
+      if (!hasCriticalRedFlag) return true;
+      return data.recommendations.every(
+        (rec) => rec.category === 'stabilization' || rec.preliminary,
+      );
+    },
+    {
+      message:
+        'When redFlags contains a critical severity item, non-stabilization recommendations must be preliminary',
+      path: ['redFlags'],
     },
   );
 

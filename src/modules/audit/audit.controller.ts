@@ -10,6 +10,8 @@ import {
 } from '@nestjs/common';
 import { AuditService } from './audit.service';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
+import { RolesGuard } from '../../shared/guards/roles.guard';
+import { Roles } from '../../shared/decorators/roles.decorator';
 import { InternalServiceGuard } from '../../shared/guards/internal-service.guard';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import { auditQuerySchema } from './schemas/audit.schemas';
@@ -25,7 +27,8 @@ export class AuditController {
    * Requer JWT válido.
    */
   @Get()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('COMPLIANCE', 'ADMIN')
   async query(
     @Request() req: { user: { physicianId: string } },
     @Query(new ZodValidationPipe(auditQuerySchema)) query: AuditQueryInput,

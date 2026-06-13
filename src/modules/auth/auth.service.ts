@@ -93,6 +93,7 @@ export class AuthService {
         crmNumber: true,
         name: true,
         crmVerified: true,
+        role: true,
         createdAt: true,
       },
     });
@@ -114,7 +115,7 @@ export class AuthService {
       ).catch((err) => this.logger.error('CRM auto-verification failed', err));
     });
 
-    const tokens = await this.generateTokens(physician.id, physician.email);
+    const tokens = await this.generateTokens(physician.id, physician.email, physician.role);
     return { physician, ...tokens };
   }
 
@@ -200,7 +201,7 @@ export class AuthService {
       ip,
     });
 
-    const tokens = await this.generateTokens(physician.id, physician.email);
+    const tokens = await this.generateTokens(physician.id, physician.email, physician.role);
     return {
       mfaRequired: false,
       physician: {
@@ -210,6 +211,7 @@ export class AuthService {
         crmNumber: physician.crmNumber,
         name: physician.name,
         crmVerified: physician.crmVerified,
+        role: physician.role,
       },
       ...tokens,
     };
@@ -257,12 +259,13 @@ export class AuthService {
         crmNumber: true,
         name: true,
         crmVerified: true,
+        role: true,
       },
     });
 
     if (!physician) throw new UnauthorizedException('Physician not found');
 
-    const tokens = await this.generateTokens(physicianId, email);
+    const tokens = await this.generateTokens(physicianId, email, physician.role);
     return { mfaRequired: false, physician, ...tokens };
   }
 
@@ -304,12 +307,16 @@ export class AuthService {
       ip,
     });
 
-    const tokens = await this.generateTokens(storedToken.physician.id, storedToken.physician.email);
+    const tokens = await this.generateTokens(
+      storedToken.physician.id,
+      storedToken.physician.email,
+      storedToken.physician.role,
+    );
     return tokens;
   }
 
-  private async generateTokens(physicianId: string, email: string) {
-    const payload = { sub: physicianId, email, physicianId };
+  private async generateTokens(physicianId: string, email: string, role: string) {
+    const payload = { sub: physicianId, email, physicianId, role };
 
     const accessToken = await this.jwt.signAsync(payload, {
       secret: this.accessSecret,
@@ -366,6 +373,7 @@ export class AuthService {
         crmNumber: true,
         name: true,
         crmVerified: true,
+        role: true,
         mfaEnabled: true,
         subscriptionStatus: true,
         createdAt: true,
