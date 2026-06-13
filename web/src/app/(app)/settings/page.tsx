@@ -7,6 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth-store';
+import { ProfileTab } from './_tabs/profile-tab';
+import { PrivacyTab } from './_tabs/privacy-tab';
 import {
   UserCircle,
   ShieldCheck,
@@ -76,7 +78,7 @@ function SettingsShell() {
         </TabsList>
 
         <TabsContent value="perfil" className="mt-6">
-          <PerfilTab physician={physician} />
+          <ProfileTab physician={physician} />
         </TabsContent>
         <TabsContent value="seguranca" className="mt-6">
           <SegurancaTab />

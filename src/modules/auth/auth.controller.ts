@@ -1,4 +1,5 @@
 import {
+  Patch,
   Controller,
   Get,
   Post,
@@ -14,13 +15,14 @@ import {
   Request,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Throttle } from '@nestjs/throttler';
-import { FastifyReply, FastifyRequest } from 'fastify';
-import { AuthService } from './auth.service';
-import { MfaService } from './mfa.service';
-import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
-import { InternalServiceGuard } from '../../shared/guards/internal-service.guard';
+import { Patch, Throttle } from '@nestjs/throttler';
+import { Patch, FastifyReply, FastifyRequest } from 'fastify';
+import { Patch, AuthService } from './auth.service';
+import { Patch, MfaService } from './mfa.service';
+import { Patch, JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
+import { Patch, InternalServiceGuard } from '../../shared/guards/internal-service.guard';
 import {
+  Patch,
   registerSchema,
   loginSchema,
   refreshSchema,
@@ -28,9 +30,11 @@ import {
   mfaEnableSchema,
   mfaVerifySchema,
   mfaDisableSchema,
+  updateProfileSchema,
 } from './schemas/auth.schemas';
-import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
+import { Patch, ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import {
+  Patch,
   RegisterInput,
   LoginInput,
   RefreshInput,
@@ -38,6 +42,7 @@ import {
   MfaEnableInput,
   MfaVerifyInput,
   MfaDisableInput,
+  UpdateProfileInput,
 } from './schemas/auth.schemas';
 
 interface RequestWithIp {
@@ -147,6 +152,15 @@ export class AuthController {
     return this.authService.getMe(req.user.physicianId);
   }
 
+  @Patch('me')
+  @UseGuards(JwtAuthGuard)
+  async updateProfile(
+    @Request() req: { user: { physicianId: string } },
+    @Body(new ZodValidationPipe(updateProfileSchema)) body: UpdateProfileInput,
+  ) {
+    return this.authService.updateProfile(req.user.physicianId, body);
+  }
+
   // ── MFA endpoints ──────────────────────────────────────────────────────────
 
   @Post('mfa/setup')
@@ -190,6 +204,7 @@ export class AuthController {
   async mfaDisable(
     @Request() req: { user: { physicianId: string } },
     @Body(new ZodValidationPipe(mfaDisableSchema)) body: MfaDisableInput,
+    UpdateProfileInput,
   ) {
     await this.mfaService.disableMfa(req.user.physicianId, body.totpCode);
   }
