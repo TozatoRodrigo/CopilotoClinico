@@ -8,6 +8,7 @@ import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth-store';
 import { ProfileTab } from './_tabs/profile-tab';
+import { SecurityTab } from './_tabs/security-tab';
 import {
   UserCircle,
   ShieldCheck,
@@ -80,7 +81,7 @@ function SettingsShell() {
           <ProfileTab physician={physician} />
         </TabsContent>
         <TabsContent value="seguranca" className="mt-6">
-          <SegurancaTab />
+          <SecurityTab />
         </TabsContent>
         <TabsContent value="privacidade" className="mt-6">
           <PrivacidadeTab />
