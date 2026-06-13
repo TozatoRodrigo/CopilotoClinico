@@ -132,6 +132,7 @@ export class LgpdService {
       where: { id: physicianId },
       select: {
         id: true,
+        role: true,
         crmUf: true,
         crmNumber: true,
         email: true,

@@ -25,4 +25,6 @@ export type {
   LatestInteractionResponse,
   Physician,
   RecommendationCategory,
+  RedFlag,
+  RedFlagSeverity,
 } from "@contracts/clinical";

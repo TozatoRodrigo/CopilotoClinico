@@ -473,3 +473,183 @@ describe('CopilotOutputSchema', () => {
     expect(result.success).toBe(true);
   });
 });
+
+describe('redFlags', () => {
+  it('defaults to empty array when redFlags is omitted', () => {
+    const result = validateOutput(makeValidOutput(), VALID_CHUNK_IDS);
+    expect(result.valid).toBe(true);
+    expect(result.output?.redFlags).toEqual([]);
+  });
+
+  it('accepts output with valid red flags', () => {
+    const result = validateOutput(
+      makeValidOutput({
+        redFlags: [
+          {
+            finding: 'Taquicardia sustentada > 130 bpm',
+            severity: 'high',
+            action: 'Monitorar ritmo cardíaco contínuo e investigar causa',
+          },
+          {
+            finding: 'Febre persistente há 5 dias',
+            severity: 'moderate',
+            action: 'Investigar foco infeccioso e considerar hemocultura',
+          },
+        ],
+      }),
+      VALID_CHUNK_IDS,
+    );
+    expect(result.valid).toBe(true);
+    expect(result.output?.redFlags).toHaveLength(2);
+    expect(result.output?.redFlags[0]?.severity).toBe('high');
+  });
+
+  it('accepts output with moderate severity red flags', () => {
+    const result = validateOutput(
+      makeValidOutput({
+        redFlags: [
+          {
+            finding: 'Febre persistente há 5 dias',
+            severity: 'moderate',
+            action: 'Investigar foco infeccioso e considerar hemocultura',
+          },
+        ],
+      }),
+      VALID_CHUNK_IDS,
+    );
+    expect(result.valid).toBe(true);
+    expect(result.output?.redFlags[0]?.severity).toBe('moderate');
+  });
+
+  it('rejects red flag with invalid severity', () => {
+    const result = validateOutput(
+      makeValidOutput({
+        redFlags: [
+          {
+            finding: 'Test',
+            severity: 'invalid',
+            action: 'Test',
+          },
+        ],
+      }),
+      VALID_CHUNK_IDS,
+    );
+    expect(result.valid).toBe(false);
+    expect(result.output).toBeNull();
+  });
+
+  it('rejects red flag missing required fields', () => {
+    const result = validateOutput(
+      makeValidOutput({
+        redFlags: [{ finding: 'Test' }],
+      }),
+      VALID_CHUNK_IDS,
+    );
+    expect(result.valid).toBe(false);
+    expect(result.output).toBeNull();
+  });
+
+  it('allows critical red flags with stabilization recommendations', () => {
+    const result = validateOutput(
+      makeValidOutput({
+        redFlags: [
+          {
+            finding: 'Hipotensão severa',
+            severity: 'critical',
+            action: 'Reposição volêmica imediata',
+          },
+        ],
+        recommendations: [
+          {
+            action: 'Iniciar cristalóide EV em bolus',
+            rationale: 'Paciente instável',
+            citationChunkId: 'chunk-1',
+            confidence: 0.95,
+            preliminary: false,
+            category: 'stabilization',
+          },
+        ],
+      }),
+      VALID_CHUNK_IDS,
+    );
+    expect(result.valid).toBe(true);
+  });
+
+  it('rejects critical red flags when non-stabilization recommendations are definitive', () => {
+    const result = validateOutput(
+      makeValidOutput({
+        redFlags: [
+          {
+            finding: 'Hipotensão severa',
+            severity: 'critical',
+            action: 'Reposição volêmica imediata',
+          },
+        ],
+        recommendations: [
+          {
+            action: 'Iniciar IECA',
+            rationale: 'HAS',
+            citationChunkId: 'chunk-1',
+            confidence: 0.85,
+            preliminary: false,
+            category: 'therapeutic',
+          },
+        ],
+      }),
+      VALID_CHUNK_IDS,
+    );
+    expect(result.valid).toBe(false);
+  });
+
+  it('allows critical red flags when non-stabilization recommendations are preliminary', () => {
+    const result = validateOutput(
+      makeValidOutput({
+        redFlags: [
+          {
+            finding: 'Hipotensão severa',
+            severity: 'critical',
+            action: 'Reposição volêmica imediata',
+          },
+        ],
+        recommendations: [
+          {
+            action: 'Considerar IECA',
+            rationale: 'HAS',
+            citationChunkId: 'chunk-1',
+            confidence: 0.7,
+            preliminary: true,
+            category: 'therapeutic',
+          },
+        ],
+      }),
+      VALID_CHUNK_IDS,
+    );
+    expect(result.valid).toBe(true);
+  });
+
+  it('allows high severity red flags with any recommendations', () => {
+    const result = validateOutput(
+      makeValidOutput({
+        redFlags: [
+          {
+            finding: 'Taquicardia > 130 bpm',
+            severity: 'high',
+            action: 'Monitorar ritmo cardíaco',
+          },
+        ],
+        recommendations: [
+          {
+            action: 'Iniciar IECA',
+            rationale: 'HAS',
+            citationChunkId: 'chunk-1',
+            confidence: 0.85,
+            preliminary: false,
+            category: 'therapeutic',
+          },
+        ],
+      }),
+      VALID_CHUNK_IDS,
+    );
+    expect(result.valid).toBe(true);
+  });
+});
