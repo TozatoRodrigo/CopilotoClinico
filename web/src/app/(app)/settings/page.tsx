@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth-store';
+import { ProfileTab } from './_tabs/profile-tab';
 import { SecurityTab } from './_tabs/security-tab';
 import {
   UserCircle,
