@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import Link from "next/link";
+import Link from 'next/link';
 import {
   BookOpen,
   CaretRight,
@@ -13,23 +13,23 @@ import {
   Plus,
   ShieldCheck,
   Stethoscope,
-} from "@phosphor-icons/react";
-import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
-import { apiClient } from "@/lib/api-client";
-import { ConnectionStatus } from "@/components/domain/connection-status";
-import { useOnlineStatus } from "@/components/providers/offline-provider";
-import { useAuth, type AppRole } from "@/lib/auth-store";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+} from '@phosphor-icons/react';
+import { useTheme } from 'next-themes';
+import { useEffect, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { apiClient } from '@/lib/api-client';
+import { ConnectionStatus } from '@/components/domain/connection-status';
+import { useOnlineStatus } from '@/components/providers/offline-provider';
+import { useAuth, type AppRole } from '@/lib/auth-store';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,11 +39,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+} from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 
 type NavLink = {
   href: string;
@@ -54,34 +54,46 @@ type NavLink = {
 
 const NAV_BY_ROLE: Record<AppRole, NavLink[]> = {
   physician: [
-    { href: "/dashboard", label: "Painel", icon: House },
-    { href: "/encounters", label: "Atendimentos", shortLabel: "Casos", icon: ClipboardText },
-    { href: "/guidelines", label: "Diretrizes", shortLabel: "Guias", icon: BookOpen },
+    { href: '/dashboard', label: 'Painel', icon: House },
+    { href: '/encounters', label: 'Atendimentos', shortLabel: 'Casos', icon: ClipboardText },
+    { href: '/guidelines', label: 'Diretrizes', shortLabel: 'Guias', icon: BookOpen },
   ],
   compliance: [
-    { href: "/dashboard", label: "Painel", icon: House },
-    { href: "/audit", label: "Auditoria", shortLabel: "Audit", icon: ShieldCheck },
-    { href: "/guidelines", label: "Diretrizes", shortLabel: "Guias", icon: BookOpen },
+    { href: '/dashboard', label: 'Painel', icon: House },
+    { href: '/audit', label: 'Auditoria', shortLabel: 'Audit', icon: ShieldCheck },
+    { href: '/guidelines', label: 'Diretrizes', shortLabel: 'Guias', icon: BookOpen },
   ],
   admin: [
-    { href: "/dashboard", label: "Painel", icon: House },
-    { href: "/audit", label: "Auditoria", shortLabel: "Audit", icon: ShieldCheck },
-    { href: "/guidelines", label: "Diretrizes", shortLabel: "Guias", icon: BookOpen },
+    { href: '/dashboard', label: 'Painel', icon: House },
+    { href: '/audit', label: 'Auditoria', shortLabel: 'Audit', icon: ShieldCheck },
+    { href: '/guidelines', label: 'Diretrizes', shortLabel: 'Guias', icon: BookOpen },
   ],
 };
 
 const MOBILE_TABS: NavLink[] = [
-  { href: "/dashboard", label: "Painel", icon: House },
-  { href: "/encounters/new", label: "Novo", icon: Plus },
-  { href: "/encounters", label: "Atendimentos", shortLabel: "Casos", icon: ClipboardText },
+  { href: '/dashboard', label: 'Painel', icon: House },
+  { href: '/encounters/new', label: 'Novo', icon: Plus },
+  { href: '/encounters', label: 'Atendimentos', shortLabel: 'Casos', icon: ClipboardText },
 ];
 
 const COMMAND_LINKS = [
-  { href: "/dashboard", label: "Ir para painel", description: "Visão geral, métricas e retomada de fluxo." },
-  { href: "/encounters/new", label: "Novo atendimento", description: "Começar captura de um caso." },
-  { href: "/encounters", label: "Atendimentos", description: "Fila rápida de casos recentes." },
-  { href: "/guidelines", label: "Diretrizes", description: "Acesso rápido ao catálogo clínico." },
-  { href: "/settings", label: "Configurações", description: "Preferências, shell e conectividade." },
+  {
+    href: '/dashboard',
+    label: 'Ir para painel',
+    description: 'Visão geral, métricas e retomada de fluxo.',
+  },
+  {
+    href: '/encounters/new',
+    label: 'Novo atendimento',
+    description: 'Começar captura de um caso.',
+  },
+  { href: '/encounters', label: 'Atendimentos', description: 'Fila rápida de casos recentes.' },
+  { href: '/guidelines', label: 'Diretrizes', description: 'Acesso rápido ao catálogo clínico.' },
+  {
+    href: '/settings',
+    label: 'Configurações',
+    description: 'Preferências, shell e conectividade.',
+  },
 ];
 
 function ThemeToggle() {
@@ -100,7 +112,7 @@ function ThemeToggle() {
       variant="ghost"
       size="icon"
       className="h-9 w-9"
-      onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+      onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
     >
       <MoonStars className="size-4" />
       <span className="sr-only">Alternar tema</span>
@@ -113,14 +125,14 @@ function QuickActions() {
 
   useEffect(() => {
     function handleShortcut(event: KeyboardEvent) {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
         setOpen((current) => !current);
       }
     }
 
-    window.addEventListener("keydown", handleShortcut);
-    return () => window.removeEventListener("keydown", handleShortcut);
+    window.addEventListener('keydown', handleShortcut);
+    return () => window.removeEventListener('keydown', handleShortcut);
   }, []);
 
   return (
@@ -137,7 +149,12 @@ function QuickActions() {
         <Badge variant="outline">⌘K</Badge>
       </Button>
 
-      <Button variant="ghost" size="icon" className="md:hidden h-9 w-9" onClick={() => setOpen(true)}>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="md:hidden h-9 w-9"
+        onClick={() => setOpen(true)}
+      >
         <Keyboard className="size-4" />
         <span className="sr-only">Abrir ações rápidas</span>
       </Button>
@@ -190,9 +207,9 @@ function UserMenu() {
   const { isOnline } = useOnlineStatus();
 
   async function handleLogout() {
-    await apiClient.post("/auth/logout").catch(() => undefined);
+    await apiClient.post('/auth/logout').catch(() => undefined);
     logout();
-    router.push("/login");
+    router.push('/login');
   }
 
   return (
@@ -201,7 +218,7 @@ function UserMenu() {
         <Button variant="ghost" className="relative h-9 w-9 rounded-full">
           <Avatar className="h-9 w-9">
             <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-              {(physician?.name ?? "Dr").slice(0, 2).toUpperCase()}
+              {(physician?.name ?? 'Dr').slice(0, 2).toUpperCase()}
             </AvatarFallback>
           </Avatar>
           <span className="sr-only">Abrir menu do usuário</span>
@@ -211,31 +228,32 @@ function UserMenu() {
         <DropdownMenuLabel>Conta</DropdownMenuLabel>
         <div className="flex items-center justify-start gap-2 p-2">
           <div className="flex flex-col space-y-0.5">
-            <p className="text-sm font-medium">{physician?.name ?? "Médico"}</p>
-            <p className="text-xs text-muted-foreground">
-              {physician?.email ?? "Sessão ativa"}
-            </p>
+            <p className="text-sm font-medium">{physician?.name ?? 'Médico'}</p>
+            <p className="text-xs text-muted-foreground">{physician?.email ?? 'Sessão ativa'}</p>
             <div className="mt-2 flex items-center gap-2">
               <Badge variant="secondary">{role}</Badge>
-              <ConnectionStatus status={isOnline ? "online" : "offline"} className="border-none bg-transparent px-0 py-0" />
+              <ConnectionStatus
+                status={isOnline ? 'online' : 'offline'}
+                className="border-none bg-transparent px-0 py-0"
+              />
             </div>
           </div>
         </div>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuItem asChild>
-            <Link href="/profile">
+            <Link href="/settings?tab=perfil">
               <Stethoscope className="size-4" />
               Perfil
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link href="/settings">
+            <Link href="/settings?tab=seguranca">
               <Gear className="size-4" />
               Configurações
             </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => router.push("/guidelines")}>
+          <DropdownMenuItem onClick={() => router.push('/guidelines')}>
             <BookOpen className="size-4" />
             Diretrizes
             <DropdownMenuShortcut>⌘K</DropdownMenuShortcut>
@@ -257,7 +275,17 @@ function MobileNav({ links }: { links: NavLink[] }) {
     <Sheet>
       <SheetTrigger asChild>
         <Button variant="ghost" size="icon" className="md:hidden h-9 w-9">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <line x1="4" x2="20" y1="12" y2="12" />
             <line x1="4" x2="20" y1="6" y2="6" />
             <line x1="4" x2="20" y1="18" y2="18" />
@@ -267,22 +295,20 @@ function MobileNav({ links }: { links: NavLink[] }) {
       </SheetTrigger>
       <SheetContent side="left" className="w-72">
         <SheetTitle className="text-primary font-semibold">Copiloto Clínico</SheetTitle>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Navegação contextual do papel atual.
-        </p>
+        <p className="mt-2 text-sm text-muted-foreground">Navegação contextual do papel atual.</p>
         <nav className="flex flex-col gap-1 mt-6">
           {links.map((link) => {
-            const isActive = pathname === link.href || pathname.startsWith(link.href + "/");
+            const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
             const Icon = link.icon;
             return (
               <Link
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  'flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
                   isActive
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                    ? 'bg-accent text-accent-foreground'
+                    : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
                 )}
               >
                 <Icon className="size-4" />
@@ -312,17 +338,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Link>
           <nav className="hidden md:flex items-center gap-1 text-sm">
             {links.map((link) => {
-              const isActive = pathname === link.href || pathname.startsWith(link.href + "/");
+              const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
               const Icon = link.icon;
               return (
                 <Link
                   key={link.href}
                   href={link.href}
                   className={cn(
-                    "inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                    'inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
                     isActive
-                      ? "bg-accent text-accent-foreground"
-                      : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                      ? 'bg-accent text-accent-foreground'
+                      : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
                   )}
                 >
                   <Icon className="size-4" />
@@ -339,23 +365,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
-      <main className="flex-1 container px-4 py-6 pb-24 md:px-6 md:pb-6">
-        {children}
-      </main>
+      <main className="flex-1 container px-4 py-6 pb-24 md:px-6 md:pb-6">{children}</main>
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 px-4 py-2 backdrop-blur md:hidden">
         <div className="mx-auto flex max-w-md items-center justify-between gap-2">
           {MOBILE_TABS.map((tab) => {
             const Icon = tab.icon;
-            const isActive = pathname === tab.href || pathname.startsWith(tab.href + "/");
+            const isActive = pathname === tab.href || pathname.startsWith(tab.href + '/');
             return (
               <Link
                 key={tab.href}
                 href={tab.href}
                 className={cn(
-                  "flex min-w-0 flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 text-xs font-medium transition-colors",
+                  'flex min-w-0 flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 text-xs font-medium transition-colors',
                   isActive
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground hover:bg-accent/40 hover:text-foreground",
+                    ? 'bg-accent text-accent-foreground'
+                    : 'text-muted-foreground hover:bg-accent/40 hover:text-foreground',
                 )}
               >
                 <Icon className="size-4" />
