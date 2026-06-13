@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth-store';
 import { ProfileTab } from './_tabs/profile-tab';
 import { SecurityTab } from './_tabs/security-tab';
+import { PrivacyTab } from './_tabs/privacy-tab';
 import {
   UserCircle,
   ShieldCheck,
@@ -84,7 +85,7 @@ function SettingsShell() {
           <SecurityTab />
         </TabsContent>
         <TabsContent value="privacidade" className="mt-6">
-          <PrivacidadeTab />
+          <PrivacyTab />
         </TabsContent>
         <TabsContent value="assinatura" className="mt-6">
           <AssinaturaTab />
@@ -179,41 +180,6 @@ function SegurancaTab() {
             <p className="text-xs text-muted-foreground">
               Altere periodicamente para maior segurança
             </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function PrivacidadeTab() {
-  return (
-    <div className="space-y-4">
-      <div className="rounded-xl border border-clinical-line bg-clinical-paper p-5">
-        <h2 className="text-sm font-semibold text-clinical-ink">Privacidade e LGPD</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Exporte seus dados, exclua sua conta ou revise consentimentos (Art. 18 LGPD — D4).
-        </p>
-      </div>
-      <div className="grid gap-3">
-        <div className="flex items-center gap-3 rounded-lg border border-clinical-line bg-white px-4 py-3">
-          <div className="flex-1">
-            <p className="text-sm font-medium text-clinical-ink">Exportar meus dados</p>
-            <p className="text-xs text-muted-foreground">
-              Portabilidade dos seus dados (Art. 18, V)
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3 rounded-lg border border-clinical-line bg-white px-4 py-3">
-          <div className="flex-1">
-            <p className="text-sm font-medium text-clinical-ink">Excluir conta</p>
-            <p className="text-xs text-muted-foreground">Direito ao esquecimento (Art. 18, VI)</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3 rounded-lg border border-clinical-line bg-white px-4 py-3">
-          <div className="flex-1">
-            <p className="text-sm font-medium text-clinical-ink">Consentimentos</p>
-            <p className="text-xs text-muted-foreground">Histórico de consentimentos concedidos</p>
           </div>
         </div>
       </div>
