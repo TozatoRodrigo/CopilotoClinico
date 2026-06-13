@@ -6,7 +6,7 @@ import {
   Brain,
   FileText,
   Fingerprint,
-  Scale,
+  Scales,
 } from '@phosphor-icons/react';
 
 const STEPS = [
@@ -45,7 +45,7 @@ const PROOFS = [
     detail: 'TOTP + backup codes — acesso protegido por padrão médico-legal',
   },
   {
-    icon: Scale,
+    icon: Scales,
     label: 'CFM responsável',
     detail: 'Copiloto, não substituto — você mantém decisão clínica e autoria do documento',
   },
