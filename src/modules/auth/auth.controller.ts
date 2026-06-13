@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Delete,
   Body,
   HttpCode,
@@ -28,9 +29,7 @@ import {
   mfaEnableSchema,
   mfaVerifySchema,
   mfaDisableSchema,
-} from './schemas/auth.schemas';
-import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
-import {
+  updateProfileSchema,
   RegisterInput,
   LoginInput,
   RefreshInput,
@@ -38,7 +37,9 @@ import {
   MfaEnableInput,
   MfaVerifyInput,
   MfaDisableInput,
+  UpdateProfileInput,
 } from './schemas/auth.schemas';
+import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 
 interface RequestWithIp {
   ip?: string;
@@ -145,6 +146,15 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   async me(@Request() req: { user: { physicianId: string } }) {
     return this.authService.getMe(req.user.physicianId);
+  }
+
+  @Patch('me')
+  @UseGuards(JwtAuthGuard)
+  async updateProfile(
+    @Request() req: { user: { physicianId: string } },
+    @Body(new ZodValidationPipe(updateProfileSchema)) body: UpdateProfileInput,
+  ) {
+    return this.authService.updateProfile(req.user.physicianId, body);
   }
 
   // ── MFA endpoints ──────────────────────────────────────────────────────────

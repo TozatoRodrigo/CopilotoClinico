@@ -56,3 +56,9 @@ export type LogoutInput = z.infer<typeof logoutSchema>;
 export type MfaEnableInput = z.infer<typeof mfaEnableSchema>;
 export type MfaVerifyInput = z.infer<typeof mfaVerifySchema>;
 export type MfaDisableInput = z.infer<typeof mfaDisableSchema>;
+
+export const updateProfileSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(200).optional(),
+});
+
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;

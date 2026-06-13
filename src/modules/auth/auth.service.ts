@@ -469,4 +469,29 @@ export class AuthService {
   private async auditSilently(params: Parameters<AuditService['log']>[0]): Promise<void> {
     await this.auditService.log(params).catch(() => undefined);
   }
+
+  async updateProfile(physicianId: string, data: { name?: string }) {
+    const physician = await this.prisma.physician.update({
+      where: { id: physicianId },
+      data: { name: data.name },
+      select: {
+        id: true,
+        email: true,
+        crmUf: true,
+        crmNumber: true,
+        name: true,
+        crmVerified: true,
+      },
+    });
+
+    await this.auditSilently({
+      actorId: physicianId,
+      action: 'PROFILE_UPDATED',
+      entity: 'Physician',
+      entityId: physicianId,
+      payload: { fields: Object.keys(data) },
+    });
+
+    return physician;
+  }
 }
