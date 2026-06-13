@@ -5,6 +5,7 @@ import {
   UnauthorizedException,
   ConflictException,
   BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -464,6 +465,74 @@ export class AuthService {
   private getPositiveNumberConfig(key: string, fallback: number): number {
     const value = Number(this.config.get<string | number>(key, fallback));
     return Number.isFinite(value) && value > 0 ? value : fallback;
+  }
+
+  async changePassword(physicianId: string, currentPassword: string, newPassword: string) {
+    const physician = await this.prisma.physician.findUnique({
+      where: { id: physicianId },
+      select: { id: true, passwordHash: true },
+    });
+
+    if (!physician) throw new UnauthorizedException('Physician not found');
+
+    const valid = await bcrypt.compare(currentPassword, physician.passwordHash);
+    if (!valid) throw new UnauthorizedException('Current password is incorrect');
+
+    const newHash = await bcrypt.hash(newPassword, 12);
+    await this.prisma.physician.update({
+      where: { id: physicianId },
+      data: { passwordHash: newHash },
+    });
+
+    await this.auditSilently({
+      actorId: physicianId,
+      action: 'PASSWORD_CHANGED',
+      entity: 'Physician',
+      entityId: physicianId,
+    });
+  }
+
+  async listSessions(physicianId: string) {
+    const tokens = await this.prisma.refreshToken.findMany({
+      where: {
+        physicianId,
+        revoked: false,
+        expiresAt: { gt: new Date() },
+      },
+      select: {
+        id: true,
+        createdAt: true,
+        expiresAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return tokens.map((t) => ({
+      id: t.id,
+      createdAt: t.createdAt,
+      expiresAt: t.expiresAt,
+      current: false,
+    }));
+  }
+
+  async revokeSession(physicianId: string, tokenId: string) {
+    const token = await this.prisma.refreshToken.findFirst({
+      where: { id: tokenId, physicianId },
+    });
+
+    if (!token) throw new NotFoundException('Session not found');
+
+    await this.prisma.refreshToken.update({
+      where: { id: tokenId },
+      data: { revoked: true },
+    });
+
+    await this.auditSilently({
+      actorId: physicianId,
+      action: 'SESSION_REVOKED',
+      entity: 'RefreshToken',
+      entityId: tokenId,
+    });
   }
 
   private async auditSilently(params: Parameters<AuditService['log']>[0]): Promise<void> {

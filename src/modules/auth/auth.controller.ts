@@ -30,6 +30,7 @@ import {
   mfaVerifySchema,
   mfaDisableSchema,
   updateProfileSchema,
+  changePasswordSchema,
   RegisterInput,
   LoginInput,
   RefreshInput,
@@ -38,6 +39,7 @@ import {
   MfaVerifyInput,
   MfaDisableInput,
   UpdateProfileInput,
+  ChangePasswordInput,
 } from './schemas/auth.schemas';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 
@@ -155,6 +157,36 @@ export class AuthController {
     @Body(new ZodValidationPipe(updateProfileSchema)) body: UpdateProfileInput,
   ) {
     return this.authService.updateProfile(req.user.physicianId, body);
+  }
+
+  @Patch('me/password')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async changePassword(
+    @Request() req: { user: { physicianId: string } },
+    @Body(new ZodValidationPipe(changePasswordSchema)) body: ChangePasswordInput,
+  ) {
+    await this.authService.changePassword(
+      req.user.physicianId,
+      body.currentPassword,
+      body.newPassword,
+    );
+  }
+
+  @Get('me/sessions')
+  @UseGuards(JwtAuthGuard)
+  async listSessions(@Request() req: { user: { physicianId: string } }) {
+    return this.authService.listSessions(req.user.physicianId);
+  }
+
+  @Delete('me/sessions/:tokenId')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async revokeSession(
+    @Request() req: { user: { physicianId: string } },
+    @Param('tokenId') tokenId: string,
+  ) {
+    await this.authService.revokeSession(req.user.physicianId, tokenId);
   }
 
   // ── MFA endpoints ──────────────────────────────────────────────────────────
