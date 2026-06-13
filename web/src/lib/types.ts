@@ -21,6 +21,8 @@ export type {
   EncounterStatus,
   EncounterSummary,
   EncountersResponse,
+  EvidenceFigure,
+  EvidenceTable,
   GenerateDocumentRequest,
   LatestInteractionResponse,
   Physician,
