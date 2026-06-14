@@ -29,6 +29,7 @@ describe('GuidelinesService', () => {
       updateMany: ReturnType<typeof vi.fn>;
     };
     $executeRaw: ReturnType<typeof vi.fn>;
+    $queryRawUnsafe: ReturnType<typeof vi.fn>;
   };
   let aiGateway: {
     embed: ReturnType<typeof vi.fn>;
@@ -48,6 +49,7 @@ describe('GuidelinesService', () => {
         updateMany: vi.fn(),
       },
       $executeRaw: vi.fn().mockResolvedValue(1),
+      $queryRawUnsafe: vi.fn().mockResolvedValue([]),
     };
 
     aiGateway = {
@@ -455,6 +457,75 @@ describe('GuidelinesService', () => {
       const result = await service.deactivateSource('NONEXISTENT', '1.0');
 
       expect(result).toEqual({ deactivated: 0 });
+    });
+  });
+
+  describe('searchChunks', () => {
+    it('returns empty array for query shorter than 2 chars', async () => {
+      const result = await service.searchChunks('a');
+      expect(result).toEqual([]);
+      expect(prisma.$queryRawUnsafe).not.toHaveBeenCalled();
+    });
+
+    it('returns empty array for whitespace-only query', async () => {
+      const result = await service.searchChunks('   ');
+      expect(result).toEqual([]);
+      expect(prisma.$queryRawUnsafe).not.toHaveBeenCalled();
+    });
+
+    it('calls $queryRawUnsafe with query and default limit', async () => {
+      prisma.$queryRawUnsafe.mockResolvedValue([
+        {
+          id: 'chunk-1',
+          source: 'WHO HTN 2023',
+          sourceVersion: '1.0',
+          specialty: 'cardiology',
+          evidenceLevel: 'A',
+          text: 'ACE inhibitors first-line',
+          metadata: {},
+          validFrom: new Date('2023-01-01'),
+          institutionId: null,
+          reviewerName: 'Dr. Silva',
+          rank: 0.95,
+        },
+      ]);
+
+      const result = await service.searchChunks('hipertensao');
+
+      expect(result).toHaveLength(1);
+      expect(result[0].source).toBe('WHO HTN 2023');
+      expect(result[0].reviewerName).toBe('Dr. Silva');
+      expect(prisma.$queryRawUnsafe).toHaveBeenCalledTimes(1);
+      expect(prisma.$queryRawUnsafe).toHaveBeenCalledWith(
+        expect.stringContaining('plainto_tsquery'),
+        'hipertensao',
+        20,
+      );
+    });
+
+    it('passes specialty filter when provided', async () => {
+      prisma.$queryRawUnsafe.mockResolvedValue([]);
+
+      await service.searchChunks('gripe', 'Clínica Médica');
+
+      expect(prisma.$queryRawUnsafe).toHaveBeenCalledWith(
+        expect.stringContaining("gc.specialty = $3"),
+        'gripe',
+        20,
+        'Clínica Médica',
+      );
+    });
+
+    it('respects custom limit', async () => {
+      prisma.$queryRawUnsafe.mockResolvedValue([]);
+
+      await service.searchChunks('febre', undefined, 5);
+
+      expect(prisma.$queryRawUnsafe).toHaveBeenCalledWith(
+        expect.any(String),
+        'febre',
+        5,
+      );
     });
   });
 });
