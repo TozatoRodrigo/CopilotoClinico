@@ -10,12 +10,17 @@ import {
 import { apiClient } from "@/lib/api-client";
 import type {
   AuditQueryResponse,
+  CrmVerificationItem,
+  CrmVerificationStatus,
   DashboardStats,
   Document,
   EditDocumentRequest,
   EncounterDetail,
   EncountersResponse,
   GenerateDocumentRequest,
+  GuidelineSourceSummary,
+  PendingGuidelineChunk,
+  ResolveCrmVerificationRequest,
 } from "@/lib/types";
 
 export interface AuditFilters {
@@ -43,6 +48,9 @@ export const clinicalQueryKeys = {
   audit: (filters: AuditFilters, offset: number, limit: number) =>
     ["audit", filters, offset, limit] as const,
   latestInteraction: (encounterId: string) => ["latest-interaction", encounterId] as const,
+  crmVerifications: (status: CrmVerificationStatus) => ["crm-verifications", status] as const,
+  guidelineSources: ["guideline-sources"] as const,
+  guidelinePending: ["guideline-pending"] as const,
 };
 
 export function useEncounterList(filters?: EncounterListFilters) {
@@ -164,5 +172,48 @@ export function useUpdateDocument(encounterId: string, documentId: string) {
         queryKey: [...clinicalQueryKeys.encounterDocuments(encounterId), documentId],
       });
     },
+  });
+}
+
+// ── Admin: CRM Verifications (E2) ──────────────────────────────────────────
+
+export function useCrmVerifications(status: CrmVerificationStatus) {
+  return useQuery({
+    queryKey: clinicalQueryKeys.crmVerifications(status),
+    queryFn: () =>
+      apiClient.get<CrmVerificationItem[]>("/admin/crm-verifications", { status }),
+  });
+}
+
+export function useResolveCrmVerification() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      body,
+    }: {
+      id: string;
+      body: ResolveCrmVerificationRequest;
+    }) => apiClient.patch<CrmVerificationItem>(`/admin/crm-verifications/${id}`, body),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["crm-verifications"] });
+    },
+  });
+}
+
+// ── Admin: Guidelines (E5) ─────────────────────────────────────────────────
+
+export function useGuidelineSources() {
+  return useQuery({
+    queryKey: clinicalQueryKeys.guidelineSources,
+    queryFn: () => apiClient.get<GuidelineSourceSummary[]>("/guidelines"),
+  });
+}
+
+export function usePendingGuidelineChunks() {
+  return useQuery({
+    queryKey: clinicalQueryKeys.guidelinePending,
+    queryFn: () => apiClient.get<PendingGuidelineChunk[]>("/guidelines/pending"),
   });
 }
