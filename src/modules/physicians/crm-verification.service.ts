@@ -70,9 +70,7 @@ export class CrmVerificationService {
    * Usado pelo console admin (E2) com abas PENDING/APPROVED/REJECTED.
    * @param status - 'PENDING' | 'APPROVED' | 'REJECTED'. Default: 'PENDING'.
    */
-  async listByStatus(
-    status?: string,
-  ): Promise<
+  async listByStatus(status?: string): Promise<
     (CrmVerificationRequest & {
       physician: {
         id: string;
@@ -84,9 +82,13 @@ export class CrmVerificationService {
     })[]
   > {
     const validStatuses = ['PENDING', 'APPROVED', 'REJECTED'];
-    const filter = status && validStatuses.includes(status) ? (status as 'PENDING' | 'APPROVED' | 'REJECTED') : 'PENDING';
+    const filter =
+      status && validStatuses.includes(status)
+        ? (status as 'PENDING' | 'APPROVED' | 'REJECTED')
+        : 'PENDING';
 
-    const orderBy = filter === 'PENDING' ? { requestedAt: 'asc' as const } : { resolvedAt: 'desc' as const };
+    const orderBy =
+      filter === 'PENDING' ? { requestedAt: 'asc' as const } : { resolvedAt: 'desc' as const };
 
     return this.prisma.crmVerificationRequest.findMany({
       where: { status: filter },
