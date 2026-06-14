@@ -4,6 +4,8 @@ const AUTH_ROUTES = ["/login", "/register"];
 
 const STAFF_ONLY_ROUTES = ["/audit"];
 
+const ADMIN_ROUTES = ["/admin"];
+
 function isProtectedPath(pathname: string): boolean {
   return (
     !AUTH_ROUTES.some((r) => pathname === r || pathname.startsWith(r + "/")) &&
@@ -17,7 +19,8 @@ function getRoleFromCookie(request: NextRequest): string | undefined {
   const physicianRaw = request.cookies.get("auth_physician")?.value;
   if (!physicianRaw) return undefined;
   try {
-    const parsed = JSON.parse(physicianRaw) as { role?: string };
+    const decoded = decodeURIComponent(physicianRaw);
+    const parsed = JSON.parse(decoded) as { role?: string };
     return parsed.role;
   } catch {
     return undefined;
@@ -41,8 +44,17 @@ export function middleware(request: NextRequest) {
 
   if (isAuthenticated && STAFF_ONLY_ROUTES.some((r) => pathname === r || pathname.startsWith(r + "/"))) {
     const role = getRoleFromCookie(request);
-    if (role && role === "physician") {
+    if (role === "PHYSICIAN") {
       return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+  }
+
+  if (isAuthenticated && ADMIN_ROUTES.some((r) => pathname === r || pathname.startsWith(r + "/"))) {
+    const role = getRoleFromCookie(request);
+    if (!role || role === "PHYSICIAN") {
+      const url = new URL("/dashboard", request.url);
+      url.searchParams.set("denied", "admin");
+      return NextResponse.redirect(url);
     }
   }
 

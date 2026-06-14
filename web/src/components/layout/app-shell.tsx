@@ -62,11 +62,13 @@ const NAV_BY_ROLE: Record<AppRole, NavLink[]> = {
     { href: '/dashboard', label: 'Painel', icon: House },
     { href: '/audit', label: 'Auditoria', shortLabel: 'Audit', icon: ShieldCheck },
     { href: '/guidelines', label: 'Diretrizes', shortLabel: 'Guias', icon: BookOpen },
+    { href: '/admin', label: 'Console', shortLabel: 'Admin', icon: Gear },
   ],
   admin: [
     { href: '/dashboard', label: 'Painel', icon: House },
     { href: '/audit', label: 'Auditoria', shortLabel: 'Audit', icon: ShieldCheck },
     { href: '/guidelines', label: 'Diretrizes', shortLabel: 'Guias', icon: BookOpen },
+    { href: '/admin', label: 'Console', shortLabel: 'Admin', icon: Gear },
   ],
 };
 

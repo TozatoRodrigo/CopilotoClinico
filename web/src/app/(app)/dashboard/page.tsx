@@ -1,6 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { useEffect, useRef } from 'react';
+import { toast } from 'sonner';
 import { useDashboardStats, useEncounterList } from '@/lib/clinical-queries';
 import { useAuth } from '@/lib/auth-store';
 import { PageHeader } from '@/components/layout/page-header';
@@ -51,6 +54,21 @@ const STATUS_HREFS: Record<string, string> = {
 
 export default function DashboardPage() {
   const { physician } = useAuth();
+  const searchParams = useSearchParams();
+  const deniedShown = useRef(false);
+
+  useEffect(() => {
+    const denied = searchParams.get('denied');
+    if (denied && !deniedShown.current) {
+      deniedShown.current = true;
+      toast.error(
+        denied === 'admin'
+          ? 'Acesso negado: o console administrativo é restrito a Compliance e Admin.'
+          : 'Acesso negado.',
+      );
+    }
+  }, [searchParams]);
+
   const statsQuery = useDashboardStats();
   const recentQuery = useEncounterList({ limit: 5 });
   const draftsQuery = useEncounterList({ status: 'draft', limit: 3 });
