@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback } from "react";
+import { createContext, useContext, useState, useCallback, useEffect } from "react";
 import type { Physician, PhysicianRole } from "@/lib/types";
 
 export type AppRole = "physician" | "compliance" | "admin";
@@ -31,6 +31,15 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 const PHYSICIAN_KEY = "auth_physician";
 const DEFAULT_ROLE: AppRole = "physician";
 
+function syncCookie(physician: Physician | null) {
+  if (typeof document === "undefined") return;
+  if (physician) {
+    document.cookie = `${PHYSICIAN_KEY}=${encodeURIComponent(JSON.stringify(physician))}; path=/; max-age=604800; samesite=strict`;
+  } else {
+    document.cookie = `${PHYSICIAN_KEY}=; path=/; max-age=0`;
+  }
+}
+
 function getStoredState(): AuthState {
   if (typeof window === "undefined") {
     return { physician: null, isAuthenticated: false, role: DEFAULT_ROLE };
@@ -54,8 +63,13 @@ function getStoredState(): AuthState {
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AuthState>(getStoredState);
 
+  useEffect(() => {
+    syncCookie(state.physician);
+  }, [state.physician]);
+
   const login = useCallback((physician: Physician) => {
     localStorage.setItem(PHYSICIAN_KEY, JSON.stringify(physician));
+    syncCookie(physician);
     setState({
       physician,
       isAuthenticated: true,
@@ -65,6 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(() => {
     localStorage.removeItem(PHYSICIAN_KEY);
+    syncCookie(null);
     setState({ physician: null, isAuthenticated: false, role: DEFAULT_ROLE });
   }, []);
 

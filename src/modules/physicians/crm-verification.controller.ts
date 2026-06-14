@@ -5,6 +5,7 @@ import {
   Patch,
   Param,
   Body,
+  Query,
   UseGuards,
   Request,
   HttpCode,
@@ -12,10 +13,17 @@ import {
 } from '@nestjs/common';
 import { CrmVerificationService } from './crm-verification.service';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
-import { InternalServiceGuard } from '../../shared/guards/internal-service.guard';
+import { RolesGuard } from '../../shared/guards/roles.guard';
+import { Roles } from '../../shared/decorators/roles.decorator';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import { resolveVerificationSchema } from './schemas/crm-verification.schemas';
 import type { ResolveVerificationInput } from './schemas/crm-verification.schemas';
+
+interface AuthedRequest {
+  user: { physicianId: string; role: string };
+  ip?: string;
+  headers: Record<string, string | undefined>;
+}
 
 @Controller('v1')
 export class CrmVerificationController {
@@ -29,7 +37,7 @@ export class CrmVerificationController {
    */
   @Post('physicians/me/crm-verification')
   @UseGuards(JwtAuthGuard)
-  async requestVerification(@Request() req: { user: { physicianId: string }; ip?: string }) {
+  async requestVerification(@Request() req: AuthedRequest) {
     return this.crmVerificationService.requestVerification(req.user.physicianId, req.ip);
   }
 
@@ -38,37 +46,40 @@ export class CrmVerificationController {
    */
   @Get('physicians/me/crm-verification')
   @UseGuards(JwtAuthGuard)
-  async getLatestRequest(@Request() req: { user: { physicianId: string } }) {
+  async getLatestRequest(@Request() req: AuthedRequest) {
     return this.crmVerificationService.getLatestRequest(req.user.physicianId);
   }
 
-  // ── Admin endpoints (x-internal-token) ──────────────────────────────────
+  // ── Admin/Compliance endpoints (RBAC: COMPLIANCE, ADMIN) ────────────────
 
   /**
-   * Lista todas as solicitações de verificação pendentes.
-   * Requer header `x-internal-token`.
+   * Lista solicitações de verificação de CRM.
+   * Filtro opcional por status: PENDING (default), APPROVED, REJECTED.
+   * Acesso restrito a COMPLIANCE e ADMIN via JWT + RolesGuard.
    */
   @Get('admin/crm-verifications')
-  @UseGuards(InternalServiceGuard)
-  async listPending() {
-    return this.crmVerificationService.listPending();
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('COMPLIANCE', 'ADMIN')
+  async listRequests(@Query('status') status?: string) {
+    return this.crmVerificationService.listByStatus(status);
   }
 
   /**
    * Aprova ou rejeita uma solicitação de verificação de CRM.
-   * Requer header `x-internal-token`.
+   * O resolvedBy é extraído do JWT (physicianId), garantindo trilha de auditoria.
    *
    * Body: { action: 'approve' | 'reject', notes?: string }
    */
   @Patch('admin/crm-verifications/:id')
-  @UseGuards(InternalServiceGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('COMPLIANCE', 'ADMIN')
   @HttpCode(HttpStatus.OK)
   async resolve(
     @Param('id') id: string,
     @Body(new ZodValidationPipe(resolveVerificationSchema)) body: ResolveVerificationInput,
-    @Request() req: { headers: Record<string, string | undefined> },
+    @Request() req: AuthedRequest,
   ) {
-    const resolvedBy = req.headers['x-resolved-by'] ?? 'admin';
+    const resolvedBy = req.user.physicianId;
 
     if (body.action === 'approve') {
       return this.crmVerificationService.approve(id, resolvedBy, body.notes);

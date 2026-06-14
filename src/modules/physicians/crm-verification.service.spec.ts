@@ -128,22 +128,54 @@ describe('CrmVerificationService.getLatestRequest', () => {
   });
 });
 
-// ── listPending ──────────────────────────────────────────────────────────────
+// ── listByStatus ─────────────────────────────────────────────────────────────
 
-describe('CrmVerificationService.listPending', () => {
-  it('returns all PENDING requests with physician data', async () => {
+describe('CrmVerificationService.listByStatus', () => {
+  it('returns all PENDING requests with physician data by default', async () => {
     const { service, prisma } = buildMocks();
     const pendingWithPhysician = { ...mockPendingRequest, physician: mockPhysician };
     vi.mocked(prisma.crmVerificationRequest.findMany).mockResolvedValue([
       pendingWithPhysician,
     ] as never);
 
-    const result = await service.listPending();
+    const result = await service.listByStatus();
 
     expect(prisma.crmVerificationRequest.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { status: 'PENDING' } }),
     );
     expect(result).toHaveLength(1);
+  });
+
+  it('filters by APPROVED status when provided', async () => {
+    const { service, prisma } = buildMocks();
+    const approvedWithPhysician = {
+      ...mockPendingRequest,
+      status: 'APPROVED',
+      resolvedAt: new Date('2026-06-09T10:00:00Z'),
+      resolvedBy: 'admin-id',
+      physician: mockPhysician,
+    };
+    vi.mocked(prisma.crmVerificationRequest.findMany).mockResolvedValue([
+      approvedWithPhysician,
+    ] as never);
+
+    const result = await service.listByStatus('APPROVED');
+
+    expect(prisma.crmVerificationRequest.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { status: 'APPROVED' } }),
+    );
+    expect(result).toHaveLength(1);
+  });
+
+  it('defaults to PENDING for invalid status', async () => {
+    const { service, prisma } = buildMocks();
+    vi.mocked(prisma.crmVerificationRequest.findMany).mockResolvedValue([] as never);
+
+    await service.listByStatus('INVALID');
+
+    expect(prisma.crmVerificationRequest.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { status: 'PENDING' } }),
+    );
   });
 });
 

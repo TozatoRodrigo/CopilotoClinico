@@ -244,3 +244,49 @@ export interface LatestInteractionResponse {
   uncertaintyReason: string | null;
   createdAt: string;
 }
+
+// ── Admin / Console types (E1, E2, E5) ─────────────────────────────────────
+
+export type CrmVerificationStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface CrmVerificationItem {
+  id: string;
+  physicianId: string;
+  status: CrmVerificationStatus;
+  notes: string | null;
+  resolvedBy: string | null;
+  resolvedAt: string | null;
+  requestedAt: string;
+  physician: {
+    id: string;
+    name: string | null;
+    crmUf: string;
+    crmNumber: string;
+    email: string;
+  };
+}
+
+export interface ResolveCrmVerificationRequest {
+  action: 'approve' | 'reject';
+  notes?: string;
+}
+
+export interface GuidelineSourceSummary {
+  source: string;
+  sourceVersion: string;
+  chunkCount: number;
+  active: boolean;
+  validFrom: string;
+  validTo: string | null;
+}
+
+export interface PendingGuidelineChunk {
+  id: string;
+  source: string;
+  sourceVersion: string;
+  specialty: string;
+  evidenceLevel: string | null;
+  text: string;
+  metadata: unknown;
+  createdAt: string;
+}
