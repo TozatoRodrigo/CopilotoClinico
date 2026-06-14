@@ -5,6 +5,7 @@ import {
   Patch,
   Body,
   Param,
+  Query,
   Request,
   UseGuards,
   Inject,
@@ -34,6 +35,17 @@ export class GuidelinesController {
   @UseGuards(JwtAuthGuard)
   async listSources() {
     return this.guidelinesService.listSources();
+  }
+
+  @Get('search')
+  @UseGuards(JwtAuthGuard)
+  async search(
+    @Query('q') q: string,
+    @Query('specialty') specialty?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const maxLimit = Math.min(parseInt(limit ?? '20', 10) || 20, 50);
+    return this.guidelinesService.searchChunks(q, specialty, maxLimit);
   }
 
   @Get('pending')

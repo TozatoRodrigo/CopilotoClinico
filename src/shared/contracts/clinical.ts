@@ -290,3 +290,17 @@ export interface PendingGuidelineChunk {
   metadata: unknown;
   createdAt: string;
 }
+
+export interface GuidelineSearchResult {
+  id: string;
+  source: string;
+  sourceVersion: string;
+  specialty: string;
+  evidenceLevel: string | null;
+  text: string;
+  metadata: unknown;
+  validFrom: string;
+  institutionId: string | null;
+  reviewerName: string | null;
+  rank: number;
+}
