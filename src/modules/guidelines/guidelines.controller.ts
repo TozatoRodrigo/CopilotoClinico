@@ -81,7 +81,9 @@ export class GuidelinesController {
   @Post('ingest-review')
   @UseGuards(JwtAuthGuard, RolesGuard, CuratorGuard)
   @Roles('COMPLIANCE', 'ADMIN')
-  async ingestForReview(@Body(new ZodValidationPipe(ingestGuidelineSchema)) body: IngestGuidelineBody) {
+  async ingestForReview(
+    @Body(new ZodValidationPipe(ingestGuidelineSchema)) body: IngestGuidelineBody,
+  ) {
     return this.guidelinesService.ingestForReview(body);
   }
 
