@@ -493,8 +493,8 @@ describe('GuidelinesService', () => {
       const result = await service.searchChunks('hipertensao');
 
       expect(result).toHaveLength(1);
-      expect(result[0].source).toBe('WHO HTN 2023');
-      expect(result[0].reviewerName).toBe('Dr. Silva');
+      expect(result[0]!.source).toBe('WHO HTN 2023');
+      expect(result[0]!.reviewerName).toBe('Dr. Silva');
       expect(prisma.$queryRawUnsafe).toHaveBeenCalledTimes(1);
       expect(prisma.$queryRawUnsafe).toHaveBeenCalledWith(
         expect.stringContaining('plainto_tsquery'),
