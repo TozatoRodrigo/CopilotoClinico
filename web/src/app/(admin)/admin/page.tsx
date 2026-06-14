@@ -63,7 +63,7 @@ const QUICK_LINKS: QuickLink[] = [
 
 export default function AdminOverviewPage() {
   const { role, physician } = useAuth();
-  const availableLinks = QUICK_LINKS.filter((l) => l.roles.includes(role));
+  const availableLinks = QUICK_LINKS.filter((l) => l.roles.some((r) => r === role));
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
