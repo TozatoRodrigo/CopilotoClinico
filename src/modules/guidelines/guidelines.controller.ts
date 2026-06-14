@@ -78,6 +78,13 @@ export class GuidelinesController {
     return this.guidelinesService.ingest(body);
   }
 
+  @Post('ingest-review')
+  @UseGuards(JwtAuthGuard, RolesGuard, CuratorGuard)
+  @Roles('COMPLIANCE', 'ADMIN')
+  async ingestForReview(@Body(new ZodValidationPipe(ingestGuidelineSchema)) body: IngestGuidelineBody) {
+    return this.guidelinesService.ingestForReview(body);
+  }
+
   @Patch('deactivate')
   @UseGuards(InternalServiceGuard)
   async deactivate(
