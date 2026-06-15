@@ -11,6 +11,7 @@ import {
   ShieldCheck,
   ShieldWarning,
   Stethoscope,
+  Sun,
   UserCircle,
   Users,
 } from '@phosphor-icons/react';
@@ -43,8 +44,18 @@ type AdminSection = {
 
 const ADMIN_SECTIONS: AdminSection[] = [
   { href: '/admin', label: 'Visão geral', icon: House, roles: ['compliance', 'admin'] },
-  { href: '/admin/crm-verifications', label: 'Verificações CRM', icon: ShieldCheck, roles: ['compliance', 'admin'] },
-  { href: '/admin/diretrizes', label: 'Diretrizes', icon: Database, roles: ['compliance', 'admin'] },
+  {
+    href: '/admin/crm-verifications',
+    label: 'Verificações CRM',
+    icon: ShieldCheck,
+    roles: ['compliance', 'admin'],
+  },
+  {
+    href: '/admin/diretrizes',
+    label: 'Diretrizes',
+    icon: Database,
+    roles: ['compliance', 'admin'],
+  },
   { href: '/audit', label: 'Auditoria', icon: ShieldWarning, roles: ['compliance', 'admin'] },
   { href: '/admin/analytics', label: 'Analytics', icon: ChartBar, roles: ['admin'] },
   { href: '/admin/users', label: 'Usuários', icon: Users, roles: ['admin'] },
@@ -68,8 +79,12 @@ function ThemeToggle() {
       size="icon"
       className="h-8 w-8"
       onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+      aria-pressed={resolvedTheme === 'dark'}
+      aria-label={
+        resolvedTheme === 'dark' ? 'Alternar para tema claro' : 'Alternar para tema escuro'
+      }
     >
-      <MoonStars className="size-4" />
+      {resolvedTheme === 'dark' ? <MoonStars className="size-4" /> : <Sun className="size-4" />}
       <span className="sr-only">Alternar tema</span>
     </Button>
   );
@@ -88,7 +103,10 @@ function AdminUserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-accent/50">
+        <button
+          className="flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-accent/50"
+          aria-label="Abrir menu do usuário"
+        >
           <Avatar className="h-7 w-7">
             <AvatarFallback className="bg-primary text-primary-foreground text-[10px]">
               {(physician?.name ?? 'Ad').slice(0, 2).toUpperCase()}
@@ -155,9 +173,11 @@ function MobileSidebar({ sections }: { sections: AdminSection[] }) {
         <SheetTitle className="px-4 py-3 text-sm font-semibold text-primary">
           Console Admin
         </SheetTitle>
-        <nav className="flex flex-col gap-0.5 px-2">
+        <nav aria-label="Navegação administrativa móvel" className="flex flex-col gap-0.5 px-2">
           {sections.map((section) => {
-            const isActive = pathname === section.href || (section.href !== '/admin' && pathname.startsWith(section.href + '/'));
+            const isActive =
+              pathname === section.href ||
+              (section.href !== '/admin' && pathname.startsWith(section.href + '/'));
             const Icon = section.icon;
             return (
               <Link
@@ -194,27 +214,40 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen bg-background">
+      <a
+        href="#admin-main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground"
+      >
+        Pular para o conteúdo
+      </a>
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r bg-sidebar lg:flex">
         <div className="flex items-center gap-2 border-b px-4 py-3">
           <ShieldCheck className="size-5 text-primary" weight="duotone" />
           <div className="flex flex-col">
-            <span className="text-sm font-semibold leading-tight text-sidebar-foreground">Console Admin</span>
-            <span className="text-[10px] font-mono text-muted-foreground leading-tight">Copiloto Clínico</span>
+            <span className="text-sm font-semibold leading-tight text-sidebar-foreground">
+              Console Admin
+            </span>
+            <span className="text-[10px] font-mono text-muted-foreground leading-tight">
+              Copiloto Clínico
+            </span>
           </div>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-2 py-3">
+        <nav aria-label="Navegação administrativa" className="flex-1 overflow-y-auto px-2 py-3">
           <div className="mb-1 px-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
             Operação
           </div>
           {sections.map((section) => {
-            const isActive = pathname === section.href || (section.href !== '/admin' && pathname.startsWith(section.href + '/'));
+            const isActive =
+              pathname === section.href ||
+              (section.href !== '/admin' && pathname.startsWith(section.href + '/'));
             const Icon = section.icon;
             return (
               <Link
                 key={section.href}
                 href={section.href}
+                aria-current={isActive ? 'page' : undefined}
                 className={cn(
                   'flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors',
                   isActive
@@ -224,7 +257,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               >
                 <Icon className="size-4 shrink-0" />
                 <span className="truncate">{section.label}</span>
-                {isActive && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />}
               </Link>
             );
           })}
@@ -260,7 +292,11 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </header>
 
         {/* Content */}
-        <main className="flex-1 overflow-x-hidden px-4 py-5 pb-20 lg:px-6 lg:pb-5">
+        <main
+          id="admin-main-content"
+          aria-label="Conteúdo administrativo"
+          className="flex-1 overflow-x-hidden px-4 py-5 pb-20 lg:px-6 lg:pb-5"
+        >
           {children}
         </main>
       </div>
