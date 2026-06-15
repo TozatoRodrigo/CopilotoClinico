@@ -1,26 +1,22 @@
-"use client";
+'use client';
 
-import { use, useState, useEffect, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { apiClient } from "@/lib/api-client";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { useVoiceInput } from "@/hooks/use-voice-input";
-import { useOnlineStatus } from "@/components/providers/offline-provider";
-import { addToQueue } from "@/lib/offline-queue";
-import { syncOfflineQueue } from "@/lib/copilot-queue";
-import { STORAGE_KEY_PREFIX } from "@/hooks/use-copilot-conversation";
-import { Microphone, MicrophoneSlash, WifiSlash } from "@phosphor-icons/react";
-import { toast } from "sonner";
-import type {
-  CopilotAnalysis,
-  CopilotAnalyzeResponse,
-  EncounterContext,
-} from "@/lib/types";
-import { getDemoCasePreset } from "@/lib/demo-case-presets";
-import { cn } from "@/lib/utils";
+import { use, useState, useEffect, useCallback } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { apiClient } from '@/lib/api-client';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { useVoiceInput } from '@/hooks/use-voice-input';
+import { useOnlineStatus } from '@/components/providers/offline-provider';
+import { addToQueue } from '@/lib/offline-queue';
+import { syncOfflineQueue } from '@/lib/copilot-queue';
+import { STORAGE_KEY_PREFIX } from '@/hooks/use-copilot-conversation';
+import { Microphone, MicrophoneSlash, WifiSlash } from '@phosphor-icons/react';
+import { toast } from 'sonner';
+import type { CopilotAnalysis, CopilotAnalyzeResponse, EncounterContext } from '@/lib/types';
+import { getDemoCasePreset } from '@/lib/demo-case-presets';
+import { cn } from '@/lib/utils';
 
 interface ChipDef {
   key: string;
@@ -28,60 +24,54 @@ interface ChipDef {
 }
 
 const RESOURCE_CHIPS: ChipDef[] = [
-  { key: "hasCT", label: "TC" },
-  { key: "hasLab", label: "Labs" },
-  { key: "hasICU", label: "UTI" },
-  { key: "isSus", label: "SUS" },
+  { key: 'hasCT', label: 'TC' },
+  { key: 'hasLab', label: 'Labs' },
+  { key: 'hasICU', label: 'UTI' },
+  { key: 'isSus', label: 'SUS' },
 ];
 
 const RED_FLAG_CHIPS: ChipDef[] = [
-  { key: "immunosuppressed", label: "Imunossuprimido" },
-  { key: "pregnant", label: "Gestante" },
-  { key: "anticoagulant", label: "Anticoagulante" },
-  { key: "pediatric", label: "Pediátrico" },
-  { key: "elderly65", label: "65+" },
-  { key: "allergy", label: "Alergia" },
+  { key: 'immunosuppressed', label: 'Imunossuprimido' },
+  { key: 'pregnant', label: 'Gestante' },
+  { key: 'anticoagulant', label: 'Anticoagulante' },
+  { key: 'pediatric', label: 'Pediátrico' },
+  { key: 'elderly65', label: '65+' },
+  { key: 'allergy', label: 'Alergia' },
 ];
 
 const COMPLAINT_TEMPLATES = [
-  "Dor torácica",
-  "Dispneia",
-  "Dor abdominal",
-  "Febre",
-  "Cefaleia",
-  "Síncope",
-  "Trauma",
-  "Síndrome gripal",
-  "Dor lombar",
-  "Vômitos",
-  "Corização/Sangramento",
-  "Alteração do sensório",
-  "Dor em membro",
-  "Disúria",
-  "Crise hipertensiva",
-  "Palpitação",
-  "Síndrome convulsiva",
-  "Prurido/Dermatite",
-  "Dor odontológica",
-  "Corpo estranho",
+  'Dor torácica',
+  'Dispneia',
+  'Dor abdominal',
+  'Febre',
+  'Cefaleia',
+  'Síncope',
+  'Trauma',
+  'Síndrome gripal',
+  'Dor lombar',
+  'Vômitos',
+  'Corização/Sangramento',
+  'Alteração do sensório',
+  'Dor em membro',
+  'Disúria',
+  'Crise hipertensiva',
+  'Palpitação',
+  'Síndrome convulsiva',
+  'Prurido/Dermatite',
+  'Dor odontológica',
+  'Corpo estranho',
 ];
 
 const MIN_CHARS = 10;
 
-export default function CapturePage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default function CapturePage({ params }: { params: Promise<{ id: string }> }) {
   const { id: encounterId } = use(params);
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isOnline } = useOnlineStatus();
-  const demoPreset = getDemoCasePreset(searchParams.get("demoCase"));
+  const demoPreset = getDemoCasePreset(searchParams.get('demoCase'));
 
-  const [caseText, setCaseText] = useState(
-    () => demoPreset?.caseText ?? "",
-  );
+  const [caseText, setCaseText] = useState(() => demoPreset?.caseText ?? '');
   const [context, setContext] = useState<EncounterContext>(
     () => demoPreset?.context ?? { hasCT: false, isSus: false, hasLab: false, hasICU: false },
   );
@@ -103,7 +93,7 @@ export default function CapturePage({
 
   const handleVoiceTranscript = useCallback((text: string) => {
     setCaseText((prev) => {
-      const separator = prev.trim() ? " " : "";
+      const separator = prev.trim() ? ' ' : '';
       return prev + separator + text;
     });
   }, []);
@@ -125,7 +115,7 @@ export default function CapturePage({
   function applyTemplate(template: string) {
     setCaseText((prev) => {
       if (prev.trim()) return prev;
-      return template + ": ";
+      return template + ': ';
     });
   }
 
@@ -134,12 +124,12 @@ export default function CapturePage({
 
     if (!isOnline) {
       await addToQueue({
-        type: "analyze",
+        type: 'analyze',
         encounterId,
         caseText: caseText.trim(),
         context,
       });
-      toast.info("Sem conexão. Análise será enviada quando voltar online.");
+      toast.info('Sem conexão. Análise será enviada quando voltar online.');
       return;
     }
 
@@ -162,7 +152,7 @@ export default function CapturePage({
       );
       router.push(`/encounters/${encounterId}/result`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao analisar o caso.");
+      setError(err instanceof Error ? err.message : 'Erro ao analisar o caso.');
     } finally {
       setLoading(false);
     }
@@ -178,53 +168,54 @@ export default function CapturePage({
       )}
 
       <section className="space-y-3">
-        <div className="flex flex-wrap gap-2">
-          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        <fieldset>
+          <legend className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Recursos
-          </span>
-          {RESOURCE_CHIPS.map((chip) => (
-            <button
-              key={chip.key}
-              type="button"
-              onClick={() => toggleContext(chip.key)}
-              className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <Badge
-                variant={
-                  context[chip.key as keyof EncounterContext]
-                    ? "default"
-                    : "outline"
-                }
-                className="cursor-pointer select-none px-3 py-1 text-sm"
+          </legend>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {RESOURCE_CHIPS.map((chip) => (
+              <button
+                key={chip.key}
+                type="button"
+                onClick={() => toggleContext(chip.key)}
+                aria-pressed={!!context[chip.key as keyof EncounterContext]}
+                className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                {chip.label}
-              </Badge>
-            </button>
-          ))}
-        </div>
+                <Badge
+                  variant={context[chip.key as keyof EncounterContext] ? 'default' : 'outline'}
+                  className="cursor-pointer select-none px-3 py-1 text-sm"
+                >
+                  {chip.label}
+                </Badge>
+              </button>
+            ))}
+          </div>
+        </fieldset>
 
-        <div className="flex flex-wrap gap-2">
-          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        <fieldset>
+          <legend className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
             Red flags
-          </span>
-          {RED_FLAG_CHIPS.map((chip) => (
-            <button
-              key={chip.key}
-              type="button"
-              onClick={() => toggleRedFlag(chip.key)}
-              className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <Badge
-                variant={redFlags[chip.key] ? "destructive" : "outline"}
-                className="cursor-pointer select-none px-3 py-1 text-sm"
+          </legend>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {RED_FLAG_CHIPS.map((chip) => (
+              <button
+                key={chip.key}
+                type="button"
+                onClick={() => toggleRedFlag(chip.key)}
+                aria-pressed={!!redFlags[chip.key]}
+                className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                {chip.label}
-              </Badge>
-            </button>
-          ))}
-        </div>
+                <Badge
+                  variant={redFlags[chip.key] ? 'destructive' : 'outline'}
+                  className="cursor-pointer select-none px-3 py-1 text-sm"
+                >
+                  {chip.label}
+                </Badge>
+              </button>
+            ))}
+          </div>
+        </fieldset>
       </section>
-
       <section className="mt-4">
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
           {COMPLAINT_TEMPLATES.map((template) => (
@@ -246,19 +237,17 @@ export default function CapturePage({
             <button
               type="button"
               onClick={() =>
-                isListening
-                  ? stopListening()
-                  : startListening(handleVoiceTranscript)
+                isListening ? stopListening() : startListening(handleVoiceTranscript)
               }
               disabled={loading}
               className={cn(
-                "flex size-16 items-center justify-center rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                'flex size-16 items-center justify-center rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                 isListening
-                  ? "bg-clinical-teal text-white shadow-lg shadow-clinical-teal/30 scale-105"
-                  : "bg-card border-2 border-clinical-teal/40 text-clinical-teal hover:bg-clinical-teal/10",
-                loading && "opacity-50 pointer-events-none",
+                  ? 'bg-clinical-teal text-white shadow-lg shadow-clinical-teal/30 scale-105'
+                  : 'bg-card border-2 border-clinical-teal/40 text-clinical-teal hover:bg-clinical-teal/10',
+                loading && 'opacity-50 pointer-events-none',
               )}
-              aria-label={isListening ? "Parar gravação" : "Iniciar gravação"}
+              aria-label={isListening ? 'Parar gravação' : 'Iniciar gravação'}
             >
               {isListening ? (
                 <MicrophoneSlash className="size-8" weight="fill" />
@@ -267,10 +256,11 @@ export default function CapturePage({
               )}
             </button>
             {isListening && (
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1" role="status" aria-live="polite">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <span
                     key={i}
+                    aria-hidden="true"
                     className="inline-block h-3 w-1 rounded-full bg-clinical-teal animate-pulse"
                     style={{ animationDelay: `${i * 0.15}s`, height: `${8 + (i % 3) * 6}px` }}
                   />
@@ -278,16 +268,13 @@ export default function CapturePage({
                 <span className="ml-2 text-sm text-clinical-teal">Ouvindo...</span>
               </div>
             )}
-            {!isListening && (
-              <p className="text-sm text-muted-foreground">
-                Toque para ditar
-              </p>
-            )}
+            {!isListening && <p className="text-sm text-muted-foreground">Toque para ditar</p>}
           </div>
         )}
 
         <div className="mt-4">
           <Textarea
+            aria-label="Descrição do caso clínico"
             placeholder="Ou digite o caso aqui..."
             className="min-h-[100px] resize-y border-border/50 bg-transparent text-sm"
             value={caseText}
@@ -298,7 +285,7 @@ export default function CapturePage({
             <span>
               {caseText.trim().length < MIN_CHARS
                 ? `Mínimo ${MIN_CHARS} caracteres`
-                : "Pronto para analisar"}
+                : 'Pronto para analisar'}
             </span>
             <span className="font-mono">{caseText.trim().length}</span>
           </div>
@@ -325,7 +312,7 @@ export default function CapturePage({
         disabled={!isValid || loading}
         onClick={handleSubmit}
       >
-        {loading ? "Analisando..." : "Analisar com Copiloto"}
+        {loading ? 'Analisando...' : 'Analisar com Copiloto'}
       </Button>
     </div>
   );
