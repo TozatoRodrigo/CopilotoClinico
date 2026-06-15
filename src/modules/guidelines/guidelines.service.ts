@@ -201,6 +201,74 @@ export class GuidelinesService {
     return updated;
   }
 
+  /**
+   * Busca textual em chunks approved (busca do médico na biblioteca).
+   * Usa tsvector full-text do Postgres (rápido, sem custo de embedding).
+   * Retorna apenas chunks vigentes (valid_to IS NULL).
+   */
+  async searchChunks(
+    query: string,
+    specialty?: string,
+    limit: number = 20,
+  ): Promise<
+    Array<{
+      id: string;
+      source: string;
+      sourceVersion: string;
+      specialty: string;
+      evidenceLevel: string | null;
+      text: string;
+      metadata: unknown;
+      validFrom: Date;
+      institutionId: string | null;
+      reviewerName: string | null;
+      rank: number;
+    }>
+  > {
+    const trimmed = query.trim();
+    if (trimmed.length < 2) return [];
+
+    const params: unknown[] = [trimmed, limit];
+    let specialtyClause = '';
+    if (specialty) {
+      params.push(specialty);
+      specialtyClause = `AND gc.specialty = $${params.length}`;
+    }
+
+    const rows = await this.prisma.$queryRawUnsafe(
+      `SELECT
+         gc.id, gc.source, gc.source_version AS "sourceVersion",
+         gc.specialty, gc.evidence_level AS "evidenceLevel",
+         gc.text, gc.metadata, gc.valid_from AS "validFrom",
+         gc.institution_id AS "institutionId",
+         p.name AS "reviewerName",
+         ts_rank(gc.text_tsv, plainto_tsquery('portuguese', $1)) AS rank
+       FROM guideline_chunks gc
+       LEFT JOIN physicians p ON p.id = gc.reviewed_by
+       WHERE gc.status = 'approved'
+         AND gc.valid_to IS NULL
+         AND gc.text_tsv @@ plainto_tsquery('portuguese', $1)
+         ${specialtyClause}
+       ORDER BY rank DESC, gc.valid_from DESC
+       LIMIT $2`,
+      ...params,
+    );
+
+    return rows as Array<{
+      id: string;
+      source: string;
+      sourceVersion: string;
+      specialty: string;
+      evidenceLevel: string | null;
+      text: string;
+      metadata: unknown;
+      validFrom: Date;
+      institutionId: string | null;
+      reviewerName: string | null;
+      rank: number;
+    }>;
+  }
+
   async getChunkById(id: string) {
     return this.prisma.guidelineChunk.findUnique({
       where: { id },

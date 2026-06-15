@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import {
   type QueryClient,
@@ -6,8 +6,8 @@ import {
   useMutation,
   useQuery,
   useQueryClient,
-} from "@tanstack/react-query";
-import { apiClient } from "@/lib/api-client";
+} from '@tanstack/react-query';
+import { apiClient } from '@/lib/api-client';
 import type {
   AuditQueryResponse,
   CrmVerificationItem,
@@ -18,10 +18,11 @@ import type {
   EncounterDetail,
   EncountersResponse,
   GenerateDocumentRequest,
+  GuidelineSearchResult,
   GuidelineSourceSummary,
   PendingGuidelineChunk,
   ResolveCrmVerificationRequest,
-} from "@/lib/types";
+} from '@/lib/types';
 
 export interface AuditFilters {
   entity: string;
@@ -41,16 +42,17 @@ export interface EncounterListFilters {
 }
 
 export const clinicalQueryKeys = {
-  encounters: (filters?: EncounterListFilters) =>
-    ["encounters", filters ?? "default"] as const,
-  encounter: (encounterId: string) => ["encounter", encounterId] as const,
-  encounterDocuments: (encounterId: string) => ["encounter-documents", encounterId] as const,
+  encounters: (filters?: EncounterListFilters) => ['encounters', filters ?? 'default'] as const,
+  encounter: (encounterId: string) => ['encounter', encounterId] as const,
+  encounterDocuments: (encounterId: string) => ['encounter-documents', encounterId] as const,
   audit: (filters: AuditFilters, offset: number, limit: number) =>
-    ["audit", filters, offset, limit] as const,
-  latestInteraction: (encounterId: string) => ["latest-interaction", encounterId] as const,
-  crmVerifications: (status: CrmVerificationStatus) => ["crm-verifications", status] as const,
-  guidelineSources: ["guideline-sources"] as const,
-  guidelinePending: ["guideline-pending"] as const,
+    ['audit', filters, offset, limit] as const,
+  latestInteraction: (encounterId: string) => ['latest-interaction', encounterId] as const,
+  crmVerifications: (status: CrmVerificationStatus) => ['crm-verifications', status] as const,
+  guidelineSources: ['guideline-sources'] as const,
+  guidelinePending: ['guideline-pending'] as const,
+  guidelineSearch: (q: string, specialty?: string) =>
+    ['guideline-search', q, specialty ?? 'all'] as const,
 };
 
 export function useEncounterList(filters?: EncounterListFilters) {
@@ -65,7 +67,7 @@ export function useEncounterList(filters?: EncounterListFilters) {
       if (filters?.search) params.search = filters.search;
       if (filters?.dateFrom) params.dateFrom = filters.dateFrom;
       if (filters?.dateTo) params.dateTo = filters.dateTo;
-      return apiClient.get<EncountersResponse>("/encounters", params);
+      return apiClient.get<EncountersResponse>('/encounters', params);
     },
     placeholderData: keepPreviousData,
   });
@@ -73,8 +75,8 @@ export function useEncounterList(filters?: EncounterListFilters) {
 
 export function useDashboardStats() {
   return useQuery({
-    queryKey: ["dashboard-stats"],
-    queryFn: () => apiClient.get<DashboardStats>("/encounters/stats"),
+    queryKey: ['dashboard-stats'],
+    queryFn: () => apiClient.get<DashboardStats>('/encounters/stats'),
   });
 }
 
@@ -114,12 +116,12 @@ export function useAuditEntries(filters: AuditFilters, offset: number, limit: nu
         offset: String(offset),
       };
 
-      if (filters.entity && filters.entity !== "_all") params.entity = filters.entity;
+      if (filters.entity && filters.entity !== '_all') params.entity = filters.entity;
       if (filters.entityId) params.entityId = filters.entityId;
       if (filters.from) params.from = filters.from;
       if (filters.to) params.to = filters.to;
 
-      return apiClient.get<AuditQueryResponse>("/audit", params);
+      return apiClient.get<AuditQueryResponse>('/audit', params);
     },
     placeholderData: keepPreviousData,
   });
@@ -129,8 +131,8 @@ function invalidateEncounterQueries(queryClient: QueryClient, encounterId: strin
   return Promise.all([
     queryClient.invalidateQueries({ queryKey: clinicalQueryKeys.encounter(encounterId) }),
     queryClient.invalidateQueries({ queryKey: clinicalQueryKeys.encounterDocuments(encounterId) }),
-    queryClient.invalidateQueries({ queryKey: ["encounters"] }),
-    queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] }),
+    queryClient.invalidateQueries({ queryKey: ['encounters'] }),
+    queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] }),
   ]);
 }
 
@@ -150,7 +152,8 @@ export function useConfirmDocument(encounterId: string, documentId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: () => apiClient.post<Document>(`/encounters/${encounterId}/documents/${documentId}/confirm`),
+    mutationFn: () =>
+      apiClient.post<Document>(`/encounters/${encounterId}/documents/${documentId}/confirm`),
     onSuccess: async () => {
       await invalidateEncounterQueries(queryClient, encounterId);
       await queryClient.invalidateQueries({
@@ -180,8 +183,7 @@ export function useUpdateDocument(encounterId: string, documentId: string) {
 export function useCrmVerifications(status: CrmVerificationStatus) {
   return useQuery({
     queryKey: clinicalQueryKeys.crmVerifications(status),
-    queryFn: () =>
-      apiClient.get<CrmVerificationItem[]>("/admin/crm-verifications", { status }),
+    queryFn: () => apiClient.get<CrmVerificationItem[]>('/admin/crm-verifications', { status }),
   });
 }
 
@@ -189,15 +191,10 @@ export function useResolveCrmVerification() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({
-      id,
-      body,
-    }: {
-      id: string;
-      body: ResolveCrmVerificationRequest;
-    }) => apiClient.patch<CrmVerificationItem>(`/admin/crm-verifications/${id}`, body),
+    mutationFn: ({ id, body }: { id: string; body: ResolveCrmVerificationRequest }) =>
+      apiClient.patch<CrmVerificationItem>(`/admin/crm-verifications/${id}`, body),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["crm-verifications"] });
+      await queryClient.invalidateQueries({ queryKey: ['crm-verifications'] });
     },
   });
 }
@@ -207,13 +204,54 @@ export function useResolveCrmVerification() {
 export function useGuidelineSources() {
   return useQuery({
     queryKey: clinicalQueryKeys.guidelineSources,
-    queryFn: () => apiClient.get<GuidelineSourceSummary[]>("/guidelines"),
+    queryFn: () => apiClient.get<GuidelineSourceSummary[]>('/guidelines'),
   });
 }
 
 export function usePendingGuidelineChunks() {
   return useQuery({
     queryKey: clinicalQueryKeys.guidelinePending,
-    queryFn: () => apiClient.get<PendingGuidelineChunk[]>("/guidelines/pending"),
+    queryFn: () => apiClient.get<PendingGuidelineChunk[]>('/guidelines/pending'),
+  });
+}
+
+export function useGuidelineSearch(query: string, specialty?: string) {
+  return useQuery({
+    queryKey: clinicalQueryKeys.guidelineSearch(query, specialty),
+    queryFn: () => {
+      const params = new URLSearchParams({ q: query });
+      if (specialty) params.set('specialty', specialty);
+      return apiClient.get<GuidelineSearchResult[]>(`/guidelines/search?${params.toString()}`);
+    },
+    enabled: query.trim().length >= 2,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useApproveGuidelineChunk() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (chunkId: string) => apiClient.post(`/guidelines/chunks/${chunkId}/approve`),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: clinicalQueryKeys.guidelinePending,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: clinicalQueryKeys.guidelineSources,
+      });
+    },
+  });
+}
+
+export function useRejectGuidelineChunk() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ chunkId, reason }: { chunkId: string; reason?: string }) =>
+      apiClient.post(`/guidelines/chunks/${chunkId}/reject`, { reason }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: clinicalQueryKeys.guidelinePending,
+      });
+    },
   });
 }

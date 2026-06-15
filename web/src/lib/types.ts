@@ -26,6 +26,7 @@ export type {
   EvidenceFigure,
   EvidenceTable,
   GenerateDocumentRequest,
+  GuidelineSearchResult,
   GuidelineSourceSummary,
   LatestInteractionResponse,
   Physician,
@@ -35,4 +36,4 @@ export type {
   RedFlag,
   RedFlagSeverity,
   ResolveCrmVerificationRequest,
-} from "@contracts/clinical";
+} from '@contracts/clinical';
