@@ -171,7 +171,8 @@ export default function LoginPage() {
 
         <form onSubmit={handleMfaSubmit} className="space-y-6">
           {!useBackup ? (
-            <div className="space-y-3">
+            <fieldset className="space-y-3">
+              <legend className="sr-only">Código de verificação de 6 dígitos</legend>
               <div className="flex justify-center gap-2">
                 {mfaCode.map((digit, idx) => (
                   <Input
@@ -190,7 +191,7 @@ export default function LoginPage() {
                   />
                 ))}
               </div>
-            </div>
+            </fieldset>
           ) : (
             <div className="space-y-2">
               <Label htmlFor="backupCode">Código de recuperação</Label>
@@ -209,7 +210,11 @@ export default function LoginPage() {
             </div>
           )}
 
-          {mfaError && <p className="text-center text-sm text-destructive">{mfaError}</p>}
+          {mfaError && (
+            <p role="alert" className="text-center text-sm text-destructive">
+              {mfaError}
+            </p>
+          )}
 
           <Button type="submit" className="h-11 w-full" disabled={loading}>
             {loading ? 'Verificando...' : 'Verificar'}
@@ -222,7 +227,7 @@ export default function LoginPage() {
                 setUseBackup(!useBackup);
                 setMfaError('');
               }}
-              className="text-sm text-clinical-teal underline underline-offset-4"
+              className="text-sm text-clinical-teal underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:rounded"
             >
               {useBackup ? 'Usar código do app autenticador' : 'Usar código de recuperação'}
             </button>
@@ -234,7 +239,7 @@ export default function LoginPage() {
                 setMfaError('');
                 setUseBackup(false);
               }}
-              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-clinical-ink"
+              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-clinical-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:rounded"
             >
               <ArrowLeft className="size-3" />
               Voltar ao login
@@ -268,7 +273,11 @@ export default function LoginPage() {
             disabled={loading}
             aria-invalid={!!fieldErrors.email}
           />
-          {fieldErrors.email && <p className="text-xs text-destructive">{fieldErrors.email}</p>}
+          {fieldErrors.email && (
+            <p role="alert" className="text-xs text-destructive">
+              {fieldErrors.email}
+            </p>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -287,7 +296,9 @@ export default function LoginPage() {
             aria-invalid={!!fieldErrors.password}
           />
           {fieldErrors.password && (
-            <p className="text-xs text-destructive">{fieldErrors.password}</p>
+            <p role="alert" className="text-xs text-destructive">
+              {fieldErrors.password}
+            </p>
           )}
         </div>
 

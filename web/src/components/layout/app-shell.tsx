@@ -13,6 +13,7 @@ import {
   Plus,
   ShieldCheck,
   Stethoscope,
+  Sun,
 } from '@phosphor-icons/react';
 import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
@@ -115,8 +116,12 @@ function ThemeToggle() {
       size="icon"
       className="h-9 w-9"
       onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+      aria-pressed={resolvedTheme === 'dark'}
+      aria-label={
+        resolvedTheme === 'dark' ? 'Alternar para tema claro' : 'Alternar para tema escuro'
+      }
     >
-      <MoonStars className="size-4" />
+      {resolvedTheme === 'dark' ? <MoonStars className="size-4" /> : <Sun className="size-4" />}
       <span className="sr-only">Alternar tema</span>
     </Button>
   );
@@ -298,7 +303,7 @@ function MobileNav({ links }: { links: NavLink[] }) {
       <SheetContent side="left" className="w-72">
         <SheetTitle className="text-primary font-semibold">Copiloto Clínico</SheetTitle>
         <p className="mt-2 text-sm text-muted-foreground">Navegação contextual do papel atual.</p>
-        <nav className="flex flex-col gap-1 mt-6">
+        <nav aria-label="Navegação móvel" className="flex flex-col gap-1 mt-6">
           {links.map((link) => {
             const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
             const Icon = link.icon;
@@ -331,6 +336,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground"
+      >
+        Pular para o conteúdo
+      </a>
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-14 items-center px-4 md:px-6">
           <MobileNav links={links} />
@@ -338,7 +349,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Stethoscope className="size-5 text-primary" />
             <span className="hidden md:inline">Copiloto Clínico</span>
           </Link>
-          <nav className="hidden md:flex items-center gap-1 text-sm">
+          <nav
+            aria-label="Navegação principal"
+            className="hidden md:flex items-center gap-1 text-sm"
+          >
             {links.map((link) => {
               const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
               const Icon = link.icon;
@@ -346,6 +360,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <Link
                   key={link.href}
                   href={link.href}
+                  aria-current={isActive ? 'page' : undefined}
                   className={cn(
                     'inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
                     isActive
@@ -367,8 +382,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </header>
-      <main className="flex-1 container px-4 py-6 pb-24 md:px-6 md:pb-6">{children}</main>
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 px-4 py-2 backdrop-blur md:hidden">
+      <main
+        id="main-content"
+        aria-label="Conteúdo principal"
+        className="flex-1 container px-4 py-6 pb-24 md:px-6 md:pb-6"
+      >
+        {children}
+      </main>
+      <nav
+        aria-label="Navegação inferior"
+        className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 px-4 py-2 backdrop-blur md:hidden"
+      >
         <div className="mx-auto flex max-w-md items-center justify-between gap-2">
           {MOBILE_TABS.map((tab) => {
             const Icon = tab.icon;
@@ -377,6 +401,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Link
                 key={tab.href}
                 href={tab.href}
+                aria-current={isActive ? 'page' : undefined}
                 className={cn(
                   'flex min-w-0 flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 text-xs font-medium transition-colors',
                   isActive

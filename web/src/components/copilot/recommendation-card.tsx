@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { CitationFootnote } from '@/components/domain/citation-footnote';
 import { cn } from '@/lib/utils';
@@ -22,7 +23,11 @@ function getCategoryLabel(category?: CopilotRecommendation['category']): string 
   }
 }
 
-export function RecommendationCard({ rec }: { rec: CopilotRecommendation }) {
+export const RecommendationCard = memo(function RecommendationCard({
+  rec,
+}: {
+  rec: CopilotRecommendation;
+}) {
   const isStabilization = rec.category === 'stabilization';
   const categoryLabel = getCategoryLabel(rec.category);
 
@@ -71,4 +76,4 @@ export function RecommendationCard({ rec }: { rec: CopilotRecommendation }) {
       />
     </div>
   );
-}
+});

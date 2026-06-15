@@ -279,7 +279,7 @@ export default function OnboardingPage() {
           <button
             type="button"
             onClick={() => goTo('welcome')}
-            className="flex w-full items-center justify-center gap-1 text-sm text-muted-foreground hover:text-clinical-ink"
+            className="flex w-full items-center justify-center gap-1 text-sm text-muted-foreground hover:text-clinical-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:rounded"
           >
             <ArrowLeft className="size-3" />
             Voltar
@@ -299,26 +299,33 @@ export default function OnboardingPage() {
           </div>
 
           <form onSubmit={handleVerifyTotp} className="space-y-4">
-            <div className="flex justify-center gap-2">
-              {totpDigits.map((digit, idx) => (
-                <Input
-                  key={idx}
-                  ref={setDigitRef(idx)}
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={6}
-                  value={digit}
-                  onChange={(e) => handleDigitChange(idx, e.target.value)}
-                  onKeyDown={(e) => handleDigitKeyDown(idx, e)}
-                  onPaste={handleDigitPaste}
-                  disabled={loading}
-                  className="size-12 select-none p-0 text-center text-xl font-semibold tabular-nums"
-                  aria-label={`Dígito ${idx + 1} de 6`}
-                />
-              ))}
-            </div>
+            <fieldset>
+              <legend className="sr-only">Código de verificação TOTP de 6 dígitos</legend>
+              <div className="flex justify-center gap-2">
+                {totpDigits.map((digit, idx) => (
+                  <Input
+                    key={idx}
+                    ref={setDigitRef(idx)}
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={digit}
+                    onChange={(e) => handleDigitChange(idx, e.target.value)}
+                    onKeyDown={(e) => handleDigitKeyDown(idx, e)}
+                    onPaste={handleDigitPaste}
+                    disabled={loading}
+                    className="size-12 select-none p-0 text-center text-xl font-semibold tabular-nums"
+                    aria-label={`Dígito ${idx + 1} de 6`}
+                  />
+                ))}
+              </div>
+            </fieldset>
 
-            {totpError && <p className="text-center text-sm text-destructive">{totpError}</p>}
+            {totpError && (
+              <p role="alert" className="text-center text-sm text-destructive">
+                {totpError}
+              </p>
+            )}
 
             <Button type="submit" className="h-11 w-full" disabled={loading}>
               {loading ? 'Verificando...' : 'Verificar e ativar'}
@@ -328,7 +335,7 @@ export default function OnboardingPage() {
           <button
             type="button"
             onClick={() => goTo('mfa-qr')}
-            className="flex w-full items-center justify-center gap-1 text-sm text-muted-foreground hover:text-clinical-ink"
+            className="flex w-full items-center justify-center gap-1 text-sm text-muted-foreground hover:text-clinical-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:rounded"
           >
             <ArrowLeft className="size-3" />
             Voltar ao QR code
