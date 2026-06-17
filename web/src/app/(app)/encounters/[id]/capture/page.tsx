@@ -139,7 +139,7 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
     try {
       const result = await apiClient.post<CopilotAnalyzeResponse>(
         `/encounters/${encounterId}/copilot/analyze`,
-        { caseText: caseText.trim(), context },
+        { caseText: caseText.trim(), context, demoCase: searchParams.get('demoCase') ?? undefined },
       );
       const analysis: CopilotAnalysis = {
         ...result.output,
