@@ -271,6 +271,7 @@ export class OrchestratorService {
         inputRedacted: fullyRedacted,
         retrievedChunkIds: prompt.retrievedChunkIds,
         model: completion.model,
+        params: { demoCase: input.demoCase ?? null },
         rawOutput: enrichedOutput as unknown as Prisma.InputJsonValue,
         citations: {
           recommendations: enrichedOutput.recommendations,
