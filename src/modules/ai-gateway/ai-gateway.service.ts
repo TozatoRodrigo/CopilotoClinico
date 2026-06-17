@@ -9,6 +9,7 @@ import {
 } from './providers/provider.interface';
 import { AnthropicProvider } from './providers/anthropic.provider';
 import { OpenAIProvider } from './providers/openai.provider';
+import { DeterministicProvider } from './providers/deterministic.provider';
 
 function createProvider(
   name: string,
@@ -20,6 +21,9 @@ function createProvider(
   switch (name) {
     case 'openai':
       return new OpenAIProvider(config, overrides);
+    case 'test':
+      // Deterministic, offline provider for E2E/integration tests (F4).
+      return new DeterministicProvider(config, overrides);
     default:
       return new AnthropicProvider(config, overrides);
   }

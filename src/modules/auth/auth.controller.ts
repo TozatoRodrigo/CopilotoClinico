@@ -21,6 +21,8 @@ import { AuthService } from './auth.service';
 import { MfaService } from './mfa.service';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { InternalServiceGuard } from '../../shared/guards/internal-service.guard';
+import { RolesGuard } from '../../shared/guards/roles.guard';
+import { Roles } from '../../shared/decorators/roles.decorator';
 import {
   registerSchema,
   loginSchema,
@@ -241,5 +243,21 @@ export class AuthController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async mfaAdminReset(@Param('physicianId') physicianId: string) {
     await this.mfaService.resetMfa(physicianId, 'admin');
+  }
+
+  /**
+   * F4 — Reset de MFA por um ADMIN autenticado via JWT (fluxo admin do E2E).
+   * Diferente do endpoint interno acima (service-to-service), este exige sessão
+   * ADMIN e é auditado como reset administrativo.
+   */
+  @Post('admin/users/:physicianId/mfa-reset')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async adminResetMfa(
+    @Request() req: { user: { physicianId: string; role: string } },
+    @Param('physicianId') physicianId: string,
+  ) {
+    await this.mfaService.resetMfa(physicianId, `admin:${req.user.physicianId}`);
   }
 }

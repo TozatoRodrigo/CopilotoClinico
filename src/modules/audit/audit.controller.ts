@@ -18,7 +18,7 @@ import { auditQuerySchema } from './schemas/audit.schemas';
 import type { AuditQueryInput } from './schemas/audit.schemas';
 import type { ChainVerificationResult } from './audit.service';
 
-@Controller('v1/audit')
+@Controller('audit')
 export class AuditController {
   constructor(private readonly auditService: AuditService) {}
 

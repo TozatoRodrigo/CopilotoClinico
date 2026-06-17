@@ -24,6 +24,7 @@
     "prisma:studio": "prisma studio",
     "seed:guidelines": "ts-node --project tsconfig.json -e \"require('ts-node/register')\" prisma/seeds/guidelines-seed.ts",
     "seed:protocols": "ts-node --project tsconfig.json -e \"require('ts-node/register')\" prisma/seeds/protocols-seed.ts",
+    "seed:e2e": "ts-node --project tsconfig.json -r tsconfig-paths/register scripts/seed-e2e-users.ts",
     "ingest:guidelines": "ts-node --project tsconfig.json -r tsconfig-paths/register scripts/ingest-batch.ts"
   },
   "dependencies": {

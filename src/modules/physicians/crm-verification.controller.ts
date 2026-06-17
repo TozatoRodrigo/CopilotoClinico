@@ -25,7 +25,7 @@ interface AuthedRequest {
   headers: Record<string, string | undefined>;
 }
 
-@Controller('v1')
+@Controller()
 export class CrmVerificationController {
   constructor(private readonly crmVerificationService: CrmVerificationService) {}
 
