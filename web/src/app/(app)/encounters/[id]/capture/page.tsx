@@ -16,6 +16,7 @@ import { Microphone, MicrophoneSlash, WifiSlash } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import type { CopilotAnalysis, CopilotAnalyzeResponse, EncounterContext } from '@/lib/types';
 import { getDemoCasePreset } from '@/lib/demo-case-presets';
+import { messages } from '@/lib/messages';
 import { cn } from '@/lib/utils';
 
 interface ChipDef {
@@ -129,7 +130,7 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
         caseText: caseText.trim(),
         context,
       });
-      toast.info('Sem conexão. Análise será enviada quando voltar online.');
+      toast.info(messages.capture.offlineQueued);
       return;
     }
 
@@ -139,7 +140,7 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
     try {
       const result = await apiClient.post<CopilotAnalyzeResponse>(
         `/encounters/${encounterId}/copilot/analyze`,
-        { caseText: caseText.trim(), context },
+        { caseText: caseText.trim(), context, demoCase: searchParams.get('demoCase') ?? undefined },
       );
       const analysis: CopilotAnalysis = {
         ...result.output,
@@ -152,7 +153,7 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
       );
       router.push(`/encounters/${encounterId}/result`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao analisar o caso.');
+      setError(err instanceof Error ? err.message : messages.capture.errorAnalyze);
     } finally {
       setLoading(false);
     }
@@ -170,7 +171,7 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
       <section className="space-y-3">
         <fieldset>
           <legend className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Recursos
+            {messages.capture.resources}
           </legend>
           <div className="mt-2 flex flex-wrap gap-2">
             {RESOURCE_CHIPS.map((chip) => (
@@ -194,7 +195,7 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
 
         <fieldset>
           <legend className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Red flags
+            {messages.capture.redFlags}
           </legend>
           <div className="mt-2 flex flex-wrap gap-2">
             {RED_FLAG_CHIPS.map((chip) => (
@@ -247,7 +248,7 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
                   : 'bg-card border-2 border-clinical-teal/40 text-clinical-teal hover:bg-clinical-teal/10',
                 loading && 'opacity-50 pointer-events-none',
               )}
-              aria-label={isListening ? 'Parar gravação' : 'Iniciar gravação'}
+              aria-label={isListening ? messages.capture.voice.stop : messages.capture.voice.start}
             >
               {isListening ? (
                 <MicrophoneSlash className="size-8" weight="fill" />
@@ -265,17 +266,17 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
                     style={{ animationDelay: `${i * 0.15}s`, height: `${8 + (i % 3) * 6}px` }}
                   />
                 ))}
-                <span className="ml-2 text-sm text-clinical-teal">Ouvindo...</span>
+                <span className="ml-2 text-sm text-clinical-teal">{messages.capture.voice.listening}</span>
               </div>
             )}
-            {!isListening && <p className="text-sm text-muted-foreground">Toque para ditar</p>}
+            {!isListening && <p className="text-sm text-muted-foreground">{messages.capture.voice.tapToDictate}</p>}
           </div>
         )}
 
         <div className="mt-4">
           <Textarea
-            aria-label="Descrição do caso clínico"
-            placeholder="Ou digite o caso aqui..."
+            aria-label={messages.capture.caseLabel}
+            placeholder={messages.capture.placeholder}
             className="min-h-[100px] resize-y border-border/50 bg-transparent text-sm"
             value={caseText}
             onChange={(e) => setCaseText(e.target.value)}
@@ -284,8 +285,8 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
           <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
             <span>
               {caseText.trim().length < MIN_CHARS
-                ? `Mínimo ${MIN_CHARS} caracteres`
-                : 'Pronto para analisar'}
+                ? messages.capture.charMin(MIN_CHARS)
+                : messages.capture.readyToAnalyze}
             </span>
             <span className="font-mono">{caseText.trim().length}</span>
           </div>
@@ -295,13 +296,13 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
       {!isOnline && (
         <div className="mt-2 flex items-center gap-2 rounded-full border border-clinical-amber/30 bg-clinical-amber-bg px-3 py-1.5 text-xs text-clinical-amber-foreground">
           <WifiSlash className="size-3.5" />
-          Sem conexão — análise será enviada ao reconectar
+          {messages.capture.offlineHint}
         </div>
       )}
 
       {error && (
         <Alert variant="destructive" className="mt-3">
-          <AlertTitle>Erro</AlertTitle>
+          <AlertTitle>{messages.errors.title}</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
@@ -312,7 +313,7 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
         disabled={!isValid || loading}
         onClick={handleSubmit}
       >
-        {loading ? 'Analisando...' : 'Analisar com Copiloto'}
+        {loading ? messages.capture.ctaLoading : messages.capture.cta}
       </Button>
     </div>
   );

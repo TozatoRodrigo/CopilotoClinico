@@ -10,6 +10,8 @@ export const analyzeSchema = z.object({
       hasICU: z.boolean().default(false),
     })
     .default({}),
+  // F5 — marca o caso-norte / demo para segmentar o funil (LGPD-safe: tag opaca, sem conteúdo clínico).
+  demoCase: z.string().trim().max(64).optional(),
 });
 
 export type AnalyzeInput = z.infer<typeof analyzeSchema>;
