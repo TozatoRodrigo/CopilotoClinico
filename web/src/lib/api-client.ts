@@ -1,3 +1,5 @@
+import { messages } from "@/lib/messages";
+
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/v1";
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -49,14 +51,14 @@ class ApiClient {
       if (typeof window !== "undefined") {
         window.location.href = "/login";
       }
-      throw new ApiError(401, "Sessão expirada. Faça login novamente.");
+      throw new ApiError(401, messages.errors.sessionExpired);
     }
 
     if (!response.ok) {
       const errorBody = await response.json().catch(() => ({}));
       throw new ApiError(
         response.status,
-        (errorBody as { message?: string }).message ?? `Erro ${response.status}`,
+        (errorBody as { message?: string }).message ?? messages.errors.httpError(response.status),
       );
     }
 

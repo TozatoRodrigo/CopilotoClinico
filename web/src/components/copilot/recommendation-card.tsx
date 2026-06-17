@@ -2,22 +2,19 @@ import { memo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { CitationFootnote } from '@/components/domain/citation-footnote';
 import { cn } from '@/lib/utils';
+import { messages } from '@/lib/messages';
 import type { CopilotRecommendation } from '@/lib/types';
-
-function confidencePercent(confidence: number): string {
-  return `${Math.round(confidence * 100)}%`;
-}
 
 function getCategoryLabel(category?: CopilotRecommendation['category']): string | null {
   switch (category) {
     case 'stabilization':
-      return 'Agora';
+      return messages.recommendation.category.stabilization;
     case 'diagnostic':
-      return 'Diagnóstico';
+      return messages.recommendation.category.diagnostic;
     case 'therapeutic':
-      return 'Conduta';
+      return messages.recommendation.category.therapeutic;
     case 'verify':
-      return 'Reavaliar';
+      return messages.recommendation.category.verify;
     default:
       return null;
   }
@@ -58,11 +55,11 @@ export const RecommendationCard = memo(function RecommendationCard({
             </Badge>
           )}
           {rec.preliminary && (
-            <Badge variant="secondary">Preliminar — responda as perguntas acima</Badge>
+            <Badge variant="secondary">{messages.recommendation.preliminary}</Badge>
           )}
           {!rec.preliminary && (
             <Badge variant="outline" className="font-mono text-[10px]">
-              {confidencePercent(rec.confidence)}
+              {messages.recommendation.confidence(rec.confidence)}
             </Badge>
           )}
         </div>

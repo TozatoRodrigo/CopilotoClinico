@@ -2,6 +2,7 @@
 
 import { CircleNotch, SealCheck, Warning } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import { messages } from "@/lib/messages";
 
 interface ConfirmedSealProps {
   status?: "confirmed" | "pending" | "error";
@@ -38,7 +39,7 @@ export function ConfirmedSeal({
         )}
       >
         <CircleNotch className="size-4 animate-spin" />
-        <span>Assinando conduta…</span>
+        <span>{messages.seal.signing}</span>
       </div>
     );
   }
@@ -52,7 +53,7 @@ export function ConfirmedSeal({
         )}
       >
         <Warning className="size-4" />
-        <span>Não foi possível assinar a conduta. Tente novamente.</span>
+        <span>{messages.seal.error}</span>
       </div>
     );
   }
@@ -66,7 +67,7 @@ export function ConfirmedSeal({
     >
       <SealCheck className="size-6 shrink-0 text-clinical-green" weight="fill" />
       <div className="min-w-0 space-y-0.5">
-        <p className="font-medium text-clinical-green-foreground">Conduta confirmada e assinada</p>
+        <p className="font-medium text-clinical-green-foreground">{messages.seal.confirmed}</p>
         <p className="text-sm text-clinical-green-foreground/80">
           {confirmedAt && formatDateTime(confirmedAt)}
           {physicianName && ` · ${physicianName}`}

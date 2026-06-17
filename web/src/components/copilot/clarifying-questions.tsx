@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BlockerQuestionCard } from "@/components/domain/blocker-question-card";
+import { messages } from "@/lib/messages";
 import type { ClarifyingAnswerValue, ClarifyingQuestion } from "@/lib/types";
 
 const CRITICALITY_ORDER: Record<ClarifyingQuestion["criticality"], number> = {
@@ -11,9 +12,9 @@ const CRITICALITY_ORDER: Record<ClarifyingQuestion["criticality"], number> = {
 };
 
 const BOOLEAN_OPTIONS: { label: string; value: ClarifyingAnswerValue }[] = [
-  { label: "Sim", value: true },
-  { label: "Não", value: false },
-  { label: "Não sei", value: "unknown" },
+  { label: messages.copilot.questions.boolean.yes, value: true },
+  { label: messages.copilot.questions.boolean.no, value: false },
+  { label: messages.copilot.questions.boolean.unknown, value: "unknown" },
 ];
 
 interface ClarifyingQuestionsProps {
@@ -37,7 +38,7 @@ export function ClarifyingQuestions({
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold">Perguntas do copiloto</h2>
+      <h2 className="text-lg font-semibold">{messages.copilot.questions.heading}</h2>
       <div className="space-y-3">
         {sorted.map((question) => (
           <ClarifyingQuestionCard
@@ -77,7 +78,7 @@ function ClarifyingQuestionCard({
       <CardHeader className="space-y-2">
         <CardTitle className="text-base">{question.question}</CardTitle>
         <details className="text-sm text-muted-foreground">
-          <summary className="cursor-pointer select-none">Por que essa pergunta?</summary>
+          <summary className="cursor-pointer select-none">{messages.copilot.questions.whyAsk}</summary>
           <p className="mt-1">{question.why}</p>
         </details>
       </CardHeader>
