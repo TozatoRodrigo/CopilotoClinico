@@ -27,6 +27,12 @@ Thumbs.db
 # Test
 coverage/
 
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
 # Misc
 *.log
 .pnpm-store/

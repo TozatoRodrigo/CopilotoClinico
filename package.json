@@ -25,6 +25,7 @@
     "seed:guidelines": "ts-node --project tsconfig.json -e \"require('ts-node/register')\" prisma/seeds/guidelines-seed.ts",
     "seed:protocols": "ts-node --project tsconfig.json -e \"require('ts-node/register')\" prisma/seeds/protocols-seed.ts",
     "seed:e2e": "ts-node --project tsconfig.json -r tsconfig-paths/register scripts/seed-e2e-users.ts",
+    "e2e:ui": "playwright test",
     "ingest:guidelines": "ts-node --project tsconfig.json -r tsconfig-paths/register scripts/ingest-batch.ts"
   },
   "dependencies": {
@@ -63,6 +64,7 @@
     "@nestjs/cli": "^11.0.0",
     "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.0.0",
+    "@playwright/test": "^1.61.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.0.0",
     "@types/otplib": "^10.0.0",
