@@ -33,8 +33,12 @@ export class InferenceWorkerService implements OnModuleInit, OnModuleDestroy {
 
   onModuleInit(): void {
     const redisUrl = this.config.getOrThrow<string>('REDIS_URL');
-    const concurrency = this.config.get<number>('INFERENCE_QUEUE_CONCURRENCY', DEFAULT_CONCURRENCY);
-    const rateLimit = this.config.get<number>('INFERENCE_QUEUE_RATE_PER_SEC', 10);
+    // ConfigService retorna strings mesmo com o generic <number>; BullMQ exige
+    // number finito > 0 (senão: "concurrency must be a finite number greater than 0").
+    const concurrency =
+      Number(this.config.get<string>('INFERENCE_QUEUE_CONCURRENCY', String(DEFAULT_CONCURRENCY))) ||
+      DEFAULT_CONCURRENCY;
+    const rateLimit = Number(this.config.get<string>('INFERENCE_QUEUE_RATE_PER_SEC', '10')) || 10;
 
     this.connection = new IORedis(redisUrl, { maxRetriesPerRequest: null });
 

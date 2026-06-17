@@ -52,13 +52,18 @@ export class AiGatewayService {
       completionBaseUrl,
     );
 
-    // Embedding provider — defaults to openai when completion is anthropic (Anthropic has no embeddings API)
-    const defaultEmbeddingProvider =
-      completionProviderName === 'anthropic' ? 'openai' : completionProviderName;
-    const embeddingProviderName = this.config.get<string>(
-      'EMBEDDING_PROVIDER',
-      defaultEmbeddingProvider,
-    );
+    // Embedding provider — defaults to openai when completion is anthropic
+    // (Anthropic has no embeddings API). Em modo "test" (determinístico/offline,
+    // F4), embeddings também usam o provider de teste — ignorando EMBEDDING_PROVIDER,
+    // que caso contrário apontaria para um provider real sem chave/URL e quebraria
+    // o pipeline (ex.: "Failed to parse URL from /v1/embeddings").
+    const embeddingProviderName =
+      completionProviderName === 'test'
+        ? 'test'
+        : this.config.get<string>(
+            'EMBEDDING_PROVIDER',
+            completionProviderName === 'anthropic' ? 'openai' : completionProviderName,
+          );
     const embeddingApiKey =
       this.config.get<string>('EMBEDDING_API_KEY') ??
       this.config.get<string>('OPENAI_API_KEY') ??
