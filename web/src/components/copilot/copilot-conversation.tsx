@@ -8,6 +8,7 @@ import { ClarifyingQuestions } from "@/components/copilot/clarifying-questions";
 import { RecommendationCard } from "@/components/copilot/recommendation-card";
 import { TurnHistory } from "@/components/copilot/turn-history";
 import { UncertaintyBanner } from "@/components/domain/uncertainty-banner";
+import { messages } from "@/lib/messages";
 import {
   useCopilotConversation,
   type StoredCopilotResult,
@@ -37,8 +38,8 @@ export function CopilotConversation({ encounterId, initial }: CopilotConversatio
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Resultado da Análise</h1>
-        <Badge variant="secondary">{analysis.recommendations.length} recomendações</Badge>
+        <h1 className="text-2xl font-bold tracking-tight">{messages.copilot.result.title}</h1>
+        <Badge variant="secondary">{messages.copilot.result.recommendationsCount(analysis.recommendations.length)}</Badge>
       </div>
 
       {analysis.uncertainty && <UncertaintyBanner reason={analysis.uncertaintyReason} />}
@@ -54,23 +55,22 @@ export function CopilotConversation({ encounterId, initial }: CopilotConversatio
 
           {respondError && (
             <Alert variant="destructive">
-              <AlertTitle>Erro ao reanalisar</AlertTitle>
+              <AlertTitle>{messages.copilot.reanalyze.errorTitle}</AlertTitle>
               <AlertDescription>{respondError}</AlertDescription>
             </Alert>
           )}
 
           {queued && (
             <Alert className="border-clinical-amber/40 bg-clinical-amber-bg text-clinical-amber-foreground">
-              <AlertTitle>Resposta enfileirada</AlertTitle>
+              <AlertTitle>{messages.copilot.queued.title}</AlertTitle>
               <AlertDescription>
-                Sem conexão no momento. A resposta será enviada automaticamente quando você
-                voltar a ficar online.
+                {messages.copilot.queued.descriptionLong}
               </AlertDescription>
             </Alert>
           )}
 
           <Button onClick={reanalyze} disabled={!canReanalyze}>
-            {reanalyzing ? "Reanalisando..." : "Reanalisar"}
+            {reanalyzing ? messages.copilot.reanalyze.loading : messages.copilot.reanalyze.ctaShort}
           </Button>
 
           <Separator />
@@ -78,7 +78,7 @@ export function CopilotConversation({ encounterId, initial }: CopilotConversatio
       )}
 
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold">Recomendações</h2>
+        <h2 className="text-lg font-semibold">{messages.copilot.recommendations.heading}</h2>
         {sortedRecommendations.map((rec, index) => (
           <RecommendationCard key={index} rec={rec} />
         ))}
@@ -86,7 +86,7 @@ export function CopilotConversation({ encounterId, initial }: CopilotConversatio
 
       {analysis.differentials.length > 0 && (
         <div className="space-y-3">
-          <h2 className="text-lg font-semibold">Já considerou?</h2>
+          <h2 className="text-lg font-semibold">{messages.copilot.differentials.heading}</h2>
           <div className="space-y-3">
             {analysis.differentials.map((differential, index) => (
               <div
@@ -96,7 +96,7 @@ export function CopilotConversation({ encounterId, initial }: CopilotConversatio
                 <p className="font-medium text-foreground">{differential.hypothesis}</p>
                 <p className="mt-1 text-sm text-muted-foreground">{differential.whyConsider}</p>
                 <p className="mt-2 text-sm">
-                  <span className="font-medium text-foreground">O que diferencia:</span>{" "}
+                  <span className="font-medium text-foreground">{messages.copilot.differentials.whatDistinguishes}</span>{" "}
                   <span className="text-muted-foreground">
                     {differential.whatDistinguishes}
                   </span>
@@ -111,7 +111,7 @@ export function CopilotConversation({ encounterId, initial }: CopilotConversatio
         <>
           <Separator />
           <div className="space-y-3">
-            <h2 className="text-lg font-semibold">Citações</h2>
+            <h2 className="text-lg font-semibold">{messages.copilot.citations.heading}</h2>
             <div className="space-y-2">
               {analysis.citations.map((citation, index) => (
                 <div
@@ -125,11 +125,11 @@ export function CopilotConversation({ encounterId, initial }: CopilotConversatio
                       </span>
                       {citation.origin === "institutional" ? (
                         <Badge variant="secondary" className="shrink-0">
-                          Protocolo institucional
+                          {messages.copilot.citations.institutionalBadge}
                         </Badge>
                       ) : (
                         <Badge variant="outline" className="shrink-0">
-                          Diretriz pública
+                          {messages.copilot.citations.publicBadge}
                         </Badge>
                       )}
                     </span>
@@ -139,7 +139,7 @@ export function CopilotConversation({ encounterId, initial }: CopilotConversatio
                       target="_blank"
                       rel="noreferrer"
                     >
-                      Ver trecho
+                      {messages.copilot.citations.viewExcerpt}
                     </a>
                   </div>
                   <p className="line-clamp-2 text-muted-foreground">{citation.text}</p>
