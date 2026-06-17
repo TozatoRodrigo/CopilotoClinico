@@ -3,7 +3,7 @@ import { InferenceMetricsService } from './inference-metrics.service';
 import { BackupHealthService } from './backup-health.service';
 import { InternalServiceGuard } from '../../shared/guards/internal-service.guard';
 
-@Controller('v1/admin')
+@Controller('admin')
 @UseGuards(InternalServiceGuard)
 export class ObservabilityController {
   constructor(
