@@ -8,6 +8,7 @@ import { RecommendationCard } from '@/components/copilot/recommendation-card';
 import { UncertaintyBanner } from '@/components/domain/uncertainty-banner';
 import { useCopilotConversation, type StoredCopilotResult } from '@/hooks/use-copilot-conversation';
 import type { ClarifyingAnswerValue, ClarifyingQuestion, CopilotRecommendation, EvidenceFigure, EvidenceTable, RedFlag } from '@/lib/types';
+import { messages } from '@/lib/messages';
 import { Circle, CheckCircle, ArrowClockwise, WifiSlash, Warning, Siren } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 
@@ -83,7 +84,7 @@ export function DecisionThread({ encounterId, initial }: DecisionThreadProps) {
           <ThreadNode icon={hasBlockers && !allBlockersAnswered ? 'pending' : 'done'}>
             <div className="space-y-3">
               <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Perguntas do copiloto
+                {messages.copilot.questions.heading}
               </h2>
               {sortedQuestions.map((question) => (
                 <QuestionCard
@@ -97,7 +98,7 @@ export function DecisionThread({ encounterId, initial }: DecisionThreadProps) {
 
               {respondError && (
                 <Alert variant="destructive" className="mt-3">
-                  <AlertTitle>Erro ao reanalisar</AlertTitle>
+                  <AlertTitle>{messages.copilot.reanalyze.errorTitle}</AlertTitle>
                   <AlertDescription>{respondError}</AlertDescription>
                 </Alert>
               )}
@@ -105,9 +106,9 @@ export function DecisionThread({ encounterId, initial }: DecisionThreadProps) {
               {queued && (
                 <Alert className="mt-3 border-clinical-amber/40 bg-clinical-amber-bg text-clinical-amber-foreground">
                   <WifiSlash className="size-4 text-clinical-amber" />
-                  <AlertTitle>Resposta enfileirada</AlertTitle>
+                  <AlertTitle>{messages.copilot.queued.title}</AlertTitle>
                   <AlertDescription>
-                    Sem conexão. A resposta será enviada quando voltar online.
+                    {messages.copilot.queued.description}
                   </AlertDescription>
                 </Alert>
               )}
@@ -121,7 +122,7 @@ export function DecisionThread({ encounterId, initial }: DecisionThreadProps) {
                 >
                   <Button onClick={reanalyze} disabled={!canReanalyze} className="h-11">
                     <ArrowClockwise className="mr-2 size-4" />
-                    {reanalyzing ? 'Reanalisando...' : 'Reanalisar com as respostas'}
+                    {reanalyzing ? messages.copilot.reanalyze.loading : messages.copilot.reanalyze.cta}
                   </Button>
                 </div>
               )}
@@ -133,7 +134,7 @@ export function DecisionThread({ encounterId, initial }: DecisionThreadProps) {
           <ThreadNode icon="pending">
             <div className="space-y-3">
               <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Preliminares
+                {messages.copilot.sections.preliminary}
               </h2>
               {preliminaryRecs.map((rec, i) => (
                 <div key={i} className="opacity-55">
@@ -148,7 +149,7 @@ export function DecisionThread({ encounterId, initial }: DecisionThreadProps) {
           <ThreadNode icon="done" accent="green">
             <div className="space-y-3">
               <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Conduta
+                {messages.copilot.sections.conduta}
               </h2>
               {definitiveRecs.map((rec, i) => (
                 <RecommendationCard key={i} rec={rec} />
@@ -161,7 +162,7 @@ export function DecisionThread({ encounterId, initial }: DecisionThreadProps) {
           <ThreadNode icon="note">
             <div className="space-y-3">
               <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Já considerou?
+                {messages.copilot.differentials.heading}
               </h2>
               {analysis.differentials.map((d, i) => (
                 <div
@@ -171,7 +172,7 @@ export function DecisionThread({ encounterId, initial }: DecisionThreadProps) {
                   <p className="font-medium text-foreground">{d.hypothesis}</p>
                   <p className="mt-1 text-sm text-muted-foreground">{d.whyConsider}</p>
                   <p className="mt-2 text-sm">
-                    <span className="font-medium text-foreground">O que diferencia:</span>{' '}
+                    <span className="font-medium text-foreground">{messages.copilot.differentials.whatDistinguishes}</span>{' '}
                     <span className="text-muted-foreground">{d.whatDistinguishes}</span>
                   </p>
                 </div>
@@ -253,7 +254,7 @@ function QuestionCard({
     <div className="rounded-lg border border-clinical-line bg-white/60 px-4 py-3">
       <p className="font-medium text-foreground">{question.question}</p>
       <details className="mt-1 text-sm text-muted-foreground">
-        <summary className="cursor-pointer select-none">Por que essa pergunta?</summary>
+        <summary className="cursor-pointer select-none">{messages.copilot.questions.whyAsk}</summary>
         <p className="mt-1">{question.why}</p>
       </details>
       <div className="mt-2">
@@ -264,9 +265,9 @@ function QuestionCard({
 }
 
 const BOOLEAN_OPTIONS: { label: string; value: ClarifyingAnswerValue }[] = [
-  { label: 'Sim', value: true },
-  { label: 'Não', value: false },
-  { label: 'Não sei', value: 'unknown' },
+  { label: messages.copilot.questions.boolean.yes, value: true },
+  { label: messages.copilot.questions.boolean.no, value: false },
+  { label: messages.copilot.questions.boolean.unknown, value: 'unknown' },
 ];
 
 function AnswerInput({
@@ -358,17 +359,17 @@ function AnswerInput({
 
 const RED_FLAG_SEVERITY_CONFIG: Record<RedFlag['severity'], { label: string; className: string; icon: typeof Siren }> = {
   critical: {
-    label: 'Crítico',
+    label: messages.redFlags.severity.critical,
     className: 'border-clinical-error/40 bg-clinical-error-bg text-clinical-error-foreground',
     icon: Siren,
   },
   high: {
-    label: 'Alto',
+    label: messages.redFlags.severity.high,
     className: 'border-clinical-amber/40 bg-clinical-amber-bg text-clinical-amber-foreground',
     icon: Warning,
   },
   moderate: {
-    label: 'Moderado',
+    label: messages.redFlags.severity.moderate,
     className: 'border-clinical-line bg-white/60 text-foreground',
     icon: Warning,
   },
@@ -388,7 +389,7 @@ function RedFlagsBlock({ redFlags }: { redFlags: RedFlag[] }) {
   return (
     <div className="space-y-2">
       <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-clinical-error">
-        Sinais de alarme
+        {messages.redFlags.heading}
       </h2>
       {sorted.map((rf, i) => {
         const config = RED_FLAG_SEVERITY_CONFIG[rf.severity];
@@ -433,7 +434,7 @@ function CitationsBlock({
   return (
     <div className="space-y-2">
       <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        Citações
+        {messages.copilot.citations.heading}
       </h2>
       {citations.map((c, i) => (
         <div key={i} className="rounded-lg border border-clinical-line bg-white/60 px-4 py-2">
@@ -444,11 +445,11 @@ function CitationsBlock({
               </span>
               {c.origin === 'institutional' ? (
                 <Badge variant="secondary" className="shrink-0">
-                  Protocolo
+                  {messages.copilot.citations.institutionalBadgeShort}
                 </Badge>
               ) : (
                 <Badge variant="outline" className="shrink-0">
-                  Diretriz
+                  {messages.copilot.citations.publicBadgeShort}
                 </Badge>
               )}
             </span>
@@ -458,7 +459,7 @@ function CitationsBlock({
               target="_blank"
               rel="noreferrer"
             >
-              trecho
+              {messages.copilot.citations.viewExcerptShort}
             </a>
           </div>
           <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{c.text}</p>
@@ -467,7 +468,7 @@ function CitationsBlock({
               <a href={c.evidenceFigure.url} target="_blank" rel="noreferrer">
                 <img
                   src={c.evidenceFigure.url}
-                  alt={c.evidenceFigure.caption ?? `Figura — ${c.source}`}
+                  alt={c.evidenceFigure.caption ?? messages.copilot.citations.figureFallback(c.source)}
                   className="w-full rounded-lg border border-clinical-line"
                   loading="lazy"
                 />
@@ -533,7 +534,7 @@ function CollapsedTurns({
   return (
     <div className="space-y-1 pb-6">
       <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        Turnos anteriores
+        {messages.copilot.turns.previous}
       </h2>
       {turns.map((turn) => (
         <details
@@ -543,9 +544,10 @@ function CollapsedTurns({
           <summary className="flex cursor-pointer select-none items-center gap-2 px-4 py-2 font-mono text-xs text-muted-foreground hover:text-foreground">
             <CheckCircle className="size-3 text-clinical-green" />
             <span>
-              Turno {turn.turnIndex + 1} · {turn.analysis.clarifyingQuestions.length} pergunta
-              {turn.analysis.clarifyingQuestions.length !== 1 ? 's' : ''} respondida
-              {turn.analysis.clarifyingQuestions.length !== 1 ? 's' : ''}
+              {messages.copilot.turns.previousSummary(
+                turn.turnIndex + 1,
+                turn.analysis.clarifyingQuestions.length,
+              )}
             </span>
           </summary>
           <div className="space-y-1 px-4 pb-3">
@@ -562,14 +564,15 @@ function CollapsedTurns({
 }
 
 function labelForCategory(category?: string): string {
+  const c = messages.recommendation.category;
   switch (category) {
     case 'stabilization':
-      return '[Agora]';
+      return messages.recommendation.categoryBracket(c.stabilization);
     case 'diagnostic':
-      return '[Diagnóstico]';
+      return messages.recommendation.categoryBracket(c.diagnostic);
     case 'verify':
-      return '[Reavaliar]';
+      return messages.recommendation.categoryBracket(c.verify);
     default:
-      return '[Conduta]';
+      return messages.recommendation.categoryBracket(c.therapeutic);
   }
 }

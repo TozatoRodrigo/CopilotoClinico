@@ -11,6 +11,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DecisionThread } from '@/components/copilot/decision-thread';
 import { STORAGE_KEY_PREFIX, type StoredCopilotResult } from '@/hooks/use-copilot-conversation';
+import { messages } from '@/lib/messages';
 import type { CopilotAnalysis, DocumentType, LatestInteractionResponse } from '@/lib/types';
 import { FileText, ArrowsClockwise, ArrowLeft, CircleNotch } from '@phosphor-icons/react';
 
@@ -78,7 +79,7 @@ export default function ResultPage({ params }: { params: Promise<{ id: string }>
       });
       router.push(`/encounters/${encounterId}/documents/${doc.id}/edit`);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Erro ao gerar documento.';
+      const message = err instanceof Error ? err.message : messages.documents.errorGenerate;
       setDocError(message);
       setGeneratingDoc(null);
     }
@@ -118,18 +119,18 @@ export default function ResultPage({ params }: { params: Promise<{ id: string }>
           <div className="space-y-4 py-12 text-center">
             {fetchError && (
               <Alert variant="destructive" className="text-left">
-                <AlertTitle>Erro ao carregar análise</AlertTitle>
+                <AlertTitle>{messages.errors.analysisLoadTitle}</AlertTitle>
                 <AlertDescription className="flex items-center justify-between gap-3">
                   <span>{fetchError}</span>
                   <Button variant="outline" size="sm" onClick={() => void resultQuery.refetch()}>
-                    Tentar novamente
+                    {messages.common.actions.tryAgain}
                   </Button>
                 </AlertDescription>
               </Alert>
             )}
-            <p className="text-muted-foreground">Nenhum resultado de análise encontrado.</p>
+            <p className="text-muted-foreground">{messages.errors.analysisEmpty}</p>
             <Button asChild>
-              <a href={`/encounters/${encounterId}/capture`}>Ir para análise</a>
+              <a href={`/encounters/${encounterId}/capture`}>{messages.common.actions.goToAnalysis}</a>
             </Button>
           </div>
         </div>
@@ -146,18 +147,16 @@ export default function ResultPage({ params }: { params: Promise<{ id: string }>
       <div className="mx-auto max-w-3xl px-4 py-6">
         <header className="flex items-center justify-between pb-6">
           <h1 className="font-display text-2xl tracking-tight text-clinical-ink">
-            Resultado da Análise
+            {messages.copilot.result.title}
           </h1>
           <Badge variant="secondary">
-            {allRecommendations.length} recomendação{allRecommendations.length !== 1 ? 'ões' : ''}
+            {messages.copilot.result.recommendationsCount(allRecommendations.length)}
           </Badge>
         </header>
 
         {hasPreliminary && (
           <p className="pb-4 font-mono text-xs text-muted-foreground">
-            {definitiveCount} definitiva{definitiveCount !== 1 ? 's' : ''} ·{' '}
-            {allRecommendations.length - definitiveCount} preliminar
-            {allRecommendations.length - definitiveCount !== 1 ? 'es' : ''}
+            {messages.copilot.result.preliminarySummary(definitiveCount, allRecommendations.length - definitiveCount)}
           </p>
         )}
 
@@ -165,14 +164,14 @@ export default function ResultPage({ params }: { params: Promise<{ id: string }>
 
         {docError && (
           <Alert variant="destructive" className="mt-6">
-            <AlertTitle>Erro</AlertTitle>
+            <AlertTitle>{messages.documents.errorTitle}</AlertTitle>
             <AlertDescription>{docError}</AlertDescription>
           </Alert>
         )}
 
         <footer className="mt-8 border-t border-clinical-line pt-6">
           <p className="mb-3 font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Gerar documento
+            {messages.documents.generateHeading}
           </p>
           <div className="flex flex-wrap gap-2">
             {DOCUMENT_TYPES.map((dt) => (
@@ -188,7 +187,7 @@ export default function ResultPage({ params }: { params: Promise<{ id: string }>
                 ) : (
                   <FileText className="mr-2 size-4" />
                 )}
-                {generatingDoc === dt.type ? 'Gerando...' : dt.label}
+                {generatingDoc === dt.type ? messages.documents.generating : dt.label}
               </Button>
             ))}
           </div>
@@ -196,13 +195,13 @@ export default function ResultPage({ params }: { params: Promise<{ id: string }>
             <Button variant="outline" asChild className="h-11">
               <a href={`/encounters/${encounterId}/capture`}>
                 <ArrowsClockwise className="mr-2 size-4" />
-                Nova Análise
+                {messages.documents.newAnalysis}
               </a>
             </Button>
             <Button variant="ghost" asChild className="h-11 ml-auto">
               <a href={`/encounters/${encounterId}`}>
                 <ArrowLeft className="mr-2 size-4" />
-                Atendimento
+                {messages.documents.encounter}
               </a>
             </Button>
           </div>
