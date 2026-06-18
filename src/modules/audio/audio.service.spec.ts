@@ -86,4 +86,79 @@ describe('AudioService', () => {
     prismaMock.encounter.findUnique.mockResolvedValueOnce({ id: 'enc-1', physicianId: 'other-phy' });
     await expect(service.upload('phy-1', 'enc-1', validInput)).rejects.toThrow(NotFoundException);
   });
+
+  // ──── S21-VOICE-02 — transcribeDirect (síncrono, sem persistir áudio) ────
+  describe('S21-VOICE-02 — transcribeDirect', () => {
+    it('returns transcribed text with model + audioHash + durationMs', async () => {
+      const result = await service.transcribeDirect('phy-1', validInput);
+
+      expect(result.text).toBe('patient texto sem pii');
+      expect(result.model).toBe('whisper-large-v3');
+      expect(result.audioHash).toMatch(/^[a-f0-9]{64}$/);
+      expect(result.durationMs).toBeGreaterThanOrEqual(0);
+    });
+
+    it('does NOT persist AudioCapture (LGPD minimização)', async () => {
+      await service.transcribeDirect('phy-1', validInput);
+
+      expect(prismaMock.audioCapture.create).not.toHaveBeenCalled();
+      expect(prismaMock.audioCapture.update).not.toHaveBeenCalled();
+    });
+
+    it('does NOT enqueue job (synchronous response)', async () => {
+      await service.transcribeDirect('phy-1', validInput);
+
+      expect(queueMock.enqueueTranscribe).not.toHaveBeenCalled();
+    });
+
+    it('logs AUDIO_TRANSCRIBE in audit with audioHash as entityId', async () => {
+      const result = await service.transcribeDirect('phy-1', validInput);
+
+      expect(auditMock.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actorId: 'phy-1',
+          action: 'AUDIO_TRANSCRIBE',
+          entity: 'AudioCapture',
+          entityId: result.audioHash,
+          payload: expect.objectContaining({
+            model: 'whisper-large-v3',
+            audioHash: result.audioHash,
+            mimeType: validInput.mimeType,
+            sizeBytes: validInput.sizeBytes,
+          }),
+        }),
+      );
+    });
+
+    it('audioHash is deterministic for same input (reproducibility)', async () => {
+      const r1 = await service.transcribeDirect('phy-1', validInput);
+      const r2 = await service.transcribeDirect('phy-1', validInput);
+
+      expect(r1.audioHash).toBe(r2.audioHash);
+    });
+
+    it('audioHash differs for different input', async () => {
+      const r1 = await service.transcribeDirect('phy-1', validInput);
+      const r2 = await service.transcribeDirect('phy-1', {
+        ...validInput,
+        data: Buffer.from('different-audio').toString('base64'),
+      });
+
+      expect(r1.audioHash).not.toBe(r2.audioHash);
+    });
+
+    it('does NOT include transcribed text in audit payload (minimization)', async () => {
+      await service.transcribeDirect('phy-1', validInput);
+
+      const call = auditMock.log.mock.calls[0][0];
+      expect(JSON.stringify(call.payload)).not.toContain('patient texto sem pii');
+      expect(call.payload).not.toHaveProperty('text');
+      expect(call.payload).not.toHaveProperty('transcript');
+    });
+
+    it('propagates Whisper errors (e.g. provider down)', async () => {
+      whisperMock.transcribe.mockRejectedValueOnce(new Error('Whisper down'));
+      await expect(service.transcribeDirect('phy-1', validInput)).rejects.toThrow('Whisper down');
+    });
+  });
 });
