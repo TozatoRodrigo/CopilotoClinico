@@ -76,7 +76,7 @@ function SheetContent({
               size="icon-sm"
             >
               <X className="size-[18px]" />
-              <span className="sr-only">Close</span>
+              <span className="sr-only">Fechar</span>
             </Button>
           </SheetPrimitive.Close>
         )}

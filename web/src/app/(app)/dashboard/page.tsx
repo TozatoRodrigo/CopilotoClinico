@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { useDashboardStats, useEncounterList } from '@/lib/clinical-queries';
@@ -46,14 +46,14 @@ const STATUS_VARIANTS: Record<string, 'default' | 'secondary' | 'destructive' | 
   cancelled: 'destructive',
 };
 
-const STATUS_HREFS: Record<string, string> = {
-  draft: '/encounters?status=draft',
-  in_review: '/encounters?status=in_review',
-  finalized: '/encounters?status=finalized',
-};
+// S20-NAV-01 — STATUS_HREFS removido (código morto): o ternário no onClick da
+// linha usava `STATUS_HREFS[enc.status] ? \`/encounters/${enc.id}\` : \`/encounters/${enc.id}\``
+// — ou seja, retornava o mesmo valor nos 2 ramos. Apagado para reduzir
+// distração no code review e evitar falsa impressão de lógica de status.
 
 export default function DashboardPage() {
   const { physician } = useAuth();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const deniedShown = useRef(false);
 
@@ -362,47 +362,48 @@ export default function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {recentEncounters.map((enc) => (
-                  <tr
-                    key={enc.id}
-                    className="cursor-pointer border-b last:border-0 transition-colors hover:bg-muted/50"
-                    onClick={() => {
-                      const href = STATUS_HREFS[enc.status]
-                        ? `/encounters/${enc.id}`
-                        : `/encounters/${enc.id}`;
-                      window.location.href = href;
-                    }}
-                    tabIndex={0}
-                    role="link"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        window.location.href = `/encounters/${enc.id}`;
-                      }
-                    }}
-                  >
-                    <td className="px-4 py-2.5 font-medium">{enc.patientRef}</td>
-                    <td className="px-4 py-2.5 text-muted-foreground">
-                      {VERTICAL_LABELS[enc.vertical] ?? enc.vertical}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <Badge
-                        variant={STATUS_VARIANTS[enc.status] ?? 'outline'}
-                        className="font-mono text-xs"
-                      >
-                        {STATUS_LABELS[enc.status] ?? enc.status}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <time
-                        dateTime={enc.createdAt}
-                        className="font-mono text-xs text-muted-foreground"
-                      >
-                        {new Date(enc.createdAt).toLocaleDateString('pt-BR')}
-                      </time>
-                    </td>
-                  </tr>
-                ))}
+                {recentEncounters.map((enc) => {
+                  // S20-NAV-01 — navegação SPA via router.push em vez de
+                  // window.location.href (que causava reload completo da página,
+                  // destruindo a sensação de app e o cache de queries).
+                  const goToDetail = () => router.push(`/encounters/${enc.id}`);
+                  return (
+                    <tr
+                      key={enc.id}
+                      className="cursor-pointer border-b last:border-0 transition-colors hover:bg-muted/50"
+                      onClick={goToDetail}
+                      tabIndex={0}
+                      role="link"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          goToDetail();
+                        }
+                      }}
+                    >
+                      <td className="px-4 py-2.5 font-medium">{enc.patientRef}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground">
+                        {VERTICAL_LABELS[enc.vertical] ?? enc.vertical}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <Badge
+                          variant={STATUS_VARIANTS[enc.status] ?? 'outline'}
+                          className="font-mono text-xs"
+                        >
+                          {STATUS_LABELS[enc.status] ?? enc.status}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <time
+                          dateTime={enc.createdAt}
+                          className="font-mono text-xs text-muted-foreground"
+                        >
+                          {new Date(enc.createdAt).toLocaleDateString('pt-BR')}
+                        </time>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

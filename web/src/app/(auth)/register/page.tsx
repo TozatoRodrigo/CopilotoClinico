@@ -295,7 +295,12 @@ export default function RegisterPage() {
             />
             <span className="text-sm text-muted-foreground">
               Li e aceito a{' '}
-              <Link href="/privacidade" className="text-clinical-teal underline underline-offset-4">
+              <Link
+                href="/privacidade"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-clinical-teal underline underline-offset-4"
+              >
                 Política de Privacidade
               </Link>
               . Meus dados serão processados conforme a LGPD para prestação deste serviço médico.

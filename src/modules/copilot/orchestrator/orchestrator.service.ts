@@ -209,6 +209,8 @@ export class OrchestratorService {
         score: c.score,
       })),
       context: encounterContext,
+      // S20-CLIN-01 — injeta red flags explícitas do médico no prompt.
+      redFlags: input.redFlags,
     });
 
     const completion = await this.aiGateway.complete({
@@ -233,6 +235,8 @@ export class OrchestratorService {
           inputRedacted: fullyRedacted,
           retrievedChunkIds: prompt.retrievedChunkIds,
           model: completion.model,
+          // S20-CLIN-01 — persiste red flags marcadas mesmo em falha (rastreabilidade CFM).
+          params: { demoCase: input.demoCase ?? null, redFlags: input.redFlags ?? {} },
           rawOutput: {
             raw: completion.content,
             validationErrors: validation.errors,
@@ -271,7 +275,10 @@ export class OrchestratorService {
         inputRedacted: fullyRedacted,
         retrievedChunkIds: prompt.retrievedChunkIds,
         model: completion.model,
-        params: { demoCase: input.demoCase ?? null },
+        // S20-CLIN-01 — persiste as red flags marcadas pelo médico para rastreabilidade
+        // CFM (qualquer auditoria futura pode reconstruir quais bandeiras o médico
+        // confirmou explicitamente, independentemente do texto do caso).
+        params: { demoCase: input.demoCase ?? null, redFlags: input.redFlags ?? {} },
         rawOutput: enrichedOutput as unknown as Prisma.InputJsonValue,
         citations: {
           recommendations: enrichedOutput.recommendations,
@@ -403,6 +410,8 @@ export class OrchestratorService {
         score: c.score,
       })),
       context: encounterContext,
+      // S20-CLIN-01 — injeta red flags explícitas do médico no prompt (stream).
+      redFlags: input.redFlags,
     });
 
     let fullContent = '';

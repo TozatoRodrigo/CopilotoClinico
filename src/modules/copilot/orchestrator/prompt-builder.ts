@@ -19,12 +19,46 @@ export interface PromptInput {
   context: EncounterContext;
   vertical?: string;
   additionalInstructions?: string;
+  /**
+   * S20-CLIN-01 — red flags explícitas marcadas pelo médico na captura.
+   * Injetadas no prompt como fato confirmado pelo médico, ANTES das
+   * instruções universais, para que o raciocínio clínico as considere
+   * com prioridade máxima (modelo não precisa "adivinhar").
+   */
+  redFlags?: Record<string, boolean>;
 }
 
 export interface BuiltPrompt {
   system: string;
   user: string;
   retrievedChunkIds: string[];
+}
+
+/**
+ * S20-CLIN-01 — Mapeia as chaves canônicas de red flags marcadas pelo médico
+ * (alinhadas com RED_FLAG_CHIPS no front) para rótulos clínicos em pt-BR.
+ * Apenas as marcadas como true são injetadas no prompt como fatos confirmados.
+ */
+const RED_FLAG_LABELS: Record<string, string> = {
+  immunosuppressed: 'Paciente imunossuprimido',
+  pregnant: 'Paciente gestante ou amamentando',
+  anticoagulant: 'Paciente em uso de anticoagulante',
+  pediatric: 'Paciente pediátrico',
+  elderly65: 'Paciente idoso (≥ 65 anos)',
+  allergy: 'Paciente com alergia medicamentosa relatada',
+};
+
+function buildConfirmedRedFlagsBlock(redFlags?: Record<string, boolean>): string {
+  if (!redFlags) return '';
+  const confirmed = Object.entries(redFlags)
+    .filter(([, v]) => v === true)
+    .map(([key]) => RED_FLAG_LABELS[key] ?? `Red flag marcada pelo médico: ${key}`);
+  if (confirmed.length === 0) return '';
+  const items = confirmed.map((label) => `- ${label}`).join('\n');
+  return `<physician_confirmed_red_flags type="TRUSTED_PHYSICIAN_INPUT">
+O médico explicitamente confirmou as seguintes condições do paciente. Considere cada uma como fato estabelecido para o raciocínio clínico — NÃO pergunte sobre elas nas clarifyingQuestions e NÃO as trate como hipótese:
+${items}
+</physician_confirmed_red_flags>`;
 }
 
 const SYSTEM_INSTRUCTION = `You are a clinical co-pilot for emergency medicine physicians in Brazil. You assist with clinical reasoning, NEVER replace the physician's judgment.
@@ -145,10 +179,12 @@ export function buildPrompt(input: PromptInput): BuiltPrompt {
     ? `\n\n${input.additionalInstructions}`
     : '';
 
+  const redFlagsBlock = buildConfirmedRedFlagsBlock(input.redFlags);
+
   if (input.retrievedChunks.length === 0) {
     return {
       system: SYSTEM_INSTRUCTION,
-      user: `${buildCaseOnlyUser(input)}${instructionsBlock}`,
+      user: `${buildCaseOnlyUser(input, redFlagsBlock)}${instructionsBlock}`,
       retrievedChunkIds: [],
     };
   }
@@ -171,7 +207,7 @@ export function buildPrompt(input: PromptInput): BuiltPrompt {
   const user = `<clinical_case type="UNTRUSTED_INPUT">
 ${input.caseText}
 </clinical_case>
-
+${redFlagsBlock ? `\n${redFlagsBlock}\n` : ''}
 <guideline_evidence type="TRUSTED_CURATED_SOURCE">
 ${evidenceBlock}
 </guideline_evidence>
@@ -185,11 +221,14 @@ Analyze this case and provide structured recommendations with citations.${instru
   };
 }
 
-function buildCaseOnlyUser(input: PromptInput): BuiltPrompt['user'] {
+function buildCaseOnlyUser(
+  input: PromptInput,
+  redFlagsBlock: string = '',
+): BuiltPrompt['user'] {
   return `<clinical_case type="UNTRUSTED_INPUT">
 ${input.caseText}
 </clinical_case>
-
+${redFlagsBlock ? `\n${redFlagsBlock}\n` : ''}
 WARNING: No relevant guideline evidence was found for this case. Set uncertainty to true.
 
 Analyze this case and declare evidence insufficiency.`;

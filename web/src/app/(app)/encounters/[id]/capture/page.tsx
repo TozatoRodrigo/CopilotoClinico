@@ -129,6 +129,8 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
         encounterId,
         caseText: caseText.trim(),
         context,
+        // S20-CLIN-01 — envia redFlags explícitas na fila offline.
+        redFlags,
       });
       toast.info(messages.capture.offlineQueued);
       return;
@@ -140,7 +142,10 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
     try {
       const result = await apiClient.post<CopilotAnalyzeResponse>(
         `/encounters/${encounterId}/copilot/analyze`,
-        { caseText: caseText.trim(), context, demoCase: searchParams.get('demoCase') ?? undefined },
+        // S20-CLIN-01 — envia redFlags explícitas no payload online.
+        // Antes deste change, os chips eram cosméticos: colhidos na UI mas nunca
+        // enviados ao backend (prompt-builder tinha que "adivinhar").
+        { caseText: caseText.trim(), context, redFlags, demoCase: searchParams.get('demoCase') ?? undefined },
       );
       const analysis: CopilotAnalysis = {
         ...result.output,
@@ -233,7 +238,7 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
       </section>
 
       <section className="mt-6 flex flex-1 flex-col justify-end pb-4">
-        {isVoiceSupported && (
+        {isVoiceSupported ? (
           <div className="flex flex-col items-center gap-3">
             <button
               type="button"
@@ -271,13 +276,41 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
             )}
             {!isListening && <p className="text-sm text-muted-foreground">{messages.capture.voice.tapToDictate}</p>}
           </div>
+        ) : (
+          // S20-VOICE-01 — fallback claro quando webkitSpeechRecognition não é suportado
+          // (iOS Safari, Firefox). Antes deste change, o botão sumia silenciosamente,
+          // deixando o médico sem entender por que não podia ditar. Ponte até a Sprint 21
+          // (Whisper no backend), que remove a dependência do navegador.
+          <div
+            role="status"
+            className="flex items-start gap-3 rounded-lg border border-clinical-teal/30 bg-clinical-teal/5 px-4 py-3"
+          >
+            <MicrophoneSlash
+              className="mt-0.5 size-5 shrink-0 text-clinical-teal"
+              weight="duotone"
+              aria-hidden="true"
+            />
+            <div className="space-y-0.5">
+              <p className="text-sm font-medium text-foreground">
+                {messages.capture.voice.unsupportedTitle}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {messages.capture.voice.unsupportedDescription}
+              </p>
+            </div>
+          </div>
         )}
 
         <div className="mt-4">
           <Textarea
             aria-label={messages.capture.caseLabel}
             placeholder={messages.capture.placeholder}
-            className="min-h-[100px] resize-y border-border/50 bg-transparent text-sm"
+            className={cn(
+              'min-h-[100px] resize-y border-border/50 bg-transparent text-sm',
+              // S20-VOICE-01 — realça o textarea quando voz não está disponível,
+              // direcionando o médico para onde a ação acontece agora.
+              !isVoiceSupported && 'border-clinical-teal/40 focus-visible:ring-clinical-teal/30',
+            )}
             value={caseText}
             onChange={(e) => setCaseText(e.target.value)}
             disabled={loading}
