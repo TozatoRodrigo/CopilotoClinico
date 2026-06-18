@@ -173,7 +173,13 @@ export default function LoginPage() {
           {!useBackup ? (
             <fieldset className="space-y-3">
               <legend className="sr-only">Código de verificação de 6 dígitos</legend>
-              <div className="flex justify-center gap-2">
+              {/*
+                S22-A11Y-02 — OTP responsivo. Antes era `size-12` fixo (6×48 + gaps
+                = 328px), estourando iPhone SE (320px). Agora `size-10` no mobile
+                (6×40 + gaps = 280px) e `size-12` no desktop. `gap-1.5 sm:gap-2`
+                para ajustar fino.
+              */}
+              <div className="flex justify-center gap-1.5 sm:gap-2">
                 {mfaCode.map((digit, idx) => (
                   <Input
                     key={idx}
@@ -186,7 +192,7 @@ export default function LoginPage() {
                     onKeyDown={(e) => handleDigitKeyDown(idx, e)}
                     onPaste={handleDigitPaste}
                     disabled={loading}
-                    className="size-12 select-none p-0 text-center text-xl font-semibold tabular-nums"
+                    className="size-10 select-none p-0 text-center text-lg font-semibold tabular-nums sm:size-12 sm:text-xl"
                     aria-label={`Dígito ${idx + 1} de 6`}
                   />
                 ))}

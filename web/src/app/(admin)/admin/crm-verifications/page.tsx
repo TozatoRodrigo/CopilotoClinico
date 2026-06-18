@@ -124,68 +124,130 @@ function VerificationRow({
   onReject: (item: CrmVerificationItem) => void;
 }) {
   return (
-    <div className="grid grid-cols-[2fr_1.5fr_1fr_1fr_auto] items-center gap-3 border-b px-4 py-3 text-sm transition-colors last:border-b-0 hover:bg-muted/30">
-      <div className="min-w-0">
-        <p className="truncate font-medium">{item.physician.name ?? 'Sem nome'}</p>
-        <p className="truncate text-xs text-muted-foreground">{item.physician.email}</p>
+    <div className="border-b px-4 py-3 text-sm transition-colors last:border-b-0 hover:bg-muted/30">
+      {/*
+        S22-DS-01 — layout responsivo. Desktop: grid de 5 colunas (era fixo,
+        quebrava em < 640px). Mobile: card com labels em cima dos valores e
+        ações empilhadas no fim (touch-friendly).
+      */}
+      {/* Desktop (sm+) */}
+      <div className="hidden grid-cols-[2fr_1.5fr_1fr_1fr_auto] items-center gap-3 sm:grid">
+        <div className="min-w-0">
+          <p className="truncate font-medium">{item.physician.name ?? 'Sem nome'}</p>
+          <p className="truncate text-xs text-muted-foreground">{item.physician.email}</p>
+        </div>
+        <div className="font-mono text-xs">
+          <span className="text-muted-foreground">CRM </span>
+          {item.physician.crmUf} {item.physician.crmNumber}
+        </div>
+        <div className="font-mono text-xs text-muted-foreground">
+          {formatDate(item.requestedAt)}
+        </div>
+        <div>{renderStatusBadge(item.status)}</div>
+        <div className="flex items-center gap-1">
+          {renderActions(item, isPending, onApprove, onReject)}
+        </div>
       </div>
-      <div className="font-mono text-xs">
-        <span className="text-muted-foreground">CRM </span>
-        {item.physician.crmUf} {item.physician.crmNumber}
-      </div>
-      <div className="font-mono text-xs text-muted-foreground">
-        {formatDate(item.requestedAt)}
-      </div>
-      <div>
-        {item.status === 'APPROVED' && (
-          <Badge variant="outline" className="border-clinical-green/30 text-clinical-green">
-            <SealCheck className="mr-1 size-3" />
-            Aprovado
-          </Badge>
-        )}
-        {item.status === 'REJECTED' && (
-          <Badge variant="outline" className="border-destructive/30 text-destructive">
-            <SealWarning className="mr-1 size-3" />
-            Rejeitado
-          </Badge>
-        )}
-        {item.status === 'PENDING' && (
-          <Badge variant="outline" className="border-clinical-amber/30 text-clinical-amber">
-            <Clock className="mr-1 size-3" />
-            Pendente
-          </Badge>
-        )}
-      </div>
-      <div className="flex items-center gap-1">
+
+      {/* Mobile (< sm) */}
+      <div className="space-y-2 sm:hidden">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate font-medium">{item.physician.name ?? 'Sem nome'}</p>
+            <p className="truncate text-xs text-muted-foreground">{item.physician.email}</p>
+          </div>
+          {renderStatusBadge(item.status)}
+        </div>
+        <div className="flex items-start justify-between gap-3">
+          <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            CRM
+          </span>
+          <span className="min-w-0 flex-1 text-right font-mono text-xs">
+            {item.physician.crmUf} {item.physician.crmNumber}
+          </span>
+        </div>
+        <div className="flex items-start justify-between gap-3">
+          <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            {isPending ? 'Solicitado' : 'Resolvido'}
+          </span>
+          <span className="min-w-0 flex-1 text-right font-mono text-xs text-muted-foreground">
+            {formatDate(item.requestedAt)}
+          </span>
+        </div>
         {isPending && (
-          <>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 gap-1 border-clinical-green/30 text-clinical-green hover:bg-clinical-green-bg"
-              onClick={() => onApprove(item)}
-            >
-              <Check className="size-3.5" />
-              Aprovar
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 gap-1 border-destructive/30 text-destructive hover:bg-destructive/5"
-              onClick={() => onReject(item)}
-            >
-              <X className="size-3.5" />
-              Rejeitar
-            </Button>
-          </>
+          <div className="flex gap-2 pt-1">
+            {renderActions(item, isPending, onApprove, onReject)}
+          </div>
         )}
         {!isPending && item.notes && (
-          <span className="max-w-[200px] truncate text-xs text-muted-foreground" title={item.notes}>
+          <p className="truncate text-xs text-muted-foreground" title={item.notes}>
             {item.notes}
-          </span>
+          </p>
         )}
       </div>
     </div>
+  );
+}
+
+function renderStatusBadge(status: CrmVerificationStatus) {
+  if (status === 'APPROVED') {
+    return (
+      <Badge variant="outline" className="border-clinical-green/30 text-clinical-green">
+        <SealCheck className="mr-1 size-3" />
+        Aprovado
+      </Badge>
+    );
+  }
+  if (status === 'REJECTED') {
+    return (
+      <Badge variant="outline" className="border-destructive/30 text-destructive">
+        <SealWarning className="mr-1 size-3" />
+        Rejeitado
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="outline" className="border-clinical-amber/30 text-clinical-amber">
+      <Clock className="mr-1 size-3" />
+      Pendente
+    </Badge>
+  );
+}
+
+function renderActions(
+  item: CrmVerificationItem,
+  isPending: boolean,
+  onApprove: (item: CrmVerificationItem) => void,
+  onReject: (item: CrmVerificationItem) => void,
+) {
+  if (!isPending) {
+    return item.notes ? (
+      <span className="max-w-[200px] truncate text-xs text-muted-foreground" title={item.notes}>
+        {item.notes}
+      </span>
+    ) : null;
+  }
+  return (
+    <>
+      <Button
+        size="sm"
+        variant="outline"
+        className="h-7 gap-1 border-clinical-green/30 text-clinical-green hover:bg-clinical-green-bg"
+        onClick={() => onApprove(item)}
+      >
+        <Check className="size-3.5" />
+        Aprovar
+      </Button>
+      <Button
+        size="sm"
+        variant="outline"
+        className="h-7 gap-1 border-destructive/30 text-destructive hover:bg-destructive/5"
+        onClick={() => onReject(item)}
+      >
+        <X className="size-3.5" />
+        Rejeitar
+      </Button>
+    </>
   );
 }
 
@@ -317,7 +379,7 @@ export default function CrmVerificationsPage() {
         </Card>
       ) : (
         <Card className="overflow-hidden p-0">
-          <div className="grid grid-cols-[2fr_1.5fr_1fr_1fr_auto] gap-3 border-b bg-muted/50 px-4 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          <div className="hidden grid-cols-[2fr_1.5fr_1fr_1fr_auto] gap-3 border-b bg-muted/50 px-4 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground sm:grid">
             <span>Médico</span>
             <span>CRM</span>
             <span>{activeTab === 'PENDING' ? 'Solicitado' : 'Resolvido'}</span>

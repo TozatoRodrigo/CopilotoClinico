@@ -12,6 +12,7 @@ import { useOnlineStatus } from '@/components/providers/offline-provider';
 import { addToQueue } from '@/lib/offline-queue';
 import { syncOfflineQueue } from '@/lib/copilot-queue';
 import { STORAGE_KEY_PREFIX } from '@/hooks/use-copilot-conversation';
+import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { Microphone, MicrophoneSlash, WifiSlash, Spinner, Stop } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import type { CopilotAnalysis, CopilotAnalyzeResponse, EncounterContext } from '@/lib/types';
@@ -165,6 +166,17 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
 
   return (
     <div className="flex min-h-[calc(100vh-4rem)] flex-col px-4 py-6">
+      {/*
+        S22-NAV-01 — breadcrumb no fluxo de atendimento. Antes o médico não
+        sabia onde estava na hierarquia (Atendimentos > paciente > Captura).
+      */}
+      <Breadcrumb
+        items={[
+          { label: 'Atendimentos', href: '/encounters' },
+          { label: encounterId.slice(0, 8), href: `/encounters/${encounterId}` },
+          { label: 'Captura' },
+        ]}
+      />
       {demoPreset && (
         <Alert className="mb-4">
           <AlertTitle>{demoPreset.title}</AlertTitle>

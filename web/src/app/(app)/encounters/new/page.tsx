@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ShieldCheck, Warning } from "@phosphor-icons/react";
 import { apiClient, ApiError } from "@/lib/api-client";
@@ -130,8 +131,9 @@ export default function NewEncounterPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <PageHeader title="Novo Atendimento">
+        {/* S22-NAV-01 — Link em vez de <a href> (evitava reload da página). */}
         <Button variant="outline" asChild>
-          <a href="/dashboard">Voltar</a>
+          <Link href="/dashboard">Voltar</Link>
         </Button>
       </PageHeader>
 

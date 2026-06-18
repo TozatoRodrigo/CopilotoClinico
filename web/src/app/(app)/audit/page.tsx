@@ -203,54 +203,131 @@ export default function AuditPage() {
         </Card>
       ) : (
         <>
-          <div className="rounded-lg border">
-            <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr] gap-4 border-b bg-muted/50 px-4 py-2 text-sm font-medium">
+          {/*
+            S22-DS-01 — layout responsivo (era grid fixo de 5 colunas que
+            quebrava no mobile). Agora:
+            - Desktop (sm+): grid de 5 colunas (Data/Hora / Ação / Entidade / ID / IP)
+            - Mobile (< sm): cada entrada vira um card com label em cima de cada valor
+            Linhas expansíveis continuam funcionando (aria-expanded + aria-controls
+            atendem S22-A11Y-01 — antes era div role=button sem aria-expanded).
+          */}
+          <ul className="space-y-2 sm:hidden" aria-label="Entradas de auditoria">
+            {entries.map((entry) => {
+              const isExpanded = expandedId === entry.id;
+              return (
+                <li key={entry.id} className="list-none">
+                  <button
+                    type="button"
+                    className="block w-full rounded-lg border bg-card p-3 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-expanded={isExpanded}
+                    aria-controls={`audit-payload-${entry.id}`}
+                    onClick={() => setExpandedId((prev) => (prev === entry.id ? null : entry.id))}
+                  >
+                    <div className="space-y-1.5">
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          Data/Hora
+                        </span>
+                        <span className="min-w-0 flex-1 text-right text-sm">{formatDate(entry.createdAt)}</span>
+                      </div>
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          Ação
+                        </span>
+                        <span className="min-w-0 flex-1 text-right text-sm font-medium">
+                          {actionLabel(entry.action)}
+                        </span>
+                      </div>
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          Entidade
+                        </span>
+                        <span className="min-w-0 flex-1 text-right text-sm">{entry.entity}</span>
+                      </div>
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          ID
+                        </span>
+                        <span className="min-w-0 flex-1 text-right text-sm">
+                          <AuditHash
+                            hash={entry.entityId}
+                            href={entry.entity === "Encounter" ? `/encounters/${entry.entityId}/result` : undefined}
+                          />
+                        </span>
+                      </div>
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          IP
+                        </span>
+                        <span className="min-w-0 flex-1 text-right font-mono text-xs">{entry.ip ?? "—"}</span>
+                      </div>
+                    </div>
+                    {isExpanded && (
+                      <div
+                        id={`audit-payload-${entry.id}`}
+                        className="mt-3 overflow-x-auto rounded bg-background p-3 text-xs"
+                      >
+                        <pre className="whitespace-pre-wrap break-all">{JSON.stringify(entry.payload, null, 2)}</pre>
+                      </div>
+                    )}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+
+          <div className="hidden rounded-lg border sm:block">
+            <div
+              className="grid grid-cols-[1fr_1.4fr_1fr_1fr_0.8fr] gap-4 border-b bg-muted/50 px-4 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground"
+              aria-hidden="true"
+            >
               <span>Data/Hora</span>
               <span>Ação</span>
               <span>Entidade</span>
               <span>ID</span>
               <span>IP</span>
             </div>
-            {entries.map((entry) => (
-              <div key={entry.id}>
-                <div
-                  role="button"
-                  tabIndex={0}
-                  className="grid w-full grid-cols-[1fr_1fr_1fr_1fr_1fr] gap-4 px-4 py-3 text-sm text-left hover:bg-muted/30 transition-colors cursor-pointer"
-                  onClick={() =>
-                    setExpandedId((prev) =>
-                      prev === entry.id ? null : entry.id,
-                    )
-                  }
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      setExpandedId((prev) =>
-                        prev === entry.id ? null : entry.id,
-                      );
+            {entries.map((entry) => {
+              const isExpanded = expandedId === entry.id;
+              return (
+                <div key={entry.id}>
+                  <button
+                    type="button"
+                    className="grid w-full grid-cols-[1fr_1.4fr_1fr_1fr_0.8fr] gap-4 px-4 py-3 text-left text-sm transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                    aria-expanded={isExpanded}
+                    aria-controls={`audit-payload-${entry.id}`}
+                    onClick={() =>
+                      setExpandedId((prev) => (prev === entry.id ? null : entry.id))
                     }
-                  }}
-                >
-                  <span>{formatDate(entry.createdAt)}</span>
-                  <span className="font-medium">{actionLabel(entry.action)}</span>
-                  <span>{entry.entity}</span>
-                  <span className="truncate" onClick={(e) => e.stopPropagation()}>
-                    <AuditHash
-                      hash={entry.entityId}
-                      href={entry.entity === "Encounter" ? `/encounters/${entry.entityId}/result` : undefined}
-                    />
-                  </span>
-                  <span className="font-mono text-xs">{entry.ip ?? "—"}</span>
+                  >
+                    <span>{formatDate(entry.createdAt)}</span>
+                    <span className="font-medium">{actionLabel(entry.action)}</span>
+                    <span>{entry.entity}</span>
+                    <span
+                      className="truncate"
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    >
+                      <AuditHash
+                        hash={entry.entityId}
+                        href={entry.entity === "Encounter" ? `/encounters/${entry.entityId}/result` : undefined}
+                      />
+                    </span>
+                    <span className="font-mono text-xs">{entry.ip ?? "—"}</span>
+                  </button>
+                  {isExpanded && (
+                    <div
+                      id={`audit-payload-${entry.id}`}
+                      className="border-t bg-muted/20 px-4 py-3"
+                    >
+                      <pre className="overflow-x-auto rounded bg-background p-3 text-xs">
+                        {JSON.stringify(entry.payload, null, 2)}
+                      </pre>
+                    </div>
+                  )}
                 </div>
-                {expandedId === entry.id && (
-                  <div className="border-t bg-muted/20 px-4 py-3">
-                    <pre className="overflow-x-auto rounded bg-background p-3 text-xs">
-                      {JSON.stringify(entry.payload, null, 2)}
-                    </pre>
-                  </div>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <div className="flex items-center justify-between">
