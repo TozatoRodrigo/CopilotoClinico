@@ -7,12 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { useVoiceInput } from '@/hooks/use-voice-input';
+import { useWhisperVoice } from '@/hooks/use-whisper-voice';
 import { useOnlineStatus } from '@/components/providers/offline-provider';
 import { addToQueue } from '@/lib/offline-queue';
 import { syncOfflineQueue } from '@/lib/copilot-queue';
 import { STORAGE_KEY_PREFIX } from '@/hooks/use-copilot-conversation';
-import { Microphone, MicrophoneSlash, WifiSlash } from '@phosphor-icons/react';
+import { Microphone, MicrophoneSlash, WifiSlash, Spinner, Stop } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import type { CopilotAnalysis, CopilotAnalyzeResponse, EncounterContext } from '@/lib/types';
 import { getDemoCasePreset } from '@/lib/demo-case-presets';
@@ -80,17 +80,16 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const {
-    isListening,
-    startListening,
-    stopListening,
-    isSupported: isVoiceSupported,
-    error: voiceError,
-  } = useVoiceInput();
+  // S21-VOICE-03 — Hook Whisper (MediaRecorder + upload para /audio/transcribe).
+  // Substitui o useVoiceInput (webkitSpeechRecognition não funciona em iOS Safari).
+  // Mantido o useVoiceInput importado para fallback apenas se MediaRecorder
+  // também não existir (casos raros); na prática o Whisper hook cobre tudo.
+  const whisper = useWhisperVoice();
+  const isVoiceSupported = whisper.isSupported;
 
   useEffect(() => {
-    if (voiceError) toast.error(voiceError);
-  }, [voiceError]);
+    if (whisper.error) toast.error(whisper.error);
+  }, [whisper.error]);
 
   const handleVoiceTranscript = useCallback((text: string) => {
     setCaseText((prev) => {
@@ -240,47 +239,106 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
       <section className="mt-6 flex flex-1 flex-col justify-end pb-4">
         {isVoiceSupported ? (
           <div className="flex flex-col items-center gap-3">
+            {/* S21-VOICE-04 — Estados: idle (mic) → recording (stop, vermelho)
+                → uploading (spinner). Botão grande de 64px acessível. */}
             <button
               type="button"
-              onClick={() =>
-                isListening ? stopListening() : startListening(handleVoiceTranscript)
-              }
-              disabled={loading}
+              onClick={() => {
+                if (whisper.isUploading) return; // não interrompe upload
+                if (whisper.isListening) {
+                  whisper.stop();
+                } else {
+                  whisper.start(handleVoiceTranscript);
+                }
+              }}
+              disabled={loading || whisper.isUploading}
               className={cn(
                 'flex size-16 items-center justify-center rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                isListening
+                whisper.isListening
                   ? 'bg-clinical-teal text-white shadow-lg shadow-clinical-teal/30 scale-105'
-                  : 'bg-card border-2 border-clinical-teal/40 text-clinical-teal hover:bg-clinical-teal/10',
-                loading && 'opacity-50 pointer-events-none',
+                  : whisper.isUploading
+                    ? 'bg-muted text-muted-foreground'
+                    : 'bg-card border-2 border-clinical-teal/40 text-clinical-teal hover:bg-clinical-teal/10',
+                (loading || whisper.isUploading) && 'cursor-not-allowed',
               )}
-              aria-label={isListening ? messages.capture.voice.stop : messages.capture.voice.start}
+              aria-label={
+                whisper.isListening
+                  ? messages.capture.voice.stop
+                  : whisper.isUploading
+                    ? messages.capture.voice.transcribing
+                    : messages.capture.voice.start
+              }
             >
-              {isListening ? (
-                <MicrophoneSlash className="size-8" weight="fill" />
+              {whisper.isListening ? (
+                <Stop className="size-8" weight="fill" />
+              ) : whisper.isUploading ? (
+                <Spinner className="size-8 animate-spin" weight="bold" />
               ) : (
                 <Microphone className="size-8" weight="bold" />
               )}
             </button>
-            {isListening && (
-              <div className="flex items-center gap-1" role="status" aria-live="polite">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <span
-                    key={i}
-                    aria-hidden="true"
-                    className="inline-block h-3 w-1 rounded-full bg-clinical-teal animate-pulse"
-                    style={{ animationDelay: `${i * 0.15}s`, height: `${8 + (i % 3) * 6}px` }}
-                  />
-                ))}
-                <span className="ml-2 text-sm text-clinical-teal">{messages.capture.voice.listening}</span>
+
+            {/* S21-VOICE-04 — feedback contínuo durante gravação.
+                Waveform simples com 5 barras animadas pelo audioLevel do hook. */}
+            {whisper.isListening && (
+              <div
+                className="flex items-center gap-2"
+                role="status"
+                aria-live="polite"
+                aria-label={`${messages.capture.voice.recording} ${formatElapsed(whisper.elapsedMs)}`}
+              >
+                <div className="flex items-end gap-1" aria-hidden="true">
+                  {Array.from({ length: 5 }).map((_, i) => {
+                    const baseLevel = whisper.audioLevel ?? 0.15;
+                    // Variação por barra para parecer waveform natural.
+                    const barLevel = Math.min(
+                      1,
+                      baseLevel * (0.6 + Math.sin(Date.now() / 200 + i) * 0.4 + i * 0.05),
+                    );
+                    return (
+                      <span
+                        key={i}
+                        className="inline-block w-1 rounded-full bg-clinical-teal transition-[height] duration-75"
+                        style={{ height: `${4 + barLevel * 20}px` }}
+                      />
+                    );
+                  })}
+                </div>
+                <span className="ml-1 font-mono text-sm tabular-nums text-clinical-teal">
+                  {formatElapsed(whisper.elapsedMs)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => whisper.cancel()}
+                  className="ml-2 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                >
+                  {messages.capture.voice.cancel}
+                </button>
               </div>
             )}
-            {!isListening && <p className="text-sm text-muted-foreground">{messages.capture.voice.tapToDictate}</p>}
+
+            {/* S21-VOICE-04 — feedback durante upload da transcrição. */}
+            {whisper.isUploading && (
+              <p
+                className="flex items-center gap-2 text-sm text-muted-foreground"
+                role="status"
+                aria-live="polite"
+              >
+                {messages.capture.voice.transcribing}
+              </p>
+            )}
+
+            {/* Idle: dica inicial. */}
+            {!whisper.isListening && !whisper.isUploading && (
+              <p className="text-sm text-muted-foreground">
+                {messages.capture.voice.tapToDictate}
+              </p>
+            )}
           </div>
         ) : (
-          // S20-VOICE-01 — fallback claro quando webkitSpeechRecognition não é suportado
-          // (iOS Safari, Firefox). Antes deste change, o botão sumia silenciosamente,
-          // deixando o médico sem entender por que não podia ditar. Ponte até a Sprint 21
-          // (Whisper no backend), que remove a dependência do navegador.
+          // S21-VOICE-05 — fallback quando nem MediaRecorder existe (muito raro;
+          // cobre browsers legados sem suporte a getUserMedia). Mensagem clara
+          // em pt-BR destacando o textarea.
           <div
             role="status"
             className="flex items-start gap-3 rounded-lg border border-clinical-teal/30 bg-clinical-teal/5 px-4 py-3"
@@ -350,4 +408,15 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
       </Button>
     </div>
   );
+}
+
+/**
+ * S21-VOICE-04 — Formata milissegundos em mm:ss para o timer de gravação.
+ * Usa tabular-nums via classe Tailwind no span onde é renderizado.
+ */
+function formatElapsed(ms: number): string {
+  const totalSec = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSec / 60);
+  const seconds = totalSec % 60;
+  return `${minutes.toString().padStart(1, '0')}:${seconds.toString().padStart(2, '0')}`;
 }
