@@ -18,6 +18,22 @@ const CONTEXT_LABELS: Record<string, string> = {
   hasICU: 'UTI',
 };
 
+// S20-I18N-01 — localização do status do atendimento. Antes mostrava o slug
+// cru (in_review, draft...) como rótulo — única tela não-localizada do app.
+const STATUS_LABELS: Record<string, string> = {
+  draft: 'Rascunho',
+  in_review: 'Em revisão',
+  finalized: 'Finalizado',
+  signed: 'Assinado',
+};
+
+const STATUS_VARIANTS: Record<string, 'outline' | 'secondary' | 'default'> = {
+  draft: 'outline',
+  in_review: 'secondary',
+  finalized: 'default',
+  signed: 'default',
+};
+
 const VERTICAL_LABELS: Record<string, string> = {
   trauma: 'Trauma',
   cardiac: 'Cardíaco',
@@ -119,7 +135,11 @@ export default function EncounterDetailPage({ params }: { params: Promise<{ id: 
             <h1 className="font-display text-2xl tracking-tight text-clinical-ink">
               {encounter.patientRef}
             </h1>
-            <Badge variant="secondary">{encounter.status}</Badge>
+            <Badge variant={STATUS_VARIANTS[encounter.status] ?? 'secondary'}>
+              {/* S20-I18N-01 — rótulo humano; fallback para o slug apenas em caso
+                  de status desconhecido (manter legível, não mostrar snake_case cru). */}
+              {STATUS_LABELS[encounter.status] ?? encounter.status}
+            </Badge>
           </div>
           <div className="flex items-center gap-2">
             {encounter.status !== 'finalized' && (

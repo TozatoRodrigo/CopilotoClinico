@@ -29,6 +29,7 @@ function makeInput(overrides: Partial<PromptInput> = {}): PromptInput {
       hasICU: false,
     },
     vertical: overrides.vertical,
+    redFlags: overrides.redFlags,
   };
 }
 
@@ -241,6 +242,101 @@ describe('buildPrompt', () => {
       expect(result.system).toContain('"criticality": "blocker"');
       expect(result.system).toContain('"category": "therapeutic"');
       expect(result.system).toContain('"differentials": []');
+    });
+  });
+
+  // ──── S20-CLIN-01 — red flags explícitas do médico ───────────────────
+  describe('S20-CLIN-01 — physician_confirmed_red_flags', () => {
+    it('injects a dedicated block when red flags are confirmed', () => {
+      const result = buildPrompt(
+        makeInput({
+          redFlags: { immunosuppressed: true, pregnant: false, anticoagulant: true },
+        }),
+      );
+
+      expect(result.user).toContain('<physician_confirmed_red_flags');
+      expect(result.user).toContain('TRUSTED_PHYSICIAN_INPUT');
+      expect(result.user).toContain('Paciente imunossuprimido');
+      expect(result.user).toContain('Paciente em uso de anticoagulante');
+    });
+
+    it('omits red flags marked as false (only confirmed=true appear)', () => {
+      const result = buildPrompt(
+        makeInput({
+          redFlags: { immunosuppressed: true, pregnant: false },
+        }),
+      );
+
+      expect(result.user).toContain('Paciente imunossuprimido');
+      expect(result.user).not.toContain('Paciente gestante');
+    });
+
+    it('omits the entire block when no red flags are confirmed', () => {
+      const result = buildPrompt(
+        makeInput({
+          redFlags: { immunosuppressed: false, pregnant: false },
+        }),
+      );
+
+      expect(result.user).not.toContain('<physician_confirmed_red_flags');
+    });
+
+    it('omits the block when redFlags is undefined (retrocompatível)', () => {
+      const result = buildPrompt(makeInput());
+
+      expect(result.user).not.toContain('<physician_confirmed_red_flags');
+    });
+
+    it('instructs the model to treat confirmed flags as fact, not hypothesis', () => {
+      const result = buildPrompt(
+        makeInput({ redFlags: { immunosuppressed: true } }),
+      );
+
+      expect(result.user).toContain('Considere cada uma como fato estabelecido');
+      expect(result.user).toContain('NÃO pergunte sobre elas nas clarifyingQuestions');
+    });
+
+    it('uses pt-BR clinical label for each canonical key', () => {
+      const result = buildPrompt(
+        makeInput({
+          redFlags: {
+            immunosuppressed: true,
+            pregnant: true,
+            anticoagulant: true,
+            pediatric: true,
+            elderly65: true,
+            allergy: true,
+          },
+        }),
+      );
+
+      expect(result.user).toContain('Paciente imunossuprimido');
+      expect(result.user).toContain('Paciente gestante ou amamentando');
+      expect(result.user).toContain('Paciente em uso de anticoagulante');
+      expect(result.user).toContain('Paciente pediátrico');
+      expect(result.user).toContain('Paciente idoso (≥ 65 anos)');
+      expect(result.user).toContain('Paciente com alergia medicamentosa relatada');
+    });
+
+    it('renders a fallback label for unknown keys (forward-compat)', () => {
+      const result = buildPrompt(
+        makeInput({ redFlags: { futureUnknownKey: true } }),
+      );
+
+      expect(result.user).toContain('Red flag marcada pelo médico: futureUnknownKey');
+    });
+
+    it('injects red flags block even when no guideline evidence is retrieved', () => {
+      const result = buildPrompt(
+        makeInput({
+          retrievedChunks: [],
+          redFlags: { immunosuppressed: true },
+        }),
+      );
+
+      expect(result.user).toContain('<physician_confirmed_red_flags');
+      expect(result.user).toContain('Paciente imunossuprimido');
+      expect(result.user).toContain('WARNING: No relevant guideline evidence');
     });
   });
 });

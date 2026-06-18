@@ -8,7 +8,6 @@ import {
   House,
   ShieldCheck,
   ShieldWarning,
-  Users,
 } from '@phosphor-icons/react';
 import { useAuth } from '@/lib/auth-store';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,6 +20,10 @@ interface QuickLink {
   description: string;
   icon: typeof House;
   roles: ('compliance' | 'admin')[];
+  /**
+   * S20-UX-01 — feature flag para esconder lançadores não prontos.
+   */
+  enabled?: boolean;
 }
 
 const QUICK_LINKS: QuickLink[] = [
@@ -52,18 +55,16 @@ const QUICK_LINKS: QuickLink[] = [
     icon: ChartBar,
     roles: ['admin'],
   },
-  {
-    href: '/admin/users',
-    label: 'Usuários',
-    description: 'Gestão de médicos, papéis e permissões',
-    icon: Users,
-    roles: ['admin'],
-  },
+  // S20-UX-01 — placeholder de Usuários removido do overview (rota ainda não
+  // implementada; item de nav já está oculto no admin-shell). Reativar quando
+  // a gestão de usuários estiver pronta (Sprint 25+).
 ];
 
 export default function AdminOverviewPage() {
   const { role, physician } = useAuth();
-  const availableLinks = QUICK_LINKS.filter((l) => l.roles.some((r) => r === role));
+  const availableLinks = QUICK_LINKS.filter(
+    (l) => l.roles.some((r) => r === role) && l.enabled !== false,
+  );
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">

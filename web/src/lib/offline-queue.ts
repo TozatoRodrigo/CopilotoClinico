@@ -6,6 +6,12 @@ interface AnalyzeQueueItem {
   encounterId: string;
   caseText: string;
   context: EncounterContext;
+  /**
+   * S20-CLIN-01 — red flags explícitas marcadas pelo médico.
+   * Persistidas na fila offline para serem enviadas ao reconectar,
+   * garantindo rastreabilidade mesmo em cenário offline.
+   */
+  redFlags: Record<string, boolean>;
   createdAt: number;
 }
 

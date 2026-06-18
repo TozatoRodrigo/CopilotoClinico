@@ -40,6 +40,12 @@ type AdminSection = {
   label: string;
   icon: typeof House;
   roles: AppRole[];
+  /**
+   * S20-UX-01 — feature flag local para esconder items não prontos.
+   * `false` remove o item do nav (código preservado para reativação).
+   * Default: true.
+   */
+  enabled?: boolean;
 };
 
 const ADMIN_SECTIONS: AdminSection[] = [
@@ -58,8 +64,12 @@ const ADMIN_SECTIONS: AdminSection[] = [
   },
   { href: '/audit', label: 'Auditoria', icon: ShieldWarning, roles: ['compliance', 'admin'] },
   { href: '/admin/analytics', label: 'Analytics', icon: ChartBar, roles: ['admin'] },
-  { href: '/admin/users', label: 'Usuários', icon: Users, roles: ['admin'] },
-  { href: '/admin/sistema', label: 'Sistema', icon: Gear, roles: ['admin'] },
+  // S20-UX-01 — placeholders expostos como funcionais. Escondidos até terem
+  // implementação real (gerenciamento de usuários e configurações de sistema).
+  // As rotas /admin/users e /admin/sistema continuam acessíveis via URL direta
+  // (guard de rota por papel será tratado na Sprint 25).
+  { href: '/admin/users', label: 'Usuários', icon: Users, roles: ['admin'], enabled: false },
+  { href: '/admin/sistema', label: 'Sistema', icon: Gear, roles: ['admin'], enabled: false },
 ];
 
 function ThemeToggle() {
@@ -205,7 +215,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { role } = useAuth();
 
-  const sections = ADMIN_SECTIONS.filter((s) => s.roles.includes(role));
+  // S20-UX-01 — filtra items marcados como enabled:false (placeholders não prontos).
+  const sections = ADMIN_SECTIONS.filter(
+    (s) => s.roles.includes(role) && s.enabled !== false,
+  );
   const [now, setNow] = useState<string>('');
 
   useEffect(() => {

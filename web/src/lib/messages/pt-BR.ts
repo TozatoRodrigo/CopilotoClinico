@@ -134,6 +134,12 @@ export const ptBR = {
       tapToDictate: 'Toque para ditar',
       start: 'Iniciar gravação',
       stop: 'Parar gravação',
+      // S20-VOICE-01 — fallback claro quando webkitSpeechRecognition não é suportado
+      // (iOS Safari, Firefox). Ponte temporária até a Sprint 21 (Whisper no backend),
+      // que tornará a voz independente do navegador.
+      unsupportedTitle: 'Voz em melhoria',
+      unsupportedDescription:
+        'Estamos habilitando o ditado por voz neste dispositivo. Por enquanto, descreva o caso digitando — a análise funciona normalmente.',
     },
     charMin: (n: number) => `Mínimo ${n} caracteres`,
     readyToAnalyze: 'Pronto para analisar',

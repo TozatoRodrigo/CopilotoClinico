@@ -10,6 +10,12 @@ export const analyzeSchema = z.object({
       hasICU: z.boolean().default(false),
     })
     .default({}),
+  // S20-CLIN-01 — red flags explícitas marcadas pelo médico na captura.
+  // Antes eram cosméticas (colhidas na UI mas nunca enviadas ao backend).
+  // Chaves conhecidas (alinhadas com RED_FLAG_CHIPS do front):
+  // immunosuppressed, pregnant, anticoagulant, pediatric, elderly65, allergy.
+  // Usa record<string,boolean> para tolerar novas chaves sem quebrar o cliente.
+  redFlags: z.record(z.string(), z.boolean()).optional().default({}),
   // F5 — marca o caso-norte / demo para segmentar o funil (LGPD-safe: tag opaca, sem conteúdo clínico).
   demoCase: z.string().trim().max(64).optional(),
 });

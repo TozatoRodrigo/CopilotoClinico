@@ -38,7 +38,6 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
@@ -52,6 +51,18 @@ type NavLink = {
   shortLabel?: string;
   icon: typeof House;
 };
+
+/**
+ * S20-UX-01 — Feature flag local para o ⌘K (palette de ações rápidas).
+ *
+ * O componente existe e está preservado, mas hoje é um placeholder exposto em
+ * produção com copy de roadmap ("entra na F3"). Até a implementação funcional
+ * (busca real por atendimentos, diretrizes, ações), o botão é ocultado e o
+ * listener de teclado é desativado — evita falsa expectativa do usuário.
+ *
+ * Para reativar (em dev/staging): mudar para `true`.
+ */
+const FEATURE_COMMAND_K_ENABLED = false;
 
 const NAV_BY_ROLE: Record<AppRole, NavLink[]> = {
   physician: [
@@ -131,6 +142,9 @@ function QuickActions() {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
+    // S20-UX-01 — listener desativado quando a feature está oculta.
+    if (!FEATURE_COMMAND_K_ENABLED) return;
+
     function handleShortcut(event: KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
@@ -141,6 +155,11 @@ function QuickActions() {
     window.addEventListener('keydown', handleShortcut);
     return () => window.removeEventListener('keydown', handleShortcut);
   }, []);
+
+  // S20-UX-01 — não renderiza o botão nem o dialog quando a feature está oculta.
+  // Código preservado abaixo para reativação rápida quando a busca funcional
+  // estiver pronta.
+  if (!FEATURE_COMMAND_K_ENABLED) return null;
 
   return (
     <>
@@ -263,7 +282,6 @@ function UserMenu() {
           <DropdownMenuItem onClick={() => router.push('/guidelines')}>
             <BookOpen className="size-4" />
             Diretrizes
-            <DropdownMenuShortcut>⌘K</DropdownMenuShortcut>
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
