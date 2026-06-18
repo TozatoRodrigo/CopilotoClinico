@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { useDashboardStats, useEncounterList } from '@/lib/clinical-queries';
@@ -12,7 +12,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { EmptyState } from '@/components/domain/empty-state';
+import { DataTable } from '@/components/ui/data-table';
 import { DEMO_CASE_PRESETS } from '@/lib/demo-case-presets';
 import { cn } from '@/lib/utils';
 import {
@@ -53,7 +53,6 @@ const STATUS_VARIANTS: Record<string, 'default' | 'secondary' | 'destructive' | 
 
 export default function DashboardPage() {
   const { physician } = useAuth();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const deniedShown = useRef(false);
 
@@ -333,81 +332,65 @@ export default function DashboardPage() {
           </Button>
         </div>
 
-        {loading && (
-          <div className="space-y-2">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className="h-12 w-full rounded-lg" />
-            ))}
-          </div>
-        )}
-
-        {!loading && recentEncounters.length === 0 && (
-          <EmptyState
-            title="Nenhum atendimento encontrado"
-            description="Os atendimentos que você criar aparecerão aqui."
-            actionLabel="Criar primeiro atendimento"
-            actionHref="/encounters/new"
-          />
-        )}
-
-        {!loading && recentEncounters.length > 0 && (
-          <div className="overflow-x-auto rounded-lg border">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-muted/40 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  <th className="px-4 py-2.5">Paciente</th>
-                  <th className="px-4 py-2.5">Vertical</th>
-                  <th className="px-4 py-2.5">Status</th>
-                  <th className="px-4 py-2.5">Data</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentEncounters.map((enc) => {
-                  // S20-NAV-01 — navegação SPA via router.push em vez de
-                  // window.location.href (que causava reload completo da página,
-                  // destruindo a sensação de app e o cache de queries).
-                  const goToDetail = () => router.push(`/encounters/${enc.id}`);
-                  return (
-                    <tr
-                      key={enc.id}
-                      className="cursor-pointer border-b last:border-0 transition-colors hover:bg-muted/50"
-                      onClick={goToDetail}
-                      tabIndex={0}
-                      role="link"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          goToDetail();
-                        }
-                      }}
-                    >
-                      <td className="px-4 py-2.5 font-medium">{enc.patientRef}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground">
-                        {VERTICAL_LABELS[enc.vertical] ?? enc.vertical}
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <Badge
-                          variant={STATUS_VARIANTS[enc.status] ?? 'outline'}
-                          className="font-mono text-xs"
-                        >
-                          {STATUS_LABELS[enc.status] ?? enc.status}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <time
-                          dateTime={enc.createdAt}
-                          className="font-mono text-xs text-muted-foreground"
-                        >
-                          {new Date(enc.createdAt).toLocaleDateString('pt-BR')}
-                        </time>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+        {/*
+          S22-DS-01 — migrado para <DataTable> responsiva. Antes era uma
+          <table> inline que quebrava no mobile (overflow horizontal). Agora
+          vira cards empilhados em < 640px e tabela semântica em desktop.
+          Estados de loading/empty integrados (antes eram condicionais manuais).
+        */}
+        <DataTable
+          ariaLabel="Atendimentos recentes"
+          loading={loading}
+          loadingRows={3}
+          rows={loading ? [] : recentEncounters}
+          getRowId={(enc) => enc.id}
+          getRowHref={(enc) => `/encounters/${enc.id}`}
+          emptyTitle="Nenhum atendimento encontrado"
+          emptyDescription="Os atendimentos que você criar aparecerão aqui."
+          emptyActionLabel="Criar primeiro atendimento"
+          emptyActionHref="/encounters/new"
+          columns={[
+            {
+              key: 'patientRef',
+              header: 'Paciente',
+              cell: (enc) => <span className="font-medium">{enc.patientRef}</span>,
+            },
+            {
+              key: 'vertical',
+              header: 'Vertical',
+              cell: (enc) => (
+                <span className="text-muted-foreground">
+                  {VERTICAL_LABELS[enc.vertical] ?? enc.vertical}
+                </span>
+              ),
+              hideOnMobile: true,
+            },
+            {
+              key: 'status',
+              header: 'Status',
+              cell: (enc) => (
+                <Badge
+                  variant={STATUS_VARIANTS[enc.status] ?? 'outline'}
+                  className="font-mono text-xs"
+                >
+                  {STATUS_LABELS[enc.status] ?? enc.status}
+                </Badge>
+              ),
+            },
+            {
+              key: 'createdAt',
+              header: 'Data',
+              cell: (enc) => (
+                <time
+                  dateTime={enc.createdAt}
+                  className="font-mono text-xs text-muted-foreground"
+                >
+                  {new Date(enc.createdAt).toLocaleDateString('pt-BR')}
+                </time>
+              ),
+            },
+          ]}
+        />
       </section>
     </div>
   );

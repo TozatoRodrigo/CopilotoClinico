@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Breadcrumb } from '@/components/ui/breadcrumb';
 import { DecisionThread } from '@/components/copilot/decision-thread';
 import { STORAGE_KEY_PREFIX, type StoredCopilotResult } from '@/hooks/use-copilot-conversation';
 import { messages } from '@/lib/messages';
@@ -145,6 +146,14 @@ export default function ResultPage({ params }: { params: Promise<{ id: string }>
   return (
     <div className="min-h-screen bg-clinical-paper">
       <div className="mx-auto max-w-3xl px-4 py-6">
+        {/* S22-NAV-01 — breadcrumb no fluxo de atendimento. */}
+        <Breadcrumb
+          items={[
+            { label: 'Atendimentos', href: '/encounters' },
+            { label: encounterId.slice(0, 8), href: `/encounters/${encounterId}` },
+            { label: 'Resultado' },
+          ]}
+        />
         <header className="flex items-center justify-between pb-6">
           <h1 className="font-display text-2xl tracking-tight text-clinical-ink">
             {messages.copilot.result.title}

@@ -76,7 +76,7 @@ export default function PrivacyPage() {
         <header className="mt-6 space-y-3">
           <div className="flex items-center gap-2">
             <ShieldCheck className="size-6 text-clinical-teal" weight="duotone" />
-            <h1 className="font-serif text-3xl font-normal tracking-tight text-foreground sm:text-4xl">
+            <h1 className="font-display text-3xl tracking-tight text-foreground sm:text-4xl">
               Política de Privacidade
             </h1>
           </div>

@@ -301,7 +301,8 @@ export default function OnboardingPage() {
           <form onSubmit={handleVerifyTotp} className="space-y-4">
             <fieldset>
               <legend className="sr-only">Código de verificação TOTP de 6 dígitos</legend>
-              <div className="flex justify-center gap-2">
+              {/* S22-A11Y-02 — OTP responsivo (cabe em iPhone SE 320px). */}
+              <div className="flex justify-center gap-1.5 sm:gap-2">
                 {totpDigits.map((digit, idx) => (
                   <Input
                     key={idx}
@@ -314,7 +315,7 @@ export default function OnboardingPage() {
                     onKeyDown={(e) => handleDigitKeyDown(idx, e)}
                     onPaste={handleDigitPaste}
                     disabled={loading}
-                    className="size-12 select-none p-0 text-center text-xl font-semibold tabular-nums"
+                    className="size-10 select-none p-0 text-center text-lg font-semibold tabular-nums sm:size-12 sm:text-xl"
                     aria-label={`Dígito ${idx + 1} de 6`}
                   />
                 ))}

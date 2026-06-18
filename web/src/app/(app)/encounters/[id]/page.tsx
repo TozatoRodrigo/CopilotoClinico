@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { DecisionThread, type DecisionThreadItem } from '@/components/domain/decision-thread';
+import { Breadcrumb } from '@/components/ui/breadcrumb';
 import Link from 'next/link';
 import { ArrowLeft, Microphone, Brain, FileText, ArrowRight } from '@phosphor-icons/react';
 import type { EncounterContext } from '@/lib/types';
@@ -124,6 +125,13 @@ export default function EncounterDetailPage({ params }: { params: Promise<{ id: 
   return (
     <div className="min-h-screen bg-clinical-paper">
       <div className="mx-auto max-w-3xl px-4 py-6">
+        {/* S22-NAV-01 — breadcrumb (a página atual é o próprio paciente). */}
+        <Breadcrumb
+          items={[
+            { label: 'Atendimentos', href: '/encounters' },
+            { label: encounter.patientRef },
+          ]}
+        />
         <header className="flex items-center justify-between pb-6">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" asChild className="h-9">
