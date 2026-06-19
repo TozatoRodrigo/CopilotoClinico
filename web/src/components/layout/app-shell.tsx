@@ -20,6 +20,7 @@ import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
 import { ConnectionStatus } from '@/components/domain/connection-status';
+import { OfflineQueueBadge } from '@/components/domain/offline-queue-badge';
 import { useOnlineStatus } from '@/components/providers/offline-provider';
 import { useAuth, type AppRole } from '@/lib/auth-store';
 import { cn } from '@/lib/utils';
@@ -394,6 +395,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </nav>
           <div className="flex-1" />
           <div className="flex items-center gap-2">
+            {/*
+              S23-CLIN-03 — badge de fila offline visível no header.
+              Só aparece quando há itens pendentes (count > 0).
+            */}
+            <OfflineQueueBadge />
             <QuickActions />
             <ThemeToggle />
             <UserMenu />

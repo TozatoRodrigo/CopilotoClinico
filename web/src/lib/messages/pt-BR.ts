@@ -103,6 +103,13 @@ export const ptBR = {
     categoryBracket: (label: string) => `[${label}]`,
     preliminary: 'Preliminar — responda as perguntas acima',
     confidence: (value: number) => `${Math.round(value * 100)}%`,
+    // S23-UX-01 — explicação de metodologia para evitar falsa precisão clínica.
+    // Médico pode interpretar "87%" como garantia estatística — médico-legalmente arriscado.
+    confidenceTooltipTitle: 'Como calculamos a confiança',
+    confidenceTooltipBody:
+      'Combina cobertura da evidência recuperada (quantos trechos relevantes a diretriz forneceu) com coerência interna da análise (consistência entre raciocínio, recomendações e citações).',
+    confidenceTooltipDisclaimer:
+      'Não é garantia clínica ou probabilidade de acerto. A decisão final é sua, médico.',
   },
 
   redFlags: {
@@ -166,11 +173,15 @@ export const ptBR = {
     offlineQueued: 'Sem conexão. Análise será enviada quando voltar online.',
     errorAnalyze:
       'Não foi possível analisar o caso. Verifique os dados e tente novamente.',
+    // S23-CLIN-01 — feedback ao aplicar template de queixa.
+    templateApplied: (name: string) => `Modelo "${name}" adicionado ao caso.`,
   },
 
   documents: {
     generateHeading: 'Gerar documento',
     generating: 'Gerando...',
+    // S23-CLIN-05 — confirmação de geração (sem sair da tela de resultado).
+    generated: (type: string) => `${type} gerado — aberto em nova aba.`,
     newAnalysis: 'Nova Análise',
     encounter: 'Atendimento',
     types: {
