@@ -10,7 +10,7 @@ import {
   Plus,
   X,
 } from "@phosphor-icons/react";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useEncounterList } from "@/lib/clinical-queries";
 import { PageHeader } from "@/components/layout/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -61,6 +61,29 @@ const VERTICAL_LABELS: Record<string, string> = {
 
 const PAGE_SIZE = 20;
 
+/**
+ * S23-ENC-01 — presets de data rápidos.
+ * Evita o médico precisar abrir 2 date pickers para "casos de hoje".
+ */
+function todayISO(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function daysAgoISO(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return d.toISOString().slice(0, 10);
+}
+
+function buildDatePresets(): { label: string; from: string; to: string }[] {
+  const today = todayISO();
+  return [
+    { label: "Hoje", from: today, to: today },
+    { label: "7 dias", from: daysAgoISO(7), to: today },
+    { label: "30 dias", from: daysAgoISO(30), to: today },
+  ];
+}
+
 export default function EncountersIndexPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -71,6 +94,16 @@ export default function EncountersIndexPage() {
   const search = searchParams.get("search") ?? "";
   const dateFrom = searchParams.get("dateFrom") ?? "";
   const dateTo = searchParams.get("dateTo") ?? "";
+
+  // S23-ENC-01 — estado local do input de busca para debounce.
+  // Antes cada tecla gerava router.push (spam de API + poluição do histórico).
+  // Agora o estado é local; o debounce (300ms) propaga para a URL.
+  const [searchInput, setSearchInput] = useState(search);
+
+  // Sincroniza input quando a URL muda externamente (ex: clearFilters).
+  useEffect(() => {
+    setSearchInput(search);
+  }, [search]);
 
   const filters = useMemo(
     () => ({
@@ -96,18 +129,31 @@ export default function EncountersIndexPage() {
         next.delete(key);
       }
       if (key !== "page") next.delete("page");
-      router.push(`/encounters?${next.toString()}`, { scroll: false });
+      // S23-ENC-01 — router.replace em vez de push para não poluir histórico
+      // (cada letra digitada não deve virar entrada de "voltar").
+      router.replace(`/encounters?${next.toString()}`, { scroll: false });
     },
     [router, searchParams],
   );
 
+  // Debounce do input de busca: só atualiza a URL 300ms após o último digito.
+  useEffect(() => {
+    if (searchInput === search) return;
+    const t = setTimeout(() => {
+      setParam("search", searchInput.trim());
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchInput, search, setParam]);
+
   const clearFilters = useCallback(() => {
-    router.push("/encounters", { scroll: false });
+    router.replace("/encounters", { scroll: false });
   }, [router]);
 
   const hasActiveFilters = status || vertical || search || dateFrom || dateTo;
   const meta = encountersQuery.data?.meta;
   const totalPages = meta ? Math.ceil(meta.total / PAGE_SIZE) : 0;
+
+  const datePresets = useMemo(() => buildDatePresets(), []);
 
   return (
     <div className="space-y-6">
@@ -140,10 +186,11 @@ export default function EncountersIndexPage() {
             <MagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               id="enc-search"
-              value={search}
-              onChange={(event) => setParam("search", event.target.value)}
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
               placeholder="Buscar por referência do paciente"
               className="pl-9"
+              aria-label="Buscar por referência do paciente"
             />
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
@@ -210,6 +257,49 @@ export default function EncountersIndexPage() {
             {hasActiveFilters && (
               <Button variant="ghost" size="icon" onClick={clearFilters} title="Limpar filtros">
                 <X className="size-4" />
+              </Button>
+            )}
+          </div>
+
+          {/*
+            S23-ENC-01 — presets de data rápidos. Botões "Hoje / 7 dias / 30 dias"
+            aplicam intervalo de uma única vez em vez de abrir 2 date pickers.
+            Raramente o médico quer um intervalo customizado — casos recentes
+            é o caso de uso dominante.
+          */}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">Intervalo:</span>
+            {datePresets.map((preset) => {
+              const active = dateFrom === preset.from && dateTo === preset.to;
+              return (
+                <Button
+                  key={preset.label}
+                  type="button"
+                  variant={active ? "default" : "outline"}
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => {
+                    setParam("dateFrom", preset.from);
+                    setParam("dateTo", preset.to);
+                  }}
+                  aria-pressed={active}
+                >
+                  {preset.label}
+                </Button>
+              );
+            })}
+            {(dateFrom || dateTo) && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs text-muted-foreground"
+                onClick={() => {
+                  setParam("dateFrom", "");
+                  setParam("dateTo", "");
+                }}
+              >
+                Limpar intervalo
               </Button>
             )}
           </div>

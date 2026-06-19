@@ -13,16 +13,38 @@ import { addToQueue } from '@/lib/offline-queue';
 import { syncOfflineQueue } from '@/lib/copilot-queue';
 import { STORAGE_KEY_PREFIX } from '@/hooks/use-copilot-conversation';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
-import { Microphone, MicrophoneSlash, WifiSlash, Spinner, Stop } from '@phosphor-icons/react';
+import {
+  Microphone,
+  MicrophoneSlash,
+  WarningCircle,
+  WifiSlash,
+  Spinner,
+  Stop,
+} from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import type { CopilotAnalysis, CopilotAnalyzeResponse, EncounterContext } from '@/lib/types';
 import { getDemoCasePreset } from '@/lib/demo-case-presets';
 import { messages } from '@/lib/messages';
 import { cn } from '@/lib/utils';
 
+/**
+ * S23-CLIN-04 — Severidade clínica dos chips de red flag.
+ *
+ * Alinhada com output-validator.ts (severity: critical | high | moderate):
+ * - critical: muda drasticamente a conduta (imunossuprimido, gestante,
+ *   anticoagulante) — vermelho sólido com ícone
+ * - warning: requer atenção especial (pediátrico, idoso) — âmbar
+ * - info: alerta adicional (alergia) — teal padrão
+ */
+type RedFlagSeverity = 'critical' | 'warning' | 'info';
+
 interface ChipDef {
   key: string;
   label: string;
+}
+
+interface RedFlagChipDef extends ChipDef {
+  severity: RedFlagSeverity;
 }
 
 const RESOURCE_CHIPS: ChipDef[] = [
@@ -32,13 +54,13 @@ const RESOURCE_CHIPS: ChipDef[] = [
   { key: 'isSus', label: 'SUS' },
 ];
 
-const RED_FLAG_CHIPS: ChipDef[] = [
-  { key: 'immunosuppressed', label: 'Imunossuprimido' },
-  { key: 'pregnant', label: 'Gestante' },
-  { key: 'anticoagulant', label: 'Anticoagulante' },
-  { key: 'pediatric', label: 'Pediátrico' },
-  { key: 'elderly65', label: '65+' },
-  { key: 'allergy', label: 'Alergia' },
+const RED_FLAG_CHIPS: RedFlagChipDef[] = [
+  { key: 'immunosuppressed', label: 'Imunossuprimido', severity: 'critical' },
+  { key: 'pregnant', label: 'Gestante', severity: 'critical' },
+  { key: 'anticoagulant', label: 'Anticoagulante', severity: 'critical' },
+  { key: 'pediatric', label: 'Pediátrico', severity: 'warning' },
+  { key: 'elderly65', label: '65+', severity: 'warning' },
+  { key: 'allergy', label: 'Alergia', severity: 'info' },
 ];
 
 const COMPLAINT_TEMPLATES = [
@@ -65,6 +87,20 @@ const COMPLAINT_TEMPLATES = [
 ];
 
 const MIN_CHARS = 10;
+/**
+ * S23-CLIN-04 — helper para variant do Badge por severidade.
+ */
+function redFlagVariant(severity: RedFlagSeverity): 'destructive' | 'default' | 'outline' {
+  if (severity === 'critical') return 'destructive';
+  if (severity === 'warning') return 'default';
+  return 'outline';
+}
+
+/**
+ * S23-CLIN-02 — chave de autosave do rascunho no sessionStorage.
+ * Não usa localStorage (LGPD minimização — sessão apenas).
+ */
+const DRAFT_KEY = (encounterId: string) => `${STORAGE_KEY_PREFIX}${encounterId}:draft`;
 
 export default function CapturePage({ params }: { params: Promise<{ id: string }> }) {
   const { id: encounterId } = use(params);
@@ -73,7 +109,16 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
   const { isOnline } = useOnlineStatus();
   const demoPreset = getDemoCasePreset(searchParams.get('demoCase'));
 
-  const [caseText, setCaseText] = useState(() => demoPreset?.caseText ?? '');
+  // S23-CLIN-02 — restaura rascunho salvo (autosave) ao montar.
+  const [caseText, setCaseText] = useState(() => {
+    if (typeof window === 'undefined') return demoPreset?.caseText ?? '';
+    const draft = sessionStorage.getItem(DRAFT_KEY(encounterId));
+    return draft ?? demoPreset?.caseText ?? '';
+  });
+  const [draftRestored, setDraftRestored] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return sessionStorage.getItem(DRAFT_KEY(encounterId)) !== null;
+  });
   const [context, setContext] = useState<EncounterContext>(
     () => demoPreset?.context ?? { hasCT: false, isSus: false, hasLab: false, hasICU: false },
   );
@@ -83,8 +128,6 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
 
   // S21-VOICE-03 — Hook Whisper (MediaRecorder + upload para /audio/transcribe).
   // Substitui o useVoiceInput (webkitSpeechRecognition não funciona em iOS Safari).
-  // Mantido o useVoiceInput importado para fallback apenas se MediaRecorder
-  // também não existir (casos raros); na prática o Whisper hook cobre tudo.
   const whisper = useWhisperVoice();
   const isVoiceSupported = whisper.isSupported;
 
@@ -103,6 +146,24 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
     if (isOnline) syncOfflineQueue().catch(() => {});
   }, [isOnline]);
 
+  // S23-CLIN-02 — autosave do rascunho com debounce 500ms.
+  // Salva texto ditado/digitado em sessionStorage para não perder se o médico
+  // navegar para fora (interrupções típicas de plantão). Limpo após submit.
+  useEffect(() => {
+    if (!caseText.trim()) return;
+    const t = setTimeout(() => {
+      sessionStorage.setItem(DRAFT_KEY(encounterId), caseText);
+    }, 500);
+    return () => clearTimeout(t);
+  }, [caseText, encounterId]);
+
+  // Limpa flag de "rascunho recuperado" depois de alguns segundos.
+  useEffect(() => {
+    if (!draftRestored) return;
+    const t = setTimeout(() => setDraftRestored(false), 3500);
+    return () => clearTimeout(t);
+  }, [draftRestored]);
+
   const isValid = caseText.trim().length >= MIN_CHARS;
 
   function toggleContext(key: string) {
@@ -113,11 +174,22 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
     setRedFlags((prev) => ({ ...prev, [key]: !prev[key] }));
   }
 
+  /**
+   * S23-CLIN-01 — Templates funcionais (sem tap morto).
+   * Antes: se já houvesse texto no Textarea, o tap no template era no-op.
+   * Agora: sempre insere — append com separador se já há texto, substitui
+   * se vazio. Feedback via toast confirma a ação.
+   */
   function applyTemplate(template: string) {
     setCaseText((prev) => {
-      if (prev.trim()) return prev;
-      return template + ': ';
+      if (!prev.trim()) {
+        return template + ': ';
+      }
+      // Já há texto — append em nova linha para não sobrescrever o ditado.
+      const sep = prev.endsWith('\n') ? '' : '\n';
+      return `${prev}${sep}${template}: `;
     });
+    toast.success(messages.capture.templateApplied(template));
   }
 
   async function handleSubmit() {
@@ -143,8 +215,6 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
       const result = await apiClient.post<CopilotAnalyzeResponse>(
         `/encounters/${encounterId}/copilot/analyze`,
         // S20-CLIN-01 — envia redFlags explícitas no payload online.
-        // Antes deste change, os chips eram cosméticos: colhidos na UI mas nunca
-        // enviados ao backend (prompt-builder tinha que "adivinhar").
         { caseText: caseText.trim(), context, redFlags, demoCase: searchParams.get('demoCase') ?? undefined },
       );
       const analysis: CopilotAnalysis = {
@@ -156,6 +226,8 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
         `${STORAGE_KEY_PREFIX}${encounterId}`,
         JSON.stringify({ interactionId: result.interactionId, analysis }),
       );
+      // S23-CLIN-02 — limpa rascunho após submit com sucesso (não precisa mais).
+      sessionStorage.removeItem(DRAFT_KEY(encounterId));
       router.push(`/encounters/${encounterId}/result`);
     } catch (err) {
       setError(err instanceof Error ? err.message : messages.capture.errorAnalyze);
@@ -177,6 +249,19 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
           { label: 'Captura' },
         ]}
       />
+      {/*
+        S23-CLIN-02 — feedback sutil de rascunho recuperado. Indica ao médico
+        que o texto que ele vê veio do autosave (não foi perdido ao navegar).
+      */}
+      {draftRestored && (
+        <div
+          role="status"
+          className="mb-3 flex items-center gap-2 rounded-md border border-clinical-teal/30 bg-clinical-teal/5 px-3 py-2 text-xs text-muted-foreground"
+        >
+          <span aria-hidden="true">↩</span>
+          Rascunho recuperado do seu último acesso a este caso.
+        </div>
+      )}
       {demoPreset && (
         <Alert className="mb-4">
           <AlertTitle>{demoPreset.title}</AlertTitle>
@@ -214,22 +299,40 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
             {messages.capture.redFlags}
           </legend>
           <div className="mt-2 flex flex-wrap gap-2">
-            {RED_FLAG_CHIPS.map((chip) => (
-              <button
-                key={chip.key}
-                type="button"
-                onClick={() => toggleRedFlag(chip.key)}
-                aria-pressed={!!redFlags[chip.key]}
-                className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <Badge
-                  variant={redFlags[chip.key] ? 'destructive' : 'outline'}
-                  className="cursor-pointer select-none px-3 py-1 text-sm"
+            {/*
+              S23-CLIN-04 — chips diferenciados por severidade clínica.
+              Crítico (imunossuprimido, gestante, anticoagulante): vermelho
+              sólido + ícone. Warning (pediátrico, 65+): âmbar. Info (alergia):
+              teal padrão. Coerente com output-validator (critical/high/moderate).
+            */}
+            {RED_FLAG_CHIPS.map((chip) => {
+              const active = !!redFlags[chip.key];
+              return (
+                <button
+                  key={chip.key}
+                  type="button"
+                  onClick={() => toggleRedFlag(chip.key)}
+                  aria-pressed={active}
+                  className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  {chip.label}
-                </Badge>
-              </button>
-            ))}
+                  <Badge
+                    variant={active ? redFlagVariant(chip.severity) : 'outline'}
+                    className={cn(
+                      'cursor-pointer select-none px-3 py-1 text-sm',
+                      active && chip.severity === 'critical' &&
+                        'border-destructive bg-destructive text-destructive-foreground',
+                      active && chip.severity === 'warning' &&
+                        'border-clinical-amber bg-clinical-amber text-clinical-amber-foreground',
+                    )}
+                  >
+                    {chip.severity === 'critical' && active && (
+                      <WarningCircle className="mr-1 inline size-3" weight="fill" aria-hidden="true" />
+                    )}
+                    {chip.label}
+                  </Badge>
+                </button>
+              );
+            })}
           </div>
         </fieldset>
       </section>
