@@ -10,7 +10,15 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ShieldCheck, ArrowLeft } from '@phosphor-icons/react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { ShieldCheck, ArrowLeft, EnvelopeSimple } from '@phosphor-icons/react';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -30,6 +38,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
   const [mfaError, setMfaError] = useState('');
+  // S24-AUTH-01 — dialog "Esqueci a senha"
+  const [forgotOpen, setForgotOpen] = useState(false);
 
   const digitRefs = useRef<(HTMLInputElement | null)[]>([]);
   const setDigitRef = useCallback(
@@ -287,7 +297,22 @@ export default function LoginPage() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="password">Senha</Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="password">Senha</Label>
+            {/*
+              S24-AUTH-01 — "Esqueci a senha". Ainda não temos fluxo de reset
+              por email (precisa SMTP configurado + tabela de tokens); o link
+              abre um Dialog explicando como obter suporte. Quando o backend
+              tiver /auth/password/forgot, troca por um form de email.
+            */}
+            <button
+              type="button"
+              onClick={() => setForgotOpen(true)}
+              className="text-xs text-clinical-teal underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:rounded"
+            >
+              Esqueci a senha
+            </button>
+          </div>
           <Input
             id="password"
             type="password"
@@ -326,6 +351,47 @@ export default function LoginPage() {
           </Link>
         </p>
       </form>
+
+      {/*
+        S24-AUTH-01 — Dialog "Esqueci a senha". Fluxo real de reset por email
+        exige backend com SMTP + tabela de tokens (Sprint 25+). Por enquanto,
+        orienta o médico a contactar o suporte — honesto, sem criar endpoint
+        fake que confunda.
+      */}
+      <Dialog open={forgotOpen} onOpenChange={setForgotOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle variant="brand">Recuperar senha</DialogTitle>
+            <DialogDescription>
+              O reset automático por email será ativado em breve. Por enquanto,
+              entre em contato com o suporte para redefinir sua senha.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <a
+              href="mailto:suporte@strivum.com.br?subject=Reset%20de%20senha%20Copiloto%20Cl%C3%ADnico"
+              className="flex items-center gap-3 rounded-lg border border-clinical-line bg-white px-4 py-3 transition-colors hover:bg-muted/40"
+            >
+              <EnvelopeSimple className="size-5 shrink-0 text-clinical-teal" weight="duotone" />
+              <div>
+                <p className="text-sm font-medium">suporte@strivum.com.br</p>
+                <p className="text-xs text-muted-foreground">
+                  Resposta em até 1 dia útil. Inclua seu CRM para verificação.
+                </p>
+              </div>
+            </a>
+            <p className="text-xs text-muted-foreground">
+              Se você esqueceu apenas o código MFA, use um código de backup.
+              Sem backup? O suporte pode resetar o MFA mediante verificação de identidade.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setForgotOpen(false)}>
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

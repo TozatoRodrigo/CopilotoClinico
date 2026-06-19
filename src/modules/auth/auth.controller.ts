@@ -31,6 +31,9 @@ import {
   mfaEnableSchema,
   mfaVerifySchema,
   mfaDisableSchema,
+  mfaRegenerateBackupsSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
   updateProfileSchema,
   changePasswordSchema,
   RegisterInput,
@@ -40,6 +43,9 @@ import {
   MfaEnableInput,
   MfaVerifyInput,
   MfaDisableInput,
+  MfaRegenerateBackupsInput,
+  ForgotPasswordInput,
+  ResetPasswordInput,
   UpdateProfileInput,
   ChangePasswordInput,
 } from './schemas/auth.schemas';
@@ -236,6 +242,22 @@ export class AuthController {
     @Body(new ZodValidationPipe(mfaDisableSchema)) body: MfaDisableInput,
   ) {
     await this.mfaService.disableMfa(req.user.physicianId, body.totpCode);
+  }
+
+  /**
+   * S24-MFA-03 — Regenera códigos de backup.
+   * Exige TOTP atual (prova de identidade), invalida anteriores, gera 8 novos.
+   * Retorna os códigos em texto claro (única oportunidade — depois só hash).
+   */
+  @Post('mfa/regenerate-backup-codes')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  async mfaRegenerateBackups(
+    @Request() req: { user: { physicianId: string } },
+    @Body(new ZodValidationPipe(mfaRegenerateBackupsSchema))
+    body: MfaRegenerateBackupsInput,
+  ) {
+    return this.mfaService.regenerateBackupCodes(req.user.physicianId, body.totpCode);
   }
 
   @Post('mfa/admin-reset/:physicianId')
