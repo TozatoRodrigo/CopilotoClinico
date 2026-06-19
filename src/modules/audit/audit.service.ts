@@ -146,6 +146,57 @@ export class AuditService {
   }
 
   /**
+   * S25-AUD-01 — Converte items de auditoria para CSV.
+   *
+   * Escapa aspas duplas e campos com vírgula/newline seguindo RFC 4180.
+   * Payload (JSON) é serializado como string escapada numa única coluna.
+   * CabeçalhoContent-Disposition é setado no controller.
+   */
+  toCsv(items: AuditLog[]): string {
+    const headers = [
+      'createdAt',
+      'actorId',
+      'action',
+      'entity',
+      'entityId',
+      'ip',
+      'beforeHash',
+      'afterHash',
+      'payload',
+    ];
+
+    const escapeCsv = (val: unknown): string => {
+      if (val === null || val === undefined) return '';
+      const str = typeof val === 'object' ? JSON.stringify(val) : String(val);
+      // Se contém vírgula, aspa, newline ou retorno — envolve em aspas e escapa aspas.
+      if (/[",\n\r]/.test(str)) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    const rows = items.map((item) =>
+      [
+        item.createdAt instanceof Date
+          ? item.createdAt.toISOString()
+          : String(item.createdAt ?? ''),
+        item.actorId,
+        item.action,
+        item.entity,
+        item.entityId,
+        item.ip ?? '',
+        item.beforeHash ?? '',
+        item.afterHash ?? '',
+        item.payload,
+      ]
+        .map(escapeCsv)
+        .join(','),
+    );
+
+    return [headers.join(','), ...rows].join('\n');
+  }
+
+  /**
    * Verifica a integridade da cadeia de hash do audit_log.
    *
    * Itera todos os registros em ordem cronológica (paginado em lotes de

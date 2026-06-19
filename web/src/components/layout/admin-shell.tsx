@@ -219,10 +219,25 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const sections = ADMIN_SECTIONS.filter(
     (s) => s.roles.includes(role) && s.enabled !== false,
   );
+  // S25-ADM-02 — relógio client-side que ticka a cada segundo.
+  // Antes era só `setNow` no mount (vazio até hidratar, e congelado no valor
+  // inicial depois). Agora atualiza a cada 1s para dar sentido de "ao vivo".
   const [now, setNow] = useState<string>('');
 
   useEffect(() => {
-    setNow(new Date().toLocaleString('pt-BR'));
+    const update = () =>
+      setNow(
+        new Date().toLocaleString('pt-BR', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          day: '2-digit',
+          month: '2-digit',
+        }),
+      );
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
   }, []);
 
   return (
