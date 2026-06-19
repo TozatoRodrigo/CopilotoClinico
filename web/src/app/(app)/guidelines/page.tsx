@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   BookOpen,
   Check,
@@ -368,9 +368,16 @@ function PendingChunkRow({
 
 export default function GuidelinesPage() {
   const { role } = useAuth();
+  // S25-GUIDE-01 — debounce 300ms na busca (antes cada tecla = 1 request à API).
+  const [queryInput, setQueryInput] = useState('');
   const [query, setQuery] = useState('');
   const [specialty, setSpecialty] = useState<string | undefined>(undefined);
   const [tab, setTab] = useState<'library' | 'curator'>('library');
+
+  useEffect(() => {
+    const t = setTimeout(() => setQuery(queryInput), 300);
+    return () => clearTimeout(t);
+  }, [queryInput]);
 
   const isCurator = role === 'compliance' || role === 'admin';
 
@@ -426,9 +433,9 @@ export default function GuidelinesPage() {
               aria-hidden="true"
             />
             <Input
-              autoFocus
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              // S25-GUIDE-01 — autoFocus removido (rouba scroll/teclado no mobile).
+              value={queryInput}
+              onChange={(e) => setQueryInput(e.target.value)}
               placeholder="Buscar diretrizes (ex: gripe imunossuprimido, HAS emergência...)"
               className="pl-9"
               aria-label="Buscar na biblioteca clínica"

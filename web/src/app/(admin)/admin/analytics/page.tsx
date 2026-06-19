@@ -1,12 +1,20 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient, ApiError } from '@/lib/api-client';
+import { DEMO_CASE_PRESETS } from '@/lib/demo-case-presets';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChartBar, ArrowRight, Warning } from '@phosphor-icons/react';
 
@@ -42,8 +50,20 @@ interface ProductFunnel {
 const ABANDONMENT_ALERT_THRESHOLD = 0.3;
 
 export default function AnalyticsPage() {
-  const [days, setDays] = useState(7);
-  const [demoCase, setDemoCase] = useState('');
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // S25-ANALYTICS-01 — filtros na URL para serem compartilháveis.
+  // Antes: estado local isolado; agora: ?days=7&demoCase=sindrome-gripal.
+  const [days, setDays] = useState(Number(searchParams.get('days') ?? '7') || 7);
+  const [demoCase, setDemoCase] = useState(searchParams.get('demoCase') ?? '');
+
+  function syncUrl(nextDays: number, nextDemoCase: string) {
+    const params = new URLSearchParams();
+    if (nextDays) params.set('days', String(nextDays));
+    if (nextDemoCase) params.set('demoCase', nextDemoCase);
+    router.replace(`/admin/analytics?${params.toString()}`, { scroll: false });
+  }
 
   const { data, isPending, error, refetch } = useQuery<ProductFunnel, ApiError>({
     queryKey: ['product-funnel', days, demoCase],
@@ -68,14 +88,33 @@ export default function AnalyticsPage() {
           </p>
         </div>
         <div className="flex items-end gap-2">
+          {/*
+            S25-ANALYTICS-01 — demoCase vira Select (antes era input texto
+            que disparava request a cada tecla). Casos conhecidos vêm de
+            DEMO_CASE_PRESETS. Valor "_all" = sem filtro (todos os casos).
+          */}
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">Caso-norte</label>
-            <Input
-              value={demoCase}
-              onChange={(e) => setDemoCase(e.target.value)}
-              placeholder="ex.: gripal"
-              className="h-9 w-40"
-            />
+            <Select
+              value={demoCase || '_all'}
+              onValueChange={(v) => {
+                const next = v === '_all' ? '' : v;
+                setDemoCase(next);
+                syncUrl(days, next);
+              }}
+            >
+              <SelectTrigger className="h-9 w-44">
+                <SelectValue placeholder="Todos os casos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_all">Todos os casos</SelectItem>
+                {DEMO_CASE_PRESETS.map((preset) => (
+                  <SelectItem key={preset.slug} value={preset.slug}>
+                    {preset.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex gap-1">
             {[7, 30].map((d) => (
@@ -83,7 +122,10 @@ export default function AnalyticsPage() {
                 key={d}
                 size="sm"
                 variant={days === d ? 'default' : 'outline'}
-                onClick={() => setDays(d)}
+                onClick={() => {
+                  setDays(d);
+                  syncUrl(d, demoCase);
+                }}
               >
                 {d}d
               </Button>

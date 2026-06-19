@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuditEntries, type AuditFilters } from "@/lib/clinical-queries";
 import type { AuditEntry } from "@/lib/types";
+import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,10 +49,10 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleString("pt-BR");
 }
 
-function downloadJson(data: AuditEntry[], filename: string) {
-  const blob = new Blob([JSON.stringify(data, null, 2)], {
-    type: "application/json",
-  });
+// S25-AUD-01 — helper para baixar CSV recebido do backend.
+function downloadCsv(csv: string, filename: string) {
+  // BOM para Excel reconhecer UTF-8 (acentos pt-BR).
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -71,24 +72,52 @@ export default function AuditPage() {
     to: "",
   });
   const [appliedFilters, setAppliedFilters] = useState<AuditFilters>(filters);
+  const [exporting, setExporting] = useState(false);
   const auditQuery = useAuditEntries(appliedFilters, offset, limit);
   const entries: AuditEntry[] = auditQuery.data?.items ?? [];
   const total = auditQuery.data?.total ?? 0;
   const loading = auditQuery.isPending;
   const error = auditQuery.error?.message ?? null;
 
-  function applyFilters() {
+  // S25-AUD-01 — auto-apply filtros com debounce 500ms.
+  // Antes o usuário precisava clicar em "Aplicar Filtros" — parecia travado.
+  const applyFiltersDebounced = useCallback((next: AuditFilters) => {
     setOffset(0);
-    setAppliedFilters(filters);
-  }
+    setAppliedFilters(next);
+  }, []);
 
-  function handleExport() {
-    if (entries.length === 0) {
+  useEffect(() => {
+    const t = setTimeout(() => {
+      applyFiltersDebounced(filters);
+    }, 500);
+    return () => clearTimeout(t);
+  }, [filters, applyFiltersDebounced]);
+
+  // S25-AUD-01 — export server-side: chama /audit/export que retorna CSV com
+  // TODOS os itens do filtro (até 10k), não só a página atual.
+  async function handleExport() {
+    if (total === 0) {
       toast.error("Nenhum registro para exportar.");
       return;
     }
-    downloadJson(entries, `audit-export-${new Date().toISOString().slice(0, 10)}.json`);
-    toast.success("Exportação realizada com sucesso.");
+    setExporting(true);
+    try {
+      const params = new URLSearchParams();
+      if (appliedFilters.entity) params.set("entity", appliedFilters.entity);
+      if (appliedFilters.entityId) params.set("entityId", appliedFilters.entityId);
+      if (appliedFilters.from) params.set("from", appliedFilters.from);
+      if (appliedFilters.to) params.set("to", appliedFilters.to);
+      const csv = await apiClient.get<string>(
+        `/audit/export${params.toString() ? "?" + params.toString() : ""}`,
+      );
+      const date = new Date().toISOString().slice(0, 10);
+      downloadCsv(csv, `auditoria-${date}.csv`);
+      toast.success("Exportação CSV realizada com sucesso.");
+    } catch {
+      toast.error("Erro ao exportar. Tente novamente.");
+    } finally {
+      setExporting(false);
+    }
   }
 
   return (
@@ -158,10 +187,17 @@ export default function AuditPage() {
                 }
               />
             </div>
+            {/*
+              S25-AUD-01 — auto-apply via debounce. Botão "Aplicar Filtros"
+              removido (parecia travado; agora reativo). Mantemos um indicador
+              sutil de que filtros estão sendo aplicados.
+            */}
             <div className="flex items-end">
-              <Button onClick={applyFilters} className="w-full">
-                Aplicar Filtros
-              </Button>
+              {loading && (
+                <span className="text-xs text-muted-foreground">
+                  Aplicando filtros…
+                </span>
+              )}
             </div>
           </div>
         </CardContent>
@@ -169,10 +205,16 @@ export default function AuditPage() {
 
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          {total} registro(s) encontrado(s)
+          {total} registro{total !== 1 ? "s" : ""} encontrado{total !== 1 ? "s" : ""}
         </p>
-        <Button variant="outline" size="sm" onClick={handleExport}>
-          Exportar JSON
+        {/* S25-AUD-01 — export server-side CSV (antes era JSON da página atual). */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleExport}
+          disabled={exporting || total === 0}
+        >
+          {exporting ? "Exportando…" : "Exportar CSV"}
         </Button>
       </div>
 
