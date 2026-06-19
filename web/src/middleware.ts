@@ -6,6 +6,10 @@ const STAFF_ONLY_ROUTES = ["/audit"];
 
 const ADMIN_ROUTES = ["/admin"];
 
+// Tech debt cleanup: rotas /dev/* são playgrounds internos (design system,
+// type showcase). Em produção, não devem ser acessíveis.
+const DEV_ROUTES = ["/dev"];
+
 function isProtectedPath(pathname: string): boolean {
   return (
     !AUTH_ROUTES.some((r) => pathname === r || pathname.startsWith(r + "/")) &&
@@ -31,6 +35,13 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const accessToken = request.cookies.get("access_token")?.value;
   const isAuthenticated = Boolean(accessToken);
+
+  // Tech debt cleanup: bloqueia /dev/* em produção (playground interno).
+  if (DEV_ROUTES.some((r) => pathname === r || pathname.startsWith(r + "/"))) {
+    if (process.env.NODE_ENV === "production") {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+  }
 
   if (isAuthenticated && AUTH_ROUTES.includes(pathname)) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
