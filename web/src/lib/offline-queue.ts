@@ -80,10 +80,6 @@ export async function getQueue(): Promise<QueueItem[]> {
   );
 }
 
-export async function clearQueue(): Promise<void> {
-  await withStore("readwrite", (store) => store.clear());
-}
-
 export async function removeFromQueue(id: string): Promise<void> {
   await withStore("readwrite", (store) => store.delete(id));
 }

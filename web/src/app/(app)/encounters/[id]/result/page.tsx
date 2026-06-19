@@ -11,7 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
-import { DecisionThread } from '@/components/copilot/decision-thread';
+// Tech debt cleanup: renomeado para evitar colisão com domain/decision-thread
+import { DecisionThread as DecisionThreadContainer } from '@/components/copilot/decision-thread';
 import { STORAGE_KEY_PREFIX, type StoredCopilotResult } from '@/hooks/use-copilot-conversation';
 import { messages } from '@/lib/messages';
 import type { CopilotAnalysis, DocumentType, LatestInteractionResponse } from '@/lib/types';
@@ -187,7 +188,7 @@ export default function ResultPage({ params }: { params: Promise<{ id: string }>
           </p>
         )}
 
-        <DecisionThread encounterId={encounterId} initial={result} />
+        <DecisionThreadContainer encounterId={encounterId} initial={result} />
 
         {docError && (
           <Alert variant="destructive" className="mt-6">

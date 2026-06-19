@@ -7,21 +7,19 @@ import {
   Database,
   Gear,
   House,
-  MoonStars,
   ShieldCheck,
   ShieldWarning,
   Stethoscope,
-  Sun,
   UserCircle,
   Users,
 } from '@phosphor-icons/react';
-import { useTheme } from 'next-themes';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { useAuth, type AppRole } from '@/lib/auth-store';
 import { apiClient } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { ThemeToggle } from '@/components/layout/theme-toggle';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -72,33 +70,7 @@ const ADMIN_SECTIONS: AdminSection[] = [
   { href: '/admin/sistema', label: 'Sistema', icon: Gear, roles: ['admin'], enabled: false },
 ];
 
-function ThemeToggle() {
-  const { setTheme, resolvedTheme } = useTheme();
-
-  if (!resolvedTheme) {
-    return (
-      <Button variant="ghost" size="icon" className="h-8 w-8">
-        <span className="h-4 w-4" />
-      </Button>
-    );
-  }
-
-  return (
-    <Button
-      variant="ghost"
-      size="icon"
-      className="h-8 w-8"
-      onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
-      aria-pressed={resolvedTheme === 'dark'}
-      aria-label={
-        resolvedTheme === 'dark' ? 'Alternar para tema claro' : 'Alternar para tema escuro'
-      }
-    >
-      {resolvedTheme === 'dark' ? <MoonStars className="size-4" /> : <Sun className="size-4" />}
-      <span className="sr-only">Alternar tema</span>
-    </Button>
-  );
-}
+// Tech debt cleanup: ThemeToggle movido para components/layout/theme-toggle.tsx
 
 function AdminUserMenu() {
   const { physician, logout, role } = useAuth();
@@ -315,7 +287,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             </span>
           </div>
           <div className="flex-1" />
-          <ThemeToggle />
+          <ThemeToggle size="sm" />
           <AdminUserMenu />
         </header>
 

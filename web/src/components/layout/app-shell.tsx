@@ -9,18 +9,16 @@ import {
   House,
   Keyboard,
   MagnifyingGlass,
-  MoonStars,
   Plus,
   ShieldCheck,
   Stethoscope,
-  Sun,
 } from '@phosphor-icons/react';
-import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
 import { ConnectionStatus } from '@/components/domain/connection-status';
 import { OfflineQueueBadge } from '@/components/domain/offline-queue-badge';
+import { ThemeToggle } from '@/components/layout/theme-toggle';
 import { useOnlineStatus } from '@/components/providers/offline-provider';
 import { useAuth, type AppRole } from '@/lib/auth-store';
 import { cn } from '@/lib/utils';
@@ -111,33 +109,8 @@ const COMMAND_LINKS = [
   },
 ];
 
-function ThemeToggle() {
-  const { setTheme, resolvedTheme } = useTheme();
-
-  if (!resolvedTheme) {
-    return (
-      <Button variant="ghost" size="icon" className="h-9 w-9">
-        <span className="h-4 w-4" />
-      </Button>
-    );
-  }
-
-  return (
-    <Button
-      variant="ghost"
-      size="icon"
-      className="h-9 w-9"
-      onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
-      aria-pressed={resolvedTheme === 'dark'}
-      aria-label={
-        resolvedTheme === 'dark' ? 'Alternar para tema claro' : 'Alternar para tema escuro'
-      }
-    >
-      {resolvedTheme === 'dark' ? <MoonStars className="size-4" /> : <Sun className="size-4" />}
-      <span className="sr-only">Alternar tema</span>
-    </Button>
-  );
-}
+// Tech debt cleanup: ThemeToggle movido para components/layout/theme-toggle.tsx
+// (antes era duplicado em app-shell e admin-shell).
 
 function QuickActions() {
   const [open, setOpen] = useState(false);
