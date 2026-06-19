@@ -24,6 +24,12 @@ interface AuthState {
 interface AuthContextValue extends AuthState {
   login: (physician: Physician) => void;
   logout: () => void;
+  /**
+   * S24-ONBOARD-01 — Atualiza dados parciais do médico em memória e
+   * persistência (localStorage). Usado após PATCH /auth/me para refletir
+   * imediatamente nome/especialidade sem precisar reload.
+   */
+  updatePhysician: (partial: Partial<Physician>) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -83,8 +89,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setState({ physician: null, isAuthenticated: false, role: DEFAULT_ROLE });
   }, []);
 
+  // S24-ONBOARD-01 — merge partial em physician atual; mantém role autal.
+  const updatePhysician = useCallback((partial: Partial<Physician>) => {
+    setState((prev) => {
+      if (!prev.physician) return prev;
+      const next = { ...prev.physician, ...partial };
+      localStorage.setItem(PHYSICIAN_KEY, JSON.stringify(next));
+      syncCookie(next);
+      return { ...prev, physician: next };
+    });
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ ...state, login, logout }}>
+    <AuthContext.Provider value={{ ...state, login, logout, updatePhysician }}>
       {children}
     </AuthContext.Provider>
   );

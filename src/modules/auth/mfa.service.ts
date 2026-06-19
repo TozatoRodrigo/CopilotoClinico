@@ -192,6 +192,67 @@ export class MfaService {
     });
   }
 
+  /**
+   * S24-MFA-03 — Regenera códigos de backup.
+   *
+   * Exige TOTP válido (não permite regenerar sem provar identidade). Invalida
+   * TODOS os códigos anteriores e gera ${BACKUP_CODE_COUNT} novos. Útil quando
+   * o médico perdeu/suspeita de vazamento dos backups antigos.
+   *
+   * Não mexe no TOTP (secret) — apenas nos backups. Médico continua com o
+   * mesmo app autenticador configurado.
+   *
+   * Retorna os códigos em texto claro (única oportunidade — depois só hash).
+   */
+  async regenerateBackupCodes(
+    physicianId: string,
+    totpCode: string,
+  ): Promise<{ backupCodes: string[] }> {
+    const physician = await this.prisma.physician.findUnique({
+      where: { id: physicianId },
+      select: { mfaEnabled: true, mfaSecret: true },
+    });
+
+    if (!physician) throw new NotFoundException('Physician not found');
+    if (!physician.mfaEnabled || !physician.mfaSecret) {
+      throw new BadRequestException('MFA is not enabled');
+    }
+
+    const secret = this.crypto.decrypt(physician.mfaSecret);
+    let valid = false;
+    try {
+      valid = verifySync({ token: totpCode, secret }).valid;
+    } catch {
+      valid = false;
+    }
+    if (!valid) {
+      throw new UnauthorizedException('Invalid TOTP code');
+    }
+
+    const backupCodes = Array.from({ length: BACKUP_CODE_COUNT }, () =>
+      randomBytes(BACKUP_CODE_BYTES).toString('hex'),
+    );
+    const backupCodeHashes = backupCodes.map((code) =>
+      createHash('sha256').update(code).digest('hex'),
+    );
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.mfaBackupCode.deleteMany({ where: { physicianId } });
+      await tx.mfaBackupCode.createMany({
+        data: backupCodeHashes.map((codeHash) => ({ physicianId, codeHash })),
+      });
+    });
+
+    await this.auditSilently({
+      actorId: physicianId,
+      action: 'AUTH_MFA_BACKUPS_REGENERATED',
+      entity: 'Physician',
+      entityId: physicianId,
+    });
+
+    return { backupCodes };
+  }
+
   async resetMfa(physicianId: string, adminId: string): Promise<void> {
     const physician = await this.prisma.physician.findUnique({
       where: { id: physicianId },

@@ -304,3 +304,127 @@ describe('MfaService.resetMfa', () => {
     );
   });
 });
+
+// ── regenerateBackupCodes (S24-MFA-03) ───────────────────────────────────────
+
+describe('S24-MFA-03 — MfaService.regenerateBackupCodes', () => {
+  it('throws NotFoundException when physician does not exist', async () => {
+    const { service, prisma } = buildMocks();
+    vi.mocked(prisma.physician.findUnique).mockResolvedValue(null);
+    await expect(service.regenerateBackupCodes(PHYSICIAN_ID, '123456')).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+
+  it('throws BadRequestException when MFA is not enabled', async () => {
+    const { service, prisma } = buildMocks();
+    vi.mocked(prisma.physician.findUnique).mockResolvedValue({
+      mfaEnabled: false,
+      mfaSecret: null,
+    } as never);
+    await expect(service.regenerateBackupCodes(PHYSICIAN_ID, '123456')).rejects.toThrow(
+      BadRequestException,
+    );
+  });
+
+  it('throws UnauthorizedException for invalid TOTP code', async () => {
+    const { service, prisma } = buildMocks();
+    vi.mocked(prisma.physician.findUnique).mockResolvedValue({
+      mfaEnabled: true,
+      mfaSecret: `enc:${REAL_SECRET}`,
+    } as never);
+    await expect(service.regenerateBackupCodes(PHYSICIAN_ID, '000000')).rejects.toThrow(
+      UnauthorizedException,
+    );
+  });
+
+  it('returns 8 new backup codes when TOTP is valid', async () => {
+    const { service, prisma } = buildMocks();
+    vi.mocked(prisma.physician.findUnique).mockResolvedValue({
+      mfaEnabled: true,
+      mfaSecret: `enc:${REAL_SECRET}`,
+    } as never);
+    vi.mocked(prisma.mfaBackupCode.deleteMany).mockResolvedValue({ count: 8 } as never);
+    vi.mocked(prisma.mfaBackupCode.createMany).mockResolvedValue({ count: 8 } as never);
+
+    const validCode = generateSync({ secret: REAL_SECRET });
+    const result = await service.regenerateBackupCodes(PHYSICIAN_ID, validCode);
+
+    expect(result.backupCodes).toHaveLength(8);
+    result.backupCodes.forEach((code) => expect(code).toMatch(/^[0-9a-f]{8}$/));
+  });
+
+  it('invalidates previous backup codes before creating new ones', async () => {
+    const { service, prisma } = buildMocks();
+    vi.mocked(prisma.physician.findUnique).mockResolvedValue({
+      mfaEnabled: true,
+      mfaSecret: `enc:${REAL_SECRET}`,
+    } as never);
+    vi.mocked(prisma.mfaBackupCode.deleteMany).mockResolvedValue({ count: 8 } as never);
+    vi.mocked(prisma.mfaBackupCode.createMany).mockResolvedValue({ count: 8 } as never);
+
+    const validCode = generateSync({ secret: REAL_SECRET });
+    await service.regenerateBackupCodes(PHYSICIAN_ID, validCode);
+
+    // Delete (invalidação) acontece antes do create na transação.
+    expect(prisma.mfaBackupCode.deleteMany).toHaveBeenCalledWith({
+      where: { physicianId: PHYSICIAN_ID },
+    });
+    expect(prisma.mfaBackupCode.createMany).toHaveBeenCalled();
+  });
+
+  it('does NOT touch the TOTP secret (only backup codes)', async () => {
+    const { service, prisma } = buildMocks();
+    vi.mocked(prisma.physician.findUnique).mockResolvedValue({
+      mfaEnabled: true,
+      mfaSecret: `enc:${REAL_SECRET}`,
+    } as never);
+    vi.mocked(prisma.mfaBackupCode.deleteMany).mockResolvedValue({ count: 8 } as never);
+    vi.mocked(prisma.mfaBackupCode.createMany).mockResolvedValue({ count: 8 } as never);
+
+    const validCode = generateSync({ secret: REAL_SECRET });
+    await service.regenerateBackupCodes(PHYSICIAN_ID, validCode);
+
+    // Médico continua com o mesmo app autenticador — secret não é alterado.
+    expect(prisma.physician.update).not.toHaveBeenCalled();
+  });
+
+  it('generates different codes each call (no reuse)', async () => {
+    const { service, prisma } = buildMocks();
+    vi.mocked(prisma.physician.findUnique).mockResolvedValue({
+      mfaEnabled: true,
+      mfaSecret: `enc:${REAL_SECRET}`,
+    } as never);
+    vi.mocked(prisma.mfaBackupCode.deleteMany).mockResolvedValue({ count: 8 } as never);
+    vi.mocked(prisma.mfaBackupCode.createMany).mockResolvedValue({ count: 8 } as never);
+
+    const validCode = generateSync({ secret: REAL_SECRET });
+    const r1 = await service.regenerateBackupCodes(PHYSICIAN_ID, validCode);
+    const r2 = await service.regenerateBackupCodes(PHYSICIAN_ID, validCode);
+
+    // Probabilidade de colisão de 8 códigos hex de 4 bytes é ~0.
+    expect(r1.backupCodes).not.toEqual(r2.backupCodes);
+  });
+
+  it('dispatches AUTH_MFA_BACKUPS_REGENERATED audit event', async () => {
+    const { service, prisma, audit } = buildMocks();
+    vi.mocked(prisma.physician.findUnique).mockResolvedValue({
+      mfaEnabled: true,
+      mfaSecret: `enc:${REAL_SECRET}`,
+    } as never);
+    vi.mocked(prisma.mfaBackupCode.deleteMany).mockResolvedValue({ count: 8 } as never);
+    vi.mocked(prisma.mfaBackupCode.createMany).mockResolvedValue({ count: 8 } as never);
+
+    const validCode = generateSync({ secret: REAL_SECRET });
+    await service.regenerateBackupCodes(PHYSICIAN_ID, validCode);
+
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorId: PHYSICIAN_ID,
+        action: 'AUTH_MFA_BACKUPS_REGENERATED',
+        entity: 'Physician',
+        entityId: PHYSICIAN_ID,
+      }),
+    );
+  });
+});

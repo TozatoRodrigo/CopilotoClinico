@@ -14,8 +14,24 @@ import {
   SealQuestion,
   IdentificationCard,
   UserCircle,
+  ShieldCheck,
 } from "@phosphor-icons/react";
 import Link from "next/link";
+
+/**
+ * S24-NAV-01 — localização de role (antes era exibida em inglês cru:
+ * PHYSICIAN/COMPLIANCE/ADMIN).
+ */
+const ROLE_LABELS: Record<string, string> = {
+  PHYSICIAN: "Médico",
+  COMPLIANCE: "Compliance",
+  ADMIN: "Administrador",
+};
+
+function roleLabel(role?: string): string {
+  if (!role) return "Médico";
+  return ROLE_LABELS[role] ?? role;
+}
 
 export function ProfileTab({ physician }: { physician: Physician | null }) {
   const queryClient = useQueryClient();
@@ -101,6 +117,20 @@ export function ProfileTab({ physician }: { physician: Physician | null }) {
             </p>
           </div>
           <span className="text-xs text-muted-foreground">Não editável</span>
+        </div>
+
+        {/*
+          S24-NAV-01 — role localizada (pt-BR). Antes aparecia como
+          PHYSICIAN/COMPLIANCE/ADMIN (slug cru em inglês).
+        */}
+        <div className="flex items-center gap-3 rounded-lg border border-clinical-line bg-white px-4 py-3">
+          <ShieldCheck className="size-5 shrink-0 text-muted-foreground" />
+          <div className="flex-1">
+            <p className="text-xs text-muted-foreground">Papel</p>
+            <p className="text-sm font-medium text-clinical-ink">
+              {roleLabel(physician?.role)}
+            </p>
+          </div>
         </div>
 
         <div className="flex items-center gap-3 rounded-lg border border-clinical-line bg-white px-4 py-3">
