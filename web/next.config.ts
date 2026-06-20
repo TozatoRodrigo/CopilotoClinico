@@ -1,8 +1,8 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  // Turbopack desabilitado temporariamente — causa erro de createContext
-  // em Server Components no Next.js 16.2.7 neste ambiente.
+  // Standalone output para Docker — gera .next/standalone (server.js independente).
+  output: 'standalone',
   poweredByHeader: false,
   compress: true,
   images: {
