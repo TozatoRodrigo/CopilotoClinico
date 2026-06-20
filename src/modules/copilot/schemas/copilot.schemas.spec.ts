@@ -16,11 +16,12 @@ const validBase = {
 };
 
 describe('S20-CLIN-01 — analyzeSchema.redFlags', () => {
-  it('aceita payload sem redFlags e aplica default {} (retrocompatível)', () => {
+  it('aceita payload sem redFlags e retorna undefined (retrocompatível)', () => {
     const result = analyzeSchema.safeParse(validBase);
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.redFlags).toEqual({});
+      // .optional() sem .default() — redFlags fica undefined quando não vem.
+      expect(result.data.redFlags).toBeUndefined();
     }
   });
 
@@ -57,7 +58,7 @@ describe('S20-CLIN-01 — analyzeSchema.redFlags', () => {
     });
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(Object.keys(result.data.redFlags).sort()).toEqual(
+      expect(Object.keys(result.data.redFlags ?? {}).sort()).toEqual(
         ['allergy', 'anticoagulant', 'elderly65', 'immunosuppressed', 'pediatric', 'pregnant'].sort(),
       );
     }
@@ -73,7 +74,7 @@ describe('S20-CLIN-01 — analyzeSchema.redFlags', () => {
     });
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.redFlags.customFutureFlag).toBe(true);
+      expect(result.data.redFlags?.customFutureFlag).toBe(true);
     }
   });
 

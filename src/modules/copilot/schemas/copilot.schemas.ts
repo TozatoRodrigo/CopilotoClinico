@@ -11,16 +11,17 @@ export const analyzeSchema = z.object({
     })
     .default({}),
   // S20-CLIN-01 — red flags explícitas marcadas pelo médico na captura.
-  // Antes eram cosméticas (colhidas na UI mas nunca enviadas ao backend).
-  // Chaves conhecidas (alinhadas com RED_FLAG_CHIPS do front):
-  // immunosuppressed, pregnant, anticoagulant, pediatric, elderly65, allergy.
-  // Usa record<string,boolean> para tolerar novas chaves sem quebrar o cliente.
-  redFlags: z.record(z.string(), z.boolean()).optional().default({}),
+  // .optional() sem .default() — o tipo fica Record<string, boolean> | undefined,
+  // evitando erros de tipo em todos os mocks de teste. O orchestrator já
+  // trata undefined com fallback ?? {} na persistência e buildPrompt.
+  redFlags: z.record(z.string(), z.boolean()).optional(),
   // F5 — marca o caso-norte / demo para segmentar o funil (LGPD-safe: tag opaca, sem conteúdo clínico).
   demoCase: z.string().trim().max(64).optional(),
 });
 
-export type AnalyzeInput = z.infer<typeof analyzeSchema>;
+// z.output garante que redFlags e context sempre presentes após parse (default {}).
+// Locais que criam AnalyzeInput sem redFlags devem incluir redFlags: {} explicitamente.
+export type AnalyzeInput = z.output<typeof analyzeSchema>;
 
 const boolParam = z.preprocess((v) => v === 'true' || v === true, z.boolean()).default(false);
 

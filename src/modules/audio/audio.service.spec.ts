@@ -150,7 +150,7 @@ describe('AudioService', () => {
     it('does NOT include transcribed text in audit payload (minimization)', async () => {
       await service.transcribeDirect('phy-1', validInput);
 
-      const call = auditMock.log.mock.calls[0][0];
+      const call = auditMock.log.mock.calls[0]?.[0];
       expect(JSON.stringify(call.payload)).not.toContain('patient texto sem pii');
       expect(call.payload).not.toHaveProperty('text');
       expect(call.payload).not.toHaveProperty('transcript');

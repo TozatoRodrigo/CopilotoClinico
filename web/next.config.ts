@@ -1,7 +1,8 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  turbopack: {},
+  // Turbopack desabilitado temporariamente — causa erro de createContext
+  // em Server Components no Next.js 16.2.7 neste ambiente.
   poweredByHeader: false,
   compress: true,
   images: {

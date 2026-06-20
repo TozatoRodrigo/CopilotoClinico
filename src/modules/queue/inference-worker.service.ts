@@ -116,6 +116,8 @@ export class InferenceWorkerService implements OnModuleInit, OnModuleDestroy {
       input: {
         caseText: piiFiltered.redacted,
         context: { hasCT: false, isSus: false, hasLab: false, hasICU: false },
+        // S20-CLIN-01 — redFlags obrigatório no tipo AnalyzeInput (default {}).
+        redFlags: {},
       },
     });
 
