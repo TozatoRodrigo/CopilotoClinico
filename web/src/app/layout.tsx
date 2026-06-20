@@ -61,7 +61,20 @@ export default function RootLayout({
       className={`${dmSans.variable} ${dmSerifDisplay.variable} ${ibmPlexMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col">
+      <head>
+        {/*
+          Script inline cru (HTML, não React) para prevenir FOUC de tema.
+          Executa antes da hidratação do React — lê localStorage e aplica
+          a classe 'dark' no <html>. Como é HTML puro (dangerouslySetInnerHTML),
+          React 19 não alerta sobre "script em componente".
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('theme');var m=window.matchMedia('(prefers-color-scheme: dark)').matches;if(t==='dark'||(!t&&m)){document.documentElement.classList.add('dark')}}catch(e){}})()`,
+          }}
+        />
+      </head>
+      <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <IconProvider>
           <ThemeProvider>
             <QueryProvider>
