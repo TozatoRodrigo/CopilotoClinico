@@ -10,16 +10,14 @@ const shortThrottler: ThrottlerOptions = {
   limit: Number(process.env.THROTTLER_LIMIT ?? 100),
 };
 
-const authThrottler: ThrottlerOptions = {
-  name: 'auth',
-  ttl: 60000,
-  limit: 5,
-};
+// "auth" não é registrado como throttler global — é aplicado apenas nas rotas
+// de autenticação via @Throttle({ short: { limit: 5 } }). Registrar ambos em
+// forRoot fazia com que o limit de 5 req/60s batesse em TODOS os endpoints.
 
 export const throttlerConfig: ThrottlerObjectConfig = {
-  throttlers: [shortThrottler, authThrottler],
+  throttlers: [shortThrottler],
 };
 
 export const ThrottlerConfigModule = ThrottlerModule.forRoot({
-  throttlers: [shortThrottler, authThrottler],
+  throttlers: [shortThrottler],
 });

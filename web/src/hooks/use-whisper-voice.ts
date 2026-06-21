@@ -159,13 +159,17 @@ export function useWhisperVoice(): WhisperVoiceHook {
       setError(null);
 
       const arrayBuffer = await blob.arrayBuffer();
-      const data = btoa(
-        String.fromCharCode(...new Uint8Array(arrayBuffer)),
-      );
+      const bytes = new Uint8Array(arrayBuffer);
+      let binary = '';
+      const chunkSize = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+      }
+      const data = btoa(binary);
 
       try {
         const result = await apiClient.post<TranscribeResponse>('/audio/transcribe', {
-          mimeType,
+          mimeType: mimeType.split(';')[0].trim(),
           sizeBytes: blob.size,
           data,
         });

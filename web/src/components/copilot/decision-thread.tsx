@@ -128,13 +128,12 @@ export function DecisionThread({ encounterId, initial }: DecisionThreadProps) {
                 </Alert>
               )}
 
+              {/*
+                S23-CLIN-07 — quando colapsado (max-h-0 opacity-0), o container
+                também aplica aria-hidden e o botão interno recebe
+                tabIndex={-1} para sair da ordem de tab.
+              */}
               {analysis.clarifyingQuestions.length > 0 && (
-                {/*
-                  S23-CLIN-07 — quando colapsado (max-h-0 opacity-0), o container
-                  também aplica \`aria-hidden\` e o botão interno recebe
-                  \`tabIndex={-1}\` para sair da ordem de tab. Antes o botão
-                  ficava focável mesmo invisível — confuso para acessibilidade.
-                */}
                 <div
                   className={cn(
                     'overflow-hidden transition-all duration-300 ease-out',

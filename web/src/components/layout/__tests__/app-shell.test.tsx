@@ -7,7 +7,7 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
 }));
 
-vi.mock("next-themes", () => ({
+vi.mock("@/components/providers/theme-provider", () => ({
   useTheme: () => ({ setTheme: vi.fn(), resolvedTheme: "light" }),
 }));
 

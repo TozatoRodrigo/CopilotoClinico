@@ -58,9 +58,9 @@ interface RequestWithIp {
 
 const COOKIE_BASE = {
   httpOnly: true,
-  sameSite: 'strict' as const,
+  sameSite: (process.env.NODE_ENV === 'production' ? 'strict' : 'none') as 'strict' | 'none',
   path: '/',
-  secure: process.env.NODE_ENV === 'production',
+  secure: true,
 };
 
 function extractIp(req: RequestWithIp): string | undefined {
@@ -85,7 +85,7 @@ export class AuthController {
   ) {}
 
   @Post('register')
-  @Throttle({ auth: { limit: 5, ttl: 60000 } })
+  @Throttle({ short: { limit: 5, ttl: 60000 } })
   async register(
     @Body(new ZodValidationPipe(registerSchema)) body: RegisterInput,
     @Req() req: FastifyRequest & RequestWithIp,
@@ -98,7 +98,7 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @Throttle({ auth: { limit: 5, ttl: 60000 } })
+  @Throttle({ short: { limit: 5, ttl: 60000 } })
   async login(
     @Body(new ZodValidationPipe(loginSchema)) body: LoginInput,
     @Req() req: FastifyRequest & RequestWithIp,
@@ -217,7 +217,7 @@ export class AuthController {
 
   @Post('mfa/verify')
   @HttpCode(HttpStatus.OK)
-  @Throttle({ auth: { limit: 5, ttl: 300000 } })
+  @Throttle({ short: { limit: 5, ttl: 300000 } })
   async mfaVerify(
     @Body(new ZodValidationPipe(mfaVerifySchema)) body: MfaVerifyInput,
     @Req() req: FastifyRequest & RequestWithIp,

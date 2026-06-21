@@ -7,7 +7,7 @@
  * shell) que diferiam só em `h-9 w-9` vs `h-8 w-8`. Agora é um componente
  * único com prop `size` ("default" | "sm").
  */
-import { useTheme } from 'next-themes';
+import { useTheme } from '@/components/providers/theme-provider';
 import { MoonStars, Sun } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';

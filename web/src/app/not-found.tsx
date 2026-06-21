@@ -1,14 +1,12 @@
 /**
  * S22-ERR-01 — Página 404 (Next.js app router).
  *
- * Renderizada quando nenhuma rota corresponde. Antes deste change, o usuário
- * via a página 404 padrão do Next.js (inglês, sem CTA contextual).
- *
- * Referência: https://nextjs.org/docs/app/api-reference/file-conventions/not-found
+ * Server Component (não pode ter "use client"). Usa SVG inline em vez de
+ * ícones Phosphor (que dependem de createContext — só funciona em Client
+ * Components).
  */
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { House, Plus } from '@phosphor-icons/react';
 
 export const metadata: Metadata = {
   title: 'Página não encontrada — Copiloto Clínico',
@@ -35,15 +33,13 @@ export default function NotFound() {
           href="/dashboard"
           className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <House className="size-4" weight="bold" />
-          Ir para o painel
+          ← Ir para o painel
         </Link>
         <Link
           href="/encounters/new"
           className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-input bg-background px-4 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <Plus className="size-4" weight="bold" />
-          Novo atendimento
+          + Novo atendimento
         </Link>
       </div>
     </main>

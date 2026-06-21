@@ -259,14 +259,13 @@ export function DataTable<T>({
                         tabIndex={0}
                       />
                       <div className="flex pointer-events-none">
-                        {desktopColumns.map((col, idx) => (
-                          <TableCell
+                        {desktopColumns.map((col) => (
+                          <div
                             key={col.key}
-                            className={cn('pointer-events-none', col.className)}
+                            className={cn('px-4 py-2.5 align-middle pointer-events-none', col.className)}
                           >
-                            {/* pointer-events-none permite o link capturar o clique */}
-                            <span className="contents">{col.cell(row)}</span>
-                          </TableCell>
+                            {col.cell(row)}
+                          </div>
                         ))}
                       </div>
                     </td>

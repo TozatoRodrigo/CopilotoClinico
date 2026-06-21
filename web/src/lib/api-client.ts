@@ -36,19 +36,21 @@ class ApiClient {
     const url = this.buildUrl(path, params);
 
     const headers: Record<string, string> = {
-      "Content-Type": "application/json",
       ...customHeaders,
     };
+    if (body !== undefined) {
+      headers["Content-Type"] = "application/json";
+    }
 
     const response = await fetch(url, {
       method,
       headers,
       credentials: "include",
-      body: body ? JSON.stringify(body) : undefined,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
     });
 
     if (response.status === 401) {
-      if (typeof window !== "undefined") {
+      if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
         window.location.href = "/login";
       }
       throw new ApiError(401, messages.errors.sessionExpired);
