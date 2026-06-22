@@ -33,6 +33,7 @@ export interface Physician {
   crmNumber: string;
   crmVerified: boolean;
   role: PhysicianRole;
+  mfaEnabled?: boolean;
 }
 
 export interface AuthResponse {

@@ -108,9 +108,9 @@ export function SecurityTab() {
   // S24-MFA-03 — Desabilitar MFA (exige TOTP).
   const disableMfaMutation = useMutation({
     mutationFn: (totp: string) =>
-      apiClient.delete('/auth/mfa', { totpCode: totp } as unknown as Record<string, unknown>),
+      apiClient.delete('/auth/mfa', { totpCode: totp }),
     onSuccess: () => {
-      updatePhysician({ mfaEnabled: false as never });
+      updatePhysician({ mfaEnabled: false });
       toast.success('MFA desativada. Considere reativar para proteger sua conta.');
       setDisableMfaOpen(false);
       setTotpInput('');

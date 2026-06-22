@@ -221,10 +221,7 @@ Analyze this case and provide structured recommendations with citations.${instru
   };
 }
 
-function buildCaseOnlyUser(
-  input: PromptInput,
-  redFlagsBlock: string = '',
-): BuiltPrompt['user'] {
+function buildCaseOnlyUser(input: PromptInput, redFlagsBlock: string = ''): BuiltPrompt['user'] {
   return `<clinical_case type="UNTRUSTED_INPUT">
 ${input.caseText}
 </clinical_case>

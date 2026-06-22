@@ -54,4 +54,3 @@ export interface TranscribeDirectResponse {
   /** Duração estimada do áudio em milissegundos. */
   durationMs: number;
 }
-

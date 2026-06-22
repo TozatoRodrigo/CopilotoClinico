@@ -39,7 +39,6 @@ import { ConfirmedSeal } from "@/components/domain/confirmed-seal";
 import { AuditHash } from "@/components/domain/audit-hash";
 import { EmptyState } from "@/components/domain/empty-state";
 import { ConnectionStatus } from "@/components/domain/connection-status";
-import { DecisionThread as DecisionThreadDomain, type DecisionThreadItem } from "@/components/domain/decision-thread";
 import { DEMO_CASE_PRESETS } from "@/lib/demo-case-presets";
 
 const GRIPAL_CASE = DEMO_CASE_PRESETS.find((preset) => preset.slug === "sindrome-gripal")!;

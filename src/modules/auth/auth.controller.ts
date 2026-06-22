@@ -32,8 +32,6 @@ import {
   mfaVerifySchema,
   mfaDisableSchema,
   mfaRegenerateBackupsSchema,
-  forgotPasswordSchema,
-  resetPasswordSchema,
   updateProfileSchema,
   changePasswordSchema,
   RegisterInput,
@@ -44,8 +42,6 @@ import {
   MfaVerifyInput,
   MfaDisableInput,
   MfaRegenerateBackupsInput,
-  ForgotPasswordInput,
-  ResetPasswordInput,
   UpdateProfileInput,
   ChangePasswordInput,
 } from './schemas/auth.schemas';
