@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowLeft, ShieldCheck, Lock, Download, Trash, Eye } from '@phosphor-icons/react';
 
 export const metadata: Metadata = {
   title: 'Política de Privacidade — Copiloto Clínico',
@@ -13,7 +12,7 @@ const LAST_UPDATED = '18 de junho de 2026';
 
 const SECTIONS = [
   {
-    icon: Eye,
+    icon: '👁',
     title: '1. Dados que coletamos',
     body: [
       'Dados de cadastro: nome, e-mail, CRM e especialidade (necessários para verificação profissional e cumprimento da Resolução CFM nº 2.314/2022 sobre responsabilidade médica em sistemas digitais).',
@@ -23,7 +22,7 @@ const SECTIONS = [
     ],
   },
   {
-    icon: ShieldCheck,
+    icon: '🛡',
     title: '2. Base legal e finalidade',
     body: [
       'Processamos seus dados com base no Art. 7º, V da LGPD (necessidade para execução de contrato) e Art. 11 (dados relativos à saúde, com consentimento explícito).',
@@ -31,7 +30,7 @@ const SECTIONS = [
     ],
   },
   {
-    icon: Lock,
+    icon: '🔒',
     title: '3. Processamento por IA',
     body: [
       'Ao consentir com o escopo "Processamento por IA", você autoriza que modelos de linguagem analisem os casos clínicos para gerar recomendações, documentos e perguntas de esclarecimento.',
@@ -40,7 +39,7 @@ const SECTIONS = [
     ],
   },
   {
-    icon: Download,
+    icon: '⬇',
     title: '4. Seus direitos (Art. 18, LGPD)',
     body: [
       'Confirmação e acesso: saiba quais dados temos sobre você.',
@@ -51,7 +50,7 @@ const SECTIONS = [
     ],
   },
   {
-    icon: Trash,
+    icon: '🗑',
     title: '5. Retenção e exclusão',
     body: [
       'Atendimentos e interações com IA: retidos enquanto a conta estiver ativa (rastreabilidade CFM).',
@@ -69,13 +68,12 @@ export default function PrivacyPage() {
           href="/register"
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-clinical-teal"
         >
-          <ArrowLeft className="size-4" weight="bold" />
-          Voltar ao cadastro
+          ← Voltar ao cadastro
         </Link>
 
         <header className="mt-6 space-y-3">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="size-6 text-clinical-teal" weight="duotone" />
+            <span className="text-2xl">🛡</span>
             <h1 className="font-display text-3xl tracking-tight text-foreground sm:text-4xl">
               Política de Privacidade
             </h1>
@@ -98,11 +96,7 @@ export default function PrivacyPage() {
           {SECTIONS.map((section) => (
             <section key={section.title} className="space-y-3">
               <div className="flex items-center gap-2.5">
-                <section.icon
-                  className="size-5 shrink-0 text-clinical-teal"
-                  weight="duotone"
-                  aria-hidden="true"
-                />
+                <span className="shrink-0 text-lg" aria-hidden="true">{section.icon}</span>
                 <h2 className="text-lg font-semibold text-foreground">{section.title}</h2>
               </div>
               <ul className="space-y-2 pl-1">
