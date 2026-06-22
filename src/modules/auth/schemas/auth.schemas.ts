@@ -45,6 +45,32 @@ export const mfaDisableSchema = z.object({
     .regex(/^\d{6}$/, 'TOTP code must be exactly 6 digits'),
 });
 
+/**
+ * S24-MFA-03 — Regenera códigos de backup exigindo TOTP atual.
+ * Mesmo shape que disable (apenas totpCode), mas semântica diferente.
+ */
+export const mfaRegenerateBackupsSchema = mfaDisableSchema;
+
+/**
+ * S24-AUTH-01 — "Esqueci a senha": médico fornece e-mail, recebe link
+ * com token único (expira em 15 min). Após reset, todas as sessões são
+ * revogadas (defense-in-depth contra sessão comprometida).
+ */
+export const forgotPasswordSchema = z.object({
+  email: z.string().email('Valid email is required'),
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1, 'Reset token is required'),
+  newPassword: z
+    .string()
+    .min(8, 'Password must be at least 8 characters')
+    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+    .regex(/[0-9]/, 'Password must contain at least one digit')
+    .regex(/[^A-Za-z0-9]/, 'Password must contain at least one special character'),
+});
+
 export const logoutSchema = z.object({
   refreshToken: z.string().min(1).optional(),
 });
@@ -56,6 +82,9 @@ export type LogoutInput = z.infer<typeof logoutSchema>;
 export type MfaEnableInput = z.infer<typeof mfaEnableSchema>;
 export type MfaVerifyInput = z.infer<typeof mfaVerifySchema>;
 export type MfaDisableInput = z.infer<typeof mfaDisableSchema>;
+export type MfaRegenerateBackupsInput = z.infer<typeof mfaRegenerateBackupsSchema>;
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 
 export const updateProfileSchema = z.object({
   name: z.string().min(1, 'Name is required').max(200).optional(),

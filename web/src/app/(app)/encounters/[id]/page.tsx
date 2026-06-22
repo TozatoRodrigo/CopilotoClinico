@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { DecisionThread, type DecisionThreadItem } from '@/components/domain/decision-thread';
+import { Breadcrumb } from '@/components/ui/breadcrumb';
 import Link from 'next/link';
 import { ArrowLeft, Microphone, Brain, FileText, ArrowRight } from '@phosphor-icons/react';
 import type { EncounterContext } from '@/lib/types';
@@ -16,6 +17,22 @@ const CONTEXT_LABELS: Record<string, string> = {
   isSus: 'SUS',
   hasLab: 'Laboratório',
   hasICU: 'UTI',
+};
+
+// S20-I18N-01 — localização do status do atendimento. Antes mostrava o slug
+// cru (in_review, draft...) como rótulo — única tela não-localizada do app.
+const STATUS_LABELS: Record<string, string> = {
+  draft: 'Rascunho',
+  in_review: 'Em revisão',
+  finalized: 'Finalizado',
+  signed: 'Assinado',
+};
+
+const STATUS_VARIANTS: Record<string, 'outline' | 'secondary' | 'default'> = {
+  draft: 'outline',
+  in_review: 'secondary',
+  finalized: 'default',
+  signed: 'default',
 };
 
 const VERTICAL_LABELS: Record<string, string> = {
@@ -108,6 +125,13 @@ export default function EncounterDetailPage({ params }: { params: Promise<{ id: 
   return (
     <div className="min-h-screen bg-clinical-paper">
       <div className="mx-auto max-w-3xl px-4 py-6">
+        {/* S22-NAV-01 — breadcrumb (a página atual é o próprio paciente). */}
+        <Breadcrumb
+          items={[
+            { label: 'Atendimentos', href: '/encounters' },
+            { label: encounter.patientRef },
+          ]}
+        />
         <header className="flex items-center justify-between pb-6">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" asChild className="h-9">
@@ -119,7 +143,11 @@ export default function EncounterDetailPage({ params }: { params: Promise<{ id: 
             <h1 className="font-display text-2xl tracking-tight text-clinical-ink">
               {encounter.patientRef}
             </h1>
-            <Badge variant="secondary">{encounter.status}</Badge>
+            <Badge variant={STATUS_VARIANTS[encounter.status] ?? 'secondary'}>
+              {/* S20-I18N-01 — rótulo humano; fallback para o slug apenas em caso
+                  de status desconhecido (manter legível, não mostrar snake_case cru). */}
+              {STATUS_LABELS[encounter.status] ?? encounter.status}
+            </Badge>
           </div>
           <div className="flex items-center gap-2">
             {encounter.status !== 'finalized' && (

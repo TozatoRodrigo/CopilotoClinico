@@ -7,6 +7,7 @@ import {
   Request,
   HttpCode,
   HttpStatus,
+  Header,
 } from '@nestjs/common';
 import { AuditService } from './audit.service';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
@@ -37,6 +38,32 @@ export class AuditController {
       ...query,
       actorId: req.user.physicianId,
     });
+  }
+
+  /**
+   * S25-AUD-01 — Export CSV server-side do conjunto FILTRADO.
+   *
+   * Antes o front exportava só a página atual (≤20 itens). Para auditoria
+   * séria é inútil. Agora o backend faz o export com todos os itens que
+   * casam com os filtros (limite 10k para evitar OOM; acima disso, filtrar
+   * por data). Retorna text/csv com header Content-Disposition attachment.
+   */
+  @Get('export')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('COMPLIANCE', 'ADMIN')
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  async exportCsv(
+    @Request() req: { user: { physicianId: string } },
+    @Query(new ZodValidationPipe(auditQuerySchema)) query: AuditQueryInput,
+  ): Promise<string> {
+    // Override limit/offset para buscar tudo de uma vez (até o teto).
+    const result = await this.auditService.query({
+      ...query,
+      actorId: req.user.physicianId,
+      limit: 10000,
+      offset: 0,
+    });
+    return this.auditService.toCsv(result.items);
   }
 
   /**

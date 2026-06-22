@@ -32,7 +32,8 @@ export async function syncOfflineQueue(): Promise<SyncResult> {
       } else {
         await apiClient.post<CopilotAnalyzeResponse>(
           `/encounters/${item.encounterId}/copilot/analyze`,
-          { caseText: item.caseText, context: item.context },
+          // S20-CLIN-01 — envia redFlags explícitas ao sincronizar fila offline.
+          { caseText: item.caseText, context: item.context, redFlags: item.redFlags },
         );
       }
       return { success: true, encounterId: item.encounterId };

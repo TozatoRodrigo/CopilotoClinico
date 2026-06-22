@@ -39,7 +39,6 @@ import { ConfirmedSeal } from "@/components/domain/confirmed-seal";
 import { AuditHash } from "@/components/domain/audit-hash";
 import { EmptyState } from "@/components/domain/empty-state";
 import { ConnectionStatus } from "@/components/domain/connection-status";
-import { DataMetric } from "@/components/domain/data-metric";
 import { DEMO_CASE_PRESETS } from "@/lib/demo-case-presets";
 
 const GRIPAL_CASE = DEMO_CASE_PRESETS.find((preset) => preset.slug === "sindrome-gripal")!;
@@ -451,16 +450,7 @@ export default function ComponentsSpecimenPage() {
         </Card>
       </section>
 
-      <section className="space-y-4">
-        <h2 className="text-lg font-semibold text-foreground">DataMetric</h2>
-        <Card>
-          <CardContent className="grid gap-4 sm:grid-cols-3">
-            <DataMetric label="Atendimentos Hoje" value={4} hint={GRIPAL_CASE.title} />
-            <DataMetric label="Revisões Pendentes" value={1} />
-            <DataMetric label="Carregando" loading />
-          </CardContent>
-        </Card>
-      </section>
+      {/* Tech debt cleanup: DataMetric component was removed (dead code). */}
     </div>
   );
 }

@@ -7,21 +7,19 @@ import {
   Database,
   Gear,
   House,
-  MoonStars,
   ShieldCheck,
   ShieldWarning,
   Stethoscope,
-  Sun,
   UserCircle,
   Users,
 } from '@phosphor-icons/react';
-import { useTheme } from 'next-themes';
 import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { useAuth, type AppRole } from '@/lib/auth-store';
 import { apiClient } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { ThemeToggle } from '@/components/layout/theme-toggle';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -40,6 +38,12 @@ type AdminSection = {
   label: string;
   icon: typeof House;
   roles: AppRole[];
+  /**
+   * S20-UX-01 — feature flag local para esconder items não prontos.
+   * `false` remove o item do nav (código preservado para reativação).
+   * Default: true.
+   */
+  enabled?: boolean;
 };
 
 const ADMIN_SECTIONS: AdminSection[] = [
@@ -58,37 +62,15 @@ const ADMIN_SECTIONS: AdminSection[] = [
   },
   { href: '/audit', label: 'Auditoria', icon: ShieldWarning, roles: ['compliance', 'admin'] },
   { href: '/admin/analytics', label: 'Analytics', icon: ChartBar, roles: ['admin'] },
-  { href: '/admin/users', label: 'Usuários', icon: Users, roles: ['admin'] },
-  { href: '/admin/sistema', label: 'Sistema', icon: Gear, roles: ['admin'] },
+  // S20-UX-01 — placeholders expostos como funcionais. Escondidos até terem
+  // implementação real (gerenciamento de usuários e configurações de sistema).
+  // As rotas /admin/users e /admin/sistema continuam acessíveis via URL direta
+  // (guard de rota por papel será tratado na Sprint 25).
+  { href: '/admin/users', label: 'Usuários', icon: Users, roles: ['admin'], enabled: false },
+  { href: '/admin/sistema', label: 'Sistema', icon: Gear, roles: ['admin'], enabled: false },
 ];
 
-function ThemeToggle() {
-  const { setTheme, resolvedTheme } = useTheme();
-
-  if (!resolvedTheme) {
-    return (
-      <Button variant="ghost" size="icon" className="h-8 w-8">
-        <span className="h-4 w-4" />
-      </Button>
-    );
-  }
-
-  return (
-    <Button
-      variant="ghost"
-      size="icon"
-      className="h-8 w-8"
-      onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
-      aria-pressed={resolvedTheme === 'dark'}
-      aria-label={
-        resolvedTheme === 'dark' ? 'Alternar para tema claro' : 'Alternar para tema escuro'
-      }
-    >
-      {resolvedTheme === 'dark' ? <MoonStars className="size-4" /> : <Sun className="size-4" />}
-      <span className="sr-only">Alternar tema</span>
-    </Button>
-  );
-}
+// Tech debt cleanup: ThemeToggle movido para components/layout/theme-toggle.tsx
 
 function AdminUserMenu() {
   const { physician, logout, role } = useAuth();
@@ -205,15 +187,33 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { role } = useAuth();
 
-  const sections = ADMIN_SECTIONS.filter((s) => s.roles.includes(role));
+  // S20-UX-01 — filtra items marcados como enabled:false (placeholders não prontos).
+  const sections = ADMIN_SECTIONS.filter(
+    (s) => s.roles.includes(role) && s.enabled !== false,
+  );
+  // S25-ADM-02 — relógio client-side que ticka a cada segundo.
+  // Antes era só `setNow` no mount (vazio até hidratar, e congelado no valor
+  // inicial depois). Agora atualiza a cada 1s para dar sentido de "ao vivo".
   const [now, setNow] = useState<string>('');
 
   useEffect(() => {
-    setNow(new Date().toLocaleString('pt-BR'));
+    const update = () =>
+      setNow(
+        new Date().toLocaleString('pt-BR', {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          day: '2-digit',
+          month: '2-digit',
+        }),
+      );
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
   }, []);
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen bg-background" suppressHydrationWarning>
       <a
         href="#admin-main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground"
@@ -287,7 +287,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             </span>
           </div>
           <div className="flex-1" />
-          <ThemeToggle />
+          <ThemeToggle size="sm" />
           <AdminUserMenu />
         </header>
 

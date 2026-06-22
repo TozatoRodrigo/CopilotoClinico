@@ -31,6 +31,7 @@ import {
   mfaEnableSchema,
   mfaVerifySchema,
   mfaDisableSchema,
+  mfaRegenerateBackupsSchema,
   updateProfileSchema,
   changePasswordSchema,
   RegisterInput,
@@ -40,6 +41,7 @@ import {
   MfaEnableInput,
   MfaVerifyInput,
   MfaDisableInput,
+  MfaRegenerateBackupsInput,
   UpdateProfileInput,
   ChangePasswordInput,
 } from './schemas/auth.schemas';
@@ -52,9 +54,9 @@ interface RequestWithIp {
 
 const COOKIE_BASE = {
   httpOnly: true,
-  sameSite: 'strict' as const,
+  sameSite: (process.env.NODE_ENV === 'production' ? 'strict' : 'none') as 'strict' | 'none',
   path: '/',
-  secure: process.env.NODE_ENV === 'production',
+  secure: true,
 };
 
 function extractIp(req: RequestWithIp): string | undefined {
@@ -79,7 +81,7 @@ export class AuthController {
   ) {}
 
   @Post('register')
-  @Throttle({ auth: { limit: 5, ttl: 60000 } })
+  @Throttle({ short: { limit: 5, ttl: 60000 } })
   async register(
     @Body(new ZodValidationPipe(registerSchema)) body: RegisterInput,
     @Req() req: FastifyRequest & RequestWithIp,
@@ -92,7 +94,7 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @Throttle({ auth: { limit: 5, ttl: 60000 } })
+  @Throttle({ short: { limit: 5, ttl: 60000 } })
   async login(
     @Body(new ZodValidationPipe(loginSchema)) body: LoginInput,
     @Req() req: FastifyRequest & RequestWithIp,
@@ -211,7 +213,7 @@ export class AuthController {
 
   @Post('mfa/verify')
   @HttpCode(HttpStatus.OK)
-  @Throttle({ auth: { limit: 5, ttl: 300000 } })
+  @Throttle({ short: { limit: 5, ttl: 300000 } })
   async mfaVerify(
     @Body(new ZodValidationPipe(mfaVerifySchema)) body: MfaVerifyInput,
     @Req() req: FastifyRequest & RequestWithIp,
@@ -236,6 +238,22 @@ export class AuthController {
     @Body(new ZodValidationPipe(mfaDisableSchema)) body: MfaDisableInput,
   ) {
     await this.mfaService.disableMfa(req.user.physicianId, body.totpCode);
+  }
+
+  /**
+   * S24-MFA-03 — Regenera códigos de backup.
+   * Exige TOTP atual (prova de identidade), invalida anteriores, gera 8 novos.
+   * Retorna os códigos em texto claro (única oportunidade — depois só hash).
+   */
+  @Post('mfa/regenerate-backup-codes')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  async mfaRegenerateBackups(
+    @Request() req: { user: { physicianId: string } },
+    @Body(new ZodValidationPipe(mfaRegenerateBackupsSchema))
+    body: MfaRegenerateBackupsInput,
+  ) {
+    return this.mfaService.regenerateBackupCodes(req.user.physicianId, body.totpCode);
   }
 
   @Post('mfa/admin-reset/:physicianId')

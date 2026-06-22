@@ -47,7 +47,7 @@ export const CitationFootnote = memo(function CitationFootnote({
       {text && <p className="line-clamp-2 text-muted-foreground">{text}</p>}
       {evidenceFigure && (
         <figure className="space-y-1">
-          <a href={evidenceFigure.url} target="_blank" rel="noreferrer">
+          <a href={evidenceFigure.url} target="_blank" rel="noopener noreferrer">
             <NextImage
               src={evidenceFigure.url}
               alt={evidenceFigure.caption ?? `Figura de evidência — ${source}`}

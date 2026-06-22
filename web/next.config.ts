@@ -1,7 +1,8 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  turbopack: {},
+  // Standalone output para Docker — gera .next/standalone (server.js independente).
+  output: 'standalone',
   poweredByHeader: false,
   compress: true,
   images: {

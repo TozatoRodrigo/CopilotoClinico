@@ -1,6 +1,7 @@
 'use client';
 
 import { use, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { useGenerateDocument } from '@/lib/clinical-queries';
@@ -9,7 +10,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DecisionThread } from '@/components/copilot/decision-thread';
+import { Breadcrumb } from '@/components/ui/breadcrumb';
+// Tech debt cleanup: renomeado para evitar colisão com domain/decision-thread
+import { DecisionThread as DecisionThreadContainer } from '@/components/copilot/decision-thread';
 import { STORAGE_KEY_PREFIX, type StoredCopilotResult } from '@/hooks/use-copilot-conversation';
 import { messages } from '@/lib/messages';
 import type { CopilotAnalysis, DocumentType, LatestInteractionResponse } from '@/lib/types';
@@ -77,10 +80,24 @@ export default function ResultPage({ params }: { params: Promise<{ id: string }>
         type,
         aiInteractionId: result.interactionId,
       });
-      router.push(`/encounters/${encounterId}/documents/${doc.id}/edit`);
+      // S23-CLIN-05 — gerar sem sair: abre o documento em nova aba (com
+      // rel=noopener/noreferrer) e mantém o médico na tela de resultado.
+      // Antes era `router.push` que tirava o médico do contexto da análise,
+      // obrigando a voltar para gerar outro documento (SOAP + Prescrição).
+      window.open(
+        `/encounters/${encounterId}/documents/${doc.id}/edit`,
+        '_blank',
+        'noopener,noreferrer',
+      );
+      // Toast confirmação (visual feedback imediato sem sair da tela).
+      // Mensagem curta para não competir com o conteúdo clínico.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { toast } = await import('sonner');
+      toast.success(messages.documents.generated(type));
     } catch (err) {
       const message = err instanceof Error ? err.message : messages.documents.errorGenerate;
       setDocError(message);
+    } finally {
       setGeneratingDoc(null);
     }
   }
@@ -130,7 +147,10 @@ export default function ResultPage({ params }: { params: Promise<{ id: string }>
             )}
             <p className="text-muted-foreground">{messages.errors.analysisEmpty}</p>
             <Button asChild>
-              <a href={`/encounters/${encounterId}/capture`}>{messages.common.actions.goToAnalysis}</a>
+              {/* S22-NAV-01 — Link em vez de <a href> (evita reload). */}
+              <Link href={`/encounters/${encounterId}/capture`}>
+                {messages.common.actions.goToAnalysis}
+              </Link>
             </Button>
           </div>
         </div>
@@ -145,6 +165,14 @@ export default function ResultPage({ params }: { params: Promise<{ id: string }>
   return (
     <div className="min-h-screen bg-clinical-paper">
       <div className="mx-auto max-w-3xl px-4 py-6">
+        {/* S22-NAV-01 — breadcrumb no fluxo de atendimento. */}
+        <Breadcrumb
+          items={[
+            { label: 'Atendimentos', href: '/encounters' },
+            { label: encounterId.slice(0, 8), href: `/encounters/${encounterId}` },
+            { label: 'Resultado' },
+          ]}
+        />
         <header className="flex items-center justify-between pb-6">
           <h1 className="font-display text-2xl tracking-tight text-clinical-ink">
             {messages.copilot.result.title}
@@ -160,7 +188,7 @@ export default function ResultPage({ params }: { params: Promise<{ id: string }>
           </p>
         )}
 
-        <DecisionThread encounterId={encounterId} initial={result} />
+        <DecisionThreadContainer encounterId={encounterId} initial={result} />
 
         {docError && (
           <Alert variant="destructive" className="mt-6">
@@ -174,35 +202,46 @@ export default function ResultPage({ params }: { params: Promise<{ id: string }>
             {messages.documents.generateHeading}
           </p>
           <div className="flex flex-wrap gap-2">
-            {DOCUMENT_TYPES.map((dt) => (
-              <Button
-                key={dt.type}
-                onClick={() => handleGenerateDocument(dt.type)}
-                disabled={generatingDoc !== null}
-                variant={generatingDoc === dt.type ? 'default' : 'outline'}
-                className="h-11"
-              >
-                {generatingDoc === dt.type ? (
-                  <CircleNotch className="mr-2 size-4 animate-spin" />
-                ) : (
-                  <FileText className="mr-2 size-4" />
-                )}
-                {generatingDoc === dt.type ? messages.documents.generating : dt.label}
-              </Button>
-            ))}
+            {/*
+              S23-CLIN-05 — spinner individual. Antes todos os botões
+              desabilitavam quando 1 gerava (disabled={generatingDoc !== null}),
+              travando o médico de gerar SOAP + Prescrição em paralelo.
+              Agora só o botão clicado fica disabled com spinner; os demais
+              continuam clicáveis. Geração abre em nova aba (sem sair).
+            */}
+            {DOCUMENT_TYPES.map((dt) => {
+              const isThisGenerating = generatingDoc === dt.type;
+              return (
+                <Button
+                  key={dt.type}
+                  onClick={() => handleGenerateDocument(dt.type)}
+                  disabled={isThisGenerating}
+                  variant={isThisGenerating ? 'default' : 'outline'}
+                  className="h-11"
+                >
+                  {isThisGenerating ? (
+                    <CircleNotch className="mr-2 size-4 animate-spin" />
+                  ) : (
+                    <FileText className="mr-2 size-4" />
+                  )}
+                  {isThisGenerating ? messages.documents.generating : dt.label}
+                </Button>
+              );
+            })}
           </div>
           <div className="mt-4 flex gap-3">
+            {/* S22-NAV-01 / S23-CLIN-07 — <Link> em vez de <a href> (sem reload). */}
             <Button variant="outline" asChild className="h-11">
-              <a href={`/encounters/${encounterId}/capture`}>
+              <Link href={`/encounters/${encounterId}/capture`}>
                 <ArrowsClockwise className="mr-2 size-4" />
                 {messages.documents.newAnalysis}
-              </a>
+              </Link>
             </Button>
             <Button variant="ghost" asChild className="h-11 ml-auto">
-              <a href={`/encounters/${encounterId}`}>
+              <Link href={`/encounters/${encounterId}`}>
                 <ArrowLeft className="mr-2 size-4" />
                 {messages.documents.encounter}
-              </a>
+              </Link>
             </Button>
           </div>
         </footer>

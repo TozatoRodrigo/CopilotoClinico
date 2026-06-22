@@ -9,17 +9,16 @@ import {
   House,
   Keyboard,
   MagnifyingGlass,
-  MoonStars,
   Plus,
   ShieldCheck,
   Stethoscope,
-  Sun,
 } from '@phosphor-icons/react';
-import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
 import { ConnectionStatus } from '@/components/domain/connection-status';
+import { OfflineQueueBadge } from '@/components/domain/offline-queue-badge';
+import { ThemeToggle } from '@/components/layout/theme-toggle';
 import { useOnlineStatus } from '@/components/providers/offline-provider';
 import { useAuth, type AppRole } from '@/lib/auth-store';
 import { cn } from '@/lib/utils';
@@ -38,7 +37,6 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
@@ -52,6 +50,18 @@ type NavLink = {
   shortLabel?: string;
   icon: typeof House;
 };
+
+/**
+ * S20-UX-01 — Feature flag local para o ⌘K (palette de ações rápidas).
+ *
+ * O componente existe e está preservado, mas hoje é um placeholder exposto em
+ * produção com copy de roadmap ("entra na F3"). Até a implementação funcional
+ * (busca real por atendimentos, diretrizes, ações), o botão é ocultado e o
+ * listener de teclado é desativado — evita falsa expectativa do usuário.
+ *
+ * Para reativar (em dev/staging): mudar para `true`.
+ */
+const FEATURE_COMMAND_K_ENABLED = false;
 
 const NAV_BY_ROLE: Record<AppRole, NavLink[]> = {
   physician: [
@@ -99,38 +109,16 @@ const COMMAND_LINKS = [
   },
 ];
 
-function ThemeToggle() {
-  const { setTheme, resolvedTheme } = useTheme();
-
-  if (!resolvedTheme) {
-    return (
-      <Button variant="ghost" size="icon" className="h-9 w-9">
-        <span className="h-4 w-4" />
-      </Button>
-    );
-  }
-
-  return (
-    <Button
-      variant="ghost"
-      size="icon"
-      className="h-9 w-9"
-      onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
-      aria-pressed={resolvedTheme === 'dark'}
-      aria-label={
-        resolvedTheme === 'dark' ? 'Alternar para tema claro' : 'Alternar para tema escuro'
-      }
-    >
-      {resolvedTheme === 'dark' ? <MoonStars className="size-4" /> : <Sun className="size-4" />}
-      <span className="sr-only">Alternar tema</span>
-    </Button>
-  );
-}
+// Tech debt cleanup: ThemeToggle movido para components/layout/theme-toggle.tsx
+// (antes era duplicado em app-shell e admin-shell).
 
 function QuickActions() {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
+    // S20-UX-01 — listener desativado quando a feature está oculta.
+    if (!FEATURE_COMMAND_K_ENABLED) return;
+
     function handleShortcut(event: KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
         event.preventDefault();
@@ -141,6 +129,11 @@ function QuickActions() {
     window.addEventListener('keydown', handleShortcut);
     return () => window.removeEventListener('keydown', handleShortcut);
   }, []);
+
+  // S20-UX-01 — não renderiza o botão nem o dialog quando a feature está oculta.
+  // Código preservado abaixo para reativação rápida quando a busca funcional
+  // estiver pronta.
+  if (!FEATURE_COMMAND_K_ENABLED) return null;
 
   return (
     <>
@@ -263,7 +256,6 @@ function UserMenu() {
           <DropdownMenuItem onClick={() => router.push('/guidelines')}>
             <BookOpen className="size-4" />
             Diretrizes
-            <DropdownMenuShortcut>⌘K</DropdownMenuShortcut>
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
@@ -376,6 +368,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </nav>
           <div className="flex-1" />
           <div className="flex items-center gap-2">
+            {/*
+              S23-CLIN-03 — badge de fila offline visível no header.
+              Só aparece quando há itens pendentes (count > 0).
+            */}
+            <OfflineQueueBadge />
             <QuickActions />
             <ThemeToggle />
             <UserMenu />

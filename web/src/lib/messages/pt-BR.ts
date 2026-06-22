@@ -103,6 +103,13 @@ export const ptBR = {
     categoryBracket: (label: string) => `[${label}]`,
     preliminary: 'Preliminar — responda as perguntas acima',
     confidence: (value: number) => `${Math.round(value * 100)}%`,
+    // S23-UX-01 — explicação de metodologia para evitar falsa precisão clínica.
+    // Médico pode interpretar "87%" como garantia estatística — médico-legalmente arriscado.
+    confidenceTooltipTitle: 'Como calculamos a confiança',
+    confidenceTooltipBody:
+      'Combina cobertura da evidência recuperada (quantos trechos relevantes a diretriz forneceu) com coerência interna da análise (consistência entre raciocínio, recomendações e citações).',
+    confidenceTooltipDisclaimer:
+      'Não é garantia clínica ou probabilidade de acerto. A decisão final é sua, médico.',
   },
 
   redFlags: {
@@ -134,6 +141,27 @@ export const ptBR = {
       tapToDictate: 'Toque para ditar',
       start: 'Iniciar gravação',
       stop: 'Parar gravação',
+      // S20-VOICE-01 — fallback claro quando webkitSpeechRecognition não é suportado
+      // (iOS Safari, Firefox). Ponte temporária até a Sprint 21 (Whisper no backend),
+      // que tornará a voz independente do navegador.
+      unsupportedTitle: 'Voz em melhoria',
+      unsupportedDescription:
+        'Estamos habilitando o ditado por voz neste dispositivo. Por enquanto, descreva o caso digitando — a análise funciona normalmente.',
+      // S21-VOICE-03/04/05 — copy do novo hook Whisper (MediaRecorder + upload).
+      transcribing: 'Transcrevendo...',
+      recording: 'Gravando',
+      cancel: 'Cancelar',
+      sendAndTranscribe: 'Solte para enviar',
+      slideToCancel: 'Deslize para cancelar',
+      maxReached: 'Limite de 5 minutos — enviando...',
+      emptyTranscript: 'Não detectamos fala clara no áudio. Tente novamente.',
+      emptyRecording: 'Gravação vazia. Toque o microfone e fale.',
+      micDenied: 'Permissão de microfone negada. Habilite nas configurações do navegador.',
+      micNotFound: 'Nenhum microfone encontrado neste dispositivo.',
+      recordingError: 'Erro na gravação. Tente novamente.',
+      networkError: 'Sem conexão. Verifique sua internet e tente novamente.',
+      serverError: 'Servidor indisponível. Tente novamente em instantes.',
+      rateLimited: 'Muitas transcrições em pouco tempo. Aguarde um minuto.',
     },
     charMin: (n: number) => `Mínimo ${n} caracteres`,
     readyToAnalyze: 'Pronto para analisar',
@@ -145,11 +173,15 @@ export const ptBR = {
     offlineQueued: 'Sem conexão. Análise será enviada quando voltar online.',
     errorAnalyze:
       'Não foi possível analisar o caso. Verifique os dados e tente novamente.',
+    // S23-CLIN-01 — feedback ao aplicar template de queixa.
+    templateApplied: (name: string) => `Modelo "${name}" adicionado ao caso.`,
   },
 
   documents: {
     generateHeading: 'Gerar documento',
     generating: 'Gerando...',
+    // S23-CLIN-05 — confirmação de geração (sem sair da tela de resultado).
+    generated: (type: string) => `${type} gerado — aberto em nova aba.`,
     newAnalysis: 'Nova Análise',
     encounter: 'Atendimento',
     types: {

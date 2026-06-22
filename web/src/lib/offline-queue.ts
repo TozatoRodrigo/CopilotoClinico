@@ -6,6 +6,12 @@ interface AnalyzeQueueItem {
   encounterId: string;
   caseText: string;
   context: EncounterContext;
+  /**
+   * S20-CLIN-01 — red flags explícitas marcadas pelo médico.
+   * Persistidas na fila offline para serem enviadas ao reconectar,
+   * garantindo rastreabilidade mesmo em cenário offline.
+   */
+  redFlags: Record<string, boolean>;
   createdAt: number;
 }
 
@@ -72,10 +78,6 @@ export async function getQueue(): Promise<QueueItem[]> {
   return withStore<QueueItem[]>("readonly", (store) =>
     store.getAll(),
   );
-}
-
-export async function clearQueue(): Promise<void> {
-  await withStore("readwrite", (store) => store.clear());
 }
 
 export async function removeFromQueue(id: string): Promise<void> {

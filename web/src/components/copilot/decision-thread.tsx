@@ -7,6 +7,7 @@ import { BlockerQuestionCard } from '@/components/domain/blocker-question-card';
 import { RecommendationCard } from '@/components/copilot/recommendation-card';
 import { UncertaintyBanner } from '@/components/domain/uncertainty-banner';
 import { useCopilotConversation, type StoredCopilotResult } from '@/hooks/use-copilot-conversation';
+import { useRecommendationDecisions } from '@/hooks/use-recommendation-decisions';
 import type { ClarifyingAnswerValue, ClarifyingQuestion, CopilotRecommendation, EvidenceFigure, EvidenceTable, RedFlag } from '@/lib/types';
 import { messages } from '@/lib/messages';
 import { Circle, CheckCircle, ArrowClockwise, WifiSlash, Warning, Siren } from '@phosphor-icons/react';
@@ -63,6 +64,20 @@ export function DecisionThread({ encounterId, initial }: DecisionThreadProps) {
   const preliminaryRecs = sortedRecommendations.filter((r) => r.preliminary);
   const definitiveRecs = sortedRecommendations.filter((r) => !r.preliminary);
 
+  // S23-CLIN-06 — decisões por recomendação (adotar/rejeitar/anotar).
+  // Persistidas localmente em sessionStorage para sobreviver refresh e
+  // navegação entre Capture/Resultado. Não vai ao backend nesta versão.
+  const {
+    decisions,
+    setDecision,
+    setNote,
+    counts: decisionsCounts,
+  } = useRecommendationDecisions(encounterId, analysis.recommendations.length);
+
+  const handleAdopt = (recId: string) => setDecision(recId, 'adopted');
+  const handleReject = (recId: string) => setDecision(recId, 'rejected');
+  const handleNote = (recId: string, note: string) => setNote(recId, note);
+
   return (
     <div className="space-y-0">
       <div className="relative pl-8">
@@ -113,14 +128,25 @@ export function DecisionThread({ encounterId, initial }: DecisionThreadProps) {
                 </Alert>
               )}
 
+              {/*
+                S23-CLIN-07 — quando colapsado (max-h-0 opacity-0), o container
+                também aplica aria-hidden e o botão interno recebe
+                tabIndex={-1} para sair da ordem de tab.
+              */}
               {analysis.clarifyingQuestions.length > 0 && (
                 <div
                   className={cn(
                     'overflow-hidden transition-all duration-300 ease-out',
                     allBlockersAnswered ? 'mt-3 max-h-16 opacity-100' : 'max-h-0 opacity-0',
                   )}
+                  aria-hidden={allBlockersAnswered ? undefined : true}
                 >
-                  <Button onClick={reanalyze} disabled={!canReanalyze} className="h-11">
+                  <Button
+                    onClick={reanalyze}
+                    disabled={!canReanalyze}
+                    tabIndex={allBlockersAnswered ? undefined : -1}
+                    className="h-11"
+                  >
                     <ArrowClockwise className="mr-2 size-4" />
                     {reanalyzing ? messages.copilot.reanalyze.loading : messages.copilot.reanalyze.cta}
                   </Button>
@@ -148,12 +174,39 @@ export function DecisionThread({ encounterId, initial }: DecisionThreadProps) {
         {definitiveRecs.length > 0 && (
           <ThreadNode icon="done" accent="green">
             <div className="space-y-3">
-              <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                {messages.copilot.sections.conduta}
-              </h2>
-              {definitiveRecs.map((rec, i) => (
-                <RecommendationCard key={i} rec={rec} />
-              ))}
+              {/*
+                S23-CLIN-06 — sumário de decisões no header da seção de conduta.
+                Ajuda o médico a ver progresso (X adotadas / Y rejeitadas / Z pendentes)
+                antes de finalizar o caso.
+              */}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  {messages.copilot.sections.conduta}
+                </h2>
+                {decisionsCounts && (decisionsCounts.adopted > 0 || decisionsCounts.rejected > 0) && (
+                  <p className="font-mono text-[11px] text-muted-foreground">
+                    {decisionsCounts.adopted} adotada{decisionsCounts.adopted !== 1 ? 's' : ''}
+                    {' · '}
+                    {decisionsCounts.rejected} rejeitada{decisionsCounts.rejected !== 1 ? 's' : ''}
+                    {' · '}
+                    {decisionsCounts.pending} pendente{decisionsCounts.pending !== 1 ? 's' : ''}
+                  </p>
+                )}
+              </div>
+              {definitiveRecs.map((rec, i) => {
+                // ID estável alinhado com o usado no card (citationChunkId ou slice do action).
+                const recId = rec.citationChunkId ?? rec.action.slice(0, 32);
+                return (
+                  <RecommendationCard
+                    key={i}
+                    rec={rec}
+                    decision={decisions[recId]}
+                    onAdopt={handleAdopt}
+                    onReject={handleReject}
+                    onNote={handleNote}
+                  />
+                );
+              })}
             </div>
           </ThreadNode>
         )}
@@ -457,7 +510,7 @@ function CitationsBlock({
               className="shrink-0 font-mono text-xs text-clinical-teal underline underline-offset-4"
               href={`/v1/guidelines/chunks/${c.chunkId}`}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
             >
               {messages.copilot.citations.viewExcerptShort}
             </a>
@@ -465,7 +518,7 @@ function CitationsBlock({
           <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{c.text}</p>
           {c.evidenceFigure && (
             <figure className="mt-2 space-y-1">
-              <a href={c.evidenceFigure.url} target="_blank" rel="noreferrer">
+              <a href={c.evidenceFigure.url} target="_blank" rel="noopener noreferrer">
                 <img
                   src={c.evidenceFigure.url}
                   alt={c.evidenceFigure.caption ?? messages.copilot.citations.figureFallback(c.source)}

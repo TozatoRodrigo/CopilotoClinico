@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const STATIC_CACHE = `copiloto-static-${CACHE_VERSION}`;
 const RUNTIME_CACHE = `copiloto-runtime-${CACHE_VERSION}`;
 const APP_SHELL = ['/dashboard', '/manifest.json', '/'];

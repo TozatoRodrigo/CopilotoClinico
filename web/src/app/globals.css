@@ -93,6 +93,10 @@
 }
 
 :root {
+  --font-dm-sans: "Avenir Next", "Segoe UI", sans-serif;
+  --font-ibm-plex-mono: "SFMono-Regular", "Menlo", "Monaco", monospace;
+  --font-dm-serif-display: "Iowan Old Style", "Palatino Linotype", serif;
+
   /* Paleta clínica Strivium (A2) — oklch com fallback hex.
      Cor de marca (teal) aparece por significado (ação primária), âmbar é
      exclusivo para "muda a conduta" (blocker/alerta) e verde para conduta
@@ -156,12 +160,6 @@
   --chart-4: var(--ink-soft);
   --chart-5: var(--error);
   --radius: 0.625rem;
-  --success: var(--green);
-  --success-foreground: var(--green-foreground);
-  --warning: var(--amber);
-  --warning-foreground: var(--amber-foreground);
-  --info: var(--teal-deep);
-  --info-foreground: var(--paper);
   --sidebar: var(--card);
   --sidebar-foreground: var(--ink);
   --sidebar-primary: var(--teal);

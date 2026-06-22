@@ -18,6 +18,7 @@ import {
   ArrowLeft,
   UserCircle,
   QrCode,
+  Download,
 } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 
@@ -39,19 +40,66 @@ const STEP_LABELS: Record<Step, string> = {
   done: 'Pronto!',
 };
 
+/**
+ * S24-MFA-01 — chave para persistir backup codes no sessionStorage.
+ *
+ * Antes deste change, os códigos ficavam apenas em useState local. Se o médico
+ * desse refresh no passo 'mfa-backup', perdia tudo — e o MFA já estava habilitado
+ * (enableMfa foi chamado no passo anterior). Resultado: LOCKOUT permanente,
+ * sem recuperação a não ser admin reset.
+ *
+ * Agora persistimos em sessionStorage até o médico confirmar que salvou. Em
+ * sprint futura, ao chamar /auth/mfa/regenerate-backup-codes (S24-MFA-03),
+ * essa chave é sobrescrita com os novos códigos.
+ */
+const BACKUP_CODES_KEY = 'copiloto:onboarding:backup-codes';
+
+/**
+ * S24-ONBOARD-01 — lista de especialidades para o step de perfil.
+ * Permite segmentação clínica (qual diretriz priorizar, analytics por área).
+ */
+const SPECIALTIES = [
+  'Emergência',
+  'Clínica Médica',
+  'Cardiologia',
+  'Pneumologia',
+  'Pediatria',
+  'Neurologia',
+  'Cirurgia Geral',
+  'Ortopedia',
+  'Ginecologia/Obstetrícia',
+  'Psiquiatria',
+  'Anestesiologia',
+  'Outra',
+] as const;
+
 export default function OnboardingPage() {
-  const { physician } = useAuth();
+  const { physician, updatePhysician } = useAuth();
   const router = useRouter();
 
   const [step, setStep] = useState<Step>('welcome');
   const [loading, setLoading] = useState(false);
 
-  const [mfaSetup, setMfaSetup] = useState<MfaSetupResponse | null>(null);
+  // S24-MFA-01 — restaura backup codes do sessionStorage se o médico deu
+  // refresh no passo 'mfa-backup'. Antes era só useState local → LOCKOUT.
+  const [mfaSetup, setMfaSetup] = useState<MfaSetupResponse | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const raw = sessionStorage.getItem(BACKUP_CODES_KEY);
+    if (!raw) return null;
+    try {
+      const codes = JSON.parse(raw) as string[];
+      // Reconstroi o shape MfaSetupResponse sem otpauthUri/qrCode (já passou).
+      return { otpauthUri: '', qrCode: '', backupCodes: codes };
+    } catch {
+      return null;
+    }
+  });
   const [totpDigits, setTotpDigits] = useState(['', '', '', '', '', '']);
   const [totpError, setTotpError] = useState('');
   const [backupCopied, setBackupCopied] = useState(false);
 
   const [profileName, setProfileName] = useState(physician?.name ?? '');
+  const [profileSpecialty, setProfileSpecialty] = useState<string>('');
 
   const digitRefs = useRef<(HTMLInputElement | null)[]>([]);
   const setDigitRef = useCallback(
@@ -74,6 +122,13 @@ export default function OnboardingPage() {
     try {
       const data = await apiClient.post<MfaSetupResponse>('/auth/mfa/setup');
       setMfaSetup(data);
+      // S24-MFA-01 — persiste backup codes imediatamente. Se o médico der
+      // refresh em qualquer passo seguinte, ainda temos os códigos.
+      try {
+        sessionStorage.setItem(BACKUP_CODES_KEY, JSON.stringify(data.backupCodes));
+      } catch {
+        // quota / private mode — silently ignore; UI ainda mostra os códigos.
+      }
       goTo('mfa-qr');
     } catch (err) {
       if (err instanceof ApiError && err.message.includes('already enabled')) {
@@ -157,11 +212,71 @@ export default function OnboardingPage() {
     setTimeout(() => setBackupCopied(false), 2000);
   }
 
+  /**
+   * S24-MFA-02 — baixa os códigos como arquivo .txt. Clipboard falha em
+   * mobile iOS (permissões); arquivo é universal.
+   */
+  function handleDownloadBackup() {
+    if (!mfaSetup) return;
+    const date = new Date().toISOString().slice(0, 10);
+    const lines = [
+      'Copiloto Clínico — Códigos de recuperação MFA',
+      `Gerados em: ${new Date().toLocaleString('pt-BR')}`,
+      `Médico: ${physician?.email ?? ''}`,
+      '',
+      'Guarde este arquivo em local seguro. Cada código pode ser usado',
+      'uma única vez para acessar sua conta se perder o app autenticador.',
+      '',
+      ...mfaSetup.backupCodes.map((c, i) => `${i + 1}. ${c}`),
+    ];
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `copiloto-codigos-recuperacao-${date}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success('Arquivo baixado. Guarde em local seguro.');
+  }
+
+  /**
+   * S24-MFA-01 — chamado quando o médico confirma que salvou os códigos.
+   * Limpa o sessionStorage (não queremos códigos MFA persistindo indefinidamente
+   * em browser; se médico quiser ver de novo, deve regenerar via settings).
+   */
+  function handleBackupConfirmed() {
+    try {
+      sessionStorage.removeItem(BACKUP_CODES_KEY);
+    } catch {
+      // noop
+    }
+    goTo('profile');
+  }
+
+  /**
+   * S24-ONBOARD-01 — persiste nome + especialidade via PATCH /auth/me.
+   * Antes era só `goTo('done')` — o botão "Continuar" mentia (não salvava).
+   */
   async function handleProfileSubmit(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
     try {
+      const payload: Record<string, string> = {};
+      if (profileName.trim() && profileName !== physician?.name) {
+        payload.name = profileName.trim();
+      }
+      if (profileSpecialty) {
+        payload.specialty = profileSpecialty;
+      }
+      if (Object.keys(payload).length > 0) {
+        await apiClient.patch('/auth/me', payload);
+        updatePhysician(payload);
+      }
       goTo('done');
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Erro ao salvar perfil.');
     } finally {
       setLoading(false);
     }
@@ -301,7 +416,8 @@ export default function OnboardingPage() {
           <form onSubmit={handleVerifyTotp} className="space-y-4">
             <fieldset>
               <legend className="sr-only">Código de verificação TOTP de 6 dígitos</legend>
-              <div className="flex justify-center gap-2">
+              {/* S22-A11Y-02 — OTP responsivo (cabe em iPhone SE 320px). */}
+              <div className="flex justify-center gap-1.5 sm:gap-2">
                 {totpDigits.map((digit, idx) => (
                   <Input
                     key={idx}
@@ -314,7 +430,7 @@ export default function OnboardingPage() {
                     onKeyDown={(e) => handleDigitKeyDown(idx, e)}
                     onPaste={handleDigitPaste}
                     disabled={loading}
-                    className="size-12 select-none p-0 text-center text-xl font-semibold tabular-nums"
+                    className="size-10 select-none p-0 text-center text-lg font-semibold tabular-nums sm:size-12 sm:text-xl"
                     aria-label={`Dígito ${idx + 1} de 6`}
                   />
                 ))}
@@ -367,21 +483,37 @@ export default function OnboardingPage() {
             </div>
           </div>
 
-          <Button variant="outline" className="h-11 w-full gap-2" onClick={handleCopyBackup}>
-            {backupCopied ? (
-              <>
-                <Check className="size-4 text-clinical-green" />
-                Copiado!
-              </>
-            ) : (
-              <>
-                <Copy className="size-4" />
-                Copiar todos
-              </>
-            )}
-          </Button>
+          {/* S24-MFA-02 — duas opções: copiar (clipboard, falha em mobile iOS)
+              e baixar .txt (universal). Médico escolhe conforme preferir. */}
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="h-11 flex-1 gap-2"
+              onClick={handleCopyBackup}
+            >
+              {backupCopied ? (
+                <>
+                  <Check className="size-4 text-clinical-green" />
+                  Copiado!
+                </>
+              ) : (
+                <>
+                  <Copy className="size-4" />
+                  Copiar
+                </>
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              className="h-11 flex-1 gap-2"
+              onClick={handleDownloadBackup}
+            >
+              <Download className="size-4" />
+              Baixar .txt
+            </Button>
+          </div>
 
-          <Button onClick={() => goTo('profile')} className="h-11 w-full">
+          <Button onClick={handleBackupConfirmed} className="h-11 w-full">
             Já salvei os códigos
             <ArrowRight className="ml-1 size-4" />
           </Button>
@@ -411,6 +543,29 @@ export default function OnboardingPage() {
                 disabled={loading}
                 autoComplete="name"
               />
+            </div>
+
+            {/*
+              S24-ONBOARD-01 — captura especialidade (antes era prometida no
+              copy mas nunca coletada). Usada para segmentação clínica (qual
+              diretriz priorizar, analytics por área).
+            */}
+            <div className="space-y-2">
+              <Label htmlFor="profileSpecialty">Especialidade</Label>
+              <select
+                id="profileSpecialty"
+                value={profileSpecialty}
+                onChange={(e) => setProfileSpecialty(e.target.value)}
+                disabled={loading}
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="">Selecione…</option>
+                {SPECIALTIES.map((spec) => (
+                  <option key={spec} value={spec}>
+                    {spec}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="space-y-2">

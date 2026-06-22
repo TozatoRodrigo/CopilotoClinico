@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuditEntries, type AuditFilters } from "@/lib/clinical-queries";
 import type { AuditEntry } from "@/lib/types";
+import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,10 +49,10 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleString("pt-BR");
 }
 
-function downloadJson(data: AuditEntry[], filename: string) {
-  const blob = new Blob([JSON.stringify(data, null, 2)], {
-    type: "application/json",
-  });
+// S25-AUD-01 — helper para baixar CSV recebido do backend.
+function downloadCsv(csv: string, filename: string) {
+  // BOM para Excel reconhecer UTF-8 (acentos pt-BR).
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -71,24 +72,52 @@ export default function AuditPage() {
     to: "",
   });
   const [appliedFilters, setAppliedFilters] = useState<AuditFilters>(filters);
+  const [exporting, setExporting] = useState(false);
   const auditQuery = useAuditEntries(appliedFilters, offset, limit);
   const entries: AuditEntry[] = auditQuery.data?.items ?? [];
   const total = auditQuery.data?.total ?? 0;
   const loading = auditQuery.isPending;
   const error = auditQuery.error?.message ?? null;
 
-  function applyFilters() {
+  // S25-AUD-01 — auto-apply filtros com debounce 500ms.
+  // Antes o usuário precisava clicar em "Aplicar Filtros" — parecia travado.
+  const applyFiltersDebounced = useCallback((next: AuditFilters) => {
     setOffset(0);
-    setAppliedFilters(filters);
-  }
+    setAppliedFilters(next);
+  }, []);
 
-  function handleExport() {
-    if (entries.length === 0) {
+  useEffect(() => {
+    const t = setTimeout(() => {
+      applyFiltersDebounced(filters);
+    }, 500);
+    return () => clearTimeout(t);
+  }, [filters, applyFiltersDebounced]);
+
+  // S25-AUD-01 — export server-side: chama /audit/export que retorna CSV com
+  // TODOS os itens do filtro (até 10k), não só a página atual.
+  async function handleExport() {
+    if (total === 0) {
       toast.error("Nenhum registro para exportar.");
       return;
     }
-    downloadJson(entries, `audit-export-${new Date().toISOString().slice(0, 10)}.json`);
-    toast.success("Exportação realizada com sucesso.");
+    setExporting(true);
+    try {
+      const params = new URLSearchParams();
+      if (appliedFilters.entity) params.set("entity", appliedFilters.entity);
+      if (appliedFilters.entityId) params.set("entityId", appliedFilters.entityId);
+      if (appliedFilters.from) params.set("from", appliedFilters.from);
+      if (appliedFilters.to) params.set("to", appliedFilters.to);
+      const csv = await apiClient.get<string>(
+        `/audit/export${params.toString() ? "?" + params.toString() : ""}`,
+      );
+      const date = new Date().toISOString().slice(0, 10);
+      downloadCsv(csv, `auditoria-${date}.csv`);
+      toast.success("Exportação CSV realizada com sucesso.");
+    } catch {
+      toast.error("Erro ao exportar. Tente novamente.");
+    } finally {
+      setExporting(false);
+    }
   }
 
   return (
@@ -158,10 +187,17 @@ export default function AuditPage() {
                 }
               />
             </div>
+            {/*
+              S25-AUD-01 — auto-apply via debounce. Botão "Aplicar Filtros"
+              removido (parecia travado; agora reativo). Mantemos um indicador
+              sutil de que filtros estão sendo aplicados.
+            */}
             <div className="flex items-end">
-              <Button onClick={applyFilters} className="w-full">
-                Aplicar Filtros
-              </Button>
+              {loading && (
+                <span className="text-xs text-muted-foreground">
+                  Aplicando filtros…
+                </span>
+              )}
             </div>
           </div>
         </CardContent>
@@ -169,10 +205,16 @@ export default function AuditPage() {
 
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          {total} registro(s) encontrado(s)
+          {total} registro{total !== 1 ? "s" : ""} encontrado{total !== 1 ? "s" : ""}
         </p>
-        <Button variant="outline" size="sm" onClick={handleExport}>
-          Exportar JSON
+        {/* S25-AUD-01 — export server-side CSV (antes era JSON da página atual). */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleExport}
+          disabled={exporting || total === 0}
+        >
+          {exporting ? "Exportando…" : "Exportar CSV"}
         </Button>
       </div>
 
@@ -203,54 +245,131 @@ export default function AuditPage() {
         </Card>
       ) : (
         <>
-          <div className="rounded-lg border">
-            <div className="grid grid-cols-[1fr_1fr_1fr_1fr_1fr] gap-4 border-b bg-muted/50 px-4 py-2 text-sm font-medium">
+          {/*
+            S22-DS-01 — layout responsivo (era grid fixo de 5 colunas que
+            quebrava no mobile). Agora:
+            - Desktop (sm+): grid de 5 colunas (Data/Hora / Ação / Entidade / ID / IP)
+            - Mobile (< sm): cada entrada vira um card com label em cima de cada valor
+            Linhas expansíveis continuam funcionando (aria-expanded + aria-controls
+            atendem S22-A11Y-01 — antes era div role=button sem aria-expanded).
+          */}
+          <ul className="space-y-2 sm:hidden" aria-label="Entradas de auditoria">
+            {entries.map((entry) => {
+              const isExpanded = expandedId === entry.id;
+              return (
+                <li key={entry.id} className="list-none">
+                  <button
+                    type="button"
+                    className="block w-full rounded-lg border bg-card p-3 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-expanded={isExpanded}
+                    aria-controls={`audit-payload-${entry.id}`}
+                    onClick={() => setExpandedId((prev) => (prev === entry.id ? null : entry.id))}
+                  >
+                    <div className="space-y-1.5">
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          Data/Hora
+                        </span>
+                        <span className="min-w-0 flex-1 text-right text-sm">{formatDate(entry.createdAt)}</span>
+                      </div>
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          Ação
+                        </span>
+                        <span className="min-w-0 flex-1 text-right text-sm font-medium">
+                          {actionLabel(entry.action)}
+                        </span>
+                      </div>
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          Entidade
+                        </span>
+                        <span className="min-w-0 flex-1 text-right text-sm">{entry.entity}</span>
+                      </div>
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          ID
+                        </span>
+                        <span className="min-w-0 flex-1 text-right text-sm">
+                          <AuditHash
+                            hash={entry.entityId}
+                            href={entry.entity === "Encounter" ? `/encounters/${entry.entityId}/result` : undefined}
+                          />
+                        </span>
+                      </div>
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                          IP
+                        </span>
+                        <span className="min-w-0 flex-1 text-right font-mono text-xs">{entry.ip ?? "—"}</span>
+                      </div>
+                    </div>
+                    {isExpanded && (
+                      <div
+                        id={`audit-payload-${entry.id}`}
+                        className="mt-3 overflow-x-auto rounded bg-background p-3 text-xs"
+                      >
+                        <pre className="whitespace-pre-wrap break-all">{JSON.stringify(entry.payload, null, 2)}</pre>
+                      </div>
+                    )}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+
+          <div className="hidden rounded-lg border sm:block">
+            <div
+              className="grid grid-cols-[1fr_1.4fr_1fr_1fr_0.8fr] gap-4 border-b bg-muted/50 px-4 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground"
+              aria-hidden="true"
+            >
               <span>Data/Hora</span>
               <span>Ação</span>
               <span>Entidade</span>
               <span>ID</span>
               <span>IP</span>
             </div>
-            {entries.map((entry) => (
-              <div key={entry.id}>
-                <div
-                  role="button"
-                  tabIndex={0}
-                  className="grid w-full grid-cols-[1fr_1fr_1fr_1fr_1fr] gap-4 px-4 py-3 text-sm text-left hover:bg-muted/30 transition-colors cursor-pointer"
-                  onClick={() =>
-                    setExpandedId((prev) =>
-                      prev === entry.id ? null : entry.id,
-                    )
-                  }
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      setExpandedId((prev) =>
-                        prev === entry.id ? null : entry.id,
-                      );
+            {entries.map((entry) => {
+              const isExpanded = expandedId === entry.id;
+              return (
+                <div key={entry.id}>
+                  <button
+                    type="button"
+                    className="grid w-full grid-cols-[1fr_1.4fr_1fr_1fr_0.8fr] gap-4 px-4 py-3 text-left text-sm transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                    aria-expanded={isExpanded}
+                    aria-controls={`audit-payload-${entry.id}`}
+                    onClick={() =>
+                      setExpandedId((prev) => (prev === entry.id ? null : entry.id))
                     }
-                  }}
-                >
-                  <span>{formatDate(entry.createdAt)}</span>
-                  <span className="font-medium">{actionLabel(entry.action)}</span>
-                  <span>{entry.entity}</span>
-                  <span className="truncate" onClick={(e) => e.stopPropagation()}>
-                    <AuditHash
-                      hash={entry.entityId}
-                      href={entry.entity === "Encounter" ? `/encounters/${entry.entityId}/result` : undefined}
-                    />
-                  </span>
-                  <span className="font-mono text-xs">{entry.ip ?? "—"}</span>
+                  >
+                    <span>{formatDate(entry.createdAt)}</span>
+                    <span className="font-medium">{actionLabel(entry.action)}</span>
+                    <span>{entry.entity}</span>
+                    <span
+                      className="truncate"
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    >
+                      <AuditHash
+                        hash={entry.entityId}
+                        href={entry.entity === "Encounter" ? `/encounters/${entry.entityId}/result` : undefined}
+                      />
+                    </span>
+                    <span className="font-mono text-xs">{entry.ip ?? "—"}</span>
+                  </button>
+                  {isExpanded && (
+                    <div
+                      id={`audit-payload-${entry.id}`}
+                      className="border-t bg-muted/20 px-4 py-3"
+                    >
+                      <pre className="overflow-x-auto rounded bg-background p-3 text-xs">
+                        {JSON.stringify(entry.payload, null, 2)}
+                      </pre>
+                    </div>
+                  )}
                 </div>
-                {expandedId === entry.id && (
-                  <div className="border-t bg-muted/20 px-4 py-3">
-                    <pre className="overflow-x-auto rounded bg-background p-3 text-xs">
-                      {JSON.stringify(entry.payload, null, 2)}
-                    </pre>
-                  </div>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <div className="flex items-center justify-between">
