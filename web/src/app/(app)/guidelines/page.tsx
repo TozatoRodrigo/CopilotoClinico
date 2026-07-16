@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import Link from 'next/link';
 import {
   BookOpen,
   Check,
@@ -122,10 +121,10 @@ function SourceCard({ result, num }: { result: GuidelineSearchResult; num: numbe
       >
         {origin === 'institutional' ? 'Protocolo inst.' : 'Diretriz pública'}
       </span>
-      {result.sourceUrl && (
-        <Link href={result.sourceUrl} target="_blank" className="shrink-0 text-[0.8rem] font-semibold text-clinical-teal hover:text-clinical-teal-deep">
+      {origin === 'institutional' && (
+        <span className="shrink-0 text-[0.8rem] font-semibold text-clinical-teal hover:text-clinical-teal-deep">
           Abrir →
-        </Link>
+        </span>
       )}
     </div>
   );
