@@ -2,17 +2,19 @@
 
 import { use, useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { apiClient } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { ProgressSteps } from '@/components/ui/progress-steps';
+import { RecordingWaveform } from '@/components/ui/recording-waveform';
 import { useWhisperVoice } from '@/hooks/use-whisper-voice';
 import { useOnlineStatus } from '@/components/providers/offline-provider';
 import { addToQueue } from '@/lib/offline-queue';
 import { syncOfflineQueue } from '@/lib/copilot-queue';
 import { STORAGE_KEY_PREFIX } from '@/hooks/use-copilot-conversation';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
 import {
   Microphone,
   MicrophoneSlash,
@@ -20,6 +22,10 @@ import {
   WifiSlash,
   Spinner,
   Stop,
+  Sparkle,
+  ShieldCheck,
+  ArrowLeft,
+  CheckCircle,
 } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import type { CopilotAnalysis, CopilotAnalyzeResponse, EncounterContext } from '@/lib/types';
@@ -85,6 +91,14 @@ const COMPLAINT_TEMPLATES = [
   'Dor odontológica',
   'Corpo estranho',
 ];
+
+const VERTICAL_LABELS: Record<string, string> = {
+  trauma: 'Trauma',
+  cardiac: 'Cardíaco',
+  pediatric: 'Pediátrico',
+  neuro: 'Neuro',
+  general: 'Geral',
+};
 
 const MIN_CHARS = 10;
 /**
@@ -237,290 +251,321 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] flex-col px-4 py-6">
-      {/*
-        S22-NAV-01 — breadcrumb no fluxo de atendimento. Antes o médico não
-        sabia onde estava na hierarquia (Atendimentos > paciente > Captura).
-      */}
-      <Breadcrumb
-        items={[
-          { label: 'Atendimentos', href: '/encounters' },
-          { label: encounterId.slice(0, 8), href: `/encounters/${encounterId}` },
-          { label: 'Captura' },
-        ]}
-      />
-      {/*
-        S23-CLIN-02 — feedback sutil de rascunho recuperado. Indica ao médico
-        que o texto que ele vê veio do autosave (não foi perdido ao navegar).
-      */}
-      {draftRestored && (
-        <div
-          role="status"
-          className="mb-3 flex items-center gap-2 rounded-md border border-clinical-teal/30 bg-clinical-teal/5 px-3 py-2 text-xs text-muted-foreground"
-        >
-          <span aria-hidden="true">↩</span>
-          Rascunho recuperado do seu último acesso a este caso.
+    <div className="flex h-screen flex-col bg-clinical-paper">
+      <header className="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between border-b border-border bg-white px-4">
+        <div className="flex items-center gap-3">
+          <Link
+            href={`/encounters/${encounterId}`}
+            className="flex items-center gap-1 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ArrowLeft className="size-4" />
+            Fila
+          </Link>
+          <span className="h-5 w-px bg-border" aria-hidden="true" />
+          <span className="font-mono text-sm text-muted-foreground">
+            {encounterId.slice(0, 8)}
+          </span>
+          {demoPreset?.vertical && VERTICAL_LABELS[demoPreset.vertical] && (
+            <Badge variant="secondary" className="ml-1">
+              {VERTICAL_LABELS[demoPreset.vertical]}
+            </Badge>
+          )}
         </div>
-      )}
-      {demoPreset && (
-        <Alert className="mb-4">
-          <AlertTitle>{demoPreset.title}</AlertTitle>
-          <AlertDescription>{demoPreset.summary}</AlertDescription>
-        </Alert>
-      )}
+        <ProgressSteps
+          steps={['Captura', 'Análise', 'Documento']}
+          currentStep={0}
+        />
+      </header>
 
-      <section className="space-y-3">
-        <fieldset>
-          <legend className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            {messages.capture.resources}
-          </legend>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {RESOURCE_CHIPS.map((chip) => (
-              <button
-                key={chip.key}
-                type="button"
-                onClick={() => toggleContext(chip.key)}
-                aria-pressed={!!context[chip.key as keyof EncounterContext]}
-                className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <Badge
-                  variant={context[chip.key as keyof EncounterContext] ? 'default' : 'outline'}
-                  className="cursor-pointer select-none px-3 py-1 text-sm"
-                >
-                  {chip.label}
-                </Badge>
-              </button>
-            ))}
-          </div>
-        </fieldset>
-
-        <fieldset>
-          <legend className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            {messages.capture.redFlags}
-          </legend>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {/*
-              S23-CLIN-04 — chips diferenciados por severidade clínica.
-              Crítico (imunossuprimido, gestante, anticoagulante): vermelho
-              sólido + ícone. Warning (pediátrico, 65+): âmbar. Info (alergia):
-              teal padrão. Coerente com output-validator (critical/high/moderate).
-            */}
-            {RED_FLAG_CHIPS.map((chip) => {
-              const active = !!redFlags[chip.key];
-              return (
-                <button
-                  key={chip.key}
-                  type="button"
-                  onClick={() => toggleRedFlag(chip.key)}
-                  aria-pressed={active}
-                  className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <Badge
-                    variant={active ? redFlagVariant(chip.severity) : 'outline'}
-                    className={cn(
-                      'cursor-pointer select-none px-3 py-1 text-sm',
-                      active && chip.severity === 'critical' &&
-                        'border-destructive bg-destructive text-destructive-foreground',
-                      active && chip.severity === 'warning' &&
-                        'border-clinical-amber bg-clinical-amber text-clinical-amber-foreground',
-                    )}
-                  >
-                    {chip.severity === 'critical' && active && (
-                      <WarningCircle className="mr-1 inline size-3" weight="fill" aria-hidden="true" />
-                    )}
-                    {chip.label}
-                  </Badge>
-                </button>
-              );
-            })}
-          </div>
-        </fieldset>
-      </section>
-      <section className="mt-4">
-        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
-          {COMPLAINT_TEMPLATES.map((template) => (
-            <button
-              key={template}
-              type="button"
-              onClick={() => applyTemplate(template)}
-              className="shrink-0 rounded-full border border-border/70 bg-card px-3 py-1 text-sm text-muted-foreground transition-colors hover:border-clinical-teal/40 hover:text-foreground"
-            >
-              {template}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section className="mt-6 flex flex-1 flex-col justify-end pb-4">
-        {isVoiceSupported ? (
-          <div className="flex flex-col items-center gap-3">
-            {/* S21-VOICE-04 — Estados: idle (mic) → recording (stop, vermelho)
-                → uploading (spinner). Botão grande de 64px acessível. */}
-            <button
-              type="button"
-              onClick={() => {
-                if (whisper.isUploading) return; // não interrompe upload
-                if (whisper.isListening) {
-                  whisper.stop();
-                } else {
-                  whisper.start(handleVoiceTranscript);
-                }
-              }}
-              disabled={loading || whisper.isUploading}
-              className={cn(
-                'flex size-16 items-center justify-center rounded-full transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                whisper.isListening
-                  ? 'bg-clinical-teal text-white shadow-lg shadow-clinical-teal/30 scale-105'
-                  : whisper.isUploading
-                    ? 'bg-muted text-muted-foreground'
-                    : 'bg-card border-2 border-clinical-teal/40 text-clinical-teal hover:bg-clinical-teal/10',
-                (loading || whisper.isUploading) && 'cursor-not-allowed',
-              )}
-              aria-label={
-                whisper.isListening
-                  ? messages.capture.voice.stop
-                  : whisper.isUploading
-                    ? messages.capture.voice.transcribing
-                    : messages.capture.voice.start
-              }
-            >
-              {whisper.isListening ? (
-                <Stop className="size-8" weight="fill" />
-              ) : whisper.isUploading ? (
-                <Spinner className="size-8 animate-spin" weight="bold" />
-              ) : (
-                <Microphone className="size-8" weight="bold" />
-              )}
-            </button>
-
-            {/* S21-VOICE-04 — feedback contínuo durante gravação.
-                Waveform simples com 5 barras animadas pelo audioLevel do hook. */}
-            {whisper.isListening && (
-              <div
-                className="flex items-center gap-2"
-                role="status"
-                aria-live="polite"
-                aria-label={`${messages.capture.voice.recording} ${formatElapsed(whisper.elapsedMs)}`}
-              >
-                <div className="flex items-end gap-1" aria-hidden="true">
-                  {Array.from({ length: 5 }).map((_, i) => {
-                    const baseLevel = whisper.audioLevel ?? 0.15;
-                    // Variação por barra para parecer waveform natural.
-                    const barLevel = Math.min(
-                      1,
-                      baseLevel * (0.6 + Math.sin(Date.now() / 200 + i) * 0.4 + i * 0.05),
-                    );
-                    return (
-                      <span
-                        key={i}
-                        className="inline-block w-1 rounded-full bg-clinical-teal transition-[height] duration-75"
-                        style={{ height: `${4 + barLevel * 20}px` }}
-                      />
-                    );
-                  })}
-                </div>
-                <span className="ml-1 font-mono text-sm tabular-nums text-clinical-teal">
-                  {formatElapsed(whisper.elapsedMs)}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => whisper.cancel()}
-                  className="ml-2 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
-                >
-                  {messages.capture.voice.cancel}
-                </button>
-              </div>
-            )}
-
-            {/* S21-VOICE-04 — feedback durante upload da transcrição. */}
-            {whisper.isUploading && (
-              <p
-                className="flex items-center gap-2 text-sm text-muted-foreground"
-                role="status"
-                aria-live="polite"
-              >
-                {messages.capture.voice.transcribing}
-              </p>
-            )}
-
-            {/* Idle: dica inicial. */}
-            {!whisper.isListening && !whisper.isUploading && (
-              <p className="text-sm text-muted-foreground">
-                {messages.capture.voice.tapToDictate}
-              </p>
-            )}
-          </div>
-        ) : (
-          // S21-VOICE-05 — fallback quando nem MediaRecorder existe (muito raro;
-          // cobre browsers legados sem suporte a getUserMedia). Mensagem clara
-          // em pt-BR destacando o textarea.
+      <div className="flex-1 overflow-y-auto">
+        {draftRestored && (
           <div
             role="status"
-            className="flex items-start gap-3 rounded-lg border border-clinical-teal/30 bg-clinical-teal/5 px-4 py-3"
+            className="flex items-center gap-2 border-b border-clinical-teal/30 bg-clinical-teal/5 px-4 py-2 text-xs text-muted-foreground"
           >
-            <MicrophoneSlash
-              className="mt-0.5 size-5 shrink-0 text-clinical-teal"
-              weight="duotone"
-              aria-hidden="true"
-            />
-            <div className="space-y-0.5">
-              <p className="text-sm font-medium text-foreground">
-                {messages.capture.voice.unsupportedTitle}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {messages.capture.voice.unsupportedDescription}
-              </p>
-            </div>
+            <span aria-hidden="true">↩</span>
+            Rascunho recuperado do seu último acesso a este caso.
+          </div>
+        )}
+        {demoPreset && (
+          <div className="border-b border-border bg-card px-4 py-3">
+            <Alert className="border-0 bg-transparent p-0">
+              <AlertTitle>{demoPreset.title}</AlertTitle>
+              <AlertDescription>{demoPreset.summary}</AlertDescription>
+            </Alert>
           </div>
         )}
 
-        <div className="mt-4">
-          <Textarea
-            aria-label={messages.capture.caseLabel}
-            placeholder={messages.capture.placeholder}
-            className={cn(
-              'min-h-[100px] resize-y border-border/50 bg-transparent text-sm',
-              // S20-VOICE-01 — realça o textarea quando voz não está disponível,
-              // direcionando o médico para onde a ação acontece agora.
-              !isVoiceSupported && 'border-clinical-teal/40 focus-visible:ring-clinical-teal/30',
+        <div className="grid grid-cols-1 md:grid-cols-[340px_1fr]">
+          {/* Left panel — recursos, red flags, modelos de queixa, nota LGPD */}
+          <aside className="flex flex-col gap-6 border-b border-border bg-card p-4 md:border-b-0 md:border-r">
+            <fieldset>
+              <legend className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                {messages.capture.resources}
+              </legend>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {RESOURCE_CHIPS.map((chip) => (
+                  <button
+                    key={chip.key}
+                    type="button"
+                    onClick={() => toggleContext(chip.key)}
+                    aria-pressed={!!context[chip.key as keyof EncounterContext]}
+                    className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <Badge
+                      variant={context[chip.key as keyof EncounterContext] ? 'default' : 'outline'}
+                      className="cursor-pointer select-none px-3 py-1 text-sm"
+                    >
+                      {chip.label}
+                    </Badge>
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                {messages.capture.redFlags}
+              </legend>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {/*
+                  S23-CLIN-04 — chips diferenciados por severidade clínica.
+                  Crítico (imunossuprimido, gestante, anticoagulante): vermelho
+                  sólido + ícone. Warning (pediátrico, 65+): âmbar. Info (alergia):
+                  teal padrão. Coerente com output-validator (critical/high/moderate).
+                */}
+                {RED_FLAG_CHIPS.map((chip) => {
+                  const active = !!redFlags[chip.key];
+                  return (
+                    <button
+                      key={chip.key}
+                      type="button"
+                      onClick={() => toggleRedFlag(chip.key)}
+                      aria-pressed={active}
+                      className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <Badge
+                        variant={active ? redFlagVariant(chip.severity) : 'outline'}
+                        className={cn(
+                          'cursor-pointer select-none px-3 py-1 text-sm',
+                          active &&
+                            chip.severity === 'critical' &&
+                            'border-destructive bg-destructive text-destructive-foreground',
+                          active &&
+                            chip.severity === 'warning' &&
+                            'border-clinical-amber bg-clinical-amber text-clinical-amber-foreground',
+                        )}
+                      >
+                        {chip.severity === 'critical' && active && (
+                          <WarningCircle
+                            className="mr-1 inline size-3"
+                            weight="fill"
+                            aria-hidden="true"
+                          />
+                        )}
+                        {chip.label}
+                      </Badge>
+                    </button>
+                  );
+                })}
+              </div>
+            </fieldset>
+
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                {messages.capture.complaintHint}
+              </p>
+              <div className="mt-2 flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+                {COMPLAINT_TEMPLATES.map((template) => (
+                  <button
+                    key={template}
+                    type="button"
+                    onClick={() => applyTemplate(template)}
+                    className="shrink-0 rounded-full border border-border/70 bg-card px-3 py-1 text-sm text-muted-foreground transition-colors hover:border-clinical-teal/40 hover:text-foreground"
+                  >
+                    {template}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-auto flex items-start gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2.5">
+              <ShieldCheck
+                className="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                weight="duotone"
+                aria-hidden="true"
+              />
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Sem dados pessoais do paciente. PII é filtrada antes de qualquer envio à IA (LGPD).
+              </p>
+            </div>
+          </aside>
+
+          {/* Right panel — gravação + transcrição + ação */}
+          <main className="flex flex-col gap-6 p-4 md:p-6">
+            {!isVoiceSupported ? (
+              <div
+                role="status"
+                className="flex items-start gap-3 rounded-lg border border-clinical-teal/30 bg-clinical-teal/5 px-4 py-3"
+              >
+                <MicrophoneSlash
+                  className="mt-0.5 size-5 shrink-0 text-clinical-teal"
+                  weight="duotone"
+                  aria-hidden="true"
+                />
+                <div className="space-y-0.5">
+                  <p className="text-sm font-medium text-foreground">
+                    {messages.capture.voice.unsupportedTitle}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {messages.capture.voice.unsupportedDescription}
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
+            <section className="flex flex-1 flex-col overflow-hidden rounded-xl border border-border bg-white">
+              {/* Cabeçalho do cartão — estado da gravação */}
+              <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+                {isVoiceSupported && whisper.isListening ? (
+                  <>
+                    <span className="relative flex size-2.5" aria-hidden="true">
+                      <span className="absolute inline-flex size-full animate-ping rounded-full bg-clinical-error opacity-75" />
+                      <span className="relative inline-flex size-2.5 rounded-full bg-clinical-error" />
+                    </span>
+                    <span className="text-sm font-medium text-foreground">
+                      {messages.capture.voice.recording}
+                    </span>
+                    <RecordingWaveform active={whisper.isListening} />
+                    <span className="font-mono text-sm tabular-nums text-muted-foreground">
+                      {formatElapsed(whisper.elapsedMs)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => whisper.cancel()}
+                      className="ml-auto text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                    >
+                      {messages.capture.voice.cancel}
+                    </button>
+                  </>
+                ) : isVoiceSupported && whisper.isUploading ? (
+                  <span className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                    <Spinner className="size-4 animate-spin" />
+                    {messages.capture.voice.transcribing}
+                  </span>
+                ) : (
+                  <span className="text-sm font-medium text-muted-foreground">Pronto</span>
+                )}
+              </div>
+
+              {/* Corpo — textarea estilo pauta */}
+              <Textarea
+                aria-label={messages.capture.caseLabel}
+                placeholder={messages.capture.placeholder}
+                className={cn(
+                  'min-h-[200px] flex-1 resize-y rounded-none border-0 bg-[repeating-linear-gradient(transparent,transparent_31px,var(--line)_31px,var(--line)_32px)] text-base leading-[32px] focus-visible:ring-0',
+                  !isVoiceSupported &&
+                    'border-clinical-teal/40 focus-visible:ring-clinical-teal/30',
+                )}
+                value={caseText}
+                onChange={(e) => setCaseText(e.target.value)}
+                disabled={loading}
+              />
+
+              {/* Rodapé — validação + contagem */}
+              <div className="flex items-center justify-between border-t border-border px-4 py-2 text-xs">
+                <span
+                  className={cn(
+                    'flex items-center gap-1',
+                    isValid ? 'text-clinical-green' : 'text-muted-foreground',
+                  )}
+                >
+                  {isValid ? (
+                    <>
+                      <CheckCircle className="size-3.5" weight="fill" aria-hidden="true" />
+                      {messages.capture.readyToAnalyze}
+                    </>
+                  ) : (
+                    messages.capture.charMin(MIN_CHARS)
+                  )}
+                </span>
+                <span className="font-mono text-muted-foreground">{caseText.trim().length}</span>
+              </div>
+            </section>
+
+            {!isOnline && (
+              <div className="flex items-center gap-2 rounded-full border border-clinical-amber/30 bg-clinical-amber-bg px-3 py-1.5 text-xs text-clinical-amber-foreground">
+                <WifiSlash className="size-3.5" />
+                {messages.capture.offlineHint}
+              </div>
             )}
-            value={caseText}
-            onChange={(e) => setCaseText(e.target.value)}
-            disabled={loading}
-          />
-          <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
-            <span>
-              {caseText.trim().length < MIN_CHARS
-                ? messages.capture.charMin(MIN_CHARS)
-                : messages.capture.readyToAnalyze}
-            </span>
-            <span className="font-mono">{caseText.trim().length}</span>
-          </div>
+
+            {error && (
+              <Alert variant="destructive">
+                <AlertTitle>{messages.errors.title}</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className="mt-auto flex items-center gap-4">
+              {isVoiceSupported && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (whisper.isUploading) return;
+                    if (whisper.isListening) {
+                      whisper.stop();
+                    } else {
+                      whisper.start(handleVoiceTranscript);
+                    }
+                  }}
+                  disabled={loading || whisper.isUploading}
+                  className={cn(
+                    'flex size-[72px] shrink-0 items-center justify-center rounded-full shadow-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                    whisper.isListening
+                      ? 'bg-clinical-error text-white shadow-clinical-error/30 scale-105'
+                      : whisper.isUploading
+                        ? 'cursor-not-allowed bg-muted text-muted-foreground'
+                        : 'bg-clinical-teal text-white shadow-clinical-teal/30 hover:brightness-105',
+                    (loading || whisper.isUploading) && 'cursor-not-allowed',
+                  )}
+                  aria-label={
+                    whisper.isListening
+                      ? messages.capture.voice.stop
+                      : whisper.isUploading
+                        ? messages.capture.voice.transcribing
+                        : messages.capture.voice.start
+                  }
+                >
+                  {whisper.isListening ? (
+                    <Stop className="size-7" weight="fill" />
+                  ) : whisper.isUploading ? (
+                    <Spinner className="size-7 animate-spin" weight="bold" />
+                  ) : (
+                    <Microphone className="size-7" weight="fill" />
+                  )}
+                </button>
+              )}
+
+              <Button
+                className="h-[60px] flex-1 bg-clinical-teal text-base font-semibold hover:bg-clinical-teal/90"
+                size="lg"
+                disabled={!isValid || loading}
+                onClick={handleSubmit}
+              >
+                {loading ? (
+                  messages.capture.ctaLoading
+                ) : (
+                  <>
+                    <Sparkle className="mr-2 size-5" weight="fill" />
+                    {messages.capture.cta}
+                  </>
+                )}
+              </Button>
+            </div>
+          </main>
         </div>
-      </section>
-
-      {!isOnline && (
-        <div className="mt-2 flex items-center gap-2 rounded-full border border-clinical-amber/30 bg-clinical-amber-bg px-3 py-1.5 text-xs text-clinical-amber-foreground">
-          <WifiSlash className="size-3.5" />
-          {messages.capture.offlineHint}
-        </div>
-      )}
-
-      {error && (
-        <Alert variant="destructive" className="mt-3">
-          <AlertTitle>{messages.errors.title}</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
-      <Button
-        className="mt-4 w-full"
-        size="lg"
-        disabled={!isValid || loading}
-        onClick={handleSubmit}
-      >
-        {loading ? messages.capture.ctaLoading : messages.capture.cta}
-      </Button>
+      </div>
     </div>
   );
 }

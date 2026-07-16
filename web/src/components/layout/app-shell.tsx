@@ -293,10 +293,15 @@ export interface AppShellProps {
   variant?: 'full' | 'focus';
 }
 
-export function AppShell({ children, variant = 'full' }: AppShellProps) {
+export function AppShell({ children, variant }: AppShellProps) {
   const pathname = usePathname();
   const { role } = useAuth();
   const links = NAV_BY_ROLE[role];
+
+  const isFocusRoute =
+    /\/encounters\/[^/]+\/(capture|result)/.test(pathname) ||
+    /\/encounters\/[^/]+\/documents\/[^/]+\/edit/.test(pathname);
+  const effectiveVariant = variant ?? (isFocusRoute ? 'focus' : 'full');
 
   return (
     <div className="flex min-h-screen">
@@ -309,7 +314,7 @@ export function AppShell({ children, variant = 'full' }: AppShellProps) {
 
       {/* Desktop sidebar */}
       <div className="hidden md:flex">
-        {variant === 'focus' ? (
+        {effectiveVariant === 'focus' ? (
           <FocusRail navItems={links} />
         ) : (
           <ClinicalSidebar navItems={links} showOnlineStatus />
