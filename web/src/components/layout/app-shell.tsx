@@ -7,7 +7,7 @@ import {
   ClipboardText,
   Gear,
   House,
-  Keyboard,
+  List,
   MagnifyingGlass,
   Plus,
   ShieldCheck,
@@ -43,50 +43,38 @@ import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { ClinicalSidebar, type NavItem } from '@/components/layout/clinical-sidebar';
+import { FocusRail } from '@/components/layout/focus-rail';
 
-type NavLink = {
-  href: string;
-  label: string;
-  shortLabel?: string;
-  icon: typeof House;
-};
+const FEATURE_COMMAND_K_ENABLED = true;
 
-/**
- * S20-UX-01 — Feature flag local para o ⌘K (palette de ações rápidas).
- *
- * O componente existe e está preservado, mas hoje é um placeholder exposto em
- * produção com copy de roadmap ("entra na F3"). Até a implementação funcional
- * (busca real por atendimentos, diretrizes, ações), o botão é ocultado e o
- * listener de teclado é desativado — evita falsa expectativa do usuário.
- *
- * Para reativar (em dev/staging): mudar para `true`.
- */
-const FEATURE_COMMAND_K_ENABLED = false;
-
-const NAV_BY_ROLE: Record<AppRole, NavLink[]> = {
+const NAV_BY_ROLE: Record<AppRole, NavItem[]> = {
   physician: [
-    { href: '/dashboard', label: 'Painel', icon: House },
-    { href: '/encounters', label: 'Atendimentos', shortLabel: 'Casos', icon: ClipboardText },
-    { href: '/guidelines', label: 'Diretrizes', shortLabel: 'Guias', icon: BookOpen },
+    { href: '/dashboard', label: 'Plantão', icon: House },
+    { href: '/encounters', label: 'Casos', icon: ClipboardText },
+    { href: '/guidelines', label: 'Diretrizes', icon: BookOpen },
   ],
   compliance: [
-    { href: '/dashboard', label: 'Painel', icon: House },
-    { href: '/audit', label: 'Auditoria', shortLabel: 'Audit', icon: ShieldCheck },
-    { href: '/guidelines', label: 'Diretrizes', shortLabel: 'Guias', icon: BookOpen },
-    { href: '/admin', label: 'Console', shortLabel: 'Admin', icon: Gear },
+    { href: '/dashboard', label: 'Plantão', icon: House },
+    { href: '/encounters', label: 'Casos', icon: ClipboardText },
+    { href: '/guidelines', label: 'Diretrizes', icon: BookOpen },
+    { href: '/audit', label: 'Auditoria', icon: ShieldCheck },
+    { href: '/admin', label: 'Console', icon: Gear },
   ],
   admin: [
-    { href: '/dashboard', label: 'Painel', icon: House },
-    { href: '/audit', label: 'Auditoria', shortLabel: 'Audit', icon: ShieldCheck },
-    { href: '/guidelines', label: 'Diretrizes', shortLabel: 'Guias', icon: BookOpen },
-    { href: '/admin', label: 'Console', shortLabel: 'Admin', icon: Gear },
+    { href: '/dashboard', label: 'Plantão', icon: House },
+    { href: '/encounters', label: 'Casos', icon: ClipboardText },
+    { href: '/guidelines', label: 'Diretrizes', icon: BookOpen },
+    { href: '/audit', label: 'Auditoria', icon: ShieldCheck },
+    { href: '/admin', label: 'Console', icon: Gear },
   ],
 };
 
-const MOBILE_TABS: NavLink[] = [
-  { href: '/dashboard', label: 'Painel', icon: House },
+const MOBILE_TABS: NavItem[] = [
+  { href: '/dashboard', label: 'Plantão', icon: House },
   { href: '/encounters/new', label: 'Novo', icon: Plus },
-  { href: '/encounters', label: 'Atendimentos', shortLabel: 'Casos', icon: ClipboardText },
+  { href: '/encounters', label: 'Casos', icon: ClipboardText },
+  { href: '/guidelines', label: 'Diretrizes', icon: BookOpen },
 ];
 
 const COMMAND_LINKS = [
@@ -138,25 +126,13 @@ function QuickActions() {
   return (
     <>
       <Button
-        variant="outline"
-        className="hidden min-w-44 justify-between md:flex"
-        onClick={() => setOpen(true)}
-      >
-        <span className="flex items-center gap-2">
-          <MagnifyingGlass className="size-4" />
-          Ações rápidas
-        </span>
-        <Badge variant="outline">⌘K</Badge>
-      </Button>
-
-      <Button
         variant="ghost"
         size="icon"
-        className="md:hidden h-9 w-9"
+        className="h-9 w-9"
         onClick={() => setOpen(true)}
       >
-        <Keyboard className="size-4" />
-        <span className="sr-only">Abrir ações rápidas</span>
+        <MagnifyingGlass className="size-4" />
+        <span className="sr-only">Ações rápidas (⌘K)</span>
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
@@ -164,7 +140,7 @@ function QuickActions() {
           <DialogHeader>
             <DialogTitle variant="brand">Ações rápidas</DialogTitle>
             <DialogDescription>
-              Scaffold inicial da paleta global. A busca funcional entra na F3.
+              Navegação rápida. A busca funcional entra na F3.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -267,28 +243,19 @@ function UserMenu() {
   );
 }
 
-function MobileNav({ links }: { links: NavLink[] }) {
+function MobileNavSheet({ links }: { links: NavItem[] }) {
   const pathname = usePathname();
 
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="md:hidden h-9 w-9">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <line x1="4" x2="20" y1="12" y2="12" />
-            <line x1="4" x2="20" y1="6" y2="6" />
-            <line x1="4" x2="20" y1="18" y2="18" />
-          </svg>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-9 w-9"
+          style={{ color: 'var(--sidebar-dark-text)' }}
+        >
+          <List className="size-5" />
           <span className="sr-only">Menu</span>
         </Button>
       </SheetTrigger>
@@ -321,98 +288,111 @@ function MobileNav({ links }: { links: NavLink[] }) {
   );
 }
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export interface AppShellProps {
+  children: React.ReactNode;
+  variant?: 'full' | 'focus';
+}
+
+export function AppShell({ children, variant = 'full' }: AppShellProps) {
   const pathname = usePathname();
   const { role } = useAuth();
   const links = NAV_BY_ROLE[role];
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="flex min-h-screen">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground"
       >
         Pular para o conteúdo
       </a>
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-14 items-center px-4 md:px-6">
-          <MobileNav links={links} />
-          <Link href="/dashboard" className="flex items-center gap-2 font-semibold md:mr-6">
-            <Stethoscope className="size-5 text-primary" />
-            <span className="hidden md:inline">Copiloto Clínico</span>
-          </Link>
-          <nav
-            aria-label="Navegação principal"
-            className="hidden md:flex items-center gap-1 text-sm"
-          >
-            {links.map((link) => {
-              const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
-              const Icon = link.icon;
+
+      {/* Desktop sidebar */}
+      <div className="hidden md:flex">
+        {variant === 'focus' ? (
+          <FocusRail navItems={links} />
+        ) : (
+          <ClinicalSidebar navItems={links} showOnlineStatus />
+        )}
+      </div>
+
+      {/* Main area */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Mobile dark header */}
+        <header
+          className="flex h-14 items-center justify-between px-4 md:hidden"
+          style={{ background: 'var(--sidebar-dark-bg)' }}
+        >
+          <div className="flex items-center gap-2">
+            <MobileNavSheet links={links} />
+            <div className="flex items-center gap-1.5">
+              <Stethoscope
+                className="size-4"
+                style={{ color: 'var(--sidebar-dark-accent)' }}
+              />
+              <span
+                className="text-sm font-semibold"
+                style={{ color: 'var(--sidebar-dark-text-bright)' }}
+              >
+                Copiloto Clínico
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            <OfflineQueueBadge />
+            <div style={{ color: 'var(--sidebar-dark-text)' }}>
+              <ThemeToggle />
+            </div>
+            <UserMenu />
+          </div>
+        </header>
+
+        {/* Desktop floating controls */}
+        <div className="absolute right-4 top-4 z-30 hidden items-center gap-1 md:flex">
+          <OfflineQueueBadge />
+          <QuickActions />
+          <ThemeToggle />
+          <UserMenu />
+        </div>
+
+        {/* Main content */}
+        <main
+          id="main-content"
+          aria-label="Conteúdo principal"
+          className="flex-1 overflow-hidden px-5 py-6 pb-24 md:px-10 md:py-8 md:pb-8"
+        >
+          {children}
+        </main>
+
+        {/* Mobile bottom nav */}
+        <nav
+          aria-label="Navegação inferior"
+          className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 px-4 py-2 backdrop-blur md:hidden"
+        >
+          <div className="mx-auto flex max-w-md items-center justify-between gap-2">
+            {MOBILE_TABS.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = pathname === tab.href || pathname.startsWith(tab.href + '/');
               return (
                 <Link
-                  key={link.href}
-                  href={link.href}
+                  key={tab.href}
+                  href={tab.href}
                   aria-current={isActive ? 'page' : undefined}
                   className={cn(
-                    'inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                    'flex min-w-0 flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 text-xs font-medium transition-colors',
                     isActive
                       ? 'bg-accent text-accent-foreground'
-                      : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
+                      : 'text-muted-foreground hover:bg-accent/40 hover:text-foreground',
                   )}
                 >
                   <Icon className="size-4" />
-                  {link.label}
+                  <span>{tab.label}</span>
                 </Link>
               );
             })}
-          </nav>
-          <div className="flex-1" />
-          <div className="flex items-center gap-2">
-            {/*
-              S23-CLIN-03 — badge de fila offline visível no header.
-              Só aparece quando há itens pendentes (count > 0).
-            */}
-            <OfflineQueueBadge />
-            <QuickActions />
-            <ThemeToggle />
-            <UserMenu />
           </div>
-        </div>
-      </header>
-      <main
-        id="main-content"
-        aria-label="Conteúdo principal"
-        className="flex-1 container px-4 py-6 pb-24 md:px-6 md:pb-6"
-      >
-        {children}
-      </main>
-      <nav
-        aria-label="Navegação inferior"
-        className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 px-4 py-2 backdrop-blur md:hidden"
-      >
-        <div className="mx-auto flex max-w-md items-center justify-between gap-2">
-          {MOBILE_TABS.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = pathname === tab.href || pathname.startsWith(tab.href + '/');
-            return (
-              <Link
-                key={tab.href}
-                href={tab.href}
-                aria-current={isActive ? 'page' : undefined}
-                className={cn(
-                  'flex min-w-0 flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 text-xs font-medium transition-colors',
-                  isActive
-                    ? 'bg-accent text-accent-foreground'
-                    : 'text-muted-foreground hover:bg-accent/40 hover:text-foreground',
-                )}
-              >
-                <Icon className="size-4" />
-                <span>{tab.shortLabel ?? tab.label}</span>
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
+        </nav>
+      </div>
     </div>
   );
 }
