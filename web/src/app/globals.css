@@ -73,6 +73,18 @@
   --color-clinical-error-bg: var(--error-bg);
   --color-clinical-error-foreground: var(--error-foreground);
 
+  /* Paleta sidebar dark teal — redesign "Prontuário Vivo" */
+  --color-sidebar-dark-bg: var(--sidebar-dark-bg);
+  --color-sidebar-dark-bg-elevated: var(--sidebar-dark-bg-elevated);
+  --color-sidebar-dark-accent: var(--sidebar-dark-accent);
+  --color-sidebar-dark-text: var(--sidebar-dark-text);
+  --color-sidebar-dark-text-bright: var(--sidebar-dark-text-bright);
+  --color-sidebar-dark-text-muted: var(--sidebar-dark-text-muted);
+  --color-sidebar-dark-text-dim: var(--sidebar-dark-text-dim);
+  --color-sidebar-dark-divider: var(--sidebar-dark-divider);
+  --color-sidebar-dark-border-subtle: var(--sidebar-dark-border-subtle);
+  --color-sidebar-dark-green-online: var(--sidebar-dark-green-online);
+
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -136,6 +148,18 @@
   --error-foreground: #7c2d29;
   --error-foreground: oklch(0.4084 0.0885 28.52);
 
+  /* Sidebar dark teal — redesign "Prontuário Vivo" */
+  --sidebar-dark-bg: #0C302F;
+  --sidebar-dark-bg-elevated: #114B49;
+  --sidebar-dark-accent: #7FD1CD;
+  --sidebar-dark-text: #CFE5E3;
+  --sidebar-dark-text-bright: #EDF6F5;
+  --sidebar-dark-text-muted: #9FC0BD;
+  --sidebar-dark-text-dim: #7FA8A5;
+  --sidebar-dark-divider: rgba(255, 255, 255, 0.08);
+  --sidebar-dark-border-subtle: rgba(127, 209, 205, 0.25);
+  --sidebar-dark-green-online: #4ADE80;
+
   /* Mapeamento semântico (shadcn) — sempre derivado da paleta acima */
   --background: var(--paper);
   --foreground: var(--ink);
@@ -190,6 +214,15 @@
   --error: oklch(0.68 0.16 28.52);
   --error-bg: oklch(0.28 0.06 28.52);
   --error-foreground: oklch(0.92 0.04 28.52);
+
+  /* Sidebar dark teal — levemente ajustada para dark mode global */
+  --sidebar-dark-bg: oklch(0.22 0.03 190);
+  --sidebar-dark-bg-elevated: oklch(0.28 0.04 190);
+  --sidebar-dark-accent: oklch(0.82 0.07 180);
+  --sidebar-dark-text: oklch(0.88 0.02 180);
+  --sidebar-dark-text-bright: oklch(0.95 0.01 180);
+  --sidebar-dark-text-muted: oklch(0.72 0.03 180);
+  --sidebar-dark-text-dim: oklch(0.62 0.03 180);
 }
 
 @layer base {
@@ -219,6 +252,16 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+@keyframes wave {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
   }
 }
 
