@@ -9,167 +9,123 @@ import {
   MagnifyingGlass,
   SealCheck,
   ShieldWarning,
+  Sparkle,
+  Copy,
+  PlusCircle,
   X,
 } from '@phosphor-icons/react';
 import { useAuth } from '@/lib/auth-store';
 import {
   useGuidelineSearch,
-  useGuidelineSources,
   usePendingGuidelineChunks,
   useApproveGuidelineChunk,
   useRejectGuidelineChunk,
 } from '@/lib/clinical-queries';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import type { GuidelineSearchResult, PendingGuidelineChunk } from '@/lib/types';
 
-const SPECIALTIES = [
-  'Clínica Médica',
-  'Cardiologia',
-  'Pneumologia',
-  'Infectologia',
-  'Geriatria',
-  'Emergência',
-];
+const FILTER_PILLS = ['Todas', 'Trauma', 'Cardíaco', 'Pediátrico', 'Neuro', 'Geral'];
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('pt-BR', {
+const SPECIALTY_MAP: Record<string, string | undefined> = {
+  Todas: undefined,
+  Trauma: 'Emergência',
+  Cardíaco: 'Cardiologia',
+  Pediátrico: 'Pediatria',
+  Neuro: 'Neurologia',
+  Geral: 'Clínica Médica',
+};
+
+function composeAnswer(results: GuidelineSearchResult[]): { text: string; count: number } {
+  const top = results.slice(0, 5);
+  if (top.length === 0) return { text: '', count: 0 };
+
+  const excerpts = top.map((r, i) => {
+    const snippet = r.text.length > 200 ? r.text.slice(0, 200).trim() + '…' : r.text;
+    return { num: i + 1, snippet };
+  });
+
+  const text = excerpts
+    .map((e) => `${e.snippet} [${e.num}]`)
+    .join(' ');
+
+  return { text, count: top.length };
+}
+
+function DirectAnswerCard({ results }: { results: GuidelineSearchResult[] }) {
+  const { text, count } = composeAnswer(results);
+
+  function handleCopy() {
+    const full = `${text}\n\n${results
+      .slice(0, count)
+      .map((r, i) => `[${i + 1}] ${r.source} v${r.sourceVersion}`)
+      .join('\n')}`;
+    navigator.clipboard.writeText(full);
+    toast.success('Resposta copiada com citações.');
+  }
+
+  return (
+    <div
+      className="rounded-[14px] border border-clinical-line border-l-4 border-l-clinical-teal bg-card p-5"
+      style={{ borderLeftColor: 'var(--teal)' }}
+    >
+      <p className="mb-2 font-mono text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-clinical-teal-deep">
+        Resposta direta · {count} trechos
+      </p>
+      <p className="text-[0.95rem] leading-relaxed">{text}</p>
+      <div className="mt-3.5 flex items-center gap-2 border-t border-clinical-line pt-3">
+        <Button variant="outline" size="sm" className="h-[34px] gap-1.5 text-[0.8rem]" onClick={handleCopy}>
+          <Copy className="size-3" /> Copiar com citações
+        </Button>
+        <Button variant="outline" size="sm" className="h-[34px] gap-1.5 text-[0.8rem]">
+          <PlusCircle className="size-3" /> Usar no caso atual
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function SourceCard({ result, num }: { result: GuidelineSearchResult; num: number }) {
+  const origin = result.institutionId ? 'institutional' : 'public';
+  const snippet = result.text.length > 180 ? result.text.slice(0, 180).trim() + '…' : result.text;
+  const dateStr = new Date(result.validFrom).toLocaleDateString('pt-BR', {
     month: 'short',
     year: 'numeric',
   });
-}
-
-function ProvenanceSeal({ reviewer, validFrom }: { reviewer: string | null; validFrom: string }) {
-  if (!reviewer) {
-    return (
-      <Badge variant="outline" className="gap-1 text-[10px]">
-        <Clock className="size-3" aria-hidden="true" />
-        {formatDate(validFrom)}
-      </Badge>
-    );
-  }
 
   return (
-    <Badge variant="success" className="gap-1 text-[10px]">
-      <SealCheck className="size-3" weight="fill" aria-hidden="true" />
-      Validado por {reviewer} · {formatDate(validFrom)}
-    </Badge>
-  );
-}
-
-function GuidelineCard({ result }: { result: GuidelineSearchResult }) {
-  const meta = (result.metadata ?? {}) as Record<string, unknown>;
-  const cenario = typeof meta.cenario === 'string' ? meta.cenario : null;
-  const redFlags = Array.isArray(meta.redFlags) ? meta.redFlags : [];
-  const origin = result.institutionId ? 'institutional' : 'public';
-
-  return (
-    <Card className="gap-0 overflow-hidden">
-      <CardHeader className="pb-2">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div className="space-y-1">
-            <CardTitle className="text-sm font-semibold">{result.source}</CardTitle>
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="outline" className="font-mono text-[10px]">
-                v{result.sourceVersion}
-              </Badge>
-              <Badge variant="secondary" className="text-[10px]">
-                {result.specialty}
-              </Badge>
-              {result.evidenceLevel && (
-                <Badge variant="outline" className="text-[10px]">
-                  Evidência {result.evidenceLevel}
-                </Badge>
-              )}
-              {origin === 'institutional' && (
-                <Badge variant="success" className="text-[10px]">
-                  Protocolo institucional
-                </Badge>
-              )}
-            </div>
-          </div>
-          <ProvenanceSeal reviewer={result.reviewerName} validFrom={result.validFrom} />
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-2">
-        {cenario && (
-          <p className="text-xs font-medium text-clinical-teal-deep">Cenário: {cenario}</p>
-        )}
-        <p className="line-clamp-4 text-sm text-muted-foreground">{result.text}</p>
-        {redFlags.length > 0 && (
-          <div className="flex items-start gap-1.5 rounded-md bg-clinical-amber-bg px-3 py-2">
-            <ShieldWarning
-              className="mt-0.5 size-3.5 shrink-0 text-clinical-amber"
-              aria-hidden="true"
-            />
-            <span className="text-xs text-clinical-amber-foreground">{redFlags.join(' · ')}</span>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function SearchResults({ query, specialty }: { query: string; specialty: string | undefined }) {
-  const { data, isLoading, isError } = useGuidelineSearch(query, specialty);
-
-  if (query.trim().length < 2) {
-    return (
-      <div className="flex flex-col items-center gap-3 py-12 text-center">
-        <BookOpen className="size-10 text-muted-foreground" weight="duotone" aria-hidden="true" />
-        <p className="text-sm text-muted-foreground">
-          Digite ao menos 2 caracteres para buscar no acervo clínico.
+    <div className="flex items-center gap-3.5 rounded-[14px] border border-clinical-line bg-card p-4">
+      <span className="shrink-0 font-mono text-[0.75rem] text-clinical-teal-deep">[{num}]</span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[0.85rem] font-semibold">
+          {result.source}{' '}
+          <span className="font-mono text-[0.7rem] font-normal text-muted-foreground">
+            v{result.sourceVersion} · {dateStr}
+          </span>
+        </p>
+        <p className="mt-0.5 line-clamp-2 text-[0.8rem] leading-relaxed text-muted-foreground">
+          "{snippet}"
         </p>
       </div>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <div className="space-y-3">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="space-y-2 rounded-xl border border-border/70 p-4">
-            <Skeleton className="h-4 w-48" />
-            <Skeleton className="h-3 w-full" />
-            <Skeleton className="h-3 w-3/4" />
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <div className="flex flex-col items-center gap-2 py-12 text-center">
-        <p className="text-sm text-destructive">Erro ao buscar diretrizes.</p>
-      </div>
-    );
-  }
-
-  if (!data || data.length === 0) {
-    return (
-      <div className="flex flex-col items-center gap-2 py-12 text-center">
-        <MagnifyingGlass className="size-8 text-muted-foreground" aria-hidden="true" />
-        <p className="text-sm text-muted-foreground">
-          Nenhum resultado para &ldquo;{query}&rdquo;.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-3">
-      <p className="text-xs text-muted-foreground">
-        {data.length} {data.length === 1 ? 'resultado' : 'resultados'}
-      </p>
-      {data.map((result) => (
-        <GuidelineCard key={result.id} result={result} />
-      ))}
+      <span
+        className={cn(
+          'shrink-0 rounded-full px-2.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide',
+          origin === 'institutional'
+            ? 'bg-clinical-teal-tint text-clinical-teal-deep'
+            : 'border border-clinical-line text-muted-foreground',
+        )}
+      >
+        {origin === 'institutional' ? 'Protocolo inst.' : 'Diretriz pública'}
+      </span>
+      {origin === 'institutional' && (
+        <span className="shrink-0 text-[0.8rem] font-semibold text-clinical-teal hover:text-clinical-teal-deep">
+          Abrir →
+        </span>
+      )}
     </div>
   );
 }
@@ -194,59 +150,30 @@ function CuratorQueue() {
     if (ids.length === 0) return;
     let ok = 0;
     for (const id of ids) {
-      try {
-        await approve.mutateAsync(id);
-        ok++;
-      } catch {
-        /* keep going */
-      }
+      try { await approve.mutateAsync(id); ok++; } catch { /* keep going */ }
     }
     setSelected(new Set());
     toast.success(`${ok} chunk${ok !== 1 ? 's' : ''} aprovado${ok !== 1 ? 's' : ''}`);
   };
 
-  const handleReject = async (chunkId: string) => {
-    try {
-      await reject.mutateAsync({ chunkId, reason: 'Reprovado na revisão de curadoria' });
-      toast.success('Chunk rejeitado.');
-    } catch {
-      toast.error('Erro ao rejeitar chunk.');
-    }
-  };
-
   const handleApprove = async (chunkId: string) => {
-    try {
-      await approve.mutateAsync(chunkId);
-      setSelected((prev) => {
-        const next = new Set(prev);
-        next.delete(chunkId);
-        return next;
-      });
-      toast.success('Chunk aprovado.');
-    } catch {
-      toast.error('Erro ao aprovar chunk.');
-    }
+    try { await approve.mutateAsync(chunkId); setSelected((p) => { const n = new Set(p); n.delete(chunkId); return n; }); toast.success('Chunk aprovado.'); }
+    catch { toast.error('Erro ao aprovar chunk.'); }
   };
 
-  if (isLoading) {
-    return (
-      <div className="space-y-2">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-16 w-full" />
-        ))}
-      </div>
-    );
-  }
+  const handleReject = async (chunkId: string) => {
+    try { await reject.mutateAsync({ chunkId, reason: 'Reprovado na revisão de curadoria' }); toast.success('Chunk rejeitado.'); }
+    catch { toast.error('Erro ao rejeitar chunk.'); }
+  };
+
+  if (isLoading) return <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>;
 
   const chunks = data ?? [];
-
   if (chunks.length === 0) {
     return (
       <div className="flex flex-col items-center gap-2 py-8 text-center">
-        <CheckCircle className="size-8 text-clinical-green" aria-hidden="true" />
-        <p className="text-sm text-muted-foreground">
-          Nenhum chunk aguardando revisão. Tudo em dia.
-        </p>
+        <CheckCircle className="size-8 text-clinical-green" />
+        <p className="text-sm text-muted-foreground">Nenhum chunk aguardando revisão. Tudo em dia.</p>
       </div>
     );
   }
@@ -254,113 +181,36 @@ function CuratorQueue() {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">
-          {chunks.length} chunk{chunks.length !== 1 ? 's' : ''} aguardando revisão
-        </p>
+        <p className="text-xs text-muted-foreground">{chunks.length} chunk{chunks.length !== 1 ? 's' : ''} aguardando revisão</p>
         {selected.size > 0 && (
-          <Button
-            size="sm"
-            variant="default"
-            onClick={() => void handleBatchApprove()}
-            loading={approve.isPending}
-            className="gap-1.5"
-          >
-            <Check className="size-3.5" aria-hidden="true" />
-            Aprovar {selected.size} selecionado{selected.size !== 1 ? 's' : ''}
+          <Button size="sm" onClick={() => void handleBatchApprove()} loading={approve.isPending} className="gap-1.5">
+            <Check className="size-3.5" /> Aprovar {selected.size} selecionado{selected.size !== 1 ? 's' : ''}
           </Button>
         )}
       </div>
       <div className="space-y-2">
         {chunks.map((chunk: PendingGuidelineChunk) => (
-          <PendingChunkRow
-            key={chunk.id}
-            chunk={chunk}
-            isSelected={selected.has(chunk.id)}
-            onToggle={() => toggleSelect(chunk.id)}
-            onApprove={() => void handleApprove(chunk.id)}
-            onReject={() => void handleReject(chunk.id)}
-            isApproving={approve.isPending}
-            isRejecting={reject.isPending}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function PendingChunkRow({
-  chunk,
-  isSelected,
-  onToggle,
-  onApprove,
-  onReject,
-  isApproving,
-  isRejecting,
-}: {
-  chunk: PendingGuidelineChunk;
-  isSelected: boolean;
-  onToggle: () => void;
-  onApprove: () => void;
-  onReject: () => void;
-  isApproving: boolean;
-  isRejecting: boolean;
-}) {
-  return (
-    <div
-      className={cn(
-        'rounded-lg border p-3 transition-colors',
-        isSelected ? 'border-clinical-teal/40 bg-clinical-teal-tint/30' : 'border-border/70',
-      )}
-    >
-      <div className="flex items-start gap-3">
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-pressed={isSelected}
-          aria-label="Selecionar chunk para aprovação em lote"
-          className={cn(
-            'mt-0.5 flex size-5 shrink-0 items-center justify-center rounded border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-            isSelected
-              ? 'border-clinical-teal bg-clinical-teal text-white'
-              : 'border-border bg-card hover:border-clinical-teal/40',
-          )}
-        >
-          {isSelected && <Check className="size-3" weight="bold" aria-hidden="true" />}
-        </button>
-        <div className="min-w-0 flex-1 space-y-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-medium">{chunk.source}</span>
-            <Badge variant="outline" className="font-mono text-[10px]">
-              v{chunk.sourceVersion}
-            </Badge>
-            <Badge variant="secondary" className="text-[10px]">
-              {chunk.specialty}
-            </Badge>
+          <div key={chunk.id} className={cn('rounded-lg border p-3', selected.has(chunk.id) ? 'border-clinical-teal/40 bg-clinical-teal-tint/30' : 'border-border/70')}>
+            <div className="flex items-start gap-3">
+              <button type="button" onClick={() => toggleSelect(chunk.id)} aria-pressed={selected.has(chunk.id)}
+                className={cn('mt-0.5 flex size-5 shrink-0 items-center justify-center rounded border', selected.has(chunk.id) ? 'border-clinical-teal bg-clinical-teal text-white' : 'border-border bg-card hover:border-clinical-teal/40')}>
+                {selected.has(chunk.id) && <Check className="size-3" weight="bold" />}
+              </button>
+              <div className="min-w-0 flex-1 space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-medium">{chunk.source}</span>
+                  <Badge variant="outline" className="font-mono text-[10px]">v{chunk.sourceVersion}</Badge>
+                  <Badge variant="secondary" className="text-[10px]">{chunk.specialty}</Badge>
+                </div>
+                <p className="line-clamp-2 text-xs text-muted-foreground">{chunk.text}</p>
+              </div>
+              <div className="flex shrink-0 gap-1">
+                <Button size="icon-sm" variant="ghost" onClick={() => handleApprove(chunk.id)} disabled={approve.isPending} className="text-clinical-green hover:bg-clinical-green-bg"><Check className="size-4" /></Button>
+                <Button size="icon-sm" variant="ghost" onClick={() => handleReject(chunk.id)} disabled={reject.isPending} className="text-destructive hover:bg-destructive/10"><X className="size-4" /></Button>
+              </div>
+            </div>
           </div>
-          <p className="line-clamp-2 text-xs text-muted-foreground">{chunk.text}</p>
-        </div>
-        <div className="flex shrink-0 gap-1">
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            onClick={onApprove}
-            disabled={isApproving}
-            aria-label="Aprovar chunk"
-            className="text-clinical-green hover:bg-clinical-green-bg"
-          >
-            <Check className="size-4" aria-hidden="true" />
-          </Button>
-          <Button
-            size="icon-sm"
-            variant="ghost"
-            onClick={onReject}
-            disabled={isRejecting}
-            aria-label="Rejeitar chunk"
-            className="text-destructive hover:bg-destructive/10"
-          >
-            <X className="size-4" aria-hidden="true" />
-          </Button>
-        </div>
+        ))}
       </div>
     </div>
   );
@@ -368,10 +218,9 @@ function PendingChunkRow({
 
 export default function GuidelinesPage() {
   const { role } = useAuth();
-  // S25-GUIDE-01 — debounce 300ms na busca (antes cada tecla = 1 request à API).
   const [queryInput, setQueryInput] = useState('');
   const [query, setQuery] = useState('');
-  const [specialty, setSpecialty] = useState<string | undefined>(undefined);
+  const [activePill, setActivePill] = useState('Todas');
   const [tab, setTab] = useState<'library' | 'curator'>('library');
 
   useEffect(() => {
@@ -380,46 +229,30 @@ export default function GuidelinesPage() {
   }, [queryInput]);
 
   const isCurator = role === 'compliance' || role === 'admin';
+  const specialty = SPECIALTY_MAP[activePill];
 
-  const specialtyChips = useMemo(() => ['all', ...SPECIALTIES], []);
+  const { data, isLoading, isError } = useGuidelineSearch(query, specialty);
+
+  const hasResults = !isLoading && !isError && data && data.length > 0 && query.trim().length >= 2;
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
-      <div className="space-y-1">
-        <h1 className="font-display text-xl tracking-tight">Biblioteca Clínica</h1>
-        <p className="text-sm text-muted-foreground">
-          Acervo de diretrizes validadas com busca textual e selo de procedência.
+      {/* Header */}
+      <div>
+        <p className="mb-1 font-mono text-[0.75rem] uppercase tracking-[0.08em] text-muted-foreground">
+          Base clínica{hasResults ? ` · ${data!.length} diretrizes encontradas` : ''}
         </p>
+        <h1 className="font-display text-[2rem] font-normal leading-tight">Pergunte à diretriz</h1>
       </div>
 
       {isCurator && (
         <div className="flex gap-1 rounded-lg bg-muted p-1" role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === 'library'}
-            onClick={() => setTab('library')}
-            className={cn(
-              'flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              tab === 'library'
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
+          <button type="button" role="tab" aria-selected={tab === 'library'} onClick={() => setTab('library')}
+            className={cn('flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors', tab === 'library' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
             Biblioteca
           </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === 'curator'}
-            onClick={() => setTab('curator')}
-            className={cn(
-              'flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              tab === 'curator'
-                ? 'bg-background text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
+          <button type="button" role="tab" aria-selected={tab === 'curator'} onClick={() => setTab('curator')}
+            className={cn('flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors', tab === 'curator' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
             Curadoria
           </button>
         </div>
@@ -427,45 +260,79 @@ export default function GuidelinesPage() {
 
       {tab === 'library' ? (
         <>
-          <div className="relative">
-            <MagnifyingGlass
-              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <Input
-              // S25-GUIDE-01 — autoFocus removido (rouba scroll/teclado no mobile).
+          {/* Search bar */}
+          <div className="flex items-center gap-3 rounded-2xl border border-clinical-teal bg-card px-5 py-0 shadow-[0_0_0_3px_rgba(14,124,123,0.1)]" style={{ height: 60 }}>
+            <MagnifyingGlass className="size-[19px] shrink-0 text-clinical-teal" />
+            <input
               value={queryInput}
               onChange={(e) => setQueryInput(e.target.value)}
-              placeholder="Buscar diretrizes (ex: gripe imunossuprimido, HAS emergência...)"
-              className="pl-9"
+              placeholder="Busque diretrizes, protocolos, evidência clínica..."
               aria-label="Buscar na biblioteca clínica"
+              className="h-full flex-1 bg-transparent text-base outline-none placeholder:text-muted-foreground"
             />
+            <Button size="sm" className="h-[38px] gap-1.5">
+              <Sparkle className="size-3.5" weight="bold" /> Buscar
+            </Button>
           </div>
 
-          <div
-            className="flex flex-wrap gap-1.5"
-            role="group"
-            aria-label="Filtrar por especialidade"
-          >
-            {specialtyChips.map((s) => (
+          {/* Filter pills */}
+          <div className="flex flex-wrap items-center gap-2">
+            {FILTER_PILLS.map((pill) => (
               <button
-                key={s}
+                key={pill}
                 type="button"
-                onClick={() => setSpecialty(s === 'all' ? undefined : s)}
-                aria-pressed={(s === 'all' && !specialty) || specialty === s}
+                onClick={() => setActivePill(pill)}
+                aria-pressed={activePill === pill}
                 className={cn(
-                  'rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                  (s === 'all' && !specialty) || specialty === s
-                    ? 'bg-primary text-primary-foreground'
-                    : 'border border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground',
+                  'rounded-full px-3.5 py-1.5 text-[0.8rem] font-medium transition-colors',
+                  activePill === pill
+                    ? 'bg-clinical-teal-tint text-clinical-teal-deep font-semibold'
+                    : 'border border-clinical-line bg-card text-muted-foreground hover:border-clinical-teal/40',
                 )}
               >
-                {s === 'all' ? 'Todas' : s}
+                {pill}
               </button>
             ))}
+            <div className="flex-1" />
+            <button
+              type="button"
+              onClick={() => setActivePill('Todas')}
+              className="rounded-full border border-clinical-line bg-card px-3.5 py-1.5 text-[0.8rem] font-medium text-muted-foreground"
+            >
+              Só protocolos do hospital
+            </button>
           </div>
 
-          <SearchResults query={query} specialty={specialty} />
+          {/* Results */}
+          {query.trim().length < 2 ? (
+            <div className="flex flex-col items-center gap-3 py-12 text-center">
+              <BookOpen className="size-10 text-muted-foreground" weight="duotone" />
+              <p className="text-sm text-muted-foreground">Digite ao menos 2 caracteres para buscar.</p>
+            </div>
+          ) : isLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-[14px]" />)}
+            </div>
+          ) : isError ? (
+            <p className="py-8 text-center text-sm text-destructive">Erro ao buscar diretrizes.</p>
+          ) : !data || data.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 py-12 text-center">
+              <MagnifyingGlass className="size-8 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">Nenhum resultado para "{query}".</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {/* Direct answer */}
+              <DirectAnswerCard results={data} />
+
+              {/* Source cards */}
+              <div className="flex flex-col gap-2.5">
+                {data.slice(0, 5).map((result, i) => (
+                  <SourceCard key={result.id} result={result} num={i + 1} />
+                ))}
+              </div>
+            </div>
+          )}
         </>
       ) : (
         <CuratorQueue />
