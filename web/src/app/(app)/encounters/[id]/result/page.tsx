@@ -393,7 +393,7 @@ function ResultView({
                         {messages.recommendation.confidence(rec.confidence)}
                       </span>
                       {decision === 'adopted' && (
-                        <span className="flex items-center gap-1 rounded-md bg-emerald-100 px-1.5 py-0.5 font-mono text-[0.625rem] font-bold uppercase tracking-wide text-emerald-700">
+                        <span className="flex items-center gap-1 rounded-md border border-clinical-green/30 bg-clinical-green-bg px-1.5 py-0.5 font-mono text-[0.625rem] font-bold uppercase tracking-wide text-clinical-green-foreground">
                           <SealCheck className="size-3" weight="fill" />
                           Adotada
                         </span>
@@ -486,7 +486,7 @@ function RedFlagBadge({
 }) {
   const styles =
     severity === 'critical'
-      ? 'bg-red-100 text-red-700'
+      ? 'bg-clinical-error-bg text-clinical-error-foreground'
       : severity === 'high'
         ? 'bg-clinical-amber-bg text-clinical-amber-foreground'
         : 'bg-muted text-muted-foreground';
