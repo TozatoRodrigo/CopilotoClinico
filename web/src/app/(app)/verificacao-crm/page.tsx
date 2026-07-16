@@ -1,16 +1,19 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-store';
 import { apiClient, ApiError } from '@/lib/api-client';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
+  Stethoscope,
   SealCheck,
-  SealQuestion,
-  SealWarning,
-  Clock,
-  ArrowClockwise,
+  CheckCircle,
+  Circle,
+  CircleNotch,
+  ArrowRight,
+  IdentificationCard,
   ShieldCheck,
 } from '@phosphor-icons/react';
 
@@ -22,35 +25,9 @@ interface VerificationRequest {
   notes: string | null;
 }
 
-const STATUS_CONFIG: Record<
-  VerificationRequest['status'],
-  { icon: typeof SealCheck; label: string; color: string; bg: string; border: string }
-> = {
-  PENDING: {
-    icon: Clock,
-    label: 'Em análise',
-    color: 'text-clinical-amber',
-    bg: 'bg-clinical-amber-bg',
-    border: 'border-clinical-amber/30',
-  },
-  APPROVED: {
-    icon: SealCheck,
-    label: 'Aprovado',
-    color: 'text-clinical-green',
-    bg: 'bg-clinical-green-bg',
-    border: 'border-clinical-green/30',
-  },
-  REJECTED: {
-    icon: SealWarning,
-    label: 'Rejeitado',
-    color: 'text-destructive',
-    bg: 'bg-destructive/5',
-    border: 'border-destructive/20',
-  },
-};
-
 export default function CrmVerificationPage() {
   const { physician } = useAuth();
+  const router = useRouter();
   const [request, setRequest] = useState<VerificationRequest | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -67,7 +44,7 @@ export default function CrmVerificationPage() {
       );
       setRequest(data);
     } catch {
-      toast.error('Erro ao carregar status de verificação.');
+      // silent — may not have a request yet
     } finally {
       setLoading(false);
     }
@@ -80,11 +57,8 @@ export default function CrmVerificationPage() {
       setRequest(data);
       toast.success('Solicitação enviada!');
     } catch (err) {
-      if (err instanceof ApiError) {
-        toast.error(err.message);
-      } else {
-        toast.error('Erro ao solicitar verificação.');
-      }
+      if (err instanceof ApiError) toast.error(err.message);
+      else toast.error('Erro ao solicitar verificação.');
     } finally {
       setSubmitting(false);
     }
@@ -93,134 +67,170 @@ export default function CrmVerificationPage() {
   if (!physician) return null;
 
   const isVerified = physician.crmVerified;
+  const isPending = request?.status === 'PENDING';
+  const isRejected = request?.status === 'REJECTED';
   const hasRequest = request !== null;
 
-  return (
-    <div className="mx-auto max-w-2xl space-y-8">
-      <div className="space-y-1">
-        <h1 className="font-display text-2xl tracking-tight text-clinical-ink">
-          Verificação de CRM
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Status da verificação do seu registro profissional
-        </p>
-      </div>
+  const checklist = [
+    { done: true, label: 'Formato do CRM válido' },
+    { done: true, label: 'Conta criada com sucesso' },
+    { done: isVerified, label: 'Registro ativo no CFM' },
+  ];
 
-      <div className="space-y-4">
-        <div className="flex items-center gap-3 rounded-xl border border-clinical-line bg-clinical-paper p-5">
-          <div className="flex size-12 items-center justify-center rounded-full bg-clinical-teal-tint">
-            <ShieldCheck className="size-6 text-clinical-teal" />
-          </div>
-          <div>
-            <p className="font-semibold text-clinical-ink">
-              CRM {physician.crmUf} {physician.crmNumber}
-            </p>
-            <p className="text-sm text-muted-foreground">{physician.email}</p>
-          </div>
-          <div className="ml-auto">
-            {isVerified ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-clinical-green-bg px-3 py-1 text-xs font-semibold text-clinical-green-foreground">
-                <SealCheck className="size-3.5" />
-                Verificado
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 rounded-full bg-clinical-amber-bg px-3 py-1 text-xs font-semibold text-clinical-amber-foreground">
-                <SealQuestion className="size-3.5" />
-                Pendente
-              </span>
-            )}
-          </div>
+  return (
+    <div className="flex min-h-screen flex-col bg-background">
+      {/* Top bar */}
+      <header className="flex w-full items-center justify-between px-10 py-6">
+        <div className="flex items-center gap-2.5">
+          <span
+            className="flex h-[34px] w-[34px] items-center justify-center rounded-[9px]"
+            style={{ background: 'var(--sidebar-dark-bg)' }}
+          >
+            <Stethoscope className="h-[18px] w-[18px]" style={{ color: 'var(--sidebar-dark-accent)' }} />
+          </span>
+          <p className="text-sm font-semibold">Copiloto Clínico</p>
         </div>
 
-        {loading && (
-          <div className="flex items-center justify-center py-12">
-            <ArrowClockwise className="size-5 animate-spin text-muted-foreground" />
+        {/* Progress steps */}
+        <div className="hidden items-center gap-2.5 md:flex">
+          <div className="flex items-center gap-2">
+            <span className="h-[5px] w-6 rounded-[3px] bg-clinical-green" />
+            <span className="text-xs text-clinical-green-foreground">Conta</span>
           </div>
-        )}
+          <div className="flex items-center gap-2">
+            <span className="h-[5px] w-6 rounded-[3px] bg-clinical-teal" />
+            <span className="text-xs font-semibold text-clinical-ink">CRM</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="h-[5px] w-6 rounded-[3px] bg-clinical-line" />
+            <span className="text-xs text-muted-foreground">Plantão</span>
+          </div>
+        </div>
+      </header>
 
-        {!loading && isVerified && (
-          <div className="rounded-xl border border-clinical-green/30 bg-clinical-green-bg p-5 text-center">
-            <SealCheck className="mx-auto mb-3 size-12 text-clinical-green" weight="duotone" />
-            <h2 className="font-display text-lg text-clinical-green-foreground">
-              CRM verificado com sucesso
-            </h2>
-            <p className="mt-1 text-sm text-clinical-green-foreground/80">
-              Seus documentos terão selo de verificação completo.
+      {/* Center content */}
+      <div className="flex flex-1 items-center justify-center px-4">
+        <div className="w-full max-w-[560px] space-y-5">
+          <div>
+            <p className="mb-1.5 font-mono text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+              Passo 2 de 3 · menos de 1 minuto
+            </p>
+            <h1 className="font-display text-[2.1rem] font-normal leading-tight">
+              Verificando seu CRM
+            </h1>
+            <p className="mt-2.5 text-[0.9rem] leading-relaxed text-muted-foreground">
+              Consultamos o CFM automaticamente.{' '}
+              <span className="font-semibold text-clinical-ink">Você não precisa esperar</span> —
+              pode começar o plantão agora; documentos confirmados antes da verificação ficam
+              marcados como pendentes.
             </p>
           </div>
-        )}
 
-        {!loading && !isVerified && hasRequest && request && (
-          <div
-            className={`rounded-xl border p-5 ${STATUS_CONFIG[request.status].bg} ${STATUS_CONFIG[request.status].border}`}
-          >
-            {(() => {
-              const config = STATUS_CONFIG[request.status];
-              const Icon = config.icon;
-              return (
-                <>
-                  <div className="flex items-center gap-3">
-                    <Icon className={`size-8 ${config.color}`} weight="duotone" />
-                    <div>
-                      <h2 className={`font-display text-lg ${config.color}`}>{config.label}</h2>
-                      <p className="text-sm text-muted-foreground">
-                        Solicitado em{' '}
-                        {new Date(request.requestedAt).toLocaleDateString('pt-BR', {
-                          day: '2-digit',
-                          month: 'long',
-                          year: 'numeric',
-                        })}
-                      </p>
-                    </div>
-                  </div>
-
-                  {request.status === 'PENDING' && (
-                    <div className="mt-4 rounded-lg bg-white/60 px-4 py-3 text-sm text-muted-foreground">
-                      Nossa equipe está analisando seu CRM. Você receberá uma notificação quando a
-                      verificação for concluída. Enquanto isso, você pode usar o sistema normalmente
-                      com o selo &quot;CRM pendente&quot;.
-                    </div>
-                  )}
-
-                  {request.status === 'REJECTED' && request.notes && (
-                    <div className="mt-4 rounded-lg bg-white/60 px-4 py-3 text-sm">
-                      <p className="font-medium text-destructive">Motivo:</p>
-                      <p className="mt-1 text-muted-foreground">{request.notes}</p>
-                    </div>
-                  )}
-
-                  {request.status === 'REJECTED' && (
-                    <Button
-                      onClick={handleRequest}
-                      className="mt-4"
-                      disabled={submitting}
-                      variant="outline"
-                    >
-                      <ArrowClockwise className="mr-1 size-4" />
-                      {submitting ? 'Enviando...' : 'Solicitar novamente'}
-                    </Button>
-                  )}
-                </>
-              );
-            })()}
-          </div>
-        )}
-
-        {!loading && !isVerified && !hasRequest && (
-          <div className="space-y-4 rounded-xl border border-clinical-line bg-clinical-paper p-5">
-            <div className="text-center">
-              <SealQuestion className="mx-auto mb-3 size-12 text-clinical-amber" weight="duotone" />
-              <h2 className="font-display text-lg text-clinical-ink">CRM não verificado</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Solicite a verificação do seu CRM para que seus documentos tenham selo de
-                autenticidade completo.
-              </p>
+          {/* Verification card */}
+          <div className="rounded-2xl border border-clinical-line bg-card p-6 shadow-sm">
+            <div className="flex items-center gap-3.5">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-clinical-teal-tint">
+                <IdentificationCard className="h-6 w-6 text-clinical-teal-deep" />
+              </span>
+              <div className="flex-1">
+                <p className="text-[0.95rem] font-semibold">
+                  Dr(a). {physician.name ?? 'Médico'}
+                </p>
+                <p className="mt-0.5 font-mono text-[0.8rem] text-muted-foreground">
+                  CRM {physician.crmUf}-{physician.crmNumber}
+                </p>
+              </div>
+              {isVerified ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-clinical-green-bg px-3 py-1 text-xs font-semibold text-clinical-green-foreground">
+                  <SealCheck className="size-3.5" weight="fill" /> Verificado
+                </span>
+              ) : loading ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
+                  <CircleNotch className="size-3.5 animate-spin" /> Carregando…
+                </span>
+              ) : isPending ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-clinical-teal-tint px-3 py-1 text-xs font-semibold text-clinical-teal-deep">
+                  <CircleNotch className="size-3.5 animate-spin" /> Consultando CFM…
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-clinical-amber-bg px-3 py-1 text-xs font-semibold text-clinical-amber-foreground">
+                  Pendente
+                </span>
+              )}
             </div>
-            <Button onClick={handleRequest} className="h-11 w-full" disabled={submitting}>
-              {submitting ? 'Enviando solicitação...' : 'Solicitar verificação'}
+
+            {/* Checklist */}
+            <div className="mt-4 flex flex-col gap-2 border-t border-clinical-line pt-3.5">
+              {checklist.map((item) => (
+                <div key={item.label} className="flex items-center gap-2 text-[0.8rem]">
+                  {item.done ? (
+                    <CheckCircle className="size-[15px] text-clinical-green" weight="fill" />
+                  ) : (
+                    <Circle className="size-[15px] text-muted-foreground" />
+                  )}
+                  <span className={item.done ? 'text-clinical-ink' : 'text-muted-foreground'}>
+                    {item.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-2.5">
+            <Button
+              className="h-[54px] flex-1 gap-2 text-[0.95rem] font-semibold shadow-[0_4px_14px_rgba(14,124,123,0.3)]"
+              onClick={() => router.push('/dashboard')}
+            >
+              Começar o plantão agora
+              <ArrowRight className="size-4" weight="bold" />
+            </Button>
+            <Button
+              variant="outline"
+              className="h-[54px] px-5 text-[0.85rem]"
+              onClick={() => loadRequest()}
+              disabled={loading}
+            >
+              Atualizar
             </Button>
           </div>
-        )}
+
+          {!hasRequest && !isVerified && !loading && (
+            <div className="rounded-xl border border-clinical-line bg-clinical-paper p-4 text-center">
+              <p className="text-sm text-muted-foreground">
+                Ainda não solicitou verificação?
+              </p>
+              <Button
+                variant="outline"
+                className="mt-2"
+                onClick={() => handleRequest()}
+                disabled={submitting}
+              >
+                {submitting ? 'Enviando...' : 'Solicitar verificação de CRM'}
+              </Button>
+            </div>
+          )}
+
+          {isRejected && request?.notes && (
+            <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4">
+              <p className="text-sm font-medium text-destructive">Verificação rejeitada</p>
+              <p className="mt-1 text-sm text-muted-foreground">{request.notes}</p>
+              <Button variant="outline" className="mt-3" onClick={() => handleRequest()} disabled={submitting}>
+                {submitting ? 'Enviando...' : 'Solicitar novamente'}
+              </Button>
+            </div>
+          )}
+
+          <p className="text-center text-[0.75rem] text-muted-foreground">
+            Avisamos por notificação quando a verificação concluir · normalmente &lt; 2 min
+          </p>
+
+          {/* Trust footer */}
+          <div className="flex items-center justify-center gap-2 pt-2 text-[0.75rem] text-muted-foreground">
+            <ShieldCheck className="size-3.5 text-clinical-teal" />
+            Seus dados são protegidos conforme a LGPD.
+          </div>
+        </div>
       </div>
     </div>
   );
