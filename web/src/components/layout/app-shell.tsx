@@ -9,6 +9,7 @@ import {
   House,
   List,
   MagnifyingGlass,
+  Microphone,
   Plus,
   ShieldCheck,
   Stethoscope,
@@ -369,11 +370,20 @@ export function AppShell({ children, variant }: AppShellProps) {
           {children}
         </main>
 
-        {/* Mobile bottom nav */}
-        <nav
-          aria-label="Navegação inferior"
-          className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 px-4 py-2 backdrop-blur md:hidden"
-        >
+        {/* Mobile FAB + bottom nav */}
+        <div className="fixed inset-x-0 bottom-0 z-40 md:hidden">
+          <Link
+            href="/encounters/new"
+            aria-label="Novo caso por voz"
+            className="absolute -top-[72px] right-6 flex h-16 w-16 items-center justify-center rounded-full shadow-[0_6px_20px_rgba(14,124,123,0.4)] transition-transform active:scale-95"
+            style={{ background: 'var(--teal)' }}
+          >
+            <Microphone className="size-7 text-white" weight="bold" />
+          </Link>
+          <nav
+            aria-label="Navegação inferior"
+            className="border-t bg-background/95 px-4 py-2 backdrop-blur"
+          >
           <div className="mx-auto flex max-w-md items-center justify-between gap-2">
             {MOBILE_TABS.map((tab) => {
               const Icon = tab.icon;
@@ -396,7 +406,8 @@ export function AppShell({ children, variant }: AppShellProps) {
               );
             })}
           </div>
-        </nav>
+          </nav>
+        </div>
       </div>
     </div>
   );

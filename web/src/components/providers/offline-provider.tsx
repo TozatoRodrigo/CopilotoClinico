@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore, type ReactNode } from "react";
-import { ConnectionStatus } from "@/components/domain/connection-status";
+import { WifiSlash } from "@phosphor-icons/react";
 
 interface OnlineContextValue {
   isOnline: boolean;
@@ -51,9 +51,17 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
   return (
     <>
       {!isOnline && (
-        <div className="sticky top-0 z-50 flex items-center justify-center gap-2 border-b border-clinical-amber/30 bg-clinical-amber-bg px-4 py-2 text-center text-sm text-clinical-amber-foreground">
-          <ConnectionStatus status="offline" />
-          <span>Funcionalidades limitadas até a conexão ser restabelecida.</span>
+        <div
+          className="sticky top-0 z-50 flex items-center gap-2.5 px-4 py-2.5"
+          style={{
+            background: "var(--amber-bg)",
+            borderBottom: "1px solid rgba(180,83,9,0.35)",
+          }}
+        >
+          <WifiSlash className="size-4 shrink-0" style={{ color: "var(--amber)" }} />
+          <p className="text-[0.75rem] leading-snug" style={{ color: "var(--amber-foreground)" }}>
+            Sem conexão. Você pode continuar — tudo será enviado ao reconectar.
+          </p>
         </div>
       )}
       {children}
