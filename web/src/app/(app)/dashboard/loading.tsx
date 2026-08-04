@@ -9,17 +9,13 @@ export default function DashboardLoading() {
       </div>
 
       {/* Stats cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="rounded-xl border p-5 space-y-3">
-            <Skeleton className="h-4 w-32" />
-            <Skeleton className="h-8 w-16" />
-          </div>
-        ))}
+      <div className="grid grid-cols-1 gap-3.5 md:grid-cols-[1.4fr_1fr]">
+        <Skeleton className="h-[104px] rounded-[14px]" />
+        <Skeleton className="h-[104px] rounded-[14px]" />
       </div>
 
       {/* Recent encounters */}
-      <div className="rounded-xl border p-5 space-y-3">
+      <div className="rounded-[14px] border border-clinical-line p-5 space-y-3">
         <Skeleton className="h-5 w-48 mb-4" />
         {Array.from({ length: 4 }).map((_, i) => (
           <div key={i} className="flex items-center justify-between py-2">

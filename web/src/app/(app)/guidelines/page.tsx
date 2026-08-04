@@ -69,11 +69,9 @@ function DirectAnswerCard({ results }: { results: GuidelineSearchResult[] }) {
   }
 
   return (
-    <div
-      className="rounded-[14px] border border-clinical-line border-l-4 border-l-clinical-teal bg-card p-5"
-      style={{ borderLeftColor: 'var(--teal)' }}
-    >
-      <p className="mb-2 font-mono text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-clinical-teal-deep">
+    <div className="rounded-[14px] border border-clinical-teal/25 bg-clinical-teal-tint/40 p-5">
+      <p className="mb-2 flex items-center gap-1.5 font-mono text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-clinical-teal-deep">
+        <Sparkle className="size-3" weight="fill" />
         Resposta direta · {count} trechos
       </p>
       <p className="text-[0.95rem] leading-relaxed">{text}</p>

@@ -75,4 +75,40 @@ function StatCard({
   )
 }
 
-export { StatCard, statCardVariants }
+interface StatStripItem {
+  label: string
+  value: React.ReactNode
+}
+
+function StatStrip({
+  items,
+  className,
+}: {
+  items: StatStripItem[]
+  className?: string
+}) {
+  return (
+    <div
+      className={cn(
+        "flex divide-x divide-clinical-line rounded-[14px] border border-clinical-line bg-card",
+        className
+      )}
+    >
+      {items.map((item) => (
+        <div
+          key={item.label}
+          className="flex flex-1 flex-col justify-center gap-1 px-5 py-[18px]"
+        >
+          <span className="text-xs font-semibold uppercase tracking-[0.06em] text-clinical-ink-soft">
+            {item.label}
+          </span>
+          <span className="font-mono text-xl font-semibold leading-none text-clinical-ink">
+            {item.value}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+export { StatCard, StatStrip, statCardVariants }

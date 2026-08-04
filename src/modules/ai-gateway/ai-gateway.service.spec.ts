@@ -178,7 +178,11 @@ describe('AiGatewayService', () => {
     });
 
     it('uses openai completions endpoint when openai provider', async () => {
-      const config = createMockConfig({ AI_PROVIDER: 'openai' });
+      // AI_BASE_URL now carries the full versioned prefix (providers differ on
+      // where the version segment lives — see openai.provider.ts), so the
+      // shared 'https://test.api.com' default (sized for AnthropicProvider,
+      // which still appends /v1/messages itself) doesn't apply here.
+      const config = createMockConfig({ AI_PROVIDER: 'openai', AI_BASE_URL: 'https://test.api.com/v1' });
       const svc = new AiGatewayService(config);
 
       vi.spyOn(globalThis, 'fetch').mockResolvedValue(
@@ -219,8 +223,13 @@ describe('AiGatewayService', () => {
 
       await svc.embed(['test']);
 
+      // No EMBEDDING_BASE_URL override here — the embedding provider must fall
+      // through to OpenAIProvider's own hardcoded default, *not* inherit the
+      // completion provider's AI_BASE_URL (that cross-slot leak was the bug:
+      // an embedding call would silently go to whatever host the completion
+      // model happened to be configured for).
       expect(fetch).toHaveBeenCalledWith(
-        'https://test.api.com/v1/embeddings',
+        'https://api.openai.com/v1/embeddings',
         expect.objectContaining({
           method: 'POST',
           headers: expect.objectContaining({
@@ -247,7 +256,7 @@ describe('AiGatewayService', () => {
       const config = createMockConfig({
         AI_PROVIDER: 'anthropic',
         EMBEDDING_API_KEY: 'dedicated-embed-key',
-        EMBEDDING_BASE_URL: 'https://embed.api.com',
+        EMBEDDING_BASE_URL: 'https://embed.api.com/v1',
       });
       const svc = new AiGatewayService(config);
 

@@ -213,18 +213,45 @@ export class OrchestratorService {
       redFlags: input.redFlags,
     });
 
-    const completion = await this.aiGateway.complete({
-      messages: [
-        { role: 'system', content: prompt.system },
-        { role: 'user', content: prompt.user },
-      ],
-    });
-    const inferenceCost = calculateInferenceCost({
+    const baseMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+      { role: 'system', content: prompt.system },
+      { role: 'user', content: prompt.user },
+    ];
+
+    let completion = await this.aiGateway.complete({ messages: baseMessages });
+    let inferenceCost = calculateInferenceCost({
       model: completion.model,
       usage: completion.usage,
     });
+    let validation = validateOutput(completion.content, prompt.retrievedChunkIds);
 
-    const validation = validateOutput(completion.content, prompt.retrievedChunkIds);
+    // Cheaper/weaker models occasionally violate a schema refinement (e.g. a
+    // critical red flag paired with a non-preliminary recommendation) despite
+    // the instruction being in the prompt. One bounded retry with the exact
+    // validation error fed back as feedback resolves most of these without
+    // materially changing cost/latency on the (common) first-try-valid path.
+    if (!validation.valid || !validation.output) {
+      this.logger.warn(
+        `Output validation failed on first attempt, retrying once: ${validation.errors.join(', ')}`,
+      );
+      const retryMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+        ...baseMessages,
+        { role: 'assistant', content: completion.content },
+        {
+          role: 'user',
+          content:
+            `A resposta anterior falhou na validação pelos seguintes motivos: ${validation.errors.join('; ')}. ` +
+            'Gere novamente o JSON completo, corrigindo exatamente esses problemas e mantendo o restante da ' +
+            'resposta clinicamente equivalente. Responda apenas com o JSON, sem texto adicional.',
+        },
+      ];
+      completion = await this.aiGateway.complete({ messages: retryMessages });
+      inferenceCost += calculateInferenceCost({
+        model: completion.model,
+        usage: completion.usage,
+      });
+      validation = validateOutput(completion.content, prompt.retrievedChunkIds);
+    }
 
     if (!validation.valid || !validation.output) {
       this.logger.error(`Output validation failed: ${validation.errors.join(', ')}`);
@@ -653,18 +680,41 @@ export class OrchestratorService {
         : undefined,
     });
 
-    const completion = await this.aiGateway.complete({
-      messages: [
-        { role: 'system', content: prompt.system },
-        { role: 'user', content: prompt.user },
-      ],
-    });
-    const inferenceCost = calculateInferenceCost({
+    const baseMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+      { role: 'system', content: prompt.system },
+      { role: 'user', content: prompt.user },
+    ];
+
+    let completion = await this.aiGateway.complete({ messages: baseMessages });
+    let inferenceCost = calculateInferenceCost({
       model: completion.model,
       usage: completion.usage,
     });
+    let validation = validateOutput(completion.content, prompt.retrievedChunkIds);
 
-    const validation = validateOutput(completion.content, prompt.retrievedChunkIds);
+    // See the `analyze` method for why this bounded retry exists.
+    if (!validation.valid || !validation.output) {
+      this.logger.warn(
+        `Output validation failed on first attempt (respond), retrying once: ${validation.errors.join(', ')}`,
+      );
+      const retryMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+        ...baseMessages,
+        { role: 'assistant', content: completion.content },
+        {
+          role: 'user',
+          content:
+            `A resposta anterior falhou na validação pelos seguintes motivos: ${validation.errors.join('; ')}. ` +
+            'Gere novamente o JSON completo, corrigindo exatamente esses problemas e mantendo o restante da ' +
+            'resposta clinicamente equivalente. Responda apenas com o JSON, sem texto adicional.',
+        },
+      ];
+      completion = await this.aiGateway.complete({ messages: retryMessages });
+      inferenceCost += calculateInferenceCost({
+        model: completion.model,
+        usage: completion.usage,
+      });
+      validation = validateOutput(completion.content, prompt.retrievedChunkIds);
+    }
 
     if (!validation.valid || !validation.output) {
       this.logger.error(`Output validation failed (respond): ${validation.errors.join(', ')}`);

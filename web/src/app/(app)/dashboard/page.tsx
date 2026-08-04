@@ -4,10 +4,10 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
-import { Microphone, Keyboard, SealCheck, Flask } from '@phosphor-icons/react';
+import { Microphone, Keyboard, Flask } from '@phosphor-icons/react';
 import { useDashboardStats, useEncounterList } from '@/lib/clinical-queries';
 import { useAuth } from '@/lib/auth-store';
-import { StatCard } from '@/components/ui/stat-card';
+import { StatCard, StatStrip } from '@/components/ui/stat-card';
 import { PlantaoQueue } from '@/components/domain/plantao-queue';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -101,34 +101,24 @@ export default function DashboardPage() {
 
       {/* E2-S2: Stat cards */}
       {loading ? (
-        <div className="grid grid-cols-2 gap-3.5 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-[104px] rounded-[14px]" />
-          ))}
+        <div className="grid grid-cols-1 gap-3.5 md:grid-cols-[1.4fr_1fr]">
+          <Skeleton className="h-[104px] rounded-[14px]" />
+          <Skeleton className="h-[104px] rounded-[14px]" />
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-3.5 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+        <div className="grid grid-cols-1 gap-3.5 md:grid-cols-[1.4fr_1fr]">
           <StatCard
             label="Aguardando sua revisão"
             value={statsQuery.data?.pendingReviews ?? 0}
             sublabel="casos no plantão"
             variant="highlight"
           />
-          <StatCard
-            label="Casos hoje"
-            value={statsQuery.data?.todayCount ?? 0}
-            variant="default"
-          />
-          <StatCard
-            label="Rascunhos"
-            value={draftCount}
-            variant="default"
-          />
-          <StatCard
-            label="Confirmados"
-            value={statsQuery.data?.confirmedDocuments ?? 0}
-            variant="success"
-            icon={<SealCheck className="size-4" weight="fill" />}
+          <StatStrip
+            items={[
+              { label: 'Casos hoje', value: statsQuery.data?.todayCount ?? 0 },
+              { label: 'Rascunhos', value: draftCount },
+              { label: 'Confirmados', value: statsQuery.data?.confirmedDocuments ?? 0 },
+            ]}
           />
         </div>
       )}

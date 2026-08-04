@@ -2,6 +2,13 @@ import { messages } from "@/lib/messages";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/v1";
 
+// A page can have several queries in flight when the access token expires
+// (e.g. the dashboard's 3 parallel fetches). Without this guard, each 401
+// independently assigns `window.location.href`, racing several redirects
+// against each other and producing the flapping/looping reload the browser
+// shows while none of them settle.
+let redirectingToLogin = false;
+
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 interface RequestOptions {
@@ -18,7 +25,8 @@ class ApiClient {
   }
 
   private buildUrl(path: string, params?: Record<string, string>): string {
-    const url = new URL(`${this.baseUrl}${path}`);
+    const base = typeof window !== "undefined" ? window.location.origin : "http://localhost";
+    const url = new URL(`${this.baseUrl}${path}`, base);
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         url.searchParams.set(key, value);
@@ -50,7 +58,12 @@ class ApiClient {
     });
 
     if (response.status === 401) {
-      if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+      if (
+        typeof window !== "undefined" &&
+        !window.location.pathname.startsWith("/login") &&
+        !redirectingToLogin
+      ) {
+        redirectingToLogin = true;
         window.location.href = "/login";
       }
       throw new ApiError(401, messages.errors.sessionExpired);

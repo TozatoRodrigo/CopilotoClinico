@@ -31,6 +31,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { StatCard, StatStrip } from "@/components/ui/stat-card";
 import { DecisionThread, type DecisionThreadItem } from "@/components/domain/decision-thread";
 import { CitationFootnote, CitationFootnoteSkeleton } from "@/components/domain/citation-footnote";
 import { BlockerQuestionCard } from "@/components/domain/blocker-question-card";
@@ -225,6 +226,27 @@ export default function ComponentsSpecimenPage() {
               auditoria.
             </CardContent>
           </Card>
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold text-foreground">
+          StatCard / StatStrip
+        </h2>
+        <div className="grid gap-3.5 md:grid-cols-[1.4fr_1fr]">
+          <StatCard
+            label="Aguardando sua revisão"
+            value={4}
+            sublabel="casos no plantão"
+            variant="highlight"
+          />
+          <StatStrip
+            items={[
+              { label: "Casos hoje", value: 11 },
+              { label: "Rascunhos", value: 2 },
+              { label: "Confirmados", value: 8 },
+            ]}
+          />
         </div>
       </section>
 

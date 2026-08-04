@@ -9,6 +9,14 @@ import {
 } from './provider.interface';
 import type { ProviderOverrides } from './anthropic.provider';
 
+// OpenAI's reasoning-style model families (o1/o3, gpt-5.x) reject any
+// `temperature` other than the implicit default (1) — the param must be
+// omitted entirely rather than sent as 1, since some of these models reject
+// the key being present at all.
+function acceptsCustomTemperature(model: string): boolean {
+  return !/^(o1|o3|gpt-5)/i.test(model);
+}
+
 @Injectable()
 export class OpenAIProvider implements AIProvider {
   readonly name = 'openai';
@@ -20,9 +28,16 @@ export class OpenAIProvider implements AIProvider {
     private readonly config: ConfigService,
     overrides?: ProviderOverrides,
   ) {
-    this.apiKey = overrides?.apiKey ?? this.config.getOrThrow<string>('AI_API_KEY');
-    this.baseUrl =
-      overrides?.baseUrl ?? this.config.get<string>('AI_BASE_URL', 'https://api.openai.com');
+    this.apiKey = overrides?.apiKey || this.config.getOrThrow<string>('AI_API_KEY');
+    // baseUrl carries the full versioned prefix (e.g. "https://api.openai.com/v1" or
+    // Z.ai's "https://api.z.ai/api/paas/v4") — providers version their REST paths
+    // differently, so the version segment can't be hardcoded below. This class serves
+    // both the completion and embedding provider slots (each with its own AI_BASE_URL /
+    // EMBEDDING_BASE_URL passed in as `overrides` by AiGatewayService), so it must not
+    // read either config key itself — only the caller knows which one applies, and an
+    // empty-but-set env var (common with compose `${VAR:-}` passthroughs) must fall
+    // through to the default exactly like an unset one, hence `||` rather than `??`.
+    this.baseUrl = overrides?.baseUrl || 'https://api.openai.com/v1';
   }
 
   private get headers(): Record<string, string> {
@@ -36,12 +51,16 @@ export class OpenAIProvider implements AIProvider {
     const start = Date.now();
     const body: Record<string, unknown> = {
       model: params.model,
-      max_tokens: params.maxTokens ?? 4096,
-      temperature: params.temperature ?? 0.3,
+      // Newer models (gpt-5.x, o1/o3 reasoning family) reject `max_tokens` outright
+      // and require `max_completion_tokens` instead.
+      max_completion_tokens: params.maxTokens ?? 4096,
       messages: params.messages.map((m) => ({ role: m.role, content: m.content })),
     };
+    if (acceptsCustomTemperature(params.model)) {
+      body.temperature = params.temperature ?? 0.3;
+    }
 
-    const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
+    const response = await fetch(`${this.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: this.headers,
       body: JSON.stringify(body),
@@ -74,13 +93,17 @@ export class OpenAIProvider implements AIProvider {
   async *completeStream(params: CompletionParams): AsyncGenerator<string> {
     const body: Record<string, unknown> = {
       model: params.model,
-      max_tokens: params.maxTokens ?? 4096,
-      temperature: params.temperature ?? 0.3,
+      // Newer models (gpt-5.x, o1/o3 reasoning family) reject `max_tokens` outright
+      // and require `max_completion_tokens` instead.
+      max_completion_tokens: params.maxTokens ?? 4096,
       messages: params.messages.map((m) => ({ role: m.role, content: m.content })),
       stream: true,
     };
+    if (acceptsCustomTemperature(params.model)) {
+      body.temperature = params.temperature ?? 0.3;
+    }
 
-    const response = await fetch(`${this.baseUrl}/v1/chat/completions`, {
+    const response = await fetch(`${this.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: this.headers,
       body: JSON.stringify(body),
@@ -126,7 +149,7 @@ export class OpenAIProvider implements AIProvider {
   }
 
   async embed(params: EmbeddingParams): Promise<EmbeddingResponse> {
-    const response = await fetch(`${this.baseUrl}/v1/embeddings`, {
+    const response = await fetch(`${this.baseUrl}/embeddings`, {
       method: 'POST',
       headers: this.headers,
       body: JSON.stringify({ model: params.model, input: params.texts }),

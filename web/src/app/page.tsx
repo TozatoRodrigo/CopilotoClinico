@@ -7,26 +7,26 @@ import {
   SealCheck,
   ShieldCheck,
   LockKey,
-  Microphone,
-  Brain,
-  FileText,
 } from '@phosphor-icons/react';
 
 const STEPS = [
   {
-    icon: Microphone,
+    state: 'Captura',
+    dot: 'bg-clinical-teal',
     title: 'Capture o caso por voz',
     description:
       'Fale ou digite o quadro clínico. O copiloto identifica recursos disponíveis (TC, laboratório, UTI) e red flags automaticamente.',
   },
   {
-    icon: Brain,
+    state: 'Análise',
+    dot: 'bg-clinical-amber',
     title: 'Receba recomendações fundamentadas',
     description:
       'Diretrizes clínicas (ACLS, ATLS, protocolos institucionais) com citação de fonte e nível de evidência. Perguntas bloqueadoras antes da conduta.',
   },
   {
-    icon: FileText,
+    state: 'Documento',
+    dot: 'bg-clinical-green',
     title: 'Gere documentos e confirme',
     description:
       'SOAP, SBAR, prescrição, alta ou atestado a partir da análise. Você revisa, edita e assina digitalmente com trilha de auditoria.',
@@ -120,29 +120,29 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* How it works */}
+        {/* How it works — the same decision-thread the copilot renders on every real case */}
         <section className="border-t border-clinical-line bg-white py-20">
           <div className="mx-auto max-w-5xl px-4 md:px-6">
             <h2 className="mb-12 font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Como funciona
             </h2>
-            <div className="grid gap-8 md:grid-cols-3">
-              {STEPS.map((step, i) => (
-                <div key={step.title} className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <span
-                      className="flex h-10 w-10 items-center justify-center rounded-xl"
-                      style={{ background: 'var(--sidebar-dark-bg)' }}
-                    >
-                      <step.icon className="size-5" style={{ color: 'var(--sidebar-dark-accent)' }} />
-                    </span>
-                    <span className="font-mono text-xs text-muted-foreground">{String(i + 1).padStart(2, '0')}</span>
-                  </div>
-                  <h3 className="font-display text-lg text-clinical-ink">{step.title}</h3>
-                  <p className="text-sm leading-relaxed text-muted-foreground">{step.description}</p>
-                </div>
+            <ol className="relative space-y-10 border-l-2 border-clinical-line pl-8 md:pl-10">
+              {STEPS.map((step) => (
+                <li key={step.title} className="relative">
+                  <span
+                    aria-hidden="true"
+                    className={`absolute top-1.5 -left-[2.1875rem] size-3 rounded-full ring-4 ring-white md:-left-[2.625rem] ${step.dot}`}
+                  />
+                  <p className="mb-1.5 font-mono text-[0.7rem] uppercase tracking-[0.08em] text-muted-foreground">
+                    {step.state}
+                  </p>
+                  <h3 className="font-display text-xl text-clinical-ink md:text-[1.4rem]">{step.title}</h3>
+                  <p className="mt-2 max-w-xl text-sm leading-relaxed text-muted-foreground md:text-base">
+                    {step.description}
+                  </p>
+                </li>
               ))}
-            </div>
+            </ol>
           </div>
         </section>
 

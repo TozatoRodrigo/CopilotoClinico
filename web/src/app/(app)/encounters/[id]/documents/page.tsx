@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/select";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Warning } from "@phosphor-icons/react";
 import { toast } from "sonner";
 
 type DocType = Document["type"];
@@ -52,12 +53,11 @@ const TYPE_LABELS: Record<DocType, string> = {
 };
 
 const TYPE_COLORS: Record<DocType, string> = {
-  soap: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-  sbar: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-  prescricao:
-    "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
-  alta: "bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300",
-  atestado: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300",
+  soap: "bg-clinical-teal-tint text-clinical-teal-deep",
+  sbar: "bg-clinical-green-bg text-clinical-green-foreground",
+  prescricao: "bg-clinical-amber-bg text-clinical-amber-foreground",
+  alta: "border border-clinical-line bg-card text-clinical-ink-soft",
+  atestado: "bg-muted text-muted-foreground",
 };
 
 function formatContent(content: Record<string, unknown>): string {
@@ -163,7 +163,7 @@ export default function DocumentsPage({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold tracking-tight">Documentos</h1>
+        <h1 className="font-display text-[1.75rem] font-normal leading-tight text-clinical-ink">Documentos</h1>
         <Button onClick={() => setGenerateOpen(true)}>
           Gerar Novo Documento
         </Button>
@@ -171,9 +171,10 @@ export default function DocumentsPage({
 
       {/* Banner de incerteza — visível quando a análise do copiloto sinalizou evidência insuficiente */}
       {hasUncertainInteraction && (
-        <Alert className="border-yellow-500/50 bg-yellow-50 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200">
+        <Alert className="border-clinical-amber/40 bg-clinical-amber-bg text-clinical-amber-foreground">
+          <Warning className="size-4" weight="bold" />
           <AlertTitle className="font-semibold">
-            ⚠️ Análise com evidência insuficiente
+            Análise com evidência insuficiente
           </AlertTitle>
           <AlertDescription>
             {uncertainReason ??
@@ -206,11 +207,11 @@ export default function DocumentsPage({
                       {TYPE_LABELS[doc.type]}
                     </span>
                     {doc.confirmedBy ? (
-                      <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                      <Badge className="bg-clinical-green-bg text-clinical-green-foreground">
                         Confirmado
                       </Badge>
                     ) : (
-                      <Badge className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
+                      <Badge className="bg-clinical-amber-bg text-clinical-amber-foreground">
                         Rascunho
                       </Badge>
                     )}
@@ -266,9 +267,10 @@ export default function DocumentsPage({
 
           {/* Aviso de incerteza dentro do dialog de confirmação — CLIN-001 */}
           {hasUncertainInteraction && (
-            <Alert className="border-yellow-500/50 bg-yellow-50 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200">
+            <Alert className="border-clinical-amber/40 bg-clinical-amber-bg text-clinical-amber-foreground">
+              <Warning className="size-4" weight="bold" />
               <AlertTitle className="text-sm font-semibold">
-                ⚠️ Atenção: análise com incerteza
+                Atenção: análise com incerteza
               </AlertTitle>
               <AlertDescription className="text-sm">
                 {uncertainReason ??
