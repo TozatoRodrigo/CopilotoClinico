@@ -2,6 +2,11 @@ import { messages } from "@/lib/messages";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/v1";
 
+// Exportado para usos fora do ApiClient (ex.: hrefs de download que precisam
+// apontar para a mesma origem/prefixo `/v1` roteado pelo Traefik ao backend —
+// um link relativo a `/api/...` cairia no catch-all do Next.js e daria 404).
+export const API_BASE_URL = BASE_URL;
+
 // A page can have several queries in flight when the access token expires
 // (e.g. the dashboard's 3 parallel fetches). Without this guard, each 401
 // independently assigns `window.location.href`, racing several redirects

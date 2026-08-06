@@ -26,6 +26,7 @@ import {
   PencilSimple,
 } from '@phosphor-icons/react';
 import { useAuth } from '@/lib/auth-store';
+import { API_BASE_URL } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 
 type DocType = Document['type'];
@@ -337,7 +338,7 @@ export default function DocumentEditPage({
               )}
 
               <a
-                href={`/api/encounters/${encounterId}/documents/${docId}/download`}
+                href={`${API_BASE_URL}/encounters/${encounterId}/documents/${docId}/download`}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-clinical-line bg-white px-4 text-sm font-medium text-foreground transition-colors hover:border-clinical-teal hover:text-clinical-teal"
