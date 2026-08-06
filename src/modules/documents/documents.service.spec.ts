@@ -465,4 +465,74 @@ describe('DocumentsService', () => {
       );
     });
   });
+
+  describe('getDownloadPdf', () => {
+    it('generates the PDF on demand when storage is unavailable (no pdfObjectKey)', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        ...baseDocument,
+        physicianId,
+        confirmedBy: physicianId,
+        confirmedAt: new Date('2025-01-02'),
+      });
+
+      const result = await service.getDownloadPdf(physicianId, documentId);
+
+      expect(result).not.toBeNull();
+      expect(result?.buffer).toBeInstanceOf(Buffer);
+      expect(result?.buffer.length).toBeGreaterThan(0);
+      expect(result?.filename).toBe(`soap-${documentId}.pdf`);
+    });
+
+    it('uses physicianEdits over content when present', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        ...baseDocument,
+        physicianId,
+        confirmedBy: physicianId,
+        confirmedAt: new Date('2025-01-02'),
+      });
+      const withoutEdits = await service.getDownloadPdf(physicianId, documentId);
+
+      prisma.document.findUnique.mockResolvedValue({
+        ...baseDocument,
+        physicianId,
+        physicianEdits: { plan: 'Plano completamente diferente' },
+        confirmedBy: physicianId,
+        confirmedAt: new Date('2025-01-02'),
+      });
+      const withEdits = await service.getDownloadPdf(physicianId, documentId);
+
+      // Conteúdos diferentes devem produzir PDFs diferentes — prova que
+      // physicianEdits (não content) foi usado quando presente.
+      expect(withEdits?.buffer.equals(withoutEdits!.buffer)).toBe(false);
+    });
+
+    it('returns null when document is not confirmed yet', async () => {
+      prisma.document.findUnique.mockResolvedValue({ ...baseDocument, physicianId });
+
+      const result = await service.getDownloadPdf(physicianId, documentId);
+
+      expect(result).toBeNull();
+    });
+
+    it('throws NotFoundException for non-existent document', async () => {
+      prisma.document.findUnique.mockResolvedValue(null);
+
+      await expect(service.getDownloadPdf(physicianId, documentId)).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('throws ForbiddenException when physician does not own document', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        ...baseDocument,
+        physicianId: otherPhysicianId,
+        confirmedBy: otherPhysicianId,
+        confirmedAt: new Date('2025-01-02'),
+      });
+
+      await expect(service.getDownloadPdf(physicianId, documentId)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+  });
 });

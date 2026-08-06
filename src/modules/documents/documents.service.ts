@@ -294,6 +294,48 @@ export class DocumentsService {
     return this.storage.getPresignedUrl(doc.pdfObjectKey);
   }
 
+  /**
+   * Gera o PDF do documento sob demanda, sem depender do object storage.
+   *
+   * O upload para o MinIO após confirm() é best-effort (falha silenciosa quando
+   * `storage.isAvailable()` é false, ex.: MinIO não provisionado em produção).
+   * Quando não há `pdfObjectKey`, este método reconstrói o PDF diretamente do
+   * conteúdo persistido no banco — mesma lógica usada no upload — para que o
+   * download nunca resulte em 404 apenas por o storage estar indisponível.
+   *
+   * Retorna null quando o documento ainda não foi confirmado/assinado
+   * (não existe "PDF assinado" para um documento em rascunho).
+   */
+  async getDownloadPdf(
+    physicianId: string,
+    documentId: string,
+  ): Promise<{ buffer: Buffer; filename: string } | null> {
+    const doc = await this.prisma.document.findUnique({
+      where: { id: documentId },
+      select: {
+        physicianId: true,
+        type: true,
+        content: true,
+        physicianEdits: true,
+        confirmedBy: true,
+        confirmedAt: true,
+      },
+    });
+    if (!doc) throw new NotFoundException('Document not found');
+    if (doc.physicianId !== physicianId) throw new ForbiddenException('Access denied');
+    if (!doc.confirmedBy || !doc.confirmedAt) return null;
+
+    const effectiveContent = (doc.physicianEdits ?? doc.content) as Record<string, unknown>;
+    const buffer = await buildDocumentPdf({
+      type: doc.type,
+      content: effectiveContent,
+      confirmedAt: doc.confirmedAt,
+      physicianId: doc.physicianId,
+    });
+
+    return { buffer, filename: `${doc.type}-${documentId}.pdf` };
+  }
+
   async findByEncounter(physicianId: string, encounterId: string) {
     const encounter = await this.prisma.encounter.findUnique({
       where: { id: encounterId },

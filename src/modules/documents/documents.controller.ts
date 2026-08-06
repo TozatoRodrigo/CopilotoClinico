@@ -59,10 +59,21 @@ export class DocumentsController {
     @Param('id') id: string,
     @Res() res: FastifyReply,
   ) {
+    // Caminho preferencial: PDF já persistido no object storage (quando configurado).
     const url = await this.documentsService.getDownloadUrl(req.user.physicianId, id);
-    if (!url) {
+    if (url) {
+      return res.redirect(url);
+    }
+
+    // Fallback: gera o PDF sob demanda a partir do conteúdo confirmado.
+    // Evita 404 quando o object storage não está disponível/configurado.
+    const pdf = await this.documentsService.getDownloadPdf(req.user.physicianId, id);
+    if (!pdf) {
       return res.status(404).send({ message: 'PDF not available' });
     }
-    return res.redirect(url);
+
+    res.header('Content-Type', 'application/pdf');
+    res.header('Content-Disposition', `attachment; filename="${pdf.filename}"`);
+    return res.send(pdf.buffer);
   }
 }
