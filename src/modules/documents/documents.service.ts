@@ -17,7 +17,7 @@ import { generateSBAR } from './generators/sbar.generator';
 import { generatePrescricao } from './generators/prescricao.generator';
 import { generateAlta } from './generators/alta.generator';
 import { generateAtestado } from './generators/atestado.generator';
-import { buildDocumentPdf } from './pdf/document-pdf.builder';
+import { buildDocumentPdf, type PdfDocumentInput } from './pdf/document-pdf.builder';
 import type { CopilotOutput } from '../copilot/guardrails/output-validator';
 
 const DOCUMENT_SELECT = {
@@ -44,6 +44,31 @@ function canonicalHash(obj: unknown): string {
   const sorted = JSON.stringify(obj, Object.keys(obj as object).sort());
   return createHash('sha256').update(sorted).digest('hex');
 }
+
+/**
+ * Código curto e legível do documento (ex.: "SOAP-847B234F"), usado no PDF e
+ * no nome do arquivo baixado — muito mais fácil de referenciar do que o UUID
+ * completo, mantendo os 8 primeiros caracteres do id (únicos o bastante para
+ * identificação humana; o UUID completo continua no hash/na auditoria).
+ */
+function shortDocumentCode(type: string, documentId: string): string {
+  return `${type.toUpperCase()}-${documentId.slice(0, 8).toUpperCase()}`;
+}
+
+const PDF_DOCUMENT_SELECT = {
+  id: true,
+  physicianId: true,
+  type: true,
+  content: true,
+  physicianEdits: true,
+  confirmedBy: true,
+  confirmedAt: true,
+  encounterId: true,
+  contentHash: true,
+  physician: { select: { name: true, crmUf: true, crmNumber: true } },
+} as const;
+
+type DocumentForPdf = Prisma.DocumentGetPayload<{ select: typeof PDF_DOCUMENT_SELECT }>;
 
 @Injectable()
 export class DocumentsService {
@@ -252,28 +277,23 @@ export class DocumentsService {
 
     // Upload PDF to storage (non-blocking, graceful degradation)
     setImmediate(() => {
-      this.uploadDocumentPdf(confirmed.id, doc.encounterId, physicianId, confirmed, now).catch(
-        (err) => this.logger.error(`PDF upload failed for document ${confirmed.id}`, err),
+      this.uploadDocumentPdf(confirmed.id, doc.encounterId).catch((err) =>
+        this.logger.error(`PDF upload failed for document ${confirmed.id}`, err),
       );
     });
 
     return confirmed;
   }
 
-  private async uploadDocumentPdf(
-    documentId: string,
-    encounterId: string,
-    physicianId: string,
-    doc: { type: string; content: unknown; id: string },
-    confirmedAt: Date,
-  ): Promise<void> {
+  private async uploadDocumentPdf(documentId: string, encounterId: string): Promise<void> {
     if (!this.storage.isAvailable()) return;
-    const pdfBuffer = await buildDocumentPdf({
-      type: doc.type,
-      content: doc.content as Record<string, unknown>,
-      confirmedAt,
-      physicianId,
+    const doc = await this.prisma.document.findUnique({
+      where: { id: documentId },
+      select: PDF_DOCUMENT_SELECT,
     });
+    if (!doc || !doc.confirmedBy || !doc.confirmedAt) return;
+
+    const pdfBuffer = await buildDocumentPdf(this.toPdfInput(doc as DocumentForPdf & { confirmedAt: Date }));
     const key = `documents/${encounterId}/${documentId}.pdf`;
     await this.storage.upload(key, pdfBuffer, 'application/pdf');
     await this.prisma.document.update({
@@ -300,8 +320,9 @@ export class DocumentsService {
    * O upload para o MinIO após confirm() é best-effort (falha silenciosa quando
    * `storage.isAvailable()` é false, ex.: MinIO não provisionado em produção).
    * Quando não há `pdfObjectKey`, este método reconstrói o PDF diretamente do
-   * conteúdo persistido no banco — mesma lógica usada no upload — para que o
-   * download nunca resulte em 404 apenas por o storage estar indisponível.
+   * conteúdo persistido no banco — mesma renderização usada no upload (layout,
+   * tipografia e cores da identidade visual do app) — para que o download nunca
+   * resulte em 404 apenas por o storage estar indisponível.
    *
    * Retorna null quando o documento ainda não foi confirmado/assinado
    * (não existe "PDF assinado" para um documento em rascunho).
@@ -312,28 +333,34 @@ export class DocumentsService {
   ): Promise<{ buffer: Buffer; filename: string } | null> {
     const doc = await this.prisma.document.findUnique({
       where: { id: documentId },
-      select: {
-        physicianId: true,
-        type: true,
-        content: true,
-        physicianEdits: true,
-        confirmedBy: true,
-        confirmedAt: true,
-      },
+      select: PDF_DOCUMENT_SELECT,
     });
     if (!doc) throw new NotFoundException('Document not found');
     if (doc.physicianId !== physicianId) throw new ForbiddenException('Access denied');
     if (!doc.confirmedBy || !doc.confirmedAt) return null;
 
+    const confirmed = doc as DocumentForPdf & { confirmedAt: Date };
+    const buffer = await buildDocumentPdf(this.toPdfInput(confirmed));
+    const dateStr = confirmed.confirmedAt.toISOString().slice(0, 10);
+    const filename = `${doc.type}-${documentId.slice(0, 8)}_${dateStr}.pdf`;
+
+    return { buffer, filename };
+  }
+
+  private toPdfInput(doc: DocumentForPdf & { confirmedAt: Date }): PdfDocumentInput {
     const effectiveContent = (doc.physicianEdits ?? doc.content) as Record<string, unknown>;
-    const buffer = await buildDocumentPdf({
+    return {
       type: doc.type,
       content: effectiveContent,
       confirmedAt: doc.confirmedAt,
-      physicianId: doc.physicianId,
-    });
-
-    return { buffer, filename: `${doc.type}-${documentId}.pdf` };
+      documentCode: shortDocumentCode(doc.type, doc.id),
+      physicianName: doc.physician.name?.trim() || 'Médico não identificado',
+      crmLabel: doc.physician.crmUf && doc.physician.crmNumber
+        ? `${doc.physician.crmUf}-${doc.physician.crmNumber}`
+        : null,
+      encounterCode: doc.encounterId.slice(0, 12),
+      contentHash: doc.contentHash,
+    };
   }
 
   async findByEncounter(physicianId: string, encounterId: string) {

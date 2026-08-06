@@ -386,6 +386,48 @@ describe('DocumentsService', () => {
 
       await expect(service.confirm(physicianId, documentId)).rejects.toThrow(NotFoundException);
     });
+
+    // Cenário 6: upload do PDF para o storage é best-effort (fire-and-forget) e
+    // re-busca o documento (com o join de physician) para renderizar o PDF —
+    // cobre o refactor que unificou a renderização usada por upload e download.
+    it('faz upload do PDF ao storage quando disponível, buscando physician para o PDF', async () => {
+      storageService.isAvailable.mockReturnValue(true);
+      prisma.document.findUnique
+        .mockResolvedValueOnce(docBase) // lookup inicial do confirm()
+        .mockResolvedValueOnce({
+          // re-busca dentro de uploadDocumentPdf (PDF_DOCUMENT_SELECT)
+          id: documentId,
+          physicianId,
+          type: 'soap',
+          content: baseDocument.content,
+          physicianEdits: null,
+          confirmedBy: physicianId,
+          confirmedAt: new Date('2025-01-02'),
+          encounterId,
+          contentHash: 'newhash',
+          physician: { name: 'Ana Teste', crmUf: 'SP', crmNumber: '123456' },
+        });
+      prisma.document.update.mockResolvedValue({
+        ...baseDocument,
+        confirmedBy: physicianId,
+        confirmedAt: new Date(),
+      });
+      prisma.encounter.update.mockResolvedValue({});
+
+      await service.confirm(physicianId, documentId);
+
+      await vi.waitFor(() => expect(storageService.upload).toHaveBeenCalled());
+
+      expect(storageService.upload).toHaveBeenCalledWith(
+        `documents/${encounterId}/${documentId}.pdf`,
+        expect.any(Buffer),
+        'application/pdf',
+      );
+      expect(prisma.document.update).toHaveBeenCalledWith({
+        where: { id: documentId },
+        data: { pdfObjectKey: `documents/${encounterId}/${documentId}.pdf` },
+      });
+    });
   });
 
   describe('findByEncounter', () => {
@@ -467,10 +509,13 @@ describe('DocumentsService', () => {
   });
 
   describe('getDownloadPdf', () => {
+    const physicianStub = { name: 'Ana Teste', crmUf: 'SP', crmNumber: '123456' };
+
     it('generates the PDF on demand when storage is unavailable (no pdfObjectKey)', async () => {
       prisma.document.findUnique.mockResolvedValue({
         ...baseDocument,
         physicianId,
+        physician: physicianStub,
         confirmedBy: physicianId,
         confirmedAt: new Date('2025-01-02'),
       });
@@ -480,13 +525,14 @@ describe('DocumentsService', () => {
       expect(result).not.toBeNull();
       expect(result?.buffer).toBeInstanceOf(Buffer);
       expect(result?.buffer.length).toBeGreaterThan(0);
-      expect(result?.filename).toBe(`soap-${documentId}.pdf`);
+      expect(result?.filename).toBe(`soap-${documentId.slice(0, 8)}_2025-01-02.pdf`);
     });
 
     it('uses physicianEdits over content when present', async () => {
       prisma.document.findUnique.mockResolvedValue({
         ...baseDocument,
         physicianId,
+        physician: physicianStub,
         confirmedBy: physicianId,
         confirmedAt: new Date('2025-01-02'),
       });
@@ -495,6 +541,7 @@ describe('DocumentsService', () => {
       prisma.document.findUnique.mockResolvedValue({
         ...baseDocument,
         physicianId,
+        physician: physicianStub,
         physicianEdits: { plan: 'Plano completamente diferente' },
         confirmedBy: physicianId,
         confirmedAt: new Date('2025-01-02'),
