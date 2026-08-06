@@ -136,6 +136,23 @@ function invalidateEncounterQueries(queryClient: QueryClient, encounterId: strin
   ]);
 }
 
+/**
+ * Cancela um atendimento (draft ou em revisão) — PATCH status: 'cancelled'.
+ * Backend bloqueia apenas atendimentos já 'finalized' (documento assinado);
+ * ver EncountersService.update.
+ */
+export function useCancelEncounter(encounterId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () =>
+      apiClient.patch<EncounterDetail>(`/encounters/${encounterId}`, { status: 'cancelled' }),
+    onSuccess: async () => {
+      await invalidateEncounterQueries(queryClient, encounterId);
+    },
+  });
+}
+
 export function useGenerateDocument(encounterId: string) {
   const queryClient = useQueryClient();
 

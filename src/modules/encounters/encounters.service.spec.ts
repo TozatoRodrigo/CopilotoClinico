@@ -391,6 +391,28 @@ describe('EncountersService', () => {
       expect(result.status).toBe('cancelled');
     });
 
+    it('allows cancelling a draft encounter', async () => {
+      prisma.encounter.findUnique.mockResolvedValue({
+        physicianId,
+        status: 'draft',
+      });
+      prisma.encounter.update.mockResolvedValue({
+        ...baseEncounter,
+        status: 'cancelled',
+      });
+
+      const result = await service.update(physicianId, encounterId, {
+        status: 'cancelled',
+      });
+
+      expect(prisma.encounter.update).toHaveBeenCalledWith({
+        where: { id: encounterId },
+        data: { status: 'cancelled' },
+        select: expect.any(Object),
+      });
+      expect(result.status).toBe('cancelled');
+    });
+
     it("throws ForbiddenException for another physician's encounter", async () => {
       prisma.encounter.findUnique.mockResolvedValue({
         physicianId: otherPhysicianId,

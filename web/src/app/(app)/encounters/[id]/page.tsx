@@ -1,15 +1,24 @@
 'use client';
 
-import { use } from 'react';
-import { useEncounterDetail } from '@/lib/clinical-queries';
+import { use, useState } from 'react';
+import { useEncounterDetail, useCancelEncounter } from '@/lib/clinical-queries';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { DecisionThread, type DecisionThreadItem } from '@/components/domain/decision-thread';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import Link from 'next/link';
-import { ArrowLeft, Microphone, Brain, FileText, ArrowRight } from '@phosphor-icons/react';
+import { ArrowLeft, Microphone, Brain, FileText, ArrowRight, XCircle } from '@phosphor-icons/react';
+import { toast } from 'sonner';
 import type { EncounterContext } from '@/lib/types';
 
 const CONTEXT_LABELS: Record<string, string> = {
@@ -25,13 +34,15 @@ const STATUS_LABELS: Record<string, string> = {
   draft: 'Rascunho',
   in_review: 'Em revisão',
   finalized: 'Finalizado',
+  cancelled: 'Cancelado',
   signed: 'Assinado',
 };
 
-const STATUS_VARIANTS: Record<string, 'outline' | 'secondary' | 'default'> = {
+const STATUS_VARIANTS: Record<string, 'outline' | 'secondary' | 'default' | 'destructive'> = {
   draft: 'outline',
   in_review: 'secondary',
   finalized: 'default',
+  cancelled: 'destructive',
   signed: 'default',
 };
 
@@ -71,9 +82,21 @@ function formatTime(iso: string): string {
 export default function EncounterDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const encounterQuery = useEncounterDetail(id);
+  const cancelEncounter = useCancelEncounter(id);
+  const [cancelOpen, setCancelOpen] = useState(false);
   const encounter = encounterQuery.data;
   const loading = encounterQuery.isPending;
   const error = encounterQuery.error?.message ?? null;
+
+  async function handleCancel() {
+    try {
+      await cancelEncounter.mutateAsync();
+      toast.success('Caso cancelado.');
+      setCancelOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao cancelar o caso.');
+    }
+  }
 
   if (loading) {
     return (
@@ -166,6 +189,16 @@ export default function EncounterDetailPage({ params }: { params: Promise<{ id: 
                 </Link>
               </Button>
             )}
+            {(encounter.status === 'draft' || encounter.status === 'in_review') && (
+              <Button
+                variant="destructive"
+                className="h-11"
+                onClick={() => setCancelOpen(true)}
+              >
+                <XCircle className="mr-2 size-4" />
+                Cancelar caso
+              </Button>
+            )}
           </div>
         </header>
 
@@ -230,6 +263,36 @@ export default function EncounterDetailPage({ params }: { params: Promise<{ id: 
           </section>
         )}
       </div>
+
+      <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancelar caso?</DialogTitle>
+            <DialogDescription>
+              O atendimento de {encounter.patientRef} será marcado como cancelado. Nenhum
+              conteúdo é apagado — o histórico permanece disponível na trilha de auditoria, mas o
+              caso não poderá mais ser analisado ou ter documentos gerados.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setCancelOpen(false)}
+              disabled={cancelEncounter.isPending}
+            >
+              Voltar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => void handleCancel()}
+              disabled={cancelEncounter.isPending}
+              loading={cancelEncounter.isPending}
+            >
+              {cancelEncounter.isPending ? 'Cancelando…' : 'Cancelar caso'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
