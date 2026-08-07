@@ -12,13 +12,6 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { getDemoCasePreset } from "@/lib/demo-case-presets";
 import type {
   CreateEncounterRequest,
@@ -30,14 +23,6 @@ interface ContextChip {
   key: keyof EncounterContext;
   label: string;
 }
-
-const VERTICALS = [
-  { value: "trauma", label: "Trauma" },
-  { value: "cardiac", label: "Cardíaco" },
-  { value: "pediatric", label: "Pediátrico" },
-  { value: "neuro", label: "Neuro" },
-  { value: "general", label: "Geral" },
-];
 
 const CONTEXT_CHIPS: ContextChip[] = [
   { key: "hasCT", label: "TC" },
@@ -76,12 +61,16 @@ export default function NewEncounterPage() {
   const [patientRef, setPatientRef] = useState(
     () => demoPreset?.patientRef ?? "",
   );
-  const [vertical, setVertical] = useState<
-    CreateEncounterRequest["vertical"]
-  >(
+  // UX-04 — vertical não é mais um campo que o médico precisa escolher antes
+  // de analisar: o texto do caso já carrega essa classificação (foi o que os
+  // dois médicos pilotos questionaram na reunião — "a depender do contexto
+  // do caso clínico... talvez aquela seleção ali seja redundante"). Default
+  // silencioso para "general"; presets de demo ainda podem sobrescrever.
+  // O médico confirma/corrige depois, na tela do caso (chip editável).
+  const [vertical] = useState<CreateEncounterRequest["vertical"]>(
     () =>
       (demoPreset?.vertical as CreateEncounterRequest["vertical"] | undefined) ??
-      "trauma",
+      "general",
   );
   const [context, setContext] = useState<EncounterContext>(
     () => demoPreset?.context ?? DEFAULT_CONTEXT,
@@ -178,27 +167,6 @@ export default function NewEncounterPage() {
                   Pseudonimização automática conforme LGPD.
                 </p>
               )}
-            </div>
-
-            <div className="space-y-2">
-              <Label>Vertical</Label>
-              <Select
-                value={vertical}
-                onValueChange={(value) =>
-                  setVertical(value as CreateEncounterRequest["vertical"])
-                }
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {VERTICALS.map((v) => (
-                    <SelectItem key={v.value} value={v.value}>
-                      {v.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
 
             <div className="space-y-2">

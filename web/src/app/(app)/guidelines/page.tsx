@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   BookOpen,
   Check,
@@ -216,8 +217,12 @@ function CuratorQueue() {
 
 export default function GuidelinesPage() {
   const { role } = useAuth();
-  const [queryInput, setQueryInput] = useState('');
-  const [query, setQuery] = useState('');
+  const searchParams = useSearchParams();
+  // UX-02 — permite chegar aqui com a busca já preenchida a partir do
+  // banner de incerteza da análise ("Buscar nas diretrizes"), sem exigir
+  // que o médico redigite o que já estava descrito no caso.
+  const [queryInput, setQueryInput] = useState(() => searchParams.get('q') ?? '');
+  const [query, setQuery] = useState(() => searchParams.get('q') ?? '');
   const [activePill, setActivePill] = useState('Todas');
   const [tab, setTab] = useState<'library' | 'curator'>('library');
 

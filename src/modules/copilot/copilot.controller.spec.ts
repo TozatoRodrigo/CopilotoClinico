@@ -64,10 +64,28 @@ describe('CopilotController', () => {
       yield { type: 'done' as const, result: analyzeResult };
     }
 
+    const noRedFlagsQuery = {
+      hasCT: false,
+      isSus: false,
+      hasLab: false,
+      hasICU: false,
+      immunosuppressed: false,
+      pregnant: false,
+      anticoagulant: false,
+      pediatric: false,
+      elderly65: false,
+      allergy: false,
+    };
+
     it('returns an Observable that emits MessageEvents from the generator', async () => {
       serviceMock.stream.mockReturnValue(fakeGen());
 
-      const query = { caseText: body.caseText, hasCT: true, isSus: false, hasLab: true, hasICU: false };
+      const query = {
+        caseText: body.caseText,
+        ...noRedFlagsQuery,
+        hasCT: true,
+        hasLab: true,
+      };
       const observable = controller.stream(req, encounterId, query);
 
       const events = await lastValueFrom(observable.pipe(toArray()));
@@ -75,16 +93,48 @@ describe('CopilotController', () => {
       expect(serviceMock.stream).toHaveBeenCalledWith('phys-001', encounterId, {
         caseText: body.caseText,
         context: { hasCT: true, isSus: false, hasLab: true, hasICU: false },
+        redFlags: {
+          immunosuppressed: false,
+          pregnant: false,
+          anticoagulant: false,
+          pediatric: false,
+          elderly65: false,
+          allergy: false,
+        },
       });
       expect(events).toHaveLength(2);
       expect(events[0]?.data).toEqual({ type: 'delta', delta: 'hello' });
       expect(events[1]?.data).toMatchObject({ type: 'done' });
     });
 
+    // UX-06 — paridade com POST /analyze: red flags confirmadas pelo médico
+    // não podem se perder só porque o caminho é streaming/GET.
+    it('forwards physician-confirmed red flags from individual query params (S20-CLIN-01 parity)', async () => {
+      serviceMock.stream.mockReturnValue(fakeGen());
+
+      const query = {
+        caseText: body.caseText,
+        ...noRedFlagsQuery,
+        pregnant: true,
+        anticoagulant: true,
+      };
+      const observable = controller.stream(req, encounterId, query);
+      // Observable é lazy (cold) — o generator só é chamado ao inscrever.
+      await lastValueFrom(observable.pipe(toArray()));
+
+      expect(serviceMock.stream).toHaveBeenCalledWith(
+        'phys-001',
+        encounterId,
+        expect.objectContaining({
+          redFlags: expect.objectContaining({ pregnant: true, anticoagulant: true }),
+        }),
+      );
+    });
+
     it('completes observable after done event', async () => {
       serviceMock.stream.mockReturnValue(fakeGen());
 
-      const query = { caseText: body.caseText, hasCT: false, isSus: false, hasLab: false, hasICU: false };
+      const query = { caseText: body.caseText, ...noRedFlagsQuery };
       const observable = controller.stream(req, encounterId, query);
 
       let completed = false;

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { apiClient, ApiError } from '@/lib/api-client';
-import { messages } from '@/lib/messages';
+import { useMessages } from '@/lib/messages/use-messages';
 
 /**
  * S21-VOICE-03 — Hook de gravação de voz com Whisper no backend.
@@ -36,7 +36,7 @@ export interface WhisperVoiceHook {
   elapsedMs: number;
   /** Nível de áudio atual (0..1) para waveform. Null se não gravando. */
   audioLevel: number | null;
-  /** Mensagem de erro localizada (pt-BR), ou null. */
+  /** Mensagem de erro localizada (locale da conta do médico — PI-05), ou null. */
   error: string | null;
   /** MediaRecorder é suportado neste navegador? */
   isSupported: boolean;
@@ -75,6 +75,7 @@ function pickSupportedMimeType(): string | null {
 }
 
 export function useWhisperVoice(): WhisperVoiceHook {
+  const messages = useMessages();
   const [status, setStatus] = useState<VoiceStatus>('idle');
   const [elapsedMs, setElapsedMs] = useState(0);
   const [audioLevel, setAudioLevel] = useState<number | null>(null);
@@ -196,7 +197,7 @@ export function useWhisperVoice(): WhisperVoiceHook {
         setStatus('error');
       }
     },
-    [],
+    [messages],
   );
 
   const stop = useCallback(() => {
@@ -227,7 +228,7 @@ export function useWhisperVoice(): WhisperVoiceHook {
       cleanupStream();
       setStatus('idle');
     }
-  }, [cleanupStream, upload]);
+  }, [cleanupStream, upload, messages]);
 
   const cancel = useCallback(() => {
     abortedRef.current = true;
@@ -314,7 +315,7 @@ export function useWhisperVoice(): WhisperVoiceHook {
           cleanupStream();
         });
     },
-    [cleanupStream, isSupported, startLevelMeter, stop],
+    [cleanupStream, isSupported, startLevelMeter, stop, messages],
   );
 
   return {

@@ -11,7 +11,10 @@ const nextConfig: NextConfig = {
   },
   productionBrowserSourceMaps: false,
   typescript: { ignoreBuildErrors: true },
-  eslint: { ignoreDuringBuilds: true },
+  // `eslint` foi removido de `NextConfig` nesta versão do Next.js (16.2.9) —
+  // lint deixou de rodar acoplado a `next build`; o CI já roda lint como
+  // step separado (ver .github/workflows/ci.yml). A chave antiga não tinha
+  // efeito nenhum em runtime, só quebrava o typecheck (`tsc --noEmit`).
   experimental: {
     optimizePackageImports: ['@phosphor-icons/react', 'radix-ui'],
   },

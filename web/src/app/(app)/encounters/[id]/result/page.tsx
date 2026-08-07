@@ -16,7 +16,7 @@ import { TimelineRail } from '@/components/ui/timeline-rail';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { messages } from '@/lib/messages';
+import { useMessages } from '@/lib/messages/use-messages';
 import {
   ArrowLeft,
   ArrowsClockwise,
@@ -51,6 +51,7 @@ function railFor(category?: string): { label: string; color: 'amber' | 'teal' | 
 
 export default function ResultPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: encounterId } = use(params);
+  const messages = useMessages();
 
   const resultQuery = useQuery({
     queryKey: ['latest-interaction-result', encounterId],
@@ -75,6 +76,8 @@ export default function ResultPage({ params }: { params: Promise<{ id: string }>
       const stored: StoredCopilotResult = {
         interactionId: data.interactionId,
         analysis,
+        turnIndex: data.turnIndex,
+        maxTurns: data.maxTurns,
       };
       try {
         sessionStorage.setItem(`${STORAGE_KEY_PREFIX}${encounterId}`, JSON.stringify(stored));
@@ -156,6 +159,7 @@ function ResultView({
   encounterId: string;
   result: StoredCopilotResult;
 }) {
+  const messages = useMessages();
   const { analysis, answers, setAnswer, reanalyze, reanalyzing, canReanalyze, respondError } =
     useCopilotConversation(encounterId, result);
   const { decisions, setDecision } = useRecommendationDecisions(

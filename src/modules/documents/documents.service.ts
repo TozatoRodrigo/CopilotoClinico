@@ -80,6 +80,17 @@ export class DocumentsService {
     @Inject(StorageService) private readonly storage: StorageService,
   ) {}
 
+  /**
+   * PI-05 — DECISÃO DE PRODUTO (pendente de confirmação do Dr. Ripardo):
+   * documentos gerados (SOAP/SBAR/prescrição/alta/atestado) permanecem
+   * SEMPRE em português, independentemente do `physician.locale` da UI.
+   * Motivo: são documentos com valor de prontuário médico no Brasil —
+   * mudar seu idioma por preferência de exibição é uma questão regulatória,
+   * não uma questão de UX, e não deve ser decidida unilateralmente aqui.
+   * Por isso `generate()` abaixo NUNCA lê `physician.locale` — a ausência é
+   * intencional, não um esquecimento. Revisitar se/quando essa decisão for
+   * confirmada ou revertida.
+   */
   async generate(physicianId: string, encounterId: string, input: GenerateDocumentInput) {
     const [encounter, physician] = await Promise.all([
       this.prisma.encounter.findUnique({
@@ -293,7 +304,9 @@ export class DocumentsService {
     });
     if (!doc || !doc.confirmedBy || !doc.confirmedAt) return;
 
-    const pdfBuffer = await buildDocumentPdf(this.toPdfInput(doc as DocumentForPdf & { confirmedAt: Date }));
+    const pdfBuffer = await buildDocumentPdf(
+      this.toPdfInput(doc as DocumentForPdf & { confirmedAt: Date }),
+    );
     const key = `documents/${encounterId}/${documentId}.pdf`;
     await this.storage.upload(key, pdfBuffer, 'application/pdf');
     await this.prisma.document.update({
@@ -355,9 +368,10 @@ export class DocumentsService {
       confirmedAt: doc.confirmedAt,
       documentCode: shortDocumentCode(doc.type, doc.id),
       physicianName: doc.physician.name?.trim() || 'Médico não identificado',
-      crmLabel: doc.physician.crmUf && doc.physician.crmNumber
-        ? `${doc.physician.crmUf}-${doc.physician.crmNumber}`
-        : null,
+      crmLabel:
+        doc.physician.crmUf && doc.physician.crmNumber
+          ? `${doc.physician.crmUf}-${doc.physician.crmNumber}`
+          : null,
       encounterCode: doc.encounterId.slice(0, 12),
       contentHash: doc.contentHash,
     };

@@ -10,13 +10,32 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   SealCheck,
   SealQuestion,
   IdentificationCard,
   UserCircle,
   ShieldCheck,
+  Translate,
 } from "@phosphor-icons/react";
 import Link from "next/link";
+
+/**
+ * PI-05 — locales com dicionário embarcado (ver web/src/lib/messages).
+ * Lista fechada de propósito: um valor fora daqui nunca deve ser oferecido
+ * na UI, mesmo que o backend aceite (defesa em profundidade com o enum do
+ * updateProfileSchema no backend).
+ */
+const LOCALE_OPTIONS: { value: string; label: string }[] = [
+  { value: "pt-BR", label: "Português (Brasil)" },
+  { value: "es", label: "Español" },
+];
 
 /**
  * S24-NAV-01 — localização de role (antes era exibida em inglês cru:
@@ -38,6 +57,11 @@ export function ProfileTab({ physician }: { physician: Physician | null }) {
   const { login } = useAuth();
   const [name, setName] = useState(physician?.name ?? "");
   const [loading, setLoading] = useState(false);
+  // PI-05 — preferência de idioma persistida na conta (não localStorage do
+  // dispositivo), ver Physician.locale. Salva imediatamente ao trocar — é
+  // uma preferência de exibição, não um dado que justifique um botão
+  // "Salvar" separado como o nome.
+  const [localeSaving, setLocaleSaving] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -59,6 +83,22 @@ export function ProfileTab({ physician }: { physician: Physician | null }) {
       toast.error(msg);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleLocaleChange(locale: string) {
+    setLocaleSaving(true);
+    try {
+      const updated = await apiClient.patch<Physician>("/auth/me", { locale });
+      login(updated);
+      queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
+      toast.success("Idioma atualizado.");
+    } catch (err) {
+      const msg =
+        err instanceof ApiError ? err.message : "Erro ao atualizar idioma.";
+      toast.error(msg);
+    } finally {
+      setLocaleSaving(false);
     }
   }
 
@@ -92,6 +132,36 @@ export function ProfileTab({ physician }: { physician: Physician | null }) {
           {loading ? "Salvando..." : "Salvar"}
         </Button>
       </form>
+
+      {/*
+        PI-05 — o médico troca de terminal no hospital; a preferência de
+        idioma precisa acompanhar a conta, não ficar presa ao localStorage
+        de um dispositivo específico. Afeta a UI e o texto gerado pelo
+        copiloto (raciocínio, recomendações, perguntas) — as citações de
+        diretriz permanecem sempre em português, ver prompt-builder.ts.
+      */}
+      <div className="space-y-2">
+        <Label htmlFor="profile-locale">Idioma</Label>
+        <div className="flex items-center gap-2">
+          <Translate className="size-5 shrink-0 text-muted-foreground" />
+          <Select
+            value={physician?.locale ?? "pt-BR"}
+            onValueChange={handleLocaleChange}
+            disabled={localeSaving}
+          >
+            <SelectTrigger id="profile-locale" className="w-full max-w-xs">
+              <SelectValue placeholder="Idioma" />
+            </SelectTrigger>
+            <SelectContent>
+              {LOCALE_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
       <div className="space-y-3">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">

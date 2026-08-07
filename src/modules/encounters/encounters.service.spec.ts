@@ -38,6 +38,9 @@ describe('EncountersService', () => {
       count: ReturnType<typeof vi.fn>;
       update: ReturnType<typeof vi.fn>;
     };
+    aiInteraction: {
+      findMany: ReturnType<typeof vi.fn>;
+    };
   };
   let institutionsService: { listForPhysician: ReturnType<typeof vi.fn> };
 
@@ -51,6 +54,11 @@ describe('EncountersService', () => {
         findMany: vi.fn(),
         count: vi.fn(),
         update: vi.fn(),
+      },
+      // PI-01 — findByPhysician() agora busca a interação mais recente de
+      // cada encontro em lote para expor highestRedFlagSeverity/lastInteractionAt.
+      aiInteraction: {
+        findMany: vi.fn().mockResolvedValue([]),
       },
     };
 
@@ -225,8 +233,154 @@ describe('EncountersService', () => {
         where: { physicianId },
       });
       expect(result).toEqual({
-        data: encounters,
+        // PI-01 — cada encontro ganha highestRedFlagSeverity/lastInteractionAt;
+        // aqui ambos null porque aiInteraction.findMany() retorna [] (default do mock).
+        data: encounters.map((e) => ({
+          ...e,
+          highestRedFlagSeverity: null,
+          lastInteractionAt: null,
+        })),
         meta: { page: 1, limit: 20, total: 2 },
+      });
+    });
+
+    // PI-01 — alerta de reavaliação na fila do plantão.
+    describe('PI-01: highestRedFlagSeverity / lastInteractionAt', () => {
+      it('exposes the highest red flag severity from the most recent AI interaction', async () => {
+        prisma.encounter.findMany.mockResolvedValue([{ ...baseEncounter, id: 'enc-1' }]);
+        prisma.encounter.count.mockResolvedValue(1);
+        prisma.aiInteraction.findMany.mockResolvedValue([
+          {
+            encounterId: 'enc-1',
+            createdAt: new Date('2025-06-01T10:00:00Z'),
+            rawOutput: {
+              redFlags: [
+                { finding: 'Febre', severity: 'moderate', action: 'Investigar foco' },
+                { finding: 'Hipotensão', severity: 'critical', action: 'Reposição volêmica' },
+                { finding: 'Taquicardia', severity: 'high', action: 'Monitorar' },
+              ],
+            },
+          },
+        ]);
+
+        const result = await service.findByPhysician(physicianId, { page: 1, limit: 20 });
+
+        expect(result.data[0]?.highestRedFlagSeverity).toBe('critical');
+        expect(result.data[0]?.lastInteractionAt).toBe('2025-06-01T10:00:00.000Z');
+      });
+
+      it('batches into a single aiInteraction.findMany call for the whole page (no N+1)', async () => {
+        prisma.encounter.findMany.mockResolvedValue([
+          { ...baseEncounter, id: 'enc-1' },
+          { ...baseEncounter, id: 'enc-2' },
+          { ...baseEncounter, id: 'enc-3' },
+        ]);
+        prisma.encounter.count.mockResolvedValue(3);
+        prisma.aiInteraction.findMany.mockResolvedValue([]);
+
+        await service.findByPhysician(physicianId, { page: 1, limit: 20 });
+
+        expect(prisma.aiInteraction.findMany).toHaveBeenCalledTimes(1);
+        expect(prisma.aiInteraction.findMany).toHaveBeenCalledWith({
+          where: { encounterId: { in: ['enc-1', 'enc-2', 'enc-3'] } },
+          orderBy: { createdAt: 'desc' },
+          select: { encounterId: true, rawOutput: true, createdAt: true },
+        });
+      });
+
+      it('uses only the LATEST turn per encounter, not the historical maximum across turns', async () => {
+        prisma.encounter.findMany.mockResolvedValue([{ ...baseEncounter, id: 'enc-1' }]);
+        prisma.encounter.count.mockResolvedValue(1);
+        // orderBy desc — turno mais recente (10:30) vem primeiro no array.
+        prisma.aiInteraction.findMany.mockResolvedValue([
+          {
+            encounterId: 'enc-1',
+            createdAt: new Date('2025-06-01T10:30:00Z'),
+            rawOutput: { redFlags: [{ finding: 'Febre baixa', severity: 'moderate', action: 'Observar' }] },
+          },
+          {
+            encounterId: 'enc-1',
+            createdAt: new Date('2025-06-01T10:00:00Z'),
+            rawOutput: { redFlags: [{ finding: 'Choque', severity: 'critical', action: 'Estabilizar' }] },
+          },
+        ]);
+
+        const result = await service.findByPhysician(physicianId, { page: 1, limit: 20 });
+
+        // O choque crítico foi do turno 1, já reavaliado — o turno mais
+        // recente só tem achado moderado. O alerta reflete o AGORA.
+        expect(result.data[0]?.highestRedFlagSeverity).toBe('moderate');
+      });
+
+      it('returns null severity when the latest interaction has no red flags', async () => {
+        prisma.encounter.findMany.mockResolvedValue([{ ...baseEncounter, id: 'enc-1' }]);
+        prisma.encounter.count.mockResolvedValue(1);
+        prisma.aiInteraction.findMany.mockResolvedValue([
+          { encounterId: 'enc-1', createdAt: new Date('2025-06-01T10:00:00Z'), rawOutput: { redFlags: [] } },
+        ]);
+
+        const result = await service.findByPhysician(physicianId, { page: 1, limit: 20 });
+
+        expect(result.data[0]?.highestRedFlagSeverity).toBeNull();
+        expect(result.data[0]?.lastInteractionAt).not.toBeNull();
+      });
+
+      it('returns null severity AND null lastInteractionAt for an encounter with no analysis yet', async () => {
+        prisma.encounter.findMany.mockResolvedValue([{ ...baseEncounter, id: 'enc-1' }]);
+        prisma.encounter.count.mockResolvedValue(1);
+        prisma.aiInteraction.findMany.mockResolvedValue([]);
+
+        const result = await service.findByPhysician(physicianId, { page: 1, limit: 20 });
+
+        expect(result.data[0]?.highestRedFlagSeverity).toBeNull();
+        expect(result.data[0]?.lastInteractionAt).toBeNull();
+      });
+
+      it('does not crash on a legacy/malformed rawOutput missing redFlags entirely', async () => {
+        prisma.encounter.findMany.mockResolvedValue([{ ...baseEncounter, id: 'enc-1' }]);
+        prisma.encounter.count.mockResolvedValue(1);
+        prisma.aiInteraction.findMany.mockResolvedValue([
+          { encounterId: 'enc-1', createdAt: new Date('2025-06-01T10:00:00Z'), rawOutput: { reasoning: 'x' } },
+        ]);
+
+        const result = await service.findByPhysician(physicianId, { page: 1, limit: 20 });
+
+        expect(result.data[0]?.highestRedFlagSeverity).toBeNull();
+      });
+
+      it('skips the batch query entirely (and does not call aiInteraction.findMany) when the page is empty', async () => {
+        prisma.encounter.findMany.mockResolvedValue([]);
+        prisma.encounter.count.mockResolvedValue(0);
+
+        await service.findByPhysician(physicianId, { page: 1, limit: 20 });
+
+        expect(prisma.aiInteraction.findMany).not.toHaveBeenCalled();
+      });
+
+      it('correctly maps severities across multiple different encounters in the same page', async () => {
+        prisma.encounter.findMany.mockResolvedValue([
+          { ...baseEncounter, id: 'enc-1' },
+          { ...baseEncounter, id: 'enc-2' },
+        ]);
+        prisma.encounter.count.mockResolvedValue(2);
+        prisma.aiInteraction.findMany.mockResolvedValue([
+          {
+            encounterId: 'enc-1',
+            createdAt: new Date('2025-06-01T10:00:00Z'),
+            rawOutput: { redFlags: [{ finding: 'A', severity: 'high', action: 'x' }] },
+          },
+          {
+            encounterId: 'enc-2',
+            createdAt: new Date('2025-06-01T09:00:00Z'),
+            rawOutput: { redFlags: [{ finding: 'B', severity: 'moderate', action: 'y' }] },
+          },
+        ]);
+
+        const result = await service.findByPhysician(physicianId, { page: 1, limit: 20 });
+
+        const byId = new Map(result.data.map((e) => [e.id, e]));
+        expect(byId.get('enc-1')?.highestRedFlagSeverity).toBe('high');
+        expect(byId.get('enc-2')?.highestRedFlagSeverity).toBe('moderate');
       });
     });
 
@@ -359,6 +513,31 @@ describe('EncountersService', () => {
         },
       });
       expect(result.status).toBe('in_review');
+    });
+
+    // UX-04 — vertical passa a ser confirmável/corrigível depois da criação
+    // do caso via este mesmo PATCH, em vez de ser um campo bloqueante na
+    // captura. `update()` já repassa `input` inteiro ao Prisma sem
+    // whitelist própria, então basta o schema aceitar o campo (ver
+    // encounter.schemas.spec.ts) para chegar até aqui.
+    it('updates vertical when the physician confirms/corrects the inferred value', async () => {
+      prisma.encounter.findUnique.mockResolvedValue({
+        physicianId,
+        status: 'in_review',
+      });
+      prisma.encounter.update.mockResolvedValue({
+        ...baseEncounter,
+        vertical: 'cardiac',
+      });
+
+      const result = await service.update(physicianId, encounterId, {
+        vertical: 'cardiac',
+      });
+
+      expect(prisma.encounter.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { vertical: 'cardiac' } }),
+      );
+      expect(result.vertical).toBe('cardiac');
     });
 
     it('throws ForbiddenException when trying to update finalized encounter', async () => {

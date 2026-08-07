@@ -38,10 +38,25 @@ export class CopilotController {
     @Param('encounterId') encounterId: string,
     @Query(new ZodValidationPipe(streamQuerySchema)) query: StreamQuery,
   ): Observable<MessageEvent> {
-    const { caseText, hasCT, isSus, hasLab, hasICU } = query;
+    const {
+      caseText,
+      hasCT,
+      isSus,
+      hasLab,
+      hasICU,
+      immunosuppressed,
+      pregnant,
+      anticoagulant,
+      pediatric,
+      elderly65,
+      allergy,
+    } = query;
     const input: AnalyzeInput = {
       caseText,
       context: { hasCT, isSus, hasLab, hasICU },
+      // UX-06 — ver comentário em streamQuerySchema: paridade de red flags
+      // com o caminho POST /analyze.
+      redFlags: { immunosuppressed, pregnant, anticoagulant, pediatric, elderly65, allergy },
     };
 
     return new Observable((subscriber) => {

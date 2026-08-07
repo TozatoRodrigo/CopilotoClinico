@@ -9,6 +9,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   createEncounterSchema,
+  updateEncounterSchema,
   isValidPatientRef,
   PATIENT_REF_VALIDATION_ERROR,
 } from './encounter.schemas';
@@ -120,5 +121,37 @@ describe('LGPD-001 — patientRef validation', () => {
     if (!result.success) {
       expect(result.error.errors[0]?.message).toBe(PATIENT_REF_VALIDATION_ERROR);
     }
+  });
+});
+
+// UX-04 — vertical passa a ser confirmável/corrigível depois da criação do
+// caso (chip editável na tela de detalhe), não mais só no momento da
+// captura. Este é o campo que o PATCH /encounters/:id precisa aceitar.
+describe('updateEncounterSchema — UX-04', () => {
+  it('accepts a valid vertical value on its own', () => {
+    const result = updateEncounterSchema.safeParse({ vertical: 'cardiac' });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.vertical).toBe('cardiac');
+    }
+  });
+
+  it('accepts vertical alongside status and context', () => {
+    const result = updateEncounterSchema.safeParse({
+      status: 'in_review',
+      vertical: 'neuro',
+      context: { hasCT: true, isSus: false, hasLab: false, hasICU: false },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects a vertical value outside the canonical enum', () => {
+    const result = updateEncounterSchema.safeParse({ vertical: 'oncologia' });
+    expect(result.success).toBe(false);
+  });
+
+  it('remains valid with no fields at all (all optional, no regression)', () => {
+    const result = updateEncounterSchema.safeParse({});
+    expect(result.success).toBe(true);
   });
 });

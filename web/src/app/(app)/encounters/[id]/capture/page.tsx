@@ -15,6 +15,8 @@ import { useOnlineStatus } from '@/components/providers/offline-provider';
 import { addToQueue } from '@/lib/offline-queue';
 import { syncOfflineQueue } from '@/lib/copilot-queue';
 import { STORAGE_KEY_PREFIX } from '@/hooks/use-copilot-conversation';
+import { useCopilotStream, isStreamEligible } from '@/hooks/use-copilot-stream';
+import { markFirstAnalysisDone } from '@/components/domain/install-prompt-banner';
 import {
   Microphone,
   MicrophoneSlash,
@@ -30,7 +32,7 @@ import {
 import { toast } from 'sonner';
 import type { CopilotAnalysis, CopilotAnalyzeResponse, EncounterContext } from '@/lib/types';
 import { getDemoCasePreset } from '@/lib/demo-case-presets';
-import { messages } from '@/lib/messages';
+import { useMessages } from '@/lib/messages/use-messages';
 import { cn } from '@/lib/utils';
 
 /**
@@ -121,6 +123,7 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isOnline } = useOnlineStatus();
+  const messages = useMessages();
   const demoPreset = getDemoCasePreset(searchParams.get('demoCase'));
 
   // S23-CLIN-02 — restaura rascunho salvo (autosave) ao montar.
@@ -139,6 +142,10 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
   const [redFlags, setRedFlags] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // UX-06 — streaming da análise inicial (ver hook para o porquê do escopo
+  // ser "sinal de vida rápido", não parsing incremental de campos).
+  const stream = useCopilotStream(encounterId);
 
   // S21-VOICE-03 — Hook Whisper (MediaRecorder + upload para /audio/transcribe).
   // Substitui o useVoiceInput (webkitSpeechRecognition não funciona em iOS Safari).
@@ -206,14 +213,45 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
     toast.success(messages.capture.templateApplied(template));
   }
 
+  // UX-06 — extraído de dentro do try/catch original para ser reaproveitado
+  // pelos dois caminhos de sucesso (streaming e POST não-streaming) sem
+  // duplicar a lógica de persistência/navegação.
+  function applyAnalysisResult(result: CopilotAnalyzeResponse) {
+    const analysis: CopilotAnalysis = {
+      ...result.output,
+      citations: result.citations,
+    };
+
+    sessionStorage.setItem(
+      `${STORAGE_KEY_PREFIX}${encounterId}`,
+      // UX-03 — turnIndex/maxTurns precisam estar aqui desde a primeira
+      // análise, senão o indicador de progresso nasce sem dado na
+      // primeira visita à tela de resultado (antes de qualquer reanálise).
+      JSON.stringify({
+        interactionId: result.interactionId,
+        analysis,
+        turnIndex: result.metadata.turnIndex,
+        maxTurns: result.metadata.maxTurns,
+      }),
+    );
+    // S23-CLIN-02 — limpa rascunho após submit com sucesso (não precisa mais).
+    sessionStorage.removeItem(DRAFT_KEY(encounterId));
+    // UX-05 — primeira análise concluída com sucesso: a partir de agora o
+    // médico já viu valor, é o momento certo para oferecer instalação.
+    markFirstAnalysisDone();
+    router.push(`/encounters/${encounterId}/result`);
+  }
+
   async function handleSubmit() {
     if (!isValid || loading) return;
+
+    const trimmedCaseText = caseText.trim();
 
     if (!isOnline) {
       await addToQueue({
         type: 'analyze',
         encounterId,
-        caseText: caseText.trim(),
+        caseText: trimmedCaseText,
         context,
         // S20-CLIN-01 — envia redFlags explícitas na fila offline.
         redFlags,
@@ -225,24 +263,33 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
     setLoading(true);
     setError(null);
 
+    const demoCaseSlug = searchParams.get('demoCase') ?? undefined;
+
+    // UX-06 — tenta streaming primeiro para o caminho comum. Casos-demo
+    // ficam de fora (o endpoint de stream não carrega a tag `demoCase` de
+    // segmentação de funil — perdê-la comprometeria a métrica de adoção
+    // do piloto) e casos muito longos também (URL de GET tem limite
+    // prático de tamanho — ver isStreamEligible). Qualquer falha no
+    // streaming (rede, proxy bloqueando SSE, etc.) cai no POST de sempre —
+    // o médico nunca fica sem resultado só porque o streaming falhou.
+    if (!demoCaseSlug && isStreamEligible(trimmedCaseText)) {
+      try {
+        const result = await stream.start({ caseText: trimmedCaseText, context, redFlags });
+        applyAnalysisResult(result);
+        setLoading(false);
+        return;
+      } catch {
+        // segue para o POST não-streaming abaixo
+      }
+    }
+
     try {
       const result = await apiClient.post<CopilotAnalyzeResponse>(
         `/encounters/${encounterId}/copilot/analyze`,
         // S20-CLIN-01 — envia redFlags explícitas no payload online.
-        { caseText: caseText.trim(), context, redFlags, demoCase: searchParams.get('demoCase') ?? undefined },
+        { caseText: trimmedCaseText, context, redFlags, demoCase: demoCaseSlug },
       );
-      const analysis: CopilotAnalysis = {
-        ...result.output,
-        citations: result.citations,
-      };
-
-      sessionStorage.setItem(
-        `${STORAGE_KEY_PREFIX}${encounterId}`,
-        JSON.stringify({ interactionId: result.interactionId, analysis }),
-      );
-      // S23-CLIN-02 — limpa rascunho após submit com sucesso (não precisa mais).
-      sessionStorage.removeItem(DRAFT_KEY(encounterId));
-      router.push(`/encounters/${encounterId}/result`);
+      applyAnalysisResult(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : messages.capture.errorAnalyze);
     } finally {
@@ -505,6 +552,24 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
                 <AlertTitle>{messages.errors.title}</AlertTitle>
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
+            )}
+
+            {/* UX-06 — sinal de vida rápido enquanto o stream chega, em vez
+                de um spinner mudo pelo tempo inteiro da inferência. Não
+                mostra o texto bruto do delta (é JSON em construção, cru e
+                por vezes ilegível — errado exibir fragmento de sintaxe a
+                um médico em decisão clínica); só a confirmação de que a
+                resposta já está chegando. A análise estruturada de verdade
+                só aparece completa, ao final (ver hook para o porquê). */}
+            {stream.status === 'streaming' && (
+              <div
+                className="flex items-center gap-2 rounded-lg border border-clinical-teal/30 bg-clinical-teal/5 px-3 py-2 text-sm text-clinical-teal"
+                role="status"
+                aria-live="polite"
+              >
+                <Spinner className="size-4 shrink-0 animate-spin" />
+                <span>{messages.capture.streamingHint}</span>
+              </div>
             )}
 
             <div className="mt-auto flex items-center gap-4">

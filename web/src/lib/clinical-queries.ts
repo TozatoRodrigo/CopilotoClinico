@@ -16,6 +16,7 @@ import type {
   Document,
   EditDocumentRequest,
   EncounterDetail,
+  EncounterVertical,
   EncountersResponse,
   GenerateDocumentRequest,
   GuidelineSearchResult,
@@ -147,6 +148,23 @@ export function useCancelEncounter(encounterId: string) {
   return useMutation({
     mutationFn: () =>
       apiClient.patch<EncounterDetail>(`/encounters/${encounterId}`, { status: 'cancelled' }),
+    onSuccess: async () => {
+      await invalidateEncounterQueries(queryClient, encounterId);
+    },
+  });
+}
+
+/**
+ * UX-04 — confirma/corrige a vertical do caso depois da captura, em vez de
+ * exigi-la como campo bloqueante antes de analisar (ver encounters/new/page.tsx
+ * e o chip editável em encounters/[id]/page.tsx).
+ */
+export function useUpdateEncounterVertical(encounterId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (vertical: EncounterVertical) =>
+      apiClient.patch<EncounterDetail>(`/encounters/${encounterId}`, { vertical }),
     onSuccess: async () => {
       await invalidateEncounterQueries(queryClient, encounterId);
     },

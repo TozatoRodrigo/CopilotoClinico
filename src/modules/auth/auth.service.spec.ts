@@ -156,6 +156,7 @@ describe('AuthService', () => {
             crmVerified: true,
             name: true,
             role: true,
+            locale: true,
             createdAt: true,
           },
         }),

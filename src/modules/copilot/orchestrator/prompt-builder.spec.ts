@@ -111,6 +111,46 @@ describe('buildPrompt', () => {
     expect(result.user).toContain('uncertainty');
   });
 
+  // CC-03 — Antes desta correção, este exato caminho (zero chunks
+  // recuperados) instruía "Set uncertainty to true. Analyze this case and
+  // declare evidence insufficiency." e nada mais — é literalmente a causa
+  // raiz da parede reproduzida na apresentação para os médicos com o caso de
+  // cefaleia. Estes testes travam que o caminho D (perguntar) seja sempre
+  // instruído aqui, não apenas documentado em abstrato no system prompt.
+  describe('CC-03: the zero-evidence path asks instead of stopping (the wall reproduced)', () => {
+    it('never instructs the model to simply stop — always points to DECISION MATRIX path D', () => {
+      const result = buildPrompt(makeInput({ retrievedChunks: [] }));
+
+      expect(result.user).not.toContain('declare evidence insufficiency');
+      expect(result.user).toContain('Do NOT simply declare insufficiency and stop');
+      expect(result.user).toContain('DECISION MATRIX path D');
+    });
+
+    it('instructs universal-triage clarifying questions with a concrete priority order', () => {
+      const result = buildPrompt(makeInput({ retrievedChunks: [] }));
+
+      expect(result.user).toContain('UNIVERSAL-TRIAGE-ANCHORED clarifyingQuestions');
+      expect(result.user).toContain('time course (sudden vs progressive)');
+      expect(result.user).toContain('hemodynamic stability / vital signs');
+      expect(result.user).toContain('most discriminating red flag');
+    });
+
+    it('explicitly permits empty recommendations only because questions are being asked', () => {
+      const result = buildPrompt(makeInput({ retrievedChunks: [] }));
+
+      expect(result.user).toContain(
+        '"recommendations" may be empty here ONLY because you are asking',
+      );
+      expect(result.user).toContain('never leave both recommendations and clarifyingQuestions empty');
+    });
+
+    it('never blames the physician for a vague description — frames the gap as guideline coverage', () => {
+      const result = buildPrompt(makeInput({ retrievedChunks: [] }));
+
+      expect(result.user).toContain('never blame the physician\'s description');
+    });
+  });
+
   it('does not include guideline_evidence tags when no chunks', () => {
     const result = buildPrompt(makeInput({ retrievedChunks: [] }));
 
@@ -167,14 +207,55 @@ describe('buildPrompt', () => {
     expect(result.user).toContain('[Source: protocol-x v2.1]');
   });
 
-  describe('DEC-003: 3-way decision rule', () => {
-    it('documents the 3-way decision paths in the system prompt', () => {
+  // CC-03 — Este describe block ANTES testava "DECISION RULE (3-WAY)", os
+  // três caminhos mutuamente exclusivos (A/B/C) que produziram a parede da
+  // apresentação: sem cobertura de diretriz E sem dado do paciente, o modelo
+  // caía no caminho C e parava, sem perguntar nada. Renomeado e reescrito
+  // para documentar a reversão deliberada — a matriz de 2 eixos abre um
+  // quarto caminho (D) exatamente para esse quadrante.
+  describe('DEC-003 / CC-03: 2-axis decision matrix', () => {
+    it('documents the 2-axis decision matrix with all 4 quadrants in the system prompt', () => {
       const result = buildPrompt(makeInput());
 
-      expect(result.system).toContain('DECISION RULE (3-WAY)');
-      expect(result.system).toContain('SUFFICIENT EVIDENCE + SUFFICIENT PATIENT DATA');
-      expect(result.system).toContain('SUFFICIENT EVIDENCE BUT A PATIENT DETAIL');
-      expect(result.system).toContain('INSUFFICIENT EVIDENCE');
+      expect(result.system).toContain('DECISION MATRIX (2-AXIS)');
+      expect(result.system).toContain('Axis 1 — EVIDENCE');
+      expect(result.system).toContain('Axis 2 — PATIENT DATA');
+      expect(result.system).toContain('A. EVIDENCE OK + PATIENT DATA OK');
+      expect(result.system).toContain('B. EVIDENCE OK + PATIENT DATA MISSING');
+      expect(result.system).toContain('C. EVIDENCE INSUFFICIENT + PATIENT DATA OK');
+      expect(result.system).toContain('D. EVIDENCE INSUFFICIENT + PATIENT DATA MISSING');
+    });
+
+    it('CC-03: quadrant D never leaves the physician without a next step', () => {
+      const result = buildPrompt(makeInput());
+
+      // O quadrante que faltava na arquitetura antiga: sem diretriz E sem
+      // dado do paciente — exatamente o caso da apresentação. A regra
+      // precisa instruir pergunta, nunca silêncio.
+      expect(result.system).toContain(
+        'UNIVERSAL-TRIAGE-ANCHORED "clarifyingQuestions"',
+      );
+      expect(result.system).toContain('never leave both empty');
+    });
+
+    it('CC-02/CC-03: states the absolute rule that recommendations and clarifyingQuestions cannot both be empty', () => {
+      const result = buildPrompt(makeInput());
+
+      expect(result.system).toContain(
+        'NEVER return an output with zero "recommendations" AND zero "clarifyingQuestions"',
+      );
+      expect(result.system).toContain('silence is not an acceptable answer');
+      // A distinção central que destrava a correção inteira.
+      expect(result.system).toContain('Asking a question never requires a citation');
+    });
+
+    it('CC-03: uncertainty is documented as describing evidence coverage, never terminal by itself', () => {
+      const result = buildPrompt(makeInput());
+
+      expect(result.system).toContain(
+        '"uncertainty" always describes evidence coverage, never patient-data completeness',
+      );
+      expect(result.system).toContain('it is never terminal by itself');
     });
 
     it('limits clarifyingQuestions to at most 3 per turn, ordered by criticality', () => {
@@ -204,6 +285,53 @@ describe('buildPrompt', () => {
       expect(result.system).toContain('"why" MUST reference the specific guideline');
     });
 
+    // CC-04 — a trava mais sutil das quatro identificadas na investigação:
+    // antes, TODA pergunta exigia citação de diretriz. Sem diretriz
+    // recuperada, nenhuma pergunta era sequer emitível — mesmo com a
+    // DECISION MATRIX já corrigida (CC-03), o modelo continuaria mudo.
+    describe('CC-04: universal-triage anchoring (second mode)', () => {
+      it('documents both anchoring modes as the only two ways to ask a question', () => {
+        const result = buildPrompt(makeInput());
+
+        expect(result.system).toContain('GUIDELINE-ANCHORED');
+        expect(result.system).toContain('UNIVERSAL-TRIAGE-ANCHORED');
+        expect(result.system).toContain(
+          'use ONLY when no retrieved chunk covers the point',
+        );
+      });
+
+      it('restricts universal-triage questions to a closed, named set of categories', () => {
+        const result = buildPrompt(makeInput());
+
+        expect(result.system).toContain('Hemodynamic stability / ABCDE');
+        expect(result.system).toContain('Time course: sudden vs progressive onset');
+        expect(result.system).toContain('single most discriminating finding');
+        expect(result.system).toContain('Associated trauma or mechanism of injury');
+        expect(result.system).toContain('do not invent a category outside it');
+      });
+
+      it('forbids re-asking about anything already confirmed via physician_confirmed_red_flags', () => {
+        const result = buildPrompt(makeInput());
+
+        expect(result.system).toContain(
+          'Never ask about anything already confirmed in physician_confirmed_red_flags',
+        );
+      });
+    });
+
+    // UX-01 — "dados necessários para uma análise segura" agrupados por
+    // finalidade clínica, não uma lista solta de perguntas.
+    it('documents the clinical purpose grouping rule for clarifyingQuestions', () => {
+      const result = buildPrompt(makeInput());
+
+      expect(result.system).toContain('CLINICAL PURPOSE GROUPING RULE');
+      expect(result.system).toContain('"purpose"');
+      expect(result.system).toContain('Estabilidade hemodinâmica');
+      // O contraste bom/ruim é o que evita que o modelo devolva a
+      // categoria técnica do dado em vez do objetivo clínico da pergunta.
+      expect(result.system).toContain('not a technical category');
+    });
+
     it('documents preliminary and clarifyingQuestions fields in the output schema', () => {
       const result = buildPrompt(makeInput());
 
@@ -231,6 +359,33 @@ describe('buildPrompt', () => {
       expect(result.system).toContain('include up to 3 items in "differentials"');
       expect(result.system).toContain('Differentials are reminders, not blockers');
       expect(result.system).toContain('return "differentials": []');
+    });
+
+    // PI-03 — diferenciais "não pode perder", sem número de probabilidade
+    // (decisão explícita do Dr. Gustavo em reunião).
+    it('documents the cannot-miss differentials rule with the same bar as a critical red flag', () => {
+      const result = buildPrompt(makeInput());
+
+      expect(result.system).toContain('CANNOT-MISS DIFFERENTIALS RULE');
+      expect(result.system).toContain('"cannotMiss": true');
+      expect(result.system).toContain('same bar as a "critical" red flag');
+      expect(result.system).toContain('"minutos", "horas", or "dias"');
+    });
+
+    it('explicitly forbids probability/percentage language in differentials', () => {
+      const result = buildPrompt(makeInput());
+
+      expect(result.system).toContain('NEVER express likelihood as a percentage');
+      expect(result.system).toContain('numeric score');
+      expect(result.system).toContain('reason poorly with probability numbers');
+    });
+
+    it('documents cannotMiss and timeToHarm in the output schema', () => {
+      const result = buildPrompt(makeInput());
+
+      expect(result.system).toContain('"cannotMiss"');
+      expect(result.system).toContain('"timeToHarm"');
+      expect(result.system).toContain("'minutos' | 'horas' | 'dias'");
     });
 
     it('includes a few-shot example for the flu-syndrome >48h case', () => {

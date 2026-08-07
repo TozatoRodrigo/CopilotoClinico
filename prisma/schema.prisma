@@ -74,6 +74,11 @@ model Physician {
   updatedAt          DateTime           @updatedAt @map("updated_at")
 
   isCurator          Boolean            @default(false) @map("is_curator")
+  // PI-05 — preferência de idioma persistida na conta (não só localStorage
+  // do dispositivo): o médico troca de terminal no hospital e a UI/análise
+  // precisam seguir com ele. 'pt-BR' | 'es' — validado na aplicação, não
+  // como enum do banco, para não exigir migração a cada novo idioma.
+  locale             String             @default("pt-BR")
 
   encounters            Encounter[]
   documents             Document[]

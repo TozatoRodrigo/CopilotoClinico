@@ -15,6 +15,9 @@ describe('OrchestratorService', () => {
       create: ReturnType<typeof vi.fn>;
       findFirst: ReturnType<typeof vi.fn>;
     };
+    physician: {
+      findUnique: ReturnType<typeof vi.fn>;
+    };
   };
   let aiGatewayMock: {
     complete: ReturnType<typeof vi.fn>;
@@ -85,6 +88,11 @@ describe('OrchestratorService', () => {
   function createMocks() {
     prismaMock = {
       aiInteraction: { create: vi.fn(), findFirst: vi.fn() },
+      // PI-05 — getPhysicianLocale() consulta isto em analyze/analyzeStream/
+      // continueAnalysis. null (sem `locale` selecionado) reproduz o
+      // comportamento pt-BR padrão anterior à PI-05 em todos os testes que
+      // não mockam explicitamente um locale diferente.
+      physician: { findUnique: vi.fn().mockResolvedValue(null) },
     };
     aiGatewayMock = {
       complete: vi.fn(),
@@ -1172,6 +1180,248 @@ describe('OrchestratorService', () => {
         'COPILOT_QUESTION_ANSWERED',
         'COPILOT_ANALYSIS_REFINED',
       ]);
+    });
+
+    describe('CC-05: red flags survive across turns', () => {
+      it('includes the physician-confirmed red flags block on turn 1 (regression baseline)', async () => {
+        setupHappyPath();
+        prismaMock.aiInteraction.findFirst.mockResolvedValue(
+          makeParentInteraction({ params: { demoCase: null, redFlags: { pregnant: true } } }),
+        );
+
+        await service.continueAnalysis(physicianId, encounterId, {
+          interactionId: parentInteractionId,
+          answers: [{ questionId: 'q1', answer: 'sim' }],
+        });
+
+        const promptArg = aiGatewayMock.complete.mock.calls[0]![0] as {
+          messages: Array<{ role: string; content: string }>;
+        };
+        const userMessage = promptArg.messages.find((m) => m.role === 'user')!;
+        expect(userMessage.content).toContain('physician_confirmed_red_flags');
+        expect(userMessage.content).toContain('Paciente gestante ou amamentando');
+      });
+
+      it('does not inject an empty red-flags block when the parent turn had none (no regression)', async () => {
+        setupHappyPath();
+        prismaMock.aiInteraction.findFirst.mockResolvedValue(
+          makeParentInteraction({ params: { demoCase: null, redFlags: {} } }),
+        );
+
+        await service.continueAnalysis(physicianId, encounterId, {
+          interactionId: parentInteractionId,
+          answers: [{ questionId: 'q1', answer: 'sim' }],
+        });
+
+        const promptArg = aiGatewayMock.complete.mock.calls[0]![0] as {
+          messages: Array<{ role: string; content: string }>;
+        };
+        const userMessage = promptArg.messages.find((m) => m.role === 'user')!;
+        expect(userMessage.content).not.toContain('physician_confirmed_red_flags');
+      });
+
+      it('degrades gracefully when params is missing/null (pre-CC-05 legacy rows)', async () => {
+        setupHappyPath();
+        prismaMock.aiInteraction.findFirst.mockResolvedValue(
+          makeParentInteraction({ params: null }),
+        );
+
+        await expect(
+          service.continueAnalysis(physicianId, encounterId, {
+            interactionId: parentInteractionId,
+            answers: [{ questionId: 'q1', answer: 'sim' }],
+          }),
+        ).resolves.toBeDefined();
+
+        const promptArg = aiGatewayMock.complete.mock.calls[0]![0] as {
+          messages: Array<{ role: string; content: string }>;
+        };
+        const userMessage = promptArg.messages.find((m) => m.role === 'user')!;
+        expect(userMessage.content).not.toContain('physician_confirmed_red_flags');
+      });
+
+      it('propagates red flags transitively across a 3-turn chain (turn 3 still knows the patient is pregnant)', async () => {
+        encountersMock.findById.mockResolvedValue({
+          id: encounterId,
+          physicianId,
+          patientRef: 'PRN-001',
+          context: { hasCT: false, isSus: false, hasLab: false, hasICU: false },
+        });
+        retrievalMock.search.mockResolvedValue({ chunks: mockChunks, totalRetrieved: 2 });
+        encountersMock.update.mockResolvedValue({});
+
+        // Turn 0 (analyze): médico marca o chip "gestante".
+        aiGatewayMock.complete.mockResolvedValueOnce({
+          content: JSON.stringify({
+            reasoning: 'Avaliação inicial',
+            recommendations: [],
+            uncertainty: true,
+            uncertaintyReason: 'Falta informação sobre tempo de evolução',
+            clarifyingQuestions: [
+              {
+                id: 'q1',
+                question: 'Início súbito ou progressivo?',
+                why: 'Muda a prioridade de investigação',
+                criticality: 'blocker',
+                expectedAnswerType: 'choice',
+                choices: ['Súbito', 'Progressivo'],
+              },
+            ],
+          }),
+          model: 'claude-3-sonnet',
+          usage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 },
+          latencyMs: 1000,
+        });
+        prismaMock.aiInteraction.create.mockResolvedValueOnce({ id: 'interaction-0' });
+
+        await service.analyze(physicianId, encounterId, {
+          ...validInput,
+          redFlags: { pregnant: true },
+        });
+
+        expect(prismaMock.aiInteraction.create).toHaveBeenNthCalledWith(
+          1,
+          expect.objectContaining({
+            data: expect.objectContaining({ params: { demoCase: null, redFlags: { pregnant: true } } }),
+          }),
+        );
+
+        // Turn 1 (continueAnalysis): herda de params do turno 0.
+        prismaMock.aiInteraction.findFirst.mockResolvedValueOnce({
+          id: 'interaction-0',
+          encounterId,
+          turnIndex: 0,
+          inputRedacted: validInput.caseText,
+          answeredQuestions: null,
+          params: { demoCase: null, redFlags: { pregnant: true } },
+          rawOutput: {
+            reasoning: 'Avaliação inicial',
+            recommendations: [],
+            uncertainty: true,
+            uncertaintyReason: 'Falta informação sobre tempo de evolução',
+            clarifyingQuestions: [
+              {
+                id: 'q1',
+                question: 'Início súbito ou progressivo?',
+                why: 'Muda a prioridade de investigação',
+                criticality: 'blocker',
+                expectedAnswerType: 'choice',
+                choices: ['Súbito', 'Progressivo'],
+              },
+            ],
+          },
+        });
+        aiGatewayMock.complete.mockResolvedValueOnce({
+          content: JSON.stringify({
+            reasoning: 'Reavaliando com início súbito confirmado',
+            recommendations: [],
+            uncertainty: true,
+            uncertaintyReason: 'Falta sinal vital para definir gravidade',
+            clarifyingQuestions: [
+              {
+                id: 'q2',
+                question: 'Qual a PA atual?',
+                why: 'Define estabilidade hemodinâmica',
+                criticality: 'blocker',
+                expectedAnswerType: 'text',
+              },
+            ],
+          }),
+          model: 'claude-3-sonnet',
+          usage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 },
+          latencyMs: 1100,
+        });
+        prismaMock.aiInteraction.create.mockResolvedValueOnce({ id: 'interaction-1' });
+
+        await service.continueAnalysis(physicianId, encounterId, {
+          interactionId: 'interaction-0',
+          answers: [{ questionId: 'q1', answer: 'Súbito' }],
+        });
+
+        // A prova do bug original: sem CC-05, este prompt do turno 1 NÃO
+        // continha o bloco de red flags confirmadas.
+        const turn1PromptArg = aiGatewayMock.complete.mock.calls[1]![0] as {
+          messages: Array<{ role: string; content: string }>;
+        };
+        const turn1UserMessage = turn1PromptArg.messages.find((m) => m.role === 'user')!;
+        expect(turn1UserMessage.content).toContain('physician_confirmed_red_flags');
+        expect(turn1UserMessage.content).toContain('Paciente gestante ou amamentando');
+
+        // E a propagação é transitiva: o registro persistido do turno 1
+        // também carrega redFlags, para que um eventual turno 2 herde dele.
+        expect(prismaMock.aiInteraction.create).toHaveBeenNthCalledWith(
+          2,
+          expect.objectContaining({
+            data: expect.objectContaining({ params: { demoCase: null, redFlags: { pregnant: true } } }),
+          }),
+        );
+
+        // Turn 2 (continueAnalysis): herda de params do turno 1 (não do turno 0 diretamente).
+        prismaMock.aiInteraction.findFirst.mockResolvedValueOnce({
+          id: 'interaction-1',
+          encounterId,
+          turnIndex: 1,
+          inputRedacted: validInput.caseText,
+          answeredQuestions: [
+            { questionId: 'q1', question: 'Início súbito ou progressivo?', answer: 'Súbito', turnIndex: 0 },
+          ],
+          params: { demoCase: null, redFlags: { pregnant: true } },
+          rawOutput: {
+            reasoning: 'Reavaliando com início súbito confirmado',
+            recommendations: [],
+            uncertainty: true,
+            uncertaintyReason: 'Falta sinal vital para definir gravidade',
+            clarifyingQuestions: [
+              {
+                id: 'q2',
+                question: 'Qual a PA atual?',
+                why: 'Define estabilidade hemodinâmica',
+                criticality: 'blocker',
+                expectedAnswerType: 'text',
+              },
+            ],
+          },
+        });
+        aiGatewayMock.complete.mockResolvedValueOnce({
+          content: JSON.stringify({
+            reasoning: 'Recomendação final',
+            recommendations: [
+              {
+                action: 'Encaminhar para avaliação obstétrica de urgência',
+                rationale: 'Instabilidade hemodinâmica em gestante',
+                citationChunkId: 'chunk-1',
+                confidence: 0.9,
+              },
+            ],
+            uncertainty: false,
+            uncertaintyReason: null,
+            clarifyingQuestions: [],
+          }),
+          model: 'claude-3-sonnet',
+          usage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 },
+          latencyMs: 1200,
+        });
+        prismaMock.aiInteraction.create.mockResolvedValueOnce({ id: 'interaction-2' });
+
+        await service.continueAnalysis(physicianId, encounterId, {
+          interactionId: 'interaction-1',
+          answers: [{ questionId: 'q2', answer: '80x40 mmHg' }],
+        });
+
+        // Turno 3 continua sabendo que a paciente é gestante — é isto que
+        // "propagação transitiva" garante e o que o bug original quebrava.
+        const turn2PromptArg = aiGatewayMock.complete.mock.calls[2]![0] as {
+          messages: Array<{ role: string; content: string }>;
+        };
+        const turn2UserMessage = turn2PromptArg.messages.find((m) => m.role === 'user')!;
+        expect(turn2UserMessage.content).toContain('physician_confirmed_red_flags');
+        expect(turn2UserMessage.content).toContain('Paciente gestante ou amamentando');
+
+        // E nenhuma clarifyingQuestion deveria reperguntar sobre gestação —
+        // a regra de prompt-builder já cobre isto, esta asserção apenas
+        // documenta a expectativa de ponta a ponta para este teste.
+        expect(turn2UserMessage.content).not.toMatch(/gestante\?/i);
+      });
     });
   });
 });

@@ -71,6 +71,10 @@ export const updateEncounterSchema = z.object({
       hasICU: z.boolean(),
     })
     .optional(),
+  // UX-04 — vertical deixa de ser obrigatória na criação do caso (passa a
+  // default silenciosamente para 'general'); o médico pode confirmar ou
+  // corrigi-la depois, sem bloquear a captura. Ver encounters/new/page.tsx.
+  vertical: z.enum(encounterVerticalValues).optional(),
 });
 
 export type UpdateEncounterInput = z.infer<typeof updateEncounterSchema>;

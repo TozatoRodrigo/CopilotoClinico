@@ -61,7 +61,10 @@ const ADMIN_SECTIONS: AdminSection[] = [
     roles: ['compliance', 'admin'],
   },
   { href: '/audit', label: 'Auditoria', icon: ShieldWarning, roles: ['compliance', 'admin'] },
-  { href: '/admin/analytics', label: 'Analytics', icon: ChartBar, roles: ['admin'] },
+  // PI-02 — Compliance também precisa enxergar o painel de custo de IA
+  // (RBAC do backend em /analytics/cost já libera ADMIN e COMPLIANCE;
+  // o nav precisa acompanhar, senão Compliance nunca vê o link).
+  { href: '/admin/analytics', label: 'Analytics', icon: ChartBar, roles: ['compliance', 'admin'] },
   // S20-UX-01 — placeholders expostos como funcionais. Escondidos até terem
   // implementação real (gerenciamento de usuários e configurações de sistema).
   // As rotas /admin/users e /admin/sistema continuam acessíveis via URL direta

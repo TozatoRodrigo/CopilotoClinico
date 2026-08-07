@@ -12,14 +12,16 @@
  */
 
 import { ptBR, type Messages } from './pt-BR';
+import { es } from './es';
 
 export type { Messages };
-export type Locale = 'pt-BR';
+export type Locale = 'pt-BR' | 'es';
 
 export const DEFAULT_LOCALE: Locale = 'pt-BR';
 
 const dictionaries: Record<Locale, Messages> = {
   'pt-BR': ptBR,
+  es,
 };
 
 /** Resolved messages for a locale (falls back to pt-BR). */

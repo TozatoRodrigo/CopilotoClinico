@@ -144,3 +144,14 @@ export function useAuth(): AuthContextValue {
   }
   return context;
 }
+
+/**
+ * PI-05 — variante que NÃO lança fora de um AuthProvider (retorna null).
+ * Usada por `useMessages()` para resolver o locale do médico sem quebrar
+ * superfícies que podem renderizar fora da árvore de providers, como
+ * `app/global-error.tsx` (substitui o root layout inteiro quando ele
+ * próprio falha).
+ */
+export function useAuthOptional(): AuthContextValue | null {
+  return useContext(AuthContext);
+}
