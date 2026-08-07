@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import { DM_Sans, DM_Serif_Display, IBM_Plex_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { IconProvider } from "@/components/providers/icon-provider";
@@ -51,6 +52,13 @@ export const viewport: Viewport = {
   themeColor: "#0f766e",
 };
 
+// Analytics — Umami autoalojado (cookieless, sem PII, sem banner de
+// consentimento necessário — é o próprio motivo de escolha dele). Opcional
+// via env: ausente em build local/CI/e2e (nenhum tráfego de teste polui os
+// dados), presente só na imagem de produção (ver docker/Dockerfile.web).
+const UMAMI_WEBSITE_ID = process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID;
+const UMAMI_SRC = process.env.NEXT_PUBLIC_UMAMI_SRC;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -74,6 +82,13 @@ export default function RootLayout({
             __html: `(function(){try{var t=localStorage.getItem('theme');var m=window.matchMedia('(prefers-color-scheme: dark)').matches;if(t==='dark'||(!t&&m)){document.documentElement.classList.add('dark')}}catch(e){}})()`,
           }}
         />
+        {UMAMI_WEBSITE_ID && UMAMI_SRC && (
+          <Script
+            src={UMAMI_SRC}
+            data-website-id={UMAMI_WEBSITE_ID}
+            strategy="afterInteractive"
+          />
+        )}
       </head>
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <IconProvider>

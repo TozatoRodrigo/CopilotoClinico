@@ -15,6 +15,13 @@ COPY web/ ./
 # NEXT_PUBLIC_API_URL=/v1 faz o browser chamar a mesma origem (/v1/auth/login etc).
 # Traefik roteia /v1/* → copiloto-api e /* → copiloto-web.
 ENV NEXT_PUBLIC_API_URL=/v1
+# Analytics — Umami autoalojado (analytics.servidortozato.cloud), site
+# "Copiloto Clínico" cadastrado manualmente no banco do Umami (ver
+# apps/umami/docker-compose.yml na VPS). Só presente aqui, na imagem de
+# produção — build local/CI/e2e não define isso, então o script nem
+# renderiza (ver web/src/app/layout.tsx).
+ENV NEXT_PUBLIC_UMAMI_WEBSITE_ID=ddd2c36c-bcc0-47b0-8288-2d3bbebfa954
+ENV NEXT_PUBLIC_UMAMI_SRC=https://analytics.servidortozato.cloud/script.js
 RUN pnpm build
 
 # Runtime
