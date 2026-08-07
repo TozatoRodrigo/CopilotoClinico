@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useMessages } from '@/lib/messages/use-messages';
+import type { Messages } from '@/lib/messages';
 import {
   ArrowLeft,
   ArrowsClockwise,
@@ -29,6 +30,8 @@ import {
   SealCheck,
 } from '@phosphor-icons/react';
 import type {
+  ClarifyingAnswerValue,
+  ClarifyingQuestion,
   CopilotAnalysis,
   DocumentType,
   LatestInteractionResponse,
@@ -270,29 +273,13 @@ function ResultView({
                 <p className="mb-3 text-[0.8125rem] leading-relaxed text-clinical-amber-foreground/80">
                   {q.why}
                 </p>
-                <div className="grid grid-cols-3 gap-2">
-                  <BooleanButton
-                    active={answers[q.id] === true}
-                    activeClass="bg-clinical-ink text-white border-clinical-ink"
-                    onClick={() => setAnswer(q.id, true)}
-                  >
-                    {messages.copilot.questions.boolean.yes}
-                  </BooleanButton>
-                  <BooleanButton
-                    active={answers[q.id] === false}
-                    activeClass="border-clinical-amber bg-clinical-amber/10 text-clinical-amber-foreground"
-                    onClick={() => setAnswer(q.id, false)}
-                  >
-                    {messages.copilot.questions.boolean.no}
-                  </BooleanButton>
-                  <BooleanButton
-                    active={answers[q.id] === 'unknown'}
-                    activeClass="border-clinical-amber bg-clinical-amber/10 text-clinical-amber-foreground"
-                    onClick={() => setAnswer(q.id, 'unknown')}
-                  >
-                    {messages.copilot.questions.boolean.unknown}
-                  </BooleanButton>
-                </div>
+                <AnswerControl
+                  question={q}
+                  value={answers[q.id]}
+                  onChange={(value) => setAnswer(q.id, value)}
+                  variant="critical"
+                  messages={messages}
+                />
               </div>
             ))}
 
@@ -302,11 +289,12 @@ function ResultView({
                 <p className="mb-2 font-mono text-[0.6875rem] uppercase tracking-wide text-muted-foreground">
                   Opcional · refina a análise
                 </p>
-                <input
-                  type="text"
-                  value={typeof answers[q.id] === 'string' ? (answers[q.id] as string) : ''}
-                  onChange={(e) => setAnswer(q.id, e.target.value)}
-                  className="h-9 w-full rounded-lg border border-clinical-line bg-paper px-3 text-sm text-clinical-ink outline-none transition-colors placeholder:text-muted-foreground/60 focus-visible:border-clinical-teal"
+                <AnswerControl
+                  question={q}
+                  value={answers[q.id]}
+                  onChange={(value) => setAnswer(q.id, value)}
+                  variant="optional"
+                  messages={messages}
                 />
               </div>
             ))}
@@ -504,14 +492,134 @@ function RedFlagBadge({
   );
 }
 
+/**
+ * UX-07 — bug relatado ao vivo por um médico do piloto: esta tela sempre
+ * renderizava os 3 botões Sim/Não/Não sei para QUALQUER pergunta crítica
+ * (blocker/important), ignorando `expectedAnswerType` por completo. Quando
+ * o modelo perguntava algo como "quais são os valores de PA, FC, FR,
+ * SpO2..." (um pedido de texto/números), o médico não tinha como
+ * responder — só via Sim/Não/Não sei, nenhum dos quais transmite a
+ * informação pedida. Como a informação nunca chegava, o turno seguinte
+ * pedia a mesma coisa de novo — o "loop" percebido. Esta função central
+ * substitui os dois blocos hardcoded (crítico e opcional) e escolhe o
+ * controle certo pelo tipo real da pergunta. Ver também o guard-rail
+ * correspondente em output-validator.ts (ANSWER TYPE MISMATCH), que reduz
+ * a chance do modelo mandar o tipo errado antes mesmo de chegar aqui.
+ */
+function AnswerControl({
+  question,
+  value,
+  onChange,
+  variant,
+  messages,
+}: {
+  question: ClarifyingQuestion;
+  value: ClarifyingAnswerValue | undefined;
+  onChange: (value: ClarifyingAnswerValue) => void;
+  variant: 'critical' | 'optional';
+  messages: Messages;
+}) {
+  const unselectedClass =
+    variant === 'critical'
+      ? 'border-clinical-amber/50 bg-transparent text-clinical-amber-foreground hover:bg-clinical-amber/5'
+      : 'border-clinical-line bg-transparent text-clinical-ink hover:bg-muted';
+  const selectedClass =
+    variant === 'critical'
+      ? 'border-clinical-amber bg-clinical-amber/10 text-clinical-amber-foreground'
+      : 'border-clinical-teal bg-clinical-teal-tint text-clinical-teal-deep';
+  const inputClass =
+    variant === 'critical'
+      ? 'w-full rounded-lg border border-clinical-amber/40 bg-white px-3 py-2 text-sm text-clinical-ink outline-none transition-colors placeholder:text-clinical-amber-foreground/50 focus-visible:border-clinical-amber'
+      : 'w-full rounded-lg border border-clinical-line bg-paper px-3 py-2 text-sm text-clinical-ink outline-none transition-colors placeholder:text-muted-foreground/60 focus-visible:border-clinical-teal';
+
+  switch (question.expectedAnswerType) {
+    case 'boolean':
+      return (
+        <div className="grid grid-cols-3 gap-2">
+          <BooleanButton
+            active={value === true}
+            activeClass={variant === 'critical' ? 'bg-clinical-ink text-white border-clinical-ink' : selectedClass}
+            unselectedClass={unselectedClass}
+            onClick={() => onChange(true)}
+          >
+            {messages.copilot.questions.boolean.yes}
+          </BooleanButton>
+          <BooleanButton
+            active={value === false}
+            activeClass={selectedClass}
+            unselectedClass={unselectedClass}
+            onClick={() => onChange(false)}
+          >
+            {messages.copilot.questions.boolean.no}
+          </BooleanButton>
+          <BooleanButton
+            active={value === 'unknown'}
+            activeClass={selectedClass}
+            unselectedClass={unselectedClass}
+            onClick={() => onChange('unknown')}
+          >
+            {messages.copilot.questions.boolean.unknown}
+          </BooleanButton>
+        </div>
+      );
+    case 'choice':
+      return (
+        <div className="flex flex-wrap gap-2">
+          {(question.choices ?? []).map((choice) => (
+            <button
+              key={choice}
+              type="button"
+              onClick={() => onChange(choice)}
+              aria-pressed={value === choice}
+              className={[
+                'h-9 rounded-lg border px-3 text-sm font-medium transition-colors',
+                value === choice ? selectedClass : unselectedClass,
+              ].join(' ')}
+            >
+              {choice}
+            </button>
+          ))}
+        </div>
+      );
+    case 'number':
+      return (
+        <input
+          type="number"
+          inputMode="numeric"
+          aria-label={question.question}
+          value={value === undefined ? '' : String(value)}
+          onChange={(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))}
+          className={inputClass}
+        />
+      );
+    case 'text':
+    default:
+      // Textarea (não input de uma linha) — perguntas de texto livre
+      // costumam pedir múltiplos valores juntos (ex.: "PA 90x60, FC 130,
+      // FR 28, SpO2 89%, Tax 39"), que ficam apertados demais numa linha
+      // só, especialmente no celular à beira do leito.
+      return (
+        <textarea
+          aria-label={question.question}
+          value={value === undefined ? '' : String(value)}
+          onChange={(e) => onChange(e.target.value)}
+          rows={2}
+          className={`${inputClass} min-h-[44px] resize-y`}
+        />
+      );
+  }
+}
+
 function BooleanButton({
   active,
   activeClass,
+  unselectedClass,
   onClick,
   children,
 }: {
   active: boolean;
   activeClass: string;
+  unselectedClass: string;
   onClick: () => void;
   children: React.ReactNode;
 }) {
@@ -522,9 +630,7 @@ function BooleanButton({
       aria-pressed={active}
       className={[
         'h-9 rounded-lg border text-sm font-medium transition-colors',
-        active
-          ? activeClass
-          : 'border-clinical-amber/50 bg-transparent text-clinical-amber-foreground hover:bg-clinical-amber/5',
+        active ? activeClass : unselectedClass,
       ].join(' ')}
     >
       {children}

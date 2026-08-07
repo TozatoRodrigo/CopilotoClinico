@@ -518,6 +518,106 @@ describe('validateOutput', () => {
     );
   });
 
+  // UX-07 — bug relatado ao vivo por um médico do piloto: o modelo pedia
+  // "quais são os valores de PA, FC, FR, SpO2..." mas marcava a pergunta
+  // como "boolean" — a UI só oferecia Sim/Não/Não sei, o médico não
+  // conseguia responder, e o turno seguinte pedia a mesma coisa de novo
+  // ("loop"). Ver ANSWER TYPE MATCHING RULE em prompt-builder.ts.
+  describe('UX-07: clarifyingQuestions answer-type mismatch', () => {
+    it.each([
+      ['quais são os valores', 'Quais são os valores de PA, FC, FR, SpO2 e temperatura?'],
+      ['quando + qual (composta)', 'Qual foi o último momento em que o paciente estava bem, e qual é a glicemia capilar?'],
+      ['quantos/quantas', 'Quantos episódios de vômito o paciente teve nas últimas 24h?'],
+      ['quem', 'Quem observou o início dos sintomas?'],
+      ['onde', 'Onde exatamente é a dor referida?'],
+    ])('rejects a "boolean" question whose text asks %s (an open value, not yes/no)', (_label, question) => {
+      const result = validateOutput(
+        makeValidOutput({
+          clarifyingQuestions: [
+            {
+              id: 'q1',
+              question,
+              why: 'Define estabilidade hemodinâmica',
+              // 'important' (não 'blocker') para não colidir com o refine
+              // pré-existente que exige recomendações preliminares quando
+              // há uma pergunta blocker — irrelevante para este teste.
+              criticality: 'important',
+              expectedAnswerType: 'boolean',
+            },
+          ],
+        }),
+        VALID_CHUNK_IDS,
+      );
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.startsWith('ANSWER TYPE MISMATCH'))).toBe(true);
+      expect(result.errors.join(' ')).toContain(question);
+    });
+
+    it('accepts the same question text when expectedAnswerType is "text" instead of "boolean"', () => {
+      const result = validateOutput(
+        makeValidOutput({
+          clarifyingQuestions: [
+            {
+              id: 'q1',
+              question: 'Quais são os valores de PA, FC, FR, SpO2 e temperatura?',
+              why: 'Define estabilidade hemodinâmica',
+              criticality: 'important',
+              expectedAnswerType: 'text',
+            },
+          ],
+        }),
+        VALID_CHUNK_IDS,
+      );
+      expect(result.valid).toBe(true);
+    });
+
+    it('does not flag a genuine boolean question with no interrogative wh-word', () => {
+      const result = validateOutput(
+        makeValidOutput({
+          clarifyingQuestions: [
+            {
+              id: 'q1',
+              question: 'O paciente é imunossuprimido?',
+              why: 'Define necessidade de cobertura antibiótica ampliada',
+              criticality: 'important',
+              expectedAnswerType: 'boolean',
+            },
+          ],
+        }),
+        VALID_CHUNK_IDS,
+      );
+      expect(result.valid).toBe(true);
+    });
+
+    it('flags each offending question independently when multiple clarifyingQuestions mismatch', () => {
+      const result = validateOutput(
+        makeValidOutput({
+          clarifyingQuestions: [
+            {
+              id: 'q1',
+              question: 'Quais os valores de PA e FC?',
+              why: 'Define estabilidade hemodinâmica',
+              criticality: 'important',
+              expectedAnswerType: 'boolean',
+            },
+            {
+              id: 'q2',
+              question: 'Quando foi a última dose do anticoagulante?',
+              why: 'Define necessidade de reversão',
+              criticality: 'important',
+              expectedAnswerType: 'boolean',
+            },
+          ],
+        }),
+        VALID_CHUNK_IDS,
+      );
+      expect(result.valid).toBe(false);
+      const mismatchError = result.errors.find((e) => e.startsWith('ANSWER TYPE MISMATCH'));
+      expect(mismatchError).toContain('clarifyingQuestions[0]');
+      expect(mismatchError).toContain('clarifyingQuestions[1]');
+    });
+  });
+
   it('accepts output with valid clarifyingQuestions', () => {
     const result = validateOutput(
       makeValidOutput({
