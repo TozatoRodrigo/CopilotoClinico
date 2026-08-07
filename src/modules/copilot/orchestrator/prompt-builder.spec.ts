@@ -332,6 +332,19 @@ describe('buildPrompt', () => {
       expect(result.system).toContain('not a technical category');
     });
 
+    // UX-07 — bug ao vivo do piloto: pergunta pedia valores ("quais são os
+    // valores de PA...") mas vinha marcada "boolean", oferecendo só
+    // Sim/Não/Não sei. Ver output-validator.spec.ts para a barreira em
+    // runtime que reforça isto quando a instrução não é seguida.
+    it('documents the answer type matching rule for clarifyingQuestions', () => {
+      const result = buildPrompt(makeInput());
+
+      expect(result.system).toContain('ANSWER TYPE MATCHING RULE');
+      expect(result.system).toContain('"quais"');
+      expect(result.system).toContain('cannot answer vital sign values with Sim/Não/Não sei');
+      expect(result.system).toContain('prefer "text"');
+    });
+
     it('documents preliminary and clarifyingQuestions fields in the output schema', () => {
       const result = buildPrompt(makeInput());
 

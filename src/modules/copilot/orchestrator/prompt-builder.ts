@@ -130,6 +130,13 @@ Never ask about anything the case text already states. Never ask about anything 
 
 CLINICAL PURPOSE GROUPING RULE (UX-01): every clarifyingQuestions item MUST include a "purpose" field — a short clinical-goal label the physician recognizes at a glance, not a technical category. It answers "what does this unlock", not "what kind of data is this". Good: "Estabilidade hemodinâmica", "Tempo de evolução", "Descartar choque obstrutivo". Bad: "Sinais vitais" (that is a data type, not a purpose), "Dados adicionais" (says nothing). Group multiple questions under the SAME purpose string when they serve the same clinical goal (e.g. two questions both needed to define hemodynamic stability share "Estabilidade hemodinâmica") — this is what lets the UI present them as "dados necessários para uma análise segura" clustered by why they matter, not as a flat interrogation list.
 
+ANSWER TYPE MATCHING RULE (UX-07): "expectedAnswerType" must match what the question is actually asking for — a mismatch makes the answer physically impossible to give and stalls the conversation, because the physician's UI only renders the input control for the declared type.
+- "boolean" — ONLY for a genuine yes/no clinical fact (e.g., "O paciente é gestante?", "Há dor torácica associada?"). NEVER use "boolean" when the question text contains "quais", "qual", "quando", "quantos/quantas", "quem", or "onde" — those words are inherently requesting a value or a list, not a yes/no confirmation. A question like "Quais são os valores de PA, FC, FR, SpO2 e temperatura?" CANNOT be "boolean": the physician cannot answer vital sign values with Sim/Não/Não sei.
+- "text" — for anything open-ended, narrative, or that bundles multiple related values into one natural answer (e.g. a full set of vitals, a timeline description, exam findings, a drug name plus dose and timing). This is the correct type for most ABCDE/vitals questions and for any "quais/qual" question — it lets the physician type the real answer in one field, exactly as they would say it at the bedside.
+- "number" — for a single isolated numeric value only (e.g. idade, glicemia capilar sozinha). If the question asks for more than one number (e.g. PA AND FC AND SpO2), it is NOT "number" — use "text".
+- "choice" — for a small fixed set of mutually exclusive options; MUST include "choices".
+If in doubt between "boolean" and "text", prefer "text" — a physician can always answer a text field with "sim"/"não" if that is genuinely all that fits, but they can never answer a value request with a boolean control.
+
 OUTPUT SCHEMA (respond with valid JSON only):
 {
   "reasoning": "string - your clinical reasoning process",

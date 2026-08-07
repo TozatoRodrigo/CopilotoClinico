@@ -206,6 +206,27 @@ export function validateOutput(rawOutput: string, validChunkIds: string[]): Vali
     );
   }
 
+  // UX-07 — bug relatado ao vivo pelo médico piloto: o modelo pedia "quais
+  // são os valores de PA, FC, FR, SpO2..." mas marcava a pergunta como
+  // "boolean", oferecendo só Sim/Não/Não sei — o médico não tem como
+  // responder um pedido de valores com uma dessas três opções. Como a
+  // informação nunca chega, o turno seguinte pede a mesma coisa de novo:
+  // é isto que o médico percebeu como "loop". Ver ANSWER TYPE MATCHING
+  // RULE em prompt-builder.ts para a instrução que evita isto na origem;
+  // esta é a barreira em runtime para quando a instrução não for seguida.
+  const answerTypeOffenses = findAnswerTypeMismatches(output.clarifyingQuestions);
+  if (answerTypeOffenses.length > 0) {
+    errors.push(
+      'ANSWER TYPE MISMATCH in clarifyingQuestions: ' +
+        answerTypeOffenses.join('; ') +
+        '. A question whose text asks "quais/qual/quando/quantos/quem/onde" ' +
+        'requests a VALUE, not a yes/no fact — it cannot have ' +
+        '"expectedAnswerType": "boolean" (the physician cannot answer ' +
+        '"Sim/Não/Não sei" to a request for numbers or a list). Use "text" ' +
+        '(or "number" for a single isolated value) instead.',
+    );
+  }
+
   return {
     valid: errors.length === 0,
     output,
@@ -225,6 +246,27 @@ function allRecommendationsUnfounded(output: CopilotOutput, validChunkIds: strin
 // expressa CHANCE/PROBABILIDADE de um diagnóstico específico.
 const PROBABILITY_LANGUAGE_PATTERN =
   /\d+(\.\d+)?\s?%|\bprobabilidade\b|\bprobability\b|\blikelihood\b|\bchance\s+de\b|\bodds\b/i;
+
+// UX-07 — pronomes/advérbios interrogativos que, em português, SEMPRE pedem
+// um valor ou lista ("quais são os valores de PA...", "quando foi a última
+// dose?", "quantos episódios?") — nenhum deles forma uma pergunta de
+// sim/não genuína. Se aparecem em uma pergunta marcada "boolean", é sinal
+// confiável de que o tipo de resposta está errado, não de falso positivo:
+// nenhum fixture legítimo de pergunta boolean deste projeto contém essas
+// palavras (ver output-validator.spec.ts).
+const OPEN_VALUE_REQUEST_PATTERN = /\b(qual|quais|quando|quantos?|quantas?|quem|onde)\b/i;
+
+function findAnswerTypeMismatches(
+  clarifyingQuestions: CopilotOutput['clarifyingQuestions'],
+): string[] {
+  const offenses: string[] = [];
+  clarifyingQuestions.forEach((q, index) => {
+    if (q.expectedAnswerType === 'boolean' && OPEN_VALUE_REQUEST_PATTERN.test(q.question)) {
+      offenses.push(`clarifyingQuestions[${index}] ("${q.question}")`);
+    }
+  });
+  return offenses;
+}
 
 function findProbabilityLanguageInDifferentials(
   differentials: CopilotOutput['differentials'],

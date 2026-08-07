@@ -2,6 +2,7 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { BlockerQuestionCard } from '@/components/domain/blocker-question-card';
 import { RecommendationCard } from '@/components/copilot/recommendation-card';
@@ -406,14 +407,19 @@ function AnswerInput({
       );
     case 'text':
     default:
+      // UX-07 — perguntas de texto livre costumam pedir múltiplos valores
+      // juntos (ex.: "PA 90x60, FC 130, FR 28, SpO2 89%, Tax 39") — um
+      // <input> de uma linha só fica apertado demais para digitar isso à
+      // beira do leito, especialmente no celular. Textarea com
+      // field-sizing-content cresce com o conteúdo sem precisar de scroll.
       return (
-        <input
-          type="text"
+        <Textarea
           aria-label={question.question}
           value={value === undefined ? '' : String(value)}
           disabled={disabled}
           onChange={(e) => onChange(e.target.value)}
-          className="h-11 w-full rounded-lg border border-clinical-line bg-white px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clinical-teal disabled:opacity-50"
+          rows={2}
+          className="min-h-[44px] w-full resize-y bg-white text-sm focus-visible:ring-clinical-teal disabled:opacity-50"
         />
       );
   }
