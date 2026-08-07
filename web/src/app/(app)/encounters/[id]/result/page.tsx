@@ -14,6 +14,7 @@ import { apiClient } from '@/lib/api-client';
 import { ProgressSteps } from '@/components/ui/progress-steps';
 import { TimelineRail } from '@/components/ui/timeline-rail';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useMessages } from '@/lib/messages/use-messages';
@@ -28,15 +29,20 @@ import {
   CircleNotch,
   WarningCircle,
   SealCheck,
+  XCircle,
 } from '@phosphor-icons/react';
 import type {
   ClarifyingAnswerValue,
   ClarifyingQuestion,
   CopilotAnalysis,
+  CopilotRecommendation,
   DocumentType,
   LatestInteractionResponse,
   RedFlagSeverity,
 } from '@/lib/types';
+import type {
+  RecommendationDecisionState,
+} from '@/hooks/use-recommendation-decisions';
 
 const DOCUMENT_TYPES: { type: DocumentType; label: string; primary?: boolean }[] = [
   { type: 'soap', label: 'SOAP', primary: true },
@@ -171,7 +177,7 @@ function ResultView({
   const messages = useMessages();
   const { analysis, answers, setAnswer, reanalyze, reanalyzing, canReanalyze, respondError } =
     useCopilotConversation(encounterId, result);
-  const { decisions, setDecision } = useRecommendationDecisions(
+  const { decisions, setDecision, setNote } = useRecommendationDecisions(
     encounterId,
     analysis.recommendations.length,
   );
@@ -370,76 +376,18 @@ function ResultView({
             {recommendations.map((rec, index) => {
               const recId = String(index);
               const rail = railFor(rec.category);
-              const decision = decisions[recId]?.decision;
               return (
                 <div key={recId} className="flex gap-4">
                   <TimelineRail label={rail.label} color={rail.color} />
-                  <div
-                    className={[
-                      'flex-1 rounded-[14px] border bg-card p-5',
-                      rec.preliminary
-                        ? 'border-dashed border-clinical-line opacity-55'
-                        : 'border-clinical-line',
-                    ].join(' ')}
-                  >
-                    <div className="mb-1.5 flex items-start justify-between gap-2">
-                      <h3 className="text-[0.9375rem] font-semibold leading-snug text-clinical-ink">
-                        {rec.action}
-                      </h3>
-                      {rec.preliminary && (
-                        <span className="flex shrink-0 items-center gap-1 rounded-md bg-clinical-amber-bg px-1.5 py-0.5 font-mono text-[0.625rem] font-bold uppercase tracking-wide text-clinical-amber-foreground">
-                          <LockSimple className="size-3" weight="fill" />
-                          Preliminar
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="mb-3 flex items-center gap-2">
-                      <span className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[0.6875rem] font-semibold text-muted-foreground">
-                        {messages.recommendation.confidence(rec.confidence)}
-                      </span>
-                      {decision === 'adopted' && (
-                        <span className="flex items-center gap-1 rounded-md border border-clinical-green/30 bg-clinical-green-bg px-1.5 py-0.5 font-mono text-[0.625rem] font-bold uppercase tracking-wide text-clinical-green-foreground">
-                          <SealCheck className="size-3" weight="fill" />
-                          Adotada
-                        </span>
-                      )}
-                    </div>
-
-                    <p className="mb-3 text-[0.84375rem] leading-relaxed text-muted-foreground">
-                      {rec.rationale}
-                    </p>
-
-                    <p className="flex items-center gap-1.5 text-[0.75rem] text-muted-foreground">
-                      <span className="font-mono font-semibold text-clinical-teal">
-                        [{index + 1}]
-                      </span>
-                      <span className="truncate">{rec.source}</span>
-                    </p>
-
-                    {decision !== 'adopted' && (
-                      <div className="mt-4 flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() => setDecision(recId, 'adopted')}
-                          className="bg-clinical-ink text-white hover:bg-clinical-ink/90"
-                        >
-                          Adotar
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setDecision(recId, 'rejected')}
-                        >
-                          Rejeitar
-                        </Button>
-                        <Button size="sm" variant="outline">
-                          <PencilSimple className="size-3.5" />
-                          Anotar
-                        </Button>
-                      </div>
-                    )}
-                  </div>
+                  <RecommendationItem
+                    rec={rec}
+                    index={index}
+                    decision={decisions[recId]}
+                    onAdopt={() => setDecision(recId, 'adopted')}
+                    onReject={() => setDecision(recId, 'rejected')}
+                    onNote={(note) => setNote(recId, note)}
+                    confidenceLabel={messages.recommendation.confidence(rec.confidence)}
+                  />
                 </div>
               );
             })}
@@ -512,6 +460,141 @@ function RedFlagBadge({
       {severity === 'critical' && <WarningCircle className="size-3" weight="fill" />}
       {finding}
     </span>
+  );
+}
+
+/**
+ * UX-09 — bug relatado ao vivo por um médico do piloto: só "Adotar"
+ * funcionava. "Rejeitar" na verdade chamava setDecision('rejected')
+ * corretamente, mas a UI não dava NENHUM feedback visual (sem badge, sem
+ * diferença nos botões) — parecia não ter feito nada. "Anotar" não tinha
+ * onClick nenhum — não fazia literalmente nada, apesar do hook
+ * useRecommendationDecisions já suportar setNote() de ponta a ponta.
+ * Extraído em componente próprio (em vez de inline no .map()) porque cada
+ * item precisa do seu próprio estado local de "nota está expandida" — não
+ * dá para usar useState dentro de um .map() do componente pai.
+ */
+export function RecommendationItem({
+  rec,
+  index,
+  decision,
+  onAdopt,
+  onReject,
+  onNote,
+  confidenceLabel,
+}: {
+  rec: CopilotRecommendation;
+  index: number;
+  decision: RecommendationDecisionState | undefined;
+  onAdopt: () => void;
+  onReject: () => void;
+  onNote: (note: string) => void;
+  confidenceLabel: string;
+}) {
+  const [showNote, setShowNote] = useState(false);
+  const isAdopted = decision?.decision === 'adopted';
+  const isRejected = decision?.decision === 'rejected';
+
+  return (
+    <div
+      className={[
+        'flex-1 rounded-[14px] border bg-card p-5',
+        isRejected
+          ? 'border-clinical-line opacity-60'
+          : rec.preliminary
+            ? 'border-dashed border-clinical-line opacity-55'
+            : 'border-clinical-line',
+      ].join(' ')}
+    >
+      <div className="mb-1.5 flex items-start justify-between gap-2">
+        <h3
+          className={[
+            'text-[0.9375rem] font-semibold leading-snug text-clinical-ink',
+            isRejected && 'line-through',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
+          {rec.action}
+        </h3>
+        {rec.preliminary && (
+          <span className="flex shrink-0 items-center gap-1 rounded-md bg-clinical-amber-bg px-1.5 py-0.5 font-mono text-[0.625rem] font-bold uppercase tracking-wide text-clinical-amber-foreground">
+            <LockSimple className="size-3" weight="fill" />
+            Preliminar
+          </span>
+        )}
+      </div>
+
+      <div className="mb-3 flex items-center gap-2">
+        <span className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[0.6875rem] font-semibold text-muted-foreground">
+          {confidenceLabel}
+        </span>
+        {isAdopted && (
+          <span className="flex items-center gap-1 rounded-md border border-clinical-green/30 bg-clinical-green-bg px-1.5 py-0.5 font-mono text-[0.625rem] font-bold uppercase tracking-wide text-clinical-green-foreground">
+            <SealCheck className="size-3" weight="fill" />
+            Adotada
+          </span>
+        )}
+        {isRejected && (
+          <span className="flex items-center gap-1 rounded-md border border-destructive/30 bg-destructive/10 px-1.5 py-0.5 font-mono text-[0.625rem] font-bold uppercase tracking-wide text-destructive">
+            <XCircle className="size-3" weight="fill" />
+            Rejeitada
+          </span>
+        )}
+      </div>
+
+      <p className="mb-3 text-[0.84375rem] leading-relaxed text-muted-foreground">
+        {rec.rationale}
+      </p>
+
+      <p className="flex items-center gap-1.5 text-[0.75rem] text-muted-foreground">
+        <span className="font-mono font-semibold text-clinical-teal">[{index + 1}]</span>
+        <span className="truncate">{rec.source}</span>
+      </p>
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <Button
+          size="sm"
+          onClick={onAdopt}
+          className={
+            isAdopted
+              ? 'bg-clinical-ink text-white hover:bg-clinical-ink/90'
+              : 'bg-transparent text-clinical-ink border border-clinical-line hover:bg-muted'
+          }
+        >
+          Adotar
+        </Button>
+        <Button
+          size="sm"
+          variant={isRejected ? 'destructive' : 'outline'}
+          onClick={onReject}
+        >
+          Rejeitar
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => setShowNote((s) => !s)}>
+          <PencilSimple className="size-3.5" />
+          {decision?.note ? 'Editar nota' : 'Anotar'}
+        </Button>
+      </div>
+
+      {showNote && (
+        <div className="mt-3">
+          <Textarea
+            aria-label={`Anotação para: ${rec.action}`}
+            value={decision?.note ?? ''}
+            onChange={(e) => onNote(e.target.value)}
+            placeholder="Observação clínica sobre esta recomendação..."
+            className="min-h-[60px] resize-y bg-white text-sm"
+            rows={2}
+          />
+        </div>
+      )}
+      {decision?.note && !showNote && (
+        <p className="mt-3 text-[0.75rem] italic text-muted-foreground">
+          &ldquo;{decision.note}&rdquo;
+        </p>
+      )}
+    </div>
   );
 }
 
