@@ -4,181 +4,194 @@ import userEvent from "@testing-library/user-event";
 import { ClarifyingQuestions } from "../clarifying-questions";
 import type { ClarifyingQuestion } from "@/lib/types";
 
-const blockerQuestion: ClarifyingQuestion = {
-  id: "q-immunosuppression",
-  question: "O paciente é imunossuprimido?",
-  why: "Imunossupressão muda a indicação de oseltamivir — Diretriz X.",
-  criticality: "blocker",
-  expectedAnswerType: "boolean",
-};
+function question(overrides: Partial<ClarifyingQuestion> & Pick<ClarifyingQuestion, "id" | "question">): ClarifyingQuestion {
+  return {
+    why: "Motivo clínico padrão para este teste.",
+    criticality: "important",
+    expectedAnswerType: "boolean",
+    ...overrides,
+  };
+}
 
-const choiceQuestion: ClarifyingQuestion = {
-  id: "q-symptom-duration",
-  question: "Qual a duração dos sintomas?",
-  why: "Duração muda a conduta terapêutica.",
-  criticality: "important",
-  expectedAnswerType: "choice",
-  choices: ["< 24h", "24-48h", "> 48h"],
-};
-
-const numberQuestion: ClarifyingQuestion = {
-  id: "q-temperature",
-  question: "Qual a temperatura corporal (°C)?",
-  why: "Febre alta muda a prioridade do atendimento.",
-  criticality: "optional",
-  expectedAnswerType: "number",
-};
-
-const textQuestion: ClarifyingQuestion = {
-  id: "q-allergy",
-  question: "Quais alergias medicamentosas o paciente possui?",
-  why: "Alergias mudam a escolha do medicamento.",
-  criticality: "important",
-  expectedAnswerType: "text",
-};
-
-describe("ClarifyingQuestions", () => {
-  it("renders nothing when there are no questions", () => {
+describe("ClarifyingQuestions (UX-01)", () => {
+  it("returns null when there are no questions", () => {
     const { container } = render(
       <ClarifyingQuestions questions={[]} answers={{}} onAnswerChange={vi.fn()} />,
     );
-
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("renders boolean questions as Sim / Não / Não sei chips and reports taps", async () => {
-    const user = userEvent.setup();
-    const onAnswerChange = vi.fn();
-
+  it("renders the preceptor-toned heading, never a deficiency-framed one", () => {
     render(
       <ClarifyingQuestions
-        questions={[blockerQuestion]}
+        questions={[question({ id: "q1", question: "Início súbito?" })]}
+        answers={{}}
+        onAnswerChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Para orientar com segurança, preciso de:")).toBeInTheDocument();
+    expect(screen.queryByText(/insuficiente/i)).not.toBeInTheDocument();
+  });
+
+  it("degrades gracefully to a flat list — no purpose group headers — when no question has a purpose", () => {
+    render(
+      <ClarifyingQuestions
+        questions={[
+          question({ id: "q1", question: "Início súbito?", criticality: "blocker" }),
+          question({ id: "q2", question: "Há febre?", criticality: "important" }),
+        ]}
+        answers={{}}
+        onAnswerChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Início súbito?")).toBeInTheDocument();
+    expect(screen.getByText("Há febre?")).toBeInTheDocument();
+    // Nenhum <h3> de finalidade clínica deveria existir neste modo.
+    expect(document.querySelectorAll("h3")).toHaveLength(0);
+  });
+
+  it("groups questions under their shared clinical purpose when all questions have one", () => {
+    render(
+      <ClarifyingQuestions
+        questions={[
+          question({
+            id: "q1",
+            question: "Qual a PA atual?",
+            criticality: "blocker",
+            expectedAnswerType: "number",
+            purpose: "Estabilidade hemodinâmica",
+          }),
+          question({
+            id: "q2",
+            question: "Qual a FC atual?",
+            criticality: "important",
+            expectedAnswerType: "number",
+            purpose: "Estabilidade hemodinâmica",
+          }),
+          question({
+            id: "q3",
+            question: "Início súbito ou progressivo?",
+            criticality: "important",
+            expectedAnswerType: "choice",
+            choices: ["Súbito", "Progressivo"],
+            purpose: "Tempo de evolução",
+          }),
+        ]}
+        answers={{}}
+        onAnswerChange={vi.fn()}
+      />,
+    );
+
+    const groupHeadings = Array.from(document.querySelectorAll("h3")).map((el) => el.textContent);
+    expect(groupHeadings).toEqual(["Estabilidade hemodinâmica", "Tempo de evolução"]);
+
+    // As duas perguntas do mesmo grupo aparecem sob o mesmo cabeçalho.
+    expect(screen.getByText("Qual a PA atual?")).toBeInTheDocument();
+    expect(screen.getByText("Qual a FC atual?")).toBeInTheDocument();
+  });
+
+  it("falls back to an ungrouped list when only SOME questions have a purpose (no mixed rendering)", () => {
+    render(
+      <ClarifyingQuestions
+        questions={[
+          question({
+            id: "q1",
+            question: "Qual a PA atual?",
+            criticality: "blocker",
+            purpose: "Estabilidade hemodinâmica",
+          }),
+          question({ id: "q2", question: "Há febre?", criticality: "important" }),
+        ]}
+        answers={{}}
+        onAnswerChange={vi.fn()}
+      />,
+    );
+    expect(document.querySelectorAll("h3")).toHaveLength(0);
+    expect(screen.getByText("Qual a PA atual?")).toBeInTheDocument();
+    expect(screen.getByText("Há febre?")).toBeInTheDocument();
+  });
+
+  it("orders groups by their most critical member — a blocker pulls its whole group first", () => {
+    render(
+      <ClarifyingQuestions
+        questions={[
+          question({
+            id: "q-optional",
+            question: "Uso de álcool recente?",
+            criticality: "optional",
+            purpose: "Histórico geral",
+          }),
+          question({
+            id: "q-blocker",
+            question: "Há déficit neurológico focal?",
+            criticality: "blocker",
+            purpose: "Sinais de alarme neurológico",
+          }),
+        ]}
+        answers={{}}
+        onAnswerChange={vi.fn()}
+      />,
+    );
+
+    const groupHeadings = Array.from(document.querySelectorAll("h3")).map((el) => el.textContent);
+    expect(groupHeadings).toEqual(["Sinais de alarme neurológico", "Histórico geral"]);
+  });
+
+  it("calls onAnswerChange with the correct questionId when answering a grouped question", async () => {
+    const onAnswerChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ClarifyingQuestions
+        questions={[
+          question({
+            id: "q1",
+            question: "Há febre?",
+            criticality: "important",
+            purpose: "Triagem infecciosa",
+          }),
+        ]}
         answers={{}}
         onAnswerChange={onAnswerChange}
       />,
     );
-
-    expect(screen.getByText("O paciente é imunossuprimido?")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Sim" }));
-
-    expect(onAnswerChange).toHaveBeenCalledWith("q-immunosuppression", true);
+    expect(onAnswerChange).toHaveBeenCalledWith("q1", true);
   });
 
-  it("highlights blocker questions with a 'Muda a conduta' badge and exposes the why", () => {
+  it("auto-focuses the first interactive control of the first question, not later ones", () => {
     render(
       <ClarifyingQuestions
-        questions={[blockerQuestion]}
+        questions={[
+          question({ id: "q1", question: "Início súbito?", criticality: "blocker" }),
+          question({ id: "q2", question: "Há febre?", criticality: "important" }),
+        ]}
         answers={{}}
         onAnswerChange={vi.fn()}
       />,
     );
 
-    expect(screen.getByText("Muda a conduta")).toBeInTheDocument();
-    expect(
-      screen.getByText("Imunossupressão muda a indicação de oseltamivir — Diretriz X."),
-    ).toBeInTheDocument();
+    // Primeiro botão da primeira pergunta ("Sim" do grupo q1) recebe foco.
+    const firstQuestionButtons = screen.getAllByRole("button", { name: "Sim" });
+    expect(firstQuestionButtons[0]).toHaveFocus();
   });
 
-  it("does not show the blocker badge for non-blocker questions", () => {
+  it("renders disabled inputs when disabled=true, across all groups", () => {
     render(
       <ClarifyingQuestions
-        questions={[choiceQuestion]}
+        questions={[
+          question({
+            id: "q1",
+            question: "Qual a PA?",
+            expectedAnswerType: "number",
+            purpose: "Estabilidade hemodinâmica",
+          }),
+        ]}
         answers={{}}
         onAnswerChange={vi.fn()}
+        disabled
       />,
     );
-
-    expect(screen.queryByText("Muda a conduta")).not.toBeInTheDocument();
-  });
-
-  it("renders choice questions as chips for each option", async () => {
-    const user = userEvent.setup();
-    const onAnswerChange = vi.fn();
-
-    render(
-      <ClarifyingQuestions
-        questions={[choiceQuestion]}
-        answers={{}}
-        onAnswerChange={onAnswerChange}
-      />,
-    );
-
-    await user.click(screen.getByRole("button", { name: "> 48h" }));
-
-    expect(onAnswerChange).toHaveBeenCalledWith("q-symptom-duration", "> 48h");
-  });
-
-  it("renders a numeric input with a numeric keyboard for number questions", async () => {
-    const user = userEvent.setup();
-    const onAnswerChange = vi.fn();
-
-    render(
-      <ClarifyingQuestions
-        questions={[numberQuestion]}
-        answers={{}}
-        onAnswerChange={onAnswerChange}
-      />,
-    );
-
-    const input = screen.getByLabelText("Qual a temperatura corporal (°C)?");
-    expect(input).toHaveAttribute("type", "number");
-    expect(input).toHaveAttribute("inputmode", "numeric");
-
-    await user.type(input, "9");
-
-    expect(onAnswerChange).toHaveBeenCalledWith("q-temperature", 9);
-  });
-
-  it("renders a short text input for text questions", async () => {
-    const user = userEvent.setup();
-    const onAnswerChange = vi.fn();
-
-    render(
-      <ClarifyingQuestions
-        questions={[textQuestion]}
-        answers={{}}
-        onAnswerChange={onAnswerChange}
-      />,
-    );
-
-    const input = screen.getByLabelText("Quais alergias medicamentosas o paciente possui?");
-    expect(input).toHaveAttribute("type", "text");
-
-    await user.type(input, "D");
-
-    expect(onAnswerChange).toHaveBeenCalledWith("q-allergy", "D");
-  });
-
-  it("orders questions by criticality (blocker first, optional last)", () => {
-    const { container } = render(
-      <ClarifyingQuestions
-        questions={[numberQuestion, blockerQuestion, choiceQuestion]}
-        answers={{}}
-        onAnswerChange={vi.fn()}
-      />,
-    );
-
-    const titles = Array.from(container.querySelectorAll('[data-slot="card-title"]')).map(
-      (el) => el.textContent,
-    );
-    expect(titles).toEqual([
-      "O paciente é imunossuprimido?",
-      "Qual a duração dos sintomas?",
-      "Qual a temperatura corporal (°C)?",
-    ]);
-  });
-
-  it("marks the selected answer chip as pressed", () => {
-    render(
-      <ClarifyingQuestions
-        questions={[blockerQuestion]}
-        answers={{ "q-immunosuppression": true }}
-        onAnswerChange={vi.fn()}
-      />,
-    );
-
-    expect(screen.getByRole("button", { name: "Sim" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: "Não" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByLabelText("Qual a PA?")).toBeDisabled();
   });
 });

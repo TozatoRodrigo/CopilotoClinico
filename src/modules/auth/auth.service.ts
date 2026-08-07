@@ -94,6 +94,7 @@ export class AuthService {
         name: true,
         crmVerified: true,
         role: true,
+        locale: true,
         createdAt: true,
       },
     });
@@ -212,6 +213,7 @@ export class AuthService {
         name: physician.name,
         crmVerified: physician.crmVerified,
         role: physician.role,
+        locale: physician.locale,
       },
       ...tokens,
     };
@@ -260,6 +262,7 @@ export class AuthService {
         name: true,
         crmVerified: true,
         role: true,
+        locale: true,
       },
     });
 
@@ -376,6 +379,7 @@ export class AuthService {
         role: true,
         mfaEnabled: true,
         subscriptionStatus: true,
+        locale: true,
         createdAt: true,
       },
     });
@@ -547,10 +551,10 @@ export class AuthService {
     await this.auditService.log(params).catch(() => undefined);
   }
 
-  async updateProfile(physicianId: string, data: { name?: string }) {
+  async updateProfile(physicianId: string, data: { name?: string; locale?: string }) {
     const physician = await this.prisma.physician.update({
       where: { id: physicianId },
-      data: { name: data.name },
+      data: { name: data.name, locale: data.locale },
       select: {
         id: true,
         email: true,
@@ -558,6 +562,7 @@ export class AuthService {
         crmNumber: true,
         name: true,
         crmVerified: true,
+        locale: true,
       },
     });
 

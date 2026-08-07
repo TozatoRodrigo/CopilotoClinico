@@ -8,6 +8,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/lib/auth-store";
 import { ServiceWorkerRegistrar } from "@/components/providers/sw-registrar";
+import { InstallPromptBanner } from "@/components/domain/install-prompt-banner";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -84,6 +85,7 @@ export default function RootLayout({
                     {children}
                     <Toaster />
                     <ServiceWorkerRegistrar />
+                    <InstallPromptBanner />
                   </TooltipProvider>
                 </OfflineProvider>
               </AuthProvider>

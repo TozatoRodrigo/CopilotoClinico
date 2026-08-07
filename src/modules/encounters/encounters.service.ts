@@ -20,6 +20,16 @@ const ENCOUNTER_SELECT = {
   updatedAt: true,
 } as const;
 
+// PI-01 — mesmo ranking usado na análise clínica (prompt-builder.ts /
+// RED FLAGS RULE): critical > high > moderate.
+const RED_FLAG_SEVERITY_RANK: Record<string, number> = { critical: 3, high: 2, moderate: 1 };
+type RedFlagSeverity = 'critical' | 'high' | 'moderate';
+
+interface LatestInteractionSummary {
+  severity: RedFlagSeverity | null;
+  lastInteractionAt: Date;
+}
+
 @Injectable()
 export class EncountersService {
   constructor(
@@ -171,7 +181,70 @@ export class EncountersService {
       this.prisma.encounter.count({ where }),
     ]);
 
-    return { data: encounters, meta: { page, limit, total } };
+    // PI-01 — UMA query extra em lote para a página inteira (não uma por
+    // encontro): evita N+1 mesmo sem denormalizar a severidade numa coluna
+    // do Encounter. Em escala de piloto (dezenas de casos por página) isto
+    // é preferível a uma migração; se o volume crescer muito, denormalizar
+    // num campo atualizado a cada análise (ver orchestrator.service.ts)
+    // vira a escolha certa — documentado aqui para retomar a decisão.
+    const latestInteractionByEncounter = await this.getLatestInteractionSummaries(
+      encounters.map((e) => e.id),
+    );
+
+    const data = encounters.map((encounter) => {
+      const latest = latestInteractionByEncounter.get(encounter.id);
+      return {
+        ...encounter,
+        highestRedFlagSeverity: latest?.severity ?? null,
+        lastInteractionAt: latest?.lastInteractionAt.toISOString() ?? null,
+      };
+    });
+
+    return { data, meta: { page, limit, total } };
+  }
+
+  /**
+   * PI-01 — para cada encontro, a severidade de red flag da interação de
+   * IA MAIS RECENTE (não o máximo histórico — reflete o estado clínico
+   * atual; um achado crítico do turno 1 já reavaliado no turno 3 não deve
+   * continuar sinalizando alerta). `rawOutput` é `Prisma.JsonValue` sem
+   * schema garantido em runtime (ver mesmo cuidado em sbar.generator.ts),
+   * daí a leitura defensiva abaixo.
+   */
+  private async getLatestInteractionSummaries(
+    encounterIds: string[],
+  ): Promise<Map<string, LatestInteractionSummary>> {
+    if (encounterIds.length === 0) return new Map();
+
+    const interactions = await this.prisma.aiInteraction.findMany({
+      where: { encounterId: { in: encounterIds } },
+      orderBy: { createdAt: 'desc' },
+      select: { encounterId: true, rawOutput: true, createdAt: true },
+    });
+
+    const result = new Map<string, LatestInteractionSummary>();
+    for (const interaction of interactions) {
+      // orderBy desc — a primeira ocorrência de cada encounterId já é a mais recente.
+      if (result.has(interaction.encounterId)) continue;
+
+      const rawOutput = interaction.rawOutput as unknown as {
+        redFlags?: Array<{ severity?: string }>;
+      } | null;
+      const redFlags = Array.isArray(rawOutput?.redFlags) ? rawOutput!.redFlags : [];
+
+      let highest: RedFlagSeverity | null = null;
+      for (const flag of redFlags) {
+        const rank = RED_FLAG_SEVERITY_RANK[flag.severity ?? ''] ?? 0;
+        const currentRank = highest ? RED_FLAG_SEVERITY_RANK[highest]! : 0;
+        if (rank > currentRank) highest = flag.severity as RedFlagSeverity;
+      }
+
+      result.set(interaction.encounterId, {
+        severity: highest,
+        lastInteractionAt: interaction.createdAt,
+      });
+    }
+    return result;
   }
 
   async update(physicianId: string, encounterId: string, input: UpdateEncounterInput) {

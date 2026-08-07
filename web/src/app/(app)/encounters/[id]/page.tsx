@@ -1,7 +1,11 @@
 'use client';
 
 import { use, useState } from 'react';
-import { useEncounterDetail, useCancelEncounter } from '@/lib/clinical-queries';
+import {
+  useEncounterDetail,
+  useCancelEncounter,
+  useUpdateEncounterVertical,
+} from '@/lib/clinical-queries';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -14,12 +18,19 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { DecisionThread, type DecisionThreadItem } from '@/components/domain/decision-thread';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import Link from 'next/link';
 import { ArrowLeft, Microphone, Brain, FileText, ArrowRight, XCircle } from '@phosphor-icons/react';
 import { toast } from 'sonner';
-import type { EncounterContext } from '@/lib/types';
+import type { EncounterContext, EncounterVertical } from '@/lib/types';
 
 const CONTEXT_LABELS: Record<string, string> = {
   hasCT: 'TC',
@@ -54,6 +65,10 @@ const VERTICAL_LABELS: Record<string, string> = {
   general: 'Geral',
 };
 
+// UX-04 — mesma fonte de rótulos, só derivada em lista para alimentar o
+// <Select> do chip editável logo abaixo.
+const VERTICAL_OPTIONS = Object.entries(VERTICAL_LABELS) as [EncounterVertical, string][];
+
 const DOC_TYPE_LABELS: Record<string, string> = {
   soap: 'SOAP',
   sbar: 'SBAR',
@@ -83,6 +98,7 @@ export default function EncounterDetailPage({ params }: { params: Promise<{ id: 
   const { id } = use(params);
   const encounterQuery = useEncounterDetail(id);
   const cancelEncounter = useCancelEncounter(id);
+  const updateVertical = useUpdateEncounterVertical(id);
   const [cancelOpen, setCancelOpen] = useState(false);
   const encounter = encounterQuery.data;
   const loading = encounterQuery.isPending;
@@ -95,6 +111,16 @@ export default function EncounterDetailPage({ params }: { params: Promise<{ id: 
       setCancelOpen(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao cancelar o caso.');
+    }
+  }
+
+  // UX-04 — vertical não bloqueia mais a captura (ver encounters/new/page.tsx);
+  // esta é a confirmação/correção pós-hoc, sem tirar o médico do fluxo.
+  async function handleVerticalChange(value: EncounterVertical) {
+    try {
+      await updateVertical.mutateAsync(value);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao atualizar a vertical do caso.');
     }
   }
 
@@ -202,10 +228,37 @@ export default function EncounterDetailPage({ params }: { params: Promise<{ id: 
           </div>
         </header>
 
-        <div className="mb-6 flex flex-wrap gap-3">
-          <Badge variant="outline">
-            {VERTICAL_LABELS[encounter.vertical] ?? encounter.vertical}
-          </Badge>
+        <div className="mb-6 flex flex-wrap items-center gap-3">
+          {encounter.status === 'finalized' ? (
+            // Caso finalizado é imutável (documento assinado) — o backend
+            // já rejeita qualquer PATCH aqui, então nem oferecemos a edição.
+            <Badge variant="outline">
+              {VERTICAL_LABELS[encounter.vertical] ?? encounter.vertical}
+            </Badge>
+          ) : (
+            <Select
+              value={encounter.vertical}
+              onValueChange={(value) => void handleVerticalChange(value as EncounterVertical)}
+              disabled={updateVertical.isPending}
+            >
+              <SelectTrigger
+                size="sm"
+                className="rounded-full border-dashed"
+                aria-label="Vertical do caso — inferida automaticamente, confirme ou corrija"
+              >
+                <SelectValue>
+                  {VERTICAL_LABELS[encounter.vertical] ?? encounter.vertical}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {VERTICAL_OPTIONS.map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           {activeContexts.map(([, label]) => (
             <Badge key={label} variant="secondary">
               {label}

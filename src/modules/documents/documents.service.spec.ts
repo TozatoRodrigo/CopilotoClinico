@@ -24,6 +24,11 @@ const copilotRawOutput = {
   uncertainty: false,
   uncertaintyReason: null,
   differentials: [],
+  // PI-04 — generateSBAR() itera redFlags/clarifyingQuestions para montar
+  // as seções de vigilâncias/pendências; faltavam aqui (fixture antigo,
+  // anterior a esses campos existirem no schema real do copilot output).
+  redFlags: [],
+  clarifyingQuestions: [],
 };
 
 const baseDocument = {

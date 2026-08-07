@@ -8,6 +8,9 @@ import { DEMO_CASE_PRESETS } from '@/lib/demo-case-presets';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -16,7 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ChartBar, ArrowRight, Warning } from '@phosphor-icons/react';
+import { ChartBar, ArrowRight, Warning, DownloadSimple, CurrencyDollar } from '@phosphor-icons/react';
 
 interface DecisionLoopFunnel {
   analysesStarted: number;
@@ -47,9 +50,85 @@ interface ProductFunnel {
   generatedAt: string;
 }
 
+// PI-02 — espelha AiCostReport em src/modules/analytics/analytics.service.ts.
+// Sem contrato compartilhado aqui de propósito: este endpoint segue o mesmo
+// padrão local-only já usado por ProductFunnel acima nesta mesma página
+// (analytics/funil não está em @contracts/clinical), diferente dos tipos
+// clínicos centrais (Physician, EncounterSummary) que vivem lá.
+interface CostByPhysician {
+  physicianId: string;
+  name: string | null;
+  email: string;
+  totalCost: number;
+  analysesCount: number;
+  reanalysisTurns: number;
+  avgLatencyMs: number;
+}
+
+interface CostByModel {
+  model: string;
+  totalCost: number;
+  count: number;
+  avgLatencyMs: number;
+}
+
+interface CostByDay {
+  date: string;
+  cost: number;
+}
+
+interface AiCostReport {
+  period: { days: number; since: string; generatedAt: string };
+  totals: {
+    totalCost: number;
+    interactionCount: number;
+    encounterCount: number;
+    avgCostPerCase: number | null;
+    avgCostPerAnalysis: number | null;
+    avgTurnsPerCase: number | null;
+  };
+  byPhysician: CostByPhysician[];
+  byModel: CostByModel[];
+  byDay: CostByDay[];
+  projection: {
+    projectedUsers: number;
+    avgCostPerPhysicianPerMonth: number | null;
+    projectedMonthlyCost: number | null;
+  };
+  disclaimer: string;
+}
+
 const ABANDONMENT_ALERT_THRESHOLD = 0.3;
 
 export default function AnalyticsPage() {
+  const [tab, setTab] = useState<'funil' | 'custo'>('funil');
+
+  return (
+    <div className="mx-auto max-w-4xl space-y-6">
+      <div>
+        <h1 className="text-lg font-semibold">Analytics</h1>
+        <p className="text-sm text-muted-foreground">
+          Funil de produto e custo de IA — agregados LGPD-safe (nenhum dado de paciente).
+        </p>
+      </div>
+
+      <Tabs value={tab} onValueChange={(v) => setTab(v as 'funil' | 'custo')}>
+        <TabsList>
+          <TabsTrigger value="funil">Funil de produto</TabsTrigger>
+          <TabsTrigger value="custo">Custo de IA</TabsTrigger>
+        </TabsList>
+        <TabsContent value="funil" className="mt-6">
+          <FunnelPanel />
+        </TabsContent>
+        <TabsContent value="custo" className="mt-6">
+          <CostPanel />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+function FunnelPanel() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -79,14 +158,8 @@ export default function AnalyticsPage() {
   const abandonmentHigh = (dl?.abandonmentRate ?? 0) > ABANDONMENT_ALERT_THRESHOLD;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-lg font-semibold">Funil de produto</h1>
-          <p className="text-sm text-muted-foreground">
-            Loop de decisão como métrica nº 1 — agregados LGPD-safe (contagens, razões, durações).
-          </p>
-        </div>
         <div className="flex items-end gap-2">
           {/*
             S25-ANALYTICS-01 — demoCase vira Select (antes era input texto
@@ -210,6 +283,301 @@ export default function AnalyticsPage() {
           </CardContent>
         </Card>
       </section>
+    </div>
+  );
+}
+
+// PI-02 — formata em BRL porque é assim que a resposta vai para os sócios
+// (o custo em si é medido em USD pelo provedor de IA, mas exibir a moeda de
+// referência do negócio evita um passo de conversão manual toda vez que
+// alguém olha o painel). O disclaimer deixa claro que é estimativa.
+function formatCost(value: number | null): string {
+  if (value === null) return '—';
+  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'USD' });
+}
+
+function downloadCostCsv(report: AiCostReport) {
+  const lines: string[] = [];
+  lines.push('Painel de custo de IA — Copiloto Clínico');
+  lines.push(`Período,${report.period.days} dias`);
+  lines.push(`Gerado em,${report.period.generatedAt}`);
+  lines.push('');
+  lines.push('Totais');
+  lines.push('Custo total (USD),Nº de análises,Nº de casos,Custo médio por caso,Custo médio por análise,Turnos médios por caso');
+  lines.push(
+    [
+      report.totals.totalCost,
+      report.totals.interactionCount,
+      report.totals.encounterCount,
+      report.totals.avgCostPerCase ?? '',
+      report.totals.avgCostPerAnalysis ?? '',
+      report.totals.avgTurnsPerCase ?? '',
+    ].join(','),
+  );
+  lines.push('');
+  lines.push('Projeção');
+  lines.push('Usuários projetados,Custo médio por médico/mês (USD),Custo mensal projetado (USD)');
+  lines.push(
+    [
+      report.projection.projectedUsers,
+      report.projection.avgCostPerPhysicianPerMonth ?? '',
+      report.projection.projectedMonthlyCost ?? '',
+    ].join(','),
+  );
+  lines.push('');
+  lines.push('Custo por médico');
+  lines.push('Nome,E-mail,Custo total (USD),Análises,Turnos de reanálise,Latência média (ms)');
+  for (const p of report.byPhysician) {
+    lines.push(
+      [
+        `"${(p.name ?? '—').replace(/"/g, '""')}"`,
+        p.email,
+        p.totalCost,
+        p.analysesCount,
+        p.reanalysisTurns,
+        p.avgLatencyMs,
+      ].join(','),
+    );
+  }
+  lines.push('');
+  lines.push('Custo por modelo');
+  lines.push('Modelo,Custo total (USD),Nº de análises,Latência média (ms)');
+  for (const m of report.byModel) {
+    lines.push([m.model, m.totalCost, m.count, m.avgLatencyMs].join(','));
+  }
+  lines.push('');
+  lines.push(`Nota,"${report.disclaimer.replace(/"/g, '""')}"`);
+
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `custo-ia-copiloto-${report.period.days}d-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function CostPanel() {
+  const [days, setDays] = useState(30);
+  const [projectedUsersInput, setProjectedUsersInput] = useState('100');
+  // PI-02 — só dispara a query quando o valor digitado é um inteiro válido;
+  // evita rajada de requests a cada tecla enquanto o médico ainda está
+  // digitando (ex.: "1" → "10" → "100").
+  const projectedUsers = /^\d+$/.test(projectedUsersInput) ? Number(projectedUsersInput) : null;
+
+  const { data, isPending, error, refetch } = useQuery<AiCostReport, ApiError>({
+    queryKey: ['ai-cost-report', days, projectedUsers],
+    queryFn: () =>
+      apiClient.get<AiCostReport>('/analytics/cost', {
+        days: String(days),
+        ...(projectedUsers ? { projectedUsers: String(projectedUsers) } : {}),
+      }),
+    enabled: projectedUsers !== null,
+  });
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="flex items-end gap-3">
+          <div className="flex gap-1">
+            {[7, 30, 90].map((d) => (
+              <Button
+                key={d}
+                size="sm"
+                variant={days === d ? 'default' : 'outline'}
+                onClick={() => setDays(d)}
+              >
+                {d}d
+              </Button>
+            ))}
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="cost-projected-users" className="text-xs text-muted-foreground">
+              Projeção para N usuários
+            </Label>
+            <Input
+              id="cost-projected-users"
+              type="number"
+              min={1}
+              inputMode="numeric"
+              value={projectedUsersInput}
+              onChange={(e) => setProjectedUsersInput(e.target.value)}
+              className="h-9 w-28"
+            />
+          </div>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={!data}
+          onClick={() => data && downloadCostCsv(data)}
+        >
+          <DownloadSimple className="mr-1.5 size-4" />
+          Exportar CSV
+        </Button>
+      </div>
+
+      {error && (
+        <Card>
+          <CardContent className="flex items-center justify-between gap-3 py-4 text-sm">
+            <span className="text-destructive">
+              Não foi possível carregar o custo de IA. {error.message}
+            </span>
+            <Button variant="outline" size="sm" onClick={() => refetch()}>
+              Tentar novamente
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+          Totais do período
+        </h2>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <Metric
+            label="Custo total"
+            value={data ? formatCost(data.totals.totalCost) : null}
+            sub={data ? `${data.totals.interactionCount} análises · ${data.totals.encounterCount} casos` : null}
+            loading={isPending}
+            primary
+          />
+          <Metric
+            label="Custo médio por caso"
+            value={data ? formatCost(data.totals.avgCostPerCase) : null}
+            sub={null}
+            loading={isPending}
+          />
+          <Metric
+            label="Custo médio por análise"
+            value={data ? formatCost(data.totals.avgCostPerAnalysis) : null}
+            sub={null}
+            loading={isPending}
+          />
+          <Metric
+            label="Turnos médios por caso"
+            value={data ? (data.totals.avgTurnsPerCase === null ? '—' : String(data.totals.avgTurnsPerCase)) : null}
+            sub="reanálises inflam este número — ver Sprint 26"
+            loading={isPending}
+          />
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+          Projeção — quanto custaria abrir para N usuários
+        </h2>
+        <Card className="border-clinical-teal/40 bg-clinical-teal-tint/40">
+          <CardContent className="flex flex-wrap items-center gap-6 py-4">
+            <CurrencyDollar className="size-8 shrink-0 text-clinical-teal-deep" weight="duotone" />
+            {isPending ? (
+              <Skeleton className="h-10 w-56 rounded" />
+            ) : data ? (
+              <div>
+                <p className="font-display text-2xl tracking-tight text-clinical-teal-deep">
+                  {formatCost(data.projection.projectedMonthlyCost)}
+                  <span className="ml-1 text-sm font-normal text-muted-foreground">/ mês</span>
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {formatCost(data.projection.avgCostPerPhysicianPerMonth)} por médico ativo/mês ×{' '}
+                  {data.projection.projectedUsers} usuários
+                </p>
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+          Custo por médico
+        </h2>
+        <Card>
+          <CardContent className="p-0">
+            {isPending ? (
+              <div className="space-y-2 p-4">
+                {Array.from({ length: 3 }, (_, i) => (
+                  <Skeleton key={i} className="h-10 w-full rounded" />
+                ))}
+              </div>
+            ) : data && data.byPhysician.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-clinical-line text-left text-xs text-muted-foreground">
+                      <th className="px-4 py-2 font-medium">Médico</th>
+                      <th className="px-4 py-2 font-medium">Custo</th>
+                      <th className="px-4 py-2 font-medium">Análises</th>
+                      <th className="px-4 py-2 font-medium">Turnos reanálise</th>
+                      <th className="px-4 py-2 font-medium">Latência média</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.byPhysician.map((p) => (
+                      <tr key={p.physicianId} className="border-b border-clinical-line last:border-0">
+                        <td className="px-4 py-2">
+                          <p className="font-medium text-foreground">{p.name ?? '—'}</p>
+                          <p className="text-xs text-muted-foreground">{p.email}</p>
+                        </td>
+                        <td className="px-4 py-2 font-mono">{formatCost(p.totalCost)}</td>
+                        <td className="px-4 py-2">{p.analysesCount}</td>
+                        <td className="px-4 py-2">{p.reanalysisTurns}</td>
+                        <td className="px-4 py-2">{p.avgLatencyMs} ms</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="p-4 text-sm text-muted-foreground">Sem interações de IA no período.</p>
+            )}
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+          Custo por modelo
+        </h2>
+        <Card>
+          <CardContent className="p-0">
+            {isPending ? (
+              <Skeleton className="m-4 h-16 w-full rounded" />
+            ) : data && data.byModel.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-clinical-line text-left text-xs text-muted-foreground">
+                      <th className="px-4 py-2 font-medium">Modelo</th>
+                      <th className="px-4 py-2 font-medium">Custo</th>
+                      <th className="px-4 py-2 font-medium">Nº de análises</th>
+                      <th className="px-4 py-2 font-medium">Latência média</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.byModel.map((m) => (
+                      <tr key={m.model} className="border-b border-clinical-line last:border-0">
+                        <td className="px-4 py-2 font-mono">{m.model}</td>
+                        <td className="px-4 py-2 font-mono">{formatCost(m.totalCost)}</td>
+                        <td className="px-4 py-2">{m.count}</td>
+                        <td className="px-4 py-2">{m.avgLatencyMs} ms</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="p-4 text-sm text-muted-foreground">Sem interações de IA no período.</p>
+            )}
+          </CardContent>
+        </Card>
+      </section>
+
+      {data && (
+        <p className="text-xs italic text-muted-foreground">{data.disclaimer}</p>
+      )}
     </div>
   );
 }

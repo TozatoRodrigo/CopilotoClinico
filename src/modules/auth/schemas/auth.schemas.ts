@@ -88,6 +88,10 @@ export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 
 export const updateProfileSchema = z.object({
   name: z.string().min(1, 'Name is required').max(200).optional(),
+  // PI-05 — enum aplicado aqui, não no schema do Prisma (ver comentário no
+  // model Physician): validação de locale suportado fica na aplicação para
+  // não exigir migração a cada novo idioma.
+  locale: z.enum(['pt-BR', 'es']).optional(),
 });
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;

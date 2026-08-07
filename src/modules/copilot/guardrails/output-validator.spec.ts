@@ -96,6 +96,164 @@ describe('validateOutput', () => {
     expect(defaulted.output?.differentials).toEqual([]);
   });
 
+  // PI-03 — diferenciais "não pode perder".
+  describe('PI-03: cannotMiss / timeToHarm', () => {
+    it('defaults cannotMiss to false when omitted (retrocompatível)', () => {
+      const result = validateOutput(
+        makeValidOutput({
+          differentials: [
+            {
+              hypothesis: 'Pneumonia atípica',
+              whyConsider: 'Febre e tosse com padrão radiológico atípico.',
+              whatDistinguishes: 'Sorologia e TC de tórax.',
+            },
+          ],
+        }),
+        VALID_CHUNK_IDS,
+      );
+      expect(result.valid).toBe(true);
+      expect(result.output?.differentials[0]?.cannotMiss).toBe(false);
+      expect(result.output?.differentials[0]?.timeToHarm).toBeUndefined();
+    });
+
+    it('accepts a cannot-miss differential with a qualitative timeToHarm', () => {
+      const result = validateOutput(
+        makeValidOutput({
+          differentials: [
+            {
+              hypothesis: 'Dissecção de aorta',
+              whyConsider: 'Dor torácica súbita irradiada para o dorso em hipertenso.',
+              whatDistinguishes: 'Assimetria de pulsos e angioTC de aorta.',
+              cannotMiss: true,
+              timeToHarm: 'minutos',
+            },
+          ],
+        }),
+        VALID_CHUNK_IDS,
+      );
+      expect(result.valid).toBe(true);
+      expect(result.output?.differentials[0]?.cannotMiss).toBe(true);
+      expect(result.output?.differentials[0]?.timeToHarm).toBe('minutos');
+    });
+
+    it('rejects timeToHarm values outside the closed qualitative set (never a number)', () => {
+      const result = validateOutput(
+        makeValidOutput({
+          differentials: [
+            {
+              hypothesis: 'Dissecção de aorta',
+              whyConsider: 'Dor torácica súbita.',
+              whatDistinguishes: 'AngioTC.',
+              cannotMiss: true,
+              timeToHarm: '30 minutos' as unknown as 'minutos',
+            },
+          ],
+        }),
+        VALID_CHUNK_IDS,
+      );
+      expect(result.valid).toBe(false);
+    });
+
+    it.each([
+      ['percentual', 'Probabilidade de 70% de ser dissecção de aorta.'],
+      ['palavra "probabilidade"', 'Alta probabilidade de etiologia vascular dado o perfil.'],
+      ['likelihood em inglês', 'High likelihood of aortic dissection given the presentation.'],
+      ['razão de chance', 'A chance de ser isso é considerável.'],
+    ])('rejects differential whose text uses %s instead of cannotMiss/timeToHarm', (_label, whyConsider) => {
+      const result = validateOutput(
+        makeValidOutput({
+          differentials: [
+            {
+              hypothesis: 'Dissecção de aorta',
+              whyConsider,
+              whatDistinguishes: 'AngioTC.',
+              cannotMiss: true,
+              timeToHarm: 'minutos',
+            },
+          ],
+        }),
+        VALID_CHUNK_IDS,
+      );
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.startsWith('PROBABILITY LANGUAGE NOT ALLOWED'))).toBe(
+        true,
+      );
+    });
+
+    it('rejects probability language in hypothesis or whatDistinguishes too, not just whyConsider', () => {
+      const inHypothesis = validateOutput(
+        makeValidOutput({
+          differentials: [
+            {
+              hypothesis: 'Dissecção de aorta (65% dos casos torácicos atípicos)',
+              whyConsider: 'Dor súbita irradiada.',
+              whatDistinguishes: 'AngioTC.',
+            },
+          ],
+        }),
+        VALID_CHUNK_IDS,
+      );
+      expect(inHypothesis.valid).toBe(false);
+
+      const inDistinguishes = validateOutput(
+        makeValidOutput({
+          differentials: [
+            {
+              hypothesis: 'Dissecção de aorta',
+              whyConsider: 'Dor súbita irradiada.',
+              whatDistinguishes: 'AngioTC — probability of confirming is high with contrast.',
+            },
+          ],
+        }),
+        VALID_CHUNK_IDS,
+      );
+      expect(inDistinguishes.valid).toBe(false);
+    });
+
+    it('does not flag legitimate clinical scores/numbers that are not probability language', () => {
+      const result = validateOutput(
+        makeValidOutput({
+          differentials: [
+            {
+              hypothesis: 'Tromboembolismo pulmonar',
+              whyConsider: 'Score de Wells elevado e dispneia súbita.',
+              whatDistinguishes: 'D-dímero e angioTC de tórax.',
+              cannotMiss: true,
+              timeToHarm: 'horas',
+            },
+          ],
+        }),
+        VALID_CHUNK_IDS,
+      );
+      expect(result.valid).toBe(true);
+    });
+
+    it('allows cannotMiss=false differentials to coexist with cannotMiss=true ones', () => {
+      const result = validateOutput(
+        makeValidOutput({
+          differentials: [
+            {
+              hypothesis: 'Dissecção de aorta',
+              whyConsider: 'Dor súbita irradiada.',
+              whatDistinguishes: 'AngioTC.',
+              cannotMiss: true,
+              timeToHarm: 'minutos',
+            },
+            {
+              hypothesis: 'Costocondrite',
+              whyConsider: 'Dor reprodutível à palpação.',
+              whatDistinguishes: 'Exame físico dirigido.',
+              cannotMiss: false,
+            },
+          ],
+        }),
+        VALID_CHUNK_IDS,
+      );
+      expect(result.valid).toBe(true);
+      expect(result.output?.differentials.map((d) => d.cannotMiss)).toEqual([true, false]);
+    });
+  });
+
   it('rejects output without citations when chunk IDs are provided but none match', () => {
     const result = validateOutput(
       makeValidOutput({
@@ -144,7 +302,14 @@ describe('validateOutput', () => {
     expect(result.valid).toBe(true);
   });
 
-  it('accepts output with uncertainty=true and no recommendations', () => {
+  // CC-02 — Este teste ANTES afirmava que uncertainty=true sozinho, sem
+  // recomendações E sem perguntas, era um output válido. Essa era exatamente
+  // a codificação do bug reproduzido na apresentação (caso de cefaleia pobre:
+  // "0 definitivas · 0 preliminares", sem próximo passo possível). Mantido
+  // aqui, invertido, para documentar a reversão deliberada — não é um teste
+  // nascendo já quebrado, é a prova de que o comportamento antigo foi
+  // conscientemente eliminado.
+  it('CC-02: rejects uncertainty=true with no recommendations AND no clarifying questions (the wall)', () => {
     const result = validateOutput(
       makeValidOutput({
         recommendations: [],
@@ -153,7 +318,34 @@ describe('validateOutput', () => {
       }),
       VALID_CHUNK_IDS,
     );
+    // Erro de regra de negócio pós-schema (não falha de parse/Zod) — output
+    // continua populado para eventual inspeção/log, mas valid=false é o que
+    // impede o orquestrador de aceitar a resposta.
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.startsWith('DEAD END'))).toBe(true);
+  });
+
+  it('CC-02: accepts uncertainty=true with no recommendations WHEN clarifying questions are present (incerteza sobre a diretriz, perguntas sobre o paciente coexistem)', () => {
+    const result = validateOutput(
+      makeValidOutput({
+        recommendations: [],
+        uncertainty: true,
+        uncertaintyReason: 'Nenhuma diretriz cobre este cenário na base atual',
+        clarifyingQuestions: [
+          {
+            id: 'q1',
+            question: 'A dor é súbita ou progressiva?',
+            why: 'Discrimina causas vasculares agudas de causas subagudas',
+            criticality: 'blocker',
+            expectedAnswerType: 'choice',
+            choices: ['Súbita', 'Progressiva'],
+          },
+        ],
+      }),
+      VALID_CHUNK_IDS,
+    );
     expect(result.valid).toBe(true);
+    expect(result.output?.clarifyingQuestions).toHaveLength(1);
   });
 
   it('rejects output with no recommendations and uncertainty=false', () => {
@@ -165,6 +357,60 @@ describe('validateOutput', () => {
     expect(result.errors).toContain(
       'Output has no recommendations and uncertainty is not declared',
     );
+    expect(result.errors.some((e) => e.startsWith('DEAD END'))).toBe(true);
+  });
+
+  it('CC-02: accepts zero recommendations with uncertainty=false WHEN clarifying questions are present (o caso que destrava a correção)', () => {
+    const result = validateOutput(
+      makeValidOutput({
+        recommendations: [],
+        uncertainty: false,
+        clarifyingQuestions: [
+          {
+            id: 'q1',
+            question: 'O paciente é imunossuprimido?',
+            why: 'Muda a indicação e a duração do oseltamivir — Diretriz Influenza',
+            criticality: 'blocker',
+            expectedAnswerType: 'boolean',
+          },
+        ],
+      }),
+      VALID_CHUNK_IDS,
+    );
+    expect(result.valid).toBe(true);
+    expect(result.output?.recommendations).toEqual([]);
+    expect(result.output?.clarifyingQuestions).toHaveLength(1);
+  });
+
+  it('CC-02: rejects zero recommendations and zero clarifying questions regardless of uncertainty value (DEAD END is absolute)', () => {
+    const withUncertaintyTrue = validateOutput(
+      makeValidOutput({
+        recommendations: [],
+        clarifyingQuestions: [],
+        uncertainty: true,
+        uncertaintyReason: 'Sem evidência',
+      }),
+      VALID_CHUNK_IDS,
+    );
+    const withUncertaintyFalse = validateOutput(
+      makeValidOutput({ recommendations: [], clarifyingQuestions: [], uncertainty: false }),
+      VALID_CHUNK_IDS,
+    );
+
+    for (const result of [withUncertaintyTrue, withUncertaintyFalse]) {
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.startsWith('DEAD END'))).toBe(true);
+    }
+  });
+
+  it('CC-02: the DEAD END message is actionable — it tells the model to ask, not just that it failed (contrato com o retry automático)', () => {
+    const result = validateOutput(
+      makeValidOutput({ recommendations: [], clarifyingQuestions: [], uncertainty: true, uncertaintyReason: 'x' }),
+      VALID_CHUNK_IDS,
+    );
+    const deadEndError = result.errors.find((e) => e.startsWith('DEAD END'));
+    expect(deadEndError).toBeDefined();
+    expect(deadEndError).toMatch(/ask/i);
   });
 
   it('rejects output with uncertainty=true but null uncertaintyReason', () => {
@@ -289,6 +535,83 @@ describe('validateOutput', () => {
     );
     expect(result.valid).toBe(true);
     expect(result.output?.clarifyingQuestions).toHaveLength(1);
+  });
+
+  // UX-01 — "purpose" agrupa perguntas por finalidade clínica na UI.
+  describe('UX-01: clarifyingQuestions.purpose', () => {
+    it('accepts a clarifyingQuestion with a purpose label', () => {
+      const result = validateOutput(
+        makeValidOutput({
+          clarifyingQuestions: [
+            {
+              id: 'q1',
+              question: 'Qual a PA atual?',
+              why: 'Define gravidade do choque',
+              // 'important' (não 'blocker') para não colidir com o refine
+              // pré-existente que exige recomendações preliminares quando
+              // há uma pergunta blocker — irrelevante para o que este
+              // teste verifica (aceitação do campo purpose).
+              criticality: 'important',
+              expectedAnswerType: 'number',
+              purpose: 'Estabilidade hemodinâmica',
+            },
+          ],
+        }),
+        VALID_CHUNK_IDS,
+      );
+      expect(result.valid).toBe(true);
+      expect(result.output?.clarifyingQuestions[0]?.purpose).toBe('Estabilidade hemodinâmica');
+    });
+
+    it('remains backward-compatible when purpose is omitted (older turns/weaker models)', () => {
+      const result = validateOutput(
+        makeValidOutput({
+          clarifyingQuestions: [
+            {
+              id: 'q1',
+              question: 'Qual a PA atual?',
+              why: 'Define gravidade do choque',
+              criticality: 'important',
+              expectedAnswerType: 'number',
+            },
+          ],
+        }),
+        VALID_CHUNK_IDS,
+      );
+      expect(result.valid).toBe(true);
+      expect(result.output?.clarifyingQuestions[0]?.purpose).toBeUndefined();
+    });
+
+    it('groups multiple questions under the same purpose string, unaltered', () => {
+      const question = (id: string, q: string) => ({
+        id,
+        question: q,
+        why: 'Define gravidade do choque',
+        criticality: 'important' as const,
+        expectedAnswerType: 'number' as const,
+        purpose: 'Estabilidade hemodinâmica',
+      });
+      const result = validateOutput(
+        makeValidOutput({
+          recommendations: [
+            {
+              action: 'Initiate ACE inhibitor therapy',
+              rationale: 'BP consistently above 140/90',
+              citationChunkId: 'chunk-1',
+              confidence: 0.85,
+              preliminary: true,
+            },
+          ],
+          clarifyingQuestions: [question('q1', 'Qual a PA?'), question('q2', 'Qual a FC?')],
+        }),
+        VALID_CHUNK_IDS,
+      );
+      expect(result.valid).toBe(true);
+      expect(result.output?.clarifyingQuestions.map((q) => q.purpose)).toEqual([
+        'Estabilidade hemodinâmica',
+        'Estabilidade hemodinâmica',
+      ]);
+    });
   });
 
   it('rejects output with a blocker clarifying question and a non-preliminary recommendation', () => {

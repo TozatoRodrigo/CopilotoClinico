@@ -11,7 +11,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Sentry, initSentry } from '@/lib/sentry';
-import { messages } from '@/lib/messages';
+import { useMessages } from '@/lib/messages/use-messages';
 
 export default function AdminError({
   error,
@@ -21,6 +21,7 @@ export default function AdminError({
   reset: () => void;
 }) {
   const router = useRouter();
+  const messages = useMessages();
 
   useEffect(() => {
     // eslint-disable-next-line no-console

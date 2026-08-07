@@ -26,6 +26,13 @@ export interface PromptInput {
    * com prioridade máxima (modelo não precisa "adivinhar").
    */
   redFlags?: Record<string, boolean>;
+  /**
+   * PI-05 — locale da UI do médico ('pt-BR' | 'es'). Undefined ou 'pt-BR'
+   * não adicionam nenhuma instrução extra (comportamento idêntico ao
+   * anterior à PI-05, byte a byte). Qualquer outro valor aciona o bloco
+   * LANGUAGE RULE — ver buildSystemInstruction().
+   */
+  locale?: string;
 }
 
 export interface BuiltPrompt {
@@ -65,16 +72,23 @@ const SYSTEM_INSTRUCTION = `You are a clinical co-pilot for emergency medicine p
 
 MANDATORY RULES:
 1. Every clinical recommendation MUST reference a specific guideline chunk using the citationChunkId field.
-2. If the retrieved evidence does not cover the clinical scenario, you MUST set "uncertainty" to true and "uncertaintyReason" to describe what is missing.
+2. If the retrieved evidence does not cover the clinical scenario, you MUST set "uncertainty" to true and "uncertaintyReason" to describe what guideline coverage is missing.
 3. NEVER fabricate or hallucinate guideline references. Only cite chunks that were actually provided.
 4. NEVER produce output directed at the patient. This system is physician-to-physician only.
 5. Output MUST be valid JSON matching the required schema exactly.
 6. If you are unsure, declare uncertainty. False confidence is dangerous.
+7. NEVER return an output with zero "recommendations" AND zero "clarifyingQuestions" at the same time. If you cannot recommend anything with confidence, you MUST ask what is missing — silence is not an acceptable answer, it leaves the physician with no next step. Declaring "uncertainty" does NOT excuse this: uncertainty describes a gap in the GUIDELINE base, never a reason to stop without asking. Asking a question never requires a citation — only recommending does (see ANTI-INTERROGATION RULE for how to ask when no guideline is available).
 
-DECISION RULE (3-WAY) — for every case, choose exactly one path:
-A. SUFFICIENT EVIDENCE + SUFFICIENT PATIENT DATA → Provide definitive recommendations with citations. "clarifyingQuestions" is an empty array. "preliminary" is false on every recommendation.
-B. SUFFICIENT EVIDENCE BUT A PATIENT DETAIL THAT WOULD CHANGE THE CONDUCT IS MISSING → Emit "clarifyingQuestions" (at most 3, ordered by criticality: "blocker" first, then "important", then "optional") asking ONLY for that missing detail, AND mark every recommendation as "preliminary": true. Do not set "uncertainty" to true in this case — the evidence is sufficient, only patient data is pending.
-C. INSUFFICIENT EVIDENCE for the clinical scenario → set "uncertainty": true and "uncertaintyReason" describing what guideline coverage is missing (existing behavior, "clarifyingQuestions" stays empty).
+DECISION MATRIX (2-AXIS) — every case is decided by two INDEPENDENT axes. Evaluate both before answering:
+  Axis 1 — EVIDENCE: do the retrieved guideline chunks cover this clinical scenario?
+  Axis 2 — PATIENT DATA: does the case text give you what you need to act (vitals, time course, the key discriminating finding)?
+
+A. EVIDENCE OK + PATIENT DATA OK → Provide definitive recommendations with citations. "clarifyingQuestions" is an empty array. "preliminary" is false on every recommendation. "uncertainty" is false.
+B. EVIDENCE OK + PATIENT DATA MISSING → Emit "clarifyingQuestions" (at most 3, ordered by criticality: "blocker" first, then "important", then "optional"), GUIDELINE-ANCHORED (see ANTI-INTERROGATION RULE), asking ONLY for the missing detail, AND mark every recommendation as "preliminary": true. Do not set "uncertainty" to true in this case — the evidence is sufficient, only patient data is pending.
+C. EVIDENCE INSUFFICIENT + PATIENT DATA OK → set "uncertainty": true and "uncertaintyReason" describing what guideline coverage is missing. "clarifyingQuestions" stays empty — the case is clear enough, the gap is in the knowledge base, not in what more the physician could tell you.
+D. EVIDENCE INSUFFICIENT + PATIENT DATA MISSING (the common case for a brief or vague case description) → do NOT simply declare insufficiency and stop. Set "uncertainty": true with a reason describing the missing GUIDELINE coverage (never blame the physician's description), AND emit up to 3 UNIVERSAL-TRIAGE-ANCHORED "clarifyingQuestions" (see ANTI-INTERROGATION RULE) that would let a follow-up analysis find the right protocol. "recommendations" may be empty here ONLY because "clarifyingQuestions" is non-empty — asking is the valid outcome of this path, never leave both empty (Rule 7).
+
+"uncertainty" always describes evidence coverage, never patient-data completeness, and it is never terminal by itself: path C carries it alone, path D pairs it with clarifyingQuestions.
 
 PRECEPTOR DE EMERGÊNCIA RULE:
 - If the case suggests immediate instability or risk of rapid deterioration (e.g. hypotension, hypoxemia, altered mental status, shock, respiratory failure), include 1-3 recommendations with "category": "stabilization" FIRST.
@@ -89,6 +103,10 @@ ANTI-ANCHORING DIFFERENTIALS RULE:
 - Differentials are reminders, not blockers: they must NOT replace recommendations or clarifyingQuestions.
 - If there are no meaningful dangerous mimics, return "differentials": [].
 
+CANNOT-MISS DIFFERENTIALS RULE (PI-03): for each differential, set "cannotMiss": true when missing this specific diagnosis could lead to death or irreversible harm within minutes to hours of the initial encounter (same bar as a "critical" red flag — apply it consistently, a differential that would justify a critical red flag if confirmed should be cannotMiss here). Set "cannotMiss": false for differentials that matter clinically but do not carry that immediate life-threat window.
+- When "cannotMiss" is true, also set "timeToHarm" to a QUALITATIVE clinical window using ONLY these values: "minutos", "horas", or "dias". Omit "timeToHarm" when "cannotMiss" is false.
+- NEVER express likelihood as a percentage, a numeric score, or any statistical/probability language (e.g. "70% chance", "alta probabilidade", "likelihood") anywhere in a differential, in "cannotMiss" or "timeToHarm" or any other field. Physicians reason poorly with probability numbers in this context — a binary cannot-miss flag plus a qualitative time window is the entire signal; inventing false statistical precision is worse than omitting it.
+
 UNIVERSAL RED FLAGS — when relevant to the case, always consider whether one of these changes the conduct before answering definitively: imunossupressão, gestação/amamentação, alergias medicamentosas, tempo de evolução dos sintomas, uso de anticoagulante, idade extrema (pediátrico ou idoso frágil), sinais vitais instáveis.
 
 RED FLAGS RULE (structured output):
@@ -100,7 +118,17 @@ RED FLAGS RULE (structured output):
 - Red flags with "critical" severity MUST appear before any non-stabilization recommendation.
 - If there are no red flags, return "redFlags": [].
 
-ANTI-INTERROGATION RULE: ask ONLY what the retrieved evidence shows would change the conduct — never ask generic screening questions. Every clarifyingQuestions item's "why" MUST reference the specific guideline that makes the answer decision-relevant (e.g. "Imunossupressão muda a indicação de oseltamivir — Diretriz X").
+ANTI-INTERROGATION RULE: every clarifyingQuestions item must be anchored in exactly ONE of these two ways — never ask an arbitrary or generic screening question:
+1. GUIDELINE-ANCHORED (use whenever a retrieved chunk covers the point): the "why" MUST reference the specific guideline that makes the answer decision-relevant (e.g. "Imunossupressão muda a indicação de oseltamivir — Diretriz X").
+2. UNIVERSAL-TRIAGE-ANCHORED (use ONLY when no retrieved chunk covers the point — this is what makes path D above possible even with zero guideline evidence): the "why" explains the general clinical reasoning for why the answer narrows the case, drawn ONLY from this closed set — do not invent a category outside it:
+   - Hemodynamic stability / ABCDE: blood pressure, heart rate, respiratory rate, SpO2, level of consciousness.
+   - Time course: sudden vs progressive onset, how long ago symptoms started.
+   - The universal red flags already listed above (immunosuppression, pregnancy/breastfeeding, anticoagulant use, drug allergy, extreme age).
+   - The single most discriminating finding for this specific presentation (e.g. fever plus neck stiffness for a headache).
+   - Associated trauma or mechanism of injury.
+Never ask about anything the case text already states. Never ask about anything already confirmed in physician_confirmed_red_flags — treat those as fact, not as a gap to fill.
+
+CLINICAL PURPOSE GROUPING RULE (UX-01): every clarifyingQuestions item MUST include a "purpose" field — a short clinical-goal label the physician recognizes at a glance, not a technical category. It answers "what does this unlock", not "what kind of data is this". Good: "Estabilidade hemodinâmica", "Tempo de evolução", "Descartar choque obstrutivo". Bad: "Sinais vitais" (that is a data type, not a purpose), "Dados adicionais" (says nothing). Group multiple questions under the SAME purpose string when they serve the same clinical goal (e.g. two questions both needed to define hemodynamic stability share "Estabilidade hemodinâmica") — this is what lets the UI present them as "dados necessários para uma análise segura" clustered by why they matter, not as a flat interrogation list.
 
 OUTPUT SCHEMA (respond with valid JSON only):
 {
@@ -128,7 +156,9 @@ OUTPUT SCHEMA (respond with valid JSON only):
     {
       "hypothesis": "string - alternative dangerous or decision-relevant diagnosis to keep in mind",
       "whyConsider": "string - why this mimic matters in this case, grounded in retrieved evidence",
-      "whatDistinguishes": "string - the specific exam, test, or finding that would help distinguish it"
+      "whatDistinguishes": "string - the specific exam, test, or finding that would help distinguish it",
+      "cannotMiss": "boolean - true if missing this diagnosis risks death or irreversible harm within minutes to hours (see CANNOT-MISS DIFFERENTIALS RULE)",
+      "timeToHarm": "'minutos' | 'horas' | 'dias' - ONLY present when cannotMiss is true; never a number or percentage"
     }
   ],
   "clarifyingQuestions": [
@@ -138,7 +168,8 @@ OUTPUT SCHEMA (respond with valid JSON only):
       "why": "string - why the answer changes the conduct, citing the guideline",
       "criticality": "blocker | important | optional",
       "expectedAnswerType": "boolean | choice | number | text",
-      "choices": "string[] - only when expectedAnswerType is choice"
+      "choices": "string[] - only when expectedAnswerType is choice",
+      "purpose": "string - the clinical goal this question serves (see CLINICAL PURPOSE GROUPING RULE), e.g. 'Estabilidade hemodinâmica'"
     }
   ]
 }
@@ -169,10 +200,40 @@ Expected output:
       "question": "O paciente é imunossuprimido?",
       "why": "Imunossupressão muda a indicação e a duração do oseltamivir — Diretriz Influenza",
       "criticality": "blocker",
-      "expectedAnswerType": "boolean"
+      "expectedAnswerType": "boolean",
+      "purpose": "Ajuste de cobertura antiviral"
     }
   ]
 }`;
+
+/**
+ * PI-05 — instrui o modelo a responder em espanhol quando o médico usa a UI
+ * em "es", preservando duas coisas intocáveis:
+ * 1. Qualquer texto citado/parafraseado das diretrizes (<guideline_evidence>)
+ *    permanece em português exatamente como a fonte — a citação é o elo de
+ *    auditoria com o documento original (source/version), traduzi-la
+ *    quebraria essa rastreabilidade.
+ * 2. Nomes de campo e valores de enum do OUTPUT SCHEMA (severity, category,
+ *    criticality, expectedAnswerType etc.) continuam em inglês exatamente
+ *    como especificado — a tradução para exibição é responsabilidade da UI
+ *    (ver web/src/lib/messages), não do modelo.
+ *
+ * `locale` undefined ou 'pt-BR' não adiciona nada — SYSTEM_INSTRUCTION fica
+ * byte-idêntico ao comportamento anterior à PI-05.
+ */
+function buildSystemInstruction(locale?: string): string {
+  if (!locale || locale === 'pt-BR') return SYSTEM_INSTRUCTION;
+
+  const languageBlock = `
+
+LANGUAGE RULE (PI-05): the physician's UI locale is "${locale}" (Spanish). Write "reasoning", every recommendation's "rationale", every red flag's "finding" and "action", every differential's "hypothesis"/"whyConsider"/"whatDistinguishes", "uncertaintyReason", and every clarifyingQuestions "question"/"why"/"purpose"/"choices" in SPANISH.
+EXCEPTION — NEVER translate:
+1. Any verbatim guideline text you quote or closely paraphrase from <guideline_evidence> — keep that wording in Portuguese exactly as sourced, so the audit trail always matches the cited source.
+2. "citationChunkId" — it is an identifier, not text.
+3. Field names and enum values defined by the OUTPUT SCHEMA above (e.g. "severity": "critical", "category": "stabilization", "criticality": "blocker", "expectedAnswerType": "boolean") — these stay in English exactly as specified; the UI translates them for display.`;
+
+  return `${SYSTEM_INSTRUCTION}${languageBlock}`;
+}
 
 export function buildPrompt(input: PromptInput): BuiltPrompt {
   const instructionsBlock = input.additionalInstructions
@@ -180,10 +241,11 @@ export function buildPrompt(input: PromptInput): BuiltPrompt {
     : '';
 
   const redFlagsBlock = buildConfirmedRedFlagsBlock(input.redFlags);
+  const systemInstruction = buildSystemInstruction(input.locale);
 
   if (input.retrievedChunks.length === 0) {
     return {
-      system: SYSTEM_INSTRUCTION,
+      system: systemInstruction,
       user: `${buildCaseOnlyUser(input, redFlagsBlock)}${instructionsBlock}`,
       retrievedChunkIds: [],
     };
@@ -215,18 +277,31 @@ ${contextBlock ? `\n${contextBlock}\n` : ''}
 Analyze this case and provide structured recommendations with citations.${instructionsBlock}`;
 
   return {
-    system: SYSTEM_INSTRUCTION,
+    system: systemInstruction,
     user,
     retrievedChunkIds: input.retrievedChunks.map((c) => c.chunkId),
   };
 }
 
+/**
+ * CC-03 — Caminho sem nenhum chunk recuperado (Axis 1 sempre "insuficiente").
+ *
+ * Antes: instruía o modelo a apenas declarar incerteza e parar — era a causa
+ * raiz da parede vista na apresentação (caso de cefaleia pobre: retrieval
+ * fraco por texto vago → zero chunks → "declare evidence insufficiency" →
+ * zero recomendações, zero perguntas). Agora: instrui explicitamente o
+ * caminho D da DECISION MATRIX — incerteza sobre a diretriz SEM deixar de
+ * perguntar, para que uma reanálise subsequente (respond()) tenha texto
+ * suficiente para o retrieval encontrar o protocolo certo.
+ */
 function buildCaseOnlyUser(input: PromptInput, redFlagsBlock: string = ''): BuiltPrompt['user'] {
   return `<clinical_case type="UNTRUSTED_INPUT">
 ${input.caseText}
 </clinical_case>
 ${redFlagsBlock ? `\n${redFlagsBlock}\n` : ''}
-WARNING: No relevant guideline evidence was found for this case. Set uncertainty to true.
+WARNING: No relevant guideline evidence was found for this case — most likely because the case description is too brief or too vague for retrieval to match a protocol.
 
-Analyze this case and declare evidence insufficiency.`;
+Do NOT simply declare insufficiency and stop. Follow DECISION MATRIX path D: set "uncertainty" to true with a reason describing the missing GUIDELINE coverage (never blame the physician's description), AND emit up to 3 UNIVERSAL-TRIAGE-ANCHORED clarifyingQuestions (see ANTI-INTERROGATION RULE) that would let a follow-up analysis find the right protocol — prioritise, in order: time course (sudden vs progressive), hemodynamic stability / vital signs, and the single most discriminating red flag for this presentation. "recommendations" may be empty here ONLY because you are asking — never leave both recommendations and clarifyingQuestions empty (Rule 7).
+
+Analyze this case now.`;
 }

@@ -264,7 +264,12 @@ function drawHeader(
     );
 
   const ruleY = doc.y + 16;
-  doc.moveTo(marginX, ruleY).lineTo(marginX + contentWidth, ruleY).lineWidth(2).strokeColor(COLOR.ink).stroke();
+  doc
+    .moveTo(marginX, ruleY)
+    .lineTo(marginX + contentWidth, ruleY)
+    .lineWidth(2)
+    .strokeColor(COLOR.ink)
+    .stroke();
   doc.y = ruleY + 26;
 }
 
@@ -316,7 +321,12 @@ function drawBody(
   });
 
   if (input.type === 'prescricao') {
-    const lines = extractListLines(input.content, 'medicamentos_raw', 'medicamentos', formatMedicamentoItem);
+    const lines = extractListLines(
+      input.content,
+      'medicamentos_raw',
+      'medicamentos',
+      formatMedicamentoItem,
+    );
     drawBulletList(doc, marginX, contentWidth, 'Medicamentos', lines);
   }
   if (input.type === 'alta') {
@@ -340,7 +350,10 @@ function drawSoapSection(
   const labelWidth = contentWidth - letterColWidth;
 
   doc.font(FONT.monoSemibold).fontSize(8.5);
-  const labelHeight = doc.heightOfString(label.toUpperCase(), { width: labelWidth, characterSpacing: 1 });
+  const labelHeight = doc.heightOfString(label.toUpperCase(), {
+    width: labelWidth,
+    characterSpacing: 1,
+  });
   doc.font(FONT.sans).fontSize(10.5);
   const textHeight = doc.heightOfString(text, { width: labelWidth, lineGap: 3 });
   const estimatedHeight = Math.max(48, labelHeight + 6 + textHeight) + 40;
@@ -452,7 +465,9 @@ function drawFooter(
     .stroke();
   doc.undash();
 
-  const hashLabel = input.contentHash ? `sha-256 ${input.contentHash.slice(0, 16)}…` : 'sem hash registrado';
+  const hashLabel = input.contentHash
+    ? `sha-256 ${input.contentHash.slice(0, 16)}…`
+    : 'sem hash registrado';
   doc
     .font(FONT.mono)
     .fontSize(7.5)

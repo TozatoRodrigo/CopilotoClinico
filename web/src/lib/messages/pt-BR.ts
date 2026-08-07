@@ -10,9 +10,216 @@
  * - The copilot only ever *suggests / indicates / recommends* — never *diagnoses
  *   / guarantees / cures*. See FORBIDDEN_AI_TERMS in index.ts.
  * - Pluralization lives in functions (n) => string so it stays locale-correct.
+ *
+ * `Messages` is a hand-written structural type (not `typeof ptBR as const`) on
+ * purpose — PI-05: a `typeof` derivation narrows every string to its pt-BR
+ * literal type (e.g. `tryAgain: 'Tentar novamente'`), which would make it
+ * impossible for `es.ts` (or any future locale) to type-check with different
+ * string values. Every locale dictionary implements this same interface.
  */
 
-export const ptBR = {
+export interface Messages {
+  common: {
+    actions: {
+      tryAgain: string;
+      backToHome: string;
+      backToEncounters: string;
+      goToAnalysis: string;
+    };
+  };
+
+  copilot: {
+    result: {
+      title: string;
+      recommendationsCount: (n: number) => string;
+      preliminarySummary: (definitive: number, preliminary: number) => string;
+    };
+
+    questions: {
+      heading: string;
+      whyAsk: string;
+      boolean: {
+        yes: string;
+        no: string;
+        unknown: string;
+      };
+    };
+
+    reanalyze: {
+      cta: string;
+      ctaShort: string;
+      loading: string;
+      errorTitle: string;
+    };
+
+    progress: {
+      round: (current: number, max: number) => string;
+      expectationHint: string;
+      lastRoundWarning: string;
+    };
+
+    queued: {
+      title: string;
+      description: string;
+      descriptionLong: string;
+    };
+
+    recommendations: {
+      heading: string;
+    };
+
+    sections: {
+      preliminary: string;
+      conduta: string;
+    };
+
+    differentials: {
+      heading: string;
+      whatDistinguishes: string;
+      cannotMiss: string;
+    };
+
+    citations: {
+      heading: string;
+      institutionalBadge: string;
+      publicBadge: string;
+      institutionalBadgeShort: string;
+      publicBadgeShort: string;
+      viewExcerpt: string;
+      viewExcerptShort: string;
+      figureFallback: (source: string) => string;
+    };
+
+    turns: {
+      history: string;
+      previous: string;
+      turnLabel: (idx: number) => string;
+      previousSummary: (idx: number, n: number) => string;
+    };
+  };
+
+  recommendation: {
+    category: {
+      stabilization: string;
+      diagnostic: string;
+      therapeutic: string;
+      verify: string;
+    };
+    categoryBracket: (label: string) => string;
+    preliminary: string;
+    confidence: (value: number) => string;
+    confidenceTooltipTitle: string;
+    confidenceTooltipBody: string;
+    confidenceTooltipDisclaimer: string;
+  };
+
+  redFlags: {
+    heading: string;
+    severity: {
+      critical: string;
+      high: string;
+      moderate: string;
+    };
+  };
+
+  uncertainty: {
+    title: string;
+    defaultReason: string;
+    actions: {
+      complementCase: string;
+      searchGuidelines: string;
+    };
+    complement: {
+      heading: string;
+      placeholder: string;
+      submit: string;
+      submitting: string;
+      cancel: string;
+    };
+  };
+
+  blocker: {
+    changesConduct: string;
+    whyAsk: string;
+  };
+
+  capture: {
+    resources: string;
+    redFlags: string;
+    complaintHint: string;
+    voice: {
+      listening: string;
+      tapToDictate: string;
+      start: string;
+      stop: string;
+      unsupportedTitle: string;
+      unsupportedDescription: string;
+      transcribing: string;
+      recording: string;
+      cancel: string;
+      sendAndTranscribe: string;
+      slideToCancel: string;
+      maxReached: string;
+      emptyTranscript: string;
+      emptyRecording: string;
+      micDenied: string;
+      micNotFound: string;
+      recordingError: string;
+      networkError: string;
+      serverError: string;
+      rateLimited: string;
+    };
+    charMin: (n: number) => string;
+    readyToAnalyze: string;
+    placeholder: string;
+    caseLabel: string;
+    cta: string;
+    ctaLoading: string;
+    offlineHint: string;
+    offlineQueued: string;
+    errorAnalyze: string;
+    templateApplied: (name: string) => string;
+    streamingHint: string;
+  };
+
+  documents: {
+    generateHeading: string;
+    generating: string;
+    generated: (type: string) => string;
+    newAnalysis: string;
+    encounter: string;
+    types: {
+      soap: string;
+      sbar: string;
+      prescricao: string;
+      alta: string;
+      atestado: string;
+    };
+    errorGenerate: string;
+    errorTitle: string;
+  };
+
+  seal: {
+    signing: string;
+    error: string;
+    confirmed: string;
+  };
+
+  errors: {
+    title: string;
+    sessionExpired: string;
+    httpError: (status: number) => string;
+    genericTitle: string;
+    genericDescription: string;
+    encounterLoadTitle: string;
+    encounterLoadDescription: string;
+    analysisLoadTitle: string;
+    analysisLoadDescription: string;
+    analysisEmpty: string;
+  };
+}
+
+export const ptBR: Messages = {
   common: {
     actions: {
       tryAgain: 'Tentar novamente',
@@ -32,7 +239,11 @@ export const ptBR = {
     },
 
     questions: {
-      heading: 'Perguntas do copiloto',
+      // UX-01 — primeira pessoa do copiloto, reforça a metáfora do
+      // preceptor perguntando à beira do leito. Nunca "Dados insuficientes"
+      // ou qualquer framing que pareça culpar o relato do médico — essa
+      // exata armadilha foi a causa da "parede" identificada na Sprint 26.
+      heading: 'Para orientar com segurança, preciso de:',
       whyAsk: 'Por que essa pergunta?',
       boolean: {
         yes: 'Sim',
@@ -46,6 +257,17 @@ export const ptBR = {
       ctaShort: 'Reanalisar',
       loading: 'Reanalisando...',
       errorTitle: 'Erro ao reanalisar',
+    },
+
+    // UX-03 — indicador de progresso do fluxo guiado ("Rodada N de M"), para
+    // o ciclo de perguntas iterativo não parecer um loop sem fim no meio do
+    // plantão.
+    progress: {
+      round: (current: number, max: number) => `Rodada ${current} de ${max}`,
+      expectationHint:
+        'Respondendo isto, a conduta pode passar de preliminar a definitiva.',
+      lastRoundWarning:
+        'Última rodada — a análise será finalizada com as informações disponíveis.',
     },
 
     queued: {
@@ -69,6 +291,9 @@ export const ptBR = {
     differentials: {
       heading: 'Já considerou?',
       whatDistinguishes: 'O que diferencia:',
+      // PI-03 — rótulo curto e direto, mesmo critério de um red flag
+      // crítico. Redação a validar com Dr. Gustavo/Dr. Ripardo no piloto.
+      cannotMiss: 'Não pode passar',
     },
 
     citations: {
@@ -125,6 +350,20 @@ export const ptBR = {
     title: 'Incerteza na análise',
     defaultReason:
       'Evidência insuficiente para este cenário. Recomenda-se revisão adicional.',
+    // UX-02 — nenhum estado do copiloto termina sem uma ação disponível;
+    // este banner sempre oferece pelo menos uma das duas.
+    actions: {
+      complementCase: 'Complementar o caso',
+      searchGuidelines: 'Buscar nas diretrizes',
+    },
+    complement: {
+      heading: 'Complementar informações do caso',
+      placeholder:
+        'Acrescente o que ajudar a esclarecer o quadro — tempo de evolução, sinais vitais, exames já feitos...',
+      submit: 'Reanalisar com o complemento',
+      submitting: 'Reanalisando...',
+      cancel: 'Cancelar',
+    },
   },
 
   blocker: {
@@ -175,6 +414,8 @@ export const ptBR = {
       'Não foi possível analisar o caso. Verifique os dados e tente novamente.',
     // S23-CLIN-01 — feedback ao aplicar template de queixa.
     templateApplied: (name: string) => `Modelo "${name}" adicionado ao caso.`,
+    // UX-06 — streaming: sinal de vida rápido em vez de spinner mudo.
+    streamingHint: 'O copiloto já está respondendo...',
   },
 
   documents: {
@@ -216,6 +457,4 @@ export const ptBR = {
       'Não foi possível carregar a análise. Tente novamente ou abra um novo caso.',
     analysisEmpty: 'Nenhum resultado de análise encontrado.',
   },
-} as const;
-
-export type Messages = typeof ptBR;
+};

@@ -55,6 +55,14 @@ export interface OrchestratorResult {
     latencyMs: number;
     cost: number;
     model: string;
+    /**
+     * UX-03 — turno desta interação (0 = análise inicial) e teto configurado
+     * de turnos (`COPILOT_MAX_TURNS`). Expostos para o front poder mostrar
+     * "Rodada N de M" sem duplicar a constante — a config de verdade
+     * continua vivendo só no backend.
+     */
+    turnIndex: number;
+    maxTurns: number;
   };
 }
 
@@ -133,6 +141,41 @@ function extractEvidenceFromChunk(chunk: ChunkMetadata | undefined): {
   return result;
 }
 
+/**
+ * CC-05 — Extrai demoCase/redFlags do `params` persistido de uma interação
+ * anterior, para propagação transitiva entre turnos de reanálise.
+ *
+ * Sem isto, `continueAnalysis()` (respond) não repassava as red flags que o
+ * médico confirmou explicitamente na captura (S20-CLIN-01) — a partir do
+ * 2º turno, o prompt esquecia que a paciente era gestante, por exemplo. Como
+ * `params` é `Prisma.JsonValue`, o shape é validado defensivamente aqui em
+ * vez de um cast cego.
+ */
+function extractInteractionParams(params: Prisma.JsonValue | null): {
+  demoCase: string | null;
+  redFlags: Record<string, boolean>;
+} {
+  if (!params || typeof params !== 'object' || Array.isArray(params)) {
+    return { demoCase: null, redFlags: {} };
+  }
+
+  const record = params as Record<string, unknown>;
+
+  const demoCase = typeof record.demoCase === 'string' ? record.demoCase : null;
+
+  const rawRedFlags = record.redFlags;
+  const redFlags: Record<string, boolean> = {};
+  if (rawRedFlags && typeof rawRedFlags === 'object' && !Array.isArray(rawRedFlags)) {
+    for (const [key, value] of Object.entries(rawRedFlags as Record<string, unknown>)) {
+      if (typeof value === 'boolean') {
+        redFlags[key] = value;
+      }
+    }
+  }
+
+  return { demoCase, redFlags };
+}
+
 @Injectable()
 export class OrchestratorService {
   private readonly logger = new Logger(OrchestratorService.name);
@@ -146,12 +189,30 @@ export class OrchestratorService {
     @Inject(ConfigService) private readonly config: ConfigService,
   ) {}
 
+  /**
+   * PI-05 — locale de UI salvo na conta do médico, para instruir o modelo a
+   * responder no idioma certo (ver LANGUAGE RULE em prompt-builder.ts).
+   * Falha "aberta" para undefined (comportamento pt-BR de sempre) em vez de
+   * lançar: a ausência do preceptor no idioma certo nunca deve bloquear a
+   * análise clínica.
+   */
+  private async getPhysicianLocale(physicianId: string): Promise<string | undefined> {
+    const physician = await this.prisma.physician.findUnique({
+      where: { id: physicianId },
+      select: { locale: true },
+    });
+    return physician?.locale;
+  }
+
   async analyze(
     physicianId: string,
     encounterId: string,
     input: AnalyzeInput,
   ): Promise<OrchestratorResult> {
     const start = Date.now();
+    // UX-03 — a análise inicial é sempre o turno 0; maxTurns vem da mesma
+    // config que já governa o teto de reanálises em continueAnalysis().
+    const maxTurns = this.config.get<number>('COPILOT_MAX_TURNS', DEFAULT_MAX_TURNS);
 
     // Buscar encounter para obter patientRef — necessário para redação explícita (LGPD-005)
     const encounter = await this.encounters.findById(physicianId, encounterId);
@@ -199,6 +260,8 @@ export class OrchestratorService {
       hasICU: input.context.hasICU,
     };
 
+    const locale = await this.getPhysicianLocale(physicianId);
+
     const prompt = buildPrompt({
       caseText: fullyRedacted,
       retrievedChunks: retrievalResult.chunks.map((c) => ({
@@ -211,6 +274,8 @@ export class OrchestratorService {
       context: encounterContext,
       // S20-CLIN-01 — injeta red flags explícitas do médico no prompt.
       redFlags: input.redFlags,
+      // PI-05 — instrui o idioma de resposta conforme a conta do médico.
+      locale,
     });
 
     const baseMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
@@ -353,6 +418,8 @@ export class OrchestratorService {
         latencyMs: Date.now() - start,
         cost: inferenceCost,
         model: completion.model,
+        turnIndex: 0,
+        maxTurns,
       },
     };
   }
@@ -390,6 +457,8 @@ export class OrchestratorService {
     input: AnalyzeInput,
   ): AsyncGenerator<StreamEvent> {
     const start = Date.now();
+    // UX-03 — mesma lógica de analyze(): stream também é sempre turno 0.
+    const maxTurns = this.config.get<number>('COPILOT_MAX_TURNS', DEFAULT_MAX_TURNS);
 
     const encounter = await this.encounters.findById(physicianId, encounterId);
 
@@ -427,6 +496,8 @@ export class OrchestratorService {
       hasICU: input.context.hasICU,
     };
 
+    const locale = await this.getPhysicianLocale(physicianId);
+
     const prompt = buildPrompt({
       caseText: fullyRedacted,
       retrievedChunks: retrievalResult.chunks.map((c) => ({
@@ -439,6 +510,8 @@ export class OrchestratorService {
       context: encounterContext,
       // S20-CLIN-01 — injeta red flags explícitas do médico no prompt (stream).
       redFlags: input.redFlags,
+      // PI-05 — instrui o idioma de resposta conforme a conta do médico.
+      locale,
     });
 
     let fullContent = '';
@@ -551,6 +624,8 @@ export class OrchestratorService {
           latencyMs: Date.now() - start,
           cost: inferenceCost,
           model: mockCompletion.model,
+          turnIndex: 0,
+          maxTurns,
         },
       },
     };
@@ -571,6 +646,10 @@ export class OrchestratorService {
     if (!parentInteraction) {
       throw new NotFoundException('Interaction not found');
     }
+
+    // CC-05 — herda demoCase/redFlags do turno anterior (propagação transitiva:
+    // turno 3 herda o que o turno 2 herdou do turno 1, e assim por diante).
+    const inheritedParams = extractInteractionParams(parentInteraction.params);
 
     const maxTurns = this.config.get<number>('COPILOT_MAX_TURNS', DEFAULT_MAX_TURNS);
     const newTurnIndex = parentInteraction.turnIndex + 1;
@@ -665,6 +744,8 @@ export class OrchestratorService {
       hasICU: false,
     };
 
+    const locale = await this.getPhysicianLocale(physicianId);
+
     const prompt = buildPrompt({
       caseText: augmentedCaseText,
       retrievedChunks: retrievalResult.chunks.map((c) => ({
@@ -675,8 +756,19 @@ export class OrchestratorService {
         score: c.score,
       })),
       context: encounterContext,
+      // CC-05 — sem isto, as red flags que o médico confirmou no turno 1
+      // (S20-CLIN-01) desapareciam do prompt a partir do turno 2.
+      redFlags: inheritedParams.redFlags,
+      // PI-05 — instrui o idioma de resposta conforme a conta do médico.
+      locale,
+      // CC-03 — no turno final, clarifyingQuestions É obrigatoriamente vazio
+      // (não há próximo turno para respondê-las), então "recommendations"
+      // NUNCA pode ficar vazio aqui, sob pena de violar a Rule 7 (dead end)
+      // do system prompt. Mesmo com incerteza remanescente, o modelo deve
+      // arriscar ao menos uma recomendação preliminar com a melhor evidência
+      // disponível — silêncio não é uma opção neste turno.
       additionalInstructions: forceFinal
-        ? 'Este é o último turno permitido para esta análise. NÃO inclua novas clarifyingQuestions (a lista deve ficar vazia). Forneça recomendações finais com base nas informações disponíveis; se ainda houver incerteza, defina uncertainty=true e descreva uncertaintyReason, mas inclua recomendações preliminares quando possível.'
+        ? 'Este é o último turno permitido para esta análise. NÃO inclua novas clarifyingQuestions (a lista deve ficar vazia). Como não há próximo turno, "recommendations" NÃO PODE ficar vazio: forneça ao menos uma recomendação preliminar com base na melhor evidência e informação disponíveis, mesmo que incompletas. Se ainda houver incerteza sobre a cobertura da diretriz, defina uncertainty=true e descreva uncertaintyReason, mas isso não substitui a obrigação de recomendar algo — declare a incerteza E recomende, não incerteza no lugar de recomendar.'
         : undefined,
     });
 
@@ -725,6 +817,9 @@ export class OrchestratorService {
           inputRedacted: baseCaseText,
           retrievedChunkIds: prompt.retrievedChunkIds,
           model: completion.model,
+          // CC-05 — persiste o herdado mesmo em falha de validação, para que
+          // um eventual próximo turno não perca a cadeia de red flags.
+          params: { demoCase: inheritedParams.demoCase, redFlags: inheritedParams.redFlags },
           rawOutput: {
             raw: completion.content,
             validationErrors: validation.errors,
@@ -766,6 +861,9 @@ export class OrchestratorService {
         inputRedacted: baseCaseText,
         retrievedChunkIds: prompt.retrievedChunkIds,
         model: completion.model,
+        // CC-05 — repropaga demoCase/redFlags para que o PRÓXIMO turno (ex:
+        // turno 3) continue herdando, fechando a cadeia de forma transitiva.
+        params: { demoCase: inheritedParams.demoCase, redFlags: inheritedParams.redFlags },
         rawOutput: enrichedOutput as unknown as Prisma.InputJsonValue,
         citations: {
           recommendations: enrichedOutput.recommendations,
@@ -830,6 +928,8 @@ export class OrchestratorService {
         latencyMs: Date.now() - start,
         cost: inferenceCost,
         model: completion.model,
+        turnIndex: newTurnIndex,
+        maxTurns,
       },
     };
   }

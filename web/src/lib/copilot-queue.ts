@@ -1,5 +1,6 @@
 import { apiClient } from "@/lib/api-client";
 import { processQueue } from "@/lib/offline-queue";
+import { markFirstAnalysisDone } from "@/components/domain/install-prompt-banner";
 import type { CopilotAnalyzeResponse } from "@/lib/types";
 
 export interface RespondedEncounter {
@@ -35,6 +36,9 @@ export async function syncOfflineQueue(): Promise<SyncResult> {
           // S20-CLIN-01 — envia redFlags explícitas ao sincronizar fila offline.
           { caseText: item.caseText, context: item.context, redFlags: item.redFlags },
         );
+        // UX-05 — cobre também o caso do médico ter feito a primeira
+        // análise offline; ela só "conta" quando sincroniza com sucesso.
+        markFirstAnalysisDone();
       }
       return { success: true, encounterId: item.encounterId };
     } catch {

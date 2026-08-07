@@ -25,12 +25,25 @@ export type AnalyzeInput = z.output<typeof analyzeSchema>;
 
 const boolParam = z.preprocess((v) => v === 'true' || v === true, z.boolean()).default(false);
 
+// UX-06 — mesmas 6 chaves canônicas de RED_FLAG_LABELS (prompt-builder.ts) /
+// RED_FLAG_CHIPS (capture/page.tsx), como parâmetros booleanos individuais
+// em vez de um objeto serializado — EventSource só faz GET com querystring,
+// então segue o mesmo estilo já usado para hasCT/isSus/hasLab/hasICU em vez
+// de introduzir JSON-em-query-param. Sem isto, o caminho de streaming
+// perderia silenciosamente as red flags que o médico confirmou (S20-CLIN-01)
+// — a análise por streaming ficaria clinicamente mais pobre que a por POST.
 export const streamQuerySchema = z.object({
   caseText: z.string().min(10, 'Case text must be at least 10 characters'),
   hasCT: boolParam,
   isSus: boolParam,
   hasLab: boolParam,
   hasICU: boolParam,
+  immunosuppressed: boolParam,
+  pregnant: boolParam,
+  anticoagulant: boolParam,
+  pediatric: boolParam,
+  elderly65: boolParam,
+  allergy: boolParam,
 });
 
 export type StreamQuery = z.infer<typeof streamQuerySchema>;

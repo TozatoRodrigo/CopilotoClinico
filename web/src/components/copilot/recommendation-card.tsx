@@ -5,7 +5,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { CitationFootnote } from '@/components/domain/citation-footnote';
 import { cn } from '@/lib/utils';
-import { messages } from '@/lib/messages';
+import { useMessages } from '@/lib/messages/use-messages';
+import type { Messages } from '@/lib/messages';
 import {
   CheckCircle as CheckCircleIcon,
   Info,
@@ -15,7 +16,12 @@ import {
 import type { CopilotRecommendation } from '@/lib/types';
 import type { RecommendationDecisionState } from '@/hooks/use-recommendation-decisions';
 
-function getCategoryLabel(category?: CopilotRecommendation['category']): string | null {
+// PI-05 — recebe `messages` já resolvido no locale do médico (useMessages());
+// função de módulo não pode chamar um hook diretamente.
+function getCategoryLabel(
+  messages: Messages,
+  category?: CopilotRecommendation['category'],
+): string | null {
   switch (category) {
     case 'stabilization':
       return messages.recommendation.category.stabilization;
@@ -49,8 +55,9 @@ export const RecommendationCard = memo(function RecommendationCard({
   onReject,
   onNote,
 }: RecommendationCardProps) {
+  const messages = useMessages();
   const isStabilization = rec.category === 'stabilization';
-  const categoryLabel = getCategoryLabel(rec.category);
+  const categoryLabel = getCategoryLabel(messages, rec.category);
   const isRejected = decision?.decision === 'rejected';
   const isAdopted = decision?.decision === 'adopted';
   const [showNote, setShowNote] = useState(false);

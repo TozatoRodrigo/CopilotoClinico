@@ -9,7 +9,8 @@ import { UncertaintyBanner } from '@/components/domain/uncertainty-banner';
 import { useCopilotConversation, type StoredCopilotResult } from '@/hooks/use-copilot-conversation';
 import { useRecommendationDecisions } from '@/hooks/use-recommendation-decisions';
 import type { ClarifyingAnswerValue, ClarifyingQuestion, CopilotRecommendation, EvidenceFigure, EvidenceTable, RedFlag } from '@/lib/types';
-import { messages } from '@/lib/messages';
+import { useMessages } from '@/lib/messages/use-messages';
+import type { Messages } from '@/lib/messages';
 import { Circle, CheckCircle, ArrowClockwise, WifiSlash, Warning, Siren } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 
@@ -32,6 +33,7 @@ const CATEGORY_ORDER: Record<string, number> = {
 };
 
 export function DecisionThread({ encounterId, initial }: DecisionThreadProps) {
+  const messages = useMessages();
   const {
     analysis,
     turns,
@@ -85,7 +87,7 @@ export function DecisionThread({ encounterId, initial }: DecisionThreadProps) {
 
         {analysis.redFlags?.length > 0 && (
           <ThreadNode icon="pending" accent="amber">
-            <RedFlagsBlock redFlags={analysis.redFlags} />
+            <RedFlagsBlock redFlags={analysis.redFlags} messages={messages} />
           </ThreadNode>
         )}
 
@@ -108,6 +110,7 @@ export function DecisionThread({ encounterId, initial }: DecisionThreadProps) {
                   value={answers[question.id]}
                   onChange={(value) => setAnswer(question.id, value)}
                   disabled={reanalyzing}
+                  messages={messages}
                 />
               ))}
 
@@ -236,11 +239,11 @@ export function DecisionThread({ encounterId, initial }: DecisionThreadProps) {
 
         {analysis.citations.length > 0 && (
           <ThreadNode icon="cite">
-            <CitationsBlock citations={analysis.citations} />
+            <CitationsBlock citations={analysis.citations} messages={messages} />
           </ThreadNode>
         )}
 
-        {turns.length > 0 && <CollapsedTurns turns={turns} />}
+        {turns.length > 0 && <CollapsedTurns turns={turns} messages={messages} />}
       </div>
     </div>
   );
@@ -287,18 +290,20 @@ function QuestionCard({
   value,
   onChange,
   disabled,
+  messages,
 }: {
   question: ClarifyingQuestion;
   value: ClarifyingAnswerValue | undefined;
   onChange: (value: ClarifyingAnswerValue) => void;
   disabled?: boolean;
+  messages: Messages;
 }) {
   const isBlocker = question.criticality === 'blocker';
 
   if (isBlocker) {
     return (
       <BlockerQuestionCard question={question.question} why={question.why}>
-        <AnswerInput question={question} value={value} onChange={onChange} disabled={disabled} />
+        <AnswerInput question={question} value={value} onChange={onChange} disabled={disabled} messages={messages} />
       </BlockerQuestionCard>
     );
   }
@@ -311,34 +316,38 @@ function QuestionCard({
         <p className="mt-1">{question.why}</p>
       </details>
       <div className="mt-2">
-        <AnswerInput question={question} value={value} onChange={onChange} disabled={disabled} />
+        <AnswerInput question={question} value={value} onChange={onChange} disabled={disabled} messages={messages} />
       </div>
     </div>
   );
 }
 
-const BOOLEAN_OPTIONS: { label: string; value: ClarifyingAnswerValue }[] = [
-  { label: messages.copilot.questions.boolean.yes, value: true },
-  { label: messages.copilot.questions.boolean.no, value: false },
-  { label: messages.copilot.questions.boolean.unknown, value: 'unknown' },
-];
+function booleanOptions(messages: Messages): { label: string; value: ClarifyingAnswerValue }[] {
+  return [
+    { label: messages.copilot.questions.boolean.yes, value: true },
+    { label: messages.copilot.questions.boolean.no, value: false },
+    { label: messages.copilot.questions.boolean.unknown, value: 'unknown' },
+  ];
+}
 
 function AnswerInput({
   question,
   value,
   onChange,
   disabled,
+  messages,
 }: {
   question: ClarifyingQuestion;
   value: ClarifyingAnswerValue | undefined;
   onChange: (value: ClarifyingAnswerValue) => void;
   disabled?: boolean;
+  messages: Messages;
 }) {
   switch (question.expectedAnswerType) {
     case 'boolean':
       return (
         <div role="group" aria-label={question.question} className="flex flex-wrap gap-2">
-          {BOOLEAN_OPTIONS.map((option) => (
+          {booleanOptions(messages).map((option) => (
             <button
               key={option.label}
               type="button"
@@ -410,23 +419,27 @@ function AnswerInput({
   }
 }
 
-const RED_FLAG_SEVERITY_CONFIG: Record<RedFlag['severity'], { label: string; className: string; icon: typeof Siren }> = {
-  critical: {
-    label: messages.redFlags.severity.critical,
-    className: 'border-clinical-error/40 bg-clinical-error-bg text-clinical-error-foreground',
-    icon: Siren,
-  },
-  high: {
-    label: messages.redFlags.severity.high,
-    className: 'border-clinical-amber/40 bg-clinical-amber-bg text-clinical-amber-foreground',
-    icon: Warning,
-  },
-  moderate: {
-    label: messages.redFlags.severity.moderate,
-    className: 'border-clinical-line bg-white/60 text-foreground',
-    icon: Warning,
-  },
-};
+function redFlagSeverityConfig(
+  messages: Messages,
+): Record<RedFlag['severity'], { label: string; className: string; icon: typeof Siren }> {
+  return {
+    critical: {
+      label: messages.redFlags.severity.critical,
+      className: 'border-clinical-error/40 bg-clinical-error-bg text-clinical-error-foreground',
+      icon: Siren,
+    },
+    high: {
+      label: messages.redFlags.severity.high,
+      className: 'border-clinical-amber/40 bg-clinical-amber-bg text-clinical-amber-foreground',
+      icon: Warning,
+    },
+    moderate: {
+      label: messages.redFlags.severity.moderate,
+      className: 'border-clinical-line bg-white/60 text-foreground',
+      icon: Warning,
+    },
+  };
+}
 
 const SEVERITY_ORDER: Record<RedFlag['severity'], number> = {
   critical: 0,
@@ -434,10 +447,11 @@ const SEVERITY_ORDER: Record<RedFlag['severity'], number> = {
   moderate: 2,
 };
 
-function RedFlagsBlock({ redFlags }: { redFlags: RedFlag[] }) {
+function RedFlagsBlock({ redFlags, messages }: { redFlags: RedFlag[]; messages: Messages }) {
   const sorted = [...redFlags].sort(
     (a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity],
   );
+  const severityConfig = redFlagSeverityConfig(messages);
 
   return (
     <div className="space-y-2">
@@ -445,7 +459,7 @@ function RedFlagsBlock({ redFlags }: { redFlags: RedFlag[] }) {
         {messages.redFlags.heading}
       </h2>
       {sorted.map((rf, i) => {
-        const config = RED_FLAG_SEVERITY_CONFIG[rf.severity];
+        const config = severityConfig[rf.severity];
         const Icon = config.icon;
         return (
           <div
@@ -473,6 +487,7 @@ function RedFlagsBlock({ redFlags }: { redFlags: RedFlag[] }) {
 
 function CitationsBlock({
   citations,
+  messages,
 }: {
   citations: Array<{
     source: string;
@@ -483,6 +498,7 @@ function CitationsBlock({
     evidenceFigure?: EvidenceFigure | null;
     evidenceTable?: EvidenceTable | null;
   }>;
+  messages: Messages;
 }) {
   return (
     <div className="space-y-2">
@@ -573,6 +589,7 @@ function CitationsBlock({
 
 function CollapsedTurns({
   turns,
+  messages,
 }: {
   turns: Array<{
     turnIndex: number;
@@ -581,6 +598,7 @@ function CollapsedTurns({
       clarifyingQuestions: Array<{ id: string }>;
     };
   }>;
+  messages: Messages;
 }) {
   if (turns.length === 0) return null;
 
@@ -606,7 +624,7 @@ function CollapsedTurns({
           <div className="space-y-1 px-4 pb-3">
             {turn.analysis.recommendations.map((rec, i) => (
               <p key={i} className="font-mono text-xs text-muted-foreground">
-                {labelForCategory(rec.category)} {rec.action}
+                {labelForCategory(messages, rec.category)} {rec.action}
               </p>
             ))}
           </div>
@@ -616,7 +634,7 @@ function CollapsedTurns({
   );
 }
 
-function labelForCategory(category?: string): string {
+function labelForCategory(messages: Messages, category?: string): string {
   const c = messages.recommendation.category;
   switch (category) {
     case 'stabilization':

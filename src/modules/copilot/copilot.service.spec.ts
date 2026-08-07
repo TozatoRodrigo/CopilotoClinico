@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { CopilotService } from './copilot.service';
 import { OrchestratorService } from './orchestrator/orchestrator.service';
 import { InferenceQueueService } from '../queue/inference-queue.service';
@@ -62,6 +63,7 @@ describe('CopilotService', () => {
     encounter: { findFirst: ReturnType<typeof vi.fn> };
     aiInteraction: { findFirst: ReturnType<typeof vi.fn> };
   };
+  let configMock: { get: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -74,10 +76,12 @@ describe('CopilotService', () => {
       encounter: { findFirst: vi.fn() },
       aiInteraction: { findFirst: vi.fn() },
     };
+    configMock = { get: vi.fn((_key: string, defaultValue?: unknown) => defaultValue) };
     service = new CopilotService(
       orchestratorMock as unknown as OrchestratorService,
       queueMock as unknown as InferenceQueueService,
       prismaMock as unknown as PrismaService,
+      configMock as unknown as ConfigService,
     );
   });
 
@@ -173,6 +177,7 @@ describe('CopilotService', () => {
       uncertainty: false,
       uncertaintyReason: null,
       createdAt: new Date('2026-06-08'),
+      turnIndex: 2,
     };
 
     it('returns the most recent AI interaction for the encounter', async () => {
@@ -187,6 +192,30 @@ describe('CopilotService', () => {
         where: { id: encounterId, physicianId },
         select: { id: true },
       });
+    });
+
+    // UX-03 — o carregamento fresco de página (sem sessionStorage) precisa
+    // do turno persistido e do teto de config para montar "Rodada N de M".
+    it('exposes the persisted turnIndex and the configured maxTurns (UX-03)', async () => {
+      prismaMock.encounter.findFirst.mockResolvedValue({ id: encounterId });
+      prismaMock.aiInteraction.findFirst.mockResolvedValue(mockInteraction);
+      configMock.get.mockImplementation((key: string, defaultValue?: unknown) =>
+        key === 'COPILOT_MAX_TURNS' ? 5 : defaultValue,
+      );
+
+      const result = await service.getLatestInteraction(physicianId, encounterId);
+
+      expect(result.turnIndex).toBe(2);
+      expect(result.maxTurns).toBe(5);
+    });
+
+    it('falls back to the default maxTurns when COPILOT_MAX_TURNS is unset', async () => {
+      prismaMock.encounter.findFirst.mockResolvedValue({ id: encounterId });
+      prismaMock.aiInteraction.findFirst.mockResolvedValue(mockInteraction);
+
+      const result = await service.getLatestInteraction(physicianId, encounterId);
+
+      expect(result.maxTurns).toBe(5);
     });
 
     it('throws NotFoundException when encounter does not belong to physician', async () => {
