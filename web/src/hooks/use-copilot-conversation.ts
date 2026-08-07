@@ -15,6 +15,61 @@ import type {
 
 export const STORAGE_KEY_PREFIX = "copilot_result_";
 
+// UX-08 — bug relatado ao vivo por um médico do piloto: respondeu as
+// perguntas esclarecedoras, viu o copiloto reagir, mas saiu do atendimento
+// sem clicar em "Reanalisar" nem gerar/assinar o documento (fluxo comum
+// num plantão — interrupções constantes). Ao voltar, as respostas tinham
+// sumido. Antes desta mudança, `answers` era estado 100% em memória
+// (useState puro) — nunca sobrevivia a uma desmontagem do componente.
+// Agora todo `setAnswer` grava um rascunho no sessionStorage (mesmo
+// mecanismo de privacidade já usado para o rascunho de texto do caso em
+// capture/page.tsx — expira com a aba, não persiste indefinidamente no
+// dispositivo). Restaurado ao montar SE E SOMENTE SE ainda for o mesmo
+// turno (`interactionId`) — um turno novo pode ter perguntas totalmente
+// diferentes, então um rascunho de um turno antigo não faz sentido.
+const DRAFT_ANSWERS_KEY_PREFIX = "copilot_draft_answers_";
+
+function loadDraftAnswers(
+  encounterId: string,
+  interactionId: string,
+): Record<string, ClarifyingAnswerValue> {
+  try {
+    const raw = sessionStorage.getItem(`${DRAFT_ANSWERS_KEY_PREFIX}${encounterId}`);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as {
+      interactionId: string;
+      answers: Record<string, ClarifyingAnswerValue>;
+    };
+    if (parsed.interactionId !== interactionId) return {};
+    return parsed.answers ?? {};
+  } catch {
+    return {};
+  }
+}
+
+function persistDraftAnswers(
+  encounterId: string,
+  interactionId: string,
+  answers: Record<string, ClarifyingAnswerValue>,
+): void {
+  try {
+    sessionStorage.setItem(
+      `${DRAFT_ANSWERS_KEY_PREFIX}${encounterId}`,
+      JSON.stringify({ interactionId, answers }),
+    );
+  } catch {
+    // storage quota — não crítico, mesmo padrão de persist() abaixo
+  }
+}
+
+function clearDraftAnswers(encounterId: string): void {
+  try {
+    sessionStorage.removeItem(`${DRAFT_ANSWERS_KEY_PREFIX}${encounterId}`);
+  } catch {
+    // não crítico
+  }
+}
+
 /**
  * UX-02 — questionId sintético usado por complementCase() quando não há
  * clarifyingQuestion pendente para ancorar a resposta. O backend
@@ -53,7 +108,12 @@ export function useCopilotConversation(
   const [turnIndex, setTurnIndex] = useState(initial.turnIndex);
   const [maxTurns, setMaxTurns] = useState(initial.maxTurns);
   const [turns, setTurns] = useState<TurnRecord[]>([]);
-  const [answers, setAnswers] = useState<Record<string, ClarifyingAnswerValue>>({});
+  // UX-08 — inicializa a partir do rascunho salvo (se ainda for do mesmo
+  // turno), não de um objeto vazio — ver comentário acima de
+  // DRAFT_ANSWERS_KEY_PREFIX.
+  const [answers, setAnswers] = useState<Record<string, ClarifyingAnswerValue>>(() =>
+    loadDraftAnswers(encounterId, initial.interactionId),
+  );
   const [reanalyzing, setReanalyzing] = useState(false);
   const [respondError, setRespondError] = useState<string | null>(null);
   const [queued, setQueued] = useState(false);
@@ -75,9 +135,17 @@ export function useCopilotConversation(
     [encounterId],
   );
 
-  const setAnswer = useCallback((questionId: string, value: ClarifyingAnswerValue) => {
-    setAnswers((prev) => ({ ...prev, [questionId]: value }));
-  }, []);
+  const setAnswer = useCallback(
+    (questionId: string, value: ClarifyingAnswerValue) => {
+      setAnswers((prev) => {
+        const next = { ...prev, [questionId]: value };
+        // UX-08 — grava o rascunho a cada mudança, não só ao reanalisar.
+        persistDraftAnswers(encounterId, interactionId, next);
+        return next;
+      });
+    },
+    [encounterId, interactionId],
+  );
 
   const applyResult = useCallback(
     (result: CopilotAnalyzeResponse) => {
@@ -88,9 +156,15 @@ export function useCopilotConversation(
       setTurnIndex(result.metadata.turnIndex);
       setMaxTurns(result.metadata.maxTurns);
       setAnswers({});
+      // UX-08 — as respostas deste turno já foram incorporadas ao novo
+      // resultado persistido abaixo; o rascunho correspondente não serve
+      // mais (e um rascunho órfão poderia, em tese, ser restaurado por
+      // engano contra um turno futuro que reaproveite o mesmo id por
+      // coincidência — limpar é mais seguro que deixar).
+      clearDraftAnswers(encounterId);
       persist(result.interactionId, newAnalysis, result.metadata.turnIndex, result.metadata.maxTurns);
     },
-    [analysis, persist],
+    [analysis, persist, encounterId],
   );
 
   // UX-02 — lógica de envio compartilhada entre "Reanalisar" (respostas a

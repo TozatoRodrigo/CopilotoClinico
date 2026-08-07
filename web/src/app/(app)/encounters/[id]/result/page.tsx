@@ -152,7 +152,13 @@ export default function ResultPage({ params }: { params: Promise<{ id: string }>
     );
   }
 
-  return <ResultView encounterId={encounterId} result={result} />;
+  // UX-08 — key força remontagem quando o turno mais recente do servidor
+  // muda (ex.: refetch em background traz um turno mais novo que o
+  // cacheado no sessionStorage). Sem isto, useCopilotConversation()
+  // inicializa seu estado interno UMA VEZ a partir de `result` e nunca
+  // resincroniza — o médico veria o turno antigo mesmo depois do fetch
+  // trazer o novo, porque React não sabe que precisa reconstruir o hook.
+  return <ResultView key={result.interactionId} encounterId={encounterId} result={result} />;
 }
 
 function ResultView({
@@ -204,6 +210,14 @@ function ResultView({
   const recommendations = analysis.recommendations;
   const definitiveCount = recommendations.filter((r) => !r.preliminary).length;
   const preliminaryCount = recommendations.length - definitiveCount;
+  // UX-08 — pergunta blocker sem resposta (não só "sem clicar em
+  // Reanalisar") é o sinal de que o plano ainda não reflete dados que MUDAM
+  // A CONDUTA. Não bloqueia gerar o documento — pode haver razão legítima
+  // (handoff preliminar) — mas avisa antes, já que uma vez assinado o
+  // documento entra na trilha de auditoria imutável.
+  const hasUnansweredBlocker = questions.some(
+    (q) => q.criticality === 'blocker' && answers[q.id] === undefined,
+  );
 
   return (
     <div className="flex h-full flex-col">
@@ -432,6 +446,15 @@ function ResultView({
           </div>
 
           <footer className="mt-2 border-t border-clinical-line pt-5">
+            {hasUnansweredBlocker && (
+              <div className="mb-3 flex items-start gap-2 rounded-lg border border-clinical-amber/40 bg-clinical-amber-bg px-3 py-2 text-xs text-clinical-amber-foreground">
+                <WarningCircle className="mt-0.5 size-4 shrink-0" weight="fill" />
+                <span>
+                  Há uma pergunta que muda a conduta ainda sem resposta — o documento gerado agora
+                  não vai refletir essa informação.
+                </span>
+              </div>
+            )}
             <p className="mb-3 font-mono text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground">
               {messages.documents.generateHeading}:
             </p>
