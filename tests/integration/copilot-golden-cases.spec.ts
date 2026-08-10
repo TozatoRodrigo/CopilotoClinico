@@ -77,7 +77,11 @@ describe('CC-06: Golden cases — copilot never leaves the physician at a dead e
     getProviderName: ReturnType<typeof vi.fn>;
   };
   let retrievalMock: { search: ReturnType<typeof vi.fn> };
-  let encountersMock: { findById: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> };
+  let encountersMock: {
+    findById: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+    updateChiefComplaint: ReturnType<typeof vi.fn>;
+  };
   let auditMock: { log: ReturnType<typeof vi.fn> };
   let configMock: { get: ReturnType<typeof vi.fn> };
 
@@ -121,7 +125,11 @@ describe('CC-06: Golden cases — copilot never leaves the physician at a dead e
       getProviderName: vi.fn().mockReturnValue('test-provider'),
     };
     retrievalMock = { search: vi.fn() };
-    encountersMock = { findById: vi.fn(), update: vi.fn().mockResolvedValue({}) };
+    encountersMock = {
+      findById: vi.fn(),
+      update: vi.fn().mockResolvedValue({}),
+      updateChiefComplaint: vi.fn().mockResolvedValue(undefined),
+    };
     auditMock = { log: vi.fn().mockResolvedValue({ id: 'audit-golden' }) };
     configMock = { get: vi.fn((_key: string, defaultValue?: unknown) => defaultValue) };
 

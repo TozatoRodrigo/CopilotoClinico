@@ -10,6 +10,7 @@ function makeEncounter(overrides: Partial<EncounterSummary> = {}): EncounterSumm
     id: "enc-1",
     vertical: "trauma",
     patientRef: "PRN-001",
+    chiefComplaint: null,
     status: "in_review",
     createdAt: NOW.toISOString(),
     updatedAt: NOW.toISOString(),

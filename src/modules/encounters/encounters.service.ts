@@ -15,6 +15,7 @@ const ENCOUNTER_SELECT = {
   vertical: true,
   context: true,
   patientRef: true,
+  chiefComplaint: true,
   status: true,
   createdAt: true,
   updatedAt: true,
@@ -99,6 +100,7 @@ export class EncountersService {
         vertical: true,
         context: true,
         patientRef: true,
+        chiefComplaint: true,
         status: true,
         createdAt: true,
         updatedAt: true,
@@ -173,6 +175,7 @@ export class EncountersService {
           id: true,
           vertical: true,
           patientRef: true,
+          chiefComplaint: true,
           status: true,
           createdAt: true,
           updatedAt: true,
@@ -276,6 +279,21 @@ export class EncountersService {
       .catch(() => undefined);
 
     return updated;
+  }
+
+  /**
+   * RD-E7 — atualização interna, chamada só pelo OrchestratorService após a
+   * 1ª análise de IA (analyze/analyzeStream). Deliberadamente separada de
+   * update(): chiefComplaint NÃO faz parte de updateEncounterSchema, então
+   * não é alcançável pelo endpoint público PATCH /encounters/:id — é sempre
+   * derivado da análise, nunca digitado pelo médico.
+   */
+  async updateChiefComplaint(encounterId: string, chiefComplaint: string | null): Promise<void> {
+    await this.prisma.encounter.update({
+      where: { id: encounterId },
+      data: { chiefComplaint },
+      select: { id: true },
+    });
   }
 
   async getDashboardStats(physicianId: string) {

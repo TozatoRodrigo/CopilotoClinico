@@ -443,7 +443,20 @@ export default function EncountersIndexPage() {
               {
                 key: "patientRef",
                 header: "Paciente",
-                cell: (e) => <span className="font-medium">{e.patientRef}</span>,
+                // RD-E7 — título é a queixa derivada da 1ª análise de IA
+                // quando disponível; sem análise ainda, cai para patientRef
+                // (mesma regra usada na fila do Plantão).
+                cell: (e) =>
+                  e.chiefComplaint ? (
+                    <span className="flex flex-col">
+                      <span className="font-medium">{e.chiefComplaint}</span>
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {e.patientRef}
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="font-medium">{e.patientRef}</span>
+                  ),
               },
               {
                 key: "vertical",
