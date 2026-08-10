@@ -24,6 +24,7 @@ import {
   FloppyDisk,
   CheckCircle,
   PencilSimple,
+  Info,
 } from '@phosphor-icons/react';
 import { useAuth } from '@/lib/auth-store';
 import { API_BASE_URL } from '@/lib/api-client';
@@ -203,6 +204,16 @@ export default function DocumentEditPage({
         </div>
         <ProgressSteps steps={['Captura', 'Análise', 'Documento']} currentStep={2} />
       </header>
+
+      <div className="mx-auto max-w-[1180px] px-6 pt-8">
+        <h1 className="font-display text-[1.75rem] leading-tight text-clinical-ink">
+          Revise antes de assinar
+        </h1>
+        <p className="mt-1.5 text-sm leading-relaxed text-clinical-ink-soft">
+          Escrito a partir do seu ditado e das condutas que você adotou. Toque em qualquer trecho
+          para corrigir.
+        </p>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px]">
         <div className="px-6 py-8">
@@ -587,6 +598,17 @@ function DocumentEditor({
           </div>
         )}
       </ChartPaper>
+
+      {!locked && (
+        <div className="mx-auto mt-6 flex w-full max-w-[680px] items-start gap-2.5 rounded-lg border border-clinical-line bg-card px-4 py-3.5">
+          <Info className="mt-0.5 size-4 shrink-0 text-clinical-ink-soft" />
+          <p className="text-[0.78rem] leading-relaxed text-clinical-ink-soft">
+            Ao assinar você declara que revisou o conteúdo e assume a responsabilidade clínica. A
+            IA é assistiva (Resolução CFM 2.314/2022). O texto e o hash ficam gravados de forma
+            imutável.
+          </p>
+        </div>
+      )}
 
       {!locked && fields.length > 0 && (
         <div className="mx-auto mt-6 flex w-full max-w-[680px] items-center gap-3">

@@ -158,7 +158,7 @@ export default function EncountersIndexPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Atendimentos"
+        title="Seus casos"
         description="Localize e filtre seus atendimentos para retomar o caso certo."
       >
         <Button asChild>

@@ -42,6 +42,12 @@ export default function DashboardPage() {
   const draftCount = draftsQuery.data?.meta?.total ?? 0;
   const firstName = physician?.name?.split(' ')[0] ?? 'Médico';
 
+  const pendingCount = statsQuery.data?.pendingReviews ?? 0;
+  const queueHeadline =
+    pendingCount === 0
+      ? 'Nenhum caso esperando'
+      : `Você tem ${pendingCount} caso${pendingCount === 1 ? '' : 's'} esperando`;
+
   const dateStr = new Date().toLocaleDateString('pt-BR', {
     weekday: 'long',
     day: '2-digit',
@@ -62,10 +68,10 @@ export default function DashboardPage() {
       <div className="flex items-end justify-between">
         <div>
           <p className="mb-1 font-mono text-xs uppercase tracking-[0.08em] text-[var(--ink-soft)]">
-            {dateStr}
+            {dateStr} · {greeting}, Dr. {firstName}
           </p>
           <h1 className="font-display text-[2.25rem] leading-[1.15] tracking-[-0.01em]">
-            {greeting}, Dr. {firstName}
+            {loading ? <Skeleton className="h-9 w-72 rounded" /> : queueHeadline}
           </h1>
         </div>
         <div className="hidden gap-2.5 md:flex">
@@ -142,6 +148,20 @@ export default function DashboardPage() {
           </AlertDescription>
         </Alert>
       )}
+
+      {/* Olhe primeiro */}
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-2">
+          <h2 className="text-[0.8rem] font-bold uppercase tracking-[0.02em] text-[var(--ink-soft)]">
+            Olhe primeiro
+          </h2>
+          <span className="h-px flex-1 bg-[var(--line)]" />
+        </div>
+        <p className="text-xs leading-relaxed text-[var(--ink-soft)]">
+          Ordem sugerida por tempo desde a última avaliação e gravidade. Não é triagem e não
+          substitui seu julgamento.
+        </p>
+      </div>
 
       {/* E2-S3: Fila do plantão */}
       <PlantaoQueue encounters={queue} loading={loading} />

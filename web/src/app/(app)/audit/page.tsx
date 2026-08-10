@@ -103,16 +103,18 @@ export default function AuditPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-5">
       {/* Header */}
-      <div className="flex items-end justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="mb-1 font-mono text-[0.75rem] uppercase tracking-[0.08em] text-muted-foreground">
             Trilha append-only · CFM
           </p>
-          <h1 className="font-display text-[2rem] font-normal leading-tight">
-            Sua trilha de auditoria
-          </h1>
+          <h1 className="font-display text-[2rem] font-normal leading-tight">Sua trilha</h1>
+          <p className="mt-1.5 max-w-md text-sm leading-relaxed text-muted-foreground">
+            Cada evento é encadeado ao anterior por hash. Nada pode ser apagado ou reescrito — nem
+            por nós.
+          </p>
         </div>
-        <Button variant="outline" className="h-[42px] gap-2" onClick={handleExport} disabled={exporting || total === 0}>
+        <Button variant="outline" className="h-[42px] shrink-0 gap-2" onClick={handleExport} disabled={exporting || total === 0}>
           <Export className="size-4" /> Exportar (LGPD Art. 18)
         </Button>
       </div>
