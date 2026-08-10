@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
-import { Microphone, Keyboard, Flask } from '@phosphor-icons/react';
+import { Microphone, Keyboard, Flask, SealCheck, BookOpen, ArrowRight } from '@phosphor-icons/react';
 import { useDashboardStats, useEncounterList } from '@/lib/clinical-queries';
 import { useAuth } from '@/lib/auth-store';
 import { StatCard, StatStrip } from '@/components/ui/stat-card';
@@ -15,7 +15,11 @@ import { Button } from '@/components/ui/button';
 import { DEMO_CASE_PRESETS } from '@/lib/demo-case-presets';
 
 export default function DashboardPage() {
-  const { physician } = useAuth();
+  const { physician, role } = useAuth();
+  // Auditoria é restrita a compliance/admin (web/src/middleware.ts,
+  // STAFF_ONLY_ROUTES) — o link "Ver trilha" só aparece para quem
+  // realmente consegue abrir a rota.
+  const canSeeAudit = role === 'compliance' || role === 'admin';
   const searchParams = useSearchParams();
   const deniedShown = useRef(false);
 
@@ -42,6 +46,12 @@ export default function DashboardPage() {
   const draftCount = draftsQuery.data?.meta?.total ?? 0;
   const firstName = physician?.name?.split(' ')[0] ?? 'Médico';
 
+  const pendingCount = statsQuery.data?.pendingReviews ?? 0;
+  const queueHeadline =
+    pendingCount === 0
+      ? 'Nenhum caso esperando'
+      : `Você tem ${pendingCount} caso${pendingCount === 1 ? '' : 's'} esperando`;
+
   const dateStr = new Date().toLocaleDateString('pt-BR', {
     weekday: 'long',
     day: '2-digit',
@@ -62,10 +72,10 @@ export default function DashboardPage() {
       <div className="flex items-end justify-between">
         <div>
           <p className="mb-1 font-mono text-xs uppercase tracking-[0.08em] text-[var(--ink-soft)]">
-            {dateStr}
+            {dateStr} · {greeting}, Dr. {firstName}
           </p>
           <h1 className="font-display text-[2.25rem] leading-[1.15] tracking-[-0.01em]">
-            {greeting}, Dr. {firstName}
+            {loading ? <Skeleton className="h-9 w-72 rounded" /> : queueHeadline}
           </h1>
         </div>
         <div className="hidden gap-2.5 md:flex">
@@ -143,8 +153,61 @@ export default function DashboardPage() {
         </Alert>
       )}
 
+      {/* Olhe primeiro */}
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center gap-2">
+          <h2 className="text-[0.8rem] font-bold uppercase tracking-[0.02em] text-[var(--ink-soft)]">
+            Olhe primeiro
+          </h2>
+          <span className="h-px flex-1 bg-[var(--line)]" />
+        </div>
+        <p className="text-xs leading-relaxed text-[var(--ink-soft)]">
+          Ordem sugerida por tempo desde a última avaliação e gravidade. Não é triagem e não
+          substitui seu julgamento.
+        </p>
+      </div>
+
       {/* E2-S3: Fila do plantão */}
       <PlantaoQueue encounters={queue} loading={loading} />
+
+      {/* Resolvidos hoje */}
+      {!loading && (
+        <>
+          <div className="flex items-center gap-2">
+            <h2 className="text-[0.8rem] font-bold uppercase tracking-[0.02em] text-[var(--ink-soft)]">
+              Resolvidos hoje
+            </h2>
+            <span className="h-px flex-1 bg-[var(--line)]" />
+            <Link
+              href="/encounters"
+              className="text-[0.8rem] font-semibold text-[var(--teal)] hover:text-[var(--teal-deep)]"
+            >
+              Todos os casos →
+            </Link>
+          </div>
+          <div className="flex items-center gap-3.5 rounded-2xl border border-[var(--line)] bg-[var(--card)] px-[18px] py-4 shadow-sm">
+            <SealCheck className="size-[22px] shrink-0 text-[var(--green)]" weight="fill" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold">
+                {statsQuery.data?.confirmedDocuments ?? 0} documento
+                {(statsQuery.data?.confirmedDocuments ?? 0) === 1 ? '' : 's'} assinado
+                {(statsQuery.data?.confirmedDocuments ?? 0) === 1 ? '' : 's'}
+              </p>
+              <p className="mt-0.5 text-xs text-[var(--ink-soft)]">
+                Cadeia de auditoria íntegra · última verificação hoje às 02:00
+              </p>
+            </div>
+            {canSeeAudit && (
+              <Link
+                href="/audit"
+                className="shrink-0 text-xs font-semibold text-[var(--teal)] hover:text-[var(--teal-deep)]"
+              >
+                Ver trilha
+              </Link>
+            )}
+          </div>
+        </>
+      )}
 
       {/* E2-S4: Casos piloto */}
       <div className="flex items-center gap-3.5 rounded-[14px] border border-dashed border-[var(--line)] p-4">
@@ -170,6 +233,17 @@ export default function DashboardPage() {
           Abrir caso demo →
         </Link>
       </div>
+
+      <Link
+        href="/guidelines"
+        className="flex items-center gap-3 rounded-[14px] border border-dashed border-[var(--line)] p-4 transition-colors hover:border-[var(--teal)]"
+      >
+        <BookOpen className="size-5 shrink-0 text-[var(--ink-soft)]" />
+        <span className="flex-1 text-[0.8rem] text-[var(--ink-soft)]">
+          Dúvida rápida sem abrir caso? Pergunte à diretriz.
+        </span>
+        <ArrowRight className="size-4 shrink-0 text-[var(--ink-soft)]" />
+      </Link>
     </div>
   );
 }

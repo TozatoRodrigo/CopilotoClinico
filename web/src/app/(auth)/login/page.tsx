@@ -259,7 +259,7 @@ export default function LoginPage() {
             className="font-display text-[2.5rem] font-normal leading-[1.15]"
             style={{ color: 'var(--sidebar-dark-text-bright)' }}
           >
-            A conduta é sua.<br />A papelada é nossa.
+            Você não está sozinho no plantão
           </h2>
           <p
             className="max-w-[360px] text-[0.95rem] leading-relaxed"
@@ -271,9 +271,9 @@ export default function LoginPage() {
 
         <div className="flex flex-col gap-2.5">
           {[
-            { icon: SealCheck, text: 'Confirmação humana auditável (CFM)' },
-            { icon: ShieldCheck, text: 'Pseudonimização e filtro de PII (LGPD)' },
-            { icon: LockKey, text: 'Cadeia de hash verificada diariamente' },
+            { icon: SealCheck, text: 'Toda conduta é confirmada por você, e fica registrada' },
+            { icon: ShieldCheck, text: 'Nenhum dado pessoal do paciente sai daqui' },
+            { icon: LockKey, text: 'Trilha de auditoria verificada todos os dias' },
           ].map(({ icon: Icon, text }) => (
             <div key={text} className="flex items-center gap-2.5 text-[0.8rem]" style={{ color: 'var(--sidebar-dark-text-muted)' }}>
               <Icon className="h-[15px] w-[15px] fill" style={{ color: 'var(--sidebar-dark-accent)' }} />

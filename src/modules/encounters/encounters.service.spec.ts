@@ -16,6 +16,7 @@ const baseEncounter = {
   institutionId: null as string | null,
   vertical: 'trauma',
   patientRef: 'PAT-001',
+  chiefComplaint: null as string | null,
   status: 'draft' as const,
   context: { hasCT: false, isSus: false, hasLab: false, hasICU: false },
   createdAt: new Date('2025-01-01'),
@@ -94,6 +95,7 @@ describe('EncountersService', () => {
           vertical: true,
           context: true,
           patientRef: true,
+          chiefComplaint: true,
           status: true,
           createdAt: true,
           updatedAt: true,
@@ -224,6 +226,7 @@ describe('EncountersService', () => {
           id: true,
           vertical: true,
           patientRef: true,
+          chiefComplaint: true,
           status: true,
           createdAt: true,
           updatedAt: true,
@@ -507,6 +510,7 @@ describe('EncountersService', () => {
           vertical: true,
           context: true,
           patientRef: true,
+          chiefComplaint: true,
           status: true,
           createdAt: true,
           updatedAt: true,
@@ -609,6 +613,35 @@ describe('EncountersService', () => {
       await expect(
         service.update(physicianId, encounterId, { status: 'in_review' }),
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // RD-E7 — updateChiefComplaint() é interno (só o OrchestratorService
+  // chama), sem os guards de ownership/finalized de update(): a análise já
+  // foi autorizada a operar nesse encontro antes de chegar aqui.
+  describe('updateChiefComplaint', () => {
+    it('updates only chiefComplaint by encounterId, without touching other fields', async () => {
+      prisma.encounter.update.mockResolvedValue({ id: encounterId });
+
+      await service.updateChiefComplaint(encounterId, 'Dor torácica com supra de ST');
+
+      expect(prisma.encounter.update).toHaveBeenCalledWith({
+        where: { id: encounterId },
+        data: { chiefComplaint: 'Dor torácica com supra de ST' },
+        select: { id: true },
+      });
+    });
+
+    it('accepts null to clear the field', async () => {
+      prisma.encounter.update.mockResolvedValue({ id: encounterId });
+
+      await service.updateChiefComplaint(encounterId, null);
+
+      expect(prisma.encounter.update).toHaveBeenCalledWith({
+        where: { id: encounterId },
+        data: { chiefComplaint: null },
+        select: { id: true },
+      });
     });
   });
 });

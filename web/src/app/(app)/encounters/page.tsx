@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 const STATUS_OPTIONS = [
   { value: "", label: "Todos os status" },
@@ -84,6 +85,21 @@ function buildDatePresets(): { label: string; from: string; to: string }[] {
   ];
 }
 
+/**
+ * UX — pills de filtro rápido acima da lista, no espírito do redesign
+ * (Redesign.dc.html): um clique para os recortes mais comuns. "Meus" do
+ * mockup fica de fora — GET /encounters já é escopado ao médico logado
+ * (EncountersService.findByPhysician), então seria um filtro sem efeito.
+ */
+function buildQuickFilters(): { label: string; status: string; from: string; to: string }[] {
+  const today = todayISO();
+  return [
+    { label: "Ativos", status: "in_review", from: "", to: "" },
+    { label: "Hoje", status: "", from: today, to: today },
+    { label: "Assinados", status: "finalized", from: "", to: "" },
+  ];
+}
+
 export default function EncountersIndexPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -136,6 +152,23 @@ export default function EncountersIndexPage() {
     [router, searchParams],
   );
 
+  // UX — variante de setParam que aplica várias chaves de uma vez a partir
+  // do MESMO snapshot de searchParams (evita 2ª chamada pisar na 1ª, já que
+  // ambas partiriam do mesmo `searchParams` da closure se fossem setParam
+  // encadeado — ver pills de filtro rápido abaixo).
+  const setParams = useCallback(
+    (entries: Record<string, string>) => {
+      const next = new URLSearchParams(searchParams.toString());
+      for (const [key, value] of Object.entries(entries)) {
+        if (value) next.set(key, value);
+        else next.delete(key);
+      }
+      next.delete("page");
+      router.replace(`/encounters?${next.toString()}`, { scroll: false });
+    },
+    [router, searchParams],
+  );
+
   // Debounce do input de busca: só atualiza a URL 300ms após o último digito.
   useEffect(() => {
     if (searchInput === search) return;
@@ -154,11 +187,12 @@ export default function EncountersIndexPage() {
   const totalPages = meta ? Math.ceil(meta.total / PAGE_SIZE) : 0;
 
   const datePresets = useMemo(() => buildDatePresets(), []);
+  const quickFilters = useMemo(() => buildQuickFilters(), []);
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Atendimentos"
+        title="Seus casos"
         description="Localize e filtre seus atendimentos para retomar o caso certo."
       >
         <Button asChild>
@@ -168,6 +202,28 @@ export default function EncountersIndexPage() {
           </Link>
         </Button>
       </PageHeader>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {quickFilters.map((qf) => {
+          const active = status === qf.status && dateFrom === qf.from && dateTo === qf.to;
+          return (
+            <button
+              key={qf.label}
+              type="button"
+              aria-pressed={active}
+              onClick={() => setParams({ status: qf.status, dateFrom: qf.from, dateTo: qf.to })}
+              className={cn(
+                "rounded-full px-3.5 py-1.5 text-[0.8rem] font-medium transition-colors",
+                active
+                  ? "bg-clinical-teal-tint font-semibold text-clinical-teal-deep"
+                  : "border border-clinical-line bg-card text-muted-foreground hover:border-clinical-teal/40",
+              )}
+            >
+              {qf.label}
+            </button>
+          );
+        })}
+      </div>
 
       <div className="space-y-3">
         {/*
@@ -387,7 +443,20 @@ export default function EncountersIndexPage() {
               {
                 key: "patientRef",
                 header: "Paciente",
-                cell: (e) => <span className="font-medium">{e.patientRef}</span>,
+                // RD-E7 — título é a queixa derivada da 1ª análise de IA
+                // quando disponível; sem análise ainda, cai para patientRef
+                // (mesma regra usada na fila do Plantão).
+                cell: (e) =>
+                  e.chiefComplaint ? (
+                    <span className="flex flex-col">
+                      <span className="font-medium">{e.chiefComplaint}</span>
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {e.patientRef}
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="font-medium">{e.patientRef}</span>
+                  ),
               },
               {
                 key: "vertical",

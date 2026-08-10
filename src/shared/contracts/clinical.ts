@@ -62,6 +62,13 @@ export interface EncounterSummary {
   id: string;
   vertical: string;
   patientRef: string;
+  /**
+   * RD-E7 — queixa principal derivada automaticamente da 1ª análise de IA
+   * (ver OrchestratorService.analyze/analyzeStream); `null` até o encontro
+   * ter uma análise. A UI usa isto como título dos cards no lugar de
+   * `patientRef` quando disponível: `chiefComplaint ?? patientRef`.
+   */
+  chiefComplaint: string | null;
   status: EncounterStatus;
   createdAt: string;
   updatedAt: string;
@@ -122,7 +129,9 @@ export interface DashboardStats {
 
 export interface GenerateDocumentRequest {
   type: DocumentType;
-  aiInteractionId: string;
+  // RD-E7 — opcional: sem ele, o backend usa a interação de IA mais recente
+  // do encontro (ver generateDocumentSchema / DocumentsService.generate).
+  aiInteractionId?: string;
 }
 
 export interface EditDocumentRequest {

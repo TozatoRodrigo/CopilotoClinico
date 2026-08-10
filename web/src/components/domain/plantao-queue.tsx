@@ -167,10 +167,20 @@ function CaseRow({ encounter }: { encounter: EncounterSummary }) {
       </div>
 
       <div className="min-w-0">
-        <p className="truncate font-mono text-[0.85rem] font-semibold md:text-[0.9rem]">
-          {encounter.patientRef}
+        {/* RD-E7 — título é a queixa (derivada da 1ª análise de IA) quando
+            disponível; sem análise ainda, cai para patientRef, como hoje. */}
+        <p
+          className={cn(
+            "truncate text-[0.85rem] font-semibold md:text-[0.9rem]",
+            !encounter.chiefComplaint && "font-mono",
+          )}
+        >
+          {encounter.chiefComplaint ?? encounter.patientRef}
         </p>
         <p className="truncate text-[0.75rem] text-[var(--ink-soft)] md:text-[0.8rem]">
+          {encounter.chiefComplaint && (
+            <span className="font-mono">{encounter.patientRef} · </span>
+          )}
           {VERTICAL_LABELS[encounter.vertical] ?? encounter.vertical}
         </p>
       </div>

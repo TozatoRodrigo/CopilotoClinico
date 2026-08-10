@@ -30,6 +30,7 @@ describe('OrchestratorService', () => {
   let encountersMock: {
     findById: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
+    updateChiefComplaint: ReturnType<typeof vi.fn>;
   };
   let auditMock: {
     log: ReturnType<typeof vi.fn>;
@@ -100,7 +101,11 @@ describe('OrchestratorService', () => {
       getProviderName: vi.fn().mockReturnValue('anthropic'),
     };
     retrievalMock = { search: vi.fn() };
-    encountersMock = { findById: vi.fn(), update: vi.fn() };
+    encountersMock = {
+      findById: vi.fn(),
+      update: vi.fn(),
+      updateChiefComplaint: vi.fn().mockResolvedValue(undefined),
+    };
     auditMock = { log: vi.fn().mockResolvedValue({ id: 'audit-001' }) };
     configMock = { get: vi.fn((_key: string, defaultValue?: unknown) => defaultValue) };
   }
@@ -166,6 +171,115 @@ describe('OrchestratorService', () => {
       expect(result.metadata.injectionDetected).toBe(false);
       expect(result.metadata.latencyMs).toBeGreaterThanOrEqual(0);
       expect(result.metadata.cost).toBe(0.0033);
+    });
+
+    // RD-E7 — chiefComplaint é derivado só no turno 0 (analyze/
+    // analyzeStream), nunca em continueAnalysis, e é sempre uma chamada
+    // separada de encountersMock.update() (ver updateChiefComplaint()).
+    it('derives chiefComplaint from the top differential hypothesis', async () => {
+      encountersMock.findById.mockResolvedValue({
+        id: encounterId,
+        physicianId,
+        patientRef: 'PRN-001',
+      });
+      retrievalMock.search.mockResolvedValue({ chunks: mockChunks, totalRetrieved: 2 });
+      aiGatewayMock.complete.mockResolvedValue({
+        content: JSON.stringify({
+          reasoning: 'Patient presents with acute chest pain and dyspnea',
+          recommendations: [
+            {
+              action: 'Request ECG and troponin',
+              rationale: 'Standard workup for acute chest pain',
+              citationChunkId: 'chunk-1',
+              confidence: 0.9,
+              category: 'diagnostic',
+            },
+          ],
+          uncertainty: false,
+          uncertaintyReason: null,
+          differentials: [
+            {
+              hypothesis: 'Síndrome coronariana aguda com supra de ST',
+              whyConsider: 'Dor torácica típica com irradiação',
+              whatDistinguishes: 'Supra de ST em parede inferior',
+              cannotMiss: true,
+            },
+          ],
+        }),
+        model: 'claude-3-sonnet',
+        usage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 },
+        latencyMs: 1500,
+      });
+      prismaMock.aiInteraction.create.mockResolvedValue({ id: 'interaction-001' });
+      encountersMock.update.mockResolvedValue({ id: encounterId, status: 'in_review' });
+
+      await service.analyze(physicianId, encounterId, validInput);
+
+      expect(encountersMock.updateChiefComplaint).toHaveBeenCalledWith(
+        encounterId,
+        'Síndrome coronariana aguda com supra de ST',
+      );
+    });
+
+    it('falls back to the top red flag finding when there is no differential', async () => {
+      encountersMock.findById.mockResolvedValue({
+        id: encounterId,
+        physicianId,
+        patientRef: 'PRN-001',
+      });
+      retrievalMock.search.mockResolvedValue({ chunks: mockChunks, totalRetrieved: 2 });
+      aiGatewayMock.complete.mockResolvedValue({
+        content: JSON.stringify({
+          reasoning: 'Patient presents with acute chest pain and dyspnea',
+          // category 'stabilization' — satisfaz o refine de redFlags.critical
+          // (recomendações não-preliminares precisam ser de estabilização).
+          recommendations: [
+            {
+              action: 'Monitorização contínua e ECG seriado',
+              rationale: 'Risco de bloqueio AV em supra de parede inferior',
+              citationChunkId: 'chunk-1',
+              confidence: 0.9,
+              category: 'stabilization',
+            },
+          ],
+          uncertainty: false,
+          uncertaintyReason: null,
+          redFlags: [{ finding: 'Supra de ST inferior', severity: 'critical', action: 'ECG seriado' }],
+        }),
+        model: 'claude-3-sonnet',
+        usage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 },
+        latencyMs: 1500,
+      });
+      prismaMock.aiInteraction.create.mockResolvedValue({ id: 'interaction-001' });
+      encountersMock.update.mockResolvedValue({ id: encounterId, status: 'in_review' });
+
+      await service.analyze(physicianId, encounterId, validInput);
+
+      expect(encountersMock.updateChiefComplaint).toHaveBeenCalledWith(
+        encounterId,
+        'Supra de ST inferior',
+      );
+    });
+
+    it('clears chiefComplaint to null when there is neither a differential nor a red flag', async () => {
+      encountersMock.findById.mockResolvedValue({
+        id: encounterId,
+        physicianId,
+        patientRef: 'PRN-001',
+      });
+      retrievalMock.search.mockResolvedValue({ chunks: mockChunks, totalRetrieved: 2 });
+      aiGatewayMock.complete.mockResolvedValue({
+        content: validLLMOutput,
+        model: 'claude-3-sonnet',
+        usage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 },
+        latencyMs: 1500,
+      });
+      prismaMock.aiInteraction.create.mockResolvedValue({ id: 'interaction-001' });
+      encountersMock.update.mockResolvedValue({ id: encounterId, status: 'in_review' });
+
+      await service.analyze(physicianId, encounterId, validInput);
+
+      expect(encountersMock.updateChiefComplaint).toHaveBeenCalledWith(encounterId, null);
     });
 
     it('throws BadRequestException when injection detected', async () => {
@@ -677,6 +791,9 @@ describe('OrchestratorService', () => {
       expect(doneEvent!.type).toBe('done');
       expect(doneEvent!.result.interactionId).toBe('interaction-stream-001');
       expect(doneEvent!.result.output.recommendations).toHaveLength(1);
+      // RD-E7 — analyzeStream() também deriva chiefComplaint no turno 0
+      // (validLLMOutput não tem differentials/redFlags -> null).
+      expect(encountersMock.updateChiefComplaint).toHaveBeenCalledWith(encounterId, null);
     });
 
     it('throws BadRequestException before streaming when injection is detected', async () => {
@@ -825,6 +942,9 @@ describe('OrchestratorService', () => {
       );
       expect(result.interactionId).toBe('interaction-002');
       expect(result.output.reasoning).toContain('imunossuprimido');
+      // RD-E7 — continueAnalysis() NÃO deriva/sobrescreve chiefComplaint;
+      // só o turno 0 (analyze/analyzeStream) fixa o "título" do caso.
+      expect(encountersMock.updateChiefComplaint).not.toHaveBeenCalled();
     });
 
     it('includes the new answers in the retrieval query so retrieval reflects new information', async () => {

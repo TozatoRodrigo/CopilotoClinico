@@ -91,6 +91,15 @@ export class DocumentsService {
    * intencional, não um esquecimento. Revisitar se/quando essa decisão for
    * confirmada ou revertida.
    */
+  /**
+   * RD-E7 — idempotente por (encounterId, type): a tela Documento oferece
+   * abas SOAP/SBAR/Prescrição/Alta/Atestado que chamam generate() livremente
+   * ao trocar de aba; gerar de novo um tipo já existente para o mesmo
+   * encontro retorna o documento existente (rascunho ou confirmado) em vez
+   * de criar um duplicado. `aiInteractionId` também é opcional agora — sem
+   * ele, usa a interação mais recente do encontro (mesmo fallback já usado
+   * em confirm() para uncertainty).
+   */
   async generate(physicianId: string, encounterId: string, input: GenerateDocumentInput) {
     const [encounter, physician] = await Promise.all([
       this.prisma.encounter.findUnique({
@@ -106,8 +115,27 @@ export class DocumentsService {
     if (!encounter) throw new NotFoundException('Encounter not found');
     if (encounter.physicianId !== physicianId) throw new ForbiddenException('Access denied');
 
+    const existing = await this.prisma.document.findFirst({
+      where: { encounterId, type: input.type },
+      orderBy: { createdAt: 'desc' },
+      select: DOCUMENT_SELECT,
+    });
+    if (existing) return existing;
+
+    const aiInteractionId =
+      input.aiInteractionId ??
+      (
+        await this.prisma.aiInteraction.findFirst({
+          where: { encounterId },
+          orderBy: { createdAt: 'desc' },
+          select: { id: true },
+        })
+      )?.id;
+
+    if (!aiInteractionId) throw new NotFoundException('AI interaction not found');
+
     const interaction = await this.prisma.aiInteraction.findUnique({
-      where: { id: input.aiInteractionId },
+      where: { id: aiInteractionId },
       select: { rawOutput: true },
     });
 

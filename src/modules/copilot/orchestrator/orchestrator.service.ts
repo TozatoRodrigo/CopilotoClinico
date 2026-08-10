@@ -37,6 +37,26 @@ export type EnrichedCopilotOutput = Omit<CopilotOutput, 'recommendations'> & {
   recommendations: EnrichedRecommendation[];
 };
 
+const CHIEF_COMPLAINT_MAX_LENGTH = 140;
+
+/**
+ * RD-E7 — resumo curto exibido como título do caso em Plantão/Casos, no
+ * lugar de patientRef. Só chamado no turno 0 (analyze/analyzeStream) — não
+ * em continueAnalysis() — para o "título" do caso não mudar a cada resposta
+ * de pergunta esclarecedora. Preferência: primeira hipótese diagnóstica
+ * (mais específica); sem diferencial, cai para o achado da red flag mais
+ * relevante; sem nenhum dos dois, `null` (a UI cai de volta para patientRef).
+ */
+function deriveChiefComplaint(output: EnrichedCopilotOutput): string | null {
+  const source = output.differentials[0]?.hypothesis ?? output.redFlags[0]?.finding;
+  if (!source) return null;
+  const trimmed = source.trim();
+  if (!trimmed) return null;
+  return trimmed.length > CHIEF_COMPLAINT_MAX_LENGTH
+    ? `${trimmed.slice(0, CHIEF_COMPLAINT_MAX_LENGTH - 1)}…`
+    : trimmed;
+}
+
 export interface OrchestratorResult {
   interactionId: string;
   output: EnrichedCopilotOutput;
@@ -398,6 +418,7 @@ export class OrchestratorService {
     await this.encounters.update(physicianId, encounterId, {
       status: 'in_review',
     });
+    await this.encounters.updateChiefComplaint(encounterId, deriveChiefComplaint(enrichedOutput));
 
     await this.logQuestionsEmittedIfAny(
       physicianId,
@@ -602,6 +623,7 @@ export class OrchestratorService {
     });
 
     await this.encounters.update(physicianId, encounterId, { status: 'in_review' });
+    await this.encounters.updateChiefComplaint(encounterId, deriveChiefComplaint(enrichedOutput));
 
     await this.logQuestionsEmittedIfAny(
       physicianId,

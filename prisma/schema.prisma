@@ -149,15 +149,18 @@ model LoginSecurityState {
 }
 
 model Encounter {
-  id            String          @id @default(uuid()) @db.Uuid
-  physicianId   String          @map("physician_id") @db.Uuid
-  institutionId String?         @map("institution_id") @db.Uuid
-  vertical      String          @default("trauma")
-  context       Json?
-  patientRef    String          @map("patient_ref") @db.VarChar(50)
-  status        EncounterStatus @default(draft)
-  createdAt     DateTime        @default(now()) @map("created_at")
-  updatedAt     DateTime        @updatedAt @map("updated_at")
+  id             String          @id @default(uuid()) @db.Uuid
+  physicianId    String          @map("physician_id") @db.Uuid
+  institutionId  String?         @map("institution_id") @db.Uuid
+  vertical       String          @default("trauma")
+  context        Json?
+  patientRef     String          @map("patient_ref") @db.VarChar(50)
+  // RD-E7 — queixa principal derivada da 1ª análise de IA (nunca digitada
+  // manualmente); título das listas de casos no lugar de patientRef.
+  chiefComplaint String?         @map("chief_complaint") @db.VarChar(140)
+  status         EncounterStatus @default(draft)
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
 
   physician       Physician       @relation(fields: [physicianId], references: [id], onDelete: Cascade)
   institution     Institution?    @relation(fields: [institutionId], references: [id], onDelete: SetNull)

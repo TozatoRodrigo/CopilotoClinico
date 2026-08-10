@@ -18,6 +18,7 @@ import {
   ShieldCheck,
 } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
+import { AuditHash } from '@/components/domain/audit-hash';
 
 const FILTER_PILLS = ['Hoje', '7 dias', 'Confirmações', 'Análises de IA', 'Edições'];
 
@@ -49,11 +50,6 @@ function getActionMeta(action: string) {
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-}
-
-function truncateHash(hash: string | null): string {
-  if (!hash) return '—';
-  return hash.slice(0, 8);
 }
 
 function downloadCsv(csv: string, filename: string) {
@@ -107,16 +103,18 @@ export default function AuditPage() {
   return (
     <div className="mx-auto max-w-5xl space-y-5">
       {/* Header */}
-      <div className="flex items-end justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="mb-1 font-mono text-[0.75rem] uppercase tracking-[0.08em] text-muted-foreground">
             Trilha append-only · CFM
           </p>
-          <h1 className="font-display text-[2rem] font-normal leading-tight">
-            Sua trilha de auditoria
-          </h1>
+          <h1 className="font-display text-[2rem] font-normal leading-tight">Sua trilha</h1>
+          <p className="mt-1.5 max-w-md text-sm leading-relaxed text-muted-foreground">
+            Cada evento é encadeado ao anterior por hash. Nada pode ser apagado ou reescrito — nem
+            por nós.
+          </p>
         </div>
-        <Button variant="outline" className="h-[42px] gap-2" onClick={handleExport} disabled={exporting || total === 0}>
+        <Button variant="outline" className="h-[42px] shrink-0 gap-2" onClick={handleExport} disabled={exporting || total === 0}>
           <Export className="size-4" /> Exportar (LGPD Art. 18)
         </Button>
       </div>
@@ -180,48 +178,57 @@ export default function AuditPage() {
         </div>
       ) : (
         <>
-          {/* Desktop table */}
-          <div className="hidden overflow-hidden rounded-[16px] border border-clinical-line bg-card md:block">
-            {/* Header */}
-            <div
-              className="grid grid-cols-[90px_1.3fr_1fr_220px_90px] gap-4 border-b border-clinical-line px-6 py-3 font-mono text-[0.65rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground"
-            >
-              <span>Hora</span><span>Evento</span><span>Entidade</span><span>Hash · encadeado</span><span></span>
-            </div>
-            {/* Rows */}
-            {entries.map((entry) => {
+          {/* Desktop: timeline vertical conectada (Redesign.dc.html) — cada
+              evento é um ponto ligado ao anterior por uma linha, reforçando
+              a metáfora de cadeia de hash. O JSON do payload continua
+              disponível por clique, como view "detalhada" secundária. */}
+          <div className="hidden rounded-[16px] border border-clinical-line bg-card p-6 md:block">
+            {entries.map((entry, i) => {
               const meta = getActionMeta(entry.action);
               const Icon = meta.icon;
               const isExpanded = expandedId === entry.id;
+              const isLast = i === entries.length - 1;
               return (
-                <div key={entry.id}>
+                <div key={entry.id} className="flex gap-4">
+                  <div className="flex flex-col items-center">
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-full border border-clinical-line bg-card">
+                      <Icon
+                        className={cn('size-[15px]', meta.color)}
+                        weight={entry.action.includes('CONFIRM') ? 'fill' : 'regular'}
+                      />
+                    </span>
+                    {!isLast && <span className="w-px flex-1 bg-clinical-line" aria-hidden="true" />}
+                  </div>
                   <button
                     type="button"
-                    className="grid w-full grid-cols-[90px_1.3fr_1fr_220px_90px] items-center gap-4 border-b border-clinical-line px-6 py-3.5 text-left text-[0.85rem] transition-colors last:border-0 hover:bg-muted/30"
+                    className="flex-1 pb-5 text-left"
                     aria-expanded={isExpanded}
                     aria-controls={`audit-${entry.id}`}
                     onClick={() => setExpandedId((p) => (p === entry.id ? null : entry.id))}
                   >
-                    <span className="font-mono text-[0.8rem]">{formatTime(entry.createdAt)}</span>
-                    <span className={cn('flex items-center gap-2 font-medium', meta.color)}>
-                      <Icon className="size-[15px]" weight={entry.action.includes('CONFIRM') ? 'fill' : 'regular'} />
-                      {meta.label}
-                    </span>
-                    <span className="font-mono text-[0.75rem] text-muted-foreground">
-                      {entry.entity} · {entry.entityId.slice(0, 12)}
-                    </span>
-                    <span className="flex items-center gap-1.5 font-mono text-[0.7rem] text-muted-foreground">
-                      <span className="text-clinical-ink">{truncateHash(entry.afterHash)}</span>
-                      <LinkSimple className="size-3" style={{ color: 'var(--green)' }} />
-                      {truncateHash(entry.beforeHash)}
-                    </span>
-                    <span className="justify-self-end text-[0.8rem] font-semibold text-clinical-teal">Ver</span>
-                  </button>
-                  {isExpanded && (
-                    <div id={`audit-${entry.id}`} className="border-b border-clinical-line bg-muted/20 px-6 py-3">
-                      <pre className="overflow-x-auto rounded bg-background p-3 text-xs">{JSON.stringify(entry.payload, null, 2)}</pre>
+                    <div className="flex flex-wrap items-baseline gap-2">
+                      <span className={cn('text-[0.9rem] font-semibold', meta.color)}>{meta.label}</span>
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {formatTime(entry.createdAt)}
+                      </span>
                     </div>
-                  )}
+                    <p className="mt-0.5 font-mono text-[0.75rem] text-muted-foreground">
+                      {entry.entity} · {entry.entityId.slice(0, 12)}
+                    </p>
+                    <div className="mt-1.5 flex items-center gap-1.5">
+                      <AuditHash hash={entry.afterHash} />
+                      <LinkSimple className="size-3 shrink-0" style={{ color: 'var(--green)' }} />
+                      <AuditHash hash={entry.beforeHash} />
+                    </div>
+                    {isExpanded && (
+                      <pre
+                        id={`audit-${entry.id}`}
+                        className="mt-2.5 overflow-x-auto rounded bg-muted/30 p-3 text-xs"
+                      >
+                        {JSON.stringify(entry.payload, null, 2)}
+                      </pre>
+                    )}
+                  </button>
                 </div>
               );
             })}
@@ -247,10 +254,10 @@ export default function AuditPage() {
                       {meta.label}
                     </span>
                   </div>
-                  <div className="mt-2 flex items-center gap-1.5 font-mono text-[0.7rem] text-muted-foreground">
-                    <span className="text-clinical-ink">{truncateHash(entry.afterHash)}</span>
-                    <LinkSimple className="size-3" style={{ color: 'var(--green)' }} />
-                    {truncateHash(entry.beforeHash)}
+                  <div className="mt-2 flex items-center gap-1.5">
+                    <AuditHash hash={entry.afterHash} />
+                    <LinkSimple className="size-3 shrink-0" style={{ color: 'var(--green)' }} />
+                    <AuditHash hash={entry.beforeHash} />
                   </div>
                   {isExpanded && (
                     <pre className="mt-2 overflow-x-auto rounded bg-muted/30 p-2 text-xs">{JSON.stringify(entry.payload, null, 2)}</pre>
