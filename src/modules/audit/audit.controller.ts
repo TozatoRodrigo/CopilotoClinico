@@ -4,7 +4,6 @@ import {
   Post,
   Query,
   UseGuards,
-  Request,
   HttpCode,
   HttpStatus,
   Header,
@@ -24,20 +23,24 @@ export class AuditController {
   constructor(private readonly auditService: AuditService) {}
 
   /**
-   * Lista registros de auditoria do médico autenticado.
-   * Requer JWT válido.
+   * Lista a trilha de auditoria completa (não filtrada por ator) para
+   * compliance/admin. Requer JWT válido + role COMPLIANCE/ADMIN.
+   *
+   * BUGFIX — antes este método injetava `actorId: req.user.physicianId`
+   * incondicionalmente, sobrescrevendo qualquer filtro do caller. Como o
+   * frontend nunca envia `actorId` (ver web/src/app/(app)/audit/page.tsx),
+   * isso filtrava SEMPRE pelo próprio usuário autenticado — um médico com
+   * role COMPLIANCE/ADMIN só via os próprios eventos (ex.: os próprios
+   * AUTH_LOGIN), nunca os eventos de outros médicos que um console de
+   * compliance existe para auditar. `auditQuerySchema.actorId` já é um
+   * campo opcional pensado para filtro explícito por ator no futuro — só
+   * não deve ser preenchido à força aqui.
    */
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('COMPLIANCE', 'ADMIN')
-  async query(
-    @Request() req: { user: { physicianId: string } },
-    @Query(new ZodValidationPipe(auditQuerySchema)) query: AuditQueryInput,
-  ) {
-    return this.auditService.query({
-      ...query,
-      actorId: req.user.physicianId,
-    });
+  async query(@Query(new ZodValidationPipe(auditQuerySchema)) query: AuditQueryInput) {
+    return this.auditService.query(query);
   }
 
   /**
@@ -53,13 +56,13 @@ export class AuditController {
   @Roles('COMPLIANCE', 'ADMIN')
   @Header('Content-Type', 'text/csv; charset=utf-8')
   async exportCsv(
-    @Request() req: { user: { physicianId: string } },
     @Query(new ZodValidationPipe(auditQuerySchema)) query: AuditQueryInput,
   ): Promise<string> {
-    // Override limit/offset para buscar tudo de uma vez (até o teto).
+    // BUGFIX — mesmo problema de query(): não força mais actorId do
+    // usuário autenticado. Override limit/offset para buscar tudo de uma
+    // vez (até o teto), preservando os demais filtros do caller.
     const result = await this.auditService.query({
       ...query,
-      actorId: req.user.physicianId,
       limit: 10000,
       offset: 0,
     });
