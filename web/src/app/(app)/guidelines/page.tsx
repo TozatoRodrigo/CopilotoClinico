@@ -15,12 +15,14 @@ import {
   PlusCircle,
   X,
 } from '@phosphor-icons/react';
+import Link from 'next/link';
 import { useAuth } from '@/lib/auth-store';
 import {
   useGuidelineSearch,
   usePendingGuidelineChunks,
   useApproveGuidelineChunk,
   useRejectGuidelineChunk,
+  useEncounterList,
 } from '@/lib/clinical-queries';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -57,7 +59,13 @@ function composeAnswer(results: GuidelineSearchResult[]): { text: string; count:
   return { text, count: top.length };
 }
 
-function DirectAnswerCard({ results }: { results: GuidelineSearchResult[] }) {
+function DirectAnswerCard({
+  results,
+  targetEncounterId,
+}: {
+  results: GuidelineSearchResult[];
+  targetEncounterId?: string;
+}) {
   const { text, count } = composeAnswer(results);
 
   function handleCopy() {
@@ -80,8 +88,23 @@ function DirectAnswerCard({ results }: { results: GuidelineSearchResult[] }) {
         <Button variant="outline" size="sm" className="h-[34px] gap-1.5 text-[0.8rem]" onClick={handleCopy}>
           <Copy className="size-3" /> Copiar com citações
         </Button>
-        <Button variant="outline" size="sm" className="h-[34px] gap-1.5 text-[0.8rem]">
-          <PlusCircle className="size-3" /> Usar no caso atual
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-[34px] gap-1.5 text-[0.8rem]"
+          disabled={!targetEncounterId}
+          title={targetEncounterId ? undefined : 'Nenhum caso em revisão no momento'}
+          asChild={Boolean(targetEncounterId)}
+        >
+          {targetEncounterId ? (
+            <Link href={`/encounters/${targetEncounterId}/result`}>
+              <PlusCircle className="size-3" /> Usar no caso atual
+            </Link>
+          ) : (
+            <>
+              <PlusCircle className="size-3" /> Usar no caso atual
+            </>
+          )}
         </Button>
       </div>
     </div>
@@ -235,6 +258,11 @@ export default function GuidelinesPage() {
   const specialty = SPECIALTY_MAP[activePill];
 
   const { data, isLoading, isError } = useGuidelineSearch(query, specialty);
+  // UX — "Usar no caso atual": leva o trecho encontrado direto para a
+  // análise do caso mais recente em revisão do médico, em vez de deixar o
+  // botão sem destino.
+  const activeCaseQuery = useEncounterList({ status: 'in_review', limit: 1 });
+  const targetEncounterId = activeCaseQuery.data?.data[0]?.id;
 
   const hasResults = !isLoading && !isError && data && data.length > 0 && query.trim().length >= 2;
 
@@ -326,7 +354,7 @@ export default function GuidelinesPage() {
           ) : (
             <div className="space-y-3">
               {/* Direct answer */}
-              <DirectAnswerCard results={data} />
+              <DirectAnswerCard results={data} targetEncounterId={targetEncounterId} />
 
               {/* Source cards */}
               <div className="flex flex-col gap-2.5">

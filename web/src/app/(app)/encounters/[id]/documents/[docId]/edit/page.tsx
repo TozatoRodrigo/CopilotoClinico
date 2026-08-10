@@ -28,6 +28,8 @@ import {
 import { useAuth } from '@/lib/auth-store';
 import { API_BASE_URL } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
+import { ConfirmedSeal } from '@/components/domain/confirmed-seal';
+import { AuditHash } from '@/components/domain/audit-hash';
 
 type DocType = Document['type'];
 
@@ -298,38 +300,21 @@ export default function DocumentEditPage({
             </>
           ) : (
             <>
-              <div
-                className="flex items-start gap-3 rounded-[10px] border p-4"
-                style={{
-                  borderColor: 'var(--green)',
-                  background: 'var(--green-bg)',
-                }}
-              >
-                <SealCheck className="mt-0.5 size-5 shrink-0" style={{ color: 'var(--green)' }} />
-                <div>
-                  <p
-                    className="text-sm font-bold"
-                    style={{ color: 'var(--green-foreground)' }}
-                  >
-                    Conduta confirmada
-                  </p>
-                  <p
-                    className="mt-0.5 text-[0.78rem] leading-relaxed"
-                    style={{ color: 'var(--green-foreground)' }}
-                  >
-                    Assinado em {confirmedAtStr}. Documento bloqueado.
-                  </p>
-                </div>
-              </div>
+              <ConfirmedSeal
+                status="confirmed"
+                confirmedAt={document.confirmedAt ?? undefined}
+                physicianName={physician?.name ?? undefined}
+                crm={physician ? `CRM ${physician.crmUf}-${physician.crmNumber}` : undefined}
+              />
 
               {document.contentHash && (
                 <div className="rounded-[10px] border border-clinical-line bg-white/60 p-4">
                   <p className="font-mono text-[0.6rem] font-semibold uppercase tracking-[0.1em] text-clinical-ink-soft">
                     Integridade
                   </p>
-                  <p className="mt-2 break-all font-mono text-[0.65rem] leading-relaxed text-clinical-ink">
-                    sha-256 {document.contentHash}
-                  </p>
+                  <div className="mt-2">
+                    <AuditHash hash={document.contentHash} />
+                  </div>
                   <p className="mt-2 flex items-center gap-1.5 text-[0.68rem] text-clinical-green-foreground">
                     <CheckCircle className="size-3" style={{ color: 'var(--green)' }} />
                     Verificado na cadeia

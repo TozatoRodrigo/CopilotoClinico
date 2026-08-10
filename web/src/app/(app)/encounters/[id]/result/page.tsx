@@ -17,6 +17,8 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { BlockerQuestionCard } from '@/components/domain/blocker-question-card';
+import { UncertaintyBanner } from '@/components/domain/uncertainty-banner';
 import { useMessages } from '@/lib/messages/use-messages';
 import type { Messages } from '@/lib/messages';
 import {
@@ -274,25 +276,7 @@ function ResultView({
 
           <div className="flex flex-col gap-4">
             {criticalQuestions.map((q) => (
-              <div
-                key={q.id}
-                className="rounded-2xl border-[1.5px] p-5"
-                style={{
-                  borderColor: 'rgba(180,83,9,0.55)',
-                  background: 'var(--amber-bg)',
-                }}
-              >
-                <div className="mb-1 flex items-start justify-between gap-2">
-                  <p className="text-[1.03125rem] font-semibold leading-snug text-clinical-amber-foreground">
-                    {q.question}
-                  </p>
-                  <span className="shrink-0 rounded-full bg-clinical-amber px-2 py-0.5 font-mono text-[0.625rem] font-bold uppercase tracking-wide text-white">
-                    Muda a conduta
-                  </span>
-                </div>
-                <p className="mb-3 text-[0.8125rem] leading-relaxed text-clinical-amber-foreground/80">
-                  {q.why}
-                </p>
+              <BlockerQuestionCard key={q.id} question={q.question} why={q.why}>
                 <AnswerControl
                   question={q}
                   value={answers[q.id]}
@@ -300,7 +284,7 @@ function ResultView({
                   variant="critical"
                   messages={messages}
                 />
-              </div>
+              </BlockerQuestionCard>
             ))}
 
             {optionalQuestions.map((q) => (
@@ -364,12 +348,10 @@ function ResultView({
           </div>
 
           {analysis.uncertainty && (
-            <div className="flex items-start gap-2 rounded-lg border border-clinical-amber/40 bg-clinical-amber-bg px-4 py-3">
-              <WarningCircle className="mt-0.5 size-4 shrink-0 text-clinical-amber" weight="bold" />
-              <p className="text-[0.8125rem] text-clinical-amber-foreground">
-                {analysis.uncertaintyReason ?? messages.uncertainty.defaultReason}
-              </p>
-            </div>
+            <UncertaintyBanner
+              reason={analysis.uncertaintyReason}
+              guidelinesHref={`/guidelines?q=${encodeURIComponent(analysis.uncertaintyReason ?? analysis.reasoning ?? '')}`}
+            />
           )}
 
           <div className="flex flex-col gap-4">

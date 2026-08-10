@@ -18,6 +18,7 @@ import {
   ShieldCheck,
 } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
+import { AuditHash } from '@/components/domain/audit-hash';
 
 const FILTER_PILLS = ['Hoje', '7 dias', 'Confirmações', 'Análises de IA', 'Edições'];
 
@@ -49,11 +50,6 @@ function getActionMeta(action: string) {
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-}
-
-function truncateHash(hash: string | null): string {
-  if (!hash) return '—';
-  return hash.slice(0, 8);
 }
 
 function downloadCsv(csv: string, filename: string) {
@@ -210,10 +206,10 @@ export default function AuditPage() {
                     <span className="font-mono text-[0.75rem] text-muted-foreground">
                       {entry.entity} · {entry.entityId.slice(0, 12)}
                     </span>
-                    <span className="flex items-center gap-1.5 font-mono text-[0.7rem] text-muted-foreground">
-                      <span className="text-clinical-ink">{truncateHash(entry.afterHash)}</span>
-                      <LinkSimple className="size-3" style={{ color: 'var(--green)' }} />
-                      {truncateHash(entry.beforeHash)}
+                    <span className="flex items-center gap-1.5">
+                      <AuditHash hash={entry.afterHash} />
+                      <LinkSimple className="size-3 shrink-0" style={{ color: 'var(--green)' }} />
+                      <AuditHash hash={entry.beforeHash} />
                     </span>
                     <span className="justify-self-end text-[0.8rem] font-semibold text-clinical-teal">Ver</span>
                   </button>
@@ -247,10 +243,10 @@ export default function AuditPage() {
                       {meta.label}
                     </span>
                   </div>
-                  <div className="mt-2 flex items-center gap-1.5 font-mono text-[0.7rem] text-muted-foreground">
-                    <span className="text-clinical-ink">{truncateHash(entry.afterHash)}</span>
-                    <LinkSimple className="size-3" style={{ color: 'var(--green)' }} />
-                    {truncateHash(entry.beforeHash)}
+                  <div className="mt-2 flex items-center gap-1.5">
+                    <AuditHash hash={entry.afterHash} />
+                    <LinkSimple className="size-3 shrink-0" style={{ color: 'var(--green)' }} />
+                    <AuditHash hash={entry.beforeHash} />
                   </div>
                   {isExpanded && (
                     <pre className="mt-2 overflow-x-auto rounded bg-muted/30 p-2 text-xs">{JSON.stringify(entry.payload, null, 2)}</pre>
