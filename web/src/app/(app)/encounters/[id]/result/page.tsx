@@ -12,7 +12,6 @@ import {
 import { useRecommendationDecisions } from '@/hooks/use-recommendation-decisions';
 import { apiClient } from '@/lib/api-client';
 import { ProgressSteps } from '@/components/ui/progress-steps';
-import { TimelineRail } from '@/components/ui/timeline-rail';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -32,6 +31,7 @@ import {
   WarningCircle,
   SealCheck,
   XCircle,
+  PhoneCall,
 } from '@phosphor-icons/react';
 import type {
   ClarifyingAnswerValue,
@@ -54,11 +54,65 @@ const DOCUMENT_TYPES: { type: DocumentType; label: string; primary?: boolean }[]
   { type: 'atestado', label: 'Atestado' },
 ];
 
-function railFor(category?: string): { label: string; color: 'amber' | 'teal' | 'gray' } {
-  if (category === 'stabilization') return { label: 'AGORA', color: 'amber' };
-  if (category === 'therapeutic') return { label: 'CONDUTA', color: 'teal' };
-  return { label: 'DIAGNÓSTICO', color: 'gray' };
+// UX — 3 baldes fixos do redesign (Redesign.dc.html): AGORA (estabilização
+// imediata), EM SEGUIDA (conduta terapêutica) e SE PIORAR (o que observar /
+// diagnóstico de acompanhamento). "diagnostic"/"verify" e qualquer categoria
+// não mapeada caem em SE PIORAR — mesmo comportamento de fallback que a
+// railFor() anterior já tinha para category desconhecida.
+type Bucket = 'now' | 'next' | 'watch';
+
+const BUCKET_DEFS: Record<
+  Bucket,
+  { label: string; hint: string; chipClass: string }
+> = {
+  now: {
+    label: 'AGORA',
+    hint: 'primeiros 10 minutos',
+    chipClass: 'bg-clinical-error text-white',
+  },
+  next: {
+    label: 'EM SEGUIDA',
+    hint: 'confirma e encaminha',
+    chipClass: 'bg-clinical-teal-tint text-clinical-teal-deep',
+  },
+  watch: {
+    label: 'SE PIORAR',
+    hint: 'o que observar e quando pedir ajuda',
+    chipClass: 'bg-clinical-amber-bg text-clinical-amber-foreground',
+  },
+};
+
+function bucketFor(category?: string): Bucket {
+  if (category === 'stabilization') return 'now';
+  if (category === 'therapeutic') return 'next';
+  return 'watch';
 }
+
+const HYPOTHESIS_TONE = {
+  error: {
+    border: 'border-clinical-error/35',
+    bg: 'bg-clinical-error-bg',
+    label: 'text-clinical-error',
+    heading: 'text-clinical-error-foreground',
+    body: 'text-clinical-error-foreground/85',
+  },
+  amber: {
+    border: 'border-clinical-amber/40',
+    bg: 'bg-clinical-amber-bg',
+    label: 'text-clinical-amber',
+    heading: 'text-clinical-amber-foreground',
+    body: 'text-clinical-amber-foreground/85',
+  },
+  neutral: {
+    border: 'border-clinical-line',
+    bg: 'bg-card',
+    label: 'text-clinical-teal',
+    heading: 'text-clinical-ink',
+    body: 'text-clinical-ink-soft',
+  },
+} as const;
+
+const SEVERITY_RANK: Record<RedFlagSeverity, number> = { critical: 3, high: 2, moderate: 1 };
 
 export default function ResultPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: encounterId } = use(params);
@@ -227,6 +281,28 @@ function ResultView({
     (q) => q.criticality === 'blocker' && answers[q.id] === undefined,
   );
 
+  // UX — card "Hipótese principal": tom acompanha a red flag mais grave
+  // (mesma regra de cor com significado fixo do design system — âmbar/erro
+  // nunca são decorativos aqui). Sem red flags, fica neutro.
+  const topSeverity = analysis.redFlags.reduce<RedFlagSeverity | null>((acc, flag) => {
+    if (!acc || SEVERITY_RANK[flag.severity] > SEVERITY_RANK[acc]) return flag.severity;
+    return acc;
+  }, null);
+  const hypothesisTone =
+    topSeverity === 'critical' ? 'error' : topSeverity === 'high' ? 'amber' : 'neutral';
+  const toneClasses = HYPOTHESIS_TONE[hypothesisTone];
+  const topHypothesis = analysis.differentials[0]?.hypothesis;
+  const otherDifferentials = analysis.differentials.slice(1);
+
+  const buckets: { key: Bucket; items: { rec: CopilotRecommendation; index: number }[] }[] = (
+    ['now', 'next', 'watch'] as const
+  ).map((key) => ({
+    key,
+    items: recommendations
+      .map((rec, index) => ({ rec, index }))
+      .filter(({ rec }) => bucketFor(rec.category) === key),
+  }));
+
   return (
     <div className="flex h-full flex-col">
       <header className="flex h-16 shrink-0 items-center justify-between border-b border-clinical-line bg-card px-5">
@@ -242,18 +318,28 @@ function ResultView({
           <span className="font-mono text-xs text-muted-foreground">
             {encounterId.slice(0, 8)}
           </span>
-          <div className="hidden items-center gap-1.5 sm:flex">
-            {analysis.redFlags.map((flag, i) => (
-              <RedFlagBadge
-                key={`${flag.finding}-${i}`}
-                finding={flag.finding}
-                severity={flag.severity}
-              />
-            ))}
-          </div>
         </div>
         <ProgressSteps steps={['Captura', 'Análise', 'Documento']} currentStep={1} />
       </header>
+
+      {/* Hipótese principal — sempre presente (reasoning é obrigatório no
+          schema); tom e chips de red flag comunicam a urgência real do caso. */}
+      <div className={`shrink-0 border-b px-5 py-4 sm:px-7 ${toneClasses.border} ${toneClasses.bg}`}>
+        <p className={`font-mono text-[0.6875rem] font-bold uppercase tracking-wider ${toneClasses.label}`}>
+          Hipótese principal
+        </p>
+        <h1 className={`mt-1 font-display text-[1.5rem] leading-tight ${toneClasses.heading}`}>
+          {topHypothesis ?? 'Avaliação clínica em andamento'}
+        </h1>
+        <p className={`mt-1.5 text-sm leading-relaxed ${toneClasses.body}`}>{analysis.reasoning}</p>
+        {analysis.redFlags.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {analysis.redFlags.map((flag, i) => (
+              <RedFlagBadge key={`${flag.finding}-${i}`} finding={flag.finding} severity={flag.severity} />
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[460px_1fr]">
         <aside className="flex flex-col gap-5 overflow-y-auto border-r border-clinical-line p-7">
@@ -317,12 +403,12 @@ function ResultView({
             {reanalyzing ? messages.copilot.reanalyze.loading : messages.copilot.reanalyze.cta}
           </Button>
 
-          {analysis.differentials.length > 0 && (
+          {otherDifferentials.length > 0 && (
             <div className="flex flex-col gap-3 border-t border-dashed border-clinical-line pt-5">
               <p className="font-mono text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground">
                 {messages.copilot.differentials.heading}
               </p>
-              {analysis.differentials.map((d, i) => (
+              {otherDifferentials.map((d, i) => (
                 <div key={i} className="border-l-[3px] border-clinical-line pl-3">
                   <p className="text-sm font-semibold text-clinical-ink">{d.hypothesis}</p>
                   <p className="mt-0.5 text-[0.8125rem] leading-relaxed text-muted-foreground">
@@ -354,25 +440,64 @@ function ResultView({
             />
           )}
 
-          <div className="flex flex-col gap-4">
-            {recommendations.map((rec, index) => {
-              const recId = String(index);
-              const rail = railFor(rec.category);
+          <div className="flex flex-col gap-6">
+            {buckets.map((bucket) => {
+              if (bucket.items.length === 0) return null;
+              const def = BUCKET_DEFS[bucket.key];
               return (
-                <div key={recId} className="flex gap-4">
-                  <TimelineRail label={rail.label} color={rail.color} />
-                  <RecommendationItem
-                    rec={rec}
-                    index={index}
-                    decision={decisions[recId]}
-                    onAdopt={() => setDecision(recId, 'adopted')}
-                    onReject={() => setDecision(recId, 'rejected')}
-                    onNote={(note) => setNote(recId, note)}
-                    confidenceLabel={messages.recommendation.confidence(rec.confidence)}
-                  />
+                <div key={bucket.key} className="flex flex-col gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <span
+                      className={`inline-flex items-center rounded-full px-3 py-1 font-mono text-[0.6875rem] font-bold tracking-wider ${def.chipClass}`}
+                    >
+                      {def.label}
+                    </span>
+                    <span className="text-xs text-muted-foreground">{def.hint}</span>
+                    <span className="h-px flex-1 bg-clinical-line" />
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    {bucket.items.map(({ rec, index }) => {
+                      const recId = String(index);
+                      return (
+                        <RecommendationItem
+                          key={recId}
+                          rec={rec}
+                          index={index}
+                          decision={decisions[recId]}
+                          onAdopt={() => setDecision(recId, 'adopted')}
+                          onReject={() => setDecision(recId, 'rejected')}
+                          onNote={(note) => setNote(recId, note)}
+                          confidenceLabel={messages.recommendation.confidence(rec.confidence)}
+                        />
+                      );
+                    })}
+                  </div>
                 </div>
               );
             })}
+          </div>
+
+          <div className="flex items-center gap-3 rounded-2xl border border-clinical-line bg-card px-[18px] py-4">
+            <PhoneCall className="size-5 shrink-0 text-clinical-teal" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-clinical-ink">Quer segunda opinião?</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Manda o resumo SBAR pronto para o plantonista sênior ou para a hemodinâmica.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              className="h-10 shrink-0 gap-2"
+              onClick={() => handleGenerateDocument('sbar')}
+              disabled={generatingDoc === 'sbar'}
+            >
+              {generatingDoc === 'sbar' ? (
+                <CircleNotch className="size-4 animate-spin" />
+              ) : (
+                <FileText className="size-4" />
+              )}
+              Gerar SBAR
+            </Button>
           </div>
 
           <footer className="mt-2 border-t border-clinical-line pt-5">

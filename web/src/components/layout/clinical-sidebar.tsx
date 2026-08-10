@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Stethoscope, WifiHigh } from "@phosphor-icons/react";
+import { Microphone, Stethoscope, WifiHigh } from "@phosphor-icons/react";
 import { useAuth } from "@/lib/auth-store";
 import { useOnlineStatus } from "@/components/providers/offline-provider";
 import { cn } from "@/lib/utils";
@@ -12,6 +12,8 @@ export interface NavItem {
   href: string;
   label: string;
   icon: React.ElementType;
+  /** Contador opcional exibido à direita do item (ex: casos aguardando). */
+  count?: number | string;
 }
 
 export interface ClinicalSidebarProps {
@@ -97,6 +99,18 @@ export function ClinicalSidebar({
         </div>
       </div>
 
+      <Link
+        href="/encounters/new"
+        className="mb-4 flex h-11 shrink-0 items-center justify-center gap-2 rounded-[10px] text-[0.86rem] font-bold transition-opacity hover:opacity-90"
+        style={{
+          background: "var(--sidebar-dark-accent)",
+          color: "var(--sidebar-dark-bg)",
+        }}
+      >
+        <Microphone className="h-[18px] w-[18px]" weight="fill" />
+        Novo caso
+      </Link>
+
       {showShiftWidget && (
         <div
           className="mb-5 rounded-xl p-3.5"
@@ -153,7 +167,19 @@ export function ClinicalSidebar({
               }}
             >
               <Icon className="h-[17px] w-[17px]" />
-              {item.label}
+              <span className="flex-1">{item.label}</span>
+              {item.count !== undefined && item.count !== null && item.count !== '' && (
+                <span
+                  className="font-mono text-[0.7rem]"
+                  style={{
+                    color: isActive
+                      ? "var(--sidebar-dark-text-bright)"
+                      : "var(--sidebar-dark-text-dim)",
+                  }}
+                >
+                  {item.count}
+                </span>
+              )}
             </Link>
           );
         })}

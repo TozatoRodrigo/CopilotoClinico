@@ -1,5 +1,7 @@
+import type { ReactNode } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AppShell } from "../app-shell";
 
 vi.mock("next/navigation", () => ({
@@ -20,12 +22,26 @@ vi.mock("@/lib/auth-store", () => ({
 }));
 
 vi.mock("@/lib/api-client", () => ({
-  apiClient: { post: vi.fn() },
+  apiClient: { post: vi.fn(), get: vi.fn().mockResolvedValue(undefined) },
 }));
 
 vi.mock("@/components/providers/offline-provider", () => ({
   useOnlineStatus: () => ({ isOnline: true }),
 }));
+
+// UX — sidebar contadores (Fase 3) chamam useDashboardStats/useEncounterList
+// via react-query, então o AppShell agora precisa de um QueryClientProvider
+// no render de teste — sem isso `useQuery` lança "No QueryClient set".
+function renderShell(children: ReactNode = "content") {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <AppShell>{children}</AppShell>
+    </QueryClientProvider>,
+  );
+}
 
 describe("AppShell navigation", () => {
   beforeEach(() => {
@@ -33,7 +49,7 @@ describe("AppShell navigation", () => {
   });
 
   it("renders the physician shell links and quick actions", () => {
-    render(<AppShell>content</AppShell>);
+    renderShell();
 
     const navLinks = screen.getAllByRole("link");
     const hrefs = navLinks.map((l) => l.getAttribute("href")).filter(Boolean);
@@ -45,7 +61,7 @@ describe("AppShell navigation", () => {
   });
 
   it("removes audit from the physician shell and exposes profile/settings", async () => {
-    render(<AppShell>content</AppShell>);
+    renderShell();
 
     const navLinks = screen.getAllByRole("link");
     const hrefs = navLinks.map((l) => l.getAttribute("href")).filter(Boolean);

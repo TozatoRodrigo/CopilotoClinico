@@ -17,6 +17,7 @@ import {
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api-client';
+import { useDashboardStats, useEncounterList } from '@/lib/clinical-queries';
 import { ConnectionStatus } from '@/components/domain/connection-status';
 import { OfflineQueueBadge } from '@/components/domain/offline-queue-badge';
 import { ThemeToggle } from '@/components/layout/theme-toggle';
@@ -299,6 +300,22 @@ export function AppShell({ children, variant }: AppShellProps) {
   const { role } = useAuth();
   const links = NAV_BY_ROLE[role];
 
+  // UX — contadores no rail desktop (Plantão/Casos). Reaproveita os mesmos
+  // hooks/queryKeys já usados pelas páginas de Plantão e Casos — cache de 30s
+  // (queryProvider) evita chamadas extras quando o médico já visitou essas
+  // telas nesta sessão.
+  const sidebarStats = useDashboardStats();
+  const sidebarCases = useEncounterList({ limit: 1 });
+  const sidebarLinks = links.map((item) => {
+    if (item.href === '/dashboard') {
+      return { ...item, count: sidebarStats.data?.pendingReviews };
+    }
+    if (item.href === '/encounters') {
+      return { ...item, count: sidebarCases.data?.meta?.total };
+    }
+    return item;
+  });
+
   const isFocusRoute =
     /\/encounters\/[^/]+\/(capture|result)/.test(pathname) ||
     /\/encounters\/[^/]+\/documents\/[^/]+\/edit/.test(pathname);
@@ -318,7 +335,7 @@ export function AppShell({ children, variant }: AppShellProps) {
         {effectiveVariant === 'focus' ? (
           <FocusRail navItems={links} />
         ) : (
-          <ClinicalSidebar navItems={links} showOnlineStatus />
+          <ClinicalSidebar navItems={sidebarLinks} showOnlineStatus />
         )}
       </div>
 
