@@ -1,12 +1,16 @@
 'use client';
 
 import { use, useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   useConfirmDocument,
   useEncounterDocument,
+  useEncounterDocuments,
+  useGenerateDocument,
   useUpdateDocument,
 } from '@/lib/clinical-queries';
 import type { Document } from '@/lib/types';
+import { DOCUMENT_TYPES } from '@/lib/document-types';
 import { ChartPaper } from '@/components/ui/chart-paper';
 import { ProgressSteps } from '@/components/ui/progress-steps';
 import { Button } from '@/components/ui/button';
@@ -25,6 +29,7 @@ import {
   CheckCircle,
   PencilSimple,
   Info,
+  CircleNotch,
 } from '@phosphor-icons/react';
 import { useAuth } from '@/lib/auth-store';
 import { API_BASE_URL } from '@/lib/api-client';
@@ -122,6 +127,97 @@ function ConfirmedStamp({ confirmedAt }: { confirmedAt: string }) {
   );
 }
 
+/**
+ * RD-E7 — abas SOAP/SBAR/Prescrição/Alta/Atestado do redesign
+ * (Redesign.dc.html): trocar de aba navega para o documento já gerado
+ * desse tipo (useEncounterDocuments já trouxe a lista) ou gera um novo sob
+ * demanda (useGenerateDocument, sem aiInteractionId — o backend resolve
+ * pela interação mais recente do encontro e é idempotente por tipo, então
+ * clicar duas vezes na mesma aba nunca duplica).
+ */
+function DocumentTypeTabs({
+  encounterId,
+  currentType,
+}: {
+  encounterId: string;
+  currentType: DocType;
+}) {
+  const router = useRouter();
+  const documentsQuery = useEncounterDocuments(encounterId);
+  const generateDocument = useGenerateDocument(encounterId);
+  const [switchingTo, setSwitchingTo] = useState<DocType | null>(null);
+  const [switchError, setSwitchError] = useState<string | null>(null);
+
+  const latestByType = new Map<DocType, Document>();
+  for (const doc of documentsQuery.data ?? []) {
+    const current = latestByType.get(doc.type);
+    if (!current || doc.createdAt > current.createdAt) {
+      latestByType.set(doc.type, doc);
+    }
+  }
+
+  async function handleTabClick(type: DocType) {
+    if (type === currentType) return;
+    const existing = latestByType.get(type);
+    if (existing) {
+      router.push(`/encounters/${encounterId}/documents/${existing.id}/edit`);
+      return;
+    }
+
+    setSwitchingTo(type);
+    setSwitchError(null);
+    try {
+      const doc = await generateDocument.mutateAsync({ type });
+      router.push(`/encounters/${encounterId}/documents/${doc.id}/edit`);
+    } catch (err) {
+      setSwitchError(err instanceof Error ? err.message : 'Erro ao gerar documento.');
+      setSwitchingTo(null);
+    }
+  }
+
+  return (
+    <div className="mx-auto w-full max-w-[680px]">
+      <div className="flex gap-1.5 rounded-2xl bg-clinical-line p-1.5">
+        {DOCUMENT_TYPES.map((dt) => {
+          const active = dt.type === currentType;
+          const isLoading = switchingTo === dt.type;
+          return (
+            <button
+              key={dt.type}
+              type="button"
+              disabled={isLoading}
+              aria-current={active ? 'page' : undefined}
+              onClick={() => void handleTabClick(dt.type)}
+              className={cn(
+                'flex-1 rounded-xl px-2 py-2 text-[0.8rem] font-bold transition-colors disabled:opacity-60',
+                active
+                  ? 'bg-card text-clinical-ink shadow-sm'
+                  : 'text-clinical-ink-soft hover:text-clinical-ink',
+              )}
+            >
+              {isLoading ? (
+                <CircleNotch className="mx-auto size-4 animate-spin" />
+              ) : (
+                dt.label
+              )}
+            </button>
+          );
+        })}
+      </div>
+      {switchError && (
+        <Alert variant="destructive" className="mt-2">
+          <AlertDescription className="flex items-center justify-between gap-3">
+            <span>{switchError}</span>
+            <Button variant="outline" size="sm" onClick={() => setSwitchError(null)}>
+              Fechar
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+    </div>
+  );
+}
+
 export default function DocumentEditPage({
   params,
 }: {
@@ -213,6 +309,10 @@ export default function DocumentEditPage({
           Escrito a partir do seu ditado e das condutas que você adotou. Toque em qualquer trecho
           para corrigir.
         </p>
+      </div>
+
+      <div className="mx-auto max-w-[1180px] px-6 pt-6">
+        <DocumentTypeTabs encounterId={encounterId} currentType={document.type} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px]">

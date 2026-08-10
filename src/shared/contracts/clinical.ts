@@ -129,7 +129,9 @@ export interface DashboardStats {
 
 export interface GenerateDocumentRequest {
   type: DocumentType;
-  aiInteractionId: string;
+  // RD-E7 — opcional: sem ele, o backend usa a interação de IA mais recente
+  // do encontro (ver generateDocumentSchema / DocumentsService.generate).
+  aiInteractionId?: string;
 }
 
 export interface EditDocumentRequest {

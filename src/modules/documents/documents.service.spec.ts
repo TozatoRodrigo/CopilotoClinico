@@ -67,6 +67,7 @@ describe('DocumentsService', () => {
     document: {
       create: ReturnType<typeof vi.fn>;
       findUnique: ReturnType<typeof vi.fn>;
+      findFirst: ReturnType<typeof vi.fn>;
       update: ReturnType<typeof vi.fn>;
       findMany: ReturnType<typeof vi.fn>;
     };
@@ -90,6 +91,11 @@ describe('DocumentsService', () => {
       document: {
         create: vi.fn(),
         findUnique: vi.fn(),
+        // RD-E7 — generate() consulta isto primeiro para idempotência por
+        // (encounterId, type); null por padrão = "nenhum documento desse
+        // tipo ainda existe", o caminho feliz de criação que a maioria dos
+        // testes já assume.
+        findFirst: vi.fn().mockResolvedValue(null),
         update: vi.fn(),
         findMany: vi.fn(),
       },
@@ -201,6 +207,90 @@ describe('DocumentsService', () => {
           aiInteractionId,
         }),
       ).rejects.toThrow(NotFoundException);
+    });
+
+    // RD-E7 — idempotência por (encounterId, type): a tela Documento chama
+    // generate() livremente ao trocar de aba (SOAP/SBAR/...); gerar de novo
+    // um tipo já existente não pode duplicar o documento.
+    describe('RD-E7: idempotency', () => {
+      it('returns the existing document instead of creating a duplicate when one already exists for this type', async () => {
+        prisma.encounter.findUnique.mockResolvedValue({
+          physicianId,
+          patientRef: 'PAT-001',
+        });
+        prisma.document.findFirst.mockResolvedValue(baseDocument);
+
+        const result = await service.generate(physicianId, encounterId, {
+          type: 'soap',
+          aiInteractionId,
+        });
+
+        expect(prisma.document.findFirst).toHaveBeenCalledWith({
+          where: { encounterId, type: 'soap' },
+          orderBy: { createdAt: 'desc' },
+          select: expect.any(Object),
+        });
+        expect(prisma.document.create).not.toHaveBeenCalled();
+        expect(prisma.aiInteraction.findUnique).not.toHaveBeenCalled();
+        expect(result).toEqual(baseDocument);
+      });
+
+      it('returns the existing CONFIRMED document too — idempotency is not limited to drafts', async () => {
+        prisma.encounter.findUnique.mockResolvedValue({
+          physicianId,
+          patientRef: 'PAT-001',
+        });
+        const confirmedDoc = {
+          ...baseDocument,
+          confirmedBy: physicianId,
+          confirmedAt: new Date('2025-01-02'),
+        };
+        prisma.document.findFirst.mockResolvedValue(confirmedDoc);
+
+        const result = await service.generate(physicianId, encounterId, {
+          type: 'soap',
+          aiInteractionId,
+        });
+
+        expect(prisma.document.create).not.toHaveBeenCalled();
+        expect(result).toEqual(confirmedDoc);
+      });
+
+      it('falls back to the most recent AI interaction when aiInteractionId is omitted', async () => {
+        prisma.encounter.findUnique.mockResolvedValue({
+          physicianId,
+          patientRef: 'PAT-001',
+        });
+        prisma.aiInteraction.findFirst.mockResolvedValue({ id: aiInteractionId });
+        prisma.aiInteraction.findUnique.mockResolvedValue({ rawOutput: copilotRawOutput });
+        prisma.document.create.mockResolvedValue(baseDocument);
+
+        const result = await service.generate(physicianId, encounterId, { type: 'soap' });
+
+        expect(prisma.aiInteraction.findFirst).toHaveBeenCalledWith({
+          where: { encounterId },
+          orderBy: { createdAt: 'desc' },
+          select: { id: true },
+        });
+        expect(prisma.aiInteraction.findUnique).toHaveBeenCalledWith({
+          where: { id: aiInteractionId },
+          select: { rawOutput: true },
+        });
+        expect(result).toEqual(baseDocument);
+      });
+
+      it('throws NotFoundException when aiInteractionId is omitted and the encounter has no analysis yet', async () => {
+        prisma.encounter.findUnique.mockResolvedValue({
+          physicianId,
+          patientRef: 'PAT-001',
+        });
+        prisma.aiInteraction.findFirst.mockResolvedValue(null);
+
+        await expect(
+          service.generate(physicianId, encounterId, { type: 'soap' }),
+        ).rejects.toThrow(NotFoundException);
+        expect(prisma.aiInteraction.findUnique).not.toHaveBeenCalled();
+      });
     });
   });
 

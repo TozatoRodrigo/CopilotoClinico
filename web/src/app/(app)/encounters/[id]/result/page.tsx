@@ -11,6 +11,7 @@ import {
 } from '@/hooks/use-copilot-conversation';
 import { useRecommendationDecisions } from '@/hooks/use-recommendation-decisions';
 import { apiClient } from '@/lib/api-client';
+import { DOCUMENT_TYPES } from '@/lib/document-types';
 import { ProgressSteps } from '@/components/ui/progress-steps';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -45,14 +46,6 @@ import type {
 import type {
   RecommendationDecisionState,
 } from '@/hooks/use-recommendation-decisions';
-
-const DOCUMENT_TYPES: { type: DocumentType; label: string; primary?: boolean }[] = [
-  { type: 'soap', label: 'SOAP', primary: true },
-  { type: 'sbar', label: 'SBAR' },
-  { type: 'prescricao', label: 'Prescrição' },
-  { type: 'alta', label: 'Alta' },
-  { type: 'atestado', label: 'Atestado' },
-];
 
 // UX — 3 baldes fixos do redesign (Redesign.dc.html): AGORA (estabilização
 // imediata), EM SEGUIDA (conduta terapêutica) e SE PIORAR (o que observar /
