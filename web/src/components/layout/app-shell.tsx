@@ -389,14 +389,21 @@ export function AppShell({ children, variant }: AppShellProps) {
 
         {/* Mobile FAB + bottom nav */}
         <div className="fixed inset-x-0 bottom-0 z-40 md:hidden">
-          <Link
-            href="/encounters/new"
-            aria-label="Novo caso por voz"
-            className="absolute -top-[72px] right-6 flex h-16 w-16 items-center justify-center rounded-full shadow-[0_6px_20px_rgba(14,124,123,0.4)] transition-transform active:scale-95"
-            style={{ background: 'var(--teal)' }}
-          >
-            <Microphone className="size-7 text-white" weight="bold" />
-          </Link>
+          {/* UX — o FAB de "novo caso por voz" duplica o microfone que já
+              existe nas telas de foco (captura, resultado, edição de
+              documento). Nelas o médico clicava no FAB por engano e era
+              jogado de volta para /encounters/new, perdendo o que estava
+              fazendo — por isso ele só aparece fora dessas telas. */}
+          {!isFocusRoute && (
+            <Link
+              href="/encounters/new"
+              aria-label="Novo caso por voz"
+              className="absolute -top-[72px] right-6 flex h-16 w-16 items-center justify-center rounded-full shadow-[0_6px_20px_rgba(14,124,123,0.4)] transition-transform active:scale-95"
+              style={{ background: 'var(--teal)' }}
+            >
+              <Microphone className="size-7 text-white" weight="bold" />
+            </Link>
+          )}
           <nav
             aria-label="Navegação inferior"
             className="border-t bg-background/95 px-4 py-2 backdrop-blur"
