@@ -11,6 +11,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../config/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { StorageService } from '../storage/storage.service';
+import { InstitutionsService } from '../institutions/institutions.service';
 import { GenerateDocumentInput, EditDocumentInput } from './schemas/document.schemas';
 import { generateSOAP } from './generators/soap.generator';
 import { generateSBAR } from './generators/sbar.generator';
@@ -78,6 +79,7 @@ export class DocumentsService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(StorageService) private readonly storage: StorageService,
+    @Inject(InstitutionsService) private readonly institutionsService: InstitutionsService,
   ) {}
 
   /**
@@ -240,8 +242,9 @@ export class DocumentsService {
   /**
    * Confirma um documento gerado pela IA — gate de responsabilidade médico-legal.
    *
-   * Qualquer médico autenticado pode confirmar (não apenas o autor), permitindo
-   * cobertura de plantão. A confirmação:
+   * O autor original sempre pode confirmar. Outro médico só pode confirmar
+   * (cobertura de plantão) se pertencer à MESMA instituição do encontro —
+   * ver assertCanConfirm(). A confirmação:
    * 1. Recomputa o contentHash sobre o conteúdo efetivo no momento da confirmação
    *    (physicianEdits ?? content) com JSON canônico (chaves ordenadas).
    * 2. Registra confirmedBy, confirmedAt e o novo contentHash.
@@ -261,10 +264,13 @@ export class DocumentsService {
         content: true,
         physicianEdits: true,
         type: true,
+        encounter: { select: { institutionId: true } },
       },
     });
 
     if (!doc) throw new NotFoundException('Document not found');
+
+    await this.assertCanConfirm(physicianId, doc.physicianId, doc.encounter.institutionId);
 
     // 409 — DoD: "impossível confirmar duas vezes"
     if (doc.confirmedBy) {
@@ -322,6 +328,41 @@ export class DocumentsService {
     });
 
     return confirmed;
+  }
+
+  /**
+   * SEC-02 — autoriza quem pode confirmar (assinar) um documento.
+   *
+   * O autor original sempre pode. Para "cobertura de plantão" (outro médico
+   * confirmando em nome da equipe), esse outro médico precisa pertencer à
+   * mesma instituição do encontro — sem isso, `confirm()` permitia que
+   * QUALQUER médico com conta na plataforma assumisse responsabilidade
+   * médico-legal por um documento de um encontro sem nenhum vínculo com ele,
+   * bastando conhecer o documentId.
+   *
+   * Encontros sem instituição (médico solo, sem vínculo institucional — ver
+   * resolveInstitutionId em encounters.service.ts) não têm base para
+   * "cobertura" por terceiros: só o autor pode confirmar nesse caso.
+   */
+  private async assertCanConfirm(
+    physicianId: string,
+    authorPhysicianId: string,
+    institutionId: string | null,
+  ): Promise<void> {
+    if (physicianId === authorPhysicianId) return;
+
+    if (!institutionId) {
+      throw new ForbiddenException('Apenas o médico responsável pode confirmar este documento');
+    }
+
+    const institutions = await this.institutionsService.listForPhysician(physicianId);
+    const belongsToSameInstitution = institutions.some((i) => i.id === institutionId);
+
+    if (!belongsToSameInstitution) {
+      throw new ForbiddenException(
+        'Apenas médicos da mesma instituição do encontro podem confirmar este documento',
+      );
+    }
   }
 
   private async uploadDocumentPdf(documentId: string, encounterId: string): Promise<void> {

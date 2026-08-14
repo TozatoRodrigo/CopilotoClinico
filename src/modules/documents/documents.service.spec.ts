@@ -3,6 +3,7 @@ import { DocumentsService } from './documents.service';
 import { PrismaService } from '../../config/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { StorageService } from '../storage/storage.service';
+import { InstitutionsService } from '../institutions/institutions.service';
 import { NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
 
 const physicianId = '550e8400-e29b-41d4-a716-446655440000';
@@ -10,6 +11,7 @@ const otherPhysicianId = '660e8400-e29b-41d4-a716-446655440001';
 const encounterId = '770e8400-e29b-41d4-a716-446655440002';
 const aiInteractionId = '880e8400-e29b-41d4-a716-446655440003';
 const documentId = '990e8400-e29b-41d4-a716-446655440004';
+const institutionId = 'aa0e8400-e29b-41d4-a716-446655440005';
 
 const copilotRawOutput = {
   reasoning: 'Patient shows signs of hypertension',
@@ -52,6 +54,7 @@ describe('DocumentsService', () => {
   let service: DocumentsService;
   let auditService: AuditService;
   let storageService: { isAvailable: ReturnType<typeof vi.fn>; upload: ReturnType<typeof vi.fn>; getPresignedUrl: ReturnType<typeof vi.fn> };
+  let institutionsService: { listForPhysician: ReturnType<typeof vi.fn> };
   let prisma: {
     encounter: {
       findUnique: ReturnType<typeof vi.fn>;
@@ -107,10 +110,14 @@ describe('DocumentsService', () => {
       upload: vi.fn(),
       getPresignedUrl: vi.fn(),
     };
+    // Padrão: o médico "atual" (physicianId) não pertence a nenhuma
+    // instituição — testes de cobertura de plantão sobrescrevem isto.
+    institutionsService = { listForPhysician: vi.fn().mockResolvedValue([]) };
     service = new DocumentsService(
       prisma as unknown as PrismaService,
       auditService,
       storageService as unknown as StorageService,
+      institutionsService as unknown as InstitutionsService,
     );
   });
 
@@ -361,6 +368,7 @@ describe('DocumentsService', () => {
       encounterId,
       content: baseDocument.content,
       physicianEdits: null,
+      encounter: { institutionId: null as string | null },
     };
 
     // Cenário 1: confirmação normal → 200, confirmedAt preenchido, contentHash atualizado
@@ -402,12 +410,15 @@ describe('DocumentsService', () => {
       await expect(service.confirm(physicianId, documentId)).rejects.toThrow(ConflictException);
     });
 
-    // Cenário 3: médico diferente do autor pode confirmar (cobertura de plantão)
-    it('permite que médico diferente do autor confirme o documento', async () => {
+    // Cenário 3 (SEC-02): médico diferente do autor pode confirmar (cobertura
+    // de plantão) SE pertencer à mesma instituição do encontro.
+    it('permite que médico diferente do autor confirme o documento quando pertence à mesma instituição', async () => {
       prisma.document.findUnique.mockResolvedValue({
         ...docBase,
         physicianId: otherPhysicianId, // autor é outro médico
+        encounter: { institutionId },
       });
+      institutionsService.listForPhysician.mockResolvedValue([{ id: institutionId }]);
       prisma.document.update.mockResolvedValue({
         ...baseDocument,
         confirmedBy: physicianId, // confirmado pelo médico atual
@@ -418,6 +429,34 @@ describe('DocumentsService', () => {
       const result = await service.confirm(physicianId, documentId);
 
       expect(result.confirmedBy).toBe(physicianId);
+    });
+
+    // SEC-02 — regression: antes desta correção, QUALQUER médico com conta
+    // na plataforma podia confirmar documento de qualquer instituição.
+    it('rejeita com ForbiddenException médico de outra instituição que não é o autor', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        ...docBase,
+        physicianId: otherPhysicianId,
+        encounter: { institutionId },
+      });
+      institutionsService.listForPhysician.mockResolvedValue([{ id: 'outra-instituicao' }]);
+
+      await expect(service.confirm(physicianId, documentId)).rejects.toThrow(ForbiddenException);
+      expect(prisma.document.update).not.toHaveBeenCalled();
+    });
+
+    // SEC-02 — sem instituição vinculada ao encontro não há base para
+    // "cobertura de plantão": só o autor original pode confirmar.
+    it('rejeita médico diferente do autor quando o encontro não tem instituição', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        ...docBase,
+        physicianId: otherPhysicianId,
+        encounter: { institutionId: null },
+      });
+
+      await expect(service.confirm(physicianId, documentId)).rejects.toThrow(ForbiddenException);
+      expect(institutionsService.listForPhysician).not.toHaveBeenCalled();
+      expect(prisma.document.update).not.toHaveBeenCalled();
     });
 
     // Cenário 4: uncertain=true na auditoria quando interaction tinha incerteza

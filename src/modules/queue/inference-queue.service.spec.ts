@@ -10,6 +10,7 @@ vi.mock('ioredis', () => ({
 
 const mockJob = {
   id: 'job-1',
+  data: { physicianId: 'phy-1' } as { physicianId: string },
   getState: vi.fn(),
   returnvalue: null as unknown,
   failedReason: null as unknown,
@@ -37,6 +38,7 @@ describe('InferenceQueueService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockJob.getState = vi.fn().mockResolvedValue('waiting');
+    mockJob.data = { physicianId: 'phy-1' };
     mockJob.returnvalue = null;
     mockJob.failedReason = null;
     mockQueue.add.mockResolvedValue(mockJob);
@@ -68,31 +70,43 @@ describe('InferenceQueueService', () => {
 
   it('getJobStatus returns unknown when job not found', async () => {
     mockQueue.getJob.mockResolvedValueOnce(null);
-    const result = await service.getJobStatus('missing-job');
+    const result = await service.getJobStatus('missing-job', 'phy-1');
     expect(result.status).toBe('unknown');
   });
 
-  it('getJobStatus returns active status', async () => {
+  it('getJobStatus returns active status for the job owner', async () => {
     mockJob.getState.mockResolvedValueOnce('active');
-    const result = await service.getJobStatus('job-1');
+    const result = await service.getJobStatus('job-1', 'phy-1');
     expect(result.status).toBe('active');
     expect(result.progress).toBe(50);
   });
 
-  it('getJobStatus returns completed with result', async () => {
+  it('getJobStatus returns completed with result for the job owner', async () => {
     const fakeResult = { type: 'analyze', assessment: 'ok' };
     mockJob.getState.mockResolvedValueOnce('completed');
     mockJob.returnvalue = fakeResult;
-    const result = await service.getJobStatus('job-1');
+    const result = await service.getJobStatus('job-1', 'phy-1');
     expect(result.status).toBe('completed');
     expect(result.result).toEqual(fakeResult);
   });
 
-  it('getJobStatus returns failed with error', async () => {
+  it('getJobStatus returns failed with error for the job owner', async () => {
     mockJob.getState.mockResolvedValueOnce('failed');
     mockJob.failedReason = 'Something went wrong';
-    const result = await service.getJobStatus('job-1');
+    const result = await service.getJobStatus('job-1', 'phy-1');
     expect(result.status).toBe('failed');
     expect(result.error).toBe('Something went wrong');
+  });
+
+  // SEC-04 — regression: job IDs são sequenciais/adivinháveis (BullMQ
+  // auto-increment, nunca passamos jobId custom). Sem esta checagem, um
+  // médico conseguia ler o resultado da análise clínica de outro médico só
+  // incrementando o jobId no path da requisição.
+  it('getJobStatus returns unknown (not the real state) when the job belongs to another physician', async () => {
+    mockJob.getState.mockResolvedValueOnce('completed');
+    mockJob.returnvalue = { type: 'analyze', assessment: 'dados de outro paciente' };
+    const result = await service.getJobStatus('job-1', 'attacker-phy-id');
+    expect(result.status).toBe('unknown');
+    expect(result.result).toBeUndefined();
   });
 });

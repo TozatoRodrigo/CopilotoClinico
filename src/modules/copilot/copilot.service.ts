@@ -54,8 +54,8 @@ export class CopilotService {
     return { jobId };
   }
 
-  async getJobStatus(jobId: string) {
-    return this.queue.getJobStatus(jobId);
+  async getJobStatus(physicianId: string, jobId: string) {
+    return this.queue.getJobStatus(jobId, physicianId);
   }
 
   async getLatestInteraction(physicianId: string, encounterId: string) {

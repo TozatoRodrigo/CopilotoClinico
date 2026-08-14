@@ -10,7 +10,7 @@ import {
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
-import { createHash } from 'crypto';
+import { createHash, createHmac } from 'crypto';
 import { PrismaService } from '../../config/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { RegisterInput, LoginInput, RefreshInput } from './schemas/auth.schemas';
@@ -32,6 +32,7 @@ export class AuthService {
   private readonly logger = new Logger(AuthService.name);
   private readonly accessSecret: string;
   private readonly refreshSecret: string;
+  private readonly mfaPendingSecret: string;
   private readonly accessExpiry: JwtExpiry;
   private readonly refreshExpiry: JwtExpiry;
   private readonly loginLockoutMaxAttempts: number;
@@ -49,6 +50,18 @@ export class AuthService {
   ) {
     this.accessSecret = this.config.getOrThrow<string>('JWT_ACCESS_SECRET');
     this.refreshSecret = this.config.getOrThrow<string>('JWT_REFRESH_SECRET');
+    // SEC-01 — segredo dedicado para o token de "MFA pendente", derivado do
+    // access secret (não exige nova env var). Antes este token era assinado
+    // com accessSecret e só tinha o claim `scope` distinguindo-o de um
+    // access token normal — como nada além de verifyMfaLogin() checava esse
+    // claim, ele era aceito como sessão completa por qualquer endpoint
+    // protegido só por JwtAuthGuard, pulando o 2º fator inteiramente. Usar
+    // um segredo diferente garante que JwtStrategy (que verifica contra
+    // accessSecret) rejeite esse token mesmo que a checagem de `scope` seja
+    // removida/alterada no futuro — ver também jwt.strategy.ts.
+    this.mfaPendingSecret = createHmac('sha256', this.accessSecret)
+      .update('mfa_pending_token')
+      .digest('hex');
     this.accessExpiry = this.config.get<string>('JWT_ACCESS_EXPIRY', '15m') as unknown as JwtExpiry;
     this.refreshExpiry = this.config.get<string>(
       'JWT_REFRESH_EXPIRY',
@@ -229,7 +242,7 @@ export class AuthService {
         email: string;
         physicianId: string;
         scope: string;
-      }>(mfaToken, { secret: this.accessSecret });
+      }>(mfaToken, { secret: this.mfaPendingSecret });
 
       if (payload.scope !== MFA_PENDING_SCOPE) {
         throw new Error('Invalid token scope');
@@ -275,7 +288,7 @@ export class AuthService {
   private async issueMfaPendingToken(physicianId: string, email: string): Promise<string> {
     return this.jwt.signAsync(
       { sub: physicianId, email, physicianId, scope: MFA_PENDING_SCOPE },
-      { secret: this.accessSecret, expiresIn: MFA_TOKEN_EXPIRY },
+      { secret: this.mfaPendingSecret, expiresIn: MFA_TOKEN_EXPIRY },
     );
   }
 
