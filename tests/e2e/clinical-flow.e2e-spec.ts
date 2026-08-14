@@ -243,6 +243,10 @@ function buildPrismaMock() {
         confirmedAt: null,
         createdAt: new Date(),
         updatedAt: new Date(),
+        // SEC-02 — confirm() agora seleciona encounter.institutionId para
+        // decidir quem pode confirmar (ver documents.service.ts). O
+        // encontro deste fixture não tem instituição vinculada.
+        encounter: { institutionId: null },
       }),
       update: vi.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) =>
         Promise.resolve({
