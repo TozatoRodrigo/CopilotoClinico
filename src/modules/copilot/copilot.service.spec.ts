@@ -161,11 +161,13 @@ describe('CopilotService', () => {
     });
   });
 
+  // SEC-04 — physicianId precisa chegar até InferenceQueueService.getJobStatus
+  // para que ela valide dono do job (jobId é sequencial/adivinhável no BullMQ).
   describe('RT-002: getJobStatus', () => {
-    it('returns job status from queue service', async () => {
-      const result = await service.getJobStatus('job-123');
+    it('returns job status from queue service, passing the caller physicianId', async () => {
+      const result = await service.getJobStatus(physicianId, 'job-123');
       expect(result.status).toBe('active');
-      expect(queueMock.getJobStatus).toHaveBeenCalledWith('job-123');
+      expect(queueMock.getJobStatus).toHaveBeenCalledWith('job-123', physicianId);
     });
   });
 

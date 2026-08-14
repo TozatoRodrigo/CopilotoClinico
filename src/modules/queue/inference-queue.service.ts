@@ -51,7 +51,21 @@ export class InferenceQueueService implements OnModuleInit, OnModuleDestroy {
     return job.id!;
   }
 
-  async getJobStatus(jobId: string): Promise<{
+  /**
+   * SEC-04 — jobId é um contador incremental do BullMQ (nunca passamos um
+   * `jobId` custom em enqueueAnalyze/enqueueTranscribe), então "1", "2",
+   * "3"... são todos válidos e adivinháveis por qualquer médico autenticado.
+   * `physicianId` (o dono do job, vindo do JWT do caller) é obrigatório e
+   * comparado contra `job.data.physicianId` — sem isso, qualquer médico
+   * conseguia ler o resultado da análise clínica (raciocínio, red flags) de
+   * QUALQUER outro médico só incrementando o jobId. Job de outro dono
+   * responde igual a job inexistente (`status: 'unknown'`), para não dar ao
+   * atacante um oráculo de "esse jobId existe, só não é seu".
+   */
+  async getJobStatus(
+    jobId: string,
+    physicianId: string,
+  ): Promise<{
     jobId: string;
     status: JobStatus;
     result?: InferenceJobResult;
@@ -59,7 +73,7 @@ export class InferenceQueueService implements OnModuleInit, OnModuleDestroy {
     progress: number;
   }> {
     const job = await this.queue.getJob(jobId);
-    if (!job) {
+    if (!job || job.data.physicianId !== physicianId) {
       return { jobId, status: 'unknown', progress: 0 };
     }
 

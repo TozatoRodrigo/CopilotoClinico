@@ -95,8 +95,8 @@ export class CopilotController {
   }
 
   @Get('jobs/:jobId')
-  getJobStatus(@Param('jobId') jobId: string) {
-    return this.copilotService.getJobStatus(jobId);
+  getJobStatus(@Request() req: { user: { physicianId: string } }, @Param('jobId') jobId: string) {
+    return this.copilotService.getJobStatus(req.user.physicianId, jobId);
   }
 
   @Get('latest')
