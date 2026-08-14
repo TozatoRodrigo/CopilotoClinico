@@ -455,4 +455,94 @@ describe('AuthService', () => {
       );
     });
   });
+
+  // SEC-01 — regression test for the MFA-bypass fix: the mfa_pending token
+  // issued mid-login (before the 2nd factor is verified) must be signed
+  // with a secret DIFFERENT from JWT_ACCESS_SECRET. Otherwise a token
+  // obtained from a password-only login could be replayed as a full
+  // session (Authorization: Bearer <mfaToken>) on any JwtAuthGuard route,
+  // skipping MFA entirely. Uses a real JwtService (not the signAsync mock
+  // from the top-level beforeEach) so the cryptographic signature is real.
+  describe('mfa_pending token isolation (SEC-01)', () => {
+    const accessSecret = 'test-access-secret-at-least-32-characters-long';
+    const refreshSecret = 'test-refresh-secret-at-least-32-characters-long';
+
+    function buildServiceWithRealJwt() {
+      const realJwt = new JwtService({});
+      const realPrisma = {
+        physician: { findUnique: vi.fn(), create: vi.fn() },
+        refreshToken: { findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn(), create: vi.fn() },
+        loginSecurityState: { findUnique: vi.fn(), upsert: vi.fn(), update: vi.fn() },
+      };
+      const realConfig = new ConfigService({
+        JWT_ACCESS_SECRET: accessSecret,
+        JWT_REFRESH_SECRET: refreshSecret,
+      });
+      const realAudit = { log: vi.fn().mockResolvedValue(undefined) } as unknown as AuditService;
+      const realMfa = { verifyMfaCode: vi.fn().mockResolvedValue(undefined) } as unknown as MfaService;
+      const crmVerification = {} as unknown as CrmVerificationService;
+      const crmChecker = {} as unknown as CrmCheckerService;
+
+      const authService = new AuthService(
+        realPrisma as unknown as PrismaService,
+        realJwt,
+        realConfig,
+        realAudit,
+        realMfa,
+        crmVerification,
+        crmChecker,
+      );
+
+      return { authService, realJwt, realPrisma };
+    }
+
+    it('signs the mfaToken with a secret that is NOT JWT_ACCESS_SECRET', async () => {
+      const { authService, realJwt, realPrisma } = buildServiceWithRealJwt();
+      realPrisma.loginSecurityState.findUnique.mockResolvedValue(null);
+      realPrisma.physician.findUnique.mockResolvedValue({ ...mockPhysician, mfaEnabled: true });
+      vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
+
+      const result = await authService.login({
+        email: 'doctor@example.com',
+        password: 'StrongP@ss1',
+      });
+
+      const mfaToken = (result as { mfaToken?: string }).mfaToken;
+      if (typeof mfaToken !== 'string') throw new Error('Expected mfaRequired login result');
+
+      // The exploit this fix closes: replaying mfaToken as a full session by
+      // verifying it against the *access* secret must fail.
+      await expect(realJwt.verifyAsync(mfaToken, { secret: accessSecret })).rejects.toThrow();
+
+      // But verifyMfaLogin (which knows the dedicated mfa_pending secret)
+      // must still accept it as part of the intended exchange flow.
+      realPrisma.physician.findUnique.mockResolvedValue({
+        ...mockPhysician,
+        id: mockPhysician.id,
+        mfaEnabled: true,
+      });
+      await expect(authService.verifyMfaLogin(mfaToken, '123456')).resolves.toHaveProperty(
+        'accessToken',
+      );
+    });
+
+    it('rejects an mfaToken signed with JWT_ACCESS_SECRET instead of the dedicated secret', async () => {
+      const { authService, realJwt } = buildServiceWithRealJwt();
+
+      // Simulates the pre-fix behavior / a forged token using the access secret.
+      const forgedMfaToken = await realJwt.signAsync(
+        {
+          sub: mockPhysician.id,
+          email: mockPhysician.email,
+          physicianId: mockPhysician.id,
+          scope: 'mfa_pending',
+        },
+        { secret: accessSecret, expiresIn: '5m' },
+      );
+
+      await expect(authService.verifyMfaLogin(forgedMfaToken, '123456')).rejects.toThrow(
+        UnauthorizedException,
+      );
+    });
+  });
 });
