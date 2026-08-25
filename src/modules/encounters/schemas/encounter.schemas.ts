@@ -45,8 +45,13 @@ const patientRefSchema = z
   .max(50, 'patientRef deve ter no máximo 50 caracteres')
   .refine(isValidPatientRef, { message: PATIENT_REF_VALIDATION_ERROR });
 
+// S25-QC-01 — identificação do paciente é opcional na criação: sem ela, o
+// caso é uma "consulta rápida" (fora da fila do Plantão até ser
+// identificado — ver EncountersService.findByPhysician e update()). Quando
+// PREENCHIDO, continua validado pelas mesmas regras de LGPD-001 (nunca CPF
+// ou nome completo) — a opcionalidade não relaxa essa validação.
 export const createEncounterSchema = z.object({
-  patientRef: patientRefSchema,
+  patientRef: patientRefSchema.optional(),
   vertical: z.string().min(1).default('trauma'),
   institutionId: z.string().uuid().optional(),
   context: z
@@ -63,6 +68,10 @@ export type CreateEncounterInput = z.infer<typeof createEncounterSchema>;
 
 export const updateEncounterSchema = z.object({
   status: z.enum(encounterStatusValues).optional(),
+  // S25-QC-01 — permite identificar o paciente depois de uma consulta
+  // rápida, "promovendo" o encontro para a fila do Plantão. Mesma validação
+  // de LGPD-001 do campo na criação (nunca CPF ou nome completo).
+  patientRef: patientRefSchema.optional(),
   context: z
     .object({
       hasCT: z.boolean(),
@@ -85,6 +94,11 @@ export const listEncountersQuerySchema = z.object({
   status: z.enum(encounterStatusValues).optional(),
   vertical: z.enum(encounterVerticalValues).optional(),
   search: z.string().max(100).optional(),
+  // S25-QC-01 — por padrão, consultas rápidas (sem patientRef) ficam de
+  // fora da fila do Plantão. `includeUnidentified: true` é o único jeito de
+  // trazê-las de volta na listagem — uso previsto para uma futura tela de
+  // "consultas recentes", não para o Plantão em si.
+  includeUnidentified: z.coerce.boolean().default(false),
   dateFrom: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)

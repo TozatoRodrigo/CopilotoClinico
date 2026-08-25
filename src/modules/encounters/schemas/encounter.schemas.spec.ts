@@ -122,6 +122,38 @@ describe('LGPD-001 — patientRef validation', () => {
       expect(result.error.errors[0]?.message).toBe(PATIENT_REF_VALIDATION_ERROR);
     }
   });
+
+  // S25-QC-01 — sem patientRef, o caso nasce como consulta rápida (fora do
+  // Plantão até ser identificado depois). Omitir o campo é diferente de
+  // mandar string vazia: omitido é válido (undefined), vazio continua
+  // rejeitado ("rejeita patientRef vazio" acima, inalterado).
+  describe('S25-QC-01: patientRef opcional na criação (consulta rápida)', () => {
+    it('accepts a create request with patientRef entirely omitted', () => {
+      const result = createEncounterSchema.safeParse({
+        vertical: 'trauma',
+        context: validContext,
+      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.patientRef).toBeUndefined();
+      }
+    });
+
+    it('still rejects an explicit empty string (omitting is not the same as sending "")', () => {
+      const result = parsePatientRef('');
+      expect(result.success).toBe(false);
+    });
+
+    it('still applies LGPD-001 validation when patientRef IS provided (optional does not mean unvalidated)', () => {
+      const result = parsePatientRef('12345678901');
+      expect(result.success).toBe(false);
+    });
+
+    it('accepts a valid opaque patientRef same as before', () => {
+      const result = parsePatientRef('PRN-2026-00456');
+      expect(result.success).toBe(true);
+    });
+  });
 });
 
 // UX-04 — vertical passa a ser confirmável/corrigível depois da criação do
@@ -153,5 +185,28 @@ describe('updateEncounterSchema — UX-04', () => {
   it('remains valid with no fields at all (all optional, no regression)', () => {
     const result = updateEncounterSchema.safeParse({});
     expect(result.success).toBe(true);
+  });
+
+  // S25-QC-01 — PATCH /encounters/:id é o caminho para identificar o
+  // paciente depois de uma consulta rápida, promovendo-a para um caso do
+  // Plantão.
+  describe('S25-QC-01: patientRef via update (identificar depois)', () => {
+    it('accepts patientRef on its own to identify a quick consult later', () => {
+      const result = updateEncounterSchema.safeParse({ patientRef: 'PRN-2026-00456' });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.patientRef).toBe('PRN-2026-00456');
+      }
+    });
+
+    it('applies the same LGPD-001 validation as creation — still rejects CPF', () => {
+      const result = updateEncounterSchema.safeParse({ patientRef: '12345678901' });
+      expect(result.success).toBe(false);
+    });
+
+    it('applies the same LGPD-001 validation as creation — still rejects a full name', () => {
+      const result = updateEncounterSchema.safeParse({ patientRef: 'Maria Silva' });
+      expect(result.success).toBe(false);
+    });
   });
 });

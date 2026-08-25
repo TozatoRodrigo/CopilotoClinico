@@ -1,0 +1,12 @@
+-- S25-QC-01: identificação do paciente deixa de ser obrigatória na criação
+-- do caso. Motivado pelo feedback dos médicos piloto (Gustavo, João Paulo):
+-- às vezes o médico só quer uma consulta rápida ("qual a dose de X?"), sem
+-- abrir um caso de verdade no plantão. Sem patient_ref, o encontro é tratado
+-- como consulta rápida — fica de fora da fila do Plantão (ver
+-- EncountersService.findByPhysician) até o médico preencher a identificação
+-- depois (PATCH /encounters/:id), promovendo o encontro para caso "de
+-- verdade". Ver também os generators de documento
+-- (src/modules/documents/generators/*.ts), que já tratavam patientRef como
+-- opcional antes mesmo desta migration.
+-- AlterColumn
+ALTER TABLE "encounters" ALTER COLUMN "patient_ref" DROP NOT NULL;

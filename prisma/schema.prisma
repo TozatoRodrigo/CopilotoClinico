@@ -154,7 +154,10 @@ model Encounter {
   institutionId  String?         @map("institution_id") @db.Uuid
   vertical       String          @default("trauma")
   context        Json?
-  patientRef     String          @map("patient_ref") @db.VarChar(50)
+  // S25-QC-01 — opcional: sem identificação, o encontro é uma "consulta
+  // rápida" (não aparece na fila do Plantão até o médico identificar o
+  // paciente via PATCH). Ver EncountersService.findByPhysician.
+  patientRef     String?         @map("patient_ref") @db.VarChar(50)
   // RD-E7 — queixa principal derivada da 1ª análise de IA (nunca digitada
   // manualmente); título das listas de casos no lugar de patientRef.
   chiefComplaint String?         @map("chief_complaint") @db.VarChar(140)

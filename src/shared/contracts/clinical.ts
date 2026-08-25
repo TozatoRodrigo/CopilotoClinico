@@ -48,7 +48,10 @@ export interface AuthResponse {
 }
 
 export interface CreateEncounterRequest {
-  patientRef: string;
+  // S25-QC-01 — opcional: sem identificação, o caso nasce como "consulta
+  // rápida" e fica de fora da fila do Plantão até ser identificado depois
+  // (PATCH /encounters/:id). Ver EncountersService.findByPhysician.
+  patientRef?: string;
   vertical: EncounterVertical;
   institutionId?: string;
   context: EncounterContext;
@@ -61,7 +64,13 @@ export interface CreateEncounterResponse {
 export interface EncounterSummary {
   id: string;
   vertical: string;
-  patientRef: string;
+  /**
+   * S25-QC-01 — `null` quando o encontro é uma "consulta rápida" (paciente
+   * ainda não identificado). Por padrão, `GET /encounters` já filtra essas
+   * consultas fora da fila do Plantão — `null` só aparece aqui se o
+   * chamador pedir explicitamente `includeUnidentified: true`.
+   */
+  patientRef: string | null;
   /**
    * RD-E7 — queixa principal derivada automaticamente da 1ª análise de IA
    * (ver OrchestratorService.analyze/analyzeStream); `null` até o encontro
