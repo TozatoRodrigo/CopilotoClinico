@@ -14,6 +14,8 @@ export interface IngestGuidelineInput {
   institutionId?: string | null;
   cenario?: string;
   redFlags?: string[];
+  // S21-CLIN-01 — ver GuidelineFrontMatter.subtipo em ingestion/front-matter.ts.
+  subtipo?: string;
 }
 
 export interface IngestedChunk {
@@ -370,6 +372,7 @@ export class GuidelinesService {
       evidenceLevel: input.evidenceLevel,
       cenario: input.cenario,
       redFlags: input.redFlags,
+      subtipo: input.subtipo,
     });
 
     this.logger.log(`Created ${chunks.length} chunks from guideline`);
@@ -400,6 +403,11 @@ export class GuidelinesService {
           metadata: {
             cenario: chunk.metadata.cenario ?? null,
             redFlags: chunk.metadata.redFlags ?? [],
+            // S21-CLIN-01 — ver front-matter.ts. Sem isto, o guardrail de
+            // coerência diagnóstica (output-validator.ts) nunca é acionado
+            // para conteúdo ingerido via este pipeline — ele lia
+            // metadata.subtipo, mas nada aqui o propagava até agora.
+            subtipo: chunk.metadata.subtipo ?? null,
             charStart: chunk.metadata.charStart,
             charEnd: chunk.metadata.charEnd,
             chunkIndex: chunk.index,

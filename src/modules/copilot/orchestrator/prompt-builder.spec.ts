@@ -507,4 +507,25 @@ describe('buildPrompt', () => {
       expect(result.user).toContain('WARNING: No relevant guideline evidence');
     });
   });
+
+  describe('S21-CLIN-01: SUBTYPE / MUTUALLY-EXCLUSIVE CLASSIFICATION RULE', () => {
+    it('includes the subtype classification rule in the system instruction on every prompt', () => {
+      const result = buildPrompt(makeInput());
+
+      expect(result.system).toContain('SUBTYPE / MUTUALLY-EXCLUSIVE CLASSIFICATION RULE');
+      // Regressão do caso real que motivou a regra — mantém o texto do
+      // prompt amarrado ao incidente documentado em docs/guidelines-catalog.md
+      // (KB-003), para que uma futura reescrita do prompt não apague
+      // silenciosamente a instrução sem que o teste avise.
+      expect(result.system).toContain('fluctuating, repeatedly-reversible focal deficit');
+      expect(result.system).toContain('AVC isquêmico');
+      expect(result.system).toContain('AVC hemorrágico');
+    });
+
+    it('is present even when zero chunks are retrieved (case-only path)', () => {
+      const result = buildPrompt(makeInput({ retrievedChunks: [] }));
+
+      expect(result.system).toContain('SUBTYPE / MUTUALLY-EXCLUSIVE CLASSIFICATION RULE');
+    });
+  });
 });

@@ -308,7 +308,11 @@ export class OrchestratorService {
       model: completion.model,
       usage: completion.usage,
     });
-    let validation = validateOutput(completion.content, prompt.retrievedChunkIds);
+    let validation = validateOutput(
+      completion.content,
+      prompt.retrievedChunkIds,
+      retrievalResult.chunks,
+    );
 
     // Cheaper/weaker models occasionally violate a schema refinement (e.g. a
     // critical red flag paired with a non-preliminary recommendation) despite
@@ -335,7 +339,11 @@ export class OrchestratorService {
         model: completion.model,
         usage: completion.usage,
       });
-      validation = validateOutput(completion.content, prompt.retrievedChunkIds);
+      validation = validateOutput(
+        completion.content,
+        prompt.retrievedChunkIds,
+        retrievalResult.chunks,
+      );
     }
 
     if (!validation.valid || !validation.output) {
@@ -556,7 +564,11 @@ export class OrchestratorService {
       usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
     });
 
-    const validation = validateOutput(fullContent, prompt.retrievedChunkIds);
+    const validation = validateOutput(
+      fullContent,
+      prompt.retrievedChunkIds,
+      retrievalResult.chunks,
+    );
 
     if (!validation.valid || !validation.output) {
       this.logger.error(`Stream output validation failed: ${validation.errors.join(', ')}`);
@@ -804,7 +816,11 @@ export class OrchestratorService {
       model: completion.model,
       usage: completion.usage,
     });
-    let validation = validateOutput(completion.content, prompt.retrievedChunkIds);
+    let validation = validateOutput(
+      completion.content,
+      prompt.retrievedChunkIds,
+      retrievalResult.chunks,
+    );
 
     // See the `analyze` method for why this bounded retry exists.
     if (!validation.valid || !validation.output) {
@@ -827,7 +843,11 @@ export class OrchestratorService {
         model: completion.model,
         usage: completion.usage,
       });
-      validation = validateOutput(completion.content, prompt.retrievedChunkIds);
+      validation = validateOutput(
+        completion.content,
+        prompt.retrievedChunkIds,
+        retrievalResult.chunks,
+      );
     }
 
     if (!validation.valid || !validation.output) {

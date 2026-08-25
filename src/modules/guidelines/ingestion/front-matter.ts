@@ -6,6 +6,15 @@ export interface GuidelineFrontMatter {
   institutionId?: string;
   cenario?: string;
   redFlags?: string[];
+  /**
+   * S21-CLIN-01 — subtipo mutuamente exclusivo dentro do mesmo `cenario`
+   * (ex.: cenario "avc_agudo" com subtipo "isquemico" | "hemorragico"; ver
+   * prisma/seeds/guidelines-seed.ts para o precedente e output-validator.ts
+   * `findUnresolvedSubtypeAmbiguity` para como isso é usado). Opcional — a
+   * maioria dos cenários não tem essa dicotomia; só preencher quando existir
+   * um subtipo com conduta oposta ao(s) outro(s) subtipo(s) do mesmo cenario.
+   */
+  subtipo?: string;
 }
 
 export interface ParsedGuidelineDocument {
@@ -68,6 +77,7 @@ export function parseGuidelineDocument(raw: string): ParsedGuidelineDocument {
     institutionId: fields.institutionId,
     cenario: fields.cenario,
     redFlags: parseListField(fields.red_flags ?? fields.redFlags),
+    subtipo: fields.subtipo,
   };
 
   for (const field of REQUIRED_FIELDS) {

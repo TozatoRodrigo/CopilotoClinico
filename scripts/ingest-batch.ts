@@ -16,7 +16,10 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from '../src/config/prisma.module';
 import { GuidelinesModule } from '../src/modules/guidelines/guidelines.module';
-import { GuidelinesService, type BatchIngestResult } from '../src/modules/guidelines/guidelines.service';
+import {
+  GuidelinesService,
+  type BatchIngestResult,
+} from '../src/modules/guidelines/guidelines.service';
 import { parseGuidelineDocument } from '../src/modules/guidelines/ingestion/front-matter';
 
 const SUPPORTED_EXTENSIONS = new Set(['.md', '.txt']);
@@ -74,6 +77,7 @@ async function main(): Promise<void> {
           institutionId: meta.institutionId,
           cenario: meta.cenario,
           redFlags: meta.redFlags,
+          subtipo: meta.subtipo,
         });
 
         results.push({ ...result, file: filePath });
@@ -87,7 +91,9 @@ async function main(): Promise<void> {
       console.log(
         `${result.file}: ${result.chunksCreated} chunk(s) criado(s) como pending_review` +
           ` — fonte "${result.source}" v${result.sourceVersion}` +
-          (result.superseded > 0 ? ` (${result.superseded} chunk(s) anterior(es) marcado(s) como superseded)` : ''),
+          (result.superseded > 0
+            ? ` (${result.superseded} chunk(s) anterior(es) marcado(s) como superseded)`
+            : ''),
       );
     }
 

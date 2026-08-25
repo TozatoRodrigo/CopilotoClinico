@@ -6,6 +6,8 @@ export interface ChunkInput {
   evidenceLevel?: string;
   cenario?: string;
   redFlags?: string[];
+  // S21-CLIN-01 — ver GuidelineFrontMatter.subtipo em ingestion/front-matter.ts.
+  subtipo?: string;
 }
 
 export interface ChunkResult {
@@ -18,6 +20,7 @@ export interface ChunkResult {
     evidenceLevel?: string;
     cenario?: string;
     redFlags?: string[];
+    subtipo?: string;
     charStart: number;
     charEnd: number;
   };
@@ -27,7 +30,8 @@ const CHUNK_SIZE = 500;
 const OVERLAP = 50;
 
 export function chunkText(input: ChunkInput): ChunkResult[] {
-  const { text, source, sourceVersion, specialty, evidenceLevel, cenario, redFlags } = input;
+  const { text, source, sourceVersion, specialty, evidenceLevel, cenario, redFlags, subtipo } =
+    input;
 
   if (text.length === 0) {
     return [];
@@ -45,6 +49,7 @@ export function chunkText(input: ChunkInput): ChunkResult[] {
           evidenceLevel,
           cenario,
           redFlags,
+          subtipo,
           charStart: 0,
           charEnd: text.length,
         },
@@ -71,6 +76,7 @@ export function chunkText(input: ChunkInput): ChunkResult[] {
           evidenceLevel,
           cenario,
           redFlags,
+          subtipo,
           charStart: position,
           charEnd: end,
         },

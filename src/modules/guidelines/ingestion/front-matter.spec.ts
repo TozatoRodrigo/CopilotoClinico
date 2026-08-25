@@ -97,4 +97,31 @@ describe('parseGuidelineDocument', () => {
     expect(result.meta.cenario).toBe('sindrome_gripal');
     expect(result.meta.redFlags).toEqual(['dispneia', 'SpO2 < 95%', 'hipotensao']);
   });
+
+  it('S21-CLIN-01: parses subtipo for cannot-miss mutually-exclusive scenarios', () => {
+    const raw = [
+      '---',
+      'source: IBCC — AVC agudo',
+      'sourceVersion: Farkas J., EMCrit',
+      'specialty: neurologia',
+      'cenario: avc_agudo',
+      'subtipo: hemorragico',
+      '---',
+      'Corpo',
+    ].join('\n');
+
+    const result = parseGuidelineDocument(raw);
+
+    expect(result.meta.subtipo).toBe('hemorragico');
+  });
+
+  it('S21-CLIN-01: subtipo is undefined when absent (most cenarios have no dichotomy)', () => {
+    const raw = ['---', 'source: Diretriz X', 'sourceVersion: 1.0', 'specialty: clinica', '---', 'Corpo'].join(
+      '\n',
+    );
+
+    const result = parseGuidelineDocument(raw);
+
+    expect(result.meta.subtipo).toBeUndefined();
+  });
 });
