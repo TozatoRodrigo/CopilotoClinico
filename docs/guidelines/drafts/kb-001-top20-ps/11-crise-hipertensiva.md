@@ -14,3 +14,5 @@ Red flags típicas: déficit neurológico focal, rebaixamento/encefalopatia, dor
 Perguntas-chave para o copiloto: existe sintoma neurológico agudo, dor torácica, dispneia, edema agudo de pulmão, oligúria, gestação, uso de cocaína/simpaticomimético, ou sinais de dissecção. Sem essa diferenciação, qualquer recomendação de medicação anti-hipertensiva fica incompleta.
 
 O retrieval deve conectar “PA muito elevada” com “lesão de órgão-alvo” e não só com números absolutos. Essa distinção é essencial para evitar conduta medicocentrada porém clinicamente errada.
+
+Par de conduta oposta (S21-CLIN-01): baixar a PA de forma agressiva sem lesão de órgão-alvo é mais provável causar dano (hipoperfusão) do que baixar de forma controlada quando ela realmente existe. Ver cenário `crise_hipertensiva`/subtipo `emergencia_hipertensiva` e `crise_hipertensiva`/subtipo `pseudocrise_urgencia` (KB-004) para os critérios objetivos de lesão de órgão-alvo e as metas de redução de cada lado.

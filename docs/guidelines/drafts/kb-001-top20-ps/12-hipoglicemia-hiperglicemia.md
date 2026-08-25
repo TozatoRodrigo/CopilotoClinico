@@ -14,3 +14,5 @@ Na hiperglicemia, o raciocínio depende de vômitos, dor abdominal, respiração
 Perguntas-chave: o paciente está consciente e tolera via oral, há cetose/cetoacidose, existe desidratação grave, o potássio está baixo, há sinais infecciosos/sepse, existe alteração neurológica. Sem isso não dá para recomendar insulina ou alta com segurança.
 
 No material, frases com “rebaixamento do sensório”, “CAD”, “estado hiperosmolar”, “potássio” e “fator precipitante” precisam ter alta recuperabilidade porque são dados determinantes para a conduta.
+
+Este é exatamente o tipo de par com conduta oposta descrito no incidente que motivou o guardrail de coerência diagnóstica (S21-CLIN-01): dar insulina a um paciente hipoglicêmico, ou tratar uma cetoacidose como hiperglicemia simples sem checar potássio antes da insulina, são os dois erros de inversão possíveis aqui. Ver os cenários `hipoglicemia_hiperglicemia`/subtipo `hipoglicemia` e `hipoglicemia_hiperglicemia`/subtipo `cetoacidose_hiperosmolar` (KB-004) para o detalhamento de cada lado e a regra de segurança (nunca insulina com potássio <3,3-3,5mEq/L).
