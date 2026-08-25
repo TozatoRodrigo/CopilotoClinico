@@ -485,16 +485,65 @@ describe('GuidelinesService', () => {
   });
 
   describe('searchChunks', () => {
-    it('returns empty array for query shorter than 2 chars', async () => {
+    // S24-GUIDE-01 — antes, um termo curto/vazio devolvia `[]` sem consultar
+    // o banco, e a tela de Biblioteca (que só chamava a busca a partir de 2
+    // caracteres) ficava sempre vazia até o médico digitar algo, mesmo
+    // havendo diretrizes aprovadas. Agora query vazia lista tudo que está
+    // aprovado (modo biblioteca); só filtra por relevância quando há termo.
+    it('lists approved chunks (does not return empty / skip the query) when the search term is shorter than 2 chars', async () => {
+      prisma.$queryRawUnsafe.mockResolvedValue([
+        {
+          id: 'chunk-1',
+          source: 'WHO HTN 2023',
+          sourceVersion: '1.0',
+          specialty: 'cardiology',
+          evidenceLevel: 'A',
+          text: 'ACE inhibitors first-line',
+          metadata: {},
+          validFrom: new Date('2023-01-01'),
+          institutionId: null,
+          reviewerName: 'Dr. Silva',
+          rank: 0,
+        },
+      ]);
+
       const result = await service.searchChunks('a');
-      expect(result).toEqual([]);
-      expect(prisma.$queryRawUnsafe).not.toHaveBeenCalled();
+
+      expect(result).toHaveLength(1);
+      expect(prisma.$queryRawUnsafe).toHaveBeenCalledTimes(1);
+      const [sql] = prisma.$queryRawUnsafe.mock.calls[0]!;
+      expect(sql).toContain("status = 'approved'");
+      expect(sql).not.toContain('plainto_tsquery');
     });
 
-    it('returns empty array for whitespace-only query', async () => {
-      const result = await service.searchChunks('   ');
-      expect(result).toEqual([]);
-      expect(prisma.$queryRawUnsafe).not.toHaveBeenCalled();
+    it('lists approved chunks for a whitespace-only query too', async () => {
+      prisma.$queryRawUnsafe.mockResolvedValue([]);
+
+      await service.searchChunks('   ');
+
+      expect(prisma.$queryRawUnsafe).toHaveBeenCalledTimes(1);
+      const [sql] = prisma.$queryRawUnsafe.mock.calls[0]!;
+      expect(sql).not.toContain('plainto_tsquery');
+    });
+
+    it('browse mode (no query) defaults to limit and passes it as $1', async () => {
+      prisma.$queryRawUnsafe.mockResolvedValue([]);
+
+      await service.searchChunks('');
+
+      expect(prisma.$queryRawUnsafe).toHaveBeenCalledWith(expect.any(String), 20);
+    });
+
+    it('browse mode (no query) applies the specialty filter as $2', async () => {
+      prisma.$queryRawUnsafe.mockResolvedValue([]);
+
+      await service.searchChunks('', 'Clínica Médica');
+
+      expect(prisma.$queryRawUnsafe).toHaveBeenCalledWith(
+        expect.stringContaining('gc.specialty = $2'),
+        20,
+        'Clínica Médica',
+      );
     });
 
     it('calls $queryRawUnsafe with query and default limit', async () => {
