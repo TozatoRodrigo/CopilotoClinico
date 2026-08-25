@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/select";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
+import { QuickConsultBanner } from "@/components/domain/quick-consult-banner";
 import { Warning } from "@phosphor-icons/react";
 import { toast } from "sonner";
 
@@ -92,6 +93,10 @@ export default function DocumentsPage({
   );
   const hasUncertainInteraction = latestInteraction?.uncertainty ?? false;
   const uncertainReason = latestInteraction?.uncertaintyReason ?? null;
+  // S25-QC-02 — mesmo gate de encounters/[id]/result/page.tsx: sem
+  // identificação, o backend recusa gerar documento (documents.service.ts);
+  // desabilitar aqui evita o médico abrir o diálogo só pra levar o erro.
+  const isQuickConsult = encounterQuery.data?.patientRef === null;
 
   async function handleConfirm() {
     try {
@@ -164,10 +169,20 @@ export default function DocumentsPage({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-[1.75rem] font-normal leading-tight text-clinical-ink">Documentos</h1>
-        <Button onClick={() => setGenerateOpen(true)}>
+        <Button onClick={() => setGenerateOpen(true)} disabled={isQuickConsult}>
           Gerar Novo Documento
         </Button>
       </div>
+
+      {/* S25-QC-02 — sem identificação, nenhum documento pode ser gerado
+          ainda (ver isQuickConsult acima). */}
+      {isQuickConsult && (
+        <QuickConsultBanner
+          encounterId={encounterId}
+          description="Identifique o paciente para gerar SOAP, SBAR, prescrição, atestado ou alta."
+          successMessage="Paciente identificado — já pode gerar os documentos deste caso."
+        />
+      )}
 
       {/* Banner de incerteza — visível quando a análise do copiloto sinalizou evidência insuficiente */}
       {hasUncertainInteraction && (
@@ -189,7 +204,7 @@ export default function DocumentsPage({
             <p className="text-muted-foreground">
               Nenhum documento encontrado para este atendimento.
             </p>
-            <Button onClick={() => setGenerateOpen(true)}>
+            <Button onClick={() => setGenerateOpen(true)} disabled={isQuickConsult}>
               Gerar Primeiro Documento
             </Button>
           </CardContent>
