@@ -22,11 +22,11 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "seed:guidelines": "ts-node --project tsconfig.json -e \"require('ts-node/register')\" prisma/seeds/guidelines-seed.ts",
-    "seed:protocols": "ts-node --project tsconfig.json -e \"require('ts-node/register')\" prisma/seeds/protocols-seed.ts",
+    "seed:guidelines": "tsx prisma/seeds/guidelines-seed.ts",
+    "seed:protocols": "tsx prisma/seeds/protocols-seed.ts",
     "seed:e2e": "tsx scripts/seed-e2e-users.ts",
     "e2e:ui": "playwright test",
-    "ingest:guidelines": "ts-node --project tsconfig.json -r tsconfig-paths/register scripts/ingest-batch.ts"
+    "ingest:guidelines": "tsx scripts/ingest-batch.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1064.0",
