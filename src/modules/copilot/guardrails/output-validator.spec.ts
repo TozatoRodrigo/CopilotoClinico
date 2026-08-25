@@ -859,6 +859,190 @@ describe('validateOutput', () => {
     expect(result.unfoundedRecommendations).toEqual([]);
     expect(result.output?.recommendations.length).toBe(3);
   });
+
+  describe('S21-CLIN-01: unresolved subtype ambiguity guardrail', () => {
+    // Regressão do caso real de demo: déficit focal flutuante-reversível
+    // (padrão de isquemia/AIT) citado contra o chunk de AVC hemorrágico, sem
+    // que a alternativa isquêmica fosse sequer mencionada. Ver
+    // docs/guidelines-catalog.md (KB-003) e prompt-builder.ts (SUBTYPE /
+    // MUTUALLY-EXCLUSIVE CLASSIFICATION RULE) para o resto da correção.
+    const AVC_CHUNKS = [
+      { id: 'chunk-avc-isquemico', metadata: { cenario: 'avc_agudo', subtipo: 'isquemico' } },
+      { id: 'chunk-avc-hemorragico', metadata: { cenario: 'avc_agudo', subtipo: 'hemorragico' } },
+    ];
+    // Distinto de VALID_CHUNK_IDS (usado pelo resto do arquivo) para que os
+    // testes deste bloco exercitem só o guardrail de coerência, sem cair
+    // também no guardrail (não relacionado) de "citação sem chunk válido".
+    const AVC_CHUNK_IDS = AVC_CHUNKS.map((c) => c.id);
+
+    it('rejects citing only the hemorrhagic subtype when both subtypes were retrieved and the model shows no sign of having considered the alternative', () => {
+      const result = validateOutput(
+        makeValidOutput({
+          reasoning: 'Paciente com déficit focal agudo, TC com ASPECTS 10.',
+          recommendations: [
+            {
+              action: 'Reverter anticoagulação e controlar PA <150mmHg',
+              rationale: 'Conduta de hemorragia intracraniana',
+              citationChunkId: 'chunk-avc-hemorragico',
+              confidence: 0.8,
+            },
+          ],
+          differentials: [],
+        }),
+        AVC_CHUNK_IDS,
+        AVC_CHUNKS,
+      );
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.startsWith('UNRESOLVED SUBTYPE AMBIGUITY'))).toBe(true);
+    });
+
+    it('accepts the same citation when a differential covers the other subtype', () => {
+      const result = validateOutput(
+        makeValidOutput({
+          reasoning: 'Paciente com déficit focal agudo, TC com ASPECTS 10.',
+          recommendations: [
+            {
+              action: 'Reverter anticoagulação e controlar PA <150mmHg',
+              rationale: 'Conduta de hemorragia intracraniana',
+              citationChunkId: 'chunk-avc-hemorragico',
+              confidence: 0.8,
+            },
+          ],
+          differentials: [
+            {
+              hypothesis: 'AVC isquêmico / AIT',
+              whyConsider: 'Déficit fixo desde o início, sem padrão flutuante relatado.',
+              whatDistinguishes: 'Confirmar horário exato de início e se houve reversão.',
+              cannotMiss: true,
+              timeToHarm: 'horas',
+            },
+          ],
+        }),
+        AVC_CHUNK_IDS,
+        AVC_CHUNKS,
+      );
+      expect(result.valid).toBe(true);
+    });
+
+    it('accepts the same citation when reasoning explicitly names the discriminating alternative subtype', () => {
+      const result = validateOutput(
+        makeValidOutput({
+          reasoning:
+            'Déficit fixo e progressivo desde o início, sem reversão — padrão incompatível com isquemico/AIT, compatível com hemorragia.',
+          recommendations: [
+            {
+              action: 'Reverter anticoagulação e controlar PA <150mmHg',
+              rationale: 'Conduta de hemorragia intracraniana',
+              citationChunkId: 'chunk-avc-hemorragico',
+              confidence: 0.8,
+            },
+          ],
+          differentials: [],
+        }),
+        AVC_CHUNK_IDS,
+        AVC_CHUNKS,
+      );
+      expect(result.valid).toBe(true);
+    });
+
+    it('does not trigger when only one subtype was retrieved (no ambiguity to resolve)', () => {
+      const result = validateOutput(
+        makeValidOutput({
+          recommendations: [
+            {
+              action: 'Trombólise IV',
+              rationale: 'Dentro da janela de 4,5h',
+              citationChunkId: 'chunk-avc-isquemico',
+              confidence: 0.8,
+            },
+          ],
+          differentials: [],
+        }),
+        AVC_CHUNK_IDS,
+        [AVC_CHUNKS[0]!],
+      );
+      expect(result.valid).toBe(true);
+    });
+
+    it('does not trigger when retrieved chunks have no cenario/subtipo metadata (backward-compatible with content that predates this guardrail)', () => {
+      const result = validateOutput(
+        makeValidOutput({
+          recommendations: [
+            {
+              action: 'A',
+              rationale: 'R',
+              citationChunkId: 'chunk-1',
+              confidence: 0.8,
+            },
+          ],
+          differentials: [],
+        }),
+        VALID_CHUNK_IDS,
+        [
+          { id: 'chunk-1', metadata: {} },
+          { id: 'chunk-2', metadata: {} },
+        ],
+      );
+      expect(result.valid).toBe(true);
+    });
+
+    it('generalizes to any cenario/subtipo pair, not just AVC (proves the check is not domain-hardcoded)', () => {
+      const chunks = [
+        { id: 'chunk-x', metadata: { cenario: 'cenario_sintetico', subtipo: 'tipo_a' } },
+        { id: 'chunk-y', metadata: { cenario: 'cenario_sintetico', subtipo: 'tipo_b' } },
+      ];
+      const result = validateOutput(
+        makeValidOutput({
+          reasoning: 'Sem menção a nenhum dos dois subtipos.',
+          recommendations: [
+            {
+              action: 'Conduta do tipo A',
+              rationale: 'R',
+              citationChunkId: 'chunk-x',
+              confidence: 0.8,
+            },
+          ],
+          differentials: [],
+        }),
+        chunks.map((c) => c.id),
+        chunks,
+      );
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes('cenario_sintetico'))).toBe(true);
+    });
+
+    // KB-004 (docs/guidelines/drafts/kb-004-dicotomias-plantao/03-anafilaxia.md
+    // e 04-alergia-simples.md) — segunda dicotomia real de conduta oposta,
+    // além do caso original de AVC: tratar anafilaxia como alergia simples
+    // atrasa a adrenalina IM, e o atraso mata em minutos.
+    it('rejects treating a case as simple allergy without addressing anaphylaxis when both subtypes were retrieved for anafilaxia_urticaria', () => {
+      const chunks = [
+        { id: 'chunk-anafilaxia', metadata: { cenario: 'anafilaxia_urticaria', subtipo: 'anafilaxia' } },
+        {
+          id: 'chunk-alergia-simples',
+          metadata: { cenario: 'anafilaxia_urticaria', subtipo: 'alergia_simples' },
+        },
+      ];
+      const result = validateOutput(
+        makeValidOutput({
+          reasoning: 'Paciente com urticária após exposição a alérgeno conhecido.',
+          recommendations: [
+            {
+              action: 'Anti-histamínico oral e observação',
+              rationale: 'Reação alérgica localizada',
+              citationChunkId: 'chunk-alergia-simples',
+              confidence: 0.7,
+            },
+          ],
+          differentials: [],
+        }),
+        chunks.map((c) => c.id),
+        chunks,
+      );
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.startsWith('UNRESOLVED SUBTYPE AMBIGUITY'))).toBe(true);
+    });
+  });
 });
 
 describe('CopilotOutputSchema', () => {

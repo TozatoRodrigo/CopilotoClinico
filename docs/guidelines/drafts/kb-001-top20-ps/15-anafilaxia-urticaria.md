@@ -14,3 +14,5 @@ Presença de sintomas cutâneos isolados pode permitir abordagem mais conservado
 Perguntas-chave: qual foi a exposição, quando os sintomas começaram, existe acometimento respiratório, edema de língua/lábios, hipotensão, síncope, vômitos importantes ou história prévia de anafilaxia. Sem isso, o sistema tende a subestimar gravidade.
 
 No material de recuperação, “estridor”, “broncoespasmo”, “hipotensão” e “edema de língua” precisam aparecer de forma explícita porque são red flags que mudam a conduta imediatamente.
+
+Par de conduta oposta (S21-CLIN-01): tratar anafilaxia como “urticária forte” atrasa a adrenalina IM — atraso que mata em minutos; já dar adrenalina desnecessariamente numa alergia simples é um erro bem menor. Na dúvida entre os dois, a orientação de segurança é sempre tratar como anafilaxia. Ver cenário `anafilaxia_urticaria`/subtipo `anafilaxia` e `anafilaxia_urticaria`/subtipo `alergia_simples` (KB-004) para os critérios completos de diferenciação.

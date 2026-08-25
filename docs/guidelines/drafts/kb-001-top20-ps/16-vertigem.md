@@ -13,4 +13,6 @@ Déficit focal, ataxia incapacitante, incapacidade de deambular, cefaleia intens
 
 Perguntas-chave: os sintomas são contínuos ou desencadeados por posição, existe nistagmo atípico, o paciente consegue andar, há cefaleia importante, perda auditiva súbita, diplopia ou outros déficits. Isso define se a conduta é manobra posicional, observação ou investigação vascular urgente.
 
+O mesmo erro de classificação descrito no cenário `avc_agudo` se aplica aqui: vertigem isolada com padrão flutuante ou recorrente-reversível não é automaticamente "benigna" só por não ser um déficit fixo — pode representar insuficiência vertebrobasilar ou AVC de fossa posterior com estenose crítica e recanalização parcial, o mesmo mecanismo que produz déficits motores intermitentes (IBCC — Approach to focal neurologic deficit). Idade jovem isoladamente não afasta causa central quando há fator de risco vascular relevante (HAS, tabagismo, dissecção de artéria cervical). Nesses casos, a ausência de outros achados neurológicos ao exame pesa mais do que a duração curta de cada episódio.
+
 Para retrieval, os termos “incapacidade de deambular”, “déficit focal”, “cefaleia intensa” e “novo déficit auditivo” devem ser fortes porque representam as red flags que mais mudam destino.

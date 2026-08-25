@@ -109,7 +109,23 @@ export interface ValidationResult {
   unfoundedRecommendations: number[];
 }
 
-export function validateOutput(rawOutput: string, validChunkIds: string[]): ValidationResult {
+/**
+ * S21-CLIN-01 — subset dos campos do chunk recuperado necessário para o
+ * guardrail de coerência de classificação (ver `findUnresolvedSubtypeAmbiguity`
+ * abaixo). Deliberadamente mínimo — não é o `RetrievedChunk` completo do
+ * hybrid-search para não acoplar este módulo de guardrails ao módulo de
+ * retrieval; qualquer chamador (orchestrator.service.ts) já tem esse shape.
+ */
+export interface ChunkForCoherenceCheck {
+  id: string;
+  metadata?: Record<string, unknown> | null;
+}
+
+export function validateOutput(
+  rawOutput: string,
+  validChunkIds: string[],
+  retrievedChunks: ChunkForCoherenceCheck[] = [],
+): ValidationResult {
   const errors: string[] = [];
 
   let parsed: unknown;
@@ -185,6 +201,31 @@ export function validateOutput(rawOutput: string, validChunkIds: string[]): Vali
         'clarifying question. Declaring uncertainty alone leaves the physician with ' +
         'no next step. If evidence is insufficient, ask the triage questions needed ' +
         'to narrow the case instead of stopping.',
+    );
+  }
+
+  // S21-CLIN-01 — guardrail de coerência diagnóstica. Motivado pelo caso de
+  // demo em que o Copiloto citou o chunk de "AVC hemorrágico" para um caso
+  // com déficit flutuante e reversível (padrão de isquemia/AIT, incompatível
+  // com hemorragia ativa) enquanto Open Evidence e Volts foram para
+  // isquêmico — sem que nada no output desse sinal de que a alternativa
+  // hemorrágica x isquêmica havia sido sequer considerada. A causa raiz de
+  // conteúdo (base sem chunk de classificação) foi endereçada em KB-003; este
+  // é o backstop estrutural para quando a evidência retornada já cobre dois
+  // subtipos mutuamente exclusivos do mesmo cenário mas o modelo cita só um
+  // sem evidenciar que pesou a alternativa — mesmo padrão do guardrail
+  // DEAD END acima (checagem estrutural, não NLP pesada), pareado com a
+  // SUBTYPE / MUTUALLY-EXCLUSIVE CLASSIFICATION RULE em prompt-builder.ts.
+  const subtypeOffense = findUnresolvedSubtypeAmbiguity(output, retrievedChunks);
+  if (subtypeOffense) {
+    errors.push(
+      `UNRESOLVED SUBTYPE AMBIGUITY: evidence retrieved for cenario "${subtypeOffense.cenario}" ` +
+        `covers mutually exclusive subtypes (${subtypeOffense.subtypes.join(', ')}) with opposite ` +
+        `management, and a recommendation cited "${subtypeOffense.citedSubtype}" without the output ` +
+        'showing the other subtype was considered. Either add a differential covering the other ' +
+        'subtype (cannotMiss when appropriate), or explicitly name the discriminating clinical ' +
+        'feature that rules it out in "reasoning" — never cite a subtype-specific recommendation ' +
+        'silently when the retrieved evidence itself is ambiguous.',
     );
   }
 
@@ -266,6 +307,85 @@ function findAnswerTypeMismatches(
     }
   });
   return offenses;
+}
+
+interface SubtypeOffense {
+  cenario: string;
+  subtypes: string[];
+  citedSubtype: string;
+}
+
+function normalize(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '') // remove acentos (marcas diacríticas combinantes)
+    .toLowerCase();
+}
+
+/**
+ * S21-CLIN-01 — Detecta quando (a) os chunks recuperados para o mesmo
+ * `cenario` cobrem ≥2 valores distintos de `subtipo` (ex.: "isquemico" e
+ * "hemorragico" dentro de `avc_agudo` — ver metadata dos chunks seedados em
+ * prisma/seeds/guidelines-seed.ts), e (b) uma recomendação citou um chunk de
+ * um desses subtipos. Nesse caso, exige evidência estrutural de que a
+ * alternativa foi considerada: OU `differentials` não está vazio, OU
+ * `reasoning` menciona textualmente outro subtipo em conflito. Não tenta
+ * verificar SE a justificativa é clinicamente correta — isso é trabalho do
+ * médico revisando o output, não do validador. O validador só barra o caso
+ * em que a ambiguidade é citada em silêncio, sem nenhum dos dois sinais.
+ *
+ * Deliberadamente genérico: não depende de nenhuma string de domínio clínico
+ * ("AVC", "hemorrágico" etc.) — funciona para qualquer par `cenario`/`subtipo`
+ * presente na metadata dos chunks, então cobre futuras curadorias com o
+ * mesmo formato de metadata sem precisar de mudança de código.
+ */
+function findUnresolvedSubtypeAmbiguity(
+  output: CopilotOutput,
+  retrievedChunks: ChunkForCoherenceCheck[],
+): SubtypeOffense | null {
+  if (retrievedChunks.length === 0 || output.recommendations.length === 0) return null;
+
+  const byCenario = new Map<string, Map<string, Set<string>>>(); // cenario -> subtipo -> chunkIds
+  for (const chunk of retrievedChunks) {
+    const cenario = chunk.metadata?.['cenario'];
+    const subtipo = chunk.metadata?.['subtipo'];
+    if (typeof cenario !== 'string' || typeof subtipo !== 'string' || !cenario || !subtipo)
+      continue;
+
+    if (!byCenario.has(cenario)) byCenario.set(cenario, new Map());
+    const subtypeMap = byCenario.get(cenario)!;
+    if (!subtypeMap.has(subtipo)) subtypeMap.set(subtipo, new Set());
+    subtypeMap.get(subtipo)!.add(chunk.id);
+  }
+
+  for (const [cenario, subtypeMap] of byCenario) {
+    if (subtypeMap.size < 2) continue; // só um subtipo retornado — nada ambíguo
+
+    const citedSubtype = output.recommendations
+      .map((rec) => {
+        for (const [subtipo, chunkIds] of subtypeMap) {
+          if (chunkIds.has(rec.citationChunkId)) return subtipo;
+        }
+        return null;
+      })
+      .find((s): s is string => s !== null);
+
+    if (!citedSubtype) continue; // recomendações citaram chunks fora deste grupo ambíguo
+
+    const otherSubtypes = [...subtypeMap.keys()].filter((s) => s !== citedSubtype);
+
+    const hasDifferential = output.differentials.length > 0;
+    const reasoningNormalized = normalize(output.reasoning);
+    const reasoningMentionsAlternative = otherSubtypes.some((s) =>
+      reasoningNormalized.includes(normalize(s)),
+    );
+
+    if (!hasDifferential && !reasoningMentionsAlternative) {
+      return { cenario, subtypes: [...subtypeMap.keys()], citedSubtype };
+    }
+  }
+
+  return null;
 }
 
 function findProbabilityLanguageInDifferentials(

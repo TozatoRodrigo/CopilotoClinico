@@ -110,6 +110,30 @@ describe('GuidelinesService', () => {
       });
     });
 
+    it('S21-CLIN-01: persists subtipo on chunk metadata when provided (required for the diagnostic-coherence guardrail to engage)', async () => {
+      prisma.guidelineChunk.create.mockResolvedValue({ id: 'chunk-uuid-1' });
+
+      await service.ingest({ ...baseIngestInput, subtipo: 'hemorragico' });
+
+      expect(prisma.guidelineChunk.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          metadata: expect.objectContaining({ subtipo: 'hemorragico' }),
+        }),
+      });
+    });
+
+    it('S21-CLIN-01: defaults subtipo to null when not provided (most cenarios have no mutually-exclusive dichotomy)', async () => {
+      prisma.guidelineChunk.create.mockResolvedValue({ id: 'chunk-uuid-1' });
+
+      await service.ingest(baseIngestInput);
+
+      expect(prisma.guidelineChunk.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          metadata: expect.objectContaining({ subtipo: null }),
+        }),
+      });
+    });
+
     it('handles long text by creating multiple chunks', async () => {
       const longText = 'X'.repeat(1200);
       const input: IngestGuidelineInput = { ...baseIngestInput, text: longText };

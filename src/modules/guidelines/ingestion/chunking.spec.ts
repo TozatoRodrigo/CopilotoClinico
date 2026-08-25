@@ -80,6 +80,15 @@ describe('chunkText', () => {
     }
   });
 
+  it('S21-CLIN-01: propagates subtipo into chunk metadata when present (required for the diagnostic-coherence guardrail to see it after ingestion)', () => {
+    const text = 'D'.repeat(600);
+    const result = chunkText({ ...baseInput, text, subtipo: 'hemorragico' });
+
+    for (const chunk of result) {
+      expect(chunk.metadata.subtipo).toBe('hemorragico');
+    }
+  });
+
   it('handles optional evidenceLevel being undefined', () => {
     const text = 'Some text here for testing.';
     const result = chunkText({ ...baseInput, text, evidenceLevel: undefined });
