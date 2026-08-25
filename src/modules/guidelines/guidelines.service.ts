@@ -30,6 +30,20 @@ export interface BatchIngestResult {
   superseded: number;
 }
 
+export interface GuidelineChunkSearchRow {
+  id: string;
+  source: string;
+  sourceVersion: string;
+  specialty: string;
+  evidenceLevel: string | null;
+  text: string;
+  metadata: unknown;
+  validFrom: Date;
+  institutionId: string | null;
+  reviewerName: string | null;
+  rank: number;
+}
+
 export interface PendingGuidelineChunk {
   id: string;
   source: string;
@@ -208,27 +222,25 @@ export class GuidelinesService {
    * Usa tsvector full-text do Postgres (rápido, sem custo de embedding).
    * Retorna apenas chunks vigentes (valid_to IS NULL).
    */
+  /**
+   * S24-GUIDE-01 — antes desta mudança, um termo de busca vazio devolvia
+   * `[]` (aqui) e a tela de Biblioteca nem chegava a chamar este método
+   * (`enabled: query.length >= 2` no front) — resultado: a página de
+   * diretrizes sempre parecia vazia até o médico digitar algo, mesmo
+   * havendo dezenas de diretrizes aprovadas. `query` agora só filtra
+   * quando preenchido (busca textual com ranking); vazio lista tudo que
+   * está aprovado, mais recente primeiro dentro de cada fonte.
+   */
   async searchChunks(
     query: string,
     specialty?: string,
     limit: number = 20,
-  ): Promise<
-    Array<{
-      id: string;
-      source: string;
-      sourceVersion: string;
-      specialty: string;
-      evidenceLevel: string | null;
-      text: string;
-      metadata: unknown;
-      validFrom: Date;
-      institutionId: string | null;
-      reviewerName: string | null;
-      rank: number;
-    }>
-  > {
+  ): Promise<GuidelineChunkSearchRow[]> {
     const trimmed = query.trim();
-    if (trimmed.length < 2) return [];
+
+    if (trimmed.length < 2) {
+      return this.listApprovedChunks(specialty, limit);
+    }
 
     const params: unknown[] = [trimmed, limit];
     let specialtyClause = '';
@@ -256,19 +268,40 @@ export class GuidelinesService {
       ...params,
     );
 
-    return rows as Array<{
-      id: string;
-      source: string;
-      sourceVersion: string;
-      specialty: string;
-      evidenceLevel: string | null;
-      text: string;
-      metadata: unknown;
-      validFrom: Date;
-      institutionId: string | null;
-      reviewerName: string | null;
-      rank: number;
-    }>;
+    return rows as GuidelineChunkSearchRow[];
+  }
+
+  /** S24-GUIDE-01 — modo "biblioteca": sem termo de busca, lista tudo que está aprovado. */
+  private async listApprovedChunks(
+    specialty: string | undefined,
+    limit: number,
+  ): Promise<GuidelineChunkSearchRow[]> {
+    const params: unknown[] = [limit];
+    let specialtyClause = '';
+    if (specialty) {
+      params.push(specialty);
+      specialtyClause = `AND gc.specialty = $${params.length}`;
+    }
+
+    const rows = await this.prisma.$queryRawUnsafe(
+      `SELECT
+         gc.id, gc.source, gc.source_version AS "sourceVersion",
+         gc.specialty, gc.evidence_level AS "evidenceLevel",
+         gc.text, gc.metadata, gc.valid_from AS "validFrom",
+         gc.institution_id AS "institutionId",
+         p.name AS "reviewerName",
+         0::real AS rank
+       FROM guideline_chunks gc
+       LEFT JOIN physicians p ON p.id = gc.reviewed_by
+       WHERE gc.status = 'approved'
+         AND gc.valid_to IS NULL
+         ${specialtyClause}
+       ORDER BY gc.source ASC, gc.valid_from DESC
+       LIMIT $1`,
+      ...params,
+    );
+
+    return rows as GuidelineChunkSearchRow[];
   }
 
   async getChunkById(id: string) {

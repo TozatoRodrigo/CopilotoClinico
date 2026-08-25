@@ -250,15 +250,23 @@ export function usePendingGuidelineChunks() {
   });
 }
 
-export function useGuidelineSearch(query: string, specialty?: string) {
+// S24-GUIDE-01 — antes, `enabled: query.length >= 2` significava que a
+// Biblioteca nunca disparava a busca com o campo vazio, então a página
+// parecia sem nenhuma diretriz até o médico digitar algo. Agora sempre
+// busca (mesmo com query vazia — o backend lista tudo que está aprovado
+// nesse caso); `query`/`specialty` continuam sendo apenas um filtro
+// opcional, não um pré-requisito para ver algo na tela. `limit` sobe para
+// 50 (teto já aplicado pelo controller) quando quem chama quer o efeito de
+// "listar tudo" em vez do recorte padrão de 20.
+export function useGuidelineSearch(query: string, specialty?: string, limit?: number) {
   return useQuery({
     queryKey: clinicalQueryKeys.guidelineSearch(query, specialty),
     queryFn: () => {
       const params = new URLSearchParams({ q: query });
       if (specialty) params.set('specialty', specialty);
+      if (limit) params.set('limit', String(limit));
       return apiClient.get<GuidelineSearchResult[]>(`/guidelines/search?${params.toString()}`);
     },
-    enabled: query.trim().length >= 2,
     placeholderData: keepPreviousData,
   });
 }

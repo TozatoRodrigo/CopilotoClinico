@@ -3,7 +3,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
-  BookOpen,
   Check,
   CheckCircle,
   Clock,
@@ -257,14 +256,18 @@ export default function GuidelinesPage() {
   const isCurator = role === 'compliance' || role === 'admin';
   const specialty = SPECIALTY_MAP[activePill];
 
-  const { data, isLoading, isError } = useGuidelineSearch(query, specialty);
+  // S24-GUIDE-01 — sem query, isto lista tudo que está aprovado (modo
+  // biblioteca); com query, filtra por relevância. limit=50 para que
+  // "listar tudo" realmente mostre tudo, não só o recorte padrão de 20.
+  const hasQuery = query.trim().length >= 2;
+  const { data, isLoading, isError } = useGuidelineSearch(query, specialty, 50);
   // UX — "Usar no caso atual": leva o trecho encontrado direto para a
   // análise do caso mais recente em revisão do médico, em vez de deixar o
   // botão sem destino.
   const activeCaseQuery = useEncounterList({ status: 'in_review', limit: 1 });
   const targetEncounterId = activeCaseQuery.data?.data[0]?.id;
 
-  const hasResults = !isLoading && !isError && data && data.length > 0 && query.trim().length >= 2;
+  const hasResults = !isLoading && !isError && data && data.length > 0;
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
@@ -334,13 +337,10 @@ export default function GuidelinesPage() {
             </button>
           </div>
 
-          {/* Results */}
-          {query.trim().length < 2 ? (
-            <div className="flex flex-col items-center gap-3 py-12 text-center">
-              <BookOpen className="size-10 text-muted-foreground" weight="duotone" />
-              <p className="text-sm text-muted-foreground">Digite ao menos 2 caracteres para buscar.</p>
-            </div>
-          ) : isLoading ? (
+          {/* Results — S24-GUIDE-01: sem query mostra a biblioteca inteira
+              (aprovadas), com query filtra por relevância. Nunca fica vazia
+              só por falta de termo digitado. */}
+          {isLoading ? (
             <div className="space-y-3">
               {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-[14px]" />)}
             </div>
@@ -349,16 +349,18 @@ export default function GuidelinesPage() {
           ) : !data || data.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-12 text-center">
               <MagnifyingGlass className="size-8 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">Nenhum resultado para "{query}".</p>
+              <p className="text-sm text-muted-foreground">
+                {hasQuery ? `Nenhum resultado para "${query}".` : 'Nenhuma diretriz aprovada ainda.'}
+              </p>
             </div>
           ) : (
             <div className="space-y-3">
-              {/* Direct answer */}
-              <DirectAnswerCard results={data} targetEncounterId={targetEncounterId} />
+              {/* Direct answer — só faz sentido como resposta a uma busca real */}
+              {hasQuery && <DirectAnswerCard results={data} targetEncounterId={targetEncounterId} />}
 
               {/* Source cards */}
               <div className="flex flex-col gap-2.5">
-                {data.slice(0, 5).map((result, i) => (
+                {data.slice(0, hasQuery ? 5 : data.length).map((result, i) => (
                   <SourceCard key={result.id} result={result} num={i + 1} />
                 ))}
               </div>
