@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
+  CaretDown,
   Check,
   CheckCircle,
   Clock,
@@ -33,13 +34,22 @@ import type { GuidelineSearchResult, PendingGuidelineChunk } from '@/lib/types';
 
 const FILTER_PILLS = ['Todas', 'Trauma', 'Cardíaco', 'Pediátrico', 'Neuro', 'Geral'];
 
+// S24-GUIDE-02 — os valores de `specialty` no banco são os slugs em
+// snake_case usados na curadoria (ver front-matter de
+// docs/guidelines/drafts/**/*.md e prisma/seeds/guidelines-seed.ts), nunca
+// os rótulos em português com acento que apareciam aqui antes
+// ('Cardiologia', 'Emergência'...). Como `gc.specialty = $N` no backend é
+// comparação exata, o mapa antigo não batia com nenhum valor real — todo
+// filtro além de "Todas" devolvia lista vazia, mesmo com diretrizes daquela
+// especialidade aprovadas. "Pediátrico" continua sem resultado até existir
+// conteúdo curado com specialty "pediatria" — isso é esperado, não é bug.
 const SPECIALTY_MAP: Record<string, string | undefined> = {
   Todas: undefined,
-  Trauma: 'Emergência',
-  Cardíaco: 'Cardiologia',
-  Pediátrico: 'Pediatria',
-  Neuro: 'Neurologia',
-  Geral: 'Clínica Médica',
+  Trauma: 'cirurgia_trauma',
+  Cardíaco: 'cardiologia',
+  Pediátrico: 'pediatria',
+  Neuro: 'neurologia',
+  Geral: 'clinica_medica',
 };
 
 function composeAnswer(results: GuidelineSearchResult[]): { text: string; count: number } {
@@ -110,7 +120,12 @@ function DirectAnswerCard({
   );
 }
 
+// S24-GUIDE-02 — o card não tinha nenhum onClick; "Abrir →" era um <span>
+// sem handler, só aparecia em protocolo institucional, e mesmo lá não
+// levava a lugar nenhum. Clicar num card agora expande e mostra o texto
+// completo da diretriz (já vem no payload da busca — sem requisição nova).
 function SourceCard({ result, num }: { result: GuidelineSearchResult; num: number }) {
+  const [expanded, setExpanded] = useState(false);
   const origin = result.institutionId ? 'institutional' : 'public';
   const snippet = result.text.length > 180 ? result.text.slice(0, 180).trim() + '…' : result.text;
   const dateStr = new Date(result.validFrom).toLocaleDateString('pt-BR', {
@@ -119,33 +134,53 @@ function SourceCard({ result, num }: { result: GuidelineSearchResult; num: numbe
   });
 
   return (
-    <div className="flex items-center gap-3.5 rounded-[14px] border border-clinical-line bg-card p-4">
-      <span className="shrink-0 font-mono text-[0.75rem] text-clinical-teal-deep">[{num}]</span>
-      <div className="min-w-0 flex-1">
-        <p className="text-[0.85rem] font-semibold">
-          {result.source}{' '}
-          <span className="font-mono text-[0.7rem] font-normal text-muted-foreground">
-            v{result.sourceVersion} · {dateStr}
-          </span>
-        </p>
-        <p className="mt-0.5 line-clamp-2 text-[0.8rem] leading-relaxed text-muted-foreground">
-          "{snippet}"
-        </p>
-      </div>
-      <span
-        className={cn(
-          'shrink-0 rounded-full px-2.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide',
-          origin === 'institutional'
-            ? 'bg-clinical-teal-tint text-clinical-teal-deep'
-            : 'border border-clinical-line text-muted-foreground',
-        )}
+    <div className="rounded-[14px] border border-clinical-line bg-card">
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
+        className="flex w-full items-center gap-3.5 p-4 text-left"
       >
-        {origin === 'institutional' ? 'Protocolo inst.' : 'Diretriz pública'}
-      </span>
-      {origin === 'institutional' && (
-        <span className="shrink-0 text-[0.8rem] font-semibold text-clinical-teal hover:text-clinical-teal-deep">
-          Abrir →
+        <span className="shrink-0 font-mono text-[0.75rem] text-clinical-teal-deep">[{num}]</span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[0.85rem] font-semibold">
+            {result.source}{' '}
+            <span className="font-mono text-[0.7rem] font-normal text-muted-foreground">
+              v{result.sourceVersion} · {dateStr}
+            </span>
+          </p>
+          {!expanded && (
+            <p className="mt-0.5 line-clamp-2 text-[0.8rem] leading-relaxed text-muted-foreground">
+              "{snippet}"
+            </p>
+          )}
+        </div>
+        <span
+          className={cn(
+            'shrink-0 rounded-full px-2.5 py-0.5 text-[0.65rem] font-bold uppercase tracking-wide',
+            origin === 'institutional'
+              ? 'bg-clinical-teal-tint text-clinical-teal-deep'
+              : 'border border-clinical-line text-muted-foreground',
+          )}
+        >
+          {origin === 'institutional' ? 'Protocolo inst.' : 'Diretriz pública'}
         </span>
+        <CaretDown
+          className={cn(
+            'size-4 shrink-0 text-muted-foreground transition-transform',
+            expanded && 'rotate-180',
+          )}
+        />
+      </button>
+      {expanded && (
+        <div className="border-t border-clinical-line px-4 pb-4 pt-3">
+          <p className="whitespace-pre-line text-[0.85rem] leading-relaxed">{result.text}</p>
+          <p className="mt-3 font-mono text-[0.7rem] uppercase tracking-wide text-muted-foreground">
+            {result.specialty}
+            {result.evidenceLevel ? ` · evidência ${result.evidenceLevel}` : ''}
+            {result.reviewerName ? ` · revisado por ${result.reviewerName}` : ''}
+          </p>
+        </div>
       )}
     </div>
   );
