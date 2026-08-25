@@ -123,7 +123,10 @@ function sortRecommendations<T extends CopilotOutput['recommendations'][number]>
  * Defense-in-depth: opera APÓS maskPII() para cobrir casos que o filtro
  * geral de PII não captura (ex: identificadores de prontuário específicos).
  */
-function redactPatientRef(text: string, patientRef: string): string {
+// S25-QC-01 — patientRef agora é opcional (consulta rápida); o `!patientRef`
+// já cobria string vazia e continua cobrindo `null`/`undefined` sem mudança
+// de comportamento.
+function redactPatientRef(text: string, patientRef: string | null): string {
   if (!patientRef) return text;
   return text.split(patientRef).join('[PATIENT_REF_REDACTED]');
 }

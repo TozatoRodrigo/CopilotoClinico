@@ -42,6 +42,9 @@ describe('EncountersService', () => {
     aiInteraction: {
       findMany: ReturnType<typeof vi.fn>;
     };
+    document: {
+      count: ReturnType<typeof vi.fn>;
+    };
   };
   let institutionsService: { listForPhysician: ReturnType<typeof vi.fn> };
 
@@ -60,6 +63,9 @@ describe('EncountersService', () => {
       // cada encontro em lote para expor highestRedFlagSeverity/lastInteractionAt.
       aiInteraction: {
         findMany: vi.fn().mockResolvedValue([]),
+      },
+      document: {
+        count: vi.fn().mockResolvedValue(0),
       },
     };
 
@@ -152,6 +158,48 @@ describe('EncountersService', () => {
 
       expect(prisma.encounter.create).not.toHaveBeenCalled();
     });
+
+    // S25-QC-01 — sem identificação do paciente, o encontro nasce como
+    // "consulta rápida": patientRef null, de fora do Plantão até ser
+    // identificado depois (ver findByPhysician / update abaixo).
+    describe('S25-QC-01: consulta rápida (patientRef opcional)', () => {
+      it('creates a quick-consult encounter with patientRef null when patientRef is omitted', async () => {
+        prisma.encounter.create.mockResolvedValue({ ...baseEncounter, patientRef: null });
+
+        await service.create(physicianId, {
+          vertical: 'trauma',
+          context: { hasCT: false, isSus: false, hasLab: false, hasICU: false },
+        });
+
+        expect(prisma.encounter.create).toHaveBeenCalledWith(
+          expect.objectContaining({ data: expect.objectContaining({ patientRef: null }) }),
+        );
+      });
+
+      it('audits identified: false for a quick consult and identified: true for a regular case', async () => {
+        const auditLog = vi.fn().mockResolvedValue(undefined);
+        const serviceWithAuditSpy = new EncountersService(
+          prisma as unknown as PrismaService,
+          { log: auditLog } as unknown as AuditService,
+          institutionsService as unknown as InstitutionsService,
+        );
+
+        prisma.encounter.create.mockResolvedValueOnce({ ...baseEncounter, patientRef: null });
+        await serviceWithAuditSpy.create(physicianId, {
+          vertical: 'trauma',
+          context: { hasCT: false, isSus: false, hasLab: false, hasICU: false },
+        });
+        expect(auditLog).toHaveBeenCalledWith(
+          expect.objectContaining({ payload: expect.objectContaining({ identified: false }) }),
+        );
+
+        prisma.encounter.create.mockResolvedValueOnce(baseEncounter);
+        await serviceWithAuditSpy.create(physicianId, createInput);
+        expect(auditLog).toHaveBeenLastCalledWith(
+          expect.objectContaining({ payload: expect.objectContaining({ identified: true }) }),
+        );
+      });
+    });
   });
 
   describe('findById', () => {
@@ -215,10 +263,12 @@ describe('EncountersService', () => {
       prisma.encounter.findMany.mockResolvedValue(encounters);
       prisma.encounter.count.mockResolvedValue(2);
 
-      const result = await service.findByPhysician(physicianId, { page: 1, limit: 20 });
+      const result = await service.findByPhysician(physicianId, { page: 1, limit: 20, includeUnidentified: false });
 
+      // S25-QC-01 — `patientRef: { not: null }` é o filtro padrão do
+      // Plantão (consultas rápidas ficam de fora até serem identificadas).
       expect(prisma.encounter.findMany).toHaveBeenCalledWith({
-        where: { physicianId },
+        where: { physicianId, patientRef: { not: null } },
         orderBy: { createdAt: 'desc' },
         skip: 0,
         take: 20,
@@ -233,7 +283,7 @@ describe('EncountersService', () => {
         },
       });
       expect(prisma.encounter.count).toHaveBeenCalledWith({
-        where: { physicianId },
+        where: { physicianId, patientRef: { not: null } },
       });
       expect(result).toEqual({
         // PI-01 — cada encontro ganha highestRedFlagSeverity/lastInteractionAt;
@@ -266,7 +316,7 @@ describe('EncountersService', () => {
           },
         ]);
 
-        const result = await service.findByPhysician(physicianId, { page: 1, limit: 20 });
+        const result = await service.findByPhysician(physicianId, { page: 1, limit: 20, includeUnidentified: false });
 
         expect(result.data[0]?.highestRedFlagSeverity).toBe('critical');
         expect(result.data[0]?.lastInteractionAt).toBe('2025-06-01T10:00:00.000Z');
@@ -281,7 +331,7 @@ describe('EncountersService', () => {
         prisma.encounter.count.mockResolvedValue(3);
         prisma.aiInteraction.findMany.mockResolvedValue([]);
 
-        await service.findByPhysician(physicianId, { page: 1, limit: 20 });
+        await service.findByPhysician(physicianId, { page: 1, limit: 20, includeUnidentified: false });
 
         expect(prisma.aiInteraction.findMany).toHaveBeenCalledTimes(1);
         expect(prisma.aiInteraction.findMany).toHaveBeenCalledWith({
@@ -308,7 +358,7 @@ describe('EncountersService', () => {
           },
         ]);
 
-        const result = await service.findByPhysician(physicianId, { page: 1, limit: 20 });
+        const result = await service.findByPhysician(physicianId, { page: 1, limit: 20, includeUnidentified: false });
 
         // O choque crítico foi do turno 1, já reavaliado — o turno mais
         // recente só tem achado moderado. O alerta reflete o AGORA.
@@ -322,7 +372,7 @@ describe('EncountersService', () => {
           { encounterId: 'enc-1', createdAt: new Date('2025-06-01T10:00:00Z'), rawOutput: { redFlags: [] } },
         ]);
 
-        const result = await service.findByPhysician(physicianId, { page: 1, limit: 20 });
+        const result = await service.findByPhysician(physicianId, { page: 1, limit: 20, includeUnidentified: false });
 
         expect(result.data[0]?.highestRedFlagSeverity).toBeNull();
         expect(result.data[0]?.lastInteractionAt).not.toBeNull();
@@ -333,7 +383,7 @@ describe('EncountersService', () => {
         prisma.encounter.count.mockResolvedValue(1);
         prisma.aiInteraction.findMany.mockResolvedValue([]);
 
-        const result = await service.findByPhysician(physicianId, { page: 1, limit: 20 });
+        const result = await service.findByPhysician(physicianId, { page: 1, limit: 20, includeUnidentified: false });
 
         expect(result.data[0]?.highestRedFlagSeverity).toBeNull();
         expect(result.data[0]?.lastInteractionAt).toBeNull();
@@ -346,7 +396,7 @@ describe('EncountersService', () => {
           { encounterId: 'enc-1', createdAt: new Date('2025-06-01T10:00:00Z'), rawOutput: { reasoning: 'x' } },
         ]);
 
-        const result = await service.findByPhysician(physicianId, { page: 1, limit: 20 });
+        const result = await service.findByPhysician(physicianId, { page: 1, limit: 20, includeUnidentified: false });
 
         expect(result.data[0]?.highestRedFlagSeverity).toBeNull();
       });
@@ -355,7 +405,7 @@ describe('EncountersService', () => {
         prisma.encounter.findMany.mockResolvedValue([]);
         prisma.encounter.count.mockResolvedValue(0);
 
-        await service.findByPhysician(physicianId, { page: 1, limit: 20 });
+        await service.findByPhysician(physicianId, { page: 1, limit: 20, includeUnidentified: false });
 
         expect(prisma.aiInteraction.findMany).not.toHaveBeenCalled();
       });
@@ -379,7 +429,7 @@ describe('EncountersService', () => {
           },
         ]);
 
-        const result = await service.findByPhysician(physicianId, { page: 1, limit: 20 });
+        const result = await service.findByPhysician(physicianId, { page: 1, limit: 20, includeUnidentified: false });
 
         const byId = new Map(result.data.map((e) => [e.id, e]));
         expect(byId.get('enc-1')?.highestRedFlagSeverity).toBe('high');
@@ -391,7 +441,7 @@ describe('EncountersService', () => {
       prisma.encounter.findMany.mockResolvedValue([]);
       prisma.encounter.count.mockResolvedValue(25);
 
-      const result = await service.findByPhysician(physicianId, { page: 2, limit: 10 });
+      const result = await service.findByPhysician(physicianId, { page: 2, limit: 10, includeUnidentified: false });
 
       expect(prisma.encounter.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ skip: 10, take: 10 }),
@@ -403,7 +453,7 @@ describe('EncountersService', () => {
       prisma.encounter.findMany.mockResolvedValue([]);
       prisma.encounter.count.mockResolvedValue(0);
 
-      await service.findByPhysician(physicianId, { page: 1, limit: 20, status: 'draft' });
+      await service.findByPhysician(physicianId, { page: 1, limit: 20, includeUnidentified: false, status: 'draft' });
 
       expect(prisma.encounter.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -416,7 +466,7 @@ describe('EncountersService', () => {
       prisma.encounter.findMany.mockResolvedValue([]);
       prisma.encounter.count.mockResolvedValue(0);
 
-      await service.findByPhysician(physicianId, { page: 1, limit: 20, vertical: 'trauma' });
+      await service.findByPhysician(physicianId, { page: 1, limit: 20, includeUnidentified: false, vertical: 'trauma' });
 
       expect(prisma.encounter.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -429,11 +479,13 @@ describe('EncountersService', () => {
       prisma.encounter.findMany.mockResolvedValue([]);
       prisma.encounter.count.mockResolvedValue(0);
 
-      await service.findByPhysician(physicianId, { page: 1, limit: 20, search: 'PAT' });
+      await service.findByPhysician(physicianId, { page: 1, limit: 20, includeUnidentified: false, search: 'PAT' });
 
       expect(prisma.encounter.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: expect.objectContaining({ patientRef: { contains: 'PAT', mode: 'insensitive' } }),
+          where: expect.objectContaining({
+            patientRef: { not: null, contains: 'PAT', mode: 'insensitive' },
+          }),
         }),
       );
     });
@@ -445,6 +497,7 @@ describe('EncountersService', () => {
       await service.findByPhysician(physicianId, {
         page: 1,
         limit: 20,
+        includeUnidentified: false,
         dateFrom: '2025-01-01',
         dateTo: '2025-01-31',
       });
@@ -468,6 +521,7 @@ describe('EncountersService', () => {
       await service.findByPhysician(physicianId, {
         page: 1,
         limit: 20,
+        includeUnidentified: false,
         status: 'draft',
         vertical: 'trauma',
         search: 'PAT',
@@ -479,9 +533,65 @@ describe('EncountersService', () => {
           physicianId,
           status: 'draft',
           vertical: 'trauma',
-          patientRef: { contains: 'PAT', mode: 'insensitive' },
+          // S25-QC-01 — `not: null` compõe com a busca por texto (não a
+          // sobrescreve mais) para que o Plantão continue de fora das
+          // consultas rápidas mesmo com um termo de busca preenchido.
+          patientRef: { not: null, contains: 'PAT', mode: 'insensitive' },
         }),
       );
+    });
+
+    describe('S25-QC-01: consultas rápidas ficam de fora do Plantão por padrão', () => {
+      it('excludes quick-consult encounters (patientRef null) by default', async () => {
+        prisma.encounter.findMany.mockResolvedValue([]);
+        prisma.encounter.count.mockResolvedValue(0);
+
+        await service.findByPhysician(physicianId, {
+          page: 1,
+          limit: 20,
+          includeUnidentified: false,
+        });
+
+        expect(prisma.encounter.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({ patientRef: { not: null } }),
+          }),
+        );
+      });
+
+      it('includes quick-consult encounters when includeUnidentified is true', async () => {
+        prisma.encounter.findMany.mockResolvedValue([]);
+        prisma.encounter.count.mockResolvedValue(0);
+
+        await service.findByPhysician(physicianId, {
+          page: 1,
+          limit: 20,
+          includeUnidentified: true,
+        });
+
+        const whereArg = prisma.encounter.findMany.mock.calls[0]![0]!.where;
+        expect(whereArg).not.toHaveProperty('patientRef');
+      });
+
+      it('combines includeUnidentified: true with search — still filters by text, just does not exclude nulls', async () => {
+        prisma.encounter.findMany.mockResolvedValue([]);
+        prisma.encounter.count.mockResolvedValue(0);
+
+        await service.findByPhysician(physicianId, {
+          page: 1,
+          limit: 20,
+          includeUnidentified: true,
+          search: 'PAT',
+        });
+
+        expect(prisma.encounter.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: expect.objectContaining({
+              patientRef: { contains: 'PAT', mode: 'insensitive' },
+            }),
+          }),
+        );
+      });
     });
   });
 
@@ -542,6 +652,29 @@ describe('EncountersService', () => {
         expect.objectContaining({ data: { vertical: 'cardiac' } }),
       );
       expect(result.vertical).toBe('cardiac');
+    });
+
+    // S25-QC-01 — identificar o paciente depois "promove" a consulta rápida
+    // para um caso de verdade: a partir daqui, findByPhysician volta a
+    // encontrá-lo (patientRef deixou de ser null).
+    it('S25-QC-01: allows setting patientRef later, promoting a quick consult into a plantão case', async () => {
+      prisma.encounter.findUnique.mockResolvedValue({
+        physicianId,
+        status: 'draft',
+      });
+      prisma.encounter.update.mockResolvedValue({
+        ...baseEncounter,
+        patientRef: 'PRN-2026-00456',
+      });
+
+      const result = await service.update(physicianId, encounterId, {
+        patientRef: 'PRN-2026-00456',
+      });
+
+      expect(prisma.encounter.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: { patientRef: 'PRN-2026-00456' } }),
+      );
+      expect(result.patientRef).toBe('PRN-2026-00456');
     });
 
     it('throws ForbiddenException when trying to update finalized encounter', async () => {
@@ -642,6 +775,28 @@ describe('EncountersService', () => {
         data: { chiefComplaint: null },
         select: { id: true },
       });
+    });
+  });
+
+  // S25-QC-01 — "Casos hoje" e "Aguardando sua revisão · casos no plantão"
+  // são rótulos de CASOS; consultas rápidas não contam para nenhum dos dois.
+  describe('getDashboardStats', () => {
+    it('excludes quick-consult encounters (patientRef null) from todayCount and pendingReviews', async () => {
+      prisma.encounter.count.mockResolvedValue(0);
+
+      await service.getDashboardStats(physicianId);
+
+      expect(prisma.encounter.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ physicianId, patientRef: { not: null } }),
+        }),
+      );
+      // Uma chamada para todayCount e outra para pendingReviews — ambas com o filtro.
+      const calls = prisma.encounter.count.mock.calls;
+      expect(calls).toHaveLength(2);
+      for (const [args] of calls) {
+        expect(args.where).toMatchObject({ physicianId, patientRef: { not: null } });
+      }
     });
   });
 });

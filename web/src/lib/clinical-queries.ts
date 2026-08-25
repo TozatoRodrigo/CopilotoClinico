@@ -171,6 +171,23 @@ export function useUpdateEncounterVertical(encounterId: string) {
   });
 }
 
+/**
+ * S25-QC-01 — identifica o paciente de uma consulta rápida depois da
+ * criação, "promovendo-a" para um caso do Plantão (o backend passa a
+ * incluí-la em GET /encounters assim que patientRef deixa de ser null).
+ */
+export function useIdentifyEncounterPatient(encounterId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (patientRef: string) =>
+      apiClient.patch<EncounterDetail>(`/encounters/${encounterId}`, { patientRef }),
+    onSuccess: async () => {
+      await invalidateEncounterQueries(queryClient, encounterId);
+    },
+  });
+}
+
 export function useGenerateDocument(encounterId: string) {
   const queryClient = useQueryClient();
 

@@ -46,7 +46,10 @@ export class EncountersService {
       data: {
         physicianId,
         institutionId,
-        patientRef: input.patientRef,
+        // S25-QC-01 — sem patientRef, isto é uma consulta rápida: fica de
+        // fora da fila do Plantão (findByPhysician) até o médico identificar
+        // o paciente depois via update().
+        patientRef: input.patientRef ?? null,
         vertical: input.vertical,
         context: input.context,
         status: 'draft',
@@ -60,7 +63,13 @@ export class EncountersService {
         action: 'ENCOUNTER_CREATED',
         entity: 'Encounter',
         entityId: encounter.id,
-        payload: { vertical: encounter.vertical, institutionId: encounter.institutionId },
+        payload: {
+          vertical: encounter.vertical,
+          institutionId: encounter.institutionId,
+          // S25-QC-01 — rastreável na trilha de auditoria sem expor o valor
+          // do identificador (que já é opaco por LGPD-001, mas mesmo assim).
+          identified: encounter.patientRef !== null,
+        },
       })
       .catch(() => undefined);
 
@@ -137,7 +146,7 @@ export class EncountersService {
   }
 
   async findByPhysician(physicianId: string, query: ListEncountersQuery) {
-    const { page, limit, status, vertical, search, dateFrom, dateTo } = query;
+    const { page, limit, status, vertical, search, dateFrom, dateTo, includeUnidentified } = query;
     const skip = (page - 1) * limit;
 
     const where: Record<string, unknown> = { physicianId };
@@ -150,8 +159,20 @@ export class EncountersService {
       where.vertical = vertical;
     }
 
+    // S25-QC-01 — o Plantão é a fila de casos identificados; consultas
+    // rápidas (patientRef null) ficam de fora por padrão. Compõe com o
+    // filtro de busca (em vez de sobrescrevê-lo) para que
+    // `includeUnidentified: true` + `search` continuem funcionando juntos.
+    const patientRefFilter: Record<string, unknown> = {};
+    if (!includeUnidentified) {
+      patientRefFilter.not = null;
+    }
     if (search) {
-      where.patientRef = { contains: search, mode: 'insensitive' };
+      patientRefFilter.contains = search;
+      patientRefFilter.mode = 'insensitive';
+    }
+    if (Object.keys(patientRefFilter).length > 0) {
+      where.patientRef = patientRefFilter;
     }
 
     if (dateFrom || dateTo) {
@@ -300,12 +321,16 @@ export class EncountersService {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
+    // S25-QC-01 — "Casos hoje" e "Aguardando sua revisão · casos no
+    // plantão" são, pelo próprio rótulo, contagens de CASOS do plantão —
+    // consultas rápidas (sem patientRef) não entram, mesma regra do
+    // findByPhysician().
     const [todayCount, pendingReviews, confirmedDocuments] = await Promise.all([
       this.prisma.encounter.count({
-        where: { physicianId, createdAt: { gte: todayStart } },
+        where: { physicianId, patientRef: { not: null }, createdAt: { gte: todayStart } },
       }),
       this.prisma.encounter.count({
-        where: { physicianId, status: 'in_review' },
+        where: { physicianId, patientRef: { not: null }, status: 'in_review' },
       }),
       this.prisma.document.count({
         where: { physicianId, confirmedBy: { not: null } },
