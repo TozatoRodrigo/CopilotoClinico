@@ -175,11 +175,14 @@ function CaseRow({ encounter }: { encounter: EncounterSummary }) {
             !encounter.chiefComplaint && "font-mono",
           )}
         >
-          {encounter.chiefComplaint ?? encounter.patientRef}
+          {/* S25-QC-01 — mesmo fallback defensivo de encounters/page.tsx. */}
+          {encounter.chiefComplaint ?? encounter.patientRef ?? 'Consulta rápida'}
         </p>
         <p className="truncate text-[0.75rem] text-[var(--ink-soft)] md:text-[0.8rem]">
           {encounter.chiefComplaint && (
-            <span className="font-mono">{encounter.patientRef} · </span>
+            <span className="font-mono">
+              {encounter.patientRef ?? 'Consulta rápida'} ·{' '}
+            </span>
           )}
           {VERTICAL_LABELS[encounter.vertical] ?? encounter.vertical}
         </p>

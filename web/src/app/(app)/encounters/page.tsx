@@ -446,16 +446,20 @@ export default function EncountersIndexPage() {
                 // RD-E7 — título é a queixa derivada da 1ª análise de IA
                 // quando disponível; sem análise ainda, cai para patientRef
                 // (mesma regra usada na fila do Plantão).
+                // S25-QC-01 — GET /encounters já exclui consultas rápidas
+                // por padrão (patientRef null); o fallback aqui é só
+                // defensivo, para nunca renderizar vazio caso essa regra
+                // mude ou a listagem seja chamada com includeUnidentified.
                 cell: (e) =>
                   e.chiefComplaint ? (
                     <span className="flex flex-col">
                       <span className="font-medium">{e.chiefComplaint}</span>
                       <span className="font-mono text-xs text-muted-foreground">
-                        {e.patientRef}
+                        {e.patientRef ?? 'Consulta rápida'}
                       </span>
                     </span>
                   ) : (
-                    <span className="font-medium">{e.patientRef}</span>
+                    <span className="font-medium">{e.patientRef ?? 'Consulta rápida'}</span>
                   ),
               },
               {

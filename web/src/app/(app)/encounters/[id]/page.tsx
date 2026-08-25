@@ -5,9 +5,11 @@ import {
   useEncounterDetail,
   useCancelEncounter,
   useUpdateEncounterVertical,
+  useIdentifyEncounterPatient,
 } from '@/lib/clinical-queries';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import {
@@ -28,7 +30,15 @@ import {
 import { DecisionThread, type DecisionThreadItem } from '@/components/domain/decision-thread';
 import { Breadcrumb } from '@/components/ui/breadcrumb';
 import Link from 'next/link';
-import { ArrowLeft, Microphone, Brain, FileText, ArrowRight, XCircle } from '@phosphor-icons/react';
+import {
+  ArrowLeft,
+  Microphone,
+  Brain,
+  FileText,
+  ArrowRight,
+  XCircle,
+  IdentificationCard,
+} from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import type { EncounterContext, EncounterVertical } from '@/lib/types';
 
@@ -99,7 +109,12 @@ export default function EncounterDetailPage({ params }: { params: Promise<{ id: 
   const encounterQuery = useEncounterDetail(id);
   const cancelEncounter = useCancelEncounter(id);
   const updateVertical = useUpdateEncounterVertical(id);
+  const identifyPatient = useIdentifyEncounterPatient(id);
   const [cancelOpen, setCancelOpen] = useState(false);
+  // S25-QC-01 — formulário inline de identificação, aberto sob demanda a
+  // partir do banner de consulta rápida (ver abaixo).
+  const [identifyValue, setIdentifyValue] = useState('');
+  const [identifyError, setIdentifyError] = useState<string | null>(null);
   const encounter = encounterQuery.data;
   const loading = encounterQuery.isPending;
   const error = encounterQuery.error?.message ?? null;
@@ -121,6 +136,23 @@ export default function EncounterDetailPage({ params }: { params: Promise<{ id: 
       await updateVertical.mutateAsync(value);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao atualizar a vertical do caso.');
+    }
+  }
+
+  // S25-QC-01 — "promove" a consulta rápida para um caso do Plantão. Erro
+  // de validação (ex: CPF/nome digitado) volta do backend com uma mensagem
+  // já pronta para exibir — mesma regra de LGPD-001 da criação.
+  async function handleIdentifyPatient(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmed = identifyValue.trim();
+    if (!trimmed) return;
+    setIdentifyError(null);
+    try {
+      await identifyPatient.mutateAsync(trimmed);
+      toast.success('Paciente identificado — o caso agora está no seu plantão.');
+      setIdentifyValue('');
+    } catch (err) {
+      setIdentifyError(err instanceof Error ? err.message : 'Erro ao identificar o paciente.');
     }
   }
 
@@ -170,6 +202,10 @@ export default function EncounterDetailPage({ params }: { params: Promise<{ id: 
   );
 
   const latestInteraction = interactions[0];
+  // S25-QC-01 — título com a mesma regra de fallback já usada no Plantão
+  // (chiefComplaint > patientRef); "Consulta rápida" só aparece quando
+  // nenhum dos dois existe ainda.
+  const displayTitle = encounter.chiefComplaint ?? encounter.patientRef ?? 'Consulta rápida';
 
   return (
     <div className="min-h-screen bg-clinical-paper">
@@ -178,7 +214,7 @@ export default function EncounterDetailPage({ params }: { params: Promise<{ id: 
         <Breadcrumb
           items={[
             { label: 'Atendimentos', href: '/encounters' },
-            { label: encounter.patientRef },
+            { label: displayTitle },
           ]}
         />
         <header className="flex items-center justify-between pb-6">
@@ -190,7 +226,7 @@ export default function EncounterDetailPage({ params }: { params: Promise<{ id: 
               </Link>
             </Button>
             <h1 className="font-display text-2xl tracking-tight text-clinical-ink">
-              {encounter.patientRef}
+              {displayTitle}
             </h1>
             <Badge variant={STATUS_VARIANTS[encounter.status] ?? 'secondary'}>
               {/* S20-I18N-01 — rótulo humano; fallback para o slug apenas em caso
@@ -227,6 +263,49 @@ export default function EncounterDetailPage({ params }: { params: Promise<{ id: 
             )}
           </div>
         </header>
+
+        {/* S25-QC-01 — banner só existe enquanto o caso não tem
+            identificação; some assim que o médico identifica o paciente
+            (a query é invalidada por useIdentifyEncounterPatient). */}
+        {encounter.patientRef === null && (
+          <Alert className="mb-6">
+            <IdentificationCard className="size-4" />
+            <AlertTitle>Consulta rápida</AlertTitle>
+            <AlertDescription>
+              <p className="mb-3">
+                Este caso ainda não está no seu plantão — identifique o
+                paciente para adicioná-lo à fila.
+              </p>
+              <form onSubmit={(e) => void handleIdentifyPatient(e)} className="flex gap-2">
+                <Input
+                  value={identifyValue}
+                  onChange={(e) => {
+                    setIdentifyValue(e.target.value);
+                    setIdentifyError(null);
+                  }}
+                  maxLength={50}
+                  placeholder="Ex: JSL-Leito04, PRN-2024-00123"
+                  aria-label="Identificador do paciente"
+                  aria-invalid={!!identifyError}
+                  className="h-9 max-w-xs"
+                />
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={!identifyValue.trim() || identifyPatient.isPending}
+                  loading={identifyPatient.isPending}
+                >
+                  Adicionar ao plantão
+                </Button>
+              </form>
+              {identifyError && (
+                <p className="mt-2 text-sm text-destructive" role="alert">
+                  {identifyError}
+                </p>
+              )}
+            </AlertDescription>
+          </Alert>
+        )}
 
         <div className="mb-6 flex flex-wrap items-center gap-3">
           {encounter.status === 'finalized' ? (
@@ -322,7 +401,7 @@ export default function EncounterDetailPage({ params }: { params: Promise<{ id: 
           <DialogHeader>
             <DialogTitle>Cancelar caso?</DialogTitle>
             <DialogDescription>
-              O atendimento de {encounter.patientRef} será marcado como cancelado. Nenhum
+              O atendimento de {displayTitle} será marcado como cancelado. Nenhum
               conteúdo é apagado — o histórico permanece disponível na trilha de auditoria, mas o
               caso não poderá mais ser analisado ou ter documentos gerados.
             </DialogDescription>

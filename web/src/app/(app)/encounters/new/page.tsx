@@ -80,7 +80,11 @@ export default function NewEncounterPage() {
 
   const piiWarning = useMemo(() => detectPII(patientRef), [patientRef]);
   const trimmed = patientRef.trim();
-  const canSubmit = trimmed.length > 0 && !piiWarning && !submitting;
+  // S25-QC-01 — identificação deixou de ser obrigatória: sem ela, o médico
+  // ainda consegue enviar e o caso nasce como consulta rápida (fora do
+  // Plantão até ser identificado depois). Só o aviso de PII continua
+  // bloqueando — nunca aceitar CPF/nome mesmo num campo agora opcional.
+  const canSubmit = !piiWarning && !submitting;
 
   function toggleContext(key: keyof EncounterContext) {
     setContext((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -95,7 +99,10 @@ export default function NewEncounterPage() {
 
     try {
       const body: CreateEncounterRequest = {
-        patientRef: trimmed,
+        // S25-QC-01 — omitido (não string vazia) quando o médico não
+        // preencheu: o backend trata a ausência do campo como consulta
+        // rápida. Enviar '' seria tratado como valor inválido (min 1 char).
+        patientRef: trimmed.length > 0 ? trimmed : undefined,
         vertical,
         context,
       };
@@ -137,14 +144,18 @@ export default function NewEncounterPage() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="patientRef">Referência do Paciente</Label>
+              <Label htmlFor="patientRef">
+                Referência do Paciente{" "}
+                <span className="font-normal text-muted-foreground">
+                  (opcional)
+                </span>
+              </Label>
               <Input
                 id="patientRef"
                 value={patientRef}
                 onChange={(e) => setPatientRef(e.target.value)}
                 maxLength={50}
                 placeholder="Ex: JSL-Leito04, PRN-2024-00123, SUS-700-0123"
-                required
                 aria-invalid={!!piiWarning}
                 aria-describedby={
                   piiWarning ? "pii-warning" : "patientRef-hint"
@@ -163,8 +174,15 @@ export default function NewEncounterPage() {
               ) : (
                 <p id="patientRef-hint" className="text-xs text-muted-foreground">
                   <ShieldCheck className="mr-1 inline size-3" />
-                  Identificador opaco — nunca use nome, CPF ou telefone.
-                  Pseudonimização automática conforme LGPD.
+                  {/* S25-QC-01 — deixar em branco não bloqueia mais o envio:
+                      vira uma consulta rápida, fora do Plantão até você
+                      identificar o paciente (dá pra fazer isso depois, na
+                      tela do caso). Quando preenchido, use um identificador
+                      opaco — nunca nome, CPF ou telefone. */}
+                  Deixe em branco para uma consulta rápida — o caso só entra
+                  no seu plantão quando você identificar o paciente
+                  (agora ou depois). Se preencher, use um identificador
+                  opaco (prontuário, leito, hash), nunca dados pessoais.
                 </p>
               )}
             </div>
@@ -194,7 +212,11 @@ export default function NewEncounterPage() {
               disabled={!canSubmit}
               className="w-full"
             >
-              {submitting ? "Criando..." : "Criar e capturar"}
+              {submitting
+                ? "Criando..."
+                : trimmed.length > 0
+                  ? "Criar e capturar"
+                  : "Iniciar consulta rápida"}
             </Button>
           </form>
         </CardContent>
