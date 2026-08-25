@@ -124,6 +124,19 @@ export class DocumentsService {
     });
     if (existing) return existing;
 
+    // S25-QC-02 — consulta rápida (sem patientRef) dá orientação de IA
+    // normalmente, mas não gera documento formal — mesma exigência do
+    // processo de sempre: um SOAP/SBAR/prescrição/atestado/alta precisa
+    // estar amarrado a um paciente identificado. Checado aqui (não só na
+    // UI) porque este é o único caminho real de criação de documento — a
+    // UI pode ficar desatualizada ou ser contornada, o backend não.
+    if (!encounter.patientRef) {
+      throw new ForbiddenException(
+        'Identifique o paciente antes de gerar documentos — consultas rápidas ainda sem ' +
+          'identificação não podem gerar SOAP, SBAR, prescrição, atestado ou alta.',
+      );
+    }
+
     const aiInteractionId =
       input.aiInteractionId ??
       (

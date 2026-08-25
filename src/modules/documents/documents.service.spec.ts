@@ -201,6 +201,44 @@ describe('DocumentsService', () => {
       ).rejects.toThrow(ForbiddenException);
     });
 
+    // S25-QC-02 — consulta rápida (patientRef null) responde normalmente
+    // no Copiloto, mas não pode gerar documento formal — mesma exigência do
+    // processo de sempre. Checado no backend porque este é o único caminho
+    // real de criação de documento.
+    describe('S25-QC-02: exige paciente identificado para gerar documento', () => {
+      it('throws ForbiddenException when the encounter has no patientRef (quick consult)', async () => {
+        prisma.encounter.findUnique.mockResolvedValue({
+          physicianId,
+          patientRef: null,
+        });
+
+        await expect(
+          service.generate(physicianId, encounterId, {
+            type: 'soap',
+            aiInteractionId,
+          }),
+        ).rejects.toThrow(ForbiddenException);
+
+        expect(prisma.document.create).not.toHaveBeenCalled();
+      });
+
+      it('still returns an already-existing document even if patientRef is somehow null (does not break previously generated docs)', async () => {
+        prisma.encounter.findUnique.mockResolvedValue({
+          physicianId,
+          patientRef: null,
+        });
+        prisma.document.findFirst.mockResolvedValue(baseDocument);
+
+        const result = await service.generate(physicianId, encounterId, {
+          type: 'soap',
+          aiInteractionId,
+        });
+
+        expect(result).toEqual(baseDocument);
+        expect(prisma.document.create).not.toHaveBeenCalled();
+      });
+    });
+
     it('throws NotFoundException for missing AI interaction', async () => {
       prisma.encounter.findUnique.mockResolvedValue({
         physicianId,

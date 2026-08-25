@@ -3,7 +3,8 @@
 import { use, useState } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
-import { useGenerateDocument } from '@/lib/clinical-queries';
+import { useGenerateDocument, useEncounterDetail } from '@/lib/clinical-queries';
+import { QuickConsultBanner } from '@/components/domain/quick-consult-banner';
 import {
   useCopilotConversation,
   STORAGE_KEY_PREFIX,
@@ -231,11 +232,18 @@ function ResultView({
     analysis.recommendations.length,
   );
   const generateDocument = useGenerateDocument(encounterId);
+  // S25-QC-02 — precisa saber se o caso está identificado para
+  // desabilitar/explicar os botões de gerar documento (o backend já
+  // bloqueia isto de qualquer forma — ver documents.service.ts — mas
+  // avisar antes de deixar o médico clicar é melhor do que um erro depois).
+  const encounterQuery = useEncounterDetail(encounterId);
+  const isQuickConsult = encounterQuery.data?.patientRef === null;
   const [generatingDoc, setGeneratingDoc] = useState<string | null>(null);
   const [docError, setDocError] = useState<string | null>(null);
 
   async function handleGenerateDocument(type: DocumentType) {
     if (!result) return;
+    if (isQuickConsult) return;
     setGeneratingDoc(type);
     setDocError(null);
 
@@ -470,28 +478,34 @@ function ResultView({
             })}
           </div>
 
-          <div className="flex items-center gap-3 rounded-2xl border border-clinical-line bg-card px-[18px] py-4">
-            <PhoneCall className="size-5 shrink-0 text-clinical-teal" />
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-clinical-ink">Quer segunda opinião?</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                Manda o resumo SBAR pronto para o plantonista sênior ou para a hemodinâmica.
-              </p>
+          {/* S25-QC-02 — pedir segunda opinião pressupõe um caso rastreável
+              para o handoff; sem identificação isso não faz sentido, então
+              o card some (em vez de aparecer desabilitado sem explicação —
+              o footer abaixo já cobre a explicação de gerar documento). */}
+          {!isQuickConsult && (
+            <div className="flex items-center gap-3 rounded-2xl border border-clinical-line bg-card px-[18px] py-4">
+              <PhoneCall className="size-5 shrink-0 text-clinical-teal" />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-clinical-ink">Quer segunda opinião?</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Manda o resumo SBAR pronto para o plantonista sênior ou para a hemodinâmica.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                className="h-10 shrink-0 gap-2"
+                onClick={() => handleGenerateDocument('sbar')}
+                disabled={generatingDoc === 'sbar'}
+              >
+                {generatingDoc === 'sbar' ? (
+                  <CircleNotch className="size-4 animate-spin" />
+                ) : (
+                  <FileText className="size-4" />
+                )}
+                Gerar SBAR
+              </Button>
             </div>
-            <Button
-              variant="outline"
-              className="h-10 shrink-0 gap-2"
-              onClick={() => handleGenerateDocument('sbar')}
-              disabled={generatingDoc === 'sbar'}
-            >
-              {generatingDoc === 'sbar' ? (
-                <CircleNotch className="size-4 animate-spin" />
-              ) : (
-                <FileText className="size-4" />
-              )}
-              Gerar SBAR
-            </Button>
-          </div>
+          )}
 
           <footer className="mt-2 border-t border-clinical-line pt-5">
             {hasUnansweredBlocker && (
@@ -506,6 +520,18 @@ function ResultView({
             <p className="mb-3 font-mono text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground">
               {messages.documents.generateHeading}:
             </p>
+            {/* S25-QC-02 — gerar documento formal exige paciente
+                identificado, mesma regra do processo de sempre; o backend
+                (documents.service.ts) já recusa isto de qualquer forma —
+                desabilitar aqui evita o médico clicar para só então
+                descobrir pelo erro. */}
+            {isQuickConsult && (
+              <QuickConsultBanner
+                encounterId={encounterId}
+                description="Identifique o paciente para gerar SOAP, SBAR, prescrição, atestado ou alta."
+                successMessage="Paciente identificado — já pode gerar os documentos deste caso."
+              />
+            )}
             <div className="flex flex-wrap gap-2">
               {DOCUMENT_TYPES.map((dt) => {
                 const isThisGenerating = generatingDoc === dt.type;
@@ -513,7 +539,7 @@ function ResultView({
                   <Button
                     key={dt.type}
                     onClick={() => handleGenerateDocument(dt.type)}
-                    disabled={isThisGenerating}
+                    disabled={isThisGenerating || isQuickConsult}
                     variant={dt.primary && !isThisGenerating ? 'default' : 'outline'}
                     className="h-11"
                   >
