@@ -277,6 +277,53 @@ export class MfaService {
     });
   }
 
+  /**
+   * Desativa o MFA de TODOS os médicos que atualmente o têm habilitado.
+   *
+   * Medida temporária, disparada por um admin — não exige o TOTP de cada
+   * médico (mesma justificativa do resetMfa individual acima: quem está
+   * pedindo já provou identidade de admin). Limpa secret e backup codes de
+   * cada um (mesmo efeito de resetMfa, em lote) e não mexe em quem ainda não
+   * tinha ativado, nem bloqueia setup/enable voluntário depois.
+   *
+   * Cada médico afetado gera sua própria entrada de auditoria
+   * (AUTH_MFA_ADMIN_BULK_RESET) — dá pra saber exatamente quem foi afetado e
+   * quando, igual ao reset unitário.
+   */
+  async resetAllMfa(adminId: string): Promise<{ count: number; physicianIds: string[] }> {
+    const enabledPhysicians = await this.prisma.physician.findMany({
+      where: { mfaEnabled: true },
+      select: { id: true },
+    });
+
+    if (enabledPhysicians.length === 0) {
+      return { count: 0, physicianIds: [] };
+    }
+
+    const physicianIds = enabledPhysicians.map((p) => p.id);
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.physician.updateMany({
+        where: { id: { in: physicianIds } },
+        data: { mfaEnabled: false, mfaSecret: null },
+      });
+      await tx.mfaBackupCode.deleteMany({ where: { physicianId: { in: physicianIds } } });
+    });
+
+    await Promise.all(
+      physicianIds.map((physicianId) =>
+        this.auditSilently({
+          actorId: adminId,
+          action: 'AUTH_MFA_ADMIN_BULK_RESET',
+          entity: 'Physician',
+          entityId: physicianId,
+        }),
+      ),
+    );
+
+    return { count: physicianIds.length, physicianIds };
+  }
+
   private async auditSilently(params: Parameters<AuditService['log']>[0]): Promise<void> {
     await this.auditService.log(params).catch(() => undefined);
   }

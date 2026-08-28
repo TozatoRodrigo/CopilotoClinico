@@ -310,4 +310,17 @@ export class AuthController {
   ) {
     await this.mfaService.resetMfa(physicianId, `admin:${req.user.physicianId}`);
   }
+
+  /**
+   * Desativa o MFA de TODOS os médicos que estão com ele habilitado agora.
+   * Medida temporária ("por enquanto") — não bloqueia setup/enable voluntário
+   * via /auth/mfa/setup + /auth/mfa/enable, só zera quem já tinha ativado.
+   */
+  @Post('admin/users/mfa-reset-all')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @HttpCode(HttpStatus.OK)
+  async adminResetAllMfa(@Request() req: { user: { physicianId: string; role: string } }) {
+    return this.mfaService.resetAllMfa(`admin:${req.user.physicianId}`);
+  }
 }

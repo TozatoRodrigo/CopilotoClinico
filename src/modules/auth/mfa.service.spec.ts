@@ -305,6 +305,85 @@ describe('MfaService.resetMfa', () => {
   });
 });
 
+// ── resetAllMfa (admin bulk) ─────────────────────────────────────────────────
+
+describe('MfaService.resetAllMfa', () => {
+  const ADMIN_ID = 'admin:admin-uuid-001';
+
+  function withFindMany(prisma: ReturnType<typeof buildMocks>['prisma']) {
+    (prisma as unknown as { physician: { findMany: ReturnType<typeof vi.fn> } }).physician
+      .findMany = vi.fn();
+    return prisma as unknown as { physician: { findMany: ReturnType<typeof vi.fn> } };
+  }
+
+  it('returns count 0 and touches nothing when no one has MFA enabled', async () => {
+    const mocks = buildMocks();
+    const { service, prisma, audit } = mocks;
+    const withMany = withFindMany(prisma);
+    withMany.physician.findMany.mockResolvedValue([]);
+
+    const result = await service.resetAllMfa(ADMIN_ID);
+
+    expect(result).toEqual({ count: 0, physicianIds: [] });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(audit.log).not.toHaveBeenCalled();
+  });
+
+  it('clears mfaEnabled, mfaSecret and backup codes for every enabled physician', async () => {
+    const mocks = buildMocks();
+    const { service, prisma } = mocks;
+    const withMany = withFindMany(prisma);
+    withMany.physician.findMany.mockResolvedValue([{ id: 'phy-1' }, { id: 'phy-2' }]);
+    (prisma as unknown as { physician: { updateMany: ReturnType<typeof vi.fn> } }).physician
+      .updateMany = vi.fn().mockResolvedValue({ count: 2 });
+    vi.mocked(prisma.mfaBackupCode.deleteMany).mockResolvedValue({ count: 4 } as never);
+
+    const result = await service.resetAllMfa(ADMIN_ID);
+
+    expect(result).toEqual({ count: 2, physicianIds: ['phy-1', 'phy-2'] });
+    const updateManyMock = (
+      prisma as unknown as { physician: { updateMany: ReturnType<typeof vi.fn> } }
+    ).physician.updateMany;
+    expect(updateManyMock).toHaveBeenCalledWith({
+      where: { id: { in: ['phy-1', 'phy-2'] } },
+      data: { mfaEnabled: false, mfaSecret: null },
+    });
+    expect(prisma.mfaBackupCode.deleteMany).toHaveBeenCalledWith({
+      where: { physicianId: { in: ['phy-1', 'phy-2'] } },
+    });
+  });
+
+  it('dispatches one audit event per affected physician with adminId as actorId', async () => {
+    const mocks = buildMocks();
+    const { service, prisma, audit } = mocks;
+    const withMany = withFindMany(prisma);
+    withMany.physician.findMany.mockResolvedValue([{ id: 'phy-1' }, { id: 'phy-2' }]);
+    (prisma as unknown as { physician: { updateMany: ReturnType<typeof vi.fn> } }).physician
+      .updateMany = vi.fn().mockResolvedValue({ count: 2 });
+    vi.mocked(prisma.mfaBackupCode.deleteMany).mockResolvedValue({ count: 0 } as never);
+
+    await service.resetAllMfa(ADMIN_ID);
+
+    expect(audit.log).toHaveBeenCalledTimes(2);
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorId: ADMIN_ID,
+        action: 'AUTH_MFA_ADMIN_BULK_RESET',
+        entity: 'Physician',
+        entityId: 'phy-1',
+      }),
+    );
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorId: ADMIN_ID,
+        action: 'AUTH_MFA_ADMIN_BULK_RESET',
+        entity: 'Physician',
+        entityId: 'phy-2',
+      }),
+    );
+  });
+});
+
 // ── regenerateBackupCodes (S24-MFA-03) ───────────────────────────────────────
 
 describe('S24-MFA-03 — MfaService.regenerateBackupCodes', () => {
