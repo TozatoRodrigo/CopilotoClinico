@@ -26,7 +26,8 @@
     "seed:protocols": "tsx prisma/seeds/protocols-seed.ts",
     "seed:e2e": "tsx scripts/seed-e2e-users.ts",
     "e2e:ui": "playwright test",
-    "ingest:guidelines": "tsx scripts/ingest-batch.ts"
+    "ingest:guidelines": "tsx scripts/ingest-batch.ts",
+    "ops:bulk-mfa-reset": "tsx scripts/ops-bulk-mfa-reset.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1064.0",
