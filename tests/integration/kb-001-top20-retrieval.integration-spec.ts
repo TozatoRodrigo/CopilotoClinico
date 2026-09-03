@@ -6,6 +6,7 @@
  * próprios arquivos draft como fonte de verdade para validar recuperação.
  */
 import { readdirSync, readFileSync } from 'fs';
+import { ConfigService } from '@nestjs/config';
 import { join } from 'path';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { PrismaClient } from '@prisma/client';
@@ -35,7 +36,9 @@ function buildRetrievalService(queryEmbedding: number[], prisma: PrismaClient): 
     set: async () => undefined,
   } as unknown as RedisService;
 
-  return new RetrievalService(prisma as unknown as PrismaService, aiGateway, redis);
+  return new RetrievalService(prisma as unknown as PrismaService, aiGateway, redis, {
+    get: () => undefined,
+  } as unknown as ConfigService);
 }
 
 if (!shouldRunIntegration) {
@@ -81,7 +84,8 @@ if (!shouldRunIntegration) {
           redFlags: meta.redFlags,
         });
 
-        const selectedEmbedding = meta.cenario === 'sindrome_gripal_ivas' ? queryEmbedding : buildEmbedding(index + 1);
+        const selectedEmbedding =
+          meta.cenario === 'sindrome_gripal_ivas' ? queryEmbedding : buildEmbedding(index + 1);
         const embeddingStr = `[${selectedEmbedding.join(',')}]`;
 
         for (const chunk of chunks) {
@@ -112,12 +116,16 @@ if (!shouldRunIntegration) {
         'síndrome gripal com mais de 48 horas em paciente possivelmente imunossuprimido',
         3,
       );
-      const gripalChunks = result.chunks.filter((chunk) => chunk.metadata.cenario === 'sindrome_gripal_ivas');
+      const gripalChunks = result.chunks.filter(
+        (chunk) => chunk.metadata.cenario === 'sindrome_gripal_ivas',
+      );
 
       expect(result.chunks).toHaveLength(3);
       expect(result.chunks[0]?.metadata.cenario).toBe('sindrome_gripal_ivas');
       expect(gripalChunks.length).toBeGreaterThan(0);
-      expect(gripalChunks.some((chunk) => chunk.text.toLowerCase().includes('mais de 48 horas'))).toBe(true);
+      expect(
+        gripalChunks.some((chunk) => chunk.text.toLowerCase().includes('mais de 48 horas')),
+      ).toBe(true);
     });
   });
 }

@@ -5,6 +5,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../config/prisma.service';
 import { AiGatewayService } from '../../ai-gateway/ai-gateway.service';
 import { RetrievalService } from '../retrieval/retrieval.service';
+import type { RetrievalCoverage } from '../retrieval/hybrid-search';
 import { EncountersService } from '../../encounters/encounters.service';
 import { AuditService } from '../../audit/audit.service';
 import { maskPII } from '../guardrails/pii-filter';
@@ -43,18 +44,45 @@ const CHIEF_COMPLAINT_MAX_LENGTH = 140;
  * RD-E7 — resumo curto exibido como título do caso em Plantão/Casos, no
  * lugar de patientRef. Só chamado no turno 0 (analyze/analyzeStream) — não
  * em continueAnalysis() — para o "título" do caso não mudar a cada resposta
- * de pergunta esclarecedora. Preferência: primeira hipótese diagnóstica
- * (mais específica); sem diferencial, cai para o achado da red flag mais
- * relevante; sem nenhum dos dois, `null` (a UI cai de volta para patientRef).
+ * de pergunta esclarecedora.
+ *
+ * KB-006 — NUNCA derivar de `differentials[0].hypothesis`. Um diferencial é,
+ * pela definição do próprio system prompt, "um lembrete, não um bloqueador":
+ * uma hipótese a manter em mente, não o diagnóstico do caso. Usá-lo como
+ * título transformava uma hipótese em identidade do atendimento — foi assim
+ * que um provável quadro de cefaleia em salvas virou um caso chamado
+ * "Hemorragia intracerebral" na lista, no cabeçalho e no SBAR gerado,
+ * ancorando o médico e contaminando o registro médico-legal.
+ *
+ * Ordem atual, da mais para a menos factual: achado de alarme observado
+ * (red flag descreve o que FOI VISTO, não o que se suspeita) → trecho inicial
+ * do texto do próprio médico, já redigido (fullyRedacted, sem PII) → `null`
+ * (a UI cai de volta para patientRef).
  */
-function deriveChiefComplaint(output: EnrichedCopilotOutput): string | null {
-  const source = output.differentials[0]?.hypothesis ?? output.redFlags[0]?.finding;
+function deriveChiefComplaint(
+  output: EnrichedCopilotOutput,
+  redactedCaseText: string,
+): string | null {
+  const source = output.redFlags[0]?.finding ?? firstClause(redactedCaseText);
   if (!source) return null;
   const trimmed = source.trim();
   if (!trimmed) return null;
   return trimmed.length > CHIEF_COMPLAINT_MAX_LENGTH
     ? `${trimmed.slice(0, CHIEF_COMPLAINT_MAX_LENGTH - 1)}…`
     : trimmed;
+}
+
+/**
+ * Primeira oração do texto clínico, usada como fallback de título. Recebe o
+ * texto JÁ redigido pelo pipeline de PII — o título é persistido e exibido em
+ * lista, então nunca pode carregar identificador de paciente.
+ */
+function firstClause(text: string): string | null {
+  const clause = text
+    .trim()
+    .split(/(?<=[.;!?])\s|\n/)[0]
+    ?.trim();
+  return clause && clause.length > 0 ? clause : null;
 }
 
 export interface OrchestratorResult {
@@ -72,6 +100,15 @@ export interface OrchestratorResult {
     piiDetected: boolean;
     injectionDetected: boolean;
     chunksRetrieved: number;
+    /**
+     * KB-005/KB-006 — o quanto a base cobriu este caso, vindo do piso de
+     * relevância. `none` = nenhum chunk passou e a análise seguiu pelo
+     * caminho de "declarar a lacuna e perguntar"; `partial` = os chunks
+     * entraram com aviso de encaixe fraco. A UI usa isto para dizer ao médico
+     * que a base não cobre o cenário, em vez de deixá-lo achar que a ausência
+     * de recomendação é indecisão do modelo.
+     */
+    retrievalCoverage: RetrievalCoverage;
     latencyMs: number;
     cost: number;
     model: string;
@@ -299,6 +336,9 @@ export class OrchestratorService {
       redFlags: input.redFlags,
       // PI-05 — instrui o idioma de resposta conforme a conta do médico.
       locale,
+      // KB-005/KB-006 — cobertura vinda do piso de relevância: 'partial'
+      // injeta o aviso de encaixe fraco no prompt.
+      coverage: retrievalResult.coverage,
     });
 
     const baseMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
@@ -359,7 +399,14 @@ export class OrchestratorService {
           retrievedChunkIds: prompt.retrievedChunkIds,
           model: completion.model,
           // S20-CLIN-01 — persiste red flags marcadas mesmo em falha (rastreabilidade CFM).
-          params: { demoCase: input.demoCase ?? null, redFlags: input.redFlags ?? {} },
+          params: {
+            demoCase: input.demoCase ?? null,
+            redFlags: input.redFlags ?? {},
+            // KB-005/KB-006 — persistido para GET /copilot/latest poder
+            // reconstruir o aviso de cobertura num carregamento fresco de
+            // página, sem depender do sessionStorage da sessão ao vivo.
+            retrievalCoverage: retrievalResult.coverage,
+          },
           rawOutput: {
             raw: completion.content,
             validationErrors: validation.errors,
@@ -401,7 +448,14 @@ export class OrchestratorService {
         // S20-CLIN-01 — persiste as red flags marcadas pelo médico para rastreabilidade
         // CFM (qualquer auditoria futura pode reconstruir quais bandeiras o médico
         // confirmou explicitamente, independentemente do texto do caso).
-        params: { demoCase: input.demoCase ?? null, redFlags: input.redFlags ?? {} },
+        params: {
+          demoCase: input.demoCase ?? null,
+          redFlags: input.redFlags ?? {},
+          // KB-005/KB-006 — persistido para GET /copilot/latest poder
+          // reconstruir o aviso de cobertura num carregamento fresco de
+          // página, sem depender do sessionStorage da sessão ao vivo.
+          retrievalCoverage: retrievalResult.coverage,
+        },
         rawOutput: enrichedOutput as unknown as Prisma.InputJsonValue,
         citations: {
           recommendations: enrichedOutput.recommendations,
@@ -429,7 +483,10 @@ export class OrchestratorService {
     await this.encounters.update(physicianId, encounterId, {
       status: 'in_review',
     });
-    await this.encounters.updateChiefComplaint(encounterId, deriveChiefComplaint(enrichedOutput));
+    await this.encounters.updateChiefComplaint(
+      encounterId,
+      deriveChiefComplaint(enrichedOutput, fullyRedacted),
+    );
 
     await this.logQuestionsEmittedIfAny(
       physicianId,
@@ -447,6 +504,7 @@ export class OrchestratorService {
         piiDetected: piiResult.hasPII,
         injectionDetected: !injectionResult.safe,
         chunksRetrieved: retrievalResult.totalRetrieved,
+        retrievalCoverage: retrievalResult.coverage,
         latencyMs: Date.now() - start,
         cost: inferenceCost,
         model: completion.model,
@@ -544,6 +602,9 @@ export class OrchestratorService {
       redFlags: input.redFlags,
       // PI-05 — instrui o idioma de resposta conforme a conta do médico.
       locale,
+      // KB-005/KB-006 — cobertura vinda do piso de relevância: 'partial'
+      // injeta o aviso de encaixe fraco no prompt.
+      coverage: retrievalResult.coverage,
     });
 
     let fullContent = '';
@@ -638,7 +699,10 @@ export class OrchestratorService {
     });
 
     await this.encounters.update(physicianId, encounterId, { status: 'in_review' });
-    await this.encounters.updateChiefComplaint(encounterId, deriveChiefComplaint(enrichedOutput));
+    await this.encounters.updateChiefComplaint(
+      encounterId,
+      deriveChiefComplaint(enrichedOutput, fullyRedacted),
+    );
 
     await this.logQuestionsEmittedIfAny(
       physicianId,
@@ -658,6 +722,7 @@ export class OrchestratorService {
           piiDetected: piiResult.hasPII,
           injectionDetected: false,
           chunksRetrieved: retrievalResult.totalRetrieved,
+          retrievalCoverage: retrievalResult.coverage,
           latencyMs: Date.now() - start,
           cost: inferenceCost,
           model: mockCompletion.model,
@@ -807,6 +872,9 @@ export class OrchestratorService {
       additionalInstructions: forceFinal
         ? 'Este é o último turno permitido para esta análise. NÃO inclua novas clarifyingQuestions (a lista deve ficar vazia). Como não há próximo turno, "recommendations" NÃO PODE ficar vazio: forneça ao menos uma recomendação preliminar com base na melhor evidência e informação disponíveis, mesmo que incompletas. Se ainda houver incerteza sobre a cobertura da diretriz, defina uncertainty=true e descreva uncertaintyReason, mas isso não substitui a obrigação de recomendar algo — declare a incerteza E recomende, não incerteza no lugar de recomendar.'
         : undefined,
+      // KB-005/KB-006 — cobertura vinda do piso de relevância: 'partial'
+      // injeta o aviso de encaixe fraco no prompt.
+      coverage: retrievalResult.coverage,
     });
 
     const baseMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
@@ -864,7 +932,11 @@ export class OrchestratorService {
           model: completion.model,
           // CC-05 — persiste o herdado mesmo em falha de validação, para que
           // um eventual próximo turno não perca a cadeia de red flags.
-          params: { demoCase: inheritedParams.demoCase, redFlags: inheritedParams.redFlags },
+          params: {
+            demoCase: inheritedParams.demoCase,
+            redFlags: inheritedParams.redFlags,
+            retrievalCoverage: retrievalResult.coverage,
+          },
           rawOutput: {
             raw: completion.content,
             validationErrors: validation.errors,
@@ -908,7 +980,11 @@ export class OrchestratorService {
         model: completion.model,
         // CC-05 — repropaga demoCase/redFlags para que o PRÓXIMO turno (ex:
         // turno 3) continue herdando, fechando a cadeia de forma transitiva.
-        params: { demoCase: inheritedParams.demoCase, redFlags: inheritedParams.redFlags },
+        params: {
+          demoCase: inheritedParams.demoCase,
+          redFlags: inheritedParams.redFlags,
+          retrievalCoverage: retrievalResult.coverage,
+        },
         rawOutput: enrichedOutput as unknown as Prisma.InputJsonValue,
         citations: {
           recommendations: enrichedOutput.recommendations,
@@ -970,6 +1046,7 @@ export class OrchestratorService {
         piiDetected,
         injectionDetected: !injectionResult.safe,
         chunksRetrieved: retrievalResult.totalRetrieved,
+        retrievalCoverage: retrievalResult.coverage,
         latencyMs: Date.now() - start,
         cost: inferenceCost,
         model: completion.model,

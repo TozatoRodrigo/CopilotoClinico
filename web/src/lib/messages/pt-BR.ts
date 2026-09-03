@@ -122,6 +122,17 @@ export interface Messages {
     };
   };
 
+  /**
+   * KB-005/KB-006 — aviso de cobertura da base de diretrizes. Distinto de
+   * `uncertainty`: incerteza é sobre o raciocínio; cobertura é sobre o que a
+   * base CONTÉM. Um caso pode ter raciocínio seguro e cobertura nenhuma.
+   */
+  coverage: {
+    none: { title: string; body: string };
+    partial: { title: string; body: string };
+    action: string;
+  };
+
   uncertainty: {
     title: string;
     defaultReason: string;
@@ -344,6 +355,18 @@ export const ptBR: Messages = {
       high: 'Alto',
       moderate: 'Moderado',
     },
+  },
+
+  coverage: {
+    none: {
+      title: 'Nenhuma diretriz da base cobre este cenário',
+      body: 'A análise abaixo não cita diretriz porque a base de conhecimento ainda não tem conteúdo para esta apresentação. As perguntas servem para chegar ao protocolo certo — não são substituto de uma diretriz. Se você tem uma referência para este cenário, envie para a curadoria.',
+    },
+    partial: {
+      title: 'Cobertura parcial da base',
+      body: 'As diretrizes recuperadas não são um encaixe forte para este caso. Confira se a fonte citada trata da mesma apresentação antes de seguir a conduta.',
+    },
+    action: 'Buscar nas diretrizes',
   },
 
   uncertainty: {

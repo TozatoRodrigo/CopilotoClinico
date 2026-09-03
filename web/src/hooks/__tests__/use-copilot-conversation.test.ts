@@ -61,6 +61,7 @@ function makeInitial(overrides: Partial<StoredCopilotResult> = {}): StoredCopilo
     analysis: makeAnalysis(),
     turnIndex: 0,
     maxTurns: 5,
+    retrievalCoverage: "full",
     ...overrides,
   };
 }
@@ -135,6 +136,7 @@ describe("useCopilotConversation — UX-08: rascunho de respostas sobrevive à n
         piiDetected: false,
         injectionDetected: false,
         chunksRetrieved: 3,
+        retrievalCoverage: "full" as const,
         latencyMs: 800,
         cost: 0.01,
         model: "test-model",

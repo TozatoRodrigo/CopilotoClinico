@@ -30,6 +30,7 @@ function makeInput(overrides: Partial<PromptInput> = {}): PromptInput {
     },
     vertical: overrides.vertical,
     redFlags: overrides.redFlags,
+    coverage: overrides.coverage,
   };
 }
 
@@ -527,5 +528,43 @@ describe('buildPrompt', () => {
 
       expect(result.system).toContain('SUBTYPE / MUTUALLY-EXCLUSIVE CLASSIFICATION RULE');
     });
+  });
+});
+
+/**
+ * KB-005/KB-006 — Aviso de cobertura fraca. Regressão dos dois casos
+ * reportados em campo: chunks do cenário vizinho chegavam ao modelo marcados
+ * como TRUSTED_CURATED_SOURCE, sem nenhum sinal de que o encaixe era ruim.
+ */
+describe('buildPrompt — aviso de cobertura', () => {
+  it('injeta o aviso de encaixe fraco quando a cobertura é parcial', () => {
+    const result = buildPrompt(makeInput({ coverage: 'partial' }));
+
+    expect(result.user).toContain('<evidence_coverage_warning>');
+    expect(result.user).toContain('COVERAGE IS WEAK');
+    // O aviso precisa vir ANTES da evidência, para o modelo lê-lo enquanto
+    // ainda está decidindo se aquele cenário é mesmo o do caso.
+    expect(result.user.indexOf('<evidence_coverage_warning>')).toBeLessThan(
+      result.user.indexOf('<guideline_evidence'),
+    );
+  });
+
+  it('não injeta nada quando a cobertura é forte — prompt idêntico ao anterior', () => {
+    const semAviso = buildPrompt(makeInput({ coverage: 'full' }));
+    const semCampo = buildPrompt(makeInput());
+
+    expect(semAviso.user).not.toContain('evidence_coverage_warning');
+    expect(semAviso.user).toBe(semCampo.user);
+  });
+
+  it('cai no caminho de "declarar a lacuna e perguntar" quando não há chunk algum', () => {
+    // Cobertura 'none' nunca chega aqui com chunks: o retrieval devolve lista
+    // vazia e o buildPrompt usa buildCaseOnlyUser (DECISION MATRIX path D).
+    const result = buildPrompt(makeInput({ retrievedChunks: [], coverage: 'none' }));
+
+    expect(result.user).toContain('No relevant guideline evidence was found');
+    expect(result.user).toContain('DECISION MATRIX path D');
+    expect(result.user).not.toContain('<guideline_evidence');
+    expect(result.retrievedChunkIds).toEqual([]);
   });
 });

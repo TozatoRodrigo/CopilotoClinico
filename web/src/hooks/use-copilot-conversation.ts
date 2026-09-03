@@ -11,6 +11,7 @@ import type {
   ClarifyingAnswerValue,
   CopilotAnalysis,
   CopilotAnalyzeResponse,
+  RetrievalCoverage,
 } from "@/lib/types";
 
 export const STORAGE_KEY_PREFIX = "copilot_result_";
@@ -91,6 +92,13 @@ export interface StoredCopilotResult {
    */
   turnIndex: number;
   maxTurns: number;
+  /**
+   * KB-005/KB-006 — cobertura da base de diretrizes para este turno, para o
+   * aviso de "a base não cobre este cenário" (CoverageBanner) sobreviver a um
+   * reload. `null` em interações anteriores à mudança — a UI então não mostra
+   * aviso nenhum, em vez de assumir cobertura.
+   */
+  retrievalCoverage: RetrievalCoverage | null;
 }
 
 export interface TurnRecord {
@@ -107,6 +115,7 @@ export function useCopilotConversation(
   const [analysis, setAnalysis] = useState(initial.analysis);
   const [turnIndex, setTurnIndex] = useState(initial.turnIndex);
   const [maxTurns, setMaxTurns] = useState(initial.maxTurns);
+  const [retrievalCoverage, setRetrievalCoverage] = useState(initial.retrievalCoverage);
   const [turns, setTurns] = useState<TurnRecord[]>([]);
   // UX-08 — inicializa a partir do rascunho salvo (se ainda for do mesmo
   // turno), não de um objeto vazio — ver comentário acima de
@@ -119,13 +128,20 @@ export function useCopilotConversation(
   const [queued, setQueued] = useState(false);
 
   const persist = useCallback(
-    (id: string, data: CopilotAnalysis, turn: number, max: number) => {
+    (
+      id: string,
+      data: CopilotAnalysis,
+      turn: number,
+      max: number,
+      coverage: RetrievalCoverage | null,
+    ) => {
       try {
         const stored: StoredCopilotResult = {
           interactionId: id,
           analysis: data,
           turnIndex: turn,
           maxTurns: max,
+          retrievalCoverage: coverage,
         };
         sessionStorage.setItem(`${STORAGE_KEY_PREFIX}${encounterId}`, JSON.stringify(stored));
       } catch {
@@ -162,7 +178,14 @@ export function useCopilotConversation(
       // engano contra um turno futuro que reaproveite o mesmo id por
       // coincidência — limpar é mais seguro que deixar).
       clearDraftAnswers(encounterId);
-      persist(result.interactionId, newAnalysis, result.metadata.turnIndex, result.metadata.maxTurns);
+      setRetrievalCoverage(result.metadata.retrievalCoverage);
+      persist(
+        result.interactionId,
+        newAnalysis,
+        result.metadata.turnIndex,
+        result.metadata.maxTurns,
+        result.metadata.retrievalCoverage,
+      );
     },
     [analysis, persist, encounterId],
   );
@@ -260,6 +283,7 @@ export function useCopilotConversation(
     interactionId,
     turnIndex,
     maxTurns,
+    retrievalCoverage,
     // UX-03 — se o médico responder AGORA, o backend computa
     // newTurnIndex = turnIndex + 1 e força esse turno a ser o final quando
     // newTurnIndex === maxTurns - 1 (ver continueAnalysis() / forceFinal).

@@ -31,6 +31,7 @@ export type {
   GuidelineSearchResult,
   GuidelineSourceSummary,
   LatestInteractionResponse,
+  RetrievalCoverage,
   Physician,
   PhysicianRole,
   PendingGuidelineChunk,

@@ -1,6 +1,6 @@
 # Catálogo de Diretrizes Clínicas — CopilotoClínico
 
-Versão: 2.0 | Criado: 2026-06-08 | Atualizado: 2026-06-11 | Sprint 4
+Versão: 2.1 | Criado: 2026-06-08 | Atualizado: 2026-09-03 | Sprint 4
 
 ## Política de uso
 
@@ -369,6 +369,143 @@ instável x estável, meningite bacteriana x viral.
 - [ ] Confirmar que a busca híbrida realmente retorna os 2 subtipos juntos para um caso ambíguo real (hoje comprovado só a nível de guardrail/unit test, não de retrieval fim a fim).
 - [ ] Avaliar se `choque_indiferenciado` (cenário novo, fora do KB-001 original) deveria ser formalmente incorporado à lista de "top 20 queixas" ou tratado como categoria à parte de emergências de UTI/PS.
 - [ ] Priorizar os próximos candidatos adiados (abdome agudo cirúrgico x clínico, TEP instável x estável, meningite bacteriana x viral) com o Dr. João antes de expandir mais.
+
+---
+## Pacote de Curadoria KB-005 — Arboviroses / dengue na emergência
+
+> **Status: rascunho técnico para ingestão via KB-002, aguardando curadoria
+> clínica.** Origem: feedback de campo de 03/09/2026 — um médico piloto testou
+> um caso de dengue e o Copiloto conduziu o raciocínio pelo caminho de sepse.
+> A causa raiz não é o modelo: **não havia nenhum conteúdo de arbovirose na
+> base**. Sem chunk de dengue, a busca híbrida entrega os chunks de sepse
+> (febre + hipotensão + hipoperfusão são semanticamente vizinhos) e a Regra 1
+> do prompt obriga toda recomendação a citar um chunk recuperado — o modelo
+> cita o único material que existe. Ver `tests/fixtures/field-incident-cases.ts`
+> (`fi-001-dengue-como-sepse`).
+
+### Fonte e método de curadoria
+
+Duas fontes primárias, ambas nacionais e verificadas linha a linha durante a
+redação dos rascunhos:
+
+- **Ministério da Saúde — _Dengue: diagnóstico e manejo clínico (adulto e
+  criança)_, 6ª edição, Brasília 2024.** Fonte dos grupos A–D, dos oito sinais
+  de alarme, dos sinais de choque e das prescrições de reposição volêmica
+  (Grupo C: 10 mL/kg na 1ª hora, teto de 20 mL/kg por fase de expansão,
+  manutenção 25 mL/kg/6h e 25 mL/kg/8h; Grupo D: 20 mL/kg em até 20 minutos,
+  repetível até 3 vezes).
+- **ABRAMEDE — _Diretrizes clínicas para o manejo de dengue em pacientes
+  adultos na emergência_.** Silva LOJ, von Hellmann R, Maia IWA, et al.
+  _JBMEDE_. 2024;4(2):e24018. DOI 10.54143/jbmede.v4i2.199. Metodologia GRADE
+  com GRADE-ADOLOPMENT, 10 perguntas PICO. Fonte dos achados clínicos de alto
+  risco, dos critérios de internação e de UTI, da escolha de cristaloide/Ringer
+  lactato, da noradrenalina como vasopressor de 1ª escolha e da conduta de não
+  transfundir plaquetas profilaticamente. **Este é o artigo que o médico piloto
+  tentou anexar e não conseguiu** — ver plano em `docs/plano-base-contexto.md`.
+
+Como no KB-001/003/004, o conteúdo é paráfrase e síntese de pontos-chave; os
+limiares numéricos foram conferidos contra o documento de origem e nenhum
+texto foi copiado integralmente.
+
+### Cenários incluídos no pacote
+
+| # | Arquivo | `cenario` | `subtipo` | Papel |
+|---|---|---|---|---|
+| 1 | `01-dengue-classificacao-e-manejo.md` | `dengue_arbovirose` | — | Fases, sinais de alarme, sinais de choque, grupos A–D e volumes (MS 2024) |
+| 2 | `02-dengue-achados-alto-risco-abramede.md` | `dengue_arbovirose` | — | Achados de alto risco, exames, internação/UTI, fluidos, vasopressor, transfusão (ABRAMEDE 2024) |
+| 3 | `03-febre-aguda-dengue-x-sepse.md` | `febre_aguda_indiferenciada` | `dengue_arbovirose` | Lado dengue da dicotomia |
+| 4 | `04-febre-aguda-sepse-bacteriana.md` | `febre_aguda_indiferenciada` | `sepse_bacteriana` | Lado sepse da dicotomia |
+
+Os arquivos 3 e 4 formam um par de subtipos mutuamente exclusivos no mesmo
+`cenario` — pré-requisito para o guardrail de coerência diagnóstica
+(`output-validator.ts`, `findUnresolvedSubtypeAmbiguity`) ter dois lados para
+comparar. Erro se invertido: tratar dengue em fase crítica como sepse leva a
+bolus amplo com risco de sobrecarga na reabsorção e antibiótico desnecessário;
+tratar sepse como dengue atrasa o antibiótico, cujo atraso é o fator
+modificável mais associado à mortalidade.
+
+### Como usar este pacote
+
+1. Revisar os 4 arquivos com o médico curador, com atenção aos volumes de
+   reposição (que diferem entre MS e ABRAMEDE em granularidade) e à definição
+   operacional de vômitos persistentes.
+2. Ingerir com `pnpm ingest:guidelines docs/guidelines/drafts/kb-005-arboviroses-dengue`.
+3. Aprovar/rejeitar os chunks pendentes via curadoria (KB-002).
+4. Rodar `fi-001-dengue-como-sepse` como caso de regressão ponta a ponta.
+5. Registrar aqui a validação clínica assinada (nome, CRM, data).
+
+### Pendências para fechar KB-005
+
+- [ ] Validação clínica assinada dos 4 arquivos (nome, CRM, data).
+- [ ] Rodar ingestão em ambiente com banco/embeddings disponíveis.
+- [ ] Confirmar que um caso de dengue recupera `dengue_arbovirose` no top-3, e que um caso febril ambíguo recupera os DOIS subtipos de `febre_aguda_indiferenciada`.
+- [ ] Avaliar extensão para chikungunya, zika e febre amarela (hoje só citadas como diferencial), priorizada por frequência real reportada pelos médicos piloto.
+- [ ] Decidir se `febre_aguda_indiferenciada` entra formalmente na lista de cenários de triagem ou fica como cenário de desambiguação.
+
+---
+## Pacote de Curadoria KB-006 — Cefaleias primárias x secundárias
+
+> **Status: rascunho técnico para ingestão via KB-002, aguardando curadoria
+> clínica.** Origem: feedback de campo de 03/09/2026 — caso de provável
+> cefaleia em salvas em que o Copiloto apontou hemorragia intracerebral, e a
+> hipótese virou o título do atendimento e entrou no SBAR gerado. Causa raiz:
+> a base só tinha o lado **secundário** da cefaleia. O `05-cefaleia.md` do
+> KB-001 é inteiramente sobre triagem de causas fatais e instrui o retrieval a
+> puxar com força "cefaleia em trovoada"; o KB-003 acrescenta HSA. Nenhum chunk
+> descrevia uma cefaleia primária — logo, não existia evidência recuperável
+> capaz de sustentar o diagnóstico correto, e o modelo citou o que havia. Ver
+> `tests/fixtures/field-incident-cases.ts` (`fi-002-cefaleia-em-salvas-como-hemorragia`).
+
+### Fonte e método de curadoria
+
+- **ICHD-3 — _International Classification of Headache Disorders_, 3ª edição
+  (International Headache Society, 2018)**, critérios 3.1 (cefaleia em salvas),
+  1.1 (migrânea sem aura) e 2 (cefaleia do tipo tensional).
+- **Cohen AS, Burns B, Goadsby PJ. High-flow oxygen for treatment of cluster
+  headache: a randomized trial. _JAMA_. 2009;302(22):2451–7** — ensaio
+  randomizado cruzado, 109 pacientes; 78% das crises abortadas ou com alívio
+  adequado em 15 minutos com O₂ a 12 L/min contra 20% com ar ambiente.
+- **Do TP, Remmers A, Schytz HW, et al. Red and orange flags for secondary
+  headaches in clinical practice: SNNOOP10 list. _Neurology_.
+  2019;92(3):134–144** — lista de alertas de causa secundária.
+- **Colman I, Friedman BW, Brown MD, et al. Parenteral dexamethasone for acute
+  severe migraine: meta-analysis of randomised controlled trials. _BMJ_.
+  2008;336:1359** — redução de recorrência em 24–72h.
+
+### Cenários incluídos no pacote
+
+| # | Arquivo | `cenario` | `subtipo` | Papel |
+|---|---|---|---|---|
+| 1 | `01-cefaleia-em-salvas-e-tacs.md` | `cefaleia` | `primaria` | Critérios ICHD-3 3.1, discriminadores contra sangramento, O₂ 12–15 L/min e sumatriptano SC |
+| 2 | `02-migranea-e-cefaleia-tensional.md` | `cefaleia` | `primaria` | Padrão de migrânea/tensional, manejo no PS, quando NÃO indicar imagem |
+| 3 | `03-cefaleia-secundaria-snnoop10.md` | `cefaleia` | `secundaria` | SNNOOP10, trovoada definida por tempo, sensibilidade da TC por janela horária |
+
+Reutiliza o `cenario: cefaleia` já curado no KB-001 (mesma política do KB-004)
+em vez de criar um cenário paralelo, e o transforma num par de subtipos
+mutuamente exclusivos — sem isso o guardrail de coerência nunca teria os dois
+lados para comparar num caso de cefaleia.
+
+### Como usar este pacote
+
+1. Revisar os 3 arquivos com o médico curador, com atenção especial ao limite
+   de segurança do arquivo 1 (primeiro surto e apresentações atípicas seguem
+   exigindo neuroimagem, porque existem TACs sintomáticas — lesão selar,
+   dissecção carotídea, lesão de seio cavernoso).
+2. Ingerir com `pnpm ingest:guidelines docs/guidelines/drafts/kb-006-cefaleias-primarias`.
+3. Aprovar/rejeitar os chunks pendentes via curadoria (KB-002).
+4. Rodar `fi-002-cefaleia-em-salvas-como-hemorragia` como caso de regressão
+   ponta a ponta: a resposta correta trata a crise (oxigênio) E mantém HSA como
+   diferencial cannot-miss, nomeando no `reasoning` o padrão temporal que
+   discriminou.
+5. Registrar aqui a validação clínica assinada (nome, CRM, data).
+
+### Pendências para fechar KB-006
+
+- [ ] Validação clínica assinada dos 3 arquivos (nome, CRM, data).
+- [ ] Rodar ingestão em ambiente com banco/embeddings disponíveis.
+- [ ] Revisar se a frase do `05-cefaleia.md` (KB-001) que instrui o retrieval a "puxar com força" termos de trovoada precisa ser reequilibrada agora que existe o lado primário — hoje ela enviesa a recuperação para o lado secundário.
+- [ ] Avaliar hemicrania paroxística e SUNCT/SUNA (as outras TACs), hoje fora do pacote; a resposta a indometacina da hemicrania paroxística é um discriminador terapêutico relevante.
+- [ ] Confirmar retrieval dos 2 subtipos de `cefaleia` juntos num caso ambíguo real.
 
 ---
 ## Processo de revisão

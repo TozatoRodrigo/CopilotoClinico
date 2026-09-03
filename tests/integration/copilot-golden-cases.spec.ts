@@ -160,7 +160,7 @@ describe('CC-06: Golden cases — copilot never leaves the physician at a dead e
     it('recovers via the automatic retry when the model first attempts the OLD wall shape', async () => {
       // Retrieval fraco por texto vago — reproduz exatamente o cenário real:
       // sem diretriz de cefaleia na base, o retrieval não acha nada.
-      retrievalMock.search.mockResolvedValue({ chunks: [], totalRetrieved: 0 });
+      retrievalMock.search.mockResolvedValue({ chunks: [], totalRetrieved: 0, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0 });
 
       // Primeira tentativa do modelo: a PAREDE antiga (uncertainty sozinho,
       // sem recomendação e sem pergunta) — o comportamento pré-Sprint-26.
@@ -224,7 +224,7 @@ describe('CC-06: Golden cases — copilot never leaves the physician at a dead e
     });
 
     it('accepts the compliant path-D shape on the first attempt without needing a retry', async () => {
-      retrievalMock.search.mockResolvedValue({ chunks: [], totalRetrieved: 0 });
+      retrievalMock.search.mockResolvedValue({ chunks: [], totalRetrieved: 0, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0 });
 
       aiGatewayMock.complete.mockResolvedValueOnce(
         completionOf({
@@ -263,7 +263,7 @@ describe('CC-06: Golden cases — copilot never leaves the physician at a dead e
   // GC-02 / GC-05 — Vago sem cobertura na base / retrieval vazio
   // ────────────────────────────────────────────────────────────────────
   it('GC-02/GC-05: zero retrieved chunks always routes the prompt through DECISION MATRIX path D', async () => {
-    retrievalMock.search.mockResolvedValue({ chunks: [], totalRetrieved: 0 });
+    retrievalMock.search.mockResolvedValue({ chunks: [], totalRetrieved: 0, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0 });
     aiGatewayMock.complete.mockResolvedValueOnce(
       completionOf({
         reasoning: 'Sem evidência recuperada.',
@@ -308,7 +308,7 @@ describe('CC-06: Golden cases — copilot never leaves the physician at a dead e
   // GC-03 — Vago COM cobertura (o comportamento "preceptor" já maduro)
   // ────────────────────────────────────────────────────────────────────
   it('GC-03: vague case WITH guideline coverage yields preliminary recommendations plus guideline-anchored questions', async () => {
-    retrievalMock.search.mockResolvedValue({ chunks: highGravityChunks, totalRetrieved: 1 });
+    retrievalMock.search.mockResolvedValue({ chunks: highGravityChunks, totalRetrieved: 1, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0 });
     aiGatewayMock.complete.mockResolvedValueOnce(
       completionOf({
         reasoning: 'Quadro sugestivo de choque; dados hemodinâmicos incompletos.',
@@ -376,7 +376,7 @@ describe('CC-06: Golden cases — copilot never leaves the physician at a dead e
   // GC-04 — Completo com cobertura (NÃO-REGRESSÃO do caminho A)
   // ────────────────────────────────────────────────────────────────────
   it('GC-04: complete case with coverage still yields definitive recommendations and zero questions (path A untouched)', async () => {
-    retrievalMock.search.mockResolvedValue({ chunks: highGravityChunks, totalRetrieved: 1 });
+    retrievalMock.search.mockResolvedValue({ chunks: highGravityChunks, totalRetrieved: 1, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0 });
     aiGatewayMock.complete.mockResolvedValueOnce(
       completionOf({
         reasoning: 'Caso completo, choque hipovolêmico caracterizado.',
@@ -416,7 +416,7 @@ describe('CC-06: Golden cases — copilot never leaves the physician at a dead e
   // GC-06 — Convergência do loop (entrada pobre → pergunta → resposta → definitivo)
   // ────────────────────────────────────────────────────────────────────
   it('GC-06: the decision loop converges — definitive recommendations only grow across turns, never regress to a dead end', async () => {
-    retrievalMock.search.mockResolvedValue({ chunks: highGravityChunks, totalRetrieved: 1 });
+    retrievalMock.search.mockResolvedValue({ chunks: highGravityChunks, totalRetrieved: 1, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0 });
 
     // Turno 0: vago, mas com cobertura — pergunta, sem recomendação definitiva.
     aiGatewayMock.complete.mockResolvedValueOnce(
@@ -504,7 +504,7 @@ describe('CC-06: Golden cases — copilot never leaves the physician at a dead e
       configMock.get.mockImplementation((key: string, defaultValue?: unknown) =>
         key === 'COPILOT_MAX_TURNS' ? 5 : defaultValue,
       );
-      retrievalMock.search.mockResolvedValue({ chunks: highGravityChunks, totalRetrieved: 1 });
+      retrievalMock.search.mockResolvedValue({ chunks: highGravityChunks, totalRetrieved: 1, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0 });
       prismaMock.aiInteraction.findFirst.mockResolvedValue({
         id: 'interaction-golden-07-parent',
         encounterId,
@@ -586,7 +586,7 @@ describe('CC-06: Golden cases — copilot never leaves the physician at a dead e
   // GC-08 — Red flags preservadas entre turnos (cobre CC-05)
   // ────────────────────────────────────────────────────────────────────
   it('GC-08: a red flag confirmed by the physician survives into a follow-up turn prompt', async () => {
-    retrievalMock.search.mockResolvedValue({ chunks: highGravityChunks, totalRetrieved: 1 });
+    retrievalMock.search.mockResolvedValue({ chunks: highGravityChunks, totalRetrieved: 1, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0 });
     prismaMock.aiInteraction.findFirst.mockResolvedValueOnce({
       id: 'interaction-golden-08-parent',
       encounterId,

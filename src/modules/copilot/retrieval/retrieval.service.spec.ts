@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { RetrievalService } from './retrieval.service';
 import { PrismaService } from '../../../config/prisma.service';
 import { AiGatewayService } from '../../ai-gateway/ai-gateway.service';
+import { ConfigService } from '@nestjs/config';
 import { RedisService } from '../../redis/redis.service';
 
 describe('RetrievalService', () => {
@@ -35,10 +36,15 @@ describe('RetrievalService', () => {
       set: vi.fn().mockResolvedValue(undefined),
     } as unknown as RedisService;
 
+    // Sem env definida, o serviço cai nos defaults do piso de relevância
+    // (DEFAULT_MIN_SEMANTIC_SCORE etc.) — ver hybrid-search.ts.
+    const configMock = { get: vi.fn().mockReturnValue(undefined) } as unknown as ConfigService;
+
     service = new RetrievalService(
       prismaMock as unknown as PrismaService,
       aiGatewayMock as unknown as AiGatewayService,
       redisMock,
+      configMock,
     );
   });
 
@@ -111,6 +117,67 @@ describe('RetrievalService', () => {
 
       expect(result.chunks).toEqual([]);
       expect(result.totalRetrieved).toBe(0);
+    });
+
+    /**
+     * KB-005/KB-006 — Regressão do caso de dengue conduzido como sepse: sem
+     * conteúdo de arbovirose na base, a busca devolvia os chunks de sepse
+     * (vizinhos semânticos) e o prompt os apresentava como fonte curada.
+     * Com o piso, a busca devolve vazio e a análise cai no caminho de
+     * declarar a lacuna e perguntar.
+     */
+    it('descarta todos os chunks quando nenhum passa do piso e reporta cobertura "none"', async () => {
+      aiGatewayMock.embed.mockResolvedValue({ embeddings: [[0.1, 0.2, 0.3]] });
+
+      prismaMock.$queryRaw
+        .mockResolvedValueOnce([
+          { id: 'sepse-1', similarity: 0.24, institution_id: null },
+          { id: 'sepse-2', similarity: 0.19, institution_id: null },
+        ])
+        .mockResolvedValueOnce([]);
+
+      const result = await service.search('caso de dengue com sinais de alarme');
+
+      expect(result.chunks).toEqual([]);
+      expect(result.totalRetrieved).toBe(0);
+      expect(result.coverage).toBe('none');
+      expect(result.discardedByFloor).toBe(2);
+      expect(result.bestSemanticScore).toBeCloseTo(0.24);
+      // Não deve nem buscar o texto dos chunks descartados.
+      expect(prismaMock.guidelineChunk.findMany).not.toHaveBeenCalled();
+    });
+
+    it('mantém os chunks relevantes e marca cobertura "partial" num encaixe fraco', async () => {
+      aiGatewayMock.embed.mockResolvedValue({ embeddings: [[0.1, 0.2, 0.3]] });
+
+      prismaMock.$queryRaw
+        .mockResolvedValueOnce([
+          { id: 'chunk-relevante', similarity: 0.38, institution_id: null },
+          { id: 'chunk-fraco', similarity: 0.12, institution_id: null },
+        ])
+        .mockResolvedValueOnce([]);
+
+      prismaMock.guidelineChunk.findMany.mockResolvedValue([
+        {
+          id: 'chunk-relevante',
+          text: 'Texto relevante',
+          source: 'diretriz-x',
+          sourceVersion: '1.0',
+          specialty: 'emergencia',
+          evidenceLevel: null,
+          institutionId: null,
+          metadata: {},
+        },
+      ]);
+
+      const result = await service.search('caso parcialmente coberto');
+
+      expect(result.chunks.map((c) => c.id)).toEqual(['chunk-relevante']);
+      expect(result.coverage).toBe('partial');
+      expect(result.discardedByFloor).toBe(1);
+      expect(prismaMock.guidelineChunk.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: { in: ['chunk-relevante'] } } }),
+      );
     });
 
     it('delegates to embedding and raw queries', async () => {

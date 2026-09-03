@@ -282,6 +282,16 @@ export interface CopilotAnalyzeResponse {
     piiDetected: boolean;
     injectionDetected: boolean;
     chunksRetrieved: number;
+    /**
+     * KB-005/KB-006 — o quanto a base de diretrizes cobre este caso.
+     * `full`: encaixe forte. `partial`: a evidência passou no piso de
+     * relevância mas não é um encaixe forte — o modelo foi avisado disso.
+     * `none`: nenhum chunk passou no piso; a análise não recomendou citando o
+     * cenário vizinho, declarou a lacuna e perguntou. A UI mostra isso ao
+     * médico para que a ausência de recomendação seja lida como "a base não
+     * cobre este cenário", não como indecisão do modelo.
+     */
+    retrievalCoverage: RetrievalCoverage;
     latencyMs: number;
     cost: number;
     model: string;
@@ -290,6 +300,9 @@ export interface CopilotAnalyzeResponse {
     maxTurns: number;
   };
 }
+
+/** KB-005/KB-006 — ver CopilotAnalyzeResponse.metadata.retrievalCoverage. */
+export type RetrievalCoverage = 'full' | 'partial' | 'none';
 
 /**
  * UX-06 — eventos do stream SSE de GET /encounters/:id/copilot/stream.
@@ -313,6 +326,12 @@ export interface LatestInteractionResponse {
   /** UX-03 — ver CopilotAnalyzeResponse.metadata.turnIndex/maxTurns. */
   turnIndex: number;
   maxTurns: number;
+  /**
+   * KB-005/KB-006 — ver CopilotAnalyzeResponse.metadata.retrievalCoverage.
+   * `null` em interações gravadas antes desta mudança: a UI não mostra o
+   * aviso de cobertura em vez de assumir que a base cobria o caso.
+   */
+  retrievalCoverage: RetrievalCoverage | null;
 }
 
 // ── Admin / Console types (E1, E2, E5) ─────────────────────────────────────

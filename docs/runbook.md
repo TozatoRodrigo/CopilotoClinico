@@ -63,6 +63,65 @@ KB001_INTEGRATION=1 DATABASE_URL=postgresql://test:test@localhost:5432/test?sche
 O teste de integração do KB-001 roda automaticamente no CI e fica `skip` em ambiente
 local até que `KB001_INTEGRATION=1` seja informado junto de um PostgreSQL de teste ativo.
 
+### Publicar os pacotes KB-005 (dengue) e KB-006 (cefaleias) em produção
+
+Os dois pacotes existem como rascunho em `docs/guidelines/drafts/` e **não têm
+efeito nenhum até serem ingeridos e aprovados** — o retrieval só enxerga chunks
+com `status = 'approved'`.
+
+```bash
+pnpm ingest:guidelines docs/guidelines/drafts/kb-005-arboviroses-dengue
+pnpm ingest:guidelines docs/guidelines/drafts/kb-006-cefaleias-primarias
+```
+
+Os chunks entram como `pending_review`. A aprovação é feita por um curador
+(médico com `is_curator = true` e papel `COMPLIANCE`/`ADMIN`) no console
+`/admin/diretrizes`, ou via `POST /v1/guidelines/chunks/:id/approve`.
+
+Critério de aceite antes de liberar para os médicos do piloto — rodar os dois
+casos de incidente de `tests/fixtures/field-incident-cases.ts` no ambiente real:
+
+| Caso | Esperado |
+|---|---|
+| `fi-001-dengue-como-sepse` | Recupera `dengue_arbovirose` no top-3 e o `reasoning` cita a piora na defervescência |
+| `fi-002-cefaleia-em-salvas-como-hemorragia` | Recupera `cefaleia`/`primaria`, trata a crise e mantém HSA como diferencial, nomeando o padrão temporal |
+
+Não basta acertar o rótulo: se o `reasoning` não nomeia o discriminador, o
+acerto foi coincidência de retrieval e volta a falhar no próximo caso.
+
+### Calibrar o piso de relevância (KB-005/KB-006)
+
+O piso (`RETRIEVAL_MIN_SEMANTIC_SCORE`, default `0.3`) é o que permite ao
+sistema dizer "minha base não cobre este caso" em vez de responder citando o
+cenário vizinho. O valor inicial é conservador e **deve ser calibrado com dados
+reais** depois da primeira semana de uso.
+
+Cada busca emite uma linha de log:
+
+```
+RETRIEVAL_COVERAGE coverage=partial best=0.412 candidates=10 kept=4 discarded=6
+```
+
+Procedimento:
+
+1. Colete as linhas `RETRIEVAL_COVERAGE` de uma janela de uso real.
+2. Compare a distribuição de `best` entre casos que os médicos consideraram
+   bem respondidos e casos reportados como "cenário errado" ou "não cobriu".
+3. Escolha o corte que mantém 100% de recall nos casos bem respondidos —
+   errar para o lado de perguntar é aceitável; errar para o lado de recomendar
+   com evidência do cenário errado não é.
+4. Valide contra os 40 casos sintéticos do KB-001 (`pnpm test:kb-001:synthetic`
+   confere o pack; a validação de retrieval é o
+   `pnpm test:kb-001:integration` contra o banco).
+
+Sinal de alerta: se a proporção de `coverage=none` subir muito, o problema
+quase sempre é **falta de cobertura na base**, não o limiar. Baixar o piso
+nesse caso só devolve o comportamento antigo — o certo é curar o cenário
+faltante.
+
+**Rollback imediato, sem redeploy:** `RETRIEVAL_MIN_SEMANTIC_SCORE=0` desliga
+o piso e restaura o comportamento anterior byte a byte.
+
 ### Ingestão e revisão de diretrizes (KB-002)
 
 A ingestão em lote de diretrizes clínicas usa um pipeline de curadoria: nenhum
