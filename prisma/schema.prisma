@@ -73,20 +73,20 @@ model Physician {
   createdAt          DateTime           @default(now()) @map("created_at")
   updatedAt          DateTime           @updatedAt @map("updated_at")
 
-  isCurator          Boolean            @default(false) @map("is_curator")
+  isCurator Boolean @default(false) @map("is_curator")
   // PI-05 — preferência de idioma persistida na conta (não só localStorage
   // do dispositivo): o médico troca de terminal no hospital e a UI/análise
   // precisam seguir com ele. 'pt-BR' | 'es' — validado na aplicação, não
   // como enum do banco, para não exigir migração a cada novo idioma.
-  locale             String             @default("pt-BR")
+  locale    String  @default("pt-BR")
 
-  encounters            Encounter[]
-  documents             Document[]
-  consents              Consent[]
-  refreshTokens         RefreshToken[]
-  mfaBackupCodes        MfaBackupCode[]
+  encounters              Encounter[]
+  documents               Document[]
+  consents                Consent[]
+  refreshTokens           RefreshToken[]
+  mfaBackupCodes          MfaBackupCode[]
   crmVerificationRequests CrmVerificationRequest[]
-  institutions          PhysicianInstitution[]
+  institutions            PhysicianInstitution[]
 
   @@map("physicians")
 }
@@ -165,16 +165,45 @@ model Encounter {
   createdAt      DateTime        @default(now()) @map("created_at")
   updatedAt      DateTime        @updatedAt @map("updated_at")
 
-  physician       Physician       @relation(fields: [physicianId], references: [id], onDelete: Cascade)
-  institution     Institution?    @relation(fields: [institutionId], references: [id], onDelete: SetNull)
-  aiInteractions  AiInteraction[]
-  documents       Document[]
-  audioCaptures   AudioCapture[]
-  protocolRuns    ProtocolRun[]
+  physician      Physician             @relation(fields: [physicianId], references: [id], onDelete: Cascade)
+  institution    Institution?          @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  aiInteractions AiInteraction[]
+  documents      Document[]
+  audioCaptures  AudioCapture[]
+  protocolRuns   ProtocolRun[]
+  attachments    EncounterAttachment[]
 
   @@index([physicianId])
   @@index([institutionId])
   @@map("encounters")
+}
+
+/// F4 — Referência anexada pelo médico a UM atendimento.
+///
+/// Origem: um médico do piloto viu um caso de dengue ser conduzido como sepse
+/// e quis anexar a diretriz da ABRAMEDE àquele caso. Isso é diferente de
+/// sugerir para a base global (POST /guidelines/suggest): vale só para este
+/// atendimento, não passa por curadoria e não afeta nenhum outro médico.
+///
+/// Guarda o TEXTO JÁ REDIGIDO (PII mascarada), nunca o arquivo original —
+/// minimização LGPD. Depois da extração o binário não tem mais utilidade, e
+/// guardá-lo só aumentaria a superfície de dados sensíveis em repouso.
+model EncounterAttachment {
+  id          String   @id @default(uuid()) @db.Uuid
+  encounterId String   @map("encounter_id") @db.Uuid
+  physicianId String   @map("physician_id") @db.Uuid
+  filename    String   @db.VarChar(300)
+  mimeType    String   @map("mime_type") @db.VarChar(120)
+  sizeBytes   Int      @map("size_bytes")
+  /// Texto extraído e já mascarado de PII. Untrusted: nunca entra no prompt
+  /// como fonte curada — ver prompt-builder.ts, bloco physician_attachments.
+  text        String   @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  encounter Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+
+  @@index([encounterId])
+  @@map("encounter_attachments")
 }
 
 model AiInteraction {
@@ -227,22 +256,22 @@ model Document {
 }
 
 model GuidelineChunk {
-  id            String               @id @default(uuid()) @db.Uuid
+  id            String                       @id @default(uuid()) @db.Uuid
   source        String
-  sourceVersion String               @map("source_version")
+  sourceVersion String                       @map("source_version")
   specialty     String
-  evidenceLevel String?              @map("evidence_level")
-  text          String               @db.Text
-  textTsv       Unsupported("tsvector")?    @map("text_tsv")
+  evidenceLevel String?                      @map("evidence_level")
+  text          String                       @db.Text
+  textTsv       Unsupported("tsvector")?     @map("text_tsv")
   embedding     Unsupported("vector(1536)")?
   metadata      Json?
-  status        GuidelineChunkStatus @default(pending_review)
-  institutionId String?              @map("institution_id") @db.Uuid
-  reviewedBy    String?              @map("reviewed_by") @db.Uuid
-  reviewedAt    DateTime?            @map("reviewed_at")
-  validFrom     DateTime             @default(now()) @map("valid_from")
-  validTo       DateTime?            @map("valid_to")
-  createdAt     DateTime             @default(now()) @map("created_at")
+  status        GuidelineChunkStatus         @default(pending_review)
+  institutionId String?                      @map("institution_id") @db.Uuid
+  reviewedBy    String?                      @map("reviewed_by") @db.Uuid
+  reviewedAt    DateTime?                    @map("reviewed_at")
+  validFrom     DateTime                     @default(now()) @map("valid_from")
+  validTo       DateTime?                    @map("valid_to")
+  createdAt     DateTime                     @default(now()) @map("created_at")
 
   institution Institution? @relation(fields: [institutionId], references: [id], onDelete: SetNull)
 
@@ -321,18 +350,18 @@ enum AudioCaptureStatus {
 }
 
 model AudioCapture {
-  id               String              @id @default(uuid()) @db.Uuid
-  encounterId      String              @map("encounter_id") @db.Uuid
-  physicianId      String              @map("physician_id") @db.Uuid
-  encryptedContent String              @map("encrypted_content") @db.Text
-  mimeType         String              @map("mime_type") @db.VarChar(100)
-  sizeBytes        Int                 @map("size_bytes")
-  status           AudioCaptureStatus  @default(pending)
-  jobId            String?             @map("job_id") @db.VarChar(255)
-  transcribedText  String?             @map("transcribed_text") @db.Text
-  retainUntil      DateTime            @map("retain_until")
-  createdAt        DateTime            @default(now()) @map("created_at")
-  updatedAt        DateTime            @updatedAt @map("updated_at")
+  id               String             @id @default(uuid()) @db.Uuid
+  encounterId      String             @map("encounter_id") @db.Uuid
+  physicianId      String             @map("physician_id") @db.Uuid
+  encryptedContent String             @map("encrypted_content") @db.Text
+  mimeType         String             @map("mime_type") @db.VarChar(100)
+  sizeBytes        Int                @map("size_bytes")
+  status           AudioCaptureStatus @default(pending)
+  jobId            String?            @map("job_id") @db.VarChar(255)
+  transcribedText  String?            @map("transcribed_text") @db.Text
+  retainUntil      DateTime           @map("retain_until")
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
 
   encounter Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
 
@@ -355,7 +384,7 @@ model Protocol {
   createdAt     DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
 
-  institution Institution? @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  institution Institution?   @relation(fields: [institutionId], references: [id], onDelete: SetNull)
   nodes       ProtocolNode[]
   runs        ProtocolRun[]
 

@@ -4,6 +4,7 @@ import { PrismaService } from '../../../config/prisma.service';
 import { AiGatewayService } from '../../ai-gateway/ai-gateway.service';
 import { RetrievalService } from '../retrieval/retrieval.service';
 import { EncountersService } from '../../encounters/encounters.service';
+import { AttachmentsService } from '../../encounters/attachments/attachments.service';
 import { AuditService } from '../../audit/audit.service';
 import { ConfigService } from '@nestjs/config';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
@@ -32,6 +33,7 @@ describe('OrchestratorService', () => {
     update: ReturnType<typeof vi.fn>;
     updateChiefComplaint: ReturnType<typeof vi.fn>;
   };
+  let attachmentsMock: { forPrompt: ReturnType<typeof vi.fn> };
   let auditMock: {
     log: ReturnType<typeof vi.fn>;
   };
@@ -107,6 +109,7 @@ describe('OrchestratorService', () => {
       updateChiefComplaint: vi.fn().mockResolvedValue(undefined),
     };
     auditMock = { log: vi.fn().mockResolvedValue({ id: 'audit-001' }) };
+    attachmentsMock = { forPrompt: vi.fn().mockResolvedValue([]) };
     configMock = { get: vi.fn((_key: string, defaultValue?: unknown) => defaultValue) };
   }
 
@@ -115,6 +118,9 @@ describe('OrchestratorService', () => {
       prismaMock as unknown as PrismaService,
       aiGatewayMock as unknown as AiGatewayService,
       retrievalMock as unknown as RetrievalService,
+      // F4 — sem anexos por padrão: os testes existentes descrevem o fluxo
+      // sem referência anexada ao caso.
+      attachmentsMock as unknown as AttachmentsService,
       encountersMock as unknown as EncountersService,
       auditMock as unknown as AuditService,
       configMock as unknown as ConfigService,

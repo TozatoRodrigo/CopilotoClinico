@@ -18,6 +18,7 @@ import {
   STORAGE_KEY_PREFIX,
   type StoredCopilotResult,
 } from '@/hooks/use-copilot-conversation';
+import { EncounterAttachments } from '@/components/domain/encounter-attachments';
 import { useCopilotStream, isStreamEligible } from '@/hooks/use-copilot-stream';
 import { markFirstAnalysisDone } from '@/components/domain/install-prompt-banner';
 import {
@@ -423,6 +424,10 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
                 })}
               </div>
             </fieldset>
+
+            {/* F4 — anexar a diretriz ao caso, ao lado das red flags: é onde o
+                médico já está informando o que o texto do caso não diz. */}
+            <EncounterAttachments encounterId={encounterId} />
 
             <div>
               <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">

@@ -1,6 +1,6 @@
 # Plano — Base de contexto do Copiloto Clínico
 
-Versão: 1.3 | Criado: 2026-09-03 | Atualizado: 2026-09-03
+Versão: 1.4 | Criado: 2026-09-03 | Atualizado: 2026-09-03
 Origem: feedbacks de campo de 03/09/2026 (dois médicos do piloto).
 
 ---
@@ -198,12 +198,12 @@ Se a hipótese for exibida em algum lugar, precisa vir rotulada como hipótese, 
 nunca no documento gerado. Corrige diretamente o que aparece no print do
 reporte C.
 
-### F4 — Dois caminhos distintos para "incluir um arquivo" — 🟡 METADE IMPLEMENTADA
+### F4 — Dois caminhos distintos para "incluir um arquivo" — ✅ IMPLEMENTADO
 
 O reporte B é, na verdade, dois produtos diferentes que hoje estão fundidos num
 só e trancados atrás da curadoria:
 
-**(a) Referência do caso** — ⏳ PENDENTE. O que o médico talvez quisesse: Anexo no escopo de
+**(a) Referência do caso** — ✅ IMPLEMENTADO. Anexo no escopo de
 um `encounter`, usado só naquela análise, **nunca** promovido à base global.
 Entra no prompt em bloco próprio, marcado como entrada do médico e sujeito ao
 `injection-defense`, jamais dentro de `<guideline_evidence
@@ -237,6 +237,30 @@ nenhuma e o material entra como um bloco só.
 **inalcançável** o limite de 10 MB que o próprio schema de áudio documenta —
 em base64, 10 MB viram ~13,4 MB de corpo e o Fastify devolvia 413 antes de o
 schema ser avaliado. Cada endpoint mantém teto próprio e menor.
+
+#### Decisão de segurança clínica registrada (F4a)
+
+O anexo do médico **pode ser citado** como fonte de uma recomendação. A
+alternativa — anexo informa só o raciocínio, sem poder ser citado — deixaria a
+funcionalidade sem resolver o problema de quem a pediu: o médico anexa a
+diretriz de dengue e o Copiloto continua dizendo que a base não cobre.
+
+O contrapeso não é confiança no prompt, é guardrail:
+
+- Toda recomendação que cita um anexo é obrigatoriamente `preliminary: true` —
+  imposto por `output-validator.ts`, com retry quando o modelo desobedece.
+- A citação carrega `origin: 'physician_attachment'` e a UI marca em âmbar
+  "Anexo do médico · não curada".
+- O anexo **não** zera `uncertainty`: não é cobertura de diretriz. Se a base
+  não cobre o cenário, continua declarando que não cobre.
+- Conteúdo do anexo é untrusted: passa por `scanForInjection` no upload e entra
+  em bloco próprio no prompt, nunca dentro de `<guideline_evidence
+  type="TRUSTED_CURATED_SOURCE">`.
+
+A garantia do produto mudou de *"toda recomendação cita uma diretriz curada"*
+para *"toda recomendação cita uma fonte, e a interface sempre diz se ela é
+curada"*. É uma mudança real no contrato clínico e está registrada aqui de
+propósito.
 
 ### F5 — Regra de prompt: evidência recuperada não é confirmação de hipótese
 
@@ -305,7 +329,7 @@ fechou.
 | F2 — piso de relevância | calibração depende de F1 | backend, alto impacto | ✅ implementado, a calibrar |
 | F3 — título do atendimento | — | backend, baixo risco | ✅ implementado |
 | F4 — sugestão de diretriz | — | produto (backend + web) | ✅ implementado |
-| F4a — anexo de referência ao caso | — | produto, feature nova | ⏳ pendente |
+| F4a — anexo de referência ao caso | — | produto, feature nova | ✅ implementado |
 | F5 — regra de prompt | F1, F2 | prompt, alto acoplamento | 🟡 parcial (aviso de cobertura fraca entregue em F2) |
 | F6 — chunking | precisa entrar ANTES da ingestão | backend | ✅ implementado |
 | F9 — busca lexical com semântica OR | F2 (piso precisa cobrir hits lexicais) | backend, risco médio | ⏳ pendente |

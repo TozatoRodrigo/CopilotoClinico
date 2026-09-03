@@ -175,6 +175,16 @@ function buildPrismaMock() {
       count: vi.fn().mockResolvedValue(1),
     },
 
+    // F4 — o orquestrador consulta as referências anexadas ao atendimento em
+    // toda análise; sem anexos, a lista é vazia e o prompt fica idêntico.
+    encounterAttachment: {
+      findMany: vi.fn().mockResolvedValue([]),
+      findFirst: vi.fn().mockResolvedValue(null),
+      count: vi.fn().mockResolvedValue(0),
+      create: vi.fn(),
+      delete: vi.fn(),
+    },
+
     aiInteraction: {
       create: vi.fn().mockResolvedValue({
         id: INTERACTION_ID,

@@ -7,10 +7,16 @@ import { AiGatewayService } from '../../ai-gateway/ai-gateway.service';
 import { RetrievalService } from '../retrieval/retrieval.service';
 import type { RetrievalCoverage } from '../retrieval/hybrid-search';
 import { EncountersService } from '../../encounters/encounters.service';
+import { AttachmentsService } from '../../encounters/attachments/attachments.service';
 import { AuditService } from '../../audit/audit.service';
 import { maskPII } from '../guardrails/pii-filter';
 import { scanForInjection } from '../guardrails/injection-defense';
-import { buildPrompt, type EncounterContext } from './prompt-builder';
+import {
+  buildPrompt,
+  attachmentCitationId,
+  isAttachmentCitation,
+  type EncounterContext,
+} from './prompt-builder';
 import { validateOutput, type CopilotOutput } from '../guardrails/output-validator';
 import type { AnalyzeInput, RespondInput } from '../schemas/copilot.schemas';
 import { calculateInferenceCost } from './model-pricing';
@@ -85,6 +91,69 @@ function firstClause(text: string): string | null {
   return clause && clause.length > 0 ? clause : null;
 }
 
+/**
+ * F4 — Fonte de uma citação. `physician_attachment` é conteúdo que o médico
+ * anexou a ESTE atendimento e que ninguém curou: a UI marca visualmente e a
+ * recomendação correspondente é sempre preliminar (imposto pelo validador de
+ * saída, não só pelo prompt).
+ */
+export type CitationOrigin = 'institutional' | 'public' | 'physician_attachment';
+
+interface AttachmentForCitation {
+  citationId: string;
+  filename: string;
+  text: string;
+}
+
+/**
+ * F4 — resolve a fonte de uma citação, seja ela um chunk curado ou um anexo
+ * do médico. Centralizado porque os três caminhos do orquestrador (analyze,
+ * analyzeStream, continueAnalysis) montam citações da mesma forma.
+ */
+function resolveCitationSource(
+  citationChunkId: string,
+  chunks: Array<{
+    id: string;
+    source: string;
+    sourceVersion: string;
+    text: string;
+    institutionId: string | null;
+    metadata: Record<string, unknown>;
+  }>,
+  attachments: AttachmentForCitation[],
+): {
+  source: string;
+  sourceVersion: string;
+  text: string;
+  institutionId: string | null;
+  origin: CitationOrigin;
+  sourceUrl: string;
+  chunk?: { metadata: Record<string, unknown> };
+} {
+  if (isAttachmentCitation(citationChunkId)) {
+    const attachment = attachments.find((item) => item.citationId === citationChunkId);
+    return {
+      source: attachment ? `Anexo do médico — ${attachment.filename}` : 'Anexo do médico',
+      sourceVersion: 'não curada',
+      text: attachment?.text ?? '',
+      institutionId: null,
+      origin: 'physician_attachment',
+      sourceUrl: '',
+    };
+  }
+
+  const chunk = chunks.find((c) => c.id === citationChunkId);
+  return {
+    source: chunk?.source ?? 'Unknown',
+    sourceVersion: chunk?.sourceVersion ?? 'Unknown',
+    text: chunk?.text ?? '',
+    institutionId: chunk?.institutionId ?? null,
+    origin: chunk?.institutionId ? 'institutional' : 'public',
+    sourceUrl: `/v1/guidelines/chunks/${citationChunkId}`,
+    chunk,
+  };
+}
+
 export interface OrchestratorResult {
   interactionId: string;
   output: EnrichedCopilotOutput;
@@ -94,7 +163,7 @@ export interface OrchestratorResult {
     sourceVersion: string;
     text: string;
     institutionId: string | null;
-    origin: 'institutional' | 'public';
+    origin: CitationOrigin;
   }>;
   metadata: {
     piiDetected: boolean;
@@ -244,6 +313,7 @@ export class OrchestratorService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(AiGatewayService) private readonly aiGateway: AiGatewayService,
     @Inject(RetrievalService) private readonly retrieval: RetrievalService,
+    @Inject(AttachmentsService) private readonly attachments: AttachmentsService,
     @Inject(EncountersService) private readonly encounters: EncountersService,
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(ConfigService) private readonly config: ConfigService,
@@ -256,6 +326,20 @@ export class OrchestratorService {
    * lançar: a ausência do preceptor no idioma certo nunca deve bloquear a
    * análise clínica.
    */
+  /**
+   * F4 — anexos deste atendimento no formato que o prompt espera. O id de
+   * citação é derivado do id do anexo (`anexo:<uuid>`), o que permite ao
+   * validador de saída e à UI reconhecerem a fonte como não curada.
+   */
+  private async loadAttachments(encounterId: string) {
+    const attachments = await this.attachments.forPrompt(encounterId);
+    return attachments.map((attachment) => ({
+      citationId: attachmentCitationId(attachment.id),
+      filename: attachment.filename,
+      text: attachment.text,
+    }));
+  }
+
   private async getPhysicianLocale(physicianId: string): Promise<string | undefined> {
     const physician = await this.prisma.physician.findUnique({
       where: { id: physicianId },
@@ -311,6 +395,9 @@ export class OrchestratorService {
     }
 
     const retrievalResult = await this.retrieval.search(fullyRedacted, 5, encounter.institutionId);
+    // F4 — referências que o médico anexou a este atendimento. Conteúdo não
+    // curado: entra no prompt em bloco próprio e é citável só como preliminar.
+    const attachments = await this.loadAttachments(encounterId);
     this.logger.debug(`Retrieved ${retrievalResult.totalRetrieved} chunks`);
 
     const encounterContext: EncounterContext = {
@@ -339,6 +426,7 @@ export class OrchestratorService {
       // KB-005/KB-006 — cobertura vinda do piso de relevância: 'partial'
       // injeta o aviso de encaixe fraco no prompt.
       coverage: retrievalResult.coverage,
+      physicianAttachments: attachments,
     });
 
     const baseMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
@@ -427,14 +515,18 @@ export class OrchestratorService {
     const enrichedOutput: EnrichedCopilotOutput = {
       ...validation.output,
       recommendations: sortRecommendations(validation.output.recommendations).map((rec) => {
-        const chunk = retrievalResult.chunks.find((c) => c.id === rec.citationChunkId);
+        const resolved = resolveCitationSource(
+          rec.citationChunkId,
+          retrievalResult.chunks,
+          attachments,
+        );
         return {
           ...rec,
           chunkId: rec.citationChunkId,
-          source: chunk?.source ?? 'Unknown',
-          sourceVersion: chunk?.sourceVersion ?? 'Unknown',
-          sourceText: chunk?.text ?? '',
-          sourceUrl: `/v1/guidelines/chunks/${rec.citationChunkId}`,
+          source: resolved.source,
+          sourceVersion: resolved.sourceVersion,
+          sourceText: resolved.text,
+          sourceUrl: resolved.sourceUrl,
         };
       }),
     };
@@ -468,15 +560,19 @@ export class OrchestratorService {
     });
 
     const citations = enrichedOutput.recommendations.map((rec) => {
-      const chunk = retrievalResult.chunks.find((c) => c.id === rec.citationChunkId);
+      const resolved = resolveCitationSource(
+        rec.citationChunkId,
+        retrievalResult.chunks,
+        attachments,
+      );
       return {
         chunkId: rec.citationChunkId,
-        source: chunk?.source ?? 'Unknown',
-        sourceVersion: chunk?.sourceVersion ?? 'Unknown',
-        text: chunk?.text ?? '',
-        institutionId: chunk?.institutionId ?? null,
-        origin: (chunk?.institutionId ? 'institutional' : 'public') as 'institutional' | 'public',
-        ...extractEvidenceFromChunk(chunk),
+        source: resolved.source,
+        sourceVersion: resolved.sourceVersion,
+        text: resolved.text,
+        institutionId: resolved.institutionId,
+        origin: resolved.origin,
+        ...extractEvidenceFromChunk(resolved.chunk),
       };
     });
 
@@ -578,6 +674,9 @@ export class OrchestratorService {
     }
 
     const retrievalResult = await this.retrieval.search(fullyRedacted, 5, encounter.institutionId);
+    // F4 — referências que o médico anexou a este atendimento. Conteúdo não
+    // curado: entra no prompt em bloco próprio e é citável só como preliminar.
+    const attachments = await this.loadAttachments(encounterId);
 
     const encounterContext: EncounterContext = {
       hasCT: input.context.hasCT,
@@ -605,6 +704,7 @@ export class OrchestratorService {
       // KB-005/KB-006 — cobertura vinda do piso de relevância: 'partial'
       // injeta o aviso de encaixe fraco no prompt.
       coverage: retrievalResult.coverage,
+      physicianAttachments: attachments,
     });
 
     let fullContent = '';
@@ -656,14 +756,18 @@ export class OrchestratorService {
     const enrichedOutput: EnrichedCopilotOutput = {
       ...validation.output,
       recommendations: sortRecommendations(validation.output.recommendations).map((rec) => {
-        const chunk = retrievalResult.chunks.find((c) => c.id === rec.citationChunkId);
+        const resolved = resolveCitationSource(
+          rec.citationChunkId,
+          retrievalResult.chunks,
+          attachments,
+        );
         return {
           ...rec,
           chunkId: rec.citationChunkId,
-          source: chunk?.source ?? 'Unknown',
-          sourceVersion: chunk?.sourceVersion ?? 'Unknown',
-          sourceText: chunk?.text ?? '',
-          sourceUrl: `/v1/guidelines/chunks/${rec.citationChunkId}`,
+          source: resolved.source,
+          sourceVersion: resolved.sourceVersion,
+          sourceText: resolved.text,
+          sourceUrl: resolved.sourceUrl,
         };
       }),
     };
@@ -686,15 +790,19 @@ export class OrchestratorService {
     });
 
     const citations = enrichedOutput.recommendations.map((rec) => {
-      const chunk = retrievalResult.chunks.find((c) => c.id === rec.citationChunkId);
+      const resolved = resolveCitationSource(
+        rec.citationChunkId,
+        retrievalResult.chunks,
+        attachments,
+      );
       return {
         chunkId: rec.citationChunkId,
-        source: chunk?.source ?? 'Unknown',
-        sourceVersion: chunk?.sourceVersion ?? 'Unknown',
-        text: chunk?.text ?? '',
-        institutionId: chunk?.institutionId ?? null,
-        origin: (chunk?.institutionId ? 'institutional' : 'public') as 'institutional' | 'public',
-        ...extractEvidenceFromChunk(chunk),
+        source: resolved.source,
+        sourceVersion: resolved.sourceVersion,
+        text: resolved.text,
+        institutionId: resolved.institutionId,
+        origin: resolved.origin,
+        ...extractEvidenceFromChunk(resolved.chunk),
       };
     });
 
@@ -837,6 +945,7 @@ export class OrchestratorService {
       5,
       encounter.institutionId,
     );
+    const attachments = await this.loadAttachments(encounterId);
     this.logger.debug(`Retrieved ${retrievalResult.totalRetrieved} chunks (respond)`);
 
     const encounterContext = (encounter.context as unknown as EncounterContext | null) ?? {
@@ -875,6 +984,7 @@ export class OrchestratorService {
       // KB-005/KB-006 — cobertura vinda do piso de relevância: 'partial'
       // injeta o aviso de encaixe fraco no prompt.
       coverage: retrievalResult.coverage,
+      physicianAttachments: attachments,
     });
 
     const baseMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
@@ -960,14 +1070,18 @@ export class OrchestratorService {
     const enrichedOutput: EnrichedCopilotOutput = {
       ...validation.output,
       recommendations: sortRecommendations(validation.output.recommendations).map((rec) => {
-        const chunk = retrievalResult.chunks.find((c) => c.id === rec.citationChunkId);
+        const resolved = resolveCitationSource(
+          rec.citationChunkId,
+          retrievalResult.chunks,
+          attachments,
+        );
         return {
           ...rec,
           chunkId: rec.citationChunkId,
-          source: chunk?.source ?? 'Unknown',
-          sourceVersion: chunk?.sourceVersion ?? 'Unknown',
-          sourceText: chunk?.text ?? '',
-          sourceUrl: `/v1/guidelines/chunks/${rec.citationChunkId}`,
+          source: resolved.source,
+          sourceVersion: resolved.sourceVersion,
+          sourceText: resolved.text,
+          sourceUrl: resolved.sourceUrl,
         };
       }),
     };
@@ -1000,15 +1114,19 @@ export class OrchestratorService {
     });
 
     const citations = enrichedOutput.recommendations.map((rec) => {
-      const chunk = retrievalResult.chunks.find((c) => c.id === rec.citationChunkId);
+      const resolved = resolveCitationSource(
+        rec.citationChunkId,
+        retrievalResult.chunks,
+        attachments,
+      );
       return {
         chunkId: rec.citationChunkId,
-        source: chunk?.source ?? 'Unknown',
-        sourceVersion: chunk?.sourceVersion ?? 'Unknown',
-        text: chunk?.text ?? '',
-        institutionId: chunk?.institutionId ?? null,
-        origin: (chunk?.institutionId ? 'institutional' : 'public') as 'institutional' | 'public',
-        ...extractEvidenceFromChunk(chunk),
+        source: resolved.source,
+        sourceVersion: resolved.sourceVersion,
+        text: resolved.text,
+        institutionId: resolved.institutionId,
+        origin: resolved.origin,
+        ...extractEvidenceFromChunk(resolved.chunk),
       };
     });
 

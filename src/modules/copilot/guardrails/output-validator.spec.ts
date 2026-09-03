@@ -1260,3 +1260,48 @@ describe('redFlags', () => {
     expect(result.valid).toBe(true);
   });
 });
+
+/**
+ * F4 — contrapeso da decisão de permitir citar anexo do médico. A citação é
+ * permitida (senão anexar a diretriz de dengue não resolveria o problema de
+ * quem reportou), mas a recomendação nunca sai como conduta definitiva.
+ */
+describe('validateOutput — recomendação apoiada em anexo do médico', () => {
+  const ATTACHMENT_ID = 'anexo:11111111-1111-4111-8111-111111111111';
+  const idsComAnexo = [...VALID_CHUNK_IDS, ATTACHMENT_ID];
+
+  function outputCitandoAnexo(preliminary: boolean): string {
+    return makeValidOutput({
+      recommendations: [
+        {
+          action: 'Iniciar hidratação parenteral escalonada',
+          rationale: 'Conforme a referência anexada pelo médico — fonte não curada',
+          citationChunkId: ATTACHMENT_ID,
+          confidence: 0.7,
+          preliminary,
+          category: 'therapeutic',
+        },
+      ],
+    });
+  }
+
+  it('aceita a citação do anexo quando a recomendação é preliminar', () => {
+    const result = validateOutput(outputCitandoAnexo(true), idsComAnexo);
+
+    expect(result.valid).toBe(true);
+    expect(result.unfoundedRecommendations).toEqual([]);
+  });
+
+  it('rejeita recomendação definitiva apoiada em anexo não curado', () => {
+    const result = validateOutput(outputCitandoAnexo(false), idsComAnexo);
+
+    expect(result.valid).toBe(false);
+    expect(result.errors.join(' ')).toContain('ATTACHMENT-BACKED RECOMMENDATION MUST BE PRELIMINARY');
+  });
+
+  it('continua rejeitando id de anexo que não foi realmente anexado', () => {
+    const result = validateOutput(outputCitandoAnexo(true), VALID_CHUNK_IDS);
+
+    expect(result.unfoundedRecommendations).toEqual([0]);
+  });
+});
