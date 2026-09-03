@@ -61,3 +61,32 @@ export const respondSchema = z.object({
 });
 
 export type RespondInput = z.infer<typeof respondSchema>;
+
+/**
+ * F7 — Feedback estruturado do médico sobre uma análise.
+ *
+ * Origem: os dois erros clínicos que motivaram o KB-005/KB-006 chegaram por
+ * mensagem de WhatsApp, dias depois, sem o `interactionId` nem os chunks
+ * recuperados. Sem isso, reproduzir um caso depende de alguém lembrar o que
+ * foi digitado. Com o botão, cada reporte já nasce com o rastro técnico
+ * necessário para virar caso de regressão.
+ */
+export const feedbackKindValues = [
+  /** O Copiloto conduziu para o cenário clínico errado. */
+  'wrong_scenario',
+  /** O cenário estava certo, mas a base não tinha diretriz para ele. */
+  'missing_coverage',
+  /** Recomendação incorreta ou perigosa dentro do cenário certo. */
+  'wrong_recommendation',
+  /** Análise útil — serve de contraste na calibração do piso de relevância. */
+  'helpful',
+] as const;
+
+export const copilotFeedbackSchema = z.object({
+  interactionId: z.string().uuid('interactionId must be a valid UUID'),
+  kind: z.enum(feedbackKindValues),
+  /** O que o médico esperava. Opcional, mas é o campo mais útil na triagem. */
+  comment: z.string().max(2000).optional(),
+});
+
+export type CopilotFeedbackInput = z.infer<typeof copilotFeedbackSchema>;

@@ -22,7 +22,11 @@ import type {
   GuidelineSearchResult,
   GuidelineSourceSummary,
   PendingGuidelineChunk,
+  CopilotFeedbackRequest,
+  CopilotFeedbackResponse,
   ResolveCrmVerificationRequest,
+  SuggestGuidelineRequest,
+  SuggestGuidelineResponse,
 } from '@/lib/types';
 
 export interface AuditFilters {
@@ -285,6 +289,43 @@ export function useGuidelineSearch(query: string, specialty?: string, limit?: nu
       return apiClient.get<GuidelineSearchResult[]>(`/guidelines/search?${params.toString()}`);
     },
     placeholderData: keepPreviousData,
+  });
+}
+
+/**
+ * F4 — sugestão de diretriz por qualquer médico autenticado.
+ *
+ * Origem: um médico do piloto encontrou um buraco na base (caso de dengue
+ * conduzido como sepse) e não conseguiu contribuir com a diretriz — o único
+ * upload existente exige papel de curador e front-matter. Quem encontra o
+ * buraco é quem está no plantão.
+ *
+ * A sugestão entra como `pending_review`: nada chega ao retrieval sem
+ * curadoria. Invalida a fila de pendentes para o curador ver na hora.
+ */
+/**
+ * F7 — registra "esta análise foi para o cenário errado" com o rastro
+ * técnico da interação. Substitui o caminho atual, que é mensagem de
+ * WhatsApp dias depois, sem interactionId e sem os chunks recuperados.
+ */
+export function useCopilotFeedback(encounterId: string) {
+  return useMutation({
+    mutationFn: (input: CopilotFeedbackRequest) =>
+      apiClient.post<CopilotFeedbackResponse>(
+        `/encounters/${encounterId}/copilot/feedback`,
+        input,
+      ),
+  });
+}
+
+export function useSuggestGuideline() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: SuggestGuidelineRequest) =>
+      apiClient.post<SuggestGuidelineResponse>('/guidelines/suggest', input),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: clinicalQueryKeys.guidelinePending });
+    },
   });
 }
 
