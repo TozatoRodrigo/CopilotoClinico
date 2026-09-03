@@ -10,6 +10,7 @@ describe('GuidelinesController', () => {
     listPending: ReturnType<typeof vi.fn>;
     approveChunk: ReturnType<typeof vi.fn>;
     rejectChunk: ReturnType<typeof vi.fn>;
+    suggestGuideline: ReturnType<typeof vi.fn>;
   };
 
   const req = { user: { physicianId: 'curator-1' } };
@@ -21,6 +22,7 @@ describe('GuidelinesController', () => {
       listPending: vi.fn(),
       approveChunk: vi.fn(),
       rejectChunk: vi.fn(),
+      suggestGuideline: vi.fn(),
     };
     controller = new GuidelinesController(guidelinesServiceMock as unknown as GuidelinesService);
   });
@@ -88,6 +90,42 @@ describe('GuidelinesController', () => {
         'Texto desatualizado',
       );
       expect(result).toEqual(rejected);
+    });
+  });
+
+  /**
+   * F4 — o endpoint de sugestão é o caminho aberto a qualquer médico
+   * autenticado, criado depois que um médico do piloto não conseguiu incluir
+   * a diretriz de dengue na base.
+   */
+  describe('suggest', () => {
+    it('encaminha a sugestão marcando o médico autenticado como autor', async () => {
+      guidelinesServiceMock.suggestGuideline.mockResolvedValue({
+        source: 'ABRAMEDE dengue',
+        sourceVersion: 'JBMEDE 2024',
+        chunksCreated: 3,
+        superseded: 0,
+      });
+
+      const result = await controller.suggest({ user: { physicianId: 'physician-77' } }, {
+        text: 'Conteúdo da diretriz enviada pelo médico do plantão.',
+        source: 'ABRAMEDE dengue',
+        sourceVersion: 'JBMEDE 2024',
+        specialty: 'medicina_de_emergencia',
+      });
+
+      expect(guidelinesServiceMock.suggestGuideline).toHaveBeenCalledWith(
+        expect.objectContaining({ suggestedBy: 'physician-77' }),
+      );
+      // A sugestão nunca supersede — ver suggestGuideline().
+      expect(result.superseded).toBe(0);
+    });
+
+    it('não usa o guard de curadoria — é justamente o caminho para quem não é curador', () => {
+      const guards = (Reflect.getMetadata('__guards__', GuidelinesController.prototype.suggest) ??
+        []) as Array<{ name: string }>;
+
+      expect(guards.map((guard) => guard.name)).toEqual(['JwtAuthGuard']);
     });
   });
 });

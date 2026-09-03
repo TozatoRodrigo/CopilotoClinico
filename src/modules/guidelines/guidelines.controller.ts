@@ -20,9 +20,11 @@ import { GuidelinesService } from './guidelines.service';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import {
   ingestGuidelineSchema,
+  suggestGuidelineSchema,
   deactivateGuidelineSchema,
   rejectGuidelineChunkSchema,
   type IngestGuidelineBody,
+  type SuggestGuidelineBody,
   type DeactivateGuidelineBody,
   type RejectGuidelineChunkBody,
 } from './schemas/guidelines.schemas';
@@ -88,6 +90,31 @@ export class GuidelinesController {
   @UseGuards(InternalServiceGuard)
   async ingest(@Body(new ZodValidationPipe(ingestGuidelineSchema)) body: IngestGuidelineBody) {
     return this.guidelinesService.ingest(body);
+  }
+
+  /**
+   * F4 — Qualquer médico autenticado pode sugerir uma diretriz para a base.
+   *
+   * Origem: um médico do piloto tentou incluir a diretriz da ABRAMEDE de
+   * dengue depois de ver um caso ser conduzido como sepse, e recebeu erro. O
+   * único caminho existente (`ingest-review`) exige papel COMPLIANCE/ADMIN
+   * MAIS a flag `isCurator`, e um front-matter que um PDF convertido nunca
+   * tem. Quem encontra o buraco na base é quem está no plantão.
+   *
+   * A sugestão entra como `pending_review` — nada chega ao retrieval sem
+   * curadoria — e, ao contrário de `ingest-review`, NÃO supersede versões
+   * anteriores da mesma fonte (ver `suggestGuideline`).
+   */
+  @Post('suggest')
+  @UseGuards(JwtAuthGuard)
+  async suggest(
+    @Request() req: { user: { physicianId: string } },
+    @Body(new ZodValidationPipe(suggestGuidelineSchema)) body: SuggestGuidelineBody,
+  ) {
+    return this.guidelinesService.suggestGuideline({
+      ...body,
+      suggestedBy: req.user.physicianId,
+    });
   }
 
   @Post('ingest-review')

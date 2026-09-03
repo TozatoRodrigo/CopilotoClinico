@@ -89,6 +89,42 @@ casos de incidente de `tests/fixtures/field-incident-cases.ts` no ambiente real:
 Não basta acertar o rótulo: se o `reasoning` não nomeia o discriminador, o
 acerto foi coincidência de retrieval e volta a falhar no próximo caso.
 
+### Ler o feedback dos médicos (F7)
+
+O botão "cenário errado / faltou diretriz / conduta incorreta" na tela de
+resultado grava na **trilha de auditoria**, com o rastro técnico anexado. Não
+há tabela nova: consulte pela ação.
+
+```sql
+SELECT created_at, actor_id, entity_id, payload
+FROM audit_log
+WHERE action = 'COPILOT_FEEDBACK'
+ORDER BY created_at DESC;
+```
+
+O `payload` traz `kind`, `comment`, `retrievedChunkIds`, `retrievalCoverage` e
+`citedChunkIds` — o suficiente para reproduzir o caso e transformá-lo em
+entrada de `tests/fixtures/field-incident-cases.ts`. A distinção que mais
+importa na triagem:
+
+| Sinal | Leitura |
+|---|---|
+| `kind=wrong_scenario` com `retrievalCoverage=full` | A base tinha conteúdo e o modelo citou o cenário errado — problema de prompt/guardrail |
+| `kind=wrong_scenario` com `coverage=partial`/`none` | A base não cobre o cenário — problema de curadoria, vira pacote KB novo |
+| `kind=helpful` | Contraste positivo, necessário para calibrar o piso de relevância |
+
+### Triar sugestões de diretriz enviadas por médicos (F4)
+
+Qualquer médico autenticado pode enviar material pela tela de Diretrizes
+("Sugerir uma diretriz"). A sugestão entra como `pending_review` e aparece na
+mesma fila de curadoria de `/admin/diretrizes`. Os chunks sugeridos carregam
+`metadata.suggestedBy` (id do médico) e `metadata.suggestedAt`.
+
+Sugestão **nunca** supersede conteúdo aprovado — só um curador, via
+`ingest-review`, pode marcar versões anteriores como `superseded`. Isso é
+deliberado: um endpoint aberto que supersedesse permitiria remover conteúdo
+curado do retrieval enviando algo com o mesmo `source` e uma versão nova.
+
 ### Calibrar o piso de relevância (KB-005/KB-006)
 
 O piso (`RETRIEVAL_MIN_SEMANTIC_SCORE`, default `0.3`) é o que permite ao

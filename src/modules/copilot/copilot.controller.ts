@@ -15,8 +15,18 @@ import { Observable } from 'rxjs';
 import { CopilotService } from './copilot.service';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
-import { analyzeSchema, streamQuerySchema, respondSchema } from './schemas/copilot.schemas';
-import type { AnalyzeInput, StreamQuery, RespondInput } from './schemas/copilot.schemas';
+import {
+  analyzeSchema,
+  streamQuerySchema,
+  respondSchema,
+  copilotFeedbackSchema,
+} from './schemas/copilot.schemas';
+import type {
+  AnalyzeInput,
+  StreamQuery,
+  RespondInput,
+  CopilotFeedbackInput,
+} from './schemas/copilot.schemas';
 
 @Controller('encounters/:encounterId/copilot')
 @UseGuards(JwtAuthGuard)
@@ -83,6 +93,23 @@ export class CopilotController {
     @Body(new ZodValidationPipe(respondSchema)) body: RespondInput,
   ) {
     return this.copilotService.respond(req.user.physicianId, encounterId, body);
+  }
+
+  /**
+   * F7 — "esta análise foi para o cenário errado".
+   *
+   * Fecha o ciclo que hoje passa por mensagem de WhatsApp: registra o
+   * `interactionId`, os chunks recuperados, a cobertura do retrieval e os
+   * chunks citados junto do comentário do médico, para que cada reporte já
+   * nasça reproduzível — ver `tests/fixtures/field-incident-cases.ts`.
+   */
+  @Post('feedback')
+  async feedback(
+    @Request() req: { user: { physicianId: string } },
+    @Param('encounterId') encounterId: string,
+    @Body(new ZodValidationPipe(copilotFeedbackSchema)) body: CopilotFeedbackInput,
+  ) {
+    return this.copilotService.submitFeedback(req.user.physicianId, encounterId, body);
   }
 
   @Post('analyze/async')

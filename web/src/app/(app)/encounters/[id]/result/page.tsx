@@ -21,6 +21,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { BlockerQuestionCard } from '@/components/domain/blocker-question-card';
 import { UncertaintyBanner } from '@/components/domain/uncertainty-banner';
 import { CoverageBanner } from '@/components/domain/coverage-banner';
+import { CopilotFeedback } from '@/components/domain/copilot-feedback';
 import { useMessages } from '@/lib/messages/use-messages';
 import type { Messages } from '@/lib/messages';
 import {
@@ -236,6 +237,7 @@ function ResultView({
     canReanalyze,
     respondError,
     retrievalCoverage,
+    interactionId,
   } = useCopilotConversation(encounterId, result);
   const { decisions, setDecision, setNote } = useRecommendationDecisions(
     encounterId,
@@ -492,6 +494,11 @@ function ResultView({
               );
             })}
           </div>
+
+          {/* F7 — o reporte de erro clínico nasce aqui, com o interactionId e
+              os chunks recuperados anexados pelo backend, em vez de chegar
+              por mensagem dias depois sem nada disso. */}
+          <CopilotFeedback encounterId={encounterId} interactionId={interactionId} />
 
           {/* S25-QC-02 — pedir segunda opinião pressupõe um caso rastreável
               para o handoff; sem identificação isso não faz sentido, então

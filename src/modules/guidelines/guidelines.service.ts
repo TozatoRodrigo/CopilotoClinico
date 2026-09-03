@@ -23,6 +23,20 @@ export interface IngestedChunk {
   text: string;
 }
 
+/**
+ * KB-002 / F4 — sugestão de diretriz enviada por um médico do piloto.
+ *
+ * Origem: um médico tentou incluir a diretriz da ABRAMEDE de dengue depois de
+ * ver um caso ser conduzido como sepse, e não conseguiu — o único caminho de
+ * upload exigia papel COMPLIANCE/ADMIN, flag `isCurator` e um front-matter que
+ * um PDF convertido nunca tem. Quem encontra o buraco na base é justamente
+ * quem está no plantão; ele precisa de um caminho para contribuir.
+ */
+export interface SuggestGuidelineInput extends IngestGuidelineInput {
+  /** Médico que enviou a sugestão — registrado na metadata e na auditoria. */
+  suggestedBy: string;
+}
+
 export interface BatchIngestResult {
   source: string;
   sourceVersion: string;
@@ -143,6 +157,47 @@ export class GuidelinesService {
       sourceVersion: input.sourceVersion,
       chunksCreated: created.length,
       superseded: superseded.count,
+    };
+  }
+
+  /**
+   * F4 — Sugestão de diretriz por qualquer médico autenticado.
+   *
+   * Diferença deliberada e crítica frente a `ingestForReview`: **não
+   * supersede** versões anteriores da mesma fonte. `ingestForReview` marca
+   * como `superseded` todo chunk `approved` da mesma `source` com outra
+   * versão — num endpoint aberto a qualquer médico isso seria escalação de
+   * privilégio: bastaria sugerir algo com `source: "Surviving Sepsis
+   * Campaign"` e uma versão nova para remover silenciosamente do retrieval
+   * conteúdo já aprovado por curadoria. Aqui a sugestão só ADICIONA chunks
+   * `pending_review`; qualquer remoção continua sendo ato de curador.
+   */
+  async suggestGuideline(input: SuggestGuidelineInput): Promise<BatchIngestResult> {
+    const created = await this.createChunks(input, GuidelineChunkStatus.pending_review, {
+      suggestedBy: input.suggestedBy,
+      suggestedAt: new Date().toISOString(),
+    });
+
+    await this.auditService
+      .log({
+        actorId: input.suggestedBy,
+        action: 'GUIDELINE_SUGGESTED',
+        entity: 'GuidelineChunk',
+        entityId: `${input.source}@${input.sourceVersion}`,
+        payload: {
+          source: input.source,
+          sourceVersion: input.sourceVersion,
+          specialty: input.specialty,
+          chunksCreated: created.length,
+        },
+      })
+      .catch(() => undefined);
+
+    return {
+      source: input.source,
+      sourceVersion: input.sourceVersion,
+      chunksCreated: created.length,
+      superseded: 0,
     };
   }
 
@@ -394,6 +449,7 @@ export class GuidelinesService {
   private async createChunks(
     input: IngestGuidelineInput,
     status: GuidelineChunkStatus,
+    extraMetadata: Record<string, unknown> = {},
   ): Promise<IngestedChunk[]> {
     this.logger.log(`Ingesting guideline: ${input.source} v${input.sourceVersion} (${status})`);
 
@@ -444,6 +500,7 @@ export class GuidelinesService {
             charStart: chunk.metadata.charStart,
             charEnd: chunk.metadata.charEnd,
             chunkIndex: chunk.index,
+            ...extraMetadata,
           },
         },
       });
