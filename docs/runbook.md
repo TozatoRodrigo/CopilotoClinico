@@ -88,14 +88,39 @@ A ordem importa menos que o fato de rodarem **depois** do deploy: o chunking
 por fronteira de frase precisa estar no ar, senão os chunks nascem cortados no
 meio de frase e seria preciso reingerir.
 
+> ⚠️ **Não roda dentro do `copiloto-api`.** A imagem de runtime (estágio
+> `runner` do `Dockerfile.api`) contém apenas `dist/`, `node_modules/` e
+> `prisma/` — não tem `docs/`, `scripts/` nem `src/`. Um
+> `docker compose exec copiloto-api pnpm ingest:guidelines ...` falha por
+> arquivo inexistente. Use o estágio `builder`, que tem o repositório completo.
+
 ```bash
-docker compose -f docker-compose.prod.yml exec copiloto-api \
-  pnpm ingest:guidelines docs/guidelines/drafts/kb-005-arboviroses-dengue
+cd /home/rodrigo/apps/copiloto-clinico/docker
+docker build -f Dockerfile.api --target builder -t copiloto-ingest:tmp ..
 ```
 
 ```bash
-docker compose -f docker-compose.prod.yml exec copiloto-api \
-  pnpm ingest:guidelines docs/guidelines/drafts/kb-006-cefaleias-primarias
+set -a; . ./.env.production; set +a
+APPDB="postgresql://${POSTGRES_APP_USER}:${POSTGRES_APP_PASSWORD}@copiloto-db:5432/copiloto_clinico?schema=public"
+for PACOTE in kb-005-arboviroses-dengue kb-006-cefaleias-primarias; do
+  docker run --rm --network docker_copiloto-net \
+    -e DATABASE_URL="$APPDB" -e AI_PROVIDER="$AI_PROVIDER" -e AI_API_KEY="$AI_API_KEY" \
+    -e AI_MODEL="$AI_MODEL" -e AI_EMBEDDING_MODEL="$AI_EMBEDDING_MODEL" \
+    -e AI_BASE_URL="$AI_BASE_URL" -e OPENAI_API_KEY="$OPENAI_API_KEY" \
+    -e REDIS_URL="redis://copiloto-redis:6379" \
+    --entrypoint sh copiloto-ingest:tmp \
+    -c "npx tsx scripts/ingest-batch.ts docs/guidelines/drafts/$PACOTE"
+done
+```
+
+Use o `DATABASE_URL` da role da aplicação (não a de migration): a ingestão só
+faz `INSERT`, e `copiloto_app` tem exatamente esse privilégio.
+
+Ao terminar, remover a imagem auxiliar — ela fica desatualizada na próxima
+mudança de código e ocupa espaço:
+
+```bash
+docker rmi copiloto-ingest:tmp
 ```
 
 Verificação — devem existir **28 chunks pendentes**, distribuídos assim:
