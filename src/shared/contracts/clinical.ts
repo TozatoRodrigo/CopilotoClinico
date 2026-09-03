@@ -377,6 +377,32 @@ export interface SuggestGuidelineRequest {
   subtipo?: string;
 }
 
+/**
+ * F4 — extração de texto de um arquivo, no servidor, antes de sugerir.
+ * O médico confere e recorta o texto: um artigo de 47 páginas inteiro viraria
+ * dezenas de chunks de contexto irrelevante competindo no retrieval.
+ */
+export type ExtractableDocumentMime =
+  | 'application/pdf'
+  | 'text/plain'
+  | 'text/markdown'
+  | 'text/x-markdown';
+
+export interface ExtractDocumentTextRequest {
+  mimeType: ExtractableDocumentMime;
+  filename?: string;
+  /** Conteúdo do arquivo em base64. */
+  data: string;
+}
+
+export interface ExtractDocumentTextResponse {
+  text: string;
+  /** Número de páginas quando a origem é PDF; `null` para texto puro. */
+  pages: number | null;
+  /** `true` quando o texto foi cortado no teto — o médico precisa saber. */
+  truncated: boolean;
+}
+
 export interface SuggestGuidelineResponse {
   source: string;
   sourceVersion: string;

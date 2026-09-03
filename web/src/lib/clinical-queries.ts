@@ -24,6 +24,8 @@ import type {
   PendingGuidelineChunk,
   CopilotFeedbackRequest,
   CopilotFeedbackResponse,
+  ExtractDocumentTextRequest,
+  ExtractDocumentTextResponse,
   ResolveCrmVerificationRequest,
   SuggestGuidelineRequest,
   SuggestGuidelineResponse,
@@ -315,6 +317,18 @@ export function useCopilotFeedback(encounterId: string) {
         `/encounters/${encounterId}/copilot/feedback`,
         input,
       ),
+  });
+}
+
+/**
+ * F4 — extrai o texto de um PDF/txt/md no servidor. Separado de
+ * `useSuggestGuideline` de propósito: o médico confere e recorta o texto
+ * antes de mandar para curadoria.
+ */
+export function useExtractDocumentText() {
+  return useMutation({
+    mutationFn: (input: ExtractDocumentTextRequest) =>
+      apiClient.post<ExtractDocumentTextResponse>('/guidelines/extract-text', input),
   });
 }
 

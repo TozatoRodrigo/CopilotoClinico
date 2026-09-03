@@ -35,6 +35,23 @@ export const suggestGuidelineSchema = z.object({
   subtipo: z.string().max(120).optional(),
 });
 
+/**
+ * F4 — upload de arquivo para extração de texto no servidor.
+ *
+ * O médico envia o PDF/txt/md e recebe o texto de volta para conferir e
+ * recortar ANTES de enviar para curadoria. Extrair no servidor evita pedir a
+ * ele a conversão manual (que foi o que não funcionou no reporte original), e
+ * devolver o texto para revisão evita que um artigo de 47 páginas entre
+ * inteiro na base como se fosse uma diretriz enxuta.
+ *
+ * `data` é base64 — mesmo padrão do upload de áudio (audio.schemas.ts).
+ */
+export const extractDocumentTextSchema = z.object({
+  mimeType: z.enum(['application/pdf', 'text/plain', 'text/markdown', 'text/x-markdown'] as const),
+  filename: z.string().min(1).max(300).optional(),
+  data: z.string().min(1),
+});
+
 export const deactivateGuidelineSchema = z.object({
   source: z.string().min(1),
   sourceVersion: z.string().min(1),
@@ -46,5 +63,6 @@ export const rejectGuidelineChunkSchema = z.object({
 
 export type IngestGuidelineBody = z.infer<typeof ingestGuidelineSchema>;
 export type SuggestGuidelineBody = z.infer<typeof suggestGuidelineSchema>;
+export type ExtractDocumentTextBody = z.infer<typeof extractDocumentTextSchema>;
 export type DeactivateGuidelineBody = z.infer<typeof deactivateGuidelineSchema>;
 export type RejectGuidelineChunkBody = z.infer<typeof rejectGuidelineChunkSchema>;

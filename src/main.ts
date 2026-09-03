@@ -19,7 +19,19 @@ async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FastifyAdapter({ bodyLimit: 1048576 }),
+    new FastifyAdapter({
+      // F4 — 1 MB era baixo demais para os uploads que o produto já promete.
+      // O schema de áudio documenta 10 MB (audio.schemas.ts) mas, em base64,
+      // 10 MB viram ~13,4 MB de corpo: o limite antigo rejeitava com 413
+      // ANTES de o schema ser avaliado, tornando aquele teto inalcançável. O
+      // mesmo bloqueava o envio de PDFs de diretriz.
+      //
+      // Cada endpoint continua com teto próprio e menor (Zod + MAX_DOCUMENT_BYTES),
+      // então este valor é só o teto de transporte — não uma permissão para
+      // subir arquivos grandes. Todas as rotas de upload exigem autenticação e
+      // passam pelo ThrottlerModule.
+      bodyLimit: 16 * 1024 * 1024,
+    }),
     { rawBody: true },
   );
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { GuidelinesService, type IngestGuidelineInput } from './guidelines.service';
 import { PrismaService } from '../../config/prisma.service';
 import { AiGatewayService } from '../ai-gateway/ai-gateway.service';
@@ -190,6 +190,42 @@ describe('GuidelinesService', () => {
    * F4 — caminho de sugestão aberto a qualquer médico autenticado. O ponto
    * mais importante destes testes é o que ele NÃO faz: não supersede.
    */
+  /**
+   * F4 — extração de texto no servidor. O médico do reporte original converteu
+   * o PDF para .md e .txt à mão e ainda assim recebeu erro; converter um
+   * artigo de 47 páginas é trabalho que o servidor faz melhor.
+   */
+  describe('extractDocumentText', () => {
+    it('devolve o texto de um arquivo de texto simples', async () => {
+      const result = await service.extractDocumentText({
+        mimeType: 'text/plain',
+        data: Buffer.from('Conteúdo da diretriz enviada.', 'utf-8').toString('base64'),
+      });
+
+      expect(result.text).toBe('Conteúdo da diretriz enviada.');
+      expect(result.truncated).toBe(false);
+    });
+
+    it('traduz falha de extração em BadRequest com instrução para o médico', async () => {
+      await expect(
+        service.extractDocumentText({
+          mimeType: 'application/pdf',
+          data: Buffer.from('não é um PDF', 'utf-8').toString('base64'),
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('não persiste nada — extração é só leitura', async () => {
+      await service.extractDocumentText({
+        mimeType: 'text/plain',
+        data: Buffer.from('Conteúdo da diretriz enviada.', 'utf-8').toString('base64'),
+      });
+
+      expect(prisma.guidelineChunk.create).not.toHaveBeenCalled();
+      expect(auditService.log).not.toHaveBeenCalled();
+    });
+  });
+
   describe('suggestGuideline', () => {
     it('cria chunks pending_review marcados com quem sugeriu', async () => {
       prisma.guidelineChunk.create.mockResolvedValue({ id: 'chunk-uuid-1' });

@@ -21,10 +21,12 @@ import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import {
   ingestGuidelineSchema,
   suggestGuidelineSchema,
+  extractDocumentTextSchema,
   deactivateGuidelineSchema,
   rejectGuidelineChunkSchema,
   type IngestGuidelineBody,
   type SuggestGuidelineBody,
+  type ExtractDocumentTextBody,
   type DeactivateGuidelineBody,
   type RejectGuidelineChunkBody,
 } from './schemas/guidelines.schemas';
@@ -105,6 +107,25 @@ export class GuidelinesController {
    * curadoria — e, ao contrário de `ingest-review`, NÃO supersede versões
    * anteriores da mesma fonte (ver `suggestGuideline`).
    */
+  /**
+   * F4 — Extrai o texto de um PDF/txt/md enviado pelo médico.
+   *
+   * Deliberadamente separado de `POST /suggest`: o médico confere e recorta o
+   * texto antes de enviar para curadoria. Um artigo de 47 páginas inteiro
+   * viraria dezenas de chunks de contexto irrelevante (referências, filiação
+   * dos autores, metodologia) competindo no retrieval com a parte que muda a
+   * conduta.
+   *
+   * Não persiste nada — só devolve o texto extraído.
+   */
+  @Post('extract-text')
+  @UseGuards(JwtAuthGuard)
+  async extractText(
+    @Body(new ZodValidationPipe(extractDocumentTextSchema)) body: ExtractDocumentTextBody,
+  ) {
+    return this.guidelinesService.extractDocumentText(body);
+  }
+
   @Post('suggest')
   @UseGuards(JwtAuthGuard)
   async suggest(

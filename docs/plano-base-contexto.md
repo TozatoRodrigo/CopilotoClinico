@@ -1,6 +1,6 @@
 # Plano — Base de contexto do Copiloto Clínico
 
-Versão: 1.2 | Criado: 2026-09-03 | Atualizado: 2026-09-03
+Versão: 1.3 | Criado: 2026-09-03 | Atualizado: 2026-09-03
 Origem: feedbacks de campo de 03/09/2026 (dois médicos do piloto).
 
 ---
@@ -224,9 +224,19 @@ Duas decisões de segurança que valem registro:
 - Sugestão nunca aceita `institutionId` — entra sempre como conteúdo global
   pendente, nunca como protocolo institucional.
 
-Ainda pendente aqui: extração de PDF no servidor (hoje o médico cola o texto) e
-o `bodyLimit` de 1 MB do Fastify, que também torna inalcançável o limite de
-10 MB documentado no upload de áudio.
+Extração de PDF: ✅ implementada. `POST /guidelines/extract-text` lê PDF, `.md`
+e `.txt` no servidor (via `unpdf`) e devolve o texto para o médico **conferir e
+recortar** antes de enviar. Devolver em vez de ingerir direto é deliberado: um
+artigo de 47 páginas inteiro viraria dezenas de chunks de filiação de autores,
+metodologia e referências competindo no retrieval com a parte que muda a
+conduta. O texto extraído passa pela normalização de hifenização e quebras de
+linha do PDF — sem isso o chunking por fronteira de frase não acha fronteira
+nenhuma e o material entra como um bloco só.
+
+`bodyLimit` do Fastify: ✅ corrigido de 1 MB para 16 MB. O valor antigo tornava
+**inalcançável** o limite de 10 MB que o próprio schema de áudio documenta —
+em base64, 10 MB viram ~13,4 MB de corpo e o Fastify devolvia 413 antes de o
+schema ser avaliado. Cada endpoint mantém teto próprio e menor.
 
 ### F5 — Regra de prompt: evidência recuperada não é confirmação de hipótese
 
