@@ -12,7 +12,7 @@ export interface CitationFootnoteProps {
   text?: string;
   evidenceLevel?: string;
   href?: string;
-  origin?: 'institutional' | 'public';
+  origin?: 'institutional' | 'public' | 'physician_attachment';
   evidenceFigure?: EvidenceFigure | null;
   evidenceTable?: EvidenceTable | null;
   className?: string;
@@ -43,6 +43,17 @@ export const CitationFootnote = memo(function CitationFootnote({
         {evidenceLevel && <Badge variant="outline">Evidência {evidenceLevel}</Badge>}
         {origin === 'institutional' && <Badge variant="secondary">Protocolo institucional</Badge>}
         {origin === 'public' && <Badge variant="outline">Diretriz pública</Badge>}
+        {/* F4 — âmbar é reservado a "o médico precisa agir"
+            (docs/design-tokens.md), e é exatamente o caso: a fonte não passou
+            por curadoria, então cabe a ele conferir antes de seguir a conduta. */}
+        {origin === 'physician_attachment' && (
+          <Badge
+            variant="outline"
+            className="border-clinical-amber/40 bg-clinical-amber-bg text-clinical-amber-foreground"
+          >
+            Anexo do médico · não curada
+          </Badge>
+        )}
       </div>
       {text && <p className="line-clamp-2 text-muted-foreground">{text}</p>}
       {evidenceFigure && (

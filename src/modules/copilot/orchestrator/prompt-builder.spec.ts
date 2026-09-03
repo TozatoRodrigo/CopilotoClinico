@@ -31,6 +31,7 @@ function makeInput(overrides: Partial<PromptInput> = {}): PromptInput {
     vertical: overrides.vertical,
     redFlags: overrides.redFlags,
     coverage: overrides.coverage,
+    physicianAttachments: overrides.physicianAttachments,
   };
 }
 
@@ -566,5 +567,60 @@ describe('buildPrompt — aviso de cobertura', () => {
     expect(result.user).toContain('DECISION MATRIX path D');
     expect(result.user).not.toContain('<guideline_evidence');
     expect(result.retrievedChunkIds).toEqual([]);
+  });
+});
+
+/**
+ * F4 — referências anexadas pelo médico ao caso. Decisão de produto: podem ser
+ * citadas (senão anexar a diretriz de dengue não resolveria o problema de quem
+ * reportou), mas nunca como fonte curada.
+ */
+describe('buildPrompt — anexos do médico', () => {
+  const attachment = {
+    citationId: 'anexo:11111111-1111-4111-8111-111111111111',
+    filename: 'abramede-dengue.pdf',
+    text: 'Reposição volêmica: 10 mL/kg na primeira hora.',
+  };
+
+  it('coloca o anexo em bloco próprio, FORA da evidência curada', () => {
+    const result = buildPrompt(makeInput({ physicianAttachments: [attachment] }));
+
+    expect(result.user).toContain('<physician_attachments type="PHYSICIAN_SUPPLIED_UNCURATED">');
+    expect(result.user).toContain(attachment.text);
+
+    // O texto do anexo não pode estar dentro do bloco de fonte curada.
+    const evidencia = result.user.slice(
+      result.user.indexOf('<guideline_evidence'),
+      result.user.indexOf('</guideline_evidence>'),
+    );
+    expect(evidencia).not.toContain(attachment.text);
+  });
+
+  it('torna o id do anexo citável, senão o validador rejeitaria a citação como inventada', () => {
+    const result = buildPrompt(makeInput({ physicianAttachments: [attachment] }));
+
+    expect(result.retrievedChunkIds).toContain(attachment.citationId);
+  });
+
+  it('mantém o anexo citável mesmo quando a base não cobre o caso', () => {
+    // Cenário literal do reporte: a base não tem dengue, o médico anexa a
+    // diretriz. Sem isto, anexar não mudaria nada.
+    const result = buildPrompt(
+      makeInput({ retrievedChunks: [], coverage: 'none', physicianAttachments: [attachment] }),
+    );
+
+    expect(result.user).toContain('<physician_attachments');
+    expect(result.retrievedChunkIds).toEqual([attachment.citationId]);
+  });
+
+  it('não muda nada no prompt quando não há anexo', () => {
+    expect(buildPrompt(makeInput()).user).not.toContain('physician_attachments');
+  });
+
+  it('instrui o modelo a marcar recomendação apoiada em anexo como preliminar', () => {
+    const result = buildPrompt(makeInput({ physicianAttachments: [attachment] }));
+
+    expect(result.system).toContain('PHYSICIAN ATTACHMENTS RULE');
+    expect(result.system).toContain('"preliminary": true');
   });
 });

@@ -258,7 +258,13 @@ export interface Citation {
   chunkId: string;
   text: string;
   institutionId?: string | null;
-  origin?: 'institutional' | 'public';
+  /**
+   * F4 — `physician_attachment` é uma referência que o médico anexou a ESTE
+   * atendimento e que ninguém curou. A UI precisa marcar visualmente: a
+   * garantia do produto passou a ser "toda recomendação cita uma fonte, e a
+   * interface sempre diz se ela é curada", não "toda fonte é curada".
+   */
+  origin?: 'institutional' | 'public' | 'physician_attachment';
   evidenceFigure?: EvidenceFigure | null;
   evidenceTable?: EvidenceTable | null;
 }
@@ -377,12 +383,64 @@ export interface SuggestGuidelineRequest {
   subtipo?: string;
 }
 
+/**
+ * F4 — extração de texto de um arquivo, no servidor, antes de sugerir.
+ * O médico confere e recorta o texto: um artigo de 47 páginas inteiro viraria
+ * dezenas de chunks de contexto irrelevante competindo no retrieval.
+ */
+export type ExtractableDocumentMime =
+  | 'application/pdf'
+  | 'text/plain'
+  | 'text/markdown'
+  | 'text/x-markdown';
+
+export interface ExtractDocumentTextRequest {
+  mimeType: ExtractableDocumentMime;
+  filename?: string;
+  /** Conteúdo do arquivo em base64. */
+  data: string;
+}
+
+export interface ExtractDocumentTextResponse {
+  text: string;
+  /** Número de páginas quando a origem é PDF; `null` para texto puro. */
+  pages: number | null;
+  /** `true` quando o texto foi cortado no teto — o médico precisa saber. */
+  truncated: boolean;
+}
+
 export interface SuggestGuidelineResponse {
   source: string;
   sourceVersion: string;
   chunksCreated: number;
   /** Sempre 0: sugestão nunca supersede conteúdo aprovado. */
   superseded: number;
+}
+
+/**
+ * F4 — referência anexada pelo médico a um atendimento. Diferente de sugerir
+ * para a base (SuggestGuidelineRequest): vale só para este caso, não passa por
+ * curadoria e não afeta nenhum outro médico.
+ */
+export interface EncounterAttachment {
+  id: string;
+  filename: string;
+  mimeType: string;
+  sizeBytes: number;
+  createdAt: string;
+}
+
+export interface CreateAttachmentRequest {
+  filename: string;
+  mimeType: ExtractableDocumentMime;
+  sizeBytes: number;
+  /** Conteúdo do arquivo em base64. */
+  data: string;
+}
+
+export interface CreateAttachmentResponse extends EncounterAttachment {
+  /** `true` quando o texto foi cortado no teto de contexto. */
+  truncated: boolean;
 }
 
 // ── Admin / Console types (E1, E2, E5) ─────────────────────────────────────

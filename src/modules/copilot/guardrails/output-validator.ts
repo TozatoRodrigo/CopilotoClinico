@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isAttachmentCitation } from '../orchestrator/prompt-builder';
 
 export const RecommendationCategorySchema = z.enum([
   'stabilization',
@@ -201,6 +202,27 @@ export function validateOutput(
         'clarifying question. Declaring uncertainty alone leaves the physician with ' +
         'no next step. If evidence is insufficient, ask the triage questions needed ' +
         'to narrow the case instead of stopping.',
+    );
+  }
+
+  // F4 — Uma recomendação que cita um anexo do médico está apoiada em fonte
+  // NÃO CURADA. A decisão de produto foi permitir a citação (senão anexar a
+  // diretriz de dengue não resolveria nada para quem reportou o problema),
+  // com o contrapeso de que ela nunca sai como conduta definitiva: a UI marca
+  // a fonte como não curada e a recomendação fica preliminar. Este guardrail
+  // é o que garante o contrapeso, em vez de confiar no prompt — ver
+  // PHYSICIAN ATTACHMENTS RULE em prompt-builder.ts.
+  const attachmentBackedDefinitive = output.recommendations
+    .map((rec, index) => ({ rec, index }))
+    .filter(({ rec }) => isAttachmentCitation(rec.citationChunkId) && rec.preliminary !== true)
+    .map(({ index }) => index);
+
+  if (attachmentBackedDefinitive.length > 0) {
+    errors.push(
+      `ATTACHMENT-BACKED RECOMMENDATION MUST BE PRELIMINARY: recommendations at index ` +
+        `${attachmentBackedDefinitive.join(', ')} cite a reference the physician attached to this ` +
+        'case, which was never curated. Set "preliminary": true on each of them and state in the ' +
+        'rationale that the source was supplied by the physician and has not been curated.',
     );
   }
 

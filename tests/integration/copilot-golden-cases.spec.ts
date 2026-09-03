@@ -46,6 +46,7 @@ import { PrismaService } from '../../src/config/prisma.service';
 import { AiGatewayService } from '../../src/modules/ai-gateway/ai-gateway.service';
 import { RetrievalService } from '../../src/modules/copilot/retrieval/retrieval.service';
 import { EncountersService } from '../../src/modules/encounters/encounters.service';
+import { AttachmentsService } from '../../src/modules/encounters/attachments/attachments.service';
 import { AuditService } from '../../src/modules/audit/audit.service';
 import { ConfigService } from '@nestjs/config';
 import { validateOutput } from '../../src/modules/copilot/guardrails/output-validator';
@@ -82,6 +83,7 @@ describe('CC-06: Golden cases — copilot never leaves the physician at a dead e
     update: ReturnType<typeof vi.fn>;
     updateChiefComplaint: ReturnType<typeof vi.fn>;
   };
+  let attachmentsMock: { forPrompt: ReturnType<typeof vi.fn> };
   let auditMock: { log: ReturnType<typeof vi.fn> };
   let configMock: { get: ReturnType<typeof vi.fn> };
 
@@ -131,12 +133,16 @@ describe('CC-06: Golden cases — copilot never leaves the physician at a dead e
       updateChiefComplaint: vi.fn().mockResolvedValue(undefined),
     };
     auditMock = { log: vi.fn().mockResolvedValue({ id: 'audit-golden' }) };
+    attachmentsMock = { forPrompt: vi.fn().mockResolvedValue([]) };
     configMock = { get: vi.fn((_key: string, defaultValue?: unknown) => defaultValue) };
 
     service = new OrchestratorService(
       prismaMock as unknown as PrismaService,
       aiGatewayMock as unknown as AiGatewayService,
       retrievalMock as unknown as RetrievalService,
+      // F4 — sem anexos por padrão: os testes existentes descrevem o fluxo
+      // sem referência anexada ao caso.
+      attachmentsMock as unknown as AttachmentsService,
       encountersMock as unknown as EncountersService,
       auditMock as unknown as AuditService,
       configMock as unknown as ConfigService,

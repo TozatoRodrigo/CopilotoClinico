@@ -24,6 +24,11 @@ import type {
   PendingGuidelineChunk,
   CopilotFeedbackRequest,
   CopilotFeedbackResponse,
+  CreateAttachmentRequest,
+  CreateAttachmentResponse,
+  EncounterAttachment,
+  ExtractDocumentTextRequest,
+  ExtractDocumentTextResponse,
   ResolveCrmVerificationRequest,
   SuggestGuidelineRequest,
   SuggestGuidelineResponse,
@@ -315,6 +320,52 @@ export function useCopilotFeedback(encounterId: string) {
         `/encounters/${encounterId}/copilot/feedback`,
         input,
       ),
+  });
+}
+
+/**
+ * F4 — extrai o texto de um PDF/txt/md no servidor. Separado de
+ * `useSuggestGuideline` de propósito: o médico confere e recorta o texto
+ * antes de mandar para curadoria.
+ */
+/**
+ * F4 — referências anexadas a UM atendimento. Diferente de sugerir para a base
+ * (useSuggestGuideline): valem só para este caso e não passam por curadoria.
+ */
+export function useEncounterAttachments(encounterId: string) {
+  return useQuery({
+    queryKey: ['encounter-attachments', encounterId],
+    queryFn: () =>
+      apiClient.get<EncounterAttachment[]>(`/encounters/${encounterId}/attachments`),
+  });
+}
+
+export function useAddEncounterAttachment(encounterId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateAttachmentRequest) =>
+      apiClient.post<CreateAttachmentResponse>(`/encounters/${encounterId}/attachments`, input),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['encounter-attachments', encounterId] });
+    },
+  });
+}
+
+export function useRemoveEncounterAttachment(encounterId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (attachmentId: string) =>
+      apiClient.delete(`/encounters/${encounterId}/attachments/${attachmentId}`),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['encounter-attachments', encounterId] });
+    },
+  });
+}
+
+export function useExtractDocumentText() {
+  return useMutation({
+    mutationFn: (input: ExtractDocumentTextRequest) =>
+      apiClient.post<ExtractDocumentTextResponse>('/guidelines/extract-text', input),
   });
 }
 

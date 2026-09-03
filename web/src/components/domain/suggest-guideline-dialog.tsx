@@ -23,9 +23,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useSuggestGuideline } from '@/lib/clinical-queries';
+import { useExtractDocumentText, useSuggestGuideline } from '@/lib/clinical-queries';
 import { parseGuidelineContent } from '@/lib/front-matter';
 import { ApiError } from '@/lib/api-client';
+import type { ExtractableDocumentMime } from '@/lib/types';
 
 /**
  * Slugs reais de `specialty` usados na curadoria — os mesmos do front-matter
@@ -44,8 +45,31 @@ const SPECIALTIES = [
   { value: 'nao_classificada', label: 'Não sei classificar' },
 ] as const;
 
-const ACCEPTED_EXTENSIONS = ['.md', '.txt'];
+/**
+ * PDF entrou aqui porque converter à mão foi exatamente o que não funcionou no
+ * reporte original — o médico converteu para .md e .txt e ainda assim deu
+ * erro. O servidor extrai o texto e devolve para conferência.
+ */
+const ACCEPTED_MIMES: Record<string, ExtractableDocumentMime> = {
+  pdf: 'application/pdf',
+  md: 'text/markdown',
+  txt: 'text/plain',
+};
 const MAX_CHARS = 200_000;
+const MAX_FILE_BYTES = 8 * 1024 * 1024;
+
+function readAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Falha ao ler o arquivo.'));
+    reader.onload = () => {
+      const result = String(reader.result);
+      // data:<mime>;base64,<payload> — só o payload interessa ao backend.
+      resolve(result.slice(result.indexOf(',') + 1));
+    };
+    reader.readAsDataURL(file);
+  });
+}
 
 interface SuggestGuidelineDialogProps {
   /** Pré-preenche a origem — ex.: a busca que não encontrou nada. */
@@ -82,6 +106,7 @@ export function SuggestGuidelineDialog({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const suggest = useSuggestGuideline();
+  const extract = useExtractDocumentText();
 
   function reset() {
     setSource(defaultSource);
@@ -91,28 +116,56 @@ export function SuggestGuidelineDialog({
     setFilename(null);
   }
 
+  function defaultSourceFromFilename(name: string): string {
+    return name.replace(/\.(pdf|md|txt)$/i, '').replace(/[-_]+/g, ' ').trim();
+  }
+
   async function handleFile(file: File) {
-    const accepted = ACCEPTED_EXTENSIONS.some((ext) => file.name.toLowerCase().endsWith(ext));
-    if (!accepted) {
-      toast.error('Formatos aceitos: .md ou .txt. Se for PDF, cole o texto no campo abaixo.');
+    const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
+    const mimeType = ACCEPTED_MIMES[extension];
+    if (!mimeType) {
+      toast.error('Formatos aceitos: PDF, .md ou .txt. Ou cole o texto no campo abaixo.');
+      return;
+    }
+    if (file.size > MAX_FILE_BYTES) {
+      toast.error('Arquivo acima de 8 MB. Envie apenas o capítulo ou a seção relevante.');
       return;
     }
 
-    const raw = await file.text();
     setFilename(file.name);
 
-    // Front-matter é bônus, não requisito: quando existe, poupa o médico de
-    // digitar; quando não existe, seguimos com o texto puro.
+    // .md/.txt com front-matter: aproveita os metadados sem ida ao servidor.
+    if (mimeType !== 'application/pdf') {
+      const raw = await file.text();
+      try {
+        const parsed = parseGuidelineContent(file.name, raw);
+        setText(parsed.body);
+        setSource(parsed.meta.source);
+        setSourceVersion(parsed.meta.sourceVersion);
+        setSpecialty(parsed.meta.specialty);
+        return;
+      } catch {
+        setText(raw);
+        if (!source) setSource(defaultSourceFromFilename(file.name));
+        return;
+      }
+    }
+
     try {
-      const parsed = parseGuidelineContent(file.name, raw);
-      setText(parsed.body);
-      setSource(parsed.meta.source);
-      setSourceVersion(parsed.meta.sourceVersion);
-      setSpecialty(parsed.meta.specialty);
-      return;
-    } catch {
-      setText(raw);
-      if (!source) setSource(file.name.replace(/\.(md|txt)$/i, '').replace(/[-_]+/g, ' '));
+      const data = await readAsBase64(file);
+      const extracted = await extract.mutateAsync({ mimeType, filename: file.name, data });
+      setText(extracted.text);
+      if (!source) setSource(defaultSourceFromFilename(file.name));
+      toast.success(
+        extracted.truncated
+          ? `Texto extraído de ${extracted.pages ?? '?'} página(s), cortado no limite. Recorte a parte que muda a conduta antes de enviar.`
+          : `Texto extraído de ${extracted.pages ?? '?'} página(s). Recorte a parte que muda a conduta antes de enviar.`,
+      );
+    } catch (err) {
+      setFilename(null);
+      toast.error(
+        err instanceof ApiError ? err.message : 'Não foi possível ler o arquivo. Cole o texto.',
+      );
     }
   }
 
@@ -180,19 +233,20 @@ export function SuggestGuidelineDialog({
               type="button"
               variant="outline"
               className="w-full justify-start gap-2"
+              disabled={extract.isPending}
               onClick={() => fileInputRef.current?.click()}
             >
               <UploadSimple className="size-4" />
-              {filename ?? 'Escolher arquivo .md ou .txt'}
+              {extract.isPending ? 'Lendo o arquivo…' : (filename ?? 'Escolher arquivo PDF, .md ou .txt')}
             </Button>
             <p className="text-xs text-muted-foreground">
-              É um PDF? Copie o texto e cole no campo de conteúdo abaixo — não é preciso formatar
-              nada.
+              O texto é extraído aqui mesmo — confira e recorte a parte que muda a conduta antes de
+              enviar. Até 8 MB.
             </p>
             <input
               ref={fileInputRef}
               type="file"
-              accept=".md,.txt"
+              accept=".pdf,.md,.txt"
               className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0];

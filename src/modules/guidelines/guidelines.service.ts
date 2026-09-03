@@ -1,9 +1,21 @@
-import { Injectable, Logger, Inject, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  Inject,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { GuidelineChunkStatus } from '@prisma/client';
 import { PrismaService } from '../../config/prisma.service';
 import { AiGatewayService } from '../ai-gateway/ai-gateway.service';
 import { AuditService } from '../audit/audit.service';
 import { chunkText } from './ingestion/chunking';
+import {
+  extractDocumentText,
+  DocumentExtractionError,
+  type ExtractedDocument,
+} from './ingestion/document-text';
 
 export interface IngestGuidelineInput {
   text: string;
@@ -158,6 +170,31 @@ export class GuidelinesService {
       chunksCreated: created.length,
       superseded: superseded.count,
     };
+  }
+
+  /**
+   * F4 — Extrai o texto de um arquivo enviado pelo médico, sem persistir nada.
+   *
+   * Erros de parsing viram `BadRequestException` com a mensagem já escrita
+   * para um médico ("se for digitalizado, copie o texto manualmente"), não com
+   * a mensagem do pdf.js.
+   */
+  async extractDocumentText(input: { mimeType: string; data: string }): Promise<ExtractedDocument> {
+    let buffer: Buffer;
+    try {
+      buffer = Buffer.from(input.data, 'base64');
+    } catch {
+      throw new BadRequestException('Arquivo inválido.');
+    }
+
+    try {
+      return await extractDocumentText(buffer, input.mimeType);
+    } catch (err) {
+      if (err instanceof DocumentExtractionError) {
+        throw new BadRequestException(err.message);
+      }
+      throw err;
+    }
   }
 
   /**
