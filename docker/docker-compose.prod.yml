@@ -79,6 +79,15 @@ services:
       INFERENCE_QUEUE_CONCURRENCY: "2"
       INFERENCE_QUEUE_RATE_PER_SEC: "10"
       COPILOT_MAX_TURNS: "5"
+      # KB-005/KB-006 — piso de relevância do retrieval. Os defaults do código
+      # (hybrid-search.ts) já são estes; o que estas linhas garantem é que o
+      # valor seja AJUSTÁVEL sem rebuild. Sem elas, `RETRIEVAL_MIN_SEMANTIC_SCORE`
+      # no .env.production não chega ao container, e o rollback documentado no
+      # runbook ("=0 desliga o piso sem redeploy") simplesmente não funciona —
+      # foi exatamente o que se descobriu no primeiro deploy desta feature.
+      RETRIEVAL_MIN_SEMANTIC_SCORE: ${RETRIEVAL_MIN_SEMANTIC_SCORE:-0.3}
+      RETRIEVAL_STRONG_SEMANTIC_SCORE: ${RETRIEVAL_STRONG_SEMANTIC_SCORE:-0.45}
+      RETRIEVAL_MIN_KEYWORD_RANK: ${RETRIEVAL_MIN_KEYWORD_RANK:-0.01}
       THROTTLER_TTL: ${THROTTLER_TTL:-60000}
       THROTTLER_LIMIT: ${THROTTLER_LIMIT:-600}
       FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY}
