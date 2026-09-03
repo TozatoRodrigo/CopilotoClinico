@@ -5,6 +5,7 @@
  * (incluindo a coluna `status` em guideline_chunks).
  */
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
+import { ConfigService } from '@nestjs/config';
 import { PrismaClient } from '@prisma/client';
 import { connectTestDb, disconnectTestDb } from './helpers/db';
 import { RetrievalService } from '../../src/modules/copilot/retrieval/retrieval.service';
@@ -29,7 +30,9 @@ function buildRetrievalService(queryEmbedding: number[], prisma: PrismaClient): 
     set: async () => undefined,
   } as unknown as RedisService;
 
-  return new RetrievalService(prisma as unknown as PrismaService, aiGateway, redis);
+  return new RetrievalService(prisma as unknown as PrismaService, aiGateway, redis, {
+    get: () => undefined,
+  } as unknown as ConfigService);
 }
 
 describe('KB-002 — pending_review chunks never appear in retrieval (integration)', () => {

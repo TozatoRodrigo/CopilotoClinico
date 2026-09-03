@@ -14,7 +14,10 @@ import { useWhisperVoice } from '@/hooks/use-whisper-voice';
 import { useOnlineStatus } from '@/components/providers/offline-provider';
 import { addToQueue } from '@/lib/offline-queue';
 import { syncOfflineQueue } from '@/lib/copilot-queue';
-import { STORAGE_KEY_PREFIX } from '@/hooks/use-copilot-conversation';
+import {
+  STORAGE_KEY_PREFIX,
+  type StoredCopilotResult,
+} from '@/hooks/use-copilot-conversation';
 import { useCopilotStream, isStreamEligible } from '@/hooks/use-copilot-stream';
 import { markFirstAnalysisDone } from '@/components/domain/install-prompt-banner';
 import {
@@ -232,7 +235,10 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
         analysis,
         turnIndex: result.metadata.turnIndex,
         maxTurns: result.metadata.maxTurns,
-      }),
+        // KB-005/KB-006 — mesma razão: o aviso de "a base não cobre este
+        // cenário" precisa existir já na primeira visita ao resultado.
+        retrievalCoverage: result.metadata.retrievalCoverage,
+      } satisfies StoredCopilotResult),
     );
     // S23-CLIN-02 — limpa rascunho após submit com sucesso (não precisa mais).
     sessionStorage.removeItem(DRAFT_KEY(encounterId));

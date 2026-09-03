@@ -20,6 +20,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { BlockerQuestionCard } from '@/components/domain/blocker-question-card';
 import { UncertaintyBanner } from '@/components/domain/uncertainty-banner';
+import { CoverageBanner } from '@/components/domain/coverage-banner';
 import { useMessages } from '@/lib/messages/use-messages';
 import type { Messages } from '@/lib/messages';
 import {
@@ -137,6 +138,7 @@ export default function ResultPage({ params }: { params: Promise<{ id: string }>
         analysis,
         turnIndex: data.turnIndex,
         maxTurns: data.maxTurns,
+        retrievalCoverage: data.retrievalCoverage,
       };
       try {
         sessionStorage.setItem(`${STORAGE_KEY_PREFIX}${encounterId}`, JSON.stringify(stored));
@@ -225,8 +227,16 @@ function ResultView({
   result: StoredCopilotResult;
 }) {
   const messages = useMessages();
-  const { analysis, answers, setAnswer, reanalyze, reanalyzing, canReanalyze, respondError } =
-    useCopilotConversation(encounterId, result);
+  const {
+    analysis,
+    answers,
+    setAnswer,
+    reanalyze,
+    reanalyzing,
+    canReanalyze,
+    respondError,
+    retrievalCoverage,
+  } = useCopilotConversation(encounterId, result);
   const { decisions, setDecision, setNote } = useRecommendationDecisions(
     encounterId,
     analysis.recommendations.length,
@@ -433,6 +443,11 @@ function ResultView({
               {messages.copilot.result.preliminarySummary(definitiveCount, preliminaryCount)}
             </p>
           </div>
+
+          <CoverageBanner
+            coverage={retrievalCoverage}
+            guidelinesHref={`/guidelines?q=${encodeURIComponent(analysis.reasoning ?? '')}`}
+          />
 
           {analysis.uncertainty && (
             <UncertaintyBanner

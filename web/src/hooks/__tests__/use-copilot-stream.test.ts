@@ -55,6 +55,7 @@ const doneResult: CopilotAnalyzeResponse = {
     piiDetected: false,
     injectionDetected: false,
     chunksRetrieved: 2,
+    retrievalCoverage: "full" as const,
     latencyMs: 900,
     cost: 0.004,
     model: "claude-3-sonnet",

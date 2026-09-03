@@ -3,6 +3,7 @@ import {
   reciprocalRankFuse,
   applyInstitutionBoost,
   sortByScore,
+  applyRelevanceFloor,
   INSTITUTION_RANK_BOOST,
   type SearchHit,
   type RetrievedChunk,
@@ -133,5 +134,108 @@ describe('sortByScore', () => {
   it('handles empty array', () => {
     const sorted = sortByScore([]);
     expect(sorted).toEqual([]);
+  });
+});
+
+/**
+ * KB-005/KB-006 — Piso de relevância. Regressão dos dois casos reportados em
+ * campo: quando o cenário real não existe na base, a busca devolvia os topK
+ * chunks do cenário vizinho e o prompt os apresentava como fonte curada.
+ */
+describe('applyRelevanceFloor', () => {
+  const thresholds = {
+    minSemanticScore: 0.3,
+    strongSemanticScore: 0.45,
+    minKeywordRank: 0.01,
+  };
+
+  it('descarta chunks abaixo do piso e reporta cobertura "none" quando nenhum passa', () => {
+    // Cenário do caso de dengue: só existem chunks de sepse na base, todos
+    // semanticamente distantes do caso real.
+    const result = applyRelevanceFloor(['sepse-1', 'sepse-2', 'choque-1'], {
+      semanticScores: new Map([
+        ['sepse-1', 0.24],
+        ['sepse-2', 0.21],
+        ['choque-1', 0.18],
+      ]),
+      keywordScores: new Map(),
+      ...thresholds,
+    });
+
+    expect(result.keptChunkIds).toEqual([]);
+    expect(result.coverage).toBe('none');
+    expect(result.discardedCount).toBe(3);
+    expect(result.bestSemanticScore).toBeCloseTo(0.24);
+  });
+
+  it('mantém apenas os chunks acima do piso quando a base cobre parcialmente', () => {
+    const result = applyRelevanceFloor(['bom', 'fraco'], {
+      semanticScores: new Map([
+        ['bom', 0.38],
+        ['fraco', 0.22],
+      ]),
+      keywordScores: new Map(),
+      ...thresholds,
+    });
+
+    expect(result.keptChunkIds).toEqual(['bom']);
+    // Passou do piso mas não do limiar "forte" — o prompt recebe o aviso de
+    // encaixe fraco (ver WEAK_COVERAGE_WARNING em prompt-builder.ts).
+    expect(result.coverage).toBe('partial');
+    expect(result.discardedCount).toBe(1);
+  });
+
+  it('reporta cobertura "full" quando a melhor similaridade passa do limiar forte', () => {
+    const result = applyRelevanceFloor(['otimo', 'bom'], {
+      semanticScores: new Map([
+        ['otimo', 0.62],
+        ['bom', 0.41],
+      ]),
+      keywordScores: new Map(),
+      ...thresholds,
+    });
+
+    expect(result.keptChunkIds).toEqual(['otimo', 'bom']);
+    expect(result.coverage).toBe('full');
+  });
+
+  it('preserva a ordem de ranking dos chunks que sobrevivem', () => {
+    const result = applyRelevanceFloor(['a', 'b', 'c'], {
+      semanticScores: new Map([
+        ['a', 0.5],
+        ['b', 0.1],
+        ['c', 0.35],
+      ]),
+      keywordScores: new Map(),
+      ...thresholds,
+    });
+
+    expect(result.keptChunkIds).toEqual(['a', 'c']);
+  });
+
+  it('decide por ts_rank os chunks achados só pela busca lexical, sem score semântico', () => {
+    const result = applyRelevanceFloor(['lexical-forte', 'lexical-fraco'], {
+      semanticScores: new Map(),
+      keywordScores: new Map([
+        ['lexical-forte', 0.4],
+        ['lexical-fraco', 0.001],
+      ]),
+      ...thresholds,
+    });
+
+    expect(result.keptChunkIds).toEqual(['lexical-forte']);
+  });
+
+  it('desliga o piso quando minSemanticScore é 0 — rollback por env sem redeploy', () => {
+    const result = applyRelevanceFloor(['irrelevante'], {
+      semanticScores: new Map([['irrelevante', 0.05]]),
+      keywordScores: new Map(),
+      ...thresholds,
+      minSemanticScore: 0,
+    });
+
+    expect(result.keptChunkIds).toEqual(['irrelevante']);
+    expect(result.coverage).toBe('full');
+    expect(result.discardedCount).toBe(0);
   });
 });

@@ -137,6 +137,18 @@ export const es: Messages = {
     },
   },
 
+  coverage: {
+    none: {
+      title: 'Ninguna guía de la base cubre este escenario',
+      body: 'El análisis a continuación no cita guías porque la base de conocimiento todavía no tiene contenido para esta presentación. Las preguntas sirven para llegar al protocolo correcto — no sustituyen a una guía. Si tiene una referencia para este escenario, envíela a curaduría.',
+    },
+    partial: {
+      title: 'Cobertura parcial de la base',
+      body: 'Las guías recuperadas no encajan bien con este caso. Verifique si la fuente citada trata la misma presentación antes de seguir la conducta.',
+    },
+    action: 'Buscar en las guías',
+  },
+
   uncertainty: {
     title: 'Incertidumbre en el análisis',
     defaultReason:

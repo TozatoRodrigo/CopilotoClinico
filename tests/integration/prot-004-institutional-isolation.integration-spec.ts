@@ -13,6 +13,7 @@
  * aplicadas (incluindo institution_id em protocols/guideline_chunks).
  */
 import { randomUUID } from 'crypto';
+import { ConfigService } from '@nestjs/config';
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import { PrismaClient } from '@prisma/client';
 import { NotFoundException } from '@nestjs/common';
@@ -41,7 +42,9 @@ function buildRetrievalService(queryEmbedding: number[], prisma: PrismaClient): 
     set: async () => undefined,
   } as unknown as RedisService;
 
-  return new RetrievalService(prisma as unknown as PrismaService, aiGateway, redis);
+  return new RetrievalService(prisma as unknown as PrismaService, aiGateway, redis, {
+    get: () => undefined,
+  } as unknown as ConfigService);
 }
 
 describe('PROT-004 — isolamento institucional (integration)', () => {
@@ -125,12 +128,8 @@ describe('PROT-004 — isolamento institucional (integration)', () => {
       expect(idsNone).not.toContain(protocolB.id);
 
       // findById: protocolo de outra instituição é tratado como inexistente
-      await expect(service.findById(protocolB.id, institutionA)).rejects.toThrow(
-        NotFoundException,
-      );
-      await expect(service.findById(protocolA.id, institutionB)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.findById(protocolB.id, institutionA)).rejects.toThrow(NotFoundException);
+      await expect(service.findById(protocolA.id, institutionB)).rejects.toThrow(NotFoundException);
 
       // findById: protocolo próprio e global são acessíveis
       await expect(service.findById(protocolA.id, institutionA)).resolves.toMatchObject({

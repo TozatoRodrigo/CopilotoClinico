@@ -33,6 +33,15 @@ export interface PromptInput {
    * LANGUAGE RULE — ver buildSystemInstruction().
    */
   locale?: string;
+  /**
+   * KB-005/KB-006 — quão bem a base cobre este caso, vindo do piso de
+   * relevância (`applyRelevanceFloor` em retrieval/hybrid-search.ts).
+   * `full` (ou undefined) não adiciona nada ao prompt. `partial` injeta
+   * `WEAK_COVERAGE_WARNING`: os chunks entram, mas o modelo é avisado de que
+   * o encaixe é fraco. `none` não chega aqui com chunks — o retrieval devolve
+   * lista vazia e `buildPrompt` cai em `buildCaseOnlyUser`.
+   */
+  coverage?: 'full' | 'partial' | 'none';
 }
 
 export interface BuiltPrompt {
@@ -248,6 +257,32 @@ EXCEPTION — NEVER translate:
   return `${SYSTEM_INSTRUCTION}${languageBlock}`;
 }
 
+/**
+ * KB-005/KB-006 — Aviso de cobertura fraca.
+ *
+ * Origem: dois casos reportados em campo (dengue conduzido como sepse,
+ * cefaleia em salvas apontada como hemorragia). Em ambos, os chunks entregues
+ * ao modelo eram do cenário VIZINHO, não do cenário real, e o prompt os
+ * apresentava como `TRUSTED_CURATED_SOURCE` sem nenhum sinal de que o encaixe
+ * era ruim. O piso de relevância corta o caso extremo (nenhum chunk passa →
+ * caminho D). Este bloco cobre a faixa intermediária: a evidência passou no
+ * piso mas não é um encaixe forte, então o modelo precisa saber que o que ele
+ * recebeu é "o que a base contém", não confirmação da hipótese.
+ */
+const WEAK_COVERAGE_WARNING = `<evidence_coverage_warning>
+COVERAGE IS WEAK for this case. The retrieved chunks passed the minimum relevance floor but are NOT a strong match for this presentation. Treat them as "what the knowledge base happens to contain near this case", NEVER as confirmation that the case belongs to the scenario those chunks describe.
+
+Before recommending anything, check explicitly:
+1. Do the retrieved chunks address the CARDINAL features of THIS case — its time course (day of illness, sudden vs progressive, whether the pattern is self-limited and repeating), its epidemiological context, and its single most discriminating physical finding? Name in "reasoning" any cardinal feature that NO retrieved chunk addresses.
+2. If the chunks describe a different condition that merely shares a symptom with this case (fever with hypotension, severe headache, chest pain), say so and treat that condition as a DIFFERENTIAL, not as the diagnosis. Do not build a management plan for a scenario the case text does not actually support.
+3. Prefer "clarifyingQuestions" and "differentials" over confident recommendations here, and mark any recommendation you do make as "preliminary": true.
+4. Set "uncertainty": true and describe in "uncertaintyReason" which guideline coverage is missing for this presentation — a weak match IS missing coverage. Never blame the physician's description.
+</evidence_coverage_warning>`;
+
+function buildCoverageWarning(coverage?: PromptInput['coverage']): string {
+  return coverage === 'partial' ? `\n${WEAK_COVERAGE_WARNING}\n` : '';
+}
+
 export function buildPrompt(input: PromptInput): BuiltPrompt {
   const instructionsBlock = input.additionalInstructions
     ? `\n\n${input.additionalInstructions}`
@@ -282,7 +317,7 @@ export function buildPrompt(input: PromptInput): BuiltPrompt {
   const user = `<clinical_case type="UNTRUSTED_INPUT">
 ${input.caseText}
 </clinical_case>
-${redFlagsBlock ? `\n${redFlagsBlock}\n` : ''}
+${redFlagsBlock ? `\n${redFlagsBlock}\n` : ''}${buildCoverageWarning(input.coverage)}
 <guideline_evidence type="TRUSTED_CURATED_SOURCE">
 ${evidenceBlock}
 </guideline_evidence>

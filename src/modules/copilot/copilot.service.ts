@@ -1,10 +1,12 @@
 import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Prisma } from '@prisma/client';
 import { OrchestratorService } from './orchestrator/orchestrator.service';
 import { InferenceQueueService } from '../queue/inference-queue.service';
 import { PrismaService } from '../../config/prisma.service';
 import type { AnalyzeInput, RespondInput } from './schemas/copilot.schemas';
 import type { OrchestratorResult, StreamEvent } from './orchestrator/orchestrator.service';
+import type { RetrievalCoverage } from './retrieval/hybrid-search';
 
 // UX-03 — mesmo default de orchestrator.service.ts (DEFAULT_MAX_TURNS).
 // Duplicado aqui (em vez de importado) porque é uma constante, não lógica —
@@ -80,6 +82,10 @@ export class CopilotService {
         // funcionar mesmo num carregamento fresco de página (sem
         // sessionStorage), não só durante a sessão de conversa ao vivo.
         turnIndex: true,
+        // KB-005/KB-006 — `params.retrievalCoverage`, pelo mesmo motivo:
+        // o aviso de "a base não cobre este cenário" precisa sobreviver a um
+        // reload da página, não só à sessão ao vivo.
+        params: true,
       },
     });
 
@@ -93,7 +99,19 @@ export class CopilotService {
       uncertaintyReason: interaction.uncertaintyReason,
       createdAt: interaction.createdAt,
       turnIndex: interaction.turnIndex,
+      retrievalCoverage: extractRetrievalCoverage(interaction.params),
       maxTurns: this.config.get<number>('COPILOT_MAX_TURNS', DEFAULT_MAX_TURNS),
     };
   }
+}
+
+/**
+ * KB-005/KB-006 — lê `retrievalCoverage` do JSON `params` da interação.
+ * Interações gravadas antes desta mudança não têm a chave: devolvem `null`,
+ * e a UI simplesmente não mostra o aviso de cobertura (nunca inventa "full").
+ */
+function extractRetrievalCoverage(params: Prisma.JsonValue | null): RetrievalCoverage | null {
+  if (!params || typeof params !== 'object' || Array.isArray(params)) return null;
+  const value = (params as Record<string, unknown>).retrievalCoverage;
+  return value === 'full' || value === 'partial' || value === 'none' ? value : null;
 }

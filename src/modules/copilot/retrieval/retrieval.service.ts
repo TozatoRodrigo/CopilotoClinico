@@ -1,4 +1,5 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../config/prisma.service';
 import { AiGatewayService } from '../../ai-gateway/ai-gateway.service';
@@ -6,7 +7,12 @@ import { RedisService } from '../../redis/redis.service';
 import {
   reciprocalRankFuse,
   applyInstitutionBoost,
+  applyRelevanceFloor,
   sortByScore,
+  DEFAULT_MIN_SEMANTIC_SCORE,
+  DEFAULT_STRONG_SEMANTIC_SCORE,
+  DEFAULT_MIN_KEYWORD_RANK,
+  type RetrievalCoverage,
   type RetrievedChunk,
   type SearchHit,
 } from './hybrid-search';
@@ -14,6 +20,17 @@ import {
 export interface RetrievalResult {
   chunks: RetrievedChunk[];
   totalRetrieved: number;
+  /**
+   * KB-005/KB-006 — o quanto a base de fato cobre esta consulta.
+   * `none` significa que nenhum chunk passou no piso de relevância: o prompt
+   * cai no caminho de "declarar a lacuna e perguntar" em vez de recomendar
+   * citando o vizinho semântico mais próximo.
+   */
+  coverage: RetrievalCoverage;
+  /** Melhor similaridade de cosseno entre os candidatos, antes do piso. */
+  bestSemanticScore: number;
+  /** Quantos candidatos foram descartados pelo piso de relevância. */
+  discardedByFloor: number;
 }
 
 @Injectable()
@@ -24,7 +41,47 @@ export class RetrievalService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(AiGatewayService) private readonly aiGateway: AiGatewayService,
     @Inject(RedisService) private readonly redis: RedisService,
+    @Inject(ConfigService) private readonly config: ConfigService,
   ) {}
+
+  /**
+   * Limiares do piso de relevância, lidos do ambiente a cada busca para
+   * permitir recalibração sem redeploy. `RETRIEVAL_MIN_SEMANTIC_SCORE=0`
+   * desliga o piso e restaura o comportamento anterior.
+   */
+  private relevanceThresholds(): {
+    minSemanticScore: number;
+    strongSemanticScore: number;
+    minKeywordRank: number;
+  } {
+    return {
+      minSemanticScore: this.numericConfig(
+        'RETRIEVAL_MIN_SEMANTIC_SCORE',
+        DEFAULT_MIN_SEMANTIC_SCORE,
+      ),
+      strongSemanticScore: this.numericConfig(
+        'RETRIEVAL_STRONG_SEMANTIC_SCORE',
+        DEFAULT_STRONG_SEMANTIC_SCORE,
+      ),
+      minKeywordRank: this.numericConfig('RETRIEVAL_MIN_KEYWORD_RANK', DEFAULT_MIN_KEYWORD_RANK),
+    };
+  }
+
+  /**
+   * Variáveis de ambiente chegam como string. Valor ausente, vazio ou não
+   * numérico cai no default — um typo na env nunca deve desligar o piso
+   * silenciosamente nem travar a busca.
+   */
+  private numericConfig(key: string, fallback: number): number {
+    const raw = this.config.get<string | number | undefined>(key);
+    if (raw === undefined || raw === null || raw === '') return fallback;
+    const parsed = Number(raw);
+    if (!Number.isFinite(parsed)) {
+      this.logger.warn(`${key}="${String(raw)}" não é numérico — usando default ${fallback}`);
+      return fallback;
+    }
+    return parsed;
+  }
 
   /**
    * @param institutionId Instituição do encounter (PROT-004). `undefined`/`null`
@@ -44,7 +101,20 @@ export class RetrievalService {
     const cached = await this.redis.get(cacheKey);
     if (cached) {
       this.logger.debug('Retrieval cache hit');
-      return JSON.parse(cached) as RetrievalResult;
+      const parsed = JSON.parse(cached) as Partial<RetrievalResult> & {
+        chunks: RetrievedChunk[];
+        totalRetrieved: number;
+      };
+      // Entradas gravadas por uma versão anterior ao piso de relevância não
+      // têm os campos de cobertura. O TTL de 60s faz isso se resolver sozinho
+      // logo após um deploy, mas o default explícito evita que a janela
+      // produza `undefined` num campo tipado como obrigatório.
+      return {
+        ...parsed,
+        coverage: parsed.coverage ?? (parsed.chunks.length > 0 ? 'full' : 'none'),
+        bestSemanticScore: parsed.bestSemanticScore ?? 0,
+        discardedByFloor: parsed.discardedByFloor ?? 0,
+      };
     }
 
     const embeddingResponse = await this.aiGateway.embed([query]);
@@ -64,16 +134,38 @@ export class RetrievalService {
     }
     const boostedScores = applyInstitutionBoost(fusedScores, chunkInstitutions, institutionId);
 
-    const sortedIds = [...boostedScores.entries()]
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, topK)
-      .map(([id]) => id);
+    const rankedIds = [...boostedScores.entries()].sort(([, a], [, b]) => b - a).map(([id]) => id);
 
-    if (sortedIds.length === 0) {
-      return { chunks: [], totalRetrieved: 0 };
+    // O piso é aplicado ANTES do corte em topK: um chunk relevante em 6º lugar
+    // não pode ser perdido porque cinco chunks irrelevantes ficaram na frente.
+    const floor = applyRelevanceFloor(rankedIds, {
+      semanticScores: new Map(semanticHits.map((hit) => [hit.chunkId, hit.score])),
+      keywordScores: new Map(keywordHits.map((hit) => [hit.chunkId, hit.score])),
+      ...this.relevanceThresholds(),
+    });
+
+    // Observabilidade para calibrar o piso com dados reais de produção
+    // (ver docs/runbook.md — "Calibrar o piso de relevância").
+    this.logger.log(
+      `RETRIEVAL_COVERAGE coverage=${floor.coverage} best=${floor.bestSemanticScore.toFixed(3)} ` +
+        `candidates=${rankedIds.length} kept=${floor.keptChunkIds.length} discarded=${floor.discardedCount}`,
+    );
+
+    const selectedIds = floor.keptChunkIds.slice(0, topK);
+
+    if (selectedIds.length === 0) {
+      const empty: RetrievalResult = {
+        chunks: [],
+        totalRetrieved: 0,
+        coverage: 'none',
+        bestSemanticScore: floor.bestSemanticScore,
+        discardedByFloor: floor.discardedCount,
+      };
+      await this.redis.set(cacheKey, JSON.stringify(empty), 60);
+      return empty;
     }
 
-    const chunks = await this.fetchChunks(sortedIds);
+    const chunks = await this.fetchChunks(selectedIds);
     const scored = chunks.map((chunk) => ({
       ...chunk,
       score: boostedScores.get(chunk.id) ?? 0,
@@ -82,6 +174,9 @@ export class RetrievalService {
     const result: RetrievalResult = {
       chunks: sortByScore(scored),
       totalRetrieved: scored.length,
+      coverage: floor.coverage,
+      bestSemanticScore: floor.bestSemanticScore,
+      discardedByFloor: floor.discardedCount,
     };
 
     await this.redis.set(cacheKey, JSON.stringify(result), 60);
