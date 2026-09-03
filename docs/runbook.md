@@ -5,6 +5,174 @@
 
 ---
 
+## Release — base de contexto (KB-005/KB-006 + F2/F3/F4/F6/F7)
+
+Roteiro completo desta entrega, na ordem. Cada passo tem verificação: **não
+avance sem o resultado esperado**. Executar na VPS (Hostinger), no diretório do
+`docker-compose.prod.yml`.
+
+> Origem: reportes de campo de 03/09/2026 — caso de dengue conduzido como
+> sepse, cefaleia em salvas apontada como hemorragia, e erro ao anexar arquivo.
+> Diagnóstico completo em `docs/plano-base-contexto.md`.
+
+### Passo 0 — Pré-voo (antes de tocar em qualquer coisa)
+
+**0.1 — Existe curador?** Sem isso o passo 4 trava, e só se descobre depois da
+ingestão. O aprovador precisa das DUAS condições:
+
+```bash
+docker compose -f docker-compose.prod.yml exec copiloto-db \
+  psql -U "$POSTGRES_OWNER_USER" -d copiloto_clinico -c \
+  "SELECT email, role, is_curator FROM physicians WHERE is_curator = true OR role IN ('COMPLIANCE','ADMIN');"
+```
+
+Esperado: pelo menos uma linha com `role` em (`COMPLIANCE`,`ADMIN`) **e**
+`is_curator = true`. Se faltar:
+
+```bash
+docker compose -f docker-compose.prod.yml exec copiloto-db \
+  psql -U "$POSTGRES_OWNER_USER" -d copiloto_clinico -c \
+  "UPDATE physicians SET is_curator = true, role = 'COMPLIANCE' WHERE email = 'curador@exemplo.com';"
+```
+
+**0.2 — Backup do banco.** Esta release tem migration.
+
+```bash
+docker compose -f docker-compose.prod.yml exec copiloto-db \
+  pg_dump -U "$POSTGRES_OWNER_USER" copiloto_clinico > backup-pre-kb005-$(date +%F-%H%M).sql
+```
+
+Confirmar que o arquivo não está vazio antes de seguir.
+
+**0.3 — Chave de IA válida.** A ingestão gera embeddings; sem chave real ela
+falha no meio, deixando parte dos chunks criados.
+
+```bash
+docker compose -f docker-compose.prod.yml exec copiloto-api \
+  sh -c 'test "$AI_API_KEY" != placeholder && echo "AI_API_KEY OK" || echo "FALTA AI_API_KEY"'
+```
+
+### Passo 1 — Migration
+
+```bash
+docker compose -f docker-compose.prod.yml exec copiloto-api \
+  sh -c 'DATABASE_URL="$MIGRATION_DATABASE_URL" pnpm prisma migrate deploy'
+```
+
+Verificação — a tabela nova existe e está vazia:
+
+```bash
+docker compose -f docker-compose.prod.yml exec copiloto-db \
+  psql -U "$POSTGRES_OWNER_USER" -d copiloto_clinico -c \
+  "SELECT count(*) FROM encounter_attachments;"
+```
+
+Esperado: `0`. Erro de relação inexistente significa que a migration não
+aplicou — **pare aqui**.
+
+### Passo 2 — Deploy
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build copiloto-api copiloto-web
+```
+
+Verificação:
+
+```bash
+curl -fsS https://copiloto.servidortozato.cloud/v1/health && echo " API OK"
+```
+
+### Passo 3 — Ingestão dos pacotes
+
+A ordem importa menos que o fato de rodarem **depois** do deploy: o chunking
+por fronteira de frase precisa estar no ar, senão os chunks nascem cortados no
+meio de frase e seria preciso reingerir.
+
+```bash
+docker compose -f docker-compose.prod.yml exec copiloto-api \
+  pnpm ingest:guidelines docs/guidelines/drafts/kb-005-arboviroses-dengue
+```
+
+```bash
+docker compose -f docker-compose.prod.yml exec copiloto-api \
+  pnpm ingest:guidelines docs/guidelines/drafts/kb-006-cefaleias-primarias
+```
+
+Verificação — devem existir **28 chunks pendentes**, distribuídos assim:
+
+```bash
+docker compose -f docker-compose.prod.yml exec copiloto-db \
+  psql -U "$POSTGRES_OWNER_USER" -d copiloto_clinico -c \
+  "SELECT metadata->>'cenario' AS cenario, metadata->>'subtipo' AS subtipo, count(*)
+     FROM guideline_chunks WHERE status = 'pending_review'
+    GROUP BY 1,2 ORDER BY 1,2;"
+```
+
+| `cenario` | `subtipo` | chunks |
+|---|---|---|
+| `cefaleia` | `primaria` | 8 |
+| `cefaleia` | `secundaria` | 4 |
+| `dengue_arbovirose` | (nulo) | 9 |
+| `febre_aguda_indiferenciada` | `dengue_arbovirose` | 4 |
+| `febre_aguda_indiferenciada` | `sepse_bacteriana` | 3 |
+
+Total: **28**. Números conferidos rodando `front-matter.ts` → `chunking.ts`
+sobre os rascunhos nesta revisão; se o chunking mudar, esta tabela muda.
+
+Número diferente significa que o chunking rodou com código antigo, ou que a
+ingestão falhou no meio. Nesse caso, apagar os pendentes e repetir:
+
+```bash
+docker compose -f docker-compose.prod.yml exec copiloto-db \
+  psql -U "$POSTGRES_OWNER_USER" -d copiloto_clinico -c \
+  "DELETE FROM guideline_chunks WHERE status = 'pending_review';"
+```
+
+### Passo 4 — Curadoria clínica (médico, não engenharia)
+
+**Este passo não pode ser automatizado nem delegado a quem não é médico.** É a
+assinatura de que doses e volumes estão corretos, e é a razão de o pipeline
+inteiro existir.
+
+O curador aprova ou rejeita chunk a chunk em `/admin/diretrizes`. Cada chunk é
+recuperado sozinho e chega ao modelo sem o resto do arquivo em volta — o
+critério de revisão é "este trecho se sustenta isolado e o número está completo
+dentro dele?", não "o arquivo está bom?".
+
+Verificação — nenhum pendente restante e 28 aprovados a mais:
+
+```bash
+docker compose -f docker-compose.prod.yml exec copiloto-db \
+  psql -U "$POSTGRES_OWNER_USER" -d copiloto_clinico -c \
+  "SELECT status, count(*) FROM guideline_chunks GROUP BY 1;"
+```
+
+Registrar em `docs/guidelines-catalog.md` a validação assinada (nome, CRM,
+data) de cada pacote — as pendências já estão listadas lá.
+
+### Passo 5 — Aceite antes de avisar os médicos
+
+Rodar os dois casos de `tests/fixtures/field-incident-cases.ts` pela interface,
+como um médico faria:
+
+| Caso | Aceite |
+|---|---|
+| `fi-001` — dengue, piora na defervescência | Cita `dengue_arbovirose` **e** o `reasoning` nomeia a piora quando a febre cedeu |
+| `fi-002` — crises autolimitadas com lacrimejamento | Trata como cefaleia primária, mantém HSA como diferencial, **e** o `reasoning` nomeia o padrão temporal |
+
+**Acertar o rótulo não basta.** Se o raciocínio não nomear o discriminador, o
+acerto foi coincidência de retrieval e volta a falhar no próximo caso.
+
+Só depois deste aceite, avisar os médicos.
+
+### Rollback
+
+| Sintoma | Ação |
+|---|---|
+| Copiloto passou a perguntar demais / diz "não cobre" em casos cobertos | `RETRIEVAL_MIN_SEMANTIC_SCORE=0` no `.env` e reiniciar a API. Desliga o piso de relevância sem redeploy e sem tocar no banco. |
+| Conteúdo novo com problema clínico | Rejeitar os chunks na curadoria, ou `UPDATE guideline_chunks SET status='rejected' WHERE source LIKE '%ABRAMEDE%'`. O retrieval só enxerga `approved`. |
+| Falha na aplicação | `docker compose -f docker-compose.prod.yml up -d --build` na tag anterior. A migration é aditiva (só cria tabela nova), então a versão anterior roda sobre o schema novo sem alteração. |
+
 ## Operações de Rotina
 
 ### Verificar integridade da trilha de auditoria (manual)
