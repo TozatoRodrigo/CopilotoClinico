@@ -1,4 +1,5 @@
 import { readFileSync } from 'fs';
+import { join } from 'path';
 import { describe, expect, it } from 'vitest';
 import {
   extractDocumentText,
@@ -59,17 +60,12 @@ describe('extractDocumentText', () => {
     expect(result.text).toBe(texto);
   });
 
-  const FIXTURE = 'tests/fixtures/sample-guideline.pdf';
-  const hasFixture = (() => {
-    try {
-      readFileSync(FIXTURE);
-      return true;
-    } catch {
-      return false;
-    }
-  })();
+  // Fixture versionada (gerada com pdfkit — ver histórico) em vez do artigo
+  // original, que é material de terceiros. Roda sempre: o CI barra teste
+  // pulado, e um caminho de PDF sem cobertura era justamente o risco aqui.
+  const FIXTURE = join(process.cwd(), 'tests/fixtures/sample-guideline.pdf');
 
-  it.skipIf(!hasFixture)('extrai texto e contagem de páginas de um PDF real', async () => {
+  it('extrai texto e contagem de páginas de um PDF real', async () => {
     const result = await extractDocumentText(readFileSync(FIXTURE), 'application/pdf');
 
     expect(result.pages).toBeGreaterThan(0);
