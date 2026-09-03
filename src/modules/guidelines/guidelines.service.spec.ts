@@ -135,7 +135,14 @@ describe('GuidelinesService', () => {
     });
 
     it('handles long text by creating multiple chunks', async () => {
-      const longText = 'X'.repeat(1200);
+      // KB-005/KB-006 — o chunking passou a cortar em fronteira de frase, com
+      // alvo de 1200 caracteres: um bloco só de 'X' sem pontuação é UM chunk.
+      // Para exercitar o caminho de múltiplos chunks o texto precisa ter
+      // frases de verdade, como uma diretriz real tem.
+      const longText = Array.from(
+        { length: 6 },
+        (_, i) => `Recomendação número ${i}. ${'palavra '.repeat(60)}fim.`,
+      ).join(' ');
       const input: IngestGuidelineInput = { ...baseIngestInput, text: longText };
 
       aiGateway.embed.mockResolvedValue({
@@ -176,6 +183,76 @@ describe('GuidelinesService', () => {
           entityId: `${baseIngestInput.source}@${baseIngestInput.sourceVersion}`,
         }),
       );
+    });
+  });
+
+  /**
+   * F4 — caminho de sugestão aberto a qualquer médico autenticado. O ponto
+   * mais importante destes testes é o que ele NÃO faz: não supersede.
+   */
+  describe('suggestGuideline', () => {
+    it('cria chunks pending_review marcados com quem sugeriu', async () => {
+      prisma.guidelineChunk.create.mockResolvedValue({ id: 'chunk-uuid-1' });
+
+      const result = await service.suggestGuideline({
+        ...baseIngestInput,
+        suggestedBy: 'physician-77',
+      });
+
+      expect(prisma.guidelineChunk.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          status: 'pending_review',
+          metadata: expect.objectContaining({ suggestedBy: 'physician-77' }),
+        }),
+      });
+      expect(result.chunksCreated).toBe(1);
+    });
+
+    it('NUNCA supersede conteúdo já aprovado — seria escalação de privilégio num endpoint aberto', async () => {
+      prisma.guidelineChunk.create.mockResolvedValue({ id: 'chunk-uuid-1' });
+
+      // Um médico poderia sugerir algo com source de uma diretriz existente e
+      // versão nova; se isso superseder, remove do retrieval conteúdo que
+      // passou por curadoria. `ingestForReview` (só curador) supersede;
+      // `suggestGuideline` não pode.
+      await service.suggestGuideline({
+        ...baseIngestInput,
+        source: 'Surviving Sepsis Campaign',
+        sourceVersion: '9.9-falsa',
+        suggestedBy: 'physician-77',
+      });
+
+      expect(prisma.guidelineChunk.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('registra a sugestão na auditoria com o médico como actor', async () => {
+      prisma.guidelineChunk.create.mockResolvedValue({ id: 'chunk-uuid-1' });
+
+      await service.suggestGuideline({ ...baseIngestInput, suggestedBy: 'physician-77' });
+
+      expect(auditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          actorId: 'physician-77',
+          action: 'GUIDELINE_SUGGESTED',
+          entity: 'GuidelineChunk',
+        }),
+      );
+    });
+
+    it('não força o médico a inventar metadados de curadoria: aceita defaults', async () => {
+      prisma.guidelineChunk.create.mockResolvedValue({ id: 'chunk-uuid-1' });
+
+      await service.suggestGuideline({
+        text: baseIngestInput.text,
+        source: 'Artigo enviado pelo Dr. do plantão',
+        sourceVersion: 'sem versão informada',
+        specialty: 'nao_classificada',
+        suggestedBy: 'physician-77',
+      });
+
+      expect(prisma.guidelineChunk.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ specialty: 'nao_classificada' }),
+      });
     });
   });
 

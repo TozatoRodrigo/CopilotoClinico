@@ -30,6 +30,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { SuggestGuidelineDialog } from '@/components/domain/suggest-guideline-dialog';
 import type { GuidelineSearchResult, PendingGuidelineChunk } from '@/lib/types';
 
 const FILTER_PILLS = ['Todas', 'Trauma', 'Cardíaco', 'Pediátrico', 'Neuro', 'Geral'];
@@ -311,7 +312,12 @@ export default function GuidelinesPage() {
         <p className="mb-1 font-mono text-[0.75rem] uppercase tracking-[0.08em] text-muted-foreground">
           Base clínica{hasResults ? ` · ${data!.length} diretrizes encontradas` : ''}
         </p>
-        <h1 className="font-display text-[2rem] font-normal leading-tight">Pergunte à diretriz</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="font-display text-[2rem] font-normal leading-tight">
+            Pergunte à diretriz
+          </h1>
+          <SuggestGuidelineDialog triggerVariant="ghost" />
+        </div>
       </div>
 
       {isCurator && (
@@ -382,11 +388,20 @@ export default function GuidelinesPage() {
           ) : isError ? (
             <p className="py-8 text-center text-sm text-destructive">Erro ao buscar diretrizes.</p>
           ) : !data || data.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 py-12 text-center">
+            <div className="flex flex-col items-center gap-3 py-12 text-center">
               <MagnifyingGlass className="size-8 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
                 {hasQuery ? `Nenhum resultado para "${query}".` : 'Nenhuma diretriz aprovada ainda.'}
               </p>
+              {/* F4 — o momento exato em que o médico descobre um buraco na
+                  base é o momento certo para oferecer o caminho de contribuir.
+                  Antes daqui, ele só tinha o console de curadoria, que exige
+                  papel de curador e front-matter. */}
+              <p className="max-w-sm text-xs text-muted-foreground">
+                Se você tem a referência para este cenário, envie para a curadoria — é assim que a
+                base deixa de ter esse buraco.
+              </p>
+              <SuggestGuidelineDialog defaultSource={hasQuery ? '' : undefined} />
             </div>
           ) : (
             <div className="space-y-3">

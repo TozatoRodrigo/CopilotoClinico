@@ -1,6 +1,6 @@
 # Plano — Base de contexto do Copiloto Clínico
 
-Versão: 1.1 | Criado: 2026-09-03 | Atualizado: 2026-09-03
+Versão: 1.2 | Criado: 2026-09-03 | Atualizado: 2026-09-03
 Origem: feedbacks de campo de 03/09/2026 (dois médicos do piloto).
 
 ---
@@ -117,7 +117,7 @@ redação, nenhuma inventada:
 Os pacotes estão como **rascunho aguardando curadoria clínica assinada** — é o
 mesmo gate dos pacotes anteriores e não deve ser pulado.
 
-### 3.2 Código — F2 e F3 implementados
+### 3.2 Código — F2, F3, F4, F6 e F7 implementados
 
 | O quê | Onde |
 |---|---|
@@ -128,6 +128,9 @@ mesmo gate dos pacotes anteriores e não deve ser pulado.
 | **Título do caso nunca mais vem de um diferencial** (F3) | `orchestrator.service.ts` (`deriveChiefComplaint`) |
 | **Observabilidade para calibrar** — cada busca loga `RETRIEVAL_COVERAGE coverage=… best=… kept=… discarded=…` | `retrieval.service.ts` |
 | **Rollback sem redeploy** — `RETRIEVAL_MIN_SEMANTIC_SCORE=0` desliga o piso e restaura o comportamento anterior | `.env.example`, `docs/runbook.md` |
+| **Chunking em fronteira de frase** (F6) — parágrafos agrupados até ~1.200 caracteres, sobreposição por frase; uma prescrição não é mais partida ao meio | `ingestion/chunking.ts` |
+| **Sugestão de diretriz por qualquer médico** (F4) — `POST /guidelines/suggest`, sem exigir papel de curador nem front-matter; entra como `pending_review` e **nunca supersede** conteúdo aprovado | `guidelines.controller.ts`, `guidelines.service.ts`, `suggest-guideline-dialog.tsx` |
+| **Feedback estruturado "cenário errado"** (F7) — registra `interactionId`, chunks recuperados, cobertura e chunks citados na trilha de auditoria | `copilot.service.ts` (`submitFeedback`), `copilot-feedback.tsx` |
 
 Testes: piso de relevância (6 casos, incluindo o cenário exato do caso de
 dengue), aviso de cobertura no prompt (3 casos), busca com cobertura
@@ -195,27 +198,35 @@ Se a hipótese for exibida em algum lugar, precisa vir rotulada como hipótese, 
 nunca no documento gerado. Corrige diretamente o que aparece no print do
 reporte C.
 
-### F4 — Dois caminhos distintos para "incluir um arquivo"
+### F4 — Dois caminhos distintos para "incluir um arquivo" — 🟡 METADE IMPLEMENTADA
 
 O reporte B é, na verdade, dois produtos diferentes que hoje estão fundidos num
 só e trancados atrás da curadoria:
 
-**(a) Referência do caso** — o que o médico realmente queria. Anexo no escopo de
+**(a) Referência do caso** — ⏳ PENDENTE. O que o médico talvez quisesse: Anexo no escopo de
 um `encounter`, usado só naquela análise, **nunca** promovido à base global.
 Entra no prompt em bloco próprio, marcado como entrada do médico e sujeito ao
 `injection-defense`, jamais dentro de `<guideline_evidence
 type="TRUSTED_CURATED_SOURCE">` — conteúdo não curado não pode herdar a
 confiança de diretriz aprovada.
 
-**(b) Sugerir diretriz para a base** — qualquer médico pode enviar; cai na fila
-de curadoria com `status = pending`, exatamente como hoje, mas sem exigir que o
-médico saiba escrever front-matter:
-- aceitar PDF, com extração de texto no servidor;
-- inferir `source`/`sourceVersion` do arquivo (título, DOI) e pedir os campos
-  faltantes num formulário curto, em vez de rejeitar o arquivo;
-- elevar o `bodyLimit` (ou usar upload multipart/streaming) para artigos longos;
-- mensagens de erro que dizem o que fazer — hoje `"Front-matter ausente ou mal
-  formatado"` não significa nada para quem só quer anexar um PDF.
+**(b) Sugerir diretriz para a base** — ✅ IMPLEMENTADO. `POST
+/guidelines/suggest` aceita qualquer médico autenticado; o diálogo na tela de
+Diretrizes aproveita o front-matter quando existe e, quando não existe, pede
+três campos curtos (origem, ano, especialidade). PDF: o médico cola o texto —
+o parser de front-matter deixou de ser obrigatório, que era o bloqueio real.
+
+Duas decisões de segurança que valem registro:
+- `suggestGuideline` **não supersede** versões anteriores da mesma fonte, ao
+  contrário de `ingestForReview`. Num endpoint aberto isso seria escalação de
+  privilégio: bastaria sugerir algo com `source: "Surviving Sepsis Campaign"` e
+  uma versão nova para remover do retrieval conteúdo já aprovado.
+- Sugestão nunca aceita `institutionId` — entra sempre como conteúdo global
+  pendente, nunca como protocolo institucional.
+
+Ainda pendente aqui: extração de PDF no servidor (hoje o médico cola o texto) e
+o `bodyLimit` de 1 MB do Fastify, que também torna inalcançável o limite de
+10 MB documentado no upload de áudio.
 
 ### F5 — Regra de prompt: evidência recuperada não é confirmação de hipótese
 
@@ -227,7 +238,7 @@ recuperado, isso deve ser dito. Incluir o contexto endêmico brasileiro para
 febre aguda no adulto. Alterar prompt é mudança de alto acoplamento: só depois
 de F1 e F2, e com os 40 casos sintéticos rodando como rede de proteção.
 
-### F6 — Chunking que não corta dose no meio
+### F6 — Chunking que não corta dose no meio — ✅ IMPLEMENTADO
 
 `chunkText()` (`ingestion/chunking.ts`) fatia em 500 caracteres fixos com 50 de
 sobreposição, sem respeitar frase ou parágrafo. Uma prescrição como "10 mL/kg de
@@ -236,7 +247,7 @@ chunk recuperado pode começar no meio de uma frase. Propor: quebra por
 parágrafo, agrupando até ~1.200 caracteres, sem nunca cortar dentro de uma
 frase.
 
-### F7 — Fechar o ciclo de feedback
+### F7 — Fechar o ciclo de feedback — ✅ IMPLEMENTADO
 
 Hoje um erro clínico chega por mensagem de WhatsApp. Proposta: botão "cenário
 errado" na tela de resultado, que registra o `interactionId`, os chunks
@@ -283,11 +294,12 @@ fechou.
 | F1 — ingerir e provar | curadoria clínica | operação, sem código | ⏳ próximo passo |
 | F2 — piso de relevância | calibração depende de F1 | backend, alto impacto | ✅ implementado, a calibrar |
 | F3 — título do atendimento | — | backend, baixo risco | ✅ implementado |
-| F4 — anexos e sugestão de diretriz | — | produto (backend + web) | ⏳ pendente |
+| F4 — sugestão de diretriz | — | produto (backend + web) | ✅ implementado |
+| F4a — anexo de referência ao caso | — | produto, feature nova | ⏳ pendente |
 | F5 — regra de prompt | F1, F2 | prompt, alto acoplamento | 🟡 parcial (aviso de cobertura fraca entregue em F2) |
-| F6 — chunking | F1 (reingestão) | backend, exige reingerir | ⏳ pendente |
+| F6 — chunking | precisa entrar ANTES da ingestão | backend | ✅ implementado |
 | F9 — busca lexical com semântica OR | F2 (piso precisa cobrir hits lexicais) | backend, risco médio | ⏳ pendente |
-| F7 — feedback estruturado | — | produto | ⏳ pendente |
+| F7 — feedback estruturado | — | produto | ✅ implementado |
 | F8 — cobertura por dados | F7 | curadoria contínua | ⏳ pendente |
 
 ---

@@ -334,6 +334,57 @@ export interface LatestInteractionResponse {
   retrievalCoverage: RetrievalCoverage | null;
 }
 
+/**
+ * F7 — feedback estruturado do médico sobre uma análise.
+ *
+ * `wrong_scenario` é o caso dos dois incidentes de campo: o Copiloto conduziu
+ * para o cenário clínico errado. `missing_coverage` é o cenário certo sem
+ * diretriz na base. `helpful` existe para dar contraste na calibração do piso
+ * de relevância — sem exemplos positivos não dá para escolher o limiar.
+ */
+export type CopilotFeedbackKind =
+  | 'wrong_scenario'
+  | 'missing_coverage'
+  | 'wrong_recommendation'
+  | 'helpful';
+
+export interface CopilotFeedbackRequest {
+  interactionId: string;
+  kind: CopilotFeedbackKind;
+  comment?: string;
+}
+
+export interface CopilotFeedbackResponse {
+  recorded: true;
+}
+
+/**
+ * F4 — sugestão de diretriz enviada por um médico do piloto.
+ *
+ * Metadados de curadoria (`sourceVersion`, `specialty`) são opcionais de
+ * propósito: exigir front-matter completo foi o que impediu um médico de
+ * contribuir com a diretriz de dengue depois de ver um caso ir para o
+ * caminho errado. O backend aplica defaults.
+ */
+export interface SuggestGuidelineRequest {
+  text: string;
+  source: string;
+  sourceVersion?: string;
+  specialty?: string;
+  evidenceLevel?: string;
+  cenario?: string;
+  redFlags?: string[];
+  subtipo?: string;
+}
+
+export interface SuggestGuidelineResponse {
+  source: string;
+  sourceVersion: string;
+  chunksCreated: number;
+  /** Sempre 0: sugestão nunca supersede conteúdo aprovado. */
+  superseded: number;
+}
+
 // ── Admin / Console types (E1, E2, E5) ─────────────────────────────────────
 
 export type CrmVerificationStatus = 'PENDING' | 'APPROVED' | 'REJECTED';

@@ -4,7 +4,8 @@ import { Prisma } from '@prisma/client';
 import { OrchestratorService } from './orchestrator/orchestrator.service';
 import { InferenceQueueService } from '../queue/inference-queue.service';
 import { PrismaService } from '../../config/prisma.service';
-import type { AnalyzeInput, RespondInput } from './schemas/copilot.schemas';
+import { AuditService } from '../audit/audit.service';
+import type { AnalyzeInput, RespondInput, CopilotFeedbackInput } from './schemas/copilot.schemas';
 import type { OrchestratorResult, StreamEvent } from './orchestrator/orchestrator.service';
 import type { RetrievalCoverage } from './retrieval/hybrid-search';
 
@@ -21,7 +22,66 @@ export class CopilotService {
     @Inject(InferenceQueueService) private readonly queue: InferenceQueueService,
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(ConfigService) private readonly config: ConfigService,
+    @Inject(AuditService) private readonly auditService: AuditService,
   ) {}
+
+  /**
+   * F7 — Registra o feedback do médico sobre uma análise.
+   *
+   * Origem: os dois erros clínicos que motivaram KB-005/KB-006 chegaram por
+   * mensagem, dias depois, sem `interactionId` e sem os chunks recuperados.
+   * Reproduzir dependia de alguém lembrar o que tinha sido digitado.
+   *
+   * Grava na trilha de auditoria em vez de numa tabela nova por dois motivos:
+   * (1) o evento é legitimamente auditável — um médico registrando que o
+   * copiloto apontou o cenário errado pertence ao rastro médico-legal do
+   * atendimento, não a um backlog de produto; (2) já é append-only,
+   * encadeado por hash e exposto na tela de Auditoria, sem migration.
+   *
+   * O payload carrega o rastro técnico necessário para transformar o reporte
+   * em caso de regressão: chunks recuperados, cobertura do retrieval e os
+   * chunks efetivamente citados.
+   */
+  async submitFeedback(
+    physicianId: string,
+    encounterId: string,
+    input: CopilotFeedbackInput,
+  ): Promise<{ recorded: true }> {
+    const interaction = await this.prisma.aiInteraction.findFirst({
+      where: { id: input.interactionId, encounter: { id: encounterId, physicianId } },
+      select: {
+        id: true,
+        model: true,
+        turnIndex: true,
+        retrievedChunkIds: true,
+        params: true,
+        citations: true,
+      },
+    });
+
+    // Mesmo tratamento de encounter inexistente e de encounter de outro
+    // médico: não confirmar a existência de um atendimento alheio.
+    if (!interaction) throw new NotFoundException('Analysis not found for this encounter');
+
+    await this.auditService.log({
+      actorId: physicianId,
+      action: 'COPILOT_FEEDBACK',
+      entity: 'AiInteraction',
+      entityId: interaction.id,
+      payload: {
+        encounterId,
+        kind: input.kind,
+        comment: input.comment ?? null,
+        model: interaction.model,
+        turnIndex: interaction.turnIndex,
+        retrievedChunkIds: interaction.retrievedChunkIds,
+        retrievalCoverage: extractRetrievalCoverage(interaction.params),
+        citedChunkIds: extractCitedChunkIds(interaction.citations),
+      },
+    });
+
+    return { recorded: true };
+  }
 
   async analyze(
     physicianId: string,
@@ -103,6 +163,22 @@ export class CopilotService {
       maxTurns: this.config.get<number>('COPILOT_MAX_TURNS', DEFAULT_MAX_TURNS),
     };
   }
+}
+
+/**
+ * F7 — ids das fontes que a análise realmente citou. Junto dos
+ * `retrievedChunkIds`, é o que permite distinguir "a base não tinha o
+ * conteúdo" de "tinha, e o modelo citou outra coisa".
+ */
+function extractCitedChunkIds(citations: Prisma.JsonValue | null): string[] {
+  if (!Array.isArray(citations)) return [];
+  return citations
+    .map((citation) =>
+      citation && typeof citation === 'object' && !Array.isArray(citation)
+        ? (citation as Record<string, unknown>).chunkId
+        : null,
+    )
+    .filter((chunkId): chunkId is string => typeof chunkId === 'string');
 }
 
 /**
