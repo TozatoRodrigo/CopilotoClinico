@@ -4,7 +4,9 @@ import {
   applyInstitutionBoost,
   sortByScore,
   applyRelevanceFloor,
+  semanticScoresForFloor,
   INSTITUTION_RANK_BOOST,
+  type KeywordHit,
   type SearchHit,
   type RetrievedChunk,
 } from './hybrid-search';
@@ -213,7 +215,7 @@ describe('applyRelevanceFloor', () => {
     expect(result.keptChunkIds).toEqual(['a', 'c']);
   });
 
-  it('decide por ts_rank os chunks achados só pela busca lexical, sem score semântico', () => {
+  it('decide por ts_rank apenas os chunks sem similaridade (sem embedding)', () => {
     const result = applyRelevanceFloor(['lexical-forte', 'lexical-fraco'], {
       semanticScores: new Map(),
       keywordScores: new Map([
@@ -237,5 +239,84 @@ describe('applyRelevanceFloor', () => {
     expect(result.keptChunkIds).toEqual(['irrelevante']);
     expect(result.coverage).toBe('full');
     expect(result.discardedCount).toBe(0);
+  });
+});
+
+/**
+ * F9 — com `text_tsv` populada, a busca lexical passa a devolver hits. Um hit
+ * só lexical tem similaridade menor ou igual à do pior candidato semântico
+ * (ficou fora do LIMIT); se o piso o julgasse por `ts_rank`, um termo genérico
+ * do caso bastaria para reabrir o vizinho semântico dos incidentes.
+ */
+describe('semanticScoresForFloor + applyRelevanceFloor — hits só lexicais', () => {
+  const thresholds = {
+    minSemanticScore: 0.3,
+    strongSemanticScore: 0.45,
+    minKeywordRank: 0.01,
+  };
+
+  function floorFor(semanticHits: SearchHit[], keywordHits: KeywordHit[]) {
+    const ranked = [...reciprocalRankFuse(semanticHits, keywordHits).entries()]
+      .sort(([, a], [, b]) => b - a)
+      .map(([id]) => id);
+    return applyRelevanceFloor(ranked, {
+      semanticScores: semanticScoresForFloor(semanticHits, keywordHits),
+      keywordScores: new Map(keywordHits.map((hit) => [hit.chunkId, hit.score])),
+      ...thresholds,
+    });
+  }
+
+  it('descarta hit só lexical com ts_rank alto e similaridade abaixo do piso', () => {
+    // Caso da cefaleia em salvas: "cefaleia" casa com o chunk de hemorragia,
+    // mas o chunk é semanticamente distante do caso real.
+    const result = floorFor(
+      [{ chunkId: 'hsa-1', score: 0.22, institutionId: null }],
+      [{ chunkId: 'hsa-lexical', score: 0.9, similarity: 0.2, institutionId: null }],
+    );
+
+    expect(result.keptChunkIds).toEqual([]);
+    expect(result.coverage).toBe('none');
+    expect(result.discardedCount).toBe(2);
+  });
+
+  it('mantém hit só lexical cuja similaridade passa do piso — resgate fora do LIMIT semântico', () => {
+    const result = floorFor(
+      [{ chunkId: 'sepse-1', score: 0.36, institutionId: null }],
+      [{ chunkId: 'dengue-1', score: 0.3, similarity: 0.34, institutionId: null }],
+    );
+
+    expect(result.keptChunkIds.sort()).toEqual(['dengue-1', 'sepse-1']);
+    expect(result.coverage).toBe('partial');
+  });
+
+  it('não deixa hit lexical elevar a cobertura para "full" sem similaridade forte', () => {
+    const result = floorFor(
+      [{ chunkId: 'a', score: 0.32, institutionId: null }],
+      [{ chunkId: 'b', score: 1, similarity: 0.33, institutionId: null }],
+    );
+
+    expect(result.coverage).toBe('partial');
+    expect(result.bestSemanticScore).toBeCloseTo(0.33);
+  });
+
+  it('usa a similaridade da busca semântica quando o chunk aparece nas duas', () => {
+    const scores = semanticScoresForFloor(
+      [{ chunkId: 'a', score: 0.5, institutionId: null }],
+      [{ chunkId: 'a', score: 0.2, similarity: 0.5, institutionId: null }],
+    );
+
+    expect(scores.get('a')).toBe(0.5);
+  });
+
+  it('deixa sem similaridade o hit lexical de chunk sem embedding — cai no ts_rank', () => {
+    const result = floorFor(
+      [],
+      [
+        { chunkId: 'sem-embedding-forte', score: 0.2, similarity: null, institutionId: null },
+        { chunkId: 'sem-embedding-fraco', score: 0.001, similarity: null, institutionId: null },
+      ],
+    );
+
+    expect(result.keptChunkIds).toEqual(['sem-embedding-forte']);
   });
 });

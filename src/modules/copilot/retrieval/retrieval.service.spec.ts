@@ -66,8 +66,8 @@ describe('RetrievalService', () => {
           { id: 'chunk-2', similarity: 0.85, institution_id: null },
         ])
         .mockResolvedValueOnce([
-          { id: 'chunk-2', rank: 0.8, institution_id: null },
-          { id: 'chunk-3', rank: 0.6, institution_id: null },
+          { id: 'chunk-2', rank: 0.8, similarity: 0.85, institution_id: null },
+          { id: 'chunk-3', rank: 0.6, similarity: 0.4, institution_id: null },
         ]);
 
       prismaMock.guidelineChunk.findMany.mockResolvedValue([
@@ -186,6 +186,42 @@ describe('RetrievalService', () => {
       );
     });
 
+    /**
+     * F9 — com `text_tsv` populada, a busca lexical passa a achar chunks que
+     * a semântica deixou de fora. Um hit só lexical com similaridade abaixo
+     * do piso é o vizinho semântico fraco dos incidentes: `ts_rank` alto não
+     * pode fazê-lo passar.
+     */
+    it('aplica o piso semântico aos hits só lexicais, ignorando ts_rank alto', async () => {
+      aiGatewayMock.embed.mockResolvedValue({ embeddings: [[0.1, 0.2, 0.3]] });
+
+      prismaMock.$queryRaw
+        .mockResolvedValueOnce([{ id: 'sepse-1', similarity: 0.24, institution_id: null }])
+        .mockResolvedValueOnce([
+          { id: 'sepse-lexical', rank: 0.9, similarity: 0.18, institution_id: null },
+          { id: 'sem-embedding', rank: 0.2, similarity: null, institution_id: null },
+        ]);
+
+      prismaMock.guidelineChunk.findMany.mockResolvedValue([
+        {
+          id: 'sem-embedding',
+          text: 'Chunk sem embedding',
+          source: 'diretriz-y',
+          sourceVersion: '1.0',
+          specialty: 'emergencia',
+          evidenceLevel: null,
+          institutionId: null,
+          metadata: {},
+        },
+      ]);
+
+      const result = await service.search('febre e dor retro-orbitária');
+
+      expect(result.chunks.map((c) => c.id)).toEqual(['sem-embedding']);
+      expect(result.discardedByFloor).toBe(2);
+      expect(result.bestSemanticScore).toBeCloseTo(0.24);
+    });
+
     it('delegates to embedding and raw queries', async () => {
       aiGatewayMock.embed.mockResolvedValue({
         embeddings: [[0.1]],
@@ -193,7 +229,7 @@ describe('RetrievalService', () => {
 
       prismaMock.$queryRaw
         .mockResolvedValueOnce([{ id: 'c1', similarity: 0.9, institution_id: null }])
-        .mockResolvedValueOnce([{ id: 'c1', rank: 0.5, institution_id: null }]);
+        .mockResolvedValueOnce([{ id: 'c1', rank: 0.5, similarity: 0.9, institution_id: null }]);
 
       prismaMock.guidelineChunk.findMany.mockResolvedValue([
         {

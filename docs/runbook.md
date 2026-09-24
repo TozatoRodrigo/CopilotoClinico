@@ -351,6 +351,66 @@ faltante.
 **Rollback imediato, sem redeploy:** `RETRIEVAL_MIN_SEMANTIC_SCORE=0` desliga
 o piso e restaura o comportamento anterior byte a byte.
 
+### Busca lexical (`text_tsv`) — F9
+
+Até a migration `20260924180000_f9_guideline_chunks_text_tsv_generated`, a
+coluna `guideline_chunks.text_tsv` ficava NULL em todas as linhas: a busca
+"híbrida" do Copiloto era só semântica e a busca textual da biblioteca não
+achava nada. Agora é coluna gerada (`to_tsvector('portuguese', text)`) com
+índice GIN — o banco preenche sozinho, nenhum caminho de escrita precisa
+lembrar dela.
+
+**Isto muda respostas do Copiloto em produção:**
+
+- A busca lexical usa `plainto_tsquery` (todos os termos, AND) sobre o texto
+  redigido do caso. Com o caso inteiro como consulta o casamento é raro
+  (plano, §F9); onde acontece, o chunk sobe no ranking (RRF) e pode trocar de
+  posição com outros.
+- Um chunk achado **só** pela busca lexical (fora do `LIMIT` da semântica)
+  pode entrar no prompt, mas **só se a similaridade de cosseno dele passar do
+  mesmo piso** (`RETRIEVAL_MIN_SEMANTIC_SCORE`). O `ts_rank` decide sozinho
+  apenas para chunk sem embedding. Motivo: um hit só lexical tem, por
+  construção, similaridade menor que a do pior candidato semântico. Deixá-lo
+  passar pelo `ts_rank` reabriria o "vizinho semântico" dos incidentes
+  KB-005/KB-006 (ver `semanticScoresForFloor` em `hybrid-search.ts`).
+- Na linha `RETRIEVAL_COVERAGE`, `candidates` pode subir e `best` passa a
+  considerar também a similaridade dos hits lexicais.
+- A base oficial (ADR-010) não muda: a busca lexical só enxerga `approved`.
+- Biblioteca de diretrizes: a busca por texto passa a retornar resultados.
+
+**Ordem de release — deploy ANTES da migration.** O código anterior julgava
+hits só lexicais pelo `ts_rank`, sem piso semântico. Rodar a migration com a
+imagem antiga no ar liga exatamente esse atalho. O código novo roda sem
+problema sobre o schema antigo (a busca lexical só volta vazia), então:
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build copiloto-api
+docker compose -f docker-compose.prod.yml exec copiloto-api \
+  sh -c 'DATABASE_URL="$MIGRATION_DATABASE_URL" pnpm prisma migrate deploy'
+```
+
+Verificação — a coluna está preenchida:
+
+```bash
+docker compose -f docker-compose.prod.yml exec copiloto-db \
+  psql -U "$POSTGRES_OWNER_USER" -d copiloto_clinico -c \
+  "SELECT count(*) FILTER (WHERE text_tsv IS NULL) AS vazias, count(*) AS total FROM guideline_chunks;"
+```
+
+Esperado: `vazias = 0`.
+
+**Depois do release:** comparar a distribuição de `RETRIEVAL_COVERAGE` com a
+semana anterior e repetir o aceite `fi-001`/`fi-002` (Passo 5 do release da
+base de contexto).
+
+**Rollback:** não há flag só para a busca lexical. Para voltar ao
+comportamento anterior, aplicar como nova migration o SQL "Reversível via" do
+cabeçalho da migration F9 (a coluna volta a ser comum e NULL, e a busca lexical
+volta vazia). **Voltar a imagem da API sem reverter a coluna é pior que as
+duas opções:** reativa o atalho do `ts_rank` descrito acima. Atenção também
+com `RETRIEVAL_MIN_SEMANTIC_SCORE=0`: desliga o piso inteiro, inclusive para
+os hits lexicais.
+
 ### Ingestão e revisão de diretrizes (KB-002)
 
 A ingestão em lote de diretrizes clínicas usa um pipeline de curadoria: nenhum
@@ -581,6 +641,7 @@ apenas na resposta. Acesso a um protocolo de outra instituição retorna `404`
 | `20260613090000_kb_002_guideline_review_pipeline` | Status de revisão (`pending_review`/`approved`/`rejected`/`superseded`) em `guideline_chunks` + `is_curator` em physicians |
 | `20260614100000_prot_004_institution_multi_tenancy` | Tabelas `institutions`/`physician_institutions` + `institution_id` em `protocols`/`guideline_chunks`/`encounters` |
 | `20260924120000_adr_010_official_guideline_documents` | Status `official_unreviewed`, tabela `official_guideline_documents` (uma linha por versão) e `document_id` em `guideline_chunks` (ADR-010) |
+| `20260924180000_f9_guideline_chunks_text_tsv_generated` | `guideline_chunks.text_tsv` vira coluna gerada + índice GIN — liga a busca lexical (ver "Busca lexical (`text_tsv`) — F9") |
 
 ### Rollback de Migration
 

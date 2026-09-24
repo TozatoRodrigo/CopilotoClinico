@@ -319,6 +319,14 @@ piso de relevância — hoje um chunk sem score semântico sobrevive apenas pelo
 quase exato. Mudar para OR sem revisar essa regra reabre o buraco que o piso
 fechou.
 
+**Pré-requisito resolvido (24/09/2026):** `text_tsv` nunca era preenchida — a
+busca lexical não retornava nada, nem com AND. Virou coluna gerada, e o piso
+passou a julgar hits só lexicais pela **similaridade real** (calculada na
+própria query lexical), não pelo `ts_rank`; o `ts_rank` só decide para chunk
+sem embedding (`semanticScoresForFloor` em `hybrid-search.ts`). Com isso a
+troca para OR não contorna o piso: hits lexicais fracos continuam ajudando só
+no ranking. Falta a parte de OR em si.
+
 ---
 
 ## 5. Sequenciamento
@@ -332,7 +340,7 @@ fechou.
 | F4a — anexo de referência ao caso | — | produto, feature nova | ✅ implementado |
 | F5 — regra de prompt | F1, F2 | prompt, alto acoplamento | 🟡 parcial (aviso de cobertura fraca entregue em F2) |
 | F6 — chunking | precisa entrar ANTES da ingestão | backend | ✅ implementado |
-| F9 — busca lexical com semântica OR | F2 (piso precisa cobrir hits lexicais) | backend, risco médio | ⏳ pendente |
+| F9 — busca lexical com semântica OR | F2 (piso precisa cobrir hits lexicais) | backend, risco médio | 🟡 parcial (`text_tsv` populada e piso cobrindo hits lexicais; OR pendente) |
 | F7 — feedback estruturado | — | produto | ✅ implementado |
 | F8 — cobertura por dados | F7 | curadoria contínua | ⏳ pendente |
 
