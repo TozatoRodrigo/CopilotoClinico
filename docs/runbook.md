@@ -424,6 +424,87 @@ banco:
 UPDATE physicians SET is_curator = true WHERE email = 'curador@exemplo.com';
 ```
 
+### Sincronizar a base oficial da Conitec (ADR-010)
+
+PCDT, DDT, Diretrizes Brasileiras e Protocolos de Uso (~190 documentos) entram
+como `official_unreviewed`: fonte oficial do MS, **não revisada** pela equipe
+clínica. Não passam pela fila de curadoria e não são `approved`. Hoje (passos
+1–4 do plano) ficam no banco sem entrar no retrieval; o uso pelo Copiloto chega
+no passo 5, atrás de `OFFICIAL_GUIDELINES_ENABLED`.
+
+**1. Ensaio sem gravar**
+
+```bash
+pnpm sync:official-guidelines --dry-run --json /tmp/official-dry-run.json
+```
+
+Baixa as quatro listas e os PDFs (~200 MB), recorta as seções e mostra o que
+seria criado. Não chama a LLM nem gera embedding. Em 24/09/2026: 188 PDFs, 179
+com seções reconhecidas, 9 em texto integral, ~10 mil chunks.
+
+**2. Sincronizar**
+
+```bash
+pnpm sync:official-guidelines                         # tudo
+pnpm sync:official-guidelines --only asma             # um documento
+pnpm sync:official-guidelines --kind pcdt --limit 10  # um lote
+```
+
+Exige `AI_PROVIDER`/`EMBEDDING_PROVIDER` reais: cada documento novo é
+classificado pela LLM (agudo/crônico, população, especialidade, cenários do
+piloto) e cada chunk recebe embedding. Se a LLM falhar, a classificação cai
+para uma heurística conservadora e o documento entra mesmo assim.
+
+A mudança é detectada pelo **SHA-256 do PDF** — a Conitec altera anexos sem
+publicar portaria nova. Versão nova substitui a anterior numa transação só; os
+chunks antigos viram `superseded` (não são apagados).
+
+**3. Ler o relatório**
+
+| Saída | Significado | Ação |
+|---|---|---|
+| `new` / `updated` | versão gravada | nenhuma |
+| `unchanged` | PDF idêntico ao ativo | nenhuma |
+| `not_pdf` | link da lista aponta para página HTML | nenhuma (2 PUs apontam para o bvsms) |
+| `SEM SEÇÕES (texto integral)` | estrutura não reconhecida, corpo entrou inteiro até a bibliografia | revisar se o recorte faz sentido |
+| `RECORTE BAIXO` | menos de 5% do PDF virou chunk | provável título mal reconhecido em `official-document-sections.ts` |
+| `error` | falha no download/extração daquele documento | o resto seguiu; código de saída 1 |
+| Aborto com "Lista … com N itens (piso M)" | HTML da Conitec mudou | nada foi gravado; ajustar `conitec-listing.ts` e a fixture em `tests/fixtures/conitec/` |
+| "sumiram da lista" | documento ativo não está mais na Conitec | nada é removido; decidir manualmente |
+
+**4. Refazer a classificação**
+
+```bash
+pnpm sync:official-guidelines --reclassify
+```
+
+Reclassifica documentos sem mudança (ex.: depois de ajustar o prompt em
+`official-classification.ts`) e propaga `careSetting`/`cenarios` para a
+metadata dos chunks.
+
+**5. Retrieval e válvula de escape**
+
+A busca da base oficial roda em pool separado da curada e loga, a cada
+análise:
+
+```
+OFFICIAL_RETRIEVAL best=0.612 candidates=18 kept=2 discarded=9 docs=1
+```
+
+`kept=0` com `best` alto indica piso ou penalização rígidos demais; `kept`
+sempre no teto com `docs=1` indica um PCDT dominando. Limiares em
+`.env.example` (`OFFICIAL_*`), ainda não calibrados. Para desligar a base
+oficial sem redeploy: `OFFICIAL_GUIDELINES_ENABLED=false` no
+`.env.production` e recriar o container da API.
+
+**6. Conferir no banco**
+
+```sql
+SELECT kind, care_setting, count(*), sum(chunk_count)
+FROM official_guideline_documents WHERE status = 'active'
+GROUP BY 1, 2 ORDER BY 1, 2;
+```
+
 ---
 
 ## Multi-tenancy institucional (PROT-004)
@@ -499,6 +580,7 @@ apenas na resposta. Acesso a um protocolo de outra instituição retorna `404`
 | `20260606111800_perf_001_guideline_embedding_ivfflat` | Índice ivfflat para `guideline_chunks.embedding` |
 | `20260613090000_kb_002_guideline_review_pipeline` | Status de revisão (`pending_review`/`approved`/`rejected`/`superseded`) em `guideline_chunks` + `is_curator` em physicians |
 | `20260614100000_prot_004_institution_multi_tenancy` | Tabelas `institutions`/`physician_institutions` + `institution_id` em `protocols`/`guideline_chunks`/`encounters` |
+| `20260924120000_adr_010_official_guideline_documents` | Status `official_unreviewed`, tabela `official_guideline_documents` (uma linha por versão) e `document_id` em `guideline_chunks` (ADR-010) |
 
 ### Rollback de Migration
 
@@ -519,6 +601,7 @@ Prisma não suporta rollback automático. Para reverter:
 | `AI_API_KEY` | Análise clínica indisponível |
 | `DATABASE_URL` | Sistema completamente indisponível ou rodando com privilégios excessivos |
 | `MIGRATION_DATABASE_URL` | Migrations indisponíveis ou executadas com usuário incorreto |
+| `OFFICIAL_GUIDELINES_ENABLED` | `false` tira PCDT/DDT/DB/PU do retrieval (válvula de escape da ADR-010); ausente = ligada. Os limiares `OFFICIAL_*` estão em `.env.example` |
 
 ---
 

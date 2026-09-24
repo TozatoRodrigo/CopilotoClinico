@@ -9,6 +9,9 @@ import { AuditService } from '../../audit/audit.service';
 import { ConfigService } from '@nestjs/config';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 
+/** ADR-010 — busca sem trechos da base oficial do MS. */
+const NO_OFFICIAL = { enabled: true, chunks: [], bestSemanticScore: 0, discardedByFloor: 0 };
+
 describe('OrchestratorService', () => {
   let service: OrchestratorService;
   let prismaMock: {
@@ -142,7 +145,7 @@ describe('OrchestratorService', () => {
       });
       retrievalMock.search.mockResolvedValue({
         chunks: mockChunks,
-        totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0,
+        totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0, official: NO_OFFICIAL,
       });
       aiGatewayMock.complete.mockResolvedValue({
         content: validLLMOutput,
@@ -192,7 +195,7 @@ describe('OrchestratorService', () => {
         physicianId,
         patientRef: 'PRN-001',
       });
-      retrievalMock.search.mockResolvedValue({ chunks: mockChunks, totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0 });
+      retrievalMock.search.mockResolvedValue({ chunks: mockChunks, totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0, official: NO_OFFICIAL });
       aiGatewayMock.complete.mockResolvedValue({
         content: JSON.stringify({
           reasoning: 'Patient presents with acute chest pain and dyspnea',
@@ -242,7 +245,7 @@ describe('OrchestratorService', () => {
         physicianId,
         patientRef: 'PRN-001',
       });
-      retrievalMock.search.mockResolvedValue({ chunks: mockChunks, totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0 });
+      retrievalMock.search.mockResolvedValue({ chunks: mockChunks, totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0, official: NO_OFFICIAL });
       aiGatewayMock.complete.mockResolvedValue({
         content: JSON.stringify({
           reasoning: 'Patient presents with acute chest pain and dyspnea',
@@ -282,7 +285,7 @@ describe('OrchestratorService', () => {
         physicianId,
         patientRef: 'PRN-001',
       });
-      retrievalMock.search.mockResolvedValue({ chunks: mockChunks, totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0 });
+      retrievalMock.search.mockResolvedValue({ chunks: mockChunks, totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0, official: NO_OFFICIAL });
       aiGatewayMock.complete.mockResolvedValue({
         content: validLLMOutput,
         model: 'claude-3-sonnet',
@@ -372,7 +375,7 @@ describe('OrchestratorService', () => {
       });
       retrievalMock.search.mockResolvedValue({
         chunks: mockChunks,
-        totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0,
+        totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0, official: NO_OFFICIAL,
       });
       aiGatewayMock.complete.mockResolvedValue({
         content: 'not valid json',
@@ -407,7 +410,7 @@ describe('OrchestratorService', () => {
       });
       retrievalMock.search.mockResolvedValue({
         chunks: mockChunks,
-        totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0,
+        totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0, official: NO_OFFICIAL,
       });
       aiGatewayMock.complete.mockResolvedValue({
         content: validLLMOutput,
@@ -441,7 +444,7 @@ describe('OrchestratorService', () => {
       });
       retrievalMock.search.mockResolvedValue({
         chunks: mockChunks,
-        totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0,
+        totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0, official: NO_OFFICIAL,
       });
       aiGatewayMock.complete.mockResolvedValue({
         content: validLLMOutput,
@@ -467,7 +470,7 @@ describe('OrchestratorService', () => {
         physicianId,
         patientRef: patientRefValue,
       });
-      retrievalMock.search.mockResolvedValue({ chunks: mockChunks, totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0 });
+      retrievalMock.search.mockResolvedValue({ chunks: mockChunks, totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0, official: NO_OFFICIAL });
       aiGatewayMock.complete.mockResolvedValue({
         content: validLLMOutput,
         model: 'claude-3-sonnet',
@@ -502,7 +505,7 @@ describe('OrchestratorService', () => {
       });
       retrievalMock.search.mockResolvedValue({
         chunks: mockChunks,
-        totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0,
+        totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0, official: NO_OFFICIAL,
       });
       aiGatewayMock.complete.mockResolvedValue({
         content: validLLMOutput,
@@ -526,6 +529,98 @@ describe('OrchestratorService', () => {
       });
     });
 
+    describe('ADR-010 — base oficial do MS', () => {
+      const officialChunk = {
+        id: 'off-1',
+        text: '[PCDT · Acidentes Ofídicos · 7. ABORDAGEM TERAPÊUTICA]\nSoro antibotrópico conforme gravidade.',
+        source: 'PCDT — Acidentes Ofídicos',
+        sourceVersion: 'Portaria SECTICS/MS nº 83 - 07/10/2025',
+        specialty: 'toxicologia',
+        evidenceLevel: null,
+        institutionId: null,
+        score: 0.62,
+        metadata: {
+          origin: 'official_unreviewed',
+          url: 'https://www.gov.br/conitec/pcdt_acidentes_ofidicos_final.pdf',
+        },
+      };
+      const officialOutput = JSON.stringify({
+        reasoning: 'Acidente botrópico; PCDT de Acidentes Ofídicos cobre a soroterapia.',
+        recommendations: [
+          {
+            action: 'Administrar soro antibotrópico',
+            rationale: 'Conforme o PCDT de Acidentes Ofídicos do Ministério da Saúde',
+            citationChunkId: 'off-1',
+            confidence: 0.8,
+            preliminary: false,
+            category: 'therapeutic',
+          },
+        ],
+        uncertainty: false,
+        uncertaintyReason: null,
+      });
+
+      beforeEach(() => {
+        encountersMock.findById.mockResolvedValue({ id: encounterId, physicianId, patientRef: 'PRN-001' });
+        // Base curada não cobre; só a oficial achou algo.
+        retrievalMock.search.mockResolvedValue({
+          chunks: [], totalRetrieved: 0, coverage: 'none', bestSemanticScore: 0.1, discardedByFloor: 5,
+          official: { enabled: true, chunks: [officialChunk], bestSemanticScore: 0.62, discardedByFloor: 3 },
+        });
+        aiGatewayMock.complete.mockResolvedValue({
+          content: officialOutput,
+          model: 'claude-3-sonnet',
+          usage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 },
+          latencyMs: 1500,
+        });
+        prismaMock.aiInteraction.create.mockResolvedValue({ id: 'interaction-001' });
+        encountersMock.update.mockResolvedValue({});
+      });
+
+      it('entrega os trechos oficiais ao prompt em bloco próprio', async () => {
+        await service.analyze(physicianId, encounterId, validInput);
+
+        const messages = aiGatewayMock.complete.mock.calls[0]![0].messages;
+        expect(messages[0].content).toContain('OFFICIAL MS GUIDELINES RULE');
+        expect(messages[1].content).toContain('<official_guidelines type="OFFICIAL_MS_UNREVIEWED">');
+        expect(messages[1].content).not.toContain('No relevant guideline evidence was found');
+      });
+
+      it('aceita recomendação não preliminar citando PCDT e marca a origem oficial com link do PDF', async () => {
+        const result = await service.analyze(physicianId, encounterId, validInput);
+
+        expect(result.citations).toEqual([
+          {
+            chunkId: 'off-1',
+            source: 'PCDT — Acidentes Ofídicos',
+            sourceVersion: 'Portaria SECTICS/MS nº 83 - 07/10/2025',
+            text: officialChunk.text,
+            institutionId: null,
+            origin: 'official_unreviewed',
+          },
+        ]);
+        expect(result.output.recommendations[0]).toMatchObject({
+          preliminary: false,
+          sourceUrl: 'https://www.gov.br/conitec/pcdt_acidentes_ofidicos_final.pdf',
+        });
+      });
+
+      it('não mostra "nenhuma diretriz cobre" quando a resposta pode citar um PCDT', async () => {
+        const result = await service.analyze(physicianId, encounterId, validInput);
+
+        expect(result.metadata.retrievalCoverage).toBe('partial');
+        expect(result.metadata.officialChunksRetrieved).toBe(1);
+        expect(prismaMock.aiInteraction.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              retrievedChunkIds: ['off-1'],
+              params: expect.objectContaining({ retrievalCoverage: 'partial', officialChunksRetrieved: 1 }),
+            }),
+          }),
+        );
+      });
+    });
+
     it('PROT-004: labels citations from institutional chunks as "institutional" with the institutionId', async () => {
       encountersMock.findById.mockResolvedValue({
         id: encounterId,
@@ -535,7 +630,7 @@ describe('OrchestratorService', () => {
       });
       retrievalMock.search.mockResolvedValue({
         chunks: [{ ...mockChunks[0], institutionId: 'institution-a' }],
-        totalRetrieved: 1, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0,
+        totalRetrieved: 1, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0, official: NO_OFFICIAL,
       });
       aiGatewayMock.complete.mockResolvedValue({
         content: validLLMOutput,
@@ -569,7 +664,7 @@ describe('OrchestratorService', () => {
       });
       retrievalMock.search.mockResolvedValue({
         chunks: mockChunks,
-        totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0,
+        totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0, official: NO_OFFICIAL,
       });
       aiGatewayMock.complete.mockResolvedValue({
         content: validLLMOutput,
@@ -618,7 +713,7 @@ describe('OrchestratorService', () => {
       });
       retrievalMock.search.mockResolvedValue({
         chunks: mockChunks,
-        totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0,
+        totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0, official: NO_OFFICIAL,
       });
       const llmOutputWithQuestions = JSON.stringify({
         reasoning: 'Quadro requer mais informações antes de recomendar conduta.',
@@ -667,7 +762,7 @@ describe('OrchestratorService', () => {
       });
       retrievalMock.search.mockResolvedValue({
         chunks: mockChunks,
-        totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0,
+        totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0, official: NO_OFFICIAL,
       });
       aiGatewayMock.complete.mockResolvedValue({
         content: validLLMOutput,
@@ -693,7 +788,7 @@ describe('OrchestratorService', () => {
       });
       retrievalMock.search.mockResolvedValue({
         chunks: mockChunks,
-        totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0,
+        totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0, official: NO_OFFICIAL,
       });
       aiGatewayMock.complete.mockResolvedValue({
         content: JSON.stringify({
@@ -741,7 +836,7 @@ describe('OrchestratorService', () => {
       });
       retrievalMock.search.mockResolvedValue({
         chunks: mockChunks,
-        totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0,
+        totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0, official: NO_OFFICIAL,
       });
       aiGatewayMock.complete.mockResolvedValue({
         content: JSON.stringify({
@@ -791,7 +886,7 @@ describe('OrchestratorService', () => {
 
     it('yields deltas then a done event with the full result', async () => {
       encountersMock.findById.mockResolvedValue({ id: encounterId, physicianId, patientRef: 'PRN-001' });
-      retrievalMock.search.mockResolvedValue({ chunks: mockChunks, totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0 });
+      retrievalMock.search.mockResolvedValue({ chunks: mockChunks, totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0, official: NO_OFFICIAL });
       aiGatewayMock.completeStream.mockReturnValue(fakeStream([validLLMOutput]));
       prismaMock.aiInteraction.create.mockResolvedValue({ id: 'interaction-stream-001' });
       encountersMock.update.mockResolvedValue({});
@@ -820,7 +915,7 @@ describe('OrchestratorService', () => {
 
     it('throws BadRequestException before streaming when injection is detected', async () => {
       encountersMock.findById.mockResolvedValue({ id: encounterId, physicianId, patientRef: 'PRN-001' });
-      retrievalMock.search.mockResolvedValue({ chunks: [], totalRetrieved: 0, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0 });
+      retrievalMock.search.mockResolvedValue({ chunks: [], totalRetrieved: 0, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0, official: NO_OFFICIAL });
       auditMock.log.mockResolvedValue({ id: 'audit-inj' });
 
       const injectionInput = {
@@ -837,7 +932,7 @@ describe('OrchestratorService', () => {
 
     it('emits error event when output validation fails', async () => {
       encountersMock.findById.mockResolvedValue({ id: encounterId, physicianId, patientRef: 'PRN-001' });
-      retrievalMock.search.mockResolvedValue({ chunks: mockChunks, totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0 });
+      retrievalMock.search.mockResolvedValue({ chunks: mockChunks, totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0, official: NO_OFFICIAL });
       aiGatewayMock.completeStream.mockReturnValue(fakeStream(['not valid json at all']));
       prismaMock.aiInteraction.create.mockResolvedValue({ id: 'interaction-err' });
 
@@ -904,7 +999,7 @@ describe('OrchestratorService', () => {
         patientRef: 'PRN-001',
         context: { hasCT: false, isSus: false, hasLab: false, hasICU: false },
       });
-      retrievalMock.search.mockResolvedValue({ chunks: mockChunks, totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0 });
+      retrievalMock.search.mockResolvedValue({ chunks: mockChunks, totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0, official: NO_OFFICIAL });
       aiGatewayMock.complete.mockResolvedValue({
         content: validRespondLLMOutput,
         model: 'claude-3-sonnet',
@@ -1177,7 +1272,7 @@ describe('OrchestratorService', () => {
         patientRef: 'PRN-001',
         context: { hasCT: false, isSus: false, hasLab: false, hasICU: false },
       });
-      retrievalMock.search.mockResolvedValue({ chunks: mockChunks, totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0 });
+      retrievalMock.search.mockResolvedValue({ chunks: mockChunks, totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0, official: NO_OFFICIAL });
       encountersMock.update.mockResolvedValue({});
 
       // Turn 0 (analyze): emits one clarifying question.
@@ -1389,7 +1484,7 @@ describe('OrchestratorService', () => {
           patientRef: 'PRN-001',
           context: { hasCT: false, isSus: false, hasLab: false, hasICU: false },
         });
-        retrievalMock.search.mockResolvedValue({ chunks: mockChunks, totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0 });
+        retrievalMock.search.mockResolvedValue({ chunks: mockChunks, totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0, official: NO_OFFICIAL });
         encountersMock.update.mockResolvedValue({});
 
         // Turn 0 (analyze): médico marca o chip "gestante".

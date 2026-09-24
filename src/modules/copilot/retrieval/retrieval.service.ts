@@ -16,6 +16,40 @@ import {
   type RetrievedChunk,
   type SearchHit,
 } from './hybrid-search';
+import {
+  DEFAULT_OFFICIAL_CHRONIC_PENALTY,
+  DEFAULT_OFFICIAL_MAX_PER_DOCUMENT,
+  DEFAULT_OFFICIAL_MIN_SEMANTIC_SCORE,
+  DEFAULT_OFFICIAL_TOP_K,
+  selectOfficialChunks,
+  type OfficialCareSetting,
+  type OfficialHit,
+} from './official-search';
+
+/**
+ * ADR-010 — Chunks da base oficial do MS (PCDT/DDT/DB/PU), fonte "oficial, não
+ * revisada". Pool separado da base curada: nunca entra em `chunks` nem mexe em
+ * `coverage`, para o prompt poder tratá-la em bloco próprio.
+ */
+export interface OfficialRetrieval {
+  /** `false` quando `OFFICIAL_GUIDELINES_ENABLED=false`. */
+  enabled: boolean;
+  /** `score` = similaridade efetiva (já penalizada quando o documento é crônico). */
+  chunks: RetrievedChunk[];
+  bestSemanticScore: number;
+  discardedByFloor: number;
+}
+
+const OFFICIAL_DISABLED: OfficialRetrieval = {
+  enabled: false,
+  chunks: [],
+  bestSemanticScore: 0,
+  discardedByFloor: 0,
+};
+
+/** Candidatos lidos do banco por vaga: folga para o teto por documento. */
+const OFFICIAL_CANDIDATES_PER_SLOT = 6;
+const CARE_SETTINGS: readonly OfficialCareSetting[] = ['agudo', 'cronico', 'misto', 'indefinido'];
 
 export interface RetrievalResult {
   chunks: RetrievedChunk[];
@@ -31,6 +65,8 @@ export interface RetrievalResult {
   bestSemanticScore: number;
   /** Quantos candidatos foram descartados pelo piso de relevância. */
   discardedByFloor: number;
+  /** ADR-010 — base oficial do MS, em pool separado. */
+  official: OfficialRetrieval;
 }
 
 @Injectable()
@@ -68,6 +104,17 @@ export class RetrievalService {
   }
 
   /**
+   * ADR-010 — ligada por padrão (decisão de produto de 24/09/2026).
+   * `OFFICIAL_GUIDELINES_ENABLED=false` tira a base oficial do retrieval sem
+   * redeploy e sem apagar dados.
+   */
+  private officialEnabled(): boolean {
+    const raw = this.config.get<string | boolean | undefined>('OFFICIAL_GUIDELINES_ENABLED');
+    if (raw === undefined || raw === null || raw === '') return true;
+    return !['false', '0', 'off', 'no'].includes(String(raw).trim().toLowerCase());
+  }
+
+  /**
    * Variáveis de ambiente chegam como string. Valor ausente, vazio ou não
    * numérico cai no default — um typo na env nunca deve desligar o piso
    * silenciosamente nem travar a busca.
@@ -97,7 +144,9 @@ export class RetrievalService {
   ): Promise<RetrievalResult> {
     this.logger.debug(`Hybrid search: query="${query.substring(0, 50)}...", topK=${topK}`);
 
-    const cacheKey = `retrieval:${Buffer.from(query).toString('base64').slice(0, 64)}:${topK}:${institutionId ?? 'global'}`;
+    const officialEnabled = this.officialEnabled();
+    // A flag entra na chave: desligar a base oficial vale na hora, não em 60s.
+    const cacheKey = `retrieval:${Buffer.from(query).toString('base64').slice(0, 64)}:${topK}:${institutionId ?? 'global'}:off${officialEnabled ? 1 : 0}`;
     const cached = await this.redis.get(cacheKey);
     if (cached) {
       this.logger.debug('Retrieval cache hit');
@@ -114,6 +163,7 @@ export class RetrievalService {
         coverage: parsed.coverage ?? (parsed.chunks.length > 0 ? 'full' : 'none'),
         bestSemanticScore: parsed.bestSemanticScore ?? 0,
         discardedByFloor: parsed.discardedByFloor ?? 0,
+        official: parsed.official ?? OFFICIAL_DISABLED,
       };
     }
 
@@ -153,6 +203,12 @@ export class RetrievalService {
 
     const selectedIds = floor.keptChunkIds.slice(0, topK);
 
+    // Calculada mesmo quando a base curada não cobre o caso: é justamente aí
+    // que um PCDT (ex.: acidente ofídico) pode ser a única fonte disponível.
+    const official = officialEnabled
+      ? await this.searchOfficial(queryEmbedding)
+      : OFFICIAL_DISABLED;
+
     if (selectedIds.length === 0) {
       const empty: RetrievalResult = {
         chunks: [],
@@ -160,6 +216,7 @@ export class RetrievalService {
         coverage: 'none',
         bestSemanticScore: floor.bestSemanticScore,
         discardedByFloor: floor.discardedCount,
+        official,
       };
       await this.redis.set(cacheKey, JSON.stringify(empty), 60);
       return empty;
@@ -177,10 +234,93 @@ export class RetrievalService {
       coverage: floor.coverage,
       bestSemanticScore: floor.bestSemanticScore,
       discardedByFloor: floor.discardedCount,
+      official,
     };
 
     await this.redis.set(cacheKey, JSON.stringify(result), 60);
     return result;
+  }
+
+  /**
+   * ADR-010 — busca na base oficial. Só semântica: a coluna `text_tsv` ainda
+   * não é populada (ver plano, §5), então a busca lexical não acharia nada.
+   * Conteúdo oficial é sempre global (sem instituição).
+   */
+  private async searchOfficial(embedding: number[]): Promise<OfficialRetrieval> {
+    const options = {
+      minSemanticScore: this.numericConfig(
+        'OFFICIAL_MIN_SEMANTIC_SCORE',
+        DEFAULT_OFFICIAL_MIN_SEMANTIC_SCORE,
+      ),
+      chronicPenalty: this.numericConfig(
+        'OFFICIAL_CHRONIC_PENALTY',
+        DEFAULT_OFFICIAL_CHRONIC_PENALTY,
+      ),
+      maxPerDocument: this.numericConfig(
+        'OFFICIAL_MAX_CHUNKS_PER_DOCUMENT',
+        DEFAULT_OFFICIAL_MAX_PER_DOCUMENT,
+      ),
+      topK: this.numericConfig('OFFICIAL_RETRIEVAL_TOP_K', DEFAULT_OFFICIAL_TOP_K),
+    };
+    if (options.topK <= 0) return { ...OFFICIAL_DISABLED, enabled: true };
+
+    const vectorStr = `[${embedding.join(',')}]`;
+    const rows = await this.prisma.$queryRaw<
+      Array<{
+        id: string;
+        similarity: number;
+        document_id: string | null;
+        care_setting: string | null;
+      }>
+    >`
+      SELECT id, 1 - (embedding <=> ${vectorStr}::vector) AS similarity, document_id,
+             metadata->>'careSetting' AS care_setting
+      FROM guideline_chunks
+      WHERE embedding IS NOT NULL
+        AND status = 'official_unreviewed'
+        AND valid_from <= NOW()
+        AND (valid_to IS NULL OR valid_to > NOW())
+        AND institution_id IS NULL
+      ORDER BY embedding <=> ${vectorStr}::vector
+      LIMIT ${options.topK * OFFICIAL_CANDIDATES_PER_SLOT}
+    `;
+
+    const hits: OfficialHit[] = rows.map((row) => ({
+      chunkId: row.id,
+      similarity: Number(row.similarity),
+      // Sem documento, cada chunk conta como documento próprio no teto.
+      documentId: row.document_id ?? row.id,
+      careSetting: CARE_SETTINGS.includes(row.care_setting as OfficialCareSetting)
+        ? (row.care_setting as OfficialCareSetting)
+        : 'indefinido',
+    }));
+
+    const selection = selectOfficialChunks(hits, options);
+
+    this.logger.log(
+      `OFFICIAL_RETRIEVAL best=${selection.bestSemanticScore.toFixed(3)} candidates=${hits.length} ` +
+        `kept=${selection.selected.length} discarded=${selection.discardedByFloor} ` +
+        `docs=${new Set(selection.selected.map((hit) => hit.documentId)).size}`,
+    );
+
+    if (selection.selected.length === 0) {
+      return {
+        enabled: true,
+        chunks: [],
+        bestSemanticScore: selection.bestSemanticScore,
+        discardedByFloor: selection.discardedByFloor,
+      };
+    }
+
+    const scoreById = new Map(selection.selected.map((hit) => [hit.chunkId, hit.effectiveScore]));
+    const chunks = await this.fetchChunks([...scoreById.keys()]);
+
+    return {
+      enabled: true,
+      chunks: sortByScore(chunks.map((chunk) => ({ ...chunk, score: scoreById.get(chunk.id)! }))),
+      bestSemanticScore: selection.bestSemanticScore,
+      discardedByFloor: selection.discardedByFloor,
+    };
   }
 
   /**

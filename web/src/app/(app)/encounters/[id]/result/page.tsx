@@ -22,6 +22,7 @@ import { BlockerQuestionCard } from '@/components/domain/blocker-question-card';
 import { UncertaintyBanner } from '@/components/domain/uncertainty-banner';
 import { CoverageBanner } from '@/components/domain/coverage-banner';
 import { CopilotFeedback } from '@/components/domain/copilot-feedback';
+import { SourceOriginBadge, isUnreviewedOrigin } from '@/components/domain/source-origin-badge';
 import { useMessages } from '@/lib/messages/use-messages';
 import type { Messages } from '@/lib/messages';
 import {
@@ -699,6 +700,28 @@ export function RecommendationItem({
         <span className="font-mono font-semibold text-clinical-teal">[{index + 1}]</span>
         <span className="truncate">{rec.source}</span>
       </p>
+      {/* F4 / ADR-010 — fonte que a equipe clínica ainda não revisou: diz de
+          onde veio e, no caso da base oficial, leva ao PDF do Ministério. */}
+      {isUnreviewedOrigin(rec.origin) && (
+        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[0.75rem] text-muted-foreground">
+          <SourceOriginBadge origin={rec.origin} />
+          {rec.origin === 'official_unreviewed' && (
+            <>
+              <span className="truncate font-mono text-[0.6875rem]">{rec.sourceVersion}</span>
+              {rec.sourceUrl && (
+                <a
+                  href={rec.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-clinical-teal underline underline-offset-4"
+                >
+                  Ver documento oficial
+                </a>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <Button
