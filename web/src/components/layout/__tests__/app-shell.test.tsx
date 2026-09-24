@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AppShell } from "../app-shell";
 
@@ -27,6 +27,19 @@ vi.mock("@/lib/api-client", () => ({
 
 vi.mock("@/components/providers/offline-provider", () => ({
   useOnlineStatus: () => ({ isOnline: true }),
+}));
+
+// O OfflineQueueBadge lê a fila na IndexedDB, que o jsdom não tem.
+vi.mock("@/hooks/use-offline-queue", () => ({
+  useOfflineQueue: () => ({
+    items: [],
+    count: 0,
+    isSyncing: false,
+    lastSyncResult: null,
+    refresh: vi.fn(),
+    removeItem: vi.fn(),
+    syncNow: vi.fn(),
+  }),
 }));
 
 // UX — sidebar contadores (Fase 3) chamam useDashboardStats/useEncounterList
@@ -57,7 +70,11 @@ describe("AppShell navigation", () => {
     expect(hrefs).toContain("/dashboard");
     expect(hrefs).toContain("/encounters");
     expect(hrefs).toContain("/guidelines");
-    expect(screen.getByText("Ações rápidas")).toBeInTheDocument();
+
+    // RD-E1 trocou o botão rotulado por um ícone; o nome acessível mantém o
+    // atalho e o título "Ações rápidas" só aparece com o dialog aberto.
+    fireEvent.click(screen.getByRole("button", { name: /ações rápidas/i }));
+    expect(screen.getByRole("dialog", { name: "Ações rápidas" })).toBeInTheDocument();
   });
 
   it("removes audit from the physician shell and exposes profile/settings", async () => {
@@ -68,7 +85,11 @@ describe("AppShell navigation", () => {
 
     expect(hrefs).not.toContain("/audit");
 
-    fireEvent.pointerDown(screen.getByRole("button", { name: /abrir menu do usuário/i }), {
+    // O UserMenu é renderizado no header mobile (md:hidden) e nos controles
+    // desktop (hidden md:flex). No browser só um fica na árvore acessível; o
+    // jsdom não aplica o CSS, então a query é restrita ao header mobile.
+    const mobileHeader = screen.getByRole("banner");
+    fireEvent.pointerDown(within(mobileHeader).getByRole("button", { name: /abrir menu do usuário/i }), {
       button: 0,
       ctrlKey: false,
     });
