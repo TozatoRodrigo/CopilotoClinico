@@ -98,6 +98,55 @@ Operação do coletor: `docs/runbook.md` → "Sincronizar a base oficial da Coni
 
 ---
 
+## 4.1 Calibração do passo 8 (24/09/2026, produção)
+
+49 casos — 40 sintéticos do KB-001, 2 de incidente (fi-001, fi-002) e 7 de
+referência (ofídico, escorpião, AVC, crise hipertensiva, Guillain-Barré,
+organofosforado, asma) — contra a base de produção, lendo a similaridade bruta
+dos 30 melhores trechos de cada base, sem cache nem piso.
+
+**Base curada: nenhum piso absoluto funciona.**
+
+- Só **11 dos 49** casos têm o cenário na base aprovada: o pacote **KB-001
+  (20 cenários do PS) nunca foi aprovado em produção** — a base tem só o seed e
+  os pacotes IBCC (KB-003/004); KB-005/006 estão em `pending_review`.
+- Casos cobertos: melhor trecho certo entre **0,49 e 0,69** (top-1 correto em
+  10 de 11).
+- Casos sem cobertura: melhor trecho (sem relação) entre **0,41 e 0,64**; 29 de
+  38 acima de 0,45, ou seja, reportados como cobertura `full`.
+- As faixas se sobrepõem por inteiro. Qualquer piso que corte o ruído corta
+  também metade dos acertos. `RETRIEVAL_*` ficam como estão: mudar não ajuda.
+
+**Base oficial: o melhor compromisso é o atual (0,52 / 0,10).**
+
+| Piso / penalização | Casos com trecho útil | Casos com trecho irrelevante |
+|---|---|---|
+| 0,48 / 0,10 | 10 | 33 |
+| **0,52 / 0,10** (produção) | **8** | **17** |
+| 0,56 / 0,10 | 7 | 4 |
+
+Subir para 0,56 perde o PCDT de AVC (0,53) e **não** tira o pior ruído: no caso
+de dengue, doença falciforme (0,59) e HIV (0,58) pontuam acima do PCDT de AVC
+no caso de AVC. Acertos confirmados: DPOC em DPOC exacerbado (0,72),
+agrotóxicos em organofosforado (0,62), escorpiônico (0,62), ofídico (0,59),
+AVC (0,53). Falhas: Guillain-Barré não aparece nem no top-30 para o caso de
+referência; o caso de asma traz o PCDT de DPOC, não o de asma.
+
+**Conclusão.** Similaridade de embedding separa bem o documento certo quando
+ele existe, mas não diz quando **nenhum** documento se aplica — é relativa ao
+caso, não absoluta. O que falta é um **julgamento de relevância** entre a busca
+e o prompt, nas duas bases: exatamente a etapa de roteamento da ADR-011
+("nenhum" como resposta válida). Até lá, a proteção contra trecho irrelevante é
+a regra do prompt, que manda checar a relevância antes de citar.
+
+**Prioridades que saem daqui:**
+
+1. Curadoria e aprovação do **KB-001** e dos **KB-005/006** — é a maior lacuna
+   de cobertura e não depende de código.
+2. Julgamento de relevância por LLM entre busca e prompt (antecipar o B2 da
+   ADR-011), para as duas bases.
+3. Correção da colisão de chave do cache.
+
 ## 5. Pendências conhecidas
 
 - **Piso da base CURADA não discrimina com este modelo de embedding**
