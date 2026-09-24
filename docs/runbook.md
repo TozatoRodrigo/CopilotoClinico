@@ -242,6 +242,19 @@ docker compose --env-file .env.production -f docker-compose.prod.yml up -d --no-
   ADR-010, a busca oficial filtra por um valor de enum que só a migration cria.
 - `--env-file .env.production` é obrigatório: sem ele o compose não interpola
   as variáveis e `MIGRATION_DATABASE_URL` sai vazia.
+- **Migration que reescreve `guideline_chunks`** (ex.: `DROP/ADD COLUMN`) reconstrói
+  o índice ivfflat, que com ~10 mil vetores pede mais que os 64 MB de
+  `maintenance_work_mem` e falha com `memory required is 65 MB`. O Postgres
+  desfaz tudo, mas o Prisma registra a migration como falha e bloqueia as
+  próximas. Recuperação (feita em 24/09/2026 na F9):
+  1. `npx --no-install prisma migrate resolve --rolled-back <migration>` (mesmo `run --rm` acima);
+  2. aplicar o SQL numa transação com memória local:
+     `{ echo "BEGIN;"; echo "SET LOCAL maintenance_work_mem = '256MB';"; cat ../prisma/migrations/<migration>/migration.sql; echo "COMMIT;"; } | docker exec -i copiloto-db psql -v ON_ERROR_STOP=1 -U "$POSTGRES_OWNER_USER" -d copiloto_clinico`;
+  3. `npx --no-install prisma migrate resolve --applied <migration>`.
+- **Depois de reconstruir o índice vetorial**, conferir `SHOW ivfflat.probes`
+  como a role da aplicação: tem que ser `100` (migration
+  `20260924220000_ivfflat_probes_exact`). Com `1`, a busca da base oficial volta
+  vazia em ~1/3 das consultas.
 
 `MIGRATION_DATABASE_URL` deve apontar para a role owner/admin do banco. A API
 deve continuar usando `DATABASE_URL` com o usuário LOGIN membro de
@@ -695,6 +708,7 @@ apenas na resposta. Acesso a um protocolo de outra instituição retorna `404`
 | `20260614100000_prot_004_institution_multi_tenancy` | Tabelas `institutions`/`physician_institutions` + `institution_id` em `protocols`/`guideline_chunks`/`encounters` |
 | `20260924120000_adr_010_official_guideline_documents` | Status `official_unreviewed`, tabela `official_guideline_documents` (uma linha por versão) e `document_id` em `guideline_chunks` (ADR-010) |
 | `20260924180000_f9_guideline_chunks_text_tsv_generated` | `guideline_chunks.text_tsv` vira coluna gerada + índice GIN — liga a busca lexical (ver "Busca lexical (`text_tsv`) — F9") |
+| `20260924220000_ivfflat_probes_exact` | `ivfflat.probes = 100` no banco: busca vetorial exata (incidente de 24/09/2026) |
 
 ### Rollback de Migration
 
