@@ -429,3 +429,64 @@ describe('RetrievalService', () => {
     });
   });
 });
+
+describe('RetrievalService — chave do cache', () => {
+  function build(env: Record<string, string | undefined> = {}) {
+    const store = new Map<string, string>();
+    const redis = {
+      get: vi.fn(async (key: string) => store.get(key) ?? null),
+      set: vi.fn(async (key: string, value: string) => {
+        store.set(key, value);
+      }),
+    };
+    const prisma = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      guidelineChunk: { findMany: vi.fn().mockResolvedValue([]) },
+    };
+    const ai = { embed: vi.fn().mockResolvedValue({ embeddings: [[0.1, 0.2]] }) };
+    const config = { get: vi.fn((key: string) => env[key]) };
+    const service = new RetrievalService(
+      prisma as unknown as PrismaService,
+      ai as unknown as AiGatewayService,
+      redis as unknown as RedisService,
+      config as unknown as ConfigService,
+    );
+    return { service, redis, ai, env };
+  }
+
+  // Colisão vista em produção: a chave usava só os ~48 primeiros caracteres
+  // do caso, e o segundo paciente recebia a evidência do primeiro.
+  const prefix = 'Paciente do sexo masculino, 45 anos, deu entrada no PS com ';
+
+  it('casos com o mesmo início têm chaves diferentes e não compartilham resultado', async () => {
+    const { service, redis, ai } = build();
+
+    await service.search(`${prefix}dor torácica em aperto há 40 minutos.`, 5);
+    await service.search(`${prefix}picada de cobra no pé há 2 horas.`, 5);
+
+    const keys = redis.set.mock.calls.map((call) => call[0]);
+    expect(new Set(keys).size).toBe(2);
+    // O segundo caso foi buscado de verdade, não servido do cache.
+    expect(ai.embed).toHaveBeenCalledTimes(2);
+  });
+
+  it('a mesma consulta reaproveita o cache', async () => {
+    const { service, ai } = build();
+
+    await service.search(`${prefix}dor torácica.`, 5);
+    await service.search(`${prefix}dor torácica.`, 5);
+
+    expect(ai.embed).toHaveBeenCalledTimes(1);
+  });
+
+  it('recalibrar um limiar por env invalida o cache na hora', async () => {
+    const { service, redis, env } = build();
+
+    await service.search(`${prefix}dor torácica.`, 5);
+    env.OFFICIAL_MIN_SEMANTIC_SCORE = '0.6';
+    await service.search(`${prefix}dor torácica.`, 5);
+
+    const keys = redis.set.mock.calls.map((call) => call[0]);
+    expect(keys[0]).not.toBe(keys[1]);
+  });
+});
