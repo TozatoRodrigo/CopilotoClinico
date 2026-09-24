@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
@@ -147,8 +148,7 @@ export class RetrievalService {
     this.logger.debug(`Hybrid search: query="${query.substring(0, 50)}...", topK=${topK}`);
 
     const officialEnabled = this.officialEnabled();
-    // A flag entra na chave: desligar a base oficial vale na hora, não em 60s.
-    const cacheKey = `retrieval:${Buffer.from(query).toString('base64').slice(0, 64)}:${topK}:${institutionId ?? 'global'}:off${officialEnabled ? 1 : 0}`;
+    const cacheKey = this.cacheKey(query, topK, institutionId, officialEnabled);
     const cached = await this.redis.get(cacheKey);
     if (cached) {
       this.logger.debug('Retrieval cache hit');
@@ -249,8 +249,40 @@ export class RetrievalService {
    * levar a busca lexical à base oficial é decisão da medição (passo 8 do
    * docs/plano-fontes-oficiais-pcdt.md). Conteúdo oficial é sempre global.
    */
-  private async searchOfficial(embedding: number[]): Promise<OfficialRetrieval> {
-    const options = {
+  /**
+   * Chave do cache da busca (TTL 60 s).
+   *
+   * Antes a chave usava só `base64(query).slice(0, 64)` — os ~48 primeiros
+   * caracteres do caso. Dois casos que começam igual ("Paciente do sexo
+   * masculino, 45 anos, ...") colidiam e o segundo recebia, por até 60 s, a
+   * evidência do PRIMEIRO: diretriz de outro paciente no prompt. Visto em
+   * produção em 24/09/2026. Agora a chave é o hash da consulta INTEIRA mais
+   * tudo que muda o resultado — inclusive os limiares, para uma recalibração
+   * por env valer na hora em vez de servir seleção antiga do cache.
+   */
+  private cacheKey(
+    query: string,
+    topK: number,
+    institutionId: string | null | undefined,
+    officialEnabled: boolean,
+  ): string {
+    const digest = createHash('sha256')
+      .update(
+        JSON.stringify({
+          query,
+          topK,
+          institutionId: institutionId ?? null,
+          officialEnabled,
+          relevance: this.relevanceThresholds(),
+          official: this.officialOptions(),
+        }),
+      )
+      .digest('hex');
+    return `retrieval:${digest}`;
+  }
+
+  private officialOptions() {
+    return {
       minSemanticScore: this.numericConfig(
         'OFFICIAL_MIN_SEMANTIC_SCORE',
         DEFAULT_OFFICIAL_MIN_SEMANTIC_SCORE,
@@ -265,6 +297,10 @@ export class RetrievalService {
       ),
       topK: this.numericConfig('OFFICIAL_RETRIEVAL_TOP_K', DEFAULT_OFFICIAL_TOP_K),
     };
+  }
+
+  private async searchOfficial(embedding: number[]): Promise<OfficialRetrieval> {
+    const options = this.officialOptions();
     if (options.topK <= 0) return { ...OFFICIAL_DISABLED, enabled: true };
 
     const vectorStr = `[${embedding.join(',')}]`;
