@@ -140,7 +140,8 @@ feedback estruturado (F7) — é o dado que calibra o roteamento.
    quais casos os PCDTs de fato aparecem e ajudam, e calibra os limiares que o
    roteador herda.
 3. `text_tsv` populado (busca lexical) — CID e nome de medicamento são o que
-   mais ajuda a escolher o documento certo.
+   mais ajuda a escolher o documento certo. ✅ Coluna gerada desde a migration
+   `20260924180000_f9_guideline_chunks_text_tsv_generated` (hoje só sobre `approved`).
 
 ## Perguntas para a revisão
 

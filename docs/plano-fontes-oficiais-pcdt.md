@@ -160,12 +160,12 @@ a regra do prompt, que manda checar a relevância antes de citar.
 - **Cache da busca com colisão de chave** (achado no mesmo teste): a chave usa
   só os ~48 primeiros caracteres do caso; casos com o mesmo início recebem a
   mesma evidência por 60 s. Correção em tarefa própria.
-
-- **`text_tsv` nunca é preenchido** em `guideline_chunks` (achado desta
-  rodada): a busca por palavra-chave do retrieval e da biblioteca não retorna
-  nada hoje, para nenhuma fonte. Por isso a busca da base oficial (passo 5) é
-  só semântica. Tratar antes da medição do passo 8, porque CID e nome de
-  medicamento são exatamente o tipo de termo que a busca lexical resgata.
+- ~~**`text_tsv` nunca é preenchido**~~ — resolvido: virou coluna gerada
+  (migration `20260924180000_f9_guideline_chunks_text_tsv_generated`; ver
+  `docs/runbook.md` → "Busca lexical (`text_tsv`) — F9"). A busca lexical do
+  retrieval continua restrita a `approved`, então a base oficial (passo 5)
+  segue só semântica; estendê-la é decisão da medição do passo 8, porque CID e
+  nome de medicamento são exatamente o tipo de termo que a busca lexical resgata.
 - **`ingestForReview()` supersede na ingestão, não na aprovação**
   (`guidelines.service.ts`). Não afeta a base oficial (que não passa pela
   curadoria), mas cria lacuna quando uma diretriz curada ganha versão nova.
