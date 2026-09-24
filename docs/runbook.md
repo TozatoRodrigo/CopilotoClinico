@@ -54,10 +54,8 @@ docker compose -f docker-compose.prod.yml exec copiloto-api \
 
 ### Passo 1 — Migration
 
-```bash
-docker compose -f docker-compose.prod.yml exec copiloto-api \
-  sh -c 'DATABASE_URL="$MIGRATION_DATABASE_URL" pnpm prisma migrate deploy'
-```
+Ver "Aplicar migrations em produção" em Operações de Rotina: build da imagem
+nova primeiro, migration com essa imagem, só depois subir o container.
 
 Verificação — a tabela nova existe e está vazia:
 
@@ -221,9 +219,29 @@ O cron `AuditChainCronService` executa isso automaticamente às 02:00 UTC e loga
 
 ### Aplicar migrations em produção
 
+Na VPS, em `~/apps/copiloto-clinico/docker`, **nesta ordem**:
+
 ```bash
-DATABASE_URL="$MIGRATION_DATABASE_URL" pnpm prisma migrate deploy
+# 1. Imagem nova (os containers em execução continuam servindo)
+docker compose --env-file .env.production -f docker-compose.prod.yml build copiloto-api
+
+# 2. Migration com a imagem NOVA — o container em execução tem a imagem
+#    antiga, sem os arquivos da migration nova
+docker compose --env-file .env.production -f docker-compose.prod.yml run --rm --no-deps \
+  --entrypoint sh copiloto-api \
+  -c 'DATABASE_URL="$MIGRATION_DATABASE_URL" npx --no-install prisma migrate deploy'
+
+# 3. Só então subir a API nova
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d --no-deps copiloto-api
 ```
+
+- A imagem de runtime não tem `pnpm` (`sh: pnpm: not found`): use
+  `npx --no-install prisma`, que usa o CLI já instalado em `node_modules` e
+  nunca baixa nada. Corrigido em 24/09/2026, no deploy da ADR-010.
+- Subir a API antes da migration quebra o que depende do schema novo — na
+  ADR-010, a busca oficial filtra por um valor de enum que só a migration cria.
+- `--env-file .env.production` é obrigatório: sem ele o compose não interpola
+  as variáveis e `MIGRATION_DATABASE_URL` sai vazia.
 
 `MIGRATION_DATABASE_URL` deve apontar para a role owner/admin do banco. A API
 deve continuar usando `DATABASE_URL` com o usuário LOGIN membro de
@@ -378,21 +396,31 @@ lembrar dela.
 - A base oficial (ADR-010) não muda: a busca lexical só enxerga `approved`.
 - Biblioteca de diretrizes: a busca por texto passa a retornar resultados.
 
-**Ordem de release — deploy ANTES da migration.** O código anterior julgava
-hits só lexicais pelo `ts_rank`, sem piso semântico. Rodar a migration com a
-imagem antiga no ar liga exatamente esse atalho. O código novo roda sem
-problema sobre o schema antigo (a busca lexical só volta vazia), então:
+**Ordem de release — API nova ANTES da migration** (exceção à ordem padrão de
+"Aplicar migrations em produção"). O código anterior julgava hits só lexicais
+pelo `ts_rank`, sem piso semântico: qualquer janela com a imagem antiga no ar
+e a migration aplicada liga exatamente esse atalho. O código novo roda sem
+problema sobre o schema antigo (a busca lexical só volta vazia). Na VPS, em
+`~/apps/copiloto-clinico/docker`:
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d --build copiloto-api
-docker compose -f docker-compose.prod.yml exec copiloto-api \
-  sh -c 'DATABASE_URL="$MIGRATION_DATABASE_URL" pnpm prisma migrate deploy'
+# 1. Imagem nova e API nova no ar (schema ainda antigo — busca lexical vazia)
+docker compose --env-file .env.production -f docker-compose.prod.yml build copiloto-api
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d --no-deps copiloto-api
+
+# 2. Só então a migration, com a mesma imagem
+docker compose --env-file .env.production -f docker-compose.prod.yml run --rm --no-deps \
+  --entrypoint sh copiloto-api \
+  -c 'DATABASE_URL="$MIGRATION_DATABASE_URL" npx --no-install prisma migrate deploy'
+
+# 3. Limpar o cache da busca (60 s) para não servir resultado pré-migration
+docker exec copiloto-redis sh -c 'redis-cli --scan --pattern "retrieval:*" | xargs -r redis-cli del'
 ```
 
 Verificação — a coluna está preenchida:
 
 ```bash
-docker compose -f docker-compose.prod.yml exec copiloto-db \
+docker compose --env-file .env.production -f docker-compose.prod.yml exec copiloto-db \
   psql -U "$POSTGRES_OWNER_USER" -d copiloto_clinico -c \
   "SELECT count(*) FILTER (WHERE text_tsv IS NULL) AS vazias, count(*) AS total FROM guideline_chunks;"
 ```
@@ -519,6 +547,26 @@ A mudança é detectada pelo **SHA-256 do PDF** — a Conitec altera anexos sem
 publicar portaria nova. Versão nova substitui a anterior numa transação só; os
 chunks antigos viram `superseded` (não são apagados).
 
+**Em produção (VPS)** a imagem de runtime não tem `scripts/` nem `src/`: use o
+estágio `builder`, como na ingestão dos pacotes KB. A carga completa leva ~25
+minutos; rodar destacado e guardar o log:
+
+```bash
+cd ~/apps/copiloto-clinico/docker
+docker build -q -f Dockerfile.api --target builder -t copiloto-ingest:tmp ..
+set -a; . ./.env.production; set +a
+APPDB="postgresql://${POSTGRES_APP_USER}:${POSTGRES_APP_PASSWORD}@copiloto-db:5432/copiloto_clinico?schema=public"
+docker run -d --name copiloto-official-sync --network docker_copiloto-net \
+  --env-file .env.production -e DATABASE_URL="$APPDB" -e REDIS_URL=redis://copiloto-redis:6379 \
+  --entrypoint sh copiloto-ingest:tmp -c "npx --no-install tsx scripts/sync-official-guidelines.ts"
+docker wait copiloto-official-sync
+docker logs copiloto-official-sync > ~/backups/copiloto-clinico/official-sync-$(date +%F).log 2>&1
+docker rm copiloto-official-sync && docker rmi copiloto-ingest:tmp
+```
+
+Primeira carga (24/09/2026): 187 novos + 1 já existente, 2 `not_pdf`, 0 erros;
+188 documentos, 10.014 chunks.
+
 **3. Ler o relatório**
 
 | Saída | Significado | Ação |
@@ -553,7 +601,12 @@ OFFICIAL_RETRIEVAL best=0.612 candidates=18 kept=2 discarded=9 docs=1
 
 `kept=0` com `best` alto indica piso ou penalização rígidos demais; `kept`
 sempre no teto com `docs=1` indica um PCDT dominando. Limiares em
-`.env.example` (`OFFICIAL_*`), ainda não calibrados. Para desligar a base
+`.env.example` (`OFFICIAL_*`); valores e dados da calibração de 24/09/2026 no
+comentário de `official-search.ts`.
+
+⚠️ O resultado da busca fica 60 s em cache no Redis. Ao recalibrar e testar em
+seguida, limpar só essas chaves:
+`docker exec copiloto-redis sh -c 'redis-cli --scan --pattern "retrieval:*" | xargs -r redis-cli del'`. Para desligar a base
 oficial sem redeploy: `OFFICIAL_GUIDELINES_ENABLED=false` no
 `.env.production` e recriar o container da API.
 
