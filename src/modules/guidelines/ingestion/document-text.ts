@@ -55,7 +55,7 @@ export class DocumentExtractionError extends Error {}
  * chunking por frase (ver chunking.ts) não encontra fronteira nenhuma e o
  * texto entra na base como um bloco só.
  */
-function normalizePdfText(raw: string): string {
+export function normalizePdfText(raw: string): string {
   return raw
     .replace(/\r\n?/g, '\n')
     .replace(/-\n(?=\p{Ll})/gu, '') // hifenização de quebra de linha
@@ -97,15 +97,24 @@ export async function extractDocumentText(
   };
 }
 
+/**
+ * Leitura crua de PDF, sem os tetos de upload de médico. Usada também pelo
+ * coletor de documentos oficiais (ADR-010), que tem limites próprios e trata
+ * truncamento como erro.
+ */
+export async function readPdfText(data: Buffer): Promise<{ text: string; pages: number }> {
+  const pdf = await getDocumentProxy(new Uint8Array(data));
+  const { totalPages, text } = await extractText(pdf, { mergePages: true });
+  return { text: Array.isArray(text) ? text.join('\n\n') : text, pages: totalPages };
+}
+
 async function readByMime(
   data: Buffer,
   mimeType: string,
 ): Promise<{ text: string; pages: number | null }> {
   if (mimeType === 'application/pdf') {
     try {
-      const pdf = await getDocumentProxy(new Uint8Array(data));
-      const { totalPages, text } = await extractText(pdf, { mergePages: true });
-      return { text: Array.isArray(text) ? text.join('\n\n') : text, pages: totalPages };
+      return await readPdfText(data);
     } catch {
       // A mensagem do pdf.js não ajuda um médico — traduzimos para uma ação.
       throw new DocumentExtractionError(

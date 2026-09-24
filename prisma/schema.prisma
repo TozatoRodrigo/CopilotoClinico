@@ -45,6 +45,31 @@ enum GuidelineChunkStatus {
   approved
   rejected
   superseded
+  /// ADR-010 — documento oficial do MS (Conitec) ingerido sem revisão da
+  /// equipe clínica. Nunca é tratado como `approved`.
+  official_unreviewed
+}
+
+/// ADR-010 — listas publicadas pela Conitec.
+enum OfficialGuidelineKind {
+  pcdt
+  ddt
+  diretriz_brasileira
+  protocolo_uso
+}
+
+enum OfficialDocumentStatus {
+  active
+  superseded
+}
+
+/// ADR-010 — contexto de uso predominante do documento, usado para ponderar o
+/// retrieval (documento crônico em caso agudo).
+enum CareSetting {
+  agudo
+  cronico
+  misto
+  indefinido
 }
 
 enum InstitutionStatus {
@@ -273,13 +298,62 @@ model GuidelineChunk {
   validTo       DateTime?                    @map("valid_to")
   createdAt     DateTime                     @default(now()) @map("created_at")
 
-  institution Institution? @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  /// ADR-010 — versão do documento oficial de onde o chunk saiu.
+  documentId String? @map("document_id") @db.Uuid
+
+  institution Institution?               @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  document    OfficialGuidelineDocument? @relation(fields: [documentId], references: [id], onDelete: Restrict)
 
   @@index([source, sourceVersion])
   @@index([specialty])
   @@index([status])
   @@index([institutionId])
+  @@index([documentId])
   @@map("guideline_chunks")
+}
+
+/// ADR-010 — uma VERSÃO de um documento oficial (PCDT/DDT/DB/PU). Uma versão
+/// nova (PDF com outro SHA-256) substitui a anterior na mesma transação; o
+/// índice parcial da migration garante uma única versão `active` por chave.
+model OfficialGuidelineDocument {
+  id              String                 @id @default(uuid()) @db.Uuid
+  kind            OfficialGuidelineKind
+  /// Estável entre versões: `<kind>:<slug do título>`.
+  documentKey     String                 @map("document_key")
+  title           String
+  /// Texto da portaria como publicado na lista da Conitec.
+  normativeAct    String?                @map("normative_act")
+  publishedAt     DateTime?              @map("published_at") @db.Date
+  annexUpdatedAt  DateTime?              @map("annex_updated_at") @db.Date
+  documentUrl     String                 @map("document_url")
+  normativeActUrl String?                @map("normative_act_url")
+  summaryUrl      String?                @map("summary_url")
+  pdfSha256       String                 @map("pdf_sha256")
+  pageCount       Int?                   @map("page_count")
+  cid10           String[]
+  /// Seções reconhecidas: `{ number, title, included, chars }[]`.
+  sections        Json
+  /// `structured` quando a estrutura de seções foi reconhecida; `fallback` quando
+  /// o corpo entrou inteiro (até as referências).
+  sectioning      String
+  careSetting     CareSetting            @default(indefinido) @map("care_setting")
+  population      String?
+  specialty       String
+  cenarios        String[]
+  /// Origem e justificativa da classificação: `{ source, model?, rationale }`.
+  classification  Json?
+  status          OfficialDocumentStatus @default(active)
+  chunkCount      Int                    @map("chunk_count")
+  fetchedAt       DateTime               @map("fetched_at")
+  supersededAt    DateTime?              @map("superseded_at")
+  createdAt       DateTime               @default(now()) @map("created_at")
+
+  chunks GuidelineChunk[]
+
+  @@unique([documentKey, pdfSha256])
+  @@index([status])
+  @@index([kind])
+  @@map("official_guideline_documents")
 }
 
 model AuditLog {
