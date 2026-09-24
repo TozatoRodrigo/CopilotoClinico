@@ -86,7 +86,7 @@ confirmação jurídica para uso comercial (ver ADR-010).
 | 2 | Migration: status `official_unreviewed`, tabela de documentos, `document_id` | nenhum | ✅ (não aplicada em nenhum ambiente ainda) |
 | 3 | Coletor: listas, download, SHA-256, recorte, chunks, embeddings, troca atômica de versão, relatório, `--dry-run` | nenhum | ✅ |
 | 4 | Classificação automática (agudo/crônico, população, especialidade, cenários) | nenhum | ✅ |
-| 5 | Retrieval: pool oficial separado, teto por análise (3) e por documento (2), piso próprio (0,35), penalização de crônico (−0,05), flag | nenhum até o passo 6 (o prompt ainda não lê o pool) | ✅ (limiares não calibrados) |
+| 5 | Retrieval: pool oficial separado, teto por análise (3) e por documento (2), piso próprio (0,52), penalização de crônico (−0,10), flag | nenhum até o passo 6 (o prompt ainda não lê o pool) | ✅ (calibração preliminar com 5 casos em produção, 24/09/2026) |
 | 6 | Prompt: bloco `OFFICIAL_MS_UNREVIEWED` + OFFICIAL MS GUIDELINES RULE (só quando há trechos — flag desligada = prompt idêntico ao anterior); base curada vazia com PCDT deixa de cair no caminho D; citação `official_unreviewed`; divergência curada × oficial vira `preliminary`; cobertura exibida `partial` quando só a base oficial achou algo | **sim** | ✅ |
 | 7 | Interface: rótulo "Ministério da Saúde · não revisado pela equipe", portaria e link "Ver documento oficial" no card da recomendação (origem gravada na análise, sobrevive a reload). Catálogo navegável na biblioteca fica para depois | **sim** | ✅ (catálogo pendente) |
 | 8 | Medir com os 40 casos sintéticos e os de incidente, flag ligada x desligada | decide | ⏳ |
@@ -99,6 +99,18 @@ Operação do coletor: `docs/runbook.md` → "Sincronizar a base oficial da Coni
 ---
 
 ## 5. Pendências conhecidas
+
+- **Piso da base CURADA não discrimina com este modelo de embedding**
+  (achado na calibração de 24/09/2026 em produção): nos 5 casos de referência a
+  base curada reportou cobertura `full` com trechos sem relação — AVC e
+  dissecção num caso de picada de cobra, agitação psicomotora no caso de
+  dengue. Com `text-embedding-3-small`, texto clínico sem relação pontua acima
+  de 0,45 (`RETRIEVAL_STRONG_SEMANTIC_SCORE`), e o piso de 0,30 não corta nada.
+  A proteção contra o vizinho semântico (KB-005/KB-006) na prática não atua.
+  Calibrar `RETRIEVAL_*` no passo 8, junto com os `OFFICIAL_*`.
+- **Cache da busca com colisão de chave** (achado no mesmo teste): a chave usa
+  só os ~48 primeiros caracteres do caso; casos com o mesmo início recebem a
+  mesma evidência por 60 s. Correção em tarefa própria.
 
 - **`text_tsv` nunca é preenchido** em `guideline_chunks` (achado desta
   rodada): a busca por palavra-chave do retrieval e da biblioteca não retorna

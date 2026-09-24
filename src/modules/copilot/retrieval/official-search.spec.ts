@@ -26,46 +26,86 @@ function hit(
 
 const ids = (hits: Array<{ chunkId: string }>) => hits.map((h) => h.chunkId);
 
-describe('selectOfficialChunks', () => {
-  it('descarta abaixo do piso e reporta a melhor similaridade bruta', () => {
-    const result = selectOfficialChunks([hit('a', 0.5, 'd1'), hit('b', 0.2, 'd2')], options);
-
-    expect(ids(result.selected)).toEqual(['a']);
-    expect(result.bestSemanticScore).toBe(0.5);
-    expect(result.discardedByFloor).toBe(1);
-  });
-
-  it('não devolve nada quando nenhum trecho passa — a base oficial não cobre o caso', () => {
-    const result = selectOfficialChunks([hit('a', 0.3, 'd1'), hit('b', 0.1, 'd2')], options);
-
-    expect(result.selected).toEqual([]);
-  });
-
-  it('PCDT crônico precisa de encaixe claramente melhor que um agudo', () => {
-    // Caso de crise hipertensiva: o PCDT de HAS ambulatorial é vizinho próximo.
+/**
+ * Pontuações reais medidas em produção em 24/09/2026 (text-embedding-3-small,
+ * base oficial completa). Se os defaults mudarem, estes casos dizem o que a
+ * mudança faz com eles.
+ */
+describe('selectOfficialChunks — casos de calibração de produção', () => {
+  it('picada de cobra: mantém os PCDTs de acidentes com animais peçonhentos', () => {
     const result = selectOfficialChunks(
-      [hit('has-ambulatorial', 0.52, 'has', 'cronico'), hit('avc-agudo', 0.5, 'avc', 'agudo')],
+      [
+        hit('ofidico-diag', 0.6, 'ofidicos'),
+        hit('ofidico-monit', 0.573, 'ofidicos'),
+        hit('escorp-diag', 0.56, 'escorpionicos'),
+      ],
       options,
     );
 
-    expect(ids(result.selected)).toEqual(['avc-agudo', 'has-ambulatorial']);
-    expect(result.selected[1]!.effectiveScore).toBeCloseTo(0.47);
+    expect(ids(result.selected)).toEqual(['ofidico-diag', 'ofidico-monit', 'escorp-diag']);
   });
 
-  it('a penalização pode tirar um crônico que passaria no piso', () => {
-    const result = selectOfficialChunks([hit('dpoc', 0.38, 'dpoc', 'cronico')], options);
+  it('crise hipertensiva: o PCDT de HAS ambulatorial não entra', () => {
+    // 0,598 bruto − 0,10 = 0,498, abaixo do piso. Com a penalização antiga
+    // (0,05) ficava em 0,548 e entrava.
+    const result = selectOfficialChunks([hit('has-diag', 0.598, 'has', 'cronico')], options);
 
     expect(result.selected).toEqual([]);
     expect(result.discardedByFloor).toBe(1);
   });
 
-  it('misto e indefinido não são penalizados', () => {
+  it('AVC: o PCDT de AVC isquêmico agudo entra', () => {
+    const result = selectOfficialChunks([hit('avc-diag', 0.553, 'avc')], options);
+
+    expect(ids(result.selected)).toEqual(['avc-diag']);
+  });
+
+  it('dengue: o ruído de baixa similaridade não entra', () => {
     const result = selectOfficialChunks(
-      [hit('asma', 0.36, 'asma', 'misto'), hit('x', 0.36, 'x', 'indefinido')],
+      [
+        hit('agrotoxicos', 0.451, 'agrotoxicos-cap4'),
+        hit('chagas', 0.451, 'chagas', 'misto'),
+        hit('falciforme', 0.442, 'falciforme', 'misto'),
+      ],
       options,
     );
 
-    expect(ids(result.selected)).toEqual(['asma', 'x']);
+    expect(result.selected).toEqual([]);
+    expect(result.bestSemanticScore).toBe(0.451);
+  });
+
+  it('limite conhecido: documento misto entre 0,52 e 0,54 ainda passa', () => {
+    // Registrado de propósito: é o ruído que sobrou na calibração (Chagas na
+    // crise hipertensiva). Quando o passo 8 recalibrar, este teste deve mudar.
+    const result = selectOfficialChunks([hit('chagas', 0.527, 'chagas', 'misto')], options);
+
+    expect(ids(result.selected)).toEqual(['chagas']);
+  });
+});
+
+describe('selectOfficialChunks — regras', () => {
+  it('só documento crônico é penalizado', () => {
+    const result = selectOfficialChunks(
+      [
+        hit('agudo', 0.55, 'a', 'agudo'),
+        hit('misto', 0.55, 'b', 'misto'),
+        hit('indefinido', 0.55, 'c', 'indefinido'),
+        hit('cronico', 0.55, 'd', 'cronico'),
+      ],
+      { ...options, topK: 10 },
+    );
+
+    expect(ids(result.selected)).toEqual(['agudo', 'misto', 'indefinido']);
+  });
+
+  it('ordena pela similaridade efetiva, não pela bruta', () => {
+    const result = selectOfficialChunks(
+      [hit('cronico', 0.7, 'd1', 'cronico'), hit('agudo', 0.65, 'd2', 'agudo')],
+      options,
+    );
+
+    expect(ids(result.selected)).toEqual(['agudo', 'cronico']);
+    expect(result.selected[1]!.effectiveScore).toBeCloseTo(0.6);
   });
 
   it('no máximo dois trechos do mesmo documento', () => {
@@ -74,7 +114,7 @@ describe('selectOfficialChunks', () => {
         hit('a1', 0.7, 'ofidicos'),
         hit('a2', 0.69, 'ofidicos'),
         hit('a3', 0.68, 'ofidicos'),
-        hit('b1', 0.5, 'escorpionicos'),
+        hit('b1', 0.6, 'escorpionicos'),
       ],
       options,
     );
@@ -84,10 +124,19 @@ describe('selectOfficialChunks', () => {
 
   it('respeita o teto por análise', () => {
     const result = selectOfficialChunks(
-      [hit('a', 0.6, 'd1'), hit('b', 0.59, 'd2'), hit('c', 0.58, 'd3'), hit('d', 0.57, 'd4')],
+      [hit('a', 0.7, 'd1'), hit('b', 0.69, 'd2'), hit('c', 0.68, 'd3'), hit('d', 0.67, 'd4')],
       options,
     );
 
     expect(ids(result.selected)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('limiares vêm das opções, não dos defaults', () => {
+    const result = selectOfficialChunks([hit('a', 0.4, 'd1')], {
+      ...options,
+      minSemanticScore: 0.3,
+    });
+
+    expect(ids(result.selected)).toEqual(['a']);
   });
 });
