@@ -16,6 +16,16 @@ export interface SearchHit {
   institutionId: string | null;
 }
 
+/**
+ * F9 — hit da busca lexical. `similarity` é o cosseno do chunk com a query,
+ * calculado na mesma query SQL; `null` quando o chunk não tem embedding.
+ * Existe para o piso de relevância julgar hits lexicais pela semântica — ver
+ * `semanticScoresForFloor`.
+ */
+export interface KeywordHit extends SearchHit {
+  similarity: number | null;
+}
+
 const RRF_K = 60;
 
 /**
@@ -113,15 +123,46 @@ export const DEFAULT_MIN_SEMANTIC_SCORE = 0.3;
 export const DEFAULT_STRONG_SEMANTIC_SCORE = 0.45;
 
 /**
- * `ts_rank` mínimo para um chunk encontrado APENAS pela busca lexical (sem
- * score semântico entre os candidatos) sobreviver ao piso. Mantido baixo
- * porque `plainto_tsquery` exige TODOS os termos da query: quando um chunk
- * casa lexicalmente, o casamento é praticamente exato.
+ * `ts_rank` mínimo para um chunk SEM embedding (logo, sem similaridade
+ * possível) sobreviver ao piso quando achado pela busca lexical. Chunks com
+ * embedding são julgados pela similaridade, mesmo quando só a busca lexical
+ * os achou — ver `semanticScoresForFloor`. Mantido baixo porque
+ * `plainto_tsquery` exige TODOS os termos da query: quando um chunk casa
+ * lexicalmente, o casamento é praticamente exato.
  */
 export const DEFAULT_MIN_KEYWORD_RANK = 0.01;
 
+/**
+ * F9 — similaridades que o piso usa, incluindo as dos hits lexicais.
+ *
+ * Um chunk que a busca lexical acha e a semântica não (fora do `LIMIT`) tem,
+ * por construção, similaridade MENOR ou igual à do pior candidato semântico.
+ * Quando esse pior candidato já está abaixo do piso, o hit lexical é
+ * justamente um "vizinho semântico" fraco — o modo de falha que o piso
+ * fechou (KB-005/KB-006). Julgá-lo por `ts_rank` o deixaria passar só por
+ * repetir um termo genérico do caso. Por isso a similaridade real de cada hit
+ * lexical entra aqui e o piso vale igual para as duas buscas; a busca lexical
+ * continua ajudando no ranking (RRF) e resgata chunks relevantes que ficaram
+ * fora do `LIMIT` semântico.
+ */
+export function semanticScoresForFloor(
+  semanticHits: SearchHit[],
+  keywordHits: KeywordHit[],
+): Map<string, number> {
+  const scores = new Map(semanticHits.map((hit) => [hit.chunkId, hit.score]));
+  for (const hit of keywordHits) {
+    if (hit.similarity !== null && !scores.has(hit.chunkId)) {
+      scores.set(hit.chunkId, hit.similarity);
+    }
+  }
+  return scores;
+}
+
 export interface RelevanceFloorInput {
-  /** chunkId -> similaridade de cosseno (busca semântica). */
+  /**
+   * chunkId -> similaridade de cosseno, de TODO candidato que tem embedding —
+   * inclusive os achados só pela busca lexical (`semanticScoresForFloor`).
+   */
   semanticScores: Map<string, number>;
   /** chunkId -> ts_rank (busca lexical). */
   keywordScores: Map<string, number>;
@@ -165,8 +206,8 @@ export function applyRelevanceFloor(
   const keptChunkIds = rankedChunkIds.filter((id) => {
     const semantic = semanticScores.get(id);
     if (semantic !== undefined) return semantic >= minSemanticScore;
-    // Chunk achado só pela busca lexical: sem similaridade para comparar,
-    // decide pelo ts_rank.
+    // Chunk sem embedding, achado pela busca lexical: sem similaridade para
+    // comparar, decide pelo ts_rank.
     return (keywordScores.get(id) ?? 0) >= minKeywordRank;
   });
 

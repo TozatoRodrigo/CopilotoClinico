@@ -9,11 +9,13 @@ import {
   reciprocalRankFuse,
   applyInstitutionBoost,
   applyRelevanceFloor,
+  semanticScoresForFloor,
   sortByScore,
   DEFAULT_MIN_SEMANTIC_SCORE,
   DEFAULT_STRONG_SEMANTIC_SCORE,
   DEFAULT_MIN_KEYWORD_RANK,
   type RetrievalCoverage,
+  type KeywordHit,
   type RetrievedChunk,
   type SearchHit,
 } from './hybrid-search';
@@ -174,7 +176,7 @@ export class RetrievalService {
     }
 
     const semanticHits = await this.semanticSearch(queryEmbedding, topK * 2, institutionId);
-    const keywordHits = await this.keywordSearch(query, topK * 2, institutionId);
+    const keywordHits = await this.keywordSearch(query, queryEmbedding, topK * 2, institutionId);
 
     const fusedScores = reciprocalRankFuse(semanticHits, keywordHits);
 
@@ -189,7 +191,7 @@ export class RetrievalService {
     // O piso é aplicado ANTES do corte em topK: um chunk relevante em 6º lugar
     // não pode ser perdido porque cinco chunks irrelevantes ficaram na frente.
     const floor = applyRelevanceFloor(rankedIds, {
-      semanticScores: new Map(semanticHits.map((hit) => [hit.chunkId, hit.score])),
+      semanticScores: semanticScoresForFloor(semanticHits, keywordHits),
       keywordScores: new Map(keywordHits.map((hit) => [hit.chunkId, hit.score])),
       ...this.relevanceThresholds(),
     });
@@ -242,9 +244,10 @@ export class RetrievalService {
   }
 
   /**
-   * ADR-010 — busca na base oficial. Só semântica: a coluna `text_tsv` ainda
-   * não é populada (ver plano, §5), então a busca lexical não acharia nada.
-   * Conteúdo oficial é sempre global (sem instituição).
+   * ADR-010 — busca na base oficial. Só semântica: a busca lexical
+   * (`keywordSearch`) filtra `status = 'approved'` e não enxerga estes chunks;
+   * levar a busca lexical à base oficial é decisão da medição (passo 8 do
+   * docs/plano-fontes-oficiais-pcdt.md). Conteúdo oficial é sempre global.
    */
   /**
    * Chave do cache da busca (TTL 60 s).
@@ -399,15 +402,29 @@ export class RetrievalService {
     }));
   }
 
+  /**
+   * `text_tsv` é coluna gerada (F9). A similaridade vem junto para o piso de
+   * relevância julgar hits lexicais pela semântica — ver
+   * `semanticScoresForFloor`.
+   */
   private async keywordSearch(
     query: string,
+    embedding: number[],
     limit: number,
     institutionId?: string | null,
-  ): Promise<SearchHit[]> {
+  ): Promise<KeywordHit[]> {
+    const vectorStr = `[${embedding.join(',')}]`;
+
     const results = await this.prisma.$queryRaw<
-      Array<{ id: string; rank: number; institution_id: string | null }>
+      Array<{
+        id: string;
+        rank: number;
+        similarity: number | null;
+        institution_id: string | null;
+      }>
     >`
-      SELECT id, ts_rank(text_tsv, plainto_tsquery('portuguese', ${query})) as rank, institution_id
+      SELECT id, ts_rank(text_tsv, plainto_tsquery('portuguese', ${query})) as rank,
+             1 - (embedding <=> ${vectorStr}::vector) as similarity, institution_id
       FROM guideline_chunks
       WHERE text_tsv @@ plainto_tsquery('portuguese', ${query})
         AND status = 'approved'
@@ -420,7 +437,8 @@ export class RetrievalService {
 
     return results.map((r) => ({
       chunkId: r.id,
-      score: r.rank,
+      score: Number(r.rank),
+      similarity: r.similarity === null ? null : Number(r.similarity),
       institutionId: r.institution_id,
     }));
   }

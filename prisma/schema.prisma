@@ -287,6 +287,9 @@ model GuidelineChunk {
   specialty     String
   evidenceLevel String?                      @map("evidence_level")
   text          String                       @db.Text
+  /// F9 — coluna GENERATED ALWAYS AS (to_tsvector('portuguese', text)) STORED,
+  /// criada em SQL (20260924180000_f9_guideline_chunks_text_tsv_generated): o
+  /// Prisma não modela colunas geradas. Nunca escrever nela.
   textTsv       Unsupported("tsvector")?     @map("text_tsv")
   embedding     Unsupported("vector(1536)")?
   metadata      Json?
@@ -309,6 +312,7 @@ model GuidelineChunk {
   @@index([status])
   @@index([institutionId])
   @@index([documentId])
+  @@index([textTsv], type: Gin, map: "guideline_chunks_text_tsv_idx")
   @@map("guideline_chunks")
 }
 
