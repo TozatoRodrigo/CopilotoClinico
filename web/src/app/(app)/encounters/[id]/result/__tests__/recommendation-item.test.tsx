@@ -110,3 +110,50 @@ describe("RecommendationItem — UX-09: Rejeitar e Anotar", () => {
     expect(screen.queryByText("Rejeitada")).not.toBeInTheDocument();
   });
 });
+
+describe("RecommendationItem — origem da fonte (F4 / ADR-010)", () => {
+  function renderRec(rec: CopilotRecommendation) {
+    render(
+      <RecommendationItem
+        rec={rec}
+        index={0}
+        decision={undefined}
+        onAdopt={vi.fn()}
+        onReject={vi.fn()}
+        onNote={vi.fn()}
+        confidenceLabel="82%"
+      />,
+    );
+  }
+
+  it("marca PCDT como Ministério da Saúde não revisado, com a portaria e o link do PDF", () => {
+    renderRec({
+      ...baseRec,
+      source: "PCDT — Acidentes Ofídicos",
+      sourceVersion: "Portaria SECTICS/MS nº 83 - 07/10/2025",
+      sourceUrl: "https://www.gov.br/conitec/pcdt_acidentes_ofidicos_final.pdf",
+      origin: "official_unreviewed",
+    });
+
+    expect(screen.getByText("Ministério da Saúde · não revisado pela equipe")).toBeInTheDocument();
+    expect(screen.getByText("Portaria SECTICS/MS nº 83 - 07/10/2025")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Ver documento oficial" })).toHaveAttribute(
+      "href",
+      "https://www.gov.br/conitec/pcdt_acidentes_ofidicos_final.pdf",
+    );
+  });
+
+  it("marca anexo do médico como não curado", () => {
+    renderRec({ ...baseRec, origin: "physician_attachment" });
+
+    expect(screen.getByText("Anexo do médico · não curada")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Ver documento oficial" })).not.toBeInTheDocument();
+  });
+
+  it("não afirma origem para diretriz curada nem para análise antiga sem o campo", () => {
+    renderRec({ ...baseRec, origin: "public" });
+    renderRec(baseRec);
+
+    expect(screen.queryByText(/não revisado|não curada/)).not.toBeInTheDocument();
+  });
+});

@@ -200,6 +200,12 @@ export interface CopilotRecommendation {
   sourceVersion: string;
   sourceText: string;
   sourceUrl: string;
+  /**
+   * Origem da fonte citada — ver `Citation.origin`. Opcional: análises
+   * gravadas antes deste campo não o têm, e a UI não afirma origem que não foi
+   * registrada.
+   */
+  origin?: Citation['origin'];
 }
 
 export interface ClarifyingQuestion {
@@ -263,8 +269,12 @@ export interface Citation {
    * atendimento e que ninguém curou. A UI precisa marcar visualmente: a
    * garantia do produto passou a ser "toda recomendação cita uma fonte, e a
    * interface sempre diz se ela é curada", não "toda fonte é curada".
+   *
+   * ADR-010 — `official_unreviewed` é documento oficial do Ministério da Saúde
+   * (PCDT/DDT/Diretrizes/Protocolos de Uso) ainda não revisado pela equipe
+   * clínica. Também precisa de marca visual própria.
    */
-  origin?: 'institutional' | 'public' | 'physician_attachment';
+  origin?: 'institutional' | 'public' | 'physician_attachment' | 'official_unreviewed';
   evidenceFigure?: EvidenceFigure | null;
   evidenceTable?: EvidenceTable | null;
 }
@@ -298,6 +308,11 @@ export interface CopilotAnalyzeResponse {
      * cobre este cenário", não como indecisão do modelo.
      */
     retrievalCoverage: RetrievalCoverage;
+    /**
+     * ADR-010 — trechos da base oficial do MS entregues ao modelo. Opcional:
+     * respostas anteriores à base oficial não têm o campo.
+     */
+    officialChunksRetrieved?: number;
     latencyMs: number;
     cost: number;
     model: string;

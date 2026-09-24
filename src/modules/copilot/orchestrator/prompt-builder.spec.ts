@@ -143,13 +143,15 @@ describe('buildPrompt', () => {
       expect(result.user).toContain(
         '"recommendations" may be empty here ONLY because you are asking',
       );
-      expect(result.user).toContain('never leave both recommendations and clarifyingQuestions empty');
+      expect(result.user).toContain(
+        'never leave both recommendations and clarifyingQuestions empty',
+      );
     });
 
     it('never blames the physician for a vague description — frames the gap as guideline coverage', () => {
       const result = buildPrompt(makeInput({ retrievedChunks: [] }));
 
-      expect(result.user).toContain('never blame the physician\'s description');
+      expect(result.user).toContain("never blame the physician's description");
     });
   });
 
@@ -234,9 +236,7 @@ describe('buildPrompt', () => {
       // O quadrante que faltava na arquitetura antiga: sem diretriz E sem
       // dado do paciente — exatamente o caso da apresentação. A regra
       // precisa instruir pergunta, nunca silêncio.
-      expect(result.system).toContain(
-        'UNIVERSAL-TRIAGE-ANCHORED "clarifyingQuestions"',
-      );
+      expect(result.system).toContain('UNIVERSAL-TRIAGE-ANCHORED "clarifyingQuestions"');
       expect(result.system).toContain('never leave both empty');
     });
 
@@ -297,9 +297,7 @@ describe('buildPrompt', () => {
 
         expect(result.system).toContain('GUIDELINE-ANCHORED');
         expect(result.system).toContain('UNIVERSAL-TRIAGE-ANCHORED');
-        expect(result.system).toContain(
-          'use ONLY when no retrieved chunk covers the point',
-        );
+        expect(result.system).toContain('use ONLY when no retrieved chunk covers the point');
       });
 
       it('restricts universal-triage questions to a closed, named set of categories', () => {
@@ -458,9 +456,7 @@ describe('buildPrompt', () => {
     });
 
     it('instructs the model to treat confirmed flags as fact, not hypothesis', () => {
-      const result = buildPrompt(
-        makeInput({ redFlags: { immunosuppressed: true } }),
-      );
+      const result = buildPrompt(makeInput({ redFlags: { immunosuppressed: true } }));
 
       expect(result.user).toContain('Considere cada uma como fato estabelecido');
       expect(result.user).toContain('NÃO pergunte sobre elas nas clarifyingQuestions');
@@ -489,9 +485,7 @@ describe('buildPrompt', () => {
     });
 
     it('renders a fallback label for unknown keys (forward-compat)', () => {
-      const result = buildPrompt(
-        makeInput({ redFlags: { futureUnknownKey: true } }),
-      );
+      const result = buildPrompt(makeInput({ redFlags: { futureUnknownKey: true } }));
 
       expect(result.user).toContain('Red flag marcada pelo médico: futureUnknownKey');
     });
@@ -622,5 +616,65 @@ describe('buildPrompt — anexos do médico', () => {
 
     expect(result.system).toContain('PHYSICIAN ATTACHMENTS RULE');
     expect(result.system).toContain('"preliminary": true');
+  });
+});
+
+describe('buildPrompt — base oficial do MS (ADR-010)', () => {
+  const official = makeChunks([
+    {
+      chunkId: 'off-1',
+      text: '[PCDT · Acidentes Ofídicos · 7. ABORDAGEM TERAPÊUTICA]\nSoro antibotrópico conforme gravidade.',
+      source: 'PCDT — Acidentes Ofídicos',
+      sourceVersion: 'Portaria SECTICS/MS nº 83 - 07/10/2025',
+    },
+  ]);
+
+  it('sem trechos oficiais, o prompt é idêntico ao anterior (rollback pela flag)', () => {
+    const without = buildPrompt(makeInput());
+    const withEmpty = buildPrompt({ ...makeInput(), officialChunks: [] });
+
+    expect(withEmpty).toEqual(without);
+    expect(without.system).not.toContain('OFFICIAL MS GUIDELINES RULE');
+  });
+
+  it('entra em bloco próprio, fora da evidência curada, e a regra vai para o system', () => {
+    const result = buildPrompt({ ...makeInput(), officialChunks: official });
+
+    expect(result.system).toContain('OFFICIAL MS GUIDELINES RULE');
+    expect(result.system).toContain('CHRONIC, ambulatory care');
+    const curated = result.user.slice(
+      result.user.indexOf('<guideline_evidence'),
+      result.user.indexOf('</guideline_evidence>'),
+    );
+    expect(curated).not.toContain('off-1');
+    expect(result.user).toContain('<official_guidelines type="OFFICIAL_MS_UNREVIEWED">');
+    expect(result.user).toContain(
+      '[ID: off-1] [Source: PCDT — Acidentes Ofídicos — Portaria SECTICS/MS nº 83 - 07/10/2025]',
+    );
+  });
+
+  it('trechos oficiais são citações válidas para o validador', () => {
+    const result = buildPrompt({ ...makeInput(), officialChunks: official });
+
+    expect(result.retrievedChunkIds).toEqual(['default-0', 'off-1']);
+  });
+
+  it('base curada vazia com PCDT: segue com a evidência oficial em vez do caminho D', () => {
+    const result = buildPrompt({
+      ...makeInput({ retrievedChunks: [] }),
+      officialChunks: official,
+    });
+
+    expect(result.user).not.toContain('No relevant guideline evidence was found');
+    expect(result.user).not.toContain('<guideline_evidence');
+    expect(result.user).toContain('No curated guideline in the knowledge base matched this case');
+    expect(result.user).toContain('<official_guidelines type="OFFICIAL_MS_UNREVIEWED">');
+    expect(result.retrievedChunkIds).toEqual(['off-1']);
+  });
+
+  it('sem nenhuma evidência continua no caminho D', () => {
+    const result = buildPrompt({ ...makeInput({ retrievedChunks: [] }), officialChunks: [] });
+
+    expect(result.user).toContain('No relevant guideline evidence was found');
   });
 });

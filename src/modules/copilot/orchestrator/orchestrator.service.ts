@@ -4,8 +4,8 @@ import { createHash } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../config/prisma.service';
 import { AiGatewayService } from '../../ai-gateway/ai-gateway.service';
-import { RetrievalService } from '../retrieval/retrieval.service';
-import type { RetrievalCoverage } from '../retrieval/hybrid-search';
+import { RetrievalService, type RetrievalResult } from '../retrieval/retrieval.service';
+import type { RetrievalCoverage, RetrievedChunk } from '../retrieval/hybrid-search';
 import { EncountersService } from '../../encounters/encounters.service';
 import { AttachmentsService } from '../../encounters/attachments/attachments.service';
 import { AuditService } from '../../audit/audit.service';
@@ -35,6 +35,11 @@ export interface RecommendationSource {
   sourceVersion: string;
   sourceText: string;
   sourceUrl: string;
+  /**
+   * Gravada junto da recomendação (rawOutput/citations) para o rótulo de
+   * origem sobreviver a um recarregamento da página — ADR-010 e F4.
+   */
+  origin: CitationOrigin;
 }
 
 export type EnrichedRecommendation = CopilotOutput['recommendations'][number] &
@@ -97,7 +102,42 @@ function firstClause(text: string): string | null {
  * recomendação correspondente é sempre preliminar (imposto pelo validador de
  * saída, não só pelo prompt).
  */
-export type CitationOrigin = 'institutional' | 'public' | 'physician_attachment';
+export type CitationOrigin =
+  | 'institutional'
+  | 'public'
+  | 'physician_attachment'
+  | 'official_unreviewed';
+
+/**
+ * ADR-010 — trechos que podem ser citados: base curada + base oficial do MS.
+ * Usado para validar a saída e resolver a fonte de cada citação.
+ */
+function citableChunks(result: RetrievalResult): RetrievedChunk[] {
+  return [...result.chunks, ...result.official.chunks];
+}
+
+/**
+ * ADR-010 — cobertura mostrada ao médico. Quando só a base oficial achou algo,
+ * "nenhuma diretriz cobre este cenário" seria falso: a resposta pode citar um
+ * PCDT. Vira `partial` — "confira se a fonte citada trata da mesma
+ * apresentação", o aviso certo para uma fonte não revisada. A cobertura que
+ * vai para o PROMPT continua sendo a da base curada.
+ */
+function displayedCoverage(result: RetrievalResult): RetrievalCoverage {
+  return result.coverage === 'none' && result.official.chunks.length > 0
+    ? 'partial'
+    : result.coverage;
+}
+
+function toPromptContext(chunk: RetrievedChunk) {
+  return {
+    chunkId: chunk.id,
+    text: chunk.text,
+    source: chunk.source,
+    sourceVersion: chunk.sourceVersion,
+    score: chunk.score,
+  };
+}
 
 interface AttachmentForCitation {
   citationId: string;
@@ -143,6 +183,22 @@ function resolveCitationSource(
   }
 
   const chunk = chunks.find((c) => c.id === citationChunkId);
+
+  // ADR-010 — trecho da base oficial do MS: o link leva ao PDF oficial, não
+  // ao endpoint de chunks (que só serve conteúdo curado).
+  if (chunk?.metadata.origin === 'official_unreviewed') {
+    const documentUrl = chunk.metadata.url;
+    return {
+      source: chunk.source,
+      sourceVersion: chunk.sourceVersion,
+      text: chunk.text,
+      institutionId: null,
+      origin: 'official_unreviewed',
+      sourceUrl: typeof documentUrl === 'string' ? documentUrl : '',
+      chunk,
+    };
+  }
+
   return {
     source: chunk?.source ?? 'Unknown',
     sourceVersion: chunk?.sourceVersion ?? 'Unknown',
@@ -178,6 +234,8 @@ export interface OrchestratorResult {
      * de recomendação é indecisão do modelo.
      */
     retrievalCoverage: RetrievalCoverage;
+    /** ADR-010 — trechos da base oficial do MS entregues ao modelo. */
+    officialChunksRetrieved: number;
     latencyMs: number;
     cost: number;
     model: string;
@@ -426,6 +484,8 @@ export class OrchestratorService {
       // KB-005/KB-006 — cobertura vinda do piso de relevância: 'partial'
       // injeta o aviso de encaixe fraco no prompt.
       coverage: retrievalResult.coverage,
+      // ADR-010 — base oficial do MS, em bloco próprio no prompt.
+      officialChunks: retrievalResult.official.chunks.map(toPromptContext),
       physicianAttachments: attachments,
     });
 
@@ -442,7 +502,7 @@ export class OrchestratorService {
     let validation = validateOutput(
       completion.content,
       prompt.retrievedChunkIds,
-      retrievalResult.chunks,
+      citableChunks(retrievalResult),
     );
 
     // Cheaper/weaker models occasionally violate a schema refinement (e.g. a
@@ -473,7 +533,7 @@ export class OrchestratorService {
       validation = validateOutput(
         completion.content,
         prompt.retrievedChunkIds,
-        retrievalResult.chunks,
+        citableChunks(retrievalResult),
       );
     }
 
@@ -493,7 +553,8 @@ export class OrchestratorService {
             // KB-005/KB-006 — persistido para GET /copilot/latest poder
             // reconstruir o aviso de cobertura num carregamento fresco de
             // página, sem depender do sessionStorage da sessão ao vivo.
-            retrievalCoverage: retrievalResult.coverage,
+            retrievalCoverage: displayedCoverage(retrievalResult),
+            officialChunksRetrieved: retrievalResult.official.chunks.length,
           },
           rawOutput: {
             raw: completion.content,
@@ -517,7 +578,7 @@ export class OrchestratorService {
       recommendations: sortRecommendations(validation.output.recommendations).map((rec) => {
         const resolved = resolveCitationSource(
           rec.citationChunkId,
-          retrievalResult.chunks,
+          citableChunks(retrievalResult),
           attachments,
         );
         return {
@@ -527,6 +588,7 @@ export class OrchestratorService {
           sourceVersion: resolved.sourceVersion,
           sourceText: resolved.text,
           sourceUrl: resolved.sourceUrl,
+          origin: resolved.origin,
         };
       }),
     };
@@ -546,7 +608,8 @@ export class OrchestratorService {
           // KB-005/KB-006 — persistido para GET /copilot/latest poder
           // reconstruir o aviso de cobertura num carregamento fresco de
           // página, sem depender do sessionStorage da sessão ao vivo.
-          retrievalCoverage: retrievalResult.coverage,
+          retrievalCoverage: displayedCoverage(retrievalResult),
+          officialChunksRetrieved: retrievalResult.official.chunks.length,
         },
         rawOutput: enrichedOutput as unknown as Prisma.InputJsonValue,
         citations: {
@@ -562,7 +625,7 @@ export class OrchestratorService {
     const citations = enrichedOutput.recommendations.map((rec) => {
       const resolved = resolveCitationSource(
         rec.citationChunkId,
-        retrievalResult.chunks,
+        citableChunks(retrievalResult),
         attachments,
       );
       return {
@@ -600,7 +663,8 @@ export class OrchestratorService {
         piiDetected: piiResult.hasPII,
         injectionDetected: !injectionResult.safe,
         chunksRetrieved: retrievalResult.totalRetrieved,
-        retrievalCoverage: retrievalResult.coverage,
+        retrievalCoverage: displayedCoverage(retrievalResult),
+        officialChunksRetrieved: retrievalResult.official.chunks.length,
         latencyMs: Date.now() - start,
         cost: inferenceCost,
         model: completion.model,
@@ -704,6 +768,8 @@ export class OrchestratorService {
       // KB-005/KB-006 — cobertura vinda do piso de relevância: 'partial'
       // injeta o aviso de encaixe fraco no prompt.
       coverage: retrievalResult.coverage,
+      // ADR-010 — base oficial do MS, em bloco próprio no prompt.
+      officialChunks: retrievalResult.official.chunks.map(toPromptContext),
       physicianAttachments: attachments,
     });
 
@@ -731,7 +797,7 @@ export class OrchestratorService {
     const validation = validateOutput(
       fullContent,
       prompt.retrievedChunkIds,
-      retrievalResult.chunks,
+      citableChunks(retrievalResult),
     );
 
     if (!validation.valid || !validation.output) {
@@ -758,7 +824,7 @@ export class OrchestratorService {
       recommendations: sortRecommendations(validation.output.recommendations).map((rec) => {
         const resolved = resolveCitationSource(
           rec.citationChunkId,
-          retrievalResult.chunks,
+          citableChunks(retrievalResult),
           attachments,
         );
         return {
@@ -768,6 +834,7 @@ export class OrchestratorService {
           sourceVersion: resolved.sourceVersion,
           sourceText: resolved.text,
           sourceUrl: resolved.sourceUrl,
+          origin: resolved.origin,
         };
       }),
     };
@@ -792,7 +859,7 @@ export class OrchestratorService {
     const citations = enrichedOutput.recommendations.map((rec) => {
       const resolved = resolveCitationSource(
         rec.citationChunkId,
-        retrievalResult.chunks,
+        citableChunks(retrievalResult),
         attachments,
       );
       return {
@@ -830,7 +897,8 @@ export class OrchestratorService {
           piiDetected: piiResult.hasPII,
           injectionDetected: false,
           chunksRetrieved: retrievalResult.totalRetrieved,
-          retrievalCoverage: retrievalResult.coverage,
+          retrievalCoverage: displayedCoverage(retrievalResult),
+          officialChunksRetrieved: retrievalResult.official.chunks.length,
           latencyMs: Date.now() - start,
           cost: inferenceCost,
           model: mockCompletion.model,
@@ -984,6 +1052,8 @@ export class OrchestratorService {
       // KB-005/KB-006 — cobertura vinda do piso de relevância: 'partial'
       // injeta o aviso de encaixe fraco no prompt.
       coverage: retrievalResult.coverage,
+      // ADR-010 — base oficial do MS, em bloco próprio no prompt.
+      officialChunks: retrievalResult.official.chunks.map(toPromptContext),
       physicianAttachments: attachments,
     });
 
@@ -1000,7 +1070,7 @@ export class OrchestratorService {
     let validation = validateOutput(
       completion.content,
       prompt.retrievedChunkIds,
-      retrievalResult.chunks,
+      citableChunks(retrievalResult),
     );
 
     // See the `analyze` method for why this bounded retry exists.
@@ -1027,7 +1097,7 @@ export class OrchestratorService {
       validation = validateOutput(
         completion.content,
         prompt.retrievedChunkIds,
-        retrievalResult.chunks,
+        citableChunks(retrievalResult),
       );
     }
 
@@ -1045,7 +1115,8 @@ export class OrchestratorService {
           params: {
             demoCase: inheritedParams.demoCase,
             redFlags: inheritedParams.redFlags,
-            retrievalCoverage: retrievalResult.coverage,
+            retrievalCoverage: displayedCoverage(retrievalResult),
+            officialChunksRetrieved: retrievalResult.official.chunks.length,
           },
           rawOutput: {
             raw: completion.content,
@@ -1072,7 +1143,7 @@ export class OrchestratorService {
       recommendations: sortRecommendations(validation.output.recommendations).map((rec) => {
         const resolved = resolveCitationSource(
           rec.citationChunkId,
-          retrievalResult.chunks,
+          citableChunks(retrievalResult),
           attachments,
         );
         return {
@@ -1082,6 +1153,7 @@ export class OrchestratorService {
           sourceVersion: resolved.sourceVersion,
           sourceText: resolved.text,
           sourceUrl: resolved.sourceUrl,
+          origin: resolved.origin,
         };
       }),
     };
@@ -1097,7 +1169,8 @@ export class OrchestratorService {
         params: {
           demoCase: inheritedParams.demoCase,
           redFlags: inheritedParams.redFlags,
-          retrievalCoverage: retrievalResult.coverage,
+          retrievalCoverage: displayedCoverage(retrievalResult),
+          officialChunksRetrieved: retrievalResult.official.chunks.length,
         },
         rawOutput: enrichedOutput as unknown as Prisma.InputJsonValue,
         citations: {
@@ -1116,7 +1189,7 @@ export class OrchestratorService {
     const citations = enrichedOutput.recommendations.map((rec) => {
       const resolved = resolveCitationSource(
         rec.citationChunkId,
-        retrievalResult.chunks,
+        citableChunks(retrievalResult),
         attachments,
       );
       return {
@@ -1164,7 +1237,8 @@ export class OrchestratorService {
         piiDetected,
         injectionDetected: !injectionResult.safe,
         chunksRetrieved: retrievalResult.totalRetrieved,
-        retrievalCoverage: retrievalResult.coverage,
+        retrievalCoverage: displayedCoverage(retrievalResult),
+        officialChunksRetrieved: retrievalResult.official.chunks.length,
         latencyMs: Date.now() - start,
         cost: inferenceCost,
         model: completion.model,

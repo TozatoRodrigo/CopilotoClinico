@@ -16,6 +16,7 @@ describe('RetrievalService', () => {
   let aiGatewayMock: {
     embed: ReturnType<typeof vi.fn>;
   };
+  let env: Record<string, string | undefined>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -37,8 +38,13 @@ describe('RetrievalService', () => {
     } as unknown as RedisService;
 
     // Sem env definida, o serviço cai nos defaults do piso de relevância
-    // (DEFAULT_MIN_SEMANTIC_SCORE etc.) — ver hybrid-search.ts.
-    const configMock = { get: vi.fn().mockReturnValue(undefined) } as unknown as ConfigService;
+    // (DEFAULT_MIN_SEMANTIC_SCORE etc.) — ver hybrid-search.ts. A base
+    // oficial (ADR-010) fica desligada aqui: estes testes cobrem a base
+    // curada; a oficial tem bloco próprio abaixo.
+    env = { OFFICIAL_GUIDELINES_ENABLED: 'false' };
+    const configMock = {
+      get: vi.fn((key: string) => env[key]),
+    } as unknown as ConfigService;
 
     service = new RetrievalService(
       prismaMock as unknown as PrismaService,
@@ -306,6 +312,120 @@ describe('RetrievalService', () => {
 
       expect(result.chunks[0]!.id).toBe('institutional-chunk');
       expect(result.chunks[0]!.institutionId).toBe('institution-a');
+    });
+  });
+
+  describe('search — base oficial (ADR-010)', () => {
+    const officialChunk = (id: string, careSetting: string) => ({
+      id,
+      text: `[PCDT · Acidentes Ofídicos · 7. ABORDAGEM TERAPÊUTICA]\nSoro ${id}`,
+      source: 'PCDT — Acidentes Ofídicos',
+      sourceVersion: 'Portaria SECTICS/MS nº 83 - 07/10/2025',
+      specialty: 'toxicologia',
+      evidenceLevel: null,
+      institutionId: null,
+      metadata: { origin: 'official_unreviewed', careSetting },
+    });
+
+    beforeEach(() => {
+      env.OFFICIAL_GUIDELINES_ENABLED = undefined;
+      aiGatewayMock.embed.mockResolvedValue({ embeddings: [[0.1, 0.2, 0.3]] });
+    });
+
+    it('fica ligada por padrão e busca num pool separado, sem mexer na base curada', async () => {
+      prismaMock.$queryRaw
+        .mockResolvedValueOnce([{ id: 'curated-1', similarity: 0.9, institution_id: null }])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          { id: 'off-1', similarity: 0.62, document_id: 'doc-ofidicos', care_setting: 'agudo' },
+          { id: 'off-2', similarity: 0.2, document_id: 'doc-x', care_setting: 'agudo' },
+        ]);
+      const rows = [
+        { ...officialChunk('curated-1', 'agudo'), source: 'SSC 2021', metadata: {} },
+        officialChunk('off-1', 'agudo'),
+      ];
+      prismaMock.guidelineChunk.findMany.mockImplementation(
+        async ({ where }: { where: { id: { in: string[] } } }) =>
+          rows.filter((row) => where.id.in.includes(row.id)),
+      );
+
+      const result = await service.search('picada de jararaca', 5);
+
+      expect(result.chunks.map((c) => c.id)).toEqual(['curated-1']);
+      expect(result.coverage).toBe('full');
+      expect(result.official).toMatchObject({
+        enabled: true,
+        bestSemanticScore: 0.62,
+        discardedByFloor: 1,
+      });
+      expect(result.official.chunks.map((c) => c.id)).toEqual(['off-1']);
+      expect(result.official.chunks[0]!.score).toBe(0.62);
+
+      const officialSql = (prismaMock.$queryRaw.mock.calls[2]![0] as TemplateStringsArray).join(
+        '?',
+      );
+      expect(officialSql).toContain("status = 'official_unreviewed'");
+      expect(officialSql).toContain('institution_id IS NULL');
+    });
+
+    it('busca a base oficial mesmo quando a curada não cobre o caso', async () => {
+      prismaMock.$queryRaw
+        .mockResolvedValueOnce([{ id: 'sepse-1', similarity: 0.1, institution_id: null }])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          { id: 'off-1', similarity: 0.7, document_id: 'doc-ofidicos', care_setting: 'agudo' },
+        ]);
+      prismaMock.guidelineChunk.findMany.mockResolvedValueOnce([officialChunk('off-1', 'agudo')]);
+
+      const result = await service.search('picada de jararaca', 5);
+
+      expect(result.coverage).toBe('none');
+      expect(result.chunks).toEqual([]);
+      expect(result.official.chunks.map((c) => c.id)).toEqual(['off-1']);
+    });
+
+    it('penaliza documento crônico', async () => {
+      prismaMock.$queryRaw
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          { id: 'has-1', similarity: 0.38, document_id: 'doc-has', care_setting: 'cronico' },
+        ]);
+
+      const result = await service.search('PA 220x130 com cefaleia', 5);
+
+      expect(result.official.chunks).toEqual([]);
+      expect(result.official.discardedByFloor).toBe(1);
+      expect(prismaMock.guidelineChunk.findMany).not.toHaveBeenCalled();
+    });
+
+    it('OFFICIAL_GUIDELINES_ENABLED=false não consulta a base oficial', async () => {
+      env.OFFICIAL_GUIDELINES_ENABLED = 'false';
+      prismaMock.$queryRaw.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+
+      const result = await service.search('picada de jararaca', 5);
+
+      expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(2);
+      expect(result.official).toEqual({
+        enabled: false,
+        chunks: [],
+        bestSemanticScore: 0,
+        discardedByFloor: 0,
+      });
+    });
+
+    it('limiares são ajustáveis por env', async () => {
+      env.OFFICIAL_MIN_SEMANTIC_SCORE = '0.8';
+      prismaMock.$queryRaw
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([])
+        .mockResolvedValueOnce([
+          { id: 'off-1', similarity: 0.7, document_id: 'doc-ofidicos', care_setting: 'agudo' },
+        ]);
+
+      const result = await service.search('picada de jararaca', 5);
+
+      expect(result.official.chunks).toEqual([]);
     });
   });
 });
