@@ -91,10 +91,10 @@ services:
       # ADR-010 — base oficial do MS (PCDT/DDT/DB/PU). Mesmo motivo das linhas
       # acima: sem repassar aqui, "OFFICIAL_GUIDELINES_ENABLED=false" no
       # .env.production não desligaria nada. Defaults iguais aos do código
-      # (official-search.ts), ainda não calibrados.
+      # (official-search.ts), calibrados em produção em 24/09/2026.
       OFFICIAL_GUIDELINES_ENABLED: ${OFFICIAL_GUIDELINES_ENABLED:-true}
-      OFFICIAL_MIN_SEMANTIC_SCORE: ${OFFICIAL_MIN_SEMANTIC_SCORE:-0.35}
-      OFFICIAL_CHRONIC_PENALTY: ${OFFICIAL_CHRONIC_PENALTY:-0.05}
+      OFFICIAL_MIN_SEMANTIC_SCORE: ${OFFICIAL_MIN_SEMANTIC_SCORE:-0.52}
+      OFFICIAL_CHRONIC_PENALTY: ${OFFICIAL_CHRONIC_PENALTY:-0.10}
       OFFICIAL_MAX_CHUNKS_PER_DOCUMENT: ${OFFICIAL_MAX_CHUNKS_PER_DOCUMENT:-2}
       OFFICIAL_RETRIEVAL_TOP_K: ${OFFICIAL_RETRIEVAL_TOP_K:-3}
       THROTTLER_TTL: ${THROTTLER_TTL:-60000}

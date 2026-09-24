@@ -41,12 +41,23 @@ export interface OfficialSelection {
 }
 
 /**
- * Defaults ainda NÃO calibrados — a calibração é o passo 8 do plano
- * (`docs/plano-fontes-oficiais-pcdt.md`), com os casos sintéticos e os de
- * incidente. Todos ajustáveis por env sem redeploy.
+ * Calibrados em produção em 24/09/2026 (text-embedding-3-small, base oficial
+ * completa, 5 casos de referência — ofídico, escorpiônico, AVC isquêmico,
+ * crise hipertensiva, dengue fi-001):
+ *
+ * - documento certo: similaridade 0,55–0,64;
+ * - ruído (Chagas, doença falciforme, agrotóxicos em caso de dengue): 0,44–0,54.
+ *
+ * O piso de 0,35 inicial deixava o ruído entrar em todo caso. Com 0,52 a
+ * maior parte sai; ainda passa 1 trecho de documento "misto" (Chagas,
+ * falciforme) entre 0,52 e 0,54 — subir o piso mais cortaria o PCDT de AVC
+ * (0,55). A penalização de 0,10 tira o PCDT de HAS ambulatorial da crise
+ * hipertensiva (0,05 não tirava). Margem e amostra pequenas: a calibração com
+ * os casos sintéticos (passo 8 do plano) substitui estes números. Todos
+ * ajustáveis por env sem redeploy.
  */
-export const DEFAULT_OFFICIAL_MIN_SEMANTIC_SCORE = 0.35;
-export const DEFAULT_OFFICIAL_CHRONIC_PENALTY = 0.05;
+export const DEFAULT_OFFICIAL_MIN_SEMANTIC_SCORE = 0.52;
+export const DEFAULT_OFFICIAL_CHRONIC_PENALTY = 0.1;
 export const DEFAULT_OFFICIAL_MAX_PER_DOCUMENT = 2;
 export const DEFAULT_OFFICIAL_TOP_K = 3;
 
