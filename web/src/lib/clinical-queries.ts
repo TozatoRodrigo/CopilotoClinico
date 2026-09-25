@@ -20,6 +20,8 @@ import type {
   EncountersResponse,
   GenerateDocumentRequest,
   GuidelineSearchResult,
+  GuidelineConsultRequest,
+  GuidelineConsultResponse,
   GuidelineSourceSummary,
   PendingGuidelineChunk,
   CopilotFeedbackRequest,
@@ -284,6 +286,26 @@ export function usePendingGuidelineChunks() {
 // opcional, não um pré-requisito para ver algo na tela. `limit` sobe para
 // 50 (teto já aplicado pelo controller) quando quem chama quer o efeito de
 // "listar tudo" em vez do recorte padrão de 20.
+/**
+ * Consulta de diretrizes dentro do caso: busca por significado e por
+ * palavra-chave nas bases curada e oficial (PCDT), agrupada por documento.
+ * POST: o texto pode ser o caso inteiro e não deve ir para URL/log.
+ */
+export function useGuidelineConsult(query: string, limit?: number) {
+  const trimmed = query.trim();
+  return useQuery({
+    queryKey: ['guideline-consult', trimmed, limit ?? null] as const,
+    queryFn: () =>
+      apiClient.post<GuidelineConsultResponse>('/guidelines/consult', {
+        query: trimmed,
+        limit,
+      } satisfies GuidelineConsultRequest),
+    enabled: trimmed.length >= 2,
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
 export function useGuidelineSearch(query: string, specialty?: string, limit?: number) {
   return useQuery({
     queryKey: clinicalQueryKeys.guidelineSearch(query, specialty),

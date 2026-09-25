@@ -446,7 +446,11 @@ describe('GuidelinesService', () => {
         reviewedAt: new Date('2026-06-13'),
       });
 
-      const result = await service.rejectChunk('chunk-pending-1', 'curator-1', 'Texto desatualizado');
+      const result = await service.rejectChunk(
+        'chunk-pending-1',
+        'curator-1',
+        'Texto desatualizado',
+      );
 
       expect(prisma.guidelineChunk.update).toHaveBeenCalledWith({
         where: { id: 'chunk-pending-1' },
@@ -695,7 +699,7 @@ describe('GuidelinesService', () => {
       await service.searchChunks('gripe', 'Clínica Médica');
 
       expect(prisma.$queryRawUnsafe).toHaveBeenCalledWith(
-        expect.stringContaining("gc.specialty = $3"),
+        expect.stringContaining('gc.specialty = $3'),
         'gripe',
         20,
         'Clínica Médica',
@@ -707,11 +711,49 @@ describe('GuidelinesService', () => {
 
       await service.searchChunks('febre', undefined, 5);
 
-      expect(prisma.$queryRawUnsafe).toHaveBeenCalledWith(
-        expect.any(String),
-        'febre',
-        5,
-      );
+      expect(prisma.$queryRawUnsafe).toHaveBeenCalledWith(expect.any(String), 'febre', 5);
+    });
+  });
+
+  describe('consult', () => {
+    it('mascara PII antes do embedding e junta as duas buscas', async () => {
+      aiGateway.embed.mockResolvedValue({ embeddings: [[0.1, 0.2]] });
+      prisma.$queryRawUnsafe
+        .mockResolvedValueOnce([
+          {
+            chunkId: 'off-1',
+            source: 'PCDT — Acidentes Escorpiônicos',
+            sourceVersion: 'Portaria nº 59',
+            specialty: 'toxicologia',
+            text: 'Soro antiescorpiônico',
+            status: 'official_unreviewed',
+            institutionId: null,
+            metadata: {
+              documentKey: 'pcdt:escorpionicos',
+              section: '7. TRATAMENTO',
+              url: 'https://x/pdf',
+            },
+            similarity: '0.61',
+          },
+        ])
+        .mockResolvedValueOnce([]);
+
+      const results = await service.consult('Paciente CPF 123.456.789-09 picado por escorpião');
+
+      const embedded = aiGateway.embed.mock.calls[0]![0] as string[];
+      expect(embedded[0]).not.toContain('123.456.789-09');
+      expect(results).toEqual([
+        expect.objectContaining({
+          chunkId: 'off-1',
+          origin: 'official_unreviewed',
+          similarity: 0.61,
+        }),
+      ]);
+      // As duas consultas SQL só olham conteúdo aprovado ou oficial vigente.
+      for (const call of prisma.$queryRawUnsafe.mock.calls) {
+        expect(call[0]).toContain("gc.status IN ('approved', 'official_unreviewed')");
+        expect(call[0]).toContain('gc.valid_to IS NULL');
+      }
     });
   });
 });

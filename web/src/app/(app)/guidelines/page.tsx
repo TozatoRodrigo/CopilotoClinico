@@ -1,18 +1,14 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
+  ArrowLeft,
   CaretDown,
   Check,
   CheckCircle,
-  Clock,
   MagnifyingGlass,
-  SealCheck,
-  ShieldWarning,
   Sparkle,
-  Copy,
-  PlusCircle,
   X,
 } from '@phosphor-icons/react';
 import Link from 'next/link';
@@ -22,15 +18,14 @@ import {
   usePendingGuidelineChunks,
   useApproveGuidelineChunk,
   useRejectGuidelineChunk,
-  useEncounterList,
 } from '@/lib/clinical-queries';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { SuggestGuidelineDialog } from '@/components/domain/suggest-guideline-dialog';
+import { GuidelineConsultResults } from '@/components/domain/guideline-consult';
 import type { GuidelineSearchResult, PendingGuidelineChunk } from '@/lib/types';
 
 const FILTER_PILLS = ['Todas', 'Trauma', 'Cardíaco', 'Pediátrico', 'Neuro', 'Geral'];
@@ -52,74 +47,6 @@ const SPECIALTY_MAP: Record<string, string | undefined> = {
   Neuro: 'neurologia',
   Geral: 'clinica_medica',
 };
-
-function composeAnswer(results: GuidelineSearchResult[]): { text: string; count: number } {
-  const top = results.slice(0, 5);
-  if (top.length === 0) return { text: '', count: 0 };
-
-  const excerpts = top.map((r, i) => {
-    const snippet = r.text.length > 200 ? r.text.slice(0, 200).trim() + '…' : r.text;
-    return { num: i + 1, snippet };
-  });
-
-  const text = excerpts
-    .map((e) => `${e.snippet} [${e.num}]`)
-    .join(' ');
-
-  return { text, count: top.length };
-}
-
-function DirectAnswerCard({
-  results,
-  targetEncounterId,
-}: {
-  results: GuidelineSearchResult[];
-  targetEncounterId?: string;
-}) {
-  const { text, count } = composeAnswer(results);
-
-  function handleCopy() {
-    const full = `${text}\n\n${results
-      .slice(0, count)
-      .map((r, i) => `[${i + 1}] ${r.source} v${r.sourceVersion}`)
-      .join('\n')}`;
-    navigator.clipboard.writeText(full);
-    toast.success('Resposta copiada com citações.');
-  }
-
-  return (
-    <div className="rounded-[14px] border border-clinical-teal/25 bg-clinical-teal-tint/40 p-5">
-      <p className="mb-2 flex items-center gap-1.5 font-mono text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-clinical-teal-deep">
-        <Sparkle className="size-3" weight="fill" />
-        Resposta direta · {count} trechos
-      </p>
-      <p className="text-[0.95rem] leading-relaxed">{text}</p>
-      <div className="mt-3.5 flex items-center gap-2 border-t border-clinical-line pt-3">
-        <Button variant="outline" size="sm" className="h-[34px] gap-1.5 text-[0.8rem]" onClick={handleCopy}>
-          <Copy className="size-3" /> Copiar com citações
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-[34px] gap-1.5 text-[0.8rem]"
-          disabled={!targetEncounterId}
-          title={targetEncounterId ? undefined : 'Nenhum caso em revisão no momento'}
-          asChild={Boolean(targetEncounterId)}
-        >
-          {targetEncounterId ? (
-            <Link href={`/encounters/${targetEncounterId}/result`}>
-              <PlusCircle className="size-3" /> Usar no caso atual
-            </Link>
-          ) : (
-            <>
-              <PlusCircle className="size-3" /> Usar no caso atual
-            </>
-          )}
-        </Button>
-      </div>
-    </div>
-  );
-}
 
 // S24-GUIDE-02 — o card não tinha nenhum onClick; "Abrir →" era um <span>
 // sem handler, só aparecia em protocolo institucional, e mesmo lá não
@@ -152,7 +79,7 @@ function SourceCard({ result, num }: { result: GuidelineSearchResult; num: numbe
           </p>
           {!expanded && (
             <p className="mt-0.5 line-clamp-2 text-[0.8rem] leading-relaxed text-muted-foreground">
-              "{snippet}"
+              &ldquo;{snippet}&rdquo;
             </p>
           )}
         </div>
@@ -207,30 +134,57 @@ function CuratorQueue() {
     if (ids.length === 0) return;
     let ok = 0;
     for (const id of ids) {
-      try { await approve.mutateAsync(id); ok++; } catch { /* keep going */ }
+      try {
+        await approve.mutateAsync(id);
+        ok++;
+      } catch {
+        /* keep going */
+      }
     }
     setSelected(new Set());
     toast.success(`${ok} chunk${ok !== 1 ? 's' : ''} aprovado${ok !== 1 ? 's' : ''}`);
   };
 
   const handleApprove = async (chunkId: string) => {
-    try { await approve.mutateAsync(chunkId); setSelected((p) => { const n = new Set(p); n.delete(chunkId); return n; }); toast.success('Chunk aprovado.'); }
-    catch { toast.error('Erro ao aprovar chunk.'); }
+    try {
+      await approve.mutateAsync(chunkId);
+      setSelected((p) => {
+        const n = new Set(p);
+        n.delete(chunkId);
+        return n;
+      });
+      toast.success('Chunk aprovado.');
+    } catch {
+      toast.error('Erro ao aprovar chunk.');
+    }
   };
 
   const handleReject = async (chunkId: string) => {
-    try { await reject.mutateAsync({ chunkId, reason: 'Reprovado na revisão de curadoria' }); toast.success('Chunk rejeitado.'); }
-    catch { toast.error('Erro ao rejeitar chunk.'); }
+    try {
+      await reject.mutateAsync({ chunkId, reason: 'Reprovado na revisão de curadoria' });
+      toast.success('Chunk rejeitado.');
+    } catch {
+      toast.error('Erro ao rejeitar chunk.');
+    }
   };
 
-  if (isLoading) return <div className="space-y-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}</div>;
+  if (isLoading)
+    return (
+      <div className="space-y-2">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} className="h-16 w-full" />
+        ))}
+      </div>
+    );
 
   const chunks = data ?? [];
   if (chunks.length === 0) {
     return (
       <div className="flex flex-col items-center gap-2 py-8 text-center">
         <CheckCircle className="size-8 text-clinical-green" />
-        <p className="text-sm text-muted-foreground">Nenhum chunk aguardando revisão. Tudo em dia.</p>
+        <p className="text-sm text-muted-foreground">
+          Nenhum chunk aguardando revisão. Tudo em dia.
+        </p>
       </div>
     );
   }
@@ -238,32 +192,77 @@ function CuratorQueue() {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">{chunks.length} chunk{chunks.length !== 1 ? 's' : ''} aguardando revisão</p>
+        <p className="text-xs text-muted-foreground">
+          {chunks.length} chunk{chunks.length !== 1 ? 's' : ''} aguardando revisão
+        </p>
         {selected.size > 0 && (
-          <Button size="sm" onClick={() => void handleBatchApprove()} loading={approve.isPending} className="gap-1.5">
-            <Check className="size-3.5" /> Aprovar {selected.size} selecionado{selected.size !== 1 ? 's' : ''}
+          <Button
+            size="sm"
+            onClick={() => void handleBatchApprove()}
+            loading={approve.isPending}
+            className="gap-1.5"
+          >
+            <Check className="size-3.5" /> Aprovar {selected.size} selecionado
+            {selected.size !== 1 ? 's' : ''}
           </Button>
         )}
       </div>
       <div className="space-y-2">
         {chunks.map((chunk: PendingGuidelineChunk) => (
-          <div key={chunk.id} className={cn('rounded-lg border p-3', selected.has(chunk.id) ? 'border-clinical-teal/40 bg-clinical-teal-tint/30' : 'border-border/70')}>
+          <div
+            key={chunk.id}
+            className={cn(
+              'rounded-lg border p-3',
+              selected.has(chunk.id)
+                ? 'border-clinical-teal/40 bg-clinical-teal-tint/30'
+                : 'border-border/70',
+            )}
+          >
             <div className="flex items-start gap-3">
-              <button type="button" onClick={() => toggleSelect(chunk.id)} aria-pressed={selected.has(chunk.id)}
-                className={cn('mt-0.5 flex size-5 shrink-0 items-center justify-center rounded border', selected.has(chunk.id) ? 'border-clinical-teal bg-clinical-teal text-white' : 'border-border bg-card hover:border-clinical-teal/40')}>
+              <button
+                type="button"
+                onClick={() => toggleSelect(chunk.id)}
+                aria-pressed={selected.has(chunk.id)}
+                className={cn(
+                  'mt-0.5 flex size-5 shrink-0 items-center justify-center rounded border',
+                  selected.has(chunk.id)
+                    ? 'border-clinical-teal bg-clinical-teal text-white'
+                    : 'border-border bg-card hover:border-clinical-teal/40',
+                )}
+              >
                 {selected.has(chunk.id) && <Check className="size-3" weight="bold" />}
               </button>
               <div className="min-w-0 flex-1 space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-xs font-medium">{chunk.source}</span>
-                  <Badge variant="outline" className="font-mono text-[10px]">v{chunk.sourceVersion}</Badge>
-                  <Badge variant="secondary" className="text-[10px]">{chunk.specialty}</Badge>
+                  <Badge variant="outline" className="font-mono text-[10px]">
+                    v{chunk.sourceVersion}
+                  </Badge>
+                  <Badge variant="secondary" className="text-[10px]">
+                    {chunk.specialty}
+                  </Badge>
                 </div>
                 <p className="line-clamp-2 text-xs text-muted-foreground">{chunk.text}</p>
               </div>
               <div className="flex shrink-0 gap-1">
-                <Button size="icon-sm" variant="ghost" onClick={() => handleApprove(chunk.id)} disabled={approve.isPending} className="text-clinical-green hover:bg-clinical-green-bg"><Check className="size-4" /></Button>
-                <Button size="icon-sm" variant="ghost" onClick={() => handleReject(chunk.id)} disabled={reject.isPending} className="text-destructive hover:bg-destructive/10"><X className="size-4" /></Button>
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  onClick={() => handleApprove(chunk.id)}
+                  disabled={approve.isPending}
+                  className="text-clinical-green hover:bg-clinical-green-bg"
+                >
+                  <Check className="size-4" />
+                </Button>
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  onClick={() => handleReject(chunk.id)}
+                  disabled={reject.isPending}
+                  className="text-destructive hover:bg-destructive/10"
+                >
+                  <X className="size-4" />
+                </Button>
               </div>
             </div>
           </div>
@@ -296,21 +295,30 @@ export default function GuidelinesPage() {
   // biblioteca); com query, filtra por relevância. limit=50 para que
   // "listar tudo" realmente mostre tudo, não só o recorte padrão de 20.
   const hasQuery = query.trim().length >= 2;
-  const { data, isLoading, isError } = useGuidelineSearch(query, specialty, 50);
-  // UX — "Usar no caso atual": leva o trecho encontrado direto para a
-  // análise do caso mais recente em revisão do médico, em vez de deixar o
-  // botão sem destino.
-  const activeCaseQuery = useEncounterList({ status: 'in_review', limit: 1 });
-  const targetEncounterId = activeCaseQuery.data?.data[0]?.id;
+  // Sem termo: modo biblioteca (lista o que está aprovado). Com termo: a
+  // mesma consulta do painel do caso — por significado e palavra-chave, nas
+  // bases curada e oficial (GuidelineConsultResults).
+  const { data, isLoading, isError } = useGuidelineSearch('', specialty, 50);
+  // Aberta a partir de um caso (?encounter=<id>): oferecer a volta. O antigo
+  // "Usar no caso atual" levava para o caso em revisão MAIS RECENTE, que
+  // podia ser de outro paciente.
+  const fromEncounterId = searchParams.get('encounter');
 
-  const hasResults = !isLoading && !isError && data && data.length > 0;
+  const hasResults = !hasQuery && !isLoading && !isError && data && data.length > 0;
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
+      {fromEncounterId && (
+        <Button variant="ghost" size="sm" className="-ml-2 gap-1.5 text-muted-foreground" asChild>
+          <Link href={`/encounters/${fromEncounterId}/result`}>
+            <ArrowLeft className="size-4" /> Voltar ao caso
+          </Link>
+        </Button>
+      )}
       {/* Header */}
       <div>
         <p className="mb-1 font-mono text-[0.75rem] uppercase tracking-[0.08em] text-muted-foreground">
-          Base clínica{hasResults ? ` · ${data!.length} diretrizes encontradas` : ''}
+          Base clínica{hasResults ? ` · ${data!.length} trechos aprovados` : ''}
         </p>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="font-display text-[2rem] font-normal leading-tight">
@@ -322,12 +330,32 @@ export default function GuidelinesPage() {
 
       {isCurator && (
         <div className="flex gap-1 rounded-lg bg-muted p-1" role="tablist">
-          <button type="button" role="tab" aria-selected={tab === 'library'} onClick={() => setTab('library')}
-            className={cn('flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors', tab === 'library' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'library'}
+            onClick={() => setTab('library')}
+            className={cn(
+              'flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+              tab === 'library'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
             Biblioteca
           </button>
-          <button type="button" role="tab" aria-selected={tab === 'curator'} onClick={() => setTab('curator')}
-            className={cn('flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors', tab === 'curator' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'curator'}
+            onClick={() => setTab('curator')}
+            className={cn(
+              'flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+              tab === 'curator'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
             Curadoria
           </button>
         </div>
@@ -336,7 +364,10 @@ export default function GuidelinesPage() {
       {tab === 'library' ? (
         <>
           {/* Search bar */}
-          <div className="flex items-center gap-3 rounded-2xl border border-clinical-teal bg-card px-5 py-0 shadow-[0_0_0_3px_rgba(14,124,123,0.1)]" style={{ height: 60 }}>
+          <div
+            className="flex items-center gap-3 rounded-2xl border border-clinical-teal bg-card px-5 py-0 shadow-[0_0_0_3px_rgba(14,124,123,0.1)]"
+            style={{ height: 60 }}
+          >
             <MagnifyingGlass className="size-[19px] shrink-0 text-clinical-teal" />
             <input
               value={queryInput}
@@ -350,70 +381,61 @@ export default function GuidelinesPage() {
             </Button>
           </div>
 
-          {/* Filter pills */}
-          <div className="flex flex-wrap items-center gap-2">
-            {FILTER_PILLS.map((pill) => (
+          {/* Filter pills — só no modo biblioteca */}
+          {!hasQuery && (
+            <div className="flex flex-wrap items-center gap-2">
+              {FILTER_PILLS.map((pill) => (
+                <button
+                  key={pill}
+                  type="button"
+                  onClick={() => setActivePill(pill)}
+                  aria-pressed={activePill === pill}
+                  className={cn(
+                    'rounded-full px-3.5 py-1.5 text-[0.8rem] font-medium transition-colors',
+                    activePill === pill
+                      ? 'bg-clinical-teal-tint text-clinical-teal-deep font-semibold'
+                      : 'border border-clinical-line bg-card text-muted-foreground hover:border-clinical-teal/40',
+                  )}
+                >
+                  {pill}
+                </button>
+              ))}
+              <div className="flex-1" />
               <button
-                key={pill}
                 type="button"
-                onClick={() => setActivePill(pill)}
-                aria-pressed={activePill === pill}
-                className={cn(
-                  'rounded-full px-3.5 py-1.5 text-[0.8rem] font-medium transition-colors',
-                  activePill === pill
-                    ? 'bg-clinical-teal-tint text-clinical-teal-deep font-semibold'
-                    : 'border border-clinical-line bg-card text-muted-foreground hover:border-clinical-teal/40',
-                )}
+                onClick={() => setActivePill('Todas')}
+                className="rounded-full border border-clinical-line bg-card px-3.5 py-1.5 text-[0.8rem] font-medium text-muted-foreground"
               >
-                {pill}
+                Só protocolos do hospital
               </button>
-            ))}
-            <div className="flex-1" />
-            <button
-              type="button"
-              onClick={() => setActivePill('Todas')}
-              className="rounded-full border border-clinical-line bg-card px-3.5 py-1.5 text-[0.8rem] font-medium text-muted-foreground"
-            >
-              Só protocolos do hospital
-            </button>
-          </div>
+            </div>
+          )}
 
-          {/* Results — S24-GUIDE-01: sem query mostra a biblioteca inteira
-              (aprovadas), com query filtra por relevância. Nunca fica vazia
-              só por falta de termo digitado. */}
-          {isLoading ? (
+          {hasQuery ? (
+            <GuidelineConsultResults query={query} />
+          ) : isLoading ? (
             <div className="space-y-3">
-              {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-[14px]" />)}
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-20 w-full rounded-[14px]" />
+              ))}
             </div>
           ) : isError ? (
-            <p className="py-8 text-center text-sm text-destructive">Erro ao buscar diretrizes.</p>
+            <p className="py-8 text-center text-sm text-destructive">
+              Erro ao carregar a biblioteca.
+            </p>
           ) : !data || data.length === 0 ? (
             <div className="flex flex-col items-center gap-3 py-12 text-center">
               <MagnifyingGlass className="size-8 text-muted-foreground" />
               <p className="text-sm text-muted-foreground">
-                {hasQuery ? `Nenhum resultado para "${query}".` : 'Nenhuma diretriz aprovada ainda.'}
+                Nenhuma diretriz aprovada nesta especialidade.
               </p>
-              {/* F4 — o momento exato em que o médico descobre um buraco na
-                  base é o momento certo para oferecer o caminho de contribuir.
-                  Antes daqui, ele só tinha o console de curadoria, que exige
-                  papel de curador e front-matter. */}
-              <p className="max-w-sm text-xs text-muted-foreground">
-                Se você tem a referência para este cenário, envie para a curadoria — é assim que a
-                base deixa de ter esse buraco.
-              </p>
-              <SuggestGuidelineDialog defaultSource={hasQuery ? '' : undefined} />
+              <SuggestGuidelineDialog />
             </div>
           ) : (
-            <div className="space-y-3">
-              {/* Direct answer — só faz sentido como resposta a uma busca real */}
-              {hasQuery && <DirectAnswerCard results={data} targetEncounterId={targetEncounterId} />}
-
-              {/* Source cards */}
-              <div className="flex flex-col gap-2.5">
-                {data.slice(0, hasQuery ? 5 : data.length).map((result, i) => (
-                  <SourceCard key={result.id} result={result} num={i + 1} />
-                ))}
-              </div>
+            <div className="flex flex-col gap-2.5">
+              {data.map((result, i) => (
+                <SourceCard key={result.id} result={result} num={i + 1} />
+              ))}
             </div>
           )}
         </>

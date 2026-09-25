@@ -234,6 +234,7 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
       JSON.stringify({
         interactionId: result.interactionId,
         analysis,
+        caseText,
         turnIndex: result.metadata.turnIndex,
         maxTurns: result.metadata.maxTurns,
         // KB-005/KB-006 — mesma razão: o aviso de "a base não cobre este
