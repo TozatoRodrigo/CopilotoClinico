@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { CoverageBanner } from "../coverage-banner";
 
 /**
@@ -37,12 +38,13 @@ describe("CoverageBanner", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("oferece a busca manual nas diretrizes quando há um destino", () => {
-    render(<CoverageBanner coverage="none" guidelinesHref="/guidelines?q=dengue" />);
+  it("oferece a consulta de diretrizes sem sair do caso", async () => {
+    const onSearchGuidelines = vi.fn();
+    render(<CoverageBanner coverage="none" onSearchGuidelines={onSearchGuidelines} />);
 
-    expect(screen.getByRole("link", { name: /Buscar nas diretrizes/i })).toHaveAttribute(
-      "href",
-      "/guidelines?q=dengue",
-    );
+    // Botão, não link: a consulta abre no painel lateral, dentro do caso.
+    expect(screen.queryByRole("link", { name: /Buscar nas diretrizes/i })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /Buscar nas diretrizes/i }));
+    expect(onSearchGuidelines).toHaveBeenCalledTimes(1);
   });
 });

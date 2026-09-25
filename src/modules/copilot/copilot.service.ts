@@ -133,6 +133,9 @@ export class CopilotService {
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,
+        // Texto do caso já mascarado — alimenta a consulta de diretrizes
+        // dentro do caso (buscar pelo que o médico escreveu).
+        inputRedacted: true,
         rawOutput: true,
         citations: true,
         uncertainty: true,
@@ -153,6 +156,7 @@ export class CopilotService {
 
     return {
       interactionId: interaction.id,
+      caseText: interaction.inputRedacted ?? null,
       output: interaction.rawOutput,
       citations: interaction.citations,
       uncertainty: interaction.uncertainty,

@@ -66,3 +66,15 @@ export type SuggestGuidelineBody = z.infer<typeof suggestGuidelineSchema>;
 export type ExtractDocumentTextBody = z.infer<typeof extractDocumentTextSchema>;
 export type DeactivateGuidelineBody = z.infer<typeof deactivateGuidelineSchema>;
 export type RejectGuidelineChunkBody = z.infer<typeof rejectGuidelineChunkSchema>;
+
+/**
+ * Consulta de diretrizes dentro do caso. O texto pode ser o caso inteiro que o
+ * médico escreveu (a consulta abre pré-preenchida com ele); o teto limita o
+ * custo do embedding num endpoint aberto a qualquer médico autenticado.
+ */
+export const consultGuidelinesSchema = z.object({
+  query: z.string().trim().min(2, 'Digite ao menos 2 caracteres').max(4000),
+  limit: z.number().int().min(1).max(20).optional(),
+});
+
+export type ConsultGuidelinesBody = z.infer<typeof consultGuidelinesSchema>;

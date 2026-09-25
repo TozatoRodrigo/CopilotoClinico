@@ -22,12 +22,14 @@ import { BlockerQuestionCard } from '@/components/domain/blocker-question-card';
 import { UncertaintyBanner } from '@/components/domain/uncertainty-banner';
 import { CoverageBanner } from '@/components/domain/coverage-banner';
 import { CopilotFeedback } from '@/components/domain/copilot-feedback';
+import { GuidelineConsultSheet } from '@/components/domain/guideline-consult';
 import { SourceOriginBadge, isUnreviewedOrigin } from '@/components/domain/source-origin-badge';
 import { useMessages } from '@/lib/messages/use-messages';
 import type { Messages } from '@/lib/messages';
 import {
   ArrowLeft,
   ArrowsClockwise,
+  BookOpen,
   Sparkle,
   PencilSimple,
   LockSimple,
@@ -47,9 +49,7 @@ import type {
   LatestInteractionResponse,
   RedFlagSeverity,
 } from '@/lib/types';
-import type {
-  RecommendationDecisionState,
-} from '@/hooks/use-recommendation-decisions';
+import type { RecommendationDecisionState } from '@/hooks/use-recommendation-decisions';
 
 // UX — 3 baldes fixos do redesign (Redesign.dc.html): AGORA (estabilização
 // imediata), EM SEGUIDA (conduta terapêutica) e SE PIORAR (o que observar /
@@ -58,10 +58,7 @@ import type {
 // railFor() anterior já tinha para category desconhecida.
 type Bucket = 'now' | 'next' | 'watch';
 
-const BUCKET_DEFS: Record<
-  Bucket,
-  { label: string; hint: string; chipClass: string }
-> = {
+const BUCKET_DEFS: Record<Bucket, { label: string; hint: string; chipClass: string }> = {
   now: {
     label: 'AGORA',
     hint: 'primeiros 10 minutos',
@@ -138,6 +135,7 @@ export default function ResultPage({ params }: { params: Promise<{ id: string }>
       const stored: StoredCopilotResult = {
         interactionId: data.interactionId,
         analysis,
+        caseText: data.caseText,
         turnIndex: data.turnIndex,
         maxTurns: data.maxTurns,
         retrievalCoverage: data.retrievalCoverage,
@@ -221,13 +219,7 @@ export default function ResultPage({ params }: { params: Promise<{ id: string }>
   return <ResultView key={result.interactionId} encounterId={encounterId} result={result} />;
 }
 
-function ResultView({
-  encounterId,
-  result,
-}: {
-  encounterId: string;
-  result: StoredCopilotResult;
-}) {
+function ResultView({ encounterId, result }: { encounterId: string; result: StoredCopilotResult }) {
   const messages = useMessages();
   const {
     analysis,
@@ -253,6 +245,10 @@ function ResultView({
   const isQuickConsult = encounterQuery.data?.patientRef === null;
   const [generatingDoc, setGeneratingDoc] = useState<string | null>(null);
   const [docError, setDocError] = useState<string | null>(null);
+  // Consulta de diretrizes dentro do caso (painel lateral) — ver
+  // guideline-consult.tsx. Nunca navegar para fora do resultado.
+  const [consultOpen, setConsultOpen] = useState(false);
+  const openConsult = () => setConsultOpen(true);
 
   async function handleGenerateDocument(type: DocumentType) {
     if (!result) return;
@@ -329,17 +325,19 @@ function ResultView({
             Fila
           </Link>
           <span className="h-4 w-px bg-clinical-line" aria-hidden="true" />
-          <span className="font-mono text-xs text-muted-foreground">
-            {encounterId.slice(0, 8)}
-          </span>
+          <span className="font-mono text-xs text-muted-foreground">{encounterId.slice(0, 8)}</span>
         </div>
         <ProgressSteps steps={['Captura', 'Análise', 'Documento']} currentStep={1} />
       </header>
 
       {/* Hipótese principal — sempre presente (reasoning é obrigatório no
           schema); tom e chips de red flag comunicam a urgência real do caso. */}
-      <div className={`shrink-0 border-b px-5 py-4 sm:px-7 ${toneClasses.border} ${toneClasses.bg}`}>
-        <p className={`font-mono text-[0.6875rem] font-bold uppercase tracking-wider ${toneClasses.label}`}>
+      <div
+        className={`shrink-0 border-b px-5 py-4 sm:px-7 ${toneClasses.border} ${toneClasses.bg}`}
+      >
+        <p
+          className={`font-mono text-[0.6875rem] font-bold uppercase tracking-wider ${toneClasses.label}`}
+        >
           Hipótese principal
         </p>
         <h1 className={`mt-1 font-display text-[1.5rem] leading-tight ${toneClasses.heading}`}>
@@ -349,7 +347,11 @@ function ResultView({
         {analysis.redFlags.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1.5">
             {analysis.redFlags.map((flag, i) => (
-              <RedFlagBadge key={`${flag.finding}-${i}`} finding={flag.finding} severity={flag.severity} />
+              <RedFlagBadge
+                key={`${flag.finding}-${i}`}
+                finding={flag.finding}
+                severity={flag.severity}
+              />
             ))}
           </div>
         )}
@@ -362,8 +364,8 @@ function ResultView({
               Antes de decidir
             </p>
             <h1 className="mt-1 flex items-center gap-2 font-display text-[1.625rem] leading-tight text-clinical-ink">
-              <Sparkle className="size-5 text-clinical-teal" weight="fill" />
-              O copiloto precisa saber
+              <Sparkle className="size-5 text-clinical-teal" weight="fill" />O copiloto precisa
+              saber
             </h1>
           </div>
 
@@ -435,29 +437,46 @@ function ResultView({
         </aside>
 
         <section className="flex flex-col gap-4 overflow-y-auto p-7">
-          <div>
-            <p className="font-mono text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground">
-              {`Recomendações · ${recommendations.length}`}
-            </p>
-            <h2 className="mt-1 font-display text-[1.625rem] leading-tight text-clinical-ink">
-              Plano sugerido
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {messages.copilot.result.preliminarySummary(definitiveCount, preliminaryCount)}
-            </p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="font-mono text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground">
+                {`Recomendações · ${recommendations.length}`}
+              </p>
+              <h2 className="mt-1 font-display text-[1.625rem] leading-tight text-clinical-ink">
+                Plano sugerido
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {messages.copilot.result.preliminarySummary(definitiveCount, preliminaryCount)}
+              </p>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              onClick={openConsult}
+            >
+              <BookOpen className="size-4" weight="duotone" />
+              Consultar diretrizes
+            </Button>
           </div>
 
-          <CoverageBanner
-            coverage={retrievalCoverage}
-            guidelinesHref={`/guidelines?q=${encodeURIComponent(analysis.reasoning ?? '')}`}
-          />
+          <CoverageBanner coverage={retrievalCoverage} onSearchGuidelines={openConsult} />
 
           {analysis.uncertainty && (
             <UncertaintyBanner
               reason={analysis.uncertaintyReason}
-              guidelinesHref={`/guidelines?q=${encodeURIComponent(analysis.uncertaintyReason ?? analysis.reasoning ?? '')}`}
+              onSearchGuidelines={openConsult}
             />
           )}
+
+          <GuidelineConsultSheet
+            open={consultOpen}
+            onOpenChange={setConsultOpen}
+            caseText={result.caseText ?? encounterQuery.data?.chiefComplaint ?? null}
+            citedChunkIds={recommendations.map((rec) => rec.citationChunkId)}
+            citedSources={recommendations.map((rec) => rec.source)}
+          />
 
           <div className="flex flex-col gap-6">
             {buckets.map((bucket) => {
@@ -589,13 +608,7 @@ function ResultView({
   );
 }
 
-function RedFlagBadge({
-  finding,
-  severity,
-}: {
-  finding: string;
-  severity: RedFlagSeverity;
-}) {
+function RedFlagBadge({ finding, severity }: { finding: string; severity: RedFlagSeverity }) {
   const styles =
     severity === 'critical'
       ? 'bg-clinical-error-bg text-clinical-error-foreground'
@@ -735,11 +748,7 @@ export function RecommendationItem({
         >
           Adotar
         </Button>
-        <Button
-          size="sm"
-          variant={isRejected ? 'destructive' : 'outline'}
-          onClick={onReject}
-        >
+        <Button size="sm" variant={isRejected ? 'destructive' : 'outline'} onClick={onReject}>
           Rejeitar
         </Button>
         <Button size="sm" variant="outline" onClick={() => setShowNote((s) => !s)}>
@@ -815,7 +824,11 @@ function AnswerControl({
         <div className="grid grid-cols-3 gap-2">
           <BooleanButton
             active={value === true}
-            activeClass={variant === 'critical' ? 'bg-clinical-ink text-white border-clinical-ink' : selectedClass}
+            activeClass={
+              variant === 'critical'
+                ? 'bg-clinical-ink text-white border-clinical-ink'
+                : selectedClass
+            }
             unselectedClass={unselectedClass}
             onClick={() => onChange(true)}
           >

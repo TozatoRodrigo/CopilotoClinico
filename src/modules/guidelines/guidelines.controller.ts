@@ -10,6 +10,7 @@ import {
   UseGuards,
   Inject,
   NotFoundException,
+  HttpCode,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
@@ -17,6 +18,7 @@ import { Roles } from '../../shared/decorators/roles.decorator';
 import { InternalServiceGuard } from '../../shared/guards/internal-service.guard';
 import { CuratorGuard } from '../../shared/guards/curator.guard';
 import { GuidelinesService } from './guidelines.service';
+import type { GuidelineConsultResponse } from '../../shared/contracts/clinical';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import {
   ingestGuidelineSchema,
@@ -24,10 +26,12 @@ import {
   extractDocumentTextSchema,
   deactivateGuidelineSchema,
   rejectGuidelineChunkSchema,
+  consultGuidelinesSchema,
   type IngestGuidelineBody,
   type SuggestGuidelineBody,
   type ExtractDocumentTextBody,
   type DeactivateGuidelineBody,
+  type ConsultGuidelinesBody,
   type RejectGuidelineChunkBody,
 } from './schemas/guidelines.schemas';
 
@@ -50,6 +54,20 @@ export class GuidelinesController {
   ) {
     const maxLimit = Math.min(parseInt(limit ?? '20', 10) || 20, 50);
     return this.guidelinesService.searchChunks(q, specialty, maxLimit);
+  }
+
+  /**
+   * Consulta de diretrizes dentro do caso (curada + oficial). POST porque o
+   * texto pode ser o caso inteiro — em query string ele iria para o log de
+   * acesso.
+   */
+  @Post('consult')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  async consult(
+    @Body(new ZodValidationPipe(consultGuidelinesSchema)) body: ConsultGuidelinesBody,
+  ): Promise<GuidelineConsultResponse> {
+    return { results: await this.guidelinesService.consult(body.query, body.limit) };
   }
 
   @Get('pending')

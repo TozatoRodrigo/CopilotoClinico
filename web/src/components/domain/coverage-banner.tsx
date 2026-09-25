@@ -1,17 +1,19 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { BookOpen } from "@phosphor-icons/react";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { messages } from "@/lib/messages";
-import type { RetrievalCoverage } from "@/lib/types";
+import { BookOpen } from '@phosphor-icons/react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { messages } from '@/lib/messages';
+import type { RetrievalCoverage } from '@/lib/types';
 
 interface CoverageBannerProps {
   coverage: RetrievalCoverage | null | undefined;
-  /** Busca manual nas diretrizes, pré-preenchida com o texto do caso. */
-  guidelinesHref?: string;
+  /**
+   * Abre a consulta de diretrizes dentro do caso (painel lateral), buscando
+   * pelo texto do caso — sem sair da tela de resultado.
+   */
+  onSearchGuidelines?: () => void;
   className?: string;
 }
 
@@ -31,33 +33,33 @@ interface CoverageBannerProps {
  * `null`/`undefined` (interações anteriores a esta mudança) e `full` não
  * renderizam nada — nunca afirmar cobertura que não foi medida.
  */
-export function CoverageBanner({ coverage, guidelinesHref, className }: CoverageBannerProps) {
-  if (coverage !== "none" && coverage !== "partial") return null;
+export function CoverageBanner({ coverage, onSearchGuidelines, className }: CoverageBannerProps) {
+  if (coverage !== 'none' && coverage !== 'partial') return null;
 
-  const copy = coverage === "none" ? messages.coverage.none : messages.coverage.partial;
+  const copy = coverage === 'none' ? messages.coverage.none : messages.coverage.partial;
 
   return (
     <Alert
       className={cn(
-        "bg-card",
+        'bg-card',
         // Âmbar é reservado a "o médico precisa agir" (docs/design-tokens.md).
         // Cobertura nenhuma muda a conduta: o plano abaixo não tem lastro em
         // diretriz. Cobertura parcial é advertência de conferência, não ação.
-        coverage === "none" ? "border-clinical-amber/40" : "border-clinical-line",
+        coverage === 'none' ? 'border-clinical-amber/40' : 'border-clinical-line',
         className,
       )}
     >
       <BookOpen
-        className={coverage === "none" ? "text-clinical-amber" : "text-muted-foreground"}
+        className={coverage === 'none' ? 'text-clinical-amber' : 'text-muted-foreground'}
         weight="duotone"
       />
       <AlertTitle>{copy.title}</AlertTitle>
       <AlertDescription>
         <p>{copy.body}</p>
-        {guidelinesHref && (
+        {onSearchGuidelines && (
           <div className="mt-3">
-            <Button type="button" size="sm" variant="outline" asChild>
-              <Link href={guidelinesHref}>{messages.coverage.action}</Link>
+            <Button type="button" size="sm" variant="outline" onClick={onSearchGuidelines}>
+              {messages.coverage.action}
             </Button>
           </div>
         )}

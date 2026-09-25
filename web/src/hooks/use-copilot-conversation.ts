@@ -84,6 +84,12 @@ export interface StoredCopilotResult {
   interactionId: string;
   analysis: CopilotAnalysis;
   /**
+   * Texto do caso analisado — pré-preenche a consulta de diretrizes dentro do
+   * caso. Opcional: resultados gravados antes deste campo não o têm, e a
+   * consulta cai para o título do caso.
+   */
+  caseText?: string | null;
+  /**
    * UX-03 — turno desta interação (0 = análise inicial) e teto configurado
    * de turnos, ecoados pelo backend em toda resposta (analyze/respond) e em
    * GET /copilot/latest. Guardados junto ao restante do estado persistido
@@ -136,14 +142,22 @@ export function useCopilotConversation(
       coverage: RetrievalCoverage | null,
     ) => {
       try {
+        const key = `${STORAGE_KEY_PREFIX}${encounterId}`;
+        // O texto do caso é o da primeira análise; uma rodada de perguntas não
+        // o substitui — preservar para a consulta de diretrizes continuar
+        // buscando pelo que o médico descreveu.
+        const previous = JSON.parse(sessionStorage.getItem(key) ?? 'null') as
+          | Pick<StoredCopilotResult, 'caseText'>
+          | null;
         const stored: StoredCopilotResult = {
           interactionId: id,
           analysis: data,
+          caseText: previous?.caseText ?? null,
           turnIndex: turn,
           maxTurns: max,
           retrievalCoverage: coverage,
         };
-        sessionStorage.setItem(`${STORAGE_KEY_PREFIX}${encounterId}`, JSON.stringify(stored));
+        sessionStorage.setItem(key, JSON.stringify(stored));
       } catch {
         // storage quota — non-critical
       }

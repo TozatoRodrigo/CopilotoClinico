@@ -339,6 +339,13 @@ export type CopilotStreamEvent =
 
 export interface LatestInteractionResponse {
   interactionId: string;
+  /**
+   * Texto do caso como foi analisado (já com PII mascarada; em turnos
+   * seguintes inclui as respostas do médico). Alimenta a consulta de
+   * diretrizes dentro do caso — buscar pelo que o médico descreveu, não pelo
+   * raciocínio do modelo. `null` em interações sem texto gravado.
+   */
+  caseText: string | null;
   output: Omit<CopilotAnalysis, 'citations' | 'uncertainty' | 'uncertaintyReason'>;
   citations: Citation[];
   uncertainty: boolean;
@@ -502,6 +509,37 @@ export interface PendingGuidelineChunk {
   text: string;
   metadata: unknown;
   createdAt: string;
+}
+
+/**
+ * Consulta de diretrizes dentro do caso: busca por significado e por
+ * palavra-chave nas bases curada e oficial (ADR-010), agrupada por documento.
+ * POST, não GET: o texto pode ser o caso inteiro, e query string vai para o
+ * log de acesso.
+ */
+export interface GuidelineConsultRequest {
+  query: string;
+  limit?: number;
+}
+
+export interface GuidelineConsultResult {
+  chunkId: string;
+  source: string;
+  sourceVersion: string;
+  /** Seção do documento oficial ("7. TRATAMENTO"); `null` na base curada. */
+  section: string | null;
+  text: string;
+  origin: NonNullable<Citation['origin']>;
+  /** PDF oficial (base oficial); `null` na base curada. */
+  documentUrl: string | null;
+  specialty: string;
+  /** Similaridade de cosseno com a consulta (0–1). */
+  similarity: number;
+  matchedBy: 'semantic' | 'keyword' | 'both';
+}
+
+export interface GuidelineConsultResponse {
+  results: GuidelineConsultResult[];
 }
 
 export interface GuidelineSearchResult {

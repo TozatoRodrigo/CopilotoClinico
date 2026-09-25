@@ -4,6 +4,9 @@ import type { Citation } from "@/lib/types";
 
 export type SourceOrigin = NonNullable<Citation["origin"]>;
 
+/** Rótulos longos quebram linha em vez de vazar do card no celular. */
+const WRAP = "h-auto max-w-full whitespace-normal text-left leading-snug";
+
 /**
  * Rótulo de origem da fonte citada. A garantia do produto é "toda
  * recomendação cita uma fonte, e a interface sempre diz se ela foi revisada
@@ -27,7 +30,7 @@ export function SourceOriginBadge({
   switch (origin) {
     case "official_unreviewed":
       return (
-        <Badge variant="outline" className={cn("font-normal", className)}>
+        <Badge variant="outline" className={cn(WRAP, className)}>
           Ministério da Saúde · não revisado pela equipe
         </Badge>
       );
@@ -36,6 +39,7 @@ export function SourceOriginBadge({
         <Badge
           variant="outline"
           className={cn(
+            WRAP,
             "border-clinical-amber/40 bg-clinical-amber-bg text-clinical-amber-foreground",
             className,
           )}

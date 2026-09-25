@@ -11,6 +11,13 @@ import { PrismaService } from '../../config/prisma.service';
 import { AiGatewayService } from '../ai-gateway/ai-gateway.service';
 import { AuditService } from '../audit/audit.service';
 import { chunkText } from './ingestion/chunking';
+import { maskPII } from '../copilot/guardrails/pii-filter';
+import type { GuidelineConsultResult } from '../../shared/contracts/clinical';
+import {
+  DEFAULT_CONSULT_OPTIONS,
+  rankConsultResults,
+  type ConsultCandidate,
+} from './consult/consult-ranking';
 import {
   extractDocumentText,
   DocumentExtractionError,
@@ -410,6 +417,63 @@ export class GuidelinesService {
         validFrom: true,
         validTo: true,
       },
+    });
+  }
+
+  /**
+   * Consulta de diretrizes dentro do caso — ver `consult/consult-ranking.ts`.
+   *
+   * O texto passa pela mesma máscara de PII do Copiloto ANTES do embedding:
+   * a consulta abre pré-preenchida com o caso que o médico escreveu, e nada
+   * identificável pode sair para o provedor de embedding.
+   */
+  async consult(query: string, limit?: number): Promise<GuidelineConsultResult[]> {
+    const masked = maskPII(query).redacted;
+    const { embeddings } = await this.aiGateway.embed([masked]);
+    const embedding = embeddings[0];
+    if (!embedding) throw new Error('Falha ao gerar embedding da consulta');
+
+    const vector = `[${embedding.join(',')}]`;
+    const candidateColumns = `gc.id AS "chunkId", gc.source, gc.source_version AS "sourceVersion",
+         gc.specialty, gc.text, gc.status::text AS status, gc.institution_id AS "institutionId",
+         COALESCE(gc.metadata, '{}'::jsonb) AS metadata,
+         CASE WHEN gc.embedding IS NULL THEN NULL
+              ELSE 1 - (gc.embedding <=> $1::vector) END AS similarity`;
+    const eligible = `gc.status IN ('approved', 'official_unreviewed')
+         AND gc.valid_to IS NULL
+         AND gc.institution_id IS NULL`;
+
+    const semantic = await this.prisma.$queryRawUnsafe<ConsultCandidate[]>(
+      `SELECT ${candidateColumns}
+         FROM guideline_chunks gc
+        WHERE ${eligible} AND gc.embedding IS NOT NULL
+        ORDER BY gc.embedding <=> $1::vector
+        LIMIT 40`,
+      vector,
+    );
+    // websearch_to_tsquery combina os termos com AND: numa consulta curta
+    // ("escorpião") acha o termo exato; no caso inteiro não casa nada, e a
+    // busca por significado responde sozinha.
+    const keyword = await this.prisma.$queryRawUnsafe<ConsultCandidate[]>(
+      `SELECT ${candidateColumns}
+         FROM guideline_chunks gc
+        WHERE ${eligible}
+          AND gc.text_tsv @@ websearch_to_tsquery('portuguese', $2)
+        ORDER BY ts_rank(gc.text_tsv, websearch_to_tsquery('portuguese', $2)) DESC
+        LIMIT 20`,
+      vector,
+      masked,
+    );
+
+    const toNumber = (rows: ConsultCandidate[]) =>
+      rows.map((row) => ({
+        ...row,
+        similarity: row.similarity === null ? null : Number(row.similarity),
+      }));
+
+    return rankConsultResults(toNumber(semantic), toNumber(keyword), {
+      ...DEFAULT_CONSULT_OPTIONS,
+      limit: limit ?? DEFAULT_CONSULT_OPTIONS.limit,
     });
   }
 
