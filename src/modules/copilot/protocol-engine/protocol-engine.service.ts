@@ -10,6 +10,7 @@ import { Prisma, ProtocolRun } from '@prisma/client';
 import { PrismaService } from '../../../config/prisma.service';
 import { EncountersService } from '../../encounters/encounters.service';
 import { ProtocolsService } from '../../protocols/protocols.service';
+import { freeTextHash } from '../../audit/audit-payload';
 import { AuditService } from '../../audit/audit.service';
 import type { ProtocolGraphNode } from '../../protocols/protocol-graph-validator';
 
@@ -278,7 +279,7 @@ export class ProtocolEngineService {
         action: 'PROTOCOL_RUN_ABANDONED',
         entity: 'ProtocolRun',
         entityId: run.id,
-        payload: { reason, currentNodeId: run.currentNodeId },
+        payload: { reasonHash: freeTextHash(reason), currentNodeId: run.currentNodeId },
       })
       .catch(() => undefined);
 

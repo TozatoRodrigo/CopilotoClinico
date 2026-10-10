@@ -117,7 +117,9 @@ export class AuthService {
       action: 'AUTH_REGISTER',
       entity: 'Physician',
       entityId: physician.id,
-      payload: { email: physician.email, crmUf: physician.crmUf },
+      // Sem o email: a trilha sobrevive à eliminação LGPD, que anonimiza o
+      // email no cadastro. O entityId já identifica o médico.
+      payload: { crmUf: physician.crmUf },
       ip,
     });
 

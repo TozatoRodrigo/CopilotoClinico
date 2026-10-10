@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { CrmVerificationService } from './crm-verification.service';
 import { PrismaService } from '../../config/prisma.service';
+import { freeTextHash } from '../audit/audit-payload';
 import { AuditService } from '../audit/audit.service';
 
 // ── helpers ─────────────────────────────────────────────────────────────────
@@ -236,7 +237,10 @@ describe('CrmVerificationService.approve', () => {
     await service.approve(REQUEST_ID, 'admin');
 
     expect(audit.log).toHaveBeenCalledWith(
-      expect.objectContaining({ action: 'CRM_VERIFICATION_APPROVED' }),
+      expect.objectContaining({
+        action: 'CRM_VERIFICATION_APPROVED',
+        payload: { physicianId: PHYSICIAN_ID, notesHash: null },
+      }),
     );
   });
 });
@@ -298,7 +302,27 @@ describe('CrmVerificationService.reject', () => {
     await service.reject(REQUEST_ID, 'admin', 'motivo');
 
     expect(audit.log).toHaveBeenCalledWith(
-      expect.objectContaining({ action: 'CRM_VERIFICATION_REJECTED' }),
+      expect.objectContaining({
+        action: 'CRM_VERIFICATION_REJECTED',
+        payload: { physicianId: PHYSICIAN_ID, notesHash: freeTextHash('motivo') },
+      }),
     );
+  });
+
+  // A nota fica na solicitação; a trilha (que a eliminação LGPD não alcança)
+  // leva só o hash. A nota automática traz a resposta crua do CFM.
+  it('keeps the free-text notes out of the audit payload', async () => {
+    const { service, prisma, audit } = buildMocks();
+    vi.mocked(prisma.crmVerificationRequest.findUnique).mockResolvedValue(
+      mockPendingRequest as never,
+    );
+    vi.mocked(prisma.crmVerificationRequest.update).mockResolvedValue({
+      ...mockPendingRequest,
+      status: 'REJECTED',
+    } as never);
+
+    await service.reject(REQUEST_ID, 'admin', 'Nome no CFM: Maria Silva, situação cancelada');
+
+    expect(JSON.stringify(vi.mocked(audit.log).mock.calls)).not.toContain('Maria Silva');
   });
 });

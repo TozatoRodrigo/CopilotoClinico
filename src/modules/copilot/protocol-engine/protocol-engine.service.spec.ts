@@ -8,6 +8,7 @@ import { ProtocolEngineService } from './protocol-engine.service';
 import { PrismaService } from '../../../config/prisma.service';
 import { EncountersService } from '../../encounters/encounters.service';
 import { ProtocolsService } from '../../protocols/protocols.service';
+import { freeTextHash } from '../../audit/audit-payload';
 import { AuditService } from '../../audit/audit.service';
 
 const physicianId = '550e8400-e29b-41d4-a716-446655440000';
@@ -306,9 +307,13 @@ describe('ProtocolEngineService', () => {
         expect.objectContaining({
           action: 'PROTOCOL_RUN_ABANDONED',
           entityId: runId,
-          payload: expect.objectContaining({ reason: 'Paciente recusou continuidade' }),
+          payload: expect.objectContaining({
+            reasonHash: freeTextHash('Paciente recusou continuidade'),
+          }),
         }),
       );
+      // O motivo é texto livre do médico: fica na execução, não na trilha.
+      expect(JSON.stringify(auditService.log.mock.calls)).not.toContain('recusou');
     });
 
     it('rejects abandoning a run that already finished', async () => {

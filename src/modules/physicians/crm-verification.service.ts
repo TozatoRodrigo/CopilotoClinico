@@ -1,5 +1,6 @@
 import { Injectable, Inject, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../config/prisma.service';
+import { freeTextHash } from '../audit/audit-payload';
 import { AuditService } from '../audit/audit.service';
 import type { CrmVerificationRequest } from '@prisma/client';
 
@@ -146,7 +147,7 @@ export class CrmVerificationService {
       action: 'CRM_VERIFICATION_APPROVED',
       entity: 'CrmVerificationRequest',
       entityId: requestId,
-      payload: { physicianId: request.physicianId, notes },
+      payload: { physicianId: request.physicianId, notesHash: freeTextHash(notes) },
     });
 
     return updated;
@@ -184,7 +185,7 @@ export class CrmVerificationService {
       action: 'CRM_VERIFICATION_REJECTED',
       entity: 'CrmVerificationRequest',
       entityId: requestId,
-      payload: { physicianId: request.physicianId, notes },
+      payload: { physicianId: request.physicianId, notesHash: freeTextHash(notes) },
     });
 
     return updated;
