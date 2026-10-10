@@ -3,21 +3,32 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ShieldCheck, Warning } from "@phosphor-icons/react";
+import {
+  Check,
+  FilePlus,
+  Flask,
+  Microphone,
+  Plus,
+  ShieldCheck,
+  Warning,
+  WarningCircle,
+} from "@phosphor-icons/react";
 import { apiClient, ApiError } from "@/lib/api-client";
+import { Page } from "@/components/layout/page";
 import { PageHeader } from "@/components/layout/page-header";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Callout } from "@/components/ui/callout";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { getDemoCasePreset } from "@/lib/demo-case-presets";
+import { cn } from "@/lib/utils";
 import type {
   CreateEncounterRequest,
   CreateEncounterResponse,
   EncounterContext,
 } from "@/lib/types";
+import { VerticalTag } from "../_components/encounter-tags";
 
 interface ContextChip {
   key: keyof EncounterContext;
@@ -125,102 +136,145 @@ export default function NewEncounterPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <PageHeader title="Novo Atendimento">
-        {/* S22-NAV-01 — Link em vez de <a href> (evitava reload da página). */}
-        <Button variant="outline" asChild>
-          <Link href="/dashboard">Voltar</Link>
-        </Button>
-      </PageHeader>
+    <Page width="narrow">
+      <PageHeader
+        icon={FilePlus}
+        title="Novo caso"
+        description="Identifique o paciente e o contexto do atendimento. Em seguida você dita ou digita o caso para o copiloto analisar."
+      />
 
-      <Card>
-        <CardContent className="pt-4">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {demoPreset && (
-              <Alert>
-                <AlertTitle>{demoPreset.title}</AlertTitle>
-                <AlertDescription>{demoPreset.summary}</AlertDescription>
-              </Alert>
-            )}
+      {demoPreset && (
+        <Callout
+          tone="purple"
+          icon={<Flask weight="duotone" />}
+          title={
+            <span className="flex flex-wrap items-center gap-2">
+              Caso piloto: {demoPreset.title}
+              <VerticalTag vertical={demoPreset.vertical} />
+            </span>
+          }
+        >
+          {demoPreset.summary}
+        </Callout>
+      )}
 
-            <div className="space-y-2">
-              <Label htmlFor="patientRef">
-                Referência do Paciente{" "}
-                <span className="font-normal text-muted-foreground">
-                  (opcional)
-                </span>
-              </Label>
-              <Input
-                id="patientRef"
-                value={patientRef}
-                onChange={(e) => setPatientRef(e.target.value)}
-                maxLength={50}
-                placeholder="Ex: JSL-Leito04, PRN-2024-00123, SUS-700-0123"
-                aria-invalid={!!piiWarning}
-                aria-describedby={
-                  piiWarning ? "pii-warning" : "patientRef-hint"
-                }
-              />
-              {piiWarning ? (
-                <p
-                  id="pii-warning"
-                  className="flex items-center gap-1.5 text-sm text-destructive"
-                  role="alert"
-                >
-                  <Warning className="size-4 shrink-0" />
-                  {piiWarning} — use um identificador opaco (prontuário, leito,
-                  hash). Dados pessoais não são permitidos (LGPD Art. 13).
-                </p>
-              ) : (
-                <p id="patientRef-hint" className="text-xs text-muted-foreground">
-                  <ShieldCheck className="mr-1 inline size-3" />
-                  {/* S25-QC-01 — deixar em branco não bloqueia mais o envio:
-                      vira uma consulta rápida, fora do Plantão até você
-                      identificar o paciente (dá pra fazer isso depois, na
-                      tela do caso). Quando preenchido, use um identificador
-                      opaco — nunca nome, CPF ou telefone. */}
-                  Deixe em branco para uma consulta rápida — o caso só entra
-                  no seu plantão quando você identificar o paciente
-                  (agora ou depois). Se preencher, use um identificador
-                  opaco (prontuário, leito, hash), nunca dados pessoais.
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label>Contexto</Label>
-              <div className="flex flex-wrap gap-2">
-                {CONTEXT_CHIPS.map((chip) => (
-                  <button
-                    key={chip.key}
-                    type="button"
-                    onClick={() => toggleContext(chip.key)}
-                    className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <Badge variant={context[chip.key] ? "default" : "outline"}>
-                      {chip.label}
-                    </Badge>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {error && <p className="text-sm text-destructive">{error}</p>}
-
-            <Button
-              type="submit"
-              disabled={!canSubmit}
-              className="w-full"
+      <form onSubmit={handleSubmit} className="flex flex-col gap-7">
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="patientRef">
+            Referência do paciente
+            <span className="font-normal">(opcional)</span>
+          </Label>
+          <Input
+            id="patientRef"
+            value={patientRef}
+            onChange={(e) => setPatientRef(e.target.value)}
+            maxLength={50}
+            placeholder="Ex: JSL-Leito04, PRN-2024-00123, SUS-700-0123"
+            autoComplete="off"
+            spellCheck={false}
+            aria-invalid={!!piiWarning}
+            aria-describedby={
+              piiWarning ? "pii-warning" : "patientRef-hint"
+            }
+            className="md:h-9"
+          />
+          {piiWarning ? (
+            <p
+              id="pii-warning"
+              className="flex items-start gap-1.5 text-[0.8125rem] text-destructive"
+              role="alert"
             >
-              {submitting
-                ? "Criando..."
-                : trimmed.length > 0
-                  ? "Criar e capturar"
-                  : "Iniciar consulta rápida"}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+              <Warning className="mt-0.5 size-4 shrink-0" weight="fill" aria-hidden="true" />
+              <span>
+                {piiWarning} — use um identificador opaco (prontuário, leito,
+                hash). Dados pessoais não são permitidos (LGPD Art. 13).
+              </span>
+            </p>
+          ) : (
+            <p
+              id="patientRef-hint"
+              className="flex items-start gap-1.5 text-[0.8125rem] text-muted-foreground"
+            >
+              <ShieldCheck className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+              {/* S25-QC-01 — deixar em branco não bloqueia mais o envio:
+                  vira uma consulta rápida, fora do Plantão até você
+                  identificar o paciente (dá pra fazer isso depois, na
+                  tela do caso). Quando preenchido, use um identificador
+                  opaco — nunca nome, CPF ou telefone. */}
+              <span>
+                Deixe em branco para uma consulta rápida — o caso só entra
+                no seu plantão quando você identificar o paciente
+                (agora ou depois). Se preencher, use um identificador
+                opaco (prontuário, leito, hash), nunca dados pessoais.
+              </span>
+            </p>
+          )}
+        </div>
+
+        <fieldset className="flex flex-col gap-2">
+          <legend className="mb-2 text-[0.8125rem] leading-none font-medium text-muted-foreground">
+            Contexto do atendimento
+          </legend>
+          <div className="flex flex-wrap gap-1.5">
+            {CONTEXT_CHIPS.map((chip) => {
+              const selected = context[chip.key];
+              return (
+                <button
+                  key={chip.key}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => toggleContext(chip.key)}
+                  className={cn(
+                    "inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-sm transition-colors duration-100 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40 max-sm:h-10 max-sm:px-3",
+                    selected
+                      ? "border-transparent bg-tone-gray-tag font-medium text-foreground"
+                      : "border-dashed border-input text-muted-foreground hover:bg-hover hover:text-foreground",
+                  )}
+                >
+                  {selected ? (
+                    <Check className="size-3.5" weight="bold" aria-hidden="true" />
+                  ) : (
+                    <Plus className="size-3.5" aria-hidden="true" />
+                  )}
+                  {chip.label}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[0.8125rem] text-muted-foreground">
+            Marque os recursos disponíveis agora — a análise leva isso em conta.
+          </p>
+        </fieldset>
+
+        {error && (
+          <Alert variant="destructive">
+            <WarningCircle weight="fill" aria-hidden="true" />
+            <AlertTitle>Não foi possível criar o caso</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        <div className="flex flex-col-reverse gap-2 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-end">
+          {/* S22-NAV-01 — Link em vez de <a href> (evitava reload da página). */}
+          <Button variant="ghost" size="lg" asChild>
+            <Link href="/dashboard">Cancelar</Link>
+          </Button>
+          <Button
+            type="submit"
+            size="lg"
+            disabled={!canSubmit}
+            aria-busy={submitting || undefined}
+            className="sm:min-w-44"
+          >
+            <Microphone weight="fill" aria-hidden="true" />
+            {submitting
+              ? "Criando..."
+              : trimmed.length > 0
+                ? "Criar e capturar"
+                : "Iniciar consulta rápida"}
+          </Button>
+        </div>
+      </form>
+    </Page>
   );
 }

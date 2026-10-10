@@ -52,7 +52,7 @@ export function PageHeader({
       ) : null}
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between md:gap-6">
         <div className="min-w-0 space-y-1.5">
-          {eyebrow ? <p className="text-sm text-muted-foreground">{eyebrow}</p> : null}
+          {eyebrow ? <div className="text-sm text-muted-foreground">{eyebrow}</div> : null}
           <h1
             className={cn(
               "font-display text-balance text-foreground",

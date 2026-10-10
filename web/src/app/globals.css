@@ -417,6 +417,13 @@
     line-height: 1.2;
     letter-spacing: -0.015em;
   }
+  /* No escuro, o azul de ação (#1D72C6, AA com texto branco no botão) fica
+     abaixo de AA como cor de texto sobre #191919 — texto "primário" usa o
+     azul de link, mais claro. Fundos continuam no azul de ação. */
+  .dark .text-primary,
+  .dark .text-clinical-teal {
+    color: var(--link);
+  }
   /* Rótulo de seção do sidebar/listas (ex.: "Workspace", "Olhe primeiro"). */
   .text-eyebrow {
     font-size: var(--text-xs);

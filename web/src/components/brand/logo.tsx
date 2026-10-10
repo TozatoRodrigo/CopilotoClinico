@@ -1,3 +1,5 @@
+'use client';
+
 import { Stethoscope } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 

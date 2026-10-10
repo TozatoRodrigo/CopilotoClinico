@@ -54,7 +54,7 @@ const buttonVariants = cva(
         default:
           'h-8 gap-1.5 px-3 max-sm:h-10 has-data-[icon=inline-end]:pr-2.5 has-data-[icon=inline-start]:pl-2.5',
         xs: "h-6 gap-1 rounded-sm px-2 text-xs has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
-        sm: "h-7 gap-1 px-2.5 text-[0.8125rem] has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5",
+        sm: "h-7 gap-1 px-2.5 text-[0.8125rem] max-sm:h-10 max-sm:px-3 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5",
         lg: 'h-10 gap-2 px-4 text-[0.9375rem] has-data-[icon=inline-end]:pr-3 has-data-[icon=inline-start]:pl-3',
         icon: 'size-8 max-sm:size-10',
         'icon-xs': "size-6 rounded-sm [&_svg:not([class*='size-'])]:size-3",
@@ -100,7 +100,10 @@ function Button({
       ) : (
         <>
           {loading && <Spinner className="absolute size-4" />}
-          <span className={cn('contents', loading && 'invisible')}>{children}</span>
+          {/* opacity (não `invisible`): mantém o texto no nome acessível do botão. */}
+          <span className={cn('contents', loading && '[&>*]:opacity-0 text-transparent')}>
+            {children}
+          </span>
         </>
       )}
     </Comp>

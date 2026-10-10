@@ -1,15 +1,38 @@
 'use client';
 
 import { use, useState } from 'react';
+import Link from 'next/link';
+import {
+  ArrowRight,
+  Brain,
+  Buildings,
+  CalendarBlank,
+  CircleDashed,
+  ClockCounterClockwise,
+  DotsThree,
+  FilePlus,
+  FileText,
+  IdentificationCard,
+  ListChecks,
+  Microphone,
+  SealCheck,
+  Tag,
+  Warning,
+  WarningCircle,
+  XCircle,
+} from '@phosphor-icons/react';
+import { toast } from 'sonner';
 import {
   useEncounterDetail,
   useCancelEncounter,
   useUpdateEncounterVertical,
 } from '@/lib/clinical-queries';
+import { Page } from '@/components/layout/page';
+import { PageHeader, SectionHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { PropertyList, PropertyRow } from '@/components/ui/property-list';
+import { ProgressSteps } from '@/components/ui/progress-steps';
 import { QuickConsultBanner } from '@/components/domain/quick-consult-banner';
 import {
   Dialog,
@@ -20,6 +43,12 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -27,11 +56,20 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { DecisionThread, type DecisionThreadItem } from '@/components/domain/decision-thread';
-import { Breadcrumb } from '@/components/ui/breadcrumb';
-import Link from 'next/link';
-import { ArrowLeft, Microphone, Brain, FileText, ArrowRight, XCircle } from '@phosphor-icons/react';
-import { toast } from 'sonner';
-import type { EncounterContext, EncounterVertical } from '@/lib/types';
+import { messages } from '@/lib/messages';
+import type { EncounterContext, EncounterDetail, EncounterVertical } from '@/lib/types';
+import {
+  DOC_TYPE_LABELS,
+  docEventTitle,
+  encounterTitle,
+  formatDateTime,
+  formatRelative,
+  formatTime,
+  getVerticalMeta,
+  VERTICAL_OPTIONS,
+} from '../_components/encounter-meta';
+import { SeverityTag, StatusTag, VerticalTag } from '../_components/encounter-tags';
+import { EncounterDetailSkeleton } from './_components/encounter-detail-skeleton';
 
 const CONTEXT_LABELS: Record<string, string> = {
   hasCT: 'TC',
@@ -40,59 +78,21 @@ const CONTEXT_LABELS: Record<string, string> = {
   hasICU: 'UTI',
 };
 
-// S20-I18N-01 — localização do status do atendimento. Antes mostrava o slug
-// cru (in_review, draft...) como rótulo — única tela não-localizada do app.
-const STATUS_LABELS: Record<string, string> = {
-  draft: 'Rascunho',
-  in_review: 'Em revisão',
-  finalized: 'Finalizado',
-  cancelled: 'Cancelado',
-  signed: 'Assinado',
-};
+const CASE_STEPS = ['Captura', 'Análise', 'Documento'];
 
-const STATUS_VARIANTS: Record<string, 'outline' | 'secondary' | 'default' | 'destructive'> = {
-  draft: 'outline',
-  in_review: 'secondary',
-  finalized: 'default',
-  cancelled: 'destructive',
-  signed: 'default',
-};
+// No celular a coluna de rótulos encolhe para sobrar espaço aos valores.
+const PROPERTY_ROW = 'max-sm:grid-cols-[6.75rem_1fr]';
 
-const VERTICAL_LABELS: Record<string, string> = {
-  trauma: 'Trauma',
-  cardiac: 'Cardíaco',
-  pediatric: 'Pediátrico',
-  neuro: 'Neuro',
-  general: 'Geral',
-};
-
-// UX-04 — mesma fonte de rótulos, só derivada em lista para alimentar o
-// <Select> do chip editável logo abaixo.
-const VERTICAL_OPTIONS = Object.entries(VERTICAL_LABELS) as [EncounterVertical, string][];
-
-const DOC_TYPE_LABELS: Record<string, string> = {
-  soap: 'SOAP',
-  sbar: 'SBAR',
-  prescricao: 'Prescrição',
-  alta: 'Alta',
-  atestado: 'Atestado',
-};
-
-function formatRelative(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return 'agora';
-  if (minutes < 60) return `há ${minutes}min`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `há ${hours}h`;
-  return new Date(iso).toLocaleDateString('pt-BR');
-}
-
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('pt-BR', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+/**
+ * Etapa atual do fluxo Captura → Análise → Documento, derivada do que o caso
+ * já tem (sem análise = captura; análise sem documento = análise; documento
+ * ainda não assinado = documento; assinado = tudo concluído).
+ */
+function currentCaseStep(encounter: EncounterDetail): number {
+  if (encounter.status === 'finalized') return CASE_STEPS.length;
+  if ((encounter.documents ?? []).length > 0) return 2;
+  if ((encounter.aiInteractions ?? []).length > 0) return 1;
+  return 0;
 }
 
 export default function EncounterDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -126,35 +126,30 @@ export default function EncounterDetailPage({ params }: { params: Promise<{ id: 
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-clinical-paper">
-        <div className="mx-auto max-w-3xl px-4 py-6">
-          <Skeleton className="h-8 w-64 rounded" />
-          <div className="mt-8 space-y-4">
-            {Array.from({ length: 4 }, (_, i) => (
-              <Skeleton key={i} className="h-16 w-full rounded-lg" />
-            ))}
-          </div>
-        </div>
-      </div>
-    );
+    return <EncounterDetailSkeleton />;
   }
 
   if (error || !encounter) {
     return (
-      <div className="min-h-screen bg-clinical-paper">
-        <div className="mx-auto max-w-3xl px-4 py-8">
-          <Alert variant="destructive">
-            <AlertTitle>Erro</AlertTitle>
-            <AlertDescription className="flex items-center justify-between gap-3">
-              <span>{error ?? 'Atendimento não encontrado.'}</span>
-              <Button variant="outline" size="sm" onClick={() => void encounterQuery.refetch()}>
-                Tentar novamente
-              </Button>
-            </AlertDescription>
-          </Alert>
+      <Page width="narrow" className="items-center gap-5 py-10 text-center md:py-16">
+        <WarningCircle weight="duotone" className="size-12 text-tone-red" aria-hidden="true" />
+        <div role="alert" className="flex flex-col gap-2">
+          <h1 className="text-2xl font-bold tracking-[-0.01em] text-foreground">
+            {messages.errors.encounterLoadTitle}
+          </h1>
+          <p className="max-w-md text-[0.9375rem] text-pretty text-muted-foreground">
+            {error ?? 'Atendimento não encontrado.'}
+          </p>
         </div>
-      </div>
+        <div className="flex flex-wrap justify-center gap-2">
+          <Button onClick={() => void encounterQuery.refetch()}>
+            {messages.common.actions.tryAgain}
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href="/encounters">{messages.common.actions.backToEncounters}</Link>
+          </Button>
+        </div>
+      </Page>
     );
   }
 
@@ -174,163 +169,260 @@ export default function EncounterDetailPage({ params }: { params: Promise<{ id: 
   // S25-QC-01 — título com a mesma regra de fallback já usada no Plantão
   // (chiefComplaint > patientRef); "Consulta rápida" só aparece quando
   // nenhum dos dois existe ainda.
-  const displayTitle = encounter.chiefComplaint ?? encounter.patientRef ?? 'Consulta rápida';
+  const displayTitle = encounterTitle(encounter);
+  const verticalMeta = getVerticalMeta(encounter.vertical);
+  const isFinalized = encounter.status === 'finalized';
+  const isCancelled = encounter.status === 'cancelled';
+  const canCancel = encounter.status === 'draft' || encounter.status === 'in_review';
+
+  // Ação principal = próximo passo do caso: sem análise, capturar; com
+  // análise, revisá-la (capturar de novo vira secundária). Caso finalizado
+  // (documento assinado) não oferece nova análise.
+  const headerActions = (
+    <>
+      {!isFinalized && latestInteraction && (
+        <Button variant="outline" asChild>
+          <Link href={`/encounters/${id}/capture`}>
+            <Microphone aria-hidden="true" />
+            Reanalisar
+          </Link>
+        </Button>
+      )}
+      {!isFinalized && latestInteraction && (
+        <Button asChild className="max-md:flex-1">
+          <Link href={`/encounters/${id}/result`}>
+            <Brain aria-hidden="true" />
+            Ver análise
+          </Link>
+        </Button>
+      )}
+      {!isFinalized && !latestInteraction && (
+        <Button asChild className="max-md:flex-1">
+          <Link href={`/encounters/${id}/capture`}>
+            <Microphone weight="fill" aria-hidden="true" />
+            Analisar
+          </Link>
+        </Button>
+      )}
+      {canCancel && (
+        // Ação destrutiva rebaixada para o menu "⋯" (padrão do Notion); a
+        // confirmação em diálogo continua obrigatória.
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label="Mais ações do caso">
+              <DotsThree weight="bold" className="size-5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuItem variant="destructive" onSelect={() => setCancelOpen(true)}>
+              <XCircle aria-hidden="true" />
+              Cancelar caso
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+    </>
+  );
 
   return (
-    <div className="min-h-screen bg-clinical-paper">
-      <div className="mx-auto max-w-3xl px-4 py-6">
-        {/* S22-NAV-01 — breadcrumb (a página atual é o próprio paciente). */}
-        <Breadcrumb
-          items={[
-            { label: 'Atendimentos', href: '/encounters' },
-            { label: displayTitle },
-          ]}
+    <Page width="default">
+      <PageHeader
+        icon={verticalMeta.icon}
+        iconTone={verticalMeta.tone}
+        title={displayTitle}
+        actions={headerActions}
+        properties={
+          <PropertyList>
+            <PropertyRow icon={IdentificationCard} label="Paciente" className={PROPERTY_ROW}>
+              {encounter.patientRef ?? (
+                <span className="inline-flex items-center gap-2 text-muted-foreground">
+                  Não identificado
+                  <Badge variant="secondary">Consulta rápida</Badge>
+                </span>
+              )}
+            </PropertyRow>
+            <PropertyRow icon={CircleDashed} label="Status" className={PROPERTY_ROW}>
+              {/* S20-I18N-01 — rótulo humano; fallback para o slug apenas em
+                  caso de status desconhecido (ver encounter-meta). */}
+              <StatusTag status={encounter.status} />
+            </PropertyRow>
+            <PropertyRow icon={Tag} label="Vertical" className={PROPERTY_ROW}>
+              {isFinalized ? (
+                // Caso finalizado é imutável (documento assinado) — o backend
+                // já rejeita qualquer PATCH aqui, então nem oferecemos a edição.
+                <VerticalTag vertical={encounter.vertical} />
+              ) : (
+                <span className="-my-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <Select
+                    value={encounter.vertical}
+                    onValueChange={(value) => void handleVerticalChange(value as EncounterVertical)}
+                    disabled={updateVertical.isPending}
+                  >
+                    <SelectTrigger
+                      size="sm"
+                      className="-ml-1.5 border-transparent bg-transparent px-1.5 hover:bg-hover data-[state=open]:bg-hover max-sm:h-10"
+                      aria-label="Vertical do caso — inferida automaticamente, confirme ou corrija"
+                    >
+                      <SelectValue>
+                        <VerticalTag vertical={encounter.vertical} />
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {VERTICAL_OPTIONS.map(({ value }) => (
+                        <SelectItem key={value} value={value}>
+                          <VerticalTag vertical={value} />
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <span className="text-xs text-muted-foreground">
+                    Inferida automaticamente — confirme ou corrija
+                  </span>
+                </span>
+              )}
+            </PropertyRow>
+            <PropertyRow icon={Warning} label="Gravidade" className={PROPERTY_ROW}>
+              {encounter.highestRedFlagSeverity ? (
+                <SeverityTag severity={encounter.highestRedFlagSeverity} />
+              ) : (
+                <span className="text-muted-foreground">
+                  {latestInteraction ? 'Sem red flags na última análise' : 'Aguardando análise'}
+                </span>
+              )}
+            </PropertyRow>
+            <PropertyRow icon={Buildings} label="Contexto" className={PROPERTY_ROW}>
+              {activeContexts.length > 0 ? (
+                <span className="flex flex-wrap gap-1">
+                  {activeContexts.map(([, label]) => (
+                    <Badge key={label} variant="secondary">
+                      {label}
+                    </Badge>
+                  ))}
+                </span>
+              ) : (
+                <span className="text-muted-foreground">Nenhum recurso marcado</span>
+              )}
+            </PropertyRow>
+            {!isCancelled && (
+              <PropertyRow icon={ListChecks} label="Etapa" className={PROPERTY_ROW}>
+                <ProgressSteps
+                  steps={CASE_STEPS}
+                  currentStep={currentCaseStep(encounter)}
+                  className="-ml-1.5 text-[0.8125rem] max-sm:hidden"
+                />
+                <span className="sm:hidden">
+                  {CASE_STEPS[currentCaseStep(encounter)] ?? 'Concluído'}
+                  <span className="text-muted-foreground">
+                    {' '}
+                    · {Math.min(currentCaseStep(encounter) + 1, CASE_STEPS.length)} de{' '}
+                    {CASE_STEPS.length}
+                  </span>
+                </span>
+              </PropertyRow>
+            )}
+            <PropertyRow icon={CalendarBlank} label="Criado" className={PROPERTY_ROW}>
+              <time dateTime={encounter.createdAt} className="tabular-nums">
+                {formatDateTime(encounter.createdAt)}
+                <span className="text-muted-foreground"> · {formatRelative(encounter.createdAt)}</span>
+              </time>
+            </PropertyRow>
+            <PropertyRow icon={ClockCounterClockwise} label="Atualizado" className={PROPERTY_ROW}>
+              <time
+                dateTime={encounter.updatedAt}
+                title={formatDateTime(encounter.updatedAt)}
+                className="tabular-nums"
+              >
+                {formatRelative(encounter.updatedAt)}
+              </time>
+            </PropertyRow>
+          </PropertyList>
+        }
+      />
+
+      {/* S25-QC-01 — banner some assim que o médico identifica o
+          paciente (a query é invalidada por useIdentifyEncounterPatient,
+          dentro do componente compartilhado). O wrapper zera a margem
+          inferior própria do banner — o ritmo vem do gap do <Page>. */}
+      {encounter.patientRef === null && (
+        <QuickConsultBanner
+          encounterId={id}
+          description="Este caso ainda não está no seu plantão — identifique o paciente para adicioná-lo à fila."
         />
-        <header className="flex items-center justify-between pb-6">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" asChild className="h-9">
-              <Link href="/encounters">
-                <ArrowLeft className="mr-1 size-4" />
-                Voltar
+      )}
+
+      <section aria-labelledby="decision-history-title" className="flex flex-col gap-4">
+        <SectionHeader
+          title={<span id="decision-history-title">Histórico da decisão</span>}
+          count={timelineItems.length}
+        />
+        <DecisionThread items={timelineItems} mode="history" />
+      </section>
+
+      <section aria-labelledby="documents-title" className="flex flex-col gap-3">
+        <SectionHeader
+          title={<span id="documents-title">Documentos</span>}
+          count={documents.length > 0 ? documents.length : undefined}
+          action={
+            documents.length > 0 ? (
+              <Link
+                href={`/encounters/${id}/documents`}
+                className="rounded-sm px-1.5 py-0.5 text-[0.8125rem] text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+              >
+                Abrir documentos →
               </Link>
-            </Button>
-            <h1 className="font-display text-2xl tracking-tight text-clinical-ink">
-              {displayTitle}
-            </h1>
-            <Badge variant={STATUS_VARIANTS[encounter.status] ?? 'secondary'}>
-              {/* S20-I18N-01 — rótulo humano; fallback para o slug apenas em caso
-                  de status desconhecido (manter legível, não mostrar snake_case cru). */}
-              {STATUS_LABELS[encounter.status] ?? encounter.status}
-            </Badge>
-          </div>
-          <div className="flex items-center gap-2">
-            {encounter.status !== 'finalized' && (
-              <Button asChild className="h-11">
-                <Link href={`/encounters/${id}/capture`}>
-                  <Microphone className="mr-2 size-4" />
-                  Analisar
-                </Link>
-              </Button>
-            )}
-            {latestInteraction && encounter.status !== 'finalized' && (
-              <Button variant="outline" asChild className="h-11">
-                <Link href={`/encounters/${id}/result`}>
-                  <Brain className="mr-2 size-4" />
-                  Resultado
-                </Link>
-              </Button>
-            )}
-            {(encounter.status === 'draft' || encounter.status === 'in_review') && (
-              <Button
-                variant="destructive"
-                className="h-11"
-                onClick={() => setCancelOpen(true)}
-              >
-                <XCircle className="mr-2 size-4" />
-                Cancelar caso
-              </Button>
-            )}
-          </div>
-        </header>
-
-        {/* S25-QC-01 — banner some assim que o médico identifica o
-            paciente (a query é invalidada por useIdentifyEncounterPatient,
-            dentro do componente compartilhado). */}
-        {encounter.patientRef === null && (
-          <QuickConsultBanner
-            encounterId={id}
-            description="Este caso ainda não está no seu plantão — identifique o paciente para adicioná-lo à fila."
-          />
-        )}
-
-        <div className="mb-6 flex flex-wrap items-center gap-3">
-          {encounter.status === 'finalized' ? (
-            // Caso finalizado é imutável (documento assinado) — o backend
-            // já rejeita qualquer PATCH aqui, então nem oferecemos a edição.
-            <Badge variant="outline">
-              {VERTICAL_LABELS[encounter.vertical] ?? encounter.vertical}
-            </Badge>
-          ) : (
-            <Select
-              value={encounter.vertical}
-              onValueChange={(value) => void handleVerticalChange(value as EncounterVertical)}
-              disabled={updateVertical.isPending}
-            >
-              <SelectTrigger
-                size="sm"
-                className="rounded-full border-dashed"
-                aria-label="Vertical do caso — inferida automaticamente, confirme ou corrija"
-              >
-                <SelectValue>
-                  {VERTICAL_LABELS[encounter.vertical] ?? encounter.vertical}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {VERTICAL_OPTIONS.map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          {activeContexts.map(([, label]) => (
-            <Badge key={label} variant="secondary">
-              {label}
-            </Badge>
-          ))}
-          <span className="self-center font-mono text-xs text-muted-foreground">
-            {formatTime(encounter.createdAt)} · {formatRelative(encounter.createdAt)}
-          </span>
-        </div>
-
-        <section className="space-y-2 pb-8">
-          <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Histórico da Decisão
-          </h2>
-          <DecisionThread items={timelineItems} mode="history" />
-        </section>
-
-        {documents.length > 0 && (
-          <section className="space-y-3 border-t border-clinical-line pt-6">
-            <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Documentos
-            </h2>
+            ) : undefined
+          }
+        />
+        {documents.length > 0 ? (
+          <ul className="divide-y divide-border border-y border-border">
             {documents.map((doc) => (
-              <div
-                key={doc.id}
-                className="flex items-center justify-between rounded-lg border border-clinical-line bg-white/60 px-4 py-3"
-              >
-                <div className="flex items-center gap-3">
-                  <FileText className="size-4 text-muted-foreground" />
-                  <div>
-                    <p className="text-sm font-medium text-foreground">
+              <li key={doc.id}>
+                <Link
+                  href={`/encounters/${id}/documents/${doc.id}/edit`}
+                  className="group flex items-center gap-3 px-2 py-2.5 transition-colors duration-75 outline-none hover:bg-hover/60 focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:ring-inset"
+                >
+                  {doc.confirmedBy ? (
+                    <SealCheck
+                      className="size-4 shrink-0 text-clinical-green"
+                      weight="fill"
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  )}
+                  <span className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-3">
+                    <span className="text-sm font-medium text-foreground">
                       {DOC_TYPE_LABELS[doc.type] ?? doc.type}
-                    </p>
-                    <p className="font-mono text-xs text-muted-foreground">
+                    </span>
+                    <time
+                      dateTime={doc.createdAt}
+                      className="text-xs text-muted-foreground tabular-nums"
+                    >
                       {formatTime(doc.createdAt)} · {formatRelative(doc.createdAt)}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
+                    </time>
+                  </span>
                   {doc.confirmedBy ? (
                     <Badge variant="success">Confirmado</Badge>
                   ) : (
-                    <Badge variant="outline">Rascunho</Badge>
+                    <Badge variant="secondary">Rascunho</Badge>
                   )}
-                  <Link
-                    href={`/encounters/${id}/documents/${doc.id}/edit`}
-                    className="inline-flex h-8 items-center gap-1 rounded-md border border-clinical-line px-3 text-xs text-foreground hover:border-clinical-teal hover:text-clinical-teal"
-                  >
+                  <span className="hidden w-14 items-center justify-end gap-1 text-[0.8125rem] text-muted-foreground group-hover:text-foreground sm:inline-flex">
                     {doc.confirmedBy ? 'Ver' : 'Editar'}
-                    <ArrowRight className="size-3" />
-                  </Link>
-                </div>
-              </div>
+                    <ArrowRight className="size-3" aria-hidden="true" />
+                  </span>
+                </Link>
+              </li>
             ))}
-          </section>
+          </ul>
+        ) : (
+          <p className="flex items-center gap-2 border-y border-border px-2 py-3 text-sm text-muted-foreground">
+            <FilePlus className="size-4 shrink-0" aria-hidden="true" />
+            {latestInteraction
+              ? 'Nenhum documento ainda — gere SOAP, SBAR ou prescrição a partir da análise.'
+              : 'Os documentos aparecem aqui depois da análise do copiloto.'}
+          </p>
         )}
-      </div>
+      </section>
 
       <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
         <DialogContent>
@@ -361,7 +453,7 @@ export default function EncounterDetailPage({ params }: { params: Promise<{ id: 
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </Page>
   );
 }
 
@@ -389,7 +481,8 @@ function buildTimeline(
 
   items.push({
     id: 'creation',
-    state: 'analysis',
+    state: 'document',
+    icon: FilePlus,
     title: 'Atendimento criado',
     description: 'Paciente registrado no sistema',
     timestamp: `${formatTime(createdAt)} · ${formatRelative(createdAt)}`,
@@ -398,8 +491,10 @@ function buildTimeline(
   for (const interaction of [...interactions].reverse()) {
     items.push({
       id: `interaction-${interaction.id}`,
-      state: 'analysis',
-      title: 'Análise do copiloto',
+      // Incerteza = o copiloto devolveu perguntas que mudam a conduta
+      // (laranja); análise conclusiva fica no azul de IA.
+      state: interaction.uncertainty ? 'question' : 'analysis',
+      title: interaction.uncertainty ? 'Análise do copiloto · com incerteza' : 'Análise do copiloto',
       description: interaction.uncertainty
         ? `Incerteza: ${interaction.uncertaintyReason ?? 'Evidência insuficiente'}`
         : `Análise concluída (${interaction.latencyMs}ms)`,
@@ -411,9 +506,7 @@ function buildTimeline(
     items.push({
       id: `doc-${doc.id}`,
       state: doc.confirmedBy ? 'conduct' : 'document',
-      title: doc.confirmedBy
-        ? `${DOC_TYPE_LABELS[doc.type] ?? doc.type} confirmado`
-        : `${DOC_TYPE_LABELS[doc.type] ?? doc.type} gerado`,
+      title: docEventTitle(doc.type, doc.confirmedBy ? 'confirmed' : 'generated'),
       description: doc.confirmedBy
         ? `Documento assinado${doc.contentHash ? ` · hash ${doc.contentHash.slice(0, 8)}…` : ''}`
         : 'Aguardando revisão e confirmação',

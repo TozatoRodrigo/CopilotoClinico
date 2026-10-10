@@ -3,13 +3,25 @@
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
+import {
+  ArrowClockwise,
+  ChartBar,
+  Coins,
+  CurrencyDollar,
+  DownloadSimple,
+  Funnel,
+  Warning,
+} from '@phosphor-icons/react';
 import { apiClient, ApiError } from '@/lib/api-client';
 import { DEMO_CASE_PRESETS } from '@/lib/demo-case-presets';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Callout } from '@/components/ui/callout';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Disclosure } from '@/components/ui/disclosure';
+import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Select,
@@ -19,7 +31,22 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ChartBar, ArrowRight, Warning, DownloadSimple, CurrencyDollar } from '@phosphor-icons/react';
+import { Page } from '@/components/layout/page';
+import { PageHeader, SectionHeader } from '@/components/layout/page-header';
+import { EmptyState } from '@/components/domain/empty-state';
+import {
+  DEFAULT_COST_DAYS,
+  DEFAULT_PROJECTED_USERS,
+  formatCost,
+  useAiCostReport,
+  type AiCostReport,
+  type CostByModel,
+  type CostByPhysician,
+} from '../_lib/ai-cost';
+import { ColumnChart, FunnelBars, RateMeter, ShareMeter } from '../_components/charts';
+import { formatDay } from '../_lib/format';
+import { Metric } from '../_components/metric';
+import { PeriodToggle } from '../_components/period-toggle';
 
 interface DecisionLoopFunnel {
   analysesStarted: number;
@@ -50,81 +77,55 @@ interface ProductFunnel {
   generatedAt: string;
 }
 
-// PI-02 — espelha AiCostReport em src/modules/analytics/analytics.service.ts.
-// Sem contrato compartilhado aqui de propósito: este endpoint segue o mesmo
-// padrão local-only já usado por ProductFunnel acima nesta mesma página
-// (analytics/funil não está em @contracts/clinical), diferente dos tipos
-// clínicos centrais (Physician, EncounterSummary) que vivem lá.
-interface CostByPhysician {
-  physicianId: string;
-  name: string | null;
-  email: string;
-  totalCost: number;
-  analysesCount: number;
-  reanalysisTurns: number;
-  avgLatencyMs: number;
-}
-
-interface CostByModel {
-  model: string;
-  totalCost: number;
-  count: number;
-  avgLatencyMs: number;
-}
-
-interface CostByDay {
-  date: string;
-  cost: number;
-}
-
-interface AiCostReport {
-  period: { days: number; since: string; generatedAt: string };
-  totals: {
-    totalCost: number;
-    interactionCount: number;
-    encounterCount: number;
-    avgCostPerCase: number | null;
-    avgCostPerAnalysis: number | null;
-    avgTurnsPerCase: number | null;
-  };
-  byPhysician: CostByPhysician[];
-  byModel: CostByModel[];
-  byDay: CostByDay[];
-  projection: {
-    projectedUsers: number;
-    avgCostPerPhysicianPerMonth: number | null;
-    projectedMonthlyCost: number | null;
-  };
-  disclaimer: string;
-}
-
 const ABANDONMENT_ALERT_THRESHOLD = 0.3;
 
+type AnalyticsTab = 'funil' | 'custo';
+
 export default function AnalyticsPage() {
-  const [tab, setTab] = useState<'funil' | 'custo'>('funil');
+  const [tab, setTab] = useState<AnalyticsTab>('funil');
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <div>
-        <h1 className="text-lg font-semibold">Analytics</h1>
-        <p className="text-sm text-muted-foreground">
-          Funil de produto e custo de IA — agregados LGPD-safe (nenhum dado de paciente).
-        </p>
-      </div>
+    <Page width="default">
+      <PageHeader
+        icon={ChartBar}
+        title="Analytics"
+        description="Funil de produto e custo de IA — agregados LGPD-safe (nenhum dado de paciente)."
+      />
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as 'funil' | 'custo')}>
-        <TabsList>
-          <TabsTrigger value="funil">Funil de produto</TabsTrigger>
-          <TabsTrigger value="custo">Custo de IA</TabsTrigger>
+      <Tabs value={tab} onValueChange={(v) => setTab(v as AnalyticsTab)} className="gap-0">
+        <TabsList className="w-full max-sm:group-data-horizontal/tabs:h-10">
+          <TabsTrigger value="funil">
+            <Funnel aria-hidden="true" />
+            Funil de produto
+          </TabsTrigger>
+          <TabsTrigger value="custo">
+            <Coins aria-hidden="true" />
+            Custo de IA
+          </TabsTrigger>
         </TabsList>
-        <TabsContent value="funil" className="mt-6">
+        <TabsContent value="funil" className="pt-6">
           <FunnelPanel />
         </TabsContent>
-        <TabsContent value="custo" className="mt-6">
+        <TabsContent value="custo" className="pt-6">
           <CostPanel />
         </TabsContent>
       </Tabs>
-    </div>
+    </Page>
+  );
+}
+
+function LoadError({ title, message, onRetry }: { title: string; message: string; onRetry: () => void }) {
+  return (
+    <Alert variant="destructive">
+      <AlertTitle>{title}</AlertTitle>
+      <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+        <span>{message}</span>
+        <Button variant="outline" size="sm" onClick={onRetry}>
+          <ArrowClockwise aria-hidden="true" />
+          Tentar novamente
+        </Button>
+      </AlertDescription>
+    </Alert>
   );
 }
 
@@ -158,142 +159,135 @@ function FunnelPanel() {
   const abandonmentHigh = (dl?.abandonmentRate ?? 0) > ABANDONMENT_ALERT_THRESHOLD;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="flex items-end gap-2">
-          {/*
-            S25-ANALYTICS-01 — demoCase vira Select (antes era input texto
-            que disparava request a cada tecla). Casos conhecidos vêm de
-            DEMO_CASE_PRESETS. Valor "_all" = sem filtro (todos os casos).
-          */}
-          <div className="space-y-1">
-            <label className="text-xs text-muted-foreground">Caso-norte</label>
-            <Select
-              value={demoCase || '_all'}
-              onValueChange={(v) => {
-                const next = v === '_all' ? '' : v;
-                setDemoCase(next);
-                syncUrl(days, next);
-              }}
-            >
-              <SelectTrigger className="h-9 w-44">
-                <SelectValue placeholder="Todos os casos" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="_all">Todos os casos</SelectItem>
-                {DEMO_CASE_PRESETS.map((preset) => (
-                  <SelectItem key={preset.slug} value={preset.slug}>
-                    {preset.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex gap-1">
-            {[7, 30].map((d) => (
-              <Button
-                key={d}
-                size="sm"
-                variant={days === d ? 'default' : 'outline'}
-                onClick={() => {
-                  setDays(d);
-                  syncUrl(d, demoCase);
-                }}
-              >
-                {d}d
-              </Button>
-            ))}
-          </div>
+    <div className="flex flex-col gap-8">
+      {/* Barra de filtros do database (uma linha, acima dos gráficos). */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        {/*
+          S25-ANALYTICS-01 — demoCase vira Select (antes era input texto
+          que disparava request a cada tecla). Casos conhecidos vêm de
+          DEMO_CASE_PRESETS. Valor "_all" = sem filtro (todos os casos).
+        */}
+        <div className="flex items-center gap-2">
+          <Label htmlFor="funnel-demo-case">Caso-norte</Label>
+          <Select
+            value={demoCase || '_all'}
+            onValueChange={(v) => {
+              const next = v === '_all' ? '' : v;
+              setDemoCase(next);
+              syncUrl(days, next);
+            }}
+          >
+            <SelectTrigger id="funnel-demo-case" size="sm" className="w-48 text-[0.8125rem] max-sm:h-10">
+              <SelectValue placeholder="Todos os casos" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_all">Todos os casos</SelectItem>
+              {DEMO_CASE_PRESETS.map((preset) => (
+                <SelectItem key={preset.slug} value={preset.slug}>
+                  {preset.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
+        <PeriodToggle
+          options={[7, 30]}
+          value={days}
+          onChange={(d) => {
+            setDays(d);
+            syncUrl(d, demoCase);
+          }}
+        />
       </div>
 
       {error && (
-        <Card>
-          <CardContent className="flex items-center justify-between gap-3 py-4 text-sm">
-            <span className="text-destructive">
-              Não foi possível carregar o funil. {error.message}
-            </span>
-            <Button variant="outline" size="sm" onClick={() => refetch()}>
-              Tentar novamente
-            </Button>
-          </CardContent>
-        </Card>
+        <LoadError
+          title="Não foi possível carregar o funil"
+          message={error.message}
+          onRetry={() => void refetch()}
+        />
       )}
 
       {/* Decision loop — the #1 metric */}
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          Loop de decisão
-        </h2>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <section className="flex flex-col gap-3">
+        <SectionHeader
+          title="Loop de decisão"
+          description="Da pergunta bloqueadora à conduta fechada. A métrica nº 1 é a taxa de perguntas respondidas."
+        />
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Metric
             label="% perguntas blocker respondidas"
-            value={dl ? pct(dl.blockerAnswerRate) : null}
-            sub={dl ? `${dl.blockerQuestionsAnswered}/${dl.blockerQuestionsEmitted}` : null}
+            value={dl ? pct(dl.blockerAnswerRate) : '—'}
+            sub={dl ? `${dl.blockerQuestionsAnswered} de ${dl.blockerQuestionsEmitted} perguntas` : null}
             loading={isPending}
-            primary
-          />
+            tone="highlight"
+            badge={<Badge variant="default" className="bg-background/70">métrica nº 1</Badge>}
+          >
+            {dl && <RateMeter rate={dl.blockerAnswerRate} />}
+          </Metric>
           <Metric
             label="Turnos médios até conduta"
-            value={dl ? (dl.avgTurnsToConduta === null ? '—' : String(dl.avgTurnsToConduta)) : null}
+            value={dl ? formatDecimal(dl.avgTurnsToConduta) : '—'}
             sub={dl ? `${dl.reachedConduta} condutas fechadas` : null}
             loading={isPending}
           />
           <Metric
             label="Taxa de abandono do loop"
-            value={dl ? pct(dl.abandonmentRate) : null}
-            sub={dl ? `${dl.abandoned}/${dl.encountersWithBlockers} atendimentos` : null}
+            value={dl ? pct(dl.abandonmentRate) : '—'}
+            sub={dl ? `${dl.abandoned} de ${dl.encountersWithBlockers} atendimentos` : null}
             loading={isPending}
-            danger={abandonmentHigh}
-          />
+            tone={abandonmentHigh ? 'warning' : 'default'}
+          >
+            {dl && <RateMeter rate={dl.abandonmentRate} tone={abandonmentHigh ? 'orange' : 'blue'} />}
+          </Metric>
           <Metric
             label="Documentos confirmados"
-            value={dl ? String(dl.confirmedDocuments) : null}
+            value={dl ? String(dl.confirmedDocuments) : '—'}
             sub={dl ? `${dl.analysesStarted} análises iniciadas` : null}
             loading={isPending}
           />
         </div>
         {abandonmentHigh && (
-          <div className="flex items-center gap-2 rounded-lg border border-clinical-amber/40 bg-clinical-amber-bg px-3 py-2 text-sm text-clinical-amber-foreground">
-            <Warning className="size-4" />
+          <Callout tone="orange" icon={<Warning weight="fill" />}>
             Abandono acima de {pct(ABANDONMENT_ALERT_THRESHOLD)} — sinal de fricção na UI do copiloto.
-          </div>
+          </Callout>
         )}
       </section>
 
       {/* Activation funnel */}
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          Ativação
-        </h2>
-        <Card>
-          <CardContent className="py-4">
-            {isPending ? (
-              <Skeleton className="h-16 w-full rounded" />
-            ) : act ? (
-              <ActivationSteps steps={[
+      <section className="flex flex-col gap-3">
+        <SectionHeader
+          title="Ativação"
+          description="Médicos que chegaram a cada etapa no período."
+        />
+        <div className="rounded-lg border border-border px-4 py-4">
+          {isPending ? (
+            <div className="flex flex-col gap-2.5">
+              {Array.from({ length: 4 }, (_, i) => (
+                <Skeleton key={i} className="h-5 w-full" />
+              ))}
+            </div>
+          ) : act ? (
+            <FunnelBars
+              steps={[
                 { label: 'Cadastro', value: act.registered },
                 { label: '1º atendimento', value: act.withEncounter },
                 { label: '1ª análise', value: act.withAnalysis },
                 { label: '1ª confirmação', value: act.withConfirmation },
-              ]} />
-            ) : (
-              <ChartBar className="size-8 text-muted-foreground" weight="duotone" />
-            )}
-          </CardContent>
-        </Card>
+              ]}
+            />
+          ) : (
+            <EmptyState
+              icon={<ChartBar weight="duotone" />}
+              title="Sem dados de ativação"
+              description="Recarregue o funil para ver as etapas do período."
+              className="py-6"
+            />
+          )}
+        </div>
       </section>
     </div>
   );
-}
-
-// PI-02 — formata em BRL porque é assim que a resposta vai para os sócios
-// (o custo em si é medido em USD pelo provedor de IA, mas exibir a moeda de
-// referência do negócio evita um passo de conversão manual toda vez que
-// alguém olha o painel). O disclaimer deixa claro que é estimativa.
-function formatCost(value: number | null): string {
-  if (value === null) return '—';
-  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'USD' });
 }
 
 function downloadCostCsv(report: AiCostReport) {
@@ -359,44 +353,82 @@ function downloadCostCsv(report: AiCostReport) {
   URL.revokeObjectURL(url);
 }
 
+function formatMs(ms: number): string {
+  return `${ms.toLocaleString('pt-BR')} ms`;
+}
+
+const numericCell = 'text-right tabular-nums';
+
 function CostPanel() {
-  const [days, setDays] = useState(30);
-  const [projectedUsersInput, setProjectedUsersInput] = useState('100');
+  const [days, setDays] = useState(DEFAULT_COST_DAYS);
+  const [projectedUsersInput, setProjectedUsersInput] = useState(String(DEFAULT_PROJECTED_USERS));
   // PI-02 — só dispara a query quando o valor digitado é um inteiro válido;
   // evita rajada de requests a cada tecla enquanto o médico ainda está
   // digitando (ex.: "1" → "10" → "100").
   const projectedUsers = /^\d+$/.test(projectedUsersInput) ? Number(projectedUsersInput) : null;
 
-  const { data, isPending, error, refetch } = useQuery<AiCostReport, ApiError>({
-    queryKey: ['ai-cost-report', days, projectedUsers],
-    queryFn: () =>
-      apiClient.get<AiCostReport>('/analytics/cost', {
-        days: String(days),
-        ...(projectedUsers ? { projectedUsers: String(projectedUsers) } : {}),
-      }),
-    enabled: projectedUsers !== null,
-  });
+  const { data, isPending, error, refetch } = useAiCostReport(days, projectedUsers);
+  const totalCost = data?.totals.totalCost ?? 0;
+
+  const physicianColumns: DataTableColumn<CostByPhysician>[] = [
+    {
+      key: 'physician',
+      header: 'Médico',
+      cardLabel: null,
+      cell: (p) => (
+        <div className="min-w-0 text-left">
+          <p className="truncate font-medium text-foreground">{p.name ?? '—'}</p>
+          <p className="truncate text-[0.8125rem] text-muted-foreground">{p.email}</p>
+        </div>
+      ),
+    },
+    { key: 'cost', header: 'Custo', className: numericCell, cell: (p) => formatCost(p.totalCost) },
+    {
+      key: 'share',
+      header: 'Participação',
+      hideOnMobile: true,
+      cell: (p) => (
+        <ShareMeter value={p.totalCost} total={totalCost} label={`${formatCost(p.totalCost)} de ${formatCost(totalCost)}`} />
+      ),
+    },
+    { key: 'analyses', header: 'Análises', className: numericCell, cell: (p) => p.analysesCount },
+    { key: 'turns', header: 'Turnos reanálise', className: numericCell, cell: (p) => p.reanalysisTurns },
+    { key: 'latency', header: 'Latência média', className: numericCell, cell: (p) => formatMs(p.avgLatencyMs) },
+  ];
+
+  const modelColumns: DataTableColumn<CostByModel>[] = [
+    {
+      key: 'model',
+      header: 'Modelo',
+      cardLabel: null,
+      cell: (m) => <span className="block text-left font-mono text-[0.8125rem] text-foreground">{m.model}</span>,
+    },
+    { key: 'cost', header: 'Custo', className: numericCell, cell: (m) => formatCost(m.totalCost) },
+    {
+      key: 'share',
+      header: 'Participação',
+      hideOnMobile: true,
+      cell: (m) => (
+        <ShareMeter value={m.totalCost} total={totalCost} label={`${formatCost(m.totalCost)} de ${formatCost(totalCost)}`} />
+      ),
+    },
+    { key: 'count', header: 'Nº de análises', className: numericCell, cell: (m) => m.count },
+    { key: 'latency', header: 'Latência média', className: numericCell, cell: (m) => formatMs(m.avgLatencyMs) },
+  ];
+
+  const byDay = data?.byDay ?? [];
+  const peakDay = byDay.reduce<(typeof byDay)[number] | null>(
+    (peak, d) => (peak === null || d.cost > peak.cost ? d : peak),
+    null,
+  );
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="flex items-end gap-3">
-          <div className="flex gap-1">
-            {[7, 30, 90].map((d) => (
-              <Button
-                key={d}
-                size="sm"
-                variant={days === d ? 'default' : 'outline'}
-                onClick={() => setDays(d)}
-              >
-                {d}d
-              </Button>
-            ))}
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="cost-projected-users" className="text-xs text-muted-foreground">
-              Projeção para N usuários
-            </Label>
+    <div className="flex flex-col gap-8">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <PeriodToggle options={[7, 30, 90]} value={days} onChange={setDays} />
+          <div className="flex items-center gap-2">
+            <Label htmlFor="cost-projected-users">Projeção para</Label>
             <Input
               id="cost-projected-users"
               type="number"
@@ -404,242 +436,173 @@ function CostPanel() {
               inputMode="numeric"
               value={projectedUsersInput}
               onChange={(e) => setProjectedUsersInput(e.target.value)}
-              className="h-9 w-28"
+              aria-describedby="cost-projected-users-unit"
+              className="h-7 w-20 text-[0.8125rem] tabular-nums md:text-[0.8125rem]"
             />
+            <span id="cost-projected-users-unit" className="text-[0.8125rem] text-muted-foreground">
+              usuários
+            </span>
           </div>
         </div>
         <Button
           variant="outline"
           size="sm"
+          className="max-sm:h-10"
           disabled={!data}
           onClick={() => data && downloadCostCsv(data)}
         >
-          <DownloadSimple className="mr-1.5 size-4" />
+          <DownloadSimple aria-hidden="true" />
           Exportar CSV
         </Button>
       </div>
 
       {error && (
-        <Card>
-          <CardContent className="flex items-center justify-between gap-3 py-4 text-sm">
-            <span className="text-destructive">
-              Não foi possível carregar o custo de IA. {error.message}
-            </span>
-            <Button variant="outline" size="sm" onClick={() => refetch()}>
-              Tentar novamente
-            </Button>
-          </CardContent>
-        </Card>
+        <LoadError
+          title="Não foi possível carregar o custo de IA"
+          message={error.message}
+          onRetry={() => void refetch()}
+        />
       )}
 
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          Totais do período
-        </h2>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <section className="flex flex-col gap-3">
+        <SectionHeader title="Totais do período" />
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Metric
             label="Custo total"
-            value={data ? formatCost(data.totals.totalCost) : null}
+            value={data ? formatCost(data.totals.totalCost) : '—'}
             sub={data ? `${data.totals.interactionCount} análises · ${data.totals.encounterCount} casos` : null}
             loading={isPending}
-            primary
+            tone="highlight"
           />
           <Metric
             label="Custo médio por caso"
-            value={data ? formatCost(data.totals.avgCostPerCase) : null}
-            sub={null}
+            value={data ? formatCost(data.totals.avgCostPerCase) : '—'}
             loading={isPending}
           />
           <Metric
             label="Custo médio por análise"
-            value={data ? formatCost(data.totals.avgCostPerAnalysis) : null}
-            sub={null}
+            value={data ? formatCost(data.totals.avgCostPerAnalysis) : '—'}
             loading={isPending}
           />
           <Metric
             label="Turnos médios por caso"
-            value={data ? (data.totals.avgTurnsPerCase === null ? '—' : String(data.totals.avgTurnsPerCase)) : null}
+            value={data ? formatDecimal(data.totals.avgTurnsPerCase) : '—'}
             sub="reanálises inflam este número — ver Sprint 26"
             loading={isPending}
           />
         </div>
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          Projeção — quanto custaria abrir para N usuários
-        </h2>
-        <Card className="border-clinical-teal/40 bg-clinical-teal-tint/40">
-          <CardContent className="flex flex-wrap items-center gap-6 py-4">
-            <CurrencyDollar className="size-8 shrink-0 text-clinical-teal-deep" weight="duotone" />
-            {isPending ? (
-              <Skeleton className="h-10 w-56 rounded" />
-            ) : data ? (
-              <div>
-                <p className="font-display text-2xl tracking-tight text-clinical-teal-deep">
-                  {formatCost(data.projection.projectedMonthlyCost)}
-                  <span className="ml-1 text-sm font-normal text-muted-foreground">/ mês</span>
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {formatCost(data.projection.avgCostPerPhysicianPerMonth)} por médico ativo/mês ×{' '}
-                  {data.projection.projectedUsers} usuários
-                </p>
-              </div>
-            ) : null}
-          </CardContent>
-        </Card>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          Custo por médico
-        </h2>
-        <Card>
-          <CardContent className="p-0">
-            {isPending ? (
-              <div className="space-y-2 p-4">
-                {Array.from({ length: 3 }, (_, i) => (
-                  <Skeleton key={i} className="h-10 w-full rounded" />
-                ))}
-              </div>
-            ) : data && data.byPhysician.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-clinical-line text-left text-xs text-muted-foreground">
-                      <th className="px-4 py-2 font-medium">Médico</th>
-                      <th className="px-4 py-2 font-medium">Custo</th>
-                      <th className="px-4 py-2 font-medium">Análises</th>
-                      <th className="px-4 py-2 font-medium">Turnos reanálise</th>
-                      <th className="px-4 py-2 font-medium">Latência média</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.byPhysician.map((p) => (
-                      <tr key={p.physicianId} className="border-b border-clinical-line last:border-0">
-                        <td className="px-4 py-2">
-                          <p className="font-medium text-foreground">{p.name ?? '—'}</p>
-                          <p className="text-xs text-muted-foreground">{p.email}</p>
-                        </td>
-                        <td className="px-4 py-2 font-mono">{formatCost(p.totalCost)}</td>
-                        <td className="px-4 py-2">{p.analysesCount}</td>
-                        <td className="px-4 py-2">{p.reanalysisTurns}</td>
-                        <td className="px-4 py-2">{p.avgLatencyMs} ms</td>
+      <section className="flex flex-col gap-3">
+        <SectionHeader
+          title="Custo por dia"
+          description={
+            peakDay ? `Pico em ${formatDay(peakDay.date)}: ${formatCost(peakDay.cost)}.` : undefined
+          }
+        />
+        <div className="rounded-lg border border-border px-4 pt-4 pb-3">
+          {isPending ? (
+            <Skeleton className="h-[188px] w-full" />
+          ) : byDay.length > 0 ? (
+            <div className="flex flex-col gap-3">
+              <ColumnChart
+                data={byDay.map((d) => ({ key: d.date, label: formatDay(d.date), value: d.cost }))}
+                formatValue={formatCost}
+                formatTick={(v) => `$${v.toLocaleString('pt-BR')}`}
+                figureLabel={`Custo diário de IA nos últimos ${days} dias${
+                  peakDay ? `, com pico de ${formatCost(peakDay.cost)} em ${formatDay(peakDay.date)}` : ''
+                }. Valores na tabela abaixo.`}
+              />
+              <Disclosure title="Ver como tabela" meta={`${byDay.length} dias`} className="border-t border-border pt-2">
+                <div className="max-h-64 overflow-y-auto">
+                  <table className="w-full text-[0.8125rem]">
+                    <caption className="sr-only">Custo de IA por dia</caption>
+                    <thead>
+                      <tr className="border-b border-border text-left text-muted-foreground">
+                        <th scope="col" className="py-1.5 pr-4 font-normal">Dia</th>
+                        <th scope="col" className="py-1.5 text-right font-normal">Custo</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className="p-4 text-sm text-muted-foreground">Sem interações de IA no período.</p>
-            )}
-          </CardContent>
-        </Card>
+                    </thead>
+                    <tbody>
+                      {byDay.map((d) => (
+                        <tr key={d.date} className="border-b border-border last:border-0">
+                          <td className="py-1.5 pr-4 tabular-nums">{formatDay(d.date)}</td>
+                          <td className="py-1.5 text-right tabular-nums">{formatCost(d.cost)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Disclosure>
+            </div>
+          ) : (
+            <p className="py-6 text-center text-sm text-muted-foreground">Sem interações de IA no período.</p>
+          )}
+        </div>
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          Custo por modelo
-        </h2>
-        <Card>
-          <CardContent className="p-0">
-            {isPending ? (
-              <Skeleton className="m-4 h-16 w-full rounded" />
-            ) : data && data.byModel.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-clinical-line text-left text-xs text-muted-foreground">
-                      <th className="px-4 py-2 font-medium">Modelo</th>
-                      <th className="px-4 py-2 font-medium">Custo</th>
-                      <th className="px-4 py-2 font-medium">Nº de análises</th>
-                      <th className="px-4 py-2 font-medium">Latência média</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.byModel.map((m) => (
-                      <tr key={m.model} className="border-b border-clinical-line last:border-0">
-                        <td className="px-4 py-2 font-mono">{m.model}</td>
-                        <td className="px-4 py-2 font-mono">{formatCost(m.totalCost)}</td>
-                        <td className="px-4 py-2">{m.count}</td>
-                        <td className="px-4 py-2">{m.avgLatencyMs} ms</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className="p-4 text-sm text-muted-foreground">Sem interações de IA no período.</p>
-            )}
-          </CardContent>
-        </Card>
+      <section className="flex flex-col gap-3">
+        <SectionHeader title="Projeção" description="Quanto custaria abrir o Copiloto para N usuários." />
+        <div className="flex items-start gap-3 rounded-lg bg-tone-blue-bg px-4 py-4 text-tone-blue-ink sm:px-5">
+          <CurrencyDollar className="mt-0.5 size-6 shrink-0 text-tone-blue" weight="duotone" aria-hidden="true" />
+          {isPending ? (
+            <div className="flex flex-col gap-2">
+              <Skeleton className="h-8 w-48 bg-background/60" />
+              <Skeleton className="h-3 w-64 bg-background/60" />
+            </div>
+          ) : data ? (
+            <div className="flex flex-col gap-1">
+              <p className="text-[1.75rem] leading-none font-semibold tracking-[-0.02em]">
+                {formatCost(data.projection.projectedMonthlyCost)}
+                <span className="ml-1.5 text-sm font-normal opacity-85">/ mês</span>
+              </p>
+              <p className="text-[0.8125rem] opacity-90">
+                {formatCost(data.projection.avgCostPerPhysicianPerMonth)} por médico ativo/mês ×{' '}
+                {data.projection.projectedUsers} usuários
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm opacity-90">Informe um número inteiro de usuários para projetar.</p>
+          )}
+        </div>
       </section>
 
-      {data && (
-        <p className="text-xs italic text-muted-foreground">{data.disclaimer}</p>
-      )}
+      <section className="flex flex-col gap-3">
+        <SectionHeader title="Custo por médico" count={data ? data.byPhysician.length : undefined} />
+        <DataTable
+          columns={physicianColumns}
+          rows={data?.byPhysician ?? []}
+          getRowId={(p) => p.physicianId}
+          loading={isPending}
+          loadingRows={3}
+          ariaLabel="Custo de IA por médico"
+          emptyTitle="Sem interações de IA no período."
+        />
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <SectionHeader title="Custo por modelo" count={data ? data.byModel.length : undefined} />
+        <DataTable
+          columns={modelColumns}
+          rows={data?.byModel ?? []}
+          getRowId={(m) => m.model}
+          loading={isPending}
+          loadingRows={2}
+          ariaLabel="Custo de IA por modelo"
+          emptyTitle="Sem interações de IA no período."
+        />
+      </section>
+
+      {data && <p className="text-xs text-muted-foreground">{data.disclaimer}</p>}
     </div>
   );
+}
+
+/** Média com vírgula decimal (pt-BR); `null` = sem dados no período. */
+function formatDecimal(value: number | null): string {
+  return value === null ? '—' : value.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
 }
 
 function pct(rate: number): string {
   return `${Math.round(rate * 100)}%`;
-}
-
-function Metric({
-  label,
-  value,
-  sub,
-  loading,
-  primary,
-  danger,
-}: {
-  label: string;
-  value: string | null;
-  sub: string | null;
-  loading: boolean;
-  primary?: boolean;
-  danger?: boolean;
-}) {
-  return (
-    <Card className={danger ? 'border-clinical-amber/40' : undefined}>
-      <CardContent className="space-y-1 py-4">
-        <p className="text-xs text-muted-foreground">{label}</p>
-        {loading ? (
-          <Skeleton className="h-7 w-16 rounded" />
-        ) : (
-          <p
-            className={
-              'font-display text-2xl tracking-tight ' +
-              (danger ? 'text-clinical-amber-foreground' : primary ? 'text-clinical-teal-deep' : 'text-foreground')
-            }
-          >
-            {value}
-          </p>
-        )}
-        {sub && !loading && <p className="text-xs text-muted-foreground">{sub}</p>}
-        {primary && !loading && (
-          <Badge variant="secondary" className="mt-1">
-            métrica nº 1
-          </Badge>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function ActivationSteps({ steps }: { steps: { label: string; value: number }[] }) {
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      {steps.map((step, i) => (
-        <div key={step.label} className="flex items-center gap-2">
-          <div className="rounded-lg border border-clinical-line bg-card px-3 py-2 text-center">
-            <p className="font-display text-xl tracking-tight text-foreground">{step.value}</p>
-            <p className="text-xs text-muted-foreground">{step.label}</p>
-          </div>
-          {i < steps.length - 1 && <ArrowRight className="size-4 text-muted-foreground" />}
-        </div>
-      ))}
-    </div>
-  );
 }

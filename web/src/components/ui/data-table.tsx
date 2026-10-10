@@ -165,7 +165,13 @@ export function DataTable<T>({
                 {label}
               </span>
             )}
-            <span className="min-w-0 flex-1 text-right text-sm text-foreground">
+            <span
+              className={cn(
+                'min-w-0 flex-1 text-sm text-foreground',
+                // Sem rótulo, a coluna é o "título" da linha: alinha à esquerda.
+                label ? 'text-right' : 'text-left',
+              )}
+            >
               {col.cell(row)}
             </span>
           </div>

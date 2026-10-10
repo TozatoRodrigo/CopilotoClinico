@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { FilePlus, UploadSimple } from '@phosphor-icons/react';
+import { FilePlus, FileText, UploadSimple } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -45,6 +45,24 @@ const SPECIALTIES = [
   { value: 'nao_classificada', label: 'Não sei classificar' },
 ] as const;
 
+const SPECIALTY_LABELS: Record<string, string> = {
+  ...Object.fromEntries(SPECIALTIES.map((item) => [item.value, item.label])),
+  // "Não sei classificar" é a pergunta do formulário; como tag, é estado.
+  nao_classificada: 'Sem especialidade',
+};
+
+/**
+ * Rótulo legível de um slug de `specialty` para as tags da biblioteca e da
+ * consulta. Slugs fora da lista (ex.: `toxicologia`, vindo da base oficial)
+ * viram texto com espaço e inicial maiúscula — nunca o slug cru.
+ */
+export function specialtyLabel(slug: string): string {
+  const known = SPECIALTY_LABELS[slug];
+  if (known) return known;
+  const text = slug.replace(/_/g, ' ').trim();
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 /**
  * PDF entrou aqui porque converter à mão foi exatamente o que não funcionou no
  * reporte original — o médico converteu para .md e .txt e ainda assim deu
@@ -76,6 +94,8 @@ interface SuggestGuidelineDialogProps {
   defaultSource?: string;
   triggerLabel?: string;
   triggerVariant?: 'default' | 'outline' | 'ghost';
+  /** `sm` em barras e estados vazios; `default` no cabeçalho da página. */
+  triggerSize?: 'sm' | 'default';
 }
 
 /**
@@ -96,6 +116,7 @@ export function SuggestGuidelineDialog({
   defaultSource = '',
   triggerLabel = 'Sugerir uma diretriz',
   triggerVariant = 'outline',
+  triggerSize = 'sm',
 }: SuggestGuidelineDialogProps) {
   const [open, setOpen] = useState(false);
   const [source, setSource] = useState(defaultSource);
@@ -212,15 +233,15 @@ export function SuggestGuidelineDialog({
       }}
     >
       <DialogTrigger asChild>
-        <Button type="button" variant={triggerVariant} size="sm" className="gap-2">
-          <FilePlus className="size-4" />
+        <Button type="button" variant={triggerVariant} size={triggerSize}>
+          <FilePlus />
           {triggerLabel}
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
+      <DialogContent className="gap-5 sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Sugerir uma diretriz para a base</DialogTitle>
+          <DialogTitle variant="brand">Sugerir uma diretriz para a base</DialogTitle>
           <DialogDescription>
             Encontrou um cenário que a base não cobre? Envie a referência. Ela entra na fila de
             curadoria — um curador precisa aprovar antes de o Copiloto passar a citá-la.
@@ -228,20 +249,35 @@ export function SuggestGuidelineDialog({
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <Button
+          {/* Bloco de arquivo do Notion: área tracejada clicável. */}
+          <div className="flex flex-col gap-1.5">
+            <button
               type="button"
-              variant="outline"
-              className="w-full justify-start gap-2"
               disabled={extract.isPending}
               onClick={() => fileInputRef.current?.click()}
+              className="flex w-full items-center gap-3 rounded-lg border border-dashed border-input bg-surface-subtle px-3.5 py-3 text-left transition-colors hover:bg-hover focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-none disabled:opacity-60"
             >
-              <UploadSimple className="size-4" />
-              {extract.isPending ? 'Lendo o arquivo…' : (filename ?? 'Escolher arquivo PDF, .md ou .txt')}
-            </Button>
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-background text-muted-foreground">
+                {filename ? (
+                  <FileText className="size-[18px]" aria-hidden="true" />
+                ) : (
+                  <UploadSimple className="size-[18px]" aria-hidden="true" />
+                )}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium text-foreground">
+                  {extract.isPending
+                    ? 'Lendo o arquivo…'
+                    : (filename ?? 'Escolher arquivo PDF, .md ou .txt')}
+                </span>
+                <span className="block text-xs text-muted-foreground">
+                  {filename ? 'Clique para trocar o arquivo' : 'Até 8 MB'}
+                </span>
+              </span>
+            </button>
             <p className="text-xs text-muted-foreground">
               O texto é extraído aqui mesmo — confira e recorte a parte que muda a conduta antes de
-              enviar. Até 8 MB.
+              enviar.
             </p>
             <input
               ref={fileInputRef}
@@ -256,7 +292,7 @@ export function SuggestGuidelineDialog({
             />
           </div>
 
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor="suggest-source">De onde veio</Label>
             <Input
               id="suggest-source"
@@ -267,7 +303,7 @@ export function SuggestGuidelineDialog({
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1.5">
               <Label htmlFor="suggest-version">Ano ou versão (opcional)</Label>
               <Input
                 id="suggest-version"
@@ -277,10 +313,10 @@ export function SuggestGuidelineDialog({
               />
             </div>
 
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-1.5">
               <Label htmlFor="suggest-specialty">Especialidade</Label>
               <Select value={specialty} onValueChange={setSpecialty}>
-                <SelectTrigger id="suggest-specialty">
+                <SelectTrigger id="suggest-specialty" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -294,18 +330,21 @@ export function SuggestGuidelineDialog({
             </div>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="suggest-text">Conteúdo</Label>
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-baseline justify-between gap-2">
+              <Label htmlFor="suggest-text">Conteúdo</Label>
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {text.trim().length.toLocaleString('pt-BR')} caracteres
+              </span>
+            </div>
             <Textarea
               id="suggest-text"
               value={text}
               onChange={(e) => setText(e.target.value)}
               rows={10}
+              className="min-h-40 max-h-80 leading-relaxed"
               placeholder="Cole aqui o trecho da diretriz que muda a conduta — critérios, doses, sinais de alarme."
             />
-            <p className="text-xs text-muted-foreground">
-              {text.trim().length.toLocaleString('pt-BR')} caracteres
-            </p>
           </div>
         </div>
 

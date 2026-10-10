@@ -34,9 +34,12 @@ const tabsListVariants = cva(
   {
     variants: {
       variant: {
+        // Linha de base como sombra interna (não border): com overflow-x-auto
+        // o sublinhado da aba ativa precisa ficar DENTRO da caixa para não
+        // ser recortado.
         default:
-          "max-w-full gap-1 overflow-x-auto border-b border-border group-data-horizontal/tabs:h-9",
-        line: "max-w-full gap-1 overflow-x-auto border-b border-border group-data-horizontal/tabs:h-9",
+          "max-w-full gap-1 overflow-x-auto shadow-[inset_0_-1px_0_var(--border)] group-data-horizontal/tabs:h-9 max-sm:group-data-horizontal/tabs:h-10",
+        line: "max-w-full gap-1 overflow-x-auto shadow-[inset_0_-1px_0_var(--border)] group-data-horizontal/tabs:h-9 max-sm:group-data-horizontal/tabs:h-10",
         segmented:
           "gap-0.5 rounded-md bg-tone-gray-bg p-0.5 group-data-horizontal/tabs:h-8",
       },
@@ -75,7 +78,7 @@ function TabsTrigger({
         // Sublinhado (default/line)
         "group-data-[variant=default]/tabs-list:h-full group-data-[variant=default]/tabs-list:rounded-sm group-data-[variant=default]/tabs-list:px-2 group-data-[variant=default]/tabs-list:hover:bg-hover group-data-[variant=default]/tabs-list:data-active:text-foreground",
         "group-data-[variant=line]/tabs-list:h-full group-data-[variant=line]/tabs-list:rounded-sm group-data-[variant=line]/tabs-list:px-2 group-data-[variant=line]/tabs-list:hover:bg-hover group-data-[variant=line]/tabs-list:data-active:text-foreground",
-        "after:absolute after:inset-x-1 after:-bottom-px after:h-0.5 after:rounded-full after:bg-foreground after:opacity-0 group-data-[variant=default]/tabs-list:data-active:after:opacity-100 group-data-[variant=line]/tabs-list:data-active:after:opacity-100",
+        "after:absolute after:inset-x-1 after:bottom-0 after:h-0.5 after:rounded-full after:bg-foreground after:opacity-0 group-data-[variant=default]/tabs-list:data-active:after:opacity-100 group-data-[variant=line]/tabs-list:data-active:after:opacity-100",
         // Segmentado
         "group-data-[variant=segmented]/tabs-list:h-full group-data-[variant=segmented]/tabs-list:flex-1 group-data-[variant=segmented]/tabs-list:rounded-[4px] group-data-[variant=segmented]/tabs-list:px-2.5 group-data-[variant=segmented]/tabs-list:data-active:bg-background group-data-[variant=segmented]/tabs-list:data-active:text-foreground group-data-[variant=segmented]/tabs-list:data-active:shadow-sm dark:group-data-[variant=segmented]/tabs-list:data-active:bg-active",
         className

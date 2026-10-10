@@ -20,15 +20,20 @@ import { useIdentifyEncounterPatient } from "@/lib/clinical-queries";
  * muda por contexto (entrar no plantão vs. poder gerar documento), mas o
  * formulário inline e a mutation são os mesmos — centralizados aqui para
  * não duplicar a lógica de identificação em três lugares.
+ *
+ * Visual: callout azul do Notion (informação + ação), sem margem própria —
+ * o espaçamento vem do ritmo de blocos da página (`Page`).
  */
 export function QuickConsultBanner({
   encounterId,
   description,
   successMessage = "Paciente identificado — o caso agora está no seu plantão.",
+  className,
 }: {
   encounterId: string;
   description: string;
   successMessage?: string;
+  className?: string;
 }) {
   const identifyPatient = useIdentifyEncounterPatient(encounterId);
   const [value, setValue] = useState("");
@@ -49,12 +54,15 @@ export function QuickConsultBanner({
   }
 
   return (
-    <Alert className="mb-6">
-      <IdentificationCard className="size-4" />
+    <Alert variant="info" className={className}>
+      <IdentificationCard weight="duotone" />
       <AlertTitle>Consulta rápida</AlertTitle>
       <AlertDescription>
-        <p className="mb-3">{description}</p>
-        <form onSubmit={(e) => void handleSubmit(e)} className="flex gap-2">
+        <p>{description}</p>
+        <form
+          onSubmit={(e) => void handleSubmit(e)}
+          className="flex flex-col gap-2 sm:flex-row sm:items-center"
+        >
           <Input
             value={value}
             onChange={(e) => {
@@ -65,13 +73,13 @@ export function QuickConsultBanner({
             placeholder="Ex: JSL-Leito04, PRN-2024-00123"
             aria-label="Identificador do paciente"
             aria-invalid={!!error}
-            className="h-9 max-w-xs"
+            className="bg-background text-foreground sm:max-w-xs"
           />
           <Button
             type="submit"
-            size="sm"
             disabled={!value.trim() || identifyPatient.isPending}
             loading={identifyPatient.isPending}
+            className="shrink-0"
           >
             Identificar paciente
           </Button>

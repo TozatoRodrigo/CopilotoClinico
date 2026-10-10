@@ -1,12 +1,23 @@
 'use client';
 
-import { useState, useRef, useCallback, type FormEvent, type KeyboardEvent } from 'react';
+import {
+  useState,
+  useRef,
+  useCallback,
+  type FormEvent,
+  type ElementType,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useAuth } from '@/lib/auth-store';
 import { apiClient, ApiError } from '@/lib/api-client';
 import { toast } from 'sonner';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Callout } from '@/components/ui/callout';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -19,8 +30,13 @@ import {
   UserCircle,
   QrCode,
   Download,
+  DeviceMobile,
+  IdentificationCard,
+  Key,
+  WarningCircle,
 } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
+import { AuthHeading } from '../_components/auth-ui';
 
 interface MfaSetupResponse {
   otpauthUri: string;
@@ -110,7 +126,6 @@ export default function OnboardingPage() {
   );
 
   const stepIndex = STEPS.indexOf(step);
-  const progressPercent = (stepIndex / (STEPS.length - 1)) * 100;
 
   function goTo(next: Step) {
     setStep(next);
@@ -287,75 +302,59 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-lg space-y-6">
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-medium text-muted-foreground">{STEP_LABELS[step]}</span>
-          <span className="text-xs text-muted-foreground">
-            {stepIndex + 1} / {STEPS.length}
-          </span>
-        </div>
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-clinical-line">
-          <div
-            className="h-full rounded-full bg-clinical-teal transition-all duration-500"
-            style={{ width: `${progressPercent}%` }}
-          />
-        </div>
-      </div>
+    <div className="flex w-full max-w-[480px] flex-col gap-10">
+      <StepProgress current={stepIndex} />
 
       {step === 'welcome' && (
-        <div className="space-y-6 pt-4">
-          <div className="space-y-2 text-center">
-            <h1 className="font-display text-3xl tracking-tight text-clinical-ink">
-              Bem-vindo ao Copiloto Clínico
-            </h1>
-            <p className="text-muted-foreground">
-              {physician?.name
+        <StepBody>
+          <AuthHeading
+            title="Bem-vindo ao Copiloto Clínico"
+            description={
+              physician?.name
                 ? `Dr(a). ${physician.name}, vamos configurar sua conta.`
-                : 'Vamos configurar sua conta em poucos passos.'}
-            </p>
-          </div>
+                : 'Vamos configurar sua conta em poucos passos.'
+            }
+          />
 
-          <div className="space-y-3 rounded-xl border border-clinical-line bg-clinical-paper p-5">
-            <h2 className="text-sm font-semibold text-clinical-ink">O que vamos fazer:</h2>
-            <ol className="space-y-2 text-sm text-muted-foreground">
-              <li className="flex items-start gap-2">
-                <ShieldCheck className="mt-0.5 size-4 shrink-0 text-clinical-teal" />
-                <span>
-                  <strong className="text-clinical-ink">Autenticação de dois fatores</strong> —
-                  obrigatória para médicos, conforme CFM
+          <div className="flex flex-col gap-2">
+            <h2 className="text-[0.8125rem] font-medium text-muted-foreground">O que vamos fazer:</h2>
+            <ol className="divide-y divide-border rounded-lg border border-border">
+              <li className="flex items-start gap-3 px-4 py-3.5">
+                <ShieldCheck className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <span className="text-sm text-muted-foreground">
+                  <strong className="block font-semibold text-foreground">Autenticação de dois fatores</strong>
+                  Obrigatória para médicos, conforme CFM.
                 </span>
               </li>
-              <li className="flex items-start gap-2">
-                <UserCircle className="mt-0.5 size-4 shrink-0 text-clinical-teal" />
-                <span>
-                  <strong className="text-clinical-ink">Completar perfil</strong> — nome e
-                  especialidade
+              <li className="flex items-start gap-3 px-4 py-3.5">
+                <UserCircle className="mt-0.5 size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <span className="text-sm text-muted-foreground">
+                  <strong className="block font-semibold text-foreground">Completar perfil</strong>
+                  Nome e especialidade.
                 </span>
               </li>
             </ol>
           </div>
 
-          <Button onClick={handleStartMfa} className="h-11 w-full" disabled={loading}>
-            Começar
-            <ArrowRight className="ml-1 size-4" />
-          </Button>
-        </div>
+          <StepActions>
+            <Button onClick={handleStartMfa} size="lg" className="w-full" loading={loading}>
+              Começar
+              <ArrowRight aria-hidden="true" />
+            </Button>
+          </StepActions>
+        </StepBody>
       )}
 
       {step === 'mfa-qr' && mfaSetup && (
-        <div className="space-y-6 pt-4">
-          <div className="space-y-1 text-center">
-            <h1 className="font-display text-2xl tracking-tight text-clinical-ink">
-              Configure seu autenticador
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Escaneie o QR code com Google Authenticator, Authy ou similar.
-            </p>
-          </div>
+        <StepBody>
+          <AuthHeading
+            icon={<StepIcon icon={QrCode} />}
+            title="Configure seu autenticador"
+            description="Escaneie o QR code com Google Authenticator, Authy ou similar."
+          />
 
-          <div className="flex justify-center">
-            <div className="rounded-xl border border-clinical-line bg-white p-3">
+          <div className="flex flex-col items-center gap-3">
+            <div className="rounded-lg border border-border bg-background p-3">
               <Image
                 src={mfaSetup.qrCode}
                 alt="QR Code para autenticador"
@@ -364,56 +363,47 @@ export default function OnboardingPage() {
                 unoptimized
               />
             </div>
-          </div>
-
-          <p className="text-center text-xs text-muted-foreground">
-            Não consegue escanear?{' '}
-            <button
-              type="button"
-              onClick={async () => {
-                await navigator.clipboard.writeText(mfaSetup.otpauthUri);
-                toast.success('Link copiado!');
-              }}
-              className="text-clinical-teal underline underline-offset-2"
-            >
-              Copie o link manual
-            </button>
-          </p>
-
-          <Button
-            onClick={() => {
-              goTo('mfa-verify');
-              setTimeout(() => digitRefs.current[0]?.focus(), 100);
-            }}
-            className="h-11 w-full"
-          >
-            Já escaneei
-            <ArrowRight className="ml-1 size-4" />
-          </Button>
-
-          <button
-            type="button"
-            onClick={() => goTo('welcome')}
-            className="flex w-full items-center justify-center gap-1 text-sm text-muted-foreground hover:text-clinical-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:rounded"
-          >
-            <ArrowLeft className="size-3" />
-            Voltar
-          </button>
-        </div>
-      )}
-
-      {step === 'mfa-verify' && (
-        <div className="space-y-6 pt-4">
-          <div className="space-y-1 text-center">
-            <h1 className="font-display text-2xl tracking-tight text-clinical-ink">
-              Verifique o código
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Insira o código de 6 dígitos do seu app autenticador.
+            <p className="text-center text-[0.8125rem] text-muted-foreground">
+              Não consegue escanear?{' '}
+              <button
+                type="button"
+                onClick={async () => {
+                  await navigator.clipboard.writeText(mfaSetup.otpauthUri);
+                  toast.success('Link copiado!');
+                }}
+                className="rounded-sm text-foreground underline decoration-border underline-offset-4 transition-colors hover:decoration-current focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-none"
+              >
+                Copie o link manual
+              </button>
             </p>
           </div>
 
-          <form onSubmit={handleVerifyTotp} className="space-y-4">
+          <StepActions>
+            <Button
+              onClick={() => {
+                goTo('mfa-verify');
+                setTimeout(() => digitRefs.current[0]?.focus(), 100);
+              }}
+              size="lg"
+              className="w-full"
+            >
+              Já escaneei
+              <ArrowRight aria-hidden="true" />
+            </Button>
+            <BackButton onClick={() => goTo('welcome')}>Voltar</BackButton>
+          </StepActions>
+        </StepBody>
+      )}
+
+      {step === 'mfa-verify' && (
+        <StepBody>
+          <AuthHeading
+            icon={<StepIcon icon={DeviceMobile} />}
+            title="Verifique o código"
+            description="Insira o código de 6 dígitos do seu app autenticador."
+          />
+
+          <form onSubmit={handleVerifyTotp} noValidate className="flex flex-col gap-4">
             <fieldset>
               <legend className="sr-only">Código de verificação TOTP de 6 dígitos</legend>
               {/* S22-A11Y-02 — OTP responsivo (cabe em iPhone SE 320px). */}
@@ -424,13 +414,15 @@ export default function OnboardingPage() {
                     ref={setDigitRef(idx)}
                     type="text"
                     inputMode="numeric"
+                    autoComplete={idx === 0 ? 'one-time-code' : 'off'}
                     maxLength={6}
                     value={digit}
                     onChange={(e) => handleDigitChange(idx, e.target.value)}
                     onKeyDown={(e) => handleDigitKeyDown(idx, e)}
                     onPaste={handleDigitPaste}
                     disabled={loading}
-                    className="size-10 select-none p-0 text-center text-lg font-semibold tabular-nums sm:size-12 sm:text-xl"
+                    aria-invalid={!!totpError}
+                    className="size-11 p-0 text-center text-lg font-semibold tabular-nums select-none max-sm:size-11 sm:size-12 sm:text-xl"
                     aria-label={`Dígito ${idx + 1} de 6`}
                   />
                 ))}
@@ -438,101 +430,91 @@ export default function OnboardingPage() {
             </fieldset>
 
             {totpError && (
-              <p role="alert" className="text-center text-sm text-destructive">
-                {totpError}
-              </p>
+              <Alert variant="destructive">
+                <WarningCircle aria-hidden="true" />
+                <AlertDescription>{totpError}</AlertDescription>
+              </Alert>
             )}
 
-            <Button type="submit" className="h-11 w-full" disabled={loading}>
-              {loading ? 'Verificando...' : 'Verificar e ativar'}
-            </Button>
+            <StepActions>
+              <Button type="submit" size="lg" className="w-full" loading={loading}>
+                Verificar e ativar
+              </Button>
+              <BackButton onClick={() => goTo('mfa-qr')}>Voltar ao QR code</BackButton>
+            </StepActions>
           </form>
-
-          <button
-            type="button"
-            onClick={() => goTo('mfa-qr')}
-            className="flex w-full items-center justify-center gap-1 text-sm text-muted-foreground hover:text-clinical-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:rounded"
-          >
-            <ArrowLeft className="size-3" />
-            Voltar ao QR code
-          </button>
-        </div>
+        </StepBody>
       )}
 
       {step === 'mfa-backup' && mfaSetup && (
-        <div className="space-y-6 pt-4">
-          <div className="space-y-1 text-center">
-            <h1 className="font-display text-2xl tracking-tight text-clinical-ink">
-              Guarde seus códigos de recuperação
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Use esses códigos se perder acesso ao autenticador. Guarde-os em local seguro.
-            </p>
-          </div>
+        <StepBody>
+          <AuthHeading
+            icon={<StepIcon icon={Key} />}
+            title="Guarde seus códigos de recuperação"
+            description="Use esses códigos se perder acesso ao autenticador. Guarde-os em local seguro."
+          />
 
-          <div className="rounded-xl border border-clinical-line bg-clinical-paper p-5">
-            <div className="grid grid-cols-2 gap-2 font-mono text-sm">
+          <div className="flex flex-col gap-2">
+            <ul
+              aria-label="Códigos de recuperação"
+              className="grid grid-cols-2 gap-x-6 gap-y-2.5 rounded-lg bg-tone-gray-bg px-5 py-4 font-mono text-sm text-foreground"
+            >
               {mfaSetup.backupCodes.map((code, idx) => (
-                <div
-                  key={idx}
-                  className="rounded-md bg-white px-3 py-2 text-center tabular-nums text-clinical-ink"
-                >
+                <li key={idx} className="flex items-baseline gap-2 tabular-nums">
+                  <span aria-hidden="true" className="w-4 text-right font-sans text-xs text-muted-foreground">
+                    {idx + 1}
+                  </span>
                   {code}
-                </div>
+                </li>
               ))}
+            </ul>
+
+            {/* S24-MFA-02 — duas opções: copiar (clipboard, falha em mobile iOS)
+                e baixar .txt (universal). Médico escolhe conforme preferir. */}
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="outline" onClick={handleCopyBackup}>
+                {backupCopied ? (
+                  <>
+                    <Check className="text-clinical-green" weight="bold" aria-hidden="true" />
+                    Copiado!
+                  </>
+                ) : (
+                  <>
+                    <Copy aria-hidden="true" />
+                    Copiar
+                  </>
+                )}
+              </Button>
+              <Button variant="outline" onClick={handleDownloadBackup}>
+                <Download aria-hidden="true" />
+                Baixar .txt
+              </Button>
             </div>
           </div>
 
-          {/* S24-MFA-02 — duas opções: copiar (clipboard, falha em mobile iOS)
-              e baixar .txt (universal). Médico escolhe conforme preferir. */}
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              className="h-11 flex-1 gap-2"
-              onClick={handleCopyBackup}
-            >
-              {backupCopied ? (
-                <>
-                  <Check className="size-4 text-clinical-green" />
-                  Copiado!
-                </>
-              ) : (
-                <>
-                  <Copy className="size-4" />
-                  Copiar
-                </>
-              )}
-            </Button>
-            <Button
-              variant="outline"
-              className="h-11 flex-1 gap-2"
-              onClick={handleDownloadBackup}
-            >
-              <Download className="size-4" />
-              Baixar .txt
-            </Button>
-          </div>
+          <p className="text-center text-[0.8125rem] text-pretty text-muted-foreground">
+            Cada código funciona uma única vez. Sem eles, perder o celular pode bloquear seu acesso à conta.
+          </p>
 
-          <Button onClick={handleBackupConfirmed} className="h-11 w-full">
-            Já salvei os códigos
-            <ArrowRight className="ml-1 size-4" />
-          </Button>
-        </div>
+          <StepActions>
+            <Button onClick={handleBackupConfirmed} size="lg" className="w-full">
+              Já salvei os códigos
+              <ArrowRight aria-hidden="true" />
+            </Button>
+          </StepActions>
+        </StepBody>
       )}
 
       {step === 'profile' && (
-        <div className="space-y-6 pt-4">
-          <div className="space-y-1 text-center">
-            <h1 className="font-display text-2xl tracking-tight text-clinical-ink">
-              Complete seu perfil
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Essas informações aparecem nos documentos gerados.
-            </p>
-          </div>
+        <StepBody>
+          <AuthHeading
+            icon={<StepIcon icon={UserCircle} />}
+            title="Complete seu perfil"
+            description="Essas informações aparecem nos documentos gerados."
+          />
 
-          <form onSubmit={handleProfileSubmit} className="space-y-4">
-            <div className="space-y-2">
+          <form onSubmit={handleProfileSubmit} className="flex flex-col gap-6">
+            <div className="flex flex-col gap-1.5">
               <Label htmlFor="profileName">Nome completo</Label>
               <Input
                 id="profileName"
@@ -542,86 +524,184 @@ export default function OnboardingPage() {
                 onChange={(e) => setProfileName(e.target.value)}
                 disabled={loading}
                 autoComplete="name"
+                className="h-10"
               />
             </div>
 
             {/*
               S24-ONBOARD-01 — captura especialidade (antes era prometida no
               copy mas nunca coletada). Usada para segmentação clínica (qual
-              diretriz priorizar, analytics por área).
+              diretriz priorizar, analytics por área). Cartões de opção em vez
+              de <select>: uma escolha visível de uma vez, como no Notion.
             */}
-            <div className="space-y-2">
-              <Label htmlFor="profileSpecialty">Especialidade</Label>
-              <select
-                id="profileSpecialty"
-                value={profileSpecialty}
-                onChange={(e) => setProfileSpecialty(e.target.value)}
-                disabled={loading}
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <option value="">Selecione…</option>
+            <fieldset id="profileSpecialty" disabled={loading} className="flex flex-col gap-2">
+              <legend className="mb-2 text-[0.8125rem] font-medium text-muted-foreground">
+                Especialidade
+              </legend>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {SPECIALTIES.map((spec) => (
-                  <option key={spec} value={spec}>
-                    {spec}
-                  </option>
+                  <OptionCard
+                    key={spec}
+                    name="specialty"
+                    value={spec}
+                    checked={profileSpecialty === spec}
+                    onSelect={setProfileSpecialty}
+                  >
+                    {/* Espaço de largura zero após "/" para quebrar "Ginecologia/Obstetrícia". */}
+                    {spec.replace('/', '/\u200B')}
+                  </OptionCard>
                 ))}
-              </select>
-            </div>
+              </div>
+            </fieldset>
 
-            <div className="space-y-2">
-              <Label>CRM</Label>
-              <div className="flex items-center gap-2 rounded-lg border border-clinical-line bg-clinical-paper px-3 py-2.5 text-sm">
-                <QrCode className="size-4 text-muted-foreground" />
-                <span className="text-muted-foreground">
+            <div className="flex flex-col gap-1.5">
+              <p className="text-[0.8125rem] font-medium text-muted-foreground">CRM</p>
+              <div className="flex h-10 items-center gap-2 rounded-md border border-border px-3 text-sm">
+                <IdentificationCard className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <span className="text-foreground tabular-nums">
                   {physician?.crmUf} {physician?.crmNumber}
                 </span>
                 {physician?.crmVerified ? (
-                  <span className="ml-auto text-xs font-medium text-clinical-green">
-                    Verificado
-                  </span>
+                  <Badge variant="success" className="ml-auto">Verificado</Badge>
                 ) : (
-                  <span className="ml-auto text-xs font-medium text-clinical-amber">Pendente</span>
+                  <Badge variant="warning" className="ml-auto">Pendente</Badge>
                 )}
               </div>
             </div>
 
-            <Button type="submit" className="h-11 w-full" disabled={loading}>
-              {loading ? 'Salvando...' : 'Continuar'}
-              <ArrowRight className="ml-1 size-4" />
-            </Button>
+            <StepActions>
+              <Button type="submit" size="lg" className="w-full" loading={loading}>
+                Continuar
+                <ArrowRight aria-hidden="true" />
+              </Button>
+            </StepActions>
           </form>
-        </div>
+        </StepBody>
       )}
 
       {step === 'done' && (
-        <div className="space-y-6 pt-8 text-center">
-          <div className="flex justify-center">
-            <Confetti className="size-16 text-clinical-teal" weight="duotone" />
-          </div>
-          <div className="space-y-2">
-            <h1 className="font-display text-3xl tracking-tight text-clinical-ink">Tudo pronto!</h1>
-            <p className="text-muted-foreground">
-              Sua conta está configurada. Vamos começar a usar o Copiloto Clínico.
-            </p>
-          </div>
+        <StepBody>
+          <AuthHeading
+            icon={<StepIcon icon={Confetti} />}
+            title="Tudo pronto!"
+            description="Sua conta está configurada. Vamos começar a usar o Copiloto Clínico."
+          />
 
-          <div className="space-y-2 rounded-xl border border-clinical-green/30 bg-clinical-green-bg p-4 text-left text-sm text-clinical-green-foreground">
-            <p className="flex items-center gap-2">
-              <ShieldCheck className="size-4 text-clinical-green" />
-              MFA ativado com sucesso
-            </p>
-            <p className="flex items-center gap-2">
-              <UserCircle className="size-4 text-clinical-green" />
-              Perfil configurado
-            </p>
-          </div>
+          <Callout tone="green">
+            <ul className="flex flex-col gap-1">
+              <li className="flex items-center gap-2">
+                <ShieldCheck className="size-4 text-clinical-green" aria-hidden="true" />
+                MFA ativado com sucesso
+              </li>
+              <li className="flex items-center gap-2">
+                <UserCircle className="size-4 text-clinical-green" aria-hidden="true" />
+                Perfil configurado
+              </li>
+            </ul>
+          </Callout>
 
-          <Button onClick={handleFinish} className="h-11 w-full">
-            Ir para o dashboard
-            <ArrowRight className="ml-1 size-4" />
-          </Button>
-        </div>
+          <StepActions>
+            <Button onClick={handleFinish} size="lg" className="w-full">
+              Ir para o Plantão
+              <ArrowRight aria-hidden="true" />
+            </Button>
+          </StepActions>
+        </StepBody>
       )}
     </div>
+  );
+}
+
+/** Progresso do onboarding em pontos (etapa atual alongada), como no Notion. */
+function StepProgress({ current }: { current: number }) {
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <ol aria-label="Etapas da configuração" className="flex items-center gap-1.5">
+        {STEPS.map((s, i) => (
+          <li key={s} aria-current={i === current ? 'step' : undefined}>
+            <span className="sr-only">
+              {STEP_LABELS[s]}
+              {i < current ? ' (concluída)' : ''}
+            </span>
+            <span
+              aria-hidden="true"
+              className={cn(
+                'block h-1.5 rounded-full transition-[width,background-color] duration-200',
+                i === current
+                  ? 'w-5 bg-foreground'
+                  : i < current
+                    ? 'w-1.5 bg-muted-foreground'
+                    : 'w-1.5 bg-tone-gray-tag',
+              )}
+            />
+          </li>
+        ))}
+      </ol>
+      <p className="text-xs text-muted-foreground" aria-hidden="true">
+        {current + 1} de {STEPS.length} · {STEP_LABELS[STEPS[current]]}
+      </p>
+    </div>
+  );
+}
+
+function StepBody({ children }: { children: ReactNode }) {
+  return <div className="flex flex-col gap-8">{children}</div>;
+}
+
+function StepActions({ children }: { children: ReactNode }) {
+  return <div className="flex flex-col gap-1.5">{children}</div>;
+}
+
+function StepIcon({ icon: Icon }: { icon: ElementType }) {
+  return <Icon className="size-10 text-foreground" weight="duotone" aria-hidden="true" />;
+}
+
+function BackButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {
+  return (
+    <Button type="button" variant="ghost" className="w-full text-muted-foreground" onClick={onClick}>
+      <ArrowLeft aria-hidden="true" />
+      {children}
+    </Button>
+  );
+}
+
+/**
+ * Cartão de opção selecionável (rádio nativo escondido): borda sutil, hover
+ * cinza, selecionado = anel azul + check. Setas do teclado navegam entre as
+ * opções como em qualquer grupo de rádio.
+ */
+function OptionCard({
+  name,
+  value,
+  checked,
+  onSelect,
+  children,
+}: {
+  name: string;
+  value: string;
+  checked: boolean;
+  onSelect: (value: string) => void;
+  children: ReactNode;
+}) {
+  return (
+    <label
+      className={cn(
+        'flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm leading-snug transition-colors duration-100 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60 has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring/40',
+        checked
+          ? 'border-primary bg-tone-blue-bg font-medium text-foreground ring-1 ring-primary'
+          : 'border-border text-foreground hover:bg-hover',
+      )}
+    >
+      <input
+        type="radio"
+        name={name}
+        value={value}
+        checked={checked}
+        onChange={() => onSelect(value)}
+        className="sr-only"
+      />
+      <span className="min-w-0 flex-1">{children}</span>
+      {checked && <Check className="size-4 shrink-0 text-primary" weight="bold" aria-hidden="true" />}
+    </label>
   );
 }

@@ -192,7 +192,7 @@ export default function DashboardPage() {
                 {confirmedCount === 1 ? '' : 's'}
               </p>
               <p className="text-[0.8125rem] opacity-90">
-                Cadeia de auditoria íntegra · última verificação hoje às 02:00
+                Trilha de auditoria encadeada por hash · verificação automática diária às 02:00 (UTC)
               </p>
             </div>
             {canSeeAudit && (

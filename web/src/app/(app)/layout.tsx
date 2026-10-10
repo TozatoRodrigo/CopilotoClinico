@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-store";
 import { AppShell } from "@/components/layout/app-shell";
+import { LogoMark } from "@/components/brand/logo";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -22,8 +23,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   // não renderiza durante a fase de hidratação).
   if (isLoading || !isAuthenticated) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="size-6 animate-spin rounded-full border-2 border-muted border-t-primary" />
+      <div className="flex min-h-dvh items-center justify-center" role="status" aria-label="Carregando">
+        <LogoMark size="lg" className="animate-pulse" />
       </div>
     );
   }

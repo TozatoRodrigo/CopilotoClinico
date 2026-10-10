@@ -7,10 +7,11 @@ import { useAuth } from '@/lib/auth-store';
 import { apiClient, ApiError } from '@/lib/api-client';
 import type { AuthResponse } from '@/lib/types';
 import { toast } from 'sonner';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Callout } from '@/components/ui/callout';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Progress } from '@/components/ui/progress';
 import {
   Select,
   SelectContent,
@@ -18,8 +19,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ShieldCheck, Warning } from '@phosphor-icons/react';
+import { IdentificationCard, WarningCircle } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
+import { AuthHeading, FieldError, subtleLinkClass } from '../_components/auth-ui';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CRM_UF_OPTIONS = [
@@ -68,6 +70,8 @@ interface FieldErrors {
   consent?: string;
 }
 
+const PASSWORD_SEGMENTS = 5;
+
 function getPasswordStrength(password: string): { score: number; label: string; color: string } {
   let score = 0;
   if (password.length >= 8) score++;
@@ -76,9 +80,9 @@ function getPasswordStrength(password: string): { score: number; label: string; 
   if (/\d/.test(password)) score++;
   if (/[^A-Za-z0-9]/.test(password)) score++;
 
-  if (score <= 2) return { score, label: 'Fraca', color: 'bg-clinical-error' };
-  if (score <= 3) return { score, label: 'Média', color: 'bg-clinical-amber' };
-  return { score, label: 'Forte', color: 'bg-clinical-green' };
+  if (score <= 2) return { score, label: 'Fraca', color: 'bg-tone-red' };
+  if (score <= 3) return { score, label: 'Média', color: 'bg-tone-yellow' };
+  return { score, label: 'Forte', color: 'bg-tone-green' };
 }
 
 export default function RegisterPage() {
@@ -95,9 +99,10 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [emailExists, setEmailExists] = useState(false);
+  // Erro do cadastro vindo da API — mostrado em linha, acima do botão.
+  const [formError, setFormError] = useState('');
 
   const strength = useMemo(() => getPasswordStrength(form.password), [form.password]);
-  const strengthPercent = (strength.score / 5) * 100;
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -123,6 +128,7 @@ export default function RegisterPage() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    setFormError('');
     const errors = validate();
     if (errors) {
       setFieldErrors(errors);
@@ -150,27 +156,27 @@ export default function RegisterPage() {
           setEmailExists(true);
           setFieldErrors({ email: 'Este e-mail já está cadastrado.' });
         } else {
-          toast.error(err.message);
+          setFormError(err.message);
         }
       } else {
-        toast.error('Erro ao criar conta.');
+        setFormError('Erro ao criar conta.');
       }
     } finally {
       setLoading(false);
     }
   }
 
-  return (
-    <div className="mx-auto w-full max-w-md space-y-6">
-      <div className="space-y-1">
-        <h1 className="font-display text-2xl tracking-tight text-clinical-ink">Criar Conta</h1>
-        <p className="text-sm text-muted-foreground">
-          Cadastre-se com seu CRM para usar o Copiloto Clínico
-        </p>
-      </div>
+  const crmError = fieldErrors.crmUf ?? fieldErrors.crmNumber;
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="space-y-2">
+  return (
+    <div className="flex w-full max-w-[360px] flex-col gap-8">
+      <AuthHeading
+        title="Crie sua conta"
+        description="Cadastre-se com seu CRM para usar o Copiloto Clínico."
+      />
+
+      <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1.5">
           <Label htmlFor="name">Nome (opcional)</Label>
           <Input
             id="name"
@@ -180,10 +186,11 @@ export default function RegisterPage() {
             onChange={(e) => updateField('name', e.target.value)}
             autoComplete="name"
             disabled={loading}
+            className="h-10"
           />
         </div>
 
-        <div className="space-y-2">
+        <div className="flex flex-col gap-1.5">
           <Label htmlFor="email">E-mail</Label>
           <Input
             id="email"
@@ -194,24 +201,21 @@ export default function RegisterPage() {
             autoComplete="email"
             disabled={loading}
             aria-invalid={!!fieldErrors.email}
+            aria-describedby={fieldErrors.email ? 'email-error' : undefined}
+            className="h-10"
           />
-          {fieldErrors.email && (
-            <p className="flex items-center gap-1 text-xs text-destructive">
-              <Warning className="size-3" />
-              {fieldErrors.email}
-            </p>
-          )}
+          {fieldErrors.email && <FieldError id="email-error">{fieldErrors.email}</FieldError>}
           {emailExists && (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-[0.8125rem] text-muted-foreground">
               Já tem conta?{' '}
-              <Link href="/login" className="text-clinical-teal underline underline-offset-4">
+              <Link href="/login" className={subtleLinkClass}>
                 Faça login
               </Link>
             </p>
           )}
         </div>
 
-        <div className="space-y-2">
+        <div className="flex flex-col gap-1.5">
           <Label htmlFor="password">Senha</Label>
           <Input
             id="password"
@@ -222,32 +226,51 @@ export default function RegisterPage() {
             autoComplete="new-password"
             disabled={loading}
             aria-invalid={!!fieldErrors.password}
+            aria-describedby={fieldErrors.password ? 'password-error password-hint' : 'password-hint'}
+            className="h-10"
           />
           {fieldErrors.password && (
-            <p className="text-xs text-destructive">{fieldErrors.password}</p>
+            <FieldError id="password-error">{fieldErrors.password}</FieldError>
           )}
-          {form.password && (
-            <div className="space-y-1">
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-clinical-line">
-                <div
-                  className={cn('h-full rounded-full transition-all', strength.color)}
-                  style={{ width: `${strengthPercent}%` }}
-                />
+          {form.password ? (
+            <div id="password-hint" className="flex items-center gap-2.5">
+              <div aria-hidden="true" className="flex flex-1 gap-1">
+                {Array.from({ length: PASSWORD_SEGMENTS }, (_, i) => (
+                  <span
+                    key={i}
+                    className={cn(
+                      'h-1 flex-1 rounded-full transition-colors',
+                      i < strength.score ? strength.color : 'bg-tone-gray-tag',
+                    )}
+                  />
+                ))}
               </div>
-              <p className="text-xs text-muted-foreground">Força: {strength.label}</p>
+              <p className="shrink-0 text-xs text-muted-foreground">Força: {strength.label}</p>
             </div>
+          ) : (
+            <p id="password-hint" className="text-xs text-muted-foreground">
+              Use maiúscula, minúscula, número e símbolo.
+            </p>
           )}
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
-          <div className="space-y-2">
-            <Label>CRM UF</Label>
+        <div className="flex flex-col gap-1.5">
+          <div className="grid grid-cols-[6rem_1fr] gap-2">
+            <Label htmlFor="crmUf">UF do CRM</Label>
+            <Label htmlFor="crmNumber">Número do CRM</Label>
+          </div>
+          <div className="grid grid-cols-[6rem_1fr] gap-2">
             <Select
               value={form.crmUf}
               onValueChange={(value) => updateField('crmUf', value)}
               disabled={loading}
             >
-              <SelectTrigger className="w-full" aria-invalid={!!fieldErrors.crmUf}>
+              <SelectTrigger
+                id="crmUf"
+                className="w-full data-[size=default]:h-10"
+                aria-invalid={!!fieldErrors.crmUf}
+                aria-describedby={crmError ? 'crm-error' : undefined}
+              >
                 <SelectValue placeholder="UF" />
               </SelectTrigger>
               <SelectContent>
@@ -258,31 +281,33 @@ export default function RegisterPage() {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div className="col-span-2 space-y-2">
-            <Label htmlFor="crmNumber">Número do CRM</Label>
             <Input
               id="crmNumber"
               type="text"
+              inputMode="numeric"
               placeholder="12345"
               value={form.crmNumber}
               onChange={(e) => updateField('crmNumber', e.target.value)}
               disabled={loading}
               aria-invalid={!!fieldErrors.crmNumber}
+              aria-describedby={crmError ? 'crm-error' : undefined}
+              className="h-10"
             />
           </div>
+          {crmError && (
+            <FieldError id="crm-error">
+              {[fieldErrors.crmUf, fieldErrors.crmNumber].filter(Boolean).join(' ')}
+            </FieldError>
+          )}
         </div>
 
-        <div className="rounded-lg border border-clinical-amber/30 bg-clinical-amber-bg px-3 py-2">
-          <p className="flex items-start gap-2 text-xs text-clinical-amber-foreground">
-            <ShieldCheck className="mt-0.5 size-4 shrink-0 text-clinical-amber" />
-            Seu CRM será verificado. Até a aprovação, seus documentos terão selo &quot;CRM
-            pendente&quot; — você pode usar o sistema normalmente.
-          </p>
-        </div>
+        <Callout tone="blue" icon={<IdentificationCard />} className="text-[0.8125rem]">
+          Seu CRM será verificado. Até a aprovação, seus documentos terão selo &quot;CRM
+          pendente&quot; — você pode usar o sistema normalmente.
+        </Callout>
 
-        <div className="space-y-2">
-          <label className="flex items-start gap-3">
+        <div className="flex flex-col gap-1.5">
+          <label className="-mx-1 flex cursor-pointer items-start gap-2.5 rounded-md px-1 py-1">
             <input
               type="checkbox"
               checked={consent}
@@ -291,35 +316,46 @@ export default function RegisterPage() {
                 setFieldErrors((prev) => ({ ...prev, consent: undefined }));
               }}
               disabled={loading}
-              className="mt-0.5 size-4 rounded border-clinical-line accent-clinical-teal"
+              aria-invalid={!!fieldErrors.consent}
+              aria-describedby={fieldErrors.consent ? 'consent-error' : undefined}
+              className="mt-0.5 size-4 shrink-0 cursor-pointer rounded-sm accent-primary"
             />
-            <span className="text-sm text-muted-foreground">
+            <span className="text-[0.8125rem] text-muted-foreground">
               Li e aceito a{' '}
               <Link
                 href="/privacidade"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-clinical-teal underline underline-offset-4"
+                className={subtleLinkClass}
               >
                 Política de Privacidade
               </Link>
               . Meus dados serão processados conforme a LGPD para prestação deste serviço médico.
             </span>
           </label>
-          {fieldErrors.consent && <p className="text-xs text-destructive">{fieldErrors.consent}</p>}
+          {fieldErrors.consent && (
+            <FieldError id="consent-error">{fieldErrors.consent}</FieldError>
+          )}
         </div>
 
-        <Button type="submit" className="h-11 w-full" disabled={loading}>
-          {loading ? 'Criando conta...' : 'Criar conta com CRM'}
-        </Button>
+        {formError && (
+          <Alert variant="destructive">
+            <WarningCircle aria-hidden="true" />
+            <AlertDescription>{formError}</AlertDescription>
+          </Alert>
+        )}
 
-        <p className="text-center text-sm text-muted-foreground">
-          Já tem conta?{' '}
-          <Link href="/login" className="text-clinical-teal underline underline-offset-4">
-            Faça login
-          </Link>
-        </p>
+        <Button type="submit" size="lg" className="mt-1 w-full" loading={loading}>
+          Criar conta com CRM
+        </Button>
       </form>
+
+      <p className="text-center text-sm text-muted-foreground">
+        Já tem conta?{' '}
+        <Link href="/login" className={subtleLinkClass}>
+          Faça login
+        </Link>
+      </p>
     </div>
   );
 }

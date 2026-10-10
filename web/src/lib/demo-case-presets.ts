@@ -10,12 +10,15 @@ export interface DemoCasePreset {
   caseText: string;
 }
 
+// patientRef com hífens: com espaços ("Demo Gripal 48h") o detector de PII
+// de /encounters/new lia duas palavras capitalizadas como nome completo e
+// bloqueava o envio do caso piloto.
 export const DEMO_CASE_PRESETS: DemoCasePreset[] = [
   {
     slug: "sindrome-gripal",
     title: "Síndrome gripal >48h",
     summary: "Caso canônico com dúvida sobre grupo de risco e antiviral após 48 horas.",
-    patientRef: "Demo Gripal 48h",
+    patientRef: "Demo-Gripal-48h",
     vertical: "general",
     context: {
       hasCT: false,
@@ -30,7 +33,7 @@ export const DEMO_CASE_PRESETS: DemoCasePreset[] = [
     slug: "dor-toracica",
     title: "Dor torácica aguda",
     summary: "Fluxo de risco imediato com anti-ancoragem para SCA e diagnósticos diferenciais graves.",
-    patientRef: "Demo Dor Torácica",
+    patientRef: "Demo-Dor-Torácica",
     vertical: "cardiac",
     context: {
       hasCT: false,
@@ -45,7 +48,7 @@ export const DEMO_CASE_PRESETS: DemoCasePreset[] = [
     slug: "sepse",
     title: "Sepse na 1ª hora",
     summary: "Reconhecimento inicial com bundle da primeira hora e reavaliação hemodinâmica.",
-    patientRef: "Demo Sepse 1h",
+    patientRef: "Demo-Sepse-1h",
     vertical: "general",
     context: {
       hasCT: false,

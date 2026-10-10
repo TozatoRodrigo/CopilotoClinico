@@ -1,56 +1,83 @@
 'use client';
 
-import { use, useState, useMemo } from 'react';
+import { use, useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import {
+  ArrowLeft,
+  CalendarBlank,
+  Check,
+  CircleNotch,
+  ClockCounterClockwise,
+  Copy,
+  DotsThree,
+  FilePdf,
+  Files,
+  FileText,
+  FloppyDisk,
+  Hash,
+  Info,
+  LockSimple,
+  PencilSimple,
+  Plus,
+  Robot,
+  SealCheck,
+  ShieldCheck,
+  Signature,
+  Tag,
+  User,
+  Warning,
+} from '@phosphor-icons/react';
 import {
   useConfirmDocument,
+  useEncounterDetail,
   useEncounterDocument,
   useEncounterDocuments,
   useGenerateDocument,
   useUpdateDocument,
 } from '@/lib/clinical-queries';
-import type { Document } from '@/lib/types';
+import type { Document, EncounterDetail } from '@/lib/types';
 import { DOCUMENT_TYPES } from '@/lib/document-types';
+import { useAuth } from '@/lib/auth-store';
+import { API_BASE_URL } from '@/lib/api-client';
+import { cn } from '@/lib/utils';
+import { Page } from '@/components/layout/page';
+import { PageHeader } from '@/components/layout/page-header';
 import { ChartPaper } from '@/components/ui/chart-paper';
 import { ProgressSteps } from '@/components/ui/progress-steps';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Callout } from '@/components/ui/callout';
+import { Disclosure } from '@/components/ui/disclosure';
+import { PropertyList, PropertyRow } from '@/components/ui/property-list';
 import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
-import { toast } from 'sonner';
 import {
-  ArrowLeft,
-  SealCheck,
-  Robot,
-  FilePdf,
-  FloppyDisk,
-  CheckCircle,
-  PencilSimple,
-  Info,
-  CircleNotch,
-} from '@phosphor-icons/react';
-import { useAuth } from '@/lib/auth-store';
-import { API_BASE_URL } from '@/lib/api-client';
-import { cn } from '@/lib/utils';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { ConfirmedSeal } from '@/components/domain/confirmed-seal';
 import { AuditHash } from '@/components/domain/audit-hash';
-
-type DocType = Document['type'];
-
-const TYPE_LABELS: Record<DocType, string> = {
-  soap: 'SOAP',
-  sbar: 'SBAR',
-  prescricao: 'Prescrição',
-  alta: 'Alta',
-  atestado: 'Atestado',
-};
+import { ConfirmDocumentDialog } from '../../_components/confirm-document-dialog';
+import { DocStatusBadge, DocTypeBadge } from '../../_components/document-badges';
+import {
+  DOC_TYPE_META,
+  docTypeLabel,
+  extractString,
+  formatDateTime,
+  isConfirmed,
+  type DocType,
+} from '../../_components/document-meta';
 
 interface FieldDef {
   key: string;
   label: string;
-  mono?: boolean;
   rows?: number;
 }
 
@@ -68,64 +95,104 @@ const SECTION_FIELDS: Record<string, FieldDef[]> = {
     { key: 'recommendation', label: 'Recomendação' },
   ],
   prescricao: [
-    { key: 'paciente', label: 'Paciente' },
-    { key: 'data', label: 'Data', mono: true },
+    { key: 'paciente', label: 'Paciente', rows: 1 },
+    { key: 'data', label: 'Data', rows: 1 },
     { key: 'orientacoes', label: 'Orientações', rows: 5 },
   ],
   alta: [
-    { key: 'paciente', label: 'Paciente' },
-    { key: 'data', label: 'Data', mono: true },
+    { key: 'paciente', label: 'Paciente', rows: 1 },
+    { key: 'data', label: 'Data', rows: 1 },
     { key: 'resumo', label: 'Resumo', rows: 4 },
     { key: 'condicaoNaAlta', label: 'Condição na Alta' },
     { key: 'retorno', label: 'Retorno' },
   ],
   atestado: [
-    { key: 'paciente', label: 'Paciente' },
-    { key: 'data', label: 'Data', mono: true },
+    { key: 'paciente', label: 'Paciente', rows: 1 },
+    { key: 'data', label: 'Data', rows: 1 },
     { key: 'descricao', label: 'Descrição', rows: 4 },
     { key: 'assinaturaPlaceholder', label: 'Assinatura', rows: 3 },
   ],
 };
 
-const SOAP_LETTERS: Record<string, string> = {
-  subjective: 'S',
-  objective: 'O',
-  assessment: 'A',
-  plan: 'P',
+/** SOAP e SBAR: a letra da seção vira um marcador discreto ao lado do título. */
+const SECTION_LETTERS: Partial<Record<DocType, Record<string, string>>> = {
+  soap: { subjective: 'S', objective: 'O', assessment: 'A', plan: 'P' },
+  sbar: { situation: 'S', background: 'B', assessment: 'A', recommendation: 'R' },
 };
 
-function isConfirmed(doc: Document): boolean {
-  return doc.confirmedBy !== null;
+/**
+ * Listas (medicamentos da prescrição, diagnósticos da alta): editadas como
+ * texto, um item por linha, gravadas em `<campo>_raw` nas edições do médico.
+ */
+interface ListFieldDef {
+  id: string;
+  source: string;
+  label: string;
+  hint: string;
+  minRows: number;
 }
 
-function extractString(value: unknown): string {
-  if (typeof value === 'string') return value;
-  if (Array.isArray(value)) return value.join('\n');
-  if (value && typeof value === 'object') return JSON.stringify(value, null, 2);
-  return '';
+const LIST_FIELDS: Partial<Record<DocType, ListFieldDef>> = {
+  prescricao: {
+    id: 'medicamentos_raw',
+    source: 'medicamentos',
+    label: 'Medicamentos',
+    hint: 'Um por linha — medicamento, dosagem, via, frequência, duração',
+    minRows: 3,
+  },
+  alta: {
+    id: 'diagnosticos_raw',
+    source: 'diagnosticos',
+    label: 'Diagnósticos',
+    hint: 'Um por linha',
+    minRows: 2,
+  },
+};
+
+type Content = Record<string, unknown>;
+
+function flattenContent(content: Content): Content {
+  const flat: Content = {};
+  for (const [k, v] of Object.entries(content)) flat[k] = extractString(v);
+  return flat;
 }
 
-function DraftBadge() {
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border bg-[var(--amber-bg)] px-3 py-1.5 text-[0.7rem] font-bold uppercase tracking-[0.04em] text-[var(--amber-foreground)]"
-      style={{ borderColor: 'rgba(180,83,9,0.4)' }}
-    >
-      <Robot className="size-3" /> Rascunho da IA
-    </span>
+/** Diferença entre o conteúdo local e o último salvo (indicador "Salvo"). */
+function changedKeys(local: Content, reference: Content): string[] {
+  return Object.keys(local).filter(
+    (key) => String(local[key] ?? '') !== extractString(reference[key]),
   );
 }
 
-function ConfirmedStamp({ confirmedAt }: { confirmedAt: string }) {
-  return (
-    <div
-      className="rotate-[-6deg] rounded-[10px] border-[2.5px] px-3.5 py-2 text-center"
-      style={{ borderColor: 'var(--green)', color: 'var(--green)' }}
-    >
-      <p className="text-[0.8rem] font-extrabold uppercase tracking-[0.14em]">Confirmado</p>
-      <p className="mt-0.5 font-mono text-[0.6rem]">{confirmedAt}</p>
-    </div>
-  );
+function listAiValue(aiContent: Content, list: ListFieldDef): string {
+  const items = aiContent[list.source];
+  return (Array.isArray(items) ? items : []).map((item) => extractString(item)).join('\n');
 }
+
+/** Seções cujo texto difere do rascunho original da IA. */
+function editedSections(
+  type: DocType,
+  fields: FieldDef[],
+  content: Content,
+  aiContent: Content,
+): string[] {
+  const edited = fields
+    .filter((f) => String(content[f.key] ?? '') !== extractString(aiContent[f.key]))
+    .map((f) => f.key);
+  const list = LIST_FIELDS[type];
+  if (list) {
+    const raw = content[list.id];
+    if (typeof raw === 'string' && raw !== listAiValue(aiContent, list)) edited.push(list.id);
+  }
+  return edited;
+}
+
+// Campo editável como bloco de texto do Notion: sem caixa, cresce com o
+// conteúdo, fundo sutil no hover e no foco (com anel visível no teclado).
+const EDITABLE_CLASS =
+  '-mx-2 min-h-9 w-[calc(100%+1rem)] resize-none border-transparent bg-transparent px-2 py-1.5 text-[0.9375rem] leading-7 text-foreground shadow-none hover:bg-hover focus-visible:border-transparent focus-visible:bg-hover focus-visible:ring-2 focus-visible:ring-ring/25 md:text-[0.9375rem]';
+
+const READ_CLASS = 'whitespace-pre-wrap text-[0.9375rem] leading-7 text-foreground';
 
 /**
  * RD-E7 — abas SOAP/SBAR/Prescrição/Alta/Atestado do redesign
@@ -138,9 +205,12 @@ function ConfirmedStamp({ confirmedAt }: { confirmedAt: string }) {
 function DocumentTypeTabs({
   encounterId,
   currentType,
+  onBeforeLeave,
 }: {
   encounterId: string;
   currentType: DocType;
+  /** Salva edições pendentes antes de sair; `false` cancela a troca. */
+  onBeforeLeave: () => Promise<boolean>;
 }) {
   const router = useRouter();
   const documentsQuery = useEncounterDocuments(encounterId);
@@ -158,6 +228,7 @@ function DocumentTypeTabs({
 
   async function handleTabClick(type: DocType) {
     if (type === currentType) return;
+    if (!(await onBeforeLeave())) return;
     const existing = latestByType.get(type);
     if (existing) {
       router.push(`/encounters/${encounterId}/documents/${existing.id}/edit`);
@@ -176,37 +247,59 @@ function DocumentTypeTabs({
   }
 
   return (
-    <div className="mx-auto w-full max-w-[680px]">
-      <div className="flex gap-1.5 rounded-2xl bg-clinical-line p-1.5">
+    <div className="flex flex-col gap-2">
+      {/* Mesmo desenho das abas de view (Tabs `default`). O sublinhado fica
+          dentro da área rolável: um offset abaixo da borda seria cortado
+          pelo overflow-x. */}
+      <nav
+        aria-label="Documentos do caso"
+        className="flex h-10 items-stretch gap-1 overflow-x-auto border-b border-border max-sm:h-12"
+      >
         {DOCUMENT_TYPES.map((dt) => {
           const active = dt.type === currentType;
           const isLoading = switchingTo === dt.type;
+          const existing = latestByType.get(dt.type);
+          const signed = existing ? isConfirmed(existing) : false;
+          const stateLabel = active
+            ? ''
+            : !existing
+              ? ' (gerar)'
+              : signed
+                ? ' (assinado)'
+                : ' (rascunho)';
           return (
             <button
               key={dt.type}
               type="button"
-              disabled={isLoading}
+              disabled={switchingTo !== null}
               aria-current={active ? 'page' : undefined}
+              title={!existing && !active ? `Gerar ${dt.label}` : undefined}
               onClick={() => void handleTabClick(dt.type)}
               className={cn(
-                'flex-1 rounded-xl px-2 py-2 text-[0.8rem] font-bold transition-colors disabled:opacity-60',
+                'relative inline-flex h-full shrink-0 items-center gap-1.5 rounded-sm px-2 text-sm font-medium whitespace-nowrap transition-colors duration-100 outline-none hover:bg-hover focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:ring-inset disabled:opacity-60',
+                'after:absolute after:inset-x-1.5 after:bottom-0 after:h-0.5 after:rounded-full after:bg-foreground',
                 active
-                  ? 'bg-card text-clinical-ink shadow-sm'
-                  : 'text-clinical-ink-soft hover:text-clinical-ink',
+                  ? 'text-foreground after:opacity-100'
+                  : 'text-muted-foreground after:opacity-0 hover:text-foreground',
               )}
             >
               {isLoading ? (
-                <CircleNotch className="mx-auto size-4 animate-spin" />
-              ) : (
-                dt.label
-              )}
+                <CircleNotch className="size-3.5 animate-spin" aria-hidden="true" />
+              ) : !existing && !active ? (
+                <Plus className="size-3.5" aria-hidden="true" />
+              ) : signed ? (
+                <SealCheck className="size-3.5 text-tone-green" weight="fill" aria-hidden="true" />
+              ) : null}
+              {dt.label}
+              <span className="sr-only">{stateLabel}</span>
             </button>
           );
         })}
-      </div>
+      </nav>
       {switchError && (
-        <Alert variant="destructive" className="mt-2">
-          <AlertDescription className="flex items-center justify-between gap-3">
+        <Alert variant="destructive">
+          <Warning weight="fill" />
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
             <span>{switchError}</span>
             <Button variant="outline" size="sm" onClick={() => setSwitchError(null)}>
               Fechar
@@ -218,6 +311,36 @@ function DocumentTypeTabs({
   );
 }
 
+function EditorSkeleton() {
+  return (
+    <Page width="narrow" className="gap-6">
+      <div className="flex h-12 items-center justify-between border-b border-border">
+        <Skeleton className="h-7 w-24" />
+        <Skeleton className="h-8 w-28" />
+      </div>
+      <div className="flex flex-col gap-3">
+        <Skeleton className="size-12" />
+        <Skeleton className="h-10 w-2/3" />
+        <div className="flex flex-col gap-2 pt-1">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-6 w-1/2" />
+          ))}
+        </div>
+      </div>
+      <Skeleton className="h-16 w-full" />
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} className="flex flex-col gap-2">
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-20 w-full" />
+        </div>
+      ))}
+      <span className="sr-only" role="status">
+        Carregando documento…
+      </span>
+    </Page>
+  );
+}
+
 export default function DocumentEditPage({
   params,
 }: {
@@ -225,584 +348,679 @@ export default function DocumentEditPage({
 }) {
   const { id: encounterId, docId } = use(params);
   const documentQuery = useEncounterDocument(encounterId, docId);
-  const updateDocument = useUpdateDocument(encounterId, docId);
-  const confirmDocument = useConfirmDocument(encounterId, docId);
+  // Mesmo cache que a trilha da barra superior usa (RouteBreadcrumbs).
+  const encounterQuery = useEncounterDetail(encounterId);
   const document = documentQuery.data;
-  const loading = documentQuery.isPending;
   const error = documentQuery.error?.message ?? null;
 
+  if (documentQuery.isPending) return <EditorSkeleton />;
+
+  if (error || !document) {
+    return (
+      <Page width="narrow">
+        <Alert variant="destructive">
+          <Warning weight="fill" />
+          <AlertTitle>Não foi possível abrir o documento</AlertTitle>
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            <span>{error ?? 'Documento não encontrado.'}</span>
+            <span className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => void documentQuery.refetch()}>
+                Tentar novamente
+              </Button>
+              <Button asChild variant="ghost" size="sm">
+                <Link href={`/encounters/${encounterId}/documents`}>Ver documentos do caso</Link>
+              </Button>
+            </span>
+          </AlertDescription>
+        </Alert>
+      </Page>
+    );
+  }
+
+  // `key` por documento: trocar de aba (outro documento) reinicia as edições
+  // locais; salvar/confirmar o mesmo documento não.
+  return (
+    <DocumentWorkspace
+      key={document.id}
+      encounterId={encounterId}
+      document={document}
+      encounter={encounterQuery.data ?? null}
+      encounterLoading={encounterQuery.isPending}
+    />
+  );
+}
+
+function SaveStatus({ saving, dirty }: { saving: boolean; dirty: boolean }) {
+  return (
+    <span
+      role="status"
+      className="flex items-center gap-1.5 text-[0.8125rem] whitespace-nowrap text-muted-foreground"
+    >
+      {saving ? (
+        <>
+          <CircleNotch className="size-3.5 animate-spin" aria-hidden="true" />
+          Salvando…
+        </>
+      ) : dirty ? (
+        <>
+          <span aria-hidden="true" className="size-1.5 rounded-full bg-muted-foreground" />
+          <span className="max-sm:hidden">Alterações não salvas</span>
+          <span className="sm:hidden">Não salvo</span>
+        </>
+      ) : (
+        <>
+          <Check className="size-3.5" aria-hidden="true" />
+          Salvo
+        </>
+      )}
+    </span>
+  );
+}
+
+function DocumentWorkspace({
+  encounterId,
+  document,
+  encounter,
+  encounterLoading,
+}: {
+  encounterId: string;
+  document: Document;
+  encounter: EncounterDetail | null;
+  encounterLoading: boolean;
+}) {
+  const docId = document.id;
   const { physician } = useAuth();
+  const updateDocument = useUpdateDocument(encounterId, docId);
+  const confirmDocument = useConfirmDocument(encounterId, docId);
+  const saveMutation = updateDocument.mutateAsync;
+
+  const locked = isConfirmed(document);
+  const aiContent = document.content;
+  // Último conteúdo salvo no servidor — referência do indicador "Salvo".
+  const savedContent = useMemo(
+    () => flattenContent(document.physicianEdits ?? document.content),
+    [document.physicianEdits, document.content],
+  );
+  const [editedContent, setEditedContent] = useState<Content>(savedContent);
+
+  const dirty = !locked && changedKeys(editedContent, savedContent).length > 0;
+  const isSaving = updateDocument.isPending;
+  // Documento assinado mostra sempre o conteúdo do servidor (o que foi selado).
+  const displayContent = locked ? savedContent : editedContent;
+  const fields = SECTION_FIELDS[document.type] ?? [];
+  const editedKeys = editedSections(document.type, fields, displayContent, aiContent);
+  const totalSections = fields.length + (LIST_FIELDS[document.type] ? 1 : 0);
+
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
+
+  const save = useCallback(async (): Promise<boolean> => {
+    try {
+      await saveMutation({ physicianEdits: editedContent });
+      return true;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao salvar.');
+      return false;
+    }
+  }, [saveMutation, editedContent]);
+
+  const handleSave = useCallback(async () => {
+    if (await save()) toast.success('Alterações salvas.');
+  }, [save]);
+
+  // ⌘S / Ctrl+S salva o rascunho (como num editor de texto).
+  useEffect(() => {
+    if (locked) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
+        event.preventDefault();
+        if (dirty && !isSaving) void handleSave();
+      }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [locked, dirty, isSaving, handleSave]);
+
+  // Fechar a aba com edições não salvas pede confirmação do navegador.
+  useEffect(() => {
+    if (!dirty) return;
+    function onBeforeUnload(event: BeforeUnloadEvent) {
+      event.preventDefault();
+    }
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [dirty]);
 
   async function handleConfirm() {
     setConfirmError(null);
     try {
+      // Assina exatamente o que está na tela: edições pendentes são salvas
+      // antes (o backend sela physicianEdits ?? content).
+      if (dirty) await saveMutation({ physicianEdits: editedContent });
       await confirmDocument.mutateAsync();
+      setConfirmOpen(false);
       toast.success('Documento confirmado com sucesso.');
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Erro ao confirmar documento.';
-      setConfirmError(message);
+      setConfirmError(err instanceof Error ? err.message : 'Erro ao confirmar documento.');
     }
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-clinical-paper">
-        <div className="border-b border-clinical-line bg-card">
-          <div className="mx-auto flex h-16 max-w-[1180px] items-center justify-between px-6">
-            <Skeleton className="h-6 w-48 rounded" />
-            <Skeleton className="h-6 w-64 rounded" />
-          </div>
-        </div>
-        <div className="mx-auto max-w-[1180px] px-6 py-8">
-          <Skeleton className="mx-auto h-[420px] w-full max-w-[680px] rounded-lg" />
-        </div>
-      </div>
-    );
+  async function copyToClipboard(value: string, success: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success(success);
+    } catch {
+      toast.error('Não foi possível copiar.');
+    }
   }
 
-  if (error || !document) {
-    return (
-      <div className="min-h-screen bg-clinical-paper">
-        <div className="mx-auto max-w-3xl px-4 py-8">
-          <Alert variant="destructive">
-            <AlertTitle>Erro</AlertTitle>
-            <AlertDescription className="flex items-center justify-between gap-3">
-              <span>{error ?? 'Documento não encontrado.'}</span>
-              <Button variant="outline" size="sm" onClick={() => void documentQuery.refetch()}>
-                Tentar novamente
-              </Button>
-            </AlertDescription>
-          </Alert>
-        </div>
-      </div>
-    );
-  }
+  const typeLabel = docTypeLabel(document.type);
+  const patient = encounter ? (encounter.patientRef ?? 'Consulta rápida') : null;
+  const title = patient ? `${typeLabel} — ${patient}` : typeLabel;
+  const latestInteraction = encounter?.aiInteractions?.[0] ?? null;
+  // O selo só nomeia o médico logado quando foi ele quem assinou (cobertura
+  // de plantão permite outro médico da instituição confirmar).
+  const signedByMe = locked && physician !== null && document.confirmedBy === physician.id;
+  const signerName = signedByMe ? `Dr(a). ${physician?.name ?? '—'}` : undefined;
+  const signerCrm =
+    signedByMe && physician ? `CRM ${physician.crmUf}-${physician.crmNumber}` : undefined;
 
-  const locked = isConfirmed(document);
-  const confirmedAtStr = document.confirmedAt
-    ? new Date(document.confirmedAt).toLocaleString('pt-BR')
-    : '';
+  const pdfHref = `${API_BASE_URL}/encounters/${encounterId}/documents/${docId}/download`;
+  const auditHref = `/encounters/${encounterId}?tab=audit&entity=Document&entityId=${docId}`;
+
+  const versionLabel = locked
+    ? document.physicianEdits
+      ? 'Editada pelo médico e assinada'
+      : 'Original da IA, assinada sem edições'
+    : editedKeys.length > 0
+      ? `Editada · ${editedKeys.length} de ${totalSections} seções alterada${editedKeys.length === 1 ? '' : 's'}`
+      : 'Original da IA · nenhuma seção alterada';
+
+  const body = (
+    <DocumentBody
+      document={document}
+      fields={fields}
+      aiContent={aiContent}
+      content={displayContent}
+      locked={locked}
+      onChange={setEditedContent}
+    />
+  );
 
   return (
-    <div className="min-h-screen bg-clinical-paper">
-      <header className="flex h-16 items-center justify-between border-b border-clinical-line bg-white px-6">
-        <div className="flex items-center gap-3">
-          <a
+    <Page width="narrow" className="gap-6">
+      {/* Barra de ações do documento (fixa abaixo da barra superior do shell). */}
+      <div className="sticky top-11 z-20 -mx-2 -mt-2 flex h-12 items-center gap-1.5 border-b border-border bg-background px-2 md:-mt-6">
+        {/* Com a trilha de etapas visível (lg+) a seta basta; abaixo disso
+            ela leva o rótulo "Análise". */}
+        <Button asChild variant="ghost" className="-ml-1 px-2 text-muted-foreground">
+          <Link
             href={`/encounters/${encounterId}/result`}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-clinical-ink-soft transition-colors hover:text-clinical-ink"
+            aria-label="Voltar para a análise"
+            title="Voltar para a análise"
           >
-            <ArrowLeft className="size-4" />
-            Análise
-          </a>
-          <span className="h-4 w-px bg-clinical-line" />
-          <span className="font-mono text-xs text-clinical-ink-soft">{docId}</span>
-        </div>
-        <ProgressSteps steps={['Captura', 'Análise', 'Documento']} currentStep={2} />
-      </header>
+            <ArrowLeft />
+            <span className="max-sm:hidden lg:hidden">Análise</span>
+          </Link>
+        </Button>
+        <span aria-hidden="true" className="mx-1 hidden h-4 w-px bg-border lg:block" />
+        <ProgressSteps
+          steps={['Captura', 'Análise', 'Documento']}
+          currentStep={2}
+          className="hidden text-[0.8125rem] lg:flex"
+        />
+        <span className="flex-1" />
 
-      <div className="mx-auto max-w-[1180px] px-6 pt-8">
-        <h1 className="font-display text-[1.75rem] leading-tight text-clinical-ink">
-          Revise antes de assinar
-        </h1>
-        <p className="mt-1.5 text-sm leading-relaxed text-clinical-ink-soft">
-          Escrito a partir do seu ditado e das condutas que você adotou. Toque em qualquer trecho
-          para corrigir.
-        </p>
-      </div>
-
-      <div className="mx-auto max-w-[1180px] px-6 pt-6">
-        <DocumentTypeTabs encounterId={encounterId} currentType={document.type} />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px]">
-        <div className="px-6 py-8">
-          <DocumentEditor
-            key={`${document.id}:${document.updatedAt}`}
-            document={document}
-            locked={locked}
-            isSaving={updateDocument.isPending}
-            confirmedAtStr={confirmedAtStr}
-            onSave={async (physicianEdits) => {
-              try {
-                await updateDocument.mutateAsync({ physicianEdits });
-                toast.success('Alterações salvas.');
-              } catch (err) {
-                toast.error(err instanceof Error ? err.message : 'Erro ao salvar.');
-              }
-            }}
-          />
-        </div>
-
-        <aside className="flex flex-col gap-4 border-l border-clinical-line bg-card p-7">
-          {!locked ? (
-            <>
-              <div
-                className="rounded-[10px] border p-4"
-                style={{
-                  borderColor: 'rgba(180,83,9,0.4)',
-                  background: 'var(--amber-bg)',
-                }}
-              >
-                <div className="mb-2 flex items-center gap-2">
-                  <Robot className="size-5" style={{ color: 'var(--amber-foreground)' }} />
-                  <p
-                    className="text-sm font-bold"
-                    style={{ color: 'var(--amber-foreground)' }}
-                  >
-                    Rascunho da IA
-                  </p>
-                </div>
-                <p
-                  className="text-[0.8rem] leading-relaxed"
-                  style={{ color: 'var(--amber-foreground)' }}
-                >
-                  Conteúdo gerado pela IA. Revise cada seção antes de confirmar — ao assinar, o
-                  documento é bloqueado e registrado na trilha de auditoria.
-                </p>
-              </div>
-
-              <ReviewStats document={document} />
-
-              {physician && (
-                <div
-                  className="rounded-[10px] border p-4"
-                  style={{
-                    borderColor: 'rgba(13,148,136,0.3)',
-                    background: 'var(--teal-tint, rgba(13,148,136,0.06))',
-                  }}
-                >
-                  <p className="text-sm font-semibold text-clinical-teal-deep">
-                    Dr(a). {physician.name ?? '—'}
-                  </p>
-                  <p className="mt-0.5 font-mono text-xs text-clinical-teal-deep/80">
-                    CRM {physician.crmUf}-{physician.crmNumber}
-                    {!physician.crmVerified && (
-                      <span className="ml-2 text-clinical-amber">CRM pendente de verificação</span>
-                    )}
-                  </p>
-                  <p className="mt-2 text-[0.72rem] leading-relaxed text-clinical-ink-soft">
-                    Ao confirmar, você assume este documento como conteúdo próprio. Esta ação é{' '}
-                    <span className="font-semibold text-clinical-ink">irreversível</span> — o
-                    documento será bloqueado e assinado com hash criptográfico.
-                  </p>
-                </div>
-              )}
-
-              {confirmError && (
-                <Alert variant="destructive">
-                  <AlertDescription>
-                    {confirmError.includes('already confirmed')
-                      ? 'Este documento já foi confirmado.'
-                      : confirmError}
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              <Button
-                onClick={() => void handleConfirm()}
-                disabled={confirmDocument.isPending}
-                loading={confirmDocument.isPending}
-                className="h-13 w-full bg-clinical-teal text-white hover:bg-clinical-teal/90"
-              >
-                {!confirmDocument.isPending && <SealCheck className="size-4" />}
-                {confirmDocument.isPending ? 'Confirmando…' : 'Confirmar e assinar'}
-              </Button>
-            </>
-          ) : (
-            <>
-              <ConfirmedSeal
-                status="confirmed"
-                confirmedAt={document.confirmedAt ?? undefined}
-                physicianName={physician?.name ?? undefined}
-                crm={physician ? `CRM ${physician.crmUf}-${physician.crmNumber}` : undefined}
-              />
-
-              {document.contentHash && (
-                <div className="rounded-[10px] border border-clinical-line bg-white/60 p-4">
-                  <p className="font-mono text-[0.6rem] font-semibold uppercase tracking-[0.1em] text-clinical-ink-soft">
-                    Integridade
-                  </p>
-                  <div className="mt-2">
-                    <AuditHash hash={document.contentHash} />
-                  </div>
-                  <p className="mt-2 flex items-center gap-1.5 text-[0.68rem] text-clinical-green-foreground">
-                    <CheckCircle className="size-3" style={{ color: 'var(--green)' }} />
-                    Verificado na cadeia
-                  </p>
-                </div>
-              )}
-
-              <a
-                href={`${API_BASE_URL}/encounters/${encounterId}/documents/${docId}/download`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-clinical-line bg-white px-4 text-sm font-medium text-foreground transition-colors hover:border-clinical-teal hover:text-clinical-teal"
-              >
-                <FilePdf className="size-4" />
-                Baixar PDF assinado
-              </a>
-
-              <a
-                href={`/encounters/${encounterId}?tab=audit&entity=Document&entityId=${docId}`}
-                className="text-center text-sm font-medium text-clinical-teal transition-colors hover:text-clinical-teal-deep"
-              >
-                Ver na trilha de auditoria →
-              </a>
-            </>
-          )}
-        </aside>
-      </div>
-    </div>
-  );
-}
-
-function ReviewStats({ document }: { document: Document }) {
-  const aiContent = document.content;
-  const initialContent = document.physicianEdits ?? document.content;
-  const editedCount = useMemo(() => {
-    let count = 0;
-    for (const key of Object.keys(initialContent)) {
-      const ai = extractString(aiContent[key]);
-      const edited = extractString(initialContent[key]);
-      if (ai !== edited) count++;
-    }
-    return count;
-  }, [aiContent, initialContent]);
-  const fields = SECTION_FIELDS[document.type] ?? [];
-  const sectionsCount = fields.length || Object.keys(initialContent).length;
-
-  return (
-    <div className="rounded-[10px] border border-clinical-line bg-white/60 p-4">
-      <p className="font-mono text-[0.6rem] font-semibold uppercase tracking-[0.1em] text-clinical-ink-soft">
-        Revisão
-      </p>
-      <ul className="mt-3 space-y-2.5">
-        <li className="flex items-center justify-between text-sm">
-          <span className="text-clinical-ink-soft">Seções revisadas</span>
-          <span className="font-semibold text-clinical-ink">{sectionsCount}</span>
-        </li>
-        <li className="flex items-center justify-between text-sm">
-          <span className="text-clinical-ink-soft">Seção editada</span>
-          <span className="font-semibold text-clinical-ink">{editedCount}</span>
-        </li>
-        <li className="flex items-center justify-between text-sm">
-          <span className="text-clinical-ink-soft">Condutas adotadas</span>
-          <span className="font-semibold text-clinical-ink">{editedCount}</span>
-        </li>
-      </ul>
-    </div>
-  );
-}
-
-function DocumentEditor({
-  document,
-  locked,
-  isSaving,
-  confirmedAtStr,
-  onSave,
-}: {
-  document: Document;
-  locked: boolean;
-  isSaving: boolean;
-  confirmedAtStr: string;
-  onSave: (physicianEdits: Record<string, unknown>) => Promise<void>;
-}) {
-  const aiContent = document.content;
-  const initialContent = document.physicianEdits ?? document.content;
-  const [editedContent, setEditedContent] = useState<Record<string, unknown>>(() => {
-    const flat: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(initialContent)) {
-      flat[k] = extractString(v);
-    }
-    return flat;
-  });
-
-  const hasEdits = useMemo(() => {
-    return Object.keys(editedContent).some((key) => {
-      const original = extractString(aiContent[key]);
-      const edited = String(editedContent[key] ?? '');
-      return original !== edited;
-    });
-  }, [editedContent, aiContent]);
-
-  const fields = SECTION_FIELDS[document.type] ?? [];
-
-  function updateField(key: string, value: string) {
-    setEditedContent((prev) => ({ ...prev, [key]: value }));
-  }
-
-  async function handleSave() {
-    await onSave(editedContent);
-  }
-
-  const editedSectionCount = useMemo(() => {
-    return Object.keys(editedContent).filter((key) => {
-      const original = extractString(aiContent[key]);
-      const edited = String(editedContent[key] ?? '');
-      return original !== edited;
-    }).length;
-  }, [editedContent, aiContent]);
-
-  const metadata = `${document.encounterId.slice(0, 12)} · ${new Date(document.createdAt).toLocaleString('pt-BR')}`;
-  const hashFooter = document.contentHash
-    ? `sha-256 ${document.contentHash.slice(0, 16)}…`
-    : undefined;
-
-  return (
-    <>
-      <ChartPaper
-        title={TYPE_LABELS[document.type]}
-        metadata={metadata}
-        headerSlot={locked ? <ConfirmedStamp confirmedAt={confirmedAtStr} /> : <DraftBadge />}
-        hashFooter={hashFooter}
-      >
-        {fields.length === 0 ? (
-          <pre className="overflow-auto rounded-lg border border-clinical-line bg-white/60 p-4 font-mono text-sm">
-            {JSON.stringify(initialContent, null, 2)}
-          </pre>
-        ) : document.type === 'soap' ? (
-          <div className="grid grid-cols-[56px_1fr] gap-x-5">
-            {fields.map((field) => {
-              const aiValue = extractString(aiContent[field.key]);
-              const editedValue = String(editedContent[field.key] ?? '');
-              const changed = aiValue !== editedValue;
-              const letter = SOAP_LETTERS[field.key] ?? field.key.charAt(0).toUpperCase();
-
-              return (
-                <div key={field.key} className="contents">
-                  <div
-                    className="pt-5 font-display text-[2.1rem] leading-none"
-                    style={{ color: 'var(--line)' }}
-                  >
-                    {letter}
-                  </div>
-                  <div className="border-b border-clinical-line py-5">
-                    <div className="mb-1.5 flex items-center gap-2">
-                      <p className="font-mono text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-clinical-ink-soft">
-                        {field.label}
-                      </p>
-                      {changed && !locked && (
-                        <Badge
-                          variant="outline"
-                          className="border-clinical-teal/40 px-1.5 py-0 font-mono text-[0.55rem] uppercase tracking-wider text-clinical-teal"
-                        >
-                          <PencilSimple className="size-2.5" /> editado
-                        </Badge>
-                      )}
-                    </div>
-                    {changed && !locked && (
-                      <details className="mb-2 rounded border border-dashed border-clinical-line px-3 py-2">
-                        <summary className="cursor-pointer select-none font-mono text-[0.6rem] uppercase tracking-wider text-muted-foreground">
-                          Original da IA
-                        </summary>
-                        <p className="mt-1 whitespace-pre-wrap text-[0.78rem] text-muted-foreground">
-                          {aiValue}
-                        </p>
-                      </details>
-                    )}
-                    {locked ? (
-                      <p className="whitespace-pre-wrap text-[0.9rem] leading-[1.65] text-clinical-ink">
-                        {editedValue}
-                      </p>
-                    ) : (
-                      <Textarea
-                        id={field.key}
-                        value={editedValue}
-                        onChange={(e) => updateField(field.key, e.target.value)}
-                        disabled={locked}
-                        rows={field.rows ?? 4}
-                        className={cn(
-                          'border-0 bg-transparent px-0 py-1 text-[0.9rem] leading-[1.65] text-clinical-ink shadow-none focus-visible:border-0 focus-visible:ring-0',
-                          changed && 'border-l-[3px] !border-clinical-teal pl-3',
-                        )}
-                      />
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+        {locked ? (
+          <span className="flex items-center gap-1.5 text-[0.8125rem] whitespace-nowrap text-muted-foreground">
+            <LockSimple className="size-3.5" aria-hidden="true" />
+            <span className="max-sm:hidden">Somente leitura</span>
+          </span>
         ) : (
-          <div className="space-y-6">
-            {fields.map((field) => {
-              const aiValue = extractString(aiContent[field.key]);
-              const editedValue = String(editedContent[field.key] ?? '');
-              const changed = aiValue !== editedValue;
-
-              return (
-                <div key={field.key} className="space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor={field.key} className="text-sm font-medium">
-                      {field.label}
-                    </Label>
-                    {changed && !locked && (
-                      <Badge
-                        variant="outline"
-                        className="border-clinical-teal/40 px-1.5 py-0 font-mono text-[0.55rem] uppercase tracking-wider text-clinical-teal"
-                      >
-                        <PencilSimple className="size-2.5" /> editado
-                      </Badge>
-                    )}
-                  </div>
-                  {changed && !locked && (
-                    <details className="rounded border border-dashed border-clinical-line px-3 py-2">
-                      <summary className="cursor-pointer select-none font-mono text-[0.6rem] uppercase tracking-wider text-muted-foreground">
-                        Original da IA
-                      </summary>
-                      <p className="mt-1 whitespace-pre-wrap text-[0.78rem] text-muted-foreground">
-                        {aiValue}
-                      </p>
-                    </details>
-                  )}
-                  {locked ? (
-                    <p className="whitespace-pre-wrap text-[0.9rem] leading-[1.65] text-clinical-ink">
-                      {editedValue}
-                    </p>
-                  ) : (
-                    <Textarea
-                      id={field.key}
-                      value={editedValue}
-                      onChange={(e) => updateField(field.key, e.target.value)}
-                      disabled={locked}
-                      rows={field.rows ?? 3}
-                      className={cn(
-                        field.mono && 'font-mono text-sm',
-                        changed && 'border-l-[3px] !border-clinical-teal pl-3',
-                      )}
-                    />
-                  )}
-                </div>
-              );
-            })}
-
-            {document.type === 'prescricao' && (
-              <MedicamentosSection
-                medicamentos={aiContent.medicamentos}
-                editedContent={editedContent}
-                locked={locked}
-                onChange={setEditedContent}
-              />
-            )}
-
-            {document.type === 'alta' && (
-              <ListSection
-                title="Diagnósticos"
-                fieldKey="diagnosticos"
-                items={aiContent.diagnosticos}
-                editedContent={editedContent}
-                locked={locked}
-                onChange={setEditedContent}
-              />
-            )}
-          </div>
+          <SaveStatus saving={isSaving} dirty={dirty} />
         )}
-      </ChartPaper>
+
+        {dirty && !isSaving && (
+          <Button variant="outline" onClick={() => void handleSave()} className="ml-1">
+            Salvar
+          </Button>
+        )}
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" aria-label="Mais ações do documento">
+              <DotsThree weight="bold" className="size-5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-64">
+            {!locked && (
+              <DropdownMenuItem disabled={!dirty || isSaving} onSelect={() => void handleSave()}>
+                <FloppyDisk />
+                Salvar rascunho
+                <DropdownMenuShortcut>⌘S</DropdownMenuShortcut>
+              </DropdownMenuItem>
+            )}
+            {locked && (
+              <DropdownMenuItem asChild>
+                <a href={pdfHref} target="_blank" rel="noreferrer">
+                  <FilePdf />
+                  Baixar PDF assinado
+                </a>
+              </DropdownMenuItem>
+            )}
+            {locked && (
+              <DropdownMenuItem asChild>
+                <Link href={auditHref}>
+                  <ShieldCheck />
+                  Ver na trilha de auditoria
+                </Link>
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem asChild>
+              <Link href={`/encounters/${encounterId}/documents`}>
+                <Files />
+                Todos os documentos do caso
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href={`/encounters/${encounterId}/result`}>
+                <ArrowLeft />
+                Voltar para a análise
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onSelect={() => void copyToClipboard(docId, 'ID do documento copiado.')}
+            >
+              <Copy />
+              Copiar ID do documento
+            </DropdownMenuItem>
+            {locked && document.contentHash && (
+              <DropdownMenuItem
+                onSelect={() => void copyToClipboard(document.contentHash ?? '', 'Hash copiado.')}
+              >
+                <Hash />
+                Copiar hash SHA-256
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {locked ? (
+          <Button asChild variant="outline">
+            <a href={pdfHref} target="_blank" rel="noreferrer">
+              <FilePdf />
+              <span className="max-sm:sr-only">Baixar PDF</span>
+            </a>
+          </Button>
+        ) : (
+          <Button onClick={() => setConfirmOpen(true)}>
+            <SealCheck weight="fill" />
+            Confirmar
+          </Button>
+        )}
+      </div>
+
+      <PageHeader
+        icon={FileText}
+        iconTone={locked ? 'green' : 'gray'}
+        title={title}
+        properties={
+          <PropertyList>
+            <PropertyRow icon={Tag} label="Tipo">
+              <span className="flex flex-wrap items-center gap-2">
+                <DocTypeBadge type={document.type} />
+                <span className="text-muted-foreground">
+                  {DOC_TYPE_META[document.type].description}
+                </span>
+              </span>
+            </PropertyRow>
+            <PropertyRow icon={locked ? SealCheck : Robot} label="Status">
+              <DocStatusBadge confirmed={locked} size="long" />
+            </PropertyRow>
+            <PropertyRow icon={User} label="Paciente">
+              {encounterLoading ? (
+                <Skeleton className="h-5 w-40" />
+              ) : patient ? (
+                <span className="block min-w-0">
+                  <Link
+                    href={`/encounters/${encounterId}`}
+                    className="rounded-sm underline decoration-border underline-offset-4 hover:decoration-foreground"
+                  >
+                    {patient}
+                  </Link>
+                  {encounter?.chiefComplaint && (
+                    <span className="text-muted-foreground"> · {encounter.chiefComplaint}</span>
+                  )}
+                </span>
+              ) : (
+                <span className="text-muted-foreground">—</span>
+              )}
+            </PropertyRow>
+            <PropertyRow icon={CalendarBlank} label="Gerado em">
+              <span className="tabular-nums">{formatDateTime(document.createdAt)}</span>
+            </PropertyRow>
+            <PropertyRow icon={ClockCounterClockwise} label="Versão">
+              {versionLabel}
+            </PropertyRow>
+            {locked && (
+              <PropertyRow icon={Signature} label="Assinado">
+                <span className="tabular-nums">
+                  {document.confirmedAt ? formatDateTime(document.confirmedAt) : '—'}
+                  {signerName && (
+                    <span className="text-muted-foreground">
+                      {' '}
+                      · {signerName}
+                      {signerCrm && <span className="font-mono text-xs"> · {signerCrm}</span>}
+                    </span>
+                  )}
+                </span>
+              </PropertyRow>
+            )}
+            {locked && document.contentHash && (
+              <PropertyRow icon={Hash} label="Hash">
+                <AuditHash hash={document.contentHash} />
+              </PropertyRow>
+            )}
+          </PropertyList>
+        }
+      />
+
+      <DocumentTypeTabs
+        encounterId={encounterId}
+        currentType={document.type}
+        onBeforeLeave={() => (dirty ? save() : Promise.resolve(true))}
+      />
+
+      {locked ? (
+        <ConfirmedSeal
+          status="confirmed"
+          confirmedAt={document.confirmedAt ?? undefined}
+          physicianName={signerName}
+          crm={signerCrm}
+        />
+      ) : (
+        <Callout
+          tone="blue"
+          icon={<Robot weight="duotone" />}
+          title="Rascunho da IA — revise antes de assinar"
+        >
+          Escrito a partir do seu ditado e das condutas que você adotou. Toque em qualquer trecho
+          para corrigir; ao confirmar, o documento é bloqueado e registrado na trilha de auditoria.
+        </Callout>
+      )}
+
+      {locked ? (
+        <ChartPaper hash={document.contentHash}>{body}</ChartPaper>
+      ) : (
+        <div className="pt-1">{body}</div>
+      )}
+
+      {locked ? (
+        <Link
+          href={auditHref}
+          className="-mt-2 inline-flex w-fit items-center gap-1.5 rounded-sm px-1 text-sm text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+        >
+          <ShieldCheck className="size-4" aria-hidden="true" />
+          Ver na trilha de auditoria →
+        </Link>
+      ) : (
+        <Callout tone="gray" icon={<Info />} className="text-[0.8125rem]">
+          Ao assinar você declara que revisou o conteúdo e assume a responsabilidade clínica. A IA é
+          assistiva (Resolução CFM 2.314/2022). O texto e o hash ficam gravados de forma imutável.
+        </Callout>
+      )}
 
       {!locked && (
-        <div className="mx-auto mt-6 flex w-full max-w-[680px] items-start gap-2.5 rounded-lg border border-clinical-line bg-card px-4 py-3.5">
-          <Info className="mt-0.5 size-4 shrink-0 text-clinical-ink-soft" />
-          <p className="text-[0.78rem] leading-relaxed text-clinical-ink-soft">
-            Ao assinar você declara que revisou o conteúdo e assume a responsabilidade clínica. A
-            IA é assistiva (Resolução CFM 2.314/2022). O texto e o hash ficam gravados de forma
-            imutável.
-          </p>
-        </div>
+        <ConfirmDocumentDialog
+          open={confirmOpen}
+          onOpenChange={(open) => {
+            setConfirmOpen(open);
+            if (!open) setConfirmError(null);
+          }}
+          documentLabel={typeLabel}
+          physician={physician}
+          uncertain={latestInteraction?.uncertainty ?? false}
+          uncertaintyReason={latestInteraction?.uncertaintyReason}
+          hasUnsavedEdits={dirty}
+          pending={isSaving || confirmDocument.isPending}
+          error={confirmError}
+          onConfirm={() => void handleConfirm()}
+        />
       )}
+    </Page>
+  );
+}
 
-      {!locked && fields.length > 0 && (
-        <div className="mx-auto mt-6 flex w-full max-w-[680px] items-center gap-3">
-          <Button
-            onClick={() => void handleSave()}
-            disabled={isSaving}
-            loading={isSaving}
-            variant="outline"
-            className="h-11"
+function SectionBlock({
+  id,
+  label,
+  letter,
+  hint,
+  value,
+  aiValue,
+  edited,
+  locked,
+  rows,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  letter?: string;
+  hint?: string;
+  value: string;
+  aiValue?: string;
+  edited: boolean;
+  locked: boolean;
+  rows: number;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <section aria-labelledby={`${id}-heading`} className="flex flex-col gap-1">
+      <div className="flex min-h-7 items-center gap-2">
+        {letter && (
+          <span
+            aria-hidden="true"
+            className="flex size-6 shrink-0 items-center justify-center rounded-sm bg-tone-gray-bg text-xs font-semibold text-muted-foreground"
           >
-            {!isSaving && <FloppyDisk className="size-4" />}
-            {isSaving ? 'Salvando…' : 'Salvar rascunho'}
-          </Button>
-          {hasEdits && (
-            <span className="font-mono text-[0.68rem] text-muted-foreground">
-              {editedSectionCount} seção{editedSectionCount !== 1 ? 'ões' : ''} editada
-              {editedSectionCount !== 1 ? 's' : ''}
-            </span>
-          )}
-        </div>
+            {letter}
+          </span>
+        )}
+        <h3 id={`${id}-heading`} className="text-base font-semibold text-foreground">
+          {locked ? label : <label htmlFor={id}>{label}</label>}
+        </h3>
+        {edited && !locked && (
+          <Badge variant="secondary">
+            <PencilSimple aria-hidden="true" />
+            Editado
+          </Badge>
+        )}
+      </div>
+      {hint && !locked && <p className="text-xs text-muted-foreground">{hint}</p>}
+      {locked ? (
+        <p className={READ_CLASS}>{value || <span className="text-muted-foreground">—</span>}</p>
+      ) : (
+        <Textarea
+          id={id}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          rows={rows}
+          className={EDITABLE_CLASS}
+        />
       )}
-    </>
+      {edited && !locked && aiValue !== undefined && (
+        <Disclosure
+          title={
+            <span className="text-[0.8125rem] font-normal text-muted-foreground">
+              Original da IA
+            </span>
+          }
+        >
+          <p className="text-[0.8125rem] leading-6 whitespace-pre-wrap text-muted-foreground">
+            {aiValue || '—'}
+          </p>
+        </Disclosure>
+      )}
+    </section>
   );
 }
 
-function MedicamentosSection({
-  medicamentos,
-  editedContent,
+function InlineField({
+  id,
+  label,
+  value,
+  aiValue,
+  edited,
   locked,
   onChange,
 }: {
-  medicamentos: unknown;
-  editedContent: Record<string, unknown>;
+  id: string;
+  label: string;
+  value: string;
+  aiValue: string;
+  edited: boolean;
   locked: boolean;
-  onChange: (val: Record<string, unknown>) => void;
+  onChange: (value: string) => void;
 }) {
-  const meds = Array.isArray(medicamentos) ? medicamentos : [];
-  const editedMedsRaw = editedContent['medicamentos_raw'] as string | undefined;
-  const editedMeds = editedMedsRaw ?? meds.map((m) => extractString(m)).join('\n');
-
+  const showEdited = edited && !locked;
   return (
-    <div className="space-y-1.5">
-      <Label htmlFor="medicamentos_raw" className="text-sm font-medium">
-        Medicamentos
-      </Label>
-      <p className="text-xs text-muted-foreground">
-        Um por linha — medicamento, dosagem, via, frequência, duração
-      </p>
-      <Textarea
-        id="medicamentos_raw"
-        value={editedMeds}
-        onChange={(e) => onChange({ ...editedContent, medicamentos_raw: e.target.value })}
-        disabled={locked}
-        rows={Math.max(3, meds.length + 1)}
-        className="font-mono text-sm"
-      />
+    <div className="grid min-h-[34px] grid-cols-[minmax(6.5rem,8rem)_1fr] items-start gap-2 sm:grid-cols-[10rem_1fr]">
+      <dt className="flex min-w-0 items-center gap-1.5 py-1.5 text-muted-foreground">
+        {locked ? label : <label htmlFor={id}>{label}</label>}
+        {showEdited && (
+          <span title={`Editado — original da IA: ${aiValue || '—'}`} className="flex">
+            <PencilSimple className="size-3.5" aria-hidden="true" />
+            <span className="sr-only">(editado)</span>
+          </span>
+        )}
+      </dt>
+      <dd className="min-w-0">
+        {locked ? (
+          <p className="py-1.5 text-[0.9375rem] whitespace-pre-wrap text-foreground">
+            {value || <span className="text-muted-foreground">—</span>}
+          </p>
+        ) : (
+          <Textarea
+            id={id}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            rows={1}
+            className="-mx-1.5 min-h-8 w-[calc(100%+0.75rem)] resize-none border-transparent bg-transparent px-1.5 py-1 text-[0.9375rem] leading-6 text-foreground shadow-none hover:bg-hover focus-visible:border-transparent focus-visible:bg-hover focus-visible:ring-2 focus-visible:ring-ring/25 md:text-[0.9375rem]"
+          />
+        )}
+      </dd>
     </div>
   );
 }
 
-function ListSection({
-  title,
-  fieldKey,
-  items,
-  editedContent,
+function DocumentBody({
+  document,
+  fields,
+  aiContent,
+  content,
   locked,
   onChange,
 }: {
-  title: string;
-  fieldKey: string;
-  items: unknown;
-  editedContent: Record<string, unknown>;
+  document: Document;
+  fields: FieldDef[];
+  aiContent: Content;
+  content: Content;
   locked: boolean;
-  onChange: (val: Record<string, unknown>) => void;
+  onChange: (updater: (prev: Content) => Content) => void;
 }) {
-  const list = Array.isArray(items) ? items : [];
-  const editedRaw =
-    (editedContent[`${fieldKey}_raw`] as string | undefined) ??
-    list.map((i) => extractString(i)).join('\n');
+  if (fields.length === 0) {
+    return (
+      <pre className="overflow-auto rounded-md bg-tone-gray-bg p-4 font-mono text-[0.8125rem]">
+        {JSON.stringify(document.physicianEdits ?? document.content, null, 2)}
+      </pre>
+    );
+  }
+
+  const letters = SECTION_LETTERS[document.type];
+  const list = LIST_FIELDS[document.type];
+  // Campos de uma linha (paciente, data) viram um bloco de propriedades no
+  // topo do documento; os demais são seções com título.
+  const inlineFields = fields.filter((field) => field.rows === 1);
+  const sectionFields = fields.filter((field) => field.rows !== 1);
 
   return (
-    <div className="space-y-1.5">
-      <Label htmlFor={`${fieldKey}_raw`} className="text-sm font-medium">
-        {title}
-      </Label>
-      <p className="text-xs text-muted-foreground">Um por linha</p>
-      <Textarea
-        id={`${fieldKey}_raw`}
-        value={editedRaw}
-        onChange={(e) => onChange({ ...editedContent, [`${fieldKey}_raw`]: e.target.value })}
-        disabled={locked}
-        rows={Math.max(2, list.length)}
-        className="font-mono text-sm"
-      />
+    <div className="flex flex-col gap-7">
+      {inlineFields.length > 0 && (
+        <dl className="flex flex-col gap-0.5 text-sm">
+          {inlineFields.map((field) => {
+            const aiValue = extractString(aiContent[field.key]);
+            const value = String(content[field.key] ?? '');
+            return (
+              <InlineField
+                key={field.key}
+                id={field.key}
+                label={field.label}
+                value={value}
+                aiValue={aiValue}
+                edited={aiValue !== value}
+                locked={locked}
+                onChange={(next) => onChange((prev) => ({ ...prev, [field.key]: next }))}
+              />
+            );
+          })}
+        </dl>
+      )}
+
+      {sectionFields.map((field) => {
+        const aiValue = extractString(aiContent[field.key]);
+        const value = String(content[field.key] ?? '');
+        return (
+          <SectionBlock
+            key={field.key}
+            id={field.key}
+            label={field.label}
+            letter={letters?.[field.key]}
+            value={value}
+            aiValue={aiValue}
+            edited={aiValue !== value}
+            locked={locked}
+            rows={field.rows ?? 3}
+            onChange={(next) => onChange((prev) => ({ ...prev, [field.key]: next }))}
+          />
+        );
+      })}
+
+      {list && (
+        <ListBlock list={list} aiContent={aiContent} content={content} locked={locked} onChange={onChange} />
+      )}
     </div>
+  );
+}
+
+function ListBlock({
+  list,
+  aiContent,
+  content,
+  locked,
+  onChange,
+}: {
+  list: ListFieldDef;
+  aiContent: Content;
+  content: Content;
+  locked: boolean;
+  onChange: (updater: (prev: Content) => Content) => void;
+}) {
+  const items = aiContent[list.source];
+  const aiValue = listAiValue(aiContent, list);
+  const raw = content[list.id];
+  const value = typeof raw === 'string' ? raw : aiValue;
+
+  return (
+    <SectionBlock
+      id={list.id}
+      label={list.label}
+      hint={list.hint}
+      value={value}
+      aiValue={aiValue}
+      edited={typeof raw === 'string' && raw !== aiValue}
+      locked={locked}
+      rows={Math.max(list.minRows, (Array.isArray(items) ? items.length : 0) + 1)}
+      onChange={(next) => onChange((prev) => ({ ...prev, [list.id]: next }))}
+    />
   );
 }

@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth-store';
 import { apiClient, ApiError } from '@/lib/api-client';
 import type { AuthResponse } from '@/lib/types';
 import { toast } from 'sonner';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,23 +20,16 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  Stethoscope,
-  SealCheck,
-  ShieldCheck,
-  LockKey,
   ArrowLeft,
+  DeviceMobile,
   EnvelopeSimple,
   Eye,
   EyeSlash,
-  CaretDown,
-  DeviceMobileCamera,
+  WarningCircle,
 } from '@phosphor-icons/react';
+import { AuthHeading, FieldError, subtleLinkClass } from '../_components/auth-ui';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-const BR_STATES = [
-  'AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO',
-];
 
 type Step = 'credentials' | 'mfa';
 
@@ -46,16 +40,15 @@ export default function LoginPage() {
   const [step, setStep] = useState<Step>('credentials');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [crmUf, setCrmUf] = useState('SP');
-  const [crmNumber, setCrmNumber] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [keepSession, setKeepSession] = useState(true);
   const [mfaToken, setMfaToken] = useState('');
   const [mfaCode, setMfaCode] = useState(['', '', '', '', '', '']);
   const [useBackup, setUseBackup] = useState(false);
   const [backupCode, setBackupCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
+  // Erro da tentativa de login (API) — mostrado em linha, acima do botão.
+  const [formError, setFormError] = useState('');
   const [mfaError, setMfaError] = useState('');
   const [forgotOpen, setForgotOpen] = useState(false);
 
@@ -78,6 +71,7 @@ export default function LoginPage() {
 
   async function handleCredentialsSubmit(e: FormEvent) {
     e.preventDefault();
+    setFormError('');
     if (!validateCredentials()) return;
 
     setLoading(true);
@@ -98,12 +92,16 @@ export default function LoginPage() {
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 429) {
-          toast.error('Muitas tentativas. Aguarde um momento e tente novamente.');
+          setFormError('Muitas tentativas. Aguarde um momento e tente novamente.');
+        } else if (err.status === 401) {
+          // O apiClient troca a mensagem de todo 401 por "Sessão expirada" —
+          // aqui o 401 significa e-mail/senha incorretos.
+          setFormError('Credenciais inválidas.');
         } else {
-          toast.error(err.message || 'Credenciais inválidas.');
+          setFormError(err.message || 'Credenciais inválidas.');
         }
       } else {
-        toast.error('Erro ao fazer login.');
+        setFormError('Erro ao fazer login.');
       }
     } finally {
       setLoading(false);
@@ -174,264 +172,206 @@ export default function LoginPage() {
 
   if (step === 'mfa') {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <div className="w-full max-w-md space-y-6">
-          <div className="space-y-1">
-            <h1 className="font-display text-2xl tracking-tight text-clinical-ink">
-              Verificação em duas etapas
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Abra seu app autenticador e insira o código de 6 dígitos.
-            </p>
-          </div>
-          <form onSubmit={handleMfaSubmit} className="space-y-6">
-            {!useBackup ? (
-              <fieldset className="space-y-3">
-                <legend className="sr-only">Código de verificação de 6 dígitos</legend>
-                <div className="flex justify-center gap-1.5 sm:gap-2">
-                  {mfaCode.map((digit, idx) => (
-                    <Input
-                      key={idx}
-                      ref={setDigitRef(idx)}
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={6}
-                      value={digit}
-                      onChange={(e) => handleDigitChange(idx, e.target.value)}
-                      onKeyDown={(e) => handleDigitKeyDown(idx, e)}
-                      onPaste={handleDigitPaste}
-                      disabled={loading}
-                      className="size-10 select-none p-0 text-center text-lg font-semibold tabular-nums sm:size-12 sm:text-xl"
-                      aria-label={`Dígito ${idx + 1} de 6`}
-                    />
-                  ))}
-                </div>
-              </fieldset>
-            ) : (
-              <div className="space-y-2">
-                <Label htmlFor="backupCode">Código de recuperação</Label>
-                <Input id="backupCode" type="text" placeholder="Código de recuperação" value={backupCode}
-                  onChange={(e) => { setBackupCode(e.target.value); setMfaError(''); }}
-                  disabled={loading} autoComplete="off" />
+      <div className="flex w-full max-w-[360px] flex-col gap-8">
+        <AuthHeading
+          icon={<DeviceMobile className="size-10 text-foreground" weight="duotone" aria-hidden="true" />}
+          title="Verificação em duas etapas"
+          description={
+            useBackup
+              ? 'Insira um dos códigos de recuperação que você salvou ao ativar a verificação.'
+              : 'Abra seu app autenticador e insira o código de 6 dígitos.'
+          }
+        />
+        <form onSubmit={handleMfaSubmit} noValidate className="flex flex-col gap-4">
+          {!useBackup ? (
+            <fieldset>
+              <legend className="sr-only">Código de verificação de 6 dígitos</legend>
+              {/* S22-A11Y-02 — OTP responsivo (cabe em iPhone SE 320px). */}
+              <div className="flex justify-center gap-1.5 sm:gap-2">
+                {mfaCode.map((digit, idx) => (
+                  <Input
+                    key={idx}
+                    ref={setDigitRef(idx)}
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete={idx === 0 ? 'one-time-code' : 'off'}
+                    maxLength={6}
+                    value={digit}
+                    onChange={(e) => handleDigitChange(idx, e.target.value)}
+                    onKeyDown={(e) => handleDigitKeyDown(idx, e)}
+                    onPaste={handleDigitPaste}
+                    disabled={loading}
+                    aria-invalid={!!mfaError}
+                    className="size-11 p-0 text-center text-lg font-semibold tabular-nums select-none max-sm:size-11 sm:size-12 sm:text-xl"
+                    aria-label={`Dígito ${idx + 1} de 6`}
+                  />
+                ))}
               </div>
-            )}
-            {mfaError && <p role="alert" className="text-center text-sm text-destructive">{mfaError}</p>}
-            <Button type="submit" className="h-11 w-full" disabled={loading}>
-              {loading ? 'Verificando...' : 'Verificar'}
-            </Button>
-            <div className="flex flex-col items-center gap-2">
-              <button type="button" onClick={() => { setUseBackup(!useBackup); setMfaError(''); }}
-                className="text-sm text-clinical-teal underline underline-offset-4">
-                {useBackup ? 'Usar código do app autenticador' : 'Usar código de recuperação'}
-              </button>
-              <button type="button" onClick={() => { setStep('credentials'); setMfaCode(['', '', '', '', '', '']); setMfaError(''); setUseBackup(false); }}
-                className="flex items-center gap-1 text-sm text-muted-foreground hover:text-clinical-ink">
-                <ArrowLeft className="size-3" /> Voltar ao login
-              </button>
+            </fieldset>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="backupCode">Código de recuperação</Label>
+              <Input
+                id="backupCode"
+                type="text"
+                placeholder="Código de recuperação"
+                value={backupCode}
+                onChange={(e) => { setBackupCode(e.target.value); setMfaError(''); }}
+                disabled={loading}
+                autoComplete="off"
+                aria-invalid={!!mfaError}
+                className="font-mono"
+              />
             </div>
-          </form>
-        </div>
+          )}
+
+          {mfaError && (
+            <Alert variant="destructive">
+              <WarningCircle aria-hidden="true" />
+              <AlertDescription>{mfaError}</AlertDescription>
+            </Alert>
+          )}
+
+          <Button type="submit" size="lg" className="w-full" loading={loading}>
+            Verificar
+          </Button>
+
+          <div className="flex flex-col items-center gap-1 pt-1">
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-muted-foreground"
+              onClick={() => { setUseBackup(!useBackup); setMfaError(''); }}
+            >
+              {useBackup ? 'Usar código do app autenticador' : 'Usar código de recuperação'}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-muted-foreground"
+              onClick={() => { setStep('credentials'); setMfaCode(['', '', '', '', '', '']); setMfaError(''); setUseBackup(false); }}
+            >
+              <ArrowLeft aria-hidden="true" />
+              Voltar ao login
+            </Button>
+          </div>
+        </form>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen">
-      {/* Left brand panel */}
-      <div
-        className="hidden w-[520px] shrink-0 flex-col p-12 md:flex"
-        style={{ background: 'var(--sidebar-dark-bg)', color: 'var(--sidebar-dark-text)' }}
-      >
-        <div className="flex items-center gap-2.5">
-          <span
-            className="flex h-[38px] w-[38px] items-center justify-center rounded-[10px]"
-            style={{ background: 'var(--sidebar-dark-bg-elevated)' }}
-          >
-            <Stethoscope className="h-5 w-5" style={{ color: 'var(--sidebar-dark-accent)' }} />
-          </span>
-          <p className="text-[0.95rem] font-semibold" style={{ color: 'var(--sidebar-dark-text-bright)' }}>
-            Copiloto Clínico
-          </p>
+    <div className="flex w-full max-w-[360px] flex-col gap-8">
+      <AuthHeading
+        title="Entrar no Copiloto Clínico"
+        description="Use o e-mail e a senha da sua conta."
+      />
+
+      <form onSubmit={handleCredentialsSubmit} noValidate className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="email">E-mail</Label>
+          <Input
+            id="email"
+            type="email"
+            placeholder="seu@email.com"
+            value={email}
+            onChange={(e) => { setEmail(e.target.value); setFieldErrors((p) => ({ ...p, email: undefined })); }}
+            autoComplete="email"
+            disabled={loading}
+            aria-invalid={!!fieldErrors.email}
+            aria-describedby={fieldErrors.email ? 'email-error' : undefined}
+            className="h-10"
+          />
+          {fieldErrors.email && <FieldError id="email-error">{fieldErrors.email}</FieldError>}
         </div>
 
-        <div className="flex flex-1 flex-col justify-center gap-5">
-          <h2
-            className="font-display text-[2.5rem] font-normal leading-[1.15]"
-            style={{ color: 'var(--sidebar-dark-text-bright)' }}
-          >
-            Você não está sozinho no plantão
-          </h2>
-          <p
-            className="max-w-[360px] text-[0.95rem] leading-relaxed"
-            style={{ color: 'var(--sidebar-dark-text-muted)' }}
-          >
-            SOAP, SBAR e prescrições geradas do seu ditado, com evidência citada e trilha de auditoria inviolável.
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-2.5">
-          {[
-            { icon: SealCheck, text: 'Toda conduta é confirmada por você, e fica registrada' },
-            { icon: ShieldCheck, text: 'Nenhum dado pessoal do paciente sai daqui' },
-            { icon: LockKey, text: 'Trilha de auditoria verificada todos os dias' },
-          ].map(({ icon: Icon, text }) => (
-            <div key={text} className="flex items-center gap-2.5 text-[0.8rem]" style={{ color: 'var(--sidebar-dark-text-muted)' }}>
-              <Icon className="h-[15px] w-[15px] fill" style={{ color: 'var(--sidebar-dark-accent)' }} />
-              {text}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Right form panel */}
-      <div className="flex flex-1 items-center justify-center px-4 py-12">
-        <div className="w-full max-w-[400px] space-y-5">
-          <div>
-            <h1 className="font-display text-[1.875rem] font-normal">Entrar</h1>
-            <p className="mt-1.5 text-[0.85rem] text-muted-foreground">
-              Use o CRM cadastrado pelo seu hospital.
-            </p>
-          </div>
-
-          <form onSubmit={handleCredentialsSubmit} className="space-y-5">
-            {/* CRM visual identity */}
-            <div className="space-y-2">
-              <Label className="text-[0.8rem] font-semibold">CRM</Label>
-              <div className="flex gap-2">
-                <div className="relative">
-                  <select
-                    value={crmUf}
-                    onChange={(e) => setCrmUf(e.target.value)}
-                    disabled={loading}
-                    aria-label="Estado do CRM"
-                    className="flex h-[52px] w-[96px] appearance-none items-center justify-between rounded-[12px] border border-clinical-line bg-card px-3.5 pr-9 text-[0.95rem] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    {BR_STATES.map((uf) => (
-                      <option key={uf} value={uf}>{uf}</option>
-                    ))}
-                  </select>
-                  <CaretDown className="pointer-events-none absolute right-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-                </div>
-                <Input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="123456"
-                  value={crmNumber}
-                  onChange={(e) => setCrmNumber(e.target.value.replace(/\D/g, ''))}
-                  disabled={loading}
-                  className="h-[52px] flex-1 font-mono text-base"
-                  aria-label="Número do CRM"
-                />
-              </div>
-            </div>
-
-            {/* Email (actual backend field) */}
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-[0.8rem] font-semibold text-muted-foreground">
-                ou use seu e-mail
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="seu@email.com"
-                value={email}
-                onChange={(e) => { setEmail(e.target.value); setFieldErrors((p) => ({ ...p, email: undefined })); }}
-                autoComplete="email"
-                disabled={loading}
-                aria-invalid={!!fieldErrors.email}
-                className="h-[52px]"
-              />
-              {fieldErrors.email && <p role="alert" className="text-xs text-destructive">{fieldErrors.email}</p>}
-            </div>
-
-            {/* Password */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password" className="text-[0.8rem] font-semibold">Senha</Label>
-                <button type="button" onClick={() => setForgotOpen(true)}
-                  className="text-[0.8rem] font-medium text-clinical-teal hover:underline">
-                  Esqueci a senha
-                </button>
-              </div>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Sua senha"
-                  value={password}
-                  onChange={(e) => { setPassword(e.target.value); setFieldErrors((p) => ({ ...p, password: undefined })); }}
-                  autoComplete="current-password"
-                  disabled={loading}
-                  aria-invalid={!!fieldErrors.password}
-                  className="h-[52px] pr-12"
-                />
-                <button type="button" onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}>
-                  {showPassword ? <EyeSlash className="size-[17px]" /> : <Eye className="size-[17px]" />}
-                </button>
-              </div>
-              {fieldErrors.password && <p role="alert" className="text-xs text-destructive">{fieldErrors.password}</p>}
-            </div>
-
-            {/* Keep session toggle */}
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor="password">Senha</Label>
             <button
               type="button"
-              onClick={() => setKeepSession(!keepSession)}
-              className="flex w-full items-center gap-3 rounded-[12px] border border-clinical-line bg-card px-4 py-3 text-left"
+              onClick={() => setForgotOpen(true)}
+              className="-my-2 rounded-sm px-1 py-2 text-[0.8125rem] text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-none"
             >
-              <DeviceMobileCamera className="size-[17px] shrink-0 text-clinical-teal" />
-              <p className="flex-1 text-[0.8rem] text-muted-foreground">
-                Manter sessão neste dispositivo do hospital por 12h de plantão.
-              </p>
-              <span
-                className="flex h-[22px] w-[38px] shrink-0 items-center rounded-full p-0.5 transition-colors"
-                style={{ background: keepSession ? 'var(--teal)' : 'var(--line)' }}
-              >
-                <span
-                  className="h-[18px] w-[18px] rounded-full bg-white transition-transform"
-                  style={{ transform: keepSession ? 'translateX(16px)' : 'translateX(0)' }}
-                />
-              </span>
+              Esqueci a senha
             </button>
-
-            <Button type="submit" className="h-14 w-full text-base font-semibold shadow-[0_4px_14px_rgba(14,124,123,0.3)]" disabled={loading}>
-              {loading ? 'Entrando...' : 'Entrar no plantão'}
-            </Button>
-
-            <p className="text-center text-[0.8rem] text-muted-foreground">
-              Primeira vez aqui?{' '}
-              <Link href="/register" className="font-semibold text-clinical-teal hover:underline">
-                Criar conta com CRM
-              </Link>
-            </p>
-          </form>
-
-          <Dialog open={forgotOpen} onOpenChange={setForgotOpen}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle variant="brand">Recuperar senha</DialogTitle>
-                <DialogDescription>
-                  O reset automático por email será ativado em breve. Por enquanto, entre em contato com o suporte para redefinir sua senha.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-3">
-                <a href="mailto:suporte@strivum.com.br?subject=Reset%20de%20senha%20Copiloto%20Cl%C3%ADnico"
-                  className="flex items-center gap-3 rounded-lg border border-clinical-line bg-white px-4 py-3 transition-colors hover:bg-muted/40">
-                  <EnvelopeSimple className="size-5 shrink-0 text-clinical-teal" weight="duotone" />
-                  <div>
-                    <p className="text-sm font-medium">suporte@strivum.com.br</p>
-                    <p className="text-xs text-muted-foreground">Resposta em até 1 dia útil. Inclua seu CRM para verificação.</p>
-                  </div>
-                </a>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setForgotOpen(false)}>Fechar</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          </div>
+          <div className="relative">
+            <Input
+              id="password"
+              type={showPassword ? 'text' : 'password'}
+              placeholder="Sua senha"
+              value={password}
+              onChange={(e) => { setPassword(e.target.value); setFieldErrors((p) => ({ ...p, password: undefined })); }}
+              autoComplete="current-password"
+              disabled={loading}
+              aria-invalid={!!fieldErrors.password}
+              aria-describedby={fieldErrors.password ? 'password-error' : undefined}
+              className="h-10 pr-11"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute top-1/2 right-1 flex size-8 -translate-y-1/2 max-sm:right-0 max-sm:size-10 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-none"
+              aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+            >
+              {showPassword ? <EyeSlash className="size-4" /> : <Eye className="size-4" />}
+            </button>
+          </div>
+          {fieldErrors.password && <FieldError id="password-error">{fieldErrors.password}</FieldError>}
         </div>
+
+        {formError && (
+          <Alert variant="destructive">
+            <WarningCircle aria-hidden="true" />
+            <AlertDescription>{formError}</AlertDescription>
+          </Alert>
+        )}
+
+        <Button type="submit" size="lg" className="mt-1 w-full" loading={loading}>
+          Entrar
+        </Button>
+      </form>
+
+      <div className="flex flex-col items-center gap-6 text-center">
+        <p className="text-sm text-muted-foreground">
+          Primeira vez aqui?{' '}
+          <Link href="/register" className={subtleLinkClass}>
+            Criar conta com CRM
+          </Link>
+        </p>
+        <p className="max-w-[300px] text-xs text-pretty text-muted-foreground">
+          Acesso restrito a médicos com CRM. Seus dados são tratados conforme a{' '}
+          <Link href="/privacidade" className={subtleLinkClass}>
+            Política de Privacidade
+          </Link>{' '}
+          (LGPD).
+        </p>
       </div>
+
+      <Dialog open={forgotOpen} onOpenChange={setForgotOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle variant="brand">Recuperar senha</DialogTitle>
+            <DialogDescription>
+              O reset automático por email será ativado em breve. Por enquanto, entre em contato com o suporte para redefinir sua senha.
+            </DialogDescription>
+          </DialogHeader>
+          <a
+            href="mailto:suporte@strivum.com.br?subject=Reset%20de%20senha%20Copiloto%20Cl%C3%ADnico"
+            className="flex items-center gap-3 rounded-lg border border-border px-4 py-3 transition-colors hover:bg-hover focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-none"
+          >
+            <EnvelopeSimple className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">suporte@strivum.com.br</p>
+              <p className="text-xs text-muted-foreground">Resposta em até 1 dia útil. Inclua seu CRM para verificação.</p>
+            </div>
+          </a>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setForgotOpen(false)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

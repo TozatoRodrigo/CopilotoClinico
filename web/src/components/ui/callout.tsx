@@ -50,11 +50,14 @@ function Callout({
           {icon}
         </span>
       ) : null}
-      <div className="min-w-0 flex-1 space-y-0.5">
-        {title ? <div className="font-semibold">{title}</div> : null}
-        {children ? <div className="text-pretty opacity-90">{children}</div> : null}
+      {/* No mobile a ação desce para baixo do texto em vez de espremê-lo. */}
+      <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+        <div className="min-w-0 flex-1 space-y-0.5">
+          {title ? <div className="font-semibold">{title}</div> : null}
+          {children ? <div className="text-pretty opacity-90">{children}</div> : null}
+        </div>
+        {action ? <div className="shrink-0">{action}</div> : null}
       </div>
-      {action ? <div className="shrink-0 self-center">{action}</div> : null}
     </div>
   )
 }

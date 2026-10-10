@@ -14,7 +14,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
+import { Callout } from '@/components/ui/callout';
+import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Lock, Download, Trash, Warning, ShieldCheck } from '@phosphor-icons/react';
+import { SettingsPane, SettingsRow, SettingsSection } from '../_components/settings-layout';
 
 interface ConsentScopeStatus {
   scope: string;
@@ -118,89 +123,71 @@ export function PrivacyTab() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-xl border border-clinical-line bg-clinical-paper p-5">
-        <h2 className="text-sm font-semibold text-clinical-ink">Privacidade e LGPD</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Seus direitos como titular de dados (Lei nº 13.709/2018, Art. 18).
-        </p>
-      </div>
+    <SettingsPane
+      title="Privacidade e LGPD"
+      description="Seus direitos como titular de dados (Lei nº 13.709/2018, Art. 18)."
+    >
+      <SettingsSection title="Seus dados">
+        <SettingsRow
+          title="Exportar meus dados"
+          description="Baixe todos os seus dados em formato JSON (Art. 18, V — Portabilidade). Inclui atendimentos, documentos, interações IA, consentimentos e auditoria."
+          control={
+            <Button
+              variant="outline"
+              size="sm"
+              className="max-sm:h-10"
+              onClick={handleExport}
+              disabled={exporting}
+            >
+              <Download />
+              {exporting ? 'Gerando...' : 'Baixar'}
+            </Button>
+          }
+        />
+      </SettingsSection>
 
-      <section className="space-y-3">
-        <div className="flex items-start gap-3 rounded-lg border border-clinical-line bg-white px-4 py-4">
-          <Download className="mt-0.5 size-5 shrink-0 text-clinical-teal" />
-          <div className="flex-1">
-            <p className="text-sm font-medium text-clinical-ink">Exportar meus dados</p>
-            <p className="text-xs text-muted-foreground">
-              Baixe todos os seus dados em formato JSON (Art. 18, V — Portabilidade). Inclui
-              atendimentos, documentos, interações IA, consentimentos e auditoria.
-            </p>
-          </div>
-          <Button variant="outline" size="sm" onClick={handleExport} disabled={exporting}>
-            {exporting ? 'Gerando...' : 'Baixar'}
-          </Button>
-        </div>
-      </section>
-
-      <section className="space-y-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Consentimentos
-        </h3>
+      <SettingsSection
+        title="Consentimentos"
+        description="Você pode revogar ou conceder cada um a qualquer momento."
+      >
         {isLoading ? (
-          <div className="space-y-2">
+          <div className="flex flex-col divide-y divide-border" aria-hidden="true">
             {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="h-16 animate-pulse rounded-lg border border-clinical-line bg-white"
-              />
+              <div key={i} className="flex flex-col gap-2 py-4">
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="h-3 w-72 max-w-full" />
+              </div>
             ))}
           </div>
-        ) : (
-          <div className="space-y-2">
-            {consents?.map((consent) => {
-              const config = SCOPE_LABELS[consent.scope] ?? {
-                label: consent.scope,
-                description: '',
-              };
-              return (
-                <div
-                  key={consent.scope}
-                  className="flex items-start gap-3 rounded-lg border border-clinical-line bg-white px-4 py-3"
-                >
-                  <ShieldCheck
-                    className={`mt-0.5 size-5 shrink-0 ${
-                      consent.granted ? 'text-clinical-green' : 'text-muted-foreground'
-                    }`}
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-clinical-ink">{config.label}</p>
-                      {consent.granted ? (
-                        <span className="rounded-full bg-clinical-green-bg px-2 py-0.5 text-xs font-medium text-clinical-green-foreground">
-                          Ativo
-                        </span>
-                      ) : (
-                        <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                          Revogado
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-0.5 text-xs text-muted-foreground">{config.description}</p>
-                    {consent.grantedAt && (
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        Concedido em{' '}
-                        {new Date(consent.grantedAt).toLocaleDateString('pt-BR', {
-                          day: '2-digit',
-                          month: 'long',
-                          year: 'numeric',
-                        })}
-                      </p>
+        ) : consents && consents.length > 0 ? (
+          consents.map((consent) => {
+            const config = SCOPE_LABELS[consent.scope] ?? {
+              label: consent.scope,
+              description: '',
+            };
+            return (
+              <SettingsRow
+                key={consent.scope}
+                title={
+                  <>
+                    {config.label}
+                    {consent.granted ? (
+                      <Badge variant="success">
+                        <ShieldCheck weight="fill" aria-hidden="true" />
+                        Ativo
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary">Revogado</Badge>
                     )}
-                  </div>
-                  {consent.granted ? (
+                  </>
+                }
+                description={config.description || undefined}
+                control={
+                  consent.granted ? (
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
+                      className="max-sm:h-10"
                       onClick={() => revokeConsent.mutate(consent.scope)}
                       disabled={revokeConsent.isPending}
                     >
@@ -210,85 +197,95 @@ export function PrivacyTab() {
                     <Button
                       variant="outline"
                       size="sm"
+                      className="max-sm:h-10"
                       onClick={() => grantConsent.mutate(consent.scope)}
                       disabled={grantConsent.isPending}
                     >
                       Conceder
                     </Button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                  )
+                }
+              >
+                {consent.grantedAt && (
+                  <p className="text-xs text-muted-foreground">
+                    Concedido em{' '}
+                    {new Date(consent.grantedAt).toLocaleDateString('pt-BR', {
+                      day: '2-digit',
+                      month: 'long',
+                      year: 'numeric',
+                    })}
+                  </p>
+                )}
+              </SettingsRow>
+            );
+          })
+        ) : (
+          <p className="py-4 text-sm text-muted-foreground">Nenhum consentimento registrado.</p>
         )}
-      </section>
+      </SettingsSection>
 
-      <section className="space-y-3">
-        <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-4">
-          <div className="flex items-start gap-3">
-            <Warning className="mt-0.5 size-5 shrink-0 text-destructive" />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-destructive">Excluir conta e dados</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Direito ao esquecimento (Art. 18, VI). Todos os seus atendimentos, documentos e
-                dados serão permanentemente removidos. Esta ação é irreversível.
-              </p>
-            </div>
-          </div>
-          <Dialog open={erasureDialog} onOpenChange={setErasureDialog}>
-            <DialogTrigger asChild>
-              <Button variant="destructive" size="sm" className="mt-3">
-                <Trash className="mr-1 size-4" />
-                Excluir conta
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Confirmar exclusão irreversível</DialogTitle>
-                <DialogDescription>
-                  Você está prestes a excluir permanentemente todos os seus dados. Esta ação não
-                  pode ser desfeita.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-3">
-                <div className="rounded-lg border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-muted-foreground">
-                  <p className="font-medium text-destructive">O que será removido:</p>
-                  <ul className="mt-2 space-y-1">
-                    <li>• Todos os atendimentos e documentos</li>
-                    <li>• Histórico de interações com IA</li>
-                    <li>• Consentimentos e tokens de sessão</li>
-                    <li>• Dados pessoais (nome, e-mail, CRM)</li>
-                  </ul>
+      <SettingsSection title="Zona de perigo">
+        <SettingsRow
+          title="Excluir conta e dados"
+          description="Direito ao esquecimento (Art. 18, VI). Todos os seus atendimentos, documentos e dados serão permanentemente removidos. Esta ação é irreversível."
+          control={
+            <Dialog open={erasureDialog} onOpenChange={setErasureDialog}>
+              <DialogTrigger asChild>
+                <Button variant="destructive" size="sm" className="max-sm:h-10">
+                  <Trash />
+                  Excluir conta
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle variant="brand">Confirmar exclusão irreversível</DialogTitle>
+                  <DialogDescription>
+                    Você está prestes a excluir permanentemente todos os seus dados. Esta ação não
+                    pode ser desfeita.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="flex flex-col gap-4">
+                  <Callout tone="red" icon={<Warning weight="fill" />} title="O que será removido:">
+                    <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[0.8125rem]">
+                      <li>Todos os atendimentos e documentos</li>
+                      <li>Histórico de interações com IA</li>
+                      <li>Consentimentos e tokens de sessão</li>
+                      <li>Dados pessoais (nome, e-mail, CRM)</li>
+                    </ul>
+                  </Callout>
+                  <div className="flex flex-col gap-2">
+                    <label htmlFor="erasure-confirm" className="text-sm text-muted-foreground">
+                      Para confirmar, digite{' '}
+                      <strong className="font-semibold text-foreground">EXCLUIR</strong> abaixo:
+                    </label>
+                    <Input
+                      id="erasure-confirm"
+                      type="text"
+                      value={erasureConfirm}
+                      onChange={(e) => setErasureConfirm(e.target.value)}
+                      placeholder="EXCLUIR"
+                      autoComplete="off"
+                    />
+                  </div>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  Para confirmar, digite <strong className="text-clinical-ink">EXCLUIR</strong>{' '}
-                  abaixo:
-                </p>
-                <input
-                  type="text"
-                  value={erasureConfirm}
-                  onChange={(e) => setErasureConfirm(e.target.value)}
-                  className="w-full rounded-lg border border-clinical-line bg-white px-3 py-2 text-sm"
-                  placeholder="EXCLUIR"
-                />
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setErasureDialog(false)}>
-                  Cancelar
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={handleErasure}
-                  disabled={erasureConfirm !== 'EXCLUIR'}
-                >
-                  <Lock className="mr-1 size-4" />
-                  Excluir permanentemente
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </section>
-    </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setErasureDialog(false)}>
+                    Cancelar
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={handleErasure}
+                    disabled={erasureConfirm !== 'EXCLUIR'}
+                  >
+                    <Lock />
+                    Excluir permanentemente
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          }
+        />
+      </SettingsSection>
+    </SettingsPane>
   );
 }

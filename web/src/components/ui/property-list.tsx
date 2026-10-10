@@ -32,7 +32,7 @@ function PropertyRow({
     <div
       data-slot="property-row"
       className={cn(
-        "grid min-h-[34px] grid-cols-[minmax(7.5rem,10rem)_1fr] items-center gap-2 sm:grid-cols-[10rem_1fr]",
+        "grid min-h-[34px] grid-cols-[6.75rem_1fr] items-center gap-2 sm:grid-cols-[10rem_1fr]",
         className
       )}
     >

@@ -39,10 +39,14 @@ export function Breadcrumb({ items, className }: BreadcrumbProps) {
           return (
             <li
               key={`${item.label}-${idx}`}
-              className={cn('flex min-w-0 items-center gap-0.5', isLast ? 'shrink' : 'shrink-[2]')}
+              className={cn(
+                'flex min-w-0 items-center gap-0.5',
+                // No celular só a página atual cabe sem virar reticências.
+                isLast ? 'shrink' : 'shrink-[2] max-md:hidden',
+              )}
             >
               {idx > 0 && (
-                <span className="px-0.5 text-fg-tertiary" aria-hidden="true">
+                <span className="px-0.5 text-fg-tertiary max-md:hidden" aria-hidden="true">
                   /
                 </span>
               )}

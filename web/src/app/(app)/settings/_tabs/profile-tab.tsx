@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { apiClient, ApiError } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-store";
 import type { Physician } from "@/lib/types";
@@ -16,15 +16,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  SealCheck,
-  SealQuestion,
-  IdentificationCard,
-  UserCircle,
-  ShieldCheck,
-  Translate,
-} from "@phosphor-icons/react";
+import { Badge } from "@/components/ui/badge";
+import { UserAvatar } from "@/components/layout/user-menu";
+import { SealCheck, SealQuestion } from "@phosphor-icons/react";
 import Link from "next/link";
+import {
+  SettingsPane,
+  SettingsRow,
+  SettingsSection,
+} from "../_components/settings-layout";
 
 /**
  * PI-05 — locales com dicionário embarcado (ver web/src/lib/messages).
@@ -105,33 +105,43 @@ export function ProfileTab({ physician }: { physician: Physician | null }) {
   const hasChanges = name.trim() !== (physician?.name ?? "").trim();
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-xl border border-clinical-line bg-clinical-paper p-5">
-        <h2 className="text-sm font-semibold text-clinical-ink">
-          Identificação
-        </h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Edite seu nome. E-mail e CRM são fixos por segurança.
-        </p>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="profile-name">Nome</Label>
-          <Input
-            id="profile-name"
-            type="text"
-            placeholder="Dr. João Silva"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            disabled={loading}
-            autoComplete="name"
-          />
+    <SettingsPane
+      title="Perfil"
+      description="Edite seu nome. E-mail e CRM são fixos por segurança."
+    >
+      <SettingsSection title="Identificação">
+        {/* Cartão de identidade do Notion: avatar + nome + e-mail. */}
+        <div className="flex items-center gap-3 py-4">
+          <UserAvatar className="size-12 text-base" />
+          <div className="min-w-0">
+            <p className="truncate text-[0.9375rem] font-semibold text-foreground">
+              {physician?.name ?? "Médico"}
+            </p>
+            <p className="truncate text-[0.8125rem] text-muted-foreground">
+              {physician?.email ?? "—"}
+            </p>
+          </div>
         </div>
-        <Button type="submit" disabled={loading || !hasChanges}>
-          {loading ? "Salvando..." : "Salvar"}
-        </Button>
-      </form>
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-2 py-4">
+          <Label htmlFor="profile-name">Nome</Label>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Input
+              id="profile-name"
+              type="text"
+              placeholder="Dr. João Silva"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={loading}
+              autoComplete="name"
+              className="sm:max-w-sm"
+            />
+            <Button type="submit" disabled={loading || !hasChanges} loading={loading}>
+              Salvar
+            </Button>
+          </div>
+        </form>
+      </SettingsSection>
 
       {/*
         PI-05 — o médico troca de terminal no hospital; a preferência de
@@ -140,95 +150,83 @@ export function ProfileTab({ physician }: { physician: Physician | null }) {
         copiloto (raciocínio, recomendações, perguntas) — as citações de
         diretriz permanecem sempre em português, ver prompt-builder.ts.
       */}
-      <div className="space-y-2">
-        <Label htmlFor="profile-locale">Idioma</Label>
-        <div className="flex items-center gap-2">
-          <Translate className="size-5 shrink-0 text-muted-foreground" />
-          <Select
-            value={physician?.locale ?? "pt-BR"}
-            onValueChange={handleLocaleChange}
-            disabled={localeSaving}
-          >
-            <SelectTrigger id="profile-locale" className="w-full max-w-xs">
-              <SelectValue placeholder="Idioma" />
-            </SelectTrigger>
-            <SelectContent>
-              {LOCALE_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+      <SettingsSection title="Preferências">
+        <SettingsRow
+          title="Idioma"
+          htmlFor="profile-locale"
+          description="Interface e texto gerado pelo copiloto. Citações de diretriz continuam em português."
+          control={
+            <Select
+              value={physician?.locale ?? "pt-BR"}
+              onValueChange={handleLocaleChange}
+              disabled={localeSaving}
+            >
+              <SelectTrigger id="profile-locale" className="w-full sm:w-52">
+                <SelectValue placeholder="Idioma" />
+              </SelectTrigger>
+              <SelectContent>
+                {LOCALE_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          }
+        />
+      </SettingsSection>
 
-      <div className="space-y-3">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Somente leitura
-        </h3>
-
-        <div className="flex items-center gap-3 rounded-lg border border-clinical-line bg-white px-4 py-3">
-          <UserCircle className="size-5 shrink-0 text-muted-foreground" />
-          <div className="flex-1">
-            <p className="text-xs text-muted-foreground">Nome de usuário</p>
-            <p className="text-sm font-medium text-clinical-ink">
-              {physician?.email ?? "—"}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3 rounded-lg border border-clinical-line bg-white px-4 py-3">
-          <IdentificationCard className="size-5 shrink-0 text-muted-foreground" />
-          <div className="flex-1">
-            <p className="text-xs text-muted-foreground">E-mail</p>
-            <p className="text-sm font-medium text-clinical-ink">
-              {physician?.email ?? "—"}
-            </p>
-          </div>
-          <span className="text-xs text-muted-foreground">Não editável</span>
-        </div>
+      <SettingsSection
+        title="Conta"
+        description="Somente leitura."
+      >
+        <SettingsRow
+          title="E-mail"
+          description="É também o seu nome de usuário para entrar. Não editável."
+          control={
+            <span className="text-sm text-foreground">{physician?.email ?? "—"}</span>
+          }
+        />
 
         {/*
           S24-NAV-01 — role localizada (pt-BR). Antes aparecia como
           PHYSICIAN/COMPLIANCE/ADMIN (slug cru em inglês).
         */}
-        <div className="flex items-center gap-3 rounded-lg border border-clinical-line bg-white px-4 py-3">
-          <ShieldCheck className="size-5 shrink-0 text-muted-foreground" />
-          <div className="flex-1">
-            <p className="text-xs text-muted-foreground">Papel</p>
-            <p className="text-sm font-medium text-clinical-ink">
-              {roleLabel(physician?.role)}
-            </p>
-          </div>
-        </div>
+        <SettingsRow
+          title="Papel"
+          description="Define o que você vê e pode fazer no Copiloto."
+          control={<Badge variant="secondary">{roleLabel(physician?.role)}</Badge>}
+        />
 
-        <div className="flex items-center gap-3 rounded-lg border border-clinical-line bg-white px-4 py-3">
-          {physician?.crmVerified ? (
-            <SealCheck className="size-5 shrink-0 text-clinical-green" />
-          ) : (
-            <SealQuestion className="size-5 shrink-0 text-clinical-amber" />
-          )}
-          <div className="flex-1">
-            <p className="text-xs text-muted-foreground">CRM</p>
-            <p className="text-sm font-medium text-clinical-ink">
-              {physician ? `${physician.crmUf} ${physician.crmNumber}` : "—"}
-            </p>
-          </div>
-          {physician?.crmVerified ? (
-            <span className="rounded-full bg-clinical-green-bg px-2 py-0.5 text-xs font-medium text-clinical-green-foreground">
-              Verificado
-            </span>
-          ) : (
-            <Link
-              href="/verificacao-crm"
-              className="rounded-full bg-clinical-amber-bg px-2 py-0.5 text-xs font-medium text-clinical-amber-foreground hover:underline"
-            >
-              Pendente — verificar
-            </Link>
-          )}
-        </div>
-      </div>
-    </div>
+        <SettingsRow
+          title="CRM"
+          description={
+            physician?.crmVerified
+              ? "Registro ativo confirmado no CFM."
+              : "Documentos confirmados antes da verificação ficam marcados como pendentes."
+          }
+          control={
+            <>
+              <span className="font-mono text-sm text-foreground">
+                {physician ? `${physician.crmUf} ${physician.crmNumber}` : "—"}
+              </span>
+              {physician?.crmVerified ? (
+                <Badge variant="success">
+                  <SealCheck weight="fill" aria-hidden="true" />
+                  Verificado
+                </Badge>
+              ) : (
+                <Badge variant="warning" asChild>
+                  <Link href="/verificacao-crm" className="hover:underline">
+                    <SealQuestion weight="fill" aria-hidden="true" />
+                    Pendente — verificar
+                  </Link>
+                </Badge>
+              )}
+            </>
+          }
+        />
+      </SettingsSection>
+    </SettingsPane>
   );
 }

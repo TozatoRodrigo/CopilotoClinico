@@ -1,20 +1,33 @@
 'use client';
 
-import { Card, CardContent } from '@/components/ui/card';
-import { Gear } from '@phosphor-icons/react';
+import { ChartBar, Gear, ShieldWarning } from '@phosphor-icons/react';
+import { ComingSoonPage } from '../_components/coming-soon';
 
 export default function SistemaPlaceholder() {
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
-      <h1 className="text-lg font-semibold">Sistema</h1>
-      <Card>
-        <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-          <Gear className="size-10 text-muted-foreground" weight="duotone" />
-          <p className="text-sm text-muted-foreground">
-            Configurações de sistema, variáveis de ambiente e health-checks em desenvolvimento.
-          </p>
-        </CardContent>
-      </Card>
-    </div>
+    <ComingSoonPage
+      icon={Gear}
+      title="Sistema"
+      summary="Configurações de sistema, variáveis de ambiente e health-checks em desenvolvimento."
+      planned={[
+        'Health-checks da API, do banco e da fila de processamento',
+        'Variáveis de ambiente em modo somente leitura',
+        'Configurações gerais do sistema',
+      ]}
+      meanwhile={[
+        {
+          href: '/admin/analytics',
+          label: 'Analytics',
+          description: 'Custo de IA, latência por modelo e funil de produto',
+          icon: ChartBar,
+        },
+        {
+          href: '/audit',
+          label: 'Auditoria',
+          description: 'Integridade da cadeia de auditoria e eventos do sistema',
+          icon: ShieldWarning,
+        },
+      ]}
+    />
   );
 }

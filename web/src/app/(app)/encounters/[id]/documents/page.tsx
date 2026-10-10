@@ -1,43 +1,54 @@
 "use client";
 
 import { use, useMemo, useState } from "react";
+import Link from "next/link";
+import {
+  CaretDown,
+  CircleNotch,
+  ClockCounterClockwise,
+  FileText,
+  Plus,
+  SealCheck,
+  TextAa,
+  User,
+  Warning,
+} from "@phosphor-icons/react";
+import { toast } from "sonner";
 import {
   useConfirmDocument,
   useEncounterDetail,
   useEncounterDocuments,
   useGenerateDocument,
 } from "@/lib/clinical-queries";
-import type { Document } from "@/lib/types";
+import type { Document, Physician } from "@/lib/types";
+import { DOCUMENT_TYPES } from "@/lib/document-types";
+import { useAuth } from "@/lib/auth-store";
+import { Page } from "@/components/layout/page";
+import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { EmptyState } from "@/components/domain/empty-state";
 import { QuickConsultBanner } from "@/components/domain/quick-consult-banner";
-import { Warning } from "@phosphor-icons/react";
-import { toast } from "sonner";
-
-type DocType = Document["type"];
+import { ConfirmDocumentDialog } from "./_components/confirm-document-dialog";
+import { DocStatusBadge, DocTypeBadge } from "./_components/document-badges";
+import {
+  DOC_TYPE_META,
+  contentPreview,
+  docTypeLabel,
+  formatDateTime,
+  formatRelative,
+  isConfirmed,
+  type DocType,
+} from "./_components/document-meta";
 
 interface AiInteractionSummary {
   id: string;
@@ -45,30 +56,148 @@ interface AiInteractionSummary {
   uncertaintyReason: string | null;
 }
 
-const TYPE_LABELS: Record<DocType, string> = {
-  soap: "SOAP",
-  sbar: "SBAR",
-  prescricao: "Prescrição",
-  alta: "Alta",
-  atestado: "Atestado",
-};
+// Colunas da "database" de documentos (desktop): título · status · atualizado · autor · ação.
+const ROW_GRID =
+  "md:grid-cols-[minmax(0,1fr)_7.5rem_8.5rem_10rem_6.5rem] md:gap-4";
 
-const TYPE_COLORS: Record<DocType, string> = {
-  soap: "bg-clinical-teal-tint text-clinical-teal-deep",
-  sbar: "bg-clinical-green-bg text-clinical-green-foreground",
-  prescricao: "bg-clinical-amber-bg text-clinical-amber-foreground",
-  alta: "border border-clinical-line bg-card text-clinical-ink-soft",
-  atestado: "bg-muted text-muted-foreground",
-};
-
-function formatContent(content: Record<string, unknown>): string {
-  const values = Object.values(content);
-  const text = values.map((v) => (typeof v === "string" ? v : JSON.stringify(v))).join(" ");
-  return text.length > 200 ? text.slice(0, 200) + "…" : text;
+/** Quem responde pelo documento, do ponto de vista de quem está olhando. */
+function authorLabel(doc: Document, physician: Physician | null): string {
+  if (doc.confirmedBy) {
+    if (physician && doc.confirmedBy === physician.id) {
+      return physician.name ? `Dr(a). ${physician.name}` : "Você";
+    }
+    return "Outro médico";
+  }
+  return doc.physicianEdits ? "Copiloto + médico" : "Copiloto (IA)";
 }
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString("pt-BR");
+function GenerateMenu({
+  disabled,
+  generatingType,
+  existingTypes,
+  onSelect,
+  size = "default",
+}: {
+  disabled: boolean;
+  generatingType: DocType | null;
+  existingTypes: Set<DocType>;
+  onSelect: (type: DocType) => void;
+  size?: "default" | "sm";
+}) {
+  const generating = generatingType !== null;
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button size={size} disabled={disabled || generating} className="max-md:flex-1">
+          {generating ? (
+            <CircleNotch className="animate-spin" aria-hidden="true" />
+          ) : (
+            <Plus weight="bold" aria-hidden="true" />
+          )}
+          {generating ? `Gerando ${docTypeLabel(generatingType)}…` : "Gerar documento"}
+          {!generating && <CaretDown data-icon="inline-end" aria-hidden="true" />}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-80 max-w-[calc(100vw-2rem)]">
+        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+          A partir da última análise do copiloto
+        </DropdownMenuLabel>
+        {DOCUMENT_TYPES.map((dt) => (
+          <DropdownMenuItem key={dt.type} onSelect={() => onSelect(dt.type)} className="gap-2">
+            <span className="flex w-[5.25rem] shrink-0">
+              <Badge variant={DOC_TYPE_META[dt.type].tone}>{dt.label}</Badge>
+            </span>
+            <span className="min-w-0 flex-1 truncate text-[0.8125rem] text-muted-foreground">
+              {DOC_TYPE_META[dt.type].description}
+            </span>
+            {existingTypes.has(dt.type) && (
+              <span className="text-xs text-muted-foreground">já gerado</span>
+            )}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function DocumentRow({
+  doc,
+  encounterId,
+  physician,
+  onConfirm,
+}: {
+  doc: Document;
+  encounterId: string;
+  physician: Physician | null;
+  onConfirm: (doc: Document) => void;
+}) {
+  const confirmed = isConfirmed(doc);
+  const href = `/encounters/${encounterId}/documents/${doc.id}/edit`;
+  const preview = contentPreview(doc.physicianEdits ?? doc.content);
+  const updated = formatRelative(doc.updatedAt);
+  const author = authorLabel(doc, physician);
+
+  return (
+    <li
+      className={`group relative grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 px-2 py-2.5 transition-colors duration-75 focus-within:bg-hover/60 hover:bg-hover/60 ${ROW_GRID}`}
+    >
+      <div className="min-w-0">
+        <div className="flex min-w-0 items-center gap-2">
+          <DocTypeBadge type={doc.type} />
+          {/* "Stretched link": o ::after cobre a linha inteira; a ação à
+              direita fica acima (z-10) e continua clicável. */}
+          <Link
+            href={href}
+            className="truncate text-sm font-medium text-foreground outline-none after:absolute after:inset-0 focus-visible:after:ring-[3px] focus-visible:after:ring-ring/40 focus-visible:after:ring-inset md:text-[0.9375rem]"
+          >
+            <span className="sr-only">Abrir {docTypeLabel(doc.type)}: </span>
+            {DOC_TYPE_META[doc.type].description}
+          </Link>
+        </div>
+        <p className="mt-0.5 line-clamp-2 text-[0.8125rem] text-muted-foreground md:line-clamp-1">
+          {preview || "Sem conteúdo"}
+        </p>
+        {/* Mobile: propriedades empilhadas sob o título. */}
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 md:hidden">
+          <DocStatusBadge confirmed={confirmed} />
+          <span className="text-xs text-muted-foreground">
+            {updated} · {author}
+          </span>
+        </div>
+      </div>
+
+      <span className="hidden md:block">
+        <DocStatusBadge confirmed={confirmed} />
+      </span>
+      <span
+        className="hidden text-[0.8125rem] text-muted-foreground tabular-nums md:block"
+        title={formatDateTime(doc.updatedAt)}
+      >
+        {updated}
+      </span>
+      <span className="hidden truncate text-[0.8125rem] text-muted-foreground md:block">
+        {author}
+      </span>
+
+      <div className="relative z-10 justify-self-end">
+        {confirmed ? (
+          <span className="flex items-center gap-1 text-[0.8125rem] text-muted-foreground group-hover:text-foreground">
+            <SealCheck className="size-3.5 text-tone-green" weight="fill" aria-hidden="true" />
+            Ver
+          </span>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            className="max-sm:h-10 max-sm:px-3.5"
+            onClick={() => onConfirm(doc)}
+          >
+            Confirmar
+          </Button>
+        )}
+      </div>
+    </li>
+  );
 }
 
 export default function DocumentsPage({
@@ -77,14 +206,15 @@ export default function DocumentsPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: encounterId } = use(params);
+  const { physician } = useAuth();
   const [confirmTarget, setConfirmTarget] = useState<Document | null>(null);
-  const [generateOpen, setGenerateOpen] = useState(false);
-  const [generateType, setGenerateType] = useState<DocType>("soap");
+  const [confirmError, setConfirmError] = useState<string | null>(null);
+  const [generatingType, setGeneratingType] = useState<DocType | null>(null);
   const documentsQuery = useEncounterDocuments(encounterId);
   const encounterQuery = useEncounterDetail(encounterId);
   const generateDocument = useGenerateDocument(encounterId);
   const confirmDocument = useConfirmDocument(encounterId, confirmTarget?.id ?? "");
-  const documents = documentsQuery.data ?? [];
+  const documents = useMemo(() => documentsQuery.data ?? [], [documentsQuery.data]);
   const loading = documentsQuery.isPending || encounterQuery.isPending;
   const error = documentsQuery.error?.message ?? encounterQuery.error?.message ?? null;
   const latestInteraction = useMemo<AiInteractionSummary | null>(
@@ -97,82 +227,114 @@ export default function DocumentsPage({
   // identificação, o backend recusa gerar documento (documents.service.ts);
   // desabilitar aqui evita o médico abrir o diálogo só pra levar o erro.
   const isQuickConsult = encounterQuery.data?.patientRef === null;
+  const existingTypes = useMemo(() => new Set(documents.map((d) => d.type)), [documents]);
 
   async function handleConfirm() {
+    setConfirmError(null);
     try {
       await confirmDocument.mutateAsync();
       toast.success("Documento confirmado com sucesso.");
       setConfirmTarget(null);
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Erro ao confirmar documento.",
-      );
+      setConfirmError(err instanceof Error ? err.message : "Erro ao confirmar documento.");
     }
   }
 
-  async function handleGenerate() {
+  async function handleGenerate(type: DocType) {
     if (!latestInteraction) {
       toast.error("Execute uma análise antes de gerar documentos.");
       return;
     }
 
+    setGeneratingType(type);
     try {
       await generateDocument.mutateAsync({
-        type: generateType,
+        type,
         aiInteractionId: latestInteraction.id,
       });
       toast.success("Documento gerado com sucesso.");
-      setGenerateOpen(false);
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Erro ao gerar documento.",
-      );
+      toast.error(err instanceof Error ? err.message : "Erro ao gerar documento.");
+    } finally {
+      setGeneratingType(null);
     }
   }
 
+  const encounter = encounterQuery.data;
+  const caseContext = encounter
+    ? [encounter.patientRef ?? "Consulta rápida", encounter.chiefComplaint]
+        .filter(Boolean)
+        .join(" · ")
+    : null;
+
+  const generateMenu = (size: "default" | "sm" = "default") => (
+    <GenerateMenu
+      size={size}
+      disabled={isQuickConsult}
+      generatingType={generatingType}
+      existingTypes={existingTypes}
+      onSelect={(type) => void handleGenerate(type)}
+    />
+  );
+
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-9 w-40" />
+      <Page width="default">
+        <div className="flex flex-col gap-3">
+          <Skeleton className="size-12" />
+          <Skeleton className="h-10 w-56" />
+          <Skeleton className="h-5 w-80 max-w-full" />
         </div>
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-40 w-full" />
-        ))}
-      </div>
+        <div className="divide-y divide-border border-y border-border">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 px-2 py-3">
+              <Skeleton className="h-5 w-14" />
+              <Skeleton className="h-4 flex-1" />
+              <Skeleton className="h-5 w-20" />
+              <Skeleton className="h-7 w-20" />
+            </div>
+          ))}
+        </div>
+        <span className="sr-only" role="status">
+          Carregando documentos…
+        </span>
+      </Page>
     );
   }
 
   if (error) {
     return (
-      <Alert variant="destructive">
-        <AlertTitle>Erro</AlertTitle>
-        <AlertDescription className="flex items-center justify-between gap-3">
-          <span>{error}</span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              void documentsQuery.refetch();
-              void encounterQuery.refetch();
-            }}
-          >
-            Tentar novamente
-          </Button>
-        </AlertDescription>
-      </Alert>
+      <Page width="default">
+        <PageHeader icon={FileText} title="Documentos" />
+        <Alert variant="destructive">
+          <Warning weight="fill" />
+          <AlertTitle>Não foi possível carregar os documentos</AlertTitle>
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            <span>{error}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                void documentsQuery.refetch();
+                void encounterQuery.refetch();
+              }}
+            >
+              Tentar novamente
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </Page>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="font-display text-[1.75rem] font-normal leading-tight text-clinical-ink">Documentos</h1>
-        <Button onClick={() => setGenerateOpen(true)} disabled={isQuickConsult}>
-          Gerar Novo Documento
-        </Button>
-      </div>
+    <Page width="default">
+      <PageHeader
+        icon={FileText}
+        title="Documentos"
+        description={caseContext}
+        actions={documents.length > 0 ? generateMenu() : undefined}
+      />
 
       {/* S25-QC-02 — sem identificação, nenhum documento pode ser gerado
           ainda (ver isQuickConsult acima). */}
@@ -186,11 +348,9 @@ export default function DocumentsPage({
 
       {/* Banner de incerteza — visível quando a análise do copiloto sinalizou evidência insuficiente */}
       {hasUncertainInteraction && (
-        <Alert className="border-clinical-amber/40 bg-clinical-amber-bg text-clinical-amber-foreground">
-          <Warning className="size-4" weight="bold" />
-          <AlertTitle className="font-semibold">
-            Análise com evidência insuficiente
-          </AlertTitle>
+        <Alert variant="warning">
+          <Warning weight="fill" />
+          <AlertTitle>Análise com evidência insuficiente</AlertTitle>
           <AlertDescription>
             {uncertainReason ??
               "O copiloto sinalizou incerteza na análise deste atendimento. Revise cuidadosamente antes de confirmar qualquer documento."}
@@ -199,161 +359,80 @@ export default function DocumentsPage({
       )}
 
       {documents.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center gap-4 py-12">
-            <p className="text-muted-foreground">
-              Nenhum documento encontrado para este atendimento.
-            </p>
-            <Button onClick={() => setGenerateOpen(true)} disabled={isQuickConsult}>
-              Gerar Primeiro Documento
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4">
-          {documents.map((doc) => (
-            <Card key={doc.id}>
-              <CardHeader>
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${TYPE_COLORS[doc.type]}`}
-                    >
-                      {TYPE_LABELS[doc.type]}
-                    </span>
-                    {doc.confirmedBy ? (
-                      <Badge className="bg-clinical-green-bg text-clinical-green-foreground">
-                        Confirmado
-                      </Badge>
-                    ) : (
-                      <Badge className="bg-clinical-amber-bg text-clinical-amber-foreground">
-                        Rascunho
-                      </Badge>
-                    )}
-                  </div>
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Criado: {formatDate(doc.createdAt)} · Atualizado:{" "}
-                    {formatDate(doc.updatedAt)}
-                  </CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <p className="mb-4 text-sm text-muted-foreground">
-                  {formatContent(doc.physicianEdits ?? doc.content)}
-                </p>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" asChild>
-                    <a
-                      href={`/encounters/${encounterId}/documents/${doc.id}/edit`}
-                    >
-                      Editar
-                    </a>
-                  </Button>
-                  {!doc.confirmedBy && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setConfirmTarget(doc)}
-                    >
-                      Confirmar
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+        <div className="border-y border-border">
+          <EmptyState
+            icon={<FileText weight="duotone" />}
+            title="Nenhum documento neste caso"
+            description="Gere SOAP, SBAR, prescrição, alta ou atestado a partir da análise do copiloto. Tudo nasce como rascunho para você revisar."
+            className="pb-4"
+          />
+          {/* Ação do estado vazio = o mesmo menu de geração do cabeçalho. */}
+          <div className="flex justify-center pb-12">{generateMenu("sm")}</div>
         </div>
+      ) : (
+        <section aria-labelledby="documents-list-title" className="flex flex-col">
+          <h2 id="documents-list-title" className="sr-only">
+            Documentos do caso
+          </h2>
+          {/* Cabeçalho da database (só desktop). */}
+          <div
+            aria-hidden="true"
+            className={`hidden h-9 items-center border-b border-border px-2 text-sm text-muted-foreground md:grid ${ROW_GRID}`}
+          >
+            <span className="flex items-center gap-1.5">
+              <TextAa className="size-4" /> Documento
+            </span>
+            <span className="flex items-center gap-1.5">
+              <SealCheck className="size-4" /> Status
+            </span>
+            <span className="flex items-center gap-1.5">
+              <ClockCounterClockwise className="size-4" /> Atualizado
+            </span>
+            <span className="flex items-center gap-1.5">
+              <User className="size-4" /> Autor
+            </span>
+            <span />
+          </div>
+          <ul className="divide-y divide-border border-b border-border max-md:border-t">
+            {documents.map((doc) => (
+              <DocumentRow
+                key={doc.id}
+                doc={doc}
+                encounterId={encounterId}
+                physician={physician}
+                onConfirm={(target) => {
+                  setConfirmError(null);
+                  setConfirmTarget(target);
+                }}
+              />
+            ))}
+          </ul>
+          <p className="px-2 pt-2 text-xs text-muted-foreground tabular-nums">
+            {documents.length} documento{documents.length === 1 ? "" : "s"} ·{" "}
+            {documents.filter(isConfirmed).length} assinado
+            {documents.filter(isConfirmed).length === 1 ? "" : "s"}
+          </p>
+        </section>
       )}
 
-      <Dialog
+      <ConfirmDocumentDialog
         open={confirmTarget !== null}
         onOpenChange={(open) => {
-          if (!open) setConfirmTarget(null);
+          if (!open) {
+            setConfirmTarget(null);
+            setConfirmError(null);
+          }
         }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirmar Documento</DialogTitle>
-            <DialogDescription>
-              Tem certeza que deseja confirmar este documento? Esta ação é
-              irreversível e ficará registrada na trilha de auditoria.
-            </DialogDescription>
-          </DialogHeader>
-
-          {/* Aviso de incerteza dentro do dialog de confirmação — CLIN-001 */}
-          {hasUncertainInteraction && (
-            <Alert className="border-clinical-amber/40 bg-clinical-amber-bg text-clinical-amber-foreground">
-              <Warning className="size-4" weight="bold" />
-              <AlertTitle className="text-sm font-semibold">
-                Atenção: análise com incerteza
-              </AlertTitle>
-              <AlertDescription className="text-sm">
-                {uncertainReason ??
-                  "O copiloto indicou evidência insuficiente para este caso. Ao confirmar, você declara que revisou o documento e assume responsabilidade pelo conteúdo."}
-              </AlertDescription>
-            </Alert>
-          )}
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setConfirmTarget(null)}
-              disabled={confirmDocument.isPending}
-            >
-              Cancelar
-            </Button>
-            <Button
-              onClick={() => {
-                if (confirmTarget) void handleConfirm();
-              }}
-              disabled={confirmDocument.isPending}
-            >
-              {confirmDocument.isPending ? "Confirmando…" : "Confirmar"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={generateOpen} onOpenChange={setGenerateOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Gerar Novo Documento</DialogTitle>
-            <DialogDescription>
-              Selecione o tipo de documento a ser gerado.
-            </DialogDescription>
-          </DialogHeader>
-          <Select
-            value={generateType}
-            onValueChange={(v) => setGenerateType(v as DocType)}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="soap">SOAP</SelectItem>
-              <SelectItem value="sbar">SBAR</SelectItem>
-              <SelectItem value="prescricao">Prescrição</SelectItem>
-              <SelectItem value="alta">Alta</SelectItem>
-              <SelectItem value="atestado">Atestado</SelectItem>
-            </SelectContent>
-          </Select>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setGenerateOpen(false)}
-              disabled={generateDocument.isPending}
-            >
-              Cancelar
-            </Button>
-            <Button
-              onClick={() => void handleGenerate()}
-              disabled={generateDocument.isPending}
-            >
-              {generateDocument.isPending ? "Gerando…" : "Gerar"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+        documentLabel={confirmTarget ? docTypeLabel(confirmTarget.type) : "documento"}
+        physician={physician}
+        uncertain={hasUncertainInteraction}
+        uncertaintyReason={uncertainReason}
+        pending={confirmDocument.isPending}
+        error={confirmError}
+        onConfirm={() => {
+          if (confirmTarget) void handleConfirm();
+        }}
+      />
+    </Page>
   );
 }
