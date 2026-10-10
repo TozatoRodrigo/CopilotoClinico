@@ -24,8 +24,13 @@ import type {
   GuidelineConsultResponse,
   GuidelineSourceSummary,
   PendingGuidelineChunk,
+  CopilotFeedbackKind,
   CopilotFeedbackRequest,
   CopilotFeedbackResponse,
+  CopilotFeedbackStatus,
+  CopilotFeedbackTriageItem,
+  CopilotFeedbackTriagePage,
+  UpdateCopilotFeedbackTriageRequest,
   CreateAttachmentRequest,
   CreateAttachmentResponse,
   EncounterAttachment,
@@ -41,6 +46,14 @@ export interface AuditFilters {
   entityId: string;
   from: string;
   to: string;
+}
+
+/** F0-D — filtros da fila de triagem; `undefined` = todos. */
+export interface CopilotFeedbackQueueFilters {
+  status?: CopilotFeedbackStatus;
+  kind?: CopilotFeedbackKind;
+  offset: number;
+  limit: number;
 }
 
 export interface EncounterListFilters {
@@ -62,6 +75,8 @@ export const clinicalQueryKeys = {
   latestInteraction: (encounterId: string) => ['latest-interaction', encounterId] as const,
   recommendationDecisions: (encounterId: string, interactionId: string) =>
     ['recommendation-decisions', encounterId, interactionId] as const,
+  copilotFeedbackQueue: (filters: CopilotFeedbackQueueFilters) =>
+    ['copilot-feedback-queue', filters] as const,
   crmVerifications: (status: CrmVerificationStatus) => ['crm-verifications', status] as const,
   guidelineSources: ['guideline-sources'] as const,
   guidelinePending: ['guideline-pending'] as const,
@@ -260,6 +275,35 @@ export function useResolveCrmVerification() {
       apiClient.patch<CrmVerificationItem>(`/admin/crm-verifications/${id}`, body),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['crm-verifications'] });
+    },
+  });
+}
+
+// ── Admin: fila de triagem do feedback (F0-D) ──────────────────────────────
+
+export function useCopilotFeedbackQueue(filters: CopilotFeedbackQueueFilters) {
+  return useQuery({
+    queryKey: clinicalQueryKeys.copilotFeedbackQueue(filters),
+    queryFn: () => {
+      const params: Record<string, string> = {
+        limit: String(filters.limit),
+        offset: String(filters.offset),
+      };
+      if (filters.status) params.status = filters.status;
+      if (filters.kind) params.kind = filters.kind;
+      return apiClient.get<CopilotFeedbackTriagePage>('/admin/copilot-feedback', params);
+    },
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useTriageCopilotFeedback() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: UpdateCopilotFeedbackTriageRequest }) =>
+      apiClient.patch<CopilotFeedbackTriageItem>(`/admin/copilot-feedback/${id}`, body),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['copilot-feedback-queue'] });
     },
   });
 }

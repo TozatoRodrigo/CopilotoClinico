@@ -2,6 +2,7 @@ import type { ElementType } from 'react';
 import {
   BookOpen,
   ChartBar,
+  ChatCircleText,
   ClipboardText,
   Database,
   Gear,
@@ -80,6 +81,13 @@ const ADMIN_ITEMS: AdminNavItem[] = [
     roles: ['compliance', 'admin'],
   },
   { href: '/admin/diretrizes', label: 'Diretrizes', icon: Database, roles: ['compliance', 'admin'] },
+  // F0-D — fila de triagem do feedback dos médicos (curadoria).
+  {
+    href: '/admin/feedback',
+    label: 'Feedback',
+    icon: ChatCircleText,
+    roles: ['compliance', 'admin'],
+  },
   { href: '/audit', label: 'Auditoria', icon: ShieldWarning, roles: ['compliance', 'admin'] },
   { href: '/admin/analytics', label: 'Analytics', icon: ChartBar, roles: ['compliance', 'admin'] },
   { href: '/admin/users', label: 'Usuários', icon: House, roles: ['admin'], enabled: false },

@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import {
   BookOpen,
   ChartBar,
+  ChatCircleText,
   ClipboardText,
   Database,
   FileText,
@@ -38,6 +39,7 @@ const STATIC: Record<string, BreadcrumbItem> = {
 const ADMIN_CHILDREN: Record<string, BreadcrumbItem> = {
   'crm-verifications': { label: 'Verificações CRM', icon: ShieldCheck },
   diretrizes: { label: 'Diretrizes', icon: Database },
+  feedback: { label: 'Feedback', icon: ChatCircleText },
   analytics: { label: 'Analytics', icon: ChartBar },
   users: { label: 'Usuários', icon: Users },
   sistema: { label: 'Sistema', icon: Gear },
