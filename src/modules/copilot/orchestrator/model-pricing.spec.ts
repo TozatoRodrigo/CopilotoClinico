@@ -19,4 +19,88 @@ describe('calculateInferenceCost', () => {
 
     expect(cost).toBe(0.003);
   });
+
+  describe('current Claude models', () => {
+    const oneMillionEach = {
+      promptTokens: 1_000_000,
+      completionTokens: 1_000_000,
+      totalTokens: 2_000_000,
+    };
+
+    it.each([
+      ['claude-opus-5-5', 24],
+      ['claude-sonnet-5-5', 12],
+      ['claude-haiku-5-5', 0.6],
+      ['claude-opus-5', 30],
+    ])('prices %s at its per-million input + output rate', (model, expected) => {
+      expect(calculateInferenceCost({ model, usage: oneMillionEach })).toBe(expected);
+    });
+
+    it('bills cache reads at the cache rate, not the input rate', () => {
+      const cost = calculateInferenceCost({
+        model: 'claude-opus-5-5',
+        usage: {
+          promptTokens: 1_000_000,
+          completionTokens: 0,
+          totalTokens: 1_000_000,
+          cacheReadTokens: 1_000_000,
+        },
+      });
+
+      expect(cost).toBe(0.2);
+    });
+
+    it('bills cache writes at 1.25x the input rate', () => {
+      const cost = calculateInferenceCost({
+        model: 'claude-sonnet-5-5',
+        usage: {
+          promptTokens: 1_000_000,
+          completionTokens: 0,
+          totalTokens: 1_000_000,
+          cacheWriteTokens: 1_000_000,
+        },
+      });
+
+      expect(cost).toBe(2.5);
+    });
+
+    it('splits a prompt into uncached, cache-read and cache-write tokens', () => {
+      const cost = calculateInferenceCost({
+        model: 'claude-sonnet-5-5',
+        usage: {
+          promptTokens: 10_000,
+          completionTokens: 1_000,
+          totalTokens: 11_000,
+          cacheReadTokens: 8_000,
+          cacheWriteTokens: 1_000,
+        },
+      });
+
+      // 1000 uncached × $2 + 8000 × $0.20 + 1000 × $2.50 + 1000 out × $10, per million
+      expect(cost).toBe(0.0161);
+    });
+  });
+
+  it('prices a dated snapshot with its alias price', () => {
+    const cost = calculateInferenceCost({
+      model: 'gpt-4o-2024-08-06',
+      usage: { promptTokens: 1_000_000, completionTokens: 0, totalTokens: 1_000_000 },
+    });
+
+    expect(cost).toBe(2.5);
+  });
+
+  it('bills cached tokens at the input rate when the model has no cache price', () => {
+    const cost = calculateInferenceCost({
+      model: 'gpt-4o',
+      usage: {
+        promptTokens: 1_000_000,
+        completionTokens: 0,
+        totalTokens: 1_000_000,
+        cacheReadTokens: 500_000,
+      },
+    });
+
+    expect(cost).toBe(2.5);
+  });
 });
