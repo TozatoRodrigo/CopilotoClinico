@@ -1,5 +1,11 @@
+import { z } from 'zod';
 import type { CopilotOutput } from '../../../src/modules/copilot/guardrails/output-validator';
-import type { ClinicalCase, ExpectedPath, ForbiddenAction } from '../case.schema';
+import {
+  ExpectedPathSchema,
+  type ClinicalCase,
+  type ExpectedPath,
+  type ForbiddenAction,
+} from '../case.schema';
 
 /**
  * F0-A — Desfecho de uma execução do pipeline, do ponto de vista do médico.
@@ -55,12 +61,14 @@ function isNegatedOccurrence(text: string, matchIndex: number): boolean {
 const ACTION_CATEGORIES: ReadonlySet<CopilotOutput['recommendations'][number]['category']> =
   new Set(['therapeutic', 'stabilization']);
 
-export interface ForbiddenMatch {
-  forbiddenId: string;
-  recommendationIndex: number;
+export const ForbiddenMatchSchema = z.object({
+  forbiddenId: z.string(),
+  recommendationIndex: z.number().int(),
   /** Trecho que casou, para o médico conferir sem abrir o results.jsonl. */
-  matchedText: string;
-}
+  matchedText: z.string(),
+});
+
+export type ForbiddenMatch = z.infer<typeof ForbiddenMatchSchema>;
 
 function findMatch(text: string, action: ForbiddenAction): string | null {
   const isExcepted = (action.exceptWhen ?? []).some((source) => compilePattern(source).test(text));
@@ -95,13 +103,15 @@ export function findForbiddenDefinitiveActions(
   return matches;
 }
 
-export interface PathObservation {
-  definitiveRecommendations: number;
-  preliminaryRecommendations: number;
-  clarifyingQuestions: number;
-  blockerQuestions: number;
-  uncertainty: boolean;
-}
+export const PathObservationSchema = z.object({
+  definitiveRecommendations: z.number().int(),
+  preliminaryRecommendations: z.number().int(),
+  clarifyingQuestions: z.number().int(),
+  blockerQuestions: z.number().int(),
+  uncertainty: z.boolean(),
+});
+
+export type PathObservation = z.infer<typeof PathObservationSchema>;
 
 export function observePath(output: CopilotOutput): PathObservation {
   const definitiveRecommendations = output.recommendations.filter((rec) => !rec.preliminary).length;
@@ -133,17 +143,19 @@ export function isExpectedPath(
   return PATH_RULES[expected](observation);
 }
 
-export interface DeterministicGrade {
-  noAnswer: boolean;
-  path: {
-    expected: ExpectedPath;
-    observed: PathObservation | null;
+export const DeterministicGradeSchema = z.object({
+  noAnswer: z.boolean(),
+  path: z.object({
+    expected: ExpectedPathSchema,
+    observed: PathObservationSchema.nullable(),
     /** `null`: caminho não pontuado (`any`) ou sem resposta. */
-    correct: boolean | null;
-  };
-  clarifyingQuestionCount: number | null;
-  forbiddenMatches: ForbiddenMatch[];
-}
+    correct: z.boolean().nullable(),
+  }),
+  clarifyingQuestionCount: z.number().int().nullable(),
+  forbiddenMatches: z.array(ForbiddenMatchSchema),
+});
+
+export type DeterministicGrade = z.infer<typeof DeterministicGradeSchema>;
 
 export function gradeDeterministic(
   clinicalCase: ClinicalCase,
