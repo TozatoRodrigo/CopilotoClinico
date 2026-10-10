@@ -331,7 +331,11 @@ export class OfficialGuidelinesSyncService {
           document,
         }),
         temperature: 0,
-        maxTokens: 500,
+        // Classificação curta: effort baixo nos modelos Claude atuais. O teto
+        // cobre também o raciocínio (Claude 4.6+/5.x e família o*/gpt-5) —
+        // com 500, o raciocínio pode esgotá-lo antes do JSON.
+        effort: 'low',
+        maxTokens: 4000,
       });
       const parsed = parseClassification(response.content, response.model);
       if (!('error' in parsed)) return parsed;
