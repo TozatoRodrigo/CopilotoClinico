@@ -10,6 +10,7 @@ import {
   pickVariants,
   redactVariantEnv,
   resolveVariantEnv,
+  SECRET_KEY,
   VariantError,
   type Variant,
 } from './variants';
@@ -35,7 +36,7 @@ describe('variantes versionadas', () => {
   it('não guardam nenhuma chave literal', () => {
     for (const variant of loadVariants(defaultVariantsFile())) {
       for (const [key, value] of Object.entries(variant.env)) {
-        if (/KEY|TOKEN|SECRET/.test(key) && variant.name !== 'test')
+        if (SECRET_KEY.test(key) && variant.name !== 'test')
           expect(value).toMatch(/^\$\{[A-Z_]+\}$/);
       }
     }
@@ -58,11 +59,12 @@ describe('redactVariantEnv', () => {
   it('guarda o modelo do valor e omite segredo literal', () => {
     const redacted = redactVariantEnv({
       ...claude,
-      env: { ...claude.env, JUDGE_TOKEN: 'literal' },
+      env: { ...claude.env, JUDGE_TOKEN: 'literal', AI_MAX_OUTPUT_TOKENS: '32000' },
     });
     expect(redacted.AI_API_KEY).toBe('${ANTHROPIC_API_KEY}');
     expect(redacted.JUDGE_TOKEN).toBe('[omitido]');
     expect(redacted.AI_MODEL).toBe('claude-opus-5-5');
+    expect(redacted.AI_MAX_OUTPUT_TOKENS).toBe('32000');
   });
 });
 

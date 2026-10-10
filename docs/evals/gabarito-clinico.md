@@ -136,14 +136,18 @@ O `run.json` de cada execução registra quantos trechos aprovados (e com embedd
 
 | Variante | O que roda |
 | --- | --- |
-| `baseline` | Provedor, modelo e embeddings do ambiente (`.env`) — a configuração atual |
-| `claude-sonnet-5-5` | Claude Sonnet 5.5 na completion; embeddings continuam na OpenAI |
-| `claude-opus-5-5` | Claude Opus 5.5 na completion; embeddings continuam na OpenAI |
+| `baseline` | A configuração de produção: `AI_PROVIDER` e `AI_MODEL` (obrigatórios no ambiente), embeddings e flags do gateway vindos do `.env` |
+| `claude-sonnet-5-5` | Claude Sonnet 5.5 na completion, `AI_EFFORT=high`, `AI_MAX_OUTPUT_TOKENS=32000`; embeddings continuam na OpenAI |
+| `claude-opus-5-5` | Claude Opus 5.5 na completion, `AI_EFFORT=high`, `AI_MAX_OUTPUT_TOKENS=32000`; embeddings continuam na OpenAI |
 | `test` | Provedor determinístico offline: nenhuma chamada paga. Valida a fiação, não a qualidade clínica |
 
 Os embeddings ficam iguais em todas as variantes de propósito: o bake-off só isola o modelo se o retrieval entregar os mesmos trechos. O comparador avisa quando não entregou.
 
-Valores com `${VAR}` vêm do ambiente — chave nunca vai no arquivo. As variantes Claude precisam de `ANTHROPIC_API_KEY` e `OPENAI_API_KEY`. Para variantes locais (ex.: uma flag nova de pipeline), crie `evals/clinical/variants.json` (fora do git) no mesmo formato.
+O teto de 32k tokens nas variantes Claude existe porque nesses modelos o raciocínio conta para o teto de saída: com pouco espaço, o JSON sai cortado e o caso vira "sem resposta — truncada".
+
+Valores com `${VAR}` vêm do ambiente — chave nunca vai no arquivo. As variantes Claude precisam de `ANTHROPIC_API_KEY` e `OPENAI_API_KEY`. Para variantes locais (ex.: uma flag nova de pipeline, ou `AI_REFUSAL_FALLBACK=off` para medir o modelo sem o fallback de recusa), crie `evals/clinical/variants.json` (fora do git) no mesmo formato.
+
+**Fallback de recusa.** No Opus 5.5 e no Sonnet 5.5, quando o classificador de segurança recusa o caso, a API da Anthropic refaz o pedido num modelo de fallback (`AI_REFUSAL_FALLBACK=default`). A resposta desse outro modelo é o que o médico receberia, então ela é pontuada — mas fica marcada (`servedByFallback` no results.jsonl) e contada no relatório. Sem fallback ativo, resposta servida por modelo diferente do pedido invalida a execução (vai para errors.jsonl).
 
 ### 3. Executar
 
@@ -171,7 +175,7 @@ JUDGE_MODEL=<modelo-openai> pnpm eval:clinical --variant baseline --variant clau
 | `--regrade <dir>` | — | Refaz só as notas de uma execução (ex.: com outro juiz), sem rodar o pipeline |
 | `--allow-remote-db` | — | Permite banco fora da lista local |
 
-Juiz: `--judge anthropic` usa `JUDGE_MODEL` (padrão `claude-opus-5-5`), `JUDGE_EFFORT` (padrão `high`) e a credencial padrão do SDK (`ANTHROPIC_API_KEY`). `--judge openai` exige `JUDGE_MODEL` e `JUDGE_OPENAI_API_KEY` (ou `OPENAI_API_KEY`). Quando a variante avaliada é Claude, prefira o juiz OpenAI: juiz da mesma família tende a favorecer respostas parecidas com as suas.
+Juiz: `--judge anthropic` usa `JUDGE_MODEL` (padrão `claude-opus-5-5`), `JUDGE_EFFORT` (padrão `high`) e a credencial padrão do SDK (`ANTHROPIC_API_KEY`), com raciocínio adaptativo, teto de 32k tokens de saída e sem `temperature`. Recusa, truncamento ou resposta de outro modelo viram erro do juiz, nunca nota. `--judge openai` exige `JUDGE_MODEL` e `JUDGE_OPENAI_API_KEY` (ou `OPENAI_API_KEY`). Quando a variante avaliada é Claude, prefira o juiz OpenAI: juiz da mesma família tende a favorecer respostas parecidas com as suas.
 
 Código de saída: `0` portão aprovado ou incompleto, `2` erro crítico no subconjunto crítico, `1` falha do harness.
 
@@ -181,7 +185,7 @@ Uma pasta `evals/clinical/runs/<data>-<variante>/` com:
 
 | Arquivo | Conteúdo |
 | --- | --- |
-| `run.json` | Variante (segredos omitidos), commit, versão do gabarito, banco, base de conhecimento, modelo pedido, juiz |
+| `run.json` | Variante (segredos omitidos), commit, versão do gabarito, banco, base de conhecimento, modelo pedido, teto de saída, effort, structured output, fallback de recusa, juiz |
 | `results.jsonl` | Uma linha por caso e repetição: desfecho, modelo servido, saída completa, citações, metadata do pipeline, trechos recuperados, id da interação, todas as chamadas ao modelo (prompt e resposta crua, motivo de parada, tokens), latência, custo |
 | `errors.jsonl` | Falhas de infraestrutura (timeout, rede, 4xx/5xx do provedor após retry, banco, filtro de injeção, modelo servido diferente do pedido). Não pontuam |
 | `grades.jsonl` | Notas determinísticas e do juiz, com justificativa de cada critério, e o veredito de erro crítico |
@@ -201,13 +205,13 @@ Tudo o que é preciso para explicar uma nota está nesses arquivos — não é p
 2. Hipótese "não pode faltar" ausente num caso crítico (juiz).
 3. Caso crítico sem resposta.
 
-**Desfechos.** "Sem resposta" é quando o pipeline não entregou análise nenhuma ao médico. É pontuado e separado por causa: saída inválida (o modelo não seguiu o formato), truncada (estourou o teto de tokens) ou recusa do provedor. Erro de infraestrutura não é nota do modelo e fica fora das taxas.
+**Desfechos.** "Sem resposta" é quando o pipeline não entregou análise nenhuma ao médico. É pontuado e separado por causa: saída inválida (o modelo não seguiu o formato), truncada (estourou o teto de tokens) ou recusa do provedor. Truncamento e recusa chegam do gateway como erros tipados (`AiTruncatedError`, `AiRefusalError`) — direto, ou convertidos pelo orquestrador em "AI output validation failed" com `OUTPUT TRUNCATED`/`MODEL REFUSAL` nos erros; o gabarito reconhece as duas formas. Erro de infraestrutura não é nota do modelo e fica fora das taxas.
 
 **Critérios.** Cada taxa vem com o intervalo de confiança de 95% (Wilson). Com dezenas de casos o intervalo é largo: duas variantes cujos intervalos se sobrepõem bastante estão empatadas até prova em contrário. Repetições do mesmo caso não são independentes, então o intervalo fica otimista quando `--reps` > 1.
 
 **Por síndrome de PS.** Mostra onde o erro se concentra ("acerta dor torácica, erra déficit focal").
 
-**Custo.** O custo do pipeline é calculado de tokens × preço do modelo que de fato serviu (`evals/clinical/pricing.ts`); modelo sem preço aparece como "desconhecido", nunca como zero. O custo do juiz vem separado, para não esconder nem achatar diferença entre variantes.
+**Custo.** O custo do pipeline é calculado de tokens (inclusive leitura e escrita de cache) × preço do modelo que de fato serviu, pela mesma tabela do pipeline (`src/modules/copilot/orchestrator/model-pricing.ts`); modelo sem preço na tabela aparece como "desconhecido", nunca como zero nem pela taxa genérica. O custo do juiz vem separado, para não esconder nem achatar diferença entre variantes.
 
 **Comparar execuções.**
 
@@ -231,4 +235,3 @@ Se um caso piorou por erro do gabarito, corrija o gabarito (e peça revisão mé
 - **Só o turno 0.** Respostas às perguntas esclarecedoras (`followUps`) ainda não são roteirizadas; o formato do caso já comporta o campo novo sem quebrar os atuais.
 - **Juiz ainda não calibrado.** Antes de confiar nas taxas do juiz para decidir, um médico precisa rotular algumas dezenas de saídas e conferir a concordância (meta: ≥ 90% nos casos claros).
 - **Checagem automática de conduta proibida é heurística.** Ela não entende frase; o juiz cobre o lado semântico. Falso positivo se corrige no caso, com `exceptWhen`.
-- **Cache de retrieval.** O resultado da busca fica 60 s no Redis e a chave não inclui o modelo de embedding. Mantenha os embeddings iguais entre variantes (como no arquivo de exemplo) ou espere um minuto entre execuções que mudam o embedding.

@@ -2,29 +2,36 @@
   "variants": [
     {
       "name": "baseline",
-      "description": "Configuração atual: provedor, modelo e embeddings vindos do ambiente (.env), sem override.",
-      "env": {}
+      "description": "Configuração atual de produção: provedor e modelo vêm do ambiente (AI_PROVIDER/AI_MODEL), assim como embeddings e demais flags do gateway.",
+      "env": {
+        "AI_PROVIDER": "${AI_PROVIDER}",
+        "AI_MODEL": "${AI_MODEL}"
+      }
     },
     {
       "name": "claude-sonnet-5-5",
-      "description": "Claude Sonnet 5.5 na completion; embeddings continuam na OpenAI para o retrieval ser o mesmo do baseline.",
+      "description": "Claude Sonnet 5.5 na completion (effort high, teto de 32k tokens de saída, fallback de recusa padrão); embeddings continuam na OpenAI para o retrieval ser o mesmo do baseline.",
       "env": {
         "AI_PROVIDER": "anthropic",
         "AI_MODEL": "claude-sonnet-5-5",
         "AI_BASE_URL": "https://api.anthropic.com",
         "AI_API_KEY": "${ANTHROPIC_API_KEY}",
+        "AI_MAX_OUTPUT_TOKENS": "32000",
+        "AI_EFFORT": "high",
         "EMBEDDING_PROVIDER": "openai",
         "EMBEDDING_API_KEY": "${OPENAI_API_KEY}"
       }
     },
     {
       "name": "claude-opus-5-5",
-      "description": "Claude Opus 5.5 na completion; embeddings continuam na OpenAI para o retrieval ser o mesmo do baseline.",
+      "description": "Claude Opus 5.5 na completion (effort high, teto de 32k tokens de saída, fallback de recusa padrão); embeddings continuam na OpenAI para o retrieval ser o mesmo do baseline.",
       "env": {
         "AI_PROVIDER": "anthropic",
         "AI_MODEL": "claude-opus-5-5",
         "AI_BASE_URL": "https://api.anthropic.com",
         "AI_API_KEY": "${ANTHROPIC_API_KEY}",
+        "AI_MAX_OUTPUT_TOKENS": "32000",
+        "AI_EFFORT": "high",
         "EMBEDDING_PROVIDER": "openai",
         "EMBEDDING_API_KEY": "${OPENAI_API_KEY}"
       }

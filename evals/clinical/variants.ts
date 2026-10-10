@@ -110,7 +110,8 @@ export function resolveVariantEnv(
   return resolved;
 }
 
-const SECRET_KEY = /KEY|TOKEN|SECRET|PASSWORD/;
+// Pelo SUFIXO: AI_MAX_OUTPUT_TOKENS é configuração, ANTHROPIC_AUTH_TOKEN é segredo.
+export const SECRET_KEY = /(?:KEY|TOKEN|SECRET|PASSWORD)$/;
 
 /**
  * Para o run.json: guarda o MODELO do valor (`${ANTHROPIC_API_KEY}`), nunca o
