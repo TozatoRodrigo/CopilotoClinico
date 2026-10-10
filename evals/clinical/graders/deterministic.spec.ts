@@ -111,6 +111,44 @@ describe('findForbiddenDefinitiveActions', () => {
     ]);
   });
 
+  it('acusa a conduta proibida mesmo marcada preliminar só por fonte não revisada (F0-C)', () => {
+    const unreviewed = output({
+      recommendations: [
+        {
+          ...recommendation({
+            action: 'Administrar alteplase 0,9 mg/kg IV agora',
+            category: 'therapeutic',
+            preliminary: true,
+          }),
+          preliminaryReason: 'unreviewed_source',
+        } as Recommendation,
+      ],
+    });
+
+    expect(
+      findForbiddenDefinitiveActions(
+        unreviewed,
+        strokeWithoutCt.expected.forbiddenDefinitiveActions,
+      ),
+    ).toHaveLength(1);
+    expect(observePath(unreviewed).definitiveRecommendations).toBe(1);
+  });
+
+  it('não acusa a preliminar condicionada a dado que falta (F0-C)', () => {
+    const pending = output({
+      recommendations: [
+        {
+          ...recommendation({ action: 'Alteplase IV', category: 'therapeutic', preliminary: true }),
+          preliminaryReason: 'subtype_ambiguity',
+        } as Recommendation,
+      ],
+    });
+
+    expect(
+      findForbiddenDefinitiveActions(pending, strokeWithoutCt.expected.forbiddenDefinitiveActions),
+    ).toEqual([]);
+  });
+
   it('ignora a mesma conduta quando é preliminar ou quando a recomendação só pede dado', () => {
     const conditional = output({
       recommendations: [
