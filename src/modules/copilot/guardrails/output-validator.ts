@@ -240,14 +240,18 @@ export function validateOutput(
   // SUBTYPE / MUTUALLY-EXCLUSIVE CLASSIFICATION RULE em prompt-builder.ts.
   const subtypeOffense = findUnresolvedSubtypeAmbiguity(output, retrievedChunks);
   if (subtypeOffense) {
+    const missing = subtypeOffense.missingSubtypes.map(
+      (subtype) => `"${humanizeSubtype(subtype)}"`,
+    );
     errors.push(
       `UNRESOLVED SUBTYPE AMBIGUITY: evidence retrieved for cenario "${subtypeOffense.cenario}" ` +
         `covers mutually exclusive subtypes (${subtypeOffense.subtypes.join(', ')}) with opposite ` +
-        `management, and a recommendation cited "${subtypeOffense.citedSubtype}" without the output ` +
-        'showing the other subtype was considered. Either add a differential covering the other ' +
-        'subtype (cannotMiss when appropriate), or explicitly name the discriminating clinical ' +
-        'feature that rules it out in "reasoning" — never cite a subtype-specific recommendation ' +
-        'silently when the retrieved evidence itself is ambiguous.',
+        `management, and a recommendation cited "${subtypeOffense.citedSubtype}" without naming the ` +
+        `alternative subtype ${missing.join(', ')} anywhere in the output. Name it explicitly — in a ` +
+        'differential ("hypothesis", "whyConsider" or "whatDistinguishes"; cannotMiss when ' +
+        'appropriate) or in "reasoning" together with the discriminating clinical feature that ' +
+        'rules it out. A differential about something else does not count — never cite a ' +
+        'subtype-specific recommendation silently when the retrieved evidence itself is ambiguous.',
     );
   }
 
@@ -335,31 +339,102 @@ interface SubtypeOffense {
   cenario: string;
   subtypes: string[];
   citedSubtype: string;
+  /** Subtipos alternativos que o output não nomeou em lugar nenhum. */
+  missingSubtypes: string[];
 }
 
+/** cenario -> subtipo -> ids dos chunks daquele subtipo. */
+type SubtypeGroups = Map<string, Map<string, Set<string>>>;
+
+/**
+ * Comparação textual tolerante: sem acento, sem caixa e com `_`/`-` virando
+ * espaço — a metadata usa `alergia_simples`, o modelo escreve "alergia
+ * simples"; a metadata usa `isquemico`, o modelo escreve "Isquêmico".
+ */
 function normalize(value: string): string {
   return value
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '') // remove acentos (marcas diacríticas combinantes)
-    .toLowerCase();
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function humanizeSubtype(subtype: string): string {
+  return subtype.replace(/[_-]+/g, ' ');
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**
- * S21-CLIN-01 — Detecta quando (a) os chunks recuperados para o mesmo
- * `cenario` cobrem ≥2 valores distintos de `subtipo` (ex.: "isquemico" e
- * "hemorragico" dentro de `avc_agudo` — ver metadata dos chunks seedados em
- * prisma/seeds/guidelines-seed.ts), e (b) uma recomendação citou um chunk de
- * um desses subtipos. Nesse caso, exige evidência estrutural de que a
- * alternativa foi considerada: OU `differentials` não está vazio, OU
- * `reasoning` menciona textualmente outro subtipo em conflito. Não tenta
- * verificar SE a justificativa é clinicamente correta — isso é trabalho do
- * médico revisando o output, não do validador. O validador só barra o caso
- * em que a ambiguidade é citada em silêncio, sem nenhum dos dois sinais.
+ * Palavra inteira, não substring: "NSTEMI" não pode contar como ter nomeado
+ * "STEMI".
+ */
+function namesSubtype(normalizedText: string, subtype: string): boolean {
+  return new RegExp(`\\b${escapeRegExp(normalize(subtype))}\\b`).test(normalizedText);
+}
+
+/**
+ * S21-CLIN-01 / F0-C — agrupa por `cenario` os chunks recuperados que têm
+ * `subtipo` e devolve só os cenários em que a evidência cobre ≥2 subtipos
+ * distintos (ex.: "isquemico" e "hemorragico" em `avc_agudo` — ver a metadata
+ * seedada em prisma/seeds/guidelines-seed.ts).
  *
  * Deliberadamente genérico: não depende de nenhuma string de domínio clínico
- * ("AVC", "hemorrágico" etc.) — funciona para qualquer par `cenario`/`subtipo`
- * presente na metadata dos chunks, então cobre futuras curadorias com o
- * mesmo formato de metadata sem precisar de mudança de código.
+ * — vale para qualquer par `cenario`/`subtipo` de futuras curadorias com o
+ * mesmo formato de metadata.
+ */
+function ambiguousSubtypeGroups(retrievedChunks: ChunkForCoherenceCheck[]): SubtypeGroups {
+  const byCenario: SubtypeGroups = new Map();
+  for (const chunk of retrievedChunks) {
+    const cenario = chunk.metadata?.['cenario'];
+    const subtipo = chunk.metadata?.['subtipo'];
+    if (typeof cenario !== 'string' || typeof subtipo !== 'string' || !cenario || !subtipo)
+      continue;
+
+    const subtypeMap = byCenario.get(cenario) ?? new Map<string, Set<string>>();
+    const chunkIds = subtypeMap.get(subtipo) ?? new Set<string>();
+    chunkIds.add(chunk.id);
+    subtypeMap.set(subtipo, chunkIds);
+    byCenario.set(cenario, subtypeMap);
+  }
+
+  for (const [cenario, subtypeMap] of byCenario) {
+    if (subtypeMap.size < 2) byCenario.delete(cenario);
+  }
+  return byCenario;
+}
+
+/**
+ * F0-C — ids dos chunks específicos de um subtipo, nos cenários em que a
+ * evidência recuperada cobre ≥2 subtipos. O orquestrador marca como
+ * preliminar (`subtype_ambiguity`) toda recomendação que cita um deles — ver
+ * orchestrator/preliminary-containment.ts.
+ */
+export function ambiguousSubtypeChunkIds(retrievedChunks: ChunkForCoherenceCheck[]): Set<string> {
+  const ids = new Set<string>();
+  for (const subtypeMap of ambiguousSubtypeGroups(retrievedChunks).values()) {
+    for (const chunkIds of subtypeMap.values()) {
+      for (const id of chunkIds) ids.add(id);
+    }
+  }
+  return ids;
+}
+
+/**
+ * S21-CLIN-01 — quando a evidência recuperada cobre ≥2 subtipos do mesmo
+ * cenário e uma recomendação cita um deles, exige que o output NOMEIE cada
+ * subtipo alternativo — num diferencial (`hypothesis`, `whyConsider`,
+ * `whatDistinguishes`) ou no `reasoning`.
+ *
+ * F0-C — antes, qualquer diferencial satisfazia a regra: um diferencial de
+ * "TEP" liberava a citação silenciosa de AVC hemorrágico. Agora o subtipo
+ * alternativo precisa aparecer pelo nome. Continua sendo checagem estrutural:
+ * não verifica SE a justificativa é clinicamente correta — isso é trabalho do
+ * médico revisando o output —, só barra a ambiguidade citada em silêncio.
  */
 function findUnresolvedSubtypeAmbiguity(
   output: CopilotOutput,
@@ -367,22 +442,18 @@ function findUnresolvedSubtypeAmbiguity(
 ): SubtypeOffense | null {
   if (retrievedChunks.length === 0 || output.recommendations.length === 0) return null;
 
-  const byCenario = new Map<string, Map<string, Set<string>>>(); // cenario -> subtipo -> chunkIds
-  for (const chunk of retrievedChunks) {
-    const cenario = chunk.metadata?.['cenario'];
-    const subtipo = chunk.metadata?.['subtipo'];
-    if (typeof cenario !== 'string' || typeof subtipo !== 'string' || !cenario || !subtipo)
-      continue;
+  const namedText = normalize(
+    [
+      output.reasoning,
+      ...output.differentials.flatMap((differential) => [
+        differential.hypothesis,
+        differential.whyConsider,
+        differential.whatDistinguishes,
+      ]),
+    ].join('\n'),
+  );
 
-    if (!byCenario.has(cenario)) byCenario.set(cenario, new Map());
-    const subtypeMap = byCenario.get(cenario)!;
-    if (!subtypeMap.has(subtipo)) subtypeMap.set(subtipo, new Set());
-    subtypeMap.get(subtipo)!.add(chunk.id);
-  }
-
-  for (const [cenario, subtypeMap] of byCenario) {
-    if (subtypeMap.size < 2) continue; // só um subtipo retornado — nada ambíguo
-
+  for (const [cenario, subtypeMap] of ambiguousSubtypeGroups(retrievedChunks)) {
     const citedSubtype = output.recommendations
       .map((rec) => {
         for (const [subtipo, chunkIds] of subtypeMap) {
@@ -390,20 +461,16 @@ function findUnresolvedSubtypeAmbiguity(
         }
         return null;
       })
-      .find((s): s is string => s !== null);
+      .find((subtipo): subtipo is string => subtipo !== null);
 
     if (!citedSubtype) continue; // recomendações citaram chunks fora deste grupo ambíguo
 
-    const otherSubtypes = [...subtypeMap.keys()].filter((s) => s !== citedSubtype);
-
-    const hasDifferential = output.differentials.length > 0;
-    const reasoningNormalized = normalize(output.reasoning);
-    const reasoningMentionsAlternative = otherSubtypes.some((s) =>
-      reasoningNormalized.includes(normalize(s)),
+    const missingSubtypes = [...subtypeMap.keys()].filter(
+      (subtipo) => subtipo !== citedSubtype && !namesSubtype(namedText, subtipo),
     );
 
-    if (!hasDifferential && !reasoningMentionsAlternative) {
-      return { cenario, subtypes: [...subtypeMap.keys()], citedSubtype };
+    if (missingSubtypes.length > 0) {
+      return { cenario, subtypes: [...subtypeMap.keys()], citedSubtype, missingSubtypes };
     }
   }
 
