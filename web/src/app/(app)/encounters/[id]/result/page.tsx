@@ -541,7 +541,6 @@ function ResultView({ encounterId, result }: { encounterId: string; result: Stor
                           onAdopt={() => setDecision(recId, 'adopted')}
                           onReject={() => setDecision(recId, 'rejected')}
                           onNote={(note) => setNote(recId, note)}
-                          confidenceLabel={messages.recommendation.confidence(rec.confidence)}
                         />
                       </li>
                     );
@@ -765,7 +764,6 @@ export function RecommendationItem({
   onAdopt,
   onReject,
   onNote,
-  confidenceLabel,
 }: {
   rec: CopilotRecommendation;
   index: number;
@@ -775,13 +773,11 @@ export function RecommendationItem({
   onAdopt: () => void;
   onReject: () => void;
   onNote: (note: string) => void;
-  confidenceLabel: string;
 }) {
   const messages = useMessages();
   const [showNote, setShowNote] = useState(false);
   const isAdopted = decision?.decision === 'adopted';
   const isRejected = decision?.decision === 'rejected';
-  const confidenceHelp = `${messages.recommendation.confidenceTooltipTitle}: ${messages.recommendation.confidenceTooltipBody} ${messages.recommendation.confidenceTooltipDisclaimer}`;
 
   return (
     <div className="flex gap-3 py-3">
@@ -839,9 +835,6 @@ export function RecommendationItem({
               Rejeitada
             </Badge>
           )}
-          <span title={confidenceHelp} className="tabular-nums">
-            Confiança {confidenceLabel}
-          </span>
           <span className="inline-flex min-w-0 items-center gap-1">
             <BookOpen className="size-3.5 shrink-0" aria-hidden="true" />
             <span className="truncate">{rec.source}</span>

@@ -120,12 +120,6 @@ export const es: Messages = {
     },
     categoryBracket: (label: string) => `[${label}]`,
     preliminary: 'Preliminar — responda las preguntas anteriores',
-    confidence: (value: number) => `${Math.round(value * 100)}%`,
-    confidenceTooltipTitle: 'Cómo calculamos la confianza',
-    confidenceTooltipBody:
-      'Combina la cobertura de la evidencia recuperada (cuántos fragmentos relevantes aportó la guía) con la coherencia interna del análisis (consistencia entre el razonamiento, las recomendaciones y las citas).',
-    confidenceTooltipDisclaimer:
-      'No es una garantía clínica ni una probabilidad de acierto. La decisión final es suya.',
   },
 
   redFlags: {

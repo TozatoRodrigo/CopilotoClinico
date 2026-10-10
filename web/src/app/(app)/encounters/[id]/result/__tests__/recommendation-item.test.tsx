@@ -41,7 +41,6 @@ function renderItem(overrides: {
       onAdopt={onAdopt}
       onReject={onReject}
       onNote={onNote}
-      confidenceLabel="82%"
     />,
   );
   return { onAdopt, onReject, onNote };
@@ -121,7 +120,6 @@ describe("RecommendationItem — origem da fonte (F4 / ADR-010)", () => {
         onAdopt={vi.fn()}
         onReject={vi.fn()}
         onNote={vi.fn()}
-        confidenceLabel="82%"
       />,
     );
   }
@@ -155,5 +153,26 @@ describe("RecommendationItem — origem da fonte (F4 / ADR-010)", () => {
     renderRec(baseRec);
 
     expect(screen.queryByText(/não revisado|não curada/)).not.toBeInTheDocument();
+  });
+});
+
+// F0-C — a UI não mostra probabilidade (decisão clínica: "médico trabalha
+// muito mal com probabilidades"). O campo continua no contrato.
+describe("RecommendationItem — F0-C: sem confiança numérica", () => {
+  it("não mostra a confiança autodeclarada pelo modelo", () => {
+    render(
+      <RecommendationItem
+        rec={{ ...baseRec, confidence: 0.87 }}
+        index={0}
+        decision={undefined}
+        onAdopt={vi.fn()}
+        onReject={vi.fn()}
+        onNote={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByText(/confiança/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/87\s?%/)).not.toBeInTheDocument();
+    expect(document.querySelector("[title*='onfiança']")).toBeNull();
   });
 });

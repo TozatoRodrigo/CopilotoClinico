@@ -107,10 +107,6 @@ export interface Messages {
     };
     categoryBracket: (label: string) => string;
     preliminary: string;
-    confidence: (value: number) => string;
-    confidenceTooltipTitle: string;
-    confidenceTooltipBody: string;
-    confidenceTooltipDisclaimer: string;
   };
 
   redFlags: {
@@ -338,14 +334,6 @@ export const ptBR: Messages = {
     // bracketed form used in turn history
     categoryBracket: (label: string) => `[${label}]`,
     preliminary: 'Preliminar — responda as perguntas acima',
-    confidence: (value: number) => `${Math.round(value * 100)}%`,
-    // S23-UX-01 — explicação de metodologia para evitar falsa precisão clínica.
-    // Médico pode interpretar "87%" como garantia estatística — médico-legalmente arriscado.
-    confidenceTooltipTitle: 'Como calculamos a confiança',
-    confidenceTooltipBody:
-      'Combina cobertura da evidência recuperada (quantos trechos relevantes a diretriz forneceu) com coerência interna da análise (consistência entre raciocínio, recomendações e citações).',
-    confidenceTooltipDisclaimer:
-      'Não é garantia clínica ou probabilidade de acerto. A decisão final é sua, médico.',
   },
 
   redFlags: {
