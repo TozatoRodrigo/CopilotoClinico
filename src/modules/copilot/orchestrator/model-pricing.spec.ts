@@ -110,6 +110,7 @@ describe('calculateInferenceCost', () => {
       ['gpt-4.1-mini', 2],
       ['gpt-5', 11.25],
       ['gpt-5-mini', 2.25],
+      ['gpt-5.6-luna', 1.4],
     ])('cobra %s pelo preço oficial de entrada + saída', (model, expected) => {
       const oneMillionEach = {
         promptTokens: 1_000_000,

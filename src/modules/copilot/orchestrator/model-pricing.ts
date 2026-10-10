@@ -79,6 +79,12 @@ const MODEL_PRICES: Record<string, ModelPrice> = {
     outputPerMillionTokens: 2,
     cacheReadPerMillionTokens: 0.025,
   },
+  // Modelo de produção em 10/10/2026 (AI_MODEL do .env.production).
+  'gpt-5.6-luna': {
+    inputPerMillionTokens: 0.2,
+    outputPerMillionTokens: 1.2,
+    cacheReadPerMillionTokens: 0.02,
+  },
 };
 
 /** A OpenAI devolve o snapshot datado (`gpt-4o-2024-08-06`); o preço é o do alias. */
