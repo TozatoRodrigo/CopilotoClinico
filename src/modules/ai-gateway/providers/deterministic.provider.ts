@@ -1,11 +1,13 @@
-import {
+import type {
   AIProvider,
   CompletionParams,
   CompletionResponse,
+  CompletionUsage,
   EmbeddingParams,
   EmbeddingResponse,
+  ProviderOverrides,
+  StreamCompletionResult,
 } from './provider.interface';
-import type { ProviderOverrides } from './anthropic.provider';
 
 /**
  * Deterministic, offline AI provider for E2E/integration tests (F4).
@@ -33,20 +35,24 @@ export class DeterministicProvider implements AIProvider {
   private static readonly RESPOND_MARKER = 'Informações adicionais fornecidas pelo médico';
 
   async complete(params: CompletionParams): Promise<CompletionResponse> {
-    const userText = params.messages.find((m) => m.role === 'user')?.content ?? '';
-    const content = DeterministicProvider.buildOutput(userText);
-    const tokens = Math.ceil(content.length / 4);
+    const content = DeterministicProvider.outputFor(params);
     return {
       content,
       model: params.model,
-      usage: { promptTokens: tokens, completionTokens: tokens, totalTokens: tokens * 2 },
+      usage: DeterministicProvider.usageFor(content),
       latencyMs: 1,
     };
   }
 
-  async *completeStream(params: CompletionParams): AsyncGenerator<string> {
-    const userText = params.messages.find((m) => m.role === 'user')?.content ?? '';
-    yield DeterministicProvider.buildOutput(userText);
+  async *completeStream(params: CompletionParams): AsyncGenerator<string, StreamCompletionResult> {
+    const content = DeterministicProvider.outputFor(params);
+    yield content;
+    return {
+      content,
+      model: params.model,
+      usage: DeterministicProvider.usageFor(content),
+      stopReason: 'end_turn',
+    };
   }
 
   async embed(params: EmbeddingParams): Promise<EmbeddingResponse> {
@@ -60,6 +66,16 @@ export class DeterministicProvider implements AIProvider {
       model: params.model,
       usage: { promptTokens: tokens, totalTokens: tokens },
     };
+  }
+
+  private static outputFor(params: CompletionParams): string {
+    const userText = params.messages.find((m) => m.role === 'user')?.content ?? '';
+    return DeterministicProvider.buildOutput(userText);
+  }
+
+  private static usageFor(content: string): CompletionUsage {
+    const tokens = Math.ceil(content.length / 4);
+    return { promptTokens: tokens, completionTokens: tokens, totalTokens: tokens * 2 };
   }
 
   private static buildOutput(userText: string): string {

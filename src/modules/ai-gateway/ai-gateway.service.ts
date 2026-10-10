@@ -6,6 +6,7 @@ import {
   CompletionResponse,
   EmbeddingParams,
   EmbeddingResponse,
+  StreamCompletionResult,
 } from './providers/provider.interface';
 import { AnthropicProvider } from './providers/anthropic.provider';
 import { OpenAIProvider } from './providers/openai.provider';
@@ -99,9 +100,14 @@ export class AiGatewayService {
     return result;
   }
 
+  /**
+   * Emite os deltas de texto e devolve, como valor de retorno do gerador,
+   * modelo, usage e stop reason — `for await` continua funcionando; quem
+   * precisa do custo itera com `next()` até `done`.
+   */
   async *completeStream(
     params: Omit<CompletionParams, 'model'> & { model?: string },
-  ): AsyncGenerator<string> {
+  ): AsyncGenerator<string, StreamCompletionResult> {
     const fullParams: CompletionParams = {
       ...params,
       model: params.model ?? this.defaultModel,
@@ -110,7 +116,11 @@ export class AiGatewayService {
     this.logger.debug(
       `Stream request: model=${fullParams.model}, messages=${fullParams.messages.length}`,
     );
-    yield* this.completionProvider.completeStream(fullParams);
+    const result = yield* this.completionProvider.completeStream(fullParams);
+    this.logger.debug(
+      `Stream response: model=${result.model}, tokens=${result.usage.totalTokens}, stop=${result.stopReason ?? '-'}`,
+    );
+    return result;
   }
 
   async embed(texts: string[], model?: string): Promise<EmbeddingResponse> {

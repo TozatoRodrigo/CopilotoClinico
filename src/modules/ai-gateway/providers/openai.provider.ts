@@ -1,20 +1,132 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
+import { z } from 'zod';
+import { AiRefusalError, AiTruncatedError } from '../ai-gateway.errors';
+import { readFlag, readMaxOutputTokens, readOptionalChoice } from '../ai-gateway.settings';
+import type {
   AIProvider,
+  ChatMessage,
   CompletionParams,
   CompletionResponse,
+  CompletionUsage,
   EmbeddingParams,
   EmbeddingResponse,
+  ProviderOverrides,
+  StreamCompletionResult,
 } from './provider.interface';
-import type { ProviderOverrides } from './anthropic.provider';
 
-// OpenAI's reasoning-style model families (o1/o3, gpt-5.x) reject any
+// OpenAI's reasoning-style model families (o1/o3/o4, gpt-5.x) reject any
 // `temperature` other than the implicit default (1) — the param must be
 // omitted entirely rather than sent as 1, since some of these models reject
-// the key being present at all.
-function acceptsCustomTemperature(model: string): boolean {
-  return !/^(o1|o3|gpt-5)/i.test(model);
+// the key being present at all. Only these families accept `reasoning_effort`.
+const REASONING_MODEL = /^(o1|o3|o4|gpt-5)/i;
+const REASONING_EFFORTS = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'] as const;
+type ReasoningEffort = (typeof REASONING_EFFORTS)[number];
+const DEFAULT_TEMPERATURE = 0.3;
+const SSE_DATA_PREFIX = 'data: ';
+const SSE_DONE = '[DONE]';
+
+const UsageSchema = z.object({
+  prompt_tokens: z.number(),
+  completion_tokens: z.number(),
+  total_tokens: z.number(),
+  prompt_tokens_details: z.object({ cached_tokens: z.number().nullish() }).nullish(),
+});
+
+const ChatCompletionSchema = z.object({
+  model: z.string(),
+  choices: z.array(
+    z.object({
+      message: z.object({ content: z.string().nullish(), refusal: z.string().nullish() }),
+      finish_reason: z.string().nullish(),
+    }),
+  ),
+  usage: UsageSchema.nullish(),
+});
+
+const ChatCompletionChunkSchema = z.object({
+  model: z.string().nullish(),
+  choices: z
+    .array(
+      z.object({
+        delta: z.object({ content: z.string().nullish(), refusal: z.string().nullish() }).nullish(),
+        finish_reason: z.string().nullish(),
+      }),
+    )
+    .default([]),
+  usage: UsageSchema.nullish(),
+});
+
+interface ChatCompletionRequest {
+  model: string;
+  messages: ChatMessage[];
+  max_completion_tokens: number;
+  temperature?: number;
+  reasoning_effort?: ReasoningEffort;
+  response_format?: {
+    type: 'json_schema';
+    json_schema: { name: string; schema: Record<string, unknown>; strict: true };
+  };
+  stream?: true;
+  stream_options?: { include_usage: true };
+}
+
+interface FinishedCompletion {
+  model: string;
+  usage: CompletionUsage;
+  finishReason: string | null;
+  refusal: string;
+  maxTokens: number;
+}
+
+const EMPTY_USAGE: CompletionUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
+
+// `prompt_tokens` já inclui os tokens servidos do cache — mesma semântica de
+// `CompletionUsage.promptTokens`.
+function toCompletionUsage(usage: z.infer<typeof UsageSchema> | null | undefined): CompletionUsage {
+  if (!usage) return EMPTY_USAGE;
+  return {
+    promptTokens: usage.prompt_tokens,
+    completionTokens: usage.completion_tokens,
+    totalTokens: usage.total_tokens,
+    cacheReadTokens: usage.prompt_tokens_details?.cached_tokens ?? 0,
+  };
+}
+
+async function* readSseData(body: ReadableStream<Uint8Array>): AsyncGenerator<string> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) return;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+
+      for (const line of lines) {
+        if (!line.startsWith(SSE_DATA_PREFIX)) continue;
+        const data = line.slice(SSE_DATA_PREFIX.length).trim();
+        if (data === SSE_DONE) return;
+        yield data;
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+function parseChunk(data: string): z.infer<typeof ChatCompletionChunkSchema> | null {
+  try {
+    const result = ChatCompletionChunkSchema.safeParse(JSON.parse(data));
+    return result.success ? result.data : null;
+  } catch {
+    // skip malformed SSE data
+    return null;
+  }
 }
 
 @Injectable()
@@ -23,6 +135,9 @@ export class OpenAIProvider implements AIProvider {
   private readonly logger = new Logger(OpenAIProvider.name);
   private readonly apiKey: string;
   private readonly baseUrl: string;
+  private readonly defaultMaxTokens: number;
+  private readonly reasoningEffort: ReasoningEffort | undefined;
+  private readonly structuredOutputEnabled: boolean;
 
   constructor(
     private readonly config: ConfigService,
@@ -38,6 +153,10 @@ export class OpenAIProvider implements AIProvider {
     // empty-but-set env var (common with compose `${VAR:-}` passthroughs) must fall
     // through to the default exactly like an unset one, hence `||` rather than `??`.
     this.baseUrl = overrides?.baseUrl || 'https://api.openai.com/v1';
+    this.defaultMaxTokens = readMaxOutputTokens(config);
+    this.reasoningEffort = readOptionalChoice(config, 'AI_REASONING_EFFORT', REASONING_EFFORTS);
+    // Desligado por padrão: o baseline do bake-off precisa ser idêntico a produção.
+    this.structuredOutputEnabled = readFlag(config, 'AI_OPENAI_STRUCTURED_OUTPUT', false);
   }
 
   private get headers(): Record<string, string> {
@@ -49,103 +168,69 @@ export class OpenAIProvider implements AIProvider {
 
   async complete(params: CompletionParams): Promise<CompletionResponse> {
     const start = Date.now();
-    const body: Record<string, unknown> = {
-      model: params.model,
-      // Newer models (gpt-5.x, o1/o3 reasoning family) reject `max_tokens` outright
-      // and require `max_completion_tokens` instead.
-      max_completion_tokens: params.maxTokens ?? 4096,
-      messages: params.messages.map((m) => ({ role: m.role, content: m.content })),
-    };
-    if (acceptsCustomTemperature(params.model)) {
-      body.temperature = params.temperature ?? 0.3;
-    }
+    const body = this.buildBody(params);
+    const response = await this.postChatCompletion(body, 'API');
+    const completion = ChatCompletionSchema.parse(await response.json());
+    const choice = completion.choices[0];
+    const usage = toCompletionUsage(completion.usage);
 
-    const response = await fetch(`${this.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: this.headers,
-      body: JSON.stringify(body),
+    this.assertFinished({
+      model: completion.model,
+      usage,
+      finishReason: choice?.finish_reason ?? null,
+      refusal: choice?.message.refusal ?? '',
+      maxTokens: body.max_completion_tokens,
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      this.logger.error(`OpenAI API error: ${response.status} ${errorText}`);
-      throw new Error(`AI provider error: ${response.status}`);
-    }
-
-    const data = (await response.json()) as {
-      choices: Array<{ message: { content: string } }>;
-      model: string;
-      usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
-    };
-
     return {
-      content: data.choices[0]?.message?.content ?? '',
-      model: data.model,
-      usage: {
-        promptTokens: data.usage.prompt_tokens,
-        completionTokens: data.usage.completion_tokens,
-        totalTokens: data.usage.total_tokens,
-      },
+      content: choice?.message.content ?? '',
+      model: completion.model,
+      usage,
       latencyMs: Date.now() - start,
     };
   }
 
-  async *completeStream(params: CompletionParams): AsyncGenerator<string> {
-    const body: Record<string, unknown> = {
-      model: params.model,
-      // Newer models (gpt-5.x, o1/o3 reasoning family) reject `max_tokens` outright
-      // and require `max_completion_tokens` instead.
-      max_completion_tokens: params.maxTokens ?? 4096,
-      messages: params.messages.map((m) => ({ role: m.role, content: m.content })),
+  async *completeStream(params: CompletionParams): AsyncGenerator<string, StreamCompletionResult> {
+    const body: ChatCompletionRequest = {
+      ...this.buildBody(params),
       stream: true,
+      stream_options: { include_usage: true },
     };
-    if (acceptsCustomTemperature(params.model)) {
-      body.temperature = params.temperature ?? 0.3;
-    }
+    const response = await this.postChatCompletion(body, 'stream');
+    if (!response.body) throw new Error('AI provider error: empty stream body');
 
-    const response = await fetch(`${this.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: this.headers,
-      body: JSON.stringify(body),
-    });
+    let content = '';
+    let refusal = '';
+    let model = params.model;
+    let finishReason: string | null = null;
+    let usage = EMPTY_USAGE;
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      this.logger.error(`OpenAI stream error: ${response.status} ${errorText}`);
-      throw new Error(`AI provider error: ${response.status}`);
-    }
+    for await (const data of readSseData(response.body)) {
+      const chunk = parseChunk(data);
+      if (!chunk) continue;
 
-    const reader = response.body!.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
+      model = chunk.model ?? model;
+      // Com include_usage, o último chunk traz `choices: []` e o usage da chamada.
+      if (chunk.usage) usage = toCompletionUsage(chunk.usage);
+      const choice = chunk.choices[0];
+      finishReason = choice?.finish_reason ?? finishReason;
+      refusal += choice?.delta?.refusal ?? '';
 
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() ?? '';
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          const data = line.slice(6).trim();
-          if (data === '[DONE]') return;
-          try {
-            const event = JSON.parse(data) as {
-              choices: Array<{ delta: { content?: string }; finish_reason: string | null }>;
-            };
-            const content = event.choices[0]?.delta?.content;
-            if (content) yield content;
-          } catch {
-            // skip malformed SSE data
-          }
-        }
+      const delta = choice?.delta?.content;
+      if (delta) {
+        content += delta;
+        yield delta;
       }
-    } finally {
-      reader.releaseLock();
     }
+
+    this.assertFinished({
+      model,
+      usage,
+      finishReason,
+      refusal,
+      maxTokens: body.max_completion_tokens,
+    });
+    return { content, model, usage, stopReason: finishReason };
   }
 
   async embed(params: EmbeddingParams): Promise<EmbeddingResponse> {
@@ -175,5 +260,69 @@ export class OpenAIProvider implements AIProvider {
         totalTokens: data.usage.total_tokens,
       },
     };
+  }
+
+  private buildBody(params: CompletionParams): ChatCompletionRequest {
+    const isReasoningModel = REASONING_MODEL.test(params.model);
+    return {
+      model: params.model,
+      // Newer models (gpt-5.x, o1/o3 reasoning family) reject `max_tokens` outright
+      // and require `max_completion_tokens` instead. On reasoning models this cap
+      // also covers the reasoning tokens, hence the generous default.
+      max_completion_tokens: params.maxTokens ?? this.defaultMaxTokens,
+      messages: params.messages.map(({ role, content }) => ({ role, content })),
+      ...(!isReasoningModel && { temperature: params.temperature ?? DEFAULT_TEMPERATURE }),
+      ...(isReasoningModel && this.reasoningEffort && { reasoning_effort: this.reasoningEffort }),
+      ...(this.structuredOutputEnabled &&
+        params.responseSchema && {
+          response_format: {
+            type: 'json_schema',
+            json_schema: {
+              name: params.responseSchema.name,
+              schema: params.responseSchema.schema,
+              strict: true,
+            },
+          },
+        }),
+    };
+  }
+
+  private async postChatCompletion(
+    body: ChatCompletionRequest,
+    operation: 'API' | 'stream',
+  ): Promise<Response> {
+    const response = await fetch(`${this.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: this.headers,
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      this.logger.error(`OpenAI ${operation} error: ${response.status} ${errorText}`);
+      throw new Error(`AI provider error: ${response.status}`);
+    }
+    return response;
+  }
+
+  private assertFinished(completion: FinishedCompletion): void {
+    const { model, usage, finishReason, refusal, maxTokens } = completion;
+
+    if (refusal || finishReason === 'content_filter') {
+      this.logger.warn(`AI_REFUSAL model=${model} finishReason=${finishReason ?? '-'}`);
+      throw new AiRefusalError({
+        model,
+        category: refusal ? null : 'content_filter',
+        explanation: refusal || null,
+        usage,
+      });
+    }
+
+    if (finishReason === 'length') {
+      this.logger.warn(
+        `AI_OUTPUT_TRUNCATED model=${model} maxTokens=${maxTokens} outputTokens=${usage.completionTokens}`,
+      );
+      throw new AiTruncatedError({ model, maxTokens, usage });
+    }
   }
 }

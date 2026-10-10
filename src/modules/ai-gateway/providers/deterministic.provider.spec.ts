@@ -62,6 +62,21 @@ describe('DeterministicProvider', () => {
     expect(chunks.join('')).toMatch(/recommendations/);
   });
 
+  it('returns content, model and usage as the stream result', async () => {
+    const stream = provider.completeStream(userWith('qualquer caso'));
+    let next = await stream.next();
+    const streamed = next.done ? '' : next.value;
+    while (!next.done) next = await stream.next();
+
+    expect(next.value).toMatchObject({
+      content: streamed,
+      model: 'test-model',
+      stopReason: 'end_turn',
+      usage: { totalTokens: expect.any(Number) },
+    });
+    expect(next.value.usage.totalTokens).toBeGreaterThan(0);
+  });
+
   it('returns a fixed 1536-dim unit vector per text', async () => {
     const result = await provider.embed({ model: 'test-embed', texts: ['a', 'b'] });
 
