@@ -75,118 +75,25 @@ import {
   isConfirmed,
   type DocType,
 } from '../../_components/document-meta';
-
-interface FieldDef {
-  key: string;
-  label: string;
-  rows?: number;
-}
-
-const SECTION_FIELDS: Record<string, FieldDef[]> = {
-  soap: [
-    { key: 'subjective', label: 'Subjetivo' },
-    { key: 'objective', label: 'Objetivo' },
-    { key: 'assessment', label: 'Avaliação' },
-    { key: 'plan', label: 'Plano' },
-  ],
-  sbar: [
-    { key: 'situation', label: 'Situação' },
-    { key: 'background', label: 'Background' },
-    { key: 'assessment', label: 'Avaliação' },
-    { key: 'recommendation', label: 'Recomendação' },
-  ],
-  prescricao: [
-    { key: 'paciente', label: 'Paciente', rows: 1 },
-    { key: 'data', label: 'Data', rows: 1 },
-    { key: 'orientacoes', label: 'Orientações', rows: 5 },
-  ],
-  alta: [
-    { key: 'paciente', label: 'Paciente', rows: 1 },
-    { key: 'data', label: 'Data', rows: 1 },
-    { key: 'resumo', label: 'Resumo', rows: 4 },
-    { key: 'condicaoNaAlta', label: 'Condição na Alta' },
-    { key: 'retorno', label: 'Retorno' },
-  ],
-  atestado: [
-    { key: 'paciente', label: 'Paciente', rows: 1 },
-    { key: 'data', label: 'Data', rows: 1 },
-    { key: 'descricao', label: 'Descrição', rows: 4 },
-    { key: 'assinaturaPlaceholder', label: 'Assinatura', rows: 3 },
-  ],
-};
+import {
+  LIST_FIELDS,
+  SECTION_FIELDS,
+  buildPhysicianEdits,
+  changedKeys,
+  editableValues,
+  editedSections,
+  formatListItems,
+  type Content,
+  type EditableValues,
+  type FieldDef,
+  type ListFieldDef,
+} from '../../_components/document-content';
 
 /** SOAP e SBAR: a letra da seção vira um marcador discreto ao lado do título. */
 const SECTION_LETTERS: Partial<Record<DocType, Record<string, string>>> = {
   soap: { subjective: 'S', objective: 'O', assessment: 'A', plan: 'P' },
   sbar: { situation: 'S', background: 'B', assessment: 'A', recommendation: 'R' },
 };
-
-/**
- * Listas (medicamentos da prescrição, diagnósticos da alta): editadas como
- * texto, um item por linha, gravadas em `<campo>_raw` nas edições do médico.
- */
-interface ListFieldDef {
-  id: string;
-  source: string;
-  label: string;
-  hint: string;
-  minRows: number;
-}
-
-const LIST_FIELDS: Partial<Record<DocType, ListFieldDef>> = {
-  prescricao: {
-    id: 'medicamentos_raw',
-    source: 'medicamentos',
-    label: 'Medicamentos',
-    hint: 'Um por linha — medicamento, dosagem, via, frequência, duração',
-    minRows: 3,
-  },
-  alta: {
-    id: 'diagnosticos_raw',
-    source: 'diagnosticos',
-    label: 'Diagnósticos',
-    hint: 'Um por linha',
-    minRows: 2,
-  },
-};
-
-type Content = Record<string, unknown>;
-
-function flattenContent(content: Content): Content {
-  const flat: Content = {};
-  for (const [k, v] of Object.entries(content)) flat[k] = extractString(v);
-  return flat;
-}
-
-/** Diferença entre o conteúdo local e o último salvo (indicador "Salvo"). */
-function changedKeys(local: Content, reference: Content): string[] {
-  return Object.keys(local).filter(
-    (key) => String(local[key] ?? '') !== extractString(reference[key]),
-  );
-}
-
-function listAiValue(aiContent: Content, list: ListFieldDef): string {
-  const items = aiContent[list.source];
-  return (Array.isArray(items) ? items : []).map((item) => extractString(item)).join('\n');
-}
-
-/** Seções cujo texto difere do rascunho original da IA. */
-function editedSections(
-  type: DocType,
-  fields: FieldDef[],
-  content: Content,
-  aiContent: Content,
-): string[] {
-  const edited = fields
-    .filter((f) => String(content[f.key] ?? '') !== extractString(aiContent[f.key]))
-    .map((f) => f.key);
-  const list = LIST_FIELDS[type];
-  if (list) {
-    const raw = content[list.id];
-    if (typeof raw === 'string' && raw !== listAiValue(aiContent, list)) edited.push(list.id);
-  }
-  return edited;
-}
 
 // Campo editável como bloco de texto do Notion: sem caixa, cresce com o
 // conteúdo, fundo sutil no hover e no foco (com anel visível no teclado).
@@ -437,19 +344,23 @@ function DocumentWorkspace({
 
   const locked = isConfirmed(document);
   const aiContent = document.content;
-  // Último conteúdo salvo no servidor — referência do indicador "Salvo".
-  const savedContent = useMemo(
-    () => flattenContent(document.physicianEdits ?? document.content),
-    [document.physicianEdits, document.content],
+  // Conteúdo no servidor: o rascunho do médico ou, se assinado, o que foi selado.
+  const savedContent = document.physicianEdits ?? document.content;
+  // Texto do último salvo — referência do indicador "Salvo".
+  const savedValues = useMemo(
+    () => editableValues(document.type, savedContent),
+    [document.type, savedContent],
   );
-  const [editedContent, setEditedContent] = useState<Content>(savedContent);
+  const [values, setValues] = useState<EditableValues>(savedValues);
 
-  const dirty = !locked && changedKeys(editedContent, savedContent).length > 0;
+  const dirty = !locked && changedKeys(values, savedValues).length > 0;
   const isSaving = updateDocument.isPending;
   // Documento assinado mostra sempre o conteúdo do servidor (o que foi selado).
-  const displayContent = locked ? savedContent : editedContent;
+  const displayValues = locked ? savedValues : values;
+  // Lista estruturada exibida: a selada ou, no rascunho, a da IA (que o salvar mantém).
+  const structuredContent = locked ? savedContent : aiContent;
   const fields = SECTION_FIELDS[document.type] ?? [];
-  const editedKeys = editedSections(document.type, fields, displayContent, aiContent);
+  const editedKeys = editedSections(document.type, displayValues, aiContent);
   const totalSections = fields.length + (LIST_FIELDS[document.type] ? 1 : 0);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -457,13 +368,13 @@ function DocumentWorkspace({
 
   const save = useCallback(async (): Promise<boolean> => {
     try {
-      await saveMutation({ physicianEdits: editedContent });
+      await saveMutation({ physicianEdits: buildPhysicianEdits(aiContent, values) });
       return true;
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao salvar.');
       return false;
     }
-  }, [saveMutation, editedContent]);
+  }, [saveMutation, aiContent, values]);
 
   const handleSave = useCallback(async () => {
     if (await save()) toast.success('Alterações salvas.');
@@ -497,7 +408,7 @@ function DocumentWorkspace({
     try {
       // Assina exatamente o que está na tela: edições pendentes são salvas
       // antes (o backend sela physicianEdits ?? content).
-      if (dirty) await saveMutation({ physicianEdits: editedContent });
+      if (dirty) await saveMutation({ physicianEdits: buildPhysicianEdits(aiContent, values) });
       await confirmDocument.mutateAsync();
       setConfirmOpen(false);
       toast.success('Documento confirmado com sucesso.');
@@ -542,9 +453,10 @@ function DocumentWorkspace({
       document={document}
       fields={fields}
       aiContent={aiContent}
-      content={displayContent}
+      structuredContent={structuredContent}
+      values={displayValues}
       locked={locked}
-      onChange={setEditedContent}
+      onChange={setValues}
     />
   );
 
@@ -918,16 +830,19 @@ function DocumentBody({
   document,
   fields,
   aiContent,
-  content,
+  structuredContent,
+  values,
   locked,
   onChange,
 }: {
   document: Document;
   fields: FieldDef[];
   aiContent: Content;
-  content: Content;
+  /** De onde vêm a lista estruturada e o registro de uso de IA exibidos. */
+  structuredContent: Content;
+  values: EditableValues;
   locked: boolean;
-  onChange: (updater: (prev: Content) => Content) => void;
+  onChange: (updater: (prev: EditableValues) => EditableValues) => void;
 }) {
   if (fields.length === 0) {
     return (
@@ -950,7 +865,7 @@ function DocumentBody({
         <dl className="flex flex-col gap-0.5 text-sm">
           {inlineFields.map((field) => {
             const aiValue = extractString(aiContent[field.key]);
-            const value = String(content[field.key] ?? '');
+            const value = values[field.key] ?? '';
             return (
               <InlineField
                 key={field.key}
@@ -969,7 +884,7 @@ function DocumentBody({
 
       {sectionFields.map((field) => {
         const aiValue = extractString(aiContent[field.key]);
-        const value = String(content[field.key] ?? '');
+        const value = values[field.key] ?? '';
         return (
           <SectionBlock
             key={field.key}
@@ -987,10 +902,17 @@ function DocumentBody({
       })}
 
       {list && (
-        <ListBlock list={list} aiContent={aiContent} content={content} locked={locked} onChange={onChange} />
+        <ListBlock
+          list={list}
+          aiContent={aiContent}
+          structuredContent={structuredContent}
+          values={values}
+          locked={locked}
+          onChange={onChange}
+        />
       )}
 
-      <AiUseRecordNote record={aiUseRecordOf(content)} />
+      <AiUseRecordNote record={aiUseRecordOf(structuredContent)} />
     </div>
   );
 }
@@ -1020,20 +942,23 @@ function AiUseRecordNote({ record }: { record: string | null }) {
 function ListBlock({
   list,
   aiContent,
-  content,
+  structuredContent,
+  values,
   locked,
   onChange,
 }: {
   list: ListFieldDef;
   aiContent: Content;
-  content: Content;
+  structuredContent: Content;
+  values: EditableValues;
   locked: boolean;
-  onChange: (updater: (prev: Content) => Content) => void;
+  onChange: (updater: (prev: EditableValues) => EditableValues) => void;
 }) {
-  const items = aiContent[list.source];
-  const aiValue = listAiValue(aiContent, list);
-  const raw = content[list.id];
-  const value = typeof raw === 'string' ? raw : aiValue;
+  const items = structuredContent[list.source];
+  const aiValue = formatListItems(aiContent[list.source]);
+  // Sem `_raw` o médico não mexeu na lista: mostra a estruturada.
+  const raw = values[list.id];
+  const value = raw ?? formatListItems(items);
 
   return (
     <SectionBlock
@@ -1042,7 +967,7 @@ function ListBlock({
       hint={list.hint}
       value={value}
       aiValue={aiValue}
-      edited={typeof raw === 'string' && raw !== aiValue}
+      edited={raw !== undefined && raw !== aiValue}
       locked={locked}
       rows={Math.max(list.minRows, (Array.isArray(items) ? items.length : 0) + 1)}
       onChange={(next) => onChange((prev) => ({ ...prev, [list.id]: next }))}

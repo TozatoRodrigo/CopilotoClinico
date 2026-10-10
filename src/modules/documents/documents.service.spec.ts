@@ -6,6 +6,7 @@ import { StorageService } from '../storage/storage.service';
 import { InstitutionsService } from '../institutions/institutions.service';
 import { NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
 import { createHash } from 'crypto';
+import { extractText, getDocumentProxy } from 'unpdf';
 import { AI_USE_RECORD_TEXT } from './ai-use-record';
 
 const physicianId = '550e8400-e29b-41d4-a716-446655440000';
@@ -58,6 +59,9 @@ function canonicalHashOf(content: Record<string, unknown>): string {
     .update(JSON.stringify(content, Object.keys(content).sort()))
     .digest('hex');
 }
+
+/** Texto do PDF sem espaços: o pdfkit quebra linhas longas (ver document-pdf.builder.spec.ts). */
+const withoutSpaces = (text: string): string => text.replace(/\s+/g, '');
 
 describe('DocumentsService', () => {
   let service: DocumentsService;
@@ -504,6 +508,218 @@ describe('DocumentsService', () => {
           physicianEdits: { subjective: 'Edited' },
         }),
       ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  /**
+   * O editor antigo passava cada campo do conteúdo por extractString antes de
+   * salvar: a lista de medicamentos virava "[object Object]", os diagnósticos
+   * da alta viravam um texto só e `incerteza: true` virava "". Como o confirm
+   * sela `physicianEdits ?? content`, o documento assinado e o PDF saíam sem
+   * a lista.
+   */
+  describe('listas estruturadas nas edições do médico', () => {
+    const physicianStub = { name: 'Ana Teste', crmUf: 'SP', crmNumber: '123456' };
+    const dipirona = {
+      medicamento: 'Dipirona',
+      dosagem: '1 g',
+      via: 'IV',
+      frequencia: '6/6h',
+      duracao: '3 dias',
+    };
+    const ondansetrona = {
+      medicamento: 'Ondansetrona',
+      dosagem: '4 mg',
+      via: 'IV',
+      frequencia: '8/8h',
+      duracao: 'se náusea',
+    };
+    const prescricaoContent = {
+      paciente: 'PAC-001',
+      data: '10/10/2026',
+      medicamentos: [dipirona, ondansetrona],
+      orientacoes: '- Retornar se febre persistir',
+      incerteza: true,
+      avisoRevisao: 'REVISÃO OBRIGATÓRIA: dose a confirmar',
+    };
+    /** O que o editor antigo gravava depois de o médico mudar só as orientações. */
+    const flattenedPrescricao = {
+      ...prescricaoContent,
+      orientacoes: '- Hidratação oral',
+      medicamentos: '[object Object]\n[object Object]',
+      incerteza: '',
+    };
+    const altaContent = {
+      paciente: 'PAC-002',
+      data: '10/10/2026',
+      resumo: 'Pneumonia comunitária tratada',
+      diagnosticos: ['Pneumonia comunitária', 'Hipertensão arterial'],
+      condicaoNaAlta: 'Estável, com critérios de alta',
+      retorno: 'Retorno em 7 dias',
+      incerteza: false,
+      avisoRevisao: null,
+    };
+
+    function savedEdits(): Record<string, unknown> {
+      return (prisma.document.update.mock.calls[0]![0] as {
+        data: { physicianEdits: Record<string, unknown> };
+      }).data.physicianEdits;
+    }
+
+    function mockDraft(content: Record<string, unknown>) {
+      prisma.document.findUnique.mockResolvedValue({ physicianId, confirmedBy: null, content });
+      prisma.document.update.mockResolvedValue(baseDocument);
+    }
+
+    async function pdfTextFor(
+      type: string,
+      content: Record<string, unknown>,
+      physicianEdits: Record<string, unknown>,
+    ): Promise<string> {
+      prisma.document.findUnique.mockResolvedValue({
+        ...baseDocument,
+        type,
+        content,
+        physicianEdits,
+        physicianId,
+        physician: physicianStub,
+        confirmedBy: physicianId,
+        confirmedAt: new Date('2026-10-10'),
+      });
+      const result = await service.getDownloadPdf(physicianId, documentId);
+      const pdf = await getDocumentProxy(new Uint8Array(result!.buffer));
+      const { text } = await extractText(pdf, { mergePages: true });
+      return withoutSpaces(text);
+    }
+
+    describe('edit', () => {
+      it('restaura a lista de medicamentos achatada em texto e mantém as seções editadas', async () => {
+        mockDraft(prescricaoContent);
+
+        await service.edit(physicianId, documentId, { physicianEdits: flattenedPrescricao });
+
+        expect(savedEdits()).toEqual({ ...prescricaoContent, orientacoes: '- Hidratação oral' });
+      });
+
+      it('restaura os diagnósticos da alta achatados em texto', async () => {
+        mockDraft(altaContent);
+
+        await service.edit(physicianId, documentId, {
+          physicianEdits: {
+            ...altaContent,
+            diagnosticos: 'Pneumonia comunitária\nHipertensão arterial',
+            incerteza: '',
+            avisoRevisao: '',
+          },
+        });
+
+        expect(savedEdits().diagnosticos).toEqual(altaContent.diagnosticos);
+        expect(savedEdits().incerteza).toBe(false);
+        // Campo de texto (null no original) é do médico: não é "restaurado".
+        expect(savedEdits().avisoRevisao).toBe('');
+      });
+
+      it('mantém a lista editada pelo médico (medicamentos_raw) ao lado da lista estruturada', async () => {
+        mockDraft(prescricaoContent);
+
+        await service.edit(physicianId, documentId, {
+          physicianEdits: { ...flattenedPrescricao, medicamentos_raw: 'Dipirona — 500 mg, VO' },
+        });
+
+        expect(savedEdits().medicamentos_raw).toBe('Dipirona — 500 mg, VO');
+        expect(savedEdits().medicamentos).toEqual([dipirona, ondansetrona]);
+      });
+
+      it('aceita a lista alterada que continua sendo lista', async () => {
+        mockDraft(prescricaoContent);
+
+        await service.edit(physicianId, documentId, {
+          physicianEdits: { ...prescricaoContent, medicamentos: [dipirona] },
+        });
+
+        expect(savedEdits().medicamentos).toEqual([dipirona]);
+      });
+    });
+
+    describe('confirm', () => {
+      const draft = {
+        physicianId,
+        confirmedBy: null,
+        encounterId,
+        type: 'prescricao',
+        content: prescricaoContent,
+        encounter: { institutionId: null },
+      };
+
+      beforeEach(() => {
+        prisma.document.update.mockResolvedValue({
+          ...baseDocument,
+          confirmedBy: physicianId,
+          confirmedAt: new Date(),
+        });
+        prisma.encounter.update.mockResolvedValue({});
+      });
+
+      it('sela o rascunho salvo pelo editor antigo com a lista restaurada e registra a correção', async () => {
+        prisma.document.findUnique.mockResolvedValue({ ...draft, physicianEdits: flattenedPrescricao });
+
+        await service.confirm(physicianId, documentId);
+
+        const restored = { ...prescricaoContent, orientacoes: '- Hidratação oral' };
+        expect(prisma.document.update).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              physicianEdits: restored,
+              contentHash: canonicalHashOf(restored),
+            }),
+          }),
+        );
+        expect(auditService.log).toHaveBeenCalledWith(
+          expect.objectContaining({
+            action: 'DOCUMENT_CONFIRMED',
+            payload: expect.objectContaining({ restoredFields: ['medicamentos', 'incerteza'] }),
+          }),
+        );
+      });
+
+      it('não reescreve edições que já preservam a estrutura', async () => {
+        const edits = { ...prescricaoContent, orientacoes: '- Hidratação oral' };
+        prisma.document.findUnique.mockResolvedValue({ ...draft, physicianEdits: edits });
+
+        await service.confirm(physicianId, documentId);
+
+        const updateCall = prisma.document.update.mock.calls[0] as [{ data: object }];
+        expect(updateCall[0].data).not.toHaveProperty('physicianEdits');
+        expect(auditService.log).toHaveBeenCalledWith(
+          expect.objectContaining({ payload: expect.not.objectContaining({ restoredFields: expect.anything() }) }),
+        );
+      });
+    });
+
+    describe('PDF do documento editado', () => {
+      it('traz cada medicamento com dose, via, frequência e duração', async () => {
+        mockDraft(prescricaoContent);
+        await service.edit(physicianId, documentId, { physicianEdits: flattenedPrescricao });
+
+        const text = await pdfTextFor('prescricao', prescricaoContent, savedEdits());
+
+        expect(text).toContain(withoutSpaces('Hidratação oral'));
+        expect(text).toContain(withoutSpaces('Dipirona — 1 g, IV, 6/6h, 3 dias'));
+        expect(text).toContain(withoutSpaces('Ondansetrona — 4 mg, IV, 8/8h, se náusea'));
+      });
+
+      it('traz os diagnósticos da alta', async () => {
+        mockDraft(altaContent);
+        await service.edit(physicianId, documentId, {
+          physicianEdits: { ...altaContent, diagnosticos: 'Pneumonia comunitária\nHipertensão arterial' },
+        });
+
+        const text = await pdfTextFor('alta', altaContent, savedEdits());
+
+        expect(text).toContain(withoutSpaces('Diagnósticos'));
+        expect(text).toContain(withoutSpaces('Pneumonia comunitária'));
+        expect(text).toContain(withoutSpaces('Hipertensão arterial'));
+      });
     });
   });
 

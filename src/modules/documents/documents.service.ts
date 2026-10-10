@@ -20,6 +20,7 @@ import { generateAlta } from './generators/alta.generator';
 import { generateAtestado } from './generators/atestado.generator';
 import { buildDocumentPdf, type PdfDocumentInput } from './pdf/document-pdf.builder';
 import { aiUseRecordOf, withAiUseRecord } from './ai-use-record';
+import { restoreStructuredFields } from './structured-fields';
 import { AI_USE_RECORD_FIELD } from '../../shared/contracts/clinical';
 import type { CopilotOutput } from '../copilot/guardrails/output-validator';
 
@@ -239,13 +240,23 @@ export class DocumentsService {
     if (doc.physicianId !== physicianId) throw new ForbiddenException('Access denied');
     if (doc.confirmedBy) throw new ForbiddenException('Confirmed documents cannot be edited');
 
+    const { physicianEdits: withStructure, restoredFields } = restoreStructuredFields(
+      doc.content,
+      input.physicianEdits,
+    );
+    if (restoredFields.length > 0) {
+      this.logger.warn(
+        `Edição do documento ${documentId} sem a estrutura de ${restoredFields.join(', ')} — restaurada da geração`,
+      );
+    }
+
     // F0-D — o registro de uso de IA não é editável: a edição do médico
     // (que substitui o conteúdo inteiro no confirm) sempre leva o texto
     // gravado na geração, mesmo que o cliente o omita ou altere.
     const aiUseRecord = aiUseRecordOf(doc.content);
     const physicianEdits = aiUseRecord
-      ? { ...input.physicianEdits, [AI_USE_RECORD_FIELD]: aiUseRecord }
-      : input.physicianEdits;
+      ? { ...withStructure, [AI_USE_RECORD_FIELD]: aiUseRecord }
+      : withStructure;
 
     const updated = await this.prisma.document.update({
       where: { id: documentId },
@@ -272,7 +283,9 @@ export class DocumentsService {
    * (cobertura de plantão) se pertencer à MESMA instituição do encontro —
    * ver assertCanConfirm(). A confirmação:
    * 1. Recomputa o contentHash sobre o conteúdo efetivo no momento da confirmação
-   *    (physicianEdits ?? content) com JSON canônico (chaves ordenadas).
+   *    (physicianEdits ?? content) com JSON canônico (chaves ordenadas). Edições
+   *    salvas sem a estrutura da geração (listas achatadas em texto) são
+   *    restauradas antes — ver restoreStructuredFields().
    * 2. Registra confirmedBy, confirmedAt e o novo contentHash.
    * 3. Finaliza o encounter.
    * 4. Gera evento DOCUMENT_CONFIRMED na trilha de auditoria com afterHash e
@@ -303,15 +316,35 @@ export class DocumentsService {
       throw new ConflictException('Document already confirmed');
     }
 
+    // Rascunho salvo pelo editor antigo pode ter a lista de medicamentos (ou
+    // de diagnósticos) achatada em texto: sela com a estrutura da geração.
+    const savedEdits = doc.physicianEdits as Record<string, unknown> | null;
+    const { physicianEdits, restoredFields } = savedEdits
+      ? restoreStructuredFields(doc.content, savedEdits)
+      : { physicianEdits: null, restoredFields: [] };
+    if (restoredFields.length > 0) {
+      this.logger.warn(
+        `Confirmação do documento ${documentId} com ${restoredFields.join(', ')} restaurado da geração`,
+      );
+    }
+
     // Hash canônico do conteúdo efetivo no momento da confirmação.
     // Se o médico editou, o hash reflete as edições — não o original da IA.
-    const effectiveContent = doc.physicianEdits ?? doc.content;
+    const effectiveContent = physicianEdits ?? doc.content;
     const contentHash = canonicalHash(effectiveContent);
 
     const now = new Date();
     const confirmed = await this.prisma.document.update({
       where: { id: documentId },
-      data: { confirmedBy: physicianId, confirmedAt: now, contentHash },
+      data: {
+        confirmedBy: physicianId,
+        confirmedAt: now,
+        contentHash,
+        // O conteúdo restaurado é o que o hash sela e o PDF imprime.
+        ...(restoredFields.length > 0 && {
+          physicianEdits: physicianEdits as unknown as Prisma.InputJsonObject,
+        }),
+      },
       select: DOCUMENT_SELECT,
     });
 
@@ -342,6 +375,7 @@ export class DocumentsService {
           authorPhysicianId: doc.physicianId,
           uncertain: recentInteraction?.uncertainty ?? false,
           uncertaintyReason: recentInteraction?.uncertaintyReason ?? null,
+          ...(restoredFields.length > 0 && { restoredFields }),
         },
       })
       .catch(() => undefined);
