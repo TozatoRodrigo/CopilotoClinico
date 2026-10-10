@@ -44,6 +44,9 @@ export const streamQuerySchema = z.object({
   pediatric: boolParam,
   elderly65: boolParam,
   allergy: boolParam,
+  // F0-C — paridade de `params` com POST /analyze: a tag de funil (F5) é
+  // gravada também quando a análise vem pelo streaming.
+  demoCase: z.string().trim().max(64).optional(),
 });
 
 export type StreamQuery = z.infer<typeof streamQuerySchema>;

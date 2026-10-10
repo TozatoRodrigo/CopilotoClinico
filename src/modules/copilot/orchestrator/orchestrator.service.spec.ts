@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { OrchestratorService } from './orchestrator.service';
+import {
+  OrchestratorService,
+  type OrchestratorResult,
+  type StreamEvent,
+} from './orchestrator.service';
 import { PrismaService } from '../../../config/prisma.service';
 import { AiGatewayService } from '../../ai-gateway/ai-gateway.service';
 import { RetrievalService } from '../retrieval/retrieval.service';
@@ -934,6 +938,12 @@ describe('OrchestratorService', () => {
       encountersMock.findById.mockResolvedValue({ id: encounterId, physicianId, patientRef: 'PRN-001' });
       retrievalMock.search.mockResolvedValue({ chunks: mockChunks, totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0, official: NO_OFFICIAL });
       aiGatewayMock.completeStream.mockReturnValue(fakeStream(['not valid json at all']));
+      aiGatewayMock.complete.mockResolvedValue({
+        content: 'still not json',
+        model: 'claude-3-sonnet',
+        usage: { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
+        latencyMs: 800,
+      });
       prismaMock.aiInteraction.create.mockResolvedValue({ id: 'interaction-err' });
 
       const events = [];
@@ -945,6 +955,131 @@ describe('OrchestratorService', () => {
       expect(errorEvent).toBeDefined();
       expect(errorEvent!.type).toBe('error');
       expect(errorEvent!.errors).toBeDefined();
+      expect(events.some((e) => e.type === 'done')).toBe(false);
+    });
+
+    // F0-C — paridade com o POST /analyze. O streaming é o caminho principal
+    // da captura (casos até 3.000 caracteres) e ficava sem retry, sem
+    // `params` e sem custo.
+    describe('F0-C: paridade com o POST /analyze', () => {
+      const streamInput = {
+        ...validInput,
+        redFlags: { pregnant: true, anticoagulant: false },
+        demoCase: 'sindrome-gripal',
+      };
+
+      async function collect(input = streamInput): Promise<StreamEvent[]> {
+        const events: StreamEvent[] = [];
+        for await (const event of service.analyzeStream(physicianId, encounterId, input)) {
+          events.push(event);
+        }
+        return events;
+      }
+
+      function doneResult(events: StreamEvent[]): OrchestratorResult {
+        const done = events.find(
+          (event): event is Extract<StreamEvent, { type: 'done' }> => event.type === 'done',
+        );
+        if (!done) throw new Error('o stream terminou sem evento done');
+        return done.result;
+      }
+
+      beforeEach(() => {
+        encountersMock.findById.mockResolvedValue({ id: encounterId, physicianId, patientRef: 'PRN-001' });
+        retrievalMock.search.mockResolvedValue({ chunks: mockChunks, totalRetrieved: 2, coverage: 'partial', bestSemanticScore: 0.4, discardedByFloor: 1, official: NO_OFFICIAL });
+        prismaMock.aiInteraction.create.mockResolvedValue({ id: 'interaction-stream-001' });
+        encountersMock.update.mockResolvedValue({});
+      });
+
+      it('refaz uma vez, sem streaming e com o feedback do validador, quando o JSON transmitido é inválido', async () => {
+        aiGatewayMock.completeStream.mockReturnValue(fakeStream(['{"reasoning": ', '"truncado']));
+        aiGatewayMock.complete.mockResolvedValue({
+          content: validLLMOutput,
+          model: 'claude-3-sonnet',
+          usage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 },
+          latencyMs: 1500,
+        });
+
+        const events = await collect();
+
+        expect(aiGatewayMock.complete).toHaveBeenCalledTimes(1);
+        const retryMessages = aiGatewayMock.complete.mock.calls[0]![0].messages;
+        expect(retryMessages).toHaveLength(4);
+        expect(retryMessages[2]).toEqual({ role: 'assistant', content: '{"reasoning": "truncado' });
+        expect(retryMessages[3].role).toBe('user');
+        expect(retryMessages[3].content).toContain('Output is not valid JSON');
+
+        const result = doneResult(events);
+        expect(result.output.recommendations).toHaveLength(1);
+        expect(result.metadata).toMatchObject({
+          model: 'claude-3-sonnet',
+          cost: 0.0033,
+        });
+        expect(events.some((e) => e.type === 'error')).toBe(false);
+        expect(prismaMock.aiInteraction.create).toHaveBeenCalledTimes(1);
+        expect(prismaMock.aiInteraction.create.mock.calls[0]![0].data).toMatchObject({
+          model: 'claude-3-sonnet',
+          cost: 0.0033,
+        });
+      });
+
+      it('não chama o modelo de novo quando o JSON transmitido é válido', async () => {
+        aiGatewayMock.completeStream.mockReturnValue(fakeStream([validLLMOutput]));
+
+        await collect();
+
+        expect(aiGatewayMock.complete).not.toHaveBeenCalled();
+      });
+
+      it('grava os mesmos params do POST /analyze em caso de sucesso', async () => {
+        aiGatewayMock.completeStream.mockReturnValue(fakeStream([validLLMOutput]));
+
+        await collect();
+
+        expect(prismaMock.aiInteraction.create.mock.calls[0]![0].data.params).toEqual({
+          demoCase: 'sindrome-gripal',
+          redFlags: { pregnant: true, anticoagulant: false },
+          retrievalCoverage: 'partial',
+          officialChunksRetrieved: 0,
+        });
+      });
+
+      it('grava os params também quando o retry falha', async () => {
+        aiGatewayMock.completeStream.mockReturnValue(fakeStream(['not json']));
+        aiGatewayMock.complete.mockResolvedValue({
+          content: 'still not json',
+          model: 'claude-3-sonnet',
+          usage: { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
+          latencyMs: 800,
+        });
+
+        await collect();
+
+        expect(prismaMock.aiInteraction.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              uncertainty: true,
+              uncertaintyReason: 'Output validation failed',
+              params: {
+                demoCase: 'sindrome-gripal',
+                redFlags: { pregnant: true, anticoagulant: false },
+                retrievalCoverage: 'partial',
+                officialChunksRetrieved: 0,
+              },
+            }),
+          }),
+        );
+      });
+
+      it('injeta as red flags confirmadas no prompt do streaming', async () => {
+        aiGatewayMock.completeStream.mockReturnValue(fakeStream([validLLMOutput]));
+
+        await collect();
+
+        const userMessage = aiGatewayMock.completeStream.mock.calls[0]![0].messages[1].content;
+        expect(userMessage).toContain('Paciente gestante ou amamentando');
+      });
+
     });
   });
 
@@ -1167,6 +1302,40 @@ describe('OrchestratorService', () => {
       expect(createCall.data.answeredQuestions[0]!.questionId).toBe('q0');
       expect(createCall.data.answeredQuestions[1]!.questionId).toBe('q1');
       expect(createCall.data.turnIndex).toBe(2);
+    });
+
+    it('F0-C: refaz uma vez com o feedback do validador e soma o custo das duas chamadas', async () => {
+      setupHappyPath();
+      prismaMock.aiInteraction.findFirst.mockResolvedValue(makeParentInteraction());
+      aiGatewayMock.complete
+        .mockResolvedValueOnce({
+          content: 'not json',
+          model: 'claude-3-sonnet',
+          usage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 },
+          latencyMs: 900,
+        })
+        .mockResolvedValueOnce({
+          content: validRespondLLMOutput,
+          model: 'claude-3-sonnet',
+          usage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 },
+          latencyMs: 900,
+        });
+
+      const result = await service.continueAnalysis(physicianId, encounterId, {
+        interactionId: parentInteractionId,
+        answers: [{ questionId: 'q1', answer: 'sim' }],
+      });
+
+      expect(aiGatewayMock.complete).toHaveBeenCalledTimes(2);
+      expect(aiGatewayMock.complete.mock.calls[1]![0].messages[3].content).toContain(
+        'Output is not valid JSON',
+      );
+      expect(result.metadata.cost).toBe(0.0066);
+      expect(prismaMock.aiInteraction.create.mock.calls[0]![0].data).toMatchObject({
+        cost: 0.0066,
+        turnIndex: 1,
+        parentInteractionId,
+      });
     });
 
     it('DEC-005: audits COPILOT_QUESTION_ANSWERED with a hash of the answers, never raw content', async () => {

@@ -60,6 +60,7 @@ export class CopilotController {
       pediatric,
       elderly65,
       allergy,
+      demoCase,
     } = query;
     const input: AnalyzeInput = {
       caseText,
@@ -67,6 +68,7 @@ export class CopilotController {
       // UX-06 — ver comentário em streamQuerySchema: paridade de red flags
       // com o caminho POST /analyze.
       redFlags: { immunosuppressed, pregnant, anticoagulant, pediatric, elderly65, allergy },
+      demoCase,
     };
 
     return new Observable((subscriber) => {
