@@ -38,7 +38,14 @@ interface ExportData {
 interface ErasureResponse {
   status: string;
   estimatedCompletion: string;
-  erased: { encounters: number; consents: number; refreshTokens: number };
+  erased: {
+    encounters: number;
+    encounterAttachments: number;
+    audioCaptures: number;
+    consents: number;
+    refreshTokens: number;
+    storageObjects: number;
+  };
 }
 
 const SCOPE_LABELS: Record<string, { label: string; description: string }> = {
@@ -130,7 +137,7 @@ export function PrivacyTab() {
       <SettingsSection title="Seus dados">
         <SettingsRow
           title="Exportar meus dados"
-          description="Baixe todos os seus dados em formato JSON (Art. 18, V — Portabilidade). Inclui atendimentos, documentos, interações IA, consentimentos e auditoria."
+          description="Baixe todos os seus dados em formato JSON (Art. 18, V — Portabilidade). Inclui atendimentos, referências anexadas, transcrições de áudio, documentos, interações IA, consentimentos e auditoria."
           control={
             <Button
               variant="outline"
