@@ -6,10 +6,12 @@ import {
   CompletionResponse,
   EmbeddingParams,
   EmbeddingResponse,
+  StreamCompletionResult,
 } from './providers/provider.interface';
 import { AnthropicProvider } from './providers/anthropic.provider';
 import { OpenAIProvider } from './providers/openai.provider';
 import { DeterministicProvider } from './providers/deterministic.provider';
+import { readFlag } from './ai-gateway.settings';
 
 function createProvider(
   name: string,
@@ -36,10 +38,14 @@ export class AiGatewayService {
   private readonly embeddingProvider: AIProvider;
   private readonly defaultModel: string;
   private readonly defaultEmbeddingModel: string;
+  private readonly structuredOutputEnabled: boolean;
 
   constructor(@Inject(ConfigService) private readonly config: ConfigService) {
     this.defaultModel = this.config.getOrThrow<string>('AI_MODEL');
     this.defaultEmbeddingModel = this.config.getOrThrow<string>('AI_EMBEDDING_MODEL');
+    // Chave geral de structured outputs: com false, nenhum provider recebe o
+    // JSON Schema e a saída volta a ser validada só pelo zod.
+    this.structuredOutputEnabled = readFlag(this.config, 'AI_STRUCTURED_OUTPUT', true);
 
     // Completion provider
     const completionProviderName = this.config.get<string>('AI_PROVIDER', 'anthropic');
@@ -84,10 +90,7 @@ export class AiGatewayService {
   async complete(
     params: Omit<CompletionParams, 'model'> & { model?: string },
   ): Promise<CompletionResponse> {
-    const fullParams: CompletionParams = {
-      ...params,
-      model: params.model ?? this.defaultModel,
-    };
+    const fullParams = this.withDefaults(params);
 
     this.logger.debug(
       `Completion request: model=${fullParams.model}, messages=${fullParams.messages.length}`,
@@ -99,18 +102,24 @@ export class AiGatewayService {
     return result;
   }
 
+  /**
+   * Emite os deltas de texto e devolve, como valor de retorno do gerador,
+   * texto final, modelo, usage e stop reason — `for await` continua
+   * funcionando; quem precisa do custo itera com `next()` até `done`.
+   */
   async *completeStream(
     params: Omit<CompletionParams, 'model'> & { model?: string },
-  ): AsyncGenerator<string> {
-    const fullParams: CompletionParams = {
-      ...params,
-      model: params.model ?? this.defaultModel,
-    };
+  ): AsyncGenerator<string, StreamCompletionResult> {
+    const fullParams = this.withDefaults(params);
 
     this.logger.debug(
       `Stream request: model=${fullParams.model}, messages=${fullParams.messages.length}`,
     );
-    yield* this.completionProvider.completeStream(fullParams);
+    const result = yield* this.completionProvider.completeStream(fullParams);
+    this.logger.debug(
+      `Stream response: model=${result.model}, tokens=${result.usage.totalTokens}, stop=${result.stopReason ?? '-'}`,
+    );
+    return result;
   }
 
   async embed(texts: string[], model?: string): Promise<EmbeddingResponse> {
@@ -123,6 +132,16 @@ export class AiGatewayService {
     const result = await this.embeddingProvider.embed(params);
     this.logger.debug(`Embedding response: tokens=${result.usage.totalTokens}`);
     return result;
+  }
+
+  private withDefaults(
+    params: Omit<CompletionParams, 'model'> & { model?: string },
+  ): CompletionParams {
+    return {
+      ...params,
+      model: params.model ?? this.defaultModel,
+      responseSchema: this.structuredOutputEnabled ? params.responseSchema : undefined,
+    };
   }
 
   getProviderName(): string {

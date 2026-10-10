@@ -4,6 +4,7 @@ import { createHash } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../config/prisma.service';
 import { AiGatewayService } from '../../ai-gateway/ai-gateway.service';
+import type { StreamCompletionResult } from '../../ai-gateway/providers/provider.interface';
 import { RetrievalService, type RetrievalResult } from '../retrieval/retrieval.service';
 import type { RetrievalCoverage, RetrievedChunk } from '../retrieval/hybrid-search';
 import { EncountersService } from '../../encounters/encounters.service';
@@ -20,6 +21,7 @@ import {
 import { validateOutput, type CopilotOutput } from '../guardrails/output-validator';
 import type { AnalyzeInput, RespondInput } from '../schemas/copilot.schemas';
 import { calculateInferenceCost } from './model-pricing';
+import { COPILOT_OUTPUT_JSON_SCHEMA } from '../schemas/copilot-output.json-schema';
 
 const DEFAULT_MAX_TURNS = 5;
 const RECOMMENDATION_CATEGORY_ORDER = {
@@ -494,7 +496,10 @@ export class OrchestratorService {
       { role: 'user', content: prompt.user },
     ];
 
-    let completion = await this.aiGateway.complete({ messages: baseMessages });
+    let completion = await this.aiGateway.complete({
+      messages: baseMessages,
+      responseSchema: COPILOT_OUTPUT_JSON_SCHEMA,
+    });
     let inferenceCost = calculateInferenceCost({
       model: completion.model,
       usage: completion.usage,
@@ -525,7 +530,10 @@ export class OrchestratorService {
             'resposta clinicamente equivalente. Responda apenas com o JSON, sem texto adicional.',
         },
       ];
-      completion = await this.aiGateway.complete({ messages: retryMessages });
+      completion = await this.aiGateway.complete({
+        messages: retryMessages,
+        responseSchema: COPILOT_OUTPUT_JSON_SCHEMA,
+      });
       inferenceCost += calculateInferenceCost({
         model: completion.model,
         usage: completion.usage,
@@ -773,25 +781,34 @@ export class OrchestratorService {
       physicianAttachments: attachments,
     });
 
-    let fullContent = '';
-    let streamedModel = this.aiGateway.getProviderName();
-
-    for await (const delta of this.aiGateway.completeStream({
+    // Iteração manual: o valor de retorno do gerador (modelo, usage) é o que
+    // dá o custo real da análise, e `for await` o descartaria.
+    const stream: AsyncIterator<string, StreamCompletionResult> = this.aiGateway.completeStream({
       messages: [
         { role: 'system', content: prompt.system },
         { role: 'user', content: prompt.user },
       ],
-    })) {
-      fullContent += delta;
-      yield { type: 'delta', delta };
+      responseSchema: COPILOT_OUTPUT_JSON_SCHEMA,
+    });
+    let next = await stream.next();
+    try {
+      while (!next.done) {
+        yield { type: 'delta', delta: next.value };
+        next = await stream.next();
+      }
+    } finally {
+      // Consumidor saiu antes do fim: fecha o stream para o modelo parar de gerar.
+      if (!next.done) await stream.return?.();
     }
 
-    // Post-stream: validate output before persisting
-    const mockCompletion = { content: fullContent, model: streamedModel };
+    // Post-stream: validate output before persisting. `content` é o texto
+    // autoritativo — após um fallback de recusa no meio do stream, os deltas
+    // também trazem o trecho parcial do modelo que recusou.
+    const fullContent = next.value.content;
+    const mockCompletion = { content: fullContent, model: next.value.model };
     const inferenceCost = calculateInferenceCost({
       model: mockCompletion.model,
-      // Approximate token count from streamed content; exact usage not available in streaming
-      usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+      usage: next.value.usage,
     });
 
     const validation = validateOutput(
@@ -1062,7 +1079,10 @@ export class OrchestratorService {
       { role: 'user', content: prompt.user },
     ];
 
-    let completion = await this.aiGateway.complete({ messages: baseMessages });
+    let completion = await this.aiGateway.complete({
+      messages: baseMessages,
+      responseSchema: COPILOT_OUTPUT_JSON_SCHEMA,
+    });
     let inferenceCost = calculateInferenceCost({
       model: completion.model,
       usage: completion.usage,
@@ -1089,7 +1109,10 @@ export class OrchestratorService {
             'resposta clinicamente equivalente. Responda apenas com o JSON, sem texto adicional.',
         },
       ];
-      completion = await this.aiGateway.complete({ messages: retryMessages });
+      completion = await this.aiGateway.complete({
+        messages: retryMessages,
+        responseSchema: COPILOT_OUTPUT_JSON_SCHEMA,
+      });
       inferenceCost += calculateInferenceCost({
         model: completion.model,
         usage: completion.usage,

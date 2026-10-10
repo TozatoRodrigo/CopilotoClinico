@@ -31,6 +31,7 @@
     "backfill:copilot-feedback": "tsx scripts/backfill-copilot-feedback.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.133.0",
     "@aws-sdk/client-s3": "^3.1064.0",
     "@aws-sdk/s3-request-presigner": "^3.1064.0",
     "@fastify/cookie": "^11.0.2",
