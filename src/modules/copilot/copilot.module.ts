@@ -10,6 +10,8 @@ import { EncountersModule } from '../encounters/encounters.module';
 import { QueueModule } from '../queue/queue.module';
 import { RecommendationDecisionsController } from './decisions/recommendation-decisions.controller';
 import { RecommendationDecisionsService } from './decisions/recommendation-decisions.service';
+import { CopilotFeedbackService } from './feedback/copilot-feedback.service';
+import { CopilotFeedbackTriageController } from './feedback/copilot-feedback-triage.controller';
 
 @Module({
   imports: [
@@ -19,12 +21,17 @@ import { RecommendationDecisionsService } from './decisions/recommendation-decis
     ProtocolEngineModule,
     forwardRef(() => QueueModule),
   ],
-  controllers: [CopilotController, RecommendationDecisionsController],
+  controllers: [
+    CopilotController,
+    RecommendationDecisionsController,
+    CopilotFeedbackTriageController,
+  ],
   providers: [
     CopilotService,
     OrchestratorService,
     RetrievalService,
     RecommendationDecisionsService,
+    CopilotFeedbackService,
   ],
   exports: [CopilotService, OrchestratorService],
 })

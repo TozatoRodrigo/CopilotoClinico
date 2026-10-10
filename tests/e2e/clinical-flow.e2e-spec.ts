@@ -215,8 +215,11 @@ function buildPrismaMock() {
       findMany: vi.fn().mockResolvedValue([]),
     },
 
-    // F0-D — decisões por recomendação entram no export LGPD.
+    // F0-D — decisões por recomendação e feedback entram no export LGPD.
     recommendationDecision: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
+    copilotFeedback: {
       findMany: vi.fn().mockResolvedValue([]),
     },
 

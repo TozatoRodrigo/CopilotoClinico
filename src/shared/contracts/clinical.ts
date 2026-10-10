@@ -387,6 +387,67 @@ export interface CopilotFeedbackResponse {
 }
 
 /**
+ * F0-D — fila de triagem do feedback (console admin, curadoria).
+ * `converted_to_eval_case` = virou caso do gabarito de avaliação.
+ */
+export const copilotFeedbackStatusValues = [
+  'new',
+  'triaged',
+  'converted_to_eval_case',
+  'dismissed',
+] as const;
+
+export type CopilotFeedbackStatus = (typeof copilotFeedbackStatusValues)[number];
+
+/** Visão compacta da saída da análise — o que a curadoria precisa para triar. */
+export interface CopilotFeedbackOutputSummary {
+  mainHypothesis: string | null;
+  recommendations: Array<{ action: string; preliminary: boolean; citationChunkId: string | null }>;
+  questions: Array<{ question: string; criticality: string }>;
+  uncertainty: boolean;
+}
+
+export interface CopilotFeedbackTriageItem {
+  id: string;
+  kind: CopilotFeedbackKind;
+  /** Comentário do médico, já mascarado de PII. */
+  comment: string | null;
+  status: CopilotFeedbackStatus;
+  triageNote: string | null;
+  triagedBy: string | null;
+  triagedAt: string | null;
+  createdAt: string;
+  encounterId: string;
+  physicianId: string;
+  interaction: {
+    id: string;
+    model: string;
+    turnIndex: number;
+    /** Texto do caso como foi analisado (PII mascarada). */
+    inputRedacted: string | null;
+    retrievalCoverage: RetrievalCoverage | null;
+    retrievedChunkIds: string[];
+    citedChunkIds: string[];
+    output: CopilotFeedbackOutputSummary;
+    createdAt: string;
+  };
+}
+
+export interface CopilotFeedbackTriagePage {
+  items: CopilotFeedbackTriageItem[];
+  /** Total do filtro atual (para paginação). */
+  total: number;
+  /** Total por status, independente do filtro (contadores das abas). */
+  countsByStatus: Record<CopilotFeedbackStatus, number>;
+}
+
+export interface UpdateCopilotFeedbackTriageRequest {
+  status: CopilotFeedbackStatus;
+  /** Texto livre da curadoria; o servidor mascara PII. `null` apaga. */
+  triageNote?: string | null;
+}
+
+/**
  * F0-D — o que o médico fez com uma recomendação, persistido no servidor
  * (antes vivia só no sessionStorage). `modified` = adotou com ajuste (Adotar
  * + nota); a regra completa de mapeamento dos botões está em

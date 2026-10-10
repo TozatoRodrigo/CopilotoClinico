@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { CopilotController } from './copilot.controller';
 import { CopilotService } from './copilot.service';
+import { CopilotFeedbackService } from './feedback/copilot-feedback.service';
 import { lastValueFrom, toArray } from 'rxjs';
 
 describe('CopilotController', () => {
@@ -10,6 +11,7 @@ describe('CopilotController', () => {
     stream: ReturnType<typeof vi.fn>;
     respond: ReturnType<typeof vi.fn>;
   };
+  let feedbackMock: { submit: ReturnType<typeof vi.fn> };
 
   const req = { user: { physicianId: 'phys-001' } };
   const encounterId = 'enc-001';
@@ -28,7 +30,11 @@ describe('CopilotController', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     serviceMock = { analyze: vi.fn(), stream: vi.fn(), respond: vi.fn() };
-    controller = new CopilotController(serviceMock as unknown as CopilotService);
+    feedbackMock = { submit: vi.fn().mockResolvedValue({ recorded: true }) };
+    controller = new CopilotController(
+      serviceMock as unknown as CopilotService,
+      feedbackMock as unknown as CopilotFeedbackService,
+    );
   });
 
   describe('analyze', () => {
@@ -39,6 +45,22 @@ describe('CopilotController', () => {
 
       expect(serviceMock.analyze).toHaveBeenCalledWith('phys-001', encounterId, body);
       expect(result).toEqual(analyzeResult);
+    });
+  });
+
+  // F0-D — o reporte vai para a trilha E para a fila de triagem.
+  describe('F7: feedback', () => {
+    it('records the feedback on behalf of the authenticated physician', async () => {
+      const feedbackBody = {
+        interactionId: '11111111-1111-4111-8111-111111111111',
+        kind: 'wrong_scenario' as const,
+        comment: 'Era dengue',
+      };
+
+      const result = await controller.feedback(req, encounterId, feedbackBody);
+
+      expect(feedbackMock.submit).toHaveBeenCalledWith('phys-001', encounterId, feedbackBody);
+      expect(result).toEqual({ recorded: true });
     });
   });
 

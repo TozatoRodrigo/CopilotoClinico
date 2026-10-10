@@ -10,6 +10,7 @@ import type {
   AiInteraction,
   AuditLog,
   RecommendationDecision,
+  CopilotFeedback,
 } from '@prisma/client';
 
 export interface PhysicianDataExport {
@@ -26,6 +27,8 @@ export interface PhysicianDataExport {
     aiInteractions: AiInteraction[];
     /** F0-D — Adotar/Rejeitar/Anotar por recomendação (notas já mascaradas). */
     recommendationDecisions: RecommendationDecision[];
+    /** F0-D — reportes do médico sobre análises (comentário já mascarado). */
+    copilotFeedback: CopilotFeedback[];
     consents: Consent[];
     auditLog: AuditLog[];
   };
@@ -159,18 +162,25 @@ export class LgpdService {
 
     const encounterIds = encounters.map((e) => e.id);
 
-    const [documents, consents, auditLog, aiInteractions, recommendationDecisions] =
-      await Promise.all([
-        this.prisma.document.findMany({ where: { physicianId } }),
-        this.prisma.consent.findMany({ where: { physicianId } }),
-        this.prisma.auditLog.findMany({ where: { actorId: physicianId } }),
-        encounterIds.length > 0
-          ? this.prisma.aiInteraction.findMany({
-              where: { encounterId: { in: encounterIds } },
-            })
-          : Promise.resolve([]),
-        this.prisma.recommendationDecision.findMany({ where: { physicianId } }),
-      ]);
+    const [
+      documents,
+      consents,
+      auditLog,
+      aiInteractions,
+      recommendationDecisions,
+      copilotFeedback,
+    ] = await Promise.all([
+      this.prisma.document.findMany({ where: { physicianId } }),
+      this.prisma.consent.findMany({ where: { physicianId } }),
+      this.prisma.auditLog.findMany({ where: { actorId: physicianId } }),
+      encounterIds.length > 0
+        ? this.prisma.aiInteraction.findMany({
+            where: { encounterId: { in: encounterIds } },
+          })
+        : Promise.resolve([]),
+      this.prisma.recommendationDecision.findMany({ where: { physicianId } }),
+      this.prisma.copilotFeedback.findMany({ where: { physicianId } }),
+    ]);
 
     return {
       exportVersion: 'lgpd-portability-v1',
@@ -185,6 +195,7 @@ export class LgpdService {
         documents,
         aiInteractions,
         recommendationDecisions,
+        copilotFeedback,
         consents,
         auditLog,
       },
@@ -196,6 +207,7 @@ export class LgpdService {
     estimatedCompletion: Date;
     erased: {
       recommendationDecisions: number;
+      copilotFeedback: number;
       encounters: number;
       consents: number;
       refreshTokens: number;
@@ -210,11 +222,12 @@ export class LgpdService {
     }
 
     const erased = await this.prisma.$transaction(async (tx) => {
-      // F0-D — o CASCADE de encounters já levaria as decisões junto; apagar
-      // explicitamente deixa a contagem no relatório de eliminação.
+      // F0-D — o CASCADE de encounters já levaria decisões e feedback junto;
+      // apagar explicitamente deixa a contagem no relatório de eliminação.
       const recommendationDecisions = await tx.recommendationDecision.deleteMany({
         where: { physicianId },
       });
+      const copilotFeedback = await tx.copilotFeedback.deleteMany({ where: { physicianId } });
       const encounters = await tx.encounter.deleteMany({ where: { physicianId } });
       const consents = await tx.consent.deleteMany({ where: { physicianId } });
       const refreshTokens = await tx.refreshToken.deleteMany({ where: { physicianId } });
@@ -230,6 +243,7 @@ export class LgpdService {
 
       return {
         recommendationDecisions: recommendationDecisions.count,
+        copilotFeedback: copilotFeedback.count,
         encounters: encounters.count,
         consents: consents.count,
         refreshTokens: refreshTokens.count,

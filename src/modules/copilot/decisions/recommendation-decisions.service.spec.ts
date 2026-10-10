@@ -42,16 +42,14 @@ describe('RecommendationDecisionsService', () => {
       encounter: { findFirst: vi.fn().mockResolvedValue({ id: encounterId }) },
       recommendationDecision: {
         findUnique: vi.fn().mockResolvedValue(null),
-        upsert: vi
-          .fn()
-          .mockImplementation(({ create }) =>
-            Promise.resolve({
-              id: 'decision-1',
-              ...create,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            }),
-          ),
+        upsert: vi.fn().mockImplementation(({ create }) =>
+          Promise.resolve({
+            id: 'decision-1',
+            ...create,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          }),
+        ),
         findMany: vi.fn().mockResolvedValue([]),
       },
     };

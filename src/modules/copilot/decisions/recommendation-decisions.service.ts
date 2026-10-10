@@ -4,7 +4,7 @@ import { z } from 'zod';
 import type { Prisma, RecommendationDecisionKind } from '@prisma/client';
 import { PrismaService } from '../../../config/prisma.service';
 import { AuditService } from '../../audit/audit.service';
-import { maskPII } from '../guardrails/pii-filter';
+import { maskFreeText } from '../guardrails/pii-filter';
 import type { UpsertRecommendationDecisionInput } from '../schemas/copilot.schemas';
 
 const DECISION_SELECT = {
@@ -50,13 +50,6 @@ function recommendationActionAt(rawOutput: Prisma.JsonValue, index: number): str
   return parsed.data.recommendations[index]?.action ?? null;
 }
 
-/** Nota vazia vira `null`; o resto é gravado já mascarado (CPF, telefone, e-mail...). */
-function maskedNote(note: string | null | undefined): string | null {
-  const trimmed = note?.trim();
-  if (!trimmed) return null;
-  return maskPII(trimmed).redacted;
-}
-
 function sha256(text: string): string {
   return createHash('sha256').update(text).digest('hex');
 }
@@ -97,7 +90,7 @@ export class RecommendationDecisionsService {
 
     const recommendationKey = buildRecommendationKey(input.recommendationIndex, action);
     const decision: RecommendationDecisionKind = input.decision;
-    const note = maskedNote(input.note);
+    const note = maskFreeText(input.note);
     const uniqueKey = {
       interactionId_recommendationKey_physicianId: {
         interactionId: interaction.id,

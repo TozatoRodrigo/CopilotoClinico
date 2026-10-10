@@ -91,6 +91,23 @@ enum RecommendationDecisionKind {
   modified
 }
 
+/// F7 — o que o médico reportou sobre uma análise (mesmos valores de
+/// `feedbackKindValues` em copilot.schemas.ts).
+enum CopilotFeedbackKind {
+  wrong_scenario
+  missing_coverage
+  wrong_recommendation
+  helpful
+}
+
+/// F0-D — estado do reporte na fila de triagem da curadoria.
+enum CopilotFeedbackStatus {
+  new
+  triaged
+  converted_to_eval_case
+  dismissed
+}
+
 model Physician {
   id                 String             @id @default(uuid()) @db.Uuid
   crmUf              String             @map("crm_uf") @db.Char(2)
@@ -121,6 +138,7 @@ model Physician {
   crmVerificationRequests CrmVerificationRequest[]
   institutions            PhysicianInstitution[]
   recommendationDecisions RecommendationDecision[]
+  copilotFeedback         CopilotFeedback[]
 
   @@map("physicians")
 }
@@ -208,6 +226,7 @@ model Encounter {
   attachments    EncounterAttachment[]
 
   recommendationDecisions RecommendationDecision[]
+  copilotFeedback         CopilotFeedback[]
 
   @@index([physicianId])
   @@index([institutionId])
@@ -265,6 +284,7 @@ model AiInteraction {
   childInteractions AiInteraction[] @relation("InteractionThread")
 
   recommendationDecisions RecommendationDecision[]
+  copilotFeedback         CopilotFeedback[]
 
   @@index([encounterId])
   @@index([parentInteractionId])
@@ -325,6 +345,42 @@ model Document {
   @@index([encounterId])
   @@index([physicianId])
   @@map("documents")
+}
+
+/// F0-D — fila de triagem do feedback do médico ("cenário errado", "faltou
+/// diretriz", "conduta incorreta", "foi útil").
+///
+/// Origem: o F7 gravava o reporte só como entrada COPILOT_FEEDBACK na trilha
+/// de auditoria — sem fila, sem estado, ninguém triava. Erros clínicos
+/// conhecidos continuaram chegando por WhatsApp. A entrada na trilha continua
+/// (é o registro médico-legal); esta tabela é a fila de trabalho.
+model CopilotFeedback {
+  id            String                @id @default(uuid()) @db.Uuid
+  interactionId String                @map("interaction_id") @db.Uuid
+  encounterId   String                @map("encounter_id") @db.Uuid
+  physicianId   String                @map("physician_id") @db.Uuid
+  kind          CopilotFeedbackKind
+  /// Já mascarado de PII (maskPII) antes de gravar.
+  comment       String?               @db.Text
+  status        CopilotFeedbackStatus @default(new)
+  /// Já mascarada de PII.
+  triageNote    String?               @map("triage_note") @db.Text
+  /// Curador que mudou o status por último (sem FK, como `reviewedBy`).
+  triagedBy     String?               @map("triaged_by") @db.Uuid
+  triagedAt     DateTime?             @map("triaged_at")
+  /// Entrada COPILOT_FEEDBACK correspondente na trilha. Única: liga a fila ao
+  /// registro médico-legal e torna o backfill idempotente.
+  auditLogId    String?               @unique @map("audit_log_id") @db.Uuid
+  createdAt     DateTime              @default(now()) @map("created_at")
+
+  encounter   Encounter     @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  interaction AiInteraction @relation(fields: [interactionId], references: [id], onDelete: Cascade)
+  physician   Physician     @relation(fields: [physicianId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([encounterId])
+  @@index([physicianId])
+  @@map("copilot_feedback")
 }
 
 model GuidelineChunk {
