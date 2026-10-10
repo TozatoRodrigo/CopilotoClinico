@@ -86,6 +86,17 @@ describe("RecommendationItem — UX-09: Rejeitar e Anotar", () => {
     expect(onNote).toHaveBeenCalledWith("x");
   });
 
+  // F0-D — Adotar + nota é gravado como `modified` (adotada com ajuste).
+  it('shows an "Adotada com ajuste" badge and keeps Adotar pressed for a modified recommendation', () => {
+    renderItem({
+      decision: { decision: "modified", note: "Dose menor", decidedAt: new Date().toISOString() },
+    });
+
+    expect(screen.getByText("Adotada com ajuste")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Adotar" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText(baseRec.action)).not.toHaveClass("line-through");
+  });
+
   it('shows "Editar nota" instead of "Anotar" once a note already exists, and displays the saved note when collapsed', () => {
     renderItem({
       decision: {

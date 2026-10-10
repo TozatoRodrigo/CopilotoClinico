@@ -60,6 +60,8 @@ export const clinicalQueryKeys = {
   audit: (filters: AuditFilters, offset: number, limit: number) =>
     ['audit', filters, offset, limit] as const,
   latestInteraction: (encounterId: string) => ['latest-interaction', encounterId] as const,
+  recommendationDecisions: (encounterId: string, interactionId: string) =>
+    ['recommendation-decisions', encounterId, interactionId] as const,
   crmVerifications: (status: CrmVerificationStatus) => ['crm-verifications', status] as const,
   guidelineSources: ['guideline-sources'] as const,
   guidelinePending: ['guideline-pending'] as const,
