@@ -2,19 +2,27 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * "Folha" do prontuário: moldura de 1px para o documento assinado, como uma
+ * página impressa dentro da página do Notion. O rodapé carrega o hash
+ * SHA-256 completo (mono) e a origem da trilha de auditoria.
+ */
 function ChartPaper({
   children,
   title,
   metadata,
   headerSlot,
-  hashFooter,
+  hash,
+  footerNote = "Copiloto Clínico · trilha de auditoria CFM",
   className,
   ...props
-}: React.ComponentProps<"div"> & {
-  title?: string
-  metadata?: string
+}: Omit<React.ComponentProps<"div">, "title"> & {
+  title?: React.ReactNode
+  metadata?: React.ReactNode
   headerSlot?: React.ReactNode
-  hashFooter?: string
+  /** Hash SHA-256 do conteúdo assinado, exibido por inteiro no rodapé. */
+  hash?: string | null
+  footerNote?: React.ReactNode
 }) {
   const hasHeader = title || metadata || headerSlot
 
@@ -22,44 +30,34 @@ function ChartPaper({
     <div
       data-slot="chart-paper"
       className={cn(
-        "mx-auto max-w-[680px] rounded-[4px] border border-clinical-line bg-card py-11 px-[3.25rem] shadow-[0_2px_6px_rgba(16,36,58,0.08),0_12px_32px_rgba(16,36,58,0.07)]",
+        "mx-auto w-full max-w-[720px] rounded-lg border border-border bg-card px-5 py-6 text-card-foreground sm:px-10 sm:py-8",
         className
       )}
       {...props}
     >
       {hasHeader ? (
-        <div
-          className="flex items-start justify-between border-b-2 pb-[18px]"
-          style={{ borderColor: "var(--ink)" }}
-        >
+        <div className="mb-6 flex flex-wrap items-start justify-between gap-3 border-b border-border pb-4">
           <div className="min-w-0">
             {title ? (
-              <h2 className="font-display text-[1.875rem] font-normal leading-[1.15]">
-                {title}
-              </h2>
+              <h2 className="text-xl font-bold tracking-[-0.01em] text-foreground">{title}</h2>
             ) : null}
             {metadata ? (
-              <p className="mt-1.5 font-mono text-xs text-clinical-ink-soft">
-                {metadata}
-              </p>
+              <p className="mt-1 text-[0.8125rem] text-muted-foreground">{metadata}</p>
             ) : null}
           </div>
-          {headerSlot ? <div className="flex-shrink-0">{headerSlot}</div> : null}
+          {headerSlot ? <div className="shrink-0">{headerSlot}</div> : null}
         </div>
       ) : null}
 
-      <div className="mt-2">{children}</div>
+      <div>{children}</div>
 
-      {hashFooter ? (
-        <div
-          className="mt-7 flex items-center justify-between border-t border-dashed border-clinical-line pt-3.5"
-        >
-          <span className="font-mono text-[0.625rem] text-clinical-ink-soft opacity-60">
-            {hashFooter}
-          </span>
-          <span className="font-mono text-[0.625rem] text-clinical-ink-soft opacity-60">
-            Copiloto Clínico · trilha de auditoria CFM
-          </span>
+      {hash ? (
+        <div className="mt-8 flex flex-col gap-1 border-t border-border pt-3 text-[0.6875rem] text-muted-foreground sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+          <p className="min-w-0">
+            <span className="mr-1.5 font-medium">SHA-256</span>
+            <span className="font-mono break-all">{hash}</span>
+          </p>
+          {footerNote ? <p className="shrink-0">{footerNote}</p> : null}
         </div>
       ) : null}
     </div>

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { ThumbsUp, Warning } from '@phosphor-icons/react';
+import { CheckCircle, Flag, ThumbsUp } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useCopilotFeedback } from '@/lib/clinical-queries';
@@ -71,28 +71,31 @@ export function CopilotFeedback({ encounterId, interactionId, className }: Copil
 
   if (sent) {
     return (
-      <p className={cn('text-xs text-muted-foreground', className)}>
+      <p
+        className={cn('flex items-center gap-1.5 text-[0.8125rem] text-muted-foreground', className)}
+      >
+        <CheckCircle className="size-4 shrink-0" aria-hidden="true" />
         Reporte registrado. Ele entra na trilha de auditoria deste atendimento.
       </p>
     );
   }
 
+  // Discreto de propósito (como o 👍/👎 sob uma resposta da IA no Notion):
+  // botões fantasma em cinza, sem competir com o plano nem com os documentos.
   return (
-    <div className={cn('flex flex-col gap-2.5 border-t border-clinical-line pt-4', className)}>
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="font-mono text-[0.6875rem] uppercase tracking-wider text-muted-foreground">
-          Esta análise ajudou?
-        </span>
+    <div className={cn('flex flex-col gap-2', className)}>
+      <div className="flex flex-wrap items-center gap-1">
+        <span className="mr-1 text-[0.8125rem] text-muted-foreground">Esta análise ajudou?</span>
 
         <Button
           type="button"
           size="sm"
           variant="ghost"
-          className="h-7 gap-1.5 px-2 text-xs"
+          className="text-muted-foreground max-sm:h-10"
           disabled={feedback.isPending}
           onClick={() => void send('helpful')}
         >
-          <ThumbsUp className="size-3.5" />
+          <ThumbsUp />
           Foi útil
         </Button>
 
@@ -104,13 +107,13 @@ export function CopilotFeedback({ encounterId, interactionId, className }: Copil
             variant="ghost"
             aria-pressed={selected === option.kind}
             className={cn(
-              'h-7 gap-1.5 px-2 text-xs',
-              selected === option.kind && 'bg-clinical-amber-bg text-clinical-amber-foreground',
+              'text-muted-foreground max-sm:h-10',
+              selected === option.kind && 'bg-active text-foreground',
             )}
             disabled={feedback.isPending}
             onClick={() => setSelected(selected === option.kind ? null : option.kind)}
           >
-            <Warning className="size-3.5" />
+            <Flag />
             {option.label}
           </Button>
         ))}

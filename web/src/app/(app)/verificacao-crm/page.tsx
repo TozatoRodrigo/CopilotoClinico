@@ -6,15 +6,27 @@ import { useAuth } from '@/lib/auth-store';
 import { apiClient, ApiError } from '@/lib/api-client';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Callout } from '@/components/ui/callout';
+import { ProgressSteps } from '@/components/ui/progress-steps';
+import { PropertyList, PropertyRow } from '@/components/ui/property-list';
+import { Page } from '@/components/layout/page';
+import { PageHeader, SectionHeader } from '@/components/layout/page-header';
 import {
-  Stethoscope,
-  SealCheck,
+  ArrowRight,
+  ArrowsClockwise,
   CheckCircle,
   Circle,
+  CircleDashed,
   CircleNotch,
-  ArrowRight,
+  Clock,
   IdentificationCard,
+  ListChecks,
+  SealCheck,
   ShieldCheck,
+  UserCircle,
+  WarningCircle,
+  XCircle,
 } from '@phosphor-icons/react';
 
 interface VerificationRequest {
@@ -77,161 +89,177 @@ export default function CrmVerificationPage() {
     { done: isVerified, label: 'Registro ativo no CFM' },
   ];
 
+  const requestedAt = request?.requestedAt
+    ? new Date(request.requestedAt).toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : null;
+
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      {/* Top bar */}
-      <header className="flex w-full items-center justify-between px-10 py-6">
-        <div className="flex items-center gap-2.5">
-          <span
-            className="flex h-[34px] w-[34px] items-center justify-center rounded-[9px]"
-            style={{ background: 'var(--sidebar-dark-bg)' }}
-          >
-            <Stethoscope className="h-[18px] w-[18px]" style={{ color: 'var(--sidebar-dark-accent)' }} />
-          </span>
-          <p className="text-sm font-semibold">Copiloto Clínico</p>
-        </div>
-
-        {/* Progress steps */}
-        <div className="hidden items-center gap-2.5 md:flex">
-          <div className="flex items-center gap-2">
-            <span className="h-[5px] w-6 rounded-[3px] bg-clinical-green" />
-            <span className="text-xs text-clinical-green-foreground">Conta</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="h-[5px] w-6 rounded-[3px] bg-clinical-teal" />
-            <span className="text-xs font-semibold text-clinical-ink">CRM</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="h-[5px] w-6 rounded-[3px] bg-clinical-line" />
-            <span className="text-xs text-muted-foreground">Plantão</span>
-          </div>
-        </div>
-      </header>
-
-      {/* Center content */}
-      <div className="flex flex-1 items-center justify-center px-4">
-        <div className="w-full max-w-[560px] space-y-5">
-          <div>
-            <p className="mb-1.5 font-mono text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-              Passo 2 de 3 · menos de 1 minuto
-            </p>
-            <h1 className="font-display text-[2.1rem] font-normal leading-tight">
-              Verificando seu CRM
-            </h1>
-            <p className="mt-2.5 text-[0.9rem] leading-relaxed text-muted-foreground">
+    <Page width="narrow">
+      <PageHeader
+        icon={IdentificationCard}
+        iconTone={isVerified ? 'green' : 'gray'}
+        eyebrow={isVerified ? undefined : 'Passo 2 de 3 · menos de 1 minuto'}
+        title={isVerified ? 'CRM verificado' : 'Verificando seu CRM'}
+        description={
+          isVerified ? (
+            'Seu registro está ativo no CFM. Não há nada a fazer aqui.'
+          ) : (
+            <>
               Consultamos o CFM automaticamente.{' '}
-              <span className="font-semibold text-clinical-ink">Você não precisa esperar</span> —
-              pode começar o plantão agora; documentos confirmados antes da verificação ficam
-              marcados como pendentes.
-            </p>
-          </div>
-
-          {/* Verification card */}
-          <div className="rounded-2xl border border-clinical-line bg-card p-6 shadow-sm">
-            <div className="flex items-center gap-3.5">
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-clinical-teal-tint">
-                <IdentificationCard className="h-6 w-6 text-clinical-teal-deep" />
+              <span className="font-medium text-foreground">Você não precisa esperar</span> — pode
+              começar o plantão agora; documentos confirmados antes da verificação ficam marcados
+              como pendentes.
+            </>
+          )
+        }
+        properties={
+          <PropertyList>
+            <PropertyRow icon={ListChecks} label="Etapa">
+              <ProgressSteps
+                steps={['Conta', 'CRM', 'Plantão']}
+                currentStep={isVerified ? 2 : 1}
+                className="-ml-1.5"
+              />
+            </PropertyRow>
+            <PropertyRow icon={UserCircle} label="Médico">
+              Dr(a). {physician.name ?? 'Médico'}
+            </PropertyRow>
+            <PropertyRow icon={IdentificationCard} label="CRM">
+              <span className="font-mono">
+                {physician.crmUf}-{physician.crmNumber}
               </span>
-              <div className="flex-1">
-                <p className="text-[0.95rem] font-semibold">
-                  Dr(a). {physician.name ?? 'Médico'}
-                </p>
-                <p className="mt-0.5 font-mono text-[0.8rem] text-muted-foreground">
-                  CRM {physician.crmUf}-{physician.crmNumber}
-                </p>
-              </div>
+            </PropertyRow>
+            <PropertyRow icon={CircleDashed} label="Status">
               {isVerified ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-clinical-green-bg px-3 py-1 text-xs font-semibold text-clinical-green-foreground">
-                  <SealCheck className="size-3.5" weight="fill" /> Verificado
-                </span>
+                <Badge variant="success">
+                  <SealCheck weight="fill" aria-hidden="true" /> Verificado
+                </Badge>
               ) : loading ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-                  <CircleNotch className="size-3.5 animate-spin" /> Carregando…
-                </span>
+                <Badge variant="secondary">
+                  <CircleNotch className="animate-spin" aria-hidden="true" /> Carregando…
+                </Badge>
               ) : isPending ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-clinical-teal-tint px-3 py-1 text-xs font-semibold text-clinical-teal-deep">
-                  <CircleNotch className="size-3.5 animate-spin" /> Consultando CFM…
-                </span>
+                <Badge variant="default">
+                  <CircleNotch className="animate-spin" aria-hidden="true" /> Consultando CFM…
+                </Badge>
+              ) : isRejected ? (
+                <Badge variant="destructive">Rejeitada</Badge>
               ) : (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-clinical-amber-bg px-3 py-1 text-xs font-semibold text-clinical-amber-foreground">
-                  Pendente
-                </span>
+                <Badge variant="warning">Pendente</Badge>
               )}
-            </div>
+            </PropertyRow>
+            {requestedAt && !isVerified && (
+              <PropertyRow icon={Clock} label="Solicitado em">
+                {requestedAt}
+              </PropertyRow>
+            )}
+          </PropertyList>
+        }
+      />
 
-            {/* Checklist */}
-            <div className="mt-4 flex flex-col gap-2 border-t border-clinical-line pt-3.5">
-              {checklist.map((item) => (
-                <div key={item.label} className="flex items-center gap-2 text-[0.8rem]">
-                  {item.done ? (
-                    <CheckCircle className="size-[15px] text-clinical-green" weight="fill" />
-                  ) : (
-                    <Circle className="size-[15px] text-muted-foreground" />
-                  )}
-                  <span className={item.done ? 'text-clinical-ink' : 'text-muted-foreground'}>
-                    {item.label}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
+      {/* O que fazer agora — o callout muda com o estado da verificação. */}
+      {!isVerified && !loading && isPending && (
+        <Callout tone="blue" icon={<CircleNotch className="animate-spin" />} title="Consulta ao CFM em andamento">
+          Avisamos por notificação quando a verificação concluir · normalmente &lt; 2 min. Você
+          pode atender enquanto isso.
+        </Callout>
+      )}
 
-          {/* Actions */}
-          <div className="flex gap-2.5">
-            <Button
-              className="h-[54px] flex-1 gap-2 text-[0.95rem] font-semibold shadow-[0_4px_14px_rgba(14,124,123,0.3)]"
-              onClick={() => router.push('/dashboard')}
-            >
-              Começar o plantão agora
-              <ArrowRight className="size-4" weight="bold" />
-            </Button>
+      {!hasRequest && !isVerified && !loading && (
+        <Callout
+          tone="orange"
+          icon={<WarningCircle weight="fill" />}
+          title="Ainda não solicitou verificação?"
+          action={
             <Button
               variant="outline"
-              className="h-[54px] px-5 text-[0.85rem]"
-              onClick={() => loadRequest()}
-              disabled={loading}
+              size="sm"
+              className="max-sm:h-10"
+              onClick={() => handleRequest()}
+              loading={submitting}
             >
-              Atualizar
+              Solicitar verificação de CRM
             </Button>
-          </div>
+          }
+        >
+          Envie a solicitação para conferirmos seu registro no CFM. Até lá, documentos confirmados
+          ficam marcados como pendentes.
+        </Callout>
+      )}
 
-          {!hasRequest && !isVerified && !loading && (
-            <div className="rounded-xl border border-clinical-line bg-clinical-paper p-4 text-center">
-              <p className="text-sm text-muted-foreground">
-                Ainda não solicitou verificação?
-              </p>
-              <Button
-                variant="outline"
-                className="mt-2"
-                onClick={() => handleRequest()}
-                disabled={submitting}
-              >
-                {submitting ? 'Enviando...' : 'Solicitar verificação de CRM'}
-              </Button>
-            </div>
-          )}
+      {isRejected && (
+        <Callout
+          tone="red"
+          icon={<XCircle weight="fill" />}
+          title="Verificação rejeitada"
+          action={
+            <Button
+              variant="outline"
+              size="sm"
+              className="max-sm:h-10"
+              onClick={() => handleRequest()}
+              loading={submitting}
+            >
+              Solicitar novamente
+            </Button>
+          }
+        >
+          {request?.notes ?? 'Confira o número e a UF do seu CRM e solicite novamente.'}
+        </Callout>
+      )}
 
-          {isRejected && request?.notes && (
-            <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4">
-              <p className="text-sm font-medium text-destructive">Verificação rejeitada</p>
-              <p className="mt-1 text-sm text-muted-foreground">{request.notes}</p>
-              <Button variant="outline" className="mt-3" onClick={() => handleRequest()} disabled={submitting}>
-                {submitting ? 'Enviando...' : 'Solicitar novamente'}
-              </Button>
-            </div>
-          )}
+      <section className="flex flex-col gap-2">
+        <SectionHeader title="Etapas" as="h2" />
+        <ul className="flex flex-col">
+          {checklist.map((item) => (
+            <li key={item.label} className="flex items-center gap-2.5 py-1.5 text-sm">
+              {item.done ? (
+                <CheckCircle className="size-[18px] shrink-0 text-tone-green" weight="fill" aria-hidden="true" />
+              ) : (
+                <Circle className="size-[18px] shrink-0 text-fg-tertiary" aria-hidden="true" />
+              )}
+              <span className={item.done ? 'text-foreground' : 'text-muted-foreground'}>
+                {item.label}
+              </span>
+              <span className="sr-only">{item.done ? '— concluído' : '— pendente'}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
 
-          <p className="text-center text-[0.75rem] text-muted-foreground">
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button size="lg" className="sm:flex-1" onClick={() => router.push('/dashboard')}>
+            Começar o plantão agora
+            <ArrowRight weight="bold" />
+          </Button>
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={() => loadRequest()}
+            disabled={loading}
+          >
+            <ArrowsClockwise />
+            Atualizar
+          </Button>
+        </div>
+        {!isPending && !isVerified && (
+          <p className="text-xs text-muted-foreground">
             Avisamos por notificação quando a verificação concluir · normalmente &lt; 2 min
           </p>
-
-          {/* Trust footer */}
-          <div className="flex items-center justify-center gap-2 pt-2 text-[0.75rem] text-muted-foreground">
-            <ShieldCheck className="size-3.5 text-clinical-teal" />
-            Seus dados são protegidos conforme a LGPD.
-          </div>
-        </div>
+        )}
       </div>
-    </div>
+
+      {/* Trust footer */}
+      <p className="flex items-center gap-1.5 border-t border-border pt-4 text-xs text-muted-foreground">
+        <ShieldCheck className="size-3.5 shrink-0" aria-hidden="true" />
+        Seus dados são protegidos conforme a LGPD.
+      </p>
+    </Page>
   );
 }

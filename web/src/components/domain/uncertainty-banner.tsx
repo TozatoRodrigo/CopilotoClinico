@@ -3,7 +3,6 @@
 import { Warning } from '@phosphor-icons/react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 import { messages } from '@/lib/messages';
 
 interface UncertaintyBannerProps {
@@ -25,6 +24,11 @@ interface UncertaintyBannerProps {
   onSearchGuidelines?: () => void;
 }
 
+/**
+ * Callout laranja: incerteza fala do RACIOCÍNIO (faltam dados, a evidência
+ * não fecha) e pede uma ação do médico antes de seguir o plano — por isso o
+ * tom de "muda a conduta". Ver também CoverageBanner, que fala da BASE.
+ */
 export function UncertaintyBanner({
   reason,
   title = messages.uncertainty.title,
@@ -35,8 +39,8 @@ export function UncertaintyBanner({
   const hasAction = Boolean(onComplementCase || onSearchGuidelines);
 
   return (
-    <Alert className={cn('border-clinical-amber/40 bg-card', className)}>
-      <Warning className="text-clinical-amber" />
+    <Alert variant="warning" className={className}>
+      <Warning weight="fill" />
       <AlertTitle>{title}</AlertTitle>
       <AlertDescription>
         <p>{reason ?? messages.uncertainty.defaultReason}</p>
@@ -44,7 +48,7 @@ export function UncertaintyBanner({
             passo disponível; um banner de incerteza sem ação é exatamente
             o beco sem saída que a Sprint 26 eliminou no backend. */}
         {hasAction && (
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-2.5 flex flex-wrap gap-2">
             {onComplementCase && (
               <Button type="button" size="sm" onClick={onComplementCase}>
                 {messages.uncertainty.actions.complementCase}

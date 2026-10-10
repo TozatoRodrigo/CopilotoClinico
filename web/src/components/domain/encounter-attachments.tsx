@@ -93,11 +93,13 @@ export function EncounterAttachments({ encounterId }: { encounterId: string }) {
   }
 
   return (
-    <div className="flex flex-col gap-2.5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <p className="text-sm font-semibold text-clinical-ink">Referências deste caso</p>
-          <p className="text-xs text-muted-foreground">
+    <section aria-labelledby="encounter-attachments-title" className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+        <div className="min-w-0 flex-1 basis-64 space-y-0.5">
+          <h3 id="encounter-attachments-title" className="text-sm font-semibold text-foreground">
+            Referências deste caso
+          </h3>
+          <p className="text-[0.8125rem] text-pretty text-muted-foreground">
             Vale só para este atendimento. A fonte entra marcada como não curada e a conduta
             baseada nela sai como preliminar.
           </p>
@@ -106,11 +108,11 @@ export function EncounterAttachments({ encounterId }: { encounterId: string }) {
           type="button"
           size="sm"
           variant="outline"
-          className="gap-2"
+          className="max-sm:h-10"
           disabled={atLimit || addAttachment.isPending}
           onClick={() => fileInputRef.current?.click()}
         >
-          <Paperclip className="size-4" />
+          <Paperclip />
           {addAttachment.isPending ? 'Anexando…' : 'Anexar referência'}
         </Button>
         <input
@@ -127,42 +129,45 @@ export function EncounterAttachments({ encounterId }: { encounterId: string }) {
       </div>
 
       {atLimit && (
-        <p className="text-xs text-clinical-amber-foreground">
+        <p className="text-[0.8125rem] text-muted-foreground">
           Limite de {MAX_ATTACHMENTS} referências por atendimento — remova uma para anexar outra.
         </p>
       )}
 
       {attachmentsQuery.isPending ? (
-        <Skeleton className="h-9 w-full rounded-[10px]" />
+        <Skeleton className="h-9 w-full" />
       ) : (
         attachments.length > 0 && (
-          <ul className="flex flex-col gap-1.5">
+          // Blocos de arquivo do Notion: linha fina, ícone cinza, ação discreta.
+          <ul className="flex flex-col">
             {attachments.map((attachment) => (
               <li
                 key={attachment.id}
-                className="flex items-center gap-2 rounded-[10px] border border-clinical-line bg-card px-3 py-2"
+                className="-mx-2 flex min-h-9 items-center gap-2.5 rounded-md px-2 py-1 transition-colors hover:bg-hover"
               >
-                <FileText className="size-4 shrink-0 text-muted-foreground" />
-                <span className="min-w-0 flex-1 truncate text-sm">{attachment.filename}</span>
-                <span className="shrink-0 font-mono text-[0.6875rem] text-muted-foreground">
+                <FileText className="size-[18px] shrink-0 text-muted-foreground" aria-hidden="true" />
+                <span className="min-w-0 flex-1 truncate text-sm text-foreground">
+                  {attachment.filename}
+                </span>
+                <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
                   {formatSize(attachment.sizeBytes)}
                 </span>
                 <Button
                   type="button"
-                  size="sm"
+                  size="icon-sm"
                   variant="ghost"
-                  className="h-7 shrink-0 px-2"
+                  className="shrink-0 text-muted-foreground max-sm:size-10"
                   aria-label={`Remover ${attachment.filename}`}
                   disabled={removeAttachment.isPending}
                   onClick={() => void removeAttachment.mutateAsync(attachment.id)}
                 >
-                  <Trash className="size-3.5" />
+                  <Trash />
                 </Button>
               </li>
             ))}
           </ul>
         )
       )}
-    </div>
+    </section>
   );
 }

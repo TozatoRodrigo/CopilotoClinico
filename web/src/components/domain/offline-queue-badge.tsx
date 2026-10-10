@@ -55,9 +55,9 @@ export function OfflineQueueBadge() {
         <button
           type="button"
           className={cn(
-            'relative inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors',
-            'border-clinical-amber/40 bg-clinical-amber-bg text-clinical-amber-foreground',
-            'hover:bg-clinical-amber/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            'relative inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors max-sm:h-9',
+            'bg-tone-orange-tag text-tone-orange-ink',
+            'hover:opacity-85 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40',
           )}
           aria-label={`${count} itens pendentes para sincronizar`}
         >
@@ -75,9 +75,7 @@ export function OfflineQueueBadge() {
       </SheetTrigger>
       <SheetContent side="right" className="w-full sm:max-w-md">
         <SheetHeader>
-          <SheetTitle className="font-heading text-base">
-            Fila offline
-          </SheetTitle>
+          <SheetTitle>Fila offline</SheetTitle>
           <p className="text-sm text-muted-foreground">
             {count} {count === 1 ? 'item pendente' : 'itens pendentes'}.
             {isOnline
@@ -86,15 +84,15 @@ export function OfflineQueueBadge() {
           </p>
         </SheetHeader>
 
-        <div className="mt-4 space-y-2">
+        <div className="divide-y divide-border border-y border-border px-4">
           {items.map((item) => (
             <div
               key={item.id}
-              className="flex items-start justify-between gap-3 rounded-lg border bg-card p-3"
+              className="flex items-start justify-between gap-3 py-3"
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="text-[10px]">
+                  <Badge variant="warning">
                     {ITEM_LABELS[item.type] ?? item.type}
                   </Badge>
                   <span className="truncate text-sm font-medium">
@@ -122,7 +120,7 @@ export function OfflineQueueBadge() {
         </div>
 
         {isOnline && (
-          <div className="mt-4 border-t pt-4">
+          <div className="px-4 pt-2">
             <Button
               variant="outline"
               size="sm"

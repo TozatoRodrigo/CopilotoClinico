@@ -15,32 +15,55 @@ import { apiClient } from '@/lib/api-client';
 import { DOCUMENT_TYPES } from '@/lib/document-types';
 import { ProgressSteps } from '@/components/ui/progress-steps';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Callout } from '@/components/ui/callout';
+import { Disclosure } from '@/components/ui/disclosure';
+import { PropertyList, PropertyRow } from '@/components/ui/property-list';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { Page } from '@/components/layout/page';
+import { PageHeader, SectionHeader } from '@/components/layout/page-header';
 import { BlockerQuestionCard } from '@/components/domain/blocker-question-card';
 import { UncertaintyBanner } from '@/components/domain/uncertainty-banner';
 import { CoverageBanner } from '@/components/domain/coverage-banner';
 import { CopilotFeedback } from '@/components/domain/copilot-feedback';
+import { CitationFootnote } from '@/components/domain/citation-footnote';
 import { GuidelineConsultSheet } from '@/components/domain/guideline-consult';
 import { SourceOriginBadge, isUnreviewedOrigin } from '@/components/domain/source-origin-badge';
 import { useMessages } from '@/lib/messages/use-messages';
 import type { Messages } from '@/lib/messages';
+import { cn } from '@/lib/utils';
+import { ResultSkeleton } from './_components/result-skeleton';
 import {
-  ArrowLeft,
+  ArrowRight,
   ArrowsClockwise,
   BookOpen,
-  Sparkle,
-  PencilSimple,
-  LockSimple,
-  FileText,
+  Books,
+  Check,
+  CheckCircle,
   CircleNotch,
-  WarningCircle,
-  SealCheck,
-  XCircle,
+  Eye,
+  FileText,
+  Info,
+  Lightning,
+  ListChecks,
+  LockSimple,
+  PencilSimple,
   PhoneCall,
+  Question,
+  SealCheck,
+  Siren,
+  Sparkle,
+  Warning,
+  WarningCircle,
+  WarningOctagon,
+  X,
+  XCircle,
+  type Icon,
 } from '@phosphor-icons/react';
 import type {
+  Citation,
   ClarifyingAnswerValue,
   ClarifyingQuestion,
   CopilotAnalysis,
@@ -51,6 +74,8 @@ import type {
 } from '@/lib/types';
 import type { RecommendationDecisionState } from '@/hooks/use-recommendation-decisions';
 
+const STEPS = ['Captura', 'Análise', 'Documento'];
+
 // UX — 3 baldes fixos do redesign (Redesign.dc.html): AGORA (estabilização
 // imediata), EM SEGUIDA (conduta terapêutica) e SE PIORAR (o que observar /
 // diagnóstico de acompanhamento). "diagnostic"/"verify" e qualquer categoria
@@ -58,22 +83,10 @@ import type { RecommendationDecisionState } from '@/hooks/use-recommendation-dec
 // railFor() anterior já tinha para category desconhecida.
 type Bucket = 'now' | 'next' | 'watch';
 
-const BUCKET_DEFS: Record<Bucket, { label: string; hint: string; chipClass: string }> = {
-  now: {
-    label: 'AGORA',
-    hint: 'primeiros 10 minutos',
-    chipClass: 'bg-clinical-error text-white',
-  },
-  next: {
-    label: 'EM SEGUIDA',
-    hint: 'confirma e encaminha',
-    chipClass: 'bg-clinical-teal-tint text-clinical-teal-deep',
-  },
-  watch: {
-    label: 'SE PIORAR',
-    hint: 'o que observar e quando pedir ajuda',
-    chipClass: 'bg-clinical-amber-bg text-clinical-amber-foreground',
-  },
+const BUCKET_DEFS: Record<Bucket, { label: string; hint: string; icon: Icon }> = {
+  now: { label: 'Agora', hint: 'primeiros 10 minutos', icon: Lightning },
+  next: { label: 'Em seguida', hint: 'confirma e encaminha', icon: ArrowRight },
+  watch: { label: 'Se piorar', hint: 'o que observar e quando pedir ajuda', icon: Eye },
 };
 
 function bucketFor(category?: string): Bucket {
@@ -82,31 +95,24 @@ function bucketFor(category?: string): Bucket {
   return 'watch';
 }
 
-const HYPOTHESIS_TONE = {
-  error: {
-    border: 'border-clinical-error/35',
-    bg: 'bg-clinical-error-bg',
-    label: 'text-clinical-error',
-    heading: 'text-clinical-error-foreground',
-    body: 'text-clinical-error-foreground/85',
-  },
-  amber: {
-    border: 'border-clinical-amber/40',
-    bg: 'bg-clinical-amber-bg',
-    label: 'text-clinical-amber',
-    heading: 'text-clinical-amber-foreground',
-    body: 'text-clinical-amber-foreground/85',
-  },
-  neutral: {
-    border: 'border-clinical-line',
-    bg: 'bg-card',
-    label: 'text-clinical-teal',
-    heading: 'text-clinical-ink',
-    body: 'text-clinical-ink-soft',
-  },
-} as const;
+/** No celular a coluna de rótulos encolhe para sobrar espaço às tags. */
+const PROPERTY_ROW = 'max-sm:grid-cols-[8.5rem_1fr]';
 
 const SEVERITY_RANK: Record<RedFlagSeverity, number> = { critical: 3, high: 2, moderate: 1 };
+
+/**
+ * Tag de red flag: cor clínica fixa (vermelho = crítico, laranja = muda a
+ * conduta, cinza = moderado) + ícone de forma diferente por severidade e o
+ * rótulo da severidade para leitor de tela — nunca só a cor.
+ */
+const RED_FLAG_TAG: Record<
+  RedFlagSeverity,
+  { variant: 'destructive' | 'warning' | 'secondary'; icon: Icon }
+> = {
+  critical: { variant: 'destructive', icon: WarningOctagon },
+  high: { variant: 'warning', icon: Warning },
+  moderate: { variant: 'secondary', icon: Info },
+};
 
 export default function ResultPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: encounterId } = use(params);
@@ -154,59 +160,52 @@ export default function ResultPage({ params }: { params: Promise<{ id: string }>
   const fetchError = resultQuery.error?.message ?? null;
 
   if (loading) {
-    return (
-      <div className="flex h-full flex-col">
-        <div className="flex h-16 shrink-0 items-center justify-between border-b border-clinical-line bg-card px-5">
-          <Skeleton className="h-5 w-48 rounded" />
-          <Skeleton className="h-5 w-40 rounded" />
-        </div>
-        <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[460px_1fr]">
-          <div className="border-r border-clinical-line p-7">
-            <Skeleton className="mb-6 h-4 w-24 rounded" />
-            <Skeleton className="mb-3 h-7 w-56 rounded" />
-            <div className="space-y-4">
-              {Array.from({ length: 2 }, (_, i) => (
-                <Skeleton key={i} className="h-28 w-full rounded-2xl" />
-              ))}
-            </div>
-          </div>
-          <div className="p-7">
-            <Skeleton className="mb-2 h-4 w-32 rounded" />
-            <Skeleton className="mb-6 h-7 w-44 rounded" />
-            <div className="space-y-4">
-              {Array.from({ length: 3 }, (_, i) => (
-                <Skeleton key={i} className="h-36 w-full rounded-[14px]" />
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    return <ResultSkeleton />;
   }
 
   if (fetchError || !result) {
     return (
-      <div className="flex h-full items-center justify-center px-6">
-        <div className="w-full max-w-md space-y-4 text-center">
-          {fetchError && (
-            <Alert variant="destructive" className="text-left">
-              <AlertTitle>{messages.errors.analysisLoadTitle}</AlertTitle>
-              <AlertDescription className="flex items-center justify-between gap-3">
-                <span>{fetchError}</span>
-                <Button variant="outline" size="sm" onClick={() => void resultQuery.refetch()}>
-                  {messages.common.actions.tryAgain}
-                </Button>
-              </AlertDescription>
-            </Alert>
-          )}
-          <p className="text-muted-foreground">{messages.errors.analysisEmpty}</p>
-          <Button asChild>
+      <Page width="narrow">
+        <ProgressSteps steps={STEPS} currentStep={1} className="-ml-1.5" />
+        {fetchError && (
+          <Alert variant="destructive">
+            <WarningCircle weight="fill" />
+            <AlertTitle>{messages.errors.analysisLoadTitle}</AlertTitle>
+            <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+              <span>{fetchError}</span>
+              <Button variant="outline" size="sm" onClick={() => void resultQuery.refetch()}>
+                {messages.common.actions.tryAgain}
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+        {/* Com erro de carga, o alerta acima já explica; o estado vazio só
+            aparece quando o caso realmente não tem análise. */}
+        {fetchError ? (
+          <Button asChild size="sm" variant="outline" className="self-start">
             <Link href={`/encounters/${encounterId}/capture`}>
               {messages.common.actions.goToAnalysis}
             </Link>
           </Button>
-        </div>
-      </div>
+        ) : (
+          <div className="flex flex-col items-center gap-3 py-12 text-center">
+            <Sparkle className="size-8 text-fg-tertiary" weight="duotone" aria-hidden="true" />
+            <div className="max-w-sm space-y-1">
+              <p className="text-[0.9375rem] font-medium text-foreground">
+                {messages.errors.analysisEmpty}
+              </p>
+              <p className="text-sm text-pretty text-muted-foreground">
+                Descreva o caso na captura para o copiloto montar a análise.
+              </p>
+            </div>
+            <Button asChild size="sm" className="mt-1">
+              <Link href={`/encounters/${encounterId}/capture`}>
+                {messages.common.actions.goToAnalysis}
+              </Link>
+            </Button>
+          </div>
+        )}
+      </Page>
     );
   }
 
@@ -217,6 +216,13 @@ export default function ResultPage({ params }: { params: Promise<{ id: string }>
   // resincroniza — o médico veria o turno antigo mesmo depois do fetch
   // trazer o novo, porque React não sabe que precisa reconstruir o hook.
   return <ResultView key={result.interactionId} encounterId={encounterId} result={result} />;
+}
+
+interface Footnote {
+  key: string;
+  number: number;
+  rec: CopilotRecommendation;
+  citation: Citation | undefined;
 }
 
 function ResultView({ encounterId, result }: { encounterId: string; result: StoredCopilotResult }) {
@@ -231,6 +237,9 @@ function ResultView({ encounterId, result }: { encounterId: string; result: Stor
     respondError,
     retrievalCoverage,
     interactionId,
+    turnIndex,
+    maxTurns,
+    isLastAllowedTurn,
   } = useCopilotConversation(encounterId, result);
   const { decisions, setDecision, setNote } = useRecommendationDecisions(
     encounterId,
@@ -291,18 +300,15 @@ function ResultView({ encounterId, result }: { encounterId: string; result: Stor
     (q) => q.criticality === 'blocker' && answers[q.id] === undefined,
   );
 
-  // UX — card "Hipótese principal": tom acompanha a red flag mais grave
-  // (mesma regra de cor com significado fixo do design system — âmbar/erro
-  // nunca são decorativos aqui). Sem red flags, fica neutro.
-  const topSeverity = analysis.redFlags.reduce<RedFlagSeverity | null>((acc, flag) => {
-    if (!acc || SEVERITY_RANK[flag.severity] > SEVERITY_RANK[acc]) return flag.severity;
-    return acc;
-  }, null);
-  const hypothesisTone =
-    topSeverity === 'critical' ? 'error' : topSeverity === 'high' ? 'amber' : 'neutral';
-  const toneClasses = HYPOTHESIS_TONE[hypothesisTone];
+  // Red flags da mais grave para a menos grave: a urgência real do caso é a
+  // primeira coisa lida nas propriedades da página (antes era o tom do card
+  // "Hipótese principal" — cor com significado fixo, nunca decorativa).
+  const redFlags = [...analysis.redFlags].sort(
+    (a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity],
+  );
   const topHypothesis = analysis.differentials[0]?.hypothesis;
   const otherDifferentials = analysis.differentials.slice(1);
+  const hasCannotMiss = otherDifferentials.some((d) => d.cannotMiss);
 
   const buckets: { key: Bucket; items: { rec: CopilotRecommendation; index: number }[] }[] = (
     ['now', 'next', 'watch'] as const
@@ -313,88 +319,143 @@ function ResultView({ encounterId, result }: { encounterId: string; result: Stor
       .filter(({ rec }) => bucketFor(rec.category) === key),
   }));
 
-  return (
-    <div className="flex h-full flex-col">
-      <header className="flex h-16 shrink-0 items-center justify-between border-b border-clinical-line bg-card px-5">
-        <div className="flex min-w-0 items-center gap-3">
-          <Link
-            href={`/encounters/${encounterId}`}
-            className="flex items-center gap-1 text-sm font-medium text-muted-foreground transition-colors hover:text-clinical-ink"
-          >
-            <ArrowLeft className="size-4" weight="bold" />
-            Fila
-          </Link>
-          <span className="h-4 w-px bg-clinical-line" aria-hidden="true" />
-          <span className="font-mono text-xs text-muted-foreground">{encounterId.slice(0, 8)}</span>
-        </div>
-        <ProgressSteps steps={['Captura', 'Análise', 'Documento']} currentStep={1} />
-      </header>
+  // Notas de rodapé na ordem de leitura do plano; recomendações que citam o
+  // mesmo trecho compartilham o número (como num artigo).
+  const footnotes: Footnote[] = [];
+  const footnoteByRec = new Map<number, number>();
+  for (const { rec, index } of buckets.flatMap((bucket) => bucket.items)) {
+    const key = rec.citationChunkId || `${rec.source}@${rec.sourceVersion}`;
+    let footnote = footnotes.find((f) => f.key === key);
+    if (!footnote) {
+      footnote = {
+        key,
+        number: footnotes.length + 1,
+        rec,
+        citation: analysis.citations.find((c) => c.chunkId === rec.citationChunkId),
+      };
+      footnotes.push(footnote);
+    }
+    footnoteByRec.set(index, footnote.number);
+  }
 
-      {/* Hipótese principal — sempre presente (reasoning é obrigatório no
-          schema); tom e chips de red flag comunicam a urgência real do caso. */}
-      <div
-        className={`shrink-0 border-b px-5 py-4 sm:px-7 ${toneClasses.border} ${toneClasses.bg}`}
-      >
-        <p
-          className={`font-mono text-[0.6875rem] font-bold uppercase tracking-wider ${toneClasses.label}`}
-        >
-          Hipótese principal
-        </p>
-        <h1 className={`mt-1 font-display text-[1.5rem] leading-tight ${toneClasses.heading}`}>
-          {topHypothesis ?? 'Avaliação clínica em andamento'}
-        </h1>
-        <p className={`mt-1.5 text-sm leading-relaxed ${toneClasses.body}`}>{analysis.reasoning}</p>
-        {analysis.redFlags.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {analysis.redFlags.map((flag, i) => (
-              <RedFlagBadge
-                key={`${flag.finding}-${i}`}
-                finding={flag.finding}
-                severity={flag.severity}
-              />
-            ))}
-          </div>
-        )}
+  return (
+    <Page width="narrow">
+      {/* Etapa do fluxo + consulta de diretrizes. A ação fica fora do
+          cabeçalho para a hipótese (título) usar a coluna inteira. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <ProgressSteps steps={STEPS} currentStep={1} className="-ml-1.5" />
+        <Button type="button" size="sm" variant="outline" onClick={openConsult}>
+          <BookOpen weight="duotone" />
+          Consultar diretrizes
+        </Button>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[460px_1fr]">
-        <aside className="flex flex-col gap-5 overflow-y-auto border-r border-clinical-line p-7">
-          <div>
-            <p className="font-mono text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground">
-              Antes de decidir
-            </p>
-            <h1 className="mt-1 flex items-center gap-2 font-display text-[1.625rem] leading-tight text-clinical-ink">
-              <Sparkle className="size-5 text-clinical-teal" weight="fill" />O copiloto precisa
-              saber
-            </h1>
-          </div>
+      <PageHeader
+        eyebrow={
+          <span className="inline-flex items-center gap-1.5">
+            <Sparkle className="size-3.5 text-primary" weight="fill" aria-hidden="true" />
+            Hipótese principal do copiloto
+          </span>
+        }
+        title={topHypothesis ?? 'Avaliação clínica em andamento'}
+        properties={
+          <PropertyList>
+            <PropertyRow icon={Siren} label={messages.redFlags.heading} className={PROPERTY_ROW}>
+              {redFlags.length > 0 ? (
+                <ul className="flex flex-wrap gap-1.5">
+                  {redFlags.map((flag, i) => (
+                    <li key={`${flag.finding}-${i}`}>
+                      <RedFlagTag
+                        finding={flag.finding}
+                        severity={flag.severity}
+                        messages={messages}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <span className="text-muted-foreground">Nenhum identificado</span>
+              )}
+            </PropertyRow>
+            <PropertyRow icon={ListChecks} label="Plano" className={PROPERTY_ROW}>
+              <span>
+                {messages.copilot.result.recommendationsCount(recommendations.length)}
+                <span className="text-muted-foreground">
+                  {' · '}
+                  {messages.copilot.result.preliminarySummary(definitiveCount, preliminaryCount)}
+                </span>
+              </span>
+            </PropertyRow>
+            {footnotes.length > 0 && (
+              <PropertyRow icon={Books} label="Fontes" className={PROPERTY_ROW}>
+                <a
+                  href="#fontes"
+                  className="rounded-sm underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground"
+                >
+                  {footnotes.length} {footnotes.length === 1 ? 'fonte citada' : 'fontes citadas'}
+                </a>
+              </PropertyRow>
+            )}
+            <PropertyRow icon={ArrowsClockwise} label="Análise" className={PROPERTY_ROW}>
+              {messages.copilot.progress.round(turnIndex + 1, maxTurns)}
+            </PropertyRow>
+          </PropertyList>
+        }
+      />
 
-          {respondError && (
-            <Alert variant="destructive">
-              <AlertTitle>{messages.copilot.reanalyze.errorTitle}</AlertTitle>
-              <AlertDescription>{respondError}</AlertDescription>
-            </Alert>
-          )}
+      <GuidelineConsultSheet
+        open={consultOpen}
+        onOpenChange={setConsultOpen}
+        caseText={result.caseText ?? encounterQuery.data?.chiefComplaint ?? null}
+        citedChunkIds={recommendations.map((rec) => rec.citationChunkId)}
+        citedSources={recommendations.map((rec) => rec.source)}
+      />
 
-          <div className="flex flex-col gap-4">
-            {criticalQuestions.map((q) => (
-              <BlockerQuestionCard key={q.id} question={q.question} why={q.why}>
-                <AnswerControl
-                  question={q}
-                  value={answers[q.id]}
-                  onChange={(value) => setAnswer(q.id, value)}
-                  variant="critical"
-                  messages={messages}
-                />
-              </BlockerQuestionCard>
-            ))}
+      {respondError && (
+        <Alert variant="destructive">
+          <WarningCircle weight="fill" />
+          <AlertTitle>{messages.copilot.reanalyze.errorTitle}</AlertTitle>
+          <AlertDescription>{respondError}</AlertDescription>
+        </Alert>
+      )}
 
-            {optionalQuestions.map((q) => (
-              <div key={q.id} className="rounded-[14px] border border-clinical-line bg-card p-4">
-                <p className="text-[0.9375rem] font-semibold text-clinical-ink">{q.question}</p>
-                <p className="mb-2 font-mono text-[0.6875rem] uppercase tracking-wide text-muted-foreground">
-                  Opcional · refina a análise
-                </p>
+      {/* 1. O que muda a conduta: perguntas do copiloto, em callouts
+          laranja, antes do plano. */}
+      {questions.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <SectionHeader
+            title="Perguntas do copiloto"
+            count={questions.length}
+            description={messages.copilot.questions.heading}
+          />
+
+          {criticalQuestions.map((q) => (
+            <BlockerQuestionCard key={q.id} question={q.question} why={q.why}>
+              <AnswerControl
+                question={q}
+                value={answers[q.id]}
+                onChange={(value) => setAnswer(q.id, value)}
+                variant="critical"
+                messages={messages}
+              />
+            </BlockerQuestionCard>
+          ))}
+
+          {optionalQuestions.map((q) => (
+            <div key={q.id} className="flex gap-3 rounded-md bg-tone-gray-bg px-4 py-3.5">
+              <Question
+                className="mt-0.5 size-[18px] shrink-0 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <div className="min-w-0 flex-1 space-y-3">
+                <div className="space-y-0.5">
+                  <h3 className="text-[0.9375rem] font-semibold leading-snug text-foreground">
+                    {q.question}
+                  </h3>
+                  <p className="text-[0.8125rem] text-muted-foreground">
+                    Opcional · refina a análise
+                  </p>
+                </div>
                 <AnswerControl
                   question={q}
                   value={answers[q.id]}
@@ -403,225 +464,281 @@ function ResultView({ encounterId, result }: { encounterId: string; result: Stor
                   messages={messages}
                 />
               </div>
-            ))}
-          </div>
-
-          <Button
-            onClick={() => void reanalyze()}
-            disabled={!canReanalyze}
-            className="h-13 w-full gap-2 bg-clinical-teal text-white hover:bg-clinical-teal-deep"
-          >
-            {reanalyzing ? (
-              <CircleNotch className="size-4 animate-spin" weight="bold" />
-            ) : (
-              <ArrowsClockwise className="size-4" weight="bold" />
-            )}
-            {reanalyzing ? messages.copilot.reanalyze.loading : messages.copilot.reanalyze.cta}
-          </Button>
-
-          {otherDifferentials.length > 0 && (
-            <div className="flex flex-col gap-3 border-t border-dashed border-clinical-line pt-5">
-              <p className="font-mono text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground">
-                {messages.copilot.differentials.heading}
-              </p>
-              {otherDifferentials.map((d, i) => (
-                <div key={i} className="border-l-[3px] border-clinical-line pl-3">
-                  <p className="text-sm font-semibold text-clinical-ink">{d.hypothesis}</p>
-                  <p className="mt-0.5 text-[0.8125rem] leading-relaxed text-muted-foreground">
-                    {d.whatDistinguishes}
-                  </p>
-                </div>
-              ))}
             </div>
+          ))}
+
+          {isLastAllowedTurn && (
+            <p className="flex items-start gap-1.5 text-[0.8125rem] text-muted-foreground">
+              <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+              {messages.copilot.progress.lastRoundWarning}
+            </p>
           )}
-        </aside>
 
-        <section className="flex flex-col gap-4 overflow-y-auto p-7">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="font-mono text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground">
-                {`Recomendações · ${recommendations.length}`}
-              </p>
-              <h2 className="mt-1 font-display text-[1.625rem] leading-tight text-clinical-ink">
-                Plano sugerido
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {messages.copilot.result.preliminarySummary(definitiveCount, preliminaryCount)}
-              </p>
-            </div>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="gap-1.5"
-              onClick={openConsult}
-            >
-              <BookOpen className="size-4" weight="duotone" />
-              Consultar diretrizes
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-1">
+            <Button onClick={() => void reanalyze()} disabled={!canReanalyze} className="max-sm:w-full">
+              {reanalyzing ? (
+                <CircleNotch className="animate-spin" weight="bold" />
+              ) : (
+                <ArrowsClockwise weight="bold" />
+              )}
+              {reanalyzing ? messages.copilot.reanalyze.loading : messages.copilot.reanalyze.cta}
             </Button>
+            {preliminaryCount > 0 && (
+              <span className="text-[0.8125rem] text-muted-foreground">
+                {messages.copilot.progress.expectationHint}
+              </span>
+            )}
           </div>
+        </section>
+      )}
 
-          <CoverageBanner coverage={retrievalCoverage} onSearchGuidelines={openConsult} />
+      {/* 2. O que fazer: plano em três tempos, cada recomendação como uma
+          linha de decisão (adotar / rejeitar / anotar). Os avisos de
+          cobertura e incerteza qualificam o plano — ficam logo acima dele. */}
+      <section className="flex flex-col gap-4">
+        <SectionHeader
+          title="Plano sugerido"
+          count={recommendations.length}
+          description="Decida cada conduta — adotar, rejeitar ou anotar. O número sobrescrito leva à fonte."
+        />
 
-          {analysis.uncertainty && (
-            <UncertaintyBanner
-              reason={analysis.uncertaintyReason}
-              onSearchGuidelines={openConsult}
-            />
-          )}
+        <CoverageBanner coverage={retrievalCoverage} onSearchGuidelines={openConsult} />
 
-          <GuidelineConsultSheet
-            open={consultOpen}
-            onOpenChange={setConsultOpen}
-            caseText={result.caseText ?? encounterQuery.data?.chiefComplaint ?? null}
-            citedChunkIds={recommendations.map((rec) => rec.citationChunkId)}
-            citedSources={recommendations.map((rec) => rec.source)}
-          />
+        {analysis.uncertainty && (
+          <UncertaintyBanner reason={analysis.uncertaintyReason} onSearchGuidelines={openConsult} />
+        )}
 
-          <div className="flex flex-col gap-6">
-            {buckets.map((bucket) => {
-              if (bucket.items.length === 0) return null;
-              const def = BUCKET_DEFS[bucket.key];
-              return (
-                <div key={bucket.key} className="flex flex-col gap-3">
-                  <div className="flex items-center gap-2.5">
-                    <span
-                      className={`inline-flex items-center rounded-full px-3 py-1 font-mono text-[0.6875rem] font-bold tracking-wider ${def.chipClass}`}
-                    >
-                      {def.label}
-                    </span>
-                    <span className="text-xs text-muted-foreground">{def.hint}</span>
-                    <span className="h-px flex-1 bg-clinical-line" />
-                  </div>
-                  <div className="flex flex-col gap-3">
-                    {bucket.items.map(({ rec, index }) => {
-                      const recId = String(index);
-                      return (
+        {recommendations.length === 0 ? (
+          <p className="border-y border-border py-6 text-center text-sm text-muted-foreground">
+            Nenhuma conduta sugerida nesta rodada — responda as perguntas ou consulte as diretrizes.
+          </p>
+        ) : (
+          buckets.map((bucket) => {
+            if (bucket.items.length === 0) return null;
+            const def = BUCKET_DEFS[bucket.key];
+            const BucketIcon = def.icon;
+            return (
+              <div key={bucket.key} className="flex flex-col">
+                <h3 className="flex flex-wrap items-baseline gap-x-2 border-b border-border pb-1.5 text-sm font-semibold text-foreground">
+                  <span className="inline-flex items-center gap-1.5 self-center">
+                    <BucketIcon className="size-4 text-muted-foreground" aria-hidden="true" />
+                    {def.label}
+                  </span>
+                  <span className="text-[0.8125rem] font-normal text-muted-foreground">
+                    {def.hint}
+                  </span>
+                </h3>
+                <ul className="divide-y divide-border">
+                  {bucket.items.map(({ rec, index }) => {
+                    const recId = String(index);
+                    return (
+                      <li key={recId}>
                         <RecommendationItem
-                          key={recId}
                           rec={rec}
                           index={index}
+                          footnote={footnoteByRec.get(index)}
                           decision={decisions[recId]}
                           onAdopt={() => setDecision(recId, 'adopted')}
                           onReject={() => setDecision(recId, 'rejected')}
                           onNote={(note) => setNote(recId, note)}
                           confidenceLabel={messages.recommendation.confidence(rec.confidence)}
                         />
-                      );
-                    })}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            );
+          })
+        )}
+      </section>
+
+      {/* 3. Evidência: raciocínio e diferenciais em toggles, fontes como
+          notas de rodapé numeradas (os sobrescritos do plano apontam aqui). */}
+      <section className="flex flex-col gap-1">
+        <SectionHeader title="Raciocínio" className="mb-1" />
+        <Disclosure title="Por que o copiloto chegou a esta hipótese">
+          <p className="text-[0.9375rem] leading-relaxed text-pretty text-foreground">
+            {analysis.reasoning}
+          </p>
+        </Disclosure>
+        {otherDifferentials.length > 0 && (
+          <Disclosure
+            title={messages.copilot.differentials.heading}
+            meta={`${otherDifferentials.length} ${otherDifferentials.length === 1 ? 'hipótese' : 'hipóteses'}`}
+            defaultOpen={hasCannotMiss}
+          >
+            <ul className="flex flex-col gap-3 pt-1">
+              {otherDifferentials.map((d, i) => (
+                <li key={i} className="flex flex-col gap-0.5">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <p className="text-sm font-semibold text-foreground">{d.hypothesis}</p>
+                    {/* PI-03 — "não pode perder": mesmo critério de um red
+                        flag crítico, por isso a tag vermelha. */}
+                    {d.cannotMiss && (
+                      <Badge variant="destructive">
+                        <WarningOctagon weight="fill" aria-hidden="true" />
+                        {messages.copilot.differentials.cannotMiss}
+                        {d.timeToHarm ? ` · dano em ${d.timeToHarm}` : ''}
+                      </Badge>
+                    )}
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                  {d.whatDistinguishes && (
+                    <p className="text-[0.8125rem] leading-relaxed text-muted-foreground">
+                      <span className="text-foreground">
+                        {messages.copilot.differentials.whatDistinguishes}
+                      </span>{' '}
+                      {d.whatDistinguishes}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </Disclosure>
+        )}
+      </section>
 
-          {/* F7 — o reporte de erro clínico nasce aqui, com o interactionId e
-              os chunks recuperados anexados pelo backend, em vez de chegar
-              por mensagem dias depois sem nada disso. */}
-          <CopilotFeedback encounterId={encounterId} interactionId={interactionId} />
+      {footnotes.length > 0 && (
+        <section id="fontes" className="flex scroll-mt-16 flex-col gap-3">
+          <SectionHeader
+            title="Fontes"
+            count={footnotes.length}
+            description="Toda recomendação cita a fonte; a tag diz de onde ela veio e se passou pela equipe clínica."
+          />
+          <ol className="flex flex-col gap-4">
+            {footnotes.map((footnote) => (
+              <li key={footnote.key}>
+                <CitationFootnote
+                  id={`fonte-${footnote.number}`}
+                  number={footnote.number}
+                  source={footnote.citation?.source ?? footnote.rec.source}
+                  sourceVersion={footnote.citation?.sourceVersion ?? footnote.rec.sourceVersion}
+                  text={footnote.citation?.text ?? footnote.rec.sourceText}
+                  origin={footnote.citation?.origin ?? footnote.rec.origin}
+                  evidenceFigure={footnote.citation?.evidenceFigure}
+                  evidenceTable={footnote.citation?.evidenceTable}
+                  href={footnote.rec.sourceUrl || undefined}
+                />
+              </li>
+            ))}
+          </ol>
+        </section>
+      )}
 
-          {/* S25-QC-02 — pedir segunda opinião pressupõe um caso rastreável
-              para o handoff; sem identificação isso não faz sentido, então
-              o card some (em vez de aparecer desabilitado sem explicação —
-              o footer abaixo já cobre a explicação de gerar documento). */}
-          {!isQuickConsult && (
-            <div className="flex items-center gap-3 rounded-2xl border border-clinical-line bg-card px-[18px] py-4">
-              <PhoneCall className="size-5 shrink-0 text-clinical-teal" />
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-clinical-ink">Quer segunda opinião?</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
+      {/* F7 — o reporte de erro clínico nasce aqui, com o interactionId e
+          os chunks recuperados anexados pelo backend, em vez de chegar
+          por mensagem dias depois sem nada disso. */}
+      <CopilotFeedback
+        encounterId={encounterId}
+        interactionId={interactionId}
+        className="border-t border-border pt-4"
+      />
+
+      {/* 4. Próximo passo: documento. */}
+      <section className="flex flex-col gap-3">
+        <SectionHeader
+          title={messages.documents.generateHeading}
+          description="Abre em nova aba para você revisar, editar e assinar."
+        />
+        {hasUnansweredBlocker && (
+          <Callout tone="orange" icon={<WarningCircle weight="fill" />}>
+            Há uma pergunta que muda a conduta ainda sem resposta — o documento gerado agora não
+            vai refletir essa informação.
+          </Callout>
+        )}
+        {/* S25-QC-02 — gerar documento formal exige paciente
+            identificado, mesma regra do processo de sempre; o backend
+            (documents.service.ts) já recusa isto de qualquer forma —
+            desabilitar aqui evita o médico clicar para só então
+            descobrir pelo erro. */}
+        {isQuickConsult && (
+          <QuickConsultBanner
+            encounterId={encounterId}
+            description="Identifique o paciente para gerar SOAP, SBAR, prescrição, atestado ou alta."
+            successMessage="Paciente identificado — já pode gerar os documentos deste caso."
+          />
+        )}
+        <div className="flex flex-wrap gap-2">
+          {DOCUMENT_TYPES.map((dt) => {
+            const isThisGenerating = generatingDoc === dt.type;
+            // Com pergunta que muda a conduta em aberto, a ação azul da tela
+            // é "Reanalisar" — o SOAP volta a ser o primário quando o plano
+            // já reflete as respostas.
+            const isPrimary = dt.primary && !hasUnansweredBlocker && !isThisGenerating;
+            return (
+              <Button
+                key={dt.type}
+                onClick={() => handleGenerateDocument(dt.type)}
+                disabled={isThisGenerating || isQuickConsult}
+                variant={isPrimary ? 'default' : 'outline'}
+              >
+                {isThisGenerating ? <CircleNotch className="animate-spin" /> : <FileText />}
+                {isThisGenerating ? messages.documents.generating : dt.label}
+              </Button>
+            );
+          })}
+        </div>
+        {docError && (
+          <Alert variant="destructive">
+            <WarningCircle weight="fill" />
+            <AlertTitle>{messages.documents.errorTitle}</AlertTitle>
+            <AlertDescription>{docError}</AlertDescription>
+          </Alert>
+        )}
+
+        {/* S25-QC-02 — pedir segunda opinião pressupõe um caso rastreável
+            para o handoff; sem identificação isso não faz sentido, então
+            o bloco some (em vez de aparecer desabilitado sem explicação —
+            o banner acima já cobre a explicação de gerar documento). */}
+        {!isQuickConsult && (
+          <div className="mt-2 flex flex-col gap-3 rounded-md bg-tone-gray-bg px-4 py-3 sm:flex-row sm:items-center">
+            <div className="flex min-w-0 flex-1 gap-3">
+              <PhoneCall className="mt-0.5 size-[18px] shrink-0 text-muted-foreground" aria-hidden="true" />
+              <div className="min-w-0 space-y-0.5 text-sm">
+                <p className="font-semibold text-foreground">Quer segunda opinião?</p>
+                <p className="text-pretty text-muted-foreground">
                   Manda o resumo SBAR pronto para o plantonista sênior ou para a hemodinâmica.
                 </p>
               </div>
-              <Button
-                variant="outline"
-                className="h-10 shrink-0 gap-2"
-                onClick={() => handleGenerateDocument('sbar')}
-                disabled={generatingDoc === 'sbar'}
-              >
-                {generatingDoc === 'sbar' ? (
-                  <CircleNotch className="size-4 animate-spin" />
-                ) : (
-                  <FileText className="size-4" />
-                )}
-                Gerar SBAR
-              </Button>
             </div>
-          )}
-
-          <footer className="mt-2 border-t border-clinical-line pt-5">
-            {hasUnansweredBlocker && (
-              <div className="mb-3 flex items-start gap-2 rounded-lg border border-clinical-amber/40 bg-clinical-amber-bg px-3 py-2 text-xs text-clinical-amber-foreground">
-                <WarningCircle className="mt-0.5 size-4 shrink-0" weight="fill" />
-                <span>
-                  Há uma pergunta que muda a conduta ainda sem resposta — o documento gerado agora
-                  não vai refletir essa informação.
-                </span>
-              </div>
-            )}
-            <p className="mb-3 font-mono text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground">
-              {messages.documents.generateHeading}:
-            </p>
-            {/* S25-QC-02 — gerar documento formal exige paciente
-                identificado, mesma regra do processo de sempre; o backend
-                (documents.service.ts) já recusa isto de qualquer forma —
-                desabilitar aqui evita o médico clicar para só então
-                descobrir pelo erro. */}
-            {isQuickConsult && (
-              <QuickConsultBanner
-                encounterId={encounterId}
-                description="Identifique o paciente para gerar SOAP, SBAR, prescrição, atestado ou alta."
-                successMessage="Paciente identificado — já pode gerar os documentos deste caso."
-              />
-            )}
-            <div className="flex flex-wrap gap-2">
-              {DOCUMENT_TYPES.map((dt) => {
-                const isThisGenerating = generatingDoc === dt.type;
-                return (
-                  <Button
-                    key={dt.type}
-                    onClick={() => handleGenerateDocument(dt.type)}
-                    disabled={isThisGenerating || isQuickConsult}
-                    variant={dt.primary && !isThisGenerating ? 'default' : 'outline'}
-                    className="h-11"
-                  >
-                    {isThisGenerating ? (
-                      <CircleNotch className="mr-2 size-4 animate-spin" />
-                    ) : (
-                      <FileText className="mr-2 size-4" />
-                    )}
-                    {isThisGenerating ? messages.documents.generating : dt.label}
-                  </Button>
-                );
-              })}
-            </div>
-            {docError && (
-              <Alert variant="destructive" className="mt-3">
-                <AlertTitle>{messages.documents.errorTitle}</AlertTitle>
-                <AlertDescription>{docError}</AlertDescription>
-              </Alert>
-            )}
-          </footer>
-        </section>
-      </div>
-    </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 max-sm:ml-[30px] max-sm:h-10 max-sm:self-start"
+              onClick={() => handleGenerateDocument('sbar')}
+              disabled={generatingDoc === 'sbar'}
+            >
+              {generatingDoc === 'sbar' ? <CircleNotch className="animate-spin" /> : <FileText />}
+              Gerar SBAR
+            </Button>
+          </div>
+        )}
+      </section>
+    </Page>
   );
 }
 
-function RedFlagBadge({ finding, severity }: { finding: string; severity: RedFlagSeverity }) {
-  const styles =
-    severity === 'critical'
-      ? 'bg-clinical-error-bg text-clinical-error-foreground'
-      : severity === 'high'
-        ? 'bg-clinical-amber-bg text-clinical-amber-foreground'
-        : 'bg-muted text-muted-foreground';
+function RedFlagTag({
+  finding,
+  severity,
+  messages,
+}: {
+  finding: string;
+  severity: RedFlagSeverity;
+  messages: Messages;
+}) {
+  const { variant, icon: SeverityIcon } = RED_FLAG_TAG[severity];
+  const severityLabel = messages.redFlags.severity[severity];
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.6875rem] font-medium ${styles}`}
+    <Badge
+      variant={variant}
+      title={`${severityLabel}: ${finding}`}
+      className="h-auto min-h-5 max-w-full py-0.5 whitespace-normal text-left leading-snug"
     >
-      {severity === 'critical' && <WarningCircle className="size-3" weight="fill" />}
+      <SeverityIcon weight="fill" aria-hidden="true" />
+      <span className="sr-only">{severityLabel}: </span>
       {finding}
-    </span>
+    </Badge>
   );
 }
 
@@ -635,10 +752,15 @@ function RedFlagBadge({ finding, severity }: { finding: string; severity: RedFla
  * Extraído em componente próprio (em vez de inline no .map()) porque cada
  * item precisa do seu próprio estado local de "nota está expandida" — não
  * dá para usar useState dentro de um .map() do componente pai.
+ *
+ * Visual: linha de to-do do Notion — marcador de estado à esquerda, ação em
+ * destaque com a nota de rodapé sobrescrita, justificativa em cinza e os
+ * controles de decisão discretos embaixo.
  */
 export function RecommendationItem({
   rec,
   index,
+  footnote = index + 1,
   decision,
   onAdopt,
   onReject,
@@ -647,133 +769,160 @@ export function RecommendationItem({
 }: {
   rec: CopilotRecommendation;
   index: number;
+  /** Número da nota de rodapé da fonte (compartilhado entre recomendações da mesma fonte). */
+  footnote?: number;
   decision: RecommendationDecisionState | undefined;
   onAdopt: () => void;
   onReject: () => void;
   onNote: (note: string) => void;
   confidenceLabel: string;
 }) {
+  const messages = useMessages();
   const [showNote, setShowNote] = useState(false);
   const isAdopted = decision?.decision === 'adopted';
   const isRejected = decision?.decision === 'rejected';
+  const confidenceHelp = `${messages.recommendation.confidenceTooltipTitle}: ${messages.recommendation.confidenceTooltipBody} ${messages.recommendation.confidenceTooltipDisclaimer}`;
 
   return (
-    <div
-      className={[
-        'flex-1 rounded-[14px] border bg-card p-5',
-        isRejected
-          ? 'border-clinical-line opacity-60'
-          : rec.preliminary
-            ? 'border-dashed border-clinical-line opacity-55'
-            : 'border-clinical-line',
-      ].join(' ')}
-    >
-      <div className="mb-1.5 flex items-start justify-between gap-2">
-        <h3
-          className={[
-            'text-[0.9375rem] font-semibold leading-snug text-clinical-ink',
-            isRejected && 'line-through',
-          ]
-            .filter(Boolean)
-            .join(' ')}
+    <div className="flex gap-3 py-3">
+      <span aria-hidden="true" className="flex h-6 w-[18px] shrink-0 items-center justify-center">
+        {isAdopted ? (
+          <CheckCircle className="size-[18px] text-tone-green" weight="fill" />
+        ) : isRejected ? (
+          <XCircle className="size-[18px] text-muted-foreground" weight="fill" />
+        ) : rec.preliminary ? (
+          <LockSimple className="size-4 text-tone-orange" weight="fill" />
+        ) : (
+          <span className="size-1.5 rounded-full bg-foreground/45" />
+        )}
+      </span>
+
+      <div className={cn('min-w-0 flex-1', isRejected && 'opacity-70')}>
+        <h4
+          className={cn(
+            'text-[0.9375rem] leading-6 font-medium text-pretty text-foreground',
+            isRejected && 'text-muted-foreground line-through',
+          )}
         >
           {rec.action}
-        </h3>
-        {rec.preliminary && (
-          <span className="flex shrink-0 items-center gap-1 rounded-md bg-clinical-amber-bg px-1.5 py-0.5 font-mono text-[0.625rem] font-bold uppercase tracking-wide text-clinical-amber-foreground">
-            <LockSimple className="size-3" weight="fill" />
-            Preliminar
-          </span>
-        )}
-      </div>
+          <sup className="ml-0.5">
+            <a
+              href={`#fonte-${footnote}`}
+              aria-label={`Fonte ${footnote}: ${rec.source}`}
+              className="rounded-sm px-0.5 text-[0.6875rem] font-medium text-link no-underline hover:bg-hover"
+            >
+              {footnote}
+            </a>
+          </sup>
+        </h4>
 
-      <div className="mb-3 flex items-center gap-2">
-        <span className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[0.6875rem] font-semibold text-muted-foreground">
-          {confidenceLabel}
-        </span>
-        {isAdopted && (
-          <span className="flex items-center gap-1 rounded-md border border-clinical-green/30 bg-clinical-green-bg px-1.5 py-0.5 font-mono text-[0.625rem] font-bold uppercase tracking-wide text-clinical-green-foreground">
-            <SealCheck className="size-3" weight="fill" />
-            Adotada
-          </span>
-        )}
-        {isRejected && (
-          <span className="flex items-center gap-1 rounded-md border border-destructive/30 bg-destructive/10 px-1.5 py-0.5 font-mono text-[0.625rem] font-bold uppercase tracking-wide text-destructive">
-            <XCircle className="size-3" weight="fill" />
-            Rejeitada
-          </span>
-        )}
-      </div>
+        <p className="mt-0.5 text-sm leading-relaxed text-pretty text-muted-foreground">
+          {rec.rationale}
+        </p>
 
-      <p className="mb-3 text-[0.84375rem] leading-relaxed text-muted-foreground">
-        {rec.rationale}
-      </p>
-
-      <p className="flex items-center gap-1.5 text-[0.75rem] text-muted-foreground">
-        <span className="font-mono font-semibold text-clinical-teal">[{index + 1}]</span>
-        <span className="truncate">{rec.source}</span>
-      </p>
-      {/* F4 / ADR-010 — fonte que a equipe clínica ainda não revisou: diz de
-          onde veio e, no caso da base oficial, leva ao PDF do Ministério. */}
-      {isUnreviewedOrigin(rec.origin) && (
-        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[0.75rem] text-muted-foreground">
-          <SourceOriginBadge origin={rec.origin} />
-          {rec.origin === 'official_unreviewed' && (
-            <>
-              <span className="truncate font-mono text-[0.6875rem]">{rec.sourceVersion}</span>
-              {rec.sourceUrl && (
-                <a
-                  href={rec.sourceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-clinical-teal underline underline-offset-4"
-                >
-                  Ver documento oficial
-                </a>
-              )}
-            </>
+        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+          {rec.preliminary && (
+            <Badge variant="warning">
+              <LockSimple weight="fill" aria-hidden="true" />
+              Preliminar
+            </Badge>
           )}
+          {isAdopted && (
+            <Badge variant="success">
+              <SealCheck weight="fill" aria-hidden="true" />
+              Adotada
+            </Badge>
+          )}
+          {isRejected && (
+            <Badge variant="secondary">
+              <XCircle weight="fill" aria-hidden="true" />
+              Rejeitada
+            </Badge>
+          )}
+          <span title={confidenceHelp} className="tabular-nums">
+            Confiança {confidenceLabel}
+          </span>
+          <span className="inline-flex min-w-0 items-center gap-1">
+            <BookOpen className="size-3.5 shrink-0" aria-hidden="true" />
+            <span className="truncate">{rec.source}</span>
+          </span>
         </div>
-      )}
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <Button
-          size="sm"
-          onClick={onAdopt}
-          className={
-            isAdopted
-              ? 'bg-clinical-ink text-white hover:bg-clinical-ink/90'
-              : 'bg-transparent text-clinical-ink border border-clinical-line hover:bg-muted'
-          }
-        >
-          Adotar
-        </Button>
-        <Button size="sm" variant={isRejected ? 'destructive' : 'outline'} onClick={onReject}>
-          Rejeitar
-        </Button>
-        <Button size="sm" variant="outline" onClick={() => setShowNote((s) => !s)}>
-          <PencilSimple className="size-3.5" />
-          {decision?.note ? 'Editar nota' : 'Anotar'}
-        </Button>
-      </div>
+        {/* F4 / ADR-010 — fonte que a equipe clínica ainda não revisou: diz de
+            onde veio e, no caso da base oficial, leva ao PDF do Ministério. */}
+        {isUnreviewedOrigin(rec.origin) && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+            <SourceOriginBadge origin={rec.origin} />
+            {rec.origin === 'official_unreviewed' && (
+              <>
+                <span className="min-w-0 truncate">{rec.sourceVersion}</span>
+                {rec.sourceUrl && (
+                  <a
+                    href={rec.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-link underline-offset-4 hover:underline"
+                  >
+                    Ver documento oficial
+                  </a>
+                )}
+              </>
+            )}
+          </div>
+        )}
 
-      {showNote && (
-        <div className="mt-3">
+        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+          <Button
+            size="sm"
+            variant="outline"
+            aria-pressed={isAdopted}
+            onClick={onAdopt}
+            className={cn(
+              'max-sm:h-10',
+              isAdopted && 'border-transparent bg-tone-green-tag text-tone-green-ink hover:bg-tone-green-tag',
+            )}
+          >
+            <Check weight="bold" />
+            Adotar
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            aria-pressed={isRejected}
+            onClick={onReject}
+            className={cn('max-sm:h-10', isRejected && 'border-transparent bg-active hover:bg-active')}
+          >
+            <X weight="bold" />
+            Rejeitar
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-muted-foreground max-sm:h-10"
+            aria-expanded={showNote}
+            onClick={() => setShowNote((s) => !s)}
+          >
+            <PencilSimple />
+            {decision?.note ? 'Editar nota' : 'Anotar'}
+          </Button>
+        </div>
+
+        {showNote && (
           <Textarea
             aria-label={`Anotação para: ${rec.action}`}
             value={decision?.note ?? ''}
             onChange={(e) => onNote(e.target.value)}
             placeholder="Observação clínica sobre esta recomendação..."
-            className="min-h-[60px] resize-y bg-white text-sm"
+            className="mt-2 min-h-[60px] resize-y text-sm"
             rows={2}
           />
-        </div>
-      )}
-      {decision?.note && !showNote && (
-        <p className="mt-3 text-[0.75rem] italic text-muted-foreground">
-          &ldquo;{decision.note}&rdquo;
-        </p>
-      )}
+        )}
+        {decision?.note && !showNote && (
+          <p className="mt-2 border-l-[3px] border-foreground/15 pl-3 text-[0.8125rem] text-muted-foreground italic">
+            &ldquo;{decision.note}&rdquo;
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -805,81 +954,57 @@ function AnswerControl({
   variant: 'critical' | 'optional';
   messages: Messages;
 }) {
-  const unselectedClass =
-    variant === 'critical'
-      ? 'border-clinical-amber/50 bg-transparent text-clinical-amber-foreground hover:bg-clinical-amber/5'
-      : 'border-clinical-line bg-transparent text-clinical-ink hover:bg-muted';
-  const selectedClass =
-    variant === 'critical'
-      ? 'border-clinical-amber bg-clinical-amber/10 text-clinical-amber-foreground'
-      : 'border-clinical-teal bg-clinical-teal-tint text-clinical-teal-deep';
-  const inputClass =
-    variant === 'critical'
-      ? 'w-full rounded-lg border border-clinical-amber/40 bg-white px-3 py-2 text-sm text-clinical-ink outline-none transition-colors placeholder:text-clinical-amber-foreground/50 focus-visible:border-clinical-amber'
-      : 'w-full rounded-lg border border-clinical-line bg-paper px-3 py-2 text-sm text-clinical-ink outline-none transition-colors placeholder:text-muted-foreground/60 focus-visible:border-clinical-teal';
+  // Campos e opções sobre o fundo do callout: superfície da página, para o
+  // controle se destacar do bloco laranja/cinza em volta.
+  const fieldClass = cn(
+    'bg-background text-foreground',
+    variant === 'critical' && 'border-tone-orange/35',
+  );
 
   switch (question.expectedAnswerType) {
     case 'boolean':
       return (
-        <div className="grid grid-cols-3 gap-2">
-          <BooleanButton
-            active={value === true}
-            activeClass={
-              variant === 'critical'
-                ? 'bg-clinical-ink text-white border-clinical-ink'
-                : selectedClass
-            }
-            unselectedClass={unselectedClass}
-            onClick={() => onChange(true)}
-          >
+        <div role="group" aria-label={question.question} className="grid grid-cols-3 gap-2 sm:max-w-sm">
+          <OptionButton variant={variant} active={value === true} onClick={() => onChange(true)}>
             {messages.copilot.questions.boolean.yes}
-          </BooleanButton>
-          <BooleanButton
-            active={value === false}
-            activeClass={selectedClass}
-            unselectedClass={unselectedClass}
-            onClick={() => onChange(false)}
-          >
+          </OptionButton>
+          <OptionButton variant={variant} active={value === false} onClick={() => onChange(false)}>
             {messages.copilot.questions.boolean.no}
-          </BooleanButton>
-          <BooleanButton
+          </OptionButton>
+          <OptionButton
+            variant={variant}
             active={value === 'unknown'}
-            activeClass={selectedClass}
-            unselectedClass={unselectedClass}
             onClick={() => onChange('unknown')}
           >
             {messages.copilot.questions.boolean.unknown}
-          </BooleanButton>
+          </OptionButton>
         </div>
       );
     case 'choice':
       return (
-        <div className="flex flex-wrap gap-2">
+        <div role="group" aria-label={question.question} className="flex flex-wrap gap-2">
           {(question.choices ?? []).map((choice) => (
-            <button
+            <OptionButton
               key={choice}
-              type="button"
+              variant={variant}
+              active={value === choice}
               onClick={() => onChange(choice)}
-              aria-pressed={value === choice}
-              className={[
-                'h-9 rounded-lg border px-3 text-sm font-medium transition-colors',
-                value === choice ? selectedClass : unselectedClass,
-              ].join(' ')}
+              className="px-3"
             >
               {choice}
-            </button>
+            </OptionButton>
           ))}
         </div>
       );
     case 'number':
       return (
-        <input
+        <Input
           type="number"
           inputMode="numeric"
           aria-label={question.question}
           value={value === undefined ? '' : String(value)}
           onChange={(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))}
-          className={inputClass}
+          className={cn(fieldClass, 'sm:max-w-xs')}
         />
       );
     case 'text':
@@ -889,28 +1014,33 @@ function AnswerControl({
       // FR 28, SpO2 89%, Tax 39"), que ficam apertados demais numa linha
       // só, especialmente no celular à beira do leito.
       return (
-        <textarea
+        <Textarea
           aria-label={question.question}
           value={value === undefined ? '' : String(value)}
           onChange={(e) => onChange(e.target.value)}
           rows={2}
-          className={`${inputClass} min-h-[44px] resize-y`}
+          placeholder="Digite a resposta…"
+          className={cn(fieldClass, 'min-h-[44px] resize-y')}
         />
       );
   }
 }
 
-function BooleanButton({
+/**
+ * Opção de resposta (Sim/Não/Não sei, escolhas). Selecionada: preenchimento
+ * escuro neutro + ✓ — o estado não depende da cor do callout em volta.
+ */
+function OptionButton({
   active,
-  activeClass,
-  unselectedClass,
+  variant,
   onClick,
+  className,
   children,
 }: {
   active: boolean;
-  activeClass: string;
-  unselectedClass: string;
+  variant: 'critical' | 'optional';
   onClick: () => void;
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -918,11 +1048,18 @@ function BooleanButton({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={[
-        'h-9 rounded-lg border text-sm font-medium transition-colors',
-        active ? activeClass : unselectedClass,
-      ].join(' ')}
+      className={cn(
+        'inline-flex h-8 items-center justify-center gap-1.5 rounded-md border text-sm font-medium transition-colors duration-100 focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-none max-sm:h-10',
+        active
+          ? 'border-foreground bg-foreground text-background'
+          : cn(
+              'bg-background text-foreground hover:bg-hover',
+              variant === 'critical' ? 'border-tone-orange/35' : 'border-input',
+            ),
+        className,
+      )}
     >
+      {active && <Check className="size-3.5" weight="bold" aria-hidden="true" />}
       {children}
     </button>
   );

@@ -1,8 +1,9 @@
 /**
- * Primitivos de tabela (estilo shadcn/ui) — thin wrappers sobre <table>.
+ * Primitivos de tabela no estilo "database" do Notion — linhas finas
+ * horizontais e verticais, cabeçalho em texto cinza sem caixa-alta, hover
+ * sutil na linha. Sem contorno arredondado: a tabela "pertence" à página.
  *
- * S22-DS-01 — Criados para suportar o primitive <DataTable> responsivo.
- * Mantidos mínimos para não duplicar o que o DataTable já encapsula.
+ * S22-DS-01 — base do primitive <DataTable> responsivo.
  */
 import type { HTMLAttributes, TdHTMLAttributes, ThHTMLAttributes } from 'react';
 import { cn } from '@/lib/utils';
@@ -20,7 +21,7 @@ export function Table({ className, ...props }: HTMLAttributes<HTMLTableElement>)
   return (
     <table
       data-slot="table"
-      className={cn('w-full caption-bottom text-sm', className)}
+      className={cn('w-full caption-bottom border-y border-border text-sm', className)}
       {...props}
     />
   );
@@ -30,7 +31,7 @@ export function TableHeader({ className, ...props }: HTMLAttributes<HTMLTableSec
   return (
     <thead
       data-slot="table-header"
-      className={cn('[&_tr]:border-b', className)}
+      className={cn('[&_tr]:border-b [&_tr]:hover:bg-transparent', className)}
       {...props}
     />
   );
@@ -51,7 +52,7 @@ export function TableFooter({ className, ...props }: HTMLAttributes<HTMLTableSec
     <tfoot
       data-slot="table-footer"
       className={cn(
-        'border-t bg-muted/50 font-medium [&>tr]:last:border-b-0',
+        'border-t bg-surface-subtle font-medium [&>tr]:last:border-b-0',
         className,
       )}
       {...props}
@@ -64,7 +65,7 @@ export function TableRow({ className, ...props }: HTMLAttributes<HTMLTableRowEle
     <tr
       data-slot="table-row"
       className={cn(
-        'border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted',
+        'border-b border-border transition-colors duration-75 hover:bg-hover/60 data-[state=selected]:bg-[var(--brand-soft)]',
         className,
       )}
       {...props}
@@ -77,7 +78,7 @@ export function TableHead({ className, ...props }: ThHTMLAttributes<HTMLTableCel
     <th
       data-slot="table-head"
       className={cn(
-        'h-10 px-4 text-left align-middle text-xs font-medium uppercase tracking-wider text-muted-foreground [&:has([role=checkbox])]:pr-0',
+        'h-9 px-2 text-left align-middle text-sm font-normal whitespace-nowrap text-muted-foreground [&:has([role=checkbox])]:pr-0 [&:not(:last-child)]:border-r [&:not(:last-child)]:border-border',
         className,
       )}
       {...props}
@@ -89,7 +90,10 @@ export function TableCell({ className, ...props }: TdHTMLAttributes<HTMLTableCel
   return (
     <td
       data-slot="table-cell"
-      className={cn('px-4 py-2.5 align-middle [&:has([role=checkbox])]:pr-0', className)}
+      className={cn(
+        'h-9 px-2 py-1.5 align-middle [&:has([role=checkbox])]:pr-0 [&:not(:last-child)]:border-r [&:not(:last-child)]:border-border',
+        className,
+      )}
       {...props}
     />
   );
@@ -102,7 +106,7 @@ export function TableCaption({
   return (
     <caption
       data-slot="table-caption"
-      className={cn('mt-4 text-sm text-muted-foreground', className)}
+      className={cn('mt-3 text-left text-xs text-muted-foreground', className)}
       {...props}
     />
   );

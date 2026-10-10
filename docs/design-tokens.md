@@ -1,41 +1,74 @@
-# Design tokens — paleta clínica Strivium (A2)
+# Design tokens — paleta "Prontuário" (Notion da saúde)
 
-Tokens definidos em `web/src/app/globals.css` (`:root` / `.dark`), como
-custom properties em `oklch()` com fallback hex. Cor aqui é **semântica
-clínica**: cada cor carrega um significado médico-legal fixo e não deve ser
-usada por decoração.
+Tokens definidos em `web/src/app/globals.css` (`:root` / `.dark`) e expostos
+como utilitários do Tailwind em `@theme inline`. Guia de uso completo:
+[design-system.md](design-system.md).
 
-| Token | Hex (light) | Significado clínico | Uso típico |
+A base é a paleta do Notion. Os tons de texto foram escurecidos o mínimo
+necessário para que **todo texto com significado passe em WCAG AA (≥ 4.5:1)**
+— verificado em CI por `web/scripts/check-contrast.mjs` (job `web-quality`).
+
+## Superfícies, texto e linhas
+
+| Token | Claro | Escuro | Utilitário |
 | --- | --- | --- | --- |
-| `--ink` | `#10243A` | Texto principal, appbar | `text-foreground` |
-| `--ink-soft` | `#46586C` | Texto secundário | `text-muted-foreground` |
-| `--paper` | `#F4F7F8` | Fundo de app (frio, clínico — nunca branco puro) | `bg-background` |
-| `--card` | `#FFFFFF` | Fundo de cartões/painéis | `bg-card` |
-| `--line` | `#E1E8EC` | Bordas e divisores | `border-border` |
-| `--teal` | `#0E7C7B` | **Ação primária / marca** — só aparece quando há uma ação a tomar | `bg-primary`, `text-primary` |
-| `--teal-deep` | `#0A5A59` | Texto sobre fundos com tinta de marca | `text-secondary-foreground`, `text-accent-foreground` |
-| `--teal-tint` | `#E3F1F0` | Fundo sutil de marca (hover, secundário) | `bg-secondary`, `bg-accent` |
-| `--amber` | `#B45309` | **Exclusivo: "muda a conduta"** — pergunta blocker, alerta clínico que exige ação do médico | `border-clinical-amber`, `text-clinical-amber` |
-| `--amber-bg` | `#FDF4E3` | Fundo de alerta "muda a conduta" | `bg-clinical-amber-bg` |
-| `--amber-foreground` | `#7C2D12` | Texto sobre `--amber-bg` | `text-clinical-amber-foreground` |
-| `--green` | `#1E7F4F` | **Exclusivo: conduta confirmada/definitiva** | `text-success`, `bg-clinical-green` |
-| `--green-bg` | `#E9F5EE` | Fundo de conduta confirmada | `bg-clinical-green-bg` |
-| `--green-foreground` | `#14532D` | Texto sobre `--green-bg` | `text-clinical-green-foreground` |
-| `--error` | `#B3382E` | Erro / destrutivo (vermelho dessaturado, sem neon) | `text-destructive`, `bg-destructive` |
+| `--bg` | `#FFFFFF` | `#191919` | `bg-background` |
+| `--bg-sidebar` | `#F7F7F5` | `#202020` | `bg-sidebar` |
+| `--bg-subtle` | `#FBFBFA` | `#1E1E1E` | `bg-surface-subtle` |
+| `--bg-input` | `rgba(242,241,238,.6)` | `rgba(255,255,255,.055)` | `bg-surface-input` |
+| `--bg-hover` / `--bg-active` | `rgba(55,53,47,.06/.09)` | `rgba(255,255,255,.055/.09)` | `bg-hover`, `bg-active` |
+| `--fg` | `#37352F` | `#D4D4D4` | `text-foreground` |
+| `--fg-secondary` | `#6F6E69` | `#9B9B9B` | `text-muted-foreground` |
+| `--fg-tertiary` | `#A5A29A` | `#5F5F5F` | `text-fg-tertiary` (só placeholder/decorativo) |
+| `--divider` | `#E9E9E7` | `#2F2F2F` | `border-border` |
+| `--input-border` | `#DEDCD8` | `#373737` | `border-input` |
+| `--brand` | `#1D72C6` | `#1D72C6` | `bg-primary` (texto branco 4.9:1) |
+| `--link` | `#1D72C6` | `#529CCA` | `text-link` (no escuro, `text-primary` também usa `--link`) |
 
-## Regras anti-template
+## Paleta Notion (`--tone-*`)
 
-- Proibido: gradientes roxo/azul, glassmorphism, sombras difusas grandes, dark
-  mode por padrão, neon, ilustrações 3D genéricas.
-- Sombra única do sistema: `0 1px 2px rgba(16,36,58,.06), 0 4px 12px rgba(16,36,58,.05)`
-  (aplicada via tokens `--shadow-*` em `@theme inline` — qualquer `shadow-sm`/`shadow-md`/`shadow-lg` já usa essa definição).
-- Border-radius contido: `--radius-lg` (10px) para inputs/botões, `--radius-xl`
-  (14px) para cards, totalmente arredondado (`rounded-full`/`rounded-4xl`) para chips.
-- Âmbar nunca decora: se um elemento está âmbar, o médico precisa agir
-  (pergunta blocker, alerta de incerteza). Verde só aparece em conduta já
-  confirmada. Teal só aparece quando há uma ação primária na tela.
+Cada tom tem quatro usos: `tone-x` (texto/ícone), `tone-x-bg` (fundo de
+bloco/callout), `tone-x-tag` (fundo de tag) e `tone-x-ink` (texto sobre bloco
+ou tag).
 
-## Contraste (WCAG AA)
+| Tom | texto (claro) | bloco | tag | tinta | Uso |
+| --- | --- | --- | --- | --- | --- |
+| gray | `#6F6E69` | `#F1F1EF` | `#E3E2E0` | `#32302C` | neutro, rascunho, metadado |
+| brown | `#91614C` | `#F4EEEE` | `#EEE0DA` | `#442A1E` | categoria |
+| orange | `#A5570A` | `#FBECDD` | `#FADEC9` | `#49290E` | **muda a conduta** |
+| yellow | `#906721` | `#FBF3DB` | `#FDECC8` | `#402C1B` | categoria |
+| green | `#3F7959` | `#EDF3EC` | `#DBEDDB` | `#1C3829` | **conduta confirmada** |
+| blue | `#2F749B` | `#E7F3F8` | `#D3E5EF` | `#183347` | IA, em revisão, informação |
+| purple | `#875FA5` | `#F6F3F9` | `#E8DEEE` | `#412454` | categoria |
+| pink | `#B54782` | `#FAF1F5` | `#F5E0E9` | `#4C2337` | categoria |
+| red | `#BB433E` | `#FDEBEC` | `#FFE2DD` | `#5D1715` | **erro, destrutivo, crítico** |
 
-Todas as combinações texto/fundo da tabela acima são verificadas por
-`web/scripts/check-contrast.mjs` (rodado no CI, job `web-quality`).
+Valores do tema escuro estão em `globals.css` (`.dark`) e também passam AA.
+
+## Semântica clínica (nomes legados)
+
+Os tokens da paleta A2 continuam disponíveis porque carregam significado
+médico-legal; agora são aliases da paleta acima:
+
+| Token legado | Aponta para | Significado |
+| --- | --- | --- |
+| `--ink`, `--ink-soft`, `--paper`, `--line` | `--fg`, `--fg-secondary`, `--bg`, `--divider` | texto, texto secundário, página, linhas |
+| `--teal` / `clinical-teal` | `--brand` | ação primária (nome histórico — hoje é azul) |
+| `--teal-tint`, `--teal-deep` | `--tone-blue-bg`, `--tone-blue-ink` | fundo/tinta de "em revisão", IA |
+| `--amber*` / `clinical-amber*` | `--tone-orange*` | **muda a conduta** — nunca decorativo |
+| `--green*` / `clinical-green*` | `--tone-green*` | **conduta confirmada** — nunca decorativo |
+| `--error*` / `clinical-error*` | `--tone-red*` | erro / destrutivo / gravidade crítica |
+
+## Raios e sombras
+
+- `--radius: 6px` → `rounded-sm` 4px · `rounded-md` 5px · `rounded-lg` 6px ·
+  `rounded-xl` 8px.
+- `shadow-xs` = quase plana (cartões); `shadow-sm` = cartão leve;
+  `shadow-md`…`shadow-2xl` = sombra de popover do Notion (camadas finas).
+
+## Tipografia
+
+Pilha de sistema do Notion (`ui-sans-serif, -apple-system, "Segoe UI",
+Helvetica…`), serifa `Georgia` e mono `SFMono/Menlo`. Nenhuma fonte é baixada.
+Escala: `xs` 12 · `sm` 14 (UI) · `base` 16 · `lg` 18 · `xl` 20 · `2xl` 24 ·
+`3xl` 30 · `4xl` 40 (título de página).

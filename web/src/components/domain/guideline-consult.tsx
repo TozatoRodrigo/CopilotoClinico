@@ -9,9 +9,12 @@ import {
   Copy,
   MagnifyingGlass,
   SealCheck,
+  WarningCircle,
   X,
 } from '@phosphor-icons/react';
 import { toast } from 'sonner';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -62,6 +65,7 @@ function ResultCard({
   const [expanded, setExpanded] = useState(false);
   const body = stripContextHeader(result.text);
   const isLong = body.length > 360;
+  const where = [result.section, result.sourceVersion].filter(Boolean).join(' · ');
 
   async function handleCopy() {
     try {
@@ -72,51 +76,51 @@ function ResultCard({
     }
   }
 
+  // Bloco de resposta: tags de origem → título da fonte → seção/versão →
+  // trecho como citação (quote do Notion) → ações discretas.
   return (
-    <article
-      className={cn(
-        'rounded-[14px] border bg-card p-4',
-        citedInAnalysis ? 'border-clinical-teal/35' : 'border-clinical-line',
-      )}
-    >
-      <header className="flex flex-col gap-1.5">
+    <article className="flex flex-col gap-2.5 py-5 first:pt-1">
+      <header className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-1.5">
           {citedInAnalysis && (
-            <span className="inline-flex items-center gap-1 rounded-md bg-clinical-teal-tint px-1.5 py-0.5 font-mono text-[0.625rem] font-bold uppercase tracking-wide text-clinical-teal-deep">
-              <SealCheck className="size-3" weight="fill" />
+            <Badge variant="default">
+              <SealCheck weight="fill" aria-hidden="true" />
               Usado nesta análise
-            </span>
+            </Badge>
           )}
           <SourceOriginBadge origin={result.origin} />
         </div>
-        <h3 className="text-[0.9375rem] font-semibold leading-snug text-clinical-ink">
-          {result.source}
-        </h3>
-        <p className="font-mono text-[0.6875rem] text-muted-foreground">
-          {[result.section, result.sourceVersion].filter(Boolean).join(' · ')}
-        </p>
+        <div className="flex flex-col gap-0.5">
+          <h3 className="text-[0.9375rem] leading-snug font-semibold text-pretty text-foreground">
+            {result.source}
+          </h3>
+          {where && <p className="text-[0.8125rem] text-muted-foreground">{where}</p>}
+        </div>
       </header>
 
       <p
         className={cn(
-          'mt-3 whitespace-pre-line text-[0.84375rem] leading-relaxed text-clinical-ink-soft',
+          'max-w-[70ch] border-l-[3px] border-border pl-3.5 text-[0.9375rem] leading-relaxed whitespace-pre-line text-foreground',
           !expanded && isLong && 'line-clamp-5',
         )}
       >
         {body}
       </p>
 
-      <footer className="mt-3 flex flex-wrap items-center gap-2">
+      <footer className="-ml-2 flex flex-wrap items-center gap-1">
         {isLong && (
           <Button
             type="button"
             size="sm"
             variant="ghost"
-            className="h-8 gap-1 px-2 text-[0.8rem]"
+            className="text-muted-foreground max-sm:h-10"
             onClick={() => setExpanded((value) => !value)}
             aria-expanded={expanded}
           >
-            <CaretDown className={cn('size-3.5 transition-transform', expanded && 'rotate-180')} />
+            <CaretDown
+              className={cn('transition-transform duration-150', expanded && 'rotate-180')}
+              aria-hidden="true"
+            />
             {expanded ? 'Mostrar menos' : 'Ler trecho completo'}
           </Button>
         )}
@@ -124,12 +128,12 @@ function ResultCard({
           <Button
             type="button"
             size="sm"
-            variant="outline"
-            className="h-8 gap-1.5 text-[0.8rem]"
+            variant="ghost"
+            className="text-link hover:text-link max-sm:h-10"
             asChild
           >
             <a href={result.documentUrl} target="_blank" rel="noopener noreferrer">
-              <ArrowSquareOut className="size-3.5" />
+              <ArrowSquareOut aria-hidden="true" />
               Ver documento oficial
             </a>
           </Button>
@@ -138,14 +142,40 @@ function ResultCard({
           type="button"
           size="sm"
           variant="ghost"
-          className="h-8 gap-1.5 px-2 text-[0.8rem]"
+          className="text-muted-foreground max-sm:h-10"
           onClick={() => void handleCopy()}
         >
-          <Copy className="size-3.5" />
+          <Copy aria-hidden="true" />
           Copiar com a fonte
         </Button>
       </footer>
     </article>
+  );
+}
+
+function ResultsSkeleton() {
+  return (
+    <div
+      className="flex flex-col divide-y divide-border"
+      aria-busy="true"
+      aria-label="Buscando diretrizes"
+    >
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} className="flex flex-col gap-2.5 py-5 first:pt-1">
+          <div className="flex gap-1.5">
+            <Skeleton className="h-5 w-40" />
+            <Skeleton className="h-5 w-20" />
+          </div>
+          <Skeleton className="h-5 w-3/4" />
+          <Skeleton className="h-4 w-1/3" />
+          <div className="flex flex-col gap-1.5 border-l-[3px] border-border pl-3.5">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-2/3" />
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -172,38 +202,38 @@ export function GuidelineConsultResults({
   }
 
   if (isLoading) {
-    return (
-      <div className="flex flex-col gap-3" aria-busy="true" aria-label="Buscando diretrizes">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-36 w-full rounded-[14px]" />
-        ))}
-      </div>
-    );
+    return <ResultsSkeleton />;
   }
 
   if (isError) {
     return (
-      <div className="flex flex-col items-center gap-3 py-8 text-center">
-        <p className="text-sm text-destructive">Não foi possível buscar agora.</p>
-        <Button type="button" size="sm" variant="outline" onClick={() => void refetch()}>
-          Tentar de novo
-        </Button>
-      </div>
+      <Alert variant="destructive">
+        <WarningCircle aria-hidden="true" />
+        <AlertTitle>Não foi possível buscar agora.</AlertTitle>
+        <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+          <span>Verifique a conexão e tente de novo.</span>
+          <Button type="button" size="sm" variant="outline" onClick={() => void refetch()}>
+            Tentar de novo
+          </Button>
+        </AlertDescription>
+      </Alert>
     );
   }
 
   const results = data?.results ?? [];
   if (results.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-3 py-8 text-center">
-        <MagnifyingGlass className="size-7 text-muted-foreground" />
-        <p className="text-sm font-medium text-clinical-ink">
-          Nenhuma diretriz próxima desta busca.
-        </p>
-        <p className="max-w-sm text-xs text-muted-foreground">
-          Tente um termo mais específico — o nome do agravo, do medicamento ou do procedimento. Se
-          você tem a referência para este cenário, envie para a curadoria.
-        </p>
+      <div className="flex flex-col items-center gap-3 px-4 py-10 text-center">
+        <MagnifyingGlass className="size-8 text-fg-tertiary" aria-hidden="true" />
+        <div className="flex max-w-sm flex-col gap-1">
+          <p className="text-[0.9375rem] font-medium text-foreground">
+            Nenhuma diretriz próxima desta busca.
+          </p>
+          <p className="text-[0.8125rem] text-pretty text-muted-foreground">
+            Tente um termo mais específico — o nome do agravo, do medicamento ou do procedimento. Se
+            você tem a referência para este cenário, envie para a curadoria.
+          </p>
+        </div>
         <SuggestGuidelineDialog />
       </div>
     );
@@ -214,16 +244,26 @@ export function GuidelineConsultResults({
   const ordered = [...results].sort(
     (a, b) => Number(cited.has(b.chunkId)) - Number(cited.has(a.chunkId)),
   );
+  const citedCount = ordered.filter((result) => cited.has(result.chunkId)).length;
 
   return (
-    <div className={cn('flex flex-col gap-3 transition-opacity', isFetching && 'opacity-60')}>
-      {ordered.map((result) => (
-        <ResultCard
-          key={result.chunkId}
-          result={result}
-          citedInAnalysis={cited.has(result.chunkId)}
-        />
-      ))}
+    <div
+      className={cn('flex flex-col transition-opacity', isFetching && 'opacity-60')}
+      aria-busy={isFetching || undefined}
+    >
+      <p className="pb-2 text-xs text-muted-foreground">
+        {ordered.length} {ordered.length === 1 ? 'trecho encontrado' : 'trechos encontrados'}
+        {citedCount > 0 ? ' · os usados na análise aparecem primeiro' : ' · por relevância'}
+      </p>
+      <div className="flex flex-col divide-y divide-border">
+        {ordered.map((result) => (
+          <ResultCard
+            key={result.chunkId}
+            result={result}
+            citedInAnalysis={cited.has(result.chunkId)}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -280,21 +320,21 @@ function ConsultBody({ caseText, citedChunkIds, citedSources = [] }: ConsultBody
 
   return (
     <>
-      <SheetHeader className="border-b border-clinical-line px-5 pb-4 pt-5">
-        <p className="flex items-center gap-1.5 font-mono text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground">
-          <BookOpen className="size-3.5" weight="duotone" />
-          Consulta · sem sair do caso
-        </p>
-        <SheetTitle className="font-display text-[1.5rem] font-normal leading-tight">
-          Diretrizes para este caso
-        </SheetTitle>
-        <SheetDescription className="hidden text-[0.8125rem] sm:block">
-          Base curada e protocolos oficiais do Ministério da Saúde. Os documentos usados na análise
-          aparecem primeiro.
-        </SheetDescription>
+      <SheetHeader className="gap-3 border-b border-border px-5 pt-5 pb-4">
+        <div className="flex flex-col gap-1 pr-8">
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <BookOpen className="size-3.5" aria-hidden="true" />
+            Consulta · sem sair do caso
+          </p>
+          <SheetTitle className="font-display text-xl">Diretrizes para este caso</SheetTitle>
+          <SheetDescription className="hidden text-[0.8125rem] text-pretty sm:block">
+            Base curada e protocolos oficiais do Ministério da Saúde. Os documentos usados na
+            análise aparecem primeiro.
+          </SheetDescription>
+        </div>
 
-        <div className="mt-3 flex items-center gap-2 rounded-xl border border-clinical-teal/60 bg-card px-3 focus-within:shadow-[0_0_0_3px_rgba(14,124,123,0.12)]">
-          <MagnifyingGlass className="size-4 shrink-0 text-clinical-teal" />
+        <div className="flex h-10 items-center gap-2 rounded-lg border border-input bg-surface-input px-3 transition-[border-color,box-shadow,background-color] duration-100 focus-within:border-ring focus-within:bg-background focus-within:ring-[3px] focus-within:ring-ring/25">
+          <MagnifyingGlass className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
           <input
             value={refineInput}
             onChange={(event) => setRefineInput(event.target.value)}
@@ -304,36 +344,37 @@ function ConsultBody({ caseText, citedChunkIds, citedSources = [] }: ConsultBody
                 : 'Busque um agravo, medicamento…'
             }
             aria-label="Refinar a busca nas diretrizes"
-            className="h-11 flex-1 bg-transparent text-[0.9375rem] outline-none placeholder:text-muted-foreground"
+            className="h-full min-w-0 flex-1 bg-transparent text-base outline-none placeholder:text-fg-tertiary md:text-sm"
           />
           {refineInput && (
             <button
               type="button"
               onClick={() => setRefineInput('')}
               aria-label="Limpar e voltar a buscar pelo caso"
-              className="rounded-md p-1 text-muted-foreground hover:bg-muted"
+              className="-mr-1.5 flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-hover hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-none"
             >
-              <X className="size-4" />
+              <X className="size-4" aria-hidden="true" />
             </button>
           )}
         </div>
 
         {searchingByCase && (
-          <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">
+          <p className="line-clamp-2 text-xs text-muted-foreground">
             Buscando pelo caso: <span className="italic">“{casePreview}”</span>
           </p>
         )}
 
         {shortcuts.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1.5" aria-label="Fontes citadas na análise">
+          <div className="flex flex-wrap gap-1.5" aria-label="Fontes citadas na análise">
             {shortcuts.map((source) => (
               <button
                 key={source}
                 type="button"
                 onClick={() => setRefineInput(source.replace(/^[^—]*—\s*/, ''))}
-                className="rounded-full border border-clinical-line bg-card px-3 py-1 text-[0.75rem] text-muted-foreground transition-colors hover:border-clinical-teal/40 hover:text-clinical-ink"
+                className="inline-flex h-7 max-w-full items-center gap-1.5 rounded-md border border-border px-2 text-xs text-muted-foreground transition-colors hover:bg-hover hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-none max-sm:h-9"
               >
-                {source}
+                <BookOpen className="size-3.5 shrink-0" aria-hidden="true" />
+                <span className="truncate">{source}</span>
               </button>
             ))}
           </div>
@@ -344,10 +385,10 @@ function ConsultBody({ caseText, citedChunkIds, citedSources = [] }: ConsultBody
         <GuidelineConsultResults query={query} citedChunkIds={citedChunkIds} />
       </div>
 
-      <div className="border-t border-clinical-line px-5 py-3">
+      <div className="border-t border-border px-5 py-3">
         <SheetClose asChild>
-          <Button type="button" variant="outline" className="w-full gap-1.5">
-            <ArrowUUpLeft className="size-4" />
+          <Button type="button" variant="outline" className="w-full">
+            <ArrowUUpLeft aria-hidden="true" />
             Voltar ao caso
           </Button>
         </SheetClose>

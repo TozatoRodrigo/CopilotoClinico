@@ -9,6 +9,7 @@
  */
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { WarningCircle } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Sentry, initSentry } from '@/lib/sentry';
 import { useMessages } from '@/lib/messages/use-messages';
@@ -24,7 +25,6 @@ export default function AdminError({
   const messages = useMessages();
 
   useEffect(() => {
-    // eslint-disable-next-line no-console
     console.error('[AdminError]', error);
     try {
       initSentry();
@@ -37,21 +37,24 @@ export default function AdminError({
   return (
     <div
       role="alert"
-      className="flex min-h-[60vh] flex-col items-center justify-center gap-4 p-6 text-center"
+      className="mx-auto flex w-full max-w-md flex-col items-center gap-4 py-16 text-center md:py-24"
     >
-      <h2 className="text-xl font-semibold tracking-tight">
-        Erro no console administrativo
-      </h2>
-      <p className="max-w-md text-sm text-muted-foreground">
-        Algo deu errado ao carregar esta página do console. Sua sessão foi
-        preservada — tente novamente ou volte ao workspace clínico.
-      </p>
+      <WarningCircle className="size-10 text-tone-red" weight="duotone" aria-hidden="true" />
+      <div className="space-y-1.5">
+        <h2 className="text-xl font-semibold tracking-[-0.01em] text-foreground">
+          Erro no console administrativo
+        </h2>
+        <p className="text-sm text-pretty text-muted-foreground">
+          Algo deu errado ao carregar esta página do console. Sua sessão foi
+          preservada — tente novamente ou volte ao workspace clínico.
+        </p>
+      </div>
       {error.digest && (
-        <p className="font-mono text-xs text-muted-foreground">
-          Código: {error.digest}
+        <p className="text-xs text-muted-foreground">
+          Código: <span className="font-mono">{error.digest}</span>
         </p>
       )}
-      <div className="flex flex-wrap justify-center gap-3">
+      <div className="flex flex-wrap justify-center gap-2">
         <Button onClick={reset}>{messages.common.actions.tryAgain}</Button>
         <Button variant="outline" onClick={() => router.push('/dashboard')}>
           Voltar ao workspace

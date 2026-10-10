@@ -55,7 +55,8 @@ test.describe('Perfil médico — loop de decisão e confirmação', () => {
     await context.setOffline(true);
     await page.getByRole('button', { name: 'Analisar com Copiloto' }).click();
 
-    await expect(page.getByText(/Sem conexão/)).toBeVisible({ timeout: 15_000 });
+    // Banner global, aviso da página e toast mencionam "Sem conexão".
+    await expect(page.getByText(/Sem conexão/).first()).toBeVisible({ timeout: 15_000 });
     await context.setOffline(false);
   });
 });

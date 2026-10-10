@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
+import { WarningCircle } from "@phosphor-icons/react";
+import { Page } from "@/components/layout/page";
 import { Button } from "@/components/ui/button";
 import { Sentry, initSentry } from "@/lib/sentry";
 
@@ -18,12 +20,22 @@ export default function EncountersError({
   }, [error]);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[40vh] gap-4 p-6 text-center">
-      <h2 className="text-xl font-semibold">Erro ao carregar atendimentos</h2>
-      <p className="text-muted-foreground text-sm max-w-md">
-        Não foi possível carregar a lista de atendimentos.
-      </p>
+    <Page width="narrow" className="items-center gap-5 py-10 text-center md:py-16">
+      <WarningCircle weight="duotone" className="size-12 text-tone-red" aria-hidden="true" />
+      <div className="flex flex-col gap-2">
+        <h1 className="text-2xl font-bold tracking-[-0.01em] text-foreground">
+          Erro ao carregar atendimentos
+        </h1>
+        <p className="max-w-md text-[0.9375rem] text-pretty text-muted-foreground">
+          Não foi possível carregar a lista de atendimentos.
+        </p>
+      </div>
       <Button onClick={reset}>Tentar novamente</Button>
-    </div>
+      {error.digest ? (
+        <p className="text-xs text-muted-foreground">
+          Código do erro: <span className="font-mono">{error.digest}</span>
+        </p>
+      ) : null}
+    </Page>
   );
 }

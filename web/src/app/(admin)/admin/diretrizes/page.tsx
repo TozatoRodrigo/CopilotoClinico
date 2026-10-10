@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
 import {
   ArrowClockwise,
@@ -22,13 +22,17 @@ import type { GuidelineSourceSummary, PendingGuidelineChunk } from '@/lib/types'
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Callout } from '@/components/ui/callout';
+import { Disclosure } from '@/components/ui/disclosure';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
 import { EmptyState } from '@/components/domain/empty-state';
+import { Page } from '@/components/layout/page';
+import { PageHeader, SectionHeader } from '@/components/layout/page-header';
 import { cn } from '@/lib/utils';
-
-const REVIEW_CYCLE_MONTHS = 6;
+import { formatDate, isReviewOverdue, REVIEW_CYCLE_MONTHS } from '../_lib/format';
+import { specialtyLabel } from '@/components/domain/suggest-guideline-dialog';
 
 interface UploadItem {
   filename: string;
@@ -46,86 +50,69 @@ interface StoredFile {
   item: UploadItem;
 }
 
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('pt-BR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
-}
+/** Estado do arquivo na fila de ingestão — sempre ícone + texto, nunca só cor. */
+const UPLOAD_STATUS: Record<
+  UploadItem['status'],
+  { label: string; variant: 'secondary' | 'default' | 'success' | 'destructive' }
+> = {
+  queued: { label: 'Na fila', variant: 'secondary' },
+  uploading: { label: 'Ingerindo', variant: 'default' },
+  success: { label: 'Ingerido', variant: 'success' },
+  error: { label: 'Erro', variant: 'destructive' },
+};
 
-function isReviewOverdue(validFrom: string): boolean {
-  const reviewDate = new Date(validFrom);
-  reviewDate.setMonth(reviewDate.getMonth() + REVIEW_CYCLE_MONTHS);
-  return reviewDate < new Date();
-}
-
-function PipelineStep({
-  label,
-  count,
-  active,
-  done,
-}: {
-  label: string;
-  count: number;
-  active?: boolean;
-  done?: boolean;
-}) {
+function UploadStatusTag({ status }: { status: UploadItem['status'] }) {
+  const tag = UPLOAD_STATUS[status];
   return (
-    <div className="flex items-center gap-2">
-      <div
-        className={cn(
-          'flex size-7 items-center justify-center rounded-full text-xs font-semibold',
-          done
-            ? 'bg-clinical-green-bg text-clinical-green'
-            : active
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-muted text-muted-foreground',
-        )}
-      >
-        {done ? <Check className="size-3.5" /> : count}
-      </div>
-      <span
-        className={cn(
-          'text-xs font-medium',
-          active ? 'text-foreground' : done ? 'text-clinical-green' : 'text-muted-foreground',
-        )}
-      >
-        {label}
-      </span>
-    </div>
+    <Badge variant={tag.variant}>
+      {status === 'queued' && <Clock aria-hidden="true" />}
+      {status === 'uploading' && <ArrowClockwise className="animate-spin" aria-hidden="true" />}
+      {status === 'success' && <CheckCircle weight="fill" aria-hidden="true" />}
+      {status === 'error' && <XCircle weight="fill" aria-hidden="true" />}
+      {tag.label}
+    </Badge>
   );
 }
 
-function SourceRow({ source }: { source: GuidelineSourceSummary }) {
-  const overdue = source.active && isReviewOverdue(source.validFrom);
-
+/**
+ * Etapa da esteira do pipeline (KB-002). `done` = etapa com conteúdo
+ * publicado; `pending` = etapa que pede ação da curadoria (laranja).
+ */
+function PipelineStep({
+  index,
+  label,
+  count,
+  state,
+  hint,
+}: {
+  index: number;
+  label: string;
+  /** `null` = contagem indisponível (erro ao carregar). */
+  count: number | null;
+  state: 'idle' | 'done' | 'pending';
+  hint: string;
+}) {
   return (
-    <div className="grid grid-cols-[2fr_1fr_0.7fr_1fr_0.8fr] items-center gap-3 border-b px-4 py-2.5 text-sm last:border-b-0">
-      <div className="min-w-0">
-        <p className="truncate font-medium">{source.source}</p>
-        {overdue && (
-          <p className="flex items-center gap-1 text-[10px] text-clinical-amber">
-            <Warning className="size-3" weight="fill" />
-            Revisão vencida
-          </p>
-        )}
-      </div>
-      <div className="font-mono text-xs">{source.sourceVersion}</div>
-      <div className="font-mono text-xs text-muted-foreground">{source.chunkCount} chunks</div>
-      <div className="font-mono text-xs text-muted-foreground">{formatDate(source.validFrom)}</div>
-      <div>
-        {source.active ? (
-          <Badge variant="outline" className="border-clinical-green/30 text-clinical-green">
-            Ativo
-          </Badge>
+    <li className="flex min-w-0 flex-1 flex-col gap-1.5 px-4 py-3.5">
+      <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+        {state === 'done' ? (
+          <Check className="size-3.5 text-tone-green" weight="bold" aria-hidden="true" />
         ) : (
-          <Badge variant="outline" className="text-muted-foreground">
-            Inativo
-          </Badge>
+          <span
+            aria-hidden="true"
+            className="flex size-4 items-center justify-center rounded-full border border-current text-[0.625rem] font-semibold tabular-nums"
+          >
+            {index}
+          </span>
         )}
-      </div>
-    </div>
+        {label}
+      </span>
+      <span className="flex flex-wrap items-center gap-2">
+        <span className="text-xl leading-none font-semibold text-foreground tabular-nums">{count ?? '—'}</span>
+        {state === 'pending' && <Badge variant="warning">aguardando curadoria</Badge>}
+      </span>
+      <span className="text-xs text-muted-foreground">{hint}</span>
+    </li>
   );
 }
 
@@ -155,53 +142,139 @@ function PendingChunkRow({ chunk }: { chunk: PendingGuidelineChunk }) {
     }
   }
 
+  const titleId = `chunk-${chunk.id}-source`;
+  const excerpt = chunk.text.length > 200 ? `${chunk.text.substring(0, 200)}...` : chunk.text;
+
   return (
-    <div className="border-b px-4 py-3 last:border-b-0">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="truncate text-sm font-medium">{chunk.source}</span>
-            <Badge variant="outline" className="font-mono text-[10px]">
-              v{chunk.sourceVersion}
-            </Badge>
-            {chunk.evidenceLevel && (
-              <Badge variant="secondary" className="text-[10px]">
-                {chunk.evidenceLevel}
-              </Badge>
-            )}
-          </div>
-          <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-            {chunk.text.substring(0, 200)}
-            {chunk.text.length > 200 ? '...' : ''}
-          </p>
-          <p className="mt-1 text-[10px] text-muted-foreground">
-            Especialidade: {chunk.specialty} · {formatDate(chunk.createdAt)}
-          </p>
+    <li className="flex flex-col gap-3 px-2 py-3 sm:flex-row sm:items-start sm:gap-6">
+      <div className="min-w-0 flex-1 space-y-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span id={titleId} className="mr-0.5 text-sm font-medium text-foreground">
+            {chunk.source}
+          </span>
+          <Badge variant="gray">v{chunk.sourceVersion}</Badge>
+          <Badge variant="brown">{specialtyLabel(chunk.specialty)}</Badge>
+          {chunk.evidenceLevel && <Badge variant="purple">Evidência {chunk.evidenceLevel}</Badge>}
+          <Badge variant="warning">
+            <Clock weight="bold" aria-hidden="true" />
+            Em revisão
+          </Badge>
         </div>
-        <div className="flex shrink-0 gap-1">
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 gap-1 border-clinical-green/30 text-clinical-green hover:bg-clinical-green-bg"
-            disabled={loading !== null}
-            onClick={() => handleAction('approve')}
+        <p className="line-clamp-2 text-[0.8125rem] text-muted-foreground">{excerpt}</p>
+        {chunk.text.length > 200 && (
+          <Disclosure
+            className="w-fit max-w-full"
+            contentClassName="max-w-2xl"
+            title={
+              <span className="text-[0.8125rem]">
+                Ler trecho completo{' '}
+                <span className="font-normal text-muted-foreground">
+                  · {chunk.text.length.toLocaleString('pt-BR')} caracteres
+                </span>
+              </span>
+            }
           >
-            <Check className="size-3.5" />
-            {loading === 'approve' ? '...' : 'Aprovar'}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 gap-1 border-destructive/30 text-destructive hover:bg-destructive/5"
-            disabled={loading !== null}
-            onClick={() => handleAction('reject')}
-          >
-            <X className="size-3.5" />
-            {loading === 'reject' ? '...' : 'Rejeitar'}
-          </Button>
-        </div>
+            <p className="border-l-2 border-border pl-3 text-[0.9375rem] leading-relaxed whitespace-pre-wrap text-foreground">
+              {chunk.text}
+            </p>
+          </Disclosure>
+        )}
+        <p className="text-xs text-muted-foreground">Ingerido em {formatDate(chunk.createdAt)}</p>
       </div>
-    </div>
+      <div className="flex shrink-0 gap-1.5">
+        <Button
+          size="sm"
+          className="max-sm:h-10 max-sm:flex-1"
+          aria-describedby={titleId}
+          loading={loading === 'approve'}
+          disabled={loading !== null}
+          onClick={() => void handleAction('approve')}
+        >
+          <Check weight="bold" aria-hidden="true" />
+          Aprovar
+        </Button>
+        <Button
+          size="sm"
+          variant="destructive"
+          className="max-sm:h-10 max-sm:flex-1"
+          aria-describedby={titleId}
+          loading={loading === 'reject'}
+          disabled={loading !== null}
+          onClick={() => void handleAction('reject')}
+        >
+          <X weight="bold" aria-hidden="true" />
+          Rejeitar
+        </Button>
+      </div>
+    </li>
+  );
+}
+
+const SOURCE_COLUMNS: DataTableColumn<GuidelineSourceSummary>[] = [
+  {
+    key: 'source',
+    header: 'Fonte',
+    cardLabel: null,
+    className: 'min-w-[16rem]',
+    // Sem rótulo no card mobile: o nome é o título da linha (alinhado à esquerda).
+    cell: (source) => <span className="block text-left font-medium text-foreground">{source.source}</span>,
+  },
+  {
+    key: 'version',
+    header: 'Versão',
+    cell: (source) => <span className="tabular-nums">v{source.sourceVersion}</span>,
+  },
+  {
+    key: 'chunks',
+    header: 'Chunks',
+    className: 'text-right tabular-nums',
+    cell: (source) => source.chunkCount,
+  },
+  {
+    key: 'since',
+    header: 'Vigente desde',
+    className: 'tabular-nums text-muted-foreground',
+    cell: (source) => formatDate(source.validFrom),
+  },
+  {
+    key: 'review',
+    header: 'Revisão',
+    cell: (source) =>
+      source.active && isReviewOverdue(source.validFrom) ? (
+        <Badge variant="warning">
+          <Warning weight="fill" aria-hidden="true" />
+          Revisão vencida
+        </Badge>
+      ) : (
+        <span className="text-[0.8125rem] text-muted-foreground">{source.active ? 'Em dia' : '—'}</span>
+      ),
+  },
+  {
+    key: 'status',
+    header: 'Status',
+    cell: (source) =>
+      source.active ? (
+        <Badge variant="success">
+          <CheckCircle weight="fill" aria-hidden="true" />
+          Ativo
+        </Badge>
+      ) : (
+        <Badge variant="secondary">Inativo</Badge>
+      ),
+  },
+];
+
+function SectionError({ title, onRetry }: { title: string; onRetry: () => void }) {
+  return (
+    <Alert variant="destructive">
+      <AlertTitle>{title}</AlertTitle>
+      <AlertDescription>
+        <Button variant="outline" size="sm" className="mt-2" onClick={onRetry}>
+          <ArrowClockwise aria-hidden="true" />
+          Tentar novamente
+        </Button>
+      </AlertDescription>
+    </Alert>
   );
 }
 
@@ -210,7 +283,6 @@ export default function GuidelinesConsolePage() {
   const [parseErrors, setParseErrors] = useState<ParseError[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
   const sourcesQuery = useGuidelineSources();
@@ -337,262 +409,228 @@ export default function GuidelinesConsolePage() {
     }
   }
 
+  const pipelineLoading = sourcesQuery.isPending || pendingQuery.isPending;
+
   return (
-    <div className="mx-auto max-w-6xl space-y-5">
-      <div className="space-y-1">
-        <div className="flex items-center gap-2">
-          <Database className="size-5 text-primary" weight="duotone" />
-          <h1 className="text-lg font-semibold tracking-tight">Diretrizes</h1>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Console de ingestão do pipeline KB-002 — upload, curadoria e catálogo de fontes
-        </p>
-      </div>
+    <Page width="wide">
+      <PageHeader
+        icon={Database}
+        title="Diretrizes"
+        description="Console de ingestão do pipeline KB-002 — upload, curadoria e catálogo de fontes."
+      />
 
-      {/* Pipeline overview */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm">Esteira do pipeline</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-            <PipelineStep label="Fontes ativas" count={activeSources.length} done={activeSources.length > 0} />
-            <ArrowRight className="size-4 text-muted-foreground" />
+      {/* Esteira do pipeline */}
+      <section className="flex flex-col gap-3" aria-labelledby="pipeline-title">
+        <SectionHeader title={<span id="pipeline-title">Esteira do pipeline</span>} />
+        {pipelineLoading ? (
+          <Skeleton className="h-[104px] w-full rounded-lg" />
+        ) : (
+          <ol className="flex flex-col divide-y divide-border rounded-lg border border-border bg-card sm:flex-row sm:divide-y-0">
             <PipelineStep
+              index={1}
+              label="Fontes ativas"
+              count={sourcesQuery.error ? null : activeSources.length}
+              state={activeSources.length > 0 ? 'done' : 'idle'}
+              hint="Diretrizes com versão vigente"
+            />
+            <li aria-hidden="true" className="hidden items-center text-fg-tertiary sm:flex">
+              <ArrowRight className="size-4" />
+            </li>
+            <PipelineStep
+              index={2}
               label="Em revisão"
-              count={pendingChunks.length}
-              active={pendingChunks.length > 0}
+              count={pendingQuery.error ? null : pendingChunks.length}
+              state={pendingChunks.length > 0 ? 'pending' : 'idle'}
+              hint="Trechos ingeridos esperando aprovação"
             />
-            <ArrowRight className="size-4 text-muted-foreground" />
-            <PipelineStep label="Publicadas" count={activeSources.length} done />
-          </div>
-          {overdueCount > 0 && (
-            <div className="mt-4 flex items-center gap-2 rounded-md bg-clinical-amber-bg px-3 py-2 text-xs text-clinical-amber-foreground">
-              <Warning className="size-4 text-clinical-amber" weight="fill" />
-              {overdueCount} fonte(s) com revisão vencida (&gt; {REVIEW_CYCLE_MONTHS} meses). Atualize ou reeingere.
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Upload section */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm">Upload em lote</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragOver(true);
-            }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
-            className={cn(
-              'flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed py-8 text-center transition-colors',
-              dragOver
-                ? 'border-primary bg-accent/30'
-                : 'border-border hover:border-primary/40 hover:bg-accent/20',
-            )}
-          >
-            <UploadSimple className="size-8 text-muted-foreground" weight="duotone" />
-            <div>
-              <p className="text-sm font-medium">Arraste arquivos .md ou .txt aqui</p>
-              <p className="text-xs text-muted-foreground">
-                Cada arquivo deve ter front-matter com fonte, versão e especialidade
-              </p>
-            </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".md,.txt"
-              multiple
-              className="hidden"
-              onChange={handleFileSelect}
+            <li aria-hidden="true" className="hidden items-center text-fg-tertiary sm:flex">
+              <ArrowRight className="size-4" />
+            </li>
+            <PipelineStep
+              index={3}
+              label="Publicadas"
+              count={sourcesQuery.error ? null : activeSources.length}
+              state={activeSources.length > 0 ? 'done' : 'idle'}
+              hint="Consultadas pelo Copiloto nas análises"
             />
-          </div>
+          </ol>
+        )}
+        {overdueCount > 0 && (
+          <Callout tone="orange" icon={<Warning weight="fill" />}>
+            {overdueCount} fonte(s) com revisão vencida (&gt; {REVIEW_CYCLE_MONTHS} meses). Atualize ou reeingere.
+          </Callout>
+        )}
+      </section>
 
-          {/* Parse errors */}
-          {parseErrors.length > 0 && (
-            <div className="space-y-2">
-              {parseErrors.map((err, i) => (
-                <Alert key={i} variant="destructive">
-                  <XCircle className="size-4" />
-                  <AlertTitle className="text-sm">{err.filename}</AlertTitle>
-                  <AlertDescription className="text-xs">
-                    {err.error} — {err.action}
-                  </AlertDescription>
-                </Alert>
-              ))}
-            </div>
+      {/* Upload em lote */}
+      <section className="flex flex-col gap-3" aria-labelledby="upload-title">
+        <SectionHeader
+          title={<span id="upload-title">Upload em lote</span>}
+          description="Os arquivos são validados aqui e os trechos entram na fila de revisão abaixo."
+        />
+        <label
+          htmlFor="guideline-files"
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={handleDrop}
+          className={cn(
+            'group flex cursor-pointer flex-col items-center gap-2 rounded-lg border border-dashed px-4 py-7 text-center transition-colors has-[input:focus-visible]:ring-[3px] has-[input:focus-visible]:ring-ring/40',
+            dragOver
+              ? 'border-primary bg-tone-blue-bg'
+              : 'border-input bg-surface-subtle hover:bg-hover/60',
           )}
+        >
+          <UploadSimple className="size-7 text-muted-foreground" weight="duotone" aria-hidden="true" />
+          <span className="text-sm font-medium text-foreground">Arraste arquivos .md ou .txt aqui</span>
+          <span className="max-w-md text-[0.8125rem] text-muted-foreground">
+            ou <span className="text-link group-hover:underline">escolha no computador</span>. Cada arquivo
+            deve ter front-matter com fonte, versão e especialidade.
+          </span>
+          <input
+            id="guideline-files"
+            type="file"
+            accept=".md,.txt"
+            multiple
+            className="sr-only"
+            onChange={handleFileSelect}
+          />
+        </label>
 
-          {/* Upload queue */}
-          {uploadItems.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  Fila de ingestão ({uploadItems.length})
-                </span>
+        {/* Parse errors */}
+        {parseErrors.length > 0 && (
+          <div className="space-y-2">
+            {parseErrors.map((err, i) => (
+              <Alert key={i} variant="destructive">
+                <XCircle weight="fill" />
+                <AlertTitle>{err.filename}</AlertTitle>
+                <AlertDescription>
+                  {err.error} — {err.action}
+                </AlertDescription>
+              </Alert>
+            ))}
+          </div>
+        )}
+
+        {/* Upload queue */}
+        {uploadItems.length > 0 && (
+          <div className="flex flex-col gap-2 pt-1">
+            <SectionHeader
+              as="h3"
+              title="Fila de ingestão"
+              count={uploadItems.length}
+              action={
                 <Button
                   size="sm"
+                  className="max-sm:h-10"
+                  loading={uploading}
                   disabled={uploading || uploadItems.every((i) => i.status !== 'queued')}
                   onClick={() => void handleUpload()}
                 >
-                  <UploadSimple className="mr-1 size-3.5" />
+                  <UploadSimple aria-hidden="true" />
                   {uploading ? 'Ingerindo...' : 'Ingerir lote'}
                 </Button>
-              </div>
-              <div className="space-y-1">
-                {uploadItems.map((item, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-3 rounded-md border px-3 py-2 text-sm"
-                  >
-                    <FileText className="size-4 shrink-0 text-muted-foreground" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium">{item.filename}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {item.source} · v{item.sourceVersion} · {item.specialty}
-                        {item.evidenceLevel && ` · ${item.evidenceLevel}`}
+              }
+            />
+            <ul className="divide-y divide-border border-y border-border">
+              {uploadItems.map((item, i) => (
+                <li key={i} className="flex items-start gap-3 px-2 py-2.5">
+                  <FileText className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">{item.filename}</p>
+                    <p className="truncate text-[0.8125rem] text-muted-foreground">
+                      {item.source} · v{item.sourceVersion} · {specialtyLabel(item.specialty)}
+                      {item.evidenceLevel && ` · ${item.evidenceLevel}`}
+                    </p>
+                    {item.status === 'error' && item.error && (
+                      <p className="mt-0.5 text-[0.8125rem] text-destructive">
+                        {item.error} — {item.action}
                       </p>
-                      {item.status === 'error' && item.error && (
-                        <p className="mt-0.5 text-xs text-destructive">
-                          {item.error} — {item.action}
-                        </p>
-                      )}
-                    </div>
-                    {item.status === 'queued' && <Clock className="size-4 text-muted-foreground" />}
-                    {item.status === 'uploading' && (
-                      <ArrowClockwise className="size-4 animate-spin text-primary" />
-                    )}
-                    {item.status === 'success' && (
-                      <CheckCircle className="size-4 text-clinical-green" weight="fill" />
-                    )}
-                    {item.status === 'error' && (
-                      <XCircle className="size-4 text-destructive" weight="fill" />
                     )}
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                  <UploadStatusTag status={item.status} />
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </section>
 
       {/* Pending chunks review */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-sm">Chunks em revisão</CardTitle>
-            {pendingChunks.length > 0 && (
-              <Badge variant="secondary">{pendingChunks.length} pendente(s)</Badge>
-            )}
+      <section className="flex flex-col gap-3" aria-labelledby="review-title">
+        <SectionHeader
+          title={<span id="review-title">Trechos em revisão</span>}
+          count={
+            pendingChunks.length > 0 ? (
+              <Badge variant="warning">
+                {pendingChunks.length} pendente{pendingChunks.length !== 1 ? 's' : ''}
+              </Badge>
+            ) : undefined
+          }
+          description="Aprovar publica o trecho na base consultada pelo Copiloto; rejeitar descarta com registro na auditoria."
+        />
+        {pendingQuery.isPending ? (
+          <div className="divide-y divide-border border-y border-border" aria-hidden="true">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="flex items-start gap-4 px-2 py-3">
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-72 max-w-full" />
+                  <Skeleton className="h-3 w-full" />
+                </div>
+                <Skeleton className="h-7 w-40" />
+              </div>
+            ))}
           </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          {pendingQuery.isPending ? (
-            <div className="space-y-2 p-4">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={i} className="h-16 w-full" />
-              ))}
-            </div>
-          ) : pendingQuery.error ? (
-            <div className="p-4">
-              <Alert variant="destructive">
-                <AlertTitle>Erro ao carregar chunks</AlertTitle>
-                <AlertDescription>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-2"
-                    onClick={() => void pendingQuery.refetch()}
-                  >
-                    Tentar novamente
-                  </Button>
-                </AlertDescription>
-              </Alert>
-            </div>
-          ) : pendingChunks.length === 0 ? (
-            <div className="p-4">
-              <EmptyState
-                icon={<CheckCircle className="size-10" weight="duotone" />}
-                title="Nenhum chunk pendente"
-                description="Todos os chunks ingeridos foram revisados."
-              />
-            </div>
-          ) : (
-            <div>
-              {pendingChunks.map((chunk) => (
-                <PendingChunkRow key={chunk.id} chunk={chunk} />
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        ) : pendingQuery.error ? (
+          <SectionError title="Erro ao carregar chunks" onRetry={() => void pendingQuery.refetch()} />
+        ) : pendingChunks.length === 0 ? (
+          <div className="border-y border-border">
+            <EmptyState
+              icon={<CheckCircle weight="duotone" />}
+              title="Nenhum chunk pendente"
+              description="Todos os chunks ingeridos foram revisados."
+            />
+          </div>
+        ) : (
+          <ul className="divide-y divide-border border-y border-border">
+            {pendingChunks.map((chunk) => (
+              <PendingChunkRow key={chunk.id} chunk={chunk} />
+            ))}
+          </ul>
+        )}
+      </section>
 
       {/* Catalog table */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-sm">Catálogo de fontes</CardTitle>
-            {sourcesQuery.isPending ? (
-              <Skeleton className="h-5 w-20" />
-            ) : (
-              <span className="text-xs text-muted-foreground">
-                {sources.length} fonte(s) · ciclo de revisão: {REVIEW_CYCLE_MONTHS} meses
-              </span>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          {sourcesQuery.isPending ? (
-            <div className="space-y-2 p-4">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-10 w-full" />
-              ))}
-            </div>
-          ) : sourcesQuery.error ? (
-            <div className="p-4">
-              <Alert variant="destructive">
-                <AlertTitle>Erro ao carregar catálogo</AlertTitle>
-                <AlertDescription>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-2"
-                    onClick={() => void sourcesQuery.refetch()}
-                  >
-                    Tentar novamente
-                  </Button>
-                </AlertDescription>
-              </Alert>
-            </div>
-          ) : sources.length === 0 ? (
-            <div className="p-4">
-              <EmptyState
-                icon={<Database className="size-10" weight="duotone" />}
-                title="Catálogo vazio"
-                description="Faça upload de diretrizes para iniciar o pipeline."
-              />
-            </div>
-          ) : (
-            <div>
-              <div className="grid grid-cols-[2fr_1fr_0.7fr_1fr_0.8fr] gap-3 border-b bg-muted/50 px-4 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                <span>Fonte</span>
-                <span>Versão</span>
-                <span>Chunks</span>
-                <span>Desde</span>
-                <span>Status</span>
+      <section className="flex flex-col gap-3" aria-labelledby="catalog-title">
+        <SectionHeader
+          title={<span id="catalog-title">Catálogo de fontes</span>}
+          count={sourcesQuery.isPending || sourcesQuery.error ? undefined : sources.length}
+          description={`Ciclo de revisão: ${REVIEW_CYCLE_MONTHS} meses a partir da vigência.`}
+        />
+        {sourcesQuery.error ? (
+          <SectionError title="Erro ao carregar catálogo" onRetry={() => void sourcesQuery.refetch()} />
+        ) : (
+          <DataTable
+            columns={SOURCE_COLUMNS}
+            rows={sources}
+            getRowId={(source) => `${source.source}-${source.sourceVersion}-${source.validFrom}`}
+            loading={sourcesQuery.isPending}
+            loadingRows={4}
+            ariaLabel="Catálogo de fontes de diretrizes"
+            emptyState={
+              <div className="border-y border-border">
+                <EmptyState
+                  icon={<Database weight="duotone" />}
+                  title="Catálogo vazio"
+                  description="Faça upload de diretrizes para iniciar o pipeline."
+                />
               </div>
-              {sources.map((source, i) => (
-                <SourceRow key={`${source.source}-${source.sourceVersion}-${i}`} source={source} />
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+            }
+          />
+        )}
+      </section>
+    </Page>
   );
 }

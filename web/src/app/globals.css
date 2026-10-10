@@ -4,27 +4,40 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Design system "Prontuário" — linguagem visual inspirada no Notion, ajustada
+ * para uso clínico (contraste WCAG AA em todo texto com significado).
+ * Documentação: docs/design-system.md · Tokens: docs/design-tokens.md
+ */
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-dm-sans);
-  --font-mono: var(--font-ibm-plex-mono);
-  --font-display: var(--font-dm-serif-display);
-  --font-heading: var(--font-display);
+
+  /* Tipografia — pilha de sistema do Notion (nada baixado, nada de Geist/Inter). */
+  --font-sans: var(--font-stack-sans);
+  --font-serif: var(--font-stack-serif);
+  --font-mono: var(--font-stack-mono);
+  --font-display: var(--font-stack-sans);
+  --font-heading: var(--font-stack-sans);
+
   --text-xs: 0.75rem;
-  --text-xs--line-height: 1.5;
-  --text-sm: 0.84375rem;
+  --text-xs--line-height: 1.4;
+  --text-sm: 0.875rem;
   --text-sm--line-height: 1.5;
-  --text-base: 0.9375rem;
+  --text-base: 1rem;
   --text-base--line-height: 1.5;
-  --text-lg: 1.0625rem;
+  --text-lg: 1.125rem;
   --text-lg--line-height: 1.5;
-  --text-xl: 1.3125rem;
-  --text-xl--line-height: 1.5;
-  --text-2xl: 1.75rem;
-  --text-2xl--line-height: 1.15;
-  --text-3xl: 2.25rem;
-  --text-3xl--line-height: 1.15;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.3;
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 1.3;
+  --text-3xl: 1.875rem;
+  --text-3xl--line-height: 1.25;
+  --text-4xl: 2.5rem;
+  --text-4xl--line-height: 1.2;
+
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -55,7 +68,58 @@
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
 
-  /* Paleta clínica Strivium (A2) — significado médico-legal fixo por cor */
+  /* Superfícies e texto (estilo Notion) */
+  --color-surface-sidebar: var(--bg-sidebar);
+  --color-surface-subtle: var(--bg-subtle);
+  --color-surface-input: var(--bg-input);
+  --color-hover: var(--bg-hover);
+  --color-active: var(--bg-active);
+  --color-fg-tertiary: var(--fg-tertiary);
+  --color-link: var(--link);
+  --color-divider: var(--divider);
+
+  /* Paleta de cores do Notion (texto, fundo de bloco, tag, tinta sobre tag).
+     Ver docs/design-system.md → "Cores" para quando usar cada uma. */
+  --color-tone-gray: var(--tone-gray);
+  --color-tone-gray-bg: var(--tone-gray-bg);
+  --color-tone-gray-tag: var(--tone-gray-tag);
+  --color-tone-gray-ink: var(--tone-gray-ink);
+  --color-tone-brown: var(--tone-brown);
+  --color-tone-brown-bg: var(--tone-brown-bg);
+  --color-tone-brown-tag: var(--tone-brown-tag);
+  --color-tone-brown-ink: var(--tone-brown-ink);
+  --color-tone-orange: var(--tone-orange);
+  --color-tone-orange-bg: var(--tone-orange-bg);
+  --color-tone-orange-tag: var(--tone-orange-tag);
+  --color-tone-orange-ink: var(--tone-orange-ink);
+  --color-tone-yellow: var(--tone-yellow);
+  --color-tone-yellow-bg: var(--tone-yellow-bg);
+  --color-tone-yellow-tag: var(--tone-yellow-tag);
+  --color-tone-yellow-ink: var(--tone-yellow-ink);
+  --color-tone-green: var(--tone-green);
+  --color-tone-green-bg: var(--tone-green-bg);
+  --color-tone-green-tag: var(--tone-green-tag);
+  --color-tone-green-ink: var(--tone-green-ink);
+  --color-tone-blue: var(--tone-blue);
+  --color-tone-blue-bg: var(--tone-blue-bg);
+  --color-tone-blue-tag: var(--tone-blue-tag);
+  --color-tone-blue-ink: var(--tone-blue-ink);
+  --color-tone-purple: var(--tone-purple);
+  --color-tone-purple-bg: var(--tone-purple-bg);
+  --color-tone-purple-tag: var(--tone-purple-tag);
+  --color-tone-purple-ink: var(--tone-purple-ink);
+  --color-tone-pink: var(--tone-pink);
+  --color-tone-pink-bg: var(--tone-pink-bg);
+  --color-tone-pink-tag: var(--tone-pink-tag);
+  --color-tone-pink-ink: var(--tone-pink-ink);
+  --color-tone-red: var(--tone-red);
+  --color-tone-red-bg: var(--tone-red-bg);
+  --color-tone-red-tag: var(--tone-red-tag);
+  --color-tone-red-ink: var(--tone-red-ink);
+
+  /* Semântica clínica — significado médico-legal fixo por cor:
+     amber = "muda a conduta" (laranja Notion), green = conduta confirmada,
+     error = erro/destrutivo/gravidade crítica, teal = ação primária/IA. */
   --color-clinical-ink: var(--ink);
   --color-clinical-ink-soft: var(--ink-soft);
   --color-clinical-paper: var(--paper);
@@ -73,174 +137,254 @@
   --color-clinical-error-bg: var(--error-bg);
   --color-clinical-error-foreground: var(--error-foreground);
 
-  /* Paleta sidebar dark teal — redesign "Prontuário Vivo" */
-  --color-sidebar-dark-bg: var(--sidebar-dark-bg);
-  --color-sidebar-dark-bg-elevated: var(--sidebar-dark-bg-elevated);
-  --color-sidebar-dark-accent: var(--sidebar-dark-accent);
-  --color-sidebar-dark-text: var(--sidebar-dark-text);
-  --color-sidebar-dark-text-bright: var(--sidebar-dark-text-bright);
-  --color-sidebar-dark-text-muted: var(--sidebar-dark-text-muted);
-  --color-sidebar-dark-text-dim: var(--sidebar-dark-text-dim);
-  --color-sidebar-dark-divider: var(--sidebar-dark-divider);
-  --color-sidebar-dark-border-subtle: var(--sidebar-dark-border-subtle);
-  --color-sidebar-dark-green-online: var(--sidebar-dark-green-online);
-
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
+  --radius-sm: calc(var(--radius) * 0.67);
+  --radius-md: calc(var(--radius) * 0.84);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
-  --radius-4xl: calc(var(--radius) * 2.6);
+  --radius-xl: calc(var(--radius) * 1.34);
+  --radius-2xl: calc(var(--radius) * 1.67);
+  --radius-3xl: calc(var(--radius) * 2);
+  --radius-4xl: calc(var(--radius) * 2.67);
 
-  /* Sombra única do sistema (regra anti-template) */
-  --shadow-2xs: 0 1px 2px rgba(16, 36, 58, 0.06);
-  --shadow-xs: 0 1px 2px rgba(16, 36, 58, 0.06);
-  --shadow-sm: 0 1px 2px rgba(16, 36, 58, 0.06), 0 4px 12px rgba(16, 36, 58, 0.05);
-  --shadow: 0 1px 2px rgba(16, 36, 58, 0.06), 0 4px 12px rgba(16, 36, 58, 0.05);
-  --shadow-md: 0 1px 2px rgba(16, 36, 58, 0.06), 0 4px 12px rgba(16, 36, 58, 0.05);
-  --shadow-lg: 0 1px 2px rgba(16, 36, 58, 0.06), 0 4px 12px rgba(16, 36, 58, 0.05);
-  --shadow-xl: 0 1px 2px rgba(16, 36, 58, 0.06), 0 4px 12px rgba(16, 36, 58, 0.05);
-  --shadow-2xl: 0 1px 2px rgba(16, 36, 58, 0.06), 0 4px 12px rgba(16, 36, 58, 0.05);
+  /* Sombras do Notion: cartões quase planos, popovers em camadas. */
+  --shadow-2xs: var(--shadow-card-flat);
+  --shadow-xs: var(--shadow-card-flat);
+  --shadow-sm: var(--shadow-card);
+  --shadow: var(--shadow-card);
+  --shadow-md: var(--shadow-popover);
+  --shadow-lg: var(--shadow-popover);
+  --shadow-xl: var(--shadow-popover);
+  --shadow-2xl: var(--shadow-popover);
 }
 
 :root {
-  --font-dm-sans: "Avenir Next", "Segoe UI", sans-serif;
-  --font-ibm-plex-mono: "SFMono-Regular", "Menlo", "Monaco", monospace;
-  --font-dm-serif-display: "Iowan Old Style", "Palatino Linotype", serif;
+  --font-stack-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display",
+    "Segoe UI", Helvetica, "Apple Color Emoji", Arial, sans-serif, "Segoe UI Emoji",
+    "Segoe UI Symbol";
+  --font-stack-serif: "Lyon-Text", Georgia, ui-serif, serif;
+  --font-stack-mono: "SFMono-Regular", Menlo, Consolas, "PT Mono", "Liberation Mono", Courier,
+    monospace;
 
-  /* Paleta clínica Strivium (A2) — oklch com fallback hex.
-     Cor de marca (teal) aparece por significado (ação primária), âmbar é
-     exclusivo para "muda a conduta" (blocker/alerta) e verde para conduta
-     confirmada. Nunca decorativos. */
-  --ink: #10243a;
-  --ink: oklch(0.2558 0.0493 252.28);
-  --ink-soft: #46586c;
-  --ink-soft: oklch(0.4534 0.0397 251.37);
-  --paper: #f4f7f8;
-  --paper: oklch(0.9741 0.0035 219.53);
+  /* Superfícies */
+  --bg: #ffffff;
+  --bg-sidebar: #f7f7f5;
+  --bg-subtle: #fbfbfa;
+  --bg-input: rgba(242, 241, 238, 0.6);
+  --bg-hover: rgba(55, 53, 47, 0.06);
+  --bg-active: rgba(55, 53, 47, 0.09);
+
+  /* Texto */
+  --fg: #37352f;
+  --fg-secondary: #6f6e69;
+  --fg-tertiary: #a5a29a;
+  --link: #1d72c6;
+
+  /* Linhas */
+  --divider: #e9e9e7;
+  --input-border: #dedcd8;
+
+  /* Ação primária — azul Notion escurecido para AA com texto branco. */
+  --brand: #1d72c6;
+  --brand-hover: #1a65b0;
+  --brand-soft: rgba(35, 131, 226, 0.08);
+
+  /* Cores Notion. `tone-x` = texto/ícone (≥ 4.5:1 sobre branco), `-bg` = fundo
+     de bloco/callout, `-tag` = fundo de tag/seleção, `-ink` = texto sobre -bg/-tag. */
+  --tone-gray: #6f6e69;
+  --tone-gray-bg: #f1f1ef;
+  --tone-gray-tag: #e3e2e0;
+  --tone-gray-ink: #32302c;
+  --tone-brown: #91614c;
+  --tone-brown-bg: #f4eeee;
+  --tone-brown-tag: #eee0da;
+  --tone-brown-ink: #442a1e;
+  --tone-orange: #a5570a;
+  --tone-orange-bg: #fbecdd;
+  --tone-orange-tag: #fadec9;
+  --tone-orange-ink: #49290e;
+  --tone-yellow: #906721;
+  --tone-yellow-bg: #fbf3db;
+  --tone-yellow-tag: #fdecc8;
+  --tone-yellow-ink: #402c1b;
+  --tone-green: #3f7959;
+  --tone-green-bg: #edf3ec;
+  --tone-green-tag: #dbeddb;
+  --tone-green-ink: #1c3829;
+  --tone-blue: #2f749b;
+  --tone-blue-bg: #e7f3f8;
+  --tone-blue-tag: #d3e5ef;
+  --tone-blue-ink: #183347;
+  --tone-purple: #875fa5;
+  --tone-purple-bg: #f6f3f9;
+  --tone-purple-tag: #e8deee;
+  --tone-purple-ink: #412454;
+  --tone-pink: #b54782;
+  --tone-pink-bg: #faf1f5;
+  --tone-pink-tag: #f5e0e9;
+  --tone-pink-ink: #4c2337;
+  --tone-red: #bb433e;
+  --tone-red-bg: #fdebec;
+  --tone-red-tag: #ffe2dd;
+  --tone-red-ink: #5d1715;
+
+  --tooltip-bg: #0f0f0f;
+  --tooltip-fg: rgba(255, 255, 255, 0.92);
+
+  --shadow-card-flat: 0 1px 2px rgba(15, 15, 15, 0.04);
+  --shadow-card: 0 0 0 1px rgba(15, 15, 15, 0.03), 0 2px 4px rgba(15, 15, 15, 0.04);
+  --shadow-popover: 0 0 0 1px rgba(15, 15, 15, 0.05), 0 3px 6px rgba(15, 15, 15, 0.1),
+    0 9px 24px rgba(15, 15, 15, 0.2);
+
+  /* Nomes clínicos (legado A2) — agora derivados da paleta Notion. Mantidos
+     porque carregam significado clínico: ver docs/design-system.md. */
+  --ink: var(--fg);
+  --ink-soft: var(--fg-secondary);
+  --paper: var(--bg);
+  --line: var(--divider);
+  --teal: var(--brand);
+  --teal-deep: var(--tone-blue-ink);
+  --teal-tint: var(--tone-blue-bg);
+  --amber: var(--tone-orange);
+  --amber-bg: var(--tone-orange-bg);
+  --amber-foreground: var(--tone-orange-ink);
+  --green: var(--tone-green);
+  --green-bg: var(--tone-green-bg);
+  --green-foreground: var(--tone-green-ink);
+  --error: var(--tone-red);
+  --error-bg: var(--tone-red-bg);
+  --error-foreground: var(--tone-red-ink);
+
+  /* Mapeamento semântico (shadcn) */
+  --background: var(--bg);
+  --foreground: var(--fg);
   --card: #ffffff;
-  --card: oklch(1 0 0);
-  --line: #e1e8ec;
-  --line: oklch(0.9268 0.0093 232.37);
-  --teal: #0e7c7b;
-  --teal: oklch(0.5318 0.0881 193.81);
-  --teal-deep: #0a5a59;
-  --teal-deep: oklch(0.4244 0.0696 193.49);
-  --teal-tint: #e3f1f0;
-  --teal-tint: oklch(0.9474 0.0149 191.76);
-  --amber: #b45309;
-  --amber: oklch(0.5553 0.1455 49);
-  --amber-bg: #fdf4e3;
-  --amber-bg: oklch(0.9696 0.0244 83.42);
-  --amber-foreground: #7c2d12;
-  --amber-foreground: oklch(0.4084 0.1165 38.17);
-  --green: #1e7f4f;
-  --green: oklch(0.5296 0.1157 156.44);
-  --green-bg: #e9f5ee;
-  --green-bg: oklch(0.9592 0.0157 160.62);
-  --green-foreground: #14532d;
-  --green-foreground: oklch(0.3925 0.0896 152.54);
-  --error: #b3382e;
-  --error: oklch(0.5203 0.1609 28.52);
-  --error-bg: #fceeed;
-  --error-bg: oklch(0.9636 0.0203 28.52);
-  --error-foreground: #7c2d29;
-  --error-foreground: oklch(0.4084 0.0885 28.52);
-
-  /* Sidebar dark teal — redesign "Prontuário Vivo" */
-  --sidebar-dark-bg: #0C302F;
-  --sidebar-dark-bg-elevated: #114B49;
-  --sidebar-dark-accent: #7FD1CD;
-  --sidebar-dark-text: #CFE5E3;
-  --sidebar-dark-text-bright: #EDF6F5;
-  --sidebar-dark-text-muted: #9FC0BD;
-  --sidebar-dark-text-dim: #7FA8A5;
-  --sidebar-dark-divider: rgba(255, 255, 255, 0.08);
-  --sidebar-dark-border-subtle: rgba(127, 209, 205, 0.25);
-  --sidebar-dark-green-online: #4ADE80;
-
-  /* Mapeamento semântico (shadcn) — sempre derivado da paleta acima */
-  --background: var(--paper);
-  --foreground: var(--ink);
-  --card-foreground: var(--ink);
-  --popover: var(--card);
-  --popover-foreground: var(--ink);
-  --primary: var(--teal);
-  --primary-foreground: var(--paper);
-  --secondary: var(--teal-tint);
-  --secondary-foreground: var(--teal-deep);
-  --muted: var(--line);
-  --muted-foreground: var(--ink-soft);
-  --accent: var(--teal-tint);
-  --accent-foreground: var(--teal-deep);
-  --destructive: var(--error);
-  --border: var(--line);
-  --input: var(--line);
-  --ring: var(--teal);
-  --chart-1: var(--teal);
-  --chart-2: var(--amber);
-  --chart-3: var(--green);
-  --chart-4: var(--ink-soft);
-  --chart-5: var(--error);
-  --radius: 0.625rem;
-  --sidebar: var(--card);
-  --sidebar-foreground: var(--ink);
-  --sidebar-primary: var(--teal);
-  --sidebar-primary-foreground: var(--paper);
-  --sidebar-accent: var(--teal-tint);
-  --sidebar-accent-foreground: var(--teal-deep);
-  --sidebar-border: var(--line);
-  --sidebar-ring: var(--teal);
+  --card-foreground: var(--fg);
+  --popover: #ffffff;
+  --popover-foreground: var(--fg);
+  --primary: var(--brand);
+  --primary-foreground: #ffffff;
+  --secondary: var(--tone-gray-bg);
+  --secondary-foreground: var(--fg);
+  --muted: var(--tone-gray-bg);
+  --muted-foreground: var(--fg-secondary);
+  --accent: var(--bg-hover);
+  --accent-foreground: var(--fg);
+  --destructive: var(--tone-red);
+  --border: var(--divider);
+  --input: var(--input-border);
+  --ring: var(--brand);
+  --chart-1: var(--brand);
+  --chart-2: var(--tone-orange);
+  --chart-3: var(--tone-green);
+  --chart-4: var(--tone-purple);
+  --chart-5: var(--tone-red);
+  --radius: 0.375rem;
+  --sidebar: var(--bg-sidebar);
+  --sidebar-foreground: var(--fg-secondary);
+  --sidebar-primary: var(--brand);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--bg-hover);
+  --sidebar-accent-foreground: var(--fg);
+  --sidebar-border: var(--divider);
+  --sidebar-ring: var(--brand);
 }
 
 .dark {
-  /* Mesma paleta, redefinida para fundo escuro — os tokens semânticos acima
-     são derivados e se ajustam automaticamente. */
-  --ink: oklch(0.93 0.01 232.37);
-  --ink-soft: oklch(0.68 0.02 232.37);
-  --paper: oklch(0.16 0.03 252.28);
-  --card: oklch(0.21 0.03 252.28);
-  --line: oklch(1 0 0 / 10%);
-  --teal: oklch(0.62 0.09 193.81);
-  --teal-deep: oklch(0.62 0.09 193.81);
-  --teal-tint: oklch(0.3 0.04 193.81);
-  --amber: oklch(0.7 0.14 49);
-  --amber-bg: oklch(0.28 0.06 49);
-  --amber-foreground: oklch(0.92 0.04 83.42);
-  --green: oklch(0.68 0.12 156.44);
-  --green-bg: oklch(0.26 0.05 156.44);
-  --green-foreground: oklch(0.9 0.04 160.62);
-  --error: oklch(0.68 0.16 28.52);
-  --error-bg: oklch(0.28 0.06 28.52);
-  --error-foreground: oklch(0.92 0.04 28.52);
+  --bg: #191919;
+  --bg-sidebar: #202020;
+  --bg-subtle: #1e1e1e;
+  --bg-input: rgba(255, 255, 255, 0.055);
+  --bg-hover: rgba(255, 255, 255, 0.055);
+  --bg-active: rgba(255, 255, 255, 0.09);
 
-  /* Sidebar dark teal — levemente ajustada para dark mode global */
-  --sidebar-dark-bg: oklch(0.22 0.03 190);
-  --sidebar-dark-bg-elevated: oklch(0.28 0.04 190);
-  --sidebar-dark-accent: oklch(0.82 0.07 180);
-  --sidebar-dark-text: oklch(0.88 0.02 180);
-  --sidebar-dark-text-bright: oklch(0.95 0.01 180);
-  --sidebar-dark-text-muted: oklch(0.72 0.03 180);
-  --sidebar-dark-text-dim: oklch(0.62 0.03 180);
+  --fg: #d4d4d4;
+  --fg-secondary: #9b9b9b;
+  --fg-tertiary: #5f5f5f;
+  --link: #529cca;
+
+  --divider: #2f2f2f;
+  --input-border: #373737;
+
+  --brand: #1d72c6;
+  --brand-hover: #2383e2;
+  --brand-soft: rgba(35, 131, 226, 0.14);
+
+  --tone-gray: #9b9b9b;
+  --tone-gray-bg: #2f2f2f;
+  --tone-gray-tag: #373737;
+  --tone-gray-ink: #e3e3e3;
+  --tone-brown: #ba856f;
+  --tone-brown-bg: #4a3228;
+  --tone-brown-tag: #603b2c;
+  --tone-brown-ink: #e3e3e3;
+  --tone-orange: #c77d48;
+  --tone-orange-bg: #5c3b23;
+  --tone-orange-tag: #854c1d;
+  --tone-orange-ink: #ededed;
+  --tone-yellow: #ca9849;
+  --tone-yellow-bg: #564328;
+  --tone-yellow-tag: #6e5225;
+  --tone-yellow-ink: #ededed;
+  --tone-green: #529e72;
+  --tone-green-bg: #243d30;
+  --tone-green-tag: #2b593f;
+  --tone-green-ink: #e3e3e3;
+  --tone-blue: #379ad3;
+  --tone-blue-bg: #143a4e;
+  --tone-blue-tag: #28456c;
+  --tone-blue-ink: #e3e3e3;
+  --tone-purple: #9e6ad3;
+  --tone-purple-bg: #3c2d49;
+  --tone-purple-tag: #492f64;
+  --tone-purple-ink: #e3e3e3;
+  --tone-pink: #d15796;
+  --tone-pink-bg: #4e2c3c;
+  --tone-pink-tag: #69314c;
+  --tone-pink-ink: #e3e3e3;
+  --tone-red: #e65b58;
+  --tone-red-bg: #522e2a;
+  --tone-red-tag: #6e3630;
+  --tone-red-ink: #e3e3e3;
+
+  --tooltip-bg: #3f3f3f;
+  --tooltip-fg: rgba(255, 255, 255, 0.92);
+
+  --shadow-card-flat: 0 0 0 1px rgba(255, 255, 255, 0.05);
+  --shadow-card: 0 0 0 1px rgba(255, 255, 255, 0.07), 0 2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-popover: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 3px 6px rgba(0, 0, 0, 0.3),
+    0 9px 24px rgba(0, 0, 0, 0.45);
+
+  --card: #202020;
+  --popover: #252525;
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
   html {
     @apply font-sans;
     color-scheme: light;
+    -webkit-tap-highlight-color: transparent;
   }
   html.dark {
     color-scheme: dark;
   }
+  body {
+    @apply bg-background text-foreground;
+    font-size: var(--text-sm);
+    line-height: 1.5;
+    text-rendering: optimizeLegibility;
+  }
+  ::selection {
+    background: rgba(35, 131, 226, 0.28);
+  }
   :focus-visible {
     @apply outline-2 outline-offset-2 outline-ring;
+  }
+  /* Notion usa barras de rolagem discretas. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--tone-gray-tag) transparent;
   }
 }
 
@@ -266,9 +410,25 @@
 }
 
 @layer utilities {
+  /* Títulos de página no estilo Notion: sans, negrito, tracking levemente negativo. */
   .font-display {
-    font-family: var(--font-display);
-    line-height: 1.15;
-    letter-spacing: -0.01em;
+    font-family: var(--font-stack-sans);
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.015em;
+  }
+  /* No escuro, o azul de ação (#1D72C6, AA com texto branco no botão) fica
+     abaixo de AA como cor de texto sobre #191919 — texto "primário" usa o
+     azul de link, mais claro. Fundos continuam no azul de ação. */
+  .dark .text-primary,
+  .dark .text-clinical-teal {
+    color: var(--link);
+  }
+  /* Rótulo de seção do sidebar/listas (ex.: "Workspace", "Olhe primeiro"). */
+  .text-eyebrow {
+    font-size: var(--text-xs);
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--fg-secondary);
   }
 }

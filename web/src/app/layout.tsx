@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
-import { DM_Sans, DM_Serif_Display, IBM_Plex_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { IconProvider } from "@/components/providers/icon-provider";
 import { OfflineProvider } from "@/components/providers/offline-provider";
@@ -12,23 +11,9 @@ import { ServiceWorkerRegistrar } from "@/components/providers/sw-registrar";
 import { InstallPromptBanner } from "@/components/domain/install-prompt-banner";
 import "./globals.css";
 
-const dmSans = DM_Sans({
-  variable: "--font-dm-sans",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
-
-const dmSerifDisplay = DM_Serif_Display({
-  variable: "--font-dm-serif-display",
-  subsets: ["latin"],
-  weight: ["400"],
-});
-
-const ibmPlexMono = IBM_Plex_Mono({
-  variable: "--font-ibm-plex-mono",
-  subsets: ["latin"],
-  weight: ["400", "500"],
-});
+// Tipografia: pilha de fontes do sistema (a mesma do Notion), definida em
+// globals.css. Nenhuma fonte é baixada — renderiza instantaneamente e nativa
+// em cada SO (SF Pro no Mac/iOS, Segoe UI no Windows, Roboto no Android).
 
 export const metadata: Metadata = {
   title: "Copiloto Clínico de Plantão",
@@ -49,7 +34,10 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0f766e",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#191919" },
+  ],
 };
 
 // Analytics — Umami autoalojado (cookieless, sem PII, sem banner de
@@ -67,7 +55,7 @@ export default function RootLayout({
   return (
     <html
       lang="pt-BR"
-      className={`${dmSans.variable} ${dmSerifDisplay.variable} ${ibmPlexMono.variable} h-full antialiased`}
+      className="h-full antialiased"
       suppressHydrationWarning
     >
       <head>

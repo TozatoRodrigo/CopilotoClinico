@@ -1,20 +1,33 @@
 'use client';
 
-import { Card, CardContent } from '@/components/ui/card';
-import { Users } from '@phosphor-icons/react';
+import { ShieldCheck, ShieldWarning, Users } from '@phosphor-icons/react';
+import { ComingSoonPage } from '../_components/coming-soon';
 
 export default function UsersPlaceholder() {
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
-      <h1 className="text-lg font-semibold">Usuários</h1>
-      <Card>
-        <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-          <Users className="size-10 text-muted-foreground" weight="duotone" />
-          <p className="text-sm text-muted-foreground">
-            Gestão de médicos, papéis e permissões em desenvolvimento.
-          </p>
-        </CardContent>
-      </Card>
-    </div>
+    <ComingSoonPage
+      icon={Users}
+      title="Usuários"
+      summary="Gestão de médicos, papéis e permissões em desenvolvimento."
+      planned={[
+        'Lista de médicos com status do CRM e último acesso',
+        'Papéis (médico, compliance, admin) e permissões por papel',
+        'Reset de MFA pela interface — hoje feito pela API administrativa',
+      ]}
+      meanwhile={[
+        {
+          href: '/admin/crm-verifications',
+          label: 'Verificações CRM',
+          description: 'Aprovar ou rejeitar o acesso de novos médicos',
+          icon: ShieldCheck,
+        },
+        {
+          href: '/audit',
+          label: 'Auditoria',
+          description: 'Quem fez o quê, com trilha imutável',
+          icon: ShieldWarning,
+        },
+      ]}
+    />
   );
 }

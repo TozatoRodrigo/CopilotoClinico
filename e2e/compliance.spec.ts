@@ -20,6 +20,10 @@ test.describe('Perfil compliance — CRM e auditoria', () => {
 
     // Auditoria acessível ao compliance.
     await page.goto('/audit');
-    await expect(page.getByRole('button', { name: /Tentar novamente|Exportar|Filtrar/ }).or(page.locator('h1'))).toBeVisible({ timeout: 15_000 });
+    // A página tem o h1 e os botões Filtrar/Exportar — `.first()` evita a
+    // violação de strict mode do Playwright com mais de um match.
+    await expect(
+      page.getByRole('button', { name: /Tentar novamente|Exportar|Filtrar/ }).or(page.locator('h1')).first(),
+    ).toBeVisible({ timeout: 15_000 });
   });
 });

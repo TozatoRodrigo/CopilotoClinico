@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 
 const AUTH_ROUTES = ["/login", "/register"];
 
+// Páginas públicas (sem dados de paciente): a landing e a política de
+// privacidade precisam abrir para quem ainda não tem conta — o cadastro linka
+// para /privacidade antes do login (LGPD, art. 9º: informação acessível).
+const PUBLIC_ROUTES = ["/", "/privacidade"];
+
 const STAFF_ONLY_ROUTES = ["/audit"];
 
 const ADMIN_ROUTES = ["/admin"];
@@ -12,6 +17,7 @@ const DEV_ROUTES = ["/dev"];
 
 function isProtectedPath(pathname: string): boolean {
   return (
+    !PUBLIC_ROUTES.includes(pathname) &&
     !AUTH_ROUTES.some((r) => pathname === r || pathname.startsWith(r + "/")) &&
     !pathname.startsWith("/_next") &&
     !pathname.startsWith("/api") &&

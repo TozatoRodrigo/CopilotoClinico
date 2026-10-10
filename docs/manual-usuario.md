@@ -31,11 +31,15 @@ O Copiloto Clínico é um assistente de IA para médicos em plantão. Você narr
 
 ### Login no dia a dia
 
-Você pode entrar de duas formas:
-- **CRM** (UF + número): pensado para acesso rápido no hospital;
-- **E-mail e senha**.
+Entre com **e-mail e senha** (e o código do autenticador, se você ativou a verificação em duas etapas). Sua sessão expira depois de um período de inatividade por segurança; se isso acontecer, uma mensagem clara de "sessão expirada" aparece e basta logar de novo.
 
-O toggle **"Manter sessão neste dispositivo do hospital"** mantém você logado por mais tempo — útil em terminais compartilhados de plantão. Sua sessão expira depois de um período de inatividade por segurança; se isso acontecer, uma mensagem clara de "sessão expirada" aparece e basta logar de novo.
+### Navegando
+
+- **Barra lateral** (computador): Buscar, Plantão, Novo caso, Casos e Diretrizes. Recolha com o botão « ou com **⌘\** (Ctrl+\ no Windows) — nas telas de captura, análise e edição de documento ela já abre recolhida para dar foco.
+- **Buscar (⌘K / Ctrl+K)**: abre a busca rápida — digite parte da queixa ou do identificador para ir direto a um caso, ou o nome de uma página/ação ("novo caso", "tema escuro").
+- **Barra superior**: mostra onde você está (ex.: Casos / Leito 4 / Análise); clique em qualquer trecho para voltar.
+- **Celular**: barra inferior com Plantão, Casos, o botão central de **novo caso por voz**, Diretrizes e Buscar.
+- **Sua conta**: clique no seu nome no topo da barra lateral (ou no avatar, no celular) para Perfil, Configurações, tema claro/escuro e Sair.
 
 ---
 
@@ -56,7 +60,7 @@ Use **"Ver todos os casos"** ou o menu **Casos** para ver o histórico completo.
 
 ## 4. Registrando um novo caso
 
-Clique em **"Novo caso por voz"** (tela inicial ou botão flutuante) ou **"Digitar"** para começar.
+Clique em **"Novo caso por voz"** (tela inicial, item **Novo caso** da barra lateral ou botão central da barra inferior no celular) ou **"Digitar"** para começar.
 
 ### Captura por voz
 

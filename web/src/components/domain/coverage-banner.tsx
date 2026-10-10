@@ -3,7 +3,6 @@
 import { BookOpen } from '@phosphor-icons/react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 import { messages } from '@/lib/messages';
 import type { RetrievalCoverage } from '@/lib/types';
 
@@ -40,24 +39,22 @@ export function CoverageBanner({ coverage, onSearchGuidelines, className }: Cove
 
   return (
     <Alert
-      className={cn(
-        'bg-card',
-        // Âmbar é reservado a "o médico precisa agir" (docs/design-tokens.md).
-        // Cobertura nenhuma muda a conduta: o plano abaixo não tem lastro em
-        // diretriz. Cobertura parcial é advertência de conferência, não ação.
-        coverage === 'none' ? 'border-clinical-amber/40' : 'border-clinical-line',
-        className,
-      )}
+      // Laranja é reservado a "o médico precisa agir" (docs/design-system.md).
+      // Cobertura nenhuma muda a conduta: o plano abaixo não tem lastro em
+      // diretriz. Cobertura parcial é advertência de conferência, não ação —
+      // callout cinza.
+      variant={coverage === 'none' ? 'warning' : 'default'}
+      className={className}
     >
       <BookOpen
-        className={coverage === 'none' ? 'text-clinical-amber' : 'text-muted-foreground'}
         weight="duotone"
+        className={coverage === 'none' ? undefined : 'text-muted-foreground!'}
       />
       <AlertTitle>{copy.title}</AlertTitle>
       <AlertDescription>
         <p>{copy.body}</p>
         {onSearchGuidelines && (
-          <div className="mt-3">
+          <div className="mt-2.5">
             <Button type="button" size="sm" variant="outline" onClick={onSearchGuidelines}>
               {messages.coverage.action}
             </Button>

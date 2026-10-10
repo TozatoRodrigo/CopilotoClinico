@@ -17,7 +17,21 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { ShieldCheck, Lock, Key, Monitor, Trash, ArrowsClockwise, Warning, Download, Copy, Check } from '@phosphor-icons/react';
+import { Callout } from '@/components/ui/callout';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  ShieldCheck,
+  DeviceMobile,
+  Monitor,
+  SignOut,
+  ArrowsClockwise,
+  Warning,
+  WarningCircle,
+  Download,
+  Copy,
+  Check,
+} from '@phosphor-icons/react';
+import { SettingsPane, SettingsRow, SettingsSection } from '../_components/settings-layout';
 
 interface Session {
   id: string;
@@ -191,78 +205,69 @@ export function SecurityTab() {
     URL.revokeObjectURL(url);
   }
 
-  return (
-    <div className="space-y-6">
-      <div className="rounded-xl border border-clinical-line bg-clinical-paper p-5">
-        <h2 className="text-sm font-semibold text-clinical-ink">Segurança da conta</h2>
-        <p className="mt-1 text-xs text-muted-foreground">Gerencie MFA, senha e sessões ativas.</p>
-      </div>
+  const formatDateTime = (iso: string) =>
+    new Date(iso).toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
 
+  return (
+    <SettingsPane title="Segurança" description="Gerencie MFA, senha e sessões ativas.">
       {/* S24-MFA-03 — seção MFA autônoma. Antes era só informativo ("ativo").
           Agora médico pode desabilitar/regenerar/reconfigurar sem falar com admin. */}
-      <section className="space-y-3">
-        <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          <ShieldCheck className="size-4" />
-          Autenticação de dois fatores (MFA)
-        </h3>
-        <div className="space-y-3 rounded-lg border border-clinical-line bg-white px-4 py-4">
-          <div className="flex items-center gap-3">
-            <ShieldCheck
-              className={physician?.mfaEnabled ? 'size-5 shrink-0 text-clinical-green' : 'size-5 shrink-0 text-muted-foreground'}
-              weight="fill"
-            />
-            <div className="flex-1">
-              <p className="text-sm font-medium text-clinical-ink">
-                {physician?.mfaEnabled ? 'MFA TOTP ativo' : 'MFA desativado'}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {physician?.mfaEnabled
-                  ? 'Use seu app autenticador (Authy, Google Authenticator, 1Password) para gerar códigos de login.'
-                  : 'Sua conta está menos protegida. Considere ativar MFA.'}
-              </p>
-            </div>
-            {physician?.mfaEnabled ? (
-              <Badge variant="success">Ativa</Badge>
+      <SettingsSection title="Autenticação de dois fatores (MFA)">
+        <SettingsRow
+          title={physician?.mfaEnabled ? 'MFA TOTP ativo' : 'MFA desativado'}
+          description={
+            physician?.mfaEnabled
+              ? 'Use seu app autenticador (Authy, Google Authenticator, 1Password) para gerar códigos de login.'
+              : 'Sua conta está menos protegida. Considere ativar MFA.'
+          }
+          control={
+            physician?.mfaEnabled ? (
+              <Badge variant="success">
+                <ShieldCheck weight="fill" aria-hidden="true" />
+                Ativa
+              </Badge>
             ) : (
-              <Badge variant="destructive">Inativa</Badge>
-            )}
-          </div>
+              <Badge variant="destructive">
+                <Warning weight="fill" aria-hidden="true" />
+                Inativa
+              </Badge>
+            )
+          }
+        />
 
-          {physician?.mfaEnabled && (
-            <div className="flex flex-wrap gap-2 border-t border-clinical-line/50 pt-3">
+        {physician?.mfaEnabled && (
+          <SettingsRow
+            title="Códigos de backup"
+            description="Para entrar sem o app autenticador. Gerar novos invalida os anteriores."
+            control={
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 gap-1.5"
+                className="max-sm:h-10"
                 onClick={() => {
                   setNewBackupCodes(null);
                   setRegenerateOpen(true);
                 }}
               >
-                <ArrowsClockwise className="size-3.5" />
+                <ArrowsClockwise />
                 Regenerar códigos de backup
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 gap-1.5 border-destructive/30 text-destructive hover:bg-destructive/5"
-                onClick={() => setDisableMfaOpen(true)}
-              >
-                <Warning className="size-3.5" />
-                Desativar MFA
-              </Button>
-            </div>
-          )}
-        </div>
-      </section>
+            }
+          />
+        )}
+      </SettingsSection>
 
-      <section className="space-y-3">
-        <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          <Key className="size-4" />
-          Alterar senha
-        </h3>
-        <form onSubmit={handlePasswordSubmit} className="space-y-3">
-          <div className="space-y-2">
+      <SettingsSection title="Alterar senha">
+        <form
+          onSubmit={handlePasswordSubmit}
+          className="flex max-w-sm flex-col gap-4 py-4"
+        >
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor="current-password">Senha atual</Label>
             <Input
               id="current-password"
@@ -273,7 +278,7 @@ export function SecurityTab() {
               autoComplete="current-password"
             />
           </div>
-          <div className="space-y-2">
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor="new-password">Nova senha</Label>
             <Input
               id="new-password"
@@ -282,9 +287,13 @@ export function SecurityTab() {
               onChange={(e) => setNewPassword(e.target.value)}
               disabled={changePasswordMutation.isPending}
               autoComplete="new-password"
+              aria-describedby="new-password-hint"
             />
+            <p id="new-password-hint" className="text-xs text-muted-foreground">
+              Mínimo de 8 caracteres, com maiúscula, minúscula, número e caractere especial.
+            </p>
           </div>
-          <div className="space-y-2">
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor="confirm-password">Confirmar nova senha</Label>
             <Input
               id="confirm-password"
@@ -295,72 +304,74 @@ export function SecurityTab() {
               autoComplete="new-password"
             />
           </div>
-          {passwordError && <p className="text-xs text-destructive">{passwordError}</p>}
-          <Button type="submit" disabled={changePasswordMutation.isPending}>
-            {changePasswordMutation.isPending ? 'Alterando...' : 'Alterar senha'}
-          </Button>
+          {passwordError && (
+            <p role="alert" className="flex items-center gap-1.5 text-[0.8125rem] text-destructive">
+              <WarningCircle className="size-4 shrink-0" weight="fill" aria-hidden="true" />
+              {passwordError}
+            </p>
+          )}
+          <div>
+            <Button type="submit" disabled={changePasswordMutation.isPending}>
+              {changePasswordMutation.isPending ? 'Alterando...' : 'Alterar senha'}
+            </Button>
+          </div>
         </form>
-      </section>
+      </SettingsSection>
 
       {/*
         S24-SET-01 — sessões ricas. Antes só mostrava "Sessão ativa" + createdAt.
         Agora descreve dispositivo (parse UA), navegador, último acesso e IP
         quando disponível. Confirmação antes de revoke (antes era direto).
       */}
-      <section className="space-y-3">
-        <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          <Monitor className="size-4" />
-          Sessões ativas
-        </h3>
+      <SettingsSection
+        title="Sessões ativas"
+        description="Dispositivos conectados à sua conta. Encerre os que você não reconhece."
+      >
         {isLoading ? (
-          <div className="h-16 animate-pulse rounded-lg border border-clinical-line bg-white" />
+          <div className="flex flex-col gap-2 py-4" aria-hidden="true">
+            <Skeleton className="h-4 w-48" />
+            <Skeleton className="h-3 w-64" />
+          </div>
         ) : sessions && sessions.length > 0 ? (
-          <div className="space-y-2">
-            {sessions.map((session) => {
-              const device = describeDevice(session.userAgent);
-              const browser = describeBrowser(session.userAgent);
-              const isCurrent = session.id === sessions[0]?.id; // heuristic
-              return (
-                <div
-                  key={session.id}
-                  className="flex items-center gap-3 rounded-lg border border-clinical-line bg-white px-4 py-3"
-                >
-                  <Monitor className="size-5 shrink-0 text-muted-foreground" />
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-clinical-ink">{device}</p>
+          sessions.map((session) => {
+            const device = describeDevice(session.userAgent);
+            const browser = describeBrowser(session.userAgent);
+            const isCurrent = session.id === sessions[0]?.id; // heuristic
+            const DeviceIcon = /iphone|ipad|ipod|android/i.test(session.userAgent ?? '')
+              ? DeviceMobile
+              : Monitor;
+            return (
+              <SettingsRow
+                key={session.id}
+                title={
+                  <>
+                    <DeviceIcon className="size-4 text-muted-foreground" aria-hidden="true" />
+                    <span>
+                      {device}
                       {browser && (
-                        <span className="text-xs text-muted-foreground">· {browser}</span>
+                        <span className="font-normal text-muted-foreground"> · {browser}</span>
                       )}
-                      {isCurrent && (
-                        <Badge variant="success" className="text-[10px]">atual</Badge>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Iniciada em{' '}
-                      {new Date(session.createdAt).toLocaleString('pt-BR', {
-                        day: '2-digit',
-                        month: 'short',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                      {session.ip && ` · IP ${session.ip}`}
-                    </p>
+                    </span>
+                    {isCurrent && <Badge variant="success">atual</Badge>}
+                  </>
+                }
+                description={
+                  <>
+                    Iniciada em {formatDateTime(session.createdAt)}
+                    {session.ip && ` · IP ${session.ip}`}
                     {session.lastUsedAt && (
-                      <p className="text-xs text-muted-foreground">
-                        Última atividade:{' '}
-                        {new Date(session.lastUsedAt).toLocaleString('pt-BR', {
-                          day: '2-digit',
-                          month: 'short',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </p>
+                      <>
+                        <br />
+                        Última atividade: {formatDateTime(session.lastUsedAt)}
+                      </>
                     )}
-                  </div>
+                  </>
+                }
+                control={
                   <Button
                     variant="ghost"
                     size="sm"
+                    className="text-muted-foreground hover:text-destructive max-sm:-ml-2.5 max-sm:h-10"
                     onClick={() => {
                       if (confirm('Encerrar esta sessão? O dispositivo será desconectado.')) {
                         revokeSession.mutate(session.id);
@@ -369,19 +380,37 @@ export function SecurityTab() {
                     disabled={revokeSession.isPending}
                     aria-label={`Encerrar sessão ${device}`}
                   >
-                    <Trash className="mr-1 size-3.5" />
+                    <SignOut />
                     Encerrar
                   </Button>
-                </div>
-              );
-            })}
-          </div>
+                }
+              />
+            );
+          })
         ) : (
-          <div className="rounded-lg border border-clinical-line bg-white px-4 py-3 text-center text-sm text-muted-foreground">
-            Nenhuma sessão ativa encontrada.
-          </div>
+          <p className="py-4 text-sm text-muted-foreground">Nenhuma sessão ativa encontrada.</p>
         )}
-      </section>
+      </SettingsSection>
+
+      {physician?.mfaEnabled && (
+        <SettingsSection title="Zona de perigo">
+          <SettingsRow
+            title="Desativar MFA"
+            description="Sua conta passa a depender só da senha e os códigos de backup deixam de valer."
+            control={
+              <Button
+                variant="destructive"
+                size="sm"
+                className="max-sm:h-10"
+                onClick={() => setDisableMfaOpen(true)}
+              >
+                <Warning />
+                Desativar MFA
+              </Button>
+            }
+          />
+        </SettingsSection>
+      )}
 
       {/* S24-MFA-03 — dialog: desativar MFA (exige TOTP) */}
       <Dialog open={disableMfaOpen} onOpenChange={setDisableMfaOpen}>
@@ -394,14 +423,13 @@ export function SecurityTab() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
-            <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-xs text-muted-foreground">
-              <p className="font-medium text-destructive">Atenção:</p>
-              <ul className="mt-1 list-disc space-y-0.5 pl-4">
+            <Callout tone="red" icon={<Warning weight="fill" />} title="Atenção:">
+              <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[0.8125rem]">
                 <li>Sua conta fica vulnerável a ataques de senha</li>
                 <li>Todos os códigos de backup serão invalidados</li>
                 <li>Operações sensíveis continuarão exigindo senha</li>
               </ul>
-            </div>
+            </Callout>
             <Input
               type="text"
               inputMode="numeric"
@@ -470,11 +498,11 @@ export function SecurityTab() {
                   Guarde estes códigos em local seguro. Eles não serão exibidos novamente.
                 </DialogDescription>
               </DialogHeader>
-              <div className="grid grid-cols-2 gap-2 rounded-md border border-clinical-line bg-clinical-paper p-3">
+              <div className="grid grid-cols-2 gap-1.5 rounded-lg border border-border bg-surface-subtle p-2">
                 {newBackupCodes.map((code, idx) => (
                   <div
                     key={idx}
-                    className="rounded bg-white px-2 py-1.5 text-center font-mono text-sm tabular-nums"
+                    className="rounded-sm bg-background px-2 py-1.5 text-center font-mono text-sm tabular-nums text-foreground"
                   >
                     {code}
                   </div>
@@ -483,18 +511,18 @@ export function SecurityTab() {
               <div className="flex gap-2">
                 <Button
                   variant="outline"
-                  className="flex-1 gap-1.5"
+                  className="flex-1"
                   onClick={() => {
                     navigator.clipboard.writeText(newBackupCodes.join('\n'));
                     setCodesCopied(true);
                     setTimeout(() => setCodesCopied(false), 2000);
                   }}
                 >
-                  {codesCopied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+                  {codesCopied ? <Check /> : <Copy />}
                   {codesCopied ? 'Copiado!' : 'Copiar'}
                 </Button>
-                <Button variant="outline" className="flex-1 gap-1.5" onClick={handleDownloadCodes}>
-                  <Download className="size-3.5" />
+                <Button variant="outline" className="flex-1" onClick={handleDownloadCodes}>
+                  <Download />
                   Baixar
                 </Button>
               </div>
@@ -505,6 +533,6 @@ export function SecurityTab() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </SettingsPane>
   );
 }

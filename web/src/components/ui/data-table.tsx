@@ -124,7 +124,7 @@ export function DataTable<T>({
     return (
       <div className={cn('space-y-2', className)} role="status" aria-busy="true">
         {Array.from({ length: loadingRows }).map((_, i) => (
-          <Skeleton key={i} className="h-12 w-full rounded-lg" />
+          <Skeleton key={i} className="h-9 w-full" />
         ))}
         <span className="sr-only">Carregando…</span>
       </div>
@@ -154,18 +154,24 @@ export function DataTable<T>({
     ));
 
   const renderCardContent = (row: T): ReactNode => (
-    <div className="space-y-1.5">
+    <div className="space-y-1">
       {mobileColumns.map((col) => {
         const label =
           col.cardLabel === null ? null : (col.cardLabel?.(row) ?? col.header);
         return (
           <div key={col.key} className="flex items-start justify-between gap-3">
             {label && (
-              <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              <span className="shrink-0 text-[0.8125rem] text-muted-foreground">
                 {label}
               </span>
             )}
-            <span className="min-w-0 flex-1 text-right text-sm text-foreground">
+            <span
+              className={cn(
+                'min-w-0 flex-1 text-sm text-foreground',
+                // Sem rótulo, a coluna é o "título" da linha: alinha à esquerda.
+                label ? 'text-right' : 'text-left',
+              )}
+            >
               {col.cell(row)}
             </span>
           </div>
@@ -179,13 +185,14 @@ export function DataTable<T>({
   return (
     <div className={className}>
       {/*
-        S22-DS-01 — Mobile-first: renderiza CARDS por padrão (< sm) e TABLE
-        em sm+ (640px+). Cada breakpoint tem sua implementação dedicada para
-        manter semântica e acessibilidade ideais (não é CSS escondendo uma
-        versão na outra — são duas árvores reais).
+        S22-DS-01 — Mobile-first: renderiza uma LISTA (< sm) e TABLE em sm+
+        (640px+). Cada breakpoint tem sua implementação dedicada para manter
+        semântica e acessibilidade ideais (não é CSS escondendo uma versão na
+        outra — são duas árvores reais). Visual de "database" do Notion: linhas
+        finas, sem cartões com sombra.
       */}
       <ul
-        className="space-y-2 sm:hidden"
+        className="divide-y divide-border border-y border-border sm:hidden"
         aria-label={ariaLabel}
         role={clickable ? undefined : 'list'}
       >
@@ -193,8 +200,9 @@ export function DataTable<T>({
           const id = getRowId(row);
           const href = getRowHref?.(row);
           const baseClass = cn(
-            'block rounded-lg border bg-card p-3 transition-colors',
-            clickable && 'hover:border-clinical-teal/40 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            'block px-1 py-3 transition-colors duration-75',
+            clickable &&
+              'hover:bg-hover/60 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40 active:bg-hover',
           );
           if (href) {
             return (
@@ -220,18 +228,16 @@ export function DataTable<T>({
           }
           return (
             <li key={id} className="list-none">
-              <div className="block rounded-lg border bg-card p-3">
-                {renderCardContent(row)}
-              </div>
+              <div className="block px-1 py-3">{renderCardContent(row)}</div>
             </li>
           );
         })}
       </ul>
 
-      <TableWrapper className="hidden rounded-lg border sm:block">
+      <TableWrapper className="hidden sm:block">
         <Table aria-label={ariaLabel}>
           <TableHeader>
-            <TableRow className="bg-muted/40">
+            <TableRow>
               {desktopColumns.map((col) => (
                 <TableHead key={col.key} className={col.className}>
                   {col.header}
@@ -244,31 +250,26 @@ export function DataTable<T>({
               const id = getRowId(row);
               const href = getRowHref?.(row);
               if (href) {
+                // "Stretched link": o <a> fica na 1ª célula e seu ::after
+                // cobre a linha inteira (tr é `relative`). Mantém o
+                // alinhamento real das colunas com o cabeçalho e um único
+                // alvo de foco por linha.
                 return (
-                  <TableRow
-                    key={id}
-                    data-state="clickable"
-                    className="cursor-pointer"
-                  >
-                    {/* Link sobreposição semântico — mantém acessibilidade */}
-                    <td colSpan={desktopColumns.length} className="p-0">
-                      <Link
-                        href={href}
-                        className="absolute inset-0 -m-px"
-                        aria-label={`Abrir item ${id}`}
-                        tabIndex={0}
-                      />
-                      <div className="flex pointer-events-none">
-                        {desktopColumns.map((col) => (
-                          <div
-                            key={col.key}
-                            className={cn('px-4 py-2.5 align-middle pointer-events-none', col.className)}
+                  <TableRow key={id} data-state="clickable" className="relative cursor-pointer">
+                    {desktopColumns.map((col, index) => (
+                      <TableCell key={col.key} className={col.className}>
+                        {index === 0 ? (
+                          <Link
+                            href={href}
+                            className="outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:ring-[3px] focus-visible:after:ring-ring/40 focus-visible:after:ring-inset"
                           >
                             {col.cell(row)}
-                          </div>
-                        ))}
-                      </div>
-                    </td>
+                          </Link>
+                        ) : (
+                          col.cell(row)
+                        )}
+                      </TableCell>
+                    ))}
                   </TableRow>
                 );
               }
@@ -277,7 +278,7 @@ export function DataTable<T>({
                   <TableRow
                     key={id}
                     data-state="clickable"
-                    className="cursor-pointer"
+                    className="cursor-pointer focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:ring-inset"
                     onClick={() => onRowClick(row)}
                     tabIndex={0}
                     role="button"
