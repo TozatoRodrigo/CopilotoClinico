@@ -1,5 +1,10 @@
+import Anthropic from '@anthropic-ai/sdk';
 import { BadRequestException } from '@nestjs/common';
+import type { ConfigService } from '@nestjs/config';
 import type { PrismaService } from '../../src/config/prisma.service';
+import { AiRefusalError, AiTruncatedError } from '../../src/modules/ai-gateway/ai-gateway.errors';
+import { readChoice } from '../../src/modules/ai-gateway/ai-gateway.settings';
+import { claudeCapabilities } from '../../src/modules/ai-gateway/providers/claude-models';
 import type {
   OrchestratorResult,
   OrchestratorService,
@@ -47,6 +52,26 @@ export interface PipelineServices {
   prisma: PrismaService;
   recorder: CompletionRecorder;
   physicianId: string;
+  /**
+   * Fallback de recusa da Anthropic ativo para o modelo da variante: uma
+   * resposta servida por OUTRO modelo é esperada (é o que o médico recebe em
+   * produção) e fica marcada; sem fallback ativo, modelo trocado invalida a
+   * execução.
+   */
+  refusalFallback: boolean;
+}
+
+/** Mesma decisão do AnthropicProvider: modelo com suporte e AI_REFUSAL_FALLBACK ≠ off. */
+export function isRefusalFallbackActive(
+  providerName: string,
+  model: string,
+  config: ConfigService,
+): boolean {
+  return (
+    providerName === 'anthropic' &&
+    claudeCapabilities(model).refusalFallback &&
+    readChoice(config, 'AI_REFUSAL_FALLBACK', ['default', 'off'] as const, 'default') === 'default'
+  );
 }
 
 const DEFAULT_CONTEXT = { hasCT: false, isSus: false, hasLab: false, hasICU: false };
@@ -81,8 +106,10 @@ type AttemptOutcome =
 
 const VALIDATION_FAILED_MESSAGE = 'AI output validation failed';
 const UNSAFE_INPUT_MESSAGE = 'Input contains potentially unsafe content';
-const REFUSAL_STOP_REASONS = new Set(['refusal', 'content_filter']);
-const TRUNCATION_STOP_REASONS = new Set(['max_tokens', 'length', 'model_context_window_exceeded']);
+// Prefixos que a contenção clínica (F0-C) põe em `errors` ao converter os
+// erros tipados do gateway em tentativa inválida.
+const TRUNCATION_MARKER = 'OUTPUT TRUNCATED';
+const REFUSAL_MARKER = 'MODEL REFUSAL';
 
 function badRequestBody(
   error: unknown,
@@ -93,15 +120,25 @@ function badRequestBody(
 }
 
 /**
- * O pipeline não devolve o motivo da falha de validação, mas o provedor
- * devolveu o motivo de parada da ÚLTIMA chamada (a do retry de validação).
+ * "AI output validation failed" cobre três desfechos. Com a contenção clínica
+ * (F0-C), truncamento e recusa chegam marcados em `errors`; sem ela, o erro
+ * tipado sobe direto (tratado em attemptCase). Na falta de marcador, vale o
+ * motivo de parada da ÚLTIMA chamada gravada — a que decidiu a falha.
  */
-function noAnswerStatus(completions: RecordedCompletion[]): Exclude<RunStatus, 'ok'> {
+export function noAnswerStatus(
+  validationErrors: string[],
+  completions: RecordedCompletion[],
+): Exclude<RunStatus, 'ok'> {
+  const markers = validationErrors.map((error) => error.trimStart());
+  if (markers.some((error) => error.startsWith(REFUSAL_MARKER))) return 'refusal';
+  if (markers.some((error) => error.startsWith(TRUNCATION_MARKER))) return 'truncated';
   const stopReason = completions.at(-1)?.stopReason;
-  if (stopReason && REFUSAL_STOP_REASONS.has(stopReason)) return 'refusal';
-  if (stopReason && TRUNCATION_STOP_REASONS.has(stopReason)) return 'truncated';
+  if (stopReason === 'refusal') return 'refusal';
+  if (stopReason === 'max_tokens') return 'truncated';
   return 'invalid_output';
 }
+
+const TRANSIENT_STATUS = (status: number) => status === 429 || status >= 500;
 
 const PROVIDER_STATUS = /AI provider (?:embed )?error: (\d{3})/;
 const NETWORK_CODES = new Set([
@@ -126,11 +163,22 @@ export function classifyInfraError(error: unknown): {
   failureClass: FailureClass;
   retryable: boolean;
 } {
+  // Anthropic: erros do SDK oficial (o provider já repete 2x por dentro).
+  if (error instanceof Anthropic.APIConnectionError)
+    return { failureClass: 'network', retryable: true };
+  if (error instanceof Anthropic.APIError && typeof error.status === 'number') {
+    const transient = TRANSIENT_STATUS(error.status);
+    return {
+      failureClass: transient ? 'provider_transient' : 'provider_rejected',
+      retryable: transient,
+    };
+  }
+
+  // OpenAI: o provider lança "AI provider error: <status>".
   const message = error instanceof Error ? error.message : String(error);
   const providerStatus = PROVIDER_STATUS.exec(message)?.[1];
   if (providerStatus) {
-    const status = Number(providerStatus);
-    const transient = status === 429 || status >= 500;
+    const transient = TRANSIENT_STATUS(Number(providerStatus));
     return {
       failureClass: transient ? 'provider_transient' : 'provider_rejected',
       retryable: transient,
@@ -216,6 +264,23 @@ async function attemptCase(
       wallClockMs: Date.now() - startedAt,
     };
   } catch (error) {
+    // Gateway sem a contenção clínica: truncamento e recusa sobem como erro
+    // tipado, sem interação persistida.
+    if (error instanceof AiTruncatedError || error instanceof AiRefusalError) {
+      const stored = await storedFailure(services.prisma, encounterId);
+      return {
+        kind: 'no_answer',
+        status: error instanceof AiRefusalError ? 'refusal' : 'truncated',
+        encounterId,
+        interactionId: stored?.id ?? null,
+        validationErrors: [error.message],
+        rawContent: null,
+        retrievedChunkIds: stored?.retrievedChunkIds ?? [],
+        completions,
+        wallClockMs: Date.now() - startedAt,
+      };
+    }
+
     const body = badRequestBody(error);
     if (body?.message === UNSAFE_INPUT_MESSAGE) {
       return {
@@ -232,12 +297,13 @@ async function attemptCase(
     }
 
     const stored = await storedFailure(services.prisma, encounterId);
+    const validationErrors = stringList(body.errors);
     return {
       kind: 'no_answer',
-      status: noAnswerStatus(completions),
+      status: noAnswerStatus(validationErrors, completions),
       encounterId,
       interactionId: stored?.id ?? null,
-      validationErrors: stringList(body.errors),
+      validationErrors,
       rawContent: rawContentOf(stored?.rawOutput) ?? completions.at(-1)?.content ?? null,
       retrievedChunkIds: stored?.retrievedChunkIds ?? [],
       completions,
@@ -268,10 +334,7 @@ function computedCost(completions: RecordedCompletion[]): number | null {
   let total = 0;
   for (const completion of completions) {
     if (!completion.usage || !completion.servedModel) continue;
-    const cost = costUsd(completion.servedModel, {
-      inputTokens: completion.usage.promptTokens,
-      outputTokens: completion.usage.completionTokens,
-    });
+    const cost = costUsd(completion.servedModel, completion.usage);
     if (cost === null) return null;
     total += cost;
   }
@@ -350,7 +413,8 @@ export async function runCase(
 
   const completions = [...outcome.completions];
   const mismatch = servedModelMismatch(completions);
-  if (mismatch) {
+  const servedByFallback = mismatch !== null && services.refusalFallback;
+  if (mismatch && !servedByFallback) {
     return {
       kind: 'error',
       row: {
@@ -367,6 +431,7 @@ export async function runCase(
   const shared = {
     ...base,
     harnessAttempts: attempts,
+    servedByFallback,
     encounterId: outcome.encounterId,
     retrievedChunkIds: outcome.retrievedChunkIds,
     completions,

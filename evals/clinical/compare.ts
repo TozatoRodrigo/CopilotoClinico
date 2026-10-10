@@ -154,6 +154,7 @@ export function renderComparison(runs: LoadedRun[], casesById: Map<string, Clini
   row('Casos com erro crítico (todos)', (summary) => String(summary.criticalErrors.caseIds.length));
   row('Sem resposta', (summary) => formatRate(summary.noAnswer));
   row('Erros de infraestrutura', (summary) => String(summary.outcomes.infraErrors));
+  row('Servidas pelo fallback de recusa', (summary) => String(summary.outcomes.servedByFallback));
   for (const [key, label] of CRITERIA) row(label, (summary) => formatRate(summary.criteria[key]));
   row(
     'Latência p50 / p90',

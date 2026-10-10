@@ -49,6 +49,10 @@ function meta(caseIds: string[], judged: boolean): RunMeta {
       embeddingProvider: 'openai',
       requestedModel: 'm',
       embeddingModel: 'e',
+      maxOutputTokens: 16_000,
+      effort: 'high',
+      structuredOutput: true,
+      refusalFallback: false,
     },
     knowledgeBase: { approvedChunks: 10, approvedChunksWithEmbedding: 10, officialChunks: 0 },
     judge: judged
@@ -69,6 +73,7 @@ function result(
     rep: 0,
     status,
     harnessAttempts: 1,
+    servedByFallback: false,
     servedModel: 'm',
     encounterId: 'enc',
     interactionId: 'int',

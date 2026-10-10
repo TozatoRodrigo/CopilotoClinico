@@ -71,6 +71,8 @@ export interface RunSummary {
     refusal: number;
     truncated: number;
     infraErrors: number;
+    /** Respostas servidas pelo modelo de fallback de recusa, não pelo da variante. */
+    servedByFallback: number;
     infraByClass: Record<string, number>;
   };
   noAnswer: Rate;
@@ -282,6 +284,7 @@ export function summarizeRun(run: LoadedRun, casesById: Map<string, ClinicalCase
       refusal: statusCounts.refusal ?? 0,
       truncated: statusCounts.truncated ?? 0,
       infraErrors: errors.length,
+      servedByFallback: results.filter((row) => row.servedByFallback).length,
       infraByClass: countBy(errors, (error) => error.failureClass),
     },
     noAnswer: rateOf(results.map((row) => row.status !== 'ok')),
@@ -438,6 +441,10 @@ export function renderSummaryMarkdown(run: LoadedRun, summary: RunSummary): stri
           'Pipeline',
           `${meta.pipeline.completionProvider} · pedido ${meta.pipeline.requestedModel} · embeddings ${meta.pipeline.embeddingProvider} ${meta.pipeline.embeddingModel}`,
         ],
+        [
+          'Configuração do gateway',
+          `teto de saída ${meta.pipeline.maxOutputTokens} tokens · effort ${meta.pipeline.effort} · structured output ${meta.pipeline.structuredOutput ? 'ligado' : 'desligado'} · fallback de recusa ${meta.pipeline.refusalFallback ? 'ativo' : 'inativo'}`,
+        ],
         ['Modelo(s) servido(s)', summary.servedModels.join(', ') || '—'],
         ['Juiz', judgeLabel],
       ],
@@ -492,6 +499,10 @@ export function renderSummaryMarkdown(run: LoadedRun, summary: RunSummary): stri
         ['Sem resposta — saída inválida', String(summary.outcomes.invalidOutput)],
         ['Sem resposta — recusa do provedor', String(summary.outcomes.refusal)],
         ['Sem resposta — truncada no teto de tokens', String(summary.outcomes.truncated)],
+        [
+          'Servidas pelo modelo de fallback de recusa (incluídas acima)',
+          String(summary.outcomes.servedByFallback),
+        ],
         [
           'Erro de infraestrutura (não pontuado)',
           `${summary.outcomes.infraErrors}${

@@ -13,7 +13,11 @@ import type { JudgeClient, JudgeProvider, JudgeRequest, JudgeResponse } from './
  * tentativas e as grava junto da nota.
  */
 
-export const JUDGE_MAX_OUTPUT_TOKENS = 16_000;
+/**
+ * O raciocínio adaptativo conta para o teto: folga para pensar e ainda caber
+ * o JSON. Truncamento vira erro do juiz, nunca nota.
+ */
+export const JUDGE_MAX_OUTPUT_TOKENS = 32_000;
 
 const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
 type Effort = (typeof EFFORTS)[number];
@@ -34,17 +38,21 @@ export class AnthropicJudgeClient implements JudgeClient {
 
   async complete(request: JudgeRequest): Promise<JudgeResponse> {
     // Opus 5.5 recusa `temperature` e `budget_tokens`: o controle é o effort.
-    const response = await this.client.messages.create({
-      model: this.model,
-      max_tokens: JUDGE_MAX_OUTPUT_TOKENS,
-      thinking: { type: 'adaptive' },
-      output_config: {
-        effort: this.effort,
-        format: { type: 'json_schema', schema: request.schema },
-      },
-      system: request.system,
-      messages: [{ role: 'user', content: request.user }],
-    });
+    // Stream por baixo, como no gateway: com teto alto, uma requisição sem
+    // stream arrisca o timeout HTTP do SDK.
+    const response = await this.client.messages
+      .stream({
+        model: this.model,
+        max_tokens: JUDGE_MAX_OUTPUT_TOKENS,
+        thinking: { type: 'adaptive' },
+        output_config: {
+          effort: this.effort,
+          format: { type: 'json_schema', schema: request.schema },
+        },
+        system: request.system,
+        messages: [{ role: 'user', content: request.user }],
+      })
+      .finalMessage();
 
     const content = response.content
       .map((block) => (block.type === 'text' ? block.text : ''))

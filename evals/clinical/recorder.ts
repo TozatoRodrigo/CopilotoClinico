@@ -1,12 +1,17 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { AiRefusalError, AiTruncatedError } from '../../src/modules/ai-gateway/ai-gateway.errors';
 import { AiGatewayService } from '../../src/modules/ai-gateway/ai-gateway.service';
 import type {
   ChatMessage,
   CompletionParams,
   CompletionResponse,
+  CompletionUsage,
 } from '../../src/modules/ai-gateway/providers/provider.interface';
+
+/** Motivo de parada que o gabarito precisa distinguir; `null` = parada normal. */
+export type RecordedStopReason = 'max_tokens' | 'refusal' | null;
 
 /**
  * F0-A — Uma chamada de completion feita pelo pipeline durante um caso:
@@ -18,8 +23,10 @@ export interface RecordedCompletion {
   requestedModel: string;
   servedModel: string | null;
   content: string | null;
-  stopReason: string | null;
-  usage: CompletionResponse['usage'] | null;
+  stopReason: RecordedStopReason;
+  /** Categoria da política que recusou (`cyber`, `bio`...), quando houve recusa. */
+  refusalCategory: string | null;
+  usage: CompletionUsage | null;
   latencyMs: number;
   error: string | null;
 }
@@ -42,6 +49,37 @@ export class CompletionRecorder {
 }
 
 /**
+ * Truncamento e recusa não voltam como resposta: o gateway LANÇA
+ * AiTruncatedError/AiRefusalError, com modelo e tokens em `details`. A
+ * chamada é gravada com esses dados — ela custou tokens e é a causa do
+ * "sem resposta" — e o erro segue para o orquestrador como em produção.
+ */
+function failedCompletion(
+  error: unknown,
+): Omit<RecordedCompletion, 'messages' | 'requestedModel' | 'latencyMs'> {
+  const base = { content: null, error: error instanceof Error ? error.message : String(error) };
+  if (error instanceof AiTruncatedError) {
+    return {
+      ...base,
+      servedModel: error.details.model,
+      stopReason: 'max_tokens',
+      refusalCategory: null,
+      usage: error.details.usage,
+    };
+  }
+  if (error instanceof AiRefusalError) {
+    return {
+      ...base,
+      servedModel: error.details.model,
+      stopReason: 'refusal',
+      refusalCategory: error.details.category,
+      usage: error.details.usage,
+    };
+  }
+  return { ...base, servedModel: null, stopReason: null, refusalCategory: null, usage: null };
+}
+
+/**
  * O AiGatewayService REAL, com uma escuta: chama o provedor exatamente como
  * em produção (super.complete) e só anota o que entrou e saiu. Não é uma
  * reimplementação da chamada.
@@ -61,16 +99,19 @@ export class RecordingAiGatewayService extends AiGatewayService {
   override async complete(
     params: Omit<CompletionParams, 'model'> & { model?: string },
   ): Promise<CompletionResponse> {
-    const requestedModel = params.model ?? this.configuredModel;
+    const call = {
+      messages: params.messages,
+      requestedModel: params.model ?? this.configuredModel,
+    };
     const startedAt = Date.now();
     try {
       const response = await super.complete(params);
       this.recorder.record({
-        messages: params.messages,
-        requestedModel,
+        ...call,
         servedModel: response.model,
         content: response.content,
-        stopReason: response.stopReason ?? null,
+        stopReason: null,
+        refusalCategory: null,
         usage: response.usage,
         latencyMs: response.latencyMs,
         error: null,
@@ -78,14 +119,9 @@ export class RecordingAiGatewayService extends AiGatewayService {
       return response;
     } catch (error) {
       this.recorder.record({
-        messages: params.messages,
-        requestedModel,
-        servedModel: null,
-        content: null,
-        stopReason: null,
-        usage: null,
+        ...call,
+        ...failedCompletion(error),
         latencyMs: Date.now() - startedAt,
-        error: error instanceof Error ? error.message : String(error),
       });
       throw error;
     }

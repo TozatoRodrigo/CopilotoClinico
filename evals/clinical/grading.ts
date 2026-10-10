@@ -10,7 +10,7 @@ import {
   type JudgeResponse,
 } from './graders/judge';
 import { isTransientJudgeError } from './graders/judge-clients';
-import { costUsd, isSameModel } from './pricing';
+import { costUsd, isSameModel, judgeUsage } from './pricing';
 import type { GradeRow, ResultRow } from './records';
 import { DEFAULT_RETRY_POLICY, retryWhile, type RetryPolicy } from './scheduling';
 
@@ -78,7 +78,10 @@ export async function judgeOutput(
       model: response.model,
       verdict: parseJudgeVerdict(clinicalCase, response.content),
       usage: response.usage,
-      costUsd: costUsd(response.model, response.usage),
+      costUsd: costUsd(
+        response.model,
+        judgeUsage(response.usage.inputTokens, response.usage.outputTokens),
+      ),
       latencyMs: result.latencyMs,
     };
   } catch (error) {

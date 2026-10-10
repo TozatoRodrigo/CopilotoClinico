@@ -8,6 +8,12 @@ import { ConfigService } from '@nestjs/config';
 import { z } from 'zod';
 import { PrismaService } from '../../src/config/prisma.service';
 import { AiGatewayService } from '../../src/modules/ai-gateway/ai-gateway.service';
+import {
+  readChoice,
+  readFlag,
+  readMaxOutputTokens,
+} from '../../src/modules/ai-gateway/ai-gateway.settings';
+import { AI_EFFORTS } from '../../src/modules/ai-gateway/providers/provider.interface';
 import { OrchestratorService } from '../../src/modules/copilot/orchestrator/orchestrator.service';
 import { EncountersService } from '../../src/modules/encounters/encounters.service';
 import type { ClinicalCase } from './case.schema';
@@ -17,7 +23,7 @@ import { EvalModule } from './eval.module';
 import { JUDGE_PROVIDERS, type JudgeClient } from './graders/judge';
 import { createJudgeClient } from './graders/judge-clients';
 import { gradeResult } from './grading';
-import { ensureEvalPhysician, runCase, type CaseRunRow } from './pipeline';
+import { ensureEvalPhysician, isRefusalFallbackActive, runCase, type CaseRunRow } from './pipeline';
 import { CompletionRecorder } from './recorder';
 import {
   appendJsonLine,
@@ -177,12 +183,19 @@ async function executeVariant(context: VariantRunContext): Promise<string> {
     const prisma = app.get(PrismaService);
     const config = app.get(ConfigService);
     const gateway = app.get(AiGatewayService);
+    const requestedModel = config.getOrThrow<string>('AI_MODEL');
+    const refusalFallback = isRefusalFallbackActive(
+      gateway.getProviderName(),
+      requestedModel,
+      config,
+    );
     const services = {
       orchestrator: app.get(OrchestratorService),
       encounters: app.get(EncountersService),
       prisma,
       recorder,
       physicianId: await ensureEvalPhysician(prisma),
+      refusalFallback,
     };
 
     const meta: RunMeta = {
@@ -207,8 +220,12 @@ async function executeVariant(context: VariantRunContext): Promise<string> {
       pipeline: {
         completionProvider: gateway.getProviderName(),
         embeddingProvider: gateway.getEmbeddingProviderName(),
-        requestedModel: config.getOrThrow<string>('AI_MODEL'),
-        embeddingModel: config.getOrThrow<string>('AI_EMBEDDING_MODEL'),
+        requestedModel,
+        embeddingModel: gateway.getEmbeddingModel(),
+        maxOutputTokens: readMaxOutputTokens(config),
+        effort: readChoice(config, 'AI_EFFORT', AI_EFFORTS, 'high'),
+        structuredOutput: readFlag(config, 'AI_STRUCTURED_OUTPUT', true),
+        refusalFallback,
       },
       knowledgeBase: await knowledgeBaseSnapshot(prisma),
       judge: null,

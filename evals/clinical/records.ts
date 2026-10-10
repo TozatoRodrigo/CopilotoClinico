@@ -16,10 +16,13 @@ import { JudgeOutcomeSchema } from './graders/judge';
  * - grades.jsonl: notas determinísticas e do juiz por linha de results.
  */
 
+/** Espelha CompletionUsage do gateway (cache é subconjunto de promptTokens). */
 const UsageSchema = z.object({
   promptTokens: z.number(),
   completionTokens: z.number(),
   totalTokens: z.number(),
+  cacheReadTokens: z.number().optional(),
+  cacheWriteTokens: z.number().optional(),
 });
 
 export const RecordedCompletionSchema = z.object({
@@ -29,7 +32,9 @@ export const RecordedCompletionSchema = z.object({
   requestedModel: z.string(),
   servedModel: z.string().nullable(),
   content: z.string().nullable(),
-  stopReason: z.string().nullable(),
+  /** `max_tokens`/`refusal` vêm dos erros tipados do gateway; `null` = parada normal. */
+  stopReason: z.enum(['max_tokens', 'refusal']).nullable(),
+  refusalCategory: z.string().nullable(),
   usage: UsageSchema.nullable(),
   latencyMs: z.number(),
   error: z.string().nullable(),
@@ -61,6 +66,11 @@ export const ResultRowSchema = RowKeySchema.extend({
   /** Tentativas do runner (retry de falha transitória), não do pipeline. */
   harnessAttempts: z.number().int(),
   servedModel: z.string().nullable(),
+  /**
+   * Resposta servida pelo modelo de fallback de recusa (AI_REFUSAL_FALLBACK):
+   * é o que o médico receberia em produção, mas não é o modelo da variante.
+   */
+  servedByFallback: z.boolean(),
   encounterId: z.string(),
   interactionId: z.string().nullable(),
   /** Saída como o orquestrador devolveu (com fonte de cada recomendação). */
@@ -157,6 +167,12 @@ export const RunMetaSchema = z.object({
     embeddingProvider: z.string(),
     requestedModel: z.string(),
     embeddingModel: z.string(),
+    /** AI_MAX_OUTPUT_TOKENS efetivo (o raciocínio conta para o teto). */
+    maxOutputTokens: z.number().int(),
+    /** AI_EFFORT efetivo; só tem efeito nos Claude atuais. */
+    effort: z.string(),
+    structuredOutput: z.boolean(),
+    refusalFallback: z.boolean(),
   }),
   knowledgeBase: z.object({
     approvedChunks: z.number(),

@@ -244,6 +244,7 @@ function resultRow(
     rep: 0,
     status,
     harnessAttempts: 1,
+    servedByFallback: false,
     servedModel: 'modelo',
     encounterId: 'enc',
     interactionId: 'int',
@@ -324,7 +325,7 @@ describe('clientes do juiz', () => {
   afterEach(() => vi.restoreAllMocks());
 
   it('Anthropic: thinking adaptativo, structured output e nenhum parâmetro que o Opus 5.5 recusa', async () => {
-    const create = vi.fn().mockResolvedValue({
+    const finalMessage = vi.fn().mockResolvedValue({
       model: 'claude-opus-5-5',
       content: [
         { type: 'thinking', thinking: '' },
@@ -333,7 +334,8 @@ describe('clientes do juiz', () => {
       usage: { input_tokens: 10, output_tokens: 5 },
       stop_reason: 'end_turn',
     });
-    const fakeSdk = { messages: { create } } as unknown as Anthropic;
+    const stream = vi.fn().mockReturnValue({ finalMessage });
+    const fakeSdk = { messages: { stream } } as unknown as Anthropic;
     const client = new AnthropicJudgeClient('claude-opus-5-5', 'high', fakeSdk);
 
     const result = await client.complete({
@@ -342,7 +344,7 @@ describe('clientes do juiz', () => {
       schema: { type: 'object' },
       schemaName: 'x',
     });
-    const params = create.mock.calls[0]?.[0] as Record<string, unknown>;
+    const params = stream.mock.calls[0]?.[0] as Record<string, unknown>;
 
     expect(result.content).toBe('{"ok":true}');
     expect(params.thinking).toEqual({ type: 'adaptive' });
@@ -350,6 +352,7 @@ describe('clientes do juiz', () => {
       effort: 'high',
       format: { type: 'json_schema', schema: { type: 'object' } },
     });
+    expect(params.max_tokens).toBeGreaterThanOrEqual(16_000);
     expect(params).not.toHaveProperty('temperature');
     expect(params).not.toHaveProperty('budget_tokens');
   });
