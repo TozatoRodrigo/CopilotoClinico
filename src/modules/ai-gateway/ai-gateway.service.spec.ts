@@ -150,6 +150,44 @@ describe('AiGatewayService', () => {
     });
   });
 
+  describe('AI_STRUCTURED_OUTPUT', () => {
+    const responseSchema = {
+      name: 'answer',
+      schema: {
+        type: 'object',
+        properties: { answer: { type: 'string' } },
+        required: ['answer'],
+        additionalProperties: false,
+      },
+    };
+
+    it('forwards the response schema to the provider by default', async () => {
+      await service.complete({
+        model: 'claude-sonnet-5-5',
+        messages: [{ role: 'user', content: 'Hi' }],
+        responseSchema,
+      });
+
+      const { body } = sentAnthropicRequest();
+      expect(body.output_config).toMatchObject({
+        format: { type: 'json_schema', schema: responseSchema.schema },
+      });
+    });
+
+    it('drops the response schema when AI_STRUCTURED_OUTPUT=false', async () => {
+      const svc = new AiGatewayService(createMockConfig({ AI_STRUCTURED_OUTPUT: 'false' }));
+
+      await svc.complete({
+        model: 'claude-sonnet-5-5',
+        messages: [{ role: 'user', content: 'Hi' }],
+        responseSchema,
+      });
+
+      const { body } = sentAnthropicRequest();
+      expect(body.output_config).not.toHaveProperty('format');
+    });
+  });
+
   describe('embed', () => {
     beforeEach(() => {
       vi.spyOn(globalThis, 'fetch').mockResolvedValue(

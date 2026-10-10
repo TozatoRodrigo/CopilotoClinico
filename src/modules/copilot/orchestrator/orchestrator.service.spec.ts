@@ -6,6 +6,8 @@ import { RetrievalService } from '../retrieval/retrieval.service';
 import { EncountersService } from '../../encounters/encounters.service';
 import { AttachmentsService } from '../../encounters/attachments/attachments.service';
 import { AuditService } from '../../audit/audit.service';
+import type { StreamCompletionResult } from '../../ai-gateway/providers/provider.interface';
+import { COPILOT_OUTPUT_JSON_SCHEMA } from '../schemas/copilot-output.json-schema';
 import { ConfigService } from '@nestjs/config';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 
@@ -165,6 +167,7 @@ describe('OrchestratorService', () => {
           { role: 'system', content: expect.any(String) },
           { role: 'user', content: expect.any(String) },
         ],
+        responseSchema: COPILOT_OUTPUT_JSON_SCHEMA,
       });
       expect(prismaMock.aiInteraction.create).toHaveBeenCalledTimes(1);
       expect(encountersMock.update).toHaveBeenCalledWith(physicianId, encounterId, {
@@ -880,8 +883,16 @@ describe('OrchestratorService', () => {
   });
 
   describe('RT-001: analyzeStream', () => {
-    async function* fakeStream(tokens: string[]): AsyncGenerator<string> {
+    const streamUsage = { promptTokens: 1000, completionTokens: 500, totalTokens: 1500 };
+
+    async function* fakeStream(tokens: string[]): AsyncGenerator<string, StreamCompletionResult> {
       for (const t of tokens) yield t;
+      return {
+        content: tokens.join(''),
+        model: 'claude-sonnet-5-5',
+        usage: streamUsage,
+        stopReason: 'end_turn',
+      };
     }
 
     it('yields deltas then a done event with the full result', async () => {
@@ -911,6 +922,51 @@ describe('OrchestratorService', () => {
         encounterId,
         'Paciente com dor torácica aguda e dispneia há 2 horas',
       );
+    });
+
+    it('requests structured output and records the streamed model with its real cost', async () => {
+      encountersMock.findById.mockResolvedValue({ id: encounterId, physicianId, patientRef: 'PRN-001' });
+      retrievalMock.search.mockResolvedValue({ chunks: mockChunks, totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0, official: NO_OFFICIAL });
+      aiGatewayMock.completeStream.mockReturnValue(fakeStream([validLLMOutput]));
+      prismaMock.aiInteraction.create.mockResolvedValue({ id: 'interaction-stream-cost' });
+      encountersMock.update.mockResolvedValue({});
+
+      for await (const _ of service.analyzeStream(physicianId, encounterId, validInput)) {
+        // consume
+      }
+
+      expect(aiGatewayMock.completeStream).toHaveBeenCalledWith(
+        expect.objectContaining({ responseSchema: COPILOT_OUTPUT_JSON_SCHEMA }),
+      );
+      const createCall = prismaMock.aiInteraction.create.mock.calls[0]![0] as {
+        data: { model: string; cost: number };
+      };
+      expect(createCall.data.model).toBe('claude-sonnet-5-5');
+      // claude-sonnet-5-5: 1000 tokens × $2 + 500 × $10, por milhão.
+      expect(createCall.data.cost).toBe(0.007);
+    });
+
+    it('closes the model stream when the consumer stops early', async () => {
+      encountersMock.findById.mockResolvedValue({ id: encounterId, physicianId, patientRef: 'PRN-001' });
+      retrievalMock.search.mockResolvedValue({ chunks: mockChunks, totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0, official: NO_OFFICIAL });
+      let streamClosed = false;
+      async function* longStream(): AsyncGenerator<string, StreamCompletionResult> {
+        try {
+          yield '{"reasoning":';
+          yield '"..."';
+          return { content: '', model: 'claude-sonnet-5-5', usage: streamUsage, stopReason: 'end_turn' };
+        } finally {
+          streamClosed = true;
+        }
+      }
+      aiGatewayMock.completeStream.mockReturnValue(longStream());
+
+      const events = service.analyzeStream(physicianId, encounterId, validInput);
+      let event = await events.next();
+      while (!event.done && event.value.type !== 'delta') event = await events.next();
+      await events.return(undefined);
+
+      expect(streamClosed).toBe(true);
     });
 
     it('throws BadRequestException before streaming when injection is detected', async () => {
