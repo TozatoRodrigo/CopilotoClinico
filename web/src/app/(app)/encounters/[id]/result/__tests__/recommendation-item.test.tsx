@@ -41,7 +41,6 @@ function renderItem(overrides: {
       onAdopt={onAdopt}
       onReject={onReject}
       onNote={onNote}
-      confidenceLabel="82%"
     />,
   );
   return { onAdopt, onReject, onNote };
@@ -132,7 +131,6 @@ describe("RecommendationItem — origem da fonte (F4 / ADR-010)", () => {
         onAdopt={vi.fn()}
         onReject={vi.fn()}
         onNote={vi.fn()}
-        confidenceLabel="82%"
       />,
     );
   }
@@ -166,5 +164,88 @@ describe("RecommendationItem — origem da fonte (F4 / ADR-010)", () => {
     renderRec(baseRec);
 
     expect(screen.queryByText(/não revisado|não curada/)).not.toBeInTheDocument();
+  });
+});
+
+// F0-C — a UI não mostra probabilidade (decisão clínica: "médico trabalha
+// muito mal com probabilidades") e diz POR QUE a conduta é preliminar.
+describe("RecommendationItem — F0-C: confiança e motivo do preliminar", () => {
+  function renderRec(rec: CopilotRecommendation) {
+    render(
+      <RecommendationItem
+        rec={rec}
+        index={0}
+        decision={undefined}
+        onAdopt={vi.fn()}
+        onReject={vi.fn()}
+        onNote={vi.fn()}
+      />,
+    );
+  }
+
+  function tagOf(text: string): HTMLElement {
+    const tag = screen.getByText(text).closest<HTMLElement>('[data-slot="badge"]');
+    if (!tag) throw new Error(`"${text}" não está numa tag`);
+    return tag;
+  }
+
+  it("não mostra a confiança autodeclarada pelo modelo", () => {
+    renderRec({ ...baseRec, confidence: 0.87 });
+
+    expect(screen.queryByText(/confiança/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/87\s?%/)).not.toBeInTheDocument();
+    expect(document.querySelector("[title*='onfiança']")).toBeNull();
+  });
+
+  it("não mostra tag de preliminar em conduta definitiva", () => {
+    renderRec(baseRec);
+
+    expect(screen.queryByText(/Preliminar/)).not.toBeInTheDocument();
+  });
+
+  it("mantém o rótulo de sempre, em laranja, para perguntas pendentes", () => {
+    renderRec({ ...baseRec, preliminary: true, preliminaryReason: "pending_questions" });
+
+    expect(tagOf("Preliminar")).toHaveAttribute("data-variant", "warning");
+  });
+
+  it("trata análise antiga, sem preliminaryReason, como perguntas pendentes", () => {
+    renderRec({ ...baseRec, preliminary: true });
+
+    expect(tagOf("Preliminar")).toHaveAttribute("data-variant", "warning");
+  });
+
+  it("diz que a fonte não foi revisada por médico, em cinza: informa, não muda a conduta", () => {
+    renderRec({
+      ...baseRec,
+      preliminary: true,
+      preliminaryReason: "unreviewed_source",
+      origin: "curated_unsigned",
+    });
+
+    expect(tagOf("Preliminar · Fonte não revisada por médico")).toHaveAttribute(
+      "data-variant",
+      "secondary",
+    );
+  });
+
+  it("diz que o subtipo está indefinido, em laranja: o dado que discrimina muda a conduta", () => {
+    renderRec({ ...baseRec, preliminary: true, preliminaryReason: "subtype_ambiguity" });
+
+    expect(
+      tagOf("Preliminar · Subtipo indefinido — depende do dado que discrimina"),
+    ).toHaveAttribute("data-variant", "warning");
+  });
+
+  it("marca o chunk curado sem assinatura com a mesma tag cinza da base oficial", () => {
+    renderRec({
+      ...baseRec,
+      preliminary: true,
+      preliminaryReason: "unreviewed_source",
+      origin: "curated_unsigned",
+    });
+
+    expect(tagOf("Base curada · sem assinatura médica")).toHaveAttribute("data-variant", "gray");
+    expect(screen.queryByRole("link", { name: "Ver documento oficial" })).not.toBeInTheDocument();
   });
 });

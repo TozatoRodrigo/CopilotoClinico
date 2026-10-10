@@ -1,11 +1,16 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { OrchestratorService } from './orchestrator.service';
+import {
+  OrchestratorService,
+  type OrchestratorResult,
+  type StreamEvent,
+} from './orchestrator.service';
 import { PrismaService } from '../../../config/prisma.service';
 import { AiGatewayService } from '../../ai-gateway/ai-gateway.service';
 import { RetrievalService } from '../retrieval/retrieval.service';
 import { EncountersService } from '../../encounters/encounters.service';
 import { AttachmentsService } from '../../encounters/attachments/attachments.service';
 import { AuditService } from '../../audit/audit.service';
+import { AiRefusalError, AiTruncatedError } from '../../ai-gateway/ai-gateway.errors';
 import type { StreamCompletionResult } from '../../ai-gateway/providers/provider.interface';
 import { COPILOT_OUTPUT_JSON_SCHEMA } from '../schemas/copilot-output.json-schema';
 import { ConfigService } from '@nestjs/config';
@@ -68,6 +73,9 @@ describe('OrchestratorService', () => {
     uncertaintyReason: null,
   });
 
+  // ADR-012 — fixtures padrão são diretrizes assinadas por médico com CRM
+  // verificado: os testes abaixo descrevem o fluxo de conduta definitiva, que
+  // só existe para fonte assinada. Fonte não assinada tem bloco próprio (F0-C).
   const mockChunks = [
     {
       id: 'chunk-1',
@@ -79,6 +87,7 @@ describe('OrchestratorService', () => {
       institutionId: null,
       score: 0.95,
       metadata: {},
+      clinicallySigned: true,
     },
     {
       id: 'chunk-2',
@@ -90,6 +99,7 @@ describe('OrchestratorService', () => {
       institutionId: null,
       score: 0.88,
       metadata: {},
+      clinicallySigned: true,
     },
   ];
 
@@ -546,6 +556,7 @@ describe('OrchestratorService', () => {
           origin: 'official_unreviewed',
           url: 'https://www.gov.br/conitec/pcdt_acidentes_ofidicos_final.pdf',
         },
+        clinicallySigned: false,
       };
       const officialOutput = JSON.stringify({
         reasoning: 'Acidente botrópico; PCDT de Acidentes Ofídicos cobre a soroterapia.',
@@ -589,7 +600,9 @@ describe('OrchestratorService', () => {
         expect(messages[1].content).not.toContain('No relevant guideline evidence was found');
       });
 
-      it('aceita recomendação não preliminar citando PCDT e marca a origem oficial com link do PDF', async () => {
+      // ADR-012 — muda a decisão da ADR-010: o modelo devolveu
+      // `preliminary: false`, e a contenção determinística vence o modelo.
+      it('marca como preliminar por fonte não revisada a recomendação que cita PCDT, com a origem oficial e o link do PDF', async () => {
         const result = await service.analyze(physicianId, encounterId, validInput);
 
         expect(result.citations).toEqual([
@@ -603,9 +616,33 @@ describe('OrchestratorService', () => {
           },
         ]);
         expect(result.output.recommendations[0]).toMatchObject({
-          preliminary: false,
+          preliminary: true,
+          preliminaryReason: 'unreviewed_source',
           sourceUrl: 'https://www.gov.br/conitec/pcdt_acidentes_ofidicos_final.pdf',
         });
+      });
+
+      it('instrui o modelo a marcar como preliminar a recomendação que cita trecho oficial', async () => {
+        await service.analyze(physicianId, encounterId, validInput);
+
+        const system = aiGatewayMock.complete.mock.calls[0]![0].messages[0].content as string;
+        expect(system).toContain('every recommendation citing it MUST have "preliminary": true');
+        expect(system).not.toContain('do not need to be preliminary');
+      });
+
+      it('UNREVIEWED_SOURCES_PRELIMINARY=false volta à ADR-010, prompt incluso', async () => {
+        configMock.get.mockImplementation((key: string, defaultValue?: unknown) =>
+          key === 'UNREVIEWED_SOURCES_PRELIMINARY' ? 'false' : defaultValue,
+        );
+
+        const result = await service.analyze(physicianId, encounterId, validInput);
+
+        expect(result.output.recommendations[0]).toMatchObject({ preliminary: false });
+        expect(result.output.recommendations[0]).not.toHaveProperty('preliminaryReason');
+        const system = aiGatewayMock.complete.mock.calls[0]![0].messages[0].content as string;
+        expect(system).toContain(
+          'recommendations citing it do not need to be preliminary for that reason alone',
+        );
       });
 
       it('não mostra "nenhuma diretriz cobre" quando a resposta pode citar um PCDT', async () => {
@@ -880,6 +917,195 @@ describe('OrchestratorService', () => {
         }),
       ]);
     });
+
+    // F0-C — a contenção roda depois do validador e não depende do modelo
+    // obedecer ao prompt: cada caso abaixo devolve `preliminary: false` do
+    // modelo e confere o que o médico de fato recebe.
+    describe('F0-C — contenção determinística de preliminar', () => {
+      const unsignedChunk = { ...mockChunks[0], clinicallySigned: false };
+
+      function setupAnalysis(
+        chunks: Array<Record<string, unknown>>,
+        output: Record<string, unknown>,
+      ) {
+        encountersMock.findById.mockResolvedValue({
+          id: encounterId,
+          physicianId,
+          patientRef: 'PRN-001',
+        });
+        retrievalMock.search.mockResolvedValue({
+          chunks,
+          totalRetrieved: chunks.length,
+          coverage: 'full',
+          bestSemanticScore: 0.8,
+          discardedByFloor: 0,
+          official: NO_OFFICIAL,
+        });
+        aiGatewayMock.complete.mockResolvedValue({
+          content: JSON.stringify({ uncertainty: false, uncertaintyReason: null, ...output }),
+          model: 'claude-3-sonnet',
+          usage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 },
+          latencyMs: 1500,
+        });
+        prismaMock.aiInteraction.create.mockResolvedValue({ id: 'interaction-001' });
+        encountersMock.update.mockResolvedValue({});
+      }
+
+      function recommendationCiting(citationChunkId: string, overrides: Record<string, unknown> = {}) {
+        return {
+          action: 'Solicitar ECG e troponina',
+          rationale: 'Investigação de dor torácica',
+          citationChunkId,
+          confidence: 0.9,
+          preliminary: false,
+          category: 'diagnostic',
+          ...overrides,
+        };
+      }
+
+      it('marca como preliminar a recomendação que cita chunk curado sem assinatura médica', async () => {
+        setupAnalysis([unsignedChunk], {
+          reasoning: 'Dor torácica aguda.',
+          recommendations: [recommendationCiting('chunk-1')],
+        });
+
+        const result = await service.analyze(physicianId, encounterId, validInput);
+
+        expect(result.output.recommendations[0]).toMatchObject({
+          preliminary: true,
+          preliminaryReason: 'unreviewed_source',
+          origin: 'curated_unsigned',
+        });
+        expect(result.citations[0]).toMatchObject({ origin: 'curated_unsigned' });
+        const persisted = prismaMock.aiInteraction.create.mock.calls[0]![0].data;
+        expect(persisted.rawOutput.recommendations[0]).toMatchObject({
+          preliminary: true,
+          preliminaryReason: 'unreviewed_source',
+        });
+      });
+
+      it('não chama de "protocolo institucional" um chunk institucional sem assinatura', async () => {
+        setupAnalysis([{ ...unsignedChunk, institutionId: 'institution-a' }], {
+          reasoning: 'Dor torácica aguda.',
+          recommendations: [recommendationCiting('chunk-1')],
+        });
+
+        const result = await service.analyze(physicianId, encounterId, validInput);
+
+        expect(result.citations[0]).toMatchObject({
+          origin: 'curated_unsigned',
+          institutionId: 'institution-a',
+        });
+        expect(result.output.recommendations[0]).toMatchObject({ preliminary: true });
+      });
+
+      it('mantém definitiva, sem motivo, a recomendação que cita diretriz assinada', async () => {
+        setupAnalysis(mockChunks, {
+          reasoning: 'Dor torácica aguda.',
+          recommendations: [recommendationCiting('chunk-1')],
+        });
+
+        const result = await service.analyze(physicianId, encounterId, validInput);
+
+        expect(result.output.recommendations[0]).toMatchObject({
+          preliminary: false,
+          origin: 'public',
+        });
+        expect(result.output.recommendations[0]).not.toHaveProperty('preliminaryReason');
+      });
+
+      it('mostra "perguntas pendentes" quando o modelo marcou preliminar e há perguntas, mesmo com fonte não assinada', async () => {
+        setupAnalysis([unsignedChunk], {
+          reasoning: 'Falta o status imunológico.',
+          recommendations: [recommendationCiting('chunk-1', { preliminary: true })],
+          clarifyingQuestions: [
+            {
+              id: 'q1',
+              question: 'O paciente é imunossuprimido?',
+              why: 'Muda a conduta',
+              criticality: 'blocker',
+              expectedAnswerType: 'boolean',
+            },
+          ],
+        });
+
+        const result = await service.analyze(physicianId, encounterId, validInput);
+
+        expect(result.output.recommendations[0]).toMatchObject({
+          preliminary: true,
+          preliminaryReason: 'pending_questions',
+        });
+      });
+
+      it('classifica como "perguntas pendentes" o preliminar declarado pelo modelo sem perguntas (rótulo histórico)', async () => {
+        setupAnalysis(mockChunks, {
+          reasoning: 'Supra de ST inferior.',
+          redFlags: [{ finding: 'Supra de ST', severity: 'critical', action: 'ECG seriado' }],
+          recommendations: [recommendationCiting('chunk-1', { preliminary: true })],
+        });
+
+        const result = await service.analyze(physicianId, encounterId, validInput);
+
+        expect(result.output.recommendations[0]).toMatchObject({
+          preliminary: true,
+          preliminaryReason: 'pending_questions',
+        });
+      });
+
+      describe('subtipos de conduta oposta (S21-CLIN-01)', () => {
+        const avcChunks = [
+          {
+            ...mockChunks[0],
+            id: 'chunk-avc-isquemico',
+            metadata: { cenario: 'avc_agudo', subtipo: 'isquemico' },
+          },
+          {
+            ...mockChunks[1],
+            id: 'chunk-avc-hemorragico',
+            metadata: { cenario: 'avc_agudo', subtipo: 'hemorragico' },
+          },
+          { ...mockChunks[0], id: 'chunk-avc-geral', metadata: { cenario: 'avc_agudo' } },
+        ];
+        const reasoningNamingBoth =
+          'Déficit flutuante e reversível sugere isquêmico/AIT; AVC hemorrágico precisa ser excluído pela TC.';
+
+        it('marca como "subtipo indefinido" a recomendação que cita um subtipo quando a evidência cobre os dois', async () => {
+          setupAnalysis(avcChunks, {
+            reasoning: reasoningNamingBoth,
+            recommendations: [recommendationCiting('chunk-avc-isquemico', { category: 'therapeutic' })],
+          });
+
+          const result = await service.analyze(physicianId, encounterId, validInput);
+
+          expect(result.output.recommendations[0]).toMatchObject({
+            preliminary: true,
+            preliminaryReason: 'subtype_ambiguity',
+          });
+        });
+
+        it('não marca recomendação que cita chunk do cenário sem subtipo', async () => {
+          setupAnalysis(avcChunks, {
+            reasoning: reasoningNamingBoth,
+            recommendations: [recommendationCiting('chunk-avc-geral', { category: 'stabilization' })],
+          });
+
+          const result = await service.analyze(physicianId, encounterId, validInput);
+
+          expect(result.output.recommendations[0]).toMatchObject({ preliminary: false });
+        });
+
+        it('não marca quando a evidência recuperada cobre um subtipo só', async () => {
+          setupAnalysis([avcChunks[0]!], {
+            reasoning: 'Déficit focal agudo dentro da janela.',
+            recommendations: [recommendationCiting('chunk-avc-isquemico')],
+          });
+
+          const result = await service.analyze(physicianId, encounterId, validInput);
+
+          expect(result.output.recommendations[0]).toMatchObject({ preliminary: false });
+        });
+      });
+    });
   });
 
   describe('RT-001: analyzeStream', () => {
@@ -990,6 +1216,12 @@ describe('OrchestratorService', () => {
       encountersMock.findById.mockResolvedValue({ id: encounterId, physicianId, patientRef: 'PRN-001' });
       retrievalMock.search.mockResolvedValue({ chunks: mockChunks, totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0, official: NO_OFFICIAL });
       aiGatewayMock.completeStream.mockReturnValue(fakeStream(['not valid json at all']));
+      aiGatewayMock.complete.mockResolvedValue({
+        content: 'still not json',
+        model: 'claude-3-sonnet',
+        usage: { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
+        latencyMs: 800,
+      });
       prismaMock.aiInteraction.create.mockResolvedValue({ id: 'interaction-err' });
 
       const events = [];
@@ -1001,6 +1233,198 @@ describe('OrchestratorService', () => {
       expect(errorEvent).toBeDefined();
       expect(errorEvent!.type).toBe('error');
       expect(errorEvent!.errors).toBeDefined();
+      expect(events.some((e) => e.type === 'done')).toBe(false);
+    });
+
+    // F0-C — paridade com o POST /analyze. O streaming é o caminho principal
+    // da captura (casos até 3.000 caracteres) e ficava sem retry, sem
+    // `params` e sem custo.
+    describe('F0-C: paridade com o POST /analyze', () => {
+      const streamInput = {
+        ...validInput,
+        redFlags: { pregnant: true, anticoagulant: false },
+        demoCase: 'sindrome-gripal',
+      };
+
+      async function collect(input = streamInput): Promise<StreamEvent[]> {
+        const events: StreamEvent[] = [];
+        for await (const event of service.analyzeStream(physicianId, encounterId, input)) {
+          events.push(event);
+        }
+        return events;
+      }
+
+      function doneResult(events: StreamEvent[]): OrchestratorResult {
+        const done = events.find(
+          (event): event is Extract<StreamEvent, { type: 'done' }> => event.type === 'done',
+        );
+        if (!done) throw new Error('o stream terminou sem evento done');
+        return done.result;
+      }
+
+      beforeEach(() => {
+        encountersMock.findById.mockResolvedValue({ id: encounterId, physicianId, patientRef: 'PRN-001' });
+        retrievalMock.search.mockResolvedValue({ chunks: mockChunks, totalRetrieved: 2, coverage: 'partial', bestSemanticScore: 0.4, discardedByFloor: 1, official: NO_OFFICIAL });
+        prismaMock.aiInteraction.create.mockResolvedValue({ id: 'interaction-stream-001' });
+        encountersMock.update.mockResolvedValue({});
+      });
+
+      it('trata truncamento do stream como tentativa inválida e refaz sem turno de assistente vazio', async () => {
+        // eslint-disable-next-line require-yield -- o stream falha antes de emitir qualquer delta
+        async function* truncatedStream(): AsyncGenerator<string, StreamCompletionResult> {
+          throw new AiTruncatedError({ model: 'claude-sonnet-5-5', maxTokens: 16000, usage: streamUsage });
+        }
+        aiGatewayMock.completeStream.mockReturnValue(truncatedStream());
+        aiGatewayMock.complete.mockResolvedValue({
+          content: validLLMOutput,
+          model: 'claude-3-sonnet',
+          usage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 },
+          latencyMs: 1500,
+        });
+
+        const events = await collect();
+
+        expect(aiGatewayMock.complete).toHaveBeenCalledTimes(1);
+        const retryMessages = aiGatewayMock.complete.mock.calls[0]![0].messages;
+        expect(retryMessages).toHaveLength(3);
+        expect(retryMessages.some((m: { role: string }) => m.role === 'assistant')).toBe(false);
+        expect(retryMessages[2].content).toContain('OUTPUT TRUNCATED');
+        expect(doneResult(events).metadata).toMatchObject({ cost: 0.0103 });
+      });
+
+      it('não refaz quando o modelo recusa: grava a falha e emite erro', async () => {
+        // eslint-disable-next-line require-yield -- o stream falha antes de emitir qualquer delta
+        async function* refusedStream(): AsyncGenerator<string, StreamCompletionResult> {
+          throw new AiRefusalError({
+            model: 'claude-sonnet-5-5',
+            category: 'bio',
+            explanation: null,
+            usage: streamUsage,
+          });
+        }
+        aiGatewayMock.completeStream.mockReturnValue(refusedStream());
+
+        const events = await collect();
+
+        expect(aiGatewayMock.complete).not.toHaveBeenCalled();
+        const error = events.find((e) => e.type === 'error');
+        expect(error).toBeDefined();
+        expect(JSON.stringify(error)).toContain('MODEL REFUSAL');
+        expect(prismaMock.aiInteraction.create).toHaveBeenCalledTimes(1);
+        expect(prismaMock.aiInteraction.create.mock.calls[0]![0].data).toMatchObject({
+          uncertaintyReason: 'Output validation failed',
+        });
+      });
+
+      it('refaz uma vez, sem streaming e com o feedback do validador, quando o JSON transmitido é inválido', async () => {
+        aiGatewayMock.completeStream.mockReturnValue(fakeStream(['{"reasoning": ', '"truncado']));
+        aiGatewayMock.complete.mockResolvedValue({
+          content: validLLMOutput,
+          model: 'claude-3-sonnet',
+          usage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 },
+          latencyMs: 1500,
+        });
+
+        const events = await collect();
+
+        expect(aiGatewayMock.complete).toHaveBeenCalledTimes(1);
+        const retryMessages = aiGatewayMock.complete.mock.calls[0]![0].messages;
+        expect(retryMessages).toHaveLength(4);
+        expect(retryMessages[2]).toEqual({ role: 'assistant', content: '{"reasoning": "truncado' });
+        expect(retryMessages[3].role).toBe('user');
+        expect(retryMessages[3].content).toContain('Output is not valid JSON');
+
+        // Custo = stream (usage do fakeStream, claude-sonnet-5-5: 0,0070) + retry (0,0033).
+        const result = doneResult(events);
+        expect(result.output.recommendations).toHaveLength(1);
+        expect(result.metadata).toMatchObject({
+          model: 'claude-3-sonnet',
+          cost: 0.0103,
+        });
+        expect(events.some((e) => e.type === 'error')).toBe(false);
+        expect(prismaMock.aiInteraction.create).toHaveBeenCalledTimes(1);
+        expect(prismaMock.aiInteraction.create.mock.calls[0]![0].data).toMatchObject({
+          model: 'claude-3-sonnet',
+          cost: 0.0103,
+        });
+      });
+
+      it('não chama o modelo de novo quando o JSON transmitido é válido', async () => {
+        aiGatewayMock.completeStream.mockReturnValue(fakeStream([validLLMOutput]));
+
+        await collect();
+
+        expect(aiGatewayMock.complete).not.toHaveBeenCalled();
+      });
+
+      it('grava os mesmos params do POST /analyze em caso de sucesso', async () => {
+        aiGatewayMock.completeStream.mockReturnValue(fakeStream([validLLMOutput]));
+
+        await collect();
+
+        expect(prismaMock.aiInteraction.create.mock.calls[0]![0].data.params).toEqual({
+          demoCase: 'sindrome-gripal',
+          redFlags: { pregnant: true, anticoagulant: false },
+          retrievalCoverage: 'partial',
+          officialChunksRetrieved: 0,
+        });
+      });
+
+      it('grava os params também quando o retry falha', async () => {
+        aiGatewayMock.completeStream.mockReturnValue(fakeStream(['not json']));
+        aiGatewayMock.complete.mockResolvedValue({
+          content: 'still not json',
+          model: 'claude-3-sonnet',
+          usage: { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
+          latencyMs: 800,
+        });
+
+        await collect();
+
+        expect(prismaMock.aiInteraction.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({
+              uncertainty: true,
+              uncertaintyReason: 'Output validation failed',
+              params: {
+                demoCase: 'sindrome-gripal',
+                redFlags: { pregnant: true, anticoagulant: false },
+                retrievalCoverage: 'partial',
+                officialChunksRetrieved: 0,
+              },
+            }),
+          }),
+        );
+      });
+
+      it('injeta as red flags confirmadas no prompt do streaming', async () => {
+        aiGatewayMock.completeStream.mockReturnValue(fakeStream([validLLMOutput]));
+
+        await collect();
+
+        const userMessage = aiGatewayMock.completeStream.mock.calls[0]![0].messages[1].content;
+        expect(userMessage).toContain('Paciente gestante ou amamentando');
+      });
+
+      it('aplica a contenção de fonte não revisada também no streaming', async () => {
+        retrievalMock.search.mockResolvedValue({
+          chunks: [{ ...mockChunks[0], clinicallySigned: false }],
+          totalRetrieved: 1,
+          coverage: 'full',
+          bestSemanticScore: 0.8,
+          discardedByFloor: 0,
+          official: NO_OFFICIAL,
+        });
+        aiGatewayMock.completeStream.mockReturnValue(fakeStream([validLLMOutput]));
+
+        const events = await collect();
+
+        expect(doneResult(events).output.recommendations[0]).toMatchObject({
+          preliminary: true,
+          preliminaryReason: 'unreviewed_source',
+          origin: 'curated_unsigned',
+        });
+      });
     });
   });
 
@@ -1223,6 +1647,65 @@ describe('OrchestratorService', () => {
       expect(createCall.data.answeredQuestions[0]!.questionId).toBe('q0');
       expect(createCall.data.answeredQuestions[1]!.questionId).toBe('q1');
       expect(createCall.data.turnIndex).toBe(2);
+    });
+
+    it('F0-C: aplica a contenção de fonte não revisada também na reanálise', async () => {
+      setupHappyPath();
+      retrievalMock.search.mockResolvedValue({
+        chunks: [{ ...mockChunks[0], clinicallySigned: false }],
+        totalRetrieved: 1,
+        coverage: 'full',
+        bestSemanticScore: 0.8,
+        discardedByFloor: 0,
+        official: NO_OFFICIAL,
+      });
+      prismaMock.aiInteraction.findFirst.mockResolvedValue(makeParentInteraction());
+
+      const result = await service.continueAnalysis(physicianId, encounterId, {
+        interactionId: parentInteractionId,
+        answers: [{ questionId: 'q1', answer: 'sim' }],
+      });
+
+      expect(result.output.recommendations[0]).toMatchObject({
+        preliminary: true,
+        preliminaryReason: 'unreviewed_source',
+        origin: 'curated_unsigned',
+      });
+      expect(result.metadata.turnIndex).toBe(1);
+    });
+
+    it('F0-C: refaz uma vez com o feedback do validador e soma o custo das duas chamadas', async () => {
+      setupHappyPath();
+      prismaMock.aiInteraction.findFirst.mockResolvedValue(makeParentInteraction());
+      aiGatewayMock.complete
+        .mockResolvedValueOnce({
+          content: 'not json',
+          model: 'claude-3-sonnet',
+          usage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 },
+          latencyMs: 900,
+        })
+        .mockResolvedValueOnce({
+          content: validRespondLLMOutput,
+          model: 'claude-3-sonnet',
+          usage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 },
+          latencyMs: 900,
+        });
+
+      const result = await service.continueAnalysis(physicianId, encounterId, {
+        interactionId: parentInteractionId,
+        answers: [{ questionId: 'q1', answer: 'sim' }],
+      });
+
+      expect(aiGatewayMock.complete).toHaveBeenCalledTimes(2);
+      expect(aiGatewayMock.complete.mock.calls[1]![0].messages[3].content).toContain(
+        'Output is not valid JSON',
+      );
+      expect(result.metadata.cost).toBe(0.0066);
+      expect(prismaMock.aiInteraction.create.mock.calls[0]![0].data).toMatchObject({
+        cost: 0.0066,
+        turnIndex: 1,
+        parentInteractionId,
+      });
     });
 
     it('DEC-005: audits COPILOT_QUESTION_ANSWERED with a hash of the answers, never raw content', async () => {

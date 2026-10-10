@@ -8,6 +8,13 @@ export interface RetrievedChunk {
   institutionId: string | null;
   score: number;
   metadata: Record<string, unknown>;
+  /**
+   * F0-C / ADR-012 — chunk `approved` cujo `reviewedBy` é um médico com CRM
+   * verificado. `false` para seed, pacotes KB-003/KB-004, ingestão interna e
+   * para toda a base oficial (`official_unreviewed`). Quem consome trata
+   * ausência (cache gravado antes do campo) como não assinado.
+   */
+  clinicallySigned: boolean;
 }
 
 export interface SearchHit {

@@ -103,6 +103,7 @@ export function DomainSection() {
             <SourceOriginBadge origin="public" />
             <SourceOriginBadge origin="institutional" />
             <SourceOriginBadge origin="official_unreviewed" />
+            <SourceOriginBadge origin="curated_unsigned" />
             <SourceOriginBadge origin="physician_attachment" />
           </div>
         </div>
