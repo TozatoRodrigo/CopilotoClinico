@@ -30,6 +30,14 @@ export interface DecisionLoopFunnel {
   abandonmentRate: number;
   confirmedDocuments: number;
   uncertaintyRate: number;
+  /**
+   * F0-D — o que os médicos fizeram com as condutas sugeridas nesses
+   * atendimentos (uma contagem por recomendação decidida). `modified` =
+   * adotada com ajuste. Rejeição alta é sinal de conduta errada na base.
+   */
+  decisionsAdopted: number;
+  decisionsModified: number;
+  decisionsRejected: number;
 }
 
 export interface ActivationFunnel {

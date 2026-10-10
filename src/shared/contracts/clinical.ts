@@ -387,6 +387,42 @@ export interface CopilotFeedbackResponse {
 }
 
 /**
+ * F0-D — o que o médico fez com uma recomendação, persistido no servidor
+ * (antes vivia só no sessionStorage). `modified` = adotou com ajuste (Adotar
+ * + nota); a regra completa de mapeamento dos botões está em
+ * web/src/hooks/use-recommendation-decisions.ts.
+ */
+export const recommendationDecisionValues = ['adopted', 'rejected', 'modified'] as const;
+
+export type RecommendationDecisionValue = (typeof recommendationDecisionValues)[number];
+
+/**
+ * O cliente manda o ÍNDICE da recomendação, não a chave: o servidor calcula
+ * `recommendationKey` a partir do rawOutput gravado, para que uma chave
+ * forjada nunca aponte para uma recomendação que não existe.
+ */
+export interface UpsertRecommendationDecisionRequest {
+  interactionId: string;
+  recommendationIndex: number;
+  decision: RecommendationDecisionValue;
+  /** Texto livre; o servidor mascara PII antes de gravar. `null` apaga a nota. */
+  note?: string | null;
+}
+
+export interface RecommendationDecisionRecord {
+  id: string;
+  interactionId: string;
+  recommendationIndex: number;
+  /** `<índice>-<12 hex do sha256 da ação>`. */
+  recommendationKey: string;
+  decision: RecommendationDecisionValue;
+  /** Nota já mascarada de PII. */
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
  * F4 — sugestão de diretriz enviada por um médico do piloto.
  *
  * Metadados de curadoria (`sourceVersion`, `specialty`) são opcionais de

@@ -8,6 +8,8 @@ import { AiGatewayModule } from '../ai-gateway/ai-gateway.module';
 import { AuthModule } from '../auth/auth.module';
 import { EncountersModule } from '../encounters/encounters.module';
 import { QueueModule } from '../queue/queue.module';
+import { RecommendationDecisionsController } from './decisions/recommendation-decisions.controller';
+import { RecommendationDecisionsService } from './decisions/recommendation-decisions.service';
 
 @Module({
   imports: [
@@ -17,8 +19,13 @@ import { QueueModule } from '../queue/queue.module';
     ProtocolEngineModule,
     forwardRef(() => QueueModule),
   ],
-  controllers: [CopilotController],
-  providers: [CopilotService, OrchestratorService, RetrievalService],
+  controllers: [CopilotController, RecommendationDecisionsController],
+  providers: [
+    CopilotService,
+    OrchestratorService,
+    RetrievalService,
+    RecommendationDecisionsService,
+  ],
   exports: [CopilotService, OrchestratorService],
 })
 export class CopilotModule {}
