@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "kb001-gd-001",
+  "title": "Diarreia aguda sem dados de sangue, diurese ou tolerância oral",
+  "tags": [
+    "diarreia-vomitos",
+    "gastroenterite",
+    "kb-001"
+  ],
+  "critical": false,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Diarreia aguda sem informação sobre sangue nas fezes, diurese ou tolerância oral."
+  },
+  "expected": {
+    "syndrome": "gastroenterite aguda — grau de desidratação a avaliar",
+    "cannotMiss": [
+      "desidratação grave / choque hipovolêmico"
+    ],
+    "mustRequest": [
+      "sangue nas fezes",
+      "diurese",
+      "tolerância à via oral",
+      "sinais vitais"
+    ],
+    "requiredActions": [],
+    "forbiddenDefinitiveActions": [],
+    "expectedPath": "clarify"
+  }
+}

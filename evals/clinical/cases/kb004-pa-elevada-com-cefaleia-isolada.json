@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "id": "kb004-pa-elevada-com-cefaleia-isolada",
+  "title": "PA 210x120 com cefaleia, lesão de órgão-alvo não avaliada",
+  "tags": [
+    "pressao-arterial-elevada",
+    "dicotomia-crise-hipertensiva",
+    "discriminador-ausente"
+  ],
+  "critical": false,
+  "goldSource": "kb004_dichotomy",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Fem, 60a, HAS, cefaleia holocraniana moderada há 1 dia. PA 210x120 confirmada em 2 medidas, FC 88. Ainda sem exame físico detalhado."
+  },
+  "expected": {
+    "syndrome": "PA muito elevada com cefaleia — diferenciar emergência hipertensiva de pseudocrise",
+    "cannotMiss": [
+      "emergência hipertensiva (encefalopatia, AVC, síndrome coronariana)"
+    ],
+    "mustRequest": [
+      "exame neurológico / déficit focal",
+      "alteração visual ou fundo de olho",
+      "dor torácica ou dispneia",
+      "função renal e exame de urina"
+    ],
+    "requiredActions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "nifedipino-sublingual",
+        "description": "Nifedipino sublingual (queda abrupta e imprevisível da PA, risco de isquemia cerebral e miocárdica)",
+        "patterns": [
+          "nifedipin"
+        ],
+        "exceptWhen": [
+          "\\bnao\\b",
+          "evitar",
+          "contraindic",
+          "sem indicacao"
+        ]
+      }
+    ],
+    "expectedPath": "clarify",
+    "rationale": "KB-004: cefaleia isolada NÃO configura lesão de órgão-alvo por si só — falta evidência objetiva."
+  }
+}

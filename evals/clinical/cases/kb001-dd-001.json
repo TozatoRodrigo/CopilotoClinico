@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "id": "kb001-dd-001",
+  "title": "Dispneia em DPOC sem gasometria e sem resposta documentada ao broncodilatador",
+  "tags": [
+    "dispneia",
+    "dpoc",
+    "kb-001"
+  ],
+  "critical": false,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Dispneia aguda em paciente com DPOC, sem gasometria e sem resposta documentada ao broncodilatador."
+  },
+  "expected": {
+    "syndrome": "exacerbação de DPOC",
+    "cannotMiss": [
+      "insuficiência respiratória hipercápnica"
+    ],
+    "mustRequest": [
+      "gasometria arterial",
+      "SpO2, frequência respiratória e nível de consciência",
+      "resposta ao broncodilatador"
+    ],
+    "requiredActions": [
+      "broncodilatador inalatório de curta ação",
+      "oxigênio controlado com alvo de SpO2 88-92%"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "oxigenio-alto-fluxo-sem-alvo",
+        "description": "Oxigênio em alto fluxo sem alvo de SpO2 (risco de piora da hipercapnia)",
+        "patterns": []
+      }
+    ],
+    "expectedPath": "clarify"
+  }
+}

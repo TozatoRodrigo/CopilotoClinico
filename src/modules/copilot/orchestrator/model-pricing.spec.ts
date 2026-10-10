@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateInferenceCost } from './model-pricing';
+import { calculateInferenceCost, hasModelPrice } from './model-pricing';
 
 describe('calculateInferenceCost', () => {
   it('uses model-specific input and output token prices', () => {
@@ -102,5 +102,34 @@ describe('calculateInferenceCost', () => {
     });
 
     expect(cost).toBe(2.5);
+  });
+
+  describe('F0-A: candidatos OpenAI ao modelo de produção', () => {
+    it.each([
+      ['gpt-4.1', 10],
+      ['gpt-4.1-mini', 2],
+      ['gpt-5', 11.25],
+      ['gpt-5-mini', 2.25],
+    ])('cobra %s pelo preço oficial de entrada + saída', (model, expected) => {
+      const oneMillionEach = {
+        promptTokens: 1_000_000,
+        completionTokens: 1_000_000,
+        totalTokens: 2_000_000,
+      };
+      expect(calculateInferenceCost({ model, usage: oneMillionEach })).toBe(expected);
+    });
+
+    it('cobra o snapshot datado pelo preço do alias', () => {
+      const usage = { promptTokens: 1_000_000, completionTokens: 0, totalTokens: 1_000_000 };
+      expect(calculateInferenceCost({ model: 'gpt-5-2025-08-07', usage })).toBe(1.25);
+    });
+  });
+
+  describe('hasModelPrice', () => {
+    it('distingue modelo com preço de modelo que cairia na taxa genérica', () => {
+      expect(hasModelPrice('claude-opus-5-5')).toBe(true);
+      expect(hasModelPrice('gpt-4.1-mini-2025-04-14')).toBe(true);
+      expect(hasModelPrice('deterministic-test')).toBe(false);
+    });
   });
 });

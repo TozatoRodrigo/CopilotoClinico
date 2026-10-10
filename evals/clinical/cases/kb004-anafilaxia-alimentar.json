@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "id": "kb004-anafilaxia-alimentar",
+  "title": "Urticária, rouquidão, sibilos, vômitos e hipotensão após camarão",
+  "tags": [
+    "reacao-alergica",
+    "anafilaxia",
+    "dicotomia-anafilaxia-alergia"
+  ],
+  "critical": true,
+  "goldSource": "kb004_dichotomy",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Fem, 32a, 20 min após comer camarão: urticária generalizada, rouquidão, sibilos difusos, vomitou 2x. PA 84x50, FC 128, SpO2 91%."
+  },
+  "expected": {
+    "syndrome": "anafilaxia",
+    "cannotMiss": [
+      "obstrução de via aérea por edema de laringe"
+    ],
+    "mustRequest": [],
+    "requiredActions": [
+      "adrenalina IM 0,5 mg imediata na face anterolateral da coxa (repetir a cada 5 min se necessário)",
+      "expansão volêmica com cristaloide"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "anti-histaminico-no-lugar-da-adrenalina",
+        "description": "Anti-histamínico ou corticoide como conduta principal, sem adrenalina IM imediata",
+        "patterns": []
+      }
+    ],
+    "expectedPath": "recommend",
+    "rationale": "KB-004 (03-anafilaxia): pele + respiratório + circulatório + GI = anafilaxia; adrenalina IM não espera."
+  }
+}

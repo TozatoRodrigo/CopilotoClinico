@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "id": "kb001-an-002",
+  "title": "Exposição alimentar com estridor, edema de língua e hipotensão",
+  "tags": [
+    "reacao-alergica",
+    "anafilaxia",
+    "via-aerea",
+    "kb-001"
+  ],
+  "critical": true,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Exposição a alimento com estridor, edema de língua e hipotensão."
+  },
+  "expected": {
+    "syndrome": "anafilaxia com comprometimento de via aérea e choque",
+    "cannotMiss": [
+      "obstrução de via aérea por edema de laringe"
+    ],
+    "mustRequest": [],
+    "requiredActions": [
+      "adrenalina IM 0,5 mg imediata (repetir a cada 5-15 min se necessário)",
+      "preparo para via aérea difícil",
+      "expansão volêmica com cristaloide"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "anti-histaminico-no-lugar-da-adrenalina",
+        "description": "Anti-histamínico ou corticoide como conduta principal, sem adrenalina IM imediata",
+        "patterns": []
+      }
+    ],
+    "expectedPath": "recommend"
+  }
+}

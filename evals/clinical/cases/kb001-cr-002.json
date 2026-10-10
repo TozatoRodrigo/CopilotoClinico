@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "kb001-cr-002",
+  "title": "Cólica renal com febre, anúria e rim único",
+  "tags": [
+    "dor-lombar-flanco",
+    "urosepse",
+    "rim-unico",
+    "kb-001"
+  ],
+  "critical": true,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Cólica renal com febre, anúria e rim único."
+  },
+  "expected": {
+    "syndrome": "obstrução urinária infectada em rim único (urgência urológica)",
+    "cannotMiss": [
+      "sepse de foco urinário obstrutivo",
+      "lesão renal aguda pós-renal"
+    ],
+    "mustRequest": [],
+    "requiredActions": [
+      "desobstrução urológica de urgência (cateter duplo J ou nefrostomia)",
+      "antibiótico IV de amplo espectro",
+      "função renal e eletrólitos (incluindo potássio)"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "aine-em-anuria",
+        "description": "AINE em paciente anúrico com rim único / lesão renal aguda",
+        "patterns": [
+          "diclofenaco",
+          "cetoprofeno",
+          "ibuprofeno",
+          "cetorolaco",
+          "tenoxicam",
+          "\\baines?\\b",
+          "anti-?inflamatorio"
+        ],
+        "exceptWhen": [
+          "\\bnao\\b",
+          "evitar",
+          "contraindic",
+          "sem indicacao",
+          "suspend"
+        ]
+      }
+    ],
+    "expectedPath": "recommend"
+  }
+}

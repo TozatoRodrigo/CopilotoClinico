@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "kb001-an-001",
+  "title": "Urticária após alimento sem dados respiratórios, de PA ou de edema de língua",
+  "tags": [
+    "reacao-alergica",
+    "urticaria",
+    "kb-001"
+  ],
+  "critical": true,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Urticária após alimento sem informação sobre falta de ar, hipotensão ou edema de língua."
+  },
+  "expected": {
+    "syndrome": "reação alérgica a alimento — diferenciar anafilaxia de urticária isolada",
+    "cannotMiss": [
+      "anafilaxia"
+    ],
+    "mustRequest": [
+      "sintomas respiratórios (dispneia, sibilos, estridor)",
+      "pressão arterial / síncope",
+      "edema de língua, lábios ou glote",
+      "sintomas gastrointestinais"
+    ],
+    "requiredActions": [],
+    "forbiddenDefinitiveActions": [],
+    "expectedPath": "clarify"
+  }
+}

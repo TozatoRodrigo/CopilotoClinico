@@ -287,6 +287,10 @@ KB001_INTEGRATION=1 DATABASE_URL=postgresql://test:test@localhost:5432/test?sche
 O teste de integração do KB-001 roda automaticamente no CI e fica `skip` em ambiente
 local até que `KB001_INTEGRATION=1` seja informado junto de um PostgreSQL de teste ativo.
 
+Esses dois testes conferem o pacote e o retrieval, não a resposta do modelo. Para medir
+a resposta — e para o portão de release de qualquer mudança clínica — use o gabarito
+clínico (`pnpm eval:clinical`, ver [docs/evals/gabarito-clinico.md](evals/gabarito-clinico.md)).
+
 ### Publicar os pacotes KB-005 (dengue) e KB-006 (cefaleias) em produção
 
 Os dois pacotes existem como rascunho em `docs/guidelines/drafts/` e **não têm

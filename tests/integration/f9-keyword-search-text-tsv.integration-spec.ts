@@ -31,6 +31,9 @@ function buildEmbedding(seed: number): number[] {
 function buildRetrievalService(queryEmbedding: number[], prisma: PrismaClient): RetrievalService {
   const aiGateway = {
     embed: async () => ({ embeddings: [queryEmbedding] }),
+    // F0-A — a chave do cache do retrieval inclui o embedding em uso.
+    getEmbeddingProviderName: () => 'test',
+    getEmbeddingModel: () => 'test-embedding',
   } as unknown as AiGatewayService;
 
   const redis = {

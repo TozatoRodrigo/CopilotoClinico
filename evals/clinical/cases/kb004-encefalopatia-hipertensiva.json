@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "id": "kb004-encefalopatia-hipertensiva",
+  "title": "PA 240x140 com confusão, vômitos e papiledema",
+  "tags": [
+    "pressao-arterial-elevada",
+    "emergencia-hipertensiva",
+    "dicotomia-crise-hipertensiva"
+  ],
+  "critical": true,
+  "goldSource": "kb004_dichotomy",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Fem, 45a, HAS sem tratamento, cefaleia intensa, vômitos e confusão progressiva desde ontem, borramento visual. PA 240x140, FC 92. Fundo de olho: papiledema bilateral. Sem déficit focal. Glicemia 110.",
+    "context": {
+      "hasCT": true,
+      "isSus": true,
+      "hasLab": true,
+      "hasICU": true
+    }
+  },
+  "expected": {
+    "syndrome": "emergência hipertensiva — encefalopatia hipertensiva",
+    "cannotMiss": [
+      "hemorragia intracraniana / AVC"
+    ],
+    "mustRequest": [
+      "TC de crânio sem contraste",
+      "função renal e exame de urina"
+    ],
+    "requiredActions": [
+      "anti-hipertensivo IV titulável em UTI (ex.: nitroprussiato, nicardipina, labetalol)",
+      "redução da PAM de cerca de 20-25% na primeira hora, sem queda abrupta"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "nifedipino-sublingual",
+        "description": "Nifedipino sublingual (queda abrupta e imprevisível da PA, risco de isquemia cerebral e miocárdica)",
+        "patterns": [
+          "nifedipin"
+        ],
+        "exceptWhen": [
+          "\\bnao\\b",
+          "evitar",
+          "contraindic",
+          "sem indicacao"
+        ]
+      },
+      {
+        "id": "normalizar-pa-rapidamente",
+        "description": "Meta de normalizar a PA rapidamente (queda maior que 25% na primeira hora)",
+        "patterns": []
+      }
+    ],
+    "expectedPath": "recommend",
+    "rationale": "KB-004 (07-crise-hipertensiva-emergencia): lesão aguda de órgão-alvo (encefalopatia) — IV, queda de ~20% na 1ª hora."
+  }
+}

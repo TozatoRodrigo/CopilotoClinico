@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "kb001-ff-002",
+  "title": "Febre com hipotensão, confusão e neutropenia pós-quimioterapia",
+  "tags": [
+    "febre-hipotensao",
+    "neutropenia-febril",
+    "sepse",
+    "kb-001"
+  ],
+  "critical": true,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Febre com hipotensão, confusão e neutropenia pós-quimioterapia."
+  },
+  "expected": {
+    "syndrome": "neutropenia febril com choque séptico",
+    "cannotMiss": [
+      "choque séptico em paciente neutropênico"
+    ],
+    "mustRequest": [],
+    "requiredActions": [
+      "antibiótico IV de amplo espectro com cobertura antipseudomonas na primeira hora",
+      "hemoculturas sem atrasar o antibiótico",
+      "ressuscitação volêmica e vasopressor se hipotensão persistir"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "expectedPath": "recommend"
+  }
+}

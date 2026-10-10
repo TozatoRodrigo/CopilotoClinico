@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "id": "kb004-pseudocrise-por-dor",
+  "title": "PA 196x112 em paciente com dor de entorse, sem lesão de órgão-alvo",
+  "tags": [
+    "pressao-arterial-elevada",
+    "pseudocrise",
+    "dicotomia-crise-hipertensiva"
+  ],
+  "critical": false,
+  "goldSource": "kb004_dichotomy",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Masc, 52a, HAS com uso irregular de losartana, veio por entorse de tornozelo com dor 9/10. PA 196x112, FC 98. Sem dor torácica, dispneia, cefaleia, alteração visual ou déficit. Exame neurológico normal."
+  },
+  "expected": {
+    "syndrome": "pseudocrise hipertensiva (PA elevada por dor, sem lesão de órgão-alvo)",
+    "cannotMiss": [
+      "lesão aguda de órgão-alvo (emergência hipertensiva)"
+    ],
+    "mustRequest": [],
+    "requiredActions": [
+      "analgesia e nova aferição da PA após o controle da dor",
+      "ajuste/adesão do anti-hipertensivo oral com seguimento ambulatorial"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "nifedipino-sublingual",
+        "description": "Nifedipino sublingual (queda abrupta e imprevisível da PA, risco de isquemia cerebral e miocárdica)",
+        "patterns": [
+          "nifedipin"
+        ],
+        "exceptWhen": [
+          "\\bnao\\b",
+          "evitar",
+          "contraindic",
+          "sem indicacao"
+        ]
+      },
+      {
+        "id": "anti-hipertensivo-iv-em-pseudocrise",
+        "description": "Anti-hipertensivo IV ou redução rápida da PA sem lesão de órgão-alvo",
+        "patterns": [
+          "nitroprussiato",
+          "(hidralazina|labetalol|nicardipina|esmolol).{0,20}\\b(iv|ev|intraven)"
+        ],
+        "exceptWhen": [
+          "\\bnao\\b",
+          "evitar",
+          "contraindic",
+          "sem indicacao"
+        ]
+      }
+    ],
+    "expectedPath": "recommend",
+    "rationale": "KB-004 (08-crise-hipertensiva-pseudocrise): tratar a dor primeiro; reduzir a PA de forma agressiva é o erro."
+  }
+}

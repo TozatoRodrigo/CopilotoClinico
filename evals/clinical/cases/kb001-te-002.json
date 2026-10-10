@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "id": "kb001-te-002",
+  "title": "Síncope, hipoxemia e hipotensão com suspeita de TEP",
+  "tags": [
+    "choque",
+    "tep-alto-risco",
+    "kb-001"
+  ],
+  "critical": true,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Síncope, hipoxemia e hipotensão em contexto de suspeita de TEP."
+  },
+  "expected": {
+    "syndrome": "TEP de alto risco (maciço) com instabilidade hemodinâmica",
+    "cannotMiss": [
+      "TEP de alto risco (maciço)"
+    ],
+    "mustRequest": [
+      "contraindicações à trombólise (sangramento ativo, AVC ou cirurgia recentes)"
+    ],
+    "requiredActions": [
+      "estabilização: oxigênio, volume cauteloso e vasopressor (noradrenalina) se necessário",
+      "anticoagulação com heparina não fracionada se sem contraindicação",
+      "trombólise sistêmica se TEP de alto risco confirmado ou altamente provável e sem contraindicação"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "volume-agressivo-em-choque-obstrutivo",
+        "description": "Expansão volêmica agressiva em choque obstrutivo por TEP (piora a sobrecarga do VD)",
+        "patterns": []
+      }
+    ],
+    "expectedPath": "recommend"
+  }
+}

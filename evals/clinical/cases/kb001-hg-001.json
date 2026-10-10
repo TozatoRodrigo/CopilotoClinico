@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "id": "kb001-hg-001",
+  "title": "Hiperglicemia importante sem cetonemia, potássio ou estado mental",
+  "tags": [
+    "disturbio-glicemico",
+    "hiperglicemia",
+    "kb-001"
+  ],
+  "critical": false,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Hiperglicemia importante sem cetonemia, potássio ou estado mental informados."
+  },
+  "expected": {
+    "syndrome": "hiperglicemia — diferenciar CAD/EHH de hiperglicemia simples",
+    "cannotMiss": [
+      "cetoacidose diabética",
+      "estado hiperosmolar hiperglicêmico"
+    ],
+    "mustRequest": [
+      "cetonemia ou cetonúria",
+      "potássio sérico",
+      "estado mental",
+      "gasometria (pH e bicarbonato)"
+    ],
+    "requiredActions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "insulina-sem-potassio",
+        "description": "Insulina IV como conduta definitiva sem potássio conhecido",
+        "patterns": [
+          "insulina"
+        ],
+        "exceptWhen": [
+          "\\bnao\\b",
+          "evitar",
+          "contraindic",
+          "sem indicacao",
+          "\\bapos\\b",
+          "depois",
+          "quando",
+          "somente",
+          "\\bso\\b",
+          "antes de iniciar",
+          "potassio\\s*(>=|>|≥|acima|normal|corrigid)",
+          "\\bk\\s*(>=|>|≥)",
+          "\\bnao\\s+iniciar",
+          "aguardar",
+          "adiar",
+          "suspend"
+        ]
+      }
+    ],
+    "expectedPath": "clarify"
+  }
+}

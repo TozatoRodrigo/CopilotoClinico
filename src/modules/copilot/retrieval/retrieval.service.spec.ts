@@ -15,6 +15,8 @@ describe('RetrievalService', () => {
   };
   let aiGatewayMock: {
     embed: ReturnType<typeof vi.fn>;
+    getEmbeddingProviderName: () => string;
+    getEmbeddingModel: () => string;
   };
   let env: Record<string, string | undefined>;
 
@@ -30,6 +32,8 @@ describe('RetrievalService', () => {
 
     aiGatewayMock = {
       embed: vi.fn(),
+      getEmbeddingProviderName: () => 'openai',
+      getEmbeddingModel: () => 'text-embedding-3-small',
     };
 
     const redisMock = {
@@ -467,8 +471,11 @@ describe('RetrievalService', () => {
 });
 
 describe('RetrievalService — chave do cache', () => {
-  function build(env: Record<string, string | undefined> = {}) {
-    const store = new Map<string, string>();
+  function build(
+    env: Record<string, string | undefined> = {},
+    store = new Map<string, string>(),
+    embeddingModel = 'text-embedding-3-small',
+  ) {
     const redis = {
       get: vi.fn(async (key: string) => store.get(key) ?? null),
       set: vi.fn(async (key: string, value: string) => {
@@ -479,7 +486,11 @@ describe('RetrievalService — chave do cache', () => {
       $queryRaw: vi.fn().mockResolvedValue([]),
       guidelineChunk: { findMany: vi.fn().mockResolvedValue([]) },
     };
-    const ai = { embed: vi.fn().mockResolvedValue({ embeddings: [[0.1, 0.2]] }) };
+    const ai = {
+      embed: vi.fn().mockResolvedValue({ embeddings: [[0.1, 0.2]] }),
+      getEmbeddingProviderName: () => 'openai',
+      getEmbeddingModel: () => embeddingModel,
+    };
     const config = { get: vi.fn((key: string) => env[key]) };
     const service = new RetrievalService(
       prisma as unknown as PrismaService,
@@ -524,5 +535,19 @@ describe('RetrievalService — chave do cache', () => {
 
     const keys = redis.set.mock.calls.map((call) => call[0]);
     expect(keys[0]).not.toBe(keys[1]);
+  });
+
+  // F0-A — o vetor da consulta depende do modelo de embedding: duas
+  // configurações diferentes no mesmo Redis não podem trocar resultados.
+  it('outro modelo de embedding não reaproveita a busca feita com o anterior', async () => {
+    const sharedRedis = new Map<string, string>();
+    const before = build({}, sharedRedis, 'text-embedding-3-small');
+    const after = build({}, sharedRedis, 'text-embedding-3-large');
+
+    await before.service.search(`${prefix}dor torácica.`, 5);
+    await after.service.search(`${prefix}dor torácica.`, 5);
+
+    expect(after.ai.embed).toHaveBeenCalledTimes(1);
+    expect(sharedRedis.size).toBe(2);
   });
 });

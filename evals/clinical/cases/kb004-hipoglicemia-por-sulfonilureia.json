@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "id": "kb004-hipoglicemia-por-sulfonilureia",
+  "title": "Confusão e sudorese em diabético com glibenclamida, glicemia 36",
+  "tags": [
+    "rebaixamento-consciencia",
+    "hipoglicemia",
+    "dicotomia-hipo-hiper"
+  ],
+  "critical": true,
+  "goldSource": "kb004_dichotomy",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Masc, 72a, DM2 em uso de glibenclamida, trazido pela filha por confusão e sudorese há 1h. Sem déficit motor. PA 150x90, FC 102, SpO2 97%. Glicemia capilar 36 mg/dL."
+  },
+  "expected": {
+    "syndrome": "hipoglicemia grave por sulfonilureia",
+    "cannotMiss": [
+      "hipoglicemia recorrente ou de rebote por sulfonilureia"
+    ],
+    "mustRequest": [
+      "glicemia capilar seriada após a correção"
+    ],
+    "requiredActions": [
+      "glicose hipertônica IV imediata (ex.: glicose 50% 50 mL)",
+      "infusão contínua de glicose e observação prolongada (risco de recorrência por até 24 h)"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "insulina-em-hipoglicemia",
+        "description": "Insulina em paciente hipoglicêmico",
+        "patterns": [
+          "insulina"
+        ],
+        "exceptWhen": [
+          "\\bnao\\b",
+          "evitar",
+          "contraindic",
+          "sem indicacao",
+          "suspend"
+        ]
+      }
+    ],
+    "expectedPath": "recommend",
+    "rationale": "KB-004 (01-hipoglicemia): glicose IV primeiro; sulfonilureia é a red flag — hipoglicemia de rebote até 24 h, considerar octreotide; glucagon é contraproducente."
+  }
+}

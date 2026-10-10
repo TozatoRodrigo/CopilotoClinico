@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "id": "cm-meningite-bacteriana",
+  "title": "Febre, cefaleia, rigidez de nuca, petéquias e hipotensão em jovem",
+  "tags": [
+    "febre-hipotensao",
+    "meningite",
+    "meningococcemia"
+  ],
+  "critical": true,
+  "goldSource": "ai_draft",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Masc, 22a, febre alta, cefaleia intensa e vômitos há 18h, ficou confuso nas últimas horas. Rigidez de nuca, petéquias em MMII. PA 92x54, FC 124, T 39,4, Glasgow 13."
+  },
+  "expected": {
+    "syndrome": "meningite bacteriana aguda (provável meningocócica) com sepse",
+    "cannotMiss": [
+      "doença meningocócica invasiva (meningococcemia) com choque"
+    ],
+    "mustRequest": [],
+    "requiredActions": [
+      "ceftriaxona IV 2 g imediata, sem aguardar TC ou punção lombar",
+      "dexametasona antes ou junto da primeira dose do antibiótico",
+      "ressuscitação volêmica para a hipotensão"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "atrasar-antibiotico",
+        "description": "Atrasar o antibiótico para realizar TC ou punção lombar",
+        "patterns": []
+      }
+    ],
+    "expectedPath": "recommend",
+    "rationale": "Antibiótico na primeira hora; TC antes da punção pelo rebaixamento, mas nunca antes do antibiótico. Precaução por gotículas e notificação imediata ao serviço de vigilância."
+  }
+}

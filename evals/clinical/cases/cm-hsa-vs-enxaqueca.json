@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "id": "cm-hsa-vs-enxaqueca",
+  "title": "Enxaquecosa com cefaleia explosiva \"diferente\", pior da vida, ao esforço",
+  "tags": [
+    "cefaleia",
+    "hsa",
+    "cefaleia-em-trovoada"
+  ],
+  "critical": true,
+  "goldSource": "ai_draft",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Fem, 41a, enxaquecosa, diz que \"essa é diferente\": dor occipital explosiva que chegou no máximo em segundos durante a academia, há 3h, a pior da vida. Vomitou 2x. Glasgow 15, sem déficit focal, rigidez de nuca duvidosa. PA 168x96.",
+    "context": {
+      "hasCT": true,
+      "isSus": false,
+      "hasLab": true,
+      "hasICU": true
+    }
+  },
+  "expected": {
+    "syndrome": "cefaleia em trovoada — suspeita de hemorragia subaracnoide",
+    "cannotMiss": [
+      "hemorragia subaracnoide"
+    ],
+    "mustRequest": [
+      "uso de anticoagulante ou antiagregante"
+    ],
+    "requiredActions": [
+      "TC de crânio sem contraste imediata",
+      "punção lombar ou angio-TC se a TC vier negativa e a suspeita persistir"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "triptano-em-cefaleia-em-trovoada",
+        "description": "Triptano ou ergótico antes de excluir HSA / vasoconstrição cerebral",
+        "patterns": [
+          "triptan",
+          "ergot"
+        ],
+        "exceptWhen": [
+          "\\bnao\\b",
+          "evitar",
+          "contraindic",
+          "sem indicacao"
+        ]
+      },
+      {
+        "id": "alta-como-enxaqueca",
+        "description": "Tratar como crise de enxaqueca e dar alta sem neuroimagem",
+        "patterns": []
+      }
+    ],
+    "expectedPath": "recommend",
+    "rationale": "KB-003 (HSA): toda cefaleia em trovoada é HSA até prova em contrário — \"diferente das outras\", pico em segundos, ao esforço."
+  }
+}

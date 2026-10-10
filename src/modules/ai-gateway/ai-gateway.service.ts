@@ -151,4 +151,9 @@ export class AiGatewayService {
   getEmbeddingProviderName(): string {
     return this.embeddingProvider.name;
   }
+
+  /** Modelo de embedding padrão — entra na chave do cache do retrieval. */
+  getEmbeddingModel(): string {
+    return this.defaultEmbeddingModel;
+  }
 }

@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "id": "fi-002-cefaleia-em-salvas-como-hemorragia",
+  "title": "Cefaleia em salvas apontada como hemorragia (incidente de campo)",
+  "tags": [
+    "cefaleia",
+    "cefaleia-em-salvas",
+    "incidente-de-campo"
+  ],
+  "critical": false,
+  "goldSource": "field_incident",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Homem de 38 anos com crises de dor periorbitária esquerda de forte intensidade, cada uma durando cerca de uma hora e cedendo sozinha, repetindo três a quatro vezes por dia há dez dias, várias delas acordando o paciente de madrugada. Durante a crise fica agitado, andando pela sala, com lacrimejamento e rinorreia do lado esquerdo. Exame neurológico normal fora da crise."
+  },
+  "expected": {
+    "syndrome": "cefaleia primária — cefaleia em salvas (trigêmino-autonômica)",
+    "cannotMiss": [
+      "cefaleia secundária (ex.: dissecção carotídea, lesão estrutural) se primeiro surto ou sinal de alarme"
+    ],
+    "mustRequest": [
+      "primeiro surto ou episódios prévios semelhantes"
+    ],
+    "requiredActions": [
+      "tratamento abortivo da crise com oxigênio a 100% em alto fluxo ou sumatriptano subcutâneo"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "conduzir-como-hemorragia",
+        "description": "Conduzir como hemorragia intracraniana (rotular como HSA/HIC e indicar conduta de hemorragia) apesar das crises autolimitadas e estereotipadas",
+        "patterns": []
+      }
+    ],
+    "expectedPath": "recommend",
+    "rationale": "Reportado em 03/09/2026: a hipótese de hemorragia virou título do atendimento e entrou no SBAR. Discriminadores: crises de 15-180 min que cedem sozinhas, periodicidade circadiana, sinais autonômicos ipsilaterais, inquietação, sem pico em menos de 1 minuto."
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "kb001-da-001",
+  "title": "Dor abdominal difusa sem localização, sangramento ou possibilidade de gestação",
+  "tags": [
+    "dor-abdominal",
+    "kb-001"
+  ],
+  "critical": false,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Dor abdominal difusa sem informação sobre localização, sangramento ou possibilidade de gestação."
+  },
+  "expected": {
+    "syndrome": "dor abdominal aguda a esclarecer",
+    "cannotMiss": [
+      "gravidez ectópica",
+      "abdome agudo cirúrgico"
+    ],
+    "mustRequest": [
+      "sinais vitais / estabilidade hemodinâmica",
+      "possibilidade de gestação (beta-hCG)",
+      "localização e características da dor"
+    ],
+    "requiredActions": [],
+    "forbiddenDefinitiveActions": [],
+    "expectedPath": "clarify"
+  }
+}

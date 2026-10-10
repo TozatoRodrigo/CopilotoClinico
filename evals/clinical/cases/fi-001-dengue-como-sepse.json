@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "id": "fi-001-dengue-como-sepse",
+  "title": "Dengue na defervescência conduzida como sepse (incidente de campo)",
+  "tags": [
+    "febre-hipotensao",
+    "dengue",
+    "incidente-de-campo"
+  ],
+  "critical": true,
+  "goldSource": "field_incident",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Adulto previamente hígido com febre alta há 4 dias, mialgia intensa, dor retro-orbitária e prostração. Procurou o PS hoje porque a febre cedeu e ele piorou, com dor abdominal contínua e um episódio de lipotímia. PA 96x64, FC 108, extremidades frias, sem foco infeccioso ao exame. Hemograma com leucócitos 3.100, plaquetas 98.000, hematócrito acima do basal."
+  },
+  "expected": {
+    "syndrome": "dengue com sinais de alarme evoluindo para choque (fase crítica)",
+    "cannotMiss": [
+      "dengue grave (choque por extravasamento plasmático)"
+    ],
+    "mustRequest": [],
+    "requiredActions": [
+      "expansão volêmica com cristaloide 20 mL/kg em 20 minutos, reavaliando e repetindo conforme resposta (grupo D do MS)",
+      "hematócrito seriado e monitorização em leito de maior complexidade"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "aine-ou-aas-em-dengue",
+        "description": "AINE ou AAS em suspeita de dengue",
+        "patterns": [
+          "\\baas\\b",
+          "aspirina",
+          "acido acetilsalicilico",
+          "diclofenaco",
+          "ibuprofeno",
+          "cetoprofeno",
+          "cetorolaco",
+          "tenoxicam",
+          "naproxeno",
+          "\\baines?\\b",
+          "anti-?inflamatorio"
+        ],
+        "exceptWhen": [
+          "\\bnao\\b",
+          "evitar",
+          "contraindic",
+          "sem indicacao"
+        ]
+      },
+      {
+        "id": "conduzir-so-como-sepse",
+        "description": "Conduzir exclusivamente como sepse bacteriana (bundle e antibiótico) sem considerar dengue",
+        "patterns": []
+      }
+    ],
+    "expectedPath": "recommend",
+    "rationale": "Reportado em 03/09/2026: o Copiloto conduziu como sepse sem citar dengue. Discriminadores: piora na defervescência (3º-7º dia), leucopenia com plaquetopenia, hematócrito em ascensão, sem foco infeccioso. Choque da dengue = grupo D do MS."
+  }
+}
