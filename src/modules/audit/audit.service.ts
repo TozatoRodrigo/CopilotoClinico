@@ -52,56 +52,72 @@ export class AuditService {
     throw new Error('Audit chain write failed after retry attempts');
   }
 
+  /**
+   * Grava a entrada dentro de uma transação do chamador: a entrada só existe se
+   * a mudança que ela registra também for confirmada, e vice-versa.
+   *
+   * A transação precisa ser READ COMMITTED — a leitura do último elo da cadeia
+   * tem de enxergar o que foi confirmado depois do lock, não um snapshot antigo.
+   * O lock da cadeia fica preso até o fim da transação do chamador, então ela
+   * deve ser curta. Sem retentativa aqui: em conflito (P2034), quem retenta é
+   * o chamador, refazendo a transação inteira.
+   */
+  async logInTransaction(tx: Prisma.TransactionClient, params: LogParams): Promise<AuditLog> {
+    return this.appendChainEntry(tx, params);
+  }
+
   private async writeAuditLogEntry(params: LogParams): Promise<AuditLog> {
-    return this.prisma.$transaction(
-      async (tx) => {
-        await tx.$executeRaw`SELECT pg_advisory_xact_lock(${AUDIT_CHAIN_ADVISORY_LOCK_ID})`;
+    return this.prisma.$transaction((tx) => this.appendChainEntry(tx, params), {
+      isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+    });
+  }
 
-        let timestamp = new Date();
-        const lastEntry = await tx.auditLog.findFirst({
-          orderBy: { createdAt: 'desc' },
-          select: { afterHash: true, createdAt: true },
-        });
+  private async appendChainEntry(
+    tx: Prisma.TransactionClient,
+    params: LogParams,
+  ): Promise<AuditLog> {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${AUDIT_CHAIN_ADVISORY_LOCK_ID})`;
 
-        if (lastEntry && timestamp <= lastEntry.createdAt) {
-          timestamp = new Date(lastEntry.createdAt.getTime() + 1);
-        }
+    let timestamp = new Date();
+    const lastEntry = await tx.auditLog.findFirst({
+      orderBy: { createdAt: 'desc' },
+      select: { afterHash: true, createdAt: true },
+    });
 
-        const afterData = {
-          actorId: params.actorId,
-          action: params.action,
-          entity: params.entity,
-          entityId: params.entityId,
-          payload: params.payload ?? null,
-          timestamp: timestamp.toISOString(),
-        };
-        const afterHash = createHash('sha256').update(JSON.stringify(afterData)).digest('hex');
+    if (lastEntry && timestamp <= lastEntry.createdAt) {
+      timestamp = new Date(lastEntry.createdAt.getTime() + 1);
+    }
 
-        let beforeHash = params.beforeHash;
-        if (!beforeHash && lastEntry?.afterHash) {
-          beforeHash = createHash('sha256')
-            .update(lastEntry.afterHash + JSON.stringify(afterData))
-            .digest('hex');
-        }
+    const afterData = {
+      actorId: params.actorId,
+      action: params.action,
+      entity: params.entity,
+      entityId: params.entityId,
+      payload: params.payload ?? null,
+      timestamp: timestamp.toISOString(),
+    };
+    const afterHash = createHash('sha256').update(JSON.stringify(afterData)).digest('hex');
 
-        return tx.auditLog.create({
-          data: {
-            actorId: params.actorId,
-            action: params.action,
-            entity: params.entity,
-            entityId: params.entityId,
-            beforeHash,
-            afterHash,
-            payload: params.payload
-              ? (params.payload as unknown as Prisma.InputJsonValue)
-              : undefined,
-            ip: params.ip,
-            createdAt: timestamp,
-          },
-        });
+    let beforeHash = params.beforeHash;
+    if (!beforeHash && lastEntry?.afterHash) {
+      beforeHash = createHash('sha256')
+        .update(lastEntry.afterHash + JSON.stringify(afterData))
+        .digest('hex');
+    }
+
+    return tx.auditLog.create({
+      data: {
+        actorId: params.actorId,
+        action: params.action,
+        entity: params.entity,
+        entityId: params.entityId,
+        beforeHash,
+        afterHash,
+        payload: params.payload ? (params.payload as unknown as Prisma.InputJsonValue) : undefined,
+        ip: params.ip,
+        createdAt: timestamp,
       },
-      { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
-    );
+    });
   }
 
   private isSerializableTransactionConflict(err: unknown): boolean {

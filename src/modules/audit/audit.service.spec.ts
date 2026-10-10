@@ -319,6 +319,47 @@ describe('AuditService', () => {
   });
 
   // ─────────────────────────────────────────────────
+  // logInTransaction()
+  // ─────────────────────────────────────────────────
+  describe('logInTransaction', () => {
+    it("writes the chained entry with the caller's transaction instead of opening one", async () => {
+      const previous = makeEntry({ afterHash: 'prev-hash', createdAt: new Date('2020-01-01') });
+      const tx = {
+        $executeRaw: vi.fn(),
+        auditLog: {
+          findFirst: vi.fn().mockResolvedValue(previous),
+          create: vi.fn().mockImplementation(async ({ data }) => data),
+        },
+      };
+
+      const entry = await service.logInTransaction(tx as never, {
+        actorId: 'system',
+        action: 'AUDIO_RETENTION_PURGE',
+        entity: 'AudioCapture',
+        entityId,
+        payload: { encounterId: actorId },
+      });
+
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(prisma.auditLog.create).not.toHaveBeenCalled();
+      expect(tx.$executeRaw).toHaveBeenCalledOnce();
+      expect(tx.$executeRaw.mock.invocationCallOrder[0]).toBeLessThan(
+        tx.auditLog.findFirst.mock.invocationCallOrder[0]!,
+      );
+      expect(entry.beforeHash).toBe(
+        computeBeforeHash('prev-hash', {
+          actorId: 'system',
+          action: 'AUDIO_RETENTION_PURGE',
+          entity: 'AudioCapture',
+          entityId,
+          payload: { encounterId: actorId },
+          createdAt: entry.createdAt,
+        }),
+      );
+    });
+  });
+
+  // ─────────────────────────────────────────────────
   // query()
   // ─────────────────────────────────────────────────
   describe('query', () => {
