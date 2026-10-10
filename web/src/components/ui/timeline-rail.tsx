@@ -29,7 +29,7 @@ function TimelineRail({
       {...props}
     >
       <span
-        className="font-mono text-[0.625rem] font-bold tracking-[0.1em] uppercase"
+        className="text-[0.6875rem] font-semibold"
         style={{
           color: colorVar,
           writingMode: "vertical-rl",

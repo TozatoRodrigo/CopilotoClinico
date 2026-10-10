@@ -4,15 +4,33 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
-import { Microphone, Keyboard, Flask, SealCheck, BookOpen, ArrowRight } from '@phosphor-icons/react';
+import {
+  ArrowRight,
+  BookOpen,
+  Flask,
+  Keyboard,
+  Microphone,
+  SealCheck,
+} from '@phosphor-icons/react';
 import { useDashboardStats, useEncounterList } from '@/lib/clinical-queries';
 import { useAuth } from '@/lib/auth-store';
 import { StatCard, StatStrip } from '@/components/ui/stat-card';
 import { PlantaoQueue } from '@/components/domain/plantao-queue';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Page } from '@/components/layout/page';
+import { PageHeader, SectionHeader } from '@/components/layout/page-header';
 import { DEMO_CASE_PRESETS } from '@/lib/demo-case-presets';
+
+const VERTICAL_LABELS: Record<string, string> = {
+  trauma: 'Trauma',
+  cardiac: 'Cardíaco',
+  pediatric: 'Pediátrico',
+  neuro: 'Neuro',
+  general: 'Geral',
+};
 
 export default function DashboardPage() {
   const { physician, role } = useAuth();
@@ -47,17 +65,18 @@ export default function DashboardPage() {
   const firstName = physician?.name?.split(' ')[0] ?? 'Médico';
 
   const pendingCount = statsQuery.data?.pendingReviews ?? 0;
+  const confirmedCount = statsQuery.data?.confirmedDocuments ?? 0;
   const queueHeadline =
     pendingCount === 0
       ? 'Nenhum caso esperando'
       : `Você tem ${pendingCount} caso${pendingCount === 1 ? '' : 's'} esperando`;
 
-  const dateStr = new Date().toLocaleDateString('pt-BR', {
+  const rawDate = new Date().toLocaleDateString('pt-BR', {
     weekday: 'long',
     day: '2-digit',
-    month: 'short',
-    year: 'numeric',
+    month: 'long',
   });
+  const dateStr = rawDate.charAt(0).toUpperCase() + rawDate.slice(1);
 
   const greeting = (() => {
     const hour = new Date().getHours();
@@ -67,59 +86,49 @@ export default function DashboardPage() {
   })();
 
   return (
-    <div className="flex flex-col gap-7">
-      {/* E2-S1: Header */}
-      <div className="flex items-end justify-between">
-        <div>
-          <p className="mb-1 font-mono text-xs uppercase tracking-[0.08em] text-[var(--ink-soft)]">
+    <Page width="default">
+      <PageHeader
+        eyebrow={
+          <>
             {dateStr} · {greeting}, Dr. {firstName}
-          </p>
-          <h1 className="font-display text-[2.25rem] leading-[1.15] tracking-[-0.01em]">
-            {loading ? <Skeleton className="h-9 w-72 rounded" /> : queueHeadline}
-          </h1>
-        </div>
-        <div className="hidden gap-2.5 md:flex">
-          <Button asChild size="lg" className="h-12 gap-2 shadow-[0_4px_14px_rgba(14,124,123,0.3)]">
-            <Link href="/encounters/new">
-              <Microphone className="size-[18px]" weight="bold" />
-              Novo caso por voz
-            </Link>
-          </Button>
-          <Button asChild variant="outline" size="lg" className="h-12 gap-2">
-            <Link href="/encounters/new">
-              <Keyboard className="size-[17px]" />
-              Digitar
-            </Link>
-          </Button>
-        </div>
-      </div>
+          </>
+        }
+        title={
+          loading ? (
+            <span className="inline-block h-10 w-80 max-w-full animate-pulse rounded-sm bg-tone-gray-bg align-middle" />
+          ) : (
+            queueHeadline
+          )
+        }
+        actions={
+          <>
+            <Button asChild size="lg" className="max-md:flex-1">
+              <Link href="/encounters/new">
+                <Microphone weight="fill" />
+                Novo caso por voz
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="lg" aria-label="Digitar caso">
+              <Link href="/encounters/new">
+                <Keyboard />
+                <span className="max-md:sr-only">Digitar</span>
+              </Link>
+            </Button>
+          </>
+        }
+      />
 
-      {/* Mobile action buttons */}
-      <div className="flex gap-2.5 md:hidden">
-        <Button asChild className="h-12 flex-1 gap-2">
-          <Link href="/encounters/new">
-            <Microphone className="size-[18px]" weight="bold" />
-            Novo caso
-          </Link>
-        </Button>
-        <Button asChild variant="outline" className="h-12 gap-2 px-4">
-          <Link href="/encounters/new">
-            <Keyboard className="size-[17px]" />
-          </Link>
-        </Button>
-      </div>
-
-      {/* E2-S2: Stat cards */}
+      {/* E2-S2: métricas */}
       {loading ? (
-        <div className="grid grid-cols-1 gap-3.5 md:grid-cols-[1.4fr_1fr]">
-          <Skeleton className="h-[104px] rounded-[14px]" />
-          <Skeleton className="h-[104px] rounded-[14px]" />
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-[1.3fr_2fr]">
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3.5 md:grid-cols-[1.4fr_1fr]">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-[1.3fr_2fr]">
           <StatCard
             label="Aguardando sua revisão"
-            value={statsQuery.data?.pendingReviews ?? 0}
+            value={pendingCount}
             sublabel="casos no plantão"
             variant="highlight"
           />
@@ -127,17 +136,16 @@ export default function DashboardPage() {
             items={[
               { label: 'Casos hoje', value: statsQuery.data?.todayCount ?? 0 },
               { label: 'Rascunhos', value: draftCount },
-              { label: 'Confirmados', value: statsQuery.data?.confirmedDocuments ?? 0 },
+              { label: 'Confirmados', value: confirmedCount },
             ]}
           />
         </div>
       )}
 
-      {/* Error */}
       {error && (
         <Alert variant="destructive">
-          <AlertTitle>Erro</AlertTitle>
-          <AlertDescription className="flex items-center justify-between gap-3">
+          <AlertTitle>Não foi possível carregar o plantão</AlertTitle>
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
             <span>{error}</span>
             <Button
               variant="outline"
@@ -153,97 +161,80 @@ export default function DashboardPage() {
         </Alert>
       )}
 
-      {/* Olhe primeiro */}
+      {/* E2-S3: fila do plantão */}
       <div className="flex flex-col gap-1.5">
-        <div className="flex items-center gap-2">
-          <h2 className="text-[0.8rem] font-bold uppercase tracking-[0.02em] text-[var(--ink-soft)]">
-            Olhe primeiro
-          </h2>
-          <span className="h-px flex-1 bg-[var(--line)]" />
-        </div>
-        <p className="text-xs leading-relaxed text-[var(--ink-soft)]">
+        <PlantaoQueue encounters={queue} loading={loading} />
+        <p className="px-2 text-xs text-muted-foreground">
           Ordem sugerida por tempo desde a última avaliação e gravidade. Não é triagem e não
           substitui seu julgamento.
         </p>
       </div>
 
-      {/* E2-S3: Fila do plantão */}
-      <PlantaoQueue encounters={queue} loading={loading} />
-
       {/* Resolvidos hoje */}
       {!loading && (
-        <>
-          <div className="flex items-center gap-2">
-            <h2 className="text-[0.8rem] font-bold uppercase tracking-[0.02em] text-[var(--ink-soft)]">
-              Resolvidos hoje
-            </h2>
-            <span className="h-px flex-1 bg-[var(--line)]" />
-            <Link
-              href="/encounters"
-              className="text-[0.8rem] font-semibold text-[var(--teal)] hover:text-[var(--teal-deep)]"
-            >
-              Todos os casos →
-            </Link>
-          </div>
-          <div className="flex items-center gap-3.5 rounded-2xl border border-[var(--line)] bg-[var(--card)] px-[18px] py-4 shadow-sm">
-            <SealCheck className="size-[22px] shrink-0 text-[var(--green)]" weight="fill" />
-            <div className="flex-1">
+        <section className="flex flex-col gap-2">
+          <SectionHeader
+            title="Resolvidos hoje"
+            action={
+              <Link
+                href="/encounters"
+                className="rounded-sm px-1.5 py-0.5 text-[0.8125rem] text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
+              >
+                Todos os casos →
+              </Link>
+            }
+          />
+          <div className="flex items-center gap-3 rounded-md bg-tone-green-bg px-4 py-3 text-tone-green-ink">
+            <SealCheck className="size-5 shrink-0 text-tone-green" weight="fill" aria-hidden="true" />
+            <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold">
-                {statsQuery.data?.confirmedDocuments ?? 0} documento
-                {(statsQuery.data?.confirmedDocuments ?? 0) === 1 ? '' : 's'} assinado
-                {(statsQuery.data?.confirmedDocuments ?? 0) === 1 ? '' : 's'}
+                {confirmedCount} documento{confirmedCount === 1 ? '' : 's'} assinado
+                {confirmedCount === 1 ? '' : 's'}
               </p>
-              <p className="mt-0.5 text-xs text-[var(--ink-soft)]">
+              <p className="text-[0.8125rem] opacity-90">
                 Cadeia de auditoria íntegra · última verificação hoje às 02:00
               </p>
             </div>
             {canSeeAudit && (
-              <Link
-                href="/audit"
-                className="shrink-0 text-xs font-semibold text-[var(--teal)] hover:text-[var(--teal-deep)]"
-              >
-                Ver trilha
-              </Link>
+              <Button asChild variant="ghost" size="sm" className="shrink-0 hover:bg-black/5">
+                <Link href="/audit">Ver trilha</Link>
+              </Button>
             )}
           </div>
-        </>
+        </section>
       )}
 
-      {/* E2-S4: Casos piloto */}
-      <div className="flex items-center gap-3.5 rounded-[14px] border border-dashed border-[var(--line)] p-4">
-        <Flask className="size-[18px] shrink-0 text-[var(--ink-soft)]" />
-        <p className="flex-1 text-[0.8rem] text-[var(--ink-soft)]">
-          Casos piloto para treinar o fluxo:{' '}
-          {DEMO_CASE_PRESETS.map((p, i) => (
-            <span key={p.slug}>
-              <Link
-                href={`/encounters/new?demoCase=${p.slug}`}
-                className="font-semibold text-[var(--ink)] hover:text-[var(--teal)]"
-              >
-                {p.title}
-              </Link>
-              {i < DEMO_CASE_PRESETS.length - 1 ? ' · ' : ''}
-            </span>
+      {/* E2-S4: atalhos — casos piloto como galeria do Notion */}
+      <section className="flex flex-col gap-3">
+        <SectionHeader
+          title="Casos piloto"
+          description="Casos de treino para conhecer o fluxo completo, do ditado ao documento assinado."
+        />
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+          {DEMO_CASE_PRESETS.map((preset) => (
+            <Link
+              key={preset.slug}
+              href={`/encounters/new?demoCase=${preset.slug}`}
+              className="group flex flex-col gap-2 rounded-lg border border-border bg-card p-3.5 transition-colors hover:bg-hover/50 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <Flask className="size-5 text-tone-purple" weight="duotone" aria-hidden="true" />
+                <Badge variant="purple">{VERTICAL_LABELS[preset.vertical] ?? preset.vertical}</Badge>
+              </div>
+              <p className="text-sm font-medium text-foreground">{preset.title}</p>
+              <p className="line-clamp-2 text-[0.8125rem] text-muted-foreground">{preset.summary}</p>
+            </Link>
           ))}
-        </p>
+        </div>
         <Link
-          href={`/encounters/new?demoCase=${DEMO_CASE_PRESETS[0]?.slug ?? ''}`}
-          className="hidden shrink-0 text-[0.8rem] font-semibold text-[var(--teal)] hover:text-[var(--teal-deep)] md:block"
+          href="/guidelines"
+          className="flex items-center gap-2.5 rounded-md px-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
         >
-          Abrir caso demo →
+          <BookOpen className="size-[18px] shrink-0" aria-hidden="true" />
+          <span className="flex-1">Dúvida rápida sem abrir caso? Pergunte à diretriz.</span>
+          <ArrowRight className="size-4 shrink-0" aria-hidden="true" />
         </Link>
-      </div>
-
-      <Link
-        href="/guidelines"
-        className="flex items-center gap-3 rounded-[14px] border border-dashed border-[var(--line)] p-4 transition-colors hover:border-[var(--teal)]"
-      >
-        <BookOpen className="size-5 shrink-0 text-[var(--ink-soft)]" />
-        <span className="flex-1 text-[0.8rem] text-[var(--ink-soft)]">
-          Dúvida rápida sem abrir caso? Pergunte à diretriz.
-        </span>
-        <ArrowRight className="size-4 shrink-0 text-[var(--ink-soft)]" />
-      </Link>
-    </div>
+      </section>
+    </Page>
   );
 }

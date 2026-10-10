@@ -52,14 +52,11 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
     <>
       {!isOnline && (
         <div
-          className="sticky top-0 z-50 flex items-center gap-2.5 px-4 py-2.5"
-          style={{
-            background: "var(--amber-bg)",
-            borderBottom: "1px solid rgba(180,83,9,0.35)",
-          }}
+          role="status"
+          className="sticky top-0 z-50 flex items-center justify-center gap-2 bg-tone-orange-bg px-4 py-2 text-tone-orange-ink"
         >
-          <WifiSlash className="size-4 shrink-0" style={{ color: "var(--amber)" }} />
-          <p className="text-[0.75rem] leading-snug" style={{ color: "var(--amber-foreground)" }}>
+          <WifiSlash className="size-4 shrink-0 text-tone-orange" aria-hidden="true" />
+          <p className="text-[0.8125rem] leading-snug">
             Sem conexão. Você pode continuar — tudo será enviado ao reconectar.
           </p>
         </div>

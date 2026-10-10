@@ -1,438 +1,350 @@
 'use client';
 
 import Link from 'next/link';
+import { useCallback, useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import {
   BookOpen,
-  CaretRight,
+  CaretDoubleRight,
   ClipboardText,
-  Gear,
-  House,
+  IdentificationCard,
   List,
   MagnifyingGlass,
   Microphone,
   Plus,
-  ShieldCheck,
-  Stethoscope,
 } from '@phosphor-icons/react';
-import { useEffect, useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
-import { apiClient } from '@/lib/api-client';
 import { useDashboardStats, useEncounterList } from '@/lib/clinical-queries';
-import { ConnectionStatus } from '@/components/domain/connection-status';
+import { useAuth } from '@/lib/auth-store';
+import { useOnlineStatus } from '@/components/providers/offline-provider';
 import { OfflineQueueBadge } from '@/components/domain/offline-queue-badge';
 import { ThemeToggle } from '@/components/layout/theme-toggle';
-import { useOnlineStatus } from '@/components/providers/offline-provider';
-import { useAuth, type AppRole } from '@/lib/auth-store';
+import { CommandPalette } from '@/components/layout/command-palette';
+import { RouteBreadcrumbs } from '@/components/layout/route-breadcrumbs';
+import { UserAvatarMenu, WorkspaceSwitcher } from '@/components/layout/user-menu';
+import {
+  SidebarLink,
+  SidebarSearchButton,
+  WorkspaceSidebar,
+} from '@/components/layout/workspace-sidebar';
+import {
+  APP_SECTIONS_BY_ROLE,
+  HOME_ITEM,
+  isNavItemActive,
+  type NavItem,
+} from '@/components/layout/nav-config';
+import { LogoMark } from '@/components/brand/logo';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
-import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { ClinicalSidebar, type NavItem } from '@/components/layout/clinical-sidebar';
-import { FocusRail } from '@/components/layout/focus-rail';
 
-const FEATURE_COMMAND_K_ENABLED = true;
+const SIDEBAR_STORAGE_KEY = 'sidebar-collapsed';
 
-const NAV_BY_ROLE: Record<AppRole, NavItem[]> = {
-  physician: [
-    { href: '/dashboard', label: 'Plantão', icon: House },
-    { href: '/encounters', label: 'Casos', icon: ClipboardText },
-    { href: '/guidelines', label: 'Diretrizes', icon: BookOpen },
-  ],
-  compliance: [
-    { href: '/dashboard', label: 'Plantão', icon: House },
-    { href: '/encounters', label: 'Casos', icon: ClipboardText },
-    { href: '/guidelines', label: 'Diretrizes', icon: BookOpen },
-    { href: '/audit', label: 'Auditoria', icon: ShieldCheck },
-    { href: '/admin', label: 'Console', icon: Gear },
-  ],
-  admin: [
-    { href: '/dashboard', label: 'Plantão', icon: House },
-    { href: '/encounters', label: 'Casos', icon: ClipboardText },
-    { href: '/guidelines', label: 'Diretrizes', icon: BookOpen },
-    { href: '/audit', label: 'Auditoria', icon: ShieldCheck },
-    { href: '/admin', label: 'Console', icon: Gear },
-  ],
+const NEW_CASE_ITEM: NavItem = {
+  href: '/encounters/new',
+  label: 'Novo caso',
+  icon: Plus,
+  exact: true,
 };
 
-const MOBILE_TABS: NavItem[] = [
-  { href: '/dashboard', label: 'Plantão', icon: House },
-  { href: '/encounters/new', label: 'Novo', icon: Plus },
-  { href: '/encounters', label: 'Casos', icon: ClipboardText },
-  { href: '/guidelines', label: 'Diretrizes', icon: BookOpen },
-];
-
-const COMMAND_LINKS = [
-  {
-    href: '/dashboard',
-    label: 'Ir para painel',
-    description: 'Visão geral, métricas e retomada de fluxo.',
-  },
-  {
-    href: '/encounters/new',
-    label: 'Novo atendimento',
-    description: 'Começar captura de um caso.',
-  },
-  { href: '/encounters', label: 'Atendimentos', description: 'Fila rápida de casos recentes.' },
-  { href: '/guidelines', label: 'Diretrizes', description: 'Acesso rápido ao catálogo clínico.' },
-  {
-    href: '/settings',
-    label: 'Configurações',
-    description: 'Preferências, shell e conectividade.',
-  },
-];
-
-// Tech debt cleanup: ThemeToggle movido para components/layout/theme-toggle.tsx
-// (antes era duplicado em app-shell e admin-shell).
-
-function QuickActions() {
-  const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    // S20-UX-01 — listener desativado quando a feature está oculta.
-    if (!FEATURE_COMMAND_K_ENABLED) return;
-
-    function handleShortcut(event: KeyboardEvent) {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
-        event.preventDefault();
-        setOpen((current) => !current);
-      }
-    }
-
-    window.addEventListener('keydown', handleShortcut);
-    return () => window.removeEventListener('keydown', handleShortcut);
-  }, []);
-
-  // S20-UX-01 — não renderiza o botão nem o dialog quando a feature está oculta.
-  // Código preservado abaixo para reativação rápida quando a busca funcional
-  // estiver pronta.
-  if (!FEATURE_COMMAND_K_ENABLED) return null;
-
+/** Rotas de foco (captura, análise, edição): sidebar começa recolhida. */
+function isFocusPath(pathname: string): boolean {
   return (
-    <>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-9 w-9"
-        onClick={() => setOpen(true)}
-      >
-        <MagnifyingGlass className="size-4" />
-        <span className="sr-only">Ações rápidas (⌘K)</span>
-      </Button>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
-            <DialogTitle variant="brand">Ações rápidas</DialogTitle>
-            <DialogDescription>
-              Navegação rápida. A busca funcional entra na F3.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="relative">
-              <MagnifyingGlass className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                autoFocus
-                readOnly
-                value="Busque atalhos, diretrizes e atendimentos em breve…"
-                className="pl-9 text-muted-foreground"
-                aria-label="Busca rápida em scaffold"
-              />
-            </div>
-            <div className="space-y-2">
-              {COMMAND_LINKS.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  onClick={() => setOpen(false)}
-                  className="flex items-center justify-between rounded-xl border border-border/70 px-4 py-3 transition-colors hover:border-clinical-teal/40 hover:bg-muted/40"
-                >
-                  <div>
-                    <p className="font-medium">{link.label}</p>
-                    <p className="text-sm text-muted-foreground">{link.description}</p>
-                  </div>
-                  <CaretRight className="size-4 text-muted-foreground" />
-                </Link>
-              ))}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
+    /\/encounters\/[^/]+\/(capture|result)/.test(pathname) ||
+    /\/encounters\/[^/]+\/documents\/[^/]+\/edit/.test(pathname)
   );
 }
 
-function UserMenu() {
-  const { physician, logout, role } = useAuth();
-  const router = useRouter();
-  const { isOnline } = useOnlineStatus();
-
-  async function handleLogout() {
-    await apiClient.post('/auth/logout').catch(() => undefined);
-    logout();
-    router.push('/login');
+function readStoredCollapsed(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return localStorage.getItem(SIDEBAR_STORAGE_KEY) === '1';
+  } catch {
+    return false;
   }
+}
 
+function OnlineRow() {
+  const { isOnline } = useOnlineStatus();
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-          <Avatar className="h-9 w-9">
-            <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-              {(physician?.name ?? 'Dr').slice(0, 2).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          <span className="sr-only">Abrir menu do usuário</span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel>Conta</DropdownMenuLabel>
-        <div className="flex items-center justify-start gap-2 p-2">
-          <div className="flex flex-col space-y-0.5">
-            <p className="text-sm font-medium">{physician?.name ?? 'Médico'}</p>
-            <p className="text-xs text-muted-foreground">{physician?.email ?? 'Sessão ativa'}</p>
-            <div className="mt-2 flex items-center gap-2">
-              <Badge variant="secondary">{role}</Badge>
-              <ConnectionStatus
-                status={isOnline ? 'online' : 'offline'}
-                className="border-none bg-transparent px-0 py-0"
-              />
-            </div>
-          </div>
-        </div>
-        <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuItem asChild>
-            <Link href="/settings?tab=perfil">
-              <Stethoscope className="size-4" />
-              Perfil
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/settings?tab=seguranca">
-              <Gear className="size-4" />
-              Configurações
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => router.push('/guidelines')}>
-            <BookOpen className="size-4" />
-            Diretrizes
-          </DropdownMenuItem>
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem className="text-destructive" onClick={() => void handleLogout()}>
-          Sair
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <p className="flex h-[30px] items-center gap-2 px-2 text-xs text-muted-foreground">
+      <span
+        aria-hidden="true"
+        className={cn('size-1.5 rounded-full', isOnline ? 'bg-clinical-green' : 'bg-clinical-amber')}
+      />
+      {isOnline ? 'Online · fila sincronizada' : 'Offline · salvando localmente'}
+    </p>
   );
 }
 
-function MobileNavSheet({ links }: { links: NavItem[] }) {
-  const pathname = usePathname();
+function SidebarContents({
+  onSearch,
+  onCollapse,
+  onNavigate,
+}: {
+  onSearch: () => void;
+  onCollapse?: () => void;
+  onNavigate?: () => void;
+}) {
+  const { role, physician } = useAuth();
+
+  // UX — contadores no sidebar (Plantão/Casos). Reaproveita os mesmos
+  // hooks/queryKeys das páginas de Plantão e Casos — cache de 30s
+  // (queryProvider) evita chamadas extras quando o médico já visitou essas
+  // telas nesta sessão.
+  const stats = useDashboardStats();
+  const cases = useEncounterList({ limit: 1 });
+  const sections = APP_SECTIONS_BY_ROLE[role].map((section) => ({
+    ...section,
+    items: section.items.map((item) =>
+      item.href === '/encounters' ? { ...item, count: cases.data?.meta?.total } : item,
+    ),
+  }));
+  const home = { ...HOME_ITEM, count: stats.data?.pendingReviews || undefined };
 
   return (
-    <Sheet>
-      <SheetTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-9 w-9"
-          style={{ color: 'var(--sidebar-dark-text)' }}
-        >
-          <List className="size-5" />
-          <span className="sr-only">Menu</span>
-        </Button>
-      </SheetTrigger>
-      <SheetContent side="left" className="w-72">
-        <SheetTitle className="text-primary font-semibold">Copiloto Clínico</SheetTitle>
-        <p className="mt-2 text-sm text-muted-foreground">Navegação contextual do papel atual.</p>
-        <nav aria-label="Navegação móvel" className="flex flex-col gap-1 mt-6">
-          {links.map((link) => {
-            const isActive = pathname === link.href || pathname.startsWith(link.href + '/');
-            const Icon = link.icon;
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={cn(
-                  'flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                  isActive
-                    ? 'bg-accent text-accent-foreground'
-                    : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
-                )}
-              >
-                <Icon className="size-4" />
-                {link.label}
-              </Link>
-            );
-          })}
-        </nav>
-      </SheetContent>
-    </Sheet>
+    <WorkspaceSidebar
+      header={<WorkspaceSwitcher />}
+      onCollapse={onCollapse}
+      onNavigate={onNavigate}
+      topItems={
+        <>
+          <SidebarSearchButton onClick={onSearch} />
+          <SidebarLink item={home} onNavigate={onNavigate} />
+          <SidebarLink item={NEW_CASE_ITEM} accent onNavigate={onNavigate} />
+        </>
+      }
+      sections={sections}
+      footer={
+        <>
+          {physician && !physician.crmVerified && (
+            <Link
+              href="/verificacao-crm"
+              onClick={onNavigate}
+              className="flex h-[30px] items-center gap-2 rounded-md px-2 text-sm font-medium text-sidebar-foreground transition-colors hover:bg-hover hover:text-foreground"
+            >
+              <IdentificationCard className="size-[18px] text-clinical-amber" aria-hidden="true" />
+              <span className="flex-1 truncate">Verificar CRM</span>
+              <span aria-hidden="true" className="size-1.5 rounded-full bg-clinical-amber" />
+            </Link>
+          )}
+          <OnlineRow />
+        </>
+      }
+    />
+  );
+}
+
+const MOBILE_TABS: NavItem[] = [
+  HOME_ITEM,
+  { href: '/encounters', label: 'Casos', icon: ClipboardText, excludePrefixes: ['/encounters/new'] },
+];
+const MOBILE_TABS_END: NavItem[] = [{ href: '/guidelines', label: 'Diretrizes', icon: BookOpen }];
+
+function MobileTab({ item, pathname }: { item: NavItem; pathname: string }) {
+  const Icon = item.icon;
+  const active = isNavItemActive(item, pathname);
+  return (
+    <Link
+      href={item.href}
+      aria-current={active ? 'page' : undefined}
+      className={cn(
+        'flex min-w-0 flex-1 flex-col items-center gap-0.5 py-1.5 text-[0.6875rem] font-medium transition-colors',
+        active ? 'text-foreground' : 'text-muted-foreground',
+      )}
+    >
+      <Icon className="size-[22px]" weight={active ? 'fill' : 'regular'} aria-hidden="true" />
+      <span>{item.label}</span>
+    </Link>
   );
 }
 
 export interface AppShellProps {
   children: React.ReactNode;
+  /** @deprecated o shell decide pelo pathname; mantido por compatibilidade. */
   variant?: 'full' | 'focus';
 }
 
 export function AppShell({ children, variant }: AppShellProps) {
   const pathname = usePathname();
-  const { role } = useAuth();
-  const links = NAV_BY_ROLE[role];
+  const focusRoute = variant ? variant === 'focus' : isFocusPath(pathname);
 
-  // UX — contadores no rail desktop (Plantão/Casos). Reaproveita os mesmos
-  // hooks/queryKeys já usados pelas páginas de Plantão e Casos — cache de 30s
-  // (queryProvider) evita chamadas extras quando o médico já visitou essas
-  // telas nesta sessão.
-  const sidebarStats = useDashboardStats();
-  const sidebarCases = useEncounterList({ limit: 1 });
-  const sidebarLinks = links.map((item) => {
-    if (item.href === '/dashboard') {
-      return { ...item, count: sidebarStats.data?.pendingReviews };
-    }
-    if (item.href === '/encounters') {
-      return { ...item, count: sidebarCases.data?.meta?.total };
-    }
-    return item;
-  });
+  // O AppShell só monta no client (o layout de (app) mostra um spinner até o
+  // auth hidratar), então ler o localStorage no inicializador é seguro.
+  const [storedCollapsed, setStoredCollapsed] = useState(readStoredCollapsed);
+  // Override manual vale só para a rota atual (reabrir numa tela de foco não
+  // muda a preferência das demais telas).
+  const [override, setOverride] = useState<{ path: string; collapsed: boolean } | null>(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
 
-  const isFocusRoute =
-    /\/encounters\/[^/]+\/(capture|result)/.test(pathname) ||
-    /\/encounters\/[^/]+\/documents\/[^/]+\/edit/.test(pathname);
-  const effectiveVariant = variant ?? (isFocusRoute ? 'focus' : 'full');
+  const collapsed =
+    override?.path === pathname ? override.collapsed : focusRoute ? true : storedCollapsed;
+
+  const setCollapsed = useCallback(
+    (next: boolean) => {
+      setOverride({ path: pathname, collapsed: next });
+      if (!focusRoute) {
+        setStoredCollapsed(next);
+        try {
+          localStorage.setItem(SIDEBAR_STORAGE_KEY, next ? '1' : '0');
+        } catch {
+          /* armazenamento indisponível (aba privada) — só não persiste */
+        }
+      }
+    },
+    [pathname, focusRoute],
+  );
+
+  // ⌘\ recolhe/expande o sidebar (atalho do Notion).
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key === '\\') {
+        event.preventDefault();
+        setCollapsed(!collapsed);
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [collapsed, setCollapsed]);
+
+  const openSearch = useCallback(() => {
+    setMobileOpen(false);
+    setPaletteOpen(true);
+  }, []);
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-dvh w-full">
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[100] focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-sm focus:text-primary-foreground"
       >
         Pular para o conteúdo
       </a>
 
-      {/* Desktop sidebar */}
-      <div className="hidden md:flex">
-        {effectiveVariant === 'focus' ? (
-          <FocusRail navItems={links} />
-        ) : (
-          <ClinicalSidebar navItems={sidebarLinks} showOnlineStatus />
+      {/* Sidebar desktop */}
+      <aside
+        aria-label="Barra lateral"
+        className={cn(
+          'sticky top-0 hidden h-dvh shrink-0 overflow-hidden border-r border-sidebar-border transition-[width] duration-200 ease-out md:block',
+          collapsed ? 'w-0 border-r-0' : 'w-60',
         )}
-      </div>
+      >
+        <div className="h-full w-60" inert={collapsed}>
+          <SidebarContents onSearch={openSearch} onCollapse={() => setCollapsed(true)} />
+        </div>
+      </aside>
 
-      {/* Main area */}
+      {/* Sidebar mobile (sheet) */}
+      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <SheetContent side="left" showCloseButton={false} className="w-[280px] gap-0 p-0">
+          <SheetTitle className="sr-only">Menu</SheetTitle>
+          <SidebarContents onSearch={openSearch} onNavigate={() => setMobileOpen(false)} />
+        </SheetContent>
+      </Sheet>
+
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* Mobile dark header */}
-        <header
-          className="flex h-14 items-center justify-between px-4 md:hidden"
-          style={{ background: 'var(--sidebar-dark-bg)' }}
-        >
-          <div className="flex items-center gap-2">
-            <MobileNavSheet links={links} />
-            <div className="flex items-center gap-1.5">
-              <Stethoscope
-                className="size-4"
-                style={{ color: 'var(--sidebar-dark-accent)' }}
-              />
-              <span
-                className="text-sm font-semibold"
-                style={{ color: 'var(--sidebar-dark-text-bright)' }}
-              >
-                Copiloto Clínico
-              </span>
-            </div>
+        <header className="sticky top-0 z-30 flex h-11 shrink-0 items-center gap-1 bg-background/95 px-2 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80 md:px-3">
+          <button
+            type="button"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Abrir menu"
+            className="flex size-10 items-center justify-center rounded-md text-muted-foreground hover:bg-hover hover:text-foreground md:hidden"
+          >
+            <List className="size-5" />
+          </button>
+          <Link href="/dashboard" aria-label="Plantão" className="mr-1 flex items-center md:hidden">
+            <LogoMark size="sm" />
+          </Link>
+          {collapsed && (
+            <button
+              type="button"
+              onClick={() => setCollapsed(false)}
+              aria-label="Expandir barra lateral"
+              title="Expandir barra lateral (⌘\)"
+              className="hidden size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-hover hover:text-foreground md:flex"
+            >
+              <CaretDoubleRight className="size-4" />
+            </button>
+          )}
+
+          <div className="min-w-0 flex-1">
+            <RouteBreadcrumbs />
           </div>
-          <div className="flex items-center gap-1">
+
+          <div className="flex shrink-0 items-center gap-0.5">
             <OfflineQueueBadge />
-            <div style={{ color: 'var(--sidebar-dark-text)' }}>
-              <ThemeToggle />
+            {collapsed && (
+              <button
+                type="button"
+                onClick={openSearch}
+                aria-label="Buscar"
+                title="Buscar (⌘K)"
+                className="hidden size-7 items-center justify-center rounded-md text-muted-foreground hover:bg-hover hover:text-foreground md:flex"
+              >
+                <MagnifyingGlass className="size-4" />
+              </button>
+            )}
+            <ThemeToggle size="sm" />
+            <div className="md:hidden">
+              <UserAvatarMenu />
             </div>
-            <UserMenu />
           </div>
         </header>
 
-        {/* Desktop floating controls */}
-        <div className="absolute right-4 top-4 z-30 hidden items-center gap-1 md:flex">
-          <OfflineQueueBadge />
-          <QuickActions />
-          <ThemeToggle />
-          <UserMenu />
-        </div>
-
-        {/* Main content */}
         <main
           id="main-content"
           aria-label="Conteúdo principal"
-          className="flex-1 overflow-hidden px-5 py-6 pb-24 md:px-10 md:py-8 md:pb-8"
+          className="flex-1 px-4 pt-6 pb-28 sm:px-8 md:pt-10 md:pb-16 lg:px-16 xl:px-24"
         >
           {children}
         </main>
+      </div>
 
-        {/* Mobile FAB + bottom nav */}
-        <div className="fixed inset-x-0 bottom-0 z-40 md:hidden">
-          {/* UX — o FAB de "novo caso por voz" duplica o microfone que já
-              existe nas telas de foco (captura, resultado, edição de
-              documento). Nelas o médico clicava no FAB por engano e era
-              jogado de volta para /encounters/new, perdendo o que estava
-              fazendo — por isso ele só aparece fora dessas telas. */}
-          {!isFocusRoute && (
+      {/* Barra inferior mobile (estilo app do Notion) */}
+      <nav
+        aria-label="Navegação inferior"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-sm md:hidden"
+      >
+        <div className="mx-auto flex max-w-md items-center px-2">
+          {MOBILE_TABS.map((tab) => (
+            <MobileTab key={tab.href} item={tab} pathname={pathname} />
+          ))}
+          {/* UX — nas telas de foco (captura/análise/edição) o atalho de novo
+              caso por voz fica neutro: médicos tocavam nele por engano e
+              perdiam o que estavam fazendo. */}
+          <div className="flex flex-1 justify-center">
             <Link
               href="/encounters/new"
               aria-label="Novo caso por voz"
-              className="absolute -top-[72px] right-6 flex h-16 w-16 items-center justify-center rounded-full shadow-[0_6px_20px_rgba(14,124,123,0.4)] transition-transform active:scale-95"
-              style={{ background: 'var(--teal)' }}
+              className={cn(
+                'flex size-11 items-center justify-center rounded-full transition-transform active:scale-95',
+                focusRoute
+                  ? 'bg-tone-gray-bg text-muted-foreground'
+                  : 'bg-primary text-primary-foreground shadow-md',
+              )}
             >
-              <Microphone className="size-7 text-white" weight="bold" />
+              {focusRoute ? (
+                <Plus className="size-5" weight="bold" />
+              ) : (
+                <Microphone className="size-5" weight="fill" />
+              )}
             </Link>
-          )}
-          <nav
-            aria-label="Navegação inferior"
-            className="border-t bg-background/95 px-4 py-2 backdrop-blur"
-          >
-          <div className="mx-auto flex max-w-md items-center justify-between gap-2">
-            {MOBILE_TABS.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = pathname === tab.href || pathname.startsWith(tab.href + '/');
-              return (
-                <Link
-                  key={tab.href}
-                  href={tab.href}
-                  aria-current={isActive ? 'page' : undefined}
-                  className={cn(
-                    'flex min-w-0 flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 text-xs font-medium transition-colors',
-                    isActive
-                      ? 'bg-accent text-accent-foreground'
-                      : 'text-muted-foreground hover:bg-accent/40 hover:text-foreground',
-                  )}
-                >
-                  <Icon className="size-4" />
-                  <span>{tab.label}</span>
-                </Link>
-              );
-            })}
           </div>
-          </nav>
+          {MOBILE_TABS_END.map((tab) => (
+            <MobileTab key={tab.href} item={tab} pathname={pathname} />
+          ))}
+          <button
+            type="button"
+            onClick={openSearch}
+            aria-label="Buscar"
+            className="flex min-w-0 flex-1 flex-col items-center gap-0.5 py-1.5 text-[0.6875rem] font-medium text-muted-foreground"
+          >
+            <MagnifyingGlass className="size-[22px]" aria-hidden="true" />
+            <span>Buscar</span>
+          </button>
         </div>
-      </div>
+      </nav>
+
+      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
     </div>
   );
 }

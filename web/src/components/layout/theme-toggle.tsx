@@ -15,7 +15,10 @@ import { cn } from '@/lib/utils';
 export function ThemeToggle({ size = 'default' }: { size?: 'default' | 'sm' }) {
   const { setTheme, resolvedTheme } = useTheme();
 
-  const sizeClass = size === 'sm' ? 'h-8 w-8' : 'h-9 w-9';
+  const sizeClass = cn(
+    size === 'sm' ? 'size-7 max-sm:size-10' : 'size-8 max-sm:size-10',
+    'text-muted-foreground',
+  );
 
   if (!resolvedTheme) {
     return (

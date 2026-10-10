@@ -4,25 +4,35 @@ import { Slot } from "radix-ui"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Badge = tag de seleção do Notion: pílula de 3px de raio, texto 12px sem
+ * caixa-alta, fundo pastel com tinta escura (AA ≥ 10:1).
+ *
+ * Variantes semânticas (`success`, `warning`, `destructive`) carregam o
+ * significado clínico fixo da paleta — ver docs/design-system.md. As variantes
+ * de cor (`gray`, `brown`, `purple`, `pink`, `blue`, `yellow`) são para
+ * categorias sem significado clínico (vertical, tipo de documento, fonte).
+ */
 const badgeVariants = cva(
-  "group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-sm border border-transparent px-2 py-0.5 text-[10px] font-semibold tracking-wider whitespace-nowrap uppercase transition-all focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3!",
+  "group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-[3px] border border-transparent px-1.5 text-xs leading-none font-normal whitespace-nowrap transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/40 has-data-[icon=inline-end]:pr-1 has-data-[icon=inline-start]:pl-1 aria-invalid:border-destructive [&>svg]:pointer-events-none [&>svg]:size-3!",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground [a]:hover:bg-primary/80",
-        secondary:
-          "bg-secondary text-secondary-foreground [a]:hover:bg-secondary/80",
-        destructive:
-          "bg-destructive/10 text-destructive focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:focus-visible:ring-destructive/40 [a]:hover:bg-destructive/20",
+        default: "bg-tone-blue-tag text-tone-blue-ink [a]:hover:opacity-80",
+        secondary: "bg-tone-gray-tag text-tone-gray-ink [a]:hover:opacity-80",
+        destructive: "bg-tone-red-tag text-tone-red-ink [a]:hover:opacity-80",
         outline:
-          "border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground",
-        ghost:
-          "hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
-        link: "text-primary underline-offset-4 hover:underline",
-        success:
-          "border-clinical-green/30 bg-clinical-green-bg text-clinical-green-foreground",
-        warning:
-          "border-clinical-amber/40 bg-clinical-amber-bg text-clinical-amber-foreground",
+          "border-border text-muted-foreground [a]:hover:bg-hover [a]:hover:text-foreground",
+        ghost: "text-muted-foreground hover:bg-hover hover:text-foreground",
+        link: "text-link underline-offset-4 hover:underline",
+        success: "bg-tone-green-tag text-tone-green-ink",
+        warning: "bg-tone-orange-tag text-tone-orange-ink",
+        gray: "bg-tone-gray-tag text-tone-gray-ink",
+        brown: "bg-tone-brown-tag text-tone-brown-ink",
+        yellow: "bg-tone-yellow-tag text-tone-yellow-ink",
+        blue: "bg-tone-blue-tag text-tone-blue-ink",
+        purple: "bg-tone-purple-tag text-tone-purple-ink",
+        pink: "bg-tone-pink-tag text-tone-pink-ink",
       },
     },
     defaultVariants: {

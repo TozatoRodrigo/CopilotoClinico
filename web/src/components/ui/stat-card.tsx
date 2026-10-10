@@ -3,16 +3,19 @@ import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
 
+/**
+ * Métricas no estilo de um bloco do Notion: contorno fino, rótulo em cinza
+ * (sem caixa-alta) e número grande em sans com algarismos tabulares.
+ * `highlight` usa o fundo azul de bloco para a métrica que pede ação.
+ */
 const statCardVariants = cva(
-  "flex min-h-[104px] flex-col justify-between rounded-[14px] px-5 py-[18px]",
+  "flex min-h-[96px] flex-col justify-between gap-2 rounded-lg px-4 py-3.5",
   {
     variants: {
       variant: {
-        highlight: "bg-clinical-teal text-white",
-        default:
-          "border border-clinical-line bg-card text-clinical-ink",
-        success:
-          "border border-clinical-line bg-card text-clinical-ink",
+        highlight: "bg-tone-blue-bg text-tone-blue-ink",
+        default: "border border-border bg-card text-foreground",
+        success: "bg-tone-green-bg text-tone-green-ink",
       },
     },
     defaultVariants: {
@@ -43,33 +46,29 @@ function StatCard({
       className={cn(statCardVariants({ variant }), className)}
       {...props}
     >
-      <div className="flex items-center gap-2">
-        {icon ? (
-          <span
-            className={cn(
-              "size-4 shrink-0",
-              variant === "success" && "text-clinical-green-foreground"
-            )}
-          >
-            {icon}
-          </span>
-        ) : null}
+      <div className="flex items-center gap-1.5">
+        {icon ? <span className="size-4 shrink-0 opacity-80">{icon}</span> : null}
         <span
           className={cn(
-            "text-xs font-semibold uppercase tracking-[0.06em]",
-            variant === "highlight" && "opacity-75",
-            variant === "default" && "text-clinical-ink-soft",
-            variant === "success" && "text-clinical-green-foreground"
+            "text-sm",
+            variant === "default" ? "text-muted-foreground" : "opacity-85"
           )}
         >
           {label}
         </span>
       </div>
-      <div className="font-mono text-[2.5rem] font-semibold leading-none">
+      <div className="text-[2.25rem] leading-none font-semibold tracking-[-0.02em] tabular-nums">
         {value}
       </div>
       {sublabel ? (
-        <span className="text-[13px] opacity-70">{sublabel}</span>
+        <span
+          className={cn(
+            "text-xs",
+            variant === "default" ? "text-muted-foreground" : "opacity-80"
+          )}
+        >
+          {sublabel}
+        </span>
       ) : null}
     </div>
   )
@@ -90,19 +89,17 @@ function StatStrip({
   return (
     <div
       className={cn(
-        "flex divide-x divide-clinical-line rounded-[14px] border border-clinical-line bg-card",
+        "flex divide-x divide-border rounded-lg border border-border bg-card",
         className
       )}
     >
       {items.map((item) => (
         <div
           key={item.label}
-          className="flex flex-1 flex-col justify-center gap-1 px-5 py-[18px]"
+          className="flex flex-1 flex-col justify-center gap-1.5 px-4 py-3.5"
         >
-          <span className="text-xs font-semibold uppercase tracking-[0.06em] text-clinical-ink-soft">
-            {item.label}
-          </span>
-          <span className="font-mono text-xl font-semibold leading-none text-clinical-ink">
+          <span className="text-sm text-muted-foreground">{item.label}</span>
+          <span className="text-xl leading-none font-semibold tracking-[-0.01em] text-foreground tabular-nums">
             {item.value}
           </span>
         </div>

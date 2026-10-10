@@ -22,24 +22,21 @@ function ChartPaper({
     <div
       data-slot="chart-paper"
       className={cn(
-        "mx-auto max-w-[680px] rounded-[4px] border border-clinical-line bg-card py-11 px-[3.25rem] shadow-[0_2px_6px_rgba(16,36,58,0.08),0_12px_32px_rgba(16,36,58,0.07)]",
+        "mx-auto max-w-[720px] rounded-lg border border-border bg-card px-6 py-8 shadow-sm sm:px-12 sm:py-10",
         className
       )}
       {...props}
     >
       {hasHeader ? (
-        <div
-          className="flex items-start justify-between border-b-2 pb-[18px]"
-          style={{ borderColor: "var(--ink)" }}
-        >
+        <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
           <div className="min-w-0">
             {title ? (
-              <h2 className="font-display text-[1.875rem] font-normal leading-[1.15]">
+              <h2 className="font-display text-3xl">
                 {title}
               </h2>
             ) : null}
             {metadata ? (
-              <p className="mt-1.5 font-mono text-xs text-clinical-ink-soft">
+              <p className="mt-1.5 text-[0.8125rem] text-muted-foreground">
                 {metadata}
               </p>
             ) : null}
@@ -48,16 +45,16 @@ function ChartPaper({
         </div>
       ) : null}
 
-      <div className="mt-2">{children}</div>
+      <div className="mt-4">{children}</div>
 
       {hashFooter ? (
         <div
-          className="mt-7 flex items-center justify-between border-t border-dashed border-clinical-line pt-3.5"
+          className="mt-8 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3"
         >
-          <span className="font-mono text-[0.625rem] text-clinical-ink-soft opacity-60">
+          <span className="font-mono text-[0.6875rem] text-muted-foreground">
             {hashFooter}
           </span>
-          <span className="font-mono text-[0.625rem] text-clinical-ink-soft opacity-60">
+          <span className="text-[0.6875rem] text-muted-foreground">
             Copiloto Clínico · trilha de auditoria CFM
           </span>
         </div>

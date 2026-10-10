@@ -4,6 +4,8 @@ import * as React from "react";
 import Link from "next/link";
 import { WarningCircle } from "@phosphor-icons/react";
 import type { EncounterSummary } from "@/lib/types";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 const VERTICAL_LABELS: Record<string, string> = {
@@ -85,12 +87,19 @@ function getElapsedLabel(status: string): string {
   }
 }
 
+const STATUS_TAG: Record<string, { label: string; variant: "default" | "secondary" | "success" }> = {
+  in_review: { label: "Em revisão", variant: "default" },
+  draft: { label: "Sem análise", variant: "secondary" },
+  finalized: { label: "Assinado", variant: "success" },
+};
+
 function CaseRow({ encounter }: { encounter: EncounterSummary }) {
   const elapsed = formatElapsed(encounter.updatedAt);
   const label = getElapsedLabel(encounter.status);
   const isReview = encounter.status === "in_review";
   const isDraft = encounter.status === "draft";
   const isFinalized = encounter.status === "finalized";
+  const statusTag = STATUS_TAG[encounter.status];
 
   // PI-01 — codifica em forma (ícone + texto), não só cor, para não
   // depender de percepção de cor sob pressão de plantão. A tonalidade
@@ -100,129 +109,84 @@ function CaseRow({ encounter }: { encounter: EncounterSummary }) {
 
   const elapsedColor =
     elapsed.variant === "amber"
-      ? "text-[var(--amber)]"
+      ? "text-clinical-amber"
       : isFinalized
-        ? "text-[var(--green)]"
-        : "text-[var(--ink)]";
+        ? "text-clinical-green"
+        : "text-foreground";
 
-  const steps = [isDraft || isReview || isFinalized, isReview || isFinalized, isFinalized];
-  const stepLabels = isDraft
-    ? "capturar caso"
-    : isReview
-      ? "análise feita"
-      : isFinalized
-        ? "completo"
-        : "";
-
-  let actionLabel = "Ver";
-  let actionClass = "text-[var(--ink-soft)]";
-  if (isReview) {
-    actionLabel = "Retomar";
-    actionClass =
-      "bg-[var(--teal)] text-white";
-  } else if (isDraft) {
-    actionLabel = "Capturar";
-    actionClass =
-      "border border-[var(--line)] bg-card text-[var(--ink)]";
-  } else if (isFinalized) {
-    actionLabel = "Ver";
-    actionClass = "text-[var(--ink-soft)]";
-  }
+  const actionLabel = isReview ? "Retomar" : isDraft ? "Capturar" : "Ver";
 
   return (
     <Link
       href={`/encounters/${encounter.id}`}
       className={cn(
-        "grid grid-cols-[80px_1fr_auto] items-center gap-3 rounded-[14px] border bg-card p-4 shadow-[var(--shadow-sm)] transition-colors hover:border-[var(--teal)]/30 md:grid-cols-[100px_1.5fr_auto_1fr_140px_90px] md:gap-4",
-        isCriticalOverdue
-          ? "border-[var(--error)]/50 bg-[var(--error-bg)]"
-          : overdue
-            ? "border-[var(--amber)]/50 bg-[var(--amber-bg)]"
-            : "border-[var(--line)]",
+        "group grid grid-cols-[4.5rem_1fr_auto] items-center gap-3 px-2 py-2.5 transition-colors duration-75 hover:bg-hover/60 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:ring-inset md:grid-cols-[5.5rem_1fr_7rem_6rem_5.5rem] md:gap-4",
+        isCriticalOverdue && "bg-tone-red-bg/70 hover:bg-tone-red-bg",
+        overdue && !isCriticalOverdue && "bg-tone-orange-bg/70 hover:bg-tone-orange-bg",
       )}
     >
       <div className="min-w-0">
-        <p className={cn("font-mono text-base font-semibold md:text-xl", elapsedColor)}>
+        <p className={cn("text-[0.9375rem] font-semibold tabular-nums md:text-base", elapsedColor)}>
           {elapsed.text}
         </p>
-        <p className="text-[0.65rem] text-[var(--ink-soft)] md:text-[0.7rem]">{label}</p>
-        {/* PI-01 — visível em qualquer largura de tela (não escondida em
-            mobile como os badges de status abaixo): é o sinal mais
-            importante da linha, e o médico usa isto no celular. */}
-        {overdue && (
-          <span
-            className={cn(
-              "mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[0.65rem] font-semibold",
-              isCriticalOverdue
-                ? "bg-[var(--error)] text-white"
-                : "bg-[var(--amber)] text-[var(--amber-foreground)]",
-            )}
-            role="status"
-            aria-label="Reavaliação recomendada — não substitui julgamento clínico"
-          >
-            <WarningCircle className="size-3" weight="fill" aria-hidden="true" />
-            Reavaliar
-          </span>
-        )}
+        <p className="text-xs text-muted-foreground">{label}</p>
       </div>
 
       <div className="min-w-0">
         {/* RD-E7 — título é a queixa (derivada da 1ª análise de IA) quando
             disponível; sem análise ainda, cai para patientRef, como hoje. */}
-        <p
-          className={cn(
-            "truncate text-[0.85rem] font-semibold md:text-[0.9rem]",
-            !encounter.chiefComplaint && "font-mono",
-          )}
-        >
+        <p className="truncate text-sm font-medium text-foreground md:text-[0.9375rem]">
           {/* S25-QC-01 — mesmo fallback defensivo de encounters/page.tsx. */}
-          {encounter.chiefComplaint ?? encounter.patientRef ?? 'Consulta rápida'}
+          {encounter.chiefComplaint ?? encounter.patientRef ?? "Consulta rápida"}
         </p>
-        <p className="truncate text-[0.75rem] text-[var(--ink-soft)] md:text-[0.8rem]">
-          {encounter.chiefComplaint && (
-            <span className="font-mono">
-              {encounter.patientRef ?? 'Consulta rápida'} ·{' '}
+        <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          {/* PI-01 — visível em qualquer largura de tela: é o sinal mais
+              importante da linha, e o médico usa isto no celular. */}
+          {overdue && (
+            <span
+              className={cn(
+                "inline-flex h-5 items-center gap-1 rounded-[3px] px-1.5 text-xs font-medium",
+                isCriticalOverdue
+                  ? "bg-tone-red-tag text-tone-red-ink"
+                  : "bg-tone-orange-tag text-tone-orange-ink",
+              )}
+              role="status"
+              aria-label="Reavaliação recomendada — não substitui julgamento clínico"
+            >
+              <WarningCircle
+                className={cn("size-3", isCriticalOverdue ? "text-tone-red" : "text-tone-orange")}
+                weight="fill"
+                aria-hidden="true"
+              />
+              Reavaliar
             </span>
           )}
-          {VERTICAL_LABELS[encounter.vertical] ?? encounter.vertical}
-        </p>
+          <span className="truncate text-[0.8125rem] text-muted-foreground">
+            {encounter.chiefComplaint && (
+              <span>{encounter.patientRef ?? "Consulta rápida"}</span>
+            )}
+            <span className="md:hidden">
+              {encounter.chiefComplaint ? " · " : ""}
+              {VERTICAL_LABELS[encounter.vertical] ?? encounter.vertical}
+            </span>
+          </span>
+        </div>
       </div>
 
-      {isReview && (
-        <span className="hidden items-center gap-1 rounded-full bg-[var(--teal-tint)] px-2.5 py-0.5 text-[0.7rem] font-semibold text-[var(--teal-deep)] md:inline-flex">
-          em revisão
-        </span>
-      )}
-      {isDraft && (
-        <span className="hidden rounded-full border border-[var(--line)] px-2.5 py-0.5 text-[0.7rem] font-semibold text-[var(--ink-soft)] md:inline-flex">
-          sem análise
-        </span>
-      )}
-      {isFinalized && (
-        <span className="hidden items-center gap-1 rounded-full border border-[var(--green)]/30 bg-[var(--green-bg)] px-2.5 py-0.5 text-[0.7rem] font-semibold text-[var(--green-foreground)] md:inline-flex">
-          assinado
-        </span>
-      )}
+      <span className="hidden md:block">
+        {statusTag && <Badge variant={statusTag.variant}>{statusTag.label}</Badge>}
+      </span>
 
-      <span className="hidden text-[0.75rem] text-[var(--ink-soft)] md:block">
+      <span className="hidden text-[0.8125rem] text-muted-foreground md:block">
         {VERTICAL_LABELS[encounter.vertical] ?? encounter.vertical}
       </span>
 
-      <div className="hidden items-center gap-1.5 md:flex">
-        {steps.map((done, i) => (
-          <span
-            key={i}
-            className="h-[5px] w-[22px] rounded-[3px]"
-            style={{ background: done ? "var(--teal)" : isFinalized ? "var(--green)" : "var(--line)" }}
-          />
-        ))}
-        <span className="ml-1 text-[0.65rem] text-[var(--ink-soft)]">{stepLabels}</span>
-      </div>
-
       <span
         className={cn(
-          "flex h-[34px] items-center justify-center rounded-[10px] px-3 text-[0.8rem] font-semibold md:h-[38px]",
-          actionClass,
+          "inline-flex h-7 items-center justify-center justify-self-end rounded-md px-2.5 text-[0.8125rem] font-medium transition-colors",
+          isReview && "bg-primary text-primary-foreground group-hover:bg-[var(--brand-hover)]",
+          isDraft && "border border-input bg-background text-foreground",
+          !isReview && !isDraft && "text-muted-foreground group-hover:text-foreground",
         )}
       >
         {actionLabel}
@@ -261,53 +225,55 @@ export function PlantaoQueue({ encounters, loading = false }: PlantaoQueueProps)
   );
 
   return (
-    <div className="flex flex-1 flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <h2 className="text-base font-bold tracking-[-0.01em]">Fila do plantão</h2>
-          {reassessmentCount > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-[var(--amber)] px-2 py-0.5 text-[0.7rem] font-semibold text-[var(--amber-foreground)]">
-              <WarningCircle className="size-3" weight="fill" aria-hidden="true" />
-              {reassessmentCount} aguardando reavaliação
-            </span>
-          )}
-        </div>
+    <section aria-labelledby="plantao-queue-title" className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 id="plantao-queue-title" className="text-lg font-semibold tracking-[-0.01em]">
+          Fila do plantão
+        </h2>
+        {reassessmentCount > 0 && (
+          <span className="inline-flex h-5 items-center gap-1 rounded-[3px] bg-tone-orange-tag px-1.5 text-xs font-medium text-tone-orange-ink">
+            <WarningCircle className="size-3 text-tone-orange" weight="fill" aria-hidden="true" />
+            {reassessmentCount} aguardando reavaliação
+          </span>
+        )}
+        <span className="flex-1" />
         <Link
           href="/encounters"
-          className="text-[0.8rem] font-medium text-[var(--teal)] hover:text-[var(--teal-deep)]"
+          className="rounded-sm px-1.5 py-0.5 text-[0.8125rem] text-muted-foreground transition-colors hover:bg-hover hover:text-foreground"
         >
           Ver todos os casos →
         </Link>
       </div>
       {reassessmentCount > 0 && (
-        <p className="-mt-1.5 text-[0.7rem] text-[var(--ink-soft)]">
+        <p className="-mt-1 text-[0.8125rem] text-muted-foreground">
           Sugestão de prioridade por tempo e gravidade — não substitui julgamento clínico.
         </p>
       )}
 
       {loading ? (
-        <div className="space-y-2.5">
+        <div className="divide-y divide-border border-y border-border">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-[68px] animate-pulse rounded-[14px] border border-[var(--line)] bg-card md:h-[72px]"
-            />
+            <div key={i} className="flex items-center gap-4 px-2 py-3">
+              <Skeleton className="h-8 w-16" />
+              <Skeleton className="h-4 flex-1" />
+              <Skeleton className="h-7 w-20" />
+            </div>
           ))}
         </div>
       ) : sorted.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-[14px] border border-dashed border-[var(--line)] py-12 text-center">
-          <p className="text-sm font-medium text-[var(--ink)]">Nenhum caso no plantão</p>
-          <p className="text-xs text-[var(--ink-soft)]">
+        <div className="flex flex-col items-center justify-center gap-1 border-y border-border py-10 text-center">
+          <p className="text-sm font-medium text-foreground">Nenhum caso no plantão</p>
+          <p className="text-[0.8125rem] text-muted-foreground">
             Comece um novo caso para ver a fila aqui.
           </p>
         </div>
       ) : (
-        <div className="space-y-2.5">
+        <div className="divide-y divide-border border-y border-border">
           {sorted.slice(0, 5).map((enc) => (
             <CaseRow key={enc.id} encounter={enc} />
           ))}
         </div>
       )}
-    </div>
+    </section>
   );
 }
