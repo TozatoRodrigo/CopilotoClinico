@@ -104,8 +104,8 @@ export class AiGatewayService {
 
   /**
    * Emite os deltas de texto e devolve, como valor de retorno do gerador,
-   * modelo, usage e stop reason — `for await` continua funcionando; quem
-   * precisa do custo itera com `next()` até `done`.
+   * texto final, modelo, usage e stop reason — `for await` continua
+   * funcionando; quem precisa do custo itera com `next()` até `done`.
    */
   async *completeStream(
     params: Omit<CompletionParams, 'model'> & { model?: string },
