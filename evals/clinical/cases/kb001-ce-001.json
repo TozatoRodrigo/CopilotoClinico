@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "kb001-ce-001",
+  "title": "Celulite de membro inferior sem dados de abscesso, necrose ou progressão",
+  "tags": [
+    "pele-partes-moles",
+    "celulite",
+    "kb-001"
+  ],
+  "critical": false,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Celulite em membro inferior sem informação sobre abscesso, necrose ou progressão."
+  },
+  "expected": {
+    "syndrome": "celulite/erisipela, complicação a excluir",
+    "cannotMiss": [
+      "fasciíte necrosante"
+    ],
+    "mustRequest": [
+      "abscesso ou coleção",
+      "dor desproporcional, bolhas, necrose ou crepitação",
+      "velocidade de progressão e sinais sistêmicos"
+    ],
+    "requiredActions": [],
+    "forbiddenDefinitiveActions": [],
+    "expectedPath": "clarify"
+  }
+}

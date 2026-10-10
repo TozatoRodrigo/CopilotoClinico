@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "id": "kb001-gd-002",
+  "title": "Diarreia com sangue, hipotensão e intolerância oral",
+  "tags": [
+    "diarreia-vomitos",
+    "desidratacao-grave",
+    "kb-001"
+  ],
+  "critical": true,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Diarreia com sangue, hipotensão e incapacidade de hidratação oral."
+  },
+  "expected": {
+    "syndrome": "diarreia aguda invasiva com desidratação grave / choque hipovolêmico",
+    "cannotMiss": [
+      "choque hipovolêmico",
+      "sepse de foco intestinal"
+    ],
+    "mustRequest": [],
+    "requiredActions": [
+      "hidratação venosa com cristaloide em bolus",
+      "eletrólitos e função renal"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "antiperistaltico-em-diarreia-invasiva",
+        "description": "Antiperistáltico (loperamida) em diarreia com sangue",
+        "patterns": [
+          "loperamida",
+          "imosec",
+          "antiperistalt"
+        ],
+        "exceptWhen": [
+          "\\bnao\\b",
+          "evitar",
+          "contraindic",
+          "sem indicacao"
+        ]
+      }
+    ],
+    "expectedPath": "recommend"
+  }
+}

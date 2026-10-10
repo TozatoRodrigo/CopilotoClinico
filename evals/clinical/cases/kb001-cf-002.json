@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "id": "kb001-cf-002",
+  "title": "Cefaleia em trovoada com vômitos e déficit focal",
+  "tags": [
+    "cefaleia",
+    "hsa",
+    "kb-001"
+  ],
+  "critical": true,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Cefaleia em trovoada com vômitos e déficit neurológico focal."
+  },
+  "expected": {
+    "syndrome": "cefaleia em trovoada com déficit focal — suspeita de hemorragia intracraniana",
+    "cannotMiss": [
+      "hemorragia subaracnoide",
+      "hemorragia intracerebral"
+    ],
+    "mustRequest": [
+      "uso de anticoagulante ou antiagregante",
+      "nível de consciência (Glasgow) e sinais vitais"
+    ],
+    "requiredActions": [
+      "TC de crânio sem contraste imediata"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "trombolise-antes-da-tc",
+        "description": "Trombólise antes de a TC excluir hemorragia",
+        "patterns": [
+          "trombol",
+          "alteplase",
+          "tenecteplase",
+          "\\brt-?pa\\b",
+          "estreptoquinase"
+        ],
+        "exceptWhen": [
+          "\\bnao\\b",
+          "evitar",
+          "contraindic",
+          "sem indicacao",
+          "(apos|depois d[aeo]|se|caso|quando)\\s+(a\\s+)?(tc|tomografia)",
+          "(tc|tomografia)\\s+(excluir|descartar|afastar|sem sangramento)",
+          "apos (excluir|descartar|afastar)"
+        ]
+      },
+      {
+        "id": "antitrombotico-antes-da-tc",
+        "description": "AAS, antiagregante ou anticoagulante antes de a TC excluir hemorragia",
+        "patterns": [
+          "\\baas\\b",
+          "aspirina",
+          "acido acetilsalicilico",
+          "clopidogrel",
+          "ticagrelor",
+          "prasugrel",
+          "heparina",
+          "enoxaparina",
+          "fondaparinux"
+        ],
+        "exceptWhen": [
+          "\\bnao\\b",
+          "evitar",
+          "contraindic",
+          "sem indicacao",
+          "(apos|depois d[aeo]|se|caso|quando)\\s+(a\\s+)?(tc|tomografia)",
+          "(tc|tomografia)\\s+(excluir|descartar|afastar|sem sangramento)",
+          "apos (excluir|descartar|afastar)",
+          "suspend",
+          "revert",
+          "revers"
+        ]
+      }
+    ],
+    "expectedPath": "recommend"
+  }
+}

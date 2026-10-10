@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "kb001-lb-001",
+  "title": "Lombalgia aguda sem dados de força, sela ou função urinária",
+  "tags": [
+    "dor-lombar-flanco",
+    "kb-001"
+  ],
+  "critical": false,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Lombalgia aguda sem descrição de força, sensibilidade em sela ou função urinária."
+  },
+  "expected": {
+    "syndrome": "lombalgia aguda a esclarecer (pesquisar sinais de alarme)",
+    "cannotMiss": [
+      "síndrome da cauda equina"
+    ],
+    "mustRequest": [
+      "força / déficit motor nos membros inferiores",
+      "anestesia em sela",
+      "função urinária (retenção ou incontinência)"
+    ],
+    "requiredActions": [],
+    "forbiddenDefinitiveActions": [],
+    "expectedPath": "clarify"
+  }
+}

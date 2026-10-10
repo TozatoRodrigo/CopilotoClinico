@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "kb004-agitacao-psiquiatrica-conhecida",
+  "title": "Descompensação de esquizofrenia conhecida após suspender antipsicótico",
+  "tags": [
+    "agitacao-psicomotora",
+    "psiquiatria",
+    "dicotomia-agitacao"
+  ],
+  "critical": false,
+  "goldSource": "kb004_dichotomy",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Fem, 29a, esquizofrenia acompanhada no CAPS, parou risperidona há 3 sem. Trazida pela mãe: insone, fala acelerada, ouvindo vozes, ameaçando vizinhos — igual às 2 internações anteriores. Orientada, atenção preservada. PA 128x82, FC 92, T 36,7, SpO2 98%, glicemia 96. Nega álcool/drogas; mãe confirma."
+  },
+  "expected": {
+    "syndrome": "agitação por transtorno psiquiátrico primário (descompensação de esquizofrenia)",
+    "cannotMiss": [
+      "causa orgânica associada (intoxicação, infecção) a reavaliar se a evolução for atípica"
+    ],
+    "mustRequest": [
+      "ideação suicida"
+    ],
+    "requiredActions": [
+      "de-escalonamento verbal e ambiente com menos estímulo",
+      "antipsicótico se houver risco iminente ou recusa da via oral"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "expectedPath": "recommend",
+    "rationale": "KB-004 (10-agitacao-causa-psiquiatrica): sinais vitais e glicemia normais, quadro estereotipado com história prévia."
+  }
+}

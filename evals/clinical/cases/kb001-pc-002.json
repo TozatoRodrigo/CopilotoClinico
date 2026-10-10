@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "kb001-pc-002",
+  "title": "Pneumonia com SpO2 89%, confusão e infiltrado multilobar",
+  "tags": [
+    "infeccao-respiratoria",
+    "pneumonia-grave",
+    "kb-001"
+  ],
+  "critical": true,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Pneumonia com SpO2 89%, confusão e infiltrado multilobar."
+  },
+  "expected": {
+    "syndrome": "pneumonia comunitária grave",
+    "cannotMiss": [
+      "sepse de foco pulmonar"
+    ],
+    "mustRequest": [
+      "pressão arterial e sinais de hipoperfusão (lactato)"
+    ],
+    "requiredActions": [
+      "oxigenoterapia",
+      "antibiótico IV precoce (beta-lactâmico associado a macrolídeo ou quinolona respiratória)",
+      "internação com avaliação de UTI"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "expectedPath": "recommend"
+  }
+}

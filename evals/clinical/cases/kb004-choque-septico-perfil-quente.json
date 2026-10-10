@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "id": "kb004-choque-septico-perfil-quente",
+  "title": "Choque quente com febre, disúria e confusão",
+  "tags": [
+    "febre-hipotensao",
+    "choque-septico",
+    "dicotomia-choque"
+  ],
+  "critical": true,
+  "goldSource": "kb004_dichotomy",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Fem, 58a, febre e calafrios há 2 dias, disúria, hoje confusa. PA 76x40, FC 128, extremidades quentes, TEC 2s, pulmões limpos, sem turgência jugular. Lactato 5,1.",
+    "context": {
+      "hasCT": true,
+      "isSus": true,
+      "hasLab": true,
+      "hasICU": true
+    }
+  },
+  "expected": {
+    "syndrome": "choque séptico (provável foco urinário), perfil quente",
+    "cannotMiss": [
+      "choque séptico"
+    ],
+    "mustRequest": [],
+    "requiredActions": [
+      "hemoculturas e antibiótico de amplo espectro na primeira hora",
+      "cristaloide em bolus (até 30 mL/kg nas primeiras horas) com reavaliação",
+      "noradrenalina se PAM < 65 após volume inicial"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "restringir-volume-como-cardiogenico",
+        "description": "Restringir volume e iniciar inotrópico como se fosse choque cardiogênico",
+        "patterns": []
+      }
+    ],
+    "expectedPath": "recommend",
+    "rationale": "KB-004 (06-choque-septico-hipovolemico): extremidades quentes, sem congestão, foco identificável — volume é a conduta central."
+  }
+}

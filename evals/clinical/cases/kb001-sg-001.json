@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "kb001-sg-001",
+  "title": "Síndrome gripal há 3 dias, imunossupressão não informada",
+  "tags": [
+    "infeccao-respiratoria",
+    "influenza",
+    "kb-001"
+  ],
+  "critical": false,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Paciente com síndrome gripal há 3 dias, febre, mialgia e imunossupressão não informada."
+  },
+  "expected": {
+    "syndrome": "síndrome gripal sem sinais de gravidade descritos",
+    "cannotMiss": [
+      "síndrome respiratória aguda grave (SRAG)"
+    ],
+    "mustRequest": [
+      "imunossupressão ou outra condição de risco para complicação",
+      "sinais de gravidade (SpO2, dispneia, pressão arterial)"
+    ],
+    "requiredActions": [],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "Protocolo MS de síndrome gripal: a indicação de oseltamivir depende de fator de risco ou sinal de gravidade; com >48h de sintomas, sem fator de risco informado, o dado que muda a conduta é o grupo de risco.",
+    "expectedPath": "clarify"
+  }
+}

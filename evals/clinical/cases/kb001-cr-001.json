@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "kb001-cr-001",
+  "title": "Dor em flanco sem dados de febre, diurese ou rim único",
+  "tags": [
+    "dor-lombar-flanco",
+    "colica-renal",
+    "kb-001"
+  ],
+  "critical": false,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Dor em flanco sem informação sobre febre, diurese ou rim único."
+  },
+  "expected": {
+    "syndrome": "dor em flanco — provável cólica renal a confirmar",
+    "cannotMiss": [
+      "obstrução urinária infectada",
+      "aneurisma de aorta abdominal (mimetizador acima de 50 anos)"
+    ],
+    "mustRequest": [
+      "febre",
+      "diurese",
+      "rim único ou função renal"
+    ],
+    "requiredActions": [],
+    "forbiddenDefinitiveActions": [],
+    "expectedPath": "clarify"
+  }
+}

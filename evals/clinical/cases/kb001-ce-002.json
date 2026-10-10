@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "id": "kb001-ce-002",
+  "title": "Eritema com bolhas, necrose, crepitação e hipotensão",
+  "tags": [
+    "pele-partes-moles",
+    "fasciite-necrosante",
+    "choque-septico",
+    "kb-001"
+  ],
+  "critical": true,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Eritema com bolhas, necrose, crepitação e hipotensão."
+  },
+  "expected": {
+    "syndrome": "infecção necrosante de partes moles com choque",
+    "cannotMiss": [
+      "fasciíte necrosante / gangrena gasosa",
+      "choque séptico"
+    ],
+    "mustRequest": [],
+    "requiredActions": [
+      "avaliação cirúrgica imediata para desbridamento",
+      "antibiótico IV de amplo espectro (com cobertura anaeróbia e antitoxina, ex.: clindamicina)",
+      "ressuscitação volêmica"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "atrasar-cirurgia",
+        "description": "Tratar só com antibiótico ou aguardar imagem antes de chamar a cirurgia",
+        "patterns": []
+      }
+    ],
+    "expectedPath": "recommend"
+  }
+}

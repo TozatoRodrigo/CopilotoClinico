@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "kb001-it-001",
+  "title": "Disúria e polaciúria sem dados de febre, dor lombar ou gestação",
+  "tags": [
+    "sintomas-urinarios",
+    "itu",
+    "kb-001"
+  ],
+  "critical": false,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Disúria e polaciúria sem informação sobre febre, dor lombar ou gestação."
+  },
+  "expected": {
+    "syndrome": "infecção do trato urinário baixo (cistite) a confirmar",
+    "cannotMiss": [
+      "pielonefrite"
+    ],
+    "mustRequest": [
+      "febre",
+      "dor lombar / punho-percussão",
+      "gestação"
+    ],
+    "requiredActions": [],
+    "forbiddenDefinitiveActions": [],
+    "expectedPath": "clarify"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "kb001-cf-001",
+  "title": "Cefaleia forte sem dados de início, febre ou déficit",
+  "tags": [
+    "cefaleia",
+    "kb-001"
+  ],
+  "critical": true,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Cefaleia forte sem informação sobre início súbito, febre ou déficit focal."
+  },
+  "expected": {
+    "syndrome": "cefaleia aguda a esclarecer (excluir causa secundária)",
+    "cannotMiss": [
+      "hemorragia subaracnoide",
+      "meningite"
+    ],
+    "mustRequest": [
+      "início súbito com pico em menos de 1 minuto (cefaleia em trovoada)",
+      "febre ou rigidez de nuca",
+      "déficit neurológico focal"
+    ],
+    "requiredActions": [],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "É o caso da apresentação (CC-06): sem os três dados, a resposta certa é perguntar por eles, nomeando HSA e meningite como o que se quer excluir.",
+    "expectedPath": "clarify"
+  }
+}

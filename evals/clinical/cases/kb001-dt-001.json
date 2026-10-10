@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "id": "kb001-dt-001",
+  "title": "Dor torácica súbita há 40 min, ECG não realizado",
+  "tags": [
+    "dor-toracica",
+    "sca",
+    "ecg-pendente",
+    "kb-001"
+  ],
+  "critical": true,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Dor torácica súbita há 40 minutos, sudorese, ECG ainda não realizado."
+  },
+  "expected": {
+    "syndrome": "dor torácica aguda com suspeita de síndrome coronariana aguda",
+    "cannotMiss": [
+      "síndrome coronariana aguda com supra de ST",
+      "dissecção aguda de aorta"
+    ],
+    "mustRequest": [
+      "ECG de 12 derivações em até 10 minutos",
+      "sinais vitais / estabilidade hemodinâmica"
+    ],
+    "requiredActions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "trombolise-sem-ecg",
+        "description": "Trombólise antes do ECG e da exclusão de dissecção de aorta",
+        "patterns": [
+          "trombol",
+          "alteplase",
+          "tenecteplase",
+          "\\brt-?pa\\b",
+          "estreptoquinase"
+        ],
+        "exceptWhen": [
+          "\\bnao\\b",
+          "evitar",
+          "contraindic",
+          "sem indicacao",
+          "(se|caso|apos|quando).{0,40}(ecg|supra|confirm)"
+        ]
+      },
+      {
+        "id": "anticoagulacao-ou-dupla-antiagregacao-sem-diagnostico",
+        "description": "Anticoagulação plena ou dupla antiagregação como conduta definitiva antes do ECG e da exclusão de dissecção",
+        "patterns": []
+      }
+    ],
+    "rationale": "Sem ECG, o primeiro passo é o ECG em até 10 min. Dor súbita obriga considerar dissecção antes de antitrombótico (KB-003).",
+    "expectedPath": "clarify"
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "id": "cm-dissecao-aortica-vs-sca",
+  "title": "Dor torácica em rasgão irradiando para o dorso com diferença de PA entre braços",
+  "tags": [
+    "dor-toracica",
+    "dissecao-aortica"
+  ],
+  "critical": true,
+  "goldSource": "ai_draft",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Masc, 58a, hipertenso. Dor torácica súbita, \"rasgando\", irradia pro dorso, máxima desde o início, há 1h. PA 186x104 no braço D e 148x88 no E. FC 96. ECG: sinusal, sem supra.",
+    "context": {
+      "hasCT": true,
+      "isSus": false,
+      "hasLab": true,
+      "hasICU": true
+    }
+  },
+  "expected": {
+    "syndrome": "dor torácica aguda — suspeita de dissecção aguda de aorta",
+    "cannotMiss": [
+      "dissecção aguda de aorta"
+    ],
+    "mustRequest": [],
+    "requiredActions": [
+      "angio-TC de aorta de urgência (ou ecocardiograma transesofágico se instável)",
+      "controle da frequência cardíaca com betabloqueador IV antes de vasodilatador, com meta de PAS 100-120",
+      "avaliação da cirurgia cardiovascular"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "trombolise-em-suspeita-de-dissecao",
+        "description": "Trombólise com suspeita de dissecção de aorta",
+        "patterns": [
+          "trombol",
+          "alteplase",
+          "tenecteplase",
+          "\\brt-?pa\\b",
+          "estreptoquinase"
+        ],
+        "exceptWhen": [
+          "\\bnao\\b",
+          "evitar",
+          "contraindic",
+          "sem indicacao"
+        ]
+      },
+      {
+        "id": "antitrombotico-em-suspeita-de-dissecao",
+        "description": "Anticoagulação, AAS ou dupla antiagregação como conduta definitiva antes de excluir dissecção",
+        "patterns": [
+          "\\baas\\b",
+          "aspirina",
+          "acido acetilsalicilico",
+          "clopidogrel",
+          "ticagrelor",
+          "prasugrel",
+          "heparina",
+          "enoxaparina",
+          "fondaparinux"
+        ],
+        "exceptWhen": [
+          "\\bnao\\b",
+          "evitar",
+          "contraindic",
+          "sem indicacao",
+          "suspend",
+          "(ate|antes de) (excluir|descartar|afastar)",
+          "(apos|depois de|se|caso) (excluir|descartar|afastar)"
+        ]
+      }
+    ],
+    "expectedPath": "recommend",
+    "rationale": "KB-003 (dissecção): dor súbita, em rasgão, irradiada, com diferença de PA > 20 mmHg entre braços. Antitrombótico/trombólise numa dissecção não reconhecida é catastrófico."
+  }
+}

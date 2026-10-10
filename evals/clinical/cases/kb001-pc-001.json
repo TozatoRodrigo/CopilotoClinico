@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "kb001-pc-001",
+  "title": "Suspeita de pneumonia sem SpO2, FR ou estado mental",
+  "tags": [
+    "infeccao-respiratoria",
+    "pneumonia",
+    "kb-001"
+  ],
+  "critical": false,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Suspeita de pneumonia sem saturação, FR ou estado mental informados."
+  },
+  "expected": {
+    "syndrome": "pneumonia adquirida na comunidade — gravidade a estratificar",
+    "cannotMiss": [
+      "sepse de foco pulmonar"
+    ],
+    "mustRequest": [
+      "SpO2",
+      "frequência respiratória",
+      "estado mental (confusão)",
+      "pressão arterial"
+    ],
+    "requiredActions": [],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "Os dados ausentes são exatamente os do CURB-65/critério de internação.",
+    "expectedPath": "clarify"
+  }
+}

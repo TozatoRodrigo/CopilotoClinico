@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "id": "cm-hipoglicemia-mimetizando-avc",
+  "title": "Afasia e fraqueza ao acordar em diabético com NPH, glicemia 42",
+  "tags": [
+    "deficit-neurologico-focal",
+    "hipoglicemia",
+    "mimetizador-de-avc"
+  ],
+  "critical": true,
+  "goldSource": "ai_draft",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Masc, 63a, DM2 com NPH. Acordou com fala arrastada e fraqueza em braço E; a esposa achou que era derrame. Visto bem pela última vez às 23h (há 8h). PA 158x92, FC 98, sudoreico. Glicemia capilar 42."
+  },
+  "expected": {
+    "syndrome": "hipoglicemia com déficit focal (mimetizador de AVC)",
+    "cannotMiss": [
+      "AVC isquêmico se o déficit persistir após a correção da glicemia"
+    ],
+    "mustRequest": [
+      "reavaliação neurológica após a correção da glicemia"
+    ],
+    "requiredActions": [
+      "glicose hipertônica IV imediata",
+      "glicemia seriada e reavaliação do déficit após a correção"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "trombolise-sem-corrigir-glicemia",
+        "description": "Trombólise sem corrigir a hipoglicemia e reavaliar (e fora da janela de 4,5 h)",
+        "patterns": [
+          "trombol",
+          "alteplase",
+          "tenecteplase",
+          "\\brt-?pa\\b",
+          "estreptoquinase"
+        ],
+        "exceptWhen": [
+          "\\bnao\\b",
+          "evitar",
+          "contraindic",
+          "sem indicacao",
+          "fora d[ae] janela"
+        ]
+      }
+    ],
+    "expectedPath": "recommend",
+    "rationale": "KB-003/KB-004: hipoglicemia mimetiza AVC; glicemia antes de qualquer outra hipótese."
+  }
+}

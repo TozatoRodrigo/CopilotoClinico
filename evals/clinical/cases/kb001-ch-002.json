@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "id": "kb001-ch-002",
+  "title": "PA 230x130 com edema agudo de pulmão e dor torácica",
+  "tags": [
+    "pressao-arterial-elevada",
+    "emergencia-hipertensiva",
+    "eap",
+    "kb-001"
+  ],
+  "critical": true,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "PA 230x130 com edema agudo de pulmão e dor torácica."
+  },
+  "expected": {
+    "syndrome": "emergência hipertensiva com edema agudo de pulmão",
+    "cannotMiss": [
+      "síndrome coronariana aguda",
+      "dissecção aguda de aorta"
+    ],
+    "mustRequest": [
+      "ECG de 12 derivações"
+    ],
+    "requiredActions": [
+      "vasodilatador IV titulável (ex.: nitroglicerina) com redução controlada da PA",
+      "oxigênio e ventilação não invasiva",
+      "monitorização em sala de emergência / UTI"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "nifedipino-sublingual",
+        "description": "Nifedipino sublingual (queda abrupta e imprevisível da PA, risco de isquemia cerebral e miocárdica)",
+        "patterns": [
+          "nifedipin"
+        ],
+        "exceptWhen": [
+          "\\bnao\\b",
+          "evitar",
+          "contraindic",
+          "sem indicacao"
+        ]
+      }
+    ],
+    "expectedPath": "recommend"
+  }
+}

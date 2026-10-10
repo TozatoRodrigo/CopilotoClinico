@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "id": "kb004-choque-sem-perfil-de-perfusao",
+  "title": "Idoso hipotenso e confuso na triagem, perfusão e congestão não avaliadas",
+  "tags": [
+    "choque",
+    "dicotomia-choque",
+    "discriminador-ausente"
+  ],
+  "critical": true,
+  "goldSource": "kb004_dichotomy",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Masc, 70a, chegou hipotenso na triagem: PA 80x50, FC 115, confuso. Acompanhante não sabe a história. Exame físico ainda não feito."
+  },
+  "expected": {
+    "syndrome": "choque indiferenciado",
+    "cannotMiss": [
+      "choque cardiogênico",
+      "choque séptico ou hipovolêmico"
+    ],
+    "mustRequest": [
+      "perfusão periférica (extremidades frias/mosqueadas ou quentes, tempo de enchimento capilar)",
+      "sinais de congestão (estertores, turgência jugular)",
+      "foco infeccioso ou perda volêmica"
+    ],
+    "requiredActions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "volume-liberal-antes-de-avaliar-congestao",
+        "description": "Expansão volêmica liberal (30 mL/kg) como conduta definitiva antes de avaliar congestão",
+        "patterns": []
+      }
+    ],
+    "expectedPath": "clarify",
+    "rationale": "KB-004: \"as extremidades estão frias/mosqueadas ou quentes?\" separa os dois lados."
+  }
+}

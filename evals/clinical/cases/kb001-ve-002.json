@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "id": "kb001-ve-002",
+  "title": "Vertigem contínua com incapacidade de deambular e disartria",
+  "tags": [
+    "vertigem",
+    "avc-posterior",
+    "kb-001"
+  ],
+  "critical": true,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Vertigem contínua com incapacidade de deambular e disartria."
+  },
+  "expected": {
+    "syndrome": "síndrome vestibular aguda central — AVC de circulação posterior",
+    "cannotMiss": [
+      "AVC de circulação posterior (cerebelo/tronco)",
+      "hemorragia cerebelar"
+    ],
+    "mustRequest": [
+      "horário de início dos sintomas / última vez visto bem"
+    ],
+    "requiredActions": [
+      "neuroimagem de urgência (TC sem contraste para excluir hemorragia; angio-TC ou RM)",
+      "acionar protocolo de AVC / avaliação neurológica de urgência"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "trombolise-antes-da-imagem",
+        "description": "Trombólise antes de neuroimagem excluir hemorragia",
+        "patterns": [
+          "trombol",
+          "alteplase",
+          "tenecteplase",
+          "\\brt-?pa\\b",
+          "estreptoquinase"
+        ],
+        "exceptWhen": [
+          "\\bnao\\b",
+          "evitar",
+          "contraindic",
+          "sem indicacao",
+          "(apos|depois d[aeo]|se|caso|quando)\\s+(a\\s+)?(tc|tomografia)",
+          "(tc|tomografia)\\s+(excluir|descartar|afastar|sem sangramento)",
+          "apos (excluir|descartar|afastar)",
+          "elegib",
+          "avaliar"
+        ]
+      },
+      {
+        "id": "tratar-como-vertigem-periferica",
+        "description": "Tratar como vertigem periférica (antivertiginoso e alta)",
+        "patterns": []
+      }
+    ],
+    "expectedPath": "recommend"
+  }
+}

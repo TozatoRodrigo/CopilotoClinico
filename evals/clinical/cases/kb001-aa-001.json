@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "kb001-aa-001",
+  "title": "Agitação no PS sem dados de risco suicida, hipóxia ou substâncias",
+  "tags": [
+    "agitacao-psicomotora",
+    "kb-001"
+  ],
+  "critical": false,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Agitação no PS sem informação sobre risco suicida, hipóxia ou uso de substâncias."
+  },
+  "expected": {
+    "syndrome": "agitação psicomotora — excluir causa orgânica",
+    "cannotMiss": [
+      "delirium por causa orgânica (hipóxia, hipoglicemia, infecção)",
+      "intoxicação ou abstinência"
+    ],
+    "mustRequest": [
+      "SpO2 e sinais vitais",
+      "glicemia capilar",
+      "uso de substâncias / abstinência",
+      "risco suicida ou de heteroagressão"
+    ],
+    "requiredActions": [],
+    "forbiddenDefinitiveActions": [],
+    "expectedPath": "clarify"
+  }
+}
