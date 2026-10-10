@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Prisma } from '@prisma/client';
+import { GuidelineChunkStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../config/prisma.service';
 import { readBooleanFlag } from '../../../config/feature-flag';
 import { AiGatewayService } from '../../ai-gateway/ai-gateway.service';
@@ -159,6 +159,9 @@ export class RetrievalService {
       // têm os campos de cobertura. O TTL de 60s faz isso se resolver sozinho
       // logo após um deploy, mas o default explícito evita que a janela
       // produza `undefined` num campo tipado como obrigatório.
+      // F0-C — chunks gravados antes de `clinicallySigned` existir chegam sem o
+      // campo; o orquestrador lê `!chunk.clinicallySigned` e os trata como não
+      // assinados durante essa janela (falha para o lado seguro).
       return {
         ...parsed,
         coverage: parsed.coverage ?? (parsed.chunks.length > 0 ? 'full' : 'none'),
@@ -454,8 +457,12 @@ export class RetrievalService {
         evidenceLevel: true,
         institutionId: true,
         metadata: true,
+        status: true,
+        reviewedBy: true,
       },
     });
+
+    const signedReviewers = await this.crmVerifiedReviewers(chunks);
 
     return chunks.map((c) => ({
       id: c.id,
@@ -466,6 +473,38 @@ export class RetrievalService {
       evidenceLevel: c.evidenceLevel,
       institutionId: c.institutionId,
       metadata: (c.metadata ?? {}) as unknown as Record<string, unknown>,
+      clinicallySigned:
+        c.status === GuidelineChunkStatus.approved &&
+        c.reviewedBy !== null &&
+        signedReviewers.has(c.reviewedBy),
     }));
+  }
+
+  /**
+   * F0-C / ADR-012 — "assinado" exige um revisor que seja médico com CRM
+   * verificado. `approved` sozinho não basta: o seed e os pacotes KB-003/
+   * KB-004 entraram aprovados sem revisor, e o fluxo de curadoria aceita
+   * aprovação de quem não tem CRM verificado. `reviewed_by` não tem FK para
+   * `physicians` (evitar migração nesta fase), daí a segunda consulta — só
+   * quando algum chunk tem revisor.
+   */
+  private async crmVerifiedReviewers(
+    chunks: Array<{ status: GuidelineChunkStatus; reviewedBy: string | null }>,
+  ): Promise<Set<string>> {
+    const reviewerIds = [
+      ...new Set(
+        chunks
+          .filter((chunk) => chunk.status === GuidelineChunkStatus.approved)
+          .map((chunk) => chunk.reviewedBy)
+          .filter((reviewerId): reviewerId is string => reviewerId !== null),
+      ),
+    ];
+    if (reviewerIds.length === 0) return new Set();
+
+    const reviewers = await this.prisma.physician.findMany({
+      where: { id: { in: reviewerIds }, crmVerified: true },
+      select: { id: true },
+    });
+    return new Set(reviewers.map((reviewer) => reviewer.id));
   }
 }
