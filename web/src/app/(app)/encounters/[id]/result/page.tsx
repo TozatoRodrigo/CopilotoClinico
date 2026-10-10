@@ -70,6 +70,7 @@ import type {
   CopilotRecommendation,
   DocumentType,
   LatestInteractionResponse,
+  PreliminaryReason,
   RedFlagSeverity,
 } from '@/lib/types';
 import type { RecommendationDecisionState } from '@/hooks/use-recommendation-decisions';
@@ -113,6 +114,35 @@ const RED_FLAG_TAG: Record<
   high: { variant: 'warning', icon: Warning },
   moderate: { variant: 'secondary', icon: Info },
 };
+
+/**
+ * F0-C — tom da tag "Preliminar" pelo motivo. Laranja só quando um dado ainda
+ * pode MUDAR A CONDUTA (perguntas em aberto, subtipo indefinido). Fonte não
+ * revisada por médico é informação, não mudança de conduta: cinza.
+ */
+const PRELIMINARY_TONE: Record<
+  PreliminaryReason,
+  { variant: 'warning' | 'secondary'; markerClassName: string }
+> = {
+  pending_questions: { variant: 'warning', markerClassName: 'text-tone-orange' },
+  subtype_ambiguity: { variant: 'warning', markerClassName: 'text-tone-orange' },
+  unreviewed_source: { variant: 'secondary', markerClassName: 'text-muted-foreground' },
+};
+
+/**
+ * Análises gravadas antes do campo não têm `preliminaryReason`: o preliminar
+ * delas era sempre o declarado pelo modelo, o rótulo de sempre.
+ */
+function preliminaryReasonOf(rec: CopilotRecommendation): PreliminaryReason | null {
+  if (!rec.preliminary) return null;
+  return rec.preliminaryReason ?? 'pending_questions';
+}
+
+function preliminaryLabel(reason: PreliminaryReason, messages: Messages): string {
+  const badge = messages.recommendation.preliminaryBadge;
+  if (reason === 'pending_questions') return badge;
+  return `${badge} · ${messages.recommendation.preliminaryReason[reason]}`;
+}
 
 export default function ResultPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: encounterId } = use(params);
@@ -291,6 +321,11 @@ function ResultView({ encounterId, result }: { encounterId: string; result: Stor
   const recommendations = analysis.recommendations;
   const definitiveCount = recommendations.filter((r) => !r.preliminary).length;
   const preliminaryCount = recommendations.length - definitiveCount;
+  // F0-C — só a conduta preliminar por perguntas pode virar definitiva ao
+  // responder; fonte não revisada e subtipo indefinido continuam preliminares.
+  const answerableCount = recommendations.filter(
+    (r) => preliminaryReasonOf(r) === 'pending_questions',
+  ).length;
   // UX-08 — pergunta blocker sem resposta (não só "sem clicar em
   // Reanalisar") é o sinal de que o plano ainda não reflete dados que MUDAM
   // A CONDUTA. Não bloqueia gerar o documento — pode haver razão legítima
@@ -483,7 +518,7 @@ function ResultView({ encounterId, result }: { encounterId: string; result: Stor
               )}
               {reanalyzing ? messages.copilot.reanalyze.loading : messages.copilot.reanalyze.cta}
             </Button>
-            {preliminaryCount > 0 && (
+            {answerableCount > 0 && (
               <span className="text-[0.8125rem] text-muted-foreground">
                 {messages.copilot.progress.expectationHint}
               </span>
@@ -778,6 +813,7 @@ export function RecommendationItem({
   const [showNote, setShowNote] = useState(false);
   const isAdopted = decision?.decision === 'adopted';
   const isRejected = decision?.decision === 'rejected';
+  const preliminaryReason = preliminaryReasonOf(rec);
 
   return (
     <div className="flex gap-3 py-3">
@@ -786,8 +822,11 @@ export function RecommendationItem({
           <CheckCircle className="size-[18px] text-tone-green" weight="fill" />
         ) : isRejected ? (
           <XCircle className="size-[18px] text-muted-foreground" weight="fill" />
-        ) : rec.preliminary ? (
-          <LockSimple className="size-4 text-tone-orange" weight="fill" />
+        ) : preliminaryReason ? (
+          <LockSimple
+            className={cn('size-4', PRELIMINARY_TONE[preliminaryReason].markerClassName)}
+            weight="fill"
+          />
         ) : (
           <span className="size-1.5 rounded-full bg-foreground/45" />
         )}
@@ -817,10 +856,13 @@ export function RecommendationItem({
         </p>
 
         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-          {rec.preliminary && (
-            <Badge variant="warning">
+          {preliminaryReason && (
+            <Badge
+              variant={PRELIMINARY_TONE[preliminaryReason].variant}
+              className="h-auto min-h-5 max-w-full py-0.5 whitespace-normal text-left leading-snug"
+            >
               <LockSimple weight="fill" aria-hidden="true" />
-              Preliminar
+              {preliminaryLabel(preliminaryReason, messages)}
             </Badge>
           )}
           {isAdopted && (
@@ -841,7 +883,7 @@ export function RecommendationItem({
           </span>
         </div>
 
-        {/* F4 / ADR-010 — fonte que a equipe clínica ainda não revisou: diz de
+        {/* F4 / ADR-010 / ADR-012 — fonte que nenhum médico assinou: diz de
             onde veio e, no caso da base oficial, leva ao PDF do Ministério. */}
         {isUnreviewedOrigin(rec.origin) && (
           <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">

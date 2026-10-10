@@ -120,6 +120,19 @@ export const es: Messages = {
     },
     categoryBracket: (label: string) => `[${label}]`,
     preliminary: 'Preliminar — responda las preguntas anteriores',
+    preliminaryBadge: 'Preliminar',
+    preliminaryReason: {
+      unreviewed_source: 'Fuente no revisada por un médico',
+      subtype_ambiguity: 'Subtipo indefinido — depende del dato que lo discrimina',
+    },
+  },
+
+  sourceOrigin: {
+    institutional: 'Protocolo institucional',
+    public: 'Guía pública',
+    physician_attachment: 'Adjunto del médico · no curado',
+    official_unreviewed: 'Ministerio de Salud · no revisado por el equipo',
+    curated_unsigned: 'Base curada · sin firma médica',
   },
 
   redFlags: {

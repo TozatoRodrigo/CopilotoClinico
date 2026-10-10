@@ -18,6 +18,8 @@
  * string values. Every locale dictionary implements this same interface.
  */
 
+import type { CitationOrigin, PreliminaryReason } from '@contracts/clinical';
+
 export interface Messages {
   common: {
     actions: {
@@ -107,7 +109,21 @@ export interface Messages {
     };
     categoryBracket: (label: string) => string;
     preliminary: string;
+    /** Tag de conduta preliminar no card da recomendação. */
+    preliminaryBadge: string;
+    /**
+     * F0-C — por que a conduta é preliminar, por valor de `preliminaryReason`.
+     * `pending_questions` (e análise antiga sem o campo) mostra só
+     * `preliminaryBadge`, o texto de sempre.
+     */
+    preliminaryReason: Record<Exclude<PreliminaryReason, 'pending_questions'>, string>;
   };
+
+  /**
+   * Rótulo de origem da fonte citada, por valor de `Citation.origin` (F4,
+   * ADR-010, ADR-012). A interface sempre diz se a fonte passou por médico.
+   */
+  sourceOrigin: Record<CitationOrigin, string>;
 
   redFlags: {
     heading: string;
@@ -334,6 +350,19 @@ export const ptBR: Messages = {
     // bracketed form used in turn history
     categoryBracket: (label: string) => `[${label}]`,
     preliminary: 'Preliminar — responda as perguntas acima',
+    preliminaryBadge: 'Preliminar',
+    preliminaryReason: {
+      unreviewed_source: 'Fonte não revisada por médico',
+      subtype_ambiguity: 'Subtipo indefinido — depende do dado que discrimina',
+    },
+  },
+
+  sourceOrigin: {
+    institutional: 'Protocolo institucional',
+    public: 'Diretriz pública',
+    physician_attachment: 'Anexo do médico · não curada',
+    official_unreviewed: 'Ministério da Saúde · não revisado pela equipe',
+    curated_unsigned: 'Base curada · sem assinatura médica',
   },
 
   redFlags: {
