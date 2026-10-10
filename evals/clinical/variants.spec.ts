@@ -1,0 +1,121 @@
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { Test } from '@nestjs/testing';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { afterEach, describe, expect, it } from 'vitest';
+import {
+  defaultVariantsFile,
+  loadVariants,
+  pickVariants,
+  redactVariantEnv,
+  resolveVariantEnv,
+  VariantError,
+  type Variant,
+} from './variants';
+
+const claude: Variant = {
+  name: 'claude-opus-5-5',
+  description: 'Opus 5.5',
+  env: {
+    AI_PROVIDER: 'anthropic',
+    AI_MODEL: 'claude-opus-5-5',
+    AI_API_KEY: '${ANTHROPIC_API_KEY}',
+  },
+};
+
+describe('variantes versionadas', () => {
+  it('trazem baseline, os dois Claude e a variante offline', () => {
+    const names = loadVariants(defaultVariantsFile()).map((variant) => variant.name);
+    expect(names).toEqual(
+      expect.arrayContaining(['baseline', 'claude-sonnet-5-5', 'claude-opus-5-5', 'test']),
+    );
+  });
+
+  it('não guardam nenhuma chave literal', () => {
+    for (const variant of loadVariants(defaultVariantsFile())) {
+      for (const [key, value] of Object.entries(variant.env)) {
+        if (/KEY|TOKEN|SECRET/.test(key) && variant.name !== 'test')
+          expect(value).toMatch(/^\$\{[A-Z_]+\}$/);
+      }
+    }
+  });
+});
+
+describe('resolveVariantEnv', () => {
+  it('resolve ${VAR} contra o ambiente', () => {
+    expect(resolveVariantEnv(claude, { ANTHROPIC_API_KEY: 'sk-ant-x' }).AI_API_KEY).toBe(
+      'sk-ant-x',
+    );
+  });
+
+  it('falha nomeando a variável ausente', () => {
+    expect(() => resolveVariantEnv(claude, {})).toThrow(/ANTHROPIC_API_KEY/);
+  });
+});
+
+describe('redactVariantEnv', () => {
+  it('guarda o modelo do valor e omite segredo literal', () => {
+    const redacted = redactVariantEnv({
+      ...claude,
+      env: { ...claude.env, JUDGE_TOKEN: 'literal' },
+    });
+    expect(redacted.AI_API_KEY).toBe('${ANTHROPIC_API_KEY}');
+    expect(redacted.JUDGE_TOKEN).toBe('[omitido]');
+    expect(redacted.AI_MODEL).toBe('claude-opus-5-5');
+  });
+});
+
+describe('loadVariants', () => {
+  let dir: string | undefined;
+  afterEach(() => {
+    if (dir) rmSync(dir, { recursive: true, force: true });
+  });
+
+  function fileWith(content: unknown): string {
+    dir = mkdtempSync(join(tmpdir(), 'variantes-'));
+    const path = join(dir, 'variants.json');
+    writeFileSync(path, JSON.stringify(content));
+    return path;
+  }
+
+  it('recusa variante que troca o banco (contornaria a checagem de banco local)', () => {
+    const path = fileWith({
+      variants: [
+        {
+          name: 'perigosa',
+          description: 'troca o banco',
+          env: { DATABASE_URL: 'postgres://prod' },
+        },
+      ],
+    });
+    expect(() => loadVariants(path)).toThrow(VariantError);
+  });
+
+  it('exige --variant e nome existente', () => {
+    expect(() => pickVariants([claude], [])).toThrow(/--variant/);
+    expect(() => pickVariants([claude], ['nao-existe'])).toThrow(/não existe/);
+  });
+});
+
+/**
+ * O EvalModule depende disto para aplicar a variante: no @nestjs/config 4, o
+ * que vem de `load` vence o process.env. Se uma atualização inverter a
+ * precedência, a variante rodaria silenciosamente com o modelo do .env.
+ */
+describe('precedência de configuração usada pelo EvalModule', () => {
+  it('valor de `load` vence o process.env', async () => {
+    process.env.AI_MODEL_PRECEDENCE_CHECK = 'do-ambiente';
+    const moduleRef = await Test.createTestingModule({
+      imports: [
+        ConfigModule.forRoot({
+          ignoreEnvFile: true,
+          load: [() => ({ AI_MODEL_PRECEDENCE_CHECK: 'da-variante' })],
+        }),
+      ],
+    }).compile();
+
+    expect(moduleRef.get(ConfigService).get('AI_MODEL_PRECEDENCE_CHECK')).toBe('da-variante');
+    delete process.env.AI_MODEL_PRECEDENCE_CHECK;
+  });
+});

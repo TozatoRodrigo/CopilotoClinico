@@ -1,0 +1,43 @@
+{
+  "variants": [
+    {
+      "name": "baseline",
+      "description": "Configuração atual: provedor, modelo e embeddings vindos do ambiente (.env), sem override.",
+      "env": {}
+    },
+    {
+      "name": "claude-sonnet-5-5",
+      "description": "Claude Sonnet 5.5 na completion; embeddings continuam na OpenAI para o retrieval ser o mesmo do baseline.",
+      "env": {
+        "AI_PROVIDER": "anthropic",
+        "AI_MODEL": "claude-sonnet-5-5",
+        "AI_BASE_URL": "https://api.anthropic.com",
+        "AI_API_KEY": "${ANTHROPIC_API_KEY}",
+        "EMBEDDING_PROVIDER": "openai",
+        "EMBEDDING_API_KEY": "${OPENAI_API_KEY}"
+      }
+    },
+    {
+      "name": "claude-opus-5-5",
+      "description": "Claude Opus 5.5 na completion; embeddings continuam na OpenAI para o retrieval ser o mesmo do baseline.",
+      "env": {
+        "AI_PROVIDER": "anthropic",
+        "AI_MODEL": "claude-opus-5-5",
+        "AI_BASE_URL": "https://api.anthropic.com",
+        "AI_API_KEY": "${ANTHROPIC_API_KEY}",
+        "EMBEDDING_PROVIDER": "openai",
+        "EMBEDDING_API_KEY": "${OPENAI_API_KEY}"
+      }
+    },
+    {
+      "name": "test",
+      "description": "Provedor determinístico offline (AI_PROVIDER=test): nenhuma chamada paga. Valida a fiação do harness, não a qualidade clínica.",
+      "env": {
+        "AI_PROVIDER": "test",
+        "AI_MODEL": "deterministic-test",
+        "AI_API_KEY": "offline",
+        "AI_EMBEDDING_MODEL": "deterministic-test-embedding"
+      }
+    }
+  ]
+}
