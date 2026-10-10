@@ -6,8 +6,8 @@ import {
   ForbiddenException,
   ConflictException,
 } from '@nestjs/common';
-import { createHash } from 'crypto';
 import { Prisma } from '@prisma/client';
+import * as Sentry from '@sentry/node';
 import { PrismaService } from '../../config/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { StorageService } from '../storage/storage.service';
@@ -20,6 +20,8 @@ import { generateAlta } from './generators/alta.generator';
 import { generateAtestado } from './generators/atestado.generator';
 import { buildDocumentPdf, type PdfDocumentInput } from './pdf/document-pdf.builder';
 import type { CopilotOutput } from '../copilot/guardrails/output-validator';
+import type { DocumentIntegrity } from '../../shared/contracts/clinical';
+import { sealContent, verifyContentSeal } from './content-hash';
 
 const DOCUMENT_SELECT = {
   id: true,
@@ -30,21 +32,10 @@ const DOCUMENT_SELECT = {
   confirmedBy: true,
   confirmedAt: true,
   contentHash: true,
+  contentHashVersion: true,
   createdAt: true,
   updatedAt: true,
 } as const;
-
-/**
- * Computa hash SHA-256 de um objeto JSON com chaves ordenadas (canonical form).
- *
- * O uso de chaves ordenadas garante que dois objetos semanticamente iguais
- * mas com chaves em ordem diferente produzam o mesmo hash — essencial para
- * a trilha de auditoria médico-legal ser reproduzível.
- */
-function canonicalHash(obj: unknown): string {
-  const sorted = JSON.stringify(obj, Object.keys(obj as object).sort());
-  return createHash('sha256').update(sorted).digest('hex');
-}
 
 /**
  * Código curto e legível do documento (ex.: "SOAP-847B234F"), usado no PDF e
@@ -197,10 +188,10 @@ export class DocumentsService {
         } as unknown as Prisma.InputJsonObject;
     }
 
-    const contentHash = canonicalHash(content);
+    const seal = sealContent(content);
 
     const document = await this.prisma.document.create({
-      data: { encounterId, physicianId, type: input.type, content, contentHash },
+      data: { encounterId, physicianId, type: input.type, content, ...seal },
       select: DOCUMENT_SELECT,
     });
 
@@ -213,7 +204,7 @@ export class DocumentsService {
         payload: {
           encounterId,
           type: input.type,
-          contentHash,
+          ...seal,
           // IAM-001: registrar estado de verificação no momento da geração.
           // Permite auditoria regulatória: "documento gerado com CRM não verificado".
           crmVerifiedAtGeneration: physician?.crmVerified ?? false,
@@ -258,11 +249,11 @@ export class DocumentsService {
    * O autor original sempre pode confirmar. Outro médico só pode confirmar
    * (cobertura de plantão) se pertencer à MESMA instituição do encontro —
    * ver assertCanConfirm(). A confirmação:
-   * 1. Recomputa o contentHash sobre o conteúdo efetivo no momento da confirmação
-   *    (physicianEdits ?? content) com JSON canônico (chaves ordenadas).
-   * 2. Registra confirmedBy, confirmedAt e o novo contentHash.
+   * 1. Sela o conteúdo efetivo no momento da confirmação (physicianEdits ??
+   *    content) com a versão atual do contentHash (ADR-012).
+   * 2. Registra confirmedBy, confirmedAt, contentHash e contentHashVersion.
    * 3. Finaliza o encounter.
-   * 4. Gera evento DOCUMENT_CONFIRMED na trilha de auditoria com afterHash e
+   * 4. Gera evento DOCUMENT_CONFIRMED na trilha de auditoria com o selo e a
    *    flag de incerteza da análise original.
    *
    * Retorna 409 ConflictException se o documento já foi confirmado.
@@ -290,15 +281,13 @@ export class DocumentsService {
       throw new ConflictException('Document already confirmed');
     }
 
-    // Hash canônico do conteúdo efetivo no momento da confirmação.
-    // Se o médico editou, o hash reflete as edições — não o original da IA.
-    const effectiveContent = doc.physicianEdits ?? doc.content;
-    const contentHash = canonicalHash(effectiveContent);
+    // Se o médico editou, o selo cobre as edições — não o original da IA.
+    const seal = sealContent(doc.physicianEdits ?? doc.content);
 
     const now = new Date();
     const confirmed = await this.prisma.document.update({
       where: { id: documentId },
-      data: { confirmedBy: physicianId, confirmedAt: now, contentHash },
+      data: { confirmedBy: physicianId, confirmedAt: now, ...seal },
       select: DOCUMENT_SELECT,
     });
 
@@ -314,7 +303,8 @@ export class DocumentsService {
     });
 
     // DOCUMENT_CONFIRMED = assunção de responsabilidade médico-legal.
-    // afterHash = hash do conteúdo exato que foi confirmado (reproduzível).
+    // O selo vai no payload, que entra no hash encadeado (ADR-002): alterar
+    // conteúdo e content_hash juntos no banco não apaga o selo original.
     // uncertain=true no payload = médico confirmou com ciência da incerteza.
     await this.auditService
       .log({
@@ -322,8 +312,8 @@ export class DocumentsService {
         action: 'DOCUMENT_CONFIRMED',
         entity: 'Document',
         entityId: documentId,
-        afterHash: contentHash,
         payload: {
+          ...seal,
           encounterId: doc.encounterId,
           confirmedAt: now.toISOString(),
           authorPhysicianId: doc.physicianId,
@@ -396,6 +386,46 @@ export class DocumentsService {
       data: { pdfObjectKey: key },
     });
     this.logger.log(`PDF stored: ${key}`);
+  }
+
+  /**
+   * ADR-012 — recalcula o selo do documento confirmado com o algoritmo da
+   * versão gravada (v1 legado ou v2 canônico). `mismatch` = conteúdo ou selo
+   * alterados depois da confirmação: vai para o Sentry, sem conteúdo clínico.
+   */
+  async verifyIntegrity(physicianId: string, documentId: string): Promise<DocumentIntegrity> {
+    const doc = await this.prisma.document.findUnique({
+      where: { id: documentId },
+      select: {
+        physicianId: true,
+        confirmedBy: true,
+        content: true,
+        physicianEdits: true,
+        contentHash: true,
+        contentHashVersion: true,
+      },
+    });
+    if (!doc) throw new NotFoundException('Document not found');
+    if (doc.physicianId !== physicianId) throw new ForbiddenException('Access denied');
+
+    const { contentHashVersion } = doc;
+    if (!doc.confirmedBy) return { documentId, status: 'unconfirmed', contentHashVersion };
+
+    if (verifyContentSeal(doc.physicianEdits ?? doc.content, doc)) {
+      return { documentId, status: 'intact', contentHashVersion };
+    }
+
+    this.logger.error(
+      `Document ${documentId} does not match its seal (contentHashVersion=${contentHashVersion ?? 'null'})`,
+    );
+    if (process.env.SENTRY_DSN) {
+      Sentry.captureMessage('Confirmed document does not match its content seal', {
+        level: 'error',
+        tags: { component: 'documents', check: 'content_seal' },
+        extra: { documentId, contentHashVersion },
+      });
+    }
+    return { documentId, status: 'mismatch', contentHashVersion };
   }
 
   async getDownloadUrl(physicianId: string, documentId: string): Promise<string | null> {

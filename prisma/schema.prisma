@@ -259,18 +259,21 @@ model AiInteraction {
 }
 
 model Document {
-  id             String       @id @default(uuid()) @db.Uuid
-  encounterId    String       @map("encounter_id") @db.Uuid
-  physicianId    String       @map("physician_id") @db.Uuid
-  type           DocumentType
-  content        Json
-  physicianEdits Json?        @map("physician_edits")
-  confirmedBy    String?      @map("confirmed_by") @db.Uuid
-  confirmedAt    DateTime?    @map("confirmed_at")
-  pdfObjectKey   String?      @map("pdf_object_key")
-  contentHash    String?      @map("content_hash") @db.Char(64)
-  createdAt      DateTime     @default(now()) @map("created_at")
-  updatedAt      DateTime     @updatedAt @map("updated_at")
+  id                 String       @id @default(uuid()) @db.Uuid
+  encounterId        String       @map("encounter_id") @db.Uuid
+  physicianId        String       @map("physician_id") @db.Uuid
+  type               DocumentType
+  content            Json
+  physicianEdits     Json?        @map("physician_edits")
+  confirmedBy        String?      @map("confirmed_by") @db.Uuid
+  confirmedAt        DateTime?    @map("confirmed_at")
+  pdfObjectKey       String?      @map("pdf_object_key")
+  contentHash        String?      @map("content_hash") @db.Char(64)
+  /// ADR-012 — algoritmo do content_hash (1 = legado, 2 = JSON canônico).
+  /// CHECK no banco: preenchido se e somente se content_hash estiver.
+  contentHashVersion Int?         @map("content_hash_version") @db.SmallInt
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
 
   encounter Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
   physician Physician @relation(fields: [physicianId], references: [id], onDelete: Cascade)
