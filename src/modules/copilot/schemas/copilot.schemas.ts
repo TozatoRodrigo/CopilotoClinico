@@ -1,4 +1,8 @@
 import { z } from 'zod';
+import {
+  copilotFeedbackStatusValues,
+  recommendationDecisionValues,
+} from '../../../shared/contracts/clinical';
 
 export const analyzeSchema = z.object({
   caseText: z.string().min(10, 'Case text must be at least 10 characters'),
@@ -90,3 +94,40 @@ export const copilotFeedbackSchema = z.object({
 });
 
 export type CopilotFeedbackInput = z.infer<typeof copilotFeedbackSchema>;
+
+/** F0-D — fila de triagem: filtros opcionais por status e tipo (sem filtro = todos). */
+export const listCopilotFeedbackQuerySchema = z.object({
+  status: z.enum(copilotFeedbackStatusValues).optional(),
+  kind: z.enum(feedbackKindValues).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+export type ListCopilotFeedbackQuery = z.infer<typeof listCopilotFeedbackQuerySchema>;
+
+export const updateCopilotFeedbackTriageSchema = z.object({
+  status: z.enum(copilotFeedbackStatusValues),
+  triageNote: z.string().max(2000).nullable().optional(),
+});
+
+export type UpdateCopilotFeedbackTriageInput = z.infer<typeof updateCopilotFeedbackTriageSchema>;
+
+/** F0-D — mesmo teto do comentário de feedback: nota clínica, não prontuário. */
+export const RECOMMENDATION_NOTE_MAX_CHARS = 2000;
+
+export const upsertRecommendationDecisionSchema = z.object({
+  interactionId: z.string().uuid('interactionId must be a valid UUID'),
+  recommendationIndex: z.number().int().min(0),
+  decision: z.enum(recommendationDecisionValues),
+  note: z.string().max(RECOMMENDATION_NOTE_MAX_CHARS).nullable().optional(),
+});
+
+export type UpsertRecommendationDecisionInput = z.infer<typeof upsertRecommendationDecisionSchema>;
+
+export const listRecommendationDecisionsQuerySchema = z.object({
+  interactionId: z.string().uuid('interactionId must be a valid UUID'),
+});
+
+export type ListRecommendationDecisionsQuery = z.infer<
+  typeof listRecommendationDecisionsQuerySchema
+>;

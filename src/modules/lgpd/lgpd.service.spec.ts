@@ -37,6 +37,14 @@ describe('LgpdService', () => {
       findMany: ReturnType<typeof vi.fn>;
       deleteMany: ReturnType<typeof vi.fn>;
     };
+    recommendationDecision: {
+      findMany: ReturnType<typeof vi.fn>;
+      deleteMany: ReturnType<typeof vi.fn>;
+    };
+    copilotFeedback: {
+      findMany: ReturnType<typeof vi.fn>;
+      deleteMany: ReturnType<typeof vi.fn>;
+    };
     $transaction: ReturnType<typeof vi.fn>;
   };
   let auditService: {
@@ -74,6 +82,14 @@ describe('LgpdService', () => {
       refreshToken: {
         findMany: vi.fn(),
         deleteMany: vi.fn(),
+      },
+      recommendationDecision: {
+        findMany: vi.fn().mockResolvedValue([]),
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
+      copilotFeedback: {
+        findMany: vi.fn().mockResolvedValue([]),
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
       $transaction: vi.fn(),
     };
@@ -299,8 +315,34 @@ describe('LgpdService', () => {
       const consents = [{ id: consentId, physicianId, scope: 'ai_processing' }];
       const auditLog = [{ id: 'log-1', actorId: physicianId, action: 'LOGIN' }];
       const refreshTokens = [{ id: 'rt-1', physicianId, tokenHash: 'hash' }];
+      const recommendationDecisions = [
+        {
+          id: 'dec-1',
+          physicianId,
+          encounterId: 'enc-1',
+          interactionId: 'ai-1',
+          recommendationIndex: 0,
+          recommendationKey: '0-abcdef123456',
+          decision: 'modified',
+          note: 'Ajustar dose',
+        },
+      ];
+
+      const copilotFeedback = [
+        {
+          id: 'fb-1',
+          physicianId,
+          encounterId: 'enc-1',
+          interactionId: 'ai-1',
+          kind: 'wrong_scenario',
+          comment: 'Era dengue',
+          status: 'new',
+        },
+      ];
 
       prisma.physician.findUnique.mockResolvedValue(physician);
+      prisma.recommendationDecision.findMany.mockResolvedValue(recommendationDecisions);
+      prisma.copilotFeedback.findMany.mockResolvedValue(copilotFeedback);
       prisma.encounter.findMany.mockResolvedValue(encounters);
       prisma.document.findMany.mockResolvedValue(documents);
       prisma.consent.findMany.mockResolvedValue(consents);
@@ -322,9 +364,16 @@ describe('LgpdService', () => {
           encounters,
           documents,
           aiInteractions,
+          recommendationDecisions,
+          copilotFeedback,
           consents,
           auditLog,
         },
+      });
+      expect(prisma.copilotFeedback.findMany).toHaveBeenCalledWith({ where: { physicianId } });
+      // F0-D — decisões por recomendação são dado do médico: entram na portabilidade.
+      expect(prisma.recommendationDecision.findMany).toHaveBeenCalledWith({
+        where: { physicianId },
       });
       expect(JSON.stringify(result)).not.toContain('tokenHash');
       expect(JSON.stringify(result)).not.toContain('hash');
@@ -408,6 +457,8 @@ describe('LgpdService', () => {
         cb(prisma),
       );
 
+      prisma.recommendationDecision.deleteMany.mockResolvedValue({ count: 4 });
+      prisma.copilotFeedback.deleteMany.mockResolvedValue({ count: 3 });
       prisma.encounter.deleteMany.mockResolvedValue({ count: 2 });
       prisma.consent.deleteMany.mockResolvedValue({ count: 1 });
       prisma.refreshToken.deleteMany.mockResolvedValue({ count: 1 });
@@ -435,10 +486,16 @@ describe('LgpdService', () => {
       expect(result.status).toBe('completed');
       expect(result.estimatedCompletion).toBeInstanceOf(Date);
       expect(result.erased).toEqual({
+        recommendationDecisions: 4,
+        copilotFeedback: 3,
         encounters: 2,
         consents: 1,
         refreshTokens: 1,
       });
+      expect(prisma.recommendationDecision.deleteMany).toHaveBeenCalledWith({
+        where: { physicianId },
+      });
+      expect(prisma.copilotFeedback.deleteMany).toHaveBeenCalledWith({ where: { physicianId } });
       expect(prisma.encounter.deleteMany).toHaveBeenCalledWith({
         where: { physicianId },
       });
@@ -464,6 +521,8 @@ describe('LgpdService', () => {
         payload: {
           reason: 'LGPD Art. 18, VI - Data erasure request',
           erased: {
+            recommendationDecisions: 4,
+            copilotFeedback: 3,
             encounters: 2,
             consents: 1,
             refreshTokens: 1,

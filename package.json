@@ -27,7 +27,8 @@
     "seed:e2e": "tsx scripts/seed-e2e-users.ts",
     "e2e:ui": "playwright test",
     "ingest:guidelines": "tsx scripts/ingest-batch.ts",
-    "sync:official-guidelines": "tsx scripts/sync-official-guidelines.ts"
+    "sync:official-guidelines": "tsx scripts/sync-official-guidelines.ts",
+    "backfill:copilot-feedback": "tsx scripts/backfill-copilot-feedback.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",

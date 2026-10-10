@@ -87,6 +87,17 @@ export function maskPII(text: string): PIIFilterResult {
   };
 }
 
+/**
+ * F0-D — texto livre opcional digitado pelo médico ou pela curadoria (nota de
+ * uma recomendação, comentário de feedback, nota de triagem): vazio vira
+ * `null`; o resto volta mascarado, pronto para gravar.
+ */
+export function maskFreeText(text: string | null | undefined): string | null {
+  const trimmed = text?.trim();
+  if (!trimmed) return null;
+  return maskPII(trimmed).redacted;
+}
+
 function rangesOverlap(startA: number, endA: number, startB: number, endB: number): boolean {
   return startA < endB && startB < endA;
 }

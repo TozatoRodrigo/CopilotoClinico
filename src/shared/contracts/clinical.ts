@@ -16,6 +16,13 @@ export const documentTypeValues = ['soap', 'sbar', 'prescricao', 'alta', 'atesta
 
 export type DocumentType = (typeof documentTypeValues)[number];
 
+/**
+ * F0-D — campo do conteúdo de SOAP, SBAR e Alta que guarda o registro de uso
+ * de IA (Res. CFM 2.454/2026). Não editável pelo médico; o texto vive em
+ * src/modules/documents/ai-use-record.ts.
+ */
+export const AI_USE_RECORD_FIELD = 'aiUseRecord';
+
 export interface EncounterContext {
   hasCT: boolean;
   isSus: boolean;
@@ -384,6 +391,103 @@ export interface CopilotFeedbackRequest {
 
 export interface CopilotFeedbackResponse {
   recorded: true;
+}
+
+/**
+ * F0-D — fila de triagem do feedback (console admin, curadoria).
+ * `converted_to_eval_case` = virou caso do gabarito de avaliação.
+ */
+export const copilotFeedbackStatusValues = [
+  'new',
+  'triaged',
+  'converted_to_eval_case',
+  'dismissed',
+] as const;
+
+export type CopilotFeedbackStatus = (typeof copilotFeedbackStatusValues)[number];
+
+/** Visão compacta da saída da análise — o que a curadoria precisa para triar. */
+export interface CopilotFeedbackOutputSummary {
+  mainHypothesis: string | null;
+  recommendations: Array<{ action: string; preliminary: boolean; citationChunkId: string | null }>;
+  questions: Array<{ question: string; criticality: string }>;
+  uncertainty: boolean;
+}
+
+export interface CopilotFeedbackTriageItem {
+  id: string;
+  kind: CopilotFeedbackKind;
+  /** Comentário do médico, já mascarado de PII. */
+  comment: string | null;
+  status: CopilotFeedbackStatus;
+  triageNote: string | null;
+  triagedBy: string | null;
+  triagedAt: string | null;
+  createdAt: string;
+  encounterId: string;
+  physicianId: string;
+  interaction: {
+    id: string;
+    model: string;
+    turnIndex: number;
+    /** Texto do caso como foi analisado (PII mascarada). */
+    inputRedacted: string | null;
+    retrievalCoverage: RetrievalCoverage | null;
+    retrievedChunkIds: string[];
+    citedChunkIds: string[];
+    output: CopilotFeedbackOutputSummary;
+    createdAt: string;
+  };
+}
+
+export interface CopilotFeedbackTriagePage {
+  items: CopilotFeedbackTriageItem[];
+  /** Total do filtro atual (para paginação). */
+  total: number;
+  /** Total por status, independente do filtro (contadores das abas). */
+  countsByStatus: Record<CopilotFeedbackStatus, number>;
+}
+
+export interface UpdateCopilotFeedbackTriageRequest {
+  status: CopilotFeedbackStatus;
+  /** Texto livre da curadoria; o servidor mascara PII. `null` apaga. */
+  triageNote?: string | null;
+}
+
+/**
+ * F0-D — o que o médico fez com uma recomendação, persistido no servidor
+ * (antes vivia só no sessionStorage). `modified` = adotou com ajuste (Adotar
+ * + nota); a regra completa de mapeamento dos botões está em
+ * web/src/hooks/use-recommendation-decisions.ts.
+ */
+export const recommendationDecisionValues = ['adopted', 'rejected', 'modified'] as const;
+
+export type RecommendationDecisionValue = (typeof recommendationDecisionValues)[number];
+
+/**
+ * O cliente manda o ÍNDICE da recomendação, não a chave: o servidor calcula
+ * `recommendationKey` a partir do rawOutput gravado, para que uma chave
+ * forjada nunca aponte para uma recomendação que não existe.
+ */
+export interface UpsertRecommendationDecisionRequest {
+  interactionId: string;
+  recommendationIndex: number;
+  decision: RecommendationDecisionValue;
+  /** Texto livre; o servidor mascara PII antes de gravar. `null` apaga a nota. */
+  note?: string | null;
+}
+
+export interface RecommendationDecisionRecord {
+  id: string;
+  interactionId: string;
+  recommendationIndex: number;
+  /** `<índice>-<12 hex do sha256 da ação>`. */
+  recommendationKey: string;
+  decision: RecommendationDecisionValue;
+  /** Nota já mascarada de PII. */
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**

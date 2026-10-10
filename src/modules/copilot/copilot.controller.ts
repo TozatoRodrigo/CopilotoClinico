@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { CopilotService } from './copilot.service';
+import { CopilotFeedbackService } from './feedback/copilot-feedback.service';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import {
@@ -31,7 +32,10 @@ import type {
 @Controller('encounters/:encounterId/copilot')
 @UseGuards(JwtAuthGuard)
 export class CopilotController {
-  constructor(@Inject(CopilotService) private readonly copilotService: CopilotService) {}
+  constructor(
+    @Inject(CopilotService) private readonly copilotService: CopilotService,
+    @Inject(CopilotFeedbackService) private readonly feedbackService: CopilotFeedbackService,
+  ) {}
 
   @Post('analyze')
   async analyze(
@@ -102,6 +106,9 @@ export class CopilotController {
    * `interactionId`, os chunks recuperados, a cobertura do retrieval e os
    * chunks citados junto do comentário do médico, para que cada reporte já
    * nasça reproduzível — ver `tests/fixtures/field-incident-cases.ts`.
+   *
+   * F0-D — além da trilha de auditoria, o reporte entra na fila de triagem
+   * da curadoria (console admin → Feedback).
    */
   @Post('feedback')
   async feedback(
@@ -109,7 +116,7 @@ export class CopilotController {
     @Param('encounterId') encounterId: string,
     @Body(new ZodValidationPipe(copilotFeedbackSchema)) body: CopilotFeedbackInput,
   ) {
-    return this.copilotService.submitFeedback(req.user.physicianId, encounterId, body);
+    return this.feedbackService.submit(req.user.physicianId, encounterId, body);
   }
 
   @Post('analyze/async')

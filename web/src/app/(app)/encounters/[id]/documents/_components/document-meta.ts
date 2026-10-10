@@ -1,7 +1,21 @@
 import type { Document } from '@/lib/types';
+import type { AI_USE_RECORD_FIELD } from '@contracts/clinical';
 import { DOCUMENT_TYPE_LABELS } from '@/lib/document-types';
 
 export type DocType = Document['type'];
+
+/**
+ * F0-D — campo do registro de uso de IA (Res. CFM 2.454/2026) no conteúdo de
+ * SOAP, SBAR e Alta. Conferido contra o contrato em tempo de compilação; o
+ * import é só de tipo porque o build do web não empacota código de ../src.
+ */
+export const AI_USE_RECORD_KEY: typeof AI_USE_RECORD_FIELD = 'aiUseRecord';
+
+/** O registro de uso de IA gravado no conteúdo, se houver. */
+export function aiUseRecordOf(content: Record<string, unknown>): string | null {
+  const record = content[AI_USE_RECORD_KEY];
+  return typeof record === 'string' && record.trim() ? record : null;
+}
 
 /** Tons de categoria (sem peso clínico) — docs/design-system.md → "Cores". */
 type CategoryTone = 'purple' | 'brown' | 'pink' | 'yellow' | 'gray';
@@ -58,10 +72,14 @@ export function formatRelative(iso: string, now: number = Date.now()): string {
   return `${day}, ${time}`;
 }
 
-/** Prévia em texto corrido do conteúdo (lista de documentos). */
+/**
+ * Prévia em texto corrido do conteúdo (lista de documentos). O registro de
+ * uso de IA fica de fora: é igual em todo documento e não diz nada do caso.
+ */
 export function contentPreview(content: Record<string, unknown>, max = 200): string {
-  const text = Object.values(content)
-    .map((v) => (typeof v === 'string' ? v : JSON.stringify(v)))
+  const text = Object.entries(content)
+    .filter(([key]) => key !== AI_USE_RECORD_KEY)
+    .map(([, v]) => (typeof v === 'string' ? v : JSON.stringify(v)))
     .join(' ');
   return text.length > max ? `${text.slice(0, max)}…` : text;
 }

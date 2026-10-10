@@ -10,7 +10,10 @@ import {
   STORAGE_KEY_PREFIX,
   type StoredCopilotResult,
 } from '@/hooks/use-copilot-conversation';
-import { useRecommendationDecisions } from '@/hooks/use-recommendation-decisions';
+import {
+  useRecommendationDecisions,
+  type DecisionsSyncStatus,
+} from '@/hooks/use-recommendation-decisions';
 import { apiClient } from '@/lib/api-client';
 import { DOCUMENT_TYPES } from '@/lib/document-types';
 import { ProgressSteps } from '@/components/ui/progress-steps';
@@ -43,6 +46,7 @@ import {
   Check,
   CheckCircle,
   CircleNotch,
+  CloudSlash,
   Eye,
   FileText,
   Info,
@@ -241,8 +245,9 @@ function ResultView({ encounterId, result }: { encounterId: string; result: Stor
     maxTurns,
     isLastAllowedTurn,
   } = useCopilotConversation(encounterId, result);
-  const { decisions, setDecision, setNote } = useRecommendationDecisions(
+  const { decisions, setDecision, setNote, syncStatus, retryPending } = useRecommendationDecisions(
     encounterId,
+    interactionId,
     analysis.recommendations.length,
   );
   const generateDocument = useGenerateDocument(encounterId);
@@ -502,6 +507,8 @@ function ResultView({ encounterId, result }: { encounterId: string; result: Stor
           description="Decida cada conduta — adotar, rejeitar ou anotar. O número sobrescrito leva à fonte."
         />
 
+        <DecisionsSyncNote status={syncStatus} onRetry={retryPending} />
+
         <CoverageBanner coverage={retrievalCoverage} onSearchGuidelines={openConsult} />
 
         {analysis.uncertainty && (
@@ -718,6 +725,39 @@ function ResultView({ encounterId, result }: { encounterId: string; result: Stor
   );
 }
 
+/**
+ * F0-D — as decisões vão para o servidor; quando a rede falha ficam neste
+ * dispositivo e são reenviadas. O médico precisa saber que ainda não subiram.
+ */
+function DecisionsSyncNote({
+  status,
+  onRetry,
+}: {
+  status: DecisionsSyncStatus;
+  onRetry: () => void;
+}) {
+  return (
+    <div role="status" aria-live="polite" className="empty:hidden">
+      {status === 'saving' && (
+        <p className="flex items-center gap-1.5 text-[0.8125rem] text-muted-foreground">
+          <CircleNotch className="size-3.5 animate-spin" aria-hidden="true" />
+          Salvando decisões…
+        </p>
+      )}
+      {status === 'offline' && (
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.8125rem] text-muted-foreground">
+          <CloudSlash className="size-4 shrink-0 text-tone-orange" aria-hidden="true" />
+          Sem conexão — as decisões ficaram neste dispositivo e serão enviadas quando a conexão
+          voltar.
+          <Button type="button" size="sm" variant="ghost" className="h-7 px-2" onClick={onRetry}>
+            Tentar agora
+          </Button>
+        </p>
+      )}
+    </div>
+  );
+}
+
 function RedFlagTag({
   finding,
   severity,
@@ -779,7 +819,10 @@ export function RecommendationItem({
 }) {
   const messages = useMessages();
   const [showNote, setShowNote] = useState(false);
-  const isAdopted = decision?.decision === 'adopted';
+  // F0-D — `modified` é adoção com ajuste (Adotar + nota): mesma aparência de
+  // adotada, com o rótulo dizendo que houve ajuste.
+  const isModified = decision?.decision === 'modified';
+  const isAdopted = decision?.decision === 'adopted' || isModified;
   const isRejected = decision?.decision === 'rejected';
   const confidenceHelp = `${messages.recommendation.confidenceTooltipTitle}: ${messages.recommendation.confidenceTooltipBody} ${messages.recommendation.confidenceTooltipDisclaimer}`;
 
@@ -830,7 +873,7 @@ export function RecommendationItem({
           {isAdopted && (
             <Badge variant="success">
               <SealCheck weight="fill" aria-hidden="true" />
-              Adotada
+              {isModified ? 'Adotada com ajuste' : 'Adotada'}
             </Badge>
           )}
           {isRejected && (
