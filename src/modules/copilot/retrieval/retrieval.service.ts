@@ -3,6 +3,7 @@ import { Injectable, Inject, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../config/prisma.service';
+import { readBooleanFlag } from '../../../config/feature-flag';
 import { AiGatewayService } from '../../ai-gateway/ai-gateway.service';
 import { RedisService } from '../../redis/redis.service';
 import {
@@ -112,9 +113,7 @@ export class RetrievalService {
    * redeploy e sem apagar dados.
    */
   private officialEnabled(): boolean {
-    const raw = this.config.get<string | boolean | undefined>('OFFICIAL_GUIDELINES_ENABLED');
-    if (raw === undefined || raw === null || raw === '') return true;
-    return !['false', '0', 'off', 'no'].includes(String(raw).trim().toLowerCase());
+    return readBooleanFlag(this.config, 'OFFICIAL_GUIDELINES_ENABLED', true);
   }
 
   /**
