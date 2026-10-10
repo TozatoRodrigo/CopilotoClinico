@@ -69,6 +69,14 @@ services:
       AI_API_KEY: ${AI_API_KEY:-placeholder}
       AI_MODEL: ${AI_MODEL:-claude-sonnet-4-20250514}
       AI_BASE_URL: ${AI_BASE_URL:-}
+      # Fase 0-B — ajustáveis sem rebuild, para o bake-off de modelos. Defaults
+      # iguais aos do código; ver .env.example e docs/runbook.md.
+      AI_MAX_OUTPUT_TOKENS: ${AI_MAX_OUTPUT_TOKENS:-16000}
+      AI_EFFORT: ${AI_EFFORT:-high}
+      AI_REASONING_EFFORT: ${AI_REASONING_EFFORT:-}
+      AI_STRUCTURED_OUTPUT: ${AI_STRUCTURED_OUTPUT:-true}
+      AI_OPENAI_STRUCTURED_OUTPUT: ${AI_OPENAI_STRUCTURED_OUTPUT:-false}
+      AI_REFUSAL_FALLBACK: ${AI_REFUSAL_FALLBACK:-default}
       EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-openai}
       EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-placeholder}
       EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-}

@@ -5,6 +5,11 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../config/prisma.service';
 import { readBooleanFlag } from '../../../config/feature-flag';
 import { AiGatewayService } from '../../ai-gateway/ai-gateway.service';
+import { AiRefusalError, AiTruncatedError } from '../../ai-gateway/ai-gateway.errors';
+import type {
+  CompletionUsage,
+  StreamCompletionResult,
+} from '../../ai-gateway/providers/provider.interface';
 import { RetrievalService, type RetrievalResult } from '../retrieval/retrieval.service';
 import type { RetrievalCoverage, RetrievedChunk } from '../retrieval/hybrid-search';
 import { EncountersService } from '../../encounters/encounters.service';
@@ -27,7 +32,8 @@ import {
   type ValidationResult,
 } from '../guardrails/output-validator';
 import type { AnalyzeInput, RespondInput } from '../schemas/copilot.schemas';
-import { calculateInferenceCost, type TokenUsage } from './model-pricing';
+import { calculateInferenceCost } from './model-pricing';
+import { COPILOT_OUTPUT_JSON_SCHEMA } from '../schemas/copilot-output.json-schema';
 import { preliminaryReasonFor, type ContainmentContext } from './preliminary-containment';
 import type { CitationOrigin, PreliminaryReason } from '../../../shared/contracts/clinical';
 
@@ -414,11 +420,9 @@ function validationFeedback(errors: string[]): string {
 
 /**
  * F0-C — custo de UMA chamada ao modelo. Sem `usage` o custo é desconhecido e
- * conta 0: é o caso do streaming enquanto `aiGateway.completeStream` não
- * devolver o uso de tokens. Quando devolver, basta repassar o `usage` aqui —
- * o restante do pipeline já soma custo de tentativa + retry.
+ * conta 0 (provider que não informa uso). O pipeline soma tentativa + retry.
  */
-function inferenceCostOf(model: string, usage: TokenUsage | undefined): number {
+function inferenceCostOf(model: string, usage: CompletionUsage | undefined): number {
   return usage ? calculateInferenceCost({ model, usage }) : 0;
 }
 
@@ -429,6 +433,51 @@ interface CompletionAttempt {
   /** Custo acumulado das chamadas até aqui (tentativa + retry). */
   cost: number;
   validation: ValidationResult;
+  /**
+   * F0-B — recusa por política: o fallback do provider já tentou outro
+   * modelo, então repetir o mesmo pedido só gasta tempo do plantão.
+   */
+  retryable: boolean;
+}
+
+function failedValidation(errors: string[]): ValidationResult {
+  return { valid: false, output: null, errors, unfoundedRecommendations: [] };
+}
+
+/**
+ * F0-B — truncamento e recusa chegam do gateway como erros tipados. Viram uma
+ * tentativa inválida para seguir o caminho de sempre (retry com feedback,
+ * falha gravada com `params` para a trilha CFM) em vez de um 500 sem rastro.
+ * Qualquer outro erro continua subindo: é falha de infraestrutura.
+ */
+function providerFailureAttempt(error: unknown, previousCost: number): CompletionAttempt | null {
+  if (error instanceof AiTruncatedError) {
+    return {
+      content: '',
+      model: error.details.model,
+      cost: previousCost + inferenceCostOf(error.details.model, error.details.usage),
+      validation: failedValidation([
+        'OUTPUT TRUNCATED: the response hit the output token limit before the JSON was complete. ' +
+          'Generate the complete JSON again, more concisely: keep "reasoning" short and every list ' +
+          'within its maximum size.',
+      ]),
+      retryable: true,
+    };
+  }
+  if (error instanceof AiRefusalError) {
+    return {
+      content: '',
+      model: error.details.model,
+      cost: previousCost + inferenceCostOf(error.details.model, error.details.usage),
+      validation: failedValidation([
+        `MODEL REFUSAL: the model declined to analyze this case (category: ${
+          error.details.category ?? 'unspecified'
+        }).`,
+      ]),
+      retryable: false,
+    };
+  }
+  return null;
 }
 
 /** Turno 0 (analyze/analyzeStream) ou reanálise com respostas (continueAnalysis). */
@@ -558,12 +607,39 @@ export class OrchestratorService {
       ' (stream)',
     );
 
-    let streamedContent = '';
-    for await (const delta of this.aiGateway.completeStream({
+    // F0-B — iteração manual: o valor de retorno do gerador (texto final,
+    // modelo, usage) é o que dá o custo real da análise, e `for await` o
+    // descartaria.
+    const stream: AsyncIterator<string, StreamCompletionResult> = this.aiGateway.completeStream({
       messages: promptMessages(prepared.prompt),
-    })) {
-      streamedContent += delta;
-      yield { type: 'delta', delta };
+      responseSchema: COPILOT_OUTPUT_JSON_SCHEMA,
+    });
+    let streamed: CompletionAttempt;
+    try {
+      let next = await stream.next();
+      try {
+        while (!next.done) {
+          yield { type: 'delta', delta: next.value };
+          next = await stream.next();
+        }
+      } finally {
+        // Consumidor saiu antes do fim: fecha o stream para o modelo parar de gerar.
+        if (!next.done) await stream.return?.();
+      }
+      // `content` é o texto autoritativo: após um fallback de recusa no meio do
+      // stream, os deltas também trazem o trecho parcial do modelo que recusou.
+      const streamedResult = next.value;
+      streamed = {
+        content: streamedResult.content,
+        model: streamedResult.model,
+        cost: inferenceCostOf(streamedResult.model, streamedResult.usage),
+        validation: this.validate(prepared, streamedResult.content),
+        retryable: true,
+      };
+    } catch (error) {
+      const failed = providerFailureAttempt(error, 0);
+      if (!failed) throw error;
+      streamed = failed;
     }
 
     // F0-C — o streaming ganha a mesma segunda chance do POST: se o JSON
@@ -571,14 +647,6 @@ export class OrchestratorService {
     // validador, e o `done` traz o resultado do retry. Os deltas já enviados
     // nunca foram exibidos como conteúdo clínico (use-copilot-stream.ts só os
     // usa como sinal de progresso), então não há o que desfazer na tela.
-    // Custo do streaming ainda desconhecido (sem `usage`) — ver inferenceCostOf.
-    const streamedModel = this.aiGateway.getProviderName();
-    const streamed: CompletionAttempt = {
-      content: streamedContent,
-      model: streamedModel,
-      cost: inferenceCostOf(streamedModel, undefined),
-      validation: this.validate(prepared, streamedContent),
-    };
     const attempt = await this.retryOnceIfInvalid(prepared, streamed);
     const outcome = await this.settleAnalysis(prepared, attempt);
 
@@ -883,13 +951,23 @@ export class OrchestratorService {
     messages: ChatMessage[],
     previousCost: number,
   ): Promise<CompletionAttempt> {
-    const completion = await this.aiGateway.complete({ messages });
-    return {
-      content: completion.content,
-      model: completion.model,
-      cost: previousCost + inferenceCostOf(completion.model, completion.usage),
-      validation: this.validate(prepared, completion.content),
-    };
+    try {
+      const completion = await this.aiGateway.complete({
+        messages,
+        responseSchema: COPILOT_OUTPUT_JSON_SCHEMA,
+      });
+      return {
+        content: completion.content,
+        model: completion.model,
+        cost: previousCost + inferenceCostOf(completion.model, completion.usage),
+        validation: this.validate(prepared, completion.content),
+        retryable: true,
+      };
+    } catch (error) {
+      const failed = providerFailureAttempt(error, previousCost);
+      if (!failed) throw error;
+      return failed;
+    }
   }
 
   /**
@@ -904,13 +982,16 @@ export class OrchestratorService {
     attempt: CompletionAttempt,
   ): Promise<CompletionAttempt> {
     if (attempt.validation.valid && attempt.validation.output) return attempt;
+    if (!attempt.retryable) return attempt;
 
     this.logger.warn(
       `Output validation failed on first attempt${prepared.logLabel}, retrying once: ${attempt.validation.errors.join(', ')}`,
     );
+    // Resposta vazia (ex.: truncada antes de qualquer texto) não entra como
+    // turno do assistente: a API rejeita mensagem de assistente vazia.
     const retryMessages: ChatMessage[] = [
       ...promptMessages(prepared.prompt),
-      { role: 'assistant', content: attempt.content },
+      ...(attempt.content ? [{ role: 'assistant' as const, content: attempt.content }] : []),
       { role: 'user', content: validationFeedback(attempt.validation.errors) },
     ];
     return this.requestCompletion(prepared, retryMessages, attempt.cost);

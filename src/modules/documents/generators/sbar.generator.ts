@@ -93,7 +93,10 @@ function appendSection(base: string, title: string, items: string[]): string {
 export function generateSBAR(caseText: string, copilotOutput: CopilotOutput): SbarDocument {
   const topRecs = copilotOutput.recommendations
     .slice(0, 5)
-    .map((r) => `${r.action} [confiança: ${Math.round(r.confidence * 100)}%]`)
+    // F0-C — sem percentual de confiança: é autodeclarado pelo modelo, sem
+    // calibração, e o projeto decidiu não expor probabilidade ao médico. O
+    // que importa na passagem de plantão é se a conduta ainda é preliminar.
+    .map((r) => (r.preliminary ? `${r.action} (preliminar)` : r.action))
     .join('; ');
 
   let recommendation = topRecs || 'Nenhuma recomendação específica';

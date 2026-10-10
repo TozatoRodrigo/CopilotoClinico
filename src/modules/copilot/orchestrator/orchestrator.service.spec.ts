@@ -10,6 +10,9 @@ import { RetrievalService } from '../retrieval/retrieval.service';
 import { EncountersService } from '../../encounters/encounters.service';
 import { AttachmentsService } from '../../encounters/attachments/attachments.service';
 import { AuditService } from '../../audit/audit.service';
+import { AiRefusalError, AiTruncatedError } from '../../ai-gateway/ai-gateway.errors';
+import type { StreamCompletionResult } from '../../ai-gateway/providers/provider.interface';
+import { COPILOT_OUTPUT_JSON_SCHEMA } from '../schemas/copilot-output.json-schema';
 import { ConfigService } from '@nestjs/config';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 
@@ -174,6 +177,7 @@ describe('OrchestratorService', () => {
           { role: 'system', content: expect.any(String) },
           { role: 'user', content: expect.any(String) },
         ],
+        responseSchema: COPILOT_OUTPUT_JSON_SCHEMA,
       });
       expect(prismaMock.aiInteraction.create).toHaveBeenCalledTimes(1);
       expect(encountersMock.update).toHaveBeenCalledWith(physicianId, encounterId, {
@@ -1105,8 +1109,16 @@ describe('OrchestratorService', () => {
   });
 
   describe('RT-001: analyzeStream', () => {
-    async function* fakeStream(tokens: string[]): AsyncGenerator<string> {
+    const streamUsage = { promptTokens: 1000, completionTokens: 500, totalTokens: 1500 };
+
+    async function* fakeStream(tokens: string[]): AsyncGenerator<string, StreamCompletionResult> {
       for (const t of tokens) yield t;
+      return {
+        content: tokens.join(''),
+        model: 'claude-sonnet-5-5',
+        usage: streamUsage,
+        stopReason: 'end_turn',
+      };
     }
 
     it('yields deltas then a done event with the full result', async () => {
@@ -1136,6 +1148,51 @@ describe('OrchestratorService', () => {
         encounterId,
         'Paciente com dor torácica aguda e dispneia há 2 horas',
       );
+    });
+
+    it('requests structured output and records the streamed model with its real cost', async () => {
+      encountersMock.findById.mockResolvedValue({ id: encounterId, physicianId, patientRef: 'PRN-001' });
+      retrievalMock.search.mockResolvedValue({ chunks: mockChunks, totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0, official: NO_OFFICIAL });
+      aiGatewayMock.completeStream.mockReturnValue(fakeStream([validLLMOutput]));
+      prismaMock.aiInteraction.create.mockResolvedValue({ id: 'interaction-stream-cost' });
+      encountersMock.update.mockResolvedValue({});
+
+      for await (const _ of service.analyzeStream(physicianId, encounterId, validInput)) {
+        // consume
+      }
+
+      expect(aiGatewayMock.completeStream).toHaveBeenCalledWith(
+        expect.objectContaining({ responseSchema: COPILOT_OUTPUT_JSON_SCHEMA }),
+      );
+      const createCall = prismaMock.aiInteraction.create.mock.calls[0]![0] as {
+        data: { model: string; cost: number };
+      };
+      expect(createCall.data.model).toBe('claude-sonnet-5-5');
+      // claude-sonnet-5-5: 1000 tokens × $2 + 500 × $10, por milhão.
+      expect(createCall.data.cost).toBe(0.007);
+    });
+
+    it('closes the model stream when the consumer stops early', async () => {
+      encountersMock.findById.mockResolvedValue({ id: encounterId, physicianId, patientRef: 'PRN-001' });
+      retrievalMock.search.mockResolvedValue({ chunks: mockChunks, totalRetrieved: 2, coverage: 'full', bestSemanticScore: 0.8, discardedByFloor: 0, official: NO_OFFICIAL });
+      let streamClosed = false;
+      async function* longStream(): AsyncGenerator<string, StreamCompletionResult> {
+        try {
+          yield '{"reasoning":';
+          yield '"..."';
+          return { content: '', model: 'claude-sonnet-5-5', usage: streamUsage, stopReason: 'end_turn' };
+        } finally {
+          streamClosed = true;
+        }
+      }
+      aiGatewayMock.completeStream.mockReturnValue(longStream());
+
+      const events = service.analyzeStream(physicianId, encounterId, validInput);
+      let event = await events.next();
+      while (!event.done && event.value.type !== 'delta') event = await events.next();
+      await events.return(undefined);
+
+      expect(streamClosed).toBe(true);
     });
 
     it('throws BadRequestException before streaming when injection is detected', async () => {
@@ -1212,6 +1269,53 @@ describe('OrchestratorService', () => {
         encountersMock.update.mockResolvedValue({});
       });
 
+      it('trata truncamento do stream como tentativa inválida e refaz sem turno de assistente vazio', async () => {
+        // eslint-disable-next-line require-yield -- o stream falha antes de emitir qualquer delta
+        async function* truncatedStream(): AsyncGenerator<string, StreamCompletionResult> {
+          throw new AiTruncatedError({ model: 'claude-sonnet-5-5', maxTokens: 16000, usage: streamUsage });
+        }
+        aiGatewayMock.completeStream.mockReturnValue(truncatedStream());
+        aiGatewayMock.complete.mockResolvedValue({
+          content: validLLMOutput,
+          model: 'claude-3-sonnet',
+          usage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 },
+          latencyMs: 1500,
+        });
+
+        const events = await collect();
+
+        expect(aiGatewayMock.complete).toHaveBeenCalledTimes(1);
+        const retryMessages = aiGatewayMock.complete.mock.calls[0]![0].messages;
+        expect(retryMessages).toHaveLength(3);
+        expect(retryMessages.some((m: { role: string }) => m.role === 'assistant')).toBe(false);
+        expect(retryMessages[2].content).toContain('OUTPUT TRUNCATED');
+        expect(doneResult(events).metadata).toMatchObject({ cost: 0.0103 });
+      });
+
+      it('não refaz quando o modelo recusa: grava a falha e emite erro', async () => {
+        // eslint-disable-next-line require-yield -- o stream falha antes de emitir qualquer delta
+        async function* refusedStream(): AsyncGenerator<string, StreamCompletionResult> {
+          throw new AiRefusalError({
+            model: 'claude-sonnet-5-5',
+            category: 'bio',
+            explanation: null,
+            usage: streamUsage,
+          });
+        }
+        aiGatewayMock.completeStream.mockReturnValue(refusedStream());
+
+        const events = await collect();
+
+        expect(aiGatewayMock.complete).not.toHaveBeenCalled();
+        const error = events.find((e) => e.type === 'error');
+        expect(error).toBeDefined();
+        expect(JSON.stringify(error)).toContain('MODEL REFUSAL');
+        expect(prismaMock.aiInteraction.create).toHaveBeenCalledTimes(1);
+        expect(prismaMock.aiInteraction.create.mock.calls[0]![0].data).toMatchObject({
+          uncertaintyReason: 'Output validation failed',
+        });
+      });
+
       it('refaz uma vez, sem streaming e com o feedback do validador, quando o JSON transmitido é inválido', async () => {
         aiGatewayMock.completeStream.mockReturnValue(fakeStream(['{"reasoning": ', '"truncado']));
         aiGatewayMock.complete.mockResolvedValue({
@@ -1230,17 +1334,18 @@ describe('OrchestratorService', () => {
         expect(retryMessages[3].role).toBe('user');
         expect(retryMessages[3].content).toContain('Output is not valid JSON');
 
+        // Custo = stream (usage do fakeStream, claude-sonnet-5-5: 0,0070) + retry (0,0033).
         const result = doneResult(events);
         expect(result.output.recommendations).toHaveLength(1);
         expect(result.metadata).toMatchObject({
           model: 'claude-3-sonnet',
-          cost: 0.0033,
+          cost: 0.0103,
         });
         expect(events.some((e) => e.type === 'error')).toBe(false);
         expect(prismaMock.aiInteraction.create).toHaveBeenCalledTimes(1);
         expect(prismaMock.aiInteraction.create.mock.calls[0]![0].data).toMatchObject({
           model: 'claude-3-sonnet',
-          cost: 0.0033,
+          cost: 0.0103,
         });
       });
 

@@ -631,6 +631,56 @@ FROM official_guideline_documents WHERE status = 'active'
 GROUP BY 1, 2 ORDER BY 1, 2;
 ```
 
+### Trocar o provider ou o modelo de IA
+
+A troca é só de env, sem rebuild. O gateway (`src/modules/ai-gateway`) fala
+com a Anthropic pelo SDK oficial e com a OpenAI (ou API compatível, via
+`AI_BASE_URL`) por HTTP:
+
+```bash
+# docker/.env.production
+AI_PROVIDER=anthropic        # ou openai
+AI_MODEL=claude-sonnet-5-5   # ou claude-opus-5-5, gpt-...
+AI_API_KEY=...
+AI_BASE_URL=                 # vazio = API oficial do provider
+
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d copiloto-api
+```
+
+O provider adapta a requisição à família do modelo:
+
+| Modelo | Raciocínio | Structured outputs | Fallback de recusa |
+|---|---|---|---|
+| `claude-opus-5-5`, `claude-sonnet-5-5` | adaptativo, `AI_EFFORT` | sim | `AI_REFUSAL_FALLBACK` |
+| `claude-sonnet-4-20250514` (padrão do compose) | não; `temperature` 0,3 | não | não |
+| OpenAI `o1`/`o3`/`o4`/`gpt-5*` | `AI_REASONING_EFFORT` | só com `AI_OPENAI_STRUCTURED_OUTPUT=true` | — |
+| OpenAI demais (`gpt-4o`...) | não; `temperature` 0,3 | só com `AI_OPENAI_STRUCTURED_OUTPUT=true` | — |
+
+⚠️ **Armadilha do `temperature`.** Os Claude atuais (4.6+ e 5.x) e a família
+de raciocínio da OpenAI respondem HTTP 400 a `temperature` (e `top_p`/`top_k`).
+O gateway omite o parâmetro nesses modelos e só o envia aos legados. Código
+novo passa `temperature` ao gateway e deixa o provider decidir — nunca monta a
+requisição à mão. Pelo mesmo motivo, `budget_tokens` e `thinking: disabled`
+não existem no gateway: o Opus 5.5 recusa os dois; a profundidade é `AI_EFFORT`.
+
+O raciocínio conta para o teto de saída (`AI_MAX_OUTPUT_TOKENS`, padrão 16000).
+Rollback sem redeploy: `AI_STRUCTURED_OUTPUT=false` desliga o JSON Schema em
+todos os providers; `AI_REFUSAL_FALLBACK=off` desliga o fallback (obrigatório
+se `AI_BASE_URL` apontar para um proxy que não aceite o beta
+`server-side-fallback-2026-07-01`).
+
+Logs para acompanhar depois da troca:
+
+| Log | Significado | Ação |
+|---|---|---|
+| `Anthropic API error: status=400` | Parâmetro rejeitado pelo modelo | Conferir `AI_MODEL` e as variáveis acima |
+| `AI_OUTPUT_TRUNCATED` | Saída bateu no teto (`AiTruncatedError`) | Subir `AI_MAX_OUTPUT_TOKENS` ou baixar `AI_EFFORT` |
+| `AI_REFUSAL category=...` | Classificador de segurança recusou (`AiRefusalError`) | Ver o caso; categoria `bio`/`cyber` em caso clínico legítimo é falso positivo |
+| `AI_REFUSAL_FALLBACK servedBy=...` | Outro modelo respondeu no lugar | Esperado e raro; o custo usa o modelo que serviu |
+
+O custo gravado em `ai_interactions.cost` considera leitura e escrita de cache
+e, desde a Fase 0-B, também as análises em stream (antes gravavam 0).
+
 ---
 
 ## Multi-tenancy institucional (PROT-004)
@@ -743,6 +793,7 @@ Prisma não suporta rollback automático. Para reverter:
 | `AUDIT CHAIN INTEGRITY FAILURE` | Hash corrompido detectado | Isolar sistema, investigar registros suspeitos, acionar DPO |
 | `Audit chain verification failed with exception` | Erro ao verificar cadeia | Verificar conectividade com banco |
 | `Output validation failed` | IA retornou resposta inválida | Verificar provider, possível mudança de modelo |
+| `Anthropic API error: status=...` | Falha na API da Anthropic | 4xx: ver "Trocar o provider ou o modelo de IA"; 429/5xx: o SDK já retentou 2x, checar status.anthropic.com |
 | `Injection detected` | Possível tentativa de prompt injection | Revisar logs de acesso, bloquear IP se necessário |
 
 ---

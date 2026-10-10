@@ -10,6 +10,16 @@ export const RecommendationCategorySchema = z.enum([
 
 export const RedFlagSeveritySchema = z.enum(['critical', 'high', 'moderate']);
 
+/**
+ * Campo opcional que o modelo pode devolver como `null`. O structured output
+ * estrito da OpenAI exige todo campo em `required`, então opcionais viram
+ * anuláveis no JSON Schema (schemas/copilot-output.json-schema.ts); `null` é
+ * lido como ausente para o resto do pipeline não mudar.
+ */
+function optionalFromModel<T extends z.ZodTypeAny>(schema: T) {
+  return schema.nullish().transform((value) => value ?? undefined);
+}
+
 export const RedFlagSchema = z.object({
   finding: z.string().min(1),
   severity: RedFlagSeveritySchema,
@@ -31,11 +41,11 @@ const ClarifyingQuestionSchema = z.object({
   why: z.string().min(1),
   criticality: z.enum(['blocker', 'important', 'optional']),
   expectedAnswerType: z.enum(['boolean', 'choice', 'number', 'text']),
-  choices: z.array(z.string()).optional(),
+  choices: optionalFromModel(z.array(z.string())),
   // UX-01 — finalidade clínica para agrupar na UI (ex: "Estabilidade
   // hemodinâmica"). Opcional: modelos mais fracos ou turnos antigos podem
   // não preencher — o front degrada para lista simples nesse caso.
-  purpose: z.string().optional(),
+  purpose: optionalFromModel(z.string()),
 });
 
 const DifferentialSchema = z.object({
@@ -48,7 +58,7 @@ const DifferentialSchema = z.object({
   cannotMiss: z.boolean().default(false),
   // Só faz sentido junto de cannotMiss=true; janela qualitativa, nunca
   // número ou percentual — ver PROBABILITY_LANGUAGE_PATTERN abaixo.
-  timeToHarm: z.enum(['minutos', 'horas', 'dias']).optional(),
+  timeToHarm: optionalFromModel(z.enum(['minutos', 'horas', 'dias'])),
 });
 
 export const CopilotOutputSchema = z
