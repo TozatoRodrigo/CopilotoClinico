@@ -68,6 +68,7 @@ import { ConfirmDocumentDialog } from '../../_components/confirm-document-dialog
 import { DocStatusBadge, DocTypeBadge } from '../../_components/document-badges';
 import {
   DOC_TYPE_META,
+  aiUseRecordOf,
   docTypeLabel,
   extractString,
   formatDateTime,
@@ -988,7 +989,31 @@ function DocumentBody({
       {list && (
         <ListBlock list={list} aiContent={aiContent} content={content} locked={locked} onChange={onChange} />
       )}
+
+      <AiUseRecordNote record={aiUseRecordOf(content)} />
     </div>
+  );
+}
+
+/**
+ * F0-D — Res. CFM 2.454/2026: o registro de uso de IA faz parte do documento
+ * assinado (e do PDF), mas não é editável — o servidor sempre mantém o texto
+ * da geração. Aparece aqui para o médico ver exatamente o que vai assinar.
+ */
+function AiUseRecordNote({ record }: { record: string | null }) {
+  if (!record) return null;
+  return (
+    <section aria-labelledby="ai-use-record-title" className="flex flex-col gap-1 border-t border-border pt-3">
+      <h3
+        id="ai-use-record-title"
+        className="flex items-center gap-1.5 text-[0.8125rem] font-medium text-muted-foreground"
+      >
+        <Robot className="size-4" aria-hidden="true" />
+        Registro de uso de IA
+        <span className="font-normal">· não editável</span>
+      </h3>
+      <p className="text-[0.8125rem] text-pretty text-muted-foreground">{record}</p>
+    </section>
   );
 }
 

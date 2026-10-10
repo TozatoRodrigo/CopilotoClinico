@@ -16,6 +16,13 @@ export const documentTypeValues = ['soap', 'sbar', 'prescricao', 'alta', 'atesta
 
 export type DocumentType = (typeof documentTypeValues)[number];
 
+/**
+ * F0-D — campo do conteúdo de SOAP, SBAR e Alta que guarda o registro de uso
+ * de IA (Res. CFM 2.454/2026). Não editável pelo médico; o texto vive em
+ * src/modules/documents/ai-use-record.ts.
+ */
+export const AI_USE_RECORD_FIELD = 'aiUseRecord';
+
 export interface EncounterContext {
   hasCT: boolean;
   isSus: boolean;

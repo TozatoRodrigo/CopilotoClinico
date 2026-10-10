@@ -1,5 +1,6 @@
 import path from 'path';
 import PDFDocument from 'pdfkit';
+import { aiUseRecordOf } from '../ai-use-record';
 
 export interface PdfDocumentInput {
   type: string;
@@ -180,6 +181,7 @@ export function buildDocumentPdf(input: PdfDocumentInput): Promise<Buffer> {
 
       drawHeader(doc, input, contentWidth, PAGE_MARGIN);
       drawBody(doc, input, contentWidth, PAGE_MARGIN, bottomLimit);
+      drawAiUseRecord(doc, input, contentWidth, PAGE_MARGIN, bottomLimit);
 
       const range = doc.bufferedPageRange();
       for (let i = range.start; i < range.start + range.count; i++) {
@@ -437,6 +439,47 @@ function drawBulletList(
       .text(`•  ${item}`, marginX, doc.y, { width: contentWidth, lineGap: 2 });
   }
   doc.y += 12;
+}
+
+/**
+ * F0-D — Res. CFM 2.454/2026: o registro de uso de IA sai no documento
+ * assinado, separado das seções clínicas. Vem do próprio conteúdo selado
+ * (`physicianEdits ?? content`), então o PDF nunca afirma algo fora do hash.
+ */
+function drawAiUseRecord(
+  doc: PDFKit.PDFDocument,
+  input: PdfDocumentInput,
+  contentWidth: number,
+  marginX: number,
+  bottomLimit: () => number,
+): void {
+  const record = aiUseRecordOf(input.content);
+  if (!record) return;
+
+  doc.font(FONT.sans).fontSize(9);
+  const textHeight = doc.heightOfString(record, { width: contentWidth, lineGap: 2 });
+  if (doc.y + textHeight + 40 > bottomLimit()) doc.addPage();
+
+  const ruleY = doc.y + 8;
+  doc
+    .moveTo(marginX, ruleY)
+    .lineTo(marginX + contentWidth, ruleY)
+    .lineWidth(1)
+    .strokeColor(COLOR.line)
+    .stroke();
+  doc
+    .font(FONT.monoSemibold)
+    .fontSize(7.5)
+    .fillColor(COLOR.inkSoft)
+    .text('REGISTRO DE USO DE IA', marginX, ruleY + 10, {
+      width: contentWidth,
+      characterSpacing: 1,
+    });
+  doc
+    .font(FONT.sans)
+    .fontSize(9)
+    .fillColor(COLOR.inkSoft)
+    .text(record, marginX, doc.y + 4, { width: contentWidth, lineGap: 2 });
 }
 
 function drawFooter(
