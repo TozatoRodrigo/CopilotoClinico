@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import Anthropic from '@anthropic-ai/sdk';
 import { AiGatewayService } from './ai-gateway.service';
 import { ConfigService } from '@nestjs/config';
 
@@ -11,6 +12,57 @@ function createMockConfig(overrides: Record<string, string> = {}) {
     AI_EMBEDDING_MODEL: 'test-embedding-model',
     ...overrides,
   });
+}
+
+/** SSE mínimo do Messages API, no formato que o SDK oficial consome. */
+function anthropicSseResponse(texts: string[], model = 'test-model'): Response {
+  const events = [
+    {
+      type: 'message_start',
+      message: {
+        id: 'msg_test',
+        type: 'message',
+        role: 'assistant',
+        model,
+        content: [],
+        stop_reason: null,
+        stop_sequence: null,
+        usage: { input_tokens: 10, output_tokens: 1 },
+      },
+    },
+    { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } },
+    ...texts.map((text) => ({
+      type: 'content_block_delta',
+      index: 0,
+      delta: { type: 'text_delta', text },
+    })),
+    { type: 'content_block_stop', index: 0 },
+    {
+      type: 'message_delta',
+      delta: { stop_reason: 'end_turn', stop_sequence: null },
+      usage: { output_tokens: 20 },
+    },
+    { type: 'message_stop' },
+  ];
+  const body = events
+    .map((event) => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`)
+    .join('');
+  return new Response(body, { headers: { 'content-type': 'text/event-stream' } });
+}
+
+function mockAnthropicApi(texts: string[] = ['test response']) {
+  return vi
+    .spyOn(globalThis, 'fetch')
+    .mockImplementation(() => Promise.resolve(anthropicSseResponse(texts)));
+}
+
+function sentAnthropicRequest() {
+  const [url, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+  return {
+    url: String(url),
+    headers: new Headers(init?.headers),
+    body: JSON.parse(String(init?.body)) as Record<string, unknown>,
+  };
 }
 
 function mockFetchResponse(data: unknown, status = 200) {
@@ -28,13 +80,7 @@ describe('AiGatewayService', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
 
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      mockFetchResponse({
-        content: [{ text: 'test response' }],
-        model: 'test-model',
-        usage: { input_tokens: 10, output_tokens: 20 },
-      }) as Response,
-    );
+    mockAnthropicApi();
 
     const config = createMockConfig();
     service = new AiGatewayService(config);
@@ -56,20 +102,16 @@ describe('AiGatewayService', () => {
           promptTokens: 10,
           completionTokens: 20,
           totalTokens: 30,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
         },
         latencyMs: expect.any(Number),
       });
 
-      expect(fetch).toHaveBeenCalledWith(
-        'https://test.api.com/v1/messages',
-        expect.objectContaining({
-          method: 'POST',
-          headers: expect.objectContaining({
-            'x-api-key': 'test-key',
-            'anthropic-version': '2023-06-01',
-          }),
-        }),
-      );
+      const { url, headers } = sentAnthropicRequest();
+      expect(url).toContain('https://test.api.com/v1/messages');
+      expect(headers.get('x-api-key')).toBe('test-key');
+      expect(headers.get('anthropic-version')).toBe('2023-06-01');
     });
 
     it('uses default model when not specified', async () => {
@@ -100,10 +142,49 @@ describe('AiGatewayService', () => {
 
       await service.complete({ messages });
 
-      const fetchCall = vi.mocked(fetch).mock.calls[0];
-      const body = JSON.parse(fetchCall?.[1]?.body as string) as Record<string, unknown>;
-      expect(body.system).toBe('System prompt');
+      const { body } = sentAnthropicRequest();
+      expect(body.system).toEqual([
+        { type: 'text', text: 'System prompt', cache_control: { type: 'ephemeral' } },
+      ]);
       expect(body.messages).toEqual([{ role: 'user', content: 'User message' }]);
+    });
+  });
+
+  describe('AI_STRUCTURED_OUTPUT', () => {
+    const responseSchema = {
+      name: 'answer',
+      schema: {
+        type: 'object',
+        properties: { answer: { type: 'string' } },
+        required: ['answer'],
+        additionalProperties: false,
+      },
+    };
+
+    it('forwards the response schema to the provider by default', async () => {
+      await service.complete({
+        model: 'claude-sonnet-5-5',
+        messages: [{ role: 'user', content: 'Hi' }],
+        responseSchema,
+      });
+
+      const { body } = sentAnthropicRequest();
+      expect(body.output_config).toMatchObject({
+        format: { type: 'json_schema', schema: responseSchema.schema },
+      });
+    });
+
+    it('drops the response schema when AI_STRUCTURED_OUTPUT=false', async () => {
+      const svc = new AiGatewayService(createMockConfig({ AI_STRUCTURED_OUTPUT: 'false' }));
+
+      await svc.complete({
+        model: 'claude-sonnet-5-5',
+        messages: [{ role: 'user', content: 'Hi' }],
+        responseSchema,
+      });
+
+      const { body } = sentAnthropicRequest();
+      expect(body.output_config).not.toHaveProperty('format');
     });
   });
 
@@ -301,24 +382,39 @@ describe('AiGatewayService', () => {
     }
 
     it('yields text deltas from anthropic streaming response', async () => {
-      const config = createMockConfig({ AI_PROVIDER: 'anthropic' });
-      const svc = new AiGatewayService(config);
-
-      vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-        ok: true,
-        body: makeSseStream([
-          'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":"Hello"}}',
-          'data: {"type":"content_block_delta","delta":{"type":"text_delta","text":" world"}}',
-          'data: [DONE]',
-        ]),
-      } as unknown as Response);
+      mockAnthropicApi(['Hello', ' world']);
+      const svc = new AiGatewayService(createMockConfig({ AI_PROVIDER: 'anthropic' }));
 
       const chunks: string[] = [];
-      for await (const delta of svc.completeStream({ messages: [{ role: 'user', content: 'Hi' }] })) {
+      for await (const delta of svc.completeStream({
+        messages: [{ role: 'user', content: 'Hi' }],
+      })) {
         chunks.push(delta);
       }
 
       expect(chunks).toEqual(['Hello', ' world']);
+    });
+
+    it('returns the provider usage as the generator return value', async () => {
+      mockAnthropicApi(['Hello']);
+      const svc = new AiGatewayService(createMockConfig({ AI_PROVIDER: 'anthropic' }));
+      const stream = svc.completeStream({ messages: [{ role: 'user', content: 'Hi' }] });
+
+      let next = await stream.next();
+      while (!next.done) next = await stream.next();
+
+      expect(next.value).toEqual({
+        content: 'Hello',
+        model: 'test-model',
+        stopReason: 'end_turn',
+        usage: {
+          promptTokens: 10,
+          completionTokens: 20,
+          totalTokens: 30,
+          cacheReadTokens: 0,
+          cacheWriteTokens: 0,
+        },
+      });
     });
 
     it('yields text deltas from openai streaming response', async () => {
@@ -342,9 +438,31 @@ describe('AiGatewayService', () => {
       expect(chunks).toEqual(['Oi', ' médico']);
     });
 
-    it('throws when stream response is not ok', async () => {
-      const config = createMockConfig({ AI_PROVIDER: 'anthropic' });
-      const svc = new AiGatewayService(config);
+    it('throws the SDK typed error when the anthropic stream fails', async () => {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            type: 'error',
+            error: { type: 'rate_limit_error', message: 'slow down' },
+          }),
+          // x-should-retry: false keeps the SDK from backing off inside the test.
+          {
+            status: 429,
+            headers: { 'content-type': 'application/json', 'x-should-retry': 'false' },
+          },
+        ),
+      );
+      const svc = new AiGatewayService(createMockConfig({ AI_PROVIDER: 'anthropic' }));
+
+      await expect(async () => {
+        for await (const _ of svc.completeStream({ messages: [{ role: 'user', content: 'Hi' }] })) {
+          // consume
+        }
+      }).rejects.toBeInstanceOf(Anthropic.RateLimitError);
+    });
+
+    it('throws when the openai stream response is not ok', async () => {
+      const svc = new AiGatewayService(createMockConfig({ AI_PROVIDER: 'openai' }));
 
       vi.spyOn(globalThis, 'fetch').mockResolvedValue({
         ok: false,
