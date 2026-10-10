@@ -338,7 +338,7 @@ function DecisionMetric({
     <Metric
       label={label}
       value={count === undefined ? '—' : String(count)}
-      sub={decisionLoop ? `${pct(share)} de ${total} decisões` : null}
+      sub={decisionLoop ? `${pct(share)} de ${total} ${total === 1 ? 'decisão' : 'decisões'}` : null}
       loading={loading}
     >
       {decisionLoop && <RateMeter rate={share} />}

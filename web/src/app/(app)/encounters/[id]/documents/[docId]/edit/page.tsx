@@ -1009,7 +1009,7 @@ function AiUseRecordNote({ record }: { record: string | null }) {
         className="flex items-center gap-1.5 text-[0.8125rem] font-medium text-muted-foreground"
       >
         <Robot className="size-4" aria-hidden="true" />
-        Registro de uso de IA
+        Registro de uso de IA{' '}
         <span className="font-normal">· não editável</span>
       </h3>
       <p className="text-[0.8125rem] text-pretty text-muted-foreground">{record}</p>
