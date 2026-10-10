@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { createHash } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../config/prisma.service';
+import { readBooleanFlag } from '../../../config/feature-flag';
 import { AiGatewayService } from '../../ai-gateway/ai-gateway.service';
 import { RetrievalService, type RetrievalResult } from '../retrieval/retrieval.service';
 import type { RetrievalCoverage, RetrievedChunk } from '../retrieval/hybrid-search';
@@ -21,12 +22,14 @@ import {
 } from './prompt-builder';
 import {
   validateOutput,
+  ambiguousSubtypeChunkIds,
   type CopilotOutput,
   type ValidationResult,
 } from '../guardrails/output-validator';
 import type { AnalyzeInput, RespondInput } from '../schemas/copilot.schemas';
 import { calculateInferenceCost, type TokenUsage } from './model-pricing';
-import type { CitationOrigin } from '../../../shared/contracts/clinical';
+import { preliminaryReasonFor, type ContainmentContext } from './preliminary-containment';
+import type { CitationOrigin, PreliminaryReason } from '../../../shared/contracts/clinical';
 
 const DEFAULT_MAX_TURNS = 5;
 const RECOMMENDATION_CATEGORY_ORDER = {
@@ -50,7 +53,10 @@ export interface RecommendationSource {
 }
 
 export type EnrichedRecommendation = CopilotOutput['recommendations'][number] &
-  RecommendationSource;
+  RecommendationSource & {
+    /** F0-C — presente sempre que `preliminary` é true. */
+    preliminaryReason?: PreliminaryReason;
+  };
 
 export type EnrichedCopilotOutput = Omit<CopilotOutput, 'recommendations'> & {
   recommendations: EnrichedRecommendation[];
@@ -210,10 +216,22 @@ function resolveCitationSource(
     sourceVersion: chunk?.sourceVersion ?? 'Unknown',
     text: chunk?.text ?? '',
     institutionId: chunk?.institutionId ?? null,
-    origin: chunk?.institutionId ? 'institutional' : 'public',
+    origin: curatedOrigin(chunk),
     sourceUrl: `/v1/guidelines/chunks/${citationChunkId}`,
     chunk,
   };
+}
+
+/**
+ * ADR-012 — "Diretriz pública" e "Protocolo institucional" o médico lê como
+ * conteúdo revisado; só valem para chunk assinado por médico com CRM
+ * verificado. Chunk sem assinatura — ou id que não resolve para chunk nenhum
+ * — vira `curated_unsigned`. `!clinicallySigned` também cobre resultado de
+ * cache gravado antes do campo existir.
+ */
+function curatedOrigin(chunk: RetrievedChunk | undefined): CitationOrigin {
+  if (!chunk?.clinicallySigned) return 'curated_unsigned';
+  return chunk.institutionId ? 'institutional' : 'public';
 }
 
 export interface OrchestratorResult {
@@ -431,7 +449,7 @@ function turnIndexOf(turn: AnalysisTurn): number {
  * F0-C — tudo que os três caminhos do orquestrador têm em comum depois de
  * montar o prompt. Antes, cada caminho repetia validação, retry, enriquecimento
  * e persistência — e o streaming, o caminho principal da captura, ficou para
- * trás: sem retry e sem `params`.
+ * trás: sem retry, sem `params`, sem a contenção de fonte não revisada.
  */
 interface PreparedAnalysis {
   physicianId: string;
@@ -445,6 +463,7 @@ interface PreparedAnalysis {
   attachments: AttachmentForCitation[];
   prompt: BuiltPrompt;
   params: InheritableParams;
+  unreviewedSourcesPreliminary: boolean;
   turn: AnalysisTurn;
   /** Sufixo dos logs: '' (analyze), ' (stream)' ou ' (respond)'. */
   logLabel: string;
@@ -499,6 +518,15 @@ export class OrchestratorService {
 
   private maxTurns(): number {
     return this.config.get<number>('COPILOT_MAX_TURNS', DEFAULT_MAX_TURNS);
+  }
+
+  /**
+   * ADR-012 — kill-switch da contenção de fonte não revisada. Ligado por
+   * padrão; `UNREVIEWED_SOURCES_PRELIMINARY=false` volta ao comportamento da
+   * ADR-010 (prompt incluso) sem redeploy.
+   */
+  private unreviewedSourcesPreliminary(): boolean {
+    return readBooleanFlag(this.config, 'UNREVIEWED_SOURCES_PRELIMINARY', true);
   }
 
   async analyze(
@@ -664,6 +692,7 @@ export class OrchestratorService {
     };
 
     const locale = await this.getPhysicianLocale(physicianId);
+    const unreviewedSourcesPreliminary = this.unreviewedSourcesPreliminary();
 
     const prompt = buildPrompt({
       caseText: augmentedCaseText,
@@ -683,6 +712,7 @@ export class OrchestratorService {
       additionalInstructions: forceFinal
         ? 'Este é o último turno permitido para esta análise. NÃO inclua novas clarifyingQuestions (a lista deve ficar vazia). Como não há próximo turno, "recommendations" NÃO PODE ficar vazio: forneça ao menos uma recomendação preliminar com base na melhor evidência e informação disponíveis, mesmo que incompletas. Se ainda houver incerteza sobre a cobertura da diretriz, defina uncertainty=true e descreva uncertaintyReason, mas isso não substitui a obrigação de recomendar algo — declare a incerteza E recomende, não incerteza no lugar de recomendar.'
         : undefined,
+      unreviewedSourcesPreliminary,
     });
 
     const prepared: PreparedAnalysis = {
@@ -698,6 +728,7 @@ export class OrchestratorService {
       // CC-05 — repropaga demoCase/redFlags (inclusive em falha de validação)
       // para que o PRÓXIMO turno continue herdando a cadeia de red flags.
       params: inheritedParams,
+      unreviewedSourcesPreliminary,
       turn: {
         kind: 'follow_up',
         index: newTurnIndex,
@@ -770,6 +801,7 @@ export class OrchestratorService {
       redFlags: input.redFlags ?? {},
     };
     const locale = await this.getPhysicianLocale(physicianId);
+    const unreviewedSourcesPreliminary = this.unreviewedSourcesPreliminary();
 
     const prompt = buildPrompt({
       caseText: fullyRedacted,
@@ -784,6 +816,7 @@ export class OrchestratorService {
       redFlags: params.redFlags,
       // PI-05 — instrui o idioma de resposta conforme a conta do médico.
       locale,
+      unreviewedSourcesPreliminary,
     });
 
     return {
@@ -797,6 +830,7 @@ export class OrchestratorService {
       attachments,
       prompt,
       params,
+      unreviewedSourcesPreliminary,
       turn: { kind: 'initial' },
       logLabel,
     };
@@ -983,14 +1017,31 @@ export class OrchestratorService {
     };
   }
 
+  /**
+   * Fontes resolvidas + contenção F0-C: decide `preliminary` e
+   * `preliminaryReason` de cada recomendação de forma determinística — ver
+   * preliminary-containment.ts.
+   */
   private enrichOutput(prepared: PreparedAnalysis, output: CopilotOutput): EnrichedCopilotOutput {
     const chunks = citableChunks(prepared.retrievalResult);
+    const containment: ContainmentContext = {
+      ambiguousSubtypeChunkIds: ambiguousSubtypeChunkIds(chunks),
+      unreviewedSourcesPreliminary: prepared.unreviewedSourcesPreliminary,
+      hasClarifyingQuestions: output.clarifyingQuestions.length > 0,
+    };
+
     return {
       ...output,
       recommendations: sortRecommendations(output.recommendations).map((rec) => {
         const resolved = resolveCitationSource(rec.citationChunkId, chunks, prepared.attachments);
+        const preliminaryReason = preliminaryReasonFor(
+          { ...rec, origin: resolved.origin },
+          containment,
+        );
         return {
           ...rec,
+          preliminary: preliminaryReason !== null,
+          ...(preliminaryReason ? { preliminaryReason } : {}),
           chunkId: rec.citationChunkId,
           source: resolved.source,
           sourceVersion: resolved.sourceVersion,
