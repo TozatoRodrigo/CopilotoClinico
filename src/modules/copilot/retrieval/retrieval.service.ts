@@ -259,6 +259,11 @@ export class RetrievalService {
    * produção em 24/09/2026. Agora a chave é o hash da consulta INTEIRA mais
    * tudo que muda o resultado — inclusive os limiares, para uma recalibração
    * por env valer na hora em vez de servir seleção antiga do cache.
+   *
+   * F0-A — e o embedding (provider + modelo): a similaridade de cada trecho
+   * depende do vetor da consulta. Sem isso, trocar o modelo de embedding (ou
+   * rodar duas variantes do gabarito clínico em sequência) servia por até
+   * 60 s a seleção calculada com o vetor do modelo anterior.
    */
   private cacheKey(
     query: string,
@@ -275,6 +280,10 @@ export class RetrievalService {
           officialEnabled,
           relevance: this.relevanceThresholds(),
           official: this.officialOptions(),
+          embedding: {
+            provider: this.aiGateway.getEmbeddingProviderName(),
+            model: this.aiGateway.getEmbeddingModel(),
+          },
         }),
       )
       .digest('hex');
