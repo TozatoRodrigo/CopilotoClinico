@@ -44,7 +44,57 @@
 
 ### Trilha de Auditoria (AuditLog)
 - Todas as ações do sistema (login, geração, confirmação, etc.)
-- Payload nunca contém PII de pacientes — contém apenas IDs de entidades
+- Append-only (AUD-001): o trigger bloqueia UPDATE e DELETE; o REVOKE,
+  TRUNCATE. A eliminação não alcança a trilha.
+- Por isso o payload leva só IDs, enums, contagens, hashes e rótulos de
+  catálogo (nome de protocolo, fonte de diretriz, nome e CNES de instituição).
+  Nunca texto livre digitado por usuário nem dado pessoal:
+  - **Nome de arquivo e email ficam de fora.** São curtos e previsíveis — o
+    hash se reverte por dicionário. O `entityId` já identifica o anexo ou o
+    médico.
+  - **Comentário, nota e motivo vão como SHA-256** (`freeTextHash`, em
+    `src/modules/audit/audit-payload.ts`). O texto fica na tabela do domínio;
+    o hash prova que ele não foi trocado depois.
+
+#### Entradas antigas não mudam
+
+Antes desta regra entrar em produção, estes eventos gravaram texto livre ou
+dado pessoal no payload:
+
+| Ação | Campo | Conteúdo |
+|---|---|---|
+| `ENCOUNTER_ATTACHMENT_ADDED`, `ENCOUNTER_ATTACHMENT_REMOVED`, `PROMPT_INJECTION_DETECTED` (entity `EncounterAttachment`) | `filename` | nome do arquivo anexado |
+| `COPILOT_FEEDBACK` | `comment` | comentário do médico (sem máscara antes do F0-D; com `maskFreeText` depois, que não pega nomes) |
+| `CRM_VERIFICATION_APPROVED`, `CRM_VERIFICATION_REJECTED` | `notes` | nota do admin ou resposta crua da verificação automática |
+| `PROTOCOL_RUN_ABANDONED` | `reason` | motivo digitado pelo médico |
+| `AUTH_REGISTER` | `email` | email do médico |
+
+Essas linhas ficam como estão. Corrigi-las exigiria desligar o trigger por
+DDL, e reescrever um payload quebra a cadeia de hashes (AUD-003) dali em
+diante. Num pedido de eliminação, essas entradas sobrevivem. As que têm o
+médico como ator entram na exportação, então o titular pode vê-las.
+
+Para levantar as linhas antigas de um titular:
+
+```sql
+SELECT id, action, created_at
+FROM audit_log
+WHERE actor_id = '<physician-id>'
+  AND (
+    (action IN ('ENCOUNTER_ATTACHMENT_ADDED', 'ENCOUNTER_ATTACHMENT_REMOVED',
+                'PROMPT_INJECTION_DETECTED') AND payload ? 'filename')
+    OR (action = 'COPILOT_FEEDBACK' AND payload ? 'comment')
+    OR (action = 'PROTOCOL_RUN_ABANDONED' AND payload ? 'reason')
+    OR (action = 'AUTH_REGISTER' AND payload ? 'email')
+  );
+```
+
+As notas de verificação de CRM têm o admin como `actor_id`; filtre por
+`payload->>'physicianId'`.
+
+Fora da regra, por ora: `GUIDELINE_REJECTED` grava o `reason` do curador. É
+texto sobre o documento, não sobre pessoa, e a trilha é o único lugar onde ele
+existe — tirá-lo exige antes uma coluna em `guideline_chunks`.
 
 ## Direitos do Titular (Médico)
 
