@@ -189,12 +189,34 @@ export interface RedFlag {
   action: string;
 }
 
+/**
+ * F0-C — por que uma recomendação saiu preliminar.
+ *
+ * - `pending_questions`: marcada pelo modelo (perguntas em aberto, red flag
+ *   crítica, anexo do médico). É o significado histórico de `preliminary`.
+ * - `unreviewed_source`: cita fonte que nenhum médico com CRM verificado
+ *   assinou — base oficial do MS ou chunk curado sem assinatura (ADR-012).
+ * - `subtype_ambiguity`: a evidência recuperada cobre ≥2 subtipos do mesmo
+ *   cenário com conduta oposta e a recomendação cita um deles.
+ */
+export type PreliminaryReason = 'pending_questions' | 'unreviewed_source' | 'subtype_ambiguity';
+
 export interface CopilotRecommendation {
   action: string;
   rationale: string;
   citationChunkId: string;
+  /**
+   * Autodeclarada pelo modelo. Fica no contrato (ordenação, SBAR, auditoria),
+   * mas a UI não mostra: decisão clínica de não exibir probabilidade (F0-C).
+   */
   confidence: number;
   preliminary: boolean;
+  /**
+   * F0-C — presente quando `preliminary` é true. Opcional: interações
+   * gravadas antes do campo não o têm, e a UI as trata como
+   * `pending_questions` (o texto de sempre).
+   */
+  preliminaryReason?: PreliminaryReason;
   category?: RecommendationCategory;
   source: string;
   sourceVersion: string;
@@ -258,23 +280,34 @@ export interface EvidenceTable {
   rows: string[][];
 }
 
+/**
+ * F4 — `physician_attachment` é uma referência que o médico anexou a ESTE
+ * atendimento e que ninguém curou. A UI precisa marcar visualmente: a
+ * garantia do produto passou a ser "toda recomendação cita uma fonte, e a
+ * interface sempre diz se ela é curada", não "toda fonte é curada".
+ *
+ * ADR-010 — `official_unreviewed` é documento oficial do Ministério da Saúde
+ * (PCDT/DDT/Diretrizes/Protocolos de Uso) ainda não revisado pela equipe
+ * clínica. Também precisa de marca visual própria.
+ *
+ * ADR-012 — `curated_unsigned` é chunk da base curada (`approved`) que nenhum
+ * médico com CRM verificado assinou: seed, pacotes KB-003/KB-004 e ingestão
+ * interna. `institutional`/`public` passam a significar "curado E assinado".
+ */
+export type CitationOrigin =
+  | 'institutional'
+  | 'public'
+  | 'physician_attachment'
+  | 'official_unreviewed'
+  | 'curated_unsigned';
+
 export interface Citation {
   source: string;
   sourceVersion: string;
   chunkId: string;
   text: string;
   institutionId?: string | null;
-  /**
-   * F4 — `physician_attachment` é uma referência que o médico anexou a ESTE
-   * atendimento e que ninguém curou. A UI precisa marcar visualmente: a
-   * garantia do produto passou a ser "toda recomendação cita uma fonte, e a
-   * interface sempre diz se ela é curada", não "toda fonte é curada".
-   *
-   * ADR-010 — `official_unreviewed` é documento oficial do Ministério da Saúde
-   * (PCDT/DDT/Diretrizes/Protocolos de Uso) ainda não revisado pela equipe
-   * clínica. Também precisa de marca visual própria.
-   */
-  origin?: 'institutional' | 'public' | 'physician_attachment' | 'official_unreviewed';
+  origin?: CitationOrigin;
   evidenceFigure?: EvidenceFigure | null;
   evidenceTable?: EvidenceTable | null;
 }
