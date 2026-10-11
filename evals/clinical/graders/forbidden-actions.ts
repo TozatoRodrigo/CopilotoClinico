@@ -18,7 +18,8 @@ import type { ForbiddenAction } from '../case.schema';
  *       "antes da trombólise"). Palavra de adiamento no meio desfaz a negação
  *       ("não aguardar a trombólise", "sem demora", "sem contraindicação para");
  *    b. um qualificador negativo vem logo depois, até 5 palavras
- *       ("trombólise contraindicada", "AAS não está indicado");
+ *       ("trombólise contraindicada", "AAS não está indicado"), ou o termo é
+ *       rótulo de uma ordem negativa ("Loperamida: não usar");
  *    c. um `exceptWhen` do caso começa a até 6 palavras do termo
  *       ("alteplase somente após TC sem sangramento").
  * 4. Termos proibidos do caso (de qualquer item) e "e/ou" são transparentes:
@@ -77,6 +78,11 @@ const LIST_CONNECTORS = new Set(['e', 'ou', 'e/ou']);
 
 const POST_QUALIFIER =
   /\b(?:contra-?indicad|proscrit|desaconselhad|evitad|vetad|proibid)\w*|\bsuspens[oa]s?\b|\bnao\s+(?:(?:e|esta|estao|sao|fica|ficam|foi|deve|devem)\s+)?(?:ser\s+)?(?:indicad|recomendad|necessari|segur|permitid|realizad|feit|usad|utilizad|administrad)\w*/;
+
+/** Rótulo seguido de ordem negativa: "Loperamida: não usar", "Insulina IV: não iniciar antes do K". */
+const LABEL_NEGATION =
+  /^(?:evit(?:ar|e)|nunca|jamais|nao\s+(?:fazer|realizar|iniciar|administrar|usar|utilizar|dar|prescrever|repetir|manter|reiniciar|aplicar|infundir))\b/;
+const MAX_TOKENS_BEFORE_LABEL_COLON = 2;
 
 interface Span {
   start: number;
@@ -137,8 +143,17 @@ function isNegatedBefore(before: Token[], terms: Span[]): boolean {
   return false;
 }
 
+function isLabelNegated(after: Token[]): boolean {
+  const colonIndex = after.findIndex((token) => token.word === LABEL_COLON);
+  if (colonIndex < 0 || colonIndex > MAX_TOKENS_BEFORE_LABEL_COLON) return false;
+  if (after.slice(0, colonIndex).some((token) => token.endsWithComma)) return false;
+  const words = after.slice(colonIndex + 1, colonIndex + 3).map((token) => token.word);
+  return LABEL_NEGATION.test(words.join(' '));
+}
+
 /** "AAS 300 mg agora, heparina contraindicada": o qualificador depois da vírgula não volta ao AAS. */
 function isQualifiedAfter(after: Token[], terms: Span[]): boolean {
+  if (isLabelNegated(after)) return true;
   const words: string[] = [];
   for (const token of after) {
     if (words.length >= POST_QUALIFIER_WINDOW) break;

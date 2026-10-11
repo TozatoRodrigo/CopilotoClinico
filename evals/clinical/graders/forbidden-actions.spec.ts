@@ -64,6 +64,8 @@ describe('findForbiddenTerm', () => {
       'Trombólise não está indicada',
       'Trombólise contraindicada',
       'Trombólise: contraindicada pela hemorragia',
+      'Alteplase IV: não usar',
+      'Trombólise: evitar até a TC',
       'Manter PA < 185/110 antes da trombólise',
       'Evitar o uso de alteplase',
       'Sem indicação de trombólise neste momento',
@@ -90,6 +92,7 @@ describe('findForbiddenTerm', () => {
       ['Elegível: alteplase 0,9 mg/kg agora', 'rótulo antes de dois-pontos não alcança o termo'],
       ['Sem melhora, alteplase 0,9 mg/kg', '"sem" governa "melhora", não o fármaco'],
       ['Não há tempo a perder, alteplase agora', 'negação longe demais do termo'],
+      ['Alteplase 0,9 mg/kg agora: não aguardar a TC', 'ordem depois do rótulo não é negativa'],
     ])('acusa "%s" (%s)', (text) => {
       expect(findForbiddenTerm(text, thrombolysis)).not.toBeNull();
     });
