@@ -13,6 +13,7 @@ import type {
   CopilotAnalyzeResponse,
   RetrievalCoverage,
 } from "@/lib/types";
+import type { UNDERSTANDING_CORRECTION_QUESTION_ID as ContractCorrectionQuestionId } from "@contracts/clinical";
 
 export const STORAGE_KEY_PREFIX = "copilot_result_";
 
@@ -79,6 +80,15 @@ function clearDraftAnswers(encounterId: string): void {
  * orchestrator.service.ts.
  */
 const COMPLEMENT_QUESTION_ID = "Informações adicionais fornecidas pelo médico";
+
+/**
+ * F1 — questionId reservado da correção do entendimento (ADR-013): o backend
+ * o mostra no bloco de perguntas e respostas como "Correção do médico ao
+ * entendimento". Conferido contra o contrato em tempo de compilação; o import
+ * é só de tipo porque o build do web não empacota código de ../src.
+ */
+export const UNDERSTANDING_CORRECTION_QUESTION_ID: typeof ContractCorrectionQuestionId =
+  "correcao-do-entendimento";
 
 export interface StoredCopilotResult {
   interactionId: string;
@@ -275,6 +285,18 @@ export function useCopilotConversation(
     [submitAnswers],
   );
 
+  // F1 — "Corrigir entendimento": o médico diz o que o copiloto entendeu
+  // errado; vai pela mesma reanálise (POST /respond), que refaz o
+  // entendimento com a correção no bloco de perguntas e respostas.
+  const correctUnderstanding = useCallback(
+    async (correction: string): Promise<boolean> => {
+      const trimmed = correction.trim();
+      if (!trimmed) return false;
+      return submitAnswers([{ questionId: UNDERSTANDING_CORRECTION_QUESTION_ID, answer: trimmed }]);
+    },
+    [submitAnswers],
+  );
+
   useEffect(() => {
     if (!isOnline || !queued) return;
 
@@ -321,5 +343,9 @@ export function useCopilotConversation(
     // pendentes para habilitar — poderia ser acionado num estado terminal
     // e estourar um 400 cru no médico.
     canComplement: turnIndex < maxTurns - 1 && !reanalyzing,
+    correctUnderstanding,
+    // F1 — mesmo teto de turnos do complemento; sem o `!reanalyzing` para o
+    // formulário de correção não sumir no meio do envio.
+    canCorrectUnderstanding: turnIndex < maxTurns - 1,
   };
 }

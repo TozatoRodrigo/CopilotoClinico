@@ -139,9 +139,12 @@ O `run.json` de cada execução registra quantos trechos aprovados (e com embedd
 | `baseline` | A configuração de produção: `AI_PROVIDER` e `AI_MODEL` (obrigatórios no ambiente), embeddings e flags do gateway vindos do `.env` |
 | `claude-sonnet-5-5` | Claude Sonnet 5.5 na completion, `AI_EFFORT=high`, `AI_MAX_OUTPUT_TOKENS=32000`; embeddings continuam na OpenAI |
 | `claude-opus-5-5` | Claude Opus 5.5 na completion, `AI_EFFORT=high`, `AI_MAX_OUTPUT_TOKENS=32000`; embeddings continuam na OpenAI |
+| `claude-sonnet-5-5-stages`, `claude-opus-5-5-stages` | As mesmas, com o raciocínio em etapas da ADR-013 (`COPILOT_REASONING=stages`, entendimento em `AI_UNDERSTANDING_EFFORT=low`). As variantes sem sufixo fixam `COPILOT_REASONING=legacy`, então cada par difere só na flag |
 | `test` | Provedor determinístico offline: nenhuma chamada paga. Valida a fiação, não a qualidade clínica |
 
 Os embeddings ficam iguais em todas as variantes de propósito: o bake-off só isola o modelo se o retrieval entregar os mesmos trechos. O comparador avisa quando não entregou.
+
+Com `stages`, o `results.jsonl` traz o entendimento do caso (`understanding`) e o juiz o vê junto da saída, sem as consultas da busca — é o card que o médico lê. O `run.json` registra o modo de raciocínio e o modelo/esforço da Etapa 1.
 
 O teto de 32k tokens nas variantes Claude existe porque nesses modelos o raciocínio conta para o teto de saída: com pouco espaço, o JSON sai cortado e o caso vira "sem resposta — truncada".
 

@@ -179,3 +179,104 @@ describe("useCopilotConversation — UX-08: rascunho de respostas sobrevive à n
     expect(JSON.parse(raw!).answers).toEqual({ "q-pa": "PA 90x60, FC 130, FR 28, SpO2 89%" });
   });
 });
+
+// F1 — "Corrigir entendimento" (ADR-013): a correção vai pela reanálise de
+// sempre, com o questionId reservado que o backend rotula no bloco de
+// perguntas e respostas.
+describe("useCopilotConversation — F1: corrigir o entendimento", () => {
+  const understanding = {
+    problemRepresentation: "Homem de 68 anos com déficit focal súbito.",
+    structuredData: {
+      age: 68,
+      sex: "M" as const,
+      vitals: {
+        systolicBp: null,
+        diastolicBp: null,
+        heartRate: null,
+        respiratoryRate: null,
+        spo2: null,
+        temperature: null,
+        glucose: null,
+      },
+      onset: null,
+      keyFindings: [],
+      relevantContext: [],
+    },
+    instability: { present: false, findings: [] },
+    syndrome: "deficit-neurologico-focal" as const,
+    syndromeNote: null,
+    cannotMiss: [],
+    likely: [],
+    missingDiscriminators: [],
+    searchQueries: ["manejo inicial do AVC"],
+  };
+
+  const respondResult: CopilotAnalyzeResponse = {
+    interactionId: "interaction-2",
+    output: makeAnalysis({
+      clarifyingQuestions: [],
+      understanding: { ...understanding, problemRepresentation: "AIT em crescendo." },
+    }),
+    citations: [],
+    metadata: {
+      piiDetected: false,
+      injectionDetected: false,
+      chunksRetrieved: 3,
+      retrievalCoverage: "full" as const,
+      latencyMs: 800,
+      cost: 0.01,
+      model: "test-model",
+      turnIndex: 1,
+      maxTurns: 5,
+      understandingLatencyMs: 2000,
+    },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    sessionStorage.clear();
+    useOnlineStatusMock.mockReturnValue({ isOnline: true });
+  });
+
+  it("sends the correction with the reserved question id and shows the new understanding", async () => {
+    apiPostMock.mockResolvedValue(respondResult);
+    const { result } = renderHook(() =>
+      useCopilotConversation(
+        ENCOUNTER_ID,
+        makeInitial({ analysis: makeAnalysis({ understanding }) }),
+      ),
+    );
+
+    let accepted = false;
+    await act(async () => {
+      accepted = await result.current.correctUnderstanding("  O déficit regrediu e voltou.  ");
+    });
+
+    expect(accepted).toBe(true);
+    expect(apiPostMock).toHaveBeenCalledWith(`/encounters/${ENCOUNTER_ID}/copilot/respond`, {
+      interactionId: "interaction-1",
+      answers: [{ questionId: "correcao-do-entendimento", answer: "O déficit regrediu e voltou." }],
+    });
+    expect(result.current.analysis.understanding?.problemRepresentation).toBe("AIT em crescendo.");
+  });
+
+  it("ignores an empty correction", async () => {
+    const { result } = renderHook(() => useCopilotConversation(ENCOUNTER_ID, makeInitial()));
+
+    let accepted = true;
+    await act(async () => {
+      accepted = await result.current.correctUnderstanding("   ");
+    });
+
+    expect(accepted).toBe(false);
+    expect(apiPostMock).not.toHaveBeenCalled();
+  });
+
+  it("stops offering the correction when no reanalysis round is left", () => {
+    const { result } = renderHook(() =>
+      useCopilotConversation(ENCOUNTER_ID, makeInitial({ turnIndex: 4, maxTurns: 5 })),
+    );
+
+    expect(result.current.canCorrectUnderstanding).toBe(false);
+  });
+});

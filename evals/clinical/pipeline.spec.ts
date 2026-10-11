@@ -8,6 +8,7 @@ import type {
   OrchestratorService,
 } from '../../src/modules/copilot/orchestrator/orchestrator.service';
 import type { EncountersService } from '../../src/modules/encounters/encounters.service';
+import { understandingFixture } from '../../tests/fixtures/case-understanding';
 import { loadCaseSet } from './cases';
 import { classifyInfraError, runCase, type PipelineServices } from './pipeline';
 import { CompletionRecorder, type RecordedCompletion, type RecordedStopReason } from './recorder';
@@ -209,6 +210,62 @@ describe('runCase', () => {
       const outcome = await runCase(services, clinicalCase, key, fastRetry);
 
       expect(outcome).toMatchObject({ kind: 'result', row: { status: 'truncated' } });
+    });
+  });
+
+  // F1 — variante com COPILOT_REASONING=stages: o entendimento do caso vai
+  // para a linha de results.jsonl e, dali, para o juiz.
+  describe('raciocínio em etapas', () => {
+    it('grava o entendimento da análise entregue', async () => {
+      const understanding = understandingFixture();
+      const { services } = servicesWith([
+        async (recorder) => {
+          recorder.record(completion());
+          recorder.record(completion());
+          return {
+            ...analysis,
+            output: { ...analysis.output, understanding },
+            metadata: { ...analysis.metadata, understandingLatencyMs: 2_000 },
+          };
+        },
+      ]);
+
+      const outcome = await runCase(services, clinicalCase, key, fastRetry);
+
+      expect(outcome).toMatchObject({
+        kind: 'result',
+        row: { status: 'ok', understanding, metadata: { understandingLatencyMs: 2_000 } },
+      });
+    });
+
+    it('grava o entendimento que a falha de validação deixou em rawOutput', async () => {
+      const understanding = understandingFixture();
+      const { services } = servicesWith([validationFailure(['Output is not valid JSON'])]);
+      vi.mocked(services.prisma.aiInteraction.findFirst).mockResolvedValue({
+        id: 'interacao-falha',
+        retrievedChunkIds: ['c1'],
+        rawOutput: { raw: '{', validationErrors: ['Output is not valid JSON'], understanding },
+      } as never);
+
+      const outcome = await runCase(services, clinicalCase, key, fastRetry);
+
+      expect(outcome).toMatchObject({
+        kind: 'result',
+        row: { status: 'invalid_output', understanding },
+      });
+    });
+
+    it('fica null no legacy', async () => {
+      const { services } = servicesWith([
+        async (recorder) => {
+          recorder.record(completion());
+          return analysis;
+        },
+      ]);
+
+      const outcome = await runCase(services, clinicalCase, key, fastRetry);
+
+      expect(outcome).toMatchObject({ kind: 'result', row: { understanding: null } });
     });
   });
 

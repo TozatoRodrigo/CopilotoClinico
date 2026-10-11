@@ -35,9 +35,27 @@ import type { AnalyzeInput, RespondInput } from '../schemas/copilot.schemas';
 import { calculateInferenceCost } from './model-pricing';
 import { COPILOT_OUTPUT_JSON_SCHEMA } from '../schemas/copilot-output.json-schema';
 import { preliminaryReasonFor, type ContainmentContext } from './preliminary-containment';
-import type { CitationOrigin, PreliminaryReason } from '../../../shared/contracts/clinical';
+import {
+  UNDERSTANDING_CORRECTION_QUESTION_ID,
+  type CaseUnderstanding,
+  type CitationOrigin,
+  type PreliminaryReason,
+} from '../../../shared/contracts/clinical';
+import {
+  UnderstandingService,
+  type UnderstandingOutcome,
+} from '../understanding/understanding.service';
+import { readReasoningMode } from '../understanding/understanding.settings';
 
 const DEFAULT_MAX_TURNS = 5;
+
+/**
+ * F1 — rótulo, no bloco de perguntas e respostas, das respostas que não
+ * respondem a uma pergunta do Copiloto. Sem ele, o modelo leria o id cru.
+ */
+const RESERVED_QUESTION_LABELS: Readonly<Record<string, string>> = {
+  [UNDERSTANDING_CORRECTION_QUESTION_ID]: 'Correção do médico ao entendimento',
+};
 const RECOMMENDATION_CATEGORY_ORDER = {
   stabilization: 0,
   diagnostic: 1,
@@ -66,6 +84,12 @@ export type EnrichedRecommendation = CopilotOutput['recommendations'][number] &
 
 export type EnrichedCopilotOutput = Omit<CopilotOutput, 'recommendations'> & {
   recommendations: EnrichedRecommendation[];
+  /**
+   * F1 — Etapa 1 (ADR-013), gravada em `rawOutput`. Ausente com
+   * `COPILOT_REASONING=legacy`; `null` quando a etapa falhou e a análise
+   * seguiu pela busca de sempre.
+   */
+  understanding?: CaseUnderstanding | null;
 };
 
 const CHIEF_COMPLAINT_MAX_LENGTH = 140;
@@ -277,10 +301,14 @@ export interface OrchestratorResult {
      */
     turnIndex: number;
     maxTurns: number;
+    /** F1 — duração da Etapa 1. Só com `COPILOT_REASONING=stages`. */
+    understandingLatencyMs?: number;
   };
 }
 
 export type StreamEvent =
+  /** F1 — sai antes do primeiro delta, para o médico conferir o entendimento em segundos. */
+  | { type: 'understanding'; understanding: CaseUnderstanding }
   | { type: 'delta'; delta: string }
   | { type: 'done'; result: OrchestratorResult }
   | { type: 'error'; errors: string[] };
@@ -426,6 +454,17 @@ function inferenceCostOf(model: string, usage: CompletionUsage | undefined): num
   return usage ? calculateInferenceCost({ model, usage }) : 0;
 }
 
+/**
+ * F1 — custo da interação: análise (tentativa + retry) mais a Etapa 1, que
+ * também foi paga mesmo quando falhou.
+ */
+function analysisCost(
+  prepared: { stage: UnderstandingOutcome | null },
+  attempt: { cost: number },
+): number {
+  return attempt.cost + (prepared.stage?.cost ?? 0);
+}
+
 /** Uma resposta do modelo já validada. */
 interface CompletionAttempt {
   content: string;
@@ -516,6 +555,18 @@ interface PreparedAnalysis {
   turn: AnalysisTurn;
   /** Sufixo dos logs: '' (analyze), ' (stream)' ou ' (respond)'. */
   logLabel: string;
+  /** F1 — Etapa 1 deste turno; `null` com `COPILOT_REASONING=legacy`. */
+  stage: UnderstandingOutcome | null;
+}
+
+/** Turno 0 depois da redação de PII e da barreira de injeção. */
+interface ScreenedCase {
+  startedAt: number;
+  maxTurns: number;
+  institutionId: string | null;
+  /** Texto do caso já redigido (PII + patientRef). */
+  caseText: string;
+  piiDetected: boolean;
 }
 
 type AnalysisOutcome =
@@ -534,6 +585,7 @@ export class OrchestratorService {
     @Inject(EncountersService) private readonly encounters: EncountersService,
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(ConfigService) private readonly config: ConfigService,
+    @Inject(UnderstandingService) private readonly understanding: UnderstandingService,
   ) {}
 
   /**
@@ -578,12 +630,56 @@ export class OrchestratorService {
     return readBooleanFlag(this.config, 'UNREVIEWED_SOURCES_PRELIMINARY', true);
   }
 
+  /**
+   * F1 — Etapa 1 (ADR-013) com `COPILOT_REASONING=stages`; `null` no
+   * `legacy`, e aí nada no turno muda. A flag é lida uma vez por turno, sem
+   * redeploy para voltar; o resto do pipeline decide pelo `stage`.
+   */
+  private async understandingStage(
+    caseText: string,
+    redFlags: Record<string, boolean> | undefined,
+    logLabel: string,
+  ): Promise<UnderstandingOutcome | null> {
+    if (readReasoningMode(this.config) !== 'stages') return null;
+    return this.understanding.understand({ caseText, redFlags, logLabel });
+  }
+
+  /**
+   * F1 — Etapa 2 (ADR-013): com entendimento, busca pelas consultas dele;
+   * sem (legacy ou etapa que falhou), a busca de sempre pelo texto do caso.
+   */
+  private async retrieveEvidence(
+    caseText: string,
+    stage: UnderstandingOutcome | null,
+    institutionId: string | null | undefined,
+    logLabel: string,
+  ): Promise<RetrievalResult> {
+    if (stage?.understanding) {
+      return this.retrieval.searchMany(stage.understanding.searchQueries, 5, institutionId);
+    }
+    if (stage) {
+      this.logger.warn(
+        `UNDERSTANDING_FALLBACK${logLabel}: sem entendimento, busca pelo texto do caso`,
+      );
+    }
+    return this.retrieval.search(caseText, 5, institutionId);
+  }
+
   async analyze(
     physicianId: string,
     encounterId: string,
     input: AnalyzeInput,
   ): Promise<OrchestratorResult> {
-    const prepared = await this.prepareInitialAnalysis(physicianId, encounterId, input, '');
+    const screened = await this.screenInitialCase(physicianId, encounterId, input, '');
+    const stage = await this.understandingStage(screened.caseText, input.redFlags, '');
+    const prepared = await this.prepareInitialAnalysis(
+      physicianId,
+      encounterId,
+      input,
+      screened,
+      stage,
+      '',
+    );
     const attempt = await this.completeWithRetry(prepared);
     const outcome = await this.settleAnalysis(prepared, attempt);
     if (!outcome.valid) {
@@ -600,11 +696,21 @@ export class OrchestratorService {
     encounterId: string,
     input: AnalyzeInput,
   ): AsyncGenerator<StreamEvent> {
+    const logLabel = ' (stream)';
+    const screened = await this.screenInitialCase(physicianId, encounterId, input, logLabel);
+    const stage = await this.understandingStage(screened.caseText, input.redFlags, logLabel);
+    // F1 — o entendimento sai assim que fica pronto, antes da busca e do
+    // primeiro delta: o médico confere em segundos se o caso foi entendido.
+    if (stage?.understanding) {
+      yield { type: 'understanding', understanding: stage.understanding };
+    }
     const prepared = await this.prepareInitialAnalysis(
       physicianId,
       encounterId,
       input,
-      ' (stream)',
+      screened,
+      stage,
+      logLabel,
     );
 
     // F0-B — iteração manual: o valor de retorno do gerador (texto final,
@@ -727,7 +833,7 @@ export class OrchestratorService {
       const question = clarifyingQuestions.find((q) => q.id === a.questionId);
       return {
         questionId: a.questionId,
-        question: question?.question ?? a.questionId,
+        question: question?.question ?? RESERVED_QUESTION_LABELS[a.questionId] ?? a.questionId,
         answer: redactedAnswers[index] ?? '',
         turnIndex: parentInteraction.turnIndex,
       };
@@ -744,10 +850,18 @@ export class OrchestratorService {
     const baseCaseText = parentInteraction.inputRedacted ?? '';
     const augmentedCaseText = `${baseCaseText}\n\n--- Informações adicionais fornecidas pelo médico ---\n${qaBlock}`;
 
-    const retrievalResult = await this.retrieval.search(
+    // F1 — a resposta do médico pode mudar a síndrome: o entendimento é
+    // refeito com o caso e todas as perguntas e respostas acumuladas.
+    const stage = await this.understandingStage(
       augmentedCaseText,
-      5,
+      inheritedParams.redFlags,
+      ' (respond)',
+    );
+    const retrievalResult = await this.retrieveEvidence(
+      augmentedCaseText,
+      stage,
       encounter.institutionId,
+      ' (respond)',
     );
     const attachments = await this.loadAttachments(encounterId);
     this.logger.debug(`Retrieved ${retrievalResult.totalRetrieved} chunks (respond)`);
@@ -781,6 +895,7 @@ export class OrchestratorService {
         ? 'Este é o último turno permitido para esta análise. NÃO inclua novas clarifyingQuestions (a lista deve ficar vazia). Como não há próximo turno, "recommendations" NÃO PODE ficar vazio: forneça ao menos uma recomendação preliminar com base na melhor evidência e informação disponíveis, mesmo que incompletas. Se ainda houver incerteza sobre a cobertura da diretriz, defina uncertainty=true e descreva uncertaintyReason, mas isso não substitui a obrigação de recomendar algo — declare a incerteza E recomende, não incerteza no lugar de recomendar.'
         : undefined,
       unreviewedSourcesPreliminary,
+      understanding: stage?.understanding ?? undefined,
     });
 
     const prepared: PreparedAnalysis = {
@@ -804,6 +919,7 @@ export class OrchestratorService {
         answeredQuestions: allAnsweredQuestions,
       },
       logLabel: ' (respond)',
+      stage,
     };
 
     const attempt = await this.completeWithRetry(prepared);
@@ -818,15 +934,15 @@ export class OrchestratorService {
   }
 
   /**
-   * Turno 0, comum a analyze() e analyzeStream(): redação de PII, barreira de
-   * injeção, retrieval e prompt.
+   * Turno 0, comum a analyze() e analyzeStream(): redação de PII e barreira
+   * de injeção, antes de qualquer chamada ao modelo — inclusive a Etapa 1.
    */
-  private async prepareInitialAnalysis(
+  private async screenInitialCase(
     physicianId: string,
     encounterId: string,
     input: AnalyzeInput,
     logLabel: string,
-  ): Promise<PreparedAnalysis> {
+  ): Promise<ScreenedCase> {
     const startedAt = Date.now();
     // UX-03 — a análise inicial é sempre o turno 0; maxTurns vem da mesma
     // config que já governa o teto de reanálises em continueAnalysis().
@@ -856,7 +972,30 @@ export class OrchestratorService {
       },
     );
 
-    const retrievalResult = await this.retrieval.search(fullyRedacted, 5, encounter.institutionId);
+    return {
+      startedAt,
+      maxTurns,
+      institutionId: encounter.institutionId,
+      caseText: fullyRedacted,
+      piiDetected: piiResult.hasPII,
+    };
+  }
+
+  /** Turno 0, comum a analyze() e analyzeStream(): retrieval e prompt. */
+  private async prepareInitialAnalysis(
+    physicianId: string,
+    encounterId: string,
+    input: AnalyzeInput,
+    screened: ScreenedCase,
+    stage: UnderstandingOutcome | null,
+    logLabel: string,
+  ): Promise<PreparedAnalysis> {
+    const retrievalResult = await this.retrieveEvidence(
+      screened.caseText,
+      stage,
+      screened.institutionId,
+      logLabel,
+    );
     // F4 — referências que o médico anexou a este atendimento. Conteúdo não
     // curado: entra no prompt em bloco próprio e é citável só como preliminar.
     const attachments = await this.loadAttachments(encounterId);
@@ -872,7 +1011,7 @@ export class OrchestratorService {
     const unreviewedSourcesPreliminary = this.unreviewedSourcesPreliminary();
 
     const prompt = buildPrompt({
-      caseText: fullyRedacted,
+      caseText: screened.caseText,
       ...promptEvidence(retrievalResult, attachments),
       context: {
         hasCT: input.context.hasCT,
@@ -885,15 +1024,16 @@ export class OrchestratorService {
       // PI-05 — instrui o idioma de resposta conforme a conta do médico.
       locale,
       unreviewedSourcesPreliminary,
+      understanding: stage?.understanding ?? undefined,
     });
 
     return {
       physicianId,
       encounterId,
-      startedAt,
-      maxTurns,
-      inputRedacted: fullyRedacted,
-      piiDetected: piiResult.hasPII,
+      startedAt: screened.startedAt,
+      maxTurns: screened.maxTurns,
+      inputRedacted: screened.caseText,
+      piiDetected: screened.piiDetected,
       retrievalResult,
       attachments,
       prompt,
@@ -901,6 +1041,7 @@ export class OrchestratorService {
       unreviewedSourcesPreliminary,
       turn: { kind: 'initial' },
       logLabel,
+      stage,
     };
   }
 
@@ -1015,7 +1156,14 @@ export class OrchestratorService {
       await this.prisma.aiInteraction.create({
         data: {
           ...this.interactionRecord(prepared, attempt),
-          rawOutput: { raw: attempt.content, validationErrors: validation.errors },
+          rawOutput: {
+            raw: attempt.content,
+            validationErrors: validation.errors,
+            // F1 — o que a Etapa 1 entendeu ajuda a triar a falha.
+            ...(prepared.stage
+              ? { understanding: prepared.stage.understanding as Prisma.InputJsonValue | null }
+              : {}),
+          },
           uncertainty: true,
           uncertaintyReason: 'Output validation failed',
         },
@@ -1046,7 +1194,8 @@ export class OrchestratorService {
     await this.encounters.update(prepared.physicianId, prepared.encounterId, {
       status: 'in_review',
     });
-    await this.recordTurn(prepared, interaction.id, output, attempt.cost);
+    const cost = analysisCost(prepared, attempt);
+    await this.recordTurn(prepared, interaction.id, output, cost);
 
     const { retrievalResult } = prepared;
     return {
@@ -1064,10 +1213,11 @@ export class OrchestratorService {
           retrievalCoverage: displayedCoverage(retrievalResult),
           officialChunksRetrieved: retrievalResult.official.chunks.length,
           latencyMs: Date.now() - prepared.startedAt,
-          cost: attempt.cost,
+          cost,
           model: attempt.model,
           turnIndex: turnIndexOf(prepared.turn),
           maxTurns: prepared.maxTurns,
+          ...(prepared.stage ? { understandingLatencyMs: prepared.stage.latencyMs } : {}),
         },
       },
     };
@@ -1092,9 +1242,12 @@ export class OrchestratorService {
         redFlags: prepared.params.redFlags,
         retrievalCoverage: displayedCoverage(retrievalResult),
         officialChunksRetrieved: retrievalResult.official.chunks.length,
+        // F1 — modelo da Etapa 1 (pode ser outro que o da análise, via
+        // AI_UNDERSTANDING_MODEL): a trilha registra toda IA que o médico viu.
+        ...(prepared.stage ? { understandingModel: prepared.stage.model } : {}),
       },
       latencyMs: Date.now() - prepared.startedAt,
-      cost: attempt.cost,
+      cost: analysisCost(prepared, attempt),
       ...(turn.kind === 'follow_up'
         ? {
             turnIndex: turn.index,
@@ -1120,6 +1273,7 @@ export class OrchestratorService {
 
     return {
       ...output,
+      ...(prepared.stage ? { understanding: prepared.stage.understanding } : {}),
       recommendations: sortRecommendations(output.recommendations).map((rec) => {
         const resolved = resolveCitationSource(rec.citationChunkId, chunks, prepared.attachments);
         const preliminaryReason = preliminaryReasonFor(

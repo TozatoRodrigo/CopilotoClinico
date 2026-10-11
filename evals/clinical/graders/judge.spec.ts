@@ -1,6 +1,7 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { CopilotOutput } from '../../../src/modules/copilot/guardrails/output-validator';
+import { understandingFixture } from '../../../tests/fixtures/case-understanding';
 import { loadCaseSet } from '../cases';
 import { gradeResult, judgeOutput } from '../grading';
 import type { ResultRow } from '../records';
@@ -249,6 +250,7 @@ function resultRow(
     encounterId: 'enc',
     interactionId: 'int',
     output: caseOutput,
+    understanding: null,
     citations: [],
     metadata: null,
     retrievedChunkIds: [],
@@ -260,6 +262,38 @@ function resultRow(
     startedAt: '2026-10-10T00:00:00.000Z',
   };
 }
+
+// F1 — com COPILOT_REASONING=stages o médico vê "O que eu entendi": o juiz
+// também precisa ver.
+describe('entendimento do caso na saída julgada', () => {
+  it('shows the understanding the physician sees, without the search queries', () => {
+    const understanding = understandingFixture();
+    const { user } = buildJudgeRequest(fluctuatingStroke, { ...output(), understanding });
+
+    expect(user).toContain('"understanding"');
+    expect(user).toContain(understanding.problemRepresentation);
+    expect(user).toContain(understanding.cannotMiss[0]!.hypothesis);
+    expect(user).not.toContain('searchQueries');
+    expect(user).not.toContain(understanding.searchQueries[0]!);
+  });
+
+  it('keeps the legacy judged view unchanged when there is no understanding', () => {
+    const legacy = buildJudgeRequest(fluctuatingStroke, output());
+    const failedStage = buildJudgeRequest(fluctuatingStroke, { ...output(), understanding: null });
+
+    expect(failedStage.user).toBe(legacy.user);
+    expect(legacy.user).not.toContain('"understanding"');
+  });
+
+  it('gradeResult hands the understanding of the row to the judge', async () => {
+    const judge = fakeJudge([response(wireVerdict(true))]);
+    const understanding = understandingFixture();
+
+    await gradeResult({ ...resultRow(output()), understanding }, fluctuatingStroke, judge, noRetry);
+
+    expect(judge.requests[0]).toContain(understanding.problemRepresentation);
+  });
+});
 
 describe('gradeResult com juiz simulado (oráculo e negativos conhecidos)', () => {
   it('aprova a resposta boa', async () => {

@@ -10,6 +10,8 @@ import { SourceOriginBadge } from '@/components/domain/source-origin-badge';
 import { ConfirmedSeal } from '@/components/domain/confirmed-seal';
 import { AuditHash } from '@/components/domain/audit-hash';
 import { ConnectionStatus } from '@/components/domain/connection-status';
+import { UnderstandingCard } from '@/components/domain/understanding-card';
+import type { CaseUnderstanding } from '@/lib/types';
 import { DEMO_CASE_PRESETS } from '@/lib/demo-case-presets';
 import { ShowcaseSection, Specimen } from './showcase';
 
@@ -45,6 +47,93 @@ const DECISION_THREAD_ITEMS: DecisionThreadItem[] = [
     timestamp: '09:16',
   },
 ];
+
+/** F1 — entendimento do caso de AVC sem TC (o caso que motivou a ADR-013). */
+const STROKE_UNDERSTANDING: CaseUnderstanding = {
+  problemRepresentation:
+    'Homem de 68 anos, hipertenso, com hemiparesia direita e afasia de início súbito há 1h30, sem TC.',
+  structuredData: {
+    age: 68,
+    sex: 'M',
+    vitals: {
+      systolicBp: 182,
+      diastolicBp: 104,
+      heartRate: 88,
+      respiratoryRate: null,
+      spo2: 96,
+      temperature: null,
+      glucose: null,
+    },
+    onset: 'há 1h30',
+    keyFindings: ['hemiparesia direita', 'afasia'],
+    relevantContext: ['hipertensão'],
+  },
+  instability: { present: false, findings: [] },
+  syndrome: 'deficit-neurologico-focal',
+  syndromeNote: null,
+  cannotMiss: [
+    {
+      hypothesis: 'AVC isquêmico por oclusão de grande vaso',
+      whyPlausible: 'Déficit cortical súbito dentro da janela de reperfusão.',
+      confirmOrRuleOut: 'Angio-TC de crânio e pescoço.',
+    },
+    {
+      hypothesis: 'Hemorragia intracerebral',
+      whyPlausible: 'PA elevada e déficit súbito.',
+      confirmOrRuleOut: 'TC de crânio sem contraste.',
+    },
+    {
+      hypothesis: 'Hipoglicemia',
+      whyPlausible: 'Mimetiza déficit focal agudo.',
+      confirmOrRuleOut: 'Glicemia capilar.',
+    },
+  ],
+  likely: [{ hypothesis: 'AVC isquêmico', why: 'Déficit focal súbito em idoso hipertenso.' }],
+  missingDiscriminators: [
+    {
+      data: 'Resultado da TC de crânio sem contraste',
+      separates: ['AVC isquêmico', 'AVC hemorrágico'],
+      whyItChangesConduct: 'Trombólise só depois de excluir sangramento.',
+    },
+    {
+      data: 'Glicemia capilar',
+      separates: ['Hipoglicemia', 'AVC'],
+      whyItChangesConduct: 'Hipoglicemia se corrige com glicose, sem trombólise.',
+    },
+  ],
+  searchQueries: ['manejo inicial do AVC agudo'],
+};
+
+const UNSTABLE_UNDERSTANDING: CaseUnderstanding = {
+  ...STROKE_UNDERSTANDING,
+  problemRepresentation: 'Mulher de 34 anos com urticária, rouquidão e hipotensão após camarão.',
+  structuredData: {
+    ...STROKE_UNDERSTANDING.structuredData,
+    age: 34,
+    sex: 'F',
+    vitals: {
+      ...STROKE_UNDERSTANDING.structuredData.vitals,
+      systolicBp: 84,
+      diastolicBp: 50,
+      heartRate: 128,
+      spo2: 91,
+    },
+    onset: 'há 20 minutos',
+    keyFindings: ['urticária difusa', 'rouquidão', 'sibilos'],
+    relevantContext: [],
+  },
+  instability: { present: true, findings: ['PA 84x50', 'SpO₂ 91%', 'rouquidão'] },
+  syndrome: 'reacao-alergica',
+  cannotMiss: [
+    {
+      hypothesis: 'Anafilaxia com comprometimento de via aérea',
+      whyPlausible: 'Pele, via aérea e hipotensão após exposição alimentar.',
+      confirmOrRuleOut: 'Critério clínico; reavaliar via aérea a cada minuto.',
+    },
+  ],
+  likely: [{ hypothesis: 'Anafilaxia alimentar', why: 'Exposição a camarão minutos antes.' }],
+  missingDiscriminators: [],
+};
 
 export function DomainSection() {
   return (
@@ -106,6 +195,23 @@ export function DomainSection() {
             <SourceOriginBadge origin="curated_unsigned" />
             <SourceOriginBadge origin="physician_attachment" />
           </div>
+        </div>
+      </Specimen>
+
+      <Specimen
+        title="UnderstandingCard"
+        note="“O que eu entendi” (ADR-013): antes do plano. Vermelho para ameaça imediata e o que não pode perder; laranja só no que falta saber, porque muda a conduta."
+        bare
+      >
+        <div className="space-y-4">
+          <UnderstandingCard
+            understanding={STROKE_UNDERSTANDING}
+            correction={{ onSubmit: async () => true, submitting: false }}
+          />
+          <UnderstandingCard
+            understanding={UNSTABLE_UNDERSTANDING}
+            footnote="Montando o plano a partir deste entendimento…"
+          />
         </div>
       </Specimen>
 

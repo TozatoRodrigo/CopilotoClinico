@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PS_SYNDROMES } from '../../src/shared/contracts/clinical';
 
 /**
  * F0-A — Gabarito clínico: formato de um caso.
@@ -25,34 +26,17 @@ const kebabId = z
  * Agrupamento por SÍNDROME DE PRONTO-SOCORRO — como o paciente se apresenta,
  * não o diagnóstico final. `tags[0]` precisa ser um destes: é o estrato usado
  * no relatório para mostrar onde o Copiloto erra ("acerta dor torácica, erra
- * déficit focal"). Lista fechada para os estratos não se fragmentarem por
- * sinônimo.
+ * déficit focal").
+ *
+ * F1 — a lista vive no contrato compartilhado (`PS_SYNDROMES`), a mesma que o
+ * entendimento do caso usa. `outro` fica fora do gabarito: um caso de
+ * avaliação sempre tem estrato definido.
  */
-export const SYNDROME_GROUPS = [
-  'agitacao-psicomotora',
-  'cefaleia',
-  'choque',
-  'crise-convulsiva',
-  'deficit-neurologico-focal',
-  'diarreia-vomitos',
-  'disturbio-glicemico',
-  'dispneia',
-  'dor-abdominal',
-  'dor-lombar-flanco',
-  'dor-toracica',
-  'febre',
-  'febre-hipotensao',
-  'infeccao-respiratoria',
-  'intoxicacao',
-  'pele-partes-moles',
-  'pressao-arterial-elevada',
-  'reacao-alergica',
-  'rebaixamento-consciencia',
-  'sintomas-urinarios',
-  'vertigem',
-] as const;
+const SyndromeGroupSchema = z.enum(PS_SYNDROMES).exclude(['outro']);
 
-export type SyndromeGroup = (typeof SYNDROME_GROUPS)[number];
+export const SYNDROME_GROUPS = SyndromeGroupSchema.options;
+
+export type SyndromeGroup = z.infer<typeof SyndromeGroupSchema>;
 
 export const GOLD_SOURCES = [
   /** Caso real reportado por médico do piloto (ver tests/fixtures/field-incident-cases.ts). */
@@ -187,7 +171,7 @@ export const ClinicalCaseSchema = z
     id: kebabId,
     title: z.string().trim().min(5),
     /** `tags[0]` é a síndrome de PS (SYNDROME_GROUPS); as demais são livres. */
-    tags: z.tuple([z.enum(SYNDROME_GROUPS)]).rest(kebabId),
+    tags: z.tuple([SyndromeGroupSchema]).rest(kebabId),
     /** "Não pode errar": cenário tempo-dependente em que errar mata ou sequela. */
     critical: z.boolean(),
     goldSource: z.enum(GOLD_SOURCES),

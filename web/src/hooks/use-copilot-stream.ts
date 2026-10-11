@@ -23,7 +23,12 @@
  * porquê desse validador ser a última linha de defesa que não se abre mão.
  */
 import { useCallback, useRef, useState } from "react";
-import type { CopilotAnalyzeResponse, CopilotStreamEvent, EncounterContext } from "@/lib/types";
+import type {
+  CaseUnderstanding,
+  CopilotAnalyzeResponse,
+  CopilotStreamEvent,
+  EncounterContext,
+} from "@/lib/types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/v1";
 
@@ -60,6 +65,10 @@ export type CopilotStreamStatus = "idle" | "streaming" | "done" | "error";
 export function useCopilotStream(encounterId: string) {
   const [status, setStatus] = useState<CopilotStreamStatus>("idle");
   const [partialText, setPartialText] = useState("");
+  // F1 — Etapa 1 (ADR-013): chega antes do primeiro delta quando o backend
+  // roda com COPILOT_REASONING=stages. Diferente dos deltas, é estrutura já
+  // validada no servidor — pode ir para a tela enquanto o plano é montado.
+  const [understanding, setUnderstanding] = useState<CaseUnderstanding | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   // Distingue "onerror por falha real" de "onerror porque o servidor
   // fechou a conexão normalmente depois do done" — EventSource dispara
@@ -88,6 +97,7 @@ export function useCopilotStream(encounterId: string) {
 
         gotTerminalEventRef.current = false;
         setPartialText("");
+        setUnderstanding(null);
         setStatus("streaming");
 
         // withCredentials: true — o access_token vive num cookie HttpOnly
@@ -104,6 +114,11 @@ export function useCopilotStream(encounterId: string) {
           } catch {
             // Frame malformado isolado — ignora e aguarda o próximo em vez
             // de derrubar o stream inteiro por um evento.
+            return;
+          }
+
+          if (parsed.type === "understanding") {
+            setUnderstanding(parsed.understanding);
             return;
           }
 
@@ -143,5 +158,5 @@ export function useCopilotStream(encounterId: string) {
     [encounterId, stop],
   );
 
-  return { start, stop, status, partialText };
+  return { start, stop, status, partialText, understanding };
 }

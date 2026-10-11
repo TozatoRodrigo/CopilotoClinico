@@ -10,6 +10,8 @@ import type {
   OrchestratorService,
 } from '../../src/modules/copilot/orchestrator/orchestrator.service';
 import type { EncountersService } from '../../src/modules/encounters/encounters.service';
+import type { CaseUnderstanding } from '../../src/shared/contracts/clinical';
+import { CaseUnderstandingSchema } from '../../src/modules/copilot/understanding/case-understanding.schema';
 import type { ClinicalCase } from './case.schema';
 import type { RunStatus } from './graders/deterministic';
 import { costUsd, isSameModel } from './pricing';
@@ -92,6 +94,8 @@ type AttemptOutcome =
       interactionId: string | null;
       validationErrors: string[];
       rawContent: string | null;
+      /** F1 — o que a Etapa 1 entendeu antes de a análise falhar. */
+      understanding: CaseUnderstanding | null;
       retrievedChunkIds: string[];
       completions: RecordedCompletion[];
       wallClockMs: number;
@@ -212,6 +216,15 @@ function rawContentOf(rawOutput: unknown): string | null {
   return typeof rawOutput.raw === 'string' ? rawOutput.raw : null;
 }
 
+/** F1 — a falha de validação grava em `rawOutput` o entendimento da Etapa 1. */
+function understandingOf(rawOutput: unknown): CaseUnderstanding | null {
+  if (typeof rawOutput !== 'object' || rawOutput === null || !('understanding' in rawOutput)) {
+    return null;
+  }
+  const parsed = CaseUnderstandingSchema.safeParse(rawOutput.understanding);
+  return parsed.success ? parsed.data : null;
+}
+
 function stringList(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === 'string')
@@ -275,6 +288,7 @@ async function attemptCase(
         interactionId: stored?.id ?? null,
         validationErrors: [error.message],
         rawContent: null,
+        understanding: understandingOf(stored?.rawOutput),
         retrievedChunkIds: stored?.retrievedChunkIds ?? [],
         completions,
         wallClockMs: Date.now() - startedAt,
@@ -305,6 +319,7 @@ async function attemptCase(
       interactionId: stored?.id ?? null,
       validationErrors,
       rawContent: rawContentOf(stored?.rawOutput) ?? completions.at(-1)?.content ?? null,
+      understanding: understandingOf(stored?.rawOutput),
       retrievedChunkIds: stored?.retrievedChunkIds ?? [],
       completions,
       wallClockMs: Date.now() - startedAt,
@@ -448,6 +463,7 @@ export async function runCase(
         servedModel: completions.at(-1)?.servedModel ?? null,
         interactionId: outcome.interactionId,
         output: null,
+        understanding: outcome.understanding,
         citations: [],
         metadata: null,
         validationErrors: outcome.validationErrors,
@@ -467,6 +483,7 @@ export async function runCase(
       servedModel: result.metadata.model,
       interactionId: result.interactionId,
       output: result.output,
+      understanding: result.output.understanding ?? null,
       citations: result.citations,
       metadata: result.metadata,
       validationErrors: [],

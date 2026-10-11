@@ -18,7 +18,7 @@
  * string values. Every locale dictionary implements this same interface.
  */
 
-import type { CitationOrigin, PreliminaryReason } from '@contracts/clinical';
+import type { CitationOrigin, PreliminaryReason, PsSyndrome } from '@contracts/clinical';
 
 export interface Messages {
   common: {
@@ -161,6 +161,46 @@ export interface Messages {
     };
   };
 
+  /**
+   * F1 — card "O que eu entendi" (ADR-013, Etapa 1): o que o copiloto
+   * entendeu do caso ANTES de buscar evidência, para o médico conferir e
+   * corrigir antes de ler o plano.
+   */
+  understanding: {
+    heading: string;
+    description: string;
+    /** Mostrado na captura enquanto o plano ainda está sendo montado. */
+    streamingHint: string;
+    syndrome: string;
+    syndromes: Record<PsSyndrome, string>;
+    instabilityTitle: string;
+    data: {
+      heading: string;
+      age: (years: number) => string;
+      sex: Record<'F' | 'M', string>;
+      bloodPressure: (systolic: number | null, diastolic: number | null) => string;
+      heartRate: (value: number) => string;
+      respiratoryRate: (value: number) => string;
+      spo2: (value: number) => string;
+      temperature: (value: number) => string;
+      glucose: (value: number) => string;
+      onset: (value: string) => string;
+    };
+    cannotMissHeading: string;
+    confirmOrRuleOut: string;
+    likelyHeading: string;
+    missingHeading: string;
+    separates: (hypotheses: string[]) => string;
+    correction: {
+      cta: string;
+      label: string;
+      placeholder: string;
+      submit: string;
+      submitting: string;
+      cancel: string;
+    };
+  };
+
   blocker: {
     changesConduct: string;
     whyAsk: string;
@@ -240,6 +280,12 @@ export interface Messages {
     analysisLoadDescription: string;
     analysisEmpty: string;
   };
+}
+
+const PT_BR_NUMBER = new Intl.NumberFormat('pt-BR');
+
+function formatNumberPtBr(value: number): string {
+  return PT_BR_NUMBER.format(value);
 }
 
 export const ptBR: Messages = {
@@ -401,6 +447,64 @@ export const ptBR: Messages = {
       placeholder:
         'Acrescente o que ajudar a esclarecer o quadro — tempo de evolução, sinais vitais, exames já feitos...',
       submit: 'Reanalisar com o complemento',
+      submitting: 'Reanalisando...',
+      cancel: 'Cancelar',
+    },
+  },
+
+  understanding: {
+    heading: 'O que eu entendi',
+    description: 'Confira antes do plano. Se algo estiver errado, corrija e o copiloto reanalisa.',
+    streamingHint: 'Montando o plano a partir deste entendimento…',
+    syndrome: 'Síndrome',
+    syndromes: {
+      'agitacao-psicomotora': 'Agitação psicomotora',
+      cefaleia: 'Cefaleia',
+      choque: 'Choque',
+      'crise-convulsiva': 'Crise convulsiva',
+      'deficit-neurologico-focal': 'Déficit neurológico focal',
+      'diarreia-vomitos': 'Diarreia e vômitos',
+      'disturbio-glicemico': 'Distúrbio glicêmico',
+      dispneia: 'Dispneia',
+      'dor-abdominal': 'Dor abdominal',
+      'dor-lombar-flanco': 'Dor lombar ou em flanco',
+      'dor-toracica': 'Dor torácica',
+      febre: 'Febre',
+      'febre-hipotensao': 'Febre com hipotensão',
+      'infeccao-respiratoria': 'Infecção respiratória',
+      intoxicacao: 'Intoxicação',
+      'pele-partes-moles': 'Pele e partes moles',
+      'pressao-arterial-elevada': 'Pressão arterial elevada',
+      'reacao-alergica': 'Reação alérgica',
+      'rebaixamento-consciencia': 'Rebaixamento de consciência',
+      'sintomas-urinarios': 'Sintomas urinários',
+      vertigem: 'Vertigem',
+      outro: 'Outra síndrome',
+    },
+    instabilityTitle: 'Instabilidade — ameaça imediata',
+    data: {
+      heading: 'Dados informados',
+      age: (years: number) => `${formatNumberPtBr(years)} anos`,
+      sex: { F: 'Feminino', M: 'Masculino' },
+      bloodPressure: (systolic: number | null, diastolic: number | null) =>
+        `PA ${systolic ?? '?'}x${diastolic ?? '?'}`,
+      heartRate: (value: number) => `FC ${formatNumberPtBr(value)}`,
+      respiratoryRate: (value: number) => `FR ${formatNumberPtBr(value)}`,
+      spo2: (value: number) => `SpO₂ ${formatNumberPtBr(value)}%`,
+      temperature: (value: number) => `Tax ${formatNumberPtBr(value)}`,
+      glucose: (value: number) => `Glicemia ${formatNumberPtBr(value)}`,
+      onset: (value: string) => `Início: ${value}`,
+    },
+    cannotMissHeading: 'Não pode perder',
+    confirmOrRuleOut: 'Confirma ou afasta:',
+    likelyHeading: 'Mais prováveis',
+    missingHeading: 'O que falta saber',
+    separates: (hypotheses: string[]) => `Separa ${hypotheses.join(' × ')}`,
+    correction: {
+      cta: 'Corrigir entendimento',
+      label: 'O que o copiloto entendeu errado ou deixou de fora?',
+      placeholder: 'Ex.: o déficit regrediu em 10 minutos e voltou duas vezes.',
+      submit: 'Reanalisar com a correção',
       submitting: 'Reanalisando...',
       cancel: 'Cancelar',
     },

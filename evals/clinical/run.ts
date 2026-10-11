@@ -15,6 +15,11 @@ import {
 } from '../../src/modules/ai-gateway/ai-gateway.settings';
 import { AI_EFFORTS } from '../../src/modules/ai-gateway/providers/provider.interface';
 import { OrchestratorService } from '../../src/modules/copilot/orchestrator/orchestrator.service';
+import {
+  readReasoningMode,
+  readUnderstandingEffort,
+  readUnderstandingModel,
+} from '../../src/modules/copilot/understanding/understanding.settings';
 import { EncountersService } from '../../src/modules/encounters/encounters.service';
 import type { ClinicalCase } from './case.schema';
 import { loadCaseSet, selectCases } from './cases';
@@ -168,6 +173,22 @@ interface VariantRunContext {
   database: string;
 }
 
+/** F1 — o que a variante rodou da Etapa 1, lido do mesmo jeito que o pipeline lê. */
+function stagesSettings(
+  config: ConfigService,
+  requestedModel: string,
+): Pick<RunMeta['pipeline'], 'reasoning' | 'understandingModel' | 'understandingEffort'> {
+  const reasoning = readReasoningMode(config);
+  if (reasoning !== 'stages') {
+    return { reasoning, understandingModel: null, understandingEffort: null };
+  }
+  return {
+    reasoning,
+    understandingModel: readUnderstandingModel(config) ?? requestedModel,
+    understandingEffort: readUnderstandingEffort(config),
+  };
+}
+
 async function executeVariant(context: VariantRunContext): Promise<string> {
   const { variant, env, cases, options } = context;
   const runId = `${new Date().toISOString().replace(/[:.]/g, '-')}-${variant.name}`;
@@ -224,6 +245,7 @@ async function executeVariant(context: VariantRunContext): Promise<string> {
         embeddingModel: gateway.getEmbeddingModel(),
         maxOutputTokens: readMaxOutputTokens(config),
         effort: readChoice(config, 'AI_EFFORT', AI_EFFORTS, 'high'),
+        ...stagesSettings(config, requestedModel),
         structuredOutput: readFlag(config, 'AI_STRUCTURED_OUTPUT', true),
         refusalFallback,
       },

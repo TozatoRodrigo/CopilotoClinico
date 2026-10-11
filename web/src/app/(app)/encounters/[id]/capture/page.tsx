@@ -25,6 +25,7 @@ import {
 } from '@/hooks/use-copilot-conversation';
 import { EncounterAttachments } from '@/components/domain/encounter-attachments';
 import { useCopilotStream, isStreamEligible } from '@/hooks/use-copilot-stream';
+import { UnderstandingCard } from '@/components/domain/understanding-card';
 import { markFirstAnalysisDone } from '@/components/domain/install-prompt-banner';
 import {
   ArrowCounterClockwise,
@@ -503,6 +504,16 @@ export default function CapturePage({ params }: { params: Promise<{ id: string }
         <ShieldCheck className="size-4 shrink-0" weight="duotone" aria-hidden="true" />
         Sem dados pessoais do paciente. PII é filtrada antes de qualquer envio à IA (LGPD).
       </p>
+
+      {/* F1 — com o raciocínio em etapas, o entendimento chega antes do plano:
+          o médico já confere o que o copiloto entendeu enquanto ele monta a
+          conduta. Logo acima da barra de ação, onde o olhar está. */}
+      {stream.status === 'streaming' && (
+        <UnderstandingCard
+          understanding={stream.understanding}
+          footnote={messages.understanding.streamingHint}
+        />
+      )}
 
       {/* Barra de ação fixa no rodapé da página. No mobile fica acima da
           barra de abas do shell (altura dela + safe area). */}

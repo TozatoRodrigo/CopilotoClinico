@@ -5,6 +5,7 @@ import {
   sortByScore,
   applyRelevanceFloor,
   semanticScoresForFloor,
+  mergeQueryRankings,
   INSTITUTION_RANK_BOOST,
   type KeywordHit,
   type SearchHit,
@@ -321,5 +322,79 @@ describe('semanticScoresForFloor + applyRelevanceFloor — hits só lexicais', (
     );
 
     expect(result.keptChunkIds).toEqual(['sem-embedding-forte']);
+  });
+});
+
+// F1 — busca dirigida (ADR-013): uma busca por consulta, juntadas pela melhor
+// pontuação de cada trecho.
+describe('mergeQueryRankings', () => {
+  function ranking(
+    scores: Record<string, number>,
+    semantic: Record<string, number> = {},
+    keyword: Record<string, number> = {},
+  ) {
+    return {
+      scores: new Map(Object.entries(scores)),
+      semanticScores: new Map(Object.entries(semantic)),
+      keywordScores: new Map(Object.entries(keyword)),
+    };
+  }
+
+  it('keeps the best score of a chunk found by several queries', () => {
+    const merged = mergeQueryRankings([
+      ranking({ shared: 0.016, a: 0.03 }, { shared: 0.4, a: 0.6 }, { shared: 0.1 }),
+      ranking({ shared: 0.032, b: 0.016 }, { shared: 0.55, b: 0.5 }, { shared: 0.05 }),
+    ]);
+
+    expect(merged.scores.get('shared')).toBe(0.032);
+    expect(merged.semanticScores.get('shared')).toBe(0.55);
+    expect(merged.keywordScores.get('shared')).toBe(0.1);
+  });
+
+  it('never sums scores: a generic chunk found by every query does not jump ahead', () => {
+    const merged = mergeQueryRankings([
+      ranking({ specificA: 0.0164, generic: 0.0161 }),
+      ranking({ specificB: 0.0164, generic: 0.0161 }),
+      ranking({ specificC: 0.0164, generic: 0.0161 }),
+    ]);
+
+    expect(merged.rankedIds).toEqual(['specificA', 'specificB', 'specificC', 'generic']);
+  });
+
+  it('breaks ties by query order, so the syndrome query comes first', () => {
+    const merged = mergeQueryRankings([
+      ranking({ syndrome: 0.0164 }),
+      ranking({ hypothesis: 0.0164 }),
+    ]);
+
+    expect(merged.rankedIds).toEqual(['syndrome', 'hypothesis']);
+  });
+
+  it('records which queries found each chunk', () => {
+    const merged = mergeQueryRankings([
+      ranking({ a: 0.02, shared: 0.01 }),
+      ranking({ shared: 0.02 }),
+    ]);
+
+    expect(merged.provenance.get('a')).toEqual([0]);
+    expect(merged.provenance.get('shared')).toEqual([0, 1]);
+  });
+
+  it('feeds the relevance floor with the best similarity of each chunk', () => {
+    const merged = mergeQueryRankings([
+      ranking({ weakInFirst: 0.02 }, { weakInFirst: 0.2 }),
+      ranking({ weakInFirst: 0.01 }, { weakInFirst: 0.5 }),
+    ]);
+
+    const floor = applyRelevanceFloor(merged.rankedIds, {
+      semanticScores: merged.semanticScores,
+      keywordScores: merged.keywordScores,
+      minSemanticScore: 0.3,
+      strongSemanticScore: 0.45,
+      minKeywordRank: 0.01,
+    });
+
+    expect(floor.keptChunkIds).toEqual(['weakInFirst']);
+    expect(floor.coverage).toBe('full');
   });
 });

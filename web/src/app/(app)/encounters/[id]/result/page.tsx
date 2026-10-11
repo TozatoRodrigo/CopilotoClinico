@@ -31,6 +31,7 @@ import { BlockerQuestionCard } from '@/components/domain/blocker-question-card';
 import { UncertaintyBanner } from '@/components/domain/uncertainty-banner';
 import { CoverageBanner } from '@/components/domain/coverage-banner';
 import { CopilotFeedback } from '@/components/domain/copilot-feedback';
+import { UnderstandingCard } from '@/components/domain/understanding-card';
 import { CitationFootnote } from '@/components/domain/citation-footnote';
 import { GuidelineConsultSheet } from '@/components/domain/guideline-consult';
 import { SourceOriginBadge, isUnreviewedOrigin } from '@/components/domain/source-origin-badge';
@@ -274,6 +275,8 @@ function ResultView({ encounterId, result }: { encounterId: string; result: Stor
     turnIndex,
     maxTurns,
     isLastAllowedTurn,
+    correctUnderstanding,
+    canCorrectUnderstanding,
   } = useCopilotConversation(encounterId, result);
   const { decisions, setDecision, setNote, syncStatus, retryPending } = useRecommendationDecisions(
     encounterId,
@@ -449,6 +452,18 @@ function ResultView({ encounterId, result }: { encounterId: string; result: Stor
         caseText={result.caseText ?? encounterQuery.data?.chiefComplaint ?? null}
         citedChunkIds={recommendations.map((rec) => rec.citationChunkId)}
         citedSources={recommendations.map((rec) => rec.source)}
+      />
+
+      {/* F1 — "O que eu entendi" (ADR-013): antes das perguntas e do plano,
+          para o médico conferir o entendimento do caso e corrigi-lo. Some
+          no legacy e nas análises antigas, que não têm entendimento. */}
+      <UnderstandingCard
+        understanding={analysis.understanding}
+        correction={
+          canCorrectUnderstanding
+            ? { onSubmit: correctUnderstanding, submitting: reanalyzing }
+            : undefined
+        }
       />
 
       {respondError && (

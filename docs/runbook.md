@@ -785,6 +785,7 @@ Prisma não suporta rollback automático. Para reverter:
 | `MIGRATION_DATABASE_URL` | Migrations indisponíveis ou executadas com usuário incorreto |
 | `OFFICIAL_GUIDELINES_ENABLED` | `false` tira PCDT/DDT/DB/PU do retrieval (válvula de escape da ADR-010); ausente = ligada. Os limiares `OFFICIAL_*` estão em `.env.example` |
 | `UNREVIEWED_SOURCES_PRELIMINARY` | `false` desliga a contenção da ADR-012: PCDT e chunk curado sem assinatura voltam a embasar conduta definitiva. Ausente ou irreconhecível = ligada |
+| `COPILOT_REASONING` | `stages` liga o raciocínio em etapas da ADR-013 (entendimento do caso antes da busca, busca dirigida, card "O que eu entendi"); `legacy` (padrão) volta ao pipeline de sempre. Ausente ou irreconhecível = `legacy`. Etapa 1 com `AI_UNDERSTANDING_MODEL` (vazio = `AI_MODEL`) e `AI_UNDERSTANDING_EFFORT` (padrão `low`). Falha da Etapa 1 aparece como `UNDERSTANDING_FAILED`/`UNDERSTANDING_FALLBACK` no log e a análise segue pela busca de sempre |
 
 ---
 
