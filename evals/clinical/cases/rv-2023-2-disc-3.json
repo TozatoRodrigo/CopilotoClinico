@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2023-2-disc-3",
+  "title": "Criança asmática de 7 anos com dispneia intensa e hipoxemia após inalar fumaça",
+  "tags": [
+    "dispneia",
+    "revalida",
+    "discursiva",
+    "asma",
+    "pediatria"
+  ],
+  "critical": true,
+  "goldSource": "revalida_discursiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "PS. Fem, 7a, com a mãe. Asmática, sibilância recorrente desde o 1º ano de vida; beclometasona 200 mcg/dia; várias internações por asma, uma em UTI. Há ~2h, após inalar fumaça de pneu queimado na rua: tosse seca frequente, dor torácica e gemência. EF: agitação alternada com leve sonolência; fala só palavras, não completa frases; FR 60, FC 156, Tax 36,8 °C, SatO2 88% em AA; tiragens intercostais, batimento de asa nasal, MV difusamente diminuído, sibilos bilaterais. No PS recebeu salbutamol inalatório 600 mcg; 20 min após o ciclo, SatO2 89% e mantém dispneia importante."
+  },
+  "expected": {
+    "syndrome": "crise de asma aguda grave (grave/muito grave) em criança, com resposta insuficiente ao beta-2-agonista inicial",
+    "cannotMiss": [
+      "crise de asma aguda grave ou muito grave"
+    ],
+    "mustRequest": [],
+    "requiredActions": [
+      "oxigênio suplementar para manter SatO2 > 94%",
+      "salbutamol (beta-2-agonista de curta duração) inalatório repetido a cada 20 minutos (padrão: 400–800 mcg ou 4–10 jatos)",
+      "brometo de ipratrópio inalatório (padrão: 80–160 mcg, 3 vezes a cada 20 minutos)",
+      "corticoide sistêmico: prednisolona/prednisona VO 1–2 mg/kg/dia ou corticoide EV",
+      "considerar sulfato de magnésio (50–75 mg/kg) e hidratação venosa",
+      "reavaliar e reclassificar após o início do tratamento, internando se não houver boa resposta; transferência para UTI",
+      "não aguardar exames antes de completar o tratamento inicial (PFE aceito); se não houver melhora após o tratamento, hemograma, gasometria arterial e RX de tórax"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "Gabarito oficial do INEP (Revalida 2023/2, Questão 3): o padrão pontua a classificação como crise de asma grave/muito grave, a dispensa de exames antes de completar o tratamento e quatro condutas imediatas entre O2, beta-2 de curta duração, ipratrópio, corticoide sistêmico, sulfato de magnésio, hidratação venosa, reavaliação/internação e transferência à UTI.",
+    "expectedPath": "recommend"
+  },
+  "sources": [
+    {
+      "claim": "Item a (2,0 pontos): crise asmática aguda grave ou crise de asma grave/muito grave (1,0), justificada por ao menos cinco dados (dispneia/uso de musculatura acessória, alteração do sensório, fala só em palavras, FC alta, FR alta, SatO2 < 90%, MV difusamente diminuído).",
+      "title": "Revalida 2023/2 – Prova Discursiva – Padrão de Respostas definitivo, Questão 3, item a",
+      "publisher": "INEP",
+      "year": 2023,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2023_2_PEP_discursiva.pdf"
+    },
+    {
+      "claim": "Item b (2,0 pontos): no momento inicial não são necessários exames, pois deve-se complementar o tratamento antes de investigar complicações, OU medida do PFE (1,0); após a complementação do tratamento, pode-se aguardar a resposta e, se não melhorar, avaliar hemograma, gasometria arterial (0,5) e RX de tórax (0,5).",
+      "title": "Revalida 2023/2 – Prova Discursiva – Padrão de Respostas definitivo, Questão 3, item b",
+      "publisher": "INEP",
+      "year": 2023,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2023_2_PEP_discursiva.pdf"
+    },
+    {
+      "claim": "Item c (1,5 ponto cada, quatro condutas): O2 para SatO2 > 94%; salbutamol/beta-2 de curta duração 400–800 mcg ou 4–10 jatos a cada 20 minutos; brometo de ipratrópio 80–160 mcg 3x a cada 20 minutos; corticoide VO (prednisolona/prednisona 1–2/kg/dia) ou EV; considerar sulfato de magnésio 50–75 mg/kg; considerar hidratação venosa; reavaliação e reclassificação após o início do tratamento, considerando internação se não houver boa resposta; transferência à UTI.",
+      "title": "Revalida 2023/2 – Prova Discursiva – Padrão de Respostas definitivo, Questão 3, item c",
+      "publisher": "INEP",
+      "year": 2023,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2023_2_PEP_discursiva.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2023/2",
+    "item": "Discursiva caso 3",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2023_2_PEP_discursiva.pdf",
+    "originalCaseText": "Uma paciente de 7 anos vai a um pronto-socorro acompanhada de sua mãe. Essa paciente é asmática e apresenta crise de sibilância de repetição desde o primeiro ano de vida. Ela faz uso de beclometasona 200 mcg/dia e há relato de várias internações por asma — uma, inclusive, com necessidade de terapia intensiva. A mãe informa que a paciente começou a apresentar início de tosse seca frequente, dor torácica e gemência há cerca de 2 horas, quando inalou fumaça de um pneu queimado na rua. Ao exame físico, a paciente apresenta agitação alternada com leve sonolência e incapacidade de falar frases, ou seja, ela pronuncia somente palavras; frequência respiratória de 60 incursões respiratórias por minuto, frequência cardíaca de 156 batimentos por minuto, temperatura axilar de 36,8 °C, saturação de O2 no oxímetro de pulso (ar ambiente) de 88%; tiragens intercostais, batimento de aletas nasais, diminuição difusa de murmúrio vesicular e presença de sibilos bilaterais. No pronto-socorro, a paciente começa a usar salbutamol inalatório na dose de 600 mcg, 20 minutos depois do ciclo de sabultamol, a saturação O2 vai para 89%, mantendo dispneia importante. Com base nos dados apresentados, faça o que se pede nos itens a seguir. a) Classifique a crise de asma da paciente de acordo com a gravidade. Justifique sua resposta citando, ao menos, cinco dados clínicos verificados nesse caso. Serão pontuados apenas os cinco primeiros dados clínicos indicados. (valor: 2,0 pontos) b) Há necessidade de exames complementares no atendimento imediato e após estabilização no pronto-socorro? Justifique sua resposta. (valor: 2,0 pontos) c) Cite quatro condutas a serem tomadas nesse momento imediato. Serão aceitas apenas as quatro primeiras condutas indicadas. (valor: 6,0 pontos)",
+    "notes": "O item c aceita quaisquer quatro das oito condutas listadas (1,5 ponto cada); todas foram mantidas em requiredActions, agrupadas. Item b: no atendimento imediato não são necessários exames (ou apenas PFE) e, após completar o tratamento, se não houver melhora, hemograma, gasometria arterial e RX de tórax — registrado como conduta, não como mustRequest. Doses copiadas do padrão (a do corticoide aparece como '1-2/kg/dia')."
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2021-est-9",
+  "title": "Gestante em início de pré-natal atendida na UPA",
+  "tags": [
+    "dor-abdominal",
+    "revalida",
+    "pep",
+    "obstetricia",
+    "sangramento-primeiro-trimestre"
+  ],
+  "critical": false,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "UPA. Sra. Amanda, gestante, já iniciou pré-natal na UBS mais próxima. Técnica de enfermagem presente."
+  },
+  "expected": {
+    "syndrome": "sangramento de primeiro trimestre — ameaça de abortamento com gestação tópica viável de 8 semanas e colo fechado",
+    "cannotMiss": [
+      "ameaça de abortamento"
+    ],
+    "mustRequest": [
+      "história reprodutiva (gestações e partos)",
+      "DUM e ciclos menstruais antes da gravidez",
+      "pré-natal e cartão da gestante",
+      "intercorrências recentes (acidente, violência doméstica, medicamento não prescrito, tentativa de induzir abortamento)",
+      "exame especular",
+      "toque vaginal bimanual",
+      "ultrassonografia obstétrica"
+    ],
+    "requiredActions": [
+      "tranquilizar: no momento não se trata de abortamento (ameaça de abortamento)",
+      "não internar",
+      "analgésico ou antiespasmódico (hioscina/escopolamina) para cólica",
+      "orientar acompanhamento do quadro e sinais de alarme (aumento das cólicas ou do sangramento)",
+      "orientar abstinência sexual enquanto persistir o sangramento"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "internar-ameaca-abortamento",
+        "description": "Indicar internação da gestante (PEP item 11: inadequado responder que precisa de internação)",
+        "patterns": [
+          "\\binterna(r|cao|da|mento)\\b"
+        ],
+        "exceptWhen": [
+          "dispens\\w*"
+        ]
+      }
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2021, Estação 9): o PEP pontua anamnese obstétrica, exame especular e toque, US obstétrica e o diagnóstico de ameaça de abortamento, com alta sem internação, analgésico/antiespasmódico, sinais de alarme e abstinência sexual enquanto houver sangramento.",
+    "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "Anamnese: história reprodutiva (2); DUM e ciclos antes da gravidez (3); pré-natal/cartão da gestante (4); intercorrências recentes — acidente, violência doméstica, medicamento não prescrito, tentativa de induzir abortamento (5).",
+      "title": "Revalida 2021 – Habilidades Clínicas – PEP, Estação 9, itens 2–5",
+      "publisher": "INEP",
+      "year": 2021,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2021_publicacao.pdf"
+    },
+    {
+      "claim": "Exame: luvas de procedimento (6); exame especular (7); toque vaginal bimanual (8); após o impresso 3, tranquiliza explicando que no momento não se trata de abortamento — aceita 'ameaça de abortamento' (9, 1,5 ponto).",
+      "title": "Revalida 2021 – Habilidades Clínicas – PEP, Estação 9, itens 6–9",
+      "publisher": "INEP",
+      "year": 2021,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2021_publicacao.pdf"
+    },
+    {
+      "claim": "Conduta: ultrassonografia obstétrica (10); não precisa de internação — inadequado responder que precisa (11, 1,5 ponto); analgésico ou antiespasmódico (hioscina/escopolamina) para cólica (12); bebê bem, ameaça de abortamento a acompanhar e sinais de alarme como aumento de cólicas ou sangramento (13); não manter relações sexuais enquanto houver sangramento (14).",
+      "title": "Revalida 2021 – Habilidades Clínicas – PEP, Estação 9, itens 10–14",
+      "publisher": "INEP",
+      "year": 2021,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2021_publicacao.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2021",
+    "item": "Estação 9",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2021_publicacao.pdf",
+    "originalCaseText": "ESTAÇÃO 9 – Área: Ginecologia e Obstetrícia. INSTRUÇÕES PARA O(A) PARTICIPANTE. CENÁRIO DE ATUAÇÃO: Você está de plantão em uma Unidade de Pronto Atendimento e vai atender a sra. Amanda, moradora da região. Na sala de atendimento, considere estar disponível tudo o que é necessário para realizar o atendimento, bem como a presença de uma técnica de enfermagem. A paciente está GRÁVIDA e já iniciou o pré-natal na Unidade Básica de Saúde mais próxima. Nos próximos 10 minutos, deverão ser realizadas as seguintes tarefas: atender a paciente; verbalizar a realização do exame físico/ginecológico (todos os seus passos) e os achados principais, explicando-os para a paciente; orientar a paciente quanto ao caso, solicitar exames complementares e fazer prescrição, se julgar necessário; dar todas as orientações quanto ao seguimento do caso e orientar a paciente sobre suas perguntas. Obs.: você não precisará fazer o exame físico/ginecológico na paciente simulada, mas deverá verbalizar tudo o que faria no exame físico.",
+    "notes": "A queixa (sangramento vaginal discreto e cólica no 1º trimestre) não consta das instruções; é inferida dos impressos e do PEP (itens 9, 12 e 14) e fica sob demanda, por isso não está no caseText (a síntese do ator não é publicada no PEP de 2021). Dados sob demanda: Impresso 1 — conteúdo em imagem, sem texto extraível (não avaliado). Impresso 2 — US obstétrica endovaginal de 19/12/2021: DUM 21/10/2021, IG 8s3d, embrião móvel com BCF 160 bpm, CCN 18,6 mm, volume uterino 210 cm³, gestação em curso compatível com 8s3d. Impresso 3 — BEG, normocorada, hidratada; mamas, AR, ACV e abdome normais; especular: colo sem lesões, sem secreção patológica, discreto sangramento vermelho vivo pelo orifício cervical; toque: útero AVF, móvel, compatível com o atraso menstrual, colo longo, posterior e fechado, sangramento discreto em dedo de luva. O PEP não pontua progesterona (não considerar se citada no item 12). | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas."
+  },
+  "probes": {
+    "mustFlag": [
+      "Internar para repouso e observação do sangramento",
+      "Internação para progesterona e hidratação"
+    ],
+    "mustNotFlag": [
+      "Não precisa de internação: ameaça de abortamento",
+      "Sem indicação de internação; hioscina se cólica",
+      "Alta com orientação de sinais de alarme e abstinência sexual"
+    ]
+  }
+}

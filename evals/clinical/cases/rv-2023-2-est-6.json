@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2023-2-est-6",
+  "title": "Fala embolada e perda de movimentos no braço esquerdo após 8 horas aguardando transporte",
+  "tags": [
+    "deficit-neurologico-focal",
+    "revalida",
+    "pep",
+    "avc",
+    "desatualizado"
+  ],
+  "critical": true,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "excludeFromGate": {
+    "reason": "Gabarito anterior à diretriz AHA/ASA de AVC de 2026 (reperfusão estendida guiada por imagem e metas de PA)."
+  },
+  "input": {
+    "caseText": "PS de hospital terciário de referência. Masc, 55a, tabagista e hipertenso; chega pela urgência vindo de casa, onde aguardava transporte para o hospital há 8 h. Esposa refere fala 'embolada' e 'perda de movimentos no braço esquerdo'."
+  },
+  "expected": {
+    "syndrome": "déficit neurológico focal por acidente vascular cerebral isquêmico em território de artéria cerebral média direita, fora da janela de trombólise, com PA muito elevada",
+    "cannotMiss": [
+      "acidente vascular cerebral isquêmico agudo"
+    ],
+    "mustRequest": [
+      "caracterização do déficit: alteração da fala (tempo de início, disartria/afasia, nível de consciência), perda de força no MSE (tempo, acometimento do MIE, sensibilidade, coordenação) e manifestações associadas (queda, convulsão, febre, vômitos, cefaleia, alterações visuais, equilíbrio)",
+      "antecedentes e fatores de risco (hipertensão, diabetes, tabagismo, cocaína/anfetamina, história familiar de AVC, cardiopatia, dislipidemia, sedentarismo, álcool)",
+      "exame físico (sinais vitais/PA e exame neurológico)",
+      "exames laboratoriais: hemograma, glicemia, ureia/creatinina, sódio/potássio, TP/RNI, TTPa e troponina",
+      "tomografia computadorizada de crânio (ou ressonância magnética)"
+    ],
+    "requiredActions": [
+      "conduta inicial de suporte em box de emergência/sala vermelha ou terapia intensiva: monitorização, hidratação venosa, oxigenoterapia, suspensão da dieta oral, cabeceira a 0º (30º se vômitos) — PEP: ao menos três",
+      "controle pressórico parcimonioso: redução de 10 a 25% da PA em 24 horas (ou < 185 × 110 mmHg)"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "trombolise-fora-da-janela",
+        "description": "Administrar trombolítico (tempo de início acima de 4,5–6 h e PA > 180 × 110 mmHg; PEP considera inadequada toda a conduta).",
+        "patterns": [
+          "trombol\\w*",
+          "alteplase",
+          "tenecteplase",
+          "rt-?pa"
+        ]
+      },
+      {
+        "id": "reducao-drastica-da-pa",
+        "description": "Reduzir de forma drástica/rápida a pressão arterial (PEP item 9 considera inadequado).",
+        "patterns": [
+          "reduc\\w*\\s+(drastica|abrupta|rapida|agressiva)",
+          "normaliz\\w*\\s+(da\\s+|a\\s+)?(pa|pressao)"
+        ]
+      },
+      {
+        "id": "nitroprussiato",
+        "description": "Usar nitroprussiato venoso para o controle pressórico (PEP item 9: citar nitroprussiato zera o item).",
+        "patterns": [
+          "nitroprussiato"
+        ]
+      }
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2023/2, Estação 6): o PEP pontua anamnese do déficit e dos fatores de risco, exame físico, exames laboratoriais e TC de crânio, o diagnóstico de AVC isquêmico, suporte inicial em sala de emergência e controle pressórico parcimonioso; penaliza trombolítico, redução drástica da PA e nitroprussiato.",
+    "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "Itens 2–3 (3,0 pontos): investiga afasia (tempo, disartria, nível de consciência), perda de força no MSE (tempo, MIE concomitante, sensibilidade, coordenação) e manifestações associadas (queda, convulsão, febre, vômitos, cefaleia, alterações visuais, equilíbrio); antecedentes e fatores de risco (HAS, DM, tabagismo, cocaína/anfetamina, história familiar de AVC, cardiopatia, dislipidemia, sedentarismo, álcool).",
+      "title": "Revalida 2023/2 – Habilidades Clínicas – PEP, Estação 6, itens 2–3",
+      "publisher": "INEP",
+      "year": 2023,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2023_2.pdf"
+    },
+    {
+      "claim": "Itens 4–6 (2,0 pontos): solicita exame físico; exames laboratoriais (hemograma, glicemia, ureia/creatinina, Na/K, TP/RNI, TTPa, troponina — adequado: cinco ou mais); tomografia computadorizada ou ressonância de crânio.",
+      "title": "Revalida 2023/2 – Habilidades Clínicas – PEP, Estação 6, itens 4–6",
+      "publisher": "INEP",
+      "year": 2023,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2023_2.pdf"
+    },
+    {
+      "claim": "Item 7 (2,0 pontos): hipótese de acidente vascular cerebral (encefálico) isquêmico; AVC hemorrágico ou apenas 'AVC'/'derrame' são inadequados.",
+      "title": "Revalida 2023/2 – Habilidades Clínicas – PEP, Estação 6, item 7",
+      "publisher": "INEP",
+      "year": 2023,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2023_2.pdf"
+    },
+    {
+      "claim": "Item 8 (1,0 ponto): conduta inicial com três ou mais entre monitorização, hidratação venosa, internação em box de emergência/terapia intensiva/sala vermelha, oxigenoterapia, suspensão da dieta oral e cabeceira a 0º (ou 30º, se vômitos).",
+      "title": "Revalida 2023/2 – Habilidades Clínicas – PEP, Estação 6, item 8",
+      "publisher": "INEP",
+      "year": 2023,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2023_2.pdf"
+    },
+    {
+      "claim": "Item 9 (1,5 ponto): controle pressórico com redução parcimoniosa da PA (10 a 25% em 24 horas OU < 185 × 110 mmHg); não pontua se citar nitroprussiato venoso; inadequado: redução drástica da PA ou administração de trombolítico (síntese: trombólise contraindicada por tempo de início > 4,5 a 6 horas e PA > 180 × 110 mmHg).",
+      "title": "Revalida 2023/2 – Habilidades Clínicas – PEP, Estação 6, item 9",
+      "publisher": "INEP",
+      "year": 2023,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2023_2.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2023/2",
+    "item": "Estação 6",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2023_2.pdf",
+    "originalCaseText": "CENÁRIO DE ATUAÇÃO Local de atuação: atenção terciaria à saúde — hospital de referência. A unidade possui a seguinte infraestrutura: • Pronto-socorro; • Laboratório de análises clínicas; • Exames de imagem; e • Terapia intensiva e leitos de enfermaria. DESCRIÇÃO DO CASO Você está de plantão no pronto-socorro de um hospital terciário e atenderá um homem de 55 anos de idade, tabagista e hipertenso, que vem da sua casa, onde aguardava transporte para hospital há 8 horas. Ele chega ao hospital através da urgência. Encontra-se acompanhado pela esposa que refere que ele está com a fala “embolada” e com “perda de movimentos no braço esquerdo”. ATENÇÃO! CONSIDERE QUE O PACIENTE ESTÁ DEITADO NA MACA DURANTE TODA A CONSULTA. A ANAMNESE SERÁ DIRIGIDA À ACOMPANHANTE DO PACIENTE. CASO JULGUE NECESSÁRIO REALIZAR EXAME FÍSICO, VERBALIZE! Nos 10 minutos de duração da estação, você deverá executar as tarefas a seguir: • Realizar anamnese do paciente; • Solicitar e interpretar exame físico; • Solicitar e interpretar o(s) exame(s) complementares pertinente(s); • Estabelecer e comunicar hipótese diagnóstica; e • Propor conduta para o paciente.",
+    "notes": "possivelmente desatualizado: diretriz AHA/ASA de AVC isquêmico agudo 2026 publicada após a prova — revisar a janela estendida de reperfusão guiada por imagem e as metas pressóricas para quem não recebe reperfusão (o padrão usa redução de 10–25% da PA em 24 h ou < 185 × 110 mmHg) | Divergência de tempo: a prova diz que aguardava transporte em casa há 8 h; a síntese fala em AVC isquêmico 'há mais de 12 horas' e em 12 h aguardando na UPA. | Dados sob demanda: Roberto, 55a, pedreiro; fala ininteligível (só sons desconexos) e lado esquerdo paralisado; consciente, orientado, consegue andar, angustiado; sem episódios prévios, trauma, febre, cefaleia, vômitos ou alterações visuais; usa metformina e enalapril; fuma 10 cig/dia; sem álcool/drogas; sedentário, dieta rica em frituras e ultraprocessados; pai morreu de 'derrame'; sem alergias ou cirurgias. EF: FC 100, PA 220x140, FR 24, Tax 36,7 °C, SatO2 96% AA, IMC 30; REG, alerta e orientado, pupilas isocóricas e fotorreagentes; AR, ACV e abdome normais; neuro: consciência preservada, paralisia completa do andar inferior da face à E, MOE normal, força 2/5 em MSE e 4/5 em MIE, hipoestesia tátil e dolorosa em dimídio E. Lab: hemograma normal (eosinófilos 7%), plaquetas 160.000, glicemia 100, Na 137, K 4,0, ureia 30, Cr 0,8; gasometria arterial normal (pH 7,35, pO2 84, pCO2 45, HCO3 22, SatO2 96%). TC de crânio: hipodensidade maior que 1/3 do território da artéria cerebral média direita. | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas. Exceção \"fora da janela\" saiu: \"alteplase mesmo fora da janela\" passava."
+  },
+  "probes": {
+    "mustFlag": [
+      "Alteplase 0,9 mg/kg após controlar a PA",
+      "Nitroprussiato EV para PA < 185 x 110",
+      "Redução rápida da PA para 140 x 90"
+    ],
+    "mustNotFlag": [
+      "Trombólise contraindicada: início há mais de 4,5 h",
+      "Redução parcimoniosa da PA, 10 a 25% em 24 h; evitar redução drástica",
+      "Não usar nitroprussiato"
+    ]
+  }
+}

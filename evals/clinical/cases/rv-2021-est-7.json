@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2021-est-7",
+  "title": "Motorista embriagada sem cinto após colisão contra poste, sonolenta, taquicárdica, taquipneica e com dor torácica",
+  "tags": [
+    "choque",
+    "revalida",
+    "pep",
+    "trauma",
+    "pneumotorax"
+  ],
+  "critical": true,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Emergência de hospital de médio porte (RX, US e TC; sem RM; laboratório; leitos; centro cirúrgico e banco de sangue; sem plantão de ortopedia nem subespecialidades). Fem, 25a, colisão frontal carro x poste ao dormir ao volante, sozinha, sem cinto; trazida pelos bombeiros. Sonolenta, gemente, desorientada no tempo e espaço, sinais claros de embriaguez. Glasgow 13. Hipocorada +/4+, FR 27, FC 110, dor em tórax anterior."
+  },
+  "expected": {
+    "syndrome": "politrauma (colisão automobilística) com pneumotórax hipertensivo à direita",
+    "cannotMiss": [
+      "pneumotórax hipertensivo"
+    ],
+    "mustRequest": [
+      "avaliação da perviedade das vias aéreas",
+      "exame do aparelho respiratório",
+      "exame do aparelho cardiovascular",
+      "Glasgow e reação pupilar (D)",
+      "radiografia de tórax após punção/drenagem",
+      "reexame respiratório após os procedimentos"
+    ],
+    "requiredActions": [
+      "manter colar cervical e máscara de oxigênio",
+      "punção de descompressão com cateter nº 14 no 4º ou 5º espaço intercostal, linha axilar anterior ou média",
+      "drenagem torácica fechada após a punção, dreno nº 32 ou 36, no 4º ou 5º espaço intercostal, linha axilar média",
+      "monitorização (FC, PA e oximetria)",
+      "segundo acesso venoso calibroso",
+      "exposição completa com prevenção de hipotermia"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "transferir-para-centro-terciario-agora",
+        "description": "Transferir a paciente para centro terciário neste momento (PEP item 18: resposta esperada é que NÃO é necessária remoção)",
+        "patterns": [
+          "transferi(r|ncia)\\s+(\\S+\\s+){0,4}(centro|hospital|terciari\\w*)",
+          "remo(cao|ver)\\s+(\\S+\\s+){0,3}(para|centro|hospital|terciari\\w*)"
+        ],
+        "exceptWhen": [
+          "(se|caso|quando)\\s+(houver|evoluir|piorar|necessit\\w*|precisar)"
+        ]
+      }
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2021, Estação 7): o PEP pontua a avaliação primária ATLS com diagnóstico de pneumotórax hipertensivo, punção de descompressão seguida de drenagem fechada (calibres e locais especificados), RX de controle, monitorização, segundo acesso, D e E, e a decisão de não transferir no momento.",
+    "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "Atendimento inicial: avalia perviedade das vias aéreas (2); mantém colar cervical e máscara de oxigênio (3); exame do aparelho respiratório (4); diagnóstico de pneumotórax hipertensivo (5, 1,0 ponto).",
+      "title": "Revalida 2021 – Habilidades Clínicas – PEP, Estação 7, itens 2–5",
+      "publisher": "INEP",
+      "year": 2021,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2021_publicacao.pdf"
+    },
+    {
+      "claim": "Procedimentos: cateter nº 14 para a punção (6); punção no 4º ou 5º espaço intercostal, linha axilar anterior ou média (7); drenagem torácica fechada após a punção (8) com dreno nº 32 ou 36 (9) no 4º ou 5º EIC, linha axilar média (10); RX de tórax após punção/drenagem (11).",
+      "title": "Revalida 2021 – Habilidades Clínicas – PEP, Estação 7, itens 6–11",
+      "publisher": "INEP",
+      "year": 2021,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2021_publicacao.pdf"
+    },
+    {
+      "claim": "Seguimento: monitorização (FC, PA, oximetria) (12); reexame respiratório após os procedimentos (13); exame cardiovascular (14); segundo acesso venoso calibroso (15); D — Glasgow e pupilas (16); exposição com prevenção de hipotermia (17); responde que NÃO será necessária remoção da paciente neste momento (18).",
+      "title": "Revalida 2021 – Habilidades Clínicas – PEP, Estação 7, itens 12–18",
+      "publisher": "INEP",
+      "year": 2021,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2021_publicacao.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2021",
+    "item": "Estação 7",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2021_publicacao.pdf",
+    "originalCaseText": "ESTAÇÃO 7 – Área: Cirurgia Geral. INSTRUÇÕES PARA O(A) PARTICIPANTE. CENÁRIO DE ATUAÇÃO: Você está de plantão na emergência de um hospital de médio porte e vai atender uma paciente de 25 anos de idade, sexo feminino, vítima de trauma automobilístico. A paciente estava sozinha no veículo quando, ao dormir ao volante, colidiu frontalmente contra um poste de concreto. Foi levada ao pronto-socorro pelos bombeiros, que relataram acidente carro–poste sem uso do cinto de segurança. A paciente se apresenta sonolenta, gemente, desorientada em tempo e espaço e com sinais claros de embriaguez. Escala de coma de Glasgow 13. Ao exame físico, mostrou-se hipocorada (+/4+), taquipneica (27 irpm), taquicárdica (FC = 110 bpm), apresentando dor em tórax anterior. Nos próximos 10 minutos, deverão ser realizadas as seguintes tarefas: realizar o atendimento da paciente vítima de politrauma, de acordo com o preconizado pelo ATLS; identificar as alterações no exame físico; adotar a(s) conduta(s) terapêutica(s) necessária(s); demonstrar a realização de procedimentos médicos, caso necessário. OBSERVAÇÃO: O hospital possui a seguinte estrutura: setor de radiologia convencional, ultrassonografia e tomografia computadorizada. Não possui ressonância nuclear magnética; laboratório de análises clínicas; leitos de internação; centro cirúrgico e banco de sangue. Não há plantão de ortopedia nem de subespecialidades.",
+    "notes": "Dados sob demanda: Impresso 1 — PA 90x50, FC 125, FR 32; turgência jugular, bulhas hipofonéticas; MV abolido à direita com hipertimpanismo. Impresso 2 — descrever/demonstrar os procedimentos. Impresso 3 — o chefe de equipe pergunta se há necessidade de transferência para centro terciário (resposta esperada: não, no momento). A paciente está com colar cervical e máscara de O2 (PEP item 3). A síntese do ator não é publicada no PEP de 2021. Não sinalizado como desatualizado: a conferência de calibre de dreno/local de descompressão contra o ATLS 11ª ed. não foi feita. | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas. Padrões trocaram \".{0,40}\" por até 4 palavras, para não atravessar vírgula."
+  },
+  "probes": {
+    "mustFlag": [
+      "Transferir agora para centro terciário de trauma",
+      "Remoção para hospital terciário após a drenagem"
+    ],
+    "mustNotFlag": [
+      "Não é necessária remoção da paciente neste momento",
+      "Transferência para centro terciário desnecessária agora",
+      "Transferir se houver necessidade de neurocirurgia"
+    ]
+  }
+}

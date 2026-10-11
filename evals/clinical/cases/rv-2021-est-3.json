@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2021-est-3",
+  "title": "Recém-nascido a termo no alojamento conjunto mais quieto e com a pele diferente",
+  "tags": [
+    "pele-partes-moles",
+    "revalida",
+    "pep",
+    "neonatologia",
+    "ictericia-neonatal",
+    "desatualizado"
+  ],
+  "critical": true,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "excludeFromGate": {
+    "reason": "Gabarito anterior à diretriz AAP 2022 de hiperbilirrubinemia, que revisou os limiares de fototerapia por horas de vida."
+  },
+  "input": {
+    "caseText": "Alojamento conjunto, hospital secundário (visita). Mãe preocupada: RN mais quietinho e com a pele diferente. Ficha: RN masc, parto vaginal, IG 40 sem, Apgar 9/10, PN 3.410 g, comprimento 51 cm, PC 34,5 cm."
+  },
+  "expected": {
+    "syndrome": "icterícia neonatal por hiperbilirrubinemia indireta com Coombs direto positivo (incompatibilidade ABO e Rh)",
+    "cannotMiss": [
+      "icterícia neonatal por doença hemolítica (incompatibilidade ABO e Rh)",
+      "risco de kernicterus"
+    ],
+    "mustRequest": [
+      "antecedentes gestacionais (gestações, abortos, partos)",
+      "via de parto e amamentação",
+      "tipagem sanguínea da mãe",
+      "uso de imunoglobulina anti-D após a gestação anterior",
+      "exame físico do RN",
+      "tipagem sanguínea do RN",
+      "bilirrubinas totais e frações, Coombs direto, hematócrito/hemograma, reticulócitos e DHL"
+    ],
+    "requiredActions": [
+      "fototerapia com proteção ocular",
+      "recoleta de bilirrubinas após fototerapia para decidir suspensão e alta",
+      "cuidados gerais do RN (triagens neonatais, vacinação na 1ª semana, coto umbilical, aleitamento materno)"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "Gabarito oficial do INEP (Revalida 2021, Estação 3): o PEP pontua anamnese materna (tipagem, anti-D), tipagem e exames do RN (bilirrubinas, Coombs, Ht, reticulócitos, DHL), diagnóstico de icterícia por incompatibilidade ABO/Rh e fototerapia com proteção ocular, recoleta de bilirrubinas e orientação sobre kernicterus.",
+    "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "Anamnese: antecedentes gestacionais — gestações, abortos, partos (2); via de parto e amamentação (3); tipagem sanguínea da mãe (4); imunoglobulina anti-D após a gestação anterior (5); exame físico do RN (6); diagnóstico de icterícia (7).",
+      "title": "Revalida 2021 – Habilidades Clínicas – PEP, Estação 3, itens 2–7",
+      "publisher": "INEP",
+      "year": 2021,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2021_publicacao.pdf"
+    },
+    {
+      "claim": "Exames: tipagem sanguínea do RN (8); bilirrubinas totais e frações (obrigatório), Coombs direto, hematócrito/hemograma, reticulócitos, DHL — adequado ≥ 3 incluindo bilirrubinas, pedidos antes do impresso 3 (9, 2,0 pontos).",
+      "title": "Revalida 2021 – Habilidades Clínicas – PEP, Estação 3, itens 8–9",
+      "publisher": "INEP",
+      "year": 2021,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2021_publicacao.pdf"
+    },
+    {
+      "claim": "Conduta e orientação: fototerapia com fotoproteção ocular (10); explica incompatibilidade ABO e Rh após gestação prévia como fator de risco (11); recoleta de bilirrubinas após fototerapia para suspensão e alta (12); risco de kernicterus com bilirrubina alta prolongada sem tratamento (13); cuidados gerais — triagens neonatais, vacinação na 1ª semana, coto umbilical, aleitamento materno (14).",
+      "title": "Revalida 2021 – Habilidades Clínicas – PEP, Estação 3, itens 10–14",
+      "publisher": "INEP",
+      "year": 2021,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2021_publicacao.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2021",
+    "item": "Estação 3",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2021_publicacao.pdf",
+    "originalCaseText": "ESTAÇÃO 3 – Área: Pediatria. INSTRUÇÕES PARA O(A) PARTICIPANTE. CENÁRIO DE ATUAÇÃO: Você está de plantão no alojamento conjunto de um hospital secundário e está passando visita nos bebês recém-nascidos. A mãe do recém-nascido do qual você irá fazer a consulta agora está preocupada, pois notou que seu bebê está mais quietinho e com a pele diferente. Nos próximos 10 minutos, deverão ser realizadas as seguintes tarefas: fazer a anamnese dirigida à mãe; ler a ficha do bebê afixada na mesa; comentar o exame físico (não será necessário examinar diretamente o bebê simulado); solicitar todos os exames complementares que julgar necessário (se indicados); responder aos questionamentos da mãe do bebê simulado; propor conduta clínica ao bebê simulado (se indicada); orientar a mãe quanto aos cuidados gerais do recém-nascido. FICHA DO RECÉM-NASCIDO: Francisco – RN de Célia; Via de parto: Vaginal; Idade gestacional: 40 semanas; APGAR: 1° minuto: 9 / 5° minuto: 10; Peso de Nascimento: 3410 g; Comprimento: 51 cm; PC: 34,5 cm.",
+    "notes": "possivelmente desatualizado: a diretriz da AAP de hiperbilirrubinemia neonatal (≥ 35 semanas, 2022) revisou os limiares de fototerapia por horas de vida e fatores de risco de neurotoxicidade (doença hemolítica isoimune é um deles); o gabarito indica fototerapia sem citar curva nem horas de vida | tags[0] = pele-partes-moles pela queixa materna ('pele diferente'); não há estrato para icterícia. A ficha do RN (lida na mesa ao entrar) foi incluída no caseText. Dados sob demanda: Impresso 1 — tipagem do RN A Rh positivo. Impresso 2 — BEG, corado, hidratado, eupneico, afebril; AR, ACV e abdome normais; reflexos primitivos presentes e simétricos; icterícia +3/+4 até joelhos e cotovelos. Impresso 3 — BT 15, BI 14,7, BD 0,3 mg/dL, Coombs direto positivo, Ht 50%, reticulócitos 0,8%, DHL 239. Pelo PEP (item 11), há incompatibilidade ABO e Rh após gestação prévia (tipagem materna e anti-D na gestação anterior são informadas pela mãe; a síntese do ator não é publicada). Horas de vida não informadas. Exames só pontuam se pedidos antes da entrega do impresso 3."
+  }
+}

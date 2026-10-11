@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2020-disc-2",
+  "title": "Politrauma motociclístico com pneumotórax drenado, rebaixamento e lesão hepática: uso do PoCUS no ABCDE",
+  "tags": [
+    "dispneia",
+    "revalida",
+    "discursiva",
+    "trauma",
+    "pocus"
+  ],
+  "critical": true,
+  "goldSource": "revalida_discursiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "excludeFromGate": {
+    "reason": "Questão retrospectiva sobre o uso do PoCUS; não é decisão sobre o paciente à frente."
+  },
+  "input": {
+    "caseText": "SAMU (suporte avançado): masc, 30a, acidente motociclístico. Dor em hemitórax D e falta de ar. PA 100x60, FR 26, FC 110, SatO2 91%, Glasgow 11. Ferimento cortocontuso de 4 cm na coxa E sem sangramento ativo, de onde foi retirado pedaço de vidro. Regulação orienta transporte para hospital secundário. Na admissão: rebaixamento (Glasgow 8) -> IOT. MV abolido e hipertimpanismo em hemitórax D -> punção no 5º EIC, linha axilar média, com saída de ar, e drenagem pleural no mesmo local; FR normalizada, SatO2 95%. 1.000 mL de RL -> PA 120x70, FC 98. SNG e SVD passadas (sem contraindicações). Fratura fechada de tíbia e fíbula D. TC de crânio normal. TC de abdome: lesão hepática grau II (pequena laceração em lobo E) com moderada quantidade de líquido livre na cavidade peritoneal. Punção de veia jugular interna D antes da transferência para UTI."
+  },
+  "expected": {
+    "syndrome": "politrauma com pneumotórax à direita, rebaixamento do nível de consciência e lesão hepática com líquido livre — aplicações do PoCUS na avaliação primária (ABCDE)",
+    "cannotMiss": [
+      "pneumotórax",
+      "líquido livre no saco pericárdico, recessos pleurais ou cavidade peritoneal",
+      "aumento da pressão intracraniana"
+    ],
+    "mustRequest": [
+      "PoCUS para identificar o pneumotórax",
+      "FAST estendido: líquido no saco pericárdico, recessos pleurais e intraperitoneal (hipocôndrios, fossas ilíacas e pelve)",
+      "estado volêmico pelo diâmetro da veia cava inferior ao US",
+      "diâmetro da bainha do nervo óptico ao US como preditor de aumento da PIC",
+      "US para diagnóstico de lesões ortopédicas (fraturas de úmero, antebraço, fêmur e perna)"
+    ],
+    "requiredActions": [
+      "confirmar o posicionamento do tubo traqueal com US",
+      "orientar punção e drenagem pleural com US, assegurando o dreno no espaço interpleural",
+      "acesso venoso central com segurança guiado por US",
+      "aferir com US o posicionamento das sondas gástrica e vesical",
+      "localizar e remover corpo estranho de partes moles sob visualização por US (inclusive radiotransparente)"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "Gabarito oficial do INEP (Revalida 2020, Questão 2): pontua os usos do PoCUS em cada etapa do ABCDE — confirmação do tubo, pneumotórax e guia da drenagem, VCI, FAST estendido, acesso central e sondas guiados, bainha do nervo óptico, fraturas e corpo estranho.",
+    "expectedPath": "recommend"
+  },
+  "sources": [
+    {
+      "claim": "Item A (1,0 ponto): verificação do posicionamento do tubo traqueal.",
+      "title": "Revalida 2020 – Prova Discursiva – Padrão de Respostas, Questão 2, item A",
+      "publisher": "INEP",
+      "year": 2020,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2020/padrao_de_respostas_discursivas.pdf"
+    },
+    {
+      "claim": "Item B (2,0 pontos): identificação do pneumotórax (1,0); orientação da punção e da drenagem pleural, assegurando a presença do dreno no espaço interpleural (1,0).",
+      "title": "Revalida 2020 – Prova Discursiva – Padrão de Respostas, Questão 2, item B",
+      "publisher": "INEP",
+      "year": 2020,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2020/padrao_de_respostas_discursivas.pdf"
+    },
+    {
+      "claim": "Item C (4,0 pontos): estado volêmico pelo diâmetro da veia cava inferior (1,0); FAST estendido para líquido no saco pericárdico, recessos pleurais e intraperitoneal — hipocôndrios, fossas ilíacas e pelve (1,0); segurança no acesso venoso central (1,0); segurança na aferição do posicionamento das sondas gástrica e vesical (1,0).",
+      "title": "Revalida 2020 – Prova Discursiva – Padrão de Respostas, Questão 2, item C",
+      "publisher": "INEP",
+      "year": 2020,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2020/padrao_de_respostas_discursivas.pdf"
+    },
+    {
+      "claim": "Item D (1,0 ponto): diâmetro da bainha do nervo óptico como preditor de aumento da pressão intracraniana, diminuindo a necessidade de TC de crânio.",
+      "title": "Revalida 2020 – Prova Discursiva – Padrão de Respostas, Questão 2, item D",
+      "publisher": "INEP",
+      "year": 2020,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2020/padrao_de_respostas_discursivas.pdf"
+    },
+    {
+      "claim": "Item E (2,0 pontos): diagnóstico com segurança de lesões ortopédicas (fraturas de úmero, antebraço, fêmur e perna) (1,0); remoção de corpo estranho de partes moles com localização e profundidade pelo US, mesmo radiotransparente, e remoção sob visualização direta (1,0).",
+      "title": "Revalida 2020 – Prova Discursiva – Padrão de Respostas, Questão 2, item E",
+      "publisher": "INEP",
+      "year": 2020,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2020/padrao_de_respostas_discursivas.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2020",
+    "item": "Discursiva caso 2",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2020/padrao_de_respostas_discursivas.pdf",
+    "originalCaseText": "O ultrassom no local de atendimento – Point of Care UltraSound (PoCUS) – é um exame de ultrassonografia feito com base em sintomas, em procedimentos realizados na beira do leito ou onde quer que os pacientes estejam sendo tratados. Atualmente, o uso de PoCUS por não radiologistas está sendo cada vez mais adotado no atendimento de emergência para auxiliar os profissionais de saúde no diagnóstico ou para descartar potencial risco de vida ou outras condições prejudiciais, bem como para a segurança da realização de procedimentos. Considere a seguinte sequência de atendimento realizada a um paciente traumatizado. Um homem com 30 anos de idade, vítima de acidente motociclístico, que é atendido por equipe de suporte avançado do SAMU, queixa-se de dor em hemitórax direito e falta de ar e está com os seguintes sinais vitais: PA = 100 x 60 mmHg, FR = 26 irpm, FC = 110 bpm, saturação de O2 = 91 % e Glasgow = 11. Apresenta também ferimento cortocontuso de 4 cm na coxa esquerda, sem sangramento ativo, de onde é retirado um pedaço de vidro. A Central de Regulação de Urgência orienta o transporte do paciente para hospital secundário. Na admissão hospitalar, há rebaixamento do nível de consciência (Glasgow = 8), sendo o paciente intubado. Devido à ausência de murmúrio vesicular e hipertimpanismo do hemitórax direito, é realizada a punção no 5.º espaço intercostal na linha axilar média com saída de ar e subsequente drenagem pleural no mesmo local, normalizando-se a frequência respiratória com saturação de O2 de 95 %. A reposição volêmica de 1 000 mL de ringer lactato normaliza os parâmetros hemodinâmicos (PA = 120 x 70 mmHg e FC = 98 bpm). Foram realizadas as sondagens nasogástrica e vesical devido à ausência de contraindicações. Ao exame físico, nota-se uma fratura fechada de tíbia e fíbula do lado direito. A tomografia computadorizada de crânio apresenta-se normal e a de abdome mostra lesão hepática grau II (pequena laceração em lobo esquerdo) com moderada quantidade de líquido livre na cavidade peritoneal. Realiza-se, então, a punção de veia jugular interna direita do paciente antes de sua transferência para internação na Unidade de Terapia Intensiva. Com base nas informações e na sequência de avaliação primária ao traumatizado, explique como o PoCUS poderia ter sido utilizado em cada uma das etapas abaixo (ABCDE), tanto para auxílio diagnóstico quanto para segurança nos procedimentos. (A) Vias aéreas (A) (valor: 1,0 ponto). (B) Ventilação (B) (valor: 2,0 pontos). (C) Circulação (C) (valor: 4,0 pontos). (D) Exame neurológico sumário (D) (valor: 1,0 ponto). (E) Exposição e ectoscopia (E) (valor: 2,0 pontos).",
+    "notes": "A questão pede, em retrospecto, como o PoCUS poderia ter sido usado em cada etapa do ABCDE (diagnóstico e segurança de procedimentos) num atendimento já conduzido; as expectativas são aplicações do PoCUS, não decisões novas sobre o paciente. Valor limitado para avaliar decisão clínica do Copiloto — revisar se o caso permanece no conjunto."
+  }
+}

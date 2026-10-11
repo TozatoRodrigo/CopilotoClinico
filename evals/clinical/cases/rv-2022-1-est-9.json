@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2022-1-est-9",
+  "title": "Gestante pálida com dor no pronto-socorro da maternidade",
+  "tags": [
+    "dor-abdominal",
+    "revalida",
+    "pep",
+    "obstetricia",
+    "descolamento-prematuro-de-placenta"
+  ],
+  "critical": true,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "PS de maternidade (atenção secundária hospitalar; consultórios e laboratório). Gestante, 35a, visivelmente pálida, queixa de dor; deseja avaliação."
+  },
+  "expected": {
+    "syndrome": "dor com sangramento na gestação e sofrimento fetal por descolamento prematuro de placenta",
+    "cannotMiss": [
+      "descolamento prematuro de placenta",
+      "sofrimento fetal agudo",
+      "diagnósticos diferenciais (o PEP exige ao menos dois): placenta prévia, rotura de seio marginal, rotura de vasa prévia, rotura uterina"
+    ],
+    "mustRequest": [
+      "características da dor e do sangramento (início e duração, tipo de dor, aspecto do sangramento)",
+      "movimentos fetais",
+      "idade gestacional/data da última menstruação",
+      "cartão de pré-natal",
+      "exame obstétrico abdominal",
+      "exame ginecológico (especular e/ou toque vaginal)"
+    ],
+    "requiredActions": [
+      "interrupção imediata da gravidez por cesariana de urgência",
+      "orientar a gestante sobre o risco fetal e a necessidade de internação do recém-nascido em UTI neonatal"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "Gabarito oficial do INEP (Revalida 2022/1, Estação 9): o PEP pontua anamnese obstétrica dirigida, exames obstétrico e ginecológico, o diagnóstico de DPP com sofrimento fetal agudo e diferenciais, a cesariana de urgência e a orientação sobre risco fetal e UTI neonatal.",
+    "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "Itens 2–5 (1,0 + 0,5 + 0,5 + 0,5 ponto): pergunta início/duração e características da dor e aspecto do sangramento; movimentos fetais; tempo de gestação (DUM ou IG); solicita o cartão de pré-natal.",
+      "title": "Revalida 2022/1 – Habilidades Clínicas – PEP, Estação 9, itens 2–5",
+      "publisher": "INEP",
+      "year": 2022,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2022_1_publicacao.pdf"
+    },
+    {
+      "claim": "Itens 6–7 (0,5 + 0,5 ponto): indica exame obstétrico abdominal; indica exame ginecológico (toque vaginal ou exame especular).",
+      "title": "Revalida 2022/1 – Habilidades Clínicas – PEP, Estação 9, itens 6–7",
+      "publisher": "INEP",
+      "year": 2022,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2022_1_publicacao.pdf"
+    },
+    {
+      "claim": "Itens 8–9 (2,0 + 1,0 ponto): cita descolamento prematuro de placenta e sofrimento fetal agudo como diagnósticos; cita diferenciais placenta prévia, ruptura de seio marginal, rotura de vasa prévia e ruptura uterina (adequado: dois ou mais).",
+      "title": "Revalida 2022/1 – Habilidades Clínicas – PEP, Estação 9, itens 8–9",
+      "publisher": "INEP",
+      "year": 2022,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2022_1_publicacao.pdf"
+    },
+    {
+      "claim": "Itens 10–11 (2,0 + 1,0 ponto): indica a necessidade imediata de interrupção da gravidez (cesariana de urgência); orienta a mãe sobre o risco fetal e a necessidade de internação em UTI neonatal.",
+      "title": "Revalida 2022/1 – Habilidades Clínicas – PEP, Estação 9, itens 10–11",
+      "publisher": "INEP",
+      "year": 2022,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2022_1_publicacao.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2022/1",
+    "item": "Estação 9",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2022_1_publicacao.pdf",
+    "originalCaseText": "ESTAÇÃO 9 – Área: Ginecologia e Obstetrícia. INSTRUÇÕES PARA O(A) PARTICIPANTE. CENÁRIO DE ATUAÇÃO. Local de atuação: Atenção Secundária Hospitalar. A unidade possui a seguinte infraestrutura: • consultórios para atendimento; e • laboratório de análises clínicas. DESCRIÇÃO DO CASO. Uma gestante de 35 anos, visivelmente pálida, comparece para atendimento no pronto socorro de uma maternidade, apresentando queixa de dor e desejando avaliação. Nos próximos 10 minutos, deverão ser realizadas as seguintes tarefas: • realizar anamnese; • solicitar os exames que julgar necessários; • responder aos questionamentos da paciente simulada; • citar hipótese diagnóstica; • realizar as condutas necessárias; e • estabelecer a orientação final à paciente simulada. A PACIENTE SIMULADA NÃO DEVE SER TOCADA DURANTE O ATENDIMENTO.",
+    "notes": "O PEP desta edição não publica a síntese da atriz (respostas sobre dor, sangramento, IG e movimentos fetais não disponíveis). Dados sob demanda: SV PA 90x60, T 36 °C, FC 100, FR 20, SatO2 98%; exame obstétrico: AU 32 cm, feto cefálico, longitudinal, dorso à D, útero hipertônico, BCF 85 bpm; especular: grande quantidade de sangue no canal vaginal; toque: sangramento vermelho-escuro com coágulos em grande quantidade, colo posterior, pérvio para 2 cm."
+  }
+}

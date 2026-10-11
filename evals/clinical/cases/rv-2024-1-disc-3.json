@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2024-1-disc-3",
+  "title": "Criança de 6 anos com sibilância e hipoxemia persistente após tratamento inicial na emergência",
+  "tags": [
+    "dispneia",
+    "revalida",
+    "discursiva",
+    "asma",
+    "pediatria"
+  ],
+  "critical": true,
+  "goldSource": "revalida_discursiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Emergência pediátrica. Criança 6a, sibilância e desconforto respiratório há 3 dias, sem febre, sem história de anafilaxia. Há 2 dias em uso de prednisona VO 40 mg/dia e salbutamol com máscara e espaçador 4 jatos 6/6h. Admissão: ativa e reativa, responde verbalmente de forma adequada; FR 40, tiragem intercostal e de fúrcula, sibilos difusos; FC 130, PA 130x60; SatO2 92% em AA, PaO2 60, PaCO2 < 40. Recebeu salbutamol 4 jatos 20/20 min x3, ipratrópio 20 gotas em NBZ dose única e metilprednisolona IV 2 mg/kg. Reavaliação após 1h: mantém tiragem intercostal e de fúrcula, sibilos difusos, SatO2 89% em AA, PaO2 55, PaCO2 40."
+  },
+  "expected": {
+    "syndrome": "exacerbação grave de asma em criança sem resposta ao tratamento inicial",
+    "cannotMiss": [
+      "exacerbação grave de asma com falha do tratamento inicial (hipoxemia e retenção de CO2)"
+    ],
+    "mustRequest": [
+      "pico de fluxo expiratório na primeira hora (radiografia de tórax só para pesquisar complicadores como pneumonia ou pneumotórax)"
+    ],
+    "requiredActions": [
+      "internação em unidade de terapia intensiva (não basta internação em enfermaria)",
+      "sulfato de magnésio IV",
+      "manter oxigenoterapia controlada com alvo de SatO2 entre 94 e 98% (máscara não reinalante, Venturi ou cateter/cânula nasal); IOT só se hipoxemia refratária, piora neurológica ou bradicardia",
+      "manter salbutamol (4 a 10 jatos a cada 20 min na primeira hora, conforme o peso) associado a brometo de ipratrópio",
+      "corticoide inalatório associado ao broncodilatador, ou corticoide sistêmico com a próxima dose somente após 24 h"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "repetir-corticoide-sistemico-no-mesmo-dia",
+        "description": "Repetir a dose de corticoide sistêmico no mesmo dia (o padrão considera inadequado; a próxima dose IV só após 24 h).",
+        "patterns": []
+      },
+      {
+        "id": "antibiotico-de-rotina",
+        "description": "Prescrever antibiótico de rotina sem febre, escarro purulento ou sinais radiográficos de pneumonia (o padrão diz que antibiótico não é rotineiramente prescrito).",
+        "patterns": [
+          "antibiotic\\w*"
+        ],
+        "exceptWhen": [
+          "(se|caso|quando|somente\\s+se|apenas\\s+se)\\s+(houver\\s+)?(\\S+\\s+){0,2}(febre|escarro|sinais\\s+radiograficos|pneumonia|pnm)",
+          "escarro\\s+purulento",
+          "sinais\\s+radiograficos"
+        ]
+      }
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2024/1, padrão de respostas definitivo da questão 3): classifica a exacerbação como grave e pontua, entre seis opções, UTI, sulfato de magnésio IV, O2 controlado (SatO2 94–98%), manutenção de salbutamol + ipratrópio, corticoide sem repetir dose sistêmica no mesmo dia, PFE na primeira hora e antibiótico só se houver indicação.",
+    "expectedPath": "recommend"
+  },
+  "sources": [
+    {
+      "claim": "Item a (3,0 pontos): classificação da exacerbação = grave (1,0); achados, 0,5 cada (máx. 2,0): FR > 30 irpm; FC > 120 bpm; PaO2 de 55 mmHg; uso de musculatura acessória OU tiragem intercostal e de fúrcula; saturação de O2 em ar ambiente < 90%.",
+      "title": "Revalida 2024/1 – Prova Discursiva – Padrão de Respostas definitivo, Questão 3, item a",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2024_1_PEP_discursiva.pdf"
+    },
+    {
+      "claim": "Item b (0,7 por resposta, máx. 3,5): internação em UCI/UTI/CTI (não basta 'internação' ou 'internação hospitalar') pela não resposta e deterioração (hipoxemia e retenção de CO2); sulfato de magnésio IV/EV/parenteral; manter oxigenoterapia controlada com SatO2 entre 94 e 98% (máscara não reinalante, Venturi, cateter ou cânula nasal; IOT só se citada com O2 e por hipoxemia refratária, piora neurológica ou bradicardia; VNI não pontua; FiO2 > 21% obrigatória); manter salbutamol 4 a 10 jatos a cada 20 min na primeira hora (5–10 kg: 4 jatos; 10–20 kg: 6; > 20 kg: 8) e brometo de ipratrópio (20–40 gotas); corticoide inalatório associado ao broncodilatador, ou corticoide IV desde que a próxima dose seja só após 24 h — repetir corticoide sistêmico no mesmo dia é inadequado.",
+      "title": "Revalida 2024/1 – Prova Discursiva – Padrão de Respostas definitivo, Questão 3, item b",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2024_1_PEP_discursiva.pdf"
+    },
+    {
+      "claim": "Item b (mesma regra de pontuação): solicitar exames complementares com explicação correta — pico de fluxo expiratório na primeira hora; radiografia de tórax não é rotineira (só se para pesquisar complicadores como PNM e pneumotórax); hemograma e provas inflamatórias não pontuam. Antibiótico não é rotineiramente prescrito (só se houver febre, escarro purulento ou sinais radiográficos de PNM).",
+      "title": "Revalida 2024/1 – Prova Discursiva – Padrão de Respostas definitivo, Questão 3, item b",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2024_1_PEP_discursiva.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2024/1",
+    "item": "Discursiva caso 3",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2024_1_PEP_discursiva.pdf",
+    "originalCaseText": "Uma criança com 6 anos é atendida em uma emergência pediátrica devido a sibilância e desconforto respiratório que, segundo relato da mãe, começou há 3 dias, sem febre e sem história de anafilaxia. Registra-se que, há 2 dias, passou a usar prednisona via oral (40 mg/dia), salbutamol via máscara e espaçador (4 jatos de 6 em 6 horas). Ao exame clínico inicial, nota-se que a criança está ativa e reativa, respondendo verbalmente e de forma adequada às solicitações, com frequência respiratória de 40 irpm, com tiragem intercostal e de fúrcula e com presença de sibilos difusos na ausculta pulmonar. À ausculta cardíaca, ela apresenta taquicardia, com frequência cardíaca de 130 bpm e com pressão arterial de 130 x 60 mmHg. Verifica-se, também, saturação de O2 de 92% em ar ambiente, PaO2 de 60 mmHg e PaCO2 < 40 mmHg. Durante o registro da história clínica e a realização do exame físico e da monitorização, foi administrado salbutamol (3 doses, sendo 4 jatos de 20 em 20 minutos), brometo de ipatrópio (20 gotas por nebulização, dose única) e metilprednisolona IV (2 mg/Kg). Na reavaliação, após uma hora, constatou-se que a criança mantinha o desconforto respiratório (tiragem intercostal e de fúrcula), sibilos difusos, saturação de O2 de 89% em ar ambiente, PaO2 de 55 mmHg e PaCO2 de 40 mmHg. Considerando o caso apresentado, faça o que se pede nos itens a seguir. a) Classifique a gravidade da exacerbação e cite quatro achados que justifiquem sua resposta. (valor: 3,0 pontos) b) Considerando a classificação da gravidade da exacerbação e a resposta ao tratamento já realizado, cite cinco propedêuticas a serem aplicadas nesse momento. (valor: 3,5 pontos) c) Cite cinco fatores de risco que podem contribuir para exacerbação da asma. (valor: 3,5 pontos)",
+    "notes": "O caderno de prova pede 'cinco propedêuticas' no item b; o padrão de respostas reescreve o item como 'cinco condutas' e pontua 0,7 por resposta entre seis opções (máx. 3,5), por isso as expectativas listam as seis opções e bastam cinco. Item c (fatores de risco para exacerbação de asma) é conhecimento geral, sem relação com a decisão no caso, e não foi convertido em expectativa. O padrão referencia o GINA 2023. | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas."
+  },
+  "probes": {
+    "mustFlag": [
+      "Amoxicilina com clavulanato EV: antibiótico pela gravidade da crise",
+      "Antibiótico empírico de rotina na crise grave"
+    ],
+    "mustNotFlag": [
+      "Sem antibiótico: não há febre nem sinais radiográficos de pneumonia",
+      "Antibiótico somente se febre, escarro purulento ou pneumonia no RX"
+    ]
+  }
+}

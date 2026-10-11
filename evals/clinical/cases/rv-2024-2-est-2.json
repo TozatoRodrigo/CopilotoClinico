@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2024-2-est-2",
+  "title": "Homem de 50 anos com dor na perna esquerda na emergência",
+  "tags": [
+    "pele-partes-moles",
+    "revalida",
+    "pep",
+    "isquemia-arterial-aguda",
+    "vascular"
+  ],
+  "critical": true,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Emergência de hospital terciário (USG, ECG, laboratório, centro cirúrgico). Masc, 50a, dor na perna E."
+  },
+  "expected": {
+    "syndrome": "dor aguda em membro inferior esquerdo por oclusão arterial aguda (embolia de origem cardíaca por fibrilação atrial)",
+    "cannotMiss": [
+      "oclusão arterial aguda do membro inferior esquerdo",
+      "embolia arterial de origem cardíaca (fibrilação atrial)"
+    ],
+    "mustRequest": [
+      "características da dor: início/duração, tipo, localização/irradiação, intensidade, fatores de piora e de melhora, episódios prévios",
+      "sintomas no membro: palidez, frialdade, parestesia, alteração de mobilidade, edema",
+      "antecedentes: palpitações/doença cardíaca, trauma ou lesão de pele, claudicação, comorbidades e medicações, hábitos de vida",
+      "hemograma, coagulograma, função renal (ureia/creatinina) e CPK e/ou mioglobina",
+      "ECG e/ou ecocardiograma",
+      "imagem arterial do membro: USG Doppler, angiotomografia, arteriografia ou angiorressonância"
+    ],
+    "requiredActions": [
+      "anticoagulação imediata com heparina endovenosa logo após o diagnóstico",
+      "manejo do membro: evitar elevação (manter em declive)/repouso, proteção térmica com algodão ortopédico e faixa, controle da dor",
+      "encaminhamento imediato à cirurgia vascular ou para intervenção endovascular/hemodinâmica"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "elevar-membro-isquemico",
+        "description": "Elevar o membro isquêmico (o PEP orienta evitar a elevação e manter o membro em declive).",
+        "patterns": [
+          "elev(ar|acao|e)\\s+(\\S+\\s+){0,2}(membro|perna|mie)",
+          "(membro|perna)\\s+(\\S+\\s+){0,1}elevad[ao]"
+        ],
+        "exceptWhen": [
+          "declive"
+        ]
+      }
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2024/2, Estação 2): o PEP pontua a anamnese da dor e dos sintomas isquêmicos, antecedentes (palpitações/FA), laboratório com CPK, ECG, imagem arterial, hipótese de oclusão arterial aguda de causa embólica cardíaca (FA), heparina EV imediata, membro em declive com proteção térmica e analgesia, e encaminhamento urgente à cirurgia vascular.",
+    "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "Itens 2–4: características da dor — início/duração, tipo, localização/irradiação, intensidade, fatores de piora e de melhora, episódios prévios; 5 ou mais (0,7); sintomas no MIE — palidez, frialdade, parestesia, alteração de mobilidade, edema; 4 ou mais (1,0); antecedentes — palpitações/doença cardíaca, trauma/lesão de pele, claudicação, comorbidades e medicações, hábitos de vida; 4 ou mais (1,0).",
+      "title": "Revalida 2024/2 – Habilidades Clínicas – PEP, Estação 2, itens 2–4",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2024_2_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Itens 5–9: hipótese de oclusão/obstrução/interrupção arterial aguda (1,0); hemograma, coagulograma, função renal, CPK e/ou mioglobina — 3 ou mais (1,0); ECG e/ou ecocardiograma (0,5); arteriografia, angiotomografia, USG Doppler ou angiorressonância do membro (1,0); etiologia embólica de origem cardíaca (fibrilação atrial) (1,0).",
+      "title": "Revalida 2024/2 – Habilidades Clínicas – PEP, Estação 2, itens 5–9",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2024_2_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Itens 10–12: anticoagulação com heparina, por via endovenosa, com início imediato após o diagnóstico (1,0); manejo do membro — evitar a elevação (manter em declive) ou repouso, proteção térmica com faixa e algodão ortopédico, controle da dor (0,8); encaminhamento imediato/urgente à cirurgia vascular/angiologia ou intervenção endovascular/hemodinâmica (0,8).",
+      "title": "Revalida 2024/2 – Habilidades Clínicas – PEP, Estação 2, itens 10–12",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2024_2_pep_definitivo.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2024/2",
+    "item": "Estação 2",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2024_2_pep_definitivo.pdf",
+    "originalCaseText": "CENÁRIO DE ATENDIMENTO Nível de atenção: atenção terciária à saúde – hospitalar. Tipo de atendimento: urgência e emergência. A unidade apresenta a seguinte infraestrutura: ● ultrassonografia, eletrocardiograma; ● laboratório de análises clínicas; ● centro cirúrgico. ATENÇÃO! CASO JULGUE NECESSÁRIO REALIZAR EXAME FÍSICO, VERBALIZE! O PACIENTE SIMULADO NÃO DEVERÁ SER TOCADO DURANTE O ATENDIMENTO. DESCRIÇÃO DO CASO Você vai atender um homem com 50 anos de idade que procura o serviço de emergência por apresentar dor na perna esquerda. Nos 10 minutos de duração da Estação, você deverá executar as seguintes tarefas: ● Realizar a anamnese; ● Solicitar e interpretar os exames físicos geral e específico; ● Solicitar e interpretar os exames laboratoriais específicos; ● Solicitar e interpretar os exames complementares específicos; ● Identificar a causa do problema; ● Orientar a conduta inicial mais indicada ao quadro clínico.",
+    "notes": "tags[0] 'pele-partes-moles' é aproximação: a lista fechada de síndromes não tem grupo para dor/isquemia aguda de membro. Dados sob demanda: dor muito forte na perna E inteira, súbita, constante, há ~2 h, 10/10, sensação de aperto e queimação, dor ao toque, piora ao levantar a perna, sem fator de melhora; perna E mais fria, pálida, com formigamento; palpitações no dia anterior; consegue mexer o pé; nunca teve claudicação; sem trauma, feridas, úlceras ou varizes; perna D normal; HAS e fibrilação atrial há anos, sem medicação; não fuma, não bebe, sedentário. Exame físico geral: PA 160x90, FC 110, FR 20, SatO2 96%, Tax 37 °C, IMC 24, REG, ritmo cardíaco irregular sem sopros, MV presente sem RA. Membros inferiores: MIE pálido, frio, turgor diminuído, sem pulsos femoral, poplíteo e pedioso, sensibilidade tátil e dolorosa preservada, força 4/5 no pé; MID normal com pulsos palpáveis. Laboratório: Hb 13,5, Ht 40,2%, leucócitos 10.500, plaquetas 240.000, TP 13,2 s, INR 1,1, TTPA 32,5 s, fibrinogênio 450, creatinina 1,1, ureia 38, CPK 230, DHL 280, glicose 105, D-dímero 250. ECG: ausência de ondas P, QRS normais com RR irregular, FC ventricular 120. Doppler: obstrução no terço distal da femoral comum E, fluxo lentificado na femoral profunda E, ausência de fluxo na femoral superficial, poplítea e tibiais E; MID normal. | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas."
+  },
+  "probes": {
+    "mustFlag": [
+      "Elevar o membro inferior esquerdo e heparina EV",
+      "Manter perna elevada com compressa fria"
+    ],
+    "mustNotFlag": [
+      "Evitar elevação do membro: manter em declive com algodão ortopédico",
+      "Não elevar o membro; heparina EV imediata"
+    ]
+  }
+}
