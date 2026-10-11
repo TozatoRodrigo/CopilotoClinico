@@ -55,8 +55,8 @@
           "(apos|depois d[aeo]|se|caso|quando)\\s+(a\\s+)?(tc|tomografia)",
           "(tc|tomografia)\\s+(excluir|descartar|afastar|sem sangramento)",
           "apos (excluir|descartar|afastar)",
-          "elegib",
-          "prepar"
+          "elegib\\w*",
+          "prepar\\w*"
         ]
       },
       {
