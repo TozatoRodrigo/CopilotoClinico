@@ -223,6 +223,8 @@ O `run.json` de cada execução registra quantos trechos aprovados (e com embedd
 | `claude-sonnet-5-5` | Claude Sonnet 5.5 na completion, `AI_EFFORT=high`, `AI_MAX_OUTPUT_TOKENS=32000`; embeddings continuam na OpenAI |
 | `claude-opus-5-5` | Claude Opus 5.5 na completion, `AI_EFFORT=high`, `AI_MAX_OUTPUT_TOKENS=32000`; embeddings continuam na OpenAI |
 | `claude-sonnet-5-5-stages`, `claude-opus-5-5-stages` | As mesmas, com o raciocínio em etapas da ADR-013 (`COPILOT_REASONING=stages`, entendimento em `AI_UNDERSTANDING_EFFORT=low`). As variantes sem sufixo fixam `COPILOT_REASONING=legacy`, então cada par difere só na flag |
+| `claude-opus-5-5-v3-modelo`, `claude-haiku-5-5-v3-modelo` | Decisão v3 (ADR-013, emenda de 11/10/2026) só com o conhecimento do modelo |
+| `claude-opus-5-5-v3-verifica` | Decisão v3 com a verificação com fonte depois da decisão (`COPILOT_KNOWLEDGE_SOURCE=verify`) |
 | `test` | Provedor determinístico offline: nenhuma chamada paga. Valida a fiação, não a qualidade clínica |
 
 Os embeddings ficam iguais em todas as variantes de propósito: o bake-off só isola o modelo se o retrieval entregar os mesmos trechos. O comparador avisa quando não entregou.

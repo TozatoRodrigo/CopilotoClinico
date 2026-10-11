@@ -204,8 +204,9 @@ function decisionSettings(
   return {
     decisionPrompt: pipeline.decisionPrompt,
     knowledgeSource: pipeline.knowledgeSource,
+    // A verificação depois da decisão usa a mesma pesquisa (modelo, buscas, domínios).
     research:
-      pipeline.knowledgeSource === 'web'
+      pipeline.knowledgeSource === 'web' || pipeline.knowledgeSource === 'verify'
         ? {
             model: readResearchModel(config),
             effort: readResearchEffort(config),

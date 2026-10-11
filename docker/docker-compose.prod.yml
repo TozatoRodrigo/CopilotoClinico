@@ -125,6 +125,10 @@ services:
       AI_RESEARCH_EFFORT: ${AI_RESEARCH_EFFORT:-low}
       WEB_RESEARCH_MAX_SEARCHES: ${WEB_RESEARCH_MAX_SEARCHES:-5}
       WEB_RESEARCH_ALLOWED_DOMAINS: ${WEB_RESEARCH_ALLOWED_DOMAINS:-}
+      # Emenda de 11/10/2026 ao ADR-013 — modelo que liga cada conduta a um
+      # trecho na verificação com fonte (COPILOT_KNOWLEDGE_SOURCE=verify).
+      # Mesmo motivo das linhas acima; padrão igual ao do código.
+      AI_VERIFY_ATTACH_MODEL: ${AI_VERIFY_ATTACH_MODEL:-claude-sonnet-5-5}
       THROTTLER_TTL: ${THROTTLER_TTL:-60000}
       THROTTLER_LIMIT: ${THROTTLER_LIMIT:-600}
       FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY}
