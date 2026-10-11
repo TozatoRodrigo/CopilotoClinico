@@ -19,7 +19,8 @@
         "AI_MAX_OUTPUT_TOKENS": "32000",
         "AI_EFFORT": "high",
         "EMBEDDING_PROVIDER": "openai",
-        "EMBEDDING_API_KEY": "${OPENAI_API_KEY}"
+        "EMBEDDING_API_KEY": "${OPENAI_API_KEY}",
+        "COPILOT_REASONING": "legacy"
       }
     },
     {
@@ -33,7 +34,40 @@
         "AI_MAX_OUTPUT_TOKENS": "32000",
         "AI_EFFORT": "high",
         "EMBEDDING_PROVIDER": "openai",
-        "EMBEDDING_API_KEY": "${OPENAI_API_KEY}"
+        "EMBEDDING_API_KEY": "${OPENAI_API_KEY}",
+        "COPILOT_REASONING": "legacy"
+      }
+    },
+    {
+      "name": "claude-sonnet-5-5-stages",
+      "description": "Claude Sonnet 5.5 com raciocínio em etapas (ADR-013): entendimento do caso com o mesmo modelo em effort low, busca dirigida pelas consultas do entendimento e decisão em effort high. Demais parâmetros iguais a claude-sonnet-5-5, para comparar legacy × stages caso a caso.",
+      "env": {
+        "AI_PROVIDER": "anthropic",
+        "AI_MODEL": "claude-sonnet-5-5",
+        "AI_BASE_URL": "https://api.anthropic.com",
+        "AI_API_KEY": "${ANTHROPIC_API_KEY}",
+        "AI_MAX_OUTPUT_TOKENS": "32000",
+        "AI_EFFORT": "high",
+        "EMBEDDING_PROVIDER": "openai",
+        "EMBEDDING_API_KEY": "${OPENAI_API_KEY}",
+        "COPILOT_REASONING": "stages",
+        "AI_UNDERSTANDING_EFFORT": "low"
+      }
+    },
+    {
+      "name": "claude-opus-5-5-stages",
+      "description": "Claude Opus 5.5 com raciocínio em etapas (ADR-013): entendimento do caso com o mesmo modelo em effort low, busca dirigida pelas consultas do entendimento e decisão em effort high. Demais parâmetros iguais a claude-opus-5-5, para comparar legacy × stages caso a caso.",
+      "env": {
+        "AI_PROVIDER": "anthropic",
+        "AI_MODEL": "claude-opus-5-5",
+        "AI_BASE_URL": "https://api.anthropic.com",
+        "AI_API_KEY": "${ANTHROPIC_API_KEY}",
+        "AI_MAX_OUTPUT_TOKENS": "32000",
+        "AI_EFFORT": "high",
+        "EMBEDDING_PROVIDER": "openai",
+        "EMBEDDING_API_KEY": "${OPENAI_API_KEY}",
+        "COPILOT_REASONING": "stages",
+        "AI_UNDERSTANDING_EFFORT": "low"
       }
     },
     {

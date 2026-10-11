@@ -2,6 +2,8 @@ import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs
 import { join } from 'node:path';
 import { z } from 'zod';
 import { CopilotOutputSchema } from '../../src/modules/copilot/guardrails/output-validator';
+import { CaseUnderstandingSchema } from '../../src/modules/copilot/understanding/case-understanding.schema';
+import { REASONING_MODES } from '../../src/modules/copilot/understanding/understanding.settings';
 import { DeterministicGradeSchema, RUN_STATUSES } from './graders/deterministic';
 import { JudgeOutcomeSchema } from './graders/judge';
 
@@ -52,6 +54,8 @@ const PipelineMetadataSchema = z.object({
   model: z.string(),
   turnIndex: z.number(),
   maxTurns: z.number(),
+  /** F1 — só com COPILOT_REASONING=stages. */
+  understandingLatencyMs: z.number().optional(),
 });
 
 const RowKeySchema = z.object({
@@ -75,6 +79,12 @@ export const ResultRowSchema = RowKeySchema.extend({
   interactionId: z.string().nullable(),
   /** Saída como o orquestrador devolveu (com fonte de cada recomendação). */
   output: CopilotOutputSchema.nullable(),
+  /**
+   * F1 — Etapa 1 (ADR-013), fora de `output` porque o schema da saída do
+   * modelo não a conhece. `null` no legacy, quando a etapa falhou e em
+   * execuções anteriores à Fase 1.
+   */
+  understanding: CaseUnderstandingSchema.nullable().default(null),
   citations: z.array(z.record(z.string(), z.unknown())),
   metadata: PipelineMetadataSchema.nullable(),
   retrievedChunkIds: z.array(z.string()),
@@ -171,6 +181,11 @@ export const RunMetaSchema = z.object({
     maxOutputTokens: z.number().int(),
     /** AI_EFFORT efetivo; só tem efeito nos Claude atuais. */
     effort: z.string(),
+    /** F1 — COPILOT_REASONING efetivo; execuções anteriores à Fase 1 eram legacy. */
+    reasoning: z.enum(REASONING_MODES).default('legacy'),
+    /** F1 — modelo e esforço da Etapa 1; `null` no legacy. */
+    understandingModel: z.string().nullable().default(null),
+    understandingEffort: z.string().nullable().default(null),
     structuredOutput: z.boolean(),
     refusalFallback: z.boolean(),
   }),

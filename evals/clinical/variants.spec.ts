@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { Test } from '@nestjs/testing';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { afterEach, describe, expect, it } from 'vitest';
+import { readReasoningMode } from '../../src/modules/copilot/understanding/understanding.settings';
 import {
   loadVariants,
   pickVariants,
@@ -34,6 +35,23 @@ describe('variantes versionadas', () => {
     expect(names).toEqual(
       expect.arrayContaining(['baseline', 'claude-sonnet-5-5', 'claude-opus-5-5', 'test']),
     );
+  });
+
+  // F1 — cada Claude tem o par legacy × stages, iguais exceto pela flag, para
+  // a comparação caso a caso da ADR-013.
+  it('trazem o par legacy × stages de cada Claude, diferentes só na Etapa 1', () => {
+    const variants = loadVariants(VERSIONED_VARIANTS_FILE);
+    for (const name of ['claude-sonnet-5-5', 'claude-opus-5-5']) {
+      const legacy = variants.find((variant) => variant.name === name);
+      const stages = variants.find((variant) => variant.name === `${name}-stages`);
+
+      expect(legacy?.env.COPILOT_REASONING).toBe('legacy');
+      expect(stages?.env).toEqual({
+        ...legacy?.env,
+        COPILOT_REASONING: 'stages',
+        AI_UNDERSTANDING_EFFORT: 'low',
+      });
+    }
   });
 
   it('não guardam nenhuma chave literal', () => {
@@ -122,5 +140,20 @@ describe('precedência de configuração usada pelo EvalModule', () => {
 
     expect(moduleRef.get(ConfigService).get('AI_MODEL_PRECEDENCE_CHECK')).toBe('da-variante');
     delete process.env.AI_MODEL_PRECEDENCE_CHECK;
+  });
+
+  it('a variante liga o raciocínio em etapas mesmo com o .env em legacy', async () => {
+    process.env.COPILOT_REASONING = 'legacy';
+    const moduleRef = await Test.createTestingModule({
+      imports: [
+        ConfigModule.forRoot({
+          ignoreEnvFile: true,
+          load: [() => ({ COPILOT_REASONING: 'stages' })],
+        }),
+      ],
+    }).compile();
+
+    expect(readReasoningMode(moduleRef.get(ConfigService))).toBe('stages');
+    delete process.env.COPILOT_REASONING;
   });
 });

@@ -1,10 +1,10 @@
-import type { CopilotOutput } from '../../src/modules/copilot/guardrails/output-validator';
 import type { ClinicalCase } from './case.schema';
 import { gradeDeterministic, type DeterministicGrade } from './graders/deterministic';
 import {
   buildJudgeRequest,
   JudgeParseError,
   parseJudgeVerdict,
+  type JudgedOutput,
   type JudgeClient,
   type JudgeOutcome,
   type JudgeResponse,
@@ -32,7 +32,7 @@ const TRUNCATED_STOP_REASONS = new Set(['max_tokens', 'length']);
 export async function judgeOutput(
   client: JudgeClient,
   clinicalCase: ClinicalCase,
-  output: CopilotOutput,
+  output: JudgedOutput,
   retryPolicy: RetryPolicy = DEFAULT_RETRY_POLICY,
 ): Promise<JudgeOutcome> {
   const request = buildJudgeRequest(clinicalCase, output);
@@ -135,7 +135,12 @@ export async function gradeResult(
   const deterministic = gradeDeterministic(clinicalCase, row.status, output);
   const judge =
     judgeClient && output
-      ? await judgeOutput(judgeClient, clinicalCase, output, retryPolicy)
+      ? await judgeOutput(
+          judgeClient,
+          clinicalCase,
+          { ...output, understanding: row.understanding },
+          retryPolicy,
+        )
       : null;
 
   return {
