@@ -1,7 +1,16 @@
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
-import { CopilotOutputSchema } from '../../src/modules/copilot/guardrails/output-validator';
+import {
+  StoredCopilotOutputSchema,
+  StoredRecommendationSchema,
+} from '../../src/modules/copilot/guardrails/output-validator';
+import {
+  CITATION_ORIGINS,
+  DECISION_PROMPT_VERSIONS,
+  KNOWLEDGE_SOURCES,
+  PRELIMINARY_REASONS,
+} from '../../src/shared/contracts/clinical';
 import { CaseUnderstandingSchema } from '../../src/modules/copilot/understanding/case-understanding.schema';
 import { REASONING_MODES } from '../../src/modules/copilot/understanding/understanding.settings';
 import { DeterministicGradeSchema, RUN_STATUSES } from './graders/deterministic';
@@ -25,9 +34,13 @@ const UsageSchema = z.object({
   totalTokens: z.number(),
   cacheReadTokens: z.number().optional(),
   cacheWriteTokens: z.number().optional(),
+  /** F1 — buscas da pesquisa web (cobradas à parte). */
+  webSearchRequests: z.number().optional(),
 });
 
 export const RecordedCompletionSchema = z.object({
+  /** F1 — `research` é a chamada da pesquisa web; ausente = completion. */
+  kind: z.enum(['completion', 'research']).optional(),
   messages: z.array(
     z.object({ role: z.enum(['system', 'user', 'assistant']), content: z.string() }),
   ),
@@ -42,12 +55,51 @@ export const RecordedCompletionSchema = z.object({
   error: z.string().nullable(),
 });
 
+/**
+ * Recomendação como o orquestrador a devolve: saída do modelo (v1 ou v2) mais
+ * o motivo do preliminar e a origem da fonte. Explícitos porque o zod
+ * descarta campo desconhecido na releitura do results.jsonl — sem eles, a
+ * nota perderia o motivo do preliminar (F0-C) e a camada da decisão v2 (F1).
+ */
+const ResultRecommendationSchema = StoredRecommendationSchema.extend({
+  preliminaryReason: z.enum(PRELIMINARY_REASONS).optional(),
+  origin: z.enum(CITATION_ORIGINS).optional(),
+});
+
+export const ResultOutputSchema = StoredCopilotOutputSchema.extend({
+  recommendations: z.array(ResultRecommendationSchema),
+});
+
+/** F1 — página oficial achada pela pesquisa web (contrato `WebEvidenceItem`). */
+export const WebEvidenceItemSchema = z.object({
+  id: z.string(),
+  url: z.string(),
+  title: z.string().nullable(),
+  domain: z.string(),
+  citedText: z.string(),
+});
+
+/** F1 — o que a pesquisa web fez no caso, como o orquestrador grava em `params.research`. */
+export const ResearchTraceSchema = z.object({
+  model: z.string().nullable(),
+  webSearchRequests: z.number(),
+  evidenceItems: z.number(),
+  latencyMs: z.number(),
+  /** Tokens + buscas, em US$. */
+  cost: z.number(),
+  /** `null` quando a pesquisa entregou evidência. */
+  fallbackReason: z.string().nullable(),
+});
+
+export type ResearchTrace = z.infer<typeof ResearchTraceSchema>;
+
 /** Espelha OrchestratorResult['metadata']; a atribuição no runner confere o tipo. */
 const PipelineMetadataSchema = z.object({
   piiDetected: z.boolean(),
   injectionDetected: z.boolean(),
   chunksRetrieved: z.number(),
-  retrievalCoverage: z.enum(['full', 'partial', 'none']),
+  /** F1 — `null` quando a base não foi consultada (model_only/web). */
+  retrievalCoverage: z.enum(['full', 'partial', 'none']).nullable(),
   officialChunksRetrieved: z.number(),
   latencyMs: z.number(),
   cost: z.number(),
@@ -56,6 +108,11 @@ const PipelineMetadataSchema = z.object({
   maxTurns: z.number(),
   /** F1 — só com COPILOT_REASONING=stages. */
   understandingLatencyMs: z.number().optional(),
+  /** F1 — execuções anteriores eram internal_kb + v1. */
+  knowledgeSource: z.enum(KNOWLEDGE_SOURCES).default('internal_kb'),
+  decisionPrompt: z.enum(DECISION_PROMPT_VERSIONS).default('v1'),
+  /** F1 — só quando a pesquisa web rodou. */
+  researchLatencyMs: z.number().optional(),
 });
 
 const RowKeySchema = z.object({
@@ -78,13 +135,21 @@ export const ResultRowSchema = RowKeySchema.extend({
   encounterId: z.string(),
   interactionId: z.string().nullable(),
   /** Saída como o orquestrador devolveu (com fonte de cada recomendação). */
-  output: CopilotOutputSchema.nullable(),
+  output: ResultOutputSchema.nullable(),
   /**
    * F1 — Etapa 1 (ADR-013), fora de `output` porque o schema da saída do
    * modelo não a conhece. `null` no legacy, quando a etapa falhou e em
    * execuções anteriores à Fase 1.
    */
   understanding: CaseUnderstandingSchema.nullable().default(null),
+  /**
+   * F1 — evidência da pesquisa web entregue à decisão. `null` quando a
+   * pesquisa não rodou (fora de COPILOT_KNOWLEDGE_SOURCE=web); vazia quando
+   * rodou e não achou fonte permitida.
+   */
+  webEvidence: z.array(WebEvidenceItemSchema).nullable().default(null),
+  /** F1 — rastro e custo da pesquisa web; `null` quando ela não rodou. */
+  research: ResearchTraceSchema.nullable().default(null),
   citations: z.array(z.record(z.string(), z.unknown())),
   metadata: PipelineMetadataSchema.nullable(),
   retrievedChunkIds: z.array(z.string()),
@@ -186,6 +251,19 @@ export const RunMetaSchema = z.object({
     /** F1 — modelo e esforço da Etapa 1; `null` no legacy. */
     understandingModel: z.string().nullable().default(null),
     understandingEffort: z.string().nullable().default(null),
+    /** F1 — prompt da decisão e fonte de conhecimento efetivos; antes da Fase 1, v1 + internal_kb. */
+    decisionPrompt: z.enum(DECISION_PROMPT_VERSIONS).default('v1'),
+    knowledgeSource: z.enum(KNOWLEDGE_SOURCES).default('internal_kb'),
+    /** F1 — configuração da pesquisa web; `null` fora de COPILOT_KNOWLEDGE_SOURCE=web. */
+    research: z
+      .object({
+        model: z.string(),
+        effort: z.string(),
+        maxSearches: z.number().int(),
+        allowedDomains: z.array(z.string()),
+      })
+      .nullable()
+      .default(null),
     structuredOutput: z.boolean(),
     refusalFallback: z.boolean(),
   }),

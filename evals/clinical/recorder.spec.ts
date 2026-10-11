@@ -1,6 +1,10 @@
 import { ConfigService } from '@nestjs/config';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { AiRefusalError, AiTruncatedError } from '../../src/modules/ai-gateway/ai-gateway.errors';
+import {
+  AiCapabilityUnsupportedError,
+  AiRefusalError,
+  AiTruncatedError,
+} from '../../src/modules/ai-gateway/ai-gateway.errors';
 import { AiGatewayService } from '../../src/modules/ai-gateway/ai-gateway.service';
 import { CompletionRecorder, RecordingAiGatewayService, type RecordedCompletion } from './recorder';
 
@@ -64,5 +68,71 @@ describe('RecordingAiGatewayService', () => {
         error: error.message,
       }),
     ]);
+  });
+
+  // F1 — a pesquisa web também custa (tokens + buscas) e precisa entrar na conta.
+  describe('pesquisa web', () => {
+    const researchParams = {
+      model: 'claude-sonnet-5-5',
+      system: 'Você é a etapa de pesquisa.',
+      prompt: 'Síndrome: déficit neurológico focal.',
+      allowedDomains: ['gov.br'],
+      maxSearches: 5,
+      maxFetches: 5,
+      maxFetchContentTokens: 6000,
+    };
+
+    it('grava a pesquisa com o resumo, o modelo servido e as buscas', async () => {
+      vi.spyOn(AiGatewayService.prototype, 'research').mockResolvedValue({
+        text: 'Resumo da evidência.',
+        citations: [],
+        model: 'claude-sonnet-5-5',
+        usage: {
+          promptTokens: 1000,
+          completionTokens: 100,
+          totalTokens: 1100,
+          webSearchRequests: 3,
+        },
+        latencyMs: 9000,
+        continuations: 0,
+        stopReason: 'end_turn',
+      });
+      const { recorder, gateway } = recordingGateway();
+      const sink: RecordedCompletion[] = [];
+
+      await recorder.run(sink, () => gateway.research(researchParams));
+
+      expect(sink).toEqual([
+        {
+          kind: 'research',
+          messages: [
+            { role: 'system', content: 'Você é a etapa de pesquisa.' },
+            { role: 'user', content: 'Síndrome: déficit neurológico focal.' },
+          ],
+          requestedModel: 'claude-sonnet-5-5',
+          servedModel: 'claude-sonnet-5-5',
+          content: 'Resumo da evidência.',
+          stopReason: null,
+          refusalCategory: null,
+          usage: expect.objectContaining({ webSearchRequests: 3 }),
+          latencyMs: 9000,
+          error: null,
+        },
+      ]);
+    });
+
+    it('grava a pesquisa que falhou e repassa o erro', async () => {
+      const { recorder, gateway } = recordingGateway();
+      const sink: RecordedCompletion[] = [];
+
+      // O provider determinístico (AI_PROVIDER=test) não tem pesquisa web.
+      await expect(
+        recorder.run(sink, () => gateway.research(researchParams)),
+      ).rejects.toBeInstanceOf(AiCapabilityUnsupportedError);
+
+      expect(sink).toEqual([
+        expect.objectContaining({ kind: 'research', servedModel: null, usage: null }),
+      ]);
+    });
   });
 });

@@ -14,6 +14,11 @@ interface ModelPrice {
 }
 
 const FALLBACK_TOTAL_TOKEN_PRICE_PER_TOKEN = 0.00001;
+/**
+ * F1 — web search da Anthropic: US$ 10 por 1.000 buscas, além dos tokens
+ * (docs da ferramenta, 11/10/2026). Web fetch não tem cobrança própria.
+ */
+export const WEB_SEARCH_PRICE_PER_REQUEST = 10 / 1000;
 // Multiplicadores padrão da Anthropic: leitura de cache ~0,1x da entrada e
 // escrita com TTL de 5 minutos 1,25x (skill claude-api, shared/prompt-caching.md).
 const CLAUDE_CACHE_READ_MULTIPLIER = 0.1;
@@ -105,9 +110,10 @@ export function hasModelPrice(model: string): boolean {
 export function calculateInferenceCost(params: CalculateInferenceCostParams): number {
   const { usage } = params;
   const price = findPrice(params.model);
+  const webSearchCost = (usage.webSearchRequests ?? 0) * WEB_SEARCH_PRICE_PER_REQUEST;
 
   if (!price) {
-    return roundCost(usage.totalTokens * FALLBACK_TOTAL_TOKEN_PRICE_PER_TOKEN);
+    return roundCost(usage.totalTokens * FALLBACK_TOTAL_TOKEN_PRICE_PER_TOKEN + webSearchCost);
   }
 
   const cacheReadTokens = usage.cacheReadTokens ?? 0;
@@ -120,7 +126,7 @@ export function calculateInferenceCost(params: CalculateInferenceCostParams): nu
     cacheWriteTokens * (price.cacheWritePerMillionTokens ?? price.inputPerMillionTokens) +
     usage.completionTokens * price.outputPerMillionTokens;
 
-  return roundCost(costPerMillion / 1_000_000);
+  return roundCost(costPerMillion / 1_000_000 + webSearchCost);
 }
 
 function roundCost(value: number): number {

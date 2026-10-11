@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { preliminaryReasonFor, type ContainmentContext } from './preliminary-containment';
+import {
+  preliminaryReasonFor,
+  preliminaryReasonForV2,
+  type ContainmentContext,
+} from './preliminary-containment';
 import type { CitationOrigin } from '../../../shared/contracts/clinical';
 
 const NO_RISK: ContainmentContext = {
@@ -104,5 +108,50 @@ describe('preliminaryReasonFor', () => {
         'pending_questions',
       );
     });
+  });
+});
+
+// F1 — decisão v2 (ADR-013): o preliminar quer dizer "espere o dado";
+// proveniência vira rótulo de origem.
+describe('preliminaryReasonForV2', () => {
+  it('marks a depends recommendation as waiting for its data', () => {
+    expect(
+      preliminaryReasonForV2({ layer: 'depends', origin: 'web_official', carriesDose: false }),
+    ).toBe('depends_on_data');
+  });
+
+  it('keeps depends_on_data as the reason even when the action also carries a dose', () => {
+    expect(
+      preliminaryReasonForV2({ layer: 'depends', origin: 'model_knowledge', carriesDose: true }),
+    ).toBe('depends_on_data');
+  });
+
+  it.each([
+    'model_knowledge',
+    'web_official',
+    'official_unreviewed',
+    'curated_unsigned',
+    'public',
+    'institutional',
+  ] as const)('keeps a "now" recommendation from %s definitive', (origin) => {
+    expect(preliminaryReasonForV2({ layer: 'now', origin, carriesDose: false })).toBeNull();
+  });
+
+  it('flags model knowledge that still carries a dose', () => {
+    expect(
+      preliminaryReasonForV2({ layer: 'now', origin: 'model_knowledge', carriesDose: true }),
+    ).toBe('unverified_dose');
+  });
+
+  it('does not flag a dose that comes from a cited source', () => {
+    expect(
+      preliminaryReasonForV2({ layer: 'now', origin: 'web_official', carriesDose: true }),
+    ).toBeNull();
+  });
+
+  it('never lets a physician attachment come out definitive (F4)', () => {
+    expect(
+      preliminaryReasonForV2({ layer: 'now', origin: 'physician_attachment', carriesDose: false }),
+    ).toBe('pending_questions');
   });
 });

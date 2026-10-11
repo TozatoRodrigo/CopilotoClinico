@@ -54,6 +54,43 @@ describe('variantes versionadas', () => {
     }
   });
 
+  // F1 — PR 2 da ADR-013: as variantes da decisão v2 medem o produto 100%
+  // Anthropic — nenhuma delas pode depender da OpenAI.
+  it('trazem as variantes da decisão v2, sem embedding nem chave da OpenAI', () => {
+    const variants = loadVariants(VERSIONED_VARIANTS_FILE);
+    const byName = (name: string) => variants.find((variant) => variant.name === name)?.env;
+    const modelOnly = byName('claude-opus-5-5-v2-modelo');
+    const web = byName('claude-opus-5-5-v2-web');
+
+    expect(modelOnly).toMatchObject({
+      AI_MODEL: 'claude-opus-5-5',
+      COPILOT_REASONING: 'stages',
+      COPILOT_DECISION_PROMPT: 'v2',
+      COPILOT_KNOWLEDGE_SOURCE: 'model_only',
+    });
+    expect(web).toMatchObject({
+      AI_MODEL: 'claude-opus-5-5',
+      COPILOT_REASONING: 'stages',
+      COPILOT_DECISION_PROMPT: 'v2',
+      COPILOT_KNOWLEDGE_SOURCE: 'web',
+      AI_RESEARCH_MODEL: 'claude-sonnet-5-5',
+    });
+    expect(byName('claude-haiku-5-5-v2-modelo')).toMatchObject({
+      AI_MODEL: 'claude-haiku-5-5',
+      AI_UNDERSTANDING_MODEL: 'claude-haiku-5-5',
+      COPILOT_KNOWLEDGE_SOURCE: 'model_only',
+    });
+    expect(byName('claude-opus-5-5-v2-web-entendimento-haiku')).toEqual({
+      ...web,
+      AI_UNDERSTANDING_MODEL: 'claude-haiku-5-5',
+    });
+
+    for (const variant of variants.filter((candidate) => candidate.name.includes('-v2-'))) {
+      expect(Object.keys(variant.env).filter((key) => /EMBEDDING|OPENAI/.test(key))).toEqual([]);
+      expect(() => resolveVariantEnv(variant, { ANTHROPIC_API_KEY: 'sk-ant-x' })).not.toThrow();
+    }
+  });
+
   it('não guardam nenhuma chave literal', () => {
     for (const variant of loadVariants(VERSIONED_VARIANTS_FILE)) {
       for (const [key, value] of Object.entries(variant.env)) {

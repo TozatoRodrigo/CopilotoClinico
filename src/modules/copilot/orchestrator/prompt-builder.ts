@@ -129,7 +129,7 @@ export function confirmedRedFlagLabels(redFlags?: Record<string, boolean>): stri
     .map(([key]) => RED_FLAG_LABELS[key] ?? `Red flag marcada pelo médico: ${key}`);
 }
 
-function buildConfirmedRedFlagsBlock(redFlags?: Record<string, boolean>): string {
+export function buildConfirmedRedFlagsBlock(redFlags?: Record<string, boolean>): string {
   const confirmed = confirmedRedFlagLabels(redFlags);
   if (confirmed.length === 0) return '';
   const items = confirmed.map((label) => `- ${label}`).join('\n');
@@ -360,7 +360,7 @@ function buildCoverageWarning(coverage?: PromptInput['coverage']): string {
  * modelo, e a PHYSICIAN ATTACHMENTS RULE define o que ele pode fazer com isso
  * (citar, sim; tratar como cobertura de diretriz, não).
  */
-function buildAttachmentsBlock(attachments?: PhysicianAttachment[]): string {
+export function buildAttachmentsBlock(attachments?: PhysicianAttachment[]): string {
   if (!attachments || attachments.length === 0) return '';
 
   const items = attachments
@@ -419,7 +419,7 @@ OFFICIAL MS GUIDELINES RULE (ADR-010): the user message contains an <official_gu
  * oficial mas não revisado; a OFFICIAL MS GUIDELINES RULE diz o que fazer com
  * isso.
  */
-function buildOfficialBlock(officialChunks?: RetrievedContext[]): string {
+export function buildOfficialBlock(officialChunks?: RetrievedContext[]): string {
   if (!officialChunks || officialChunks.length === 0) return '';
 
   const items = officialChunks
@@ -452,7 +452,7 @@ ${serialized}
 `;
 }
 
-function buildContextBlock(context: EncounterContext): string {
+export function buildContextBlock(context: EncounterContext): string {
   const contextLines: string[] = [];
   if (context.hasCT) contextLines.push('- Tomografia disponível');
   if (context.isSus) contextLines.push('- Paciente SUS');

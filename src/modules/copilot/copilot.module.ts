@@ -4,6 +4,7 @@ import { CopilotService } from './copilot.service';
 import { OrchestratorService } from './orchestrator/orchestrator.service';
 import { RetrievalService } from './retrieval/retrieval.service';
 import { UnderstandingService } from './understanding/understanding.service';
+import { WebResearchService } from './research/web-research.service';
 import { ProtocolEngineModule } from './protocol-engine/protocol-engine.module';
 import { AiGatewayModule } from '../ai-gateway/ai-gateway.module';
 import { AuthModule } from '../auth/auth.module';
@@ -32,6 +33,7 @@ import { CopilotFeedbackTriageController } from './feedback/copilot-feedback-tri
     OrchestratorService,
     RetrievalService,
     UnderstandingService,
+    WebResearchService,
     RecommendationDecisionsService,
     CopilotFeedbackService,
   ],

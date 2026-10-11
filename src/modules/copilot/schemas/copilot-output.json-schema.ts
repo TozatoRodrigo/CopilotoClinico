@@ -60,3 +60,46 @@ export const COPILOT_OUTPUT_JSON_SCHEMA = {
   name: 'copilot_output',
   schema: COPILOT_OUTPUT,
 } satisfies JsonResponseSchema;
+
+/**
+ * F1 — saída da decisão v2 (ADR-013, Etapa 3), paridade com
+ * `CopilotOutputV2Schema` (guardrails/output-validator-v2.ts). Sem
+ * `preliminary`: a camada diz o que depende de dado e a contenção decide o
+ * rótulo. A ordem é a de geração: camada e base antes da citação.
+ */
+const RECOMMENDATION_V2 = strictObject({
+  action: STRING,
+  rationale: STRING,
+  category: oneOf(['stabilization', 'diagnostic', 'therapeutic', 'verify']),
+  layer: oneOf(['now', 'depends']),
+  dependsOn: nullable(STRING),
+  basis: oneOf(['source', 'model_knowledge']),
+  citationChunkId: nullable(STRING),
+  confidence: NUMBER,
+});
+
+const CLARIFYING_QUESTION_V2 = strictObject({
+  id: STRING,
+  question: STRING,
+  why: STRING,
+  separates: arrayOf(STRING),
+  criticality: oneOf(['blocker', 'important', 'optional']),
+  expectedAnswerType: oneOf(['boolean', 'choice', 'number', 'text']),
+  choices: nullable(arrayOf(STRING)),
+  purpose: nullable(STRING),
+});
+
+const COPILOT_OUTPUT_V2 = strictObject({
+  reasoning: STRING,
+  redFlags: arrayOf(RED_FLAG),
+  recommendations: arrayOf(RECOMMENDATION_V2),
+  uncertainty: BOOLEAN,
+  uncertaintyReason: nullable(STRING),
+  differentials: arrayOf(DIFFERENTIAL),
+  clarifyingQuestions: arrayOf(CLARIFYING_QUESTION_V2),
+});
+
+export const COPILOT_OUTPUT_V2_JSON_SCHEMA = {
+  name: 'copilot_output_v2',
+  schema: COPILOT_OUTPUT_V2,
+} satisfies JsonResponseSchema;

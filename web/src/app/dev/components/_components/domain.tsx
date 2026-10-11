@@ -11,11 +11,66 @@ import { ConfirmedSeal } from '@/components/domain/confirmed-seal';
 import { AuditHash } from '@/components/domain/audit-hash';
 import { ConnectionStatus } from '@/components/domain/connection-status';
 import { UnderstandingCard } from '@/components/domain/understanding-card';
-import type { CaseUnderstanding } from '@/lib/types';
+import type { CaseUnderstanding, CopilotRecommendation } from '@/lib/types';
+import { RecommendationItem } from '@/app/(app)/encounters/[id]/result/page';
 import { DEMO_CASE_PRESETS } from '@/lib/demo-case-presets';
 import { ShowcaseSection, Specimen } from './showcase';
 
 const GRIPAL_CASE = DEMO_CASE_PRESETS.find((preset) => preset.slug === 'sindrome-gripal');
+
+/** F1 — plano da decisão v2: agora (conhecimento geral), depende (fonte web), dose sem fonte. */
+const LAYERED_RECOMMENDATIONS: CopilotRecommendation[] = [
+  {
+    action: 'TC de crânio sem contraste imediata, com angio-TC de crânio e pescoço',
+    rationale: 'Separa isquemia de hemorragia e mostra oclusão de grande vaso.',
+    citationChunkId: null,
+    confidence: 0.9,
+    preliminary: false,
+    category: 'diagnostic',
+    layer: 'now',
+    dependsOn: null,
+    basis: 'model_knowledge',
+    source: 'Conhecimento geral do modelo',
+    sourceVersion: '',
+    sourceText: '',
+    sourceUrl: '',
+    origin: 'model_knowledge',
+  },
+  {
+    action: 'Trombólise com alteplase 0,9 mg/kg (máximo 90 mg)',
+    rationale: 'AVC isquêmico dentro de 4,5 h, sem hemorragia na TC.',
+    citationChunkId: 'web:1',
+    confidence: 0.8,
+    preliminary: true,
+    preliminaryReason: 'depends_on_data',
+    category: 'therapeutic',
+    layer: 'depends',
+    dependsOn: 'TC de crânio sem contraste sem hemorragia, dentro de 4,5 h',
+    basis: 'source',
+    source: 'Guidelines for the Early Management of Acute Ischemic Stroke',
+    sourceVersion: 'ahajournals.org',
+    sourceText: 'Alteplase 0.9 mg/kg within 4.5 hours.',
+    sourceUrl: 'https://www.ahajournals.org/doi/10.1161/STR.0000000000000211',
+    origin: 'web_official',
+  },
+  {
+    action: 'Glicose 50% 40 mL IV se glicemia baixa',
+    rationale: 'Hipoglicemia mimetiza AVC.',
+    citationChunkId: null,
+    confidence: 0.85,
+    preliminary: true,
+    preliminaryReason: 'unverified_dose',
+    category: 'therapeutic',
+    layer: 'now',
+    dependsOn: null,
+    basis: 'model_knowledge',
+    source: 'Conhecimento geral do modelo',
+    sourceVersion: '',
+    sourceText: '',
+    sourceUrl: '',
+    origin: 'model_knowledge',
+  },
+];
 
 const DECISION_THREAD_ITEMS: DecisionThreadItem[] = [
   {
@@ -194,6 +249,8 @@ export function DomainSection() {
             <SourceOriginBadge origin="official_unreviewed" />
             <SourceOriginBadge origin="curated_unsigned" />
             <SourceOriginBadge origin="physician_attachment" />
+            <SourceOriginBadge origin="model_knowledge" />
+            <SourceOriginBadge origin="web_official" domain="ahajournals.org" />
           </div>
         </div>
       </Specimen>
@@ -215,9 +272,32 @@ export function DomainSection() {
         </div>
       </Specimen>
 
+      <Specimen
+        title="RecommendationItem (decisão v2)"
+        note="Conduta em duas camadas (ADR-013): o que depende diz de quê; a origem aparece como rótulo — conhecimento geral do modelo em azul, fonte oficial externa com link para a página."
+        bare
+      >
+        <ul className="divide-y divide-border">
+          {LAYERED_RECOMMENDATIONS.map((rec, index) => (
+            <li key={rec.action}>
+              <RecommendationItem
+                rec={rec}
+                index={index}
+                footnote={rec.citationChunkId === null ? null : index + 1}
+                decision={undefined}
+                onAdopt={() => {}}
+                onReject={() => {}}
+                onNote={() => {}}
+              />
+            </li>
+          ))}
+        </ul>
+      </Specimen>
+
       <Specimen title="BlockerQuestionCard" note="Pergunta que muda a conduta — laranja, com o porquê e a fonte." bare>
         <BlockerQuestionCard
           question="Paciente faz uso atual de imunossupressor?"
+          separates="Separa: Indicação de oseltamivir × Sem indicação após 48 h"
           why="A resposta muda a indicação de antiviral: pacientes em grupo de risco mantêm indicação de oseltamivir mesmo após 48 horas do início dos sintomas."
           citation={{
             source: 'Diretriz Influenza',

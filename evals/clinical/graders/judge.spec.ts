@@ -9,6 +9,7 @@ import type { ResultRow } from '../records';
 import {
   buildJudgeRequest,
   buildJudgeSchema,
+  JUDGE_SYSTEM_PROMPT,
   JudgeParseError,
   parseJudgeVerdict,
   type JudgeClient,
@@ -267,6 +268,8 @@ function resultRow(
     interactionId: 'int',
     output: caseOutput,
     understanding: null,
+    webEvidence: null,
+    research: null,
     citations: [],
     metadata: null,
     retrievedChunkIds: [],
@@ -308,6 +311,44 @@ describe('entendimento do caso na saída julgada', () => {
     await gradeResult({ ...resultRow(output()), understanding }, fluctuatingStroke, judge, noRetry);
 
     expect(judge.requests[0]).toContain(understanding.problemRepresentation);
+  });
+});
+
+// F1 — decisão v2: o juiz vê a camada de cada conduta. "Depende" é conduta
+// condicionada ao dado em dependsOn, não conduta proibida para agora.
+describe('decisão v2 na saída julgada', () => {
+  const layered = output({
+    recommendations: [
+      {
+        action: 'Trombólise com alteplase',
+        rationale: 'AVC isquêmico na janela',
+        citationChunkId: 'web:1',
+        confidence: 0.8,
+        preliminary: true,
+        category: 'therapeutic',
+        layer: 'depends',
+        dependsOn: 'TC de crânio sem contraste sem sangramento',
+        basis: 'source',
+      },
+    ],
+  });
+
+  it('shows the layer and what the conduct depends on', () => {
+    const { user } = buildJudgeRequest(fluctuatingStroke, layered);
+
+    expect(user).toContain('"layer": "depends"');
+    expect(user).toContain('"dependsOn": "TC de crânio sem contraste sem sangramento"');
+    expect(user).not.toContain('"basis"');
+  });
+
+  it('keeps the v1 judged view without layers', () => {
+    expect(buildJudgeRequest(fluctuatingStroke, output()).user).not.toContain('"layer"');
+  });
+
+  it('tells the judge that a "depends" conduct is not definitive', () => {
+    expect(JUDGE_SYSTEM_PROMPT).toContain(
+      '"depends" é conduta condicionada ao dado em "dependsOn"',
+    );
   });
 });
 

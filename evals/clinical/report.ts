@@ -122,6 +122,26 @@ export interface RunSummary {
     judgeTokens: { input: number; output: number };
   };
   judge: { models: string[]; graded: number; errors: number };
+  /**
+   * F1 — de onde vêm as condutas da decisão v2 e o que a pesquisa web fez.
+   * `recommendations` conta só as que têm `basis` (decisão v2).
+   */
+  evidence: {
+    recommendations: number;
+    /** Condutas com `basis: 'source'` entre as que têm base. */
+    sourced: Rate;
+    webOfficial: number;
+    modelKnowledge: number;
+    unverifiedDose: number;
+    research: {
+      runs: number;
+      /** Pesquisas que não entregaram evidência e seguiram só com o modelo. */
+      fallbacks: number;
+      webSearches: number;
+      costUsd: number | null;
+      latencyP50: number | null;
+    };
+  };
   perCase: CaseSummary[];
 }
 
@@ -201,6 +221,38 @@ function sumKnown(values: Array<number | null>): { total: number | null; unknown
   return {
     total: known.length > 0 ? known.reduce((sum, value) => sum + value, 0) : null,
     unknown: values.length - known.length,
+  };
+}
+
+/** F1 — base das condutas da decisão v2 e custo da pesquisa web. */
+function summarizeEvidence(results: ResultRow[]): RunSummary['evidence'] {
+  const recommendations = results
+    .filter((row) => row.status === 'ok')
+    .flatMap((row) => row.output?.recommendations ?? [])
+    .filter((recommendation) => recommendation.basis !== undefined);
+  const researched = results.flatMap((row) => (row.research ? [row.research] : []));
+  return {
+    recommendations: recommendations.length,
+    sourced: rateOf(recommendations.map((recommendation) => recommendation.basis === 'source')),
+    webOfficial: recommendations.filter(
+      (recommendation) => recommendation.origin === 'web_official',
+    ).length,
+    modelKnowledge: recommendations.filter(
+      (recommendation) => recommendation.basis === 'model_knowledge',
+    ).length,
+    unverifiedDose: recommendations.filter(
+      (recommendation) => recommendation.preliminaryReason === 'unverified_dose',
+    ).length,
+    research: {
+      runs: researched.length,
+      fallbacks: researched.filter((research) => research.fallbackReason !== null).length,
+      webSearches: researched.reduce((sum, research) => sum + research.webSearchRequests, 0),
+      costUsd: sumKnown(researched.map((research) => research.cost)).total,
+      latencyP50: percentile(
+        researched.map((research) => research.latencyMs),
+        0.5,
+      ),
+    },
   };
 }
 
@@ -371,6 +423,7 @@ export function summarizeRun(run: LoadedRun, casesById: Map<string, ClinicalCase
       graded: judgeOutcomes.filter((judge) => judge.status === 'ok').length,
       errors: judgeOutcomes.filter((judge) => judge.status === 'error').length,
     },
+    evidence: summarizeEvidence(results),
     perCase,
   };
 }
@@ -457,6 +510,14 @@ export function renderSummaryMarkdown(run: LoadedRun, summary: RunSummary): stri
         [
           'Pipeline',
           `${meta.pipeline.completionProvider} · pedido ${meta.pipeline.requestedModel} · embeddings ${meta.pipeline.embeddingProvider} ${meta.pipeline.embeddingModel}`,
+        ],
+        [
+          'Decisão',
+          `raciocínio ${meta.pipeline.reasoning} · prompt ${meta.pipeline.decisionPrompt} · fonte de conhecimento ${meta.pipeline.knowledgeSource}${
+            meta.pipeline.research
+              ? ` · pesquisa ${meta.pipeline.research.model} (effort ${meta.pipeline.research.effort}, até ${meta.pipeline.research.maxSearches} buscas, ${meta.pipeline.research.allowedDomains.length} domínios)`
+              : ''
+          }`,
         ],
         [
           'Configuração do gateway',
@@ -597,6 +658,31 @@ export function renderSummaryMarkdown(run: LoadedRun, summary: RunSummary): stri
     ),
     '',
   );
+
+  const { evidence } = summary;
+  if (evidence.recommendations > 0 || evidence.research.runs > 0) {
+    lines.push('## Base das condutas e pesquisa web (decisão v2)', '');
+    lines.push(
+      table(
+        ['Métrica', 'Valor'],
+        [
+          ['Condutas com fonte citada (basis "source")', formatRate(evidence.sourced)],
+          ['… citando fonte oficial externa (pesquisa web)', String(evidence.webOfficial)],
+          ['Condutas do conhecimento geral do modelo', String(evidence.modelKnowledge)],
+          ['… ainda com dose sem fonte depois do retry', String(evidence.unverifiedDose)],
+          [
+            'Pesquisas web',
+            `${evidence.research.runs} · ${evidence.research.fallbacks} sem evidência (seguiram só com o modelo) · ${evidence.research.webSearches} buscas`,
+          ],
+          [
+            'Custo e latência da pesquisa (incluídos no pipeline)',
+            `${formatUsd(evidence.research.costUsd)} · p50 ${formatMs(evidence.research.latencyP50)}`,
+          ],
+        ],
+      ),
+      '',
+    );
+  }
 
   lines.push('## Latência e custo', '');
   lines.push(

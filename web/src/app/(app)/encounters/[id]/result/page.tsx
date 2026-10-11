@@ -41,6 +41,7 @@ import { cn } from '@/lib/utils';
 import { ResultSkeleton } from './_components/result-skeleton';
 import {
   ArrowRight,
+  ArrowSquareOut,
   ArrowsClockwise,
   BookOpen,
   Books,
@@ -49,6 +50,7 @@ import {
   CircleNotch,
   CloudSlash,
   Eye,
+  Hourglass,
   FileText,
   Info,
   Lightning,
@@ -76,6 +78,7 @@ import type {
   DocumentType,
   LatestInteractionResponse,
   PreliminaryReason,
+  RecommendationLayer,
   RedFlagSeverity,
 } from '@/lib/types';
 import type { RecommendationDecisionState } from '@/hooks/use-recommendation-decisions';
@@ -100,6 +103,51 @@ function bucketFor(category?: string): Bucket {
   if (category === 'therapeutic') return 'next';
   return 'watch';
 }
+
+/**
+ * F1 — decisão v2 (ADR-013): o plano se divide pela camada, não pela
+ * categoria — "Fazer agora" é seguro em toda hipótese aberta; "Depende de…"
+ * espera o dado que decide. Análises v1 e antigas não têm camada e continuam
+ * nos três baldes de sempre.
+ */
+const LAYER_ICONS: Record<RecommendationLayer, Icon> = { now: Lightning, depends: Hourglass };
+const LAYERS: readonly RecommendationLayer[] = ['now', 'depends'];
+
+function isLayeredPlan(recommendations: CopilotRecommendation[]): boolean {
+  return recommendations.some((rec) => rec.layer !== undefined);
+}
+
+interface PlanGroup {
+  key: string;
+  label: string;
+  hint: string;
+  icon: Icon;
+  items: { rec: CopilotRecommendation; index: number }[];
+}
+
+export function planGroups(recommendations: CopilotRecommendation[], messages: Messages): PlanGroup[] {
+  const indexed = recommendations.map((rec, index) => ({ rec, index }));
+  if (isLayeredPlan(recommendations)) {
+    return LAYERS.map((layer) => ({
+      key: layer,
+      ...messages.recommendation.layers[layer],
+      icon: LAYER_ICONS[layer],
+      // Inalcançável na v2 (o schema exige a camada); na dúvida, esperar o dado.
+      items: indexed.filter(({ rec }) => (rec.layer ?? 'depends') === layer),
+    }));
+  }
+  return (['now', 'next', 'watch'] as const).map((key) => ({
+    key,
+    ...BUCKET_DEFS[key],
+    items: indexed.filter(({ rec }) => bucketFor(rec.category) === key),
+  }));
+}
+
+/** Respondendo as perguntas, estas condutas podem mudar de lugar. */
+const ANSWERABLE_REASONS: ReadonlySet<PreliminaryReason> = new Set<PreliminaryReason>([
+  'pending_questions',
+  'depends_on_data',
+]);
 
 /** No celular a coluna de rótulos encolhe para sobrar espaço às tags. */
 const PROPERTY_ROW = 'max-sm:grid-cols-[8.5rem_1fr]';
@@ -132,6 +180,10 @@ const PRELIMINARY_TONE: Record<
   pending_questions: { variant: 'warning', markerClassName: 'text-tone-orange' },
   subtype_ambiguity: { variant: 'warning', markerClassName: 'text-tone-orange' },
   unreviewed_source: { variant: 'secondary', markerClassName: 'text-muted-foreground' },
+  // F1 — o dado que falta muda a conduta; dose sem fonte precisa ser
+  // conferida antes de seguir: os dois em laranja.
+  depends_on_data: { variant: 'warning', markerClassName: 'text-tone-orange' },
+  unverified_dose: { variant: 'warning', markerClassName: 'text-tone-orange' },
 };
 
 /**
@@ -327,13 +379,22 @@ function ResultView({ encounterId, result }: { encounterId: string; result: Stor
   const criticalQuestions = questions.filter((q) => q.criticality !== 'optional');
   const optionalQuestions = questions.filter((q) => q.criticality === 'optional');
   const recommendations = analysis.recommendations;
+  const layered = isLayeredPlan(recommendations);
   const definitiveCount = recommendations.filter((r) => !r.preliminary).length;
   const preliminaryCount = recommendations.length - definitiveCount;
-  // F0-C — só a conduta preliminar por perguntas pode virar definitiva ao
-  // responder; fonte não revisada e subtipo indefinido continuam preliminares.
-  const answerableCount = recommendations.filter(
-    (r) => preliminaryReasonOf(r) === 'pending_questions',
-  ).length;
+  const dependsCount = recommendations.filter((r) => r.layer === 'depends').length;
+  // F0-C — só a conduta preliminar por perguntas (ou, na v2, a que depende de
+  // dado) pode mudar ao responder; fonte não revisada e subtipo indefinido
+  // continuam preliminares.
+  const answerableCount = recommendations.filter((r) => {
+    const reason = preliminaryReasonOf(r);
+    return reason !== null && ANSWERABLE_REASONS.has(reason);
+  }).length;
+  // F1 — fontes citadas: conhecimento geral do modelo não tem trecho.
+  const sourcedRecommendations = recommendations.filter(
+    (rec): rec is CopilotRecommendation & { citationChunkId: string } =>
+      rec.citationChunkId !== null,
+  );
   // UX-08 — pergunta blocker sem resposta (não só "sem clicar em
   // Reanalisar") é o sinal de que o plano ainda não reflete dados que MUDAM
   // A CONDUTA. Não bloqueia gerar o documento — pode haver razão legítima
@@ -353,20 +414,15 @@ function ResultView({ encounterId, result }: { encounterId: string; result: Stor
   const otherDifferentials = analysis.differentials.slice(1);
   const hasCannotMiss = otherDifferentials.some((d) => d.cannotMiss);
 
-  const buckets: { key: Bucket; items: { rec: CopilotRecommendation; index: number }[] }[] = (
-    ['now', 'next', 'watch'] as const
-  ).map((key) => ({
-    key,
-    items: recommendations
-      .map((rec, index) => ({ rec, index }))
-      .filter(({ rec }) => bucketFor(rec.category) === key),
-  }));
+  const groups = planGroups(recommendations, messages);
 
   // Notas de rodapé na ordem de leitura do plano; recomendações que citam o
-  // mesmo trecho compartilham o número (como num artigo).
+  // mesmo trecho compartilham o número (como num artigo). F1 — conhecimento
+  // geral do modelo não tem fonte: fica sem nota.
   const footnotes: Footnote[] = [];
   const footnoteByRec = new Map<number, number>();
-  for (const { rec, index } of buckets.flatMap((bucket) => bucket.items)) {
+  for (const { rec, index } of groups.flatMap((group) => group.items)) {
+    if (rec.citationChunkId === null) continue;
     const key = rec.citationChunkId || `${rec.source}@${rec.sourceVersion}`;
     let footnote = footnotes.find((f) => f.key === key);
     if (!footnote) {
@@ -425,7 +481,12 @@ function ResultView({ encounterId, result }: { encounterId: string; result: Stor
                 {messages.copilot.result.recommendationsCount(recommendations.length)}
                 <span className="text-muted-foreground">
                   {' · '}
-                  {messages.copilot.result.preliminarySummary(definitiveCount, preliminaryCount)}
+                  {layered
+                    ? messages.copilot.result.layersSummary(
+                        recommendations.length - dependsCount,
+                        dependsCount,
+                      )
+                    : messages.copilot.result.preliminarySummary(definitiveCount, preliminaryCount)}
                 </span>
               </span>
             </PropertyRow>
@@ -450,8 +511,8 @@ function ResultView({ encounterId, result }: { encounterId: string; result: Stor
         open={consultOpen}
         onOpenChange={setConsultOpen}
         caseText={result.caseText ?? encounterQuery.data?.chiefComplaint ?? null}
-        citedChunkIds={recommendations.map((rec) => rec.citationChunkId)}
-        citedSources={recommendations.map((rec) => rec.source)}
+        citedChunkIds={sourcedRecommendations.map((rec) => rec.citationChunkId)}
+        citedSources={sourcedRecommendations.map((rec) => rec.source)}
       />
 
       {/* F1 — "O que eu entendi" (ADR-013): antes das perguntas e do plano,
@@ -485,7 +546,12 @@ function ResultView({ encounterId, result }: { encounterId: string; result: Stor
           />
 
           {criticalQuestions.map((q) => (
-            <BlockerQuestionCard key={q.id} question={q.question} why={q.why}>
+            <BlockerQuestionCard
+              key={q.id}
+              question={q.question}
+              why={q.why}
+              separates={q.separates?.length ? messages.copilot.questions.separates(q.separates) : undefined}
+            >
               <AnswerControl
                 question={q}
                 value={answers[q.id]}
@@ -509,6 +575,9 @@ function ResultView({ encounterId, result }: { encounterId: string; result: Stor
                   </h3>
                   <p className="text-[0.8125rem] text-muted-foreground">
                     Opcional · refina a análise
+                    {q.separates?.length
+                      ? ` · ${messages.copilot.questions.separates(q.separates)}`
+                      : ''}
                   </p>
                 </div>
                 <AnswerControl
@@ -570,30 +639,29 @@ function ResultView({ encounterId, result }: { encounterId: string; result: Stor
             Nenhuma conduta sugerida nesta rodada — responda as perguntas ou consulte as diretrizes.
           </p>
         ) : (
-          buckets.map((bucket) => {
-            if (bucket.items.length === 0) return null;
-            const def = BUCKET_DEFS[bucket.key];
-            const BucketIcon = def.icon;
+          groups.map((group) => {
+            if (group.items.length === 0) return null;
+            const GroupIcon = group.icon;
             return (
-              <div key={bucket.key} className="flex flex-col">
+              <div key={group.key} className="flex flex-col">
                 <h3 className="flex flex-wrap items-baseline gap-x-2 border-b border-border pb-1.5 text-sm font-semibold text-foreground">
                   <span className="inline-flex items-center gap-1.5 self-center">
-                    <BucketIcon className="size-4 text-muted-foreground" aria-hidden="true" />
-                    {def.label}
+                    <GroupIcon className="size-4 text-muted-foreground" aria-hidden="true" />
+                    {group.label}
                   </span>
                   <span className="text-[0.8125rem] font-normal text-muted-foreground">
-                    {def.hint}
+                    {group.hint}
                   </span>
                 </h3>
                 <ul className="divide-y divide-border">
-                  {bucket.items.map(({ rec, index }) => {
+                  {group.items.map(({ rec, index }) => {
                     const recId = String(index);
                     return (
                       <li key={recId}>
                         <RecommendationItem
                           rec={rec}
                           index={index}
-                          footnote={footnoteByRec.get(index)}
+                          footnote={rec.citationChunkId === null ? null : footnoteByRec.get(index)}
                           decision={decisions[recId]}
                           onAdopt={() => setDecision(recId, 'adopted')}
                           onReject={() => setDecision(recId, 'rejected')}
@@ -857,8 +925,11 @@ export function RecommendationItem({
 }: {
   rec: CopilotRecommendation;
   index: number;
-  /** Número da nota de rodapé da fonte (compartilhado entre recomendações da mesma fonte). */
-  footnote?: number;
+  /**
+   * Número da nota de rodapé da fonte (compartilhado entre recomendações da
+   * mesma fonte). `null`: conhecimento geral do modelo, sem fonte (F1).
+   */
+  footnote?: number | null;
   decision: RecommendationDecisionState | undefined;
   onAdopt: () => void;
   onReject: () => void;
@@ -872,6 +943,12 @@ export function RecommendationItem({
   const isAdopted = decision?.decision === 'adopted' || isModified;
   const isRejected = decision?.decision === 'rejected';
   const preliminaryReason = preliminaryReasonOf(rec);
+  // F1 — "Depende de: <dado>" diz mais que a tag "Preliminar · depende de
+  // dado"; a tag fica para os outros motivos.
+  const waitsForData = rec.layer === 'depends';
+  const showPreliminaryBadge =
+    preliminaryReason !== null && !(waitsForData && preliminaryReason === 'depends_on_data');
+  const isModelKnowledge = rec.origin === 'model_knowledge';
 
   return (
     <div className="flex gap-3 py-3">
@@ -898,23 +975,34 @@ export function RecommendationItem({
           )}
         >
           {rec.action}
-          <sup className="ml-0.5">
-            <a
-              href={`#fonte-${footnote}`}
-              aria-label={`Fonte ${footnote}: ${rec.source}`}
-              className="rounded-sm px-0.5 text-[0.6875rem] font-medium text-link no-underline hover:bg-hover"
-            >
-              {footnote}
-            </a>
-          </sup>
+          {footnote !== null && (
+            <sup className="ml-0.5">
+              <a
+                href={`#fonte-${footnote}`}
+                aria-label={`Fonte ${footnote}: ${rec.source}`}
+                className="rounded-sm px-0.5 text-[0.6875rem] font-medium text-link no-underline hover:bg-hover"
+              >
+                {footnote}
+              </a>
+            </sup>
+          )}
         </h4>
 
         <p className="mt-0.5 text-sm leading-relaxed text-pretty text-muted-foreground">
           {rec.rationale}
         </p>
 
+        {waitsForData && (
+          <p className="mt-1.5 flex items-start gap-1.5 text-[0.8125rem] font-medium text-tone-orange-ink">
+            <Hourglass className="mt-0.5 size-3.5 shrink-0 text-tone-orange" weight="fill" aria-hidden="true" />
+            {rec.dependsOn
+              ? messages.recommendation.dependsOn(rec.dependsOn)
+              : messages.recommendation.dependsOnMissing}
+          </p>
+        )}
+
         <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-          {preliminaryReason && (
+          {showPreliminaryBadge && preliminaryReason && (
             <Badge
               variant={PRELIMINARY_TONE[preliminaryReason].variant}
               className="h-auto min-h-5 max-w-full py-0.5 whitespace-normal text-left leading-snug"
@@ -935,17 +1023,34 @@ export function RecommendationItem({
               Rejeitada
             </Badge>
           )}
-          <span className="inline-flex min-w-0 items-center gap-1">
-            <BookOpen className="size-3.5 shrink-0" aria-hidden="true" />
-            <span className="truncate">{rec.source}</span>
-          </span>
+          {!isModelKnowledge && (
+            <span className="inline-flex min-w-0 items-center gap-1">
+              <BookOpen className="size-3.5 shrink-0" aria-hidden="true" />
+              <span className="truncate">{rec.source}</span>
+            </span>
+          )}
         </div>
 
         {/* F4 / ADR-010 / ADR-012 — fonte que nenhum médico assinou: diz de
             onde veio e, no caso da base oficial, leva ao PDF do Ministério. */}
         {isUnreviewedOrigin(rec.origin) && (
           <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-            <SourceOriginBadge origin={rec.origin} />
+            <SourceOriginBadge
+              origin={rec.origin}
+              domain={rec.origin === 'web_official' ? rec.sourceVersion : undefined}
+            />
+            {/* F1 — página da fonte oficial externa, em nova aba. */}
+            {rec.origin === 'web_official' && rec.sourceUrl && (
+              <a
+                href={rec.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-link underline-offset-4 hover:underline"
+              >
+                {messages.recommendation.openSourcePage}
+                <ArrowSquareOut className="size-3.5" aria-hidden="true" />
+              </a>
+            )}
             {rec.origin === 'official_unreviewed' && (
               <>
                 <span className="min-w-0 truncate">{rec.sourceVersion}</span>

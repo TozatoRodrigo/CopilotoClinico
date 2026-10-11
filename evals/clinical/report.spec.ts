@@ -54,6 +54,9 @@ function meta(caseIds: string[], judged: boolean): RunMeta {
       reasoning: 'legacy',
       understandingModel: null,
       understandingEffort: null,
+      decisionPrompt: 'v1',
+      knowledgeSource: 'internal_kb',
+      research: null,
       structuredOutput: true,
       refusalFallback: false,
     },
@@ -82,6 +85,8 @@ function result(
     interactionId: 'int',
     output: status === 'ok' ? clarifyingOutput : null,
     understanding: null,
+    webEvidence: null,
+    research: null,
     citations: [],
     metadata: null,
     retrievedChunkIds: ['c1'],
@@ -240,6 +245,97 @@ describe('summarizeRun', () => {
 
     expect(summary.cost.pipelineComputedUsd).toBeNull();
     expect(renderSummaryMarkdown(loaded, summary)).toContain('desconhecido');
+  });
+});
+
+// F1 — de onde vêm as condutas da decisão v2 e o que a pesquisa web fez.
+describe('summarizeRun — base das condutas (decisão v2)', () => {
+  const v2Recommendation = {
+    action: 'TC de crânio sem contraste imediata',
+    rationale: 'Separa isquemia de hemorragia',
+    confidence: 0.9,
+    preliminary: false,
+    category: 'diagnostic' as const,
+    layer: 'now' as const,
+    dependsOn: null,
+  };
+  const research = {
+    model: 'claude-sonnet-5-5',
+    webSearchRequests: 3,
+    evidenceItems: 1,
+    latencyMs: 9_000,
+    cost: 0.05,
+    fallbackReason: null,
+  };
+
+  function v2Result(caseId: string): ResultRow {
+    return {
+      ...result(caseId, 'ok'),
+      output: {
+        ...clarifyingOutput,
+        recommendations: [
+          {
+            ...v2Recommendation,
+            basis: 'source',
+            citationChunkId: 'web:1',
+            origin: 'web_official',
+          },
+          {
+            ...v2Recommendation,
+            basis: 'model_knowledge',
+            citationChunkId: null,
+            origin: 'model_knowledge',
+          },
+          {
+            ...v2Recommendation,
+            action: 'Glicose 50% 40 mL',
+            basis: 'model_knowledge',
+            citationChunkId: null,
+            origin: 'model_knowledge',
+            preliminary: true,
+            preliminaryReason: 'unverified_dose',
+          },
+        ],
+      },
+      research,
+    };
+  }
+
+  it('reports the share of sourced conduct, the web citations and the research cost', () => {
+    const summary = summarizeRun(
+      run(
+        [
+          v2Result(criticalCase.id),
+          {
+            ...v2Result(nonCriticalCase.id),
+            research: { ...research, fallbackReason: 'nenhuma citação' },
+          },
+        ],
+        true,
+      ),
+      casesById,
+    );
+
+    expect(summary.evidence).toEqual({
+      recommendations: 6,
+      sourced: expect.objectContaining({ passed: 2, total: 6 }),
+      webOfficial: 2,
+      modelKnowledge: 4,
+      unverifiedDose: 2,
+      research: { runs: 2, fallbacks: 1, webSearches: 6, costUsd: 0.1, latencyP50: 9_000 },
+    });
+  });
+
+  it('renders the section only for v2 or researched runs', () => {
+    const v2 = run([v2Result(criticalCase.id)], true);
+    const v1 = run([result(criticalCase.id, 'ok')], true);
+
+    expect(renderSummaryMarkdown(v2, summarizeRun(v2, casesById))).toContain(
+      '## Base das condutas e pesquisa web (decisão v2)',
+    );
+    expect(renderSummaryMarkdown(v1, summarizeRun(v1, casesById))).not.toContain(
+      'Base das condutas',
+    );
   });
 });
 

@@ -205,13 +205,46 @@ export interface RedFlag {
  *   assinou — base oficial do MS ou chunk curado sem assinatura (ADR-012).
  * - `subtype_ambiguity`: a evidência recuperada cobre ≥2 subtipos do mesmo
  *   cenário com conduta oposta e a recomendação cita um deles.
+ * - `depends_on_data` (F1, decisão v2): conduta da camada "depende" — só
+ *   depois do dado em `dependsOn`.
+ * - `unverified_dose` (F1, decisão v2): conhecimento geral do modelo que
+ *   ainda traz dose depois do retry. Rótulo de proveniência, como
+ *   `unreviewed_source`: a conduta continua recomendada.
  */
-export type PreliminaryReason = 'pending_questions' | 'unreviewed_source' | 'subtype_ambiguity';
+export const PRELIMINARY_REASONS = [
+  'pending_questions',
+  'unreviewed_source',
+  'subtype_ambiguity',
+  'depends_on_data',
+  'unverified_dose',
+] as const;
+
+export type PreliminaryReason = (typeof PRELIMINARY_REASONS)[number];
+
+/**
+ * F1 — camada da conduta na decisão v2 (ADR-013, Etapa 3): `now` é segura e
+ * útil em toda hipótese ainda aberta; `depends` só depois do dado em
+ * `dependsOn`.
+ */
+export const RECOMMENDATION_LAYERS = ['now', 'depends'] as const;
+export type RecommendationLayer = (typeof RECOMMENDATION_LAYERS)[number];
+
+/**
+ * F1 — de onde vem a recomendação na decisão v2: trecho de evidência citado
+ * (`source`) ou conhecimento geral do modelo, sem trecho e sem dose
+ * (`model_knowledge`).
+ */
+export const RECOMMENDATION_BASES = ['source', 'model_knowledge'] as const;
+export type RecommendationBasis = (typeof RECOMMENDATION_BASES)[number];
 
 export interface CopilotRecommendation {
   action: string;
   rationale: string;
-  citationChunkId: string;
+  /**
+   * `null` só na decisão v2, com `basis: 'model_knowledge'`: não há trecho
+   * citado. Análises v1 e antigas sempre trazem um id.
+   */
+  citationChunkId: string | null;
   /**
    * Autodeclarada pelo modelo. Fica no contrato (ordenação, SBAR, auditoria),
    * mas a UI não mostra: decisão clínica de não exibir probabilidade (F0-C).
@@ -235,6 +268,12 @@ export interface CopilotRecommendation {
    * registrada.
    */
   origin?: Citation['origin'];
+  /** F1 — decisão v2. Ausente na v1 e em análises antigas: a UI renderiza como sempre. */
+  layer?: RecommendationLayer;
+  /** F1 — decisão v2: o dado que decide uma conduta `depends`. */
+  dependsOn?: string | null;
+  /** F1 — decisão v2. */
+  basis?: RecommendationBasis;
 }
 
 export interface ClarifyingQuestion {
@@ -252,6 +291,11 @@ export interface ClarifyingQuestion {
    * o front degrada graciosamente para lista simples sem agrupamento.
    */
   purpose?: string;
+  /**
+   * F1 — decisão v2: hipóteses abertas que a resposta separa ("Separa: A ×
+   * B"). Ausente na v1 e em análises antigas.
+   */
+  separates?: string[];
 }
 
 export interface DifferentialHypothesis {
@@ -300,13 +344,46 @@ export interface EvidenceTable {
  * ADR-012 — `curated_unsigned` é chunk da base curada (`approved`) que nenhum
  * médico com CRM verificado assinou: seed, pacotes KB-003/KB-004 e ingestão
  * interna. `institutional`/`public` passam a significar "curado E assinado".
+ *
+ * F1 (decisão v2) — `model_knowledge` é conhecimento geral do modelo, sem
+ * trecho citado; `web_official` é página de fonte oficial da lista de domínios
+ * confiáveis, achada pela pesquisa web.
  */
-export type CitationOrigin =
-  | 'institutional'
-  | 'public'
-  | 'physician_attachment'
-  | 'official_unreviewed'
-  | 'curated_unsigned';
+export const CITATION_ORIGINS = [
+  'institutional',
+  'public',
+  'physician_attachment',
+  'official_unreviewed',
+  'curated_unsigned',
+  'model_knowledge',
+  'web_official',
+] as const;
+
+export type CitationOrigin = (typeof CITATION_ORIGINS)[number];
+
+/**
+ * F1 — trecho de página oficial achado pela pesquisa web, montado das
+ * citações da resposta (nunca do resumo escrito pelo modelo). Citável pela
+ * decisão v2 pelo `id` (`web:1`, `web:2`…) e gravado na interação para
+ * auditoria.
+ */
+export interface WebEvidenceItem {
+  id: string;
+  url: string;
+  title: string | null;
+  /** Host da página, sem `www.` — o que o médico lê no rótulo de origem. */
+  domain: string;
+  /** Trechos citados da página, na ordem em que apareceram. */
+  citedText: string;
+}
+
+/** F1 — de onde vem a evidência da análise (`COPILOT_KNOWLEDGE_SOURCE`). */
+export const KNOWLEDGE_SOURCES = ['internal_kb', 'model_only', 'web'] as const;
+export type KnowledgeSource = (typeof KNOWLEDGE_SOURCES)[number];
+
+/** F1 — prompt da decisão (`COPILOT_DECISION_PROMPT`). */
+export const DECISION_PROMPT_VERSIONS = ['v1', 'v2'] as const;
+export type DecisionPromptVersion = (typeof DECISION_PROMPT_VERSIONS)[number];
 
 export interface Citation {
   source: string;
@@ -417,6 +494,12 @@ export interface CopilotAnalysis {
    * análise seguiu pelo caminho de sempre. A UI só mostra o card com valor.
    */
   understanding?: CaseUnderstanding | null;
+  /**
+   * F1 — trechos da pesquisa web entregues à decisão
+   * (`COPILOT_KNOWLEDGE_SOURCE=web`). Ausente nos outros modos; vazio quando a
+   * pesquisa falhou e a análise seguiu só com o conhecimento do modelo.
+   */
+  webEvidence?: WebEvidenceItem[];
 }
 
 export interface CopilotAnalyzeResponse {
@@ -435,8 +518,12 @@ export interface CopilotAnalyzeResponse {
      * cenário vizinho, declarou a lacuna e perguntou. A UI mostra isso ao
      * médico para que a ausência de recomendação seja lida como "a base não
      * cobre este cenário", não como indecisão do modelo.
+     *
+     * F1 — `null` quando a base não foi consultada
+     * (`COPILOT_KNOWLEDGE_SOURCE=model_only|web`): nunca afirmar cobertura que
+     * não foi medida.
      */
-    retrievalCoverage: RetrievalCoverage;
+    retrievalCoverage: RetrievalCoverage | null;
     /**
      * ADR-010 — trechos da base oficial do MS entregues ao modelo. Opcional:
      * respostas anteriores à base oficial não têm o campo.
@@ -450,6 +537,11 @@ export interface CopilotAnalyzeResponse {
     maxTurns: number;
     /** F1 — duração da Etapa 1 (entendimento). Só com `COPILOT_REASONING=stages`. */
     understandingLatencyMs?: number;
+    /** F1 — fonte de conhecimento e prompt da decisão efetivos neste turno. */
+    knowledgeSource?: KnowledgeSource;
+    decisionPrompt?: DecisionPromptVersion;
+    /** F1 — duração da pesquisa web. Só quando ela rodou. */
+    researchLatencyMs?: number;
   };
 }
 

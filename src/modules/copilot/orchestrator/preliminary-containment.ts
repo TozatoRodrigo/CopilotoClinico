@@ -1,4 +1,8 @@
-import type { CitationOrigin, PreliminaryReason } from '../../../shared/contracts/clinical';
+import type {
+  CitationOrigin,
+  PreliminaryReason,
+  RecommendationLayer,
+} from '../../../shared/contracts/clinical';
 import type { CopilotOutput } from '../guardrails/output-validator';
 
 type RecommendationCategory = CopilotOutput['recommendations'][number]['category'];
@@ -48,7 +52,7 @@ export interface ContainmentContext {
  */
 export function preliminaryReasonFor(
   recommendation: {
-    citationChunkId: string;
+    citationChunkId: string | null;
     preliminary: boolean;
     origin: CitationOrigin;
     category: RecommendationCategory;
@@ -61,6 +65,7 @@ export function preliminaryReasonFor(
   // o que não pode esperar.
   if (
     recommendation.category !== 'stabilization' &&
+    recommendation.citationChunkId !== null &&
     context.ambiguousSubtypeChunkIds.has(recommendation.citationChunkId)
   ) {
     return 'subtype_ambiguity';
@@ -70,4 +75,30 @@ export function preliminaryReasonFor(
     return 'unreviewed_source';
   }
   return recommendation.preliminary ? 'pending_questions' : null;
+}
+
+/**
+ * F1 — contenção da decisão v2 (ADR-013). O preliminar volta a dizer uma coisa
+ * só: "espere o dado". Proveniência (fonte não revisada, conhecimento geral
+ * do modelo, página oficial externa) vira rótulo de origem, não preliminar —
+ * a camada `now` já é, por definição, segura em toda hipótese aberta. A
+ * ambiguidade de subtipo também sai: é exatamente o que a camada `depends`
+ * resolve.
+ *
+ * 1. `depends_on_data` — conduta da camada `depends`;
+ * 2. `unverified_dose` — conhecimento geral do modelo que ainda traz dose
+ *    depois do retry: fica, mas marcada (dose só de fonte citada);
+ * 3. `pending_questions` — anexo do médico, que nunca sai definitivo (F4).
+ */
+export function preliminaryReasonForV2(recommendation: {
+  layer: RecommendationLayer;
+  origin: CitationOrigin;
+  carriesDose: boolean;
+}): PreliminaryReason | null {
+  if (recommendation.layer === 'depends') return 'depends_on_data';
+  if (recommendation.origin === 'model_knowledge' && recommendation.carriesDose) {
+    return 'unverified_dose';
+  }
+  if (recommendation.origin === 'physician_attachment') return 'pending_questions';
+  return null;
 }

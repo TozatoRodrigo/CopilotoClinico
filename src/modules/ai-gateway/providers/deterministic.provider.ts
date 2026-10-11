@@ -1,3 +1,4 @@
+import { AiCapabilityUnsupportedError } from '../ai-gateway.errors';
 import type {
   AIProvider,
   CompletionParams,
@@ -6,6 +7,7 @@ import type {
   EmbeddingParams,
   EmbeddingResponse,
   ProviderOverrides,
+  ResearchResponse,
   StreamCompletionResult,
 } from './provider.interface';
 
@@ -53,6 +55,11 @@ export class DeterministicProvider implements AIProvider {
       usage: DeterministicProvider.usageFor(content),
       stopReason: 'end_turn',
     };
+  }
+
+  /** F1 — offline não há pesquisa web: a análise segue sem ela, como em produção quando ela falha. */
+  async research(): Promise<ResearchResponse> {
+    throw new AiCapabilityUnsupportedError({ provider: this.name, capability: 'web_research' });
   }
 
   async embed(params: EmbeddingParams): Promise<EmbeddingResponse> {

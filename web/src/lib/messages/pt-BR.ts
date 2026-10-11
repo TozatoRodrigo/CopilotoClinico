@@ -35,11 +35,15 @@ export interface Messages {
       title: string;
       recommendationsCount: (n: number) => string;
       preliminarySummary: (definitive: number, preliminary: number) => string;
+      /** F1 — decisão v2: "2 para agora · 1 depende de dado". */
+      layersSummary: (now: number, depends: number) => string;
     };
 
     questions: {
       heading: string;
       whyAsk: string;
+      /** F1 — decisão v2: hipóteses que a resposta separa ("Separa: A × B"). */
+      separates: (hypotheses: string[]) => string;
       boolean: {
         yes: string;
         no: string;
@@ -117,6 +121,13 @@ export interface Messages {
      * `preliminaryBadge`, o texto de sempre.
      */
     preliminaryReason: Record<Exclude<PreliminaryReason, 'pending_questions'>, string>;
+    /** F1 — grupos da decisão v2 (ADR-013): o que fazer agora e o que espera um dado. */
+    layers: Record<'now' | 'depends', { label: string; hint: string }>;
+    dependsOn: (data: string) => string;
+    /** Conduta "depende" sem o dado declarado (o validador pede, mas não bloqueia). */
+    dependsOnMissing: string;
+    /** F1 — link para a página da fonte oficial externa (pesquisa web). */
+    openSourcePage: string;
   };
 
   /**
@@ -305,6 +316,9 @@ export const ptBR: Messages = {
       // "2 definitivas · 1 preliminar"
       preliminarySummary: (definitive: number, preliminary: number) =>
         `${definitive} definitiv${definitive === 1 ? 'a' : 'as'} · ${preliminary} preliminar${preliminary === 1 ? '' : 'es'}`,
+      // "2 para agora · 1 depende de dado"
+      layersSummary: (now: number, depends: number) =>
+        `${now} para agora · ${depends} depende${depends === 1 ? '' : 'm'} de dado`,
     },
 
     questions: {
@@ -314,6 +328,7 @@ export const ptBR: Messages = {
       // exata armadilha foi a causa da "parede" identificada na Sprint 26.
       heading: 'Para orientar com segurança, preciso de:',
       whyAsk: 'Por que essa pergunta?',
+      separates: (hypotheses: string[]) => `Separa: ${hypotheses.join(' × ')}`,
       boolean: {
         yes: 'Sim',
         no: 'Não',
@@ -400,7 +415,16 @@ export const ptBR: Messages = {
     preliminaryReason: {
       unreviewed_source: 'Fonte não revisada por médico',
       subtype_ambiguity: 'Subtipo indefinido — depende do dado que discrimina',
+      depends_on_data: 'Depende de dado ainda não disponível',
+      unverified_dose: 'Dose sem fonte citada — confirme no protocolo local',
     },
+    layers: {
+      now: { label: 'Fazer agora', hint: 'seguro em todas as hipóteses abertas' },
+      depends: { label: 'Depende de…', hint: 'só depois do dado que decide' },
+    },
+    dependsOn: (data: string) => `Depende de: ${data}`,
+    dependsOnMissing: 'Depende de dado ainda não informado',
+    openSourcePage: 'Abrir página da fonte',
   },
 
   sourceOrigin: {
@@ -409,6 +433,8 @@ export const ptBR: Messages = {
     physician_attachment: 'Anexo do médico · não curada',
     official_unreviewed: 'Ministério da Saúde · não revisado pela equipe',
     curated_unsigned: 'Base curada · sem assinatura médica',
+    model_knowledge: 'Conhecimento geral do modelo — confirme no protocolo local',
+    web_official: 'Fonte oficial externa',
   },
 
   redFlags: {

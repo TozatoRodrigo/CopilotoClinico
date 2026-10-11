@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { understandingFixture } from '../../tests/fixtures/case-understanding';
+import { loadCaseSet } from './cases';
+import { gradeDeterministic } from './graders/deterministic';
 import { ResultRowSchema, RunMetaSchema } from './records';
 
 /**
@@ -51,6 +53,103 @@ describe('ResultRowSchema', () => {
   it('reads rows written before Phase 1 as having no understanding', () => {
     expect(ResultRowSchema.parse(row).understanding).toBeNull();
   });
+
+  // F1 — a nota é dada na releitura: o que decide "conduta definitiva" não
+  // pode ser descartado pelo zod. Antes, `preliminaryReason` sumia e a regra
+  // de fonte não revisada (F0-C) nunca rodava ao dar as notas.
+  describe('recomendações enriquecidas', () => {
+    const alteplase = {
+      action: 'Administrar alteplase 0,9 mg/kg IV',
+      rationale: 'AVC isquêmico na janela',
+      confidence: 0.8,
+      category: 'therapeutic',
+      source: 'Diretriz',
+      sourceVersion: '1',
+      sourceText: 'trecho',
+      sourceUrl: '',
+    };
+    const reread = (recommendations: Array<Record<string, unknown>>) =>
+      ResultRowSchema.parse(
+        JSON.parse(JSON.stringify({ ...row, output: { ...row.output, recommendations } })),
+      );
+    const strokeWithoutCt = loadCaseSet().cases.find(
+      (clinicalCase) => clinicalCase.id === 'cm-avc-sem-tc',
+    )!;
+
+    it('keeps the layer, basis, origin and preliminary reason of the v2 decision', () => {
+      const parsed = reread([
+        {
+          ...alteplase,
+          citationChunkId: 'web:1',
+          preliminary: true,
+          preliminaryReason: 'depends_on_data',
+          layer: 'depends',
+          dependsOn: 'TC sem sangramento',
+          basis: 'source',
+          origin: 'web_official',
+        },
+      ]);
+
+      expect(parsed.output?.recommendations[0]).toMatchObject({
+        layer: 'depends',
+        dependsOn: 'TC sem sangramento',
+        basis: 'source',
+        origin: 'web_official',
+        preliminaryReason: 'depends_on_data',
+      });
+      expect(gradeDeterministic(strokeWithoutCt, 'ok', parsed.output).forbiddenMatches).toEqual([]);
+    });
+
+    it('keeps model knowledge without a citation id', () => {
+      const parsed = reread([
+        { ...alteplase, citationChunkId: null, preliminary: false, basis: 'model_knowledge' },
+      ]);
+
+      expect(parsed.output?.recommendations[0]?.citationChunkId).toBeNull();
+    });
+
+    it('still flags a forbidden action marked preliminary only by an unreviewed source', () => {
+      const parsed = reread([
+        {
+          ...alteplase,
+          citationChunkId: 'chunk-1',
+          preliminary: true,
+          preliminaryReason: 'unreviewed_source',
+          origin: 'curated_unsigned',
+        },
+      ]);
+
+      expect(
+        gradeDeterministic(strokeWithoutCt, 'ok', parsed.output).forbiddenMatches,
+      ).toHaveLength(1);
+    });
+  });
+
+  it('keeps the web evidence and the research trace of the row', () => {
+    const webEvidence = [
+      {
+        id: 'web:1',
+        url: 'https://www.gov.br/saude/avc',
+        title: 'Linha de cuidado do AVC',
+        domain: 'gov.br',
+        citedText: 'TC imediata.',
+      },
+    ];
+    const research = {
+      model: 'claude-sonnet-5-5',
+      webSearchRequests: 3,
+      evidenceItems: 1,
+      latencyMs: 9000,
+      cost: 0.05,
+      fallbackReason: null,
+    };
+
+    const parsed = ResultRowSchema.parse({ ...row, webEvidence, research });
+
+    expect(parsed.webEvidence).toEqual(webEvidence);
+    expect(parsed.research).toEqual(research);
+    expect(ResultRowSchema.parse(row)).toMatchObject({ webEvidence: null, research: null });
+  });
 });
 
 describe('RunMetaSchema', () => {
@@ -84,6 +183,9 @@ describe('RunMetaSchema', () => {
       reasoning: 'legacy',
       understandingModel: null,
       understandingEffort: null,
+      decisionPrompt: 'v1',
+      knowledgeSource: 'internal_kb',
+      research: null,
     });
   });
 });
