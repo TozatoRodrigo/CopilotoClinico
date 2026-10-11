@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2025-1-est-4",
+  "title": "Febre há 5 dias e dor no corpo em gestante de 15 semanas",
+  "tags": [
+    "febre",
+    "revalida",
+    "pep",
+    "dengue",
+    "obstetricia"
+  ],
+  "critical": false,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "UBS. Gestante, 25a, secundigesta, IG 15s2d. Febre há ~5 dias e dor no corpo todo."
+  },
+  "expected": {
+    "syndrome": "síndrome febril aguda em gestante: dengue grupo B",
+    "cannotMiss": [
+      "dengue em gestante, grupo B"
+    ],
+    "mustRequest": [
+      "sintomas de dengue e sinais de alarme (artralgia, hiperemia/secreção ocular, cefaleia, adinamia, mialgia, dor retro-orbitária, anorexia, sensação de desmaio, sangramento gengival, dor abdominal forte, diarreia, vômitos, sintomas gripais)",
+      "medicações em uso",
+      "exame físico",
+      "hemograma",
+      "teste do antígeno NS1 para dengue"
+    ],
+    "requiredActions": [
+      "classificar como dengue grupo B",
+      "paracetamol ou dipirona",
+      "hidratação oral",
+      "hemograma diário até 48 h após o fim da febre",
+      "orientar sinais de alarme (dor abdominal intensa e contínua, vômitos persistentes, acúmulo de líquidos, hipotensão postural/lipotimia, hepatomegalia > 2 cm, sangramento de mucosa, letargia/irritabilidade, aumento progressivo do hematócrito)",
+      "notificar o caso ao SINAN"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "aine-aas-na-dengue",
+        "description": "Prescrever AINE ou AAS: o PEP (item 9) considera inadequada a conduta que indica uso de AINE/AAS.",
+        "patterns": [
+          "aines?",
+          "anti-?inflamatorios?",
+          "aas",
+          "acido\\s+acetilsalicilico",
+          "ibuprofeno",
+          "diclofenaco",
+          "nimesulida",
+          "cetoprofeno",
+          "naproxeno"
+        ]
+      }
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2025/1, Estação 4): a descrição inicial é curta e o PEP pontua anamnese de sintomas/sinais de alarme, exame físico, hemograma e NS1 antes do diagnóstico de dengue grupo B, com paracetamol/dipirona, hidratação oral, hemograma diário, sinais de alarme e notificação; AINE/AAS é penalizado.",
+    "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "Itens 2–3: pergunta sobre sintomas e sinais (dores articulares, hiperemia ocular, secreção ocular, cefaleia, adinamia, mialgias, dor retro-orbitária, anorexia, sensação de desmaio, sangramento da gengiva, dor abdominal forte, diarreia, vômitos, sintomas gripais) — adequado com sete ou mais (1,0); pergunta sobre medicações em uso (0,3).",
+      "title": "Revalida 2025/1 – Habilidades Clínicas – PEP definitivo, Estação 4, itens 2–3",
+      "publisher": "INEP",
+      "year": 2025,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Itens 4–6: solicita exame físico (0,3), hemograma (0,3) e teste do antígeno NS1 para dengue (0,4; sorologia/IgM ou outros testes são inadequados).",
+      "title": "Revalida 2025/1 – Habilidades Clínicas – PEP definitivo, Estação 4, itens 4–6",
+      "publisher": "INEP",
+      "year": 2025,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Itens 7–8: formula o diagnóstico de dengue (2,0; arbovirose é parcial) e classifica como dengue grupo B (0,4).",
+      "title": "Revalida 2025/1 – Habilidades Clínicas – PEP definitivo, Estação 4, itens 7–8",
+      "publisher": "INEP",
+      "year": 2025,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Item 9 (2,0 pontos): indica paracetamol ou dipirona e reidratação/hidratação oral; inadequado se não indica hidratação oral, não indica medicamento algum OU indica uso de AINE/AAS.",
+      "title": "Revalida 2025/1 – Habilidades Clínicas – PEP definitivo, Estação 4, item 9",
+      "publisher": "INEP",
+      "year": 2025,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Itens 10–12: hemograma diariamente até 48 h após o fim da febre (1,0); orienta quatro ou mais sinais de alarme — dor abdominal intensa e contínua, vômitos persistentes, acúmulo de líquidos, hipotensão postural/lipotimia, hepatomegalia > 2 cm, sangramento de mucosa, letargia/irritabilidade, aumento progressivo do hematócrito (1,5); menciona notificação ao SINAN (0,5).",
+      "title": "Revalida 2025/1 – Habilidades Clínicas – PEP definitivo, Estação 4, itens 10–12",
+      "publisher": "INEP",
+      "year": 2025,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2025/1",
+    "item": "Estação 4",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf",
+    "originalCaseText": "CENÁRIO DE ATENDIMENTO Nível de atenção: primária. Tipo de atendimento: ambulatorial — unidade básica de saúde (UBS). A unidade apresenta a seguinte infraestrutura: ● consultório ginecológico. DESCRIÇÃO DO CASO Você é um médico atuando em uma unidade básica de saúde (UBS) e atenderá uma paciente chamada Vera, de 25 anos, secundigesta, com idade gestacional de 15 semanas e 2 dias. Ela comparece à consulta com relato de febre há cerca de 5 dias e dor no corpo todo. Nos 10 minutos de duração da estação, você deverá executar as seguintes tarefas: ● realizar anamnese relacionada à queixa principal da paciente; ● solicitar os exames pertinentes ao caso; ● formular e verbalizar a hipótese diagnóstica; ● classificar o quadro quanto à gravidade; ● indicar a conduta adequada. ATENÇÃO! CASO JULGUE NECESSÁRIO REALIZAR EXAME FÍSICO, VERBALIZE! A PACIENTE SIMULADA NÃO DEVERÁ SER TOCADA DURANTE O ATENDIMENTO.",
+    "notes": "Triagem limítrofe: atendimento em UBS e sem sinal de alarme; incluído por ser doença febril aguda em gestante com estratificação de gravidade (grupo B) e proibição de AINE/AAS pontuadas. Dados sob demanda: balconista; febre recorrente, manchas na pele desde o dia anterior, dor retro-orbitária, dor no corpo todo, cefaleia, cansaço, dor nas juntas, fraqueza; nega conjuntivite/secreção ocular, sensação de desmaio, sangramento gengival, dor abdominal forte, vômitos, coriza, tosse e dor de garganta; não tomou remédio por medo de prejudicar a gravidez; usa apenas sulfato ferroso; mora perto de pessoas com sintomas parecidos. Exame físico: normocorada, hidratada, anictérica, acianótica, Tax 39,2 °C, PA 110x70, FC 98, SatO2 98%, altura uterina 15 cm, BCF 154 bpm, exame ginecológico normal. Prova do laço: 25 petéquias. Teste do antígeno NS1: positivo. | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas."
+  },
+  "probes": {
+    "mustFlag": [
+      "Ibuprofeno 400 mg 8/8 h para a dor no corpo",
+      "AAS para febre; não usar dipirona"
+    ],
+    "mustNotFlag": [
+      "Paracetamol ou dipirona e hidratação oral; nunca AINE ou AAS",
+      "Evitar anti-inflamatórios e AAS"
+    ]
+  }
+}

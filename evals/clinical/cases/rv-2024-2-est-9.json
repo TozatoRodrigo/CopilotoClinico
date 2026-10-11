@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2024-2-est-9",
+  "title": "Mulher atendida na emergência ginecológica após violência sexual",
+  "tags": [
+    "pele-partes-moles",
+    "revalida",
+    "pep",
+    "violencia-sexual",
+    "ginecologia"
+  ],
+  "critical": true,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Emergência ginecológica (atenção secundária, com farmácia e psicologia). Mulher vítima de violência sexual, com medo e muito aflita."
+  },
+  "expected": {
+    "syndrome": "atendimento de emergência à vítima de violência sexual com exposição de risco — profilaxias pós-exposição",
+    "cannotMiss": [
+      "risco de gravidez, de infecção pelo HIV e de outras ISTs após violência sexual, com indicação de contracepção de emergência e profilaxias"
+    ],
+    "mustRequest": [
+      "detalhes da violência: tempo transcorrido, local, se conhecia o agressor, tipo de abuso/uso de preservativo, ferimentos ou agressão física",
+      "história gineco-obstétrica e clínica: gestações, DUM, contracepção, alergias, medicações/comorbidades, tempo desde a última relação sexual",
+      "cartão de vacinas",
+      "hemograma, TGO/TGP e teste de gravidez/beta-hCG",
+      "sorologias ou testes rápidos: HIV, sífilis (VDRL/teste rápido), anti-HCV, HBsAg/anti-HBs"
+    ],
+    "requiredActions": [
+      "orientar que o boletim de ocorrência não é necessário para o atendimento e que registrá-lo é direito da paciente",
+      "orientar sobre a coleta de material vaginal para fins legais",
+      "contracepção de emergência: levonorgestrel 1,5 mg VO (ou 2 cp de 0,75 mg), método Yuzpe ou DIU de cobre",
+      "profilaxia de ISTs não virais: ceftriaxona + azitromicina + penicilina benzatina",
+      "profilaxia pós-exposição ao HIV: tenofovir + lamivudina + dolutegravir",
+      "oferecer atendimento psicológico e orientar seguimento médico",
+      "notificação ao SINAN"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "metronidazol-imediato",
+        "description": "Prescrever metronidazol para início imediato junto das demais profilaxias (o PEP considera inadequado; só é aceito se ficar claro que seria feito depois).",
+        "patterns": [
+          "metronidazol"
+        ],
+        "exceptWhen": [
+          "adiar",
+          "posteriorment\\w*",
+          "em\\s+(outro\\s+)?momento\\s+posterior",
+          "em\\s+outro\\s+momento",
+          "(apos|depois\\s+d[aeo]s?)\\s+(o\\s+|a\\s+)?(termino|fim|conclusao|tratamento|uso|demais|profilaxia\\w*|antirretrovira\\w*|pep)"
+        ]
+      }
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2024/2, Estação 9): o PEP pontua a anamnese da violência e gineco-obstétrica, orientação sobre BO e coleta de material, cartão de vacinas, laboratório e sorologias, contracepção de emergência, profilaxia de ISTs não virais (sem metronidazol imediato), PEP do HIV com TDF/3TC/DTG, apoio psicológico, seguimento e notificação.",
+    "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "Itens 2–3: pergunta tempo desde a violência, local, se conhecia o agressor, tipo de abuso/uso de preservativo e ferimentos ou agressão física (0,5); gestações prévias, DUM, contracepção, alergias, medicações/comorbidades e tempo desde a última relação sexual — 5 ou mais (0,5).",
+      "title": "Revalida 2024/2 – Habilidades Clínicas – PEP, Estação 9, itens 2–3",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2024_2_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Itens 4–7 e 9: orienta que o BO não é necessário para o atendimento médico e que registrá-lo é direito da paciente (1,0); importância da coleta de material vaginal para fins legais (0,25); solicita cartão de vacinas (0,25); hemograma, TGO/TGP e teste de gravidez/beta-hCG (0,5); HIV, sífilis (VDRL ou teste rápido), anti-HCV e HBsAg/anti-HBs (1,0).",
+      "title": "Revalida 2024/2 – Habilidades Clínicas – PEP, Estação 9, itens 4–7 e 9",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2024_2_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Itens 10–12: contracepção de emergência — levonorgestrel 1,5 mg (ou 2 cp de 0,75 mg) VO, método Yuzpe (etinilestradiol 30 µg/levonorgestrel 150 µg, 4 cp 12/12h ou 8 cp dose única) ou DIU de cobre (1,0); profilaxia de ISTs não virais com ceftriaxona, azitromicina e penicilina benzatina — metronidazol para início imediato torna o item inadequado (1,0); profilaxia do HIV com tenofovir, lamivudina e dolutegravir (1,0).",
+      "title": "Revalida 2024/2 – Habilidades Clínicas – PEP, Estação 9, itens 10–12",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2024_2_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Itens 13–15: oferece atendimento psicológico (1,0); orienta seguimento médico (0,5); verbaliza a notificação do caso ao SINAN (0,9).",
+      "title": "Revalida 2024/2 – Habilidades Clínicas – PEP, Estação 9, itens 13–15",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2024_2_pep_definitivo.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2024/2",
+    "item": "Estação 9",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2024_2_pep_definitivo.pdf",
+    "originalCaseText": "CENÁRIO DE ATENDIMENTO Nível de atenção: secundária. Tipo de atendimento: unidade de emergência de Ginecologia e Obstetrícia. A unidade apresenta a seguinte infraestrutura: ● laboratório de análises clínicas; ● farmácia para fornecimento de medicações; ● equipe de enfermagem e equipe médica; ● equipe de psicologia; ● equipe de segurança. ATENÇÃO! CASO JULGUE NECESSÁRIO REALIZAR EXAME FÍSICO, VERBALIZE! A PACIENTE SIMULADA NÃO DEVERÁ SER TOCADA DURANTE O ATENDIMENTO. DESCRIÇÃO DO CASO Uma mulher procura o serviço de emergência ginecológica após sofrer violência sexual. Está com medo e muito aflita com o acontecido. Nos 10 minutos de duração da Estação, você deverá executar as seguintes tarefas: ● Realizar anamnese da paciente. ● Solicitar, se necessário, exames complementares pertinentes à situação clínica (serão pontuados apenas os 10 primeiros exames complementares mencionados). ● Indicar, se necessário, medicações a serem prescritas. ● Responder às perguntas da paciente de forma completa, justificando os motivos das orientações. ● Encaminhar a paciente, se necessário, para avaliação de outros profissionais. ● Orientar e indicar condutas relativas ao caso clínico de violência sexual.",
+    "notes": "tags[0] 'pele-partes-moles' é aproximação (mesma escolha de rv-2021-disc-2): a lista fechada de síndromes não tem grupo para violência sexual/exposição de risco. Item 8 (orientar vacinação contra HPV) foi anulado — pontuação atribuída a todos, item 14.6 do Edital — e foi omitido; a síntese diz que, neste caso, não é necessário vacinar. Dados sob demanda: Vanessa, 28a, camareira; estuprada por hóspede desconhecido do hotel onde trabalha há ~30 h; sem preservativo, com ejaculação vaginal; foi segurada e ameaçada, sem agressão física, sem lesões genitais ou no corpo, sem dor; traumatizada e com medo de voltar ao trabalho; não quer exame físico nem ginecológico; nuligesta, ciclos regulares de 28 dias, DUM há 10 dias; solteira, sem contracepção, sem relações nos 3 meses anteriores; sem comorbidades, medicações, cirurgias ou alergias; não bebe, não fuma, não usa drogas; não registrou BO e não sabe se quer registrar. Cartão de vacinas: figura sem texto extraível. Laboratório: hemograma normal, anti-HCV não reagente (0,05), HBsAg não reagente (0,45), anti-HBs reagente (15,25), beta-hCG < 0,2 (negativo), TGO 20, TGP 23. A paciente pergunta se precisa de vacina, se o BO é obrigatório e se precisará de remédios. | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas. \"depois\"/\"após\" soltos viraram exceção presa ao adiamento do metronidazol (\"Metronidazol agora, depois ceftriaxona\" passava)."
+  },
+  "probes": {
+    "mustFlag": [
+      "Ceftriaxona, azitromicina, penicilina benzatina e metronidazol 2 g VO agora",
+      "Metronidazol 2 g VO agora, depois ceftriaxona"
+    ],
+    "mustNotFlag": [
+      "Metronidazol em momento posterior, não junto das demais profilaxias",
+      "Adiar o metronidazol para depois da profilaxia antirretroviral",
+      "Ceftriaxona + azitromicina + penicilina benzatina, sem metronidazol imediato"
+    ]
+  }
+}

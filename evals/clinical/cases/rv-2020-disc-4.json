@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2020-disc-4",
+  "title": "Jovem com DM1, omissão de insulina, taquipneia, dor abdominal e acidose com ânion gap aumentado",
+  "tags": [
+    "disturbio-glicemico",
+    "revalida",
+    "discursiva",
+    "cetoacidose-diabetica",
+    "desatualizado"
+  ],
+  "critical": true,
+  "goldSource": "revalida_discursiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "excludeFromGate": {
+    "reason": "Gabarito anterior ao consenso de crises hiperglicêmicas de 2024, que revisou os critérios de CAD."
+  },
+  "input": {
+    "caseText": "Unidade de Emergência. Fem, 22a, DM1 há 3 anos, em uso de NPH (14 + 7 U) e regular (ajuste pré-prandial). Taquipneia e dor abdominal difusa. Família: deprimida desde o fim do noivado há 1 mês, uso irregular de insulina desde então, com omissões de doses. Poliúria com ardência urinária, sem estrangúria ou febre. Sonolenta, hálito adocicado, desidratada 2+/4+, corada, acianótica, anictérica, afebril. PA 100x70, FC 121, FR 32, SaO2 99% em AA. Abdome plano, flácido, peristáltico, doloroso difusamente à palpação profunda, sem irritação peritoneal, sem massas ou visceromegalias. Restante do exame sem alterações. Glicemia capilar 257 mg/dL. Gasometria venosa: acidose metabólica com ânion gap aumentado. K 3,5 mEq/L (VR 3,5–5,2). Urina: sem piúria, nitrito e esterase leucocitária negativos."
+  },
+  "expected": {
+    "syndrome": "cetoacidose diabética em DM1 precipitada por insulinização inadequada (omissão de insulina)",
+    "cannotMiss": [
+      "cetoacidose diabética"
+    ],
+    "mustRequest": [
+      "cetonemia ou cetonúria",
+      "gasometria com pH (< ou ≤ 7,30) e bicarbonato (< 15 mmol/L)"
+    ],
+    "requiredActions": [
+      "hidratação venosa",
+      "insulina intravenosa de ação rápida",
+      "reposição parenteral de potássio"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "Gabarito oficial do INEP (Revalida 2020, Questão 4): diagnóstico de CAD confirmado por glicemia, pH/bicarbonato e cetonas, precipitada por insulinização inadequada (não por ITU), com tratamento inicial por hidratação venosa, insulina IV rápida e reposição parenteral de potássio.",
+    "expectedPath": "recommend"
+  },
+  "sources": [
+    {
+      "claim": "Item A (2,0 pontos): cetoacidose diabética (CAD).",
+      "title": "Revalida 2020 – Prova Discursiva – Padrão de Respostas, Questão 4, item A",
+      "publisher": "INEP",
+      "year": 2020,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2020/padrao_de_respostas_discursivas.pdf"
+    },
+    {
+      "claim": "Item B (3,0 pontos): glicemia > 250 mg/dL (1,0); gasometria arterial com pH < (ou ≤) 7,30 (0,5) e bicarbonato < 15 mmol/L (0,5); presença de cetonúria ou cetonemia (1,0).",
+      "title": "Revalida 2020 – Prova Discursiva – Padrão de Respostas, Questão 4, item B",
+      "publisher": "INEP",
+      "year": 2020,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2020/padrao_de_respostas_discursivas.pdf"
+    },
+    {
+      "claim": "Item C (2,0 pontos): inadequada insulinização, uso irregular ou falta de insulina; não é aceita a resposta 'infecção urinária' (exame de urina tipo I) nem a citação do estado emocional.",
+      "title": "Revalida 2020 – Prova Discursiva – Padrão de Respostas, Questão 4, item C",
+      "publisher": "INEP",
+      "year": 2020,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2020/padrao_de_respostas_discursivas.pdf"
+    },
+    {
+      "claim": "Item D (3,0 pontos): hidratação venosa (1,0); insulinização/insulina intravenosa de ação rápida (1,0); reposição parenteral de potássio (1,0).",
+      "title": "Revalida 2020 – Prova Discursiva – Padrão de Respostas, Questão 4, item D",
+      "publisher": "INEP",
+      "year": 2020,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2020/padrao_de_respostas_discursivas.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2020",
+    "item": "Discursiva caso 4",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2020/padrao_de_respostas_discursivas.pdf",
+    "originalCaseText": "Uma mulher com 22 anos de idade, com diagnóstico há 3 anos de diabete melito tipo 1, em tratamento com insulina NPH (14 + 7 unidades) e insulina regular (ajuste pré-prandial), dá entrada na Unidade de Emergência com quadro de taquipneia e de dor abdominal difusa. Segundo familiares, a paciente tem se mostrado deprimida desde o fim do noivado há 1 mês, fazendo uso irregular de insulina desde então, inclusive com omissões de administração do fármaco. Há relato, ainda, de poliúria, com ardência urinária, mas sem estrangúria ou febre. Ao exame físico, a paciente se revela sonolenta, com hálito adocicado, hipohidratada (2+/4+), corada, acianótica, anictérica e afebril. Tem PA = 100 x 70 mmHg; FC = 121 bpm; FR = 32 irpm; SaO2 (ar ambiente) = 99 %. Apresenta abdome plano, flácido, peristáltico, doloroso difusamente à compressão profunda, sem sinais de irritação peritoneal, sem massas ou visceromegalias. O restante do exame físico está sem anormalidades. A glicemia capilar, nesse momento, é de 257 mg/dL, enquanto uma gasometria venosa fornece um padrão de acidose metabólica, apresentando o hiato aniônico aumentado; o nível sérico de potássio é de 3,5 mEq/L (valor de referência: 3,5 a 5,2 mEq/L). É solicitado exame de urina com objetivo de reforçar a hipótese diagnóstica para o caso, incluindo possível fator precipitante: não há piúria e as pesquisas de nitrito e de esterase leucocitária revelam-se negativas. Considerando o caso relatado, responda às questões a seguir. (A) Qual é a principal hipótese diagnóstica? (valor: 2,0 pontos) (B) Cite três exames complementares e os respectivos resultados que confirmam essa hipótese diagnóstica. (valor: 3,0 pontos) (C) Cite a situação relacionada ao plano terapêutico da paciente que desencadeou essa hipótese diagnóstica. (valor: 2,0 pontos) (D) Cite três condutas médicas indicadas para o tratamento inicial dessa paciente, considerando essa hipótese diagóstica. (valor: 3,0 pontos)",
+    "notes": "possivelmente desatualizado: o consenso internacional de crises hiperglicêmicas em adultos (2024) revisou os critérios diagnósticos de CAD (glicemia ≥ 200 mg/dL ou DM prévio, cetonemia/β-hidroxibutirato ≥ 3,0 mmol/L, pH < 7,3 e/ou HCO3 < 18 mmol/L); o gabarito usa glicemia > 250 mg/dL, pH ≤ 7,30 e HCO3 < 15 mmol/L em gasometria arterial | Item C: o gabarito exige como precipitante a insulinização inadequada/omissão de insulina e NÃO aceita 'infecção urinária' (urina sem piúria, nitrito e esterase negativos) nem o estado emocional como resposta."
+  }
+}

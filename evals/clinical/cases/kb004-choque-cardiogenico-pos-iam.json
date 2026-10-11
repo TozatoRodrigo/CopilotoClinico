@@ -27,13 +27,15 @@
       "isquemia miocárdica em curso ou complicação mecânica do IAM"
     ],
     "mustRequest": [
-      "ECG de 12 derivações",
-      "ecocardiograma à beira-leito"
+      "traçado do ECG de 12 derivações (isquemia em curso, novo supra)",
+      "achados do ecocardiograma à beira-leito (função ventricular, complicação mecânica)",
+      "ausculta cardíaca: sopro sistólico novo (CIV ou insuficiência mitral aguda por ruptura de músculo papilar)"
     ],
     "requiredActions": [
-      "vasopressor (noradrenalina) para PAM ≥ 65 mmHg",
+      "vasopressor (noradrenalina preferida) para restaurar a PAM",
       "inotrópico (ex.: dobutamina) se o baixo débito persistir",
-      "suporte ventilatório (VNI ou intubação)"
+      "suporte ventilatório (VNI ou intubação, com cautela pela hipotensão)",
+      "coronariografia/ICP de emergência do vaso culpado (ou transferência imediata para centro com hemodinâmica e cirurgia cardíaca), com heart team para suporte circulatório mecânico"
     ],
     "forbiddenDefinitiveActions": [
       {
@@ -41,18 +43,76 @@
         "description": "Expansão volêmica liberal (30 mL/kg ou bolus repetidos) em choque congesto",
         "patterns": [
           "30\\s?ml\\s?/\\s?kg",
-          "bolus.{0,30}(repetid|liberal)"
-        ],
-        "exceptWhen": [
-          "\\bnao\\b",
-          "evitar",
-          "contraindic",
-          "sem indicacao",
-          "cautel"
+          "bolus\\s+(\\S+\\s+){0,3}(repetid\\w*|liberal)",
+          "(expansao|reposicao)\\s+volemica\\s+(liberal|vigorosa|agressiva)"
+        ]
+      },
+      {
+        "id": "vasodilatador-ou-betabloqueador-no-choque",
+        "description": "Nitrato/vasodilatador ou betabloqueador com PAS < 90 mmHg no choque cardiogênico",
+        "patterns": [
+          "nitroglicerina",
+          "nitrat\\w*",
+          "isossorbida",
+          "nitroprussiato",
+          "tnt",
+          "metoprolol",
+          "esmolol",
+          "atenolol",
+          "propranolol",
+          "carvedilol",
+          "betabloqueador\\w*"
         ]
       }
     ],
-    "expectedPath": "recommend",
-    "rationale": "KB-004 (05-choque-cardiogenico): extremidades frias + congestão = mais volume não ajuda e pode precipitar edema pulmonar."
+    "rationale": "KB-004 (05-choque-cardiogenico): extremidades frias + congestão = mais volume não ajuda e pode precipitar edema pulmonar. ACC/AHA 2025 e ESC 2023: revascularização emergencial do vaso culpado no IAM com choque, independentemente do tempo (classe 1); balão intra-aórtico de rotina não recomendado; suporte mecânico em casos selecionados. 3º dia de IAM anterior não reperfundido é a janela clássica de complicação mecânica (letalidade ≥ 50%). Noradrenalina antes de dobutamina é a sequência mais aceita; VNI ou intubação são aceitáveis com cautela.",
+    "expectedPath": "recommend"
+  },
+  "sources": [
+    {
+      "claim": "Revascularização precoce (ICP/CRM) no IAM com choque cardiogênico; balão intra-aórtico de rotina não recomendado sem complicação mecânica; suporte circulatório mecânico em casos selecionados; complicações mecânicas decididas pelo heart team.",
+      "title": "2023 ESC Guidelines for the management of acute coronary syndromes",
+      "publisher": "European Society of Cardiology (Eur Heart J)",
+      "year": 2023,
+      "url": "https://academic.oup.com/eurheartj/article/44/38/3720/7243210"
+    },
+    {
+      "claim": "A diretriz de SCA de 2025 inclui revascularização imediata no choque cardiogênico e bomba microaxial para casos selecionados de choque relacionado ao IAM.",
+      "title": "ACC, AHA Issue New Acute Coronary Syndromes Guideline (2025 ACC/AHA/ACEP/NAEMSP/SCAI ACS Guideline)",
+      "publisher": "ACC/AHA",
+      "year": 2025,
+      "url": "https://www.acc.org/About-ACC/Press-Releases/2025/02/28/17/51/ACC-AHA-Issue-New-Acute-Coronary-Syndromes-Guideline"
+    },
+    {
+      "claim": "Complicações mecânicas do IAM (ruptura de músculo papilar com IM aguda, CIV, pseudoaneurisma, ruptura de parede livre) têm letalidade ≥ 50%.",
+      "title": "Mechanical Complications of Acute Myocardial Infarction: A Scientific Statement From the American Heart Association",
+      "publisher": "AHA (Circulation)",
+      "year": 2021,
+      "url": "https://doi.org/10.1161/CIR.0000000000000985"
+    },
+    {
+      "claim": "Manejo do choque cardiogênico: noradrenalina como vasopressor preferencial; inotrópico para baixo débito persistente; revascularização precoce.",
+      "title": "Contemporary Management of Cardiogenic Shock: A Scientific Statement From the American Heart Association",
+      "publisher": "AHA (Circulation)",
+      "year": 2017,
+      "url": "https://doi.org/10.1161/CIR.0000000000000525"
+    }
+  ],
+  "provenance": {
+    "notes": "Auditoria 11/10/2026: coronariografia/ICP de emergência (ou transferência) virou obrigatória; pedidos viraram dados (ECG, eco) e entrou o sopro novo de complicação mecânica; checagem de volume sem \"cautela\"/\"não\" soltos; nova proibida: nitrato/vasodilatador ou betabloqueador no choque."
+  },
+  "probes": {
+    "mustFlag": [
+      "SF 0,9% 30 mL/kg com cautela",
+      "Cristaloide 30 mL/kg; não atrasar noradrenalina",
+      "Nitroglicerina IV para a congestão",
+      "Metoprolol 5 mg IV para controle da FC"
+    ],
+    "mustNotFlag": [
+      "Evitar expansão volêmica liberal: congestão pulmonar",
+      "Nitrato e betabloqueador contraindicados no choque",
+      "Não usar nitroglicerina com PAS < 90",
+      "Noradrenalina para PAM ≥ 65 e dobutamina se baixo débito persistir"
+    ]
   }
 }

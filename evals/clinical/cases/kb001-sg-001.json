@@ -13,7 +13,7 @@
     "status": "draft"
   },
   "input": {
-    "caseText": "Paciente com síndrome gripal há 3 dias, febre, mialgia e imunossupressão não informada."
+    "caseText": "H 40a, febre, mialgia, tosse e odinofagia há 3 d."
   },
   "expected": {
     "syndrome": "síndrome gripal sem sinais de gravidade descritos",
@@ -26,7 +26,20 @@
     ],
     "requiredActions": [],
     "forbiddenDefinitiveActions": [],
-    "rationale": "Protocolo MS de síndrome gripal: a indicação de oseltamivir depende de fator de risco ou sinal de gravidade; com >48h de sintomas, sem fator de risco informado, o dado que muda a conduta é o grupo de risco.",
+    "rationale": "Guia MS de influenza 2023: síndrome gripal com fator de risco recebe oseltamivir mesmo em ambulatório; sem fator de risco, por julgamento clínico, de preferência até 48 h; com sinal de agravamento, oseltamivir imediato. Com 3 dias de sintomas, o que muda a conduta é o grupo de risco (imunossupressão, idade ≥ 60, gestação, comorbidades) ou o sinal de agravamento. COVID-19 como diferencial é desejável, não exigido.",
     "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "Oseltamivir indicado para toda SRAG e para síndrome gripal com condições ou fatores de risco, mesmo em ambulatório. Sem fator de risco, considerar por julgamento clínico, de preferência nas primeiras 48 h. Com sinais de agravamento, oseltamivir de imediato. Lista de fatores de risco inclui imunossupressão, idade ≥ 60, gestação/puerpério e comorbidades.",
+      "title": "Guia de manejo e tratamento de influenza 2023",
+      "publisher": "Ministério da Saúde (SVSA)",
+      "year": 2023,
+      "url": "https://goias.gov.br/saude/wp-content/uploads/sites/34/2012/06/guia_tratamento-influenza-2023-d45.pdf"
+    }
+  ],
+  "provenance": {
+    "originalCaseText": "Paciente com síndrome gripal há 3 dias, febre, mialgia e imunossupressão não informada.",
+    "notes": "Auditoria 11/10/2026: texto reescrito como nota de beira de leito (o original anunciava a imunossupressão como não informada). COVID-19 como diferencial ficou no rationale (opcional). O caso continua não crítico."
   }
 }

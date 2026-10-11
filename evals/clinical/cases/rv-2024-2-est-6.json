@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2024-2-est-6",
+  "title": "Homem de 58 anos com hemiplegia esquerda e cefaleia iniciadas há 1 hora",
+  "tags": [
+    "deficit-neurologico-focal",
+    "revalida",
+    "pep",
+    "avc"
+  ],
+  "critical": true,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Urgência/emergência de atenção secundária (TC e UTI disponíveis). Masc, 58a, arritmia cardíaca, DM, dislipidemia. Hemiplegia E e cefaleia iniciadas há ~1h. Respiração espontânea, via aérea pérvia, boa SatO2 em AA, parâmetros hemodinâmicos adequados."
+  },
+  "expected": {
+    "syndrome": "déficit neurológico focal agudo (hemiplegia E) há ~1 h — suspeita de AVC",
+    "cannotMiss": [
+      "acidente vascular cerebral agudo"
+    ],
+    "mustRequest": [
+      "aplicar a NIHSS completa (nível de consciência, perguntas e comandos, olhar, campos visuais, face, motor de braços e pernas, ataxia, sensibilidade, linguagem, disartria) e totalizar — esperado 10 pontos",
+      "TC (ou RM) de crânio sem contraste",
+      "exames iniciais (ao menos cinco): ECG, glicemia capilar, hemograma, coagulograma (TAP/INR e TTPA), sódio e potássio, ureia e creatinina, troponina"
+    ],
+    "requiredActions": [],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "Gabarito oficial do INEP (Revalida 2024/2, Estação 6): o PEP pontua apenas a aplicação item a item da NIHSS com total de 10, a TC/RM de crânio sem contraste e ao menos cinco exames iniciais (ECG, glicemia capilar, hemograma, coagulograma, eletrólitos, função renal, troponina); não pontua conduta.",
+    "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "Itens 2–13: aplica a NIHSS — 1a nível de consciência; 1b pergunta idade e mês; 1c abrir/fechar olhos e mão; 2 olhar horizontal para os dois lados; 3 campos visuais nos quatro quadrantes; 4 sorrir/mostrar os dentes e fechar os olhos com força; 5 braços a 90° com palmas para baixo; 6 pernas a 30° em extensão; 7 index-nariz ou calcanhar-joelho; 8 sensibilidade; 9 descrever a imagem; 10 ler ou repetir a lista de palavras (0,5 a 1,0 cada).",
+      "title": "Revalida 2024/2 – Habilidades Clínicas – PEP, Estação 6, itens 2–13",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2024_2_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Itens 14–16: totaliza corretamente a NIHSS em 10 pontos (1,0); solicita TC ou RM de crânio SEM contraste — com contraste vale parcial (1,0); solicita ao menos cinco entre ECG, glicemia capilar, hemograma, coagulograma (TAP/INR e TTPA), potássio e sódio, ureia e creatinina, troponina (1,0).",
+      "title": "Revalida 2024/2 – Habilidades Clínicas – PEP, Estação 6, itens 14–16",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2024_2_pep_definitivo.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2024/2",
+    "item": "Estação 6",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2024_2_pep_definitivo.pdf",
+    "originalCaseText": "CENÁRIO DE ATENDIMENTO Nível de atenção: atenção secundária à saúde. Tipo de atendimento: urgência e emergência. A unidade possui a seguinte infraestrutura: ● consultórios; ● sala de estabilização; ● laboratório de análises clínicas; ● serviço de radiologia com aparelho de radiografia e tomografia computadorizada; ● leitos de internação – enfermaria e terapia intensiva. DESCRIÇÃO DO CASO Você atenderá um paciente com 58 anos de idade, histórico de arritmia cardíaca, diabetes melito e dislipidemia, com suspeita de acidente vascular cerebral por apresentar déficit neurológico (hemiplegia E) e cefaleia, iniciados há cerca de 1 hora. Paciente encontra-se com respiração espontânea, via aérea pérvia, boa saturação de O2 em ar ambiente e parâmetros hemodinâmicos adequados. Nos 10 minutos de duração da Estação, você deverá executar as seguintes tarefas: ● Aplicar a escala NIHSS ao paciente. ● Totalizar a pontuação da escala NIHSS e VERBALIZAR. ● Solicitar exames complementares necessários à avaliação inicial do caso. CASO JULGUE NECESSÁRIO TOCAR O PACIENTE SIMULADO, O TOQUE É PERMITIDO APENAS NA PERNA, ABAIXO DOS JOELHOS, E NO BRAÇO, ABAIXO DOS COTOVELOS.",
+    "notes": "O PEP não pontua conduta terapêutica (reperfusão, controle pressórico etc.), só a aplicação e o total da NIHSS e os exames iniciais; por isso requiredActions fica vazio. Conferido contra a lista de diretrizes do spec (AHA/ASA 2026): os itens pontuados (NIHSS, TC/RM sem contraste, glicemia e exames iniciais) não foram sinalizados como desatualizados; o caso não cobre reperfusão. Dados sob demanda: Anderson, 58a, motorista de ônibus, diabetes, arritmia e colesterol alto, sintomas há pouco mais de 1 h; na NIHSS responde corretamente o mês (dezembro) e a idade, abre e fecha os olhos e a mão D, olhar horizontal e campos visuais normais, sorri e fecha os olhos, não move mão, braço e perna E, sustenta o braço D a 90° por 10 s e a perna D a 30° por 5 s, sem resposta ao toque/beliscão nos membros E, nomeação, leitura e descrição do desenho corretas; total esperado 10. Exames pedidos de forma específica são 'considerados solicitados' (sem impressos de resultado)."
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2025-1-est-6",
+  "title": "Rosto diferente e incapacidade de fechar o olho direito há 4 horas",
+  "tags": [
+    "deficit-neurologico-focal",
+    "revalida",
+    "pep",
+    "paralisia-facial",
+    "neurologia"
+  ],
+  "critical": false,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "UBSF, demanda espontânea. Paciente masc. refere sentir o rosto diferente e não conseguir fechar o olho D completamente há ~4 h."
+  },
+  "expected": {
+    "syndrome": "paralisia facial periférica aguda (paralisia de Bell)",
+    "cannotMiss": [
+      "paralisia facial periférica (paralisia de Bell / do VII par), diferenciada de paralisia facial central"
+    ],
+    "mustRequest": [
+      "outros sintomas associados (perda de força em outros segmentos, parestesias, alterações auditivas, cefaleia, febre/náuseas/vômitos, alterações visuais/oculares, sialorreia)",
+      "antecedentes: lesão ou trauma recente, eventos similares prévios, infecção recente",
+      "hábitos de vida (atividade física, alimentação, tabagismo, etilismo, estresse, sono, drogas ilícitas)",
+      "exame do VII par: motricidade da porção superior (fechar os olhos/franzir a testa) e inferior da face (sorrir, mostrar os dentes, soprar, assoviar)",
+      "exame neurológico geral",
+      "otoscopia"
+    ],
+    "requiredActions": [
+      "corticoide oral",
+      "colírio lubrificante",
+      "oclusão ocular noturna",
+      "reavaliação clínica programada",
+      "orientar prognóstico: maior probabilidade de reversão, sem afirmar certeza de reversibilidade ou irreversibilidade"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "Gabarito oficial do INEP (Revalida 2025/1, Estação 6): o PEP pontua anamnese dirigida, exame do VII par, exame neurológico geral e otoscopia antes do diagnóstico de paralisia facial periférica, com corticoide oral, colírio lubrificante, oclusão ocular noturna, reavaliação e prognóstico de provável reversão.",
+    "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "Itens 2–4: pesquisa outros sinais/sintomas (perda de força em outros segmentos, parestesias, alterações auditivas, cefaleia, febre/náuseas/vômitos, alterações visuais/oculares, sialorreia; 1,0), antecedentes (lesão/trauma recente, eventos similares prévios, infecção recente; 0,5) e hábitos de vida (atividade física, alimentação, tabagismo, etilismo, estresse, sono, drogas ilícitas; 0,5).",
+      "title": "Revalida 2025/1 – Habilidades Clínicas – PEP definitivo, Estação 6, itens 2–4",
+      "publisher": "INEP",
+      "year": 2025,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Itens 5–7: exame do VII par solicitando manobras da porção superior (fechar os olhos/franzir a testa) e inferior da face (soprar, sorrir, mostrar os dentes, assoviar) (1,5); solicita exame neurológico geral (0,5); solicita otoscopia (0,5).",
+      "title": "Revalida 2025/1 – Habilidades Clínicas – PEP definitivo, Estação 6, itens 5–7",
+      "publisher": "INEP",
+      "year": 2025,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Item 8 (2,5 pontos): hipótese de paralisia facial periférica (ou paralisia do VII par ou paralisia de Bell); paralisia facial sem especificação é parcial; paralisia facial central ou outro diagnóstico é inadequado.",
+      "title": "Revalida 2025/1 – Habilidades Clínicas – PEP definitivo, Estação 6, item 8",
+      "publisher": "INEP",
+      "year": 2025,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Itens 9–10: prescreve corticoide oral, colírio lubrificante, orienta oclusão ocular noturna e necessidade de reavaliação (1,5); informa que a maior probabilidade é de reversão do quadro — informar certeza de reversibilidade ou de irreversibilidade total é inadequado (1,0).",
+      "title": "Revalida 2025/1 – Habilidades Clínicas – PEP definitivo, Estação 6, itens 9–10",
+      "publisher": "INEP",
+      "year": 2025,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2025/1",
+    "item": "Estação 6",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf",
+    "originalCaseText": "CENÁRIO DE ATENDIMENTO Nível de atenção: primária. Tipo de atendimento: demanda espontânea – unidade básica de saúde da família (UBSF). A unidade possui a seguinte infraestrutura: ● consultórios. DESCRIÇÃO DO CASO Você é um médico atuando em uma UBSF e atenderá um paciente que se queixa de sentir o rosto diferente e não conseguir fechar o olho direito completamente, há cerca de 4 horas. Nos 10 minutos de duração da estação, você deverá executar as seguintes tarefas: ● realizar anamnese direcionada à queixa do paciente; ● realizar exame físico direcionado à queixa do paciente; ● solicitar demais exames pertinentes ao caso; ● formular o diagnóstico específico mais provável; ● estabelecer a conduta adequada; ● explicar o prognóstico ao paciente. ATENÇÃO! O PACIENTE SIMULADO NÃO DEVERÁ SER TOCADO DURANTE O ATENDIMENTO. NO CASO DO EXAME FÍSICO, VOCÊ DEVERÁ DESCREVER PARA O PACIENTE AS MANOBRAS A SEREM EXECUTADAS. O PACIENTE SIMULADO NÃO REAGIRÁ E, AO FINAL, VOCÊ RECEBERÁ O RESULTADO DESSE EXAME.",
+    "notes": "Triagem limítrofe: UBSF em demanda espontânea; incluído por ser déficit neurológico focal agudo em que o PEP pontua a diferenciação periférica × central (paralisia facial central = inadequado). Dados sob demanda: homem, 30 a, administrador; acordou há 4 h com o rosto estranho, sem conseguir fechar completamente o olho D; boca torta; olho D mais seco; dificuldade para falar palavras com P e B; quadro piorando; nenhum outro sintoma; primeiro episódio; sem doenças prévias, trauma ou infecção recente; mais preocupado com o trabalho e dormindo mais tarde no último mês; futebol 1–2 vezes por semana; não fuma, não bebe; sem medicamentos; sem doenças na família. Exame neurológico geral: pupilas isocóricas e fotorreagentes, movimentação livre e força 5/5 nos quatro membros, reflexos 2/2, Romberg sem alterações, marcha normal (não contempla pares cranianos). Impressos de exame da face e de otoscopia: imagens sem descrição textual na prova."
+  }
+}

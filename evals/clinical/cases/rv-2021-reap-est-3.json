@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2021-reap-est-3",
+  "title": "Lactente de 1 ano com irritabilidade e choro forte há 48 horas na UPA",
+  "tags": [
+    "dor-abdominal",
+    "revalida",
+    "pep",
+    "pediatria",
+    "invaginacao-intestinal"
+  ],
+  "critical": true,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "UPA, plantão de pediatria. Fem, 1a, bem nutrida (eutrófica), peso 10 kg, Tax 36,7 °C. Irritabilidade e choro forte há cerca de 48 h."
+  },
+  "expected": {
+    "syndrome": "invaginação intestinal (intussuscepção ileocecocólica) em lactente",
+    "cannotMiss": [
+      "invaginação intestinal"
+    ],
+    "mustRequest": [
+      "queixa principal e história da doença atual",
+      "antecedentes gestacionais e do parto",
+      "amamentação, doenças prévias e vacinas",
+      "padrão de urina e fezes",
+      "exame físico",
+      "toque retal",
+      "ultrassonografia abdominal para confirmação diagnóstica"
+    ],
+    "requiredActions": [
+      "redução hidrostática por via retal sob radioscopia após a confirmação; se não for possível, tratamento cirúrgico"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "Gabarito oficial do INEP (Revalida 2021 reaplicação, Estações 3 e 8): o PEP pontua anamnese dirigida, exame com toque retal, hipótese de invaginação intestinal confirmada por US e redução hidrostática sob radioscopia, com cirurgia se falhar.",
+    "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "Anamnese e exame: queixa principal (2) e história da doença atual (3); antecedentes gestacionais e parto (4); amamentação, doenças prévias e vacinas (5); padrão de urina e fezes (6); exame físico (7); toque retal (8, 1,5 ponto).",
+      "title": "Revalida 2021 (reaplicação) – Habilidades Clínicas – PEP, Estações 3 e 8, itens 2–8",
+      "publisher": "INEP",
+      "year": 2021,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2021_PEP_reaplicacao.pdf"
+    },
+    {
+      "claim": "Hipótese de invaginação intestinal explicada à mãe (9, 2,0 pontos); ultrassonografia para confirmação, explicando o porquê — inadequado se não solicita ou solicita outro exame (10, 2,0 pontos).",
+      "title": "Revalida 2021 (reaplicação) – Habilidades Clínicas – PEP, Estações 3 e 8, itens 9–10",
+      "publisher": "INEP",
+      "year": 2021,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2021_PEP_reaplicacao.pdf"
+    },
+    {
+      "claim": "Conduta após confirmação: tentativa de redução hidrostática por via retal sob radioscopia e, se não for possível, tratamento cirúrgico (11, 2,0 pontos).",
+      "title": "Revalida 2021 (reaplicação) – Habilidades Clínicas – PEP, Estações 3 e 8, item 11",
+      "publisher": "INEP",
+      "year": 2021,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2021_PEP_reaplicacao.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2021 (reaplicação)",
+    "item": "Estação 3 e 8",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2021_PEP_reaplicacao.pdf",
+    "originalCaseText": "ESTAÇÕES 3 e 8 – Área: Pediatria. INSTRUÇÕES PARA O(A) PARTICIPANTE. CENÁRIO DE ATUAÇÃO: Você está de plantão na pediatria de uma Unidade de Pronto Atendimento de sua cidade. A mãe, com quem você irá fazer a consulta agora, está preocupada porque a filha Beatriz, uma lactente com 1 ano de idade, bem nutrida, começou a apresentar irritabilidade e choro forte há cerca de 48 horas. Nos próximos 10 minutos, deverão ser realizadas as seguintes tarefas: fazer a anamnese dirigida à mãe; ler os dados e sinais vitais da criança (ao final dessa página); comentar o exame físico (não será necessário examinar diretamente a criança simulada); solicitar todos os exames complementares que julgar necessários (se indicados); formular a hipótese diagnóstica e responder aos questionamentos da mãe da criança simulada; propor conduta terapêutica e explicar à mãe (se for o caso). DADOS E SINAIS VITAIS: Paciente: Beatriz, feminina, branca; Idade: 1 ano; Peso: 10 kg; Eutrófica: temperatura axilar 36,7 °C.",
+    "notes": "Dados sob demanda: Impresso 1 — REG, nutrida, hidratada, afebril; aparente dor à palpação abdominal sem distensão, pequena massa palpável, móvel e indolor em flanco direito; durante o exame evacua fezes misturadas com sangue. Impresso 2 — toque retal: pequena quantidade de fezes com sangue em 'geleia de morango'. Impresso 3 — US: sinal do alvo e do pseudorrim, invaginação ileocecocólica em flanco direito com sinal de Dance. A síntese do ator não é publicada no PEP."
+  }
+}

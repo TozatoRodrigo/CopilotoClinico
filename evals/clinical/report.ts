@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import type { ClinicalCase, ExpectedPath } from './case.schema';
+import { isGateCase } from './grading';
 import {
   ErrorRowSchema,
   GradeRowSchema,
@@ -78,10 +79,13 @@ export interface RunSummary {
   noAnswer: Rate;
   criticalErrors: {
     caseIds: string[];
+    /** Casos do portão (críticos sem `excludeFromGate`) com erro crítico. */
     criticalSubsetCaseIds: string[];
     incompleteRows: number;
   };
   gate: GateStatus;
+  /** Casos com `excludeFromGate`: rodam e recebem nota, mas não reprovam o portão. */
+  outsideGate: Array<{ caseId: string; reason: string; criticalErrorReps: number; reps: number }>;
   criteria: {
     path: Rate;
     syndrome: Rate;
@@ -269,14 +273,26 @@ export function summarizeRun(run: LoadedRun, casesById: Map<string, ClinicalCase
     .filter((summary) => summary.criticalErrorReps > 0)
     .map((summary) => summary.caseId);
   const criticalSubsetCaseIds = perCase
-    .filter((summary) => summary.critical && summary.criticalErrorReps > 0)
+    .filter((summary) => isGateCase(casesById.get(summary.caseId)) && summary.criticalErrorReps > 0)
     .map((summary) => summary.caseId);
   const incompleteRows = grades.filter(
-    (grade) => grade.critical && !grade.criticalError.complete,
+    (grade) => isGateCase(casesById.get(grade.caseId)) && !grade.criticalError.complete,
   ).length;
-  const criticalInfraErrors = errors.filter(
-    (error) => casesById.get(error.caseId)?.critical,
+  const criticalInfraErrors = errors.filter((error) =>
+    isGateCase(casesById.get(error.caseId)),
   ).length;
+  const outsideGate = gradedCases.flatMap((clinicalCase) => {
+    if (!clinicalCase.excludeFromGate) return [];
+    const caseSummary = perCase.find((summary) => summary.caseId === clinicalCase.id);
+    return [
+      {
+        caseId: clinicalCase.id,
+        reason: clinicalCase.excludeFromGate.reason,
+        criticalErrorReps: caseSummary?.criticalErrorReps ?? 0,
+        reps: caseSummary?.reps ?? 0,
+      },
+    ];
+  });
 
   const gate: GateStatus =
     criticalSubsetCaseIds.length > 0
@@ -342,6 +358,7 @@ export function summarizeRun(run: LoadedRun, casesById: Map<string, ClinicalCase
     noAnswer: rateOf(results.map((row) => row.status !== 'ok')),
     criticalErrors: { caseIds: criticalCaseIds, criticalSubsetCaseIds, incompleteRows },
     gate,
+    outsideGate,
     criteria: {
       path: rateOf(outcomes.path),
       syndrome: rateOf(outcomes.syndrome),
@@ -515,7 +532,7 @@ export function renderSummaryMarkdown(run: LoadedRun, summary: RunSummary): stri
 
   lines.push('## Portão de release', '', `**${GATE_LABELS[summary.gate]}**`, '');
   lines.push(
-    `- Casos críticos com erro crítico: **${summary.criticalErrors.criticalSubsetCaseIds.length}**${summary.criticalErrors.criticalSubsetCaseIds.length > 0 ? ` — ${summary.criticalErrors.criticalSubsetCaseIds.join(', ')}` : ''}`,
+    `- Casos críticos no portão com erro crítico: **${summary.criticalErrors.criticalSubsetCaseIds.length}**${summary.criticalErrors.criticalSubsetCaseIds.length > 0 ? ` — ${summary.criticalErrors.criticalSubsetCaseIds.join(', ')}` : ''}`,
     `- Casos com erro crítico (todos): ${summary.criticalErrors.caseIds.length}${summary.criticalErrors.caseIds.length > 0 ? ` — ${summary.criticalErrors.caseIds.join(', ')}` : ''}`,
   );
   if (summary.criticalErrors.incompleteRows > 0) {
@@ -533,6 +550,24 @@ export function renderSummaryMarkdown(run: LoadedRun, summary: RunSummary): stri
     'Regra: zero erro crítico no subconjunto crítico **e** nenhuma regressão contra a versão anterior (`pnpm eval:clinical:compare`).',
     '',
   );
+
+  if (summary.outsideGate.length > 0) {
+    lines.push(
+      '### Fora do portão',
+      '',
+      'Casos que rodam e recebem nota, mas não reprovam o portão (`excludeFromGate`).',
+      '',
+      table(
+        ['Caso', 'Motivo', 'Repetições com erro crítico'],
+        summary.outsideGate.map((excluded) => [
+          excluded.caseId,
+          excluded.reason,
+          `${excluded.criticalErrorReps}/${excluded.reps}`,
+        ]),
+      ),
+      '',
+    );
+  }
 
   const failing = summary.perCase.filter((caseSummary) => caseSummary.criticalErrorReps > 0);
   if (failing.length > 0) {

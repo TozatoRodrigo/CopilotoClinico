@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2023-1-est-2",
+  "title": "Febre no 7º dia de pós-operatório de apendicectomia em homem de 30 anos",
+  "tags": [
+    "febre",
+    "revalida",
+    "pep",
+    "febre-pos-operatoria",
+    "endocardite"
+  ],
+  "critical": false,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Emergência geral de hospital terciário. Masc, 30a, servente. Febre no 7º dia de PO de apendicectomia realizada em hospital de cidade do interior de MG."
+  },
+  "expected": {
+    "syndrome": "febre no pós-operatório de apendicectomia por infecção de sítio cirúrgico superficial (umbilical) e provável endocardite infecciosa",
+    "cannotMiss": [
+      "infecção de sítio cirúrgico superficial (ferida operatória umbilical)",
+      "endocardite infecciosa",
+      "abscesso intra-abdominal / infecção de sítio cirúrgico profundo / deiscência do coto apendicular",
+      "pneumonia / infecção respiratória",
+      "infecção do trato urinário"
+    ],
+    "mustRequest": [
+      "características da febre (tempo de início, temperatura, persistência ou intermitência, período do dia, fatores de melhora)",
+      "manifestações associadas principais (dor abdominal ou no local da cirurgia, sudorese noturna, náuseas/vômitos, parada de eliminação de gases/fezes, alterações da ferida operatória: hiperemia, edema, secreção, calor, dor)",
+      "outras manifestações (calafrios, sintomas urinários, dor lombar, sintomas cardíacos — palpitações/dispneia/desmaio —, sintomas respiratórios)",
+      "exame físico com avaliação da ferida operatória umbilical (hiperemia, secreção seropurulenta, edema/enduramento)",
+      "exames laboratoriais: hemograma, PCR, sumário de urina e glicemia",
+      "hemocultura, urocultura, sódio e potássio, ureia/creatinina e LDH",
+      "radiografia de tórax PA",
+      "ultrassonografia ou tomografia de abdome total",
+      "ecocardiograma"
+    ],
+    "requiredActions": [],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "Gabarito oficial do INEP (Revalida 2023/1, Estação 2): o PEP pontua anamnese dirigida, exame da ferida, diferencial de febre pós-operatória antes dos exames, exames laboratoriais e de imagem (incluindo ecocardiograma) e o diagnóstico de infecção de sítio cirúrgico superficial e provável endocardite infecciosa; não pontua conduta.",
+    "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "Itens 2–5 (3,4 pontos): pergunta características da febre (início, temperatura, persistência/intermitência, período do dia, fatores de melhora), manifestações principais (dor abdominal/no local da cirurgia, sudorese noturna, náuseas/vômitos, parada de eliminação de gases/fezes, alterações da ferida) e outras (calafrios, sintomas urinários, dor lombar, sintomas cardíacos, sintomas respiratórios); interpreta a infecção de sítio cirúrgico umbilical (hiperemia, secreção seropurulenta/sero-hemática, edema/abaulamento/enduramento).",
+      "title": "Revalida 2023/1 – Habilidades Clínicas – PEP, Estação 2, itens 2–5",
+      "publisher": "INEP",
+      "year": 2023,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2023_1_PEP_publicacao.pdf"
+    },
+    {
+      "claim": "Item 6 (2,0 pontos): verbaliza, antes dos exames, os diagnósticos diferenciais — infecção de sítio cirúrgico superficial; abscesso intra-abdominal/infecção de sítio cirúrgico profundo/deiscência do coto apendicular/fístula; infecção pulmonar/pneumonia; endocardite infecciosa; infecção do trato urinário (adequado: quatro ou cinco).",
+      "title": "Revalida 2023/1 – Habilidades Clínicas – PEP, Estação 2, item 6",
+      "publisher": "INEP",
+      "year": 2023,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2023_1_PEP_publicacao.pdf"
+    },
+    {
+      "claim": "Itens 7–11 (2,7 pontos): solicita hemograma, PCR, sumário de urina e glicemia; hemocultura, urocultura, sódio e potássio, creatinina/ureia, LDH; radiografia de tórax PA; ultrassonografia ou tomografia de abdome total; ecocardiograma.",
+      "title": "Revalida 2023/1 – Habilidades Clínicas – PEP, Estação 2, itens 7–11",
+      "publisher": "INEP",
+      "year": 2023,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2023_1_PEP_publicacao.pdf"
+    },
+    {
+      "claim": "Item 12 (1,5 ponto): diagnóstico definitivo de infecção de sítio cirúrgico superficial/infecção de ferida operatória E provável endocardite infecciosa.",
+      "title": "Revalida 2023/1 – Habilidades Clínicas – PEP, Estação 2, item 12",
+      "publisher": "INEP",
+      "year": 2023,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2023_1_PEP_publicacao.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2023/1",
+    "item": "Estação 2",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2023_1_PEP_publicacao.pdf",
+    "originalCaseText": "CENÁRIO DE ATUAÇÃO Local de atuação: Atenção Terciária: Emergência Geral. A unidade possui a seguinte infraestrutura: aparelho para radiografias; ultrassonografia e tomografia; ecocardiografia; laboratório de análises clínicas; leitos de enfermaria; bloco cirúrgico; unidade de terapia intensiva. DESCRIÇÃO DO CASO Homem de 30 anos de idade, servente, procura atendimento devido a febre no sétimo dia de pós-operatório de apendicectomia realizada em hospital de cidade no interior de Minas Gerais. ATENÇÃO! CASO JULGUE NECESSÁRIO REALIZAR EXAME FÍSICO, VERBALIZE! O PACIENTE SIMULADO NÃO DEVERÁ SER TOCADO DURANTE O ATENDIMENTO. Nos 10 minutos de duração da estação, você deverá executar as tarefas a seguir: 1. realizar anamnese do paciente; 2. solicitar e interpretar exame físico; 3. estabelecer e comunicar as principais hipóteses diagnósticas (NO MÍNIMO QUATRO), antes da solicitação de exames complementares. Só serão pontuados os diagnósticos diferenciais verbalizados antes da solicitação dos exames complementares; 4. solicitar exames laboratoriais (NO MÁXIMO DEZ), se necessário, descrevendo os achados. Só serão pontuados os DEZ primeiros exames laboratoriais citados; 5. solicitar OUTROS exames complementares (NO MÁXIMO QUATRO), se necessário, descrevendo os achados. Só serão pontuados os QUATRO primeiros exames complementares citados; 6. estabelecer e comunicar as hipóteses diagnósticas definitivas. ATENÇÃO! VOCÊ DEVERÁ REALIZAR AS TAREFAS NA SEQUÊNCIA DESCRITA ACIMA.",
+    "notes": "O exame da ferida umbilical é liberado como imagem; os achados usados nas expectativas vêm do texto do PEP (item 5). O PEP não pontua conduta terapêutica, por isso requiredActions fica vazio. | Dados sob demanda: febre há 2 dias, melhora com medicação e volta, não aferida, sem calafrios; acorda molhado de suor desde o início da febre; ferida do umbigo quente, vermelha, dolorosa, com saída de secreção amarelada; dor no lado direito do abdome; sem náuseas/vômitos, sem parada de gases/fezes, sem sintomas respiratórios, urinários ou dor lombar; já teve 'aceleração no coração' no passado; apendicectomia videolaparoscópica (apendicite supurada); sonda vesical até o 1º PO; antibiótico pós-operatório até hoje, com doses esquecidas; 'estreitamento em uma válvula do coração' há anos; diabético em metformina; tabagista 10 cig/dia há 10 anos; mãe diabética. EF: FC 100, PA 130x70, FR 16, Tax 38,2 °C, SatO2 97% AA, IMC 35; REG, febril, desidratado; AP normal; estalido de abertura mitral e sopro diastólico em ruflar mitral; ferida umbilical em imagem (PEP: hiperemia, secreção seropurulenta, edema/enduramento); demais feridas sem alterações; dor à palpação profunda em FID sem descompressão dolorosa, RHA hipoativos. Lab: leucócitos 15.556 (bastões 14%), Hb 13,5, plaquetas 234.000, glicemia 210, PCR 30, Na 140, K 4,5, ureia 40, Cr 1,2; EAS normal; urocultura e hemocultura em andamento. RX de tórax normal. USG/TC de abdome total: esteatose; borramento de gordura/pequena quantidade de líquido livre em FID compatível com manipulação cirúrgica recente; sem coleções. Ecocardiograma: estenose mitral leve e vegetação móvel de ~8x4 mm aderida à face atrial do folheto anterior mitral."
+  }
+}

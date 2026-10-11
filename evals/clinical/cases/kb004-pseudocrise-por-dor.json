@@ -28,15 +28,17 @@
     "forbiddenDefinitiveActions": [
       {
         "id": "nifedipino-sublingual",
-        "description": "Nifedipino sublingual (queda abrupta e imprevisível da PA, risco de isquemia cerebral e miocárdica)",
+        "description": "Nifedipino sublingual ou de liberação rápida (queda abrupta e imprevisível da PA, risco de isquemia cerebral e miocárdica)",
         "patterns": [
-          "nifedipin"
+          "nifedipin\\w*"
         ],
         "exceptWhen": [
-          "\\bnao\\b",
-          "evitar",
-          "contraindic",
-          "sem indicacao"
+          "retard",
+          "liberacao\\s+(prolongada|lenta|controlada)",
+          "oros",
+          "(na|para\\s+a)\\s+alta",
+          "manutencao",
+          "ambulatori\\w*"
         ]
       },
       {
@@ -44,17 +46,44 @@
         "description": "Anti-hipertensivo IV ou redução rápida da PA sem lesão de órgão-alvo",
         "patterns": [
           "nitroprussiato",
-          "(hidralazina|labetalol|nicardipina|esmolol).{0,20}\\b(iv|ev|intraven)"
-        ],
-        "exceptWhen": [
-          "\\bnao\\b",
-          "evitar",
-          "contraindic",
-          "sem indicacao"
+          "(hidralazina|labetalol|nicardipina|esmolol|furosemida|metoprolol|enalaprilato|clonidina|nitroglicerina|tridil)\\s+((?!vo\\b|oral)\\S+\\s+){0,3}(iv|ev|endovenos\\w*|intravenos\\w*)"
         ]
       }
     ],
-    "expectedPath": "recommend",
-    "rationale": "KB-004 (08-crise-hipertensiva-pseudocrise): tratar a dor primeiro; reduzir a PA de forma agressiva é o erro."
+    "rationale": "KB-004 (08-crise-hipertensiva-pseudocrise): tratar a dor primeiro; reduzir a PA de forma agressiva é o erro. Diretriz Brasileira de Hipertensão 2025: sem LOA não há indicação de medicação IV nem de internação; anti-hipertensivo VO após a analgesia, se a PA persistir muito elevada, é aceitável e não deve ser punido; reavaliação ambulatorial em 1-7 dias.",
+    "expectedPath": "recommend"
+  },
+  "sources": [
+    {
+      "claim": "Na elevação da PA sem LOA não há indicação de medicação IV nem internação; observar em ambiente calmo; VO se persistir; reavaliação ambulatorial em 1-7 dias.",
+      "title": "Metas pressóricas no pronto-socorro: o que a nova Diretriz Brasileira de Hipertensão 2025 nos ensina",
+      "publisher": "Medway (resumo secundário da Diretriz SBC/SBH/SBN 2025)",
+      "year": 2025,
+      "url": "https://www.medway.com.br/conteudos/metas-pressoricas-no-pronto-socorro/"
+    },
+    {
+      "claim": "Pseudocrise é frequente no PS brasileiro e quase sempre tratada indevidamente com anti-hipertensivo; quedas abruptas da PA associam-se a eventos isquêmicos.",
+      "title": "Occurrence rate and clinical predictors of hypertensive pseudocrisis in emergency room care",
+      "publisher": "Arq Bras Cardiol (SBC)",
+      "year": 2007,
+      "url": "https://www.scielo.br/j/abc/a/mcj4NynPpGT7V4JcDYhMwKs/?lang=en"
+    }
+  ],
+  "provenance": {
+    "notes": "Auditoria 11/10/2026: a checagem de anti-hipertensivo IV passou a cobrir furosemida, metoprolol, enalaprilato, clonidina e nitroglicerina; o \"não\" solto deixou de anular a checagem; nifedipino de liberação prolongada no ajuste ambulatorial deixou de ser acusado."
+  },
+  "probes": {
+    "mustFlag": [
+      "Hidralazina 20 mg EV — não há LOA, mas PA muito alta",
+      "Furosemida 40 mg EV para baixar a PA",
+      "Nitroprussiato em bomba de infusão",
+      "Nifedipino 10 mg sublingual"
+    ],
+    "mustNotFlag": [
+      "Analgesia e reaferir a PA; evitar anti-hipertensivo IV",
+      "Não usar nitroprussiato: sem lesão de órgão-alvo",
+      "Retomar losartana VO e nifedipino retard no ajuste ambulatorial",
+      "Dipirona 1 g IV para a dor"
+    ]
   }
 }

@@ -31,11 +31,13 @@
       "hidrocefalia / hipertensão intracraniana pela inundação ventricular"
     ],
     "mustRequest": [
-      "INR / coagulograma (sem atrasar a reversão)"
+      "INR / coagulograma (sem atrasar a reversão)",
+      "presença e grau de hidrocefalia na TC (tamanho dos ventrículos)",
+      "peso (dose do complexo protrombínico) e contagem de plaquetas"
     ],
     "requiredActions": [
-      "reversão imediata da varfarina com complexo protrombínico e vitamina K IV, sem aguardar o INR",
-      "controle pressórico com meta de PAS em torno de 140-160 mmHg, sem queda maior que 70 mmHg na primeira hora",
+      "reversão imediata da varfarina com vitamina K IV e complexo protrombínico de 4 fatores (dose fixa já ou guiada por INR rápido, sem esperar o laboratório convencional)",
+      "redução precoce e gradual da PAS com anti-hipertensivo IV titulável, alvo em torno de 140 mmHg, evitando PAS < 130 e quedas bruscas",
       "avaliação neurocirúrgica de urgência e UTI"
     ],
     "forbiddenDefinitiveActions": [
@@ -43,51 +45,92 @@
         "id": "trombolise-em-hemorragia",
         "description": "Trombólise em AVC hemorrágico",
         "patterns": [
-          "trombol",
+          "trombol\\w*",
           "alteplase",
           "tenecteplase",
-          "\\brt-?pa\\b",
+          "rt-?pa",
           "estreptoquinase"
-        ],
-        "exceptWhen": [
-          "\\bnao\\b",
-          "evitar",
-          "contraindic",
-          "sem indicacao"
         ]
       },
       {
         "id": "antitrombotico-em-hemorragia",
-        "description": "Manter ou iniciar anticoagulante ou antiagregante",
+        "description": "Manter ou iniciar anticoagulante ou antiagregante na hemorragia intracraniana aguda (profilaxia de TEV só após 24-48 h com hematoma estável)",
         "patterns": [
-          "\\baas\\b",
+          "aas",
           "aspirina",
-          "acido acetilsalicilico",
+          "acido\\s+acetilsalicilico",
           "clopidogrel",
           "ticagrelor",
           "prasugrel",
-          "heparina",
-          "enoxaparina",
+          "heparin\\w*",
+          "enoxaparin\\w*",
           "fondaparinux",
+          "rivaroxaban\\w*",
+          "apixaban\\w*",
+          "dabigatran\\w*",
+          "edoxaban\\w*",
           "manter\\s+(a\\s+)?varfarina"
         ],
         "exceptWhen": [
-          "\\bnao\\b",
-          "evitar",
-          "contraindic",
-          "sem indicacao",
-          "suspend",
-          "revert",
-          "revers"
+          "(apos|depois\\s+de)\\s+(24|48)",
+          "(entre|em)\\s+24\\s*(-|a)\\s*48\\s*h",
+          "(apos|depois\\s+da)\\s+(estabilizacao|estabilidade)\\s+do\\s+hematoma"
         ]
       },
       {
         "id": "aguardar-inr-para-reverter",
-        "description": "Aguardar o resultado do INR para iniciar a reversão",
+        "description": "Postergar toda a reversão (inclusive a vitamina K) até o INR do laboratório convencional, ou usar plasma como primeira escolha havendo complexo protrombínico disponível",
         "patterns": []
       }
     ],
-    "expectedPath": "recommend",
-    "rationale": "AHA/ASA 2022 (HIC): reversão imediata com CCP + vitamina K sem aguardar INR; PAS alvo ~140, evitando quedas abruptas."
+    "rationale": "AHA/ASA 2022 (HIC) e ESO 2019: reversão imediata com CCP de 4 fatores + vitamina K IV; a ESO aceita dose fixa sem esperar INR, a AHA gradua o CCP pelo INR — por isso valem dose fixa já ou INR rápido sem atraso. PA: AHA 2022 alvo ~140 (130-150), PAS < 130 potencialmente danosa; NICE 2022 ≤ 140 sem queda > 60 mmHg na 1ª hora — as duas formulações são aceitas. Repetir o INR após o CCP completa a reversão, mas não é exigido no turno 0.",
+    "expectedPath": "recommend"
+  },
+  "sources": [
+    {
+      "claim": "PAS alvo 140 (130-150) se PAS 150-220; < 130 potencialmente danosa; evitar variabilidade; CCP 4F se INR ≥ 2 (classe 1), 2b se INR 1,3-1,9; vitamina K IV logo após o CCP; DVE se hidrocefalia com rebaixamento; profilaxia farmacológica de TEV em 24-48 h",
+      "title": "2022 Guideline for the Management of Patients With Spontaneous Intracerebral Hemorrhage (resumo emDocs)",
+      "publisher": "AHA/ASA (resumo emDocs)",
+      "year": 2022,
+      "url": "https://emdocs.net/intracerebral-hemorrhage-2022-guideline-update/"
+    },
+    {
+      "claim": "Texto primário da diretriz AHA/ASA de HIC",
+      "title": "2022 Guideline for the Management of Patients With Spontaneous Intracerebral Hemorrhage",
+      "publisher": "AHA/ASA — Stroke",
+      "year": 2022,
+      "url": "https://www.ahajournals.org/doi/10.1161/STR.0000000000000407"
+    },
+    {
+      "claim": "CCP preferível a plasma; dose fixa de 30 UI/kg; vitamina K 10 mg IV; reversão com a urgência da trombólise; idarucizumabe para dabigatrana",
+      "title": "European Stroke Organisation guideline on reversal of oral anticoagulants in acute intracerebral haemorrhage",
+      "publisher": "ESO — European Stroke Journal",
+      "year": 2019,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6921939"
+    },
+    {
+      "claim": "PAS ≤ 140 em 1 h sem queda maior que 60 mmHg na primeira hora (revisão após análise conjunta de INTERACT2/ATACH-2)",
+      "title": "Stroke and TIA in over 16s — NG128 update 1 (draft guideline)",
+      "publisher": "NICE",
+      "year": 2022,
+      "url": "https://nice.org.uk/guidance/ng128/update/ng128-update-1/documents/draft-guideline"
+    }
+  ],
+  "provenance": {
+    "notes": "Auditoria 11/10/2026: meta pressórica trocada (o limite de 70 mmHg não tinha fonte) por PAS ~140 evitando < 130 e quedas bruscas; reversão aceita CCP em dose fixa ou por INR rápido; pedidos de hidrocefalia, peso e plaquetas; exceção da profilaxia de TEV após 24-48 h; checagem de antitrombótico sem negação genérica."
+  },
+  "probes": {
+    "mustFlag": [
+      "Enoxaparina 1 mg/kg SC 12/12 h pela FA; não há hidrocefalia",
+      "Manter varfarina e controlar PA com nitroprussiato",
+      "AAS 100 mg/dia; suspender se o hematoma crescer",
+      "Alteplase 0,9 mg/kg IV"
+    ],
+    "mustNotFlag": [
+      "Suspender a varfarina e reverter com CCP 4 fatores e vitamina K 10 mg IV",
+      "Não iniciar heparina, AAS ou outro antitrombótico",
+      "Profilaxia de TEV com enoxaparina após 24-48 h, se hematoma estável na TC de controle",
+      "Trombólise contraindicada: hemorragia intraparenquimatosa"
+    ]
   }
 }

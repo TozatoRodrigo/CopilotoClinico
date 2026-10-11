@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2020-est-3",
+  "title": "Lactente de 8 meses com tosse há 20 dias que piorou e dificuldade para respirar",
+  "tags": [
+    "infeccao-respiratoria",
+    "revalida",
+    "pep",
+    "pediatria",
+    "coqueluche"
+  ],
+  "critical": true,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "PS. Lactente, 8 meses, masc. Há 20 dias febre e tosse; febre melhorou após 2 dias, mas a tosse piorou. Ontem levado à USF: médica solicitou exame de sangue e RX de tórax e pediu retorno hoje com os exames. Mãe trouxe ao PS porque a criança está com dificuldade para respirar por causa da tosse."
+  },
+  "expected": {
+    "syndrome": "coqueluche em lactente (tosse paroxística prolongada com leucocitose e linfocitose)",
+    "cannotMiss": [
+      "coqueluche"
+    ],
+    "mustRequest": [
+      "características da tosse (duração > 20 dias, acessos de 5 a 10 tossidas rápidas numa única expiração, 30 a 40 episódios/dia)",
+      "guincho inspiratório após o acesso de tosse",
+      "resultado do hemograma (leucocitose com linfocitose)",
+      "interpretação da radiografia de tórax ('coração borrado/felpudo' por infiltrados)",
+      "comunicantes/contatos íntimos (moradores ou frequentadores do domicílio)"
+    ],
+    "requiredActions": [
+      "internação",
+      "antibioticoterapia",
+      "notificação do caso de coqueluche",
+      "quimioprofilaxia dos comunicantes com azitromicina ou claritromicina"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "Gabarito oficial do INEP (Revalida 2020, Estação 3): o PEP pontua a caracterização da tosse paroxística e do guincho, a leitura de hemograma e RX, o diagnóstico de coqueluche e o plano com internação, antibiótico, notificação e quimioprofilaxia de contactantes.",
+    "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "Anamnese: características da tosse paroxística — duração > 20 dias, tossidas rápidas e curtas (5 a 10) em uma única expiração, 30 a 40 episódios/dia (1.2, 2,0 pontos); guincho inspiratório após o acesso de tosse (1.3, 1,0 ponto).",
+      "title": "Revalida 2020 – Habilidades Clínicas – PEP, Estação 3, itens 1.2–1.3",
+      "publisher": "INEP",
+      "year": 2020,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2020/padrao_esperado_procedimentos_habilidades_clinicas.pdf"
+    },
+    {
+      "claim": "Exames: hemograma com leucocitose com linfocitose (2.1); radiografia de tórax com 'coração borrado/felpudo/franjado' por infiltrados (2.2); diagnóstico de coqueluche explicado à mãe (3.1, 1,0 ponto).",
+      "title": "Revalida 2020 – Habilidades Clínicas – PEP, Estação 3, itens 2.1–3.1",
+      "publisher": "INEP",
+      "year": 2020,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2020/padrao_esperado_procedimentos_habilidades_clinicas.pdf"
+    },
+    {
+      "claim": "Plano: necessidade de internação (3.2); uso de antibiótico (3.3); notificação do caso de coqueluche (3.4); investigar comunicantes/contatos íntimos e indicar quimioprofilaxia com azitromicina ou claritromicina (3.5).",
+      "title": "Revalida 2020 – Habilidades Clínicas – PEP, Estação 3, itens 3.2–3.5",
+      "publisher": "INEP",
+      "year": 2020,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2020/padrao_esperado_procedimentos_habilidades_clinicas.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2020",
+    "item": "Estação 3",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2020/padrao_esperado_procedimentos_habilidades_clinicas.pdf",
+    "originalCaseText": "ESTAÇÃO 3 – Área: Pediatria. INSTRUÇÕES PARA O(A) PARTICIPANTE. CENÁRIO DE ATUAÇÃO: Você está em um pronto-socorro e realiza o atendimento de uma criança com 8 meses de idade. A mãe refere que, há 20 dias, seu filho iniciou quadro de febre e tosse. A febre melhorou depois de 2 dias, mas a tosse piorou. Ontem, ela levou o filho à Unidade de Saúde da Família perto de sua casa. A médica solicitou exame de sangue e radiografia de tórax e pediu que retornassem hoje para reavaliar a criança, junto com os exames. Mas a mãe decidiu levar a criança ao pronto-socorro, pois seu filho apresenta dificuldade para respirar por causa da tosse. Nos próximos 10 minutos, deverão ser realizadas as tarefas a seguir: realizar anamnese dirigida para a queixa relatada pela mãe; interpretar e verbalizar para o(a) chefe de estação os resultados dos exames complementares; explicar para a mãe o diagnóstico; orientar a mãe sobre o plano de cuidados.",
+    "notes": "Dados sob demanda: características da tosse informadas se perguntadas (paroxística, > 20 dias, 5 a 10 tossidas rápidas e curtas numa única expiração, 30 a 40 episódios/dia) e guincho inspiratório após o acesso (PEP 1.2–1.3). Impresso 1 — BEG, corado, hidratado, acianótico; FC 110, FR 35, SatO2 98% em AA; peso 8,5 kg; ACV normal; AR sem esforço, MV fisiológico sem ruídos adventícios; abdome normal. Impresso 2 — Hb 12, Ht 38%, leucócitos 40.000/mm³, linfócitos 80%. Impresso 3 — radiografia de tórax (imagem); o PEP descreve 'coração borrado/felpudo/franjado' por infiltrados pulmonares. O PEP de 2020 não publica a síntese do ator."
+  }
+}

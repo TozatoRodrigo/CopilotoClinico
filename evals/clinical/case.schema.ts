@@ -12,6 +12,8 @@ import { PS_SYNDROMES } from '../../src/shared/contracts/clinical';
  * Evolução sem quebra: campos novos entram como opcionais. O próximo previsto
  * é `input.followUps` (respostas roteirizadas às perguntas esclarecedoras,
  * para avaliar mais de um turno); os casos atuais continuam válidos sem ele.
+ * Gabarito v1 acrescentou, todos opcionais: `sources`, `provenance`, `probes`
+ * e `excludeFromGate`.
  */
 
 export const CASE_SCHEMA_VERSION = 1;
@@ -51,6 +53,12 @@ export const GOLD_SOURCES = [
   'physician',
   /** Rascunho escrito por IA, aguardando revisão médica. */
   'ai_draft',
+  /** Questão discursiva do Revalida (Inep), com o padrão de resposta oficial. */
+  'revalida_discursiva',
+  /** Estação de habilidades clínicas do Revalida (PEP), com o checklist oficial. */
+  'revalida_pep',
+  /** Expectativas ancoradas em diretriz citada em `sources`, sem caso real de origem. */
+  'guideline_anchored',
 ] as const;
 
 export const ExpectedPathSchema = z.enum([
@@ -78,16 +86,28 @@ const ReviewerSchema = z
   })
   .strict();
 
+export const REVIEW_STATUSES = [
+  /** Ainda não revisado por médico. */
+  'draft',
+  /** Revisado por médico da equipe — exige `reviewer` e `date`. */
+  'physician_reviewed',
+  /**
+   * Expectativas tiradas do gabarito oficial de uma prova (ex.: Revalida) —
+   * nem médico da equipe nem IA. A prova vai em `provenance`.
+   */
+  'official_exam_key',
+] as const;
+
 const ReviewSchema = z
   .object({
-    status: z.enum(['draft', 'physician_reviewed']),
+    status: z.enum(REVIEW_STATUSES),
     reviewer: ReviewerSchema.optional(),
     date: z.string().regex(ISO_DATE, 'data no formato AAAA-MM-DD').optional(),
     /** Observações do revisor — por que mudou, o que ficou em dúvida. */
     notes: z.string().trim().min(1).optional(),
   })
   .strict()
-  .refine((review) => review.status === 'draft' || (review.reviewer && review.date), {
+  .refine((review) => review.status !== 'physician_reviewed' || (review.reviewer && review.date), {
     message: 'caso revisado precisa de reviewer (nome e CRM) e date',
   });
 
@@ -130,10 +150,13 @@ const RegexSourceSchema = z
 
 /**
  * Conduta que NÃO pode sair como recomendação definitiva neste caso — se sair,
- * é erro crítico. `patterns` (regex, sem acento e sem caixa) é a checagem
- * determinística; lista vazia deixa a checagem só para o juiz. `exceptWhen`
- * anula a ocorrência quando o mesmo texto deixa claro que a conduta está
- * condicionada ou negada (ex.: "trombólise só APÓS a TC excluir sangramento").
+ * é erro crítico. `patterns` (regex sobre palavras inteiras, sem acento e sem
+ * caixa; no JSON, radical se escreve `"trombol\\w*"`) é a checagem determinística; lista
+ * vazia deixa a checagem só para o juiz. `exceptWhen` anula a ocorrência só
+ * quando começa PERTO do termo, na mesma oração (ex.: "trombólise somente após
+ * TC sem sangramento"). A negação que governa o termo ("não fazer trombólise",
+ * "AAS contraindicado") já é reconhecida sem `exceptWhen`. Regra completa em
+ * `graders/forbidden-actions.ts`.
  */
 const ForbiddenActionSchema = z
   .object({
@@ -147,6 +170,62 @@ const ForbiddenActionSchema = z
 export type ForbiddenAction = z.infer<typeof ForbiddenActionSchema>;
 
 const nonEmptyText = z.string().trim().min(3);
+
+/** Fonte que sustenta uma expectativa do caso (diretriz, protocolo do MS, gabarito oficial). */
+const SourceSchema = z
+  .object({
+    /** O que a fonte sustenta no gabarito. */
+    claim: nonEmptyText,
+    title: nonEmptyText,
+    publisher: nonEmptyText,
+    year: z.number().int().min(1900).max(2100).nullable(),
+    url: z.string().trim().url(),
+  })
+  .strict();
+
+/** De onde o caso veio e o que mudou nele. */
+const ProvenanceSchema = z
+  .object({
+    /** Prova de origem (ex.: "Revalida"). */
+    exam: nonEmptyText.optional(),
+    /** Edição da prova (ex.: "2024/2"). */
+    edition: nonEmptyText.optional(),
+    /** Questão ou estação (ex.: "discursiva 3"). */
+    item: nonEmptyText.optional(),
+    url: z.string().trim().url().optional(),
+    /** Texto do caso antes de reescrito — preservado para rastrear a mudança. */
+    originalCaseText: nonEmptyText.optional(),
+    /** O que mudou no caso e por quê. */
+    notes: nonEmptyText.optional(),
+  })
+  .strict();
+
+/**
+ * Caso que roda e recebe nota, mas fica fora do portão de release: o erro
+ * crítico dele aparece no relatório sem reprovar a mudança. Para gabarito
+ * oficial desatualizado ou discutível — nunca para esconder erro do modelo.
+ */
+const GateExclusionSchema = z
+  .object({
+    /** Uma linha: por que este caso não decide o portão. */
+    reason: z.string().trim().min(10),
+  })
+  .strict();
+
+const probeSentence = z.string().trim().min(5);
+
+/**
+ * Frases de recomendação que a checagem automática de conduta proibida DEVE
+ * acusar (`mustFlag`) e NÃO PODE acusar (`mustNotFlag`) neste caso. Um teste
+ * roda todas: é assim que um `patterns`/`exceptWhen` errado aparece antes de
+ * uma execução real.
+ */
+const ProbesSchema = z
+  .object({
+    mustFlag: z.array(probeSentence).min(1),
+    mustNotFlag: z.array(probeSentence).min(1),
+  })
+  .strict();
 
 const CaseExpectationsSchema = z
   .object({
@@ -178,6 +257,11 @@ export const ClinicalCaseSchema = z
     review: ReviewSchema,
     input: CaseInputSchema,
     expected: CaseExpectationsSchema,
+    /** O que sustenta as expectativas. */
+    sources: z.array(SourceSchema).optional(),
+    provenance: ProvenanceSchema.optional(),
+    probes: ProbesSchema.optional(),
+    excludeFromGate: GateExclusionSchema.optional(),
   })
   .strict()
   .refine((clinicalCase) => !clinicalCase.critical || clinicalCase.expected.cannotMiss.length > 0, {
@@ -191,6 +275,20 @@ export const ClinicalCaseSchema = z
     {
       message: 'ids repetidos em expected.forbiddenDefinitiveActions',
       path: ['expected', 'forbiddenDefinitiveActions'],
+    },
+  )
+  .refine(
+    (clinicalCase) =>
+      clinicalCase.review.status !== 'official_exam_key' ||
+      Boolean(
+        clinicalCase.provenance?.exam &&
+        clinicalCase.provenance.url &&
+        clinicalCase.provenance.originalCaseText,
+      ),
+    {
+      message:
+        'gabarito oficial de prova precisa de provenance.exam, provenance.url e provenance.originalCaseText',
+      path: ['provenance'],
     },
   );
 

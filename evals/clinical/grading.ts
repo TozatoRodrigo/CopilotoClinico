@@ -90,6 +90,15 @@ export async function judgeOutput(
   }
 }
 
+/**
+ * Caso que decide o portão de release: crítico e sem `excludeFromGate`. O caso
+ * excluído continua rodando e recebendo nota (inclusive erro crítico); só não
+ * reprova a mudança.
+ */
+export function isGateCase(clinicalCase: ClinicalCase | undefined): boolean {
+  return Boolean(clinicalCase?.critical && !clinicalCase.excludeFromGate);
+}
+
 export function assessCriticalError(
   clinicalCase: ClinicalCase,
   deterministic: DeterministicGrade,

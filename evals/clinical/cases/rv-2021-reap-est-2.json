@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2021-reap-est-2",
+  "title": "Homem de 30 anos com cólica lombar intensa há 24 h, febre, náuseas e hematúria macroscópica",
+  "tags": [
+    "dor-lombar-flanco",
+    "revalida",
+    "pep",
+    "urologia",
+    "litiase-urinaria"
+  ],
+  "critical": true,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "PS de hospital universitário (RX, US, TC, laboratório, leitos, centro cirúrgico, banco de sangue); interconsulta. Masc, 30a. Dor lombar intensa tipo cólica há 24 h, febre 38,3 °C, náuseas e hematúria macroscópica. Já medicado com analgésicos EV pela clínica médica; já realizou alguns exames laboratoriais e de imagem."
+  },
+  "expected": {
+    "syndrome": "uropatia obstrutiva por litíase (cálculo na junção ureteropélvica direita) com infecção urinária",
+    "cannotMiss": [
+      "uropatia obstrutiva por litíase urinária com infecção urinária",
+      "sepse de origem urinária (risco)"
+    ],
+    "mustRequest": [
+      "características da dor (início, localização, progressão, fatores de melhora/piora)",
+      "sintomas associados (náuseas/vômitos, ritmo intestinal, febre, sintomas urinários)",
+      "antecedentes cirúrgicos e comorbidades",
+      "exame físico",
+      "resultados de hemograma (leucocitose) e função renal (alterada)",
+      "TC de abdome sem contraste"
+    ],
+    "requiredActions": [
+      "antibioticoterapia endovenosa",
+      "desobstrução da via urinária direita (cateter duplo J ou nefrostomia)",
+      "internação hospitalar imediata",
+      "orientar a gravidade: risco de sepse de origem urinária e óbito"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "Gabarito oficial do INEP (Revalida 2021 reaplicação, Estações 2 e 7): o PEP pontua anamnese, exame, TC sem contraste e o diagnóstico de uropatia obstrutiva por litíase com infecção urinária, com antibiótico EV, desobstrução (duplo J/nefrostomia) e internação imediata pelo risco de sepse urinária.",
+    "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "Anamnese e exame: características da dor — início, localização, progressão, fatores de melhora/piora (2); sintomas associados — náuseas/vômitos, ritmo intestinal, febre, sintomas urinários (3); antecedentes cirúrgicos e comorbidades (4); solicita exame físico (5).",
+      "title": "Revalida 2021 (reaplicação) – Habilidades Clínicas – PEP, Estações 2 e 7, itens 2–5",
+      "publisher": "INEP",
+      "year": 2021,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2021_PEP_reaplicacao.pdf"
+    },
+    {
+      "claim": "Investigação: TC de abdome sem contraste — inadequado se não solicita ou solicita exame incorreto (6); leucocitose e função renal alterada (7); hipótese de uropatia obstrutiva/litíase urinária com infecção urinária (8, 2,0 pontos).",
+      "title": "Revalida 2021 (reaplicação) – Habilidades Clínicas – PEP, Estações 2 e 7, itens 6–8",
+      "publisher": "INEP",
+      "year": 2021,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2021_PEP_reaplicacao.pdf"
+    },
+    {
+      "claim": "Conduta: antibioticoterapia endovenosa (9); tratamento cirúrgico para desobstrução renal direita — cateter duplo J/nefrostomia (10); internação hospitalar imediata (12); gravidade do quadro com risco de sepse de origem urinária e óbito (13).",
+      "title": "Revalida 2021 (reaplicação) – Habilidades Clínicas – PEP, Estações 2 e 7, itens 9–13",
+      "publisher": "INEP",
+      "year": 2021,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2021_PEP_reaplicacao.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2021 (reaplicação)",
+    "item": "Estação 2 e 7",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2021_PEP_reaplicacao.pdf",
+    "originalCaseText": "ESTAÇÕES 2 e 7 – Área: Cirurgia Geral. INSTRUÇÕES PARA O(A) PARTICIPANTE. CENÁRIO DE ATUAÇÃO: Você está de plantão no Pronto-Socorro (PS) de um hospital universitário. Foi solicitada uma interconsulta referente a um paciente com 30 anos de idade, que chegou ao PS com dor lombar intensa, do tipo cólica, há 24 horas, associada a febre de 38,3 °C, náuseas e hematúria macroscópica. No momento de seu atendimento, o paciente já havia sido medicado com analgésicos endovenosos pela equipe da clínica médica e realizado alguns exames laboratoriais e de imagem. Nos próximos 10 minutos, deverão ser realizadas as seguintes tarefas: realizar o atendimento do paciente; interpretar os exames do paciente e ampliar propedêutica, se necessário; orientar o paciente sobre a conduta terapêutica. OBSERVAÇÃO: O hospital possui a seguinte estrutura: setor de radiologia convencional, ultrassonografia e tomografia computadorizada; laboratório de análises clínicas; leitos de internação; centro cirúrgico; e banco de sangue.",
+    "notes": "Dados sob demanda: Impresso 1 — REG, desidratado +/4+, normocorado, acianótico, febril, T 37,9 °C, PA 110x70, FC 96, FR 20; abdome plano, normotenso, dor à palpação profunda em flanco direito, sem descompressão brusca dolorosa, punhopercussão dolorosa à direita, RHA normoativos; AR e ACV normais. Impresso 2 — ureia 58, creatinina 1,65, K 4,9; leucócitos 16.000, bastões 2%; US de vias urinárias: hidronefrose à direita sem fator obstrutivo identificável. Impresso 3 — TC de abdome sem contraste: hidronefrose moderada à direita com cálculo de 0,5 cm na junção ureteropélvica. A síntese do ator não é publicada no PEP."
+  }
+}

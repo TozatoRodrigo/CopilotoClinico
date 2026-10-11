@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2023-1-est-7",
+  "title": "Dor testicular aguda à direita em homem de 21 anos na UPA",
+  "tags": [
+    "dor-abdominal",
+    "revalida",
+    "pep",
+    "escroto-agudo",
+    "urologia"
+  ],
+  "critical": true,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "UPA (RX, US e laboratório disponíveis). Masc, 21a, estudante. Dor testicular à direita."
+  },
+  "expected": {
+    "syndrome": "escroto agudo por torção testicular (torção do cordão espermático) à direita",
+    "cannotMiss": [
+      "torção testicular (torção do cordão espermático)",
+      "orquite / orquiepididimite / epididimite aguda",
+      "torção do apêndice testicular ou epididimário"
+    ],
+    "mustRequest": [
+      "características da dor (tempo de início, intensidade, fatores de alívio ou de piora)",
+      "manifestações associadas para o diferencial (náuseas/vômitos, sintomas urinários, dor lombar/abdominal/inguinal, febre, secreção uretral)",
+      "exame físico da bolsa escrotal (testículo direito elevado — sinal de Brunzel — ou horizontalizado — sinal de Angell —, aumento de volume, hiperemia da hemibolsa direita)",
+      "ultrassonografia com Doppler (colorido) de bolsa escrotal"
+    ],
+    "requiredActions": [
+      "cirurgia de emergência para a torção testicular: imediata ou antes de 6 horas do início da dor"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "Gabarito oficial do INEP (Revalida 2023/1, Estação 7): o PEP pontua anamnese e exame da bolsa escrotal, o diferencial de escroto agudo, a USG com Doppler de bolsa escrotal, o diagnóstico de torção testicular e a indicação de cirurgia de emergência em até 6 horas do início da dor.",
+    "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "Itens 2–4 (4,0 pontos): pergunta tempo de início, intensidade e fatores de alívio/piora da dor; náuseas/vômitos, sintomas urinários, dor lombar/abdominal/inguinal, febre e secreção uretral; solicita exame físico e descreve testículo direito elevado (sinal de Brunzel) ou horizontalizado (sinal de Angell), aumentado de volume e hiperemia da hemibolsa escrotal direita.",
+      "title": "Revalida 2023/1 – Habilidades Clínicas – PEP, Estação 7, itens 2–4",
+      "publisher": "INEP",
+      "year": 2023,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2023_1_PEP_publicacao.pdf"
+    },
+    {
+      "claim": "Item 5 (1,8 ponto): verbaliza as hipóteses de escroto agudo — torção testicular/torção do cordão espermático; orquite/orquiepididimite/epididimite aguda; torção do apêndice testicular/epididimário.",
+      "title": "Revalida 2023/1 – Habilidades Clínicas – PEP, Estação 7, item 5",
+      "publisher": "INEP",
+      "year": 2023,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2023_1_PEP_publicacao.pdf"
+    },
+    {
+      "claim": "Itens 6–7 (2,3 pontos): solicita ultrassonografia com Doppler (colorido) de bolsa escrotal e verbaliza o diagnóstico de torção testicular/torção do cordão espermático.",
+      "title": "Revalida 2023/1 – Habilidades Clínicas – PEP, Estação 7, itens 6–7",
+      "publisher": "INEP",
+      "year": 2023,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2023_1_PEP_publicacao.pdf"
+    },
+    {
+      "claim": "Item 8 (1,5 ponto): indica cirurgia de emergência, a ser realizada antes de seis horas do início da dor, ou cirurgia imediata; inadequado indicar a cirurgia sem destacar a emergência ou indicar qualquer outro tipo de tratamento.",
+      "title": "Revalida 2023/1 – Habilidades Clínicas – PEP, Estação 7, item 8",
+      "publisher": "INEP",
+      "year": 2023,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2023_1_PEP_publicacao.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2023/1",
+    "item": "Estação 7",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2023_1_PEP_publicacao.pdf",
+    "originalCaseText": "CENÁRIO DE ATUAÇÃO Local de atuação: Atenção Secundária: Unidade de Pronto Atendimento A unidade possui a seguinte infraestrutura: aparelho de Raio-x; ultrassonografia; laboratório de análises clínicas. DESCRIÇÃO DO CASO Homem, 21 anos, estudante, procura atendimento na unidade queixando-se de dor testicular à direita. ATENÇÃO! CASO JULGUE NECESSÁRIO REALIZAR EXAME FÍSICO, VERBALIZE! O PACIENTE SIMULADO NÃO DEVERÁ SER TOCADO DURANTE O ATENDIMENTO. Nos 10 minutos de duração da estação, você deverá executar as tarefas a seguir: 1. realizar anamnese do paciente; 2. solicitar e interpretar exame físico; 3. estabelecer e comunicar as principais hipóteses diagnósticas (NO MÍNIMO TRÊS); 4. solicitar exame(s) complementar(es), se necessário, descrevendo os achados; 5. estabelecer e comunicar o diagnóstico definitivo; 6. propor a terapêutica definitiva para o caso. ATENÇÃO! VOCÊ DEVERÁ, REALIZAR AS TAREFAS NA SEQUÊNCIA DESCRITA ACIMA.",
+    "notes": "O exame da bolsa escrotal é liberado como imagem; os achados usados vêm do texto do PEP (item 4). O PEP considera inadequado 'indicar qualquer outro tipo de tratamento' além da cirurgia de emergência; não foi convertido em proibição por ser genérico. A síntese é contraditória quanto ao tabagismo (diz que não fuma e, depois, que fuma 10 cigarros por dia há 10 anos). | Dados sob demanda: acordou há 2 h com dor forte (8/10) no escroto à direita, irradiando um pouco para cima, piora ao andar, sem analgésico; testículo direito inchado; náusea; sem secreção uretral, sintomas urinários, febre ou dor lombar; sem relações sexuais há 1 mês; sem caxumba, alergias, cirurgias ou medicações; pergunta qual o prazo para operar, pois queria operar na cidade da mãe, a 8 h de distância. EF: FC 76, PA 130x80, FR 14, Tax 36,2 °C, SatO2 99% AA, BEG; aparelhos sem alterações; bolsa escrotal em imagem (PEP: testículo direito elevado — sinal de Brunzel — ou horizontalizado — sinal de Angell —, aumentado de volume, hiperemia da hemibolsa direita). USG com Doppler colorido de bolsa escrotal: testículo direito aumentado, sem fluxo sanguíneo ao Doppler, espessamento do cordão espermático direito; testículo esquerdo normal."
+  }
+}

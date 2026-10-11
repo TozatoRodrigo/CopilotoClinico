@@ -18,23 +18,58 @@
   "expected": {
     "syndrome": "delirium hiperativo por causa orgânica (hipoxemia) com risco de violência",
     "cannotMiss": [
-      "causa orgânica do delirium (hipoxemia e sua origem)"
+      "causa orgânica do delirium (hipoxemia e sua origem)",
+      "abstinência alcoólica (delirium tremens) ou intoxicação"
     ],
     "mustRequest": [
       "glicemia capilar",
-      "sinais vitais completos incluindo temperatura"
+      "sinais vitais completos incluindo temperatura",
+      "uso de álcool/substâncias e sinais de abstinência",
+      "gasometria (PaCO2: hipercapnia associada?)"
     ],
     "requiredActions": [
       "oxigênio e investigação da causa da hipoxemia",
-      "segurança: de-escalonamento e, se necessário, sedação com monitorização"
+      "segurança: desescalada verbal e, se necessária, sedação com monitorização contínua de SpO2"
     ],
     "forbiddenDefinitiveActions": [
       {
         "id": "sedar-como-psiquiatrico",
         "description": "Sedar e conduzir como quadro psiquiátrico sem tratar/investigar a hipoxemia",
         "patterns": []
+      },
+      {
+        "id": "benzodiazepinico-sem-abstinencia",
+        "description": "Benzodiazepínico como primeira escolha para sedar sem suspeita de abstinência de álcool/benzodiazepínico (piora o delirium e deprime a respiração do paciente hipoxêmico)",
+        "patterns": []
       }
     ],
+    "rationale": "ABP 2019 (parte 2): no delirium, tratar a causa (hipoxemia) e, se precisar sedar, antipsicótico é preferível; benzodiazepínico só na abstinência de álcool/benzodiazepínico. A ACEP 2023 aceita midazolam na agitação grave indiferenciada (fora de idosos), por isso o gabarito não exige fármaco e a proibição do benzodiazepínico fica só com o juiz. Gasometria porque o hipoxêmico agitado pode estar hipercápnico.",
     "expectedPath": "recommend"
+  },
+  "sources": [
+    {
+      "claim": "No delirium, tratar a causa (hipóxia, hipoglicemia) antes; antipsicóticos preferidos; benzodiazepínicos devem ser evitados porque podem piorar o delirium, exceto em abstinência; monitorização antes e depois da medicação.",
+      "title": "Brazilian guidelines for the management of psychomotor agitation – Part 2. Pharmacological approach",
+      "publisher": "Associação Brasileira de Psiquiatria / Braz J Psychiatry",
+      "year": 2019,
+      "url": "https://www.scielo.br/j/rbp/a/gPdMyS9d6hrLnmympCmSXFS/?lang=en"
+    },
+    {
+      "claim": "Agitação indiferenciada presumida orgânica; desescalada verbal como primeira intervenção; contenção física só como último recurso.",
+      "title": "Brazilian guidelines for the management of psychomotor agitation – Part 1. Non-pharmacological approach",
+      "publisher": "Associação Brasileira de Psiquiatria / Braz J Psychiatry",
+      "year": 2019,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6781680/"
+    },
+    {
+      "claim": "ACEP 2023: desescalada verbal primeiro; recomendações de fármaco para agitação grave indiferenciada não se aplicam a idosos, gestantes e crianças.",
+      "title": "Clinical Policy: Severe Agitation in Adult Out-of-Hospital or ED Patients",
+      "publisher": "ACEP / Ann Emerg Med",
+      "year": 2023,
+      "url": "https://www.acep.org/siteassets/new-pdfs/clinical-policies/severe-agitation-cp.pdf"
+    }
+  ],
+  "provenance": {
+    "notes": "Auditoria 11/10/2026: pedidos de álcool/substâncias e gasometria; abstinência/intoxicação como hipótese obrigatória; sedação com monitorização de SpO2 sem fármaco obrigatório e benzodiazepínico sem abstinência proibido (só juiz, pela divergência ABP x ACEP)."
   }
 }

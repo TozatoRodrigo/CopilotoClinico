@@ -12,7 +12,7 @@
     "status": "draft"
   },
   "input": {
-    "caseText": "Cefaleia forte sem informação sobre início súbito, febre ou déficit focal."
+    "caseText": "F 44a, cefaleia forte desde a manhã, chegou pedindo analgésico."
   },
   "expected": {
     "syndrome": "cefaleia aguda a esclarecer (excluir causa secundária)",
@@ -25,9 +25,31 @@
       "febre ou rigidez de nuca",
       "déficit neurológico focal"
     ],
-    "requiredActions": [],
+    "requiredActions": [
+      "TC de crânio sem contraste imediata se a dor foi súbita, houver febre/rigidez de nuca ou déficit focal"
+    ],
     "forbiddenDefinitiveActions": [],
-    "rationale": "É o caso da apresentação (CC-06): sem os três dados, a resposta certa é perguntar por eles, nomeando HSA e meningite como o que se quer excluir.",
+    "rationale": "É o caso da apresentação (CC-06): sem os três dados, a resposta certa é perguntar por eles, nomeando HSA e meningite como o que se quer excluir, com a TC imediata condicionada a qualquer um deles (ACEP 2019; regra de Ottawa). Desejáveis, mas não exigidos: primeira/pior cefaleia ou mudança do padrão; anticoagulante, imunossupressão, gestação/puerpério.",
     "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "ACEP 2019: regra de Ottawa para pacientes com exame neurológico normal e pico em 1 h; TC normal em até 6 h com exame normal exclui HSA; não usar sinal isolado para excluir HSA.",
+      "title": "Clinical Policy: Critical Issues in the Evaluation and Management of Adult Patients Presenting to the ED With Acute Headache",
+      "publisher": "ACEP / Ann Emerg Med",
+      "year": 2019,
+      "url": "https://pubmed.ncbi.nlm.nih.gov/31543134/"
+    },
+    {
+      "claim": "Regra de Ottawa para HSA: idade ≥40, dor/rigidez cervical, perda de consciência presenciada, início ao esforço, cefaleia em trovoada, limitação da flexão cervical.",
+      "title": "Ottawa SAH Rule (Perry et al., JAMA 2013)",
+      "publisher": "QxMD (calculadora baseada em Perry 2013)",
+      "year": 2013,
+      "url": "https://qxmd.com/calculate/calculator_296/ottawa-sah-rule"
+    }
+  ],
+  "provenance": {
+    "originalCaseText": "Cefaleia forte sem informação sobre início súbito, febre ou déficit focal.",
+    "notes": "Auditoria 11/10/2026: gabarito confirmado; texto reescrito sem listar o que falta; conduta de segurança (TC imediata se súbita, febre ou déficit) exigida por ser caso crítico. Padrão da dor e fatores de risco ficaram no rationale (opcionais)."
   }
 }

@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2021-disc-5",
+  "title": "Criança de 5 anos com febre, tosse, taquipneia, tiragem e MV abolido em base esquerda",
+  "tags": [
+    "infeccao-respiratoria",
+    "revalida",
+    "discursiva",
+    "pediatria",
+    "pneumonia"
+  ],
+  "critical": true,
+  "goldSource": "revalida_discursiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Pronto atendimento. Criança, 5a, previamente hígida. Febre até 38,7 °C, coriza e tosse persistente há 3 dias, pior à noite. MV abolido em base E, FR 46, estertores finos difusos e homogêneos, principalmente à E, tiragem intercostal e subcostal. SatO2 98%. Sem outras alterações ao exame."
+  },
+  "expected": {
+    "syndrome": "pneumonia adquirida na comunidade com sinais de gravidade (possível derrame pleural), provável pneumocócica",
+    "cannotMiss": [
+      "pneumonia adquirida na comunidade grave (com sinais de gravidade/derrame pleural)"
+    ],
+    "mustRequest": [
+      "hemograma",
+      "hemocultura",
+      "provas de atividade inflamatória (VHS ou PCR)",
+      "radiografia de tórax"
+    ],
+    "requiredActions": [
+      "internação hospitalar",
+      "antibioticoterapia com penicilina cristalina ou ampicilina"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "Gabarito oficial do INEP (Revalida 2021, Questão 5): pneumonia comunitária grave pneumocócica, com internação, hemograma, hemocultura, VHS/PCR, radiografia de tórax e penicilina cristalina ou ampicilina.",
+    "expectedPath": "recommend"
+  },
+  "sources": [
+    {
+      "claim": "Item a (3,0 pontos): pneumonia (1,0) comunitária/adquirida na comunidade, ou pneumonia grave/com sinais de gravidade ou com derrame pleural (1,0); Streptococcus pneumoniae/pneumococo (1,0).",
+      "title": "Revalida 2021 – Prova Discursiva – Padrão de Respostas, Questão 5, item a",
+      "publisher": "INEP",
+      "year": 2021,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2021_GB_discursiva.pdf"
+    },
+    {
+      "claim": "Item c (6,0 pontos): internação hospitalar (1,0); coleta de exames (0,5); hemograma (1,0); hemocultura (1,0); provas de atividade inflamatória — VHS ou PCR (0,5); radiografia de tórax (1,0); antibioticoterapia com penicilina cristalina ou ampicilina (1,0).",
+      "title": "Revalida 2021 – Prova Discursiva – Padrão de Respostas, Questão 5, item c",
+      "publisher": "INEP",
+      "year": 2021,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2021_GB_discursiva.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2021",
+    "item": "Discursiva caso 5",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2021_GB_discursiva.pdf",
+    "originalCaseText": "Um paciente de 5 anos, previamente hígido, é levado ao pronto atendimento devido à febre de até 38,7 °C, coriza e tosse persistente há 3 dias, principalmente à noite. Ao exame físico, apresentava-se com murmúrio vesicular abolido na base esquerda, frequência respiratória = 46 irpm, estertores finos, difusos e homogêneos, principalmente à esquerda e tiragem intercostal e subcostal. Saturimetria = 98%. Sem outras alterações ao exame físico. Considerando o caso acima, responda às questões a seguir. Elabore a hipótese diagnóstica mais provável, citando o agente etiológico mais comum. (valor: 3 pontos) Estabeleça o dado do exame físico que apresenta a melhor sensibilidade, especificidade e os melhores valores preditivos positivo e negativo para permitir esse diagnóstico. (valor: 1 ponto) Proponha a conduta adequada frente à situação apresentada. (valor: 6 pontos)",
+    "notes": "Item b (dado do exame físico de melhor acurácia) foi ANULADO no padrão de respostas e não gerou expectativa. Na prova os comandos não têm letras; o padrão os identifica como a), b) e c). O item c inclui 'coleta de exames' (0,5) além dos exames listados."
+  }
+}

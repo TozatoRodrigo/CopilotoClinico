@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2021-disc-2",
+  "title": "Mulher de 21 anos relata violência sexual na noite anterior e não quer registrar queixa policial",
+  "tags": [
+    "pele-partes-moles",
+    "revalida",
+    "discursiva",
+    "violencia-sexual"
+  ],
+  "critical": false,
+  "goldSource": "revalida_discursiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Ambulatório. Fem, 21a, refere ter sido vítima de violência sexual na noite anterior. Abatida, chorosa, com dificuldade de se expressar; sem sinais evidentes de agressão física. Demorou a procurar atendimento porque não queria registrar queixa policial."
+  },
+  "expected": {
+    "syndrome": "atendimento a vítima de violência sexual ocorrida na noite anterior",
+    "cannotMiss": [],
+    "mustRequest": [
+      "história e exames clínico e ginecológico (explicando o exame e sua finalidade)",
+      "situação vacinal",
+      "exames complementares"
+    ],
+    "requiredActions": [
+      "acolhimento",
+      "estimular, sem obrigar, o registro do boletim de ocorrência e informar que o BO não é necessário para o atendimento",
+      "coleta de vestígios",
+      "contracepção de emergência",
+      "profilaxias para HIV, ISTs e hepatite B",
+      "notificação compulsória da violência à autoridade de saúde em 24 h",
+      "comunicação do fato à autoridade policial responsável",
+      "acompanhamento social e psicológico",
+      "seguimento ambulatorial",
+      "se recusar o exame: respeitar a autonomia e registrar a recusa no prontuário"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "bo-como-obrigatorio",
+        "description": "Tratar o boletim de ocorrência como obrigatório ou condição para o atendimento (gabarito: não usar termos que insinuem obrigatoriedade; BO não é necessário para o atendimento)",
+        "patterns": [
+          "(boletim\\s+de\\s+ocorrencia|bo)\\s+(e\\s+|sera\\s+)?(obrigatori\\w*|necessari\\w*\\s+para|exigid\\w*|condicao\\s+para)",
+          "(obrigatori\\w*|exigir|exige|condicionar)\\s+(\\S+\\s+){0,3}(o\\s+)?(boletim\\s+de\\s+ocorrencia|bo)"
+        ],
+        "exceptWhen": [
+          "opcional",
+          "facultativ\\w*",
+          "direito\\s+d[ao]"
+        ]
+      }
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2021, Questão 2): pontua estimular o BO sem obrigatoriedade, as etapas do atendimento (acolhimento, exame, vestígios, contracepção de emergência, profilaxias de HIV/IST/hepatite B, vacinação, notificação compulsória, comunicação policial, exames, apoio psicossocial e seguimento) e o respeito à recusa do exame com registro.",
+    "expectedPath": "recommend"
+  },
+  "sources": [
+    {
+      "claim": "Item a (2,0 pontos): estimular (sem termos que insinuem obrigatoriedade) o registro do boletim de ocorrência, que é opção da paciente (1,5); não há necessidade de apresentar BO para o atendimento (0,5).",
+      "title": "Revalida 2021 – Prova Discursiva – Padrão de Respostas, Questão 2, item a",
+      "publisher": "INEP",
+      "year": 2021,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2021_GB_discursiva.pdf"
+    },
+    {
+      "claim": "Item b (6,0 pontos): acolhimento; registro da história, exames clínico e ginecológico; coleta de vestígios; contracepção de emergência; profilaxias para HIV, ISTs e hepatite B (1,0); avaliação do status vacinal; notificação compulsória à autoridade de saúde em 24 h (ficha de notificação de violência); comunicação do fato à autoridade policial responsável; exames complementares; acompanhamento social e psicológico; seguimento ambulatorial (0,5 cada, salvo indicado).",
+      "title": "Revalida 2021 – Prova Discursiva – Padrão de Respostas, Questão 2, item b",
+      "publisher": "INEP",
+      "year": 2021,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2021_GB_discursiva.pdf"
+    },
+    {
+      "claim": "Item c (2,0 pontos): explicar e orientar sobre o exame físico e sua serventia (0,5); em caso de recusa, respeitar a autonomia (1,0); registrar a recusa no prontuário (0,5).",
+      "title": "Revalida 2021 – Prova Discursiva – Padrão de Respostas, Questão 2, item c",
+      "publisher": "INEP",
+      "year": 2021,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2021_GB_discursiva.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2021",
+    "item": "Discursiva caso 2",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2021_GB_discursiva.pdf",
+    "originalCaseText": "Uma mulher de 21 anos de idade chega ao ambulatório alegando ter sido vítima de violência sexual na noite anterior. Encontrava-se abatida, chorosa e com dificuldades de se expressar, mas sem sinais evidentes de agressão física. Disse ter demorado para procurar assistência médica porque não queria registrar queixa policial. Diante dessa situação, responda as questões a seguir. Como o médico deve orientar a paciente quanto ao registro da ocorrência? (valor: 2,0 pontos) Quais são as etapas do atendimento dessa mulher? (valor: 6,0 pontos) Caso a mulher se recuse a ser examinada, como o médico deve proceder? (valor: 2,0 pontos)",
+    "notes": "tags[0] = pele-partes-moles por falta de estrato para violência sexual (o exame busca lesões de agressão; nenhuma evidente). Atendimento ambulatorial, mas com condutas tempo-dependentes pontuadas (contracepção de emergência e profilaxias de HIV/IST/hepatite B). Na prova os comandos não têm letras; o padrão de respostas os identifica como a), b) e c). O gabarito pontua tanto estimular o BO (sem obrigatoriedade) quanto a 'comunicação do fato à autoridade policial responsável' entre as etapas. | Integração ao gabarito v1 (11/10/2026): padrões reescritos: o antigo \"BO ... necessário para\" casava a frase correta \"BO não é necessário para o atendimento\", que só passava pela exceção genérica \"não\"; exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas."
+  },
+  "probes": {
+    "mustFlag": [
+      "É obrigatório registrar o boletim de ocorrência antes do atendimento",
+      "Exigir o BO para iniciar as profilaxias",
+      "Boletim de ocorrência obrigatório para coleta de vestígios"
+    ],
+    "mustNotFlag": [
+      "BO não é necessário para o atendimento; registrá-lo é direito da paciente",
+      "Estimular o registro do boletim de ocorrência, que é opcional",
+      "Não é obrigatório registrar o BO"
+    ]
+  }
+}

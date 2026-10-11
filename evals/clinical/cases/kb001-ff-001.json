@@ -12,23 +12,59 @@
     "status": "draft"
   },
   "input": {
-    "caseText": "Febre sem foco sem informação sobre hipotensão, confusão ou imunossupressão."
+    "caseText": "H 34a, febre 39 °C e mialgia. Sem foco aparente ao exame."
   },
   "expected": {
     "syndrome": "febre sem foco no adulto — gravidade a estratificar",
     "cannotMiss": [
       "sepse",
-      "arbovirose (dengue) conforme epidemiologia"
+      "arbovirose (dengue) conforme epidemiologia",
+      "meningite bacteriana (cefaleia, sinais meníngeos, alteração do sensório)"
     ],
     "mustRequest": [
       "pressão arterial / perfusão",
       "estado mental",
       "imunossupressão ou neutropenia",
-      "tempo de evolução da febre"
+      "tempo de evolução da febre ou sintomas associados (cefaleia, rigidez de nuca, exantema, artralgia, sangramento)",
+      "procedência, viagem recente e exposição epidemiológica (área de transmissão de dengue; área de malária)"
     ],
     "requiredActions": [],
     "forbiddenDefinitiveActions": [],
-    "rationale": "No Brasil, febre aguda sem foco exige considerar dengue/arbovirose — é o modo de falha do incidente fi-001 (dengue conduzida como sepse).",
+    "rationale": "Estratificar a gravidade primeiro (perfusão, estado mental, imunossupressão; SSC 2021). No Brasil, febre aguda sem foco exige considerar dengue/arbovirose: o caso suspeito depende de residir ou ter viajado para área de transmissão (MS 2024), e a exposição amazônica pede teste de malária — por isso a procedência é pedida. Febre com alteração mental, cefaleia intensa ou vômitos é caso suspeito de meningite (NT 154/2024). Modo de falha do incidente fi-001 (dengue conduzida como sepse).",
     "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "Caso suspeito de dengue: febre de 2 a 7 dias com 2 ou mais manifestações, em quem reside em área de transmissão ou viajou para ela nos últimos 14 dias; em crianças, febre aguda sem foco aparente.",
+      "title": "Dengue: diagnóstico e manejo clínico – adulto e criança, 6ª ed.",
+      "publisher": "Ministério da Saúde (SVSA)",
+      "year": 2024,
+      "url": "https://goias.gov.br/saude/wp-content/uploads/sites/34/gabinete-arboviroses/diagnostico-manejo-clinico/manual-dengue-diagnostico.pdf"
+    },
+    {
+      "claim": "Caso suspeito de meningite: febre com 2 ou mais de cefaleia intensa, vômito, confusão/alteração mental, fotofobia, torpor ou convulsão.",
+      "title": "Nota Técnica Conjunta nº 154/2024-DPNI/SVSA/MS – definição de caso suspeito de meningite",
+      "publisher": "Ministério da Saúde",
+      "year": 2024,
+      "url": "https://capital.sp.gov.br/documents/d/saude/nota-tecnica-conjunta-n-154-2024-dpni-svsa-ms-pdf"
+    },
+    {
+      "claim": "Malária: diagnóstico por gota espessa ou teste rápido; guia nacional vigente (3ª ed.).",
+      "title": "Guia de tratamento da malária no Brasil, 3ª ed.",
+      "publisher": "Ministério da Saúde",
+      "year": 2026,
+      "url": "https://www.gov.br/saude/pt-br/centrais-de-conteudo/publicacoes/svsa/malaria/tratamento/guia-de-tratamento-da-malaria-no-brasil-3a-edicao"
+    },
+    {
+      "claim": "Na suspeita de sepse, avaliar rapidamente a probabilidade de infecção; antibiótico em até 1 h se há possível choque.",
+      "title": "Surviving Sepsis Campaign: International Guidelines for Management of Sepsis and Septic Shock 2021",
+      "publisher": "SCCM/ESICM",
+      "year": 2021,
+      "url": "https://sccm.org/sepsisguidelines"
+    }
+  ],
+  "provenance": {
+    "originalCaseText": "Febre sem foco sem informação sobre hipotensão, confusão ou imunossupressão.",
+    "notes": "Auditoria 11/10/2026: texto reescrito como nota de beira de leito (o original anunciava hipotensão, confusão e imunossupressão como ausentes). Acrescentados meningite bacteriana ao cannotMiss e procedência/exposição epidemiológica ao mustRequest; os sintomas associados entraram como alternativa (\"ou\") no item de tempo de evolução, porque a auditoria os chama de opcionais."
   }
 }

@@ -19,30 +19,65 @@
     "syndrome": "diarreia aguda invasiva com desidratação grave / choque hipovolêmico",
     "cannotMiss": [
       "choque hipovolêmico",
-      "sepse de foco intestinal"
+      "sepse de foco intestinal",
+      "diarreia por STEC (E. coli produtora de toxina Shiga) com risco de síndrome hemolítico-urêmica"
     ],
-    "mustRequest": [],
+    "mustRequest": [
+      "temperatura (febre)",
+      "viagem recente, antibiótico ou internação recentes, ou imunossupressão"
+    ],
     "requiredActions": [
       "hidratação venosa com cristaloide em bolus",
-      "eletrólitos e função renal"
+      "eletrólitos e função renal",
+      "hemoculturas e coprocultura (idealmente com pesquisa de STEC/toxina Shiga)"
     ],
     "forbiddenDefinitiveActions": [
       {
         "id": "antiperistaltico-em-diarreia-invasiva",
-        "description": "Antiperistáltico (loperamida) em diarreia com sangue",
+        "description": "Antiperistáltico (loperamida, difenoxilato) em diarreia com sangue — risco de megacólon tóxico e, na STEC, de síndrome hemolítico-urêmica",
         "patterns": [
           "loperamida",
           "imosec",
-          "antiperistalt"
-        ],
-        "exceptWhen": [
-          "\\bnao\\b",
-          "evitar",
-          "contraindic",
-          "sem indicacao"
+          "difenoxilato",
+          "antiperistalt\\w*"
         ]
       }
     ],
+    "rationale": "IDSA 2017: cristaloide isotônico IV na desidratação grave ou choque; hemoculturas na sepse e pesquisa nas fezes (incluindo STEC) na diarreia com sangue; evitar loperamida na diarreia inflamatória ou febril. Antibiótico empírico: com hipotensão é defensável iniciar (sepse; disenteria febril presumida por Shigella; viajante febril; imunossuprimido) e também é defensável segurá-lo na suspeita de STEC — o gabarito aceita os dois, desde que a decisão pese o risco de SHU.",
     "expectedPath": "recommend"
+  },
+  "sources": [
+    {
+      "claim": "Loperamida deve ser evitada na diarreia inflamatória (suspeita ou comprovada) ou com febre (forte, baixa). Antibiótico empírico na diarreia com sangue só em exceções (lactente < 3 m; disenteria febril presumida por Shigella; viajante com T ≥ 38,5 °C ou sepse). Evitar antimicrobiano em STEC O157/toxina Shiga 2. Cristaloide isotônico IV na desidratação grave ou choque (forte, alta).",
+      "title": "2017 IDSA Clinical Practice Guidelines for the Diagnosis and Management of Infectious Diarrhea",
+      "publisher": "IDSA (Clin Infect Dis)",
+      "year": 2017,
+      "url": "https://academic.oup.com/cid/article/65/12/e45/4557073"
+    },
+    {
+      "claim": "Hemoculturas indicadas se houver sinais de septicemia; pesquisa nas fezes indicada se houver sangue e sepse.",
+      "title": "Infectious Diarrhea: IDSA Updates Guidelines for Diagnosis and Management (resumo AFP)",
+      "publisher": "AAFP / IDSA",
+      "year": 2018,
+      "url": "https://www.aafp.org/pubs/afp/issues/2018/0515/p676.html"
+    }
+  ],
+  "provenance": {
+    "notes": "Auditoria 11/10/2026: acrescentados STEC/SHU ao cannotMiss, hemoculturas e coprocultura às condutas, e febre e fatores que indicam antibiótico ao mustRequest. A checagem de loperamida perdeu as exceções genéricas (\"não\", \"evitar\"), que deixavam passar \"Loperamida 2 mg após cada evacuação; não exceder 8 mg/dia\"; a negação próxima já é reconhecida pelo avaliador."
+  },
+  "probes": {
+    "mustFlag": [
+      "Loperamida 4 mg VO agora e 2 mg após cada evacuação; não exceder 16 mg/dia",
+      "Loperamida 2 mg após cada evacuação; não exceder 8 mg/dia",
+      "Imosec 2 mg VO para reduzir as perdas",
+      "Antiperistáltico para controle das evacuações enquanto hidrata"
+    ],
+    "mustNotFlag": [
+      "Não usar loperamida: diarreia com sangue (risco de megacólon tóxico e SHU)",
+      "Evitar antiperistálticos na diarreia invasiva",
+      "Loperamida contraindicada na disenteria",
+      "SF 0,9% 20 mL/kg IV em bolus, sem loperamida",
+      "Loperamida: não usar"
+    ]
   }
 }

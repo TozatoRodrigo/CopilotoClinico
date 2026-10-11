@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2023-2-est-2",
+  "title": "Dor abdominal em mulher de 30 anos na emergência de hospital terciário",
+  "tags": [
+    "dor-abdominal",
+    "revalida",
+    "pep",
+    "pancreatite"
+  ],
+  "critical": false,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Emergência de hospital terciário. Fem, 30a, com dor abdominal."
+  },
+  "expected": {
+    "syndrome": "dor abdominal superior em faixa por pancreatite aguda biliar (litiásica), com amilase e lipase elevadas e colelitíase",
+    "cannotMiss": [
+      "pancreatite aguda biliar (litiásica)"
+    ],
+    "mustRequest": [
+      "características da dor (localização, início, intensidade, tipo, progressão, irradiação, fatores desencadeantes, de melhora ou de piora)",
+      "sintomas associados (hábito intestinal/eliminação de flatos e fezes, febre, icterícia, colúria, acolia, náuseas ou vômitos)",
+      "sintomas urinários e ginecológicos",
+      "exames laboratoriais: hemograma, PCR ou VHS, bilirrubina total e frações, TGO/TGP, fosfatase alcalina, GGT, ureia, creatinina e glicemia",
+      "amilase e lipase",
+      "ultrassonografia de abdome como primeiro exame de imagem"
+    ],
+    "requiredActions": [
+      "internação hospitalar",
+      "medidas de suporte venosas: hidratação intravenosa, analgesia intravenosa, antiemético intravenoso e dieta zero/jejum (PEP: internação + ao menos três destas)",
+      "indicar colecistectomia",
+      "colecistectomia após a melhora clínica da pancreatite, na mesma internação (antes da alta), se não houver complicações"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "Gabarito oficial do INEP (Revalida 2023/2, Estação 2): o PEP pontua anamnese da dor e de sintomas biliopancreáticos, exames laboratoriais com amilase e lipase, USG de abdome como primeira imagem, o diagnóstico de pancreatite aguda biliar e a conduta de internação com suporte venoso e colecistectomia na mesma internação após a melhora.",
+    "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "Itens 2–4 (1,4 ponto): pergunta características da dor (localização, início, intensidade, tipo, progressão, irradiação, fatores de piora/melhora), sintomas associados (hábito intestinal/flatos, febre, icterícia, colúria, acolia, náuseas/vômitos) e sintomas urinários e ginecológicos.",
+      "title": "Revalida 2023/2 – Habilidades Clínicas – PEP, Estação 2, itens 2–4",
+      "publisher": "INEP",
+      "year": 2023,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2023_2.pdf"
+    },
+    {
+      "claim": "Itens 5–7 (2,8 pontos): solicita hemograma, PCR ou VHS, bilirrubina total e frações, TGO/TGP, fosfatase alcalina, GGT, ureia, creatinina e glicemia; amilase e lipase; ultrassom de abdome como primeira opção de imagem.",
+      "title": "Revalida 2023/2 – Habilidades Clínicas – PEP, Estação 2, itens 5–7",
+      "publisher": "INEP",
+      "year": 2023,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2023_2.pdf"
+    },
+    {
+      "claim": "Itens 8–9 (1,8 ponto): hipótese de pancreatite aguda biliar/litiásica, justificada por dor em faixa/barra no abdome superior e aumento de amilase e lipase.",
+      "title": "Revalida 2023/2 – Habilidades Clínicas – PEP, Estação 2, itens 8–9",
+      "publisher": "INEP",
+      "year": 2023,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2023_2.pdf"
+    },
+    {
+      "claim": "Itens 10–12 (3,8 pontos): internação hospitalar + três ou quatro entre dieta zero/jejum, hidratação intravenosa, analgesia intravenosa e antiemético intravenoso; orienta colecistectomia, após a melhora clínica da pancreatite e durante a internação atual/antes da alta, se não houver complicações.",
+      "title": "Revalida 2023/2 – Habilidades Clínicas – PEP, Estação 2, itens 10–12",
+      "publisher": "INEP",
+      "year": 2023,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2023_2.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2023/2",
+    "item": "Estação 2",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2023_2.pdf",
+    "originalCaseText": "CENÁRIO DE ATUAÇÃO Local de atuação: atenção terciária à saúde – emergência geral. A unidade possui a seguinte infraestrutura: • Setor de diagnóstico por imagem; • Laboratório de análises clínicas; • Banco de sangue; • Leitos de internação; e • Centro cirúrgico e unidade de tratamento intensivo. DESCRIÇÃO DO CASO Você está de plantão na emergência de uma unidade de atenção terciária e irá atender uma paciente de 30 anos de idade, que apresenta dor abdominal. ATENÇÃO! CASO JULGUE NECESSÁRIO REALIZAR EXAME FÍSICO, VERBALIZE! O PACIENTE SIMULADO NÃO DEVERÁ SER TOCADO DURANTE O ATENDIMENTO. Nos 10 minutos de duração da estação, você deverá executar as tarefas a seguir: • Realizar anamnese da paciente; • Solicitar o exame físico; • Solicitar e interpretar os exames laboratoriais e outros exames complementares pertinentes ao caso; • Verbalizar a hipótese diagnóstica definitiva do caso, explicando como chegou a ela; • Verbalizar a conduta terapêutica necessária.",
+    "notes": "O PEP não pontua a solicitação do exame físico (o impresso é entregue se pedido). O item 10 exige internação + ao menos três das quatro medidas de suporte (jejum, hidratação, analgesia e antiemético venosos), agrupadas aqui em uma expectativa. | Dados sob demanda: dor de início súbito na noite anterior, 10/10, na 'boca do estômago' com irradiação para as costas, piora com alimentação e progressivamente, sem fator de melhora; 3 vômitos amarelados; abdome um pouco mais inchado; inapetência; hábito intestinal normal, sem sangue, ainda não evacuou hoje; sem febre; não notou icterícia; urina mais amarelada, sem outros sintomas urinários; sem episódios prévios, alergias ou doenças; 2 cesarianas; álcool social em fins de semana; não fuma. EF: FC 104, PA 110x70, FR 20, Tax 37,1 °C, SatO2 97%, IMC 29; REG, ictérica 2+/4+, desidratada 2+/4+; abdome semigloboso, pouco distendido, doloroso à palpação superficial e profunda em todo o abdome superior, sem descompressão dolorosa, RHA diminuídos; AR e ACV normais. Lab: Hb 13,2, Ht 45,5%, leucócitos 15.110, plaquetas 180.000, glicemia 96, VHS 30, PCR 15, BT 3,4 (BD 2,7), FA 380, GGT 197, TGO 156, TGP 148, amilase 645, lipase 510, ureia 54, Cr 1,1. USG de abdome total: vesícula de paredes finas com múltiplos cálculos de ~4 mm; vias biliares intra-hepáticas normais; hepatocolédoco 8 mm; pâncreas mal visualizado (gases)."
+  }
+}
