@@ -20,14 +20,17 @@
     "syndrome": "crise convulsiva com febre e meningismo — infecção do SNC",
     "cannotMiss": [
       "meningite bacteriana",
-      "encefalite (incluindo herpética)"
+      "encefalite (incluindo herpética)",
+      "estado de mal epiléptico não convulsivo"
     ],
     "mustRequest": [
-      "glicemia capilar"
+      "glicemia capilar",
+      "idade, imunossupressão, gestação e etilismo (cobertura de Listeria)"
     ],
     "requiredActions": [
       "antibioticoterapia empírica IV imediata, sem atrasar por TC ou punção",
       "dexametasona antes ou junto da primeira dose do antibiótico",
+      "aciclovir IV empírico (ex.: 10 mg/kg 8/8 h, ajustado à função renal) até o resultado do PCR para HSV",
       "TC de crânio antes da punção lombar (rebaixamento e crise)"
     ],
     "forbiddenDefinitiveActions": [
@@ -42,6 +45,47 @@
         "patterns": []
       }
     ],
+    "rationale": "IDSA 2004 e OMS 2025: antibiótico IV o mais cedo possível, sem esperar TC/PL; dexametasona antes ou com a 1ª dose; TC antes da PL por crise nova e rebaixamento; ampicilina se fatores de risco para Listeria (OMS: > 60 anos, gestação, imunossupressão, diabetes; IDSA: > 50 anos). IDSA 2008: aciclovir em toda suspeita de encefalite. Rebaixamento que persiste após a crise pede pensar em estado de mal não convulsivo (EEG). Desejáveis, mas não exigidos no turno 0: hemoculturas antes do antibiótico sem atrasá-lo; proteção de via aérea se Glasgow ≤ 8 e tratamento de crise recorrente.",
     "expectedPath": "recommend"
+  },
+  "sources": [
+    {
+      "claim": "IDSA 2004: TC antes da PL se imunocomprometido, crise na última semana, papiledema ou déficit; colher hemocultura e iniciar antibiótico mesmo com PL adiada; dexametasona 10–20 min antes ou junto da 1ª dose.",
+      "title": "Management of Bacterial Meningitis: New Guidelines from the IDSA (resumo das diretrizes IDSA 2004)",
+      "publisher": "AAFP / IDSA",
+      "year": 2005,
+      "url": "https://www.aafp.org/afp/2005/0515/p2003.html"
+    },
+    {
+      "claim": "OMS 2025: antibiótico IV o mais cedo possível; ceftriaxona/cefotaxima; ampicilina se fatores de risco para Listeria (>60 anos, gestação, imunossupressão, diabetes); corticoide com a 1ª dose; imagem antes da PL se Glasgow <10, sinais focais, crise nova (adultos) ou imunossupressão grave; não atrasar tratamento por imagem.",
+      "title": "Meningite: o que dizem as novas diretrizes? (resumo das diretrizes OMS 2025)",
+      "publisher": "Portal Afya",
+      "year": 2025,
+      "url": "https://portal.afya.com.br/infectologia/meningite-o-que-dizem-as-novas-diretrizes-2"
+    },
+    {
+      "claim": "Lançamento das primeiras diretrizes da OMS sobre meningite (10/04/2025).",
+      "title": "WHO launches first-ever guidelines on meningitis diagnosis, treatment and care",
+      "publisher": "Organização Mundial da Saúde",
+      "year": 2025,
+      "url": "https://www.who.int/news/item/10-04-2025-who-launches-first-ever-guidelines-on-meningitis-diagnosis--treatment-and-care"
+    },
+    {
+      "claim": "IDSA 2008: aciclovir deve ser iniciado em todos os pacientes com suspeita de encefalite, enquanto aguardam exames.",
+      "title": "The Management of Encephalitis: Clinical Practice Guidelines by the IDSA",
+      "publisher": "IDSA / Clin Infect Dis",
+      "year": 2008,
+      "url": "https://academic.oup.com/cid/article/47/3/303/344079"
+    },
+    {
+      "claim": "EMNC se apresenta sobretudo como alteração persistente da consciência e exige EEG para diagnóstico.",
+      "title": "Non-convulsive Status Epilepticus: Pearls and Pitfalls",
+      "publisher": "emDocs",
+      "year": null,
+      "url": "https://www.emdocs.net/non-convulsive-status-epilepticus-pearls-and-pitfalls/"
+    }
+  ],
+  "provenance": {
+    "notes": "Auditoria 11/10/2026: aciclovir empírico obrigatório; estado de mal não convulsivo como hipótese; pedido de idade/imunossupressão/gestação/etilismo pela cobertura de Listeria. Hemoculturas e via aérea ficaram no rationale (opcionais)."
   }
 }

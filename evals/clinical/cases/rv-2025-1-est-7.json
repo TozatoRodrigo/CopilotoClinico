@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2025-1-est-7",
+  "title": "Dor súbita em flanco direito irradiada para virilha em mulher de 24 anos na emergência",
+  "tags": [
+    "dor-lombar-flanco",
+    "revalida",
+    "pep",
+    "urolitiase"
+  ],
+  "critical": false,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Emergência de hospital terciário. Mulher, 24a, dor abdominal."
+  },
+  "expected": {
+    "syndrome": "cólica renal por ureterolitíase à direita",
+    "cannotMiss": [
+      "ureterolitíase / urolitíase com uropatia obstrutiva por cálculo"
+    ],
+    "mustRequest": [
+      "características da dor (início/duração, localização, irradiação, tipo, intensidade, fatores de piora e de melhora)",
+      "manifestações associadas: náuseas/vômitos, febre, disúria, polaciúria, urgência urinária, hematúria",
+      "antecedentes ginecológicos: corrimento vaginal, IST, atividade sexual desprotegida/número de parceiros, data da última menstruação",
+      "exames laboratoriais: hemograma, PCR e/ou VHS, creatinina e/ou ureia, sódio e/ou potássio, urina tipo 1 e/ou urocultura, beta-HCG",
+      "TC de abdome ou de rins e vias urinárias (USG de abdome/rins e vias urinárias isolada pontua só parcialmente)"
+    ],
+    "requiredActions": [
+      "analgesia especificando a droga ou a classe (AINE, opioide ou dipirona)",
+      "encaminhar para avaliação de urologista e/ou prescrever terapia expulsiva medicamentosa",
+      "orientar prevenção de novos episódios (aumentar ingesta hídrica, reduzir sódio, reduzir oxalato, manter IMC normal)"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "Gabarito oficial do INEP (Revalida 2025/1, Estação 7): a descrição inicial traz só a queixa de dor abdominal; o PEP pontua anamnese dirigida, laboratório com beta-HCG e TC antes do diagnóstico de ureterolitíase, com analgesia, urologia ou terapia expulsiva e orientações de prevenção.",
+    "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "Itens 2–4 (0,8 ponto cada): pergunta características da dor (início/duração, localização, irradiação/migração, tipo, intensidade, fatores de piora e de melhora); manifestações associadas (náuseas/vômitos, febre, disúria, polaciúria, urgência urinária, hematúria); queixas e antecedentes ginecológicos (corrimento vaginal, histórico de IST, atividade sexual desprotegida/número de parceiros, data da última menstruação).",
+      "title": "Revalida 2025/1 – Habilidades Clínicas – PEP definitivo, Estação 7, itens 2–4",
+      "publisher": "INEP",
+      "year": 2025,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Itens 5–6: solicita hemograma, PCR e/ou VHS, creatinina e/ou ureia, sódio e/ou potássio, rotina de urina e/ou urocultura e beta-HCG (1,4; adequado com cinco ou seis); solicita TC de abdome ou de rins e vias urinárias (adequado) e/ou USG de abdome ou de rins e vias urinárias (USG isolada = parcial) (1,0).",
+      "title": "Revalida 2025/1 – Habilidades Clínicas – PEP definitivo, Estação 7, itens 5–6",
+      "publisher": "INEP",
+      "year": 2025,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Item 7 (2,0 pontos): define hipótese de ureterolitíase / litíase urinária / urolitíase / uropatia obstrutiva por cálculo.",
+      "title": "Revalida 2025/1 – Habilidades Clínicas – PEP definitivo, Estação 7, item 7",
+      "publisher": "INEP",
+      "year": 2025,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Itens 8–10: indica analgesia com anti-inflamatórios não esteroidais, opioides ou dipirona, especificando droga ou classe (1,0); encaminha para avaliação de especialista em urologia e/ou prescreve terapia expulsiva medicamentosa (1,0); orienta prevenção de novos episódios — aumento da ingesta hídrica, baixa ingesta de sódio, baixa ingesta de oxalato, manutenção do IMC normal (1,0).",
+      "title": "Revalida 2025/1 – Habilidades Clínicas – PEP definitivo, Estação 7, itens 8–10",
+      "publisher": "INEP",
+      "year": 2025,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2025/1",
+    "item": "Estação 7",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf",
+    "originalCaseText": "CENÁRIO DE ATENDIMENTO Nível de atenção: terciária. Tipo de atendimento: urgência e emergência. A unidade apresenta a seguinte infraestrutura: ● setor de radiologia; ● laboratório de análises clínicas; ● centro cirúrgico. DESCRIÇÃO DO CASO Você atenderá uma mulher de 24 anos que apresenta dor em abdome. Nos 10 minutos de duração da estação, você deverá executar as seguintes tarefas: ● realizar anamnese; ● solicitar e interpretar exame físico; ● solicitar e interpretar exames complementares pertinentes ao caso; ● formular e verbalizar a hipótese diagnóstica definitiva; ● orientar o plano terapêutico mais indicado ao quadro clínico. A PACIENTE SIMULADA NÃO DEVERÁ SER TOCADA DURANTE O ATENDIMENTO.",
+    "notes": "Dados sob demanda: estudante, sem comorbidades; dor intensa (9/10) no lado direito da barriga, súbita há ~24 h, em cólica que vai e volta, irradiando para virilha e face interna da coxa; não consegue ficar parada; dipirona sem melhora; notou sangue na urina no início da dor; sem disúria, urgência ou odor forte; sem corrimento ou dispareunia; náuseas sem vômitos; dor parecida no passado, mais branda; sem ITU, trauma ou cirurgia prévia; sem doenças na família; parceiro fixo, usa preservativo; nuligesta, menstruação terminou há 7 dias; sem IST; sedentária, não fuma, não bebe; quase não ingere água. Exame físico: REG, desidratada +/4+, FC 110, PA 110x70, FR 20, T 37,0 °C, abdome plano, flácido, indolor à palpação profunda, sem tumorações, Blumberg, Rovsing e Giordano negativos; aparelhos respiratório, cardiovascular e ginecológico sem alterações. Exames laboratoriais (incluindo rotina de urina): valores não transcritos no texto da prova. USG de abdome: hidronefrose à direita, sem fator obstrutivo identificável. TC de abdome sem contraste: hidronefrose à direita com cálculo de 10 mm na junção ureterovesical."
+  }
+}

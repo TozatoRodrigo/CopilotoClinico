@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2024-1-est-4",
+  "title": "Gestante de 32 semanas com hipertensão crônica atendida na emergência da maternidade",
+  "tags": [
+    "pressao-arterial-elevada",
+    "revalida",
+    "pep",
+    "obstetricia",
+    "pre-eclampsia"
+  ],
+  "critical": true,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Emergência da maternidade. Gestante 30a, primigesta, IG 32s5d. Pré-natal de alto risco por HAS prévia, com bons níveis pressóricos até a última consulta."
+  },
+  "expected": {
+    "syndrome": "pré-eclâmpsia sobreposta à hipertensão crônica com síndrome HELLP",
+    "cannotMiss": [
+      "síndrome HELLP (pré-eclâmpsia sobreposta à hipertensão crônica, com sinais de gravidade)"
+    ],
+    "mustRequest": [
+      "sintomas de gravidade: epigastralgia, sintomas visuais (turvação, fotopsia, escotomas), náuseas/vômitos, dor torácica, dispneia",
+      "medicações de uso contínuo na gestação",
+      "medicações usadas para aliviar os sintomas atuais",
+      "exames: hemograma (Hb, Ht, plaquetas), marcador de hemólise (DHL, bilirrubina indireta ou haptoglobina) e TGO/TGP"
+    ],
+    "requiredActions": [
+      "internação imediata, mantida até o pós-parto",
+      "anti-hipertensivo para controle pressórico: nifedipino, hidralazina ou labetalol",
+      "sulfato de magnésio (neuroproteção materna/prevenção de convulsão)",
+      "corticoide para maturação pulmonar fetal (betametasona ou dexametasona)"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "Gabarito oficial do INEP (Revalida 2024/1, Estação 4): o PEP pontua a anamnese de sintomas de gravidade e medicações, hemograma + marcador de hemólise + transaminases, o diagnóstico de síndrome HELLP, internação imediata até o pós-parto e prescrição de anti-hipertensivo, sulfato de magnésio e corticoide antenatal.",
+    "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "Itens 2–4: pergunta sobre epigastralgia, sintomas visuais (turvação, fotopsia, escotomas), náuseas/vômitos, dor torácica, dispneia — dois ou mais (1,2); medicações de uso contínuo na gestação (0,6); medicações usadas para aliviar os sintomas atuais (0,6).",
+      "title": "Revalida 2024/1 – Habilidades Clínicas – PEP, Estação 4, itens 2–4",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2024_1_PEP_publicacao.pdf"
+    },
+    {
+      "claim": "Itens 5–8: solicita hemograma (ou Hb + Ht + plaquetas), DHL ou bilirrubina indireta ou haptoglobina, e TGO/TGP (1,0); hipótese de síndrome HELLP — pré-eclâmpsia sobreposta/pré-eclâmpsia com sinais de gravidade/iminência de eclâmpsia vale parcial (1,2); associa aumento súbito da PA após 20 semanas em hipertensa bem controlada, cefaleia, epigastralgia e sintomas visuais (1,0); associa Hb baixa, plaquetas < 100.000, DHL > 600–700, TGO/TGP > 2,5x o VR, hiperuricemia, proteinúria de fita > 1+/4+ e creatinina ≥ 1,2 (1,0).",
+      "title": "Revalida 2024/1 – Habilidades Clínicas – PEP, Estação 4, itens 5–8",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2024_1_PEP_publicacao.pdf"
+    },
+    {
+      "claim": "Itens 10–11: internação imediata, mantida até o pós-parto (1,0); nifedipino ou hidralazina ou labetalol para controle pressórico, sulfato de magnésio para neuroproteção/prevenção de convulsão e corticoterapia para maturação pulmonar fetal com betametasona ou dexametasona (1,4).",
+      "title": "Revalida 2024/1 – Habilidades Clínicas – PEP, Estação 4, itens 10–11",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2024_1_PEP_publicacao.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2024/1",
+    "item": "Estação 4",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2024_1_PEP_publicacao.pdf",
+    "originalCaseText": "CENÁRIO DE ATUAÇÃO Local de atuação: urgência e emergência - maternidade. A unidade possui a seguinte infraestrutura: • consultório ginecológico; • laboratório de análises clínicas. • centro obstétrico; DESCRIÇÃO DO CASO • Você está de plantão na emergência da maternidade e deverá atender a uma paciente chamada Paula, de 30 anos de idade, primigesta com idade gestacional de 32 semanas e 5 dias. • Ela faz pré-natal de alto risco por hipertensão arterial prévia, mantendo bons níveis pressóricos no pré-natal, até a última consulta. Nos 10 minutos de duração da estação, você deverá executar as tarefas a seguir, obedecendo à sequência proposta: • atender à paciente realizando anamnese obstétrica durante a consulta; • indicar investigação diagnóstica adequada; • citar, de forma completa, a hipótese diagnóstica; • correlacionar os critérios laboratoriais e clínicos encontrando as hipóteses diagnósticas; • citar dois fatores de risco da paciente que podem tê-la levado a desenvolver o quadro clínico; • indicar a conduta, farmacológica e não farmacológica, adequada levando em consideração a situação clínica da paciente no momento da consulta. ATENÇÃO! CASO JULGUE NECESSÁRIO REALIZAR EXAME FÍSICO, VERBALIZE! A PACIENTE SIMULADA NÃO DEVERÁ SER TOCADA DURANTE O ATENDIMENTO.",
+    "notes": "Item 9 (citar fatores de risco: hipertensão crônica, obesidade, primigesta) é raciocínio e não foi convertido em expectativa. Itens 7–8 (associar quadro clínico e laboratorial à hipótese) dependem dos dados sob demanda abaixo. Dados sob demanda: a síntese diz que ela procura a emergência por cefaleia intensa, náuseas, vômitos e intensa epigastralgia; se perguntada, informa uso regular de metildopa 2 g/dia, sulfato ferroso, carbonato de cálcio 1 g/dia e AAS 100 mg/dia; náuseas desde o dia anterior e 1 vômito hoje; dor intensa e constante no estômago desde o vômito; turvação visual e fotopsia há 1 h; usou ondansetrona, paracetamol e omeprazol sem efeito. Exame físico: PA 180x120 mmHg (2 medidas com 30 min de intervalo), BCF 128, IMC 35, consciente, orientada, corada, afebril, dinâmica uterina ausente, toque não realizado. Cartão de pré-natal (parcialmente ilegível na extração): antecedente de HAS; a síntese informa PA no pré-natal entre 130–140 x 70–80 mmHg. Laboratório: Hb 9,0, Ht 27%, plaquetas 98.000, BT 0,8 (BD 0,6; BI 0,2), DHL 780, ácido úrico 6,8, TGO 172, TGP 158, creatinina 1,2; proteinúria de fita 3+/4+ (proteinúria de 24 h com 12 semanas: 95 mg)."
+  }
+}

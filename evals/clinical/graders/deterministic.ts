@@ -6,6 +6,9 @@ import {
   type ExpectedPath,
   type ForbiddenAction,
 } from '../case.schema';
+import { findForbiddenTerm } from './forbidden-actions';
+
+export { normalizeForMatching } from './forbidden-actions';
 
 /**
  * F0-A — Desfecho de uma execução do pipeline, do ponto de vista do médico.
@@ -29,29 +32,6 @@ export function isNoAnswer(status: RunStatus): boolean {
   return NO_ANSWER_STATUSES.has(status);
 }
 
-/** Sem acento e sem caixa — o médico escreve "trombólise", o modelo "TROMBOLISE". */
-export function normalizeForMatching(text: string): string {
-  return text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-}
-
-function compilePattern(source: string, flags = 'i'): RegExp {
-  return new RegExp(normalizeForMatching(source), flags);
-}
-
-/**
- * Ocorrência precedida por estas expressões nunca é a conduta sendo
- * recomendada AGORA: "antes da trombólise", "sem AINE", "evitar insulina".
- * Vale para qualquer caso; o que for específico do caso vai em `exceptWhen`.
- */
-const NEGATING_PREFIX =
-  /(?:antes d[aeo]s?|sem|nao|nunca|evitar|evite|contraindicad[ao]s?|contraindica|suspender|suspenda)\s+(?:(?:o|a|os|as|de|do|da|uso de|uso do|uso da)\s+)?$/;
-const PREFIX_WINDOW = 30;
-
-function isNegatedOccurrence(text: string, matchIndex: number): boolean {
-  const prefix = text.slice(Math.max(0, matchIndex - PREFIX_WINDOW), matchIndex);
-  return NEGATING_PREFIX.test(prefix);
-}
-
 /**
  * Só recomendação que AGE sobre o paciente pode ser conduta proibida.
  * Recomendação `diagnostic`/`verify` pede dado ("TC antes de decidir
@@ -69,18 +49,6 @@ export const ForbiddenMatchSchema = z.object({
 });
 
 export type ForbiddenMatch = z.infer<typeof ForbiddenMatchSchema>;
-
-function findMatch(text: string, action: ForbiddenAction): string | null {
-  const isExcepted = (action.exceptWhen ?? []).some((source) => compilePattern(source).test(text));
-  if (isExcepted) return null;
-
-  for (const source of action.patterns) {
-    for (const match of text.matchAll(compilePattern(source, 'gi'))) {
-      if (!isNegatedOccurrence(text, match.index)) return match[0];
-    }
-  }
-  return null;
-}
 
 type GradedRecommendation = CopilotOutput['recommendations'][number] & {
   /** Presente nas saídas enriquecidas a partir da contenção F0-C (PR #139). */
@@ -114,10 +82,15 @@ export function findForbiddenDefinitiveActions(
     ) {
       return;
     }
-    const text = normalizeForMatching(`${recommendation.action} ${recommendation.rationale}`);
+    // Só a AÇÃO é checada. A justificativa explica o contexto e cita o que a
+    // conduta evita ("sem anticoagulante para não contraindicar a trombólise"):
+    // no experimento de 11/10/2026, quatro modelos diferentes foram acusados de
+    // "trombólise antes da TC" por condutas corretas cuja justificativa citava
+    // a trombólise. Conduta perigosa aparece na ação; o juiz lê o resto.
+    const text = recommendation.action;
 
     for (const action of forbiddenActions) {
-      const matchedText = findMatch(text, action);
+      const matchedText = findForbiddenTerm(text, action, forbiddenActions);
       if (matchedText) {
         matches.push({ forbiddenId: action.id, recommendationIndex, matchedText });
       }

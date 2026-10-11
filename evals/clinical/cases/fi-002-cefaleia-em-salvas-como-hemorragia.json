@@ -33,7 +33,26 @@
         "patterns": []
       }
     ],
-    "expectedPath": "recommend",
-    "rationale": "Reportado em 03/09/2026: a hipótese de hemorragia virou título do atendimento e entrou no SBAR. Discriminadores: crises de 15-180 min que cedem sozinhas, periodicidade circadiana, sinais autonômicos ipsilaterais, inquietação, sem pico em menos de 1 minuto."
+    "rationale": "Reportado em 03/09/2026: a hipótese de hemorragia virou título do atendimento e entrou no SBAR. Discriminadores (ICHD-3): crises de 15-180 min que cedem sozinhas, periodicidade circadiana, sinais autonômicos ipsilaterais, inquietação, sem pico em menos de 1 minuto. Crise: O2 a 100% ≥ 12 L/min ou sumatriptana 6 mg SC (EAN 2023). Também desejáveis, mas não exigidos no turno 0: perguntar se está em crise agora e por ptose/miose persistentes ou dor cervical (dissecção carotídea); terapia de transição (prednisona ou bloqueio do occipital maior) e profilaxia com verapamil (com ECG), encaminhando à neurologia; RM eletiva no primeiro surto.",
+    "expectedPath": "recommend"
+  },
+  "sources": [
+    {
+      "claim": "Crise: O2 a 100% ≥ 12 L/min por 15 min e sumatriptano 6 mg SC (recomendação forte); transição com prednisona ≥ 100 mg/dia ou até 500 mg IV/dia por 5 dias; verapamil ≥ 240 mg/dia; bloqueio do nervo occipital maior",
+      "title": "European Academy of Neurology guidelines on the treatment of cluster headache",
+      "publisher": "EAN — European Journal of Neurology",
+      "year": 2023,
+      "url": "https://pubmed.ncbi.nlm.nih.gov/37515405/"
+    },
+    {
+      "claim": "Critérios diagnósticos de cefaleia em salvas (3.1)",
+      "title": "ICHD-3 — 3.1 Cluster headache",
+      "publisher": "International Headache Society",
+      "year": 2018,
+      "url": "https://ichd-3.org/3-trigeminal-autonomic-cephalalgias/3-1-cluster-headache/"
+    }
+  ],
+  "provenance": {
+    "notes": "Auditoria 11/10/2026: gabarito confirmado como correto; os itens opcionais (crise atual, Horner/cervicalgia, transição e profilaxia, RM eletiva) ficaram no rationale, sem virar obrigatórios."
   }
 }

@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2023-1-est-8",
+  "title": "Pré-escolar de 3 anos em reavaliação no pronto atendimento no início do plantão noturno",
+  "tags": [
+    "intoxicacao",
+    "revalida",
+    "pep",
+    "pediatria",
+    "corpo-estranho"
+  ],
+  "critical": true,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Pronto atendimento hospitalar, urgência e emergência (radiologia convencional, US, laboratório, leitos de internação). 19h, início do plantão: reavaliar pré-escolar masc, 3a8m, acompanhado da mãe; deu entrada às 18:15, atendido pelo colega anterior; aguarda reavaliação e resultado de exame solicitado (radiografia de tórax)."
+  },
+  "expected": {
+    "syndrome": "ingestão de corpo estranho — bateria (pilha) de botão — impactada no esôfago (esfíncter esofagiano superior) em pré-escolar, com sialorreia e disfagia",
+    "cannotMiss": [
+      "ingestão de bateria/pilha de botão impactada no esôfago (topografia do esfíncter esofagiano superior)"
+    ],
+    "mustRequest": [
+      "anamnese dirigida à mãe: queixa principal e outras queixas",
+      "comorbidades da criança",
+      "exame físico (interpretar: criança clinicamente estável, roncos de transmissão por saliva excessiva)",
+      "interpretação da radiografia de tórax: corpo estranho no esôfago com aspecto de duplo halo/duplo contorno (bateria/pilha)"
+    ],
+    "requiredActions": [
+      "comunicar à mãe que há risco de complicações e de morte se não for tratada adequadamente",
+      "endoscopia digestiva alta de emergência/urgência, imediata ou no máximo até 2 horas do evento, encaminhando a criança a serviço com endoscopia",
+      "jejum de água e de alimentos até o encaminhamento, com justificativa",
+      "orientar possíveis complicações (ao menos três: perfuração esofágica, mediastinite, pneumonia aspirativa, fístula traqueoesofágica, estenose esofágica, paralisia de prega vocal, pneumotórax, fístula aortoentérica, parada cardíaca, esofagite cáustica, hemorragia digestiva, óbito)",
+      "orientar prevenção de novos acidentes (ao menos três: brinquedo adequado à faixa etária, supervisão, objetos pequenos e aparelhos com pilhas/baterias de disco fora do alcance, brinquedos sem peças destacáveis, ensinar a não colocar objetos na boca, evitar correr/rir/chorar com alimento na boca)"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "liberar-via-oral-antes-da-eda",
+        "description": "Liberar água ou alimento por via oral para a criança antes da endoscopia (PEP item 9 considera inadequado liberar alimento e/ou água; exige jejum).",
+        "patterns": [
+          "libera\\w*\\s+(a\\s+)?(dieta|agua|alimenta\\w*|via\\s+oral)",
+          "oferec\\w*\\s+(agua|liquidos?|alimentos?|leite)"
+        ],
+        "exceptWhen": [
+          "(apos|depois\\s+d[ao])\\s+(a\\s+)?(eda|endoscopia|retirada)"
+        ]
+      }
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2023/1, Estação 8): o PEP pontua anamnese, interpretação do exame físico e da radiografia (bateria no esôfago), comunicação do risco, endoscopia digestiva alta de emergência em até 2 horas do evento, jejum, complicações e prevenção; penaliza liberar água/alimento.",
+    "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "Itens 2–6 (4,0 pontos): questiona queixa principal, outras queixas e comorbidades; verbaliza que a criança está clinicamente estável (ronco de transmissão pela saliva); na radiografia de tórax, identifica corpo estranho no esôfago com aspecto de duplo halo/duplo contorno ou bateria/pilha.",
+      "title": "Revalida 2023/1 – Habilidades Clínicas – PEP, Estação 8, itens 2–6",
+      "publisher": "INEP",
+      "year": 2023,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2023_1_PEP_publicacao.pdf"
+    },
+    {
+      "claim": "Itens 7–8 (2,5 pontos): verbaliza risco de complicações e/ou de morte se não tratada adequadamente; encaminha para endoscopia digestiva alta de EMERGÊNCIA/urgência (a unidade não dispõe de endoscopia), imediata ou no prazo máximo de 2 horas do evento — imagem de duplo halo sugestiva de bateria no esfíncter esofagiano superior há menos de 2 horas.",
+      "title": "Revalida 2023/1 – Habilidades Clínicas – PEP, Estação 8, itens 7–8",
+      "publisher": "INEP",
+      "year": 2023,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2023_1_PEP_publicacao.pdf"
+    },
+    {
+      "claim": "Item 9 (0,5 ponto): cita necessidade de jejum de água e alimento até o encaminhamento e justifica; inadequado: libera alimento e/ou água para a criança ou não menciona dieta.",
+      "title": "Revalida 2023/1 – Habilidades Clínicas – PEP, Estação 8, item 9",
+      "publisher": "INEP",
+      "year": 2023,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2023_1_PEP_publicacao.pdf"
+    },
+    {
+      "claim": "Itens 10–11 (2,5 pontos): cita ao menos três complicações (perfuração esofágica, mediastinite, pneumonia aspirativa, fístula traqueoesofágica, estenose esofágica, paralisia de prega vocal, pneumotórax, fístula aortoentérica, parada cardíaca, esofagite cáustica, hemorragia digestiva, óbito) e ao menos três medidas preventivas (brinquedo adequado à faixa etária, supervisão, objetos pequenos e aparelhos com pilhas/baterias de disco fora do alcance, brinquedos sem peças destacáveis, ensinar a não pôr objetos na boca, evitar correr/rir/chorar com alimento na boca).",
+      "title": "Revalida 2023/1 – Habilidades Clínicas – PEP, Estação 8, itens 10–11",
+      "publisher": "INEP",
+      "year": 2023,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2023_1_PEP_publicacao.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2023/1",
+    "item": "Estação 8",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2023_1_PEP_publicacao.pdf",
+    "originalCaseText": "CENÁRIO DE ATUAÇÃO Local de atuação: Atenção Secundária: Urgência e Emergência. A unidade possui a seguinte infraestrutura: setor de radiologia convencional e ultrassom; laboratório de análises clínicas; leitos de internação. DESCRIÇÃO DO CASO Você está entrando no plantão noturno (19:00 horas) em um serviço de pronto atendimento hospitalar e vai reavaliar um pré-escolar (3 anos e 8 meses) acompanhado da mãe, que deu entrada no serviço às 18:15 horas e foi atendido inicialmente pelo(a) colega anterior, aguardando reavaliação e resultado do(s) exame(s) solicitado(s). ATENÇÃO! CASO JULGUE NECESSÁRIO REALIZAR EXAME FÍSICO, VERBALIZE! Nos 10 minutos de duração da estação, você deverá executar as tarefas a seguir: realizar anamnese dirigida à mãe; interpretar os achados do exame físico; interpretar a radiografia de tórax; comunicar à mãe: a condição da criança, a conduta imediata a ser tomada e as possíveis complicações; orientar a mãe quanto a medidas preventivas. Obs: Considere que a criança está sentada na cadeira durante todo o período da consulta.",
+    "notes": "A imagem da radiografia de tórax não é transcrita na prova; o achado usado vem do texto do PEP (item 6: corpo estranho no esôfago com aspecto de duplo halo/duplo contorno — bateria/pilha) e da síntese (topografia do esfíncter esofagiano superior; RX em PA e perfil). Segundo o PEP (item 8), a unidade não dispõe de endoscopia. | Dados sob demanda: por volta das 18 h, brincando com o irmão, começou a chorar e babar muito, recusa qualquer bebida ou comida e não consegue engolir a própria saliva; o brinquedo (carrinho de bombeiros de plástico com luzes) quebrou e a mãe acha que ele engoliu uma peça; o irmão disse que ele 'comeu uma balinha'; a mãe não viu o ocorrido; o 1º médico pediu RX; sem alergias, medicações, ingestão de remédios ou doenças prévias; diurese e evacuação normais; vacinas em dia. EF: peso 16 kg, FC 110, FR 22, SatO2 99% AA, PA 88x58; BEG, choroso, corado, hidratado, afebril, eupneico; sialorreia intensa (não consegue deglutir a saliva); MV presente com roncos de transmissão, sem esforço respiratório; ACV, abdome, neurológico e otoscopia normais; orofaringe discretamente hiperemiada. RX de tórax (PA e perfil): corpo estranho no esôfago, em topografia do esfíncter esofagiano superior, com imagem de duplo halo/duplo contorno (bateria). | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas. A exceção \"jejum\" saiu: citada perto do termo, anulava \"liberar água\" mesmo na conduta errada."
+  },
+  "probes": {
+    "mustFlag": [
+      "Liberar água em pequenos goles enquanto aguarda a transferência",
+      "Oferecer leite para aliviar o desconforto"
+    ],
+    "mustNotFlag": [
+      "Jejum absoluto; não liberar água nem alimento até a endoscopia",
+      "Liberar dieta somente após a retirada endoscópica",
+      "Não oferecer água: risco de aspiração e de agravar a lesão"
+    ]
+  }
+}

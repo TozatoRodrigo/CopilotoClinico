@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2024-2-est-5",
+  "title": "Mulher com dor intensa em queimação no braço, cefaleia e mal-estar atendida na UBS",
+  "tags": [
+    "intoxicacao",
+    "revalida",
+    "pep",
+    "animais-peconhentos"
+  ],
+  "critical": true,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "UBS em cidade de médio porte, região metropolitana de capital. Fem, 40a, cefaleia, mal-estar geral e dor intensa em queimação na pele do braço D."
+  },
+  "expected": {
+    "syndrome": "dor local em queimação com sintomas sistêmicos após contato com lagarta — acidente com lagarta (potencial acidente lonômico)",
+    "cannotMiss": [
+      "acidente com lagarta (acidente lonômico), com potencial gravidade e risco de morte"
+    ],
+    "mustRequest": [
+      "contato direto com animais ou insetos, produtos químicos ou plantas",
+      "características da dor: início, tipo, localização/irradiação, intensidade, fatores de melhora e piora, medicamentos usados",
+      "manifestações locais: evolução da lesão cutânea e linfadenopatia",
+      "manifestações sistêmicas: cefaleia, mal-estar, náuseas/vômitos/dor abdominal e sangramentos (gengivorragia, equimoses, epistaxe, hematúria, hematêmese, hemoptise)"
+    ],
+    "requiredActions": [
+      "controle da dor com pelo menos dois entre: analgésico, anti-histamínico sistêmico, infiltração local com lidocaína 2% sem vasoconstritor",
+      "encaminhar a serviço hospitalar de referência para soroterapia de acidente por animal peçonhento, explicando a potencial gravidade/risco de morte",
+      "notificar o caso"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "Gabarito oficial do INEP (Revalida 2024/2, Estação 5): o PEP pontua a investigação do contato com animal/inseto, da dor e das manifestações locais e sistêmicas (incluindo sangramentos), o diagnóstico de acidente com lagarta, analgesia/anti-histamínico/bloqueio com lidocaína, encaminhamento hospitalar para soroterapia pelo risco de morte do acidente lonômico e notificação.",
+    "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "Itens 5–8: pergunta contato direto com animais ou insetos, produtos químicos e plantas (1,0); características da dor — início, tipo, localização/irradiação, intensidade, melhora, piora, medicamentos usados; 5 ou mais (0,5); evolução da lesão cutânea e linfadenopatia (0,5); manifestações sistêmicas — cefaleia, mal-estar, náuseas/vômitos/dor abdominal e gengivorragia, equimoses, epistaxe, hematúria, hematêmese ou hemoptise (1,5).",
+      "title": "Revalida 2024/2 – Habilidades Clínicas – PEP, Estação 5, itens 5–8",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2024_2_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Itens 9–12: diagnóstico de acidente com lagarta — 'acidente com animal peçonhento' vale parcial (1,0); analgésico, anti-histamínico sistêmico e infiltração local com lidocaína 2% sem vasoconstritor — 2 ou mais (1,0); explica a necessidade de encaminhamento a serviço hospitalar de referência para soroterapia e a potencial gravidade ou risco de morte do acidente lonômico (2,0); notifica o caso (1,25).",
+      "title": "Revalida 2024/2 – Habilidades Clínicas – PEP, Estação 5, itens 9–12",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2024_2_pep_definitivo.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2024/2",
+    "item": "Estação 5",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2024_2_pep_definitivo.pdf",
+    "originalCaseText": "CENÁRIO DE ATENDIMENTO Nível de atenção: atenção primária à saúde. Tipo de atendimento: atendimento ambulatorial - unidade básica de saúde (UBS). A unidade apresenta a seguinte infraestrutura: ● consultório médico e salas de procedimentos e observação. ATENÇÃO! CASO JULGUE NECESSÁRIO REALIZAR EXAME FÍSICO, VERBALIZE! A PACIENTE SIMULADA NÃO DEVERÁ SER TOCADA DURANTE O ATENDIMENTO. DESCRIÇÃO DO CASO Você é médico(a) em uma UBS em uma cidade de médio porte localizada na região metropolitana de uma grande capital brasileira. Você atenderá uma mulher com 40 anos de idade com queixa de dor de cabeça, mal estar geral e dor intensa em queimação na pele do braço direito. Nos 10 minutos de duração da Estação, você deverá executar as seguintes tarefas: ● Realizar a anamnese dirigida à queixa principal da paciente. ● Solicitar exame físico do membro afetado. ● Verbalizar e explicar o diagnóstico. ● Pactuar plano de cuidado com a paciente usando método clínico centrado na pessoa. ● Avaliar a necessidade de adoção de outras medidas sanitárias.",
+    "notes": "Atendimento na UBS, mas a conduta pontuada é de urgência (controle da dor, encaminhamento hospitalar para soroterapia, risco de morte por acidente lonômico). Dados sob demanda: Camila, 40a, cuidadora de idosos, sem comorbidades, não bebe, não fuma, não usa drogas; pela manhã, podando árvores no quintal, sentiu dor forte e súbita no braço D há ~5 h, em queimação, piorando, 8/10, mais forte no local e se espalhando pelo braço, local sensível ao toque, sem fatores de melhora ou piora; mal-estar, cefaleia e enjoo; uma lagarta encostou no braço (impresso com imagem da lagarta, sem texto); lavou o local e pôs gelo; não tomou remédios. Exame físico: PA 128x95, FC 98, FR 38 (valor do impresso), abdome normotenso e indolor, ausculta cardíaca e respiratória normais. Exame da lesão: lesões puntiformes eritematosas, edemaciadas e dolorosas nos pontos de inoculação das cerdas, adenomegalia regional dolorosa, sem bolhas nem necrose. A paciente pergunta se é grave, como tratar e por que deve ser internada."
+  }
+}

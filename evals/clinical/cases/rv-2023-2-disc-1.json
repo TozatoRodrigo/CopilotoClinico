@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2023-2-disc-1",
+  "title": "Idosa com mão direita fria, dolorosa e com formigamento de início súbito e ritmo cardíaco irregular",
+  "tags": [
+    "deficit-neurologico-focal",
+    "revalida",
+    "discursiva",
+    "isquemia-arterial-aguda",
+    "fibrilacao-atrial"
+  ],
+  "critical": true,
+  "goldSource": "revalida_discursiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "UBS, 1ª consulta após mudança de região. Fem, 77a, professora aposentada. Dificuldade para segurar objetos e mão D mais fria; dor e formigamento na mão D de início súbito ontem ~15h. Sem outras queixas. HAS e DM há >10a; enalapril 10 mg pela manhã, metformina 850 mg 3x/dia. Mucosas coradas. AC: ritmo irregularmente irregular, FC ~60-80 bpm, intensidade de B1 variável batimento a batimento; sem onda a normal no pulso venoso jugular. Exame comparativo: mão D pálida, mal perfundida, pulso radial D mais fraco que o E, enchimento capilar lentificado nos dedos da mão D."
+  },
+  "expected": {
+    "syndrome": "isquemia arterial aguda (oclusão arterial aguda) do membro superior direito em paciente com fibrilação atrial",
+    "cannotMiss": [
+      "oclusão arterial aguda do membro superior direito",
+      "fibrilação atrial"
+    ],
+    "mustRequest": [
+      "exame de imagem vascular do membro superior direito (Doppler, angiotomografia, angiorressonância e/ou arteriografia)"
+    ],
+    "requiredActions": [
+      "internação em UTI ou box de emergência com monitorização cardíaca",
+      "anticoagulação sistêmica (anticoagulante oral ou venoso) para preservar a perfusão da mão direita e evitar amputação",
+      "revascularização: trombólise, trombectomia, embolectomia e/ou by-pass arterial",
+      "avaliação de cirurgião vascular (ou angiologista/cirurgião cardiovascular) ou encaminhamento a centro de referência",
+      "fibrilação atrial sem indicação de cardioversão nem de antiarrítmicos agora (FC 60–80 bpm, assintomática quanto à FA)"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "Gabarito oficial do INEP (Revalida 2023/2, Questão 1): o padrão pontua o diagnóstico de fibrilação atrial, seus fatores de risco (idade, hipertensão, diabetes) e a conduta da obstrução arterial aguda (internação monitorizada, anticoagulação, revascularização com exame vascular, avaliação do cirurgião vascular), sem cardioversão ou antiarrítmico.",
+    "expectedPath": "recommend"
+  },
+  "sources": [
+    {
+      "claim": "Item a (3,0 pontos): fibrilação atrial (ou auricular) é o diagnóstico clínico mais provável.",
+      "title": "Revalida 2023/2 – Prova Discursiva – Padrão de Respostas definitivo, Questão 1, item a",
+      "publisher": "INEP",
+      "year": 2023,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2023_2_PEP_discursiva.pdf"
+    },
+    {
+      "claim": "Item b (1,0 ponto cada, máx. 3,0): fatores de risco para a fibrilação atrial — idade (idoso/idade avançada), hipertensão e diabetes mellitus.",
+      "title": "Revalida 2023/2 – Prova Discursiva – Padrão de Respostas definitivo, Questão 1, item b",
+      "publisher": "INEP",
+      "year": 2023,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2023_2_PEP_discursiva.pdf"
+    },
+    {
+      "claim": "Item c (4 primeiras condutas): c1 internação em UTI ou box de emergência com monitorização cardíaca (1,0); c2 manejo da obstrução arterial aguda com anticoagulação sistêmica (oral/venosa) para preservar a perfusão da mão e evitar amputação (1,0); c3 trombólise, trombectomia, embolectomia e/ou by-pass arterial (0,5) e solicitação de Doppler, angiotomografia, angiorressonância e/ou arteriografia (0,5); c4 avaliação de cirurgião vascular/angiologista/cirurgião cardiovascular ou encaminhamento a centro de referência (1,0); c4 fibrilação atrial sem necessidade de cardioversão ou antiarrítmicos, pois está assintomática quanto à FA com FC 60–80 (1,0).",
+      "title": "Revalida 2023/2 – Prova Discursiva – Padrão de Respostas definitivo, Questão 1, item c",
+      "publisher": "INEP",
+      "year": 2023,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2023_2_PEP_discursiva.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2023/2",
+    "item": "Discursiva caso 1",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2023_2_PEP_discursiva.pdf",
+    "originalCaseText": "Uma mulher de 77 anos, professora de matemática aposentada, faz sua primeira visita à unidade básica de saúde (UBS) após mudar-se de região. Ela vai à consulta porque está sentindo dificuldade para segurar objetos e percebe que sua mão está mais fria. Conta que sente dor e formigamento na mão direita, os quais começaram subitamente ontem, por volta das 15h; ela não apresenta outras queixas. A paciente faz tratamento para hipertensão e para diabetes diagnosticados há mais de 10 anos. Ela toma, regularmente, enalapril 10 mg de manhã e metformina 850 mg, 3 vezes ao dia. Suas mucosas estão bem coradas e a ausculta cardíaca revela um ritmo irregularmente irregular com uma frequência aproximada de 60 a 80 batimentos por minuto e, ao exame, é possível perceber uma variação na intensidade do som da primeira bulha cardíaca de batimento para batimento. Além disso, não é possível visualizar onda a normal no pulso venoso jugular. O médico, então, examina a mão direita de forma comparativa e conclui que a mão está mal perfundida. A mão da paciente está pálida e o pulso radial direito está mais fraco se comparado com o esquerdo. O enchimento capilar está lentificado nos dedos da mão direita. A imagem a seguir apresenta um eletrocardiograma (ECG). Considerando o quadro clínico dessa paciente, faça o que se pede nos itens a seguir. a) Com base no ritmo cardíaco observado pelo médico no exame físico, qual é o diagnóstico clínico mais provável? Caso seja escrito mais de um diagnóstico, será considerado apenas o primeiro. (valor: 3,0 pontos) b) Cite três fatores de risco dessa paciente para o desenvolvimento da alteração de ritmo verificada no ECG. Serão pontuados apenas os três primeiros fatores indicados. (valor: 3,0 pontos) c) Quais devem ser as condutas médicas em relação à queixa principal da paciente? Definir quatro condutas. Serão pontuadas apenas as quatro primeiras condutas indicadas. (valor: 4,0 pontos)",
+    "notes": "A imagem do ECG não é transcrita; nenhuma expectativa depende dela: o item a se responde pelo exame físico (ritmo irregularmente irregular) e o item b pelos dados da vinheta (idade, hipertensão, diabetes). O padrão lista cinco condutas no item c (c1, c2, c3 e dois itens 'c4') e pontua as quatro primeiras citadas; todas foram mantidas. tags[0] = deficit-neurologico-focal por falta de grupo vascular/de membro na lista fechada: a apresentação é perda de força e parestesia súbitas da mão."
+  }
+}

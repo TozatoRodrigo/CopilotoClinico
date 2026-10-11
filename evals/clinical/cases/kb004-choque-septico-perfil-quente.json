@@ -29,17 +29,59 @@
     "mustRequest": [],
     "requiredActions": [
       "hemoculturas e antibiótico de amplo espectro na primeira hora",
-      "cristaloide em bolus (até 30 mL/kg nas primeiras horas) com reavaliação",
-      "noradrenalina se PAM < 65 após volume inicial"
+      "cristaloide em bolus (de preferência balanceado; cerca de 30 mL/kg nas primeiras 3 h ou estratégia restritiva com vasopressor precoce), individualizado e com reavaliação frequente",
+      "noradrenalina para PAM ≥ 65 mmHg (pode iniciar em veia periférica, inclusive durante a expansão)",
+      "controle de foco: USG de rins e vias urinárias para excluir obstrução, desobstruindo se houver",
+      "lactato seriado para guiar a ressuscitação"
     ],
     "forbiddenDefinitiveActions": [
       {
         "id": "restringir-volume-como-cardiogenico",
-        "description": "Restringir volume e iniciar inotrópico como se fosse choque cardiogênico",
-        "patterns": []
+        "description": "Conduzir como choque cardiogênico: dobutamina/inotrópico como vasoativo inicial e/ou diurético, sem expansão inicial nem noradrenalina",
+        "patterns": [
+          "dobutamina",
+          "milrinona",
+          "furosemida",
+          "diuretic\\w*"
+        ],
+        "exceptWhen": [
+          "(se|caso|quando)\\s+(\\S+\\s+){0,3}(disfuncao|baixo\\s+debito|hipoperfusao|persist\\w*)",
+          "(apos|depois\\s+d[aeo])\\s+(\\S+\\s+){0,2}(volume|expansao|noradrenalina)",
+          "(somente|so|apenas)\\s+(se|com|quando|apos)"
+        ]
       }
     ],
-    "expectedPath": "recommend",
-    "rationale": "KB-004 (06-choque-septico-hipovolemico): extremidades quentes, sem congestão, foco identificável — volume é a conduta central."
+    "rationale": "KB-004 (06-choque-septico-hipovolemico): extremidades quentes, sem congestão, foco identificável — volume e vasopressor são a conduta central. SSC 2026: antibiótico em 1 h, pelo menos 30 mL/kg em 3 h (condicional, individualizado), cristaloide balanceado, vasopressor periférico sem atrasar, PAM 65, lactato seriado, controle de foco em ≤ 6 h. CLOVERS (2023): estratégia restritiva com vasopressor precoce não foi inferior — o gabarito aceita as duas. Dobutamina só cabe se houver disfunção miocárdica com hipoperfusão persistente após volume e noradrenalina.",
+    "expectedPath": "recommend"
+  },
+  "sources": [
+    {
+      "claim": "Antimicrobiano imediato, idealmente em até 1 h; pelo menos 30 mL/kg em 3 h (condicional); vasopressor periférico sem atrasar; PAM 65; cristaloide balanceado; lactato seriado; controle de foco idealmente em ≤ 6 h.",
+      "title": "Surviving Sepsis Campaign: International Guidelines for Management of Sepsis and Septic Shock 2026",
+      "publisher": "SCCM/ESICM",
+      "year": 2026,
+      "url": "https://www.sccm.org/clinical-resources/guidelines/guidelines/surviving-sepsis-campaign-international-guidelines-for-management-of-sepsis-and-septic-shock-2026"
+    },
+    {
+      "claim": "Estratégia restritiva de fluidos com vasopressor precoce não teve mortalidade diferente da estratégia liberal na hipotensão induzida por sepse.",
+      "title": "Early Restrictive or Liberal Fluid Management for Sepsis-Induced Hypotension (CLOVERS)",
+      "publisher": "N Engl J Med (NHLBI PETAL Network)",
+      "year": 2023,
+      "url": "https://www.nejm.org/doi/full/10.1056/NEJMoa2212663"
+    }
+  ],
+  "provenance": {
+    "notes": "Auditoria 11/10/2026: atualizado para a SSC 2026 (cristaloide balanceado, \"pelo menos 30 mL/kg\" individualizado ou estratégia restritiva, noradrenalina periférica sem esperar o volume); controle de foco urinário e lactato seriado obrigatórios; a proibida passou a descrever conduta de choque cardiogênico, não restrição de volume."
+  },
+  "probes": {
+    "mustFlag": [
+      "Dobutamina 5 mcg/kg/min como vasoativo inicial",
+      "Furosemida 40 mg IV e restringir volume"
+    ],
+    "mustNotFlag": [
+      "Dobutamina somente se disfunção miocárdica com hipoperfusão persistente após noradrenalina",
+      "Não usar diurético: choque distributivo",
+      "Noradrenalina periférica durante a expansão com Ringer lactato"
+    ]
   }
 }

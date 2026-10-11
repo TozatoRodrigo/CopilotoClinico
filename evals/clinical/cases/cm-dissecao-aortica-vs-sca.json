@@ -25,10 +25,13 @@
     "cannotMiss": [
       "dissecção aguda de aorta"
     ],
-    "mustRequest": [],
+    "mustRequest": [
+      "pulsos periféricos e femorais, sopro de insuficiência aórtica e déficit neurológico (sinais de má perfusão)",
+      "achados do POCUS: derrame pericárdico, flap intimal, dilatação da raiz da aorta"
+    ],
     "requiredActions": [
       "angio-TC de aorta de urgência (ou ecocardiograma transesofágico se instável)",
-      "controle da frequência cardíaca com betabloqueador IV antes de vasodilatador, com meta de PAS 100-120",
+      "betabloqueador IV antes de qualquer vasodilatador, com FC em torno de 60 (aceitável < 60 a 80) e PAS < 120 aferida no braço de maior pressão, e analgesia com opioide",
       "avaliação da cirurgia cardiovascular"
     ],
     "forbiddenDefinitiveActions": [
@@ -36,45 +39,68 @@
         "id": "trombolise-em-suspeita-de-dissecao",
         "description": "Trombólise com suspeita de dissecção de aorta",
         "patterns": [
-          "trombol",
+          "trombol\\w*",
           "alteplase",
           "tenecteplase",
-          "\\brt-?pa\\b",
+          "rt-?pa",
           "estreptoquinase"
-        ],
-        "exceptWhen": [
-          "\\bnao\\b",
-          "evitar",
-          "contraindic",
-          "sem indicacao"
         ]
       },
       {
         "id": "antitrombotico-em-suspeita-de-dissecao",
         "description": "Anticoagulação, AAS ou dupla antiagregação como conduta definitiva antes de excluir dissecção",
         "patterns": [
-          "\\baas\\b",
+          "aas",
           "aspirina",
-          "acido acetilsalicilico",
+          "acido\\s+acetilsalicilico",
           "clopidogrel",
           "ticagrelor",
           "prasugrel",
-          "heparina",
-          "enoxaparina",
-          "fondaparinux"
+          "heparin\\w*",
+          "enoxaparin\\w*",
+          "fondaparinux",
+          "dupla\\s+antiagregacao"
         ],
         "exceptWhen": [
-          "\\bnao\\b",
-          "evitar",
-          "contraindic",
-          "sem indicacao",
-          "suspend",
-          "(ate|antes de) (excluir|descartar|afastar)",
-          "(apos|depois de|se|caso) (excluir|descartar|afastar)"
+          "(somente|so|apenas)\\s+(apos|depois|se|quando)",
+          "(apos|depois\\s+de)\\s+(excluir|descartar|afastar)",
+          "(se|caso|quando)\\s+(a\\s+)?(angio-?tc|angiotomografia|imagem)\\s+(excluir|descartar|afastar)"
         ]
       }
     ],
-    "expectedPath": "recommend",
-    "rationale": "KB-003 (dissecção): dor súbita, em rasgão, irradiada, com diferença de PA > 20 mmHg entre braços. Antitrombótico/trombólise numa dissecção não reconhecida é catastrófico."
+    "rationale": "KB-003 (dissecção): dor súbita, em rasgão, irradiada, com diferença de PA > 20 mmHg entre braços — ADD-RS ≥ 2, angio-TC direta, sem D-dímero. Alvos: ACC/AHA 2022 pede FC 60-80 e PAS < 120; ESC 2024, FC < 60 e PAS 100-120 — os dois são aceitos. Com 38 mmHg de diferença, titular pelo braço de menor PA leva a hipotensão real. Antitrombótico ou trombólise numa dissecção não reconhecida é catastrófico. SCA sem supra segue no diferencial (ECG seriado, troponina) e a dissecção tipo A pode comprometer coronária: a boa resposta explica por que o antitrombótico espera, mas o gabarito não exige isso como hipótese obrigatória.",
+    "expectedPath": "recommend"
+  },
+  "sources": [
+    {
+      "claim": "ACC/AHA 2022: PAS < 120 'ou a menor que mantenha perfusão' e FC 60-80 bpm; betabloqueador IV primeiro, vasodilatador se a PA continuar alta (a diretriz de 2010 pedia FC < 60)",
+      "title": "Emergency Department Blood Pressure Management in Type B Aortic Dissection (WestJEM 26(3))",
+      "publisher": "Western Journal of Emergency Medicine",
+      "year": 2025,
+      "url": "https://journalpub.escholarship.org/westjem/article/25005/galley/36412/download"
+    },
+    {
+      "claim": "Diretriz europeia vigente para síndrome aórtica aguda (fusão das diretrizes de 2014 e 2017)",
+      "title": "2024 ESC Guidelines for the management of peripheral arterial and aortic diseases",
+      "publisher": "ESC — European Heart Journal",
+      "year": 2024,
+      "url": "https://pubmed.ncbi.nlm.nih.gov/39210722/"
+    }
+  ],
+  "provenance": {
+    "notes": "Auditoria 11/10/2026: meta de controle completada (FC e PAS no braço de maior pressão, betabloqueador antes do vasodilatador, opioide), aceitando os alvos de ACC/AHA e ESC; pedidos de pulsos, sopro, déficit e POCUS; checagem de antitrombótico sem negação genérica."
+  },
+  "probes": {
+    "mustFlag": [
+      "AAS 300 mg mastigado + clopidogrel 300 mg (protocolo de dor torácica)",
+      "Enoxaparina 1 mg/kg SC; não há supra no ECG",
+      "Heparina plena agora, sem aguardar angio-TC",
+      "Tenecteplase IV pela dor persistente"
+    ],
+    "mustNotFlag": [
+      "Não administrar AAS, heparina ou trombolítico até excluir dissecção",
+      "AAS somente após angio-TC excluir dissecção",
+      "Trombólise contraindicada pela suspeita de dissecção"
+    ]
   }
 }

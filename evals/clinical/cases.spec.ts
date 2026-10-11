@@ -41,13 +41,27 @@ describe('gabarito clínico v0', () => {
     }
   });
 
-  it('traz os 40 casos do KB-001 com o texto do fixture, sem alteração', () => {
+  // Gabarito v1: o texto do KB-001 que anunciava o dado ausente ("sem
+  // informação sobre X, Y, Z") entregava as perguntas ao modelo. Foi reescrito
+  // como nota de beira de leito; o original fica em provenance.
+  it('traz os 40 casos do KB-001, com o texto do fixture no caso ou na proveniência', () => {
     for (const fixture of KB_001_SYNTHETIC_CASES) {
       const clinicalCase = caseById.get(`kb001-${fixture.id}`);
       expect(clinicalCase, fixture.id).toBeDefined();
-      expect(clinicalCase?.input.caseText).toBe(fixture.clinicalInput);
+      const originalText =
+        clinicalCase?.provenance?.originalCaseText ?? clinicalCase?.input.caseText;
+      expect(originalText, fixture.id).toBe(fixture.clinicalInput);
       expect(clinicalCase?.expected.expectedPath).toBe(fixture.expectedDecision);
       expect(clinicalCase?.goldSource).toBe('kb001_synthetic');
+    }
+  });
+
+  it('nunca anuncia no texto do caso o dado que falta', () => {
+    const announcesMissingData = /sem informacao|nao informad|sem descricao/;
+    for (const clinicalCase of cases) {
+      expect(normalizeForMatching(clinicalCase.input.caseText), clinicalCase.id).not.toMatch(
+        announcesMissingData,
+      );
     }
   });
 
@@ -60,15 +74,15 @@ describe('gabarito clínico v0', () => {
     expect(caseById.get('fi-003-avc-flutuante-como-hemorragico')?.critical).toBe(true);
   });
 
-  // `mustRequest` fica de fora de propósito: nos casos do KB-001 o próprio
-  // médico escreve "sem informação sobre X" — nomear o dado que falta é o
-  // texto do caso, não a resposta.
+  // Inclui `mustRequest`: desde o gabarito v1 o texto do caso omite o dado que
+  // falta em vez de nomeá-lo, então a pergunta esperada também não pode estar lá.
   it('nunca vaza a resposta esperada no texto do caso', () => {
     for (const clinicalCase of cases) {
       const caseText = normalizeForMatching(clinicalCase.input.caseText);
       const expectations = [
         clinicalCase.expected.syndrome,
         ...clinicalCase.expected.cannotMiss,
+        ...clinicalCase.expected.mustRequest,
         ...clinicalCase.expected.requiredActions,
       ];
       for (const expectation of expectations) {
@@ -130,6 +144,14 @@ describe('loadCaseSet', () => {
     writeFileSync(join(dir, fileName), JSON.stringify(content));
   }
 
+  const officialProvenance = {
+    exam: 'Revalida',
+    edition: '2024/2',
+    item: 'discursiva 1',
+    url: 'https://download.inep.gov.br/revalida/provas_e_gabaritos/exemplo.pdf',
+    originalCaseText: 'Enunciado oficial da questão.',
+  };
+
   const validCase = JSON.parse(
     readFileSync(join(CASES_DIR, 'fi-001-dengue-como-sepse.json'), 'utf-8'),
   ) as Record<string, unknown>;
@@ -150,6 +172,61 @@ describe('loadCaseSet', () => {
       review: { status: 'physician_reviewed' },
     });
     expect(() => loadCaseSet(dir)).toThrow(/reviewer/);
+  });
+
+  it('aceita fontes, proveniência e sondas (gabarito v1)', () => {
+    writeCase('fi-001-dengue-como-sepse.json', {
+      ...validCase,
+      goldSource: 'guideline_anchored',
+      sources: [
+        {
+          claim: 'Grupo D: expansão de 20 mL/kg em 20 min',
+          title: 'Dengue: diagnóstico e manejo clínico',
+          publisher: 'Ministério da Saúde',
+          year: 2024,
+          url: 'https://www.gov.br/saude/dengue',
+        },
+      ],
+      provenance: { originalCaseText: 'Texto antigo do caso.', notes: 'Reescrito na auditoria.' },
+      probes: { mustFlag: ['Ibuprofeno 600 mg'], mustNotFlag: ['Paracetamol 750 mg'] },
+    });
+    expect(loadCaseSet(dir).cases[0]?.sources).toHaveLength(1);
+  });
+
+  it('aceita gabarito oficial de prova sem revisor da equipe', () => {
+    writeCase('fi-001-dengue-como-sepse.json', {
+      ...validCase,
+      goldSource: 'revalida_discursiva',
+      review: { status: 'official_exam_key' },
+      provenance: officialProvenance,
+    });
+    expect(loadCaseSet(dir).cases[0]?.review.status).toBe('official_exam_key');
+  });
+
+  it('recusa gabarito oficial sem a prova, a URL e o texto original', () => {
+    writeCase('fi-001-dengue-como-sepse.json', {
+      ...validCase,
+      goldSource: 'revalida_discursiva',
+      review: { status: 'official_exam_key' },
+      provenance: { exam: 'Revalida', edition: '2024/2' },
+    });
+    expect(() => loadCaseSet(dir)).toThrow(/provenance\.exam, provenance\.url/);
+  });
+
+  it('aceita caso fora do portão com motivo', () => {
+    writeCase('fi-001-dengue-como-sepse.json', {
+      ...validCase,
+      excludeFromGate: { reason: 'Gabarito oficial anterior à diretriz vigente.' },
+    });
+    expect(loadCaseSet(dir).cases[0]?.excludeFromGate?.reason).toMatch(/diretriz/);
+  });
+
+  it('recusa sonda sem frase que deve ser acusada', () => {
+    writeCase('fi-001-dengue-como-sepse.json', {
+      ...validCase,
+      probes: { mustFlag: [], mustNotFlag: ['Paracetamol 750 mg'] },
+    });
+    expect(() => loadCaseSet(dir)).toThrow(/probes\.mustFlag/);
   });
 
   it('recusa padrão proibido que não é expressão regular válida', () => {

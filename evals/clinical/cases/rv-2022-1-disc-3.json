@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2022-1-disc-3",
+  "title": "Edema periorbital, oligúria e urina escura com hipertensão em escolar após faringite",
+  "tags": [
+    "sintomas-urinarios",
+    "revalida",
+    "discursiva",
+    "pediatria",
+    "glomerulonefrite"
+  ],
+  "critical": false,
+  "goldSource": "revalida_discursiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "UPA. Fem, 7a. Mãe refere há 1 dia inchaço nos olhos, diurese diminuída e urina escura. Há 15 dias dor de garganta, dificuldade para engolir e febre alta por 4 dias, tratada com sintomáticos. Agora com cefaleia. EF: REG, edema periorbital discreto, hipertensão estágio 1."
+  },
+  "expected": {
+    "syndrome": "síndrome nefrítica aguda por glomerulonefrite difusa aguda pós-estreptocócica",
+    "cannotMiss": [
+      "glomerulonefrite difusa aguda pós-estreptocócica (síndrome nefrítica)"
+    ],
+    "mustRequest": [
+      "dosagem do complemento sérico",
+      "exame de urina (hematúria, cilindros hemáticos, proteinúria)",
+      "função renal e eletrólitos (ureia, creatinina, sódio, potássio, bicarbonato)",
+      "hemograma (anemia dilucional)",
+      "anticorpos antiestreptocócicos (ASO; anti-hialuronidase/anti-DNAase)"
+    ],
+    "requiredActions": [
+      "repouso enquanto persistirem edema e hipertensão",
+      "restrição hídrica (20 mL/kg/dia ou 300–400 mL/m²/dia)",
+      "restrição de sódio (< 2 g de NaCl/m²/dia) na fase de edema, hipertensão e oligúria",
+      "definir tratamento ambulatorial ou hospitalar conforme presença de complicações",
+      "monitorizar função renal, pressão arterial, balanço hídrico e peso",
+      "acompanhamento com nefrologista pediátrico",
+      "furosemida se congestão cardiocirculatória importante, oligoanúria ou hipertensão sintomática",
+      "anti-hipertensivo na hipertensão sintomática (anlodipino, nifedipino de liberação lenta ou hidralazina; alternativa IECA/BRA com monitorização do potássio)",
+      "penicilina (oral, EV ou IM), ou eritromicina se alergia, para erradicação do estreptococo"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "Gabarito oficial do INEP (Revalida 2022/1, Questão 3): o padrão pontua o diagnóstico de GNDA pós-estreptocócica, os exames laboratoriais esperados alterados (com o complemento sérico como obrigatório) e as orientações e medicamentos do manejo inicial.",
+    "expectedPath": "recommend"
+  },
+  "sources": [
+    {
+      "claim": "Item a (2,0 pontos): glomerulonefrite difusa aguda pós-estreptocócica, com síndrome nefrítica (edema, hipertensão e hematúria 10 a 20 dias após infecção estreptocócica de vias aéreas superiores; pico ao redor dos 7 anos).",
+      "title": "Revalida 2022/1 – Prova Discursiva – Padrão de Respostas definitivo, Questão 3, item a",
+      "publisher": "INEP",
+      "year": 2022,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2022_GB_discursiva.pdf"
+    },
+    {
+      "claim": "Item b (3,0 pontos): complemento sérico (dosagem obrigatória, diminuído em 95–98%); ureia e creatinina; sódio, potássio e bicarbonato; anemia dilucional discreta; ASO elevado; urina com hematúria, cilindros hemáticos e proteinúria; anti-hialuronidase e anti-DNAase.",
+      "title": "Revalida 2022/1 – Prova Discursiva – Padrão de Respostas definitivo, Questão 3, item b",
+      "publisher": "INEP",
+      "year": 2022,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2022_GB_discursiva.pdf"
+    },
+    {
+      "claim": "Item c (3,0 pontos), orientações: repouso enquanto houver edema e hipertensão; restrição hídrica a 20 mL/kg/dia ou 300–400 mL/m²/dia; restrição de sódio (< 2 g de NaCl/m²/dia); definir tratamento ambulatorial ou hospitalar conforme complicações; monitorizar função renal, PA, balanço hídrico e peso; acompanhamento com nefrologista pediátrico.",
+      "title": "Revalida 2022/1 – Prova Discursiva – Padrão de Respostas definitivo, Questão 3, item c (orientações)",
+      "publisher": "INEP",
+      "year": 2022,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2022_GB_discursiva.pdf"
+    },
+    {
+      "claim": "Item c, medicamentos: furosemida se congestão cardiocirculatória importante, oligoanúria ou hipertensão sintomática; hipotensores na hipertensão sintomática (anlodipino, nifedipino de liberação lenta ou hidralazina; alternativa IECA/ARA II com monitorização do potássio); penicilina (oral, EV ou IM) ou eritromicina se alergia, para erradicação da infecção.",
+      "title": "Revalida 2022/1 – Prova Discursiva – Padrão de Respostas definitivo, Questão 3, item c (medicamentos)",
+      "publisher": "INEP",
+      "year": 2022,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2022_GB_discursiva.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2022/1",
+    "item": "Discursiva caso 3",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2022_GB_discursiva.pdf",
+    "originalCaseText": "Uma escolar com 7 anos de idade é atendida em Unidade de Pronto Atendimento. A mãe relata que, há 1 dia, está com inchaço nos olhos e tem urinado pouco, apresentando urina escura. Relata também que, há 15 dias, a menina queixou-se de dor na garganta, dificuldade para engolir os alimentos e apresentou febre alta por 4 dias, manejada com medicação sintomática. No momento, a escolar apresenta cefaleia. Ao exame físico, verificam-se regular estado geral, edema periorbital discreto e hipertensão estágio 1. Considerando o caso clínico descrito, responda às questões a seguir. a) Qual é a principal hipótese diagnóstica? Justifique sua resposta. (valor: 2,0 pontos) b) Quais exames laboratoriais podem estar alterados nesse caso? (valor: 3,0 pontos) c) Quais as orientações a serem feitas e que medicamentos devem ser usados para essa escolar? (valor: 3,0 pontos) d) Qual é a evolução esperada desse quadro para casos não complicados? (valor: 2,0 pontos)",
+    "notes": "Enunciado transcrito do padrão de respostas (o texto da prova veio com fonte codificada na extração). Item d (evolução esperada dos casos não complicados) não vira expectativa: é prognóstico, sem dado a obter nem conduta. O padrão lista orientações e medicamentos sem pontuação por subitem."
+  }
+}

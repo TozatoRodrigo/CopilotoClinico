@@ -190,6 +190,32 @@ describe('summarizeRun', () => {
     expect(summary.noAnswer).toMatchObject({ passed: 1, total: 2 });
   });
 
+  it('roda e lista o caso fora do portão sem deixá-lo reprovar', () => {
+    const excludedCasesById = new Map(casesById);
+    excludedCasesById.set(criticalCase.id, {
+      ...criticalCase,
+      excludeFromGate: { reason: 'Gabarito oficial anterior à diretriz vigente.' },
+    });
+    const loaded = run(
+      [result(criticalCase.id, 'invalid_output'), result(nonCriticalCase.id, 'ok')],
+      true,
+    );
+    const summary = summarizeRun(loaded, excludedCasesById);
+
+    expect(summary.gate).toBe('aprovado');
+    expect(summary.criticalErrors.caseIds).toEqual([criticalCase.id]);
+    expect(summary.criticalErrors.criticalSubsetCaseIds).toEqual([]);
+    expect(summary.outsideGate).toEqual([
+      {
+        caseId: criticalCase.id,
+        reason: 'Gabarito oficial anterior à diretriz vigente.',
+        criticalErrorReps: 1,
+        reps: 1,
+      },
+    ]);
+    expect(renderSummaryMarkdown(loaded, summary)).toContain('### Fora do portão');
+  });
+
   it('deixa o portão incompleto quando um caso crítico caiu em erro de infraestrutura', () => {
     const infra: ErrorRow = {
       runId: 'run-a',

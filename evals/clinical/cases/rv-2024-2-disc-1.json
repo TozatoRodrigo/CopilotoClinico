@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2024-2-disc-1",
+  "title": "Dispneia súbita com hipoxemia em mulher com LES e SAAF tratada como pneumonia",
+  "tags": [
+    "dispneia",
+    "revalida",
+    "discursiva",
+    "tep"
+  ],
+  "critical": true,
+  "goldSource": "revalida_discursiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "PS. Fem, 38a, LES + SAAF. Dispneia muito intensa de início súbito há 2h. Há 3 dias atendida na emergência por dispneia, tosse, hemoptise e dor torácica ventilatório-dependente à E; iniciado tto para pneumonia. Pálida, cianose labial. FC 132, FR 34, PA 100x70, Tax 36,8 °C, SatO2 88% em AA -> 93% com O2 100% em máscara não reinalante com reservatório. AP: MV presente e simétrico."
+  },
+  "expected": {
+    "syndrome": "dispneia aguda com hipoxemia por tromboembolismo pulmonar agudo",
+    "cannotMiss": [
+      "tromboembolismo pulmonar agudo"
+    ],
+    "mustRequest": [
+      "exame dos membros inferiores em busca de sinais de TVP (edema/empastamento e dor à palpação da panturrilha, sinal de Homans, assimetria de circunferência)",
+      "sinais de sobrecarga de VD ao exame (turgência jugular/PVJ aumentada, impulsão paraesternal de VD, hiperfonese de B2)"
+    ],
+    "requiredActions": [],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "Gabarito oficial do INEP (Revalida 2024/2, padrão de respostas definitivo da questão 1): o padrão pontua o diagnóstico de TEP e a busca de sinais clínicos que o corroboram no seguimento do exame físico; não pontua conduta.",
+    "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "Item a (4,0 pontos): o diagnóstico mais provável é tromboembolismo pulmonar (TEP) agudo OU tromboembolismo pulmonar OU embolia pulmonar.",
+      "title": "Revalida 2024/2 – Prova Discursiva – Padrão de Respostas definitivo, Questão 1, item a",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2024_2_PEP_discursiva_versao_final.pdf"
+    },
+    {
+      "claim": "Item b (1,0 ponto por sinal, máx. 3,0): sinais de TVP no membro inferior (edema com dor à palpação da panturrilha/Bancroft, Homans, Prats, empastamento, circunferência > 3 cm), turgência jugular/PVJ aumentada, impulsão paraesternal de VD, hiperfonese de B2; o seguimento do exame físico deve abordar os membros inferiores.",
+      "title": "Revalida 2024/2 – Prova Discursiva – Padrão de Respostas definitivo, Questão 1, item b",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2024_2_PEP_discursiva_versao_final.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2024/2",
+    "item": "Discursiva caso 1",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2024_2_PEP_discursiva_versao_final.pdf",
+    "originalCaseText": "Uma mulher de 38 anos é atendida em hospital de pronto-socorro com dispneia acentuada. Ela queixa-se de falta de ar muito intensa, iniciada, subitamente, há 2 horas. A acompanhante relata que, há 3 dias, a paciente procurou a emergência por dispneia, tosse, hemoptise e dor torácica ventilatório-dependente à esquerda. Nessa ocasião, foi iniciado tratamento para pneumonia. Atualmente, a paciente se encontra pálida, com cianose labial. Em exame físico, constatam-se os seguintes resultados: Exame Resultado | Frequência cardíaca 132 batimentos por minuto | Frequência respiratória 34 incursões respiratórias por minuto | Pressão arterial 100 × 70 mmHg | Temperatura axilar 36,8 °C | Saturação de O2 88% em ar ambiente (medida por oxímetro de pulso). O médico solicita administração de oxigênio a 100% por máscara não reinalante, com reservatório. A saturação de O2 eleva-se para 93%. À ausculta pulmonar, nota-se sons pulmonares presentes e simétricos. Como antecedentes patológicos, a paciente apresenta lúpus eritematoso sistêmico e síndrome do anticorpo antifosfolípide. O médico solicita uma radiografia de tórax, cujo resultado é apresentado na imagem seguinte. Acerca desse caso, faça o que se pede nos itens a seguir. a) Qual é o diagnóstico atual mais provável para explicar o agravamento do quadro respiratório? (valor: 4,0 pontos) b) Cite três sinais clínicos que, se presentes no seguimento do exame físico da paciente, corroborariam o diagnóstico mais provável. (valor: 3,0 pontos) c) Descreva a alteração radiológica presente que corrobora o diagnóstico mais provável. (valor: 3,0 pontos)",
+    "notes": "Item c (descrição da radiografia) omitido das expectativas: depende de imagem não transcrita no texto da prova. O padrão de resposta não pontua conduta terapêutica, por isso requiredActions fica vazio."
+  }
+}

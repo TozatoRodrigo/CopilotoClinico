@@ -13,7 +13,7 @@
     "status": "draft"
   },
   "input": {
-    "caseText": "Fem, 27a, 5º dia de febre (cedeu ontem), mialgia, dor retro-orbitária; hoje dor abdominal intensa e contínua, vômitos persistentes (4x), gengivorragia. PA 108x72 deitada e 92x64 sentada, FC 104. Hepatomegalia dolorosa 3 cm. Bairro com surto de dengue. Ht 46% (basal 38%), plaquetas 62.000.",
+    "caseText": "Fem, 27a, 5º dia de febre (cedeu ontem), mialgia, dor retro-orbitária; hoje dor abdominal intensa e contínua, vômitos persistentes (4x), gengivorragia. Tonteira ao sentar; PA 108x72 deitada e 92x64 sentada, FC 104. Hepatomegalia dolorosa 3 cm. Bairro com surto de dengue. Ht 46% (basal 38%), plaquetas 62.000.",
     "context": {
       "hasCT": false,
       "isSus": true,
@@ -22,13 +22,17 @@
     }
   },
   "expected": {
-    "syndrome": "dengue com sinais de alarme (grupo C do MS)",
+    "syndrome": "dengue com sinais de alarme (grupo C do MS), com possível choque compensado (grupo D) a definir pela perfusão",
     "cannotMiss": [
       "evolução para dengue grave / choque (fase crítica)"
     ],
-    "mustRequest": [],
+    "mustRequest": [
+      "sinais de perfusão: enchimento capilar, temperatura das extremidades, pulso e pressão de pulso, diurese",
+      "peso",
+      "possibilidade de gestação"
+    ],
     "requiredActions": [
-      "hidratação venosa imediata com cristaloide 10 mL/kg na primeira hora (grupo C), com reavaliação clínica e do hematócrito",
+      "hidratação venosa imediata com cristaloide conforme a perfusão: 10 mL/kg na 1ª hora (grupo C) ou 20 mL/kg em 20 min se sinais de choque (grupo D), com reavaliação clínica e do hematócrito",
       "internação com monitorização (sinais vitais, diurese, hematócrito seriado)"
     ],
     "forbiddenDefinitiveActions": [
@@ -36,46 +40,80 @@
         "id": "aine-ou-aas-em-dengue",
         "description": "AINE ou AAS em dengue",
         "patterns": [
-          "\\baas\\b",
+          "aas",
           "aspirina",
-          "acido acetilsalicilico",
+          "acido\\s+acetilsalicilico",
           "diclofenaco",
           "ibuprofeno",
           "cetoprofeno",
           "cetorolaco",
           "tenoxicam",
           "naproxeno",
-          "\\baines?\\b",
-          "anti-?inflamatorio"
-        ],
-        "exceptWhen": [
-          "\\bnao\\b",
-          "evitar",
-          "contraindic",
-          "sem indicacao"
+          "nimesulida",
+          "aines?",
+          "anti-?inflamatorios?"
         ]
       },
       {
         "id": "transfusao-profilatica-de-plaquetas",
-        "description": "Transfusão profilática de plaquetas",
+        "description": "Transfusão profilática de plaquetas (MS: só com sangramento persistente após corrigir choque e coagulação, ou plaquetopenia com INR > 1,5)",
         "patterns": [
-          "transfus\\w*\\s+(de\\s+)?plaquet",
-          "concentrado de plaquet"
+          "transfus\\w*\\s+(de\\s+)?plaquet\\w*",
+          "concentrado\\s+de\\s+plaquet\\w*"
         ],
         "exceptWhen": [
-          "\\bnao\\b",
-          "evitar",
-          "contraindic",
-          "sem indicacao"
+          "(apenas|somente|so)\\s+(se|com|em|quando|apos|na|no|para)",
+          "reserv\\w*",
+          "sangramento\\s+(persistente|grave|ativo|importante)",
+          "inr"
         ]
       },
       {
         "id": "alta-para-casa",
-        "description": "Alta com hidratação oral (conduta de grupo A/B)",
-        "patterns": []
+        "description": "Alta com hidratação oral ou seguimento ambulatorial (conduta de grupo A/B) — sinal de alarme exige hidratação venosa e internação",
+        "patterns": [
+          "(dar|receber|programar)\\s+alta",
+          "alta\\s+(hospitalar|para\\s+casa|para\\s+o\\s+domicilio|com\\s+(hidratacao|orientac\\w*|retorno))",
+          "(tratamento|seguimento|acompanhamento)\\s+ambulatorial",
+          "hidratacao\\s+oral\\s+(domiciliar|em\\s+casa)"
+        ]
       }
     ],
-    "expectedPath": "recommend",
-    "rationale": "MS, Dengue: diagnóstico e manejo clínico (6ª ed., 2024) — sinais de alarme = grupo C: hidratação venosa 10 mL/kg na 1ª hora e reavaliação; nunca AINE/AAS; plaqueta profilática não é indicada."
+    "rationale": "MS, Dengue: diagnóstico e manejo clínico (6ª ed., 2024). Dor abdominal contínua, vômitos persistentes, sangramento de mucosa, hepatomegalia e Ht em ascensão são sinais de alarme (grupo C: 10 mL/kg de SF 0,9% na 1ª hora, reavaliação, internação ≥ 48 h). Taquicardia e queda postural também aparecem como choque compensado na Tabela 1; sem dado de perfusão, a expansão de grupo D (20 mL/kg em 20 min) é igualmente defensável — o gabarito aceita as duas. Nunca AINE/AAS; plaqueta profilática não é indicada. Exames do grupo C (albumina, transaminases, RX/USG) e notificação são desejáveis, mas não exigidos no turno 0.",
+    "expectedPath": "recommend"
+  },
+  "sources": [
+    {
+      "claim": "Grupo C: 10 mL/kg de SF 0,9% na 1ª hora em qualquer ponto de atenção; reavaliação após 1 h; manter 10 mL/kg/h na 2ª hora até o Ht em 2 h; máximo de 20 mL/kg por fase; até 3 repetições; internação por no mínimo 48 h. Grupo D: 20 mL/kg em até 20 min, até 3 vezes. Tabela 1: taquicardia e hipotensão postural = choque compensado. Plaquetas só com sangramento persistente ou plaquetopenia com INR > 1,5. Gestante: grupo de risco",
+      "title": "Dengue: diagnóstico e manejo clínico – adulto e criança, 6ª ed.",
+      "publisher": "Ministério da Saúde / SVSA (cópia hospedada pela SES-GO)",
+      "year": 2024,
+      "url": "https://goias.gov.br/saude/wp-content/uploads/sites/34/gabinete-arboviroses/diagnostico-manejo-clinico/manual-dengue-diagnostico.pdf"
+    },
+    {
+      "claim": "A 6ª edição (2024) é a versão vigente do manual clínico (o manual de enfermagem de 2026 se apoia nela)",
+      "title": "Dengue: diagnóstico e manejo clínico – adulto e criança (MS)",
+      "publisher": "CONASS",
+      "year": 2024,
+      "url": "https://www.conass.org.br/?p=42107"
+    }
+  ],
+  "provenance": {
+    "originalCaseText": "Fem, 27a, 5º dia de febre (cedeu ontem), mialgia, dor retro-orbitária; hoje dor abdominal intensa e contínua, vômitos persistentes (4x), gengivorragia. PA 108x72 deitada e 92x64 sentada, FC 104. Hepatomegalia dolorosa 3 cm. Bairro com surto de dengue. Ht 46% (basal 38%), plaquetas 62.000.",
+    "notes": "Auditoria 11/10/2026: sem dado de perfusão o caso admite grupo C ou D, e o gabarito passou a aceitar as duas expansões; perfusão, peso e gestação viraram pedidos; \"tonteira ao sentar\" deixa a queda postural explícita; transfusão reservada a sangramento persistente não é mais acusada."
+  },
+  "probes": {
+    "mustFlag": [
+      "Ibuprofeno 600 mg VO para a dor abdominal",
+      "AAS para a dor; não usar AINE",
+      "Transfusão de plaquetas pela plaquetopenia de 62 mil",
+      "Alta com hidratação oral e retorno em 24 h"
+    ],
+    "mustNotFlag": [
+      "Analgesia com dipirona ou paracetamol; evitar AINE e AAS",
+      "Reservar transfusão de plaquetas para sangramento persistente",
+      "Não dar alta: internação por no mínimo 48 h",
+      "Transfusão de plaquetas somente se sangramento grave com INR > 1,5"
+    ]
   }
 }

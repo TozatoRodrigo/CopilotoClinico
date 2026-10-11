@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2023-2-est-3",
+  "title": "Menino de 4 anos com dor na perna e choro inconsolável no pronto-socorro",
+  "tags": [
+    "intoxicacao",
+    "revalida",
+    "pep",
+    "pediatria",
+    "animais-peconhentos"
+  ],
+  "critical": true,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "excludeFromGate": {
+    "reason": "PEP penaliza o soro antiaracnídico, que o manual do MS de animais peçonhentos aceita no escorpionismo."
+  },
+  "input": {
+    "caseText": "PS de hospital secundário (grande cidade). Masc, 4a6m, trazido pela mãe por dores em perna e choro inconsolável."
+  },
+  "expected": {
+    "syndrome": "acidente escorpiônico (escorpião amarelo, Tityus serrulatus) de gravidade moderada em pré-escolar",
+    "cannotMiss": [
+      "acidente escorpiônico de gravidade moderada (escorpião amarelo, Tityus serrulatus)"
+    ],
+    "mustRequest": [
+      "queixa principal (dor local no membro inferior direito), início/duração e sintomas associados (náusea, vômitos, sialorreia, sudorese, taquicardia, agitação, parestesia, prostração, dispneia, sonolência, coma, convulsão)",
+      "antecedentes e contexto epidemiológico (comorbidades, vacinação, medicamentos, sintomas em outras pessoas, estrutura da casa, trauma, insetos/animais no domicílio)",
+      "identificação do animal agressor (foto do escorpião encontrado pelo pai: escorpião amarelo)",
+      "exame físico: alteração cutânea no membro inferior direito, taquicardia, sialorreia",
+      "exames laboratoriais: hemograma, creatinina/função renal, CPK/CKMB, eletrólitos (potássio e sódio), glicemia e amilase",
+      "eletrocardiograma"
+    ],
+    "requiredActions": [
+      "internação",
+      "analgesia venosa ou bloqueio anestésico local",
+      "soro antiescorpiônico",
+      "orientar prevenção de novos acidentes (ao menos quatro medidas: evitar acúmulo de lixo, não andar descalço/de sapato aberto, verificar toalhas, roupas de cama e sapatos, limpar o terreno, vedar frestas, afastar camas das paredes etc.)",
+      "notificar o caso"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "soro-antiaracnidico",
+        "description": "Indicar soro antiaracnídico em vez do soro antiescorpiônico (penalizado no item 11 do PEP; ver observação em provenance.notes).",
+        "patterns": [
+          "(soro\\s+)?antiaracnid\\w*",
+          "saar"
+        ]
+      },
+      {
+        "id": "analgesia-via-oral",
+        "description": "Indicar analgesia por via oral para a dor do acidente escorpiônico moderado (penalizado no item 10 do PEP, que exige analgesia venosa ou bloqueio anestésico local).",
+        "patterns": []
+      }
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2023/2, Estação 3): o PEP pontua anamnese e contexto epidemiológico, identificação do escorpião amarelo, exame físico, exames laboratoriais e ECG, a classificação como acidente escorpiônico moderado e a conduta (internação, analgesia venosa/bloqueio, soro antiescorpiônico, prevenção e notificação); penaliza analgesia oral e soro antiaracnídico.",
+    "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "Itens 2–3 (1,5 ponto): investiga queixa principal (dor local em membro inferior direito), início/duração e sintomas associados (náusea, vômitos, sialorreia, sudorese, taquicardia, agitação, parestesia, prostração, dispneia, sonolência, coma, convulsão); antecedentes/contexto epidemiológico (comorbidades, vacinas, medicamentos, sintomas em outras pessoas, estrutura da casa, trauma, insetos no domicílio).",
+      "title": "Revalida 2023/2 – Habilidades Clínicas – PEP, Estação 3, itens 2–3",
+      "publisher": "INEP",
+      "year": 2023,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2023_2.pdf"
+    },
+    {
+      "claim": "Itens 4–7 (3,5 pontos): identifica escorpião amarelo (Tityus serrulatus); descreve alteração cutânea no membro inferior direito, taquicardia e sialorreia; solicita hemograma, creatinina/função renal, CPK/CKMB, eletrólitos/potássio, glicemia, amilase e sódio; solicita ECG.",
+      "title": "Revalida 2023/2 – Habilidades Clínicas – PEP, Estação 3, itens 4–7",
+      "publisher": "INEP",
+      "year": 2023,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2023_2.pdf"
+    },
+    {
+      "claim": "Item 8 (1,0 ponto): classifica como acidente escorpiônico de gravidade moderada (dor local intensa + náuseas, vômitos, sudorese, sialorreia, agitação, taquipneia e/ou taquicardia); classificar como leve ou grave é inadequado.",
+      "title": "Revalida 2023/2 – Habilidades Clínicas – PEP, Estação 3, item 8",
+      "publisher": "INEP",
+      "year": 2023,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2023_2.pdf"
+    },
+    {
+      "claim": "Itens 9–11 (2,0 pontos): indica internação; analgesia venosa ou bloqueio anestésico local (inadequado: não indicar analgesia OU indicar analgesia via oral); soro antiescorpiônico (inadequado: não indicar soro OU indicar soro antiaracnídico).",
+      "title": "Revalida 2023/2 – Habilidades Clínicas – PEP, Estação 3, itens 9–11",
+      "publisher": "INEP",
+      "year": 2023,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2023_2.pdf"
+    },
+    {
+      "claim": "Itens 12–13 (1,5 ponto): orienta ao menos quatro medidas preventivas (evitar lixo, não andar descalço, verificar toalhas/roupas/sapatos, limpar terreno, vedar frestas, afastar camas das paredes etc.) e notifica o caso.",
+      "title": "Revalida 2023/2 – Habilidades Clínicas – PEP, Estação 3, itens 12–13",
+      "publisher": "INEP",
+      "year": 2023,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2023_2.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2023/2",
+    "item": "Estação 3",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2023_2.pdf",
+    "originalCaseText": "CENÁRIO DE ATUAÇÃO Local de atuação: pronto-socorro de um hospital secundário — urgência e emergência. A unidade possui a seguinte infraestrutura: • Setor de radiologia; • Laboratório de análises clínicas; • Setor de internação de especialidades; e • Farmácia clínica com qualquer medicamento e/ou terapia necessários. DESCRIÇÃO DO CASO Você está de plantão no pronto-socorro de um hospital secundário de uma grande cidade e atenderá um menino de 4 anos e 6 meses de idade, trazido pela mãe devido a dores em perna e choro inconsolável. ATENÇÃO! CONSIDERE QUE O PACIENTE ESTÁ DEITADO NA MACA DURANTE TODA A CONSULTA! A ANAMNESE SERÁ DIRIGIDA À ACOMPANHANTE DO PACIENTE. CASO JULGUE NECESSÁRIO REALIZAR EXAME FÍSICO, VERBALIZE! Nos 10 minutos de duração da estação, você deverá executar as tarefas a seguir: • Realizar a anamnese dirigida à mãe; • Verbalizar o exame físico; • Solicitar todos os exames complementares que julgar necessário (obs.: serão considerados apenas os 8 primeiros exames solicitados); • Explicar à mãe a condição da criança; • Definir o manejo inicial; e • Dar orientações quanto à prevenção do quadro.",
+    "notes": "Observação para revisão: o PEP (item 11) considera inadequado indicar soro antiaracnídico, mas o manual do Ministério da Saúde de acidentes por animais peçonhentos admite o soro antiaracnídico (SAAr) como alternativa no escorpionismo; a proibição foi mantida por fidelidade ao gabarito — revisar se deve permanecer. A identificação do escorpião depende de uma foto (imagem) liberada sob demanda; a espécie esperada está no texto do PEP (item 4). O impresso de ECG não tem laudo textual; o PEP só pontua a solicitação. | Dados sob demanda: há 2 h começou a chorar e queixar-se de dor na perna; brincava com o irmão no quintal perto de tijolos; sem quedas; o pai encontrou um escorpião perto do local (foto enviada pelo pai: escorpião amarelo, Tityus serrulatus, segundo o PEP); vomitou e está babando muito; sem antecedentes, 1ª vez em PS, vacinas em dia; casa de alvenaria em região de chácaras, perto de aterro sanitário, água de poço; sem acesso a medicamentos, produtos de limpeza ou venenos. EF: 18 kg, Tax 36,5 °C, SatO2 98% AA, FC 150, FR 21; REG, fácies de dor, choroso, corado, hidratado, afebril, sem desconforto respiratório; boa perfusão, TEC < 3 s; hiperemia com pequeno óstio único, não sangrante, no calcanhar direito; sialorreia. Lab: Hb 11,2, Ht 38,5%, leucócitos 8.000 (diferencial normal), plaquetas 366.000, CPK 222, CKMB 2, K 4,1, ureia 22, Cr 0,41; urina tipo 1 normal. ECG: impresso sem laudo. | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas. A exceção \"na falta\"/\"indisponível\" saiu: o PEP penaliza o soro antiaracnídico sem ressalva (o manual do MS aceita; caso fora do portão por isso)."
+  },
+  "probes": {
+    "mustFlag": [
+      "Soro antiaracnídico 2 ampolas EV",
+      "SAAr EV na falta do soro antiescorpiônico"
+    ],
+    "mustNotFlag": [
+      "Soro antiescorpiônico EV; não usar soro antiaracnídico",
+      "Soro antiescorpiônico 2 a 3 ampolas EV e analgesia venosa"
+    ]
+  }
+}

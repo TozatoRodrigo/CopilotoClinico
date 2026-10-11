@@ -20,11 +20,15 @@
     "cannotMiss": [
       "doença meningocócica invasiva (meningococcemia) com choque"
     ],
-    "mustRequest": [],
+    "mustRequest": [
+      "alergia a betalactâmicos",
+      "exposição a carrapatos ou a área de febre maculosa"
+    ],
     "requiredActions": [
-      "ceftriaxona IV 2 g imediata, sem aguardar TC ou punção lombar",
-      "dexametasona antes ou junto da primeira dose do antibiótico",
-      "ressuscitação volêmica para a hipotensão"
+      "ceftriaxona IV imediata, sem aguardar TC ou punção lombar",
+      "dexametasona antes ou junto da 1ª dose do antibiótico, sem atrasá-lo (omiti-la com justificativa pela suspeita de meningococcemia também é aceitável)",
+      "ressuscitação volêmica para a hipotensão",
+      "precaução respiratória por gotículas"
     ],
     "forbiddenDefinitiveActions": [
       {
@@ -33,7 +37,54 @@
         "patterns": []
       }
     ],
-    "expectedPath": "recommend",
-    "rationale": "Antibiótico na primeira hora; TC antes da punção pelo rebaixamento, mas nunca antes do antibiótico. Precaução por gotículas e notificação imediata ao serviço de vigilância."
+    "rationale": "Antibiótico na primeira hora (ESCMID 2016; Surviving Sepsis 2021). A PL fica adiada até estabilização hemodinâmica e exclusão de coagulopatia (choque e petéquias); TC antes da PL conforme critérios (IDSA: alteração de consciência; ESCMID: GCS < 10, déficit focal, crise nova, imunossupressão grave); nada disso atrasa o antibiótico. NICE NG240 recomenda dexametasona na meningite bacteriana suspeita, mas não de rotina na doença meningocócica — as duas condutas são aceitas se justificadas. Hemoculturas sem atrasar o ATB, notificação imediata e quimioprofilaxia dos contatos (NT MS 154/2024) são esperadas, mas não exigidas no turno 0. Febre maculosa é diferencial de febre com petéquias e choque no Brasil (doxiciclina).",
+    "expectedPath": "recommend"
+  },
+  "sources": [
+    {
+      "claim": "Dexametasona IV na meningite bacteriana fortemente suspeita, antes ou junto do 1º ATB, sem atrasá-lo; suspender se não for pneumococo/Hib; não dar corticoide de rotina na doença meningocócica; corticoide em dose de reposição só no choque refratário",
+      "title": "Corticosteroid therapy in bacterial meningitis (resumo do NICE NG240)",
+      "publisher": "GPnotebook / NICE NG240",
+      "year": 2024,
+      "url": "https://gpnotebook.com/en-GB/pages/infectious-disease/corticosteroid-therapy-in-bacterial-meningitis"
+    },
+    {
+      "claim": "ESCMID 2016: ATB em até 1 h; TC antes da PL só com déficit focal, crise nova, alteração grave da consciência (GCS < 10) ou imunossupressão grave; IDSA mais liberal",
+      "title": "Lumbar puncture performed promptly or after neuroimaging in acute bacterial meningitis (Clin Infect Dis 66(3))",
+      "publisher": "Clinical Infectious Diseases",
+      "year": 2018,
+      "url": "https://academic.oup.com/cid/article/66/3/321/4110207"
+    },
+    {
+      "claim": "Antimicrobiano imediato, idealmente em até 1 h, na possibilidade de choque séptico; ≥ 30 mL/kg de cristaloide nas primeiras 3 h na hipoperfusão",
+      "title": "Surviving Sepsis Campaign Guidelines 2021",
+      "publisher": "SCCM/ESICM",
+      "year": 2021,
+      "url": "https://sccm.org/sepsisguidelines"
+    },
+    {
+      "claim": "Novas orientações de vigilância e quimioprofilaxia dos contatos próximos de doença meningocócica",
+      "title": "Nota Técnica Conjunta nº 154/2024-DPNI/SVSA/MS",
+      "publisher": "Ministério da Saúde",
+      "year": 2024,
+      "url": "https://capital.sp.gov.br/documents/d/saude/nota-tecnica-conjunta-n-154-2024-dpni-svsa-ms-pdf"
+    },
+    {
+      "claim": "Isolamento respiratório por gotículas no atendimento da suspeita de meningite; notificação imediata",
+      "title": "Protocolo Clínico PTC.DEA.002 — Atendimento ao paciente com suspeita de meningite",
+      "publisher": "RioSaúde (Prefeitura do Rio de Janeiro)",
+      "year": 2022,
+      "url": "https://riosaude.prefeitura.rio/wp-content/uploads/sites/66/2023/01/atendimento-paciente-meningite.pdf"
+    },
+    {
+      "claim": "Febre maculosa é diferencial de meningococcemia após o exantema; tratar todo caso suspeito com doxiciclina (cloranfenicol parenteral se grave); contato com carrapato é pergunta essencial",
+      "title": "Nota técnica — Febre maculosa",
+      "publisher": "CRM-PR",
+      "year": 2023,
+      "url": "https://www.crmpr.org.br/uploadAddress/nota-tecnica-febre-maculosa[1468].pdf"
+    }
+  ],
+  "provenance": {
+    "notes": "Auditoria 11/10/2026: dexametasona aceita omissão justificada pela meningococcemia; precaução por gotículas virou obrigatória; pedidos de alergia a betalactâmico e exposição a carrapato (febre maculosa); dose de ceftriaxona saiu da conduta; rationale corrigido sobre TC e adiamento da PL no choque."
   }
 }

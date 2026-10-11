@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2025-1-est-2",
+  "title": "Dor epigástrica súbita e intensa em homem jovem com uso diário de anti-inflamatório na UPA",
+  "tags": [
+    "dor-abdominal",
+    "revalida",
+    "pep",
+    "abdome-agudo",
+    "cirurgia"
+  ],
+  "critical": true,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "UPA, plantão da emergência. Paciente masc., 31a, queixa de dor abdominal."
+  },
+  "expected": {
+    "syndrome": "abdome agudo perfurativo por úlcera péptica perfurada",
+    "cannotMiss": [
+      "úlcera péptica perfurada / abdome agudo perfurativo",
+      "pneumoperitônio na radiografia",
+      "relação do quadro com o uso crônico de anti-inflamatório (nimesulida)"
+    ],
+    "mustRequest": [
+      "características da dor (início/duração, irradiação ou migração, tipo, intensidade, fatores de piora e de melhora)",
+      "fatores relevantes: náuseas/vômitos, febre, dispepsia ou dor epigástrica prévia, uso crônico de anti-inflamatório/medicações, etilismo e tabagismo, episódios prévios semelhantes",
+      "exame físico abdominal completo (inspeção, ausculta, percussão, palpação superficial e profunda, pesquisa de descompressão brusca dolorosa)",
+      "exames laboratoriais: PCR e/ou VHS, hemograma, amilase e/ou lipase, ureia e creatinina, sódio e potássio",
+      "radiografia de tórax PA em ortostase ou rotina radiológica de abdome agudo"
+    ],
+    "requiredActions": [
+      "analgesia endovenosa",
+      "avaliação cirúrgica imediata/urgente ou laparotomia/laparoscopia exploradora de urgência"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "Gabarito oficial do INEP (Revalida 2025/1, Estação 2): a descrição inicial traz só idade e queixa; o PEP pontua anamnese dirigida, exame abdominal, laboratório e radiografia (pneumoperitônio), o diagnóstico de úlcera péptica perfurada ligada ao AINE, analgesia EV e cirurgia/avaliação cirúrgica urgente.",
+    "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "Itens 2–3 (0,8 ponto cada): pergunta características da dor (tempo de início/duração, irradiação/migração, tipo, intensidade, fatores de piora, fatores de melhora) e fatores relevantes ao diagnóstico (náuseas/vômitos, febre, antecedente de dispepsia/dor epigástrica, uso crônico de anti-inflamatório, etilismo e tabagismo, episódios prévios semelhantes).",
+      "title": "Revalida 2025/1 – Habilidades Clínicas – PEP definitivo, Estação 2, itens 2–3",
+      "publisher": "INEP",
+      "year": 2025,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Item 4 (2,0 pontos): realiza exame físico abdominal no manequim — sequência inspeção, ausculta, percussão e palpação; palpação superficial e profunda; pesquisa de dor à descompressão brusca.",
+      "title": "Revalida 2025/1 – Habilidades Clínicas – PEP definitivo, Estação 2, item 4",
+      "publisher": "INEP",
+      "year": 2025,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Itens 5–7: solicita PCR e/ou VHS, hemograma, amilase e/ou lipase, ureia e creatinina, sódio e potássio (1,0; obrigatoriamente PCR e hemograma); radiografia de tórax PA em ortostase ou rotina radiológica de abdome agudo (0,5); interpreta o exame de imagem descrevendo pneumoperitônio (1,0).",
+      "title": "Revalida 2025/1 – Habilidades Clínicas – PEP definitivo, Estação 2, itens 5–7",
+      "publisher": "INEP",
+      "year": 2025,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Itens 8–9: define hipótese de úlcera péptica perfurada e/ou abdome agudo perfurativo (1,0); correlaciona o uso de anti-inflamatório/nimesulida ao quadro atual (1,2).",
+      "title": "Revalida 2025/1 – Habilidades Clínicas – PEP definitivo, Estação 2, itens 8–9",
+      "publisher": "INEP",
+      "year": 2025,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Itens 10–11: indica analgesia endovenosa (0,5) e a necessidade de avaliação cirúrgica imediata/urgente ou de laparotomia/laparoscopia exploradora imediata/urgente (1,0).",
+      "title": "Revalida 2025/1 – Habilidades Clínicas – PEP definitivo, Estação 2, itens 10–11",
+      "publisher": "INEP",
+      "year": 2025,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2025/1",
+    "item": "Estação 2",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf",
+    "originalCaseText": "CENÁRIO DE ATENDIMENTO Nível de atenção: secundária. Tipo de atendimento: urgência e emergência. A unidade possui: ● setor de radiologia com aparelho de radiografia; ● laboratório de análises clínicas; ● centro cirúrgico. DESCRIÇÃO DO CASO Você é um médico de plantão na emergência de uma unidade de pronto atendimento (UPA) e atenderá um paciente de 31 anos com queixa de dor abdominal. Nos 10 minutos de duração da estação, você deverá executar as seguintes tarefas: ● realizar anamnese; ● solicitar exame físico do paciente; ● realizar o exame físico específico no manequim; ● solicitar e interpretar exames laboratoriais; ● solicitar e interpretar exames complementares pertinentes ao caso; ● formular e verbalizar a hipótese diagnóstica definitiva; ● orientar tratamento inicial e tratamento definitivo. ATENÇÃO: O PACIENTE SIMULADO NÃO DEVERÁ SER TOCADO DURANTE O ATENDIMENTO.",
+    "notes": "Dados sob demanda: homem, 31 a, educador físico, sem comorbidades; dor intensa no epigástrio, profunda e contínua, de início súbito há ~6 h; usou anti-inflamatório sem melhora; nimesulida 1 cp toda noite há 3 meses para dores musculares (treino de crossfit); náuseas desde o início, sem vômitos; nega febre, tabagismo, etilismo e uso de hormônios; suplementa whey; ingere bastante líquido. Exame geral: REG, hidratado, normocorado, FC 100, PA 100x70, FR 24, Tax 37,8 °C, IMC 22,5. Abdome (após palpação no manequim): levemente distendido, RHA diminuídos, timpânico difusamente, sem macicez, sinal de Jobert presente, tenso, resistente e doloroso à palpação superficial e profunda em todo o abdome, descompressão brusca dolorosa difusa. Lab: Hb 14,8, Ht 44,2%, leucócitos 16.500, plaquetas 240.000, PCR 50 (ref ≤ 8), creatinina 1,1, ureia 36, Na 140, K 4,5, amilase 140, lipase 34. Exame de imagem (RX de tórax PA ortostático/rotina de abdome agudo): imagem sem descrição textual na prova; segundo a síntese e o PEP (item 7), mostra pneumoperitônio."
+  }
+}

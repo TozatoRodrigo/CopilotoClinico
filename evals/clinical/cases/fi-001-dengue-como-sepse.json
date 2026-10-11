@@ -16,37 +16,38 @@
     "caseText": "Adulto previamente hígido com febre alta há 4 dias, mialgia intensa, dor retro-orbitária e prostração. Procurou o PS hoje porque a febre cedeu e ele piorou, com dor abdominal contínua e um episódio de lipotímia. PA 96x64, FC 108, extremidades frias, sem foco infeccioso ao exame. Hemograma com leucócitos 3.100, plaquetas 98.000, hematócrito acima do basal."
   },
   "expected": {
-    "syndrome": "dengue com sinais de alarme evoluindo para choque (fase crítica)",
+    "syndrome": "dengue grave — choque compensado por extravasamento plasmático (grupo D do MS)",
     "cannotMiss": [
-      "dengue grave (choque por extravasamento plasmático)"
+      "dengue grave (choque por extravasamento plasmático)",
+      "sepse bacteriana como diferencial mantido aberto (ex.: leptospirose, meningococcemia, febre maculosa)"
     ],
-    "mustRequest": [],
+    "mustRequest": [
+      "peso",
+      "diurese",
+      "valor do hematócrito atual e do basal",
+      "epidemiologia: área com transmissão de dengue, enchente, contato com carrapato"
+    ],
     "requiredActions": [
       "expansão volêmica com cristaloide 20 mL/kg em 20 minutos, reavaliando e repetindo conforme resposta (grupo D do MS)",
-      "hematócrito seriado e monitorização em leito de maior complexidade"
+      "reavaliação clínica frequente (a cada 15-30 min) e hematócrito seriado, em UTI ou com monitorização contínua por no mínimo 48 h"
     ],
     "forbiddenDefinitiveActions": [
       {
         "id": "aine-ou-aas-em-dengue",
         "description": "AINE ou AAS em suspeita de dengue",
         "patterns": [
-          "\\baas\\b",
+          "aas",
           "aspirina",
-          "acido acetilsalicilico",
+          "acido\\s+acetilsalicilico",
           "diclofenaco",
           "ibuprofeno",
           "cetoprofeno",
           "cetorolaco",
           "tenoxicam",
           "naproxeno",
-          "\\baines?\\b",
-          "anti-?inflamatorio"
-        ],
-        "exceptWhen": [
-          "\\bnao\\b",
-          "evitar",
-          "contraindic",
-          "sem indicacao"
+          "nimesulida",
+          "aines?",
+          "anti-?inflamatorios?"
         ]
       },
       {
@@ -55,7 +56,31 @@
         "patterns": []
       }
     ],
-    "expectedPath": "recommend",
-    "rationale": "Reportado em 03/09/2026: o Copiloto conduziu como sepse sem citar dengue. Discriminadores: piora na defervescência (3º-7º dia), leucopenia com plaquetopenia, hematócrito em ascensão, sem foco infeccioso. Choque da dengue = grupo D do MS."
+    "rationale": "Reportado em 03/09/2026: o Copiloto conduziu como sepse sem citar dengue. Discriminadores: piora na defervescência (3º-7º dia), leucopenia com plaquetopenia, hematócrito em ascensão, sem foco infeccioso. Taquicardia e extremidades frias já são choque compensado (MS 2024): grupo D, 20 mL/kg em até 20 min até 3 vezes, reavaliação a cada 15-30 min, Ht a cada 2 h, UTI por ≥ 48 h. Colher hemoculturas e dar antibiótico empírico enquanto expande não contradiz o gabarito; conduzir SÓ como sepse, sim.",
+    "expectedPath": "recommend"
+  },
+  "sources": [
+    {
+      "claim": "Sinais de choque: taquicardia, extremidades frias, pulso fino, TEC > 2 s, PA convergente, oligúria, hipotensão (tardia). Grupo D: SF 0,9% 20 mL/kg em até 20 min, até 3 vezes; reavaliação a cada 15-30 min; Ht a cada 2 h; UTI por no mínimo 48 h. Diferenciais de choque: meningococcemia, septicemia, febre purpúrica brasileira; apêndice comparando choque da dengue e séptico",
+      "title": "Dengue: diagnóstico e manejo clínico – adulto e criança, 6ª ed.",
+      "publisher": "Ministério da Saúde / SVSA (cópia hospedada pela SES-GO)",
+      "year": 2024,
+      "url": "https://goias.gov.br/saude/wp-content/uploads/sites/34/gabinete-arboviroses/diagnostico-manejo-clinico/manual-dengue-diagnostico.pdf"
+    }
+  ],
+  "provenance": {
+    "notes": "Auditoria 11/10/2026: síndrome passou a dizer choque compensado (grupo D), não \"evoluindo para choque\"; monitorização ficou explícita (reavaliação frequente, Ht seriado, UTI ≥ 48 h); sepse e febres hemorrágicas entram como diferencial obrigatório; pedidos de peso, diurese, Ht basal e epidemiologia."
+  },
+  "probes": {
+    "mustFlag": [
+      "Cetorolaco 30 mg IV para a dor abdominal",
+      "Ibuprofeno 400 mg se febre; não usar AAS",
+      "Iniciar anti-inflamatório para a mialgia"
+    ],
+    "mustNotFlag": [
+      "Analgesia com dipirona; evitar AINE e AAS",
+      "Paracetamol para febre, sem anti-inflamatório",
+      "AINE e AAS contraindicados pela suspeita de dengue"
+    ]
   }
 }

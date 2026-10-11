@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2020-est-2",
+  "title": "Motociclista após colisão com carro, estável, com suspeita de fratura de tíbia imobilizada",
+  "tags": [
+    "pele-partes-moles",
+    "revalida",
+    "pep",
+    "trauma",
+    "fratura-exposta"
+  ],
+  "critical": true,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "PS hospitalar. Masc, condutor de moto, colisão com carro há 60 min. Socorrido pelo SBV do SAMU. Sinais vitais normais e estáveis. Dor moderada em perna D; muito preocupado. Diagnóstico presuntivo: fratura de tíbia D. Já feitos: imobilização do membro, punção venosa periférica calibrosa e 500 mL de SF instalados."
+  },
+  "expected": {
+    "syndrome": "politrauma estável (colisão moto x carro) com fratura exposta de tíbia direita",
+    "cannotMiss": [
+      "fratura exposta de tíbia"
+    ],
+    "mustRequest": [
+      "avaliação primária: perviedade da via aérea (A) e exame do tórax/ventilação (B)",
+      "avaliação hemodinâmica e de sangramento externo (C)",
+      "escala de coma de Glasgow (D)",
+      "inspeção do ferimento sob o curativo (identificar fratura exposta)",
+      "situação vacinal antitetânica (atraso)",
+      "exames laboratoriais: Hb/Ht/plaquetas, tipagem sanguínea e contraprova",
+      "exame do dorso com palpação da coluna",
+      "radiografia para planejamento cirúrgico"
+    ],
+    "requiredActions": [
+      "manter máscara de oxigênio",
+      "manter colar cervical inicialmente e retirá-lo após o exame físico",
+      "monitorização multiparamétrica (ritmo, FC, PA não invasiva, FR, SpO2, temperatura)",
+      "manter acesso venoso periférico calibroso e restringir reposição volêmica com cristaloide",
+      "ácido tranexâmico 1 g EV em bolus (até 3 h do trauma) e 1 g EV em 8 h",
+      "exposição do paciente com prevenção de hipotermia",
+      "paramentação estéril (gorro, máscara, óculos, luvas estéreis) para abordar o ferimento",
+      "cobertura estéril e imobilização com tala aramada (uma articulação acima e uma abaixo da fratura)",
+      "analgesia endovenosa",
+      "retirar prancha rígida após exame do dorso",
+      "antibiótico venoso",
+      "cirurgia (lavagem e fixação externa)",
+      "internação"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "Gabarito oficial do INEP (Revalida 2020, Estação 2): o PEP pontua a avaliação primária ABCDE e a descoberta da fratura exposta sob o curativo antes da conduta (ATX, analgesia EV, antibiótico venoso, imobilização estéril, lavagem e fixação externa, internação).",
+    "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "Avaliação primária (3,5 pontos): via aérea pérvia (2); manter máscara com O2 (3) e colar cervical inicialmente (4); exame torácico com ventilação adequada (5); monitorização multiparamétrica — ritmo, FC, PANI, FR, SpO2, temperatura (6); sangramento externo (7); estado hemodinâmico estável (8); manter acesso periférico calibroso (9); restrição da reposição volêmica com cristaloide (10); coleta de exames — Hb/Ht/plaquetas, tipo sanguíneo e contraprova (11–12); ácido tranexâmico 1 g EV em bolus até 3 h do trauma e 1 g EV em 8 h (13); Glasgow 15 (14); exposição com prevenção de hipotermia (15); atraso da vacina antitetânica (16).",
+      "title": "Revalida 2020 – Habilidades Clínicas – PEP, Estação 2, itens 1–16",
+      "publisher": "INEP",
+      "year": 2020,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2020/padrao_esperado_procedimentos_habilidades_clinicas.pdf"
+    },
+    {
+      "claim": "Abordagem do membro (2 pontos): paramentação estéril — gorro, máscara, óculos, luvas estéreis (17); descobrir o curativo e notar fratura exposta de tíbia (18, 1,0 ponto); cobertura estéril e imobilização com tala aramada, uma articulação acima e uma abaixo (19).",
+      "title": "Revalida 2020 – Habilidades Clínicas – PEP, Estação 2, itens 17–19",
+      "publisher": "INEP",
+      "year": 2020,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2020/padrao_esperado_procedimentos_habilidades_clinicas.pdf"
+    },
+    {
+      "claim": "Conduta inicial, diagnóstica e terapêutica: analgesia endovenosa (20); retirar colar cervical após exame físico local (21); retirar prancha rígida após exame do dorso com palpação da coluna (22); raio X para planejamento cirúrgico (23); indicar procedimento cirúrgico (24); informar o que será feito na sala de trauma (25), antibiótico venoso (26), cirurgia com lavagem e fixação externa (27, 1,0 ponto) e internação (28).",
+      "title": "Revalida 2020 – Habilidades Clínicas – PEP, Estação 2, itens 20–28",
+      "publisher": "INEP",
+      "year": 2020,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2020/padrao_esperado_procedimentos_habilidades_clinicas.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2020",
+    "item": "Estação 2",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2020/padrao_esperado_procedimentos_habilidades_clinicas.pdf",
+    "originalCaseText": "ESTAÇÃO 2 – Área: Cirurgia Geral. INSTRUÇÕES PARA O(A) PARTICIPANTE. CENÁRIO DE ATUAÇÃO: Você é o(a) médico(a) que está de plantão em um pronto-socorro hospitalar e vai atender um paciente, do sexo masculino, vítima de colisão entre a moto que ele conduzia e um carro, ocorrida há 60 minutos. O paciente foi socorrido pela equipe de suporte básico do SAMU. Os sinais vitais estão normais e estáveis. O paciente queixa-se de dor moderada em perna direita e está muito preocupado com sua situação. O diagnóstico presuntivo é de fratura da tíbia direita. Foram dados os primeiros cuidados, com imobilização do membro, punção venosa periférica calibrosa e instalação de 500 mL de soro fisiológico. Nos próximos 10 minutos, deverão ser realizadas as seguintes tarefas: realizar avaliação primária (ABCDE) do paciente traumatizado e verbalizar os achados e as necessidades em cada etapa do atendimento; realizar o exame físico dos membros inferiores, com atenção especial ao membro acometido; definir a conduta diagnóstica; adotar a conduta terapêutica necessária; demonstrar a realização de procedimentos médicos, se indicado.",
+    "notes": "Dados sob demanda: Impresso 1 — PA 150x90, FC 98, FR 16, SatO2 98% em máscara de O2 a 6 L/min, Glasgow 15, inspeção/palpação/percussão torácica e ausculta cardíaca e pulmonar sem alterações. Impresso 2 — pulsos tibiais posteriores e pediosos presentes e simétricos; exame neurológico dos MMII normal. Ao descobrir o curativo: fratura exposta de tíbia (PEP item 18). Vacina antitetânica em atraso (PEP item 16). Paciente chega com colar cervical, prancha rígida e máscara de O2 (PEP itens 3, 4, 21, 22). Impresso 3 — o chefe de plantão pergunta a conduta e se há necessidade de internação. O PEP de 2020 não publica a síntese do ator."
+  }
+}

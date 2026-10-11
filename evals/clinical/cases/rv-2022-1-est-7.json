@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2022-1-est-7",
+  "title": "Vítima de queimaduras em incêndio trazida pelos bombeiros",
+  "tags": [
+    "pele-partes-moles",
+    "revalida",
+    "pep",
+    "queimadura",
+    "trauma"
+  ],
+  "critical": true,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Atenção secundária (radiologia/USG, laboratório, banco de sangue, laringoscópio, oxímetro, ambu, leitos, centro cirúrgico). Fem, 20a, previamente hígida, trazida pelos bombeiros, vítima de queimaduras em incêndio."
+  },
+  "expected": {
+    "syndrome": "queimadura extensa em incêndio com comprometimento respiratório após inalação de fumaça",
+    "cannotMiss": [
+      "comprometimento respiratório/de via aérea após inalação de fumaça, com indicação de intubação orotraqueal",
+      "queimadura extensa (37% de superfície corporal queimada pela regra dos 9) com indicação de transferência para centro de referência"
+    ],
+    "mustRequest": [
+      "características do acidente: local, tempo de exposição, inalação de fumaça e agente",
+      "sinais vitais: PA, FC, FR e oximetria/SatO2",
+      "exame do aparelho respiratório (inspeção e/ou ausculta pulmonar)",
+      "exame de toda a superfície corporal, com retirada de toda a vestimenta e acessórios, para avaliar a área queimada"
+    ],
+    "requiredActions": [
+      "oxigenoterapia",
+      "intubação orotraqueal",
+      "estimar a superfície corporal queimada pela regra dos 9 (PEP: 37%)",
+      "reposição volêmica pela fórmula de Parkland conforme o PEP: 1.850 mL nas primeiras 8 h e 1.850 mL nas 16 h seguintes (50 kg, SCQ 37%)",
+      "cobertura da área queimada com curativo oclusivo",
+      "transferência para centro de referência"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "Gabarito oficial do INEP (Revalida 2022/1, Estação 7): o PEP pontua a história do acidente, sinais vitais e exame respiratório, oxigênio e intubação orotraqueal, exposição completa e cálculo da SCQ (37%), reposição volêmica, curativo oclusivo e transferência para centro de referência.",
+    "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "Itens 2–3 (0,5 + 1,0 ponto): pergunta as características do acidente (local, tempo de exposição, inalação de fumaça, agente); solicita sinais vitais com PA, FC, FR e oximetria/SatO2.",
+      "title": "Revalida 2022/1 – Habilidades Clínicas – PEP, Estação 7, itens 2–3",
+      "publisher": "INEP",
+      "year": 2022,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2022_1_publicacao.pdf"
+    },
+    {
+      "claim": "Itens 4–6 (1,0 + 1,0 + 1,25 ponto): indica oxigenoterapia; solicita exame do aparelho respiratório (ao menos inspeção ou ausculta pulmonar); indica a entubação orotraqueal.",
+      "title": "Revalida 2022/1 – Habilidades Clínicas – PEP, Estação 7, itens 4–6",
+      "publisher": "INEP",
+      "year": 2022,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2022_1_publicacao.pdf"
+    },
+    {
+      "claim": "Itens 7–8 (1,0 + 1,0 ponto): verbaliza exame físico para avaliar a superfície corporal queimada, com retirada de toda a vestimenta e acessórios; calcula a SCQ pela regra dos 9 (37%) e verbaliza o resultado.",
+      "title": "Revalida 2022/1 – Habilidades Clínicas – PEP, Estação 7, itens 7–8",
+      "publisher": "INEP",
+      "year": 2022,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2022_1_publicacao.pdf"
+    },
+    {
+      "claim": "Itens 9–11 (1,25 + 0,5 + 1,0 ponto): reposição volêmica pela fórmula de Parkland — 1.850 mL nas primeiras 8 horas e 1.850 mL nas 16 horas seguintes; cobertura da área queimada com curativo oclusivo; transferência para centro de referência.",
+      "title": "Revalida 2022/1 – Habilidades Clínicas – PEP, Estação 7, itens 9–11",
+      "publisher": "INEP",
+      "year": 2022,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2022_1_publicacao.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2022/1",
+    "item": "Estação 7",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2022_1_publicacao.pdf",
+    "originalCaseText": "ESTAÇÃO 7 – Área: Cirurgia Geral. INSTRUÇÕES PARA O(A) PARTICIPANTE. CENÁRIO DE ATUAÇÃO. Local de atuação: Atenção Secundária: ambulatorial e hospitalar. A unidade possui a seguinte infraestrutura: • setor de radiologia convencional e ultrassonografia; • laboratório de análises clínicas; • banco de sangue; • laringoscópio; • oxímetro; • unidade ventilatória manual autoinflável (ambu); • leitos de internação; e • centro cirúrgico. DESCRIÇÃO DO CASO • Paciente, previamente hígida, de 20 anos, trazida pelos bombeiros, vítima de queimaduras decorrentes de incêndio. Nos próximos 10 minutos, deverão ser realizadas as seguintes tarefas: • realizar o atendimento da paciente, verbalizando-se os achados e as condutas; • solicitar a realização de exames que julgar necessários; • definir a extensão da superfície corporal queimada; e • adotar a conduta terapêutica necessária. A PACIENTE SIMULADA NÃO DEVE SER TOCADA DURANTE O ATENDIMENTO.",
+    "notes": "A distribuição das queimaduras (impresso 3, regra dos 9) é só figura, não transcrita; a SCQ de 37% vem do PEP (item 8) e foi registrada como dado sob demanda. O PEP pontua reposição de 1.850 mL nas primeiras 8 h e 1.850 mL nas 16 h seguintes, chamando-a de fórmula de Parkland (equivale a 3.700 mL/24 h para 50 kg e 37% de SCQ); reproduzido como está no gabarito. O tipo de líquido é perguntado no impresso 4, mas não é pontuado no PEP. O PEP desta edição não publica a síntese do ator. Dados sob demanda: SV PA 90x60, FC 112, FR 40, T 36,1 °C, SatO2 82%, peso 50 kg; exame: desidratada ++/4+, corada, acianótica, afebril, queimadura de vibrissas nasais, hiperemia e edema de orofaringe, taquipneica, MV diminuído globalmente sem ruídos adventícios, abdome e ACV sem anormalidades; SCQ 37% (regra dos 9, segundo o PEP); impresso 5: chefe de equipe pergunta se a paciente deve ser transferida."
+  }
+}

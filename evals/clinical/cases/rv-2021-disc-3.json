@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2021-disc-3",
+  "title": "Mulher de 50 anos com icterícia, febre, confusão mental, hipotensão e dor abdominal, com colelitíase prévia",
+  "tags": [
+    "febre-hipotensao",
+    "revalida",
+    "discursiva",
+    "colangite",
+    "desatualizado"
+  ],
+  "critical": true,
+  "goldSource": "revalida_discursiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "excludeFromGate": {
+    "reason": "Gabarito anterior à SSC 2021/2026: não cobra metas de ressuscitação nem tempo do antibiótico na sepse."
+  },
+  "input": {
+    "caseText": "Pronto atendimento. Fem, 50a, obesa, trazida às 7h por confusão mental. Boa saúde até 3 dias; dores abdominais episódicas há meses (família não sabe caracterizar), aliviadas com escopolamina. Há 3 dias dor mais frequente, sem melhora com escopolamina; iniciou cetoprofeno por conta própria. Ontem pele amarelada e febre. De madrugada agitada, sem reconhecer familiares nem a casa. Exame: icterícia cutaneomucosa, confusão mental sem sinais focais, defesa à tentativa de palpação abdominal. PA 80x60, T 39,7 °C, FC 106. US de abdome superior há 1 ano: cálculos na vesícula biliar."
+  },
+  "expected": {
+    "syndrome": "síndrome colestática/ictérica febril com pêntade de Reynolds por litíase biliar (vesícula e/ou vias biliares)",
+    "cannotMiss": [
+      "obstrução de vias biliares por cálculo com pêntade de Reynolds (colangite)"
+    ],
+    "mustRequest": [
+      "bioquímica hepática (transaminases, fosfatase alcalina, GGT, bilirrubinas)",
+      "hemograma",
+      "gasometria arterial e lactato",
+      "PCR, VHS e procalcitonina",
+      "amilase e lipase",
+      "ureia, creatinina, sódio e potássio",
+      "ultrassonografia de abdome superior"
+    ],
+    "requiredActions": [
+      "internação em box de emergência ou terapia intensiva",
+      "hidratação venosa",
+      "antibioticoterapia",
+      "descompressão das vias biliares por CPRE (drenagem percutânea se falha ou contraindicação à via endoscópica)",
+      "colecistectomia a seguir"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "Gabarito oficial do INEP (Revalida 2021, Questão 3): síndrome colestática febril por litíase em vias biliares com pêntade de Reynolds, investigação laboratorial e US, e tratamento com internação em emergência/UTI, hidratação, antibiótico, drenagem biliar por CPRE (ou percutânea) e colecistectomia posterior.",
+    "expectedPath": "recommend"
+  },
+  "sources": [
+    {
+      "claim": "Comando 1 (2,5 pontos): diagnóstico sindrômico — síndrome colestática ou ictérica; topográfico — vesícula biliar e/ou vias biliares; etiológico — cálculos biliares.",
+      "title": "Revalida 2021 – Prova Discursiva – Padrão de Respostas, Questão 3, item 1",
+      "publisher": "INEP",
+      "year": 2021,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2021_GB_discursiva.pdf"
+    },
+    {
+      "claim": "Comando 2 (2,5 pontos): icterícia, febre, dor abdominal, hipotensão e confusão mental (pêntade de Reynolds).",
+      "title": "Revalida 2021 – Prova Discursiva – Padrão de Respostas, Questão 3, item 2",
+      "publisher": "INEP",
+      "year": 2021,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2021_GB_discursiva.pdf"
+    },
+    {
+      "claim": "Comando 3 (2,5 pontos): bioquímica hepática (transaminases, FA, GGT, bilirrubinas), hemograma, gasometria arterial, PCR, VHS, lactato, procalcitonina, amilase, lipase, ureia, creatinina, sódio e potássio; ultrassonografia de abdome superior (pontuação total com hemograma + bioquímica hepática + exame de imagem).",
+      "title": "Revalida 2021 – Prova Discursiva – Padrão de Respostas, Questão 3, item 3",
+      "publisher": "INEP",
+      "year": 2021,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2021_GB_discursiva.pdf"
+    },
+    {
+      "claim": "Comando 4 (2,5 pontos): internação em box de emergência ou terapia intensiva, hidratação venosa, antibioticoterapia, descompressão das vias biliares por CPRE (ou drenagem percutânea se falha ou contraindicação à via endoscópica) e colecistectomia a seguir.",
+      "title": "Revalida 2021 – Prova Discursiva – Padrão de Respostas, Questão 3, item 4",
+      "publisher": "INEP",
+      "year": 2021,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2021_GB_discursiva.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2021",
+    "item": "Discursiva caso 3",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2021_GB_discursiva.pdf",
+    "originalCaseText": "Uma mulher de 50 anos de idade é trazida ao serviço de pronto atendimento devido à confusão mental às 7 horas da manhã. Os familiares informam que ela gozava de boa saúde até 3 dias atrás, apenas com queixas episódicas de dores abdominais que já lhe incomodavam há alguns meses, contudo, ainda não havia procurado atendimento médico. Os familiares não tinham condições de caracterizar melhor essa queixa, mas informaram que ela fazia uso de escopolamina durante as crises, com alívio dos sintomas. Há 3 dias, as dores abdominais se tornaram mais frequentes, não cedendo com o uso de escopolamina e, então, iniciou, por conta própria, cetoprofeno. Ontem notaram que a paciente estava com a pele amarelada e teve início de febre. De madrugada, a paciente começou a ficar agitada, não conseguindo identificar seus familiares e sua casa. Foi, então, que os parentes decidiram levá-la ao atendimento. Ao exame, a paciente é obesa, com icterícia cutaneomucosa, apresentando nítida confusão mental, sem sinais focais, mas reagindo com movimentos de defesa quando é realizada a tentativa de palpar o abdome. A pressão arterial é de 80 x 60 mmHg, encontra-se febril (39,7 °C) e taquicárdica (106 bpm). Ultrassonografia de abdome superior de 1 ano atrás evidenciava cálculos biliares em vesícula biliar. Em relação ao caso apresentado, responda às assertivas a seguir. Qual sua hipótese diagnóstica para essa paciente (diagnóstico sindrômico, topográfico e etiológico)? (valor: 2,5 pontos) Cite ao menos quatro achados clínicos descritos no caso que corroboram com seu diagnóstico (valor: 2,5 pontos) Quais exames diagnósticos devem ser solicitados à paciente? (valor: 2,5 pontos) Qual sua proposta terapêutica para o caso? (valor: 2,5 pontos)",
+    "notes": "possivelmente desatualizado: quadro séptico (hipotensão, febre, confusão) cujo manejo de sepse foi revisto pela Surviving Sepsis Campaign 2021 (publicada perto da prova) e pela atualização SSC 2026; o gabarito não detalha metas de ressuscitação nem tempo de antibiótico | Na prova os comandos não têm números; o padrão de respostas os identifica como 1) a 4). O gabarito não usa o termo 'colangite': pede diagnóstico sindrômico (síndrome colestática/ictérica), topográfico (vesícula e/ou vias biliares) e etiológico (cálculos biliares) e cita a pêntade de Reynolds; referências do gabarito: EASL 2016 e Tokyo Guidelines 2018."
+  }
+}

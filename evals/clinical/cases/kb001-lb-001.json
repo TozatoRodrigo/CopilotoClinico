@@ -12,20 +12,43 @@
     "status": "draft"
   },
   "input": {
-    "caseText": "Lombalgia aguda sem descrição de força, sensibilidade em sela ou função urinária."
+    "caseText": "H 45a, lombalgia há 3 d, irradia para coxa E, piora ao se movimentar."
   },
   "expected": {
     "syndrome": "lombalgia aguda a esclarecer (pesquisar sinais de alarme)",
     "cannotMiss": [
-      "síndrome da cauda equina"
+      "síndrome da cauda equina",
+      "outras causas graves de lombalgia, ao menos em bloco (infecção espinhal, neoplasia, fratura, aneurisma de aorta abdominal)"
     ],
     "mustRequest": [
       "força / déficit motor nos membros inferiores",
       "anestesia em sela",
-      "função urinária (retenção ou incontinência)"
+      "função urinária (retenção ou incontinência)",
+      "bandeiras vermelhas sistêmicas (febre, drogas IV ou imunossupressão, câncer prévio, trauma)"
     ],
     "requiredActions": [],
     "forbiddenDefinitiveActions": [],
+    "rationale": "Na lombalgia do PS, triar as bandeiras vermelhas: déficit motor, anestesia em sela e disfunção esfincteriana (cauda equina); febre, drogas IV ou imunossupressão, câncer e trauma (infecção, neoplasia, fratura); e causas vasculares como o aneurisma de aorta (ACEP 2022). A acurácia individual das bandeiras é limitada (Galliker 2020), mas a triagem é recomendada.",
     "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "Patologias emergentes na lombalgia: fratura, compressão medular (hérnia ou tumor), vasculares (AAA, hematoma epidural) e infecciosas (osteomielite, abscesso epidural).",
+      "title": "Re-evaluating Red Flags for Back Pain",
+      "publisher": "ACEP – Sports Medicine Section",
+      "year": 2022,
+      "url": "https://acep.org/sportsmedicine/newsroom/newsroom-articles/august2022/re-evaluating-red-flags-for-back-pain"
+    },
+    {
+      "claim": "Revisão sistemática (22 estudos, 41.320 pacientes): patologia grave em 2,5–5,1% (estudos prospectivos); acurácia da maioria das bandeiras vermelhas pouco validada.",
+      "title": "Low back pain in the emergency department: prevalence of serious spinal pathologies and diagnostic accuracy of red flags",
+      "publisher": "Am J Med (Galliker et al.)",
+      "year": 2020,
+      "url": "https://boris.unibe.ch/132072/"
+    }
+  ],
+  "provenance": {
+    "originalCaseText": "Lombalgia aguda sem descrição de força, sensibilidade em sela ou função urinária.",
+    "notes": "Auditoria 11/10/2026: texto reescrito como nota de beira de leito (o original anunciava força, sela e função urinária como ausentes). Acrescentadas as demais causas graves (aceitas em bloco) ao cannotMiss e as bandeiras vermelhas sistêmicas ao mustRequest; a idade já está no texto."
   }
 }

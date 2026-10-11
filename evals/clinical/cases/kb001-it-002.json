@@ -28,7 +28,52 @@
       "ressuscitação volêmica com cristaloide",
       "imagem de urgência e desobstrução urológica (cateter duplo J ou nefrostomia)"
     ],
-    "forbiddenDefinitiveActions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "tratamento-definitivo-do-calculo-na-sepse",
+        "description": "Ureteroscopia, litotripsia ou outro tratamento definitivo do cálculo na fase séptica, antes da drenagem (duplo J ou nefrostomia) e do controle da infecção — a manipulação piora a sepse",
+        "patterns": []
+      },
+      {
+        "id": "alta-com-antibiotico-oral",
+        "description": "Alta com antibiótico oral — pielonefrite obstrutiva com hipotensão exige internação, antibiótico IV e desobstrução",
+        "patterns": []
+      }
+    ],
+    "rationale": "EAU e AUA: descompressão urgente do rim obstruído infectado (duplo J ou nefrostomia, equivalentes) com antibiótico precoce; tratamento definitivo do cálculo só depois do controle da infecção. SSC 2021: antibiótico em até 1 h e cristaloide na hipoperfusão. A escolha do antibiótico segue o antibiograma local (IDSA 2025) — o gabarito não fixa a droga.",
     "expectedPath": "recommend"
+  },
+  "sources": [
+    {
+      "claim": "EAU e AUA dão recomendação de grau máximo à descompressão urgente do rim obstruído em sepse, sem preferência entre nefrostomia e cateter ureteral.",
+      "title": "Percutaneous Nephrostomy Versus Stent In Sepsis Trial (NCT02929160) – racional",
+      "publisher": "ClinicalTrials.gov",
+      "year": 2016,
+      "url": "https://clinicaltrials.gov/study/NCT02929160"
+    },
+    {
+      "claim": "Diretriz vigente de urolitíase da EAU (edição 2026), incluindo o manejo do rim obstruído infectado.",
+      "title": "EAU Guidelines on Urolithiasis",
+      "publisher": "European Association of Urology",
+      "year": 2026,
+      "url": "https://uroweb.org/guidelines/urolithiasis"
+    },
+    {
+      "claim": "Obstrução do trato superior (cálculo) define ITU complicada. Na sepse: cefalosporina de 3ª/4ª geração, carbapenêmico, piperacilina-tazobactam ou fluoroquinolona, guiados pelo antibiograma local.",
+      "title": "Guideline Update: 2025 IDSA Management of Complicated UTI (resumo)",
+      "publisher": "IDSA – resumo emDocs",
+      "year": 2025,
+      "url": "https://www.emdocs.net/guideline-update-2025-idsa-management-of-complicated-uti/"
+    },
+    {
+      "claim": "Antibiótico em até 1 h na possível sepse/choque; cristaloide na hipoperfusão.",
+      "title": "Surviving Sepsis Campaign Guidelines 2021",
+      "publisher": "SCCM/ESICM",
+      "year": 2021,
+      "url": "https://sccm.org/sepsisguidelines"
+    }
+  ],
+  "provenance": {
+    "notes": "Auditoria 11/10/2026: caso correto. Acrescentadas como condutas proibidas (só para o juiz) o tratamento definitivo do cálculo na fase séptica e a alta com antibiótico oral."
   }
 }

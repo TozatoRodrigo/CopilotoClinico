@@ -20,13 +20,13 @@
     "syndrome": "infecção necrosante de partes moles com choque",
     "cannotMiss": [
       "fasciíte necrosante / gangrena gasosa",
-      "choque séptico"
+      "choque séptico (ou síndrome do choque tóxico estreptocócico)"
     ],
     "mustRequest": [],
     "requiredActions": [
       "avaliação cirúrgica imediata para desbridamento",
-      "antibiótico IV de amplo espectro (com cobertura anaeróbia e antitoxina, ex.: clindamicina)",
-      "ressuscitação volêmica"
+      "antibiótico IV de amplo espectro imediato cobrindo gram-positivos (inclusive MRSA), gram-negativos e anaeróbios — ex.: vancomicina + piperacilina-tazobactam; clindamicina associada pelo efeito antitoxina é aceita",
+      "ressuscitação com cristaloide e noradrenalina se a hipotensão persistir (alvo PAM ≥ 65 mmHg)"
     ],
     "forbiddenDefinitiveActions": [
       {
@@ -35,6 +35,33 @@
         "patterns": []
       }
     ],
+    "rationale": "IDSA 2014 e CDC 2025: exploração cirúrgica imediata (imagem nunca atrasa a cirurgia); empírico vancomicina ou linezolida + piperacilina-tazobactam, carbapenêmico ou ceftriaxona + metronidazol; clindamicina reduz toxina e é prática comum — as duas abordagens são aceitas. SSC 2021: antimicrobiano em até 1 h e noradrenalina no choque. Desejáveis, mas não exigidos no turno 0: hemoculturas e lactato sem atrasar o antibiótico.",
     "expectedPath": "recommend"
+  },
+  "sources": [
+    {
+      "claim": "IDSA 2014: consulta cirúrgica imediata na suspeita de fasciíte necrosante/gangrena gasosa; empírico vancomicina ou linezolida + piperacilina-tazobactam ou carbapenêmico ou ceftriaxona+metronidazol; penicilina + clindamicina para fasciíte por estreptococo do grupo A documentada.",
+      "title": "Practice Guidelines for the Diagnosis and Management of Skin and Soft Tissue Infections: 2014 Update",
+      "publisher": "IDSA / Clin Infect Dis",
+      "year": 2014,
+      "url": "https://pubmed.ncbi.nlm.nih.gov/24973422/"
+    },
+    {
+      "claim": "CDC 2025: exploração cirúrgica precoce e agressiva; imagem nunca deve atrasar a exploração; clindamicina interfere na produção de toxina.",
+      "title": "Clinical Guidance for Type II Necrotizing Fasciitis",
+      "publisher": "CDC",
+      "year": 2025,
+      "url": "https://www.cdc.gov/group-a-strep/hcp/clinical-guidance/necrotizing-fasciitis.html"
+    },
+    {
+      "claim": "SSC 2021: antimicrobiano em até 1 h no choque séptico; noradrenalina como vasopressor de primeira linha.",
+      "title": "Surviving Sepsis Campaign: International Guidelines for Management of Sepsis and Septic Shock 2021",
+      "publisher": "SCCM / ESICM",
+      "year": 2021,
+      "url": "https://sccm.org/sepsisguidelines"
+    }
+  ],
+  "provenance": {
+    "notes": "Auditoria 11/10/2026: antibiótico passou a exigir cobertura de MRSA (IDSA), aceitando clindamicina como adjuvante; noradrenalina se hipotensão persistir; choque tóxico estreptocócico aceito no item de choque. Hemoculturas e lactato ficaram no rationale (opcionais)."
   }
 }

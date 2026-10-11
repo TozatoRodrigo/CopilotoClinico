@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2022-1-est-4",
+  "title": "Dor abdominal em mulher de 18 anos deitada em maca",
+  "tags": [
+    "dor-abdominal",
+    "revalida",
+    "pep",
+    "ginecologia",
+    "doenca-inflamatoria-pelvica"
+  ],
+  "critical": true,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Atenção secundária hospitalar (laboratório, radiologia e ecografia). Fem, 18a, deitada em maca, queixa de dor."
+  },
+  "expected": {
+    "syndrome": "dor abdominopélvica aguda com peritonite em mulher jovem (doença inflamatória pélvica complicada)",
+    "cannotMiss": [
+      "doença inflamatória pélvica com peritonite e/ou abscesso tubo-ovariano",
+      "diagnósticos diferenciais (o PEP exige ao menos dois): apendicite, gestação ectópica, cisto de ovário roto, torção ovariana"
+    ],
+    "mustRequest": [
+      "características da dor, febre e vômitos",
+      "método anticoncepcional",
+      "data da última menstruação",
+      "teste de gravidez (beta-hCG)",
+      "exame abdominal com manobra de descompressão brusca",
+      "exame ginecológico (especular e toque vaginal)",
+      "exames para outras infecções sexualmente transmissíveis"
+    ],
+    "requiredActions": [
+      "internação hospitalar (justificada por peritonite e/ou abscesso tubo-ovariano)",
+      "antibioticoterapia endovenosa",
+      "tratamento do parceiro sexual",
+      "orientar complicações futuras (ao menos duas: infertilidade, sinéquias intrauterinas, dor pélvica crônica, gravidez ectópica, peri-hepatite/síndrome de Fitz-Hugh-Curtis)",
+      "orientar uso de preservativo e que a multiplicidade de parceiros é fator de risco"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "antibiotico-oral-dip-complicada",
+        "description": "Tratar esta DIP com antibiótico por via oral: o PEP pontua como inadequado e exige antibiótico endovenoso com internação.",
+        "patterns": [
+          "antibiotic\\w*\\s+(por\\s+)?(via\\s+)?oral",
+          "antibiotic\\w*\\s+vo",
+          "(doxiciclina|metronidazol|amoxicilina\\w*)\\s+(\\S+\\s+){0,3}(vo|oral)"
+        ],
+        "exceptWhen": [
+          "transic\\w*",
+          "(apos|depois\\s+d[aeo])\\s+(\\S+\\s+){0,3}(melhora\\w*|afebril|alta|24|48|72|tratamento\\s+parenteral)",
+          "(na|para\\s+a)\\s+alta"
+        ]
+      }
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2022/1, Estação 4): o PEP pontua anamnese dirigida, teste de gravidez, descompressão brusca e exame ginecológico, o diagnóstico de DIP com diferenciais, internação com antibiótico EV (oral é inadequado), tratamento do parceiro, complicações, rastreio de outras ISTs e prevenção.",
+    "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "Itens 2–5 (0,5 + 0,25 + 1,0 + 1,0 ponto): pergunta características da dor, febre e vômitos; anticoncepção; data da última menstruação; solicita teste de gravidez.",
+      "title": "Revalida 2022/1 – Habilidades Clínicas – PEP, Estação 4, itens 2–5",
+      "publisher": "INEP",
+      "year": 2022,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2022_1_publicacao.pdf"
+    },
+    {
+      "claim": "Itens 6–7 (1,0 + 0,5 ponto): verbaliza a manobra de descompressão brusca abdominal; refere a necessidade de exame ginecológico (toque vaginal ou exame especular).",
+      "title": "Revalida 2022/1 – Habilidades Clínicas – PEP, Estação 4, itens 6–7",
+      "publisher": "INEP",
+      "year": 2022,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2022_1_publicacao.pdf"
+    },
+    {
+      "claim": "Itens 8–9 (1,25 + 1,0 ponto): diagnóstico de doença inflamatória pélvica; diagnósticos diferenciais apendicite, gestação ectópica, cisto de ovário roto e torção ovariana (adequado: dois ou mais).",
+      "title": "Revalida 2022/1 – Habilidades Clínicas – PEP, Estação 4, itens 8–9",
+      "publisher": "INEP",
+      "year": 2022,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2022_1_publicacao.pdf"
+    },
+    {
+      "claim": "Itens 10–12 (1,0 + 0,25 + 0,25 ponto): indica internação justificando por peritonite e/ou abscesso tubo-ovariano; orienta antibiótico endovenoso (inadequado: antibiótico por via oral); orienta tratamento do parceiro sexual.",
+      "title": "Revalida 2022/1 – Habilidades Clínicas – PEP, Estação 4, itens 10–12",
+      "publisher": "INEP",
+      "year": 2022,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2022_1_publicacao.pdf"
+    },
+    {
+      "claim": "Itens 13–15 (0,5 + 1,0 + 0,25 ponto): refere complicações futuras (infertilidade, sinéquias intrauterinas, dor pélvica crônica, gravidez ectópica, peri-hepatite/Fitz-Hugh-Curtis — dois ou mais); refere exames para outras ISTs; orienta preservativo e refere a multiplicidade de parceiros como fator de risco.",
+      "title": "Revalida 2022/1 – Habilidades Clínicas – PEP, Estação 4, itens 13–15",
+      "publisher": "INEP",
+      "year": 2022,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2022_1_publicacao.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2022/1",
+    "item": "Estação 4",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2022_1_publicacao.pdf",
+    "originalCaseText": "ESTAÇÃO 4 – Área: Ginecologia e Obstetrícia. INSTRUÇÕES PARA O(A) PARTICIPANTE. CENÁRIO DE ATUAÇÃO. Local de atuação: Atenção Secundária Hospitalar. A unidade possui a seguinte infraestrutura: • consultórios para atendimento; • laboratório de análises clínicas; e • laboratório de imagem (radiologia e ecografia). DESCRIÇÃO DO CASO. Paciente de 18 anos encontra-se deitada em uma maca, com queixa de dor. Nos próximos 10 minutos, deverão ser realizadas as seguintes tarefas: • realizar anamnese; • solicitar exames pertinentes ao caso; • verbalizar hipótese diagnóstica e pelo menos dois diagnósticos diferenciais; • solicitar exames complementares, caso necessário; • propor à paciente o tratamento a ser realizado; • explicar à paciente pelo menos duas das possíveis complicações da doença; e • dar orientações de seguimento à paciente. A PACIENTE SIMULADA NÃO DEVE SER TOCADA DURANTE O ATENDIMENTO.",
+    "notes": "O PEP desta edição não publica a síntese do ator (respostas da anamnese não disponíveis). Item 11 do PEP considera inadequado antibiótico por via oral, por isso há uma ação proibida. Dados sob demanda: SV PA 120x80, Tax 37,5 °C, FC 90, FR 12, SatO2 98%, auscultas normais; abdome levemente distendido, RHA hipoativos, dor de média intensidade difusa à palpação; descompressão brusca no lado inferior direito com dor mais intensa; exame ginecológico: leucorreia amarelada com odor fétido, colo hiperemiado com muco turvo, útero de volume normal, dor à mobilização dos anexos (mais à D) e à mobilização do colo; hemograma: leucócitos 15.000 com 15% de bastões (2.250), Hb 12,8, plaquetas 234.000; beta-hCG negativo; USTV: ovário D aumentado com áreas hiperecogênicas vascularizadas em todo o parênquima e área cística anecoica de ~2 x 2 x 1,5 cm, pequena quantidade de líquido livre em fundo de saco; ovário E normal. | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas. Exceção \"após\" passou a exigir a transição pós-melhora (\"após 24-48 h de melhora\", \"na alta\")."
+  },
+  "probes": {
+    "mustFlag": [
+      "Antibiótico VO e retorno em 72 h",
+      "Doxiciclina 100 mg VO 12/12 h e metronidazol oral; não precisa internar"
+    ],
+    "mustNotFlag": [
+      "Internar e iniciar antibiótico EV; evitar antibiótico oral",
+      "Antibiótico VO só na transição, após 24 h de melhora clínica",
+      "Ceftriaxona EV + doxiciclina; tratar o parceiro"
+    ]
+  }
+}

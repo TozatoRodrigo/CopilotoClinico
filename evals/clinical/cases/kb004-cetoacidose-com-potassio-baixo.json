@@ -27,42 +27,76 @@
       "hipocalemia agravada pela insulina (risco de arritmia)"
     ],
     "mustRequest": [
-      "ECG",
-      "função renal e diurese"
+      "traçado do ECG (sinais de hipocalemia)",
+      "função renal e diurese",
+      "beta-hCG",
+      "fator precipitante, sobretudo infecção (foco, EAS/urocultura, RX de tórax)"
     ],
     "requiredActions": [
       "hidratação vigorosa com cristaloide",
-      "reposição de potássio antes de iniciar a insulina (K < 3,3 mEq/L)",
-      "insulina regular IV contínua somente após K ≥ 3,3 mEq/L"
+      "reposição de potássio antes de iniciar a insulina",
+      "insulina regular IV contínua, sem bolus, só após K ≥ 3,3 (SBD) ou > 3,5 mEq/L (consenso ADA 2024)",
+      "monitorização cardíaca contínua e potássio sérico a cada 1-2 h durante a reposição"
     ],
     "forbiddenDefinitiveActions": [
       {
         "id": "insulina-com-potassio-baixo",
-        "description": "Iniciar insulina com K < 3,3 mEq/L sem repor potássio antes",
+        "description": "Iniciar insulina com K < 3,3-3,5 mEq/L sem repor potássio antes",
         "patterns": [
-          "insulina"
+          "insulin\\w*"
         ],
         "exceptWhen": [
-          "\\bnao\\b",
-          "evitar",
-          "contraindic",
-          "sem indicacao",
-          "\\bapos\\b",
-          "depois",
-          "quando",
-          "somente",
-          "\\bso\\b",
-          "antes de iniciar",
-          "potassio\\s*(>=|>|≥|acima|normal|corrigid)",
-          "\\bk\\s*(>=|>|≥)",
-          "\\bnao\\s+iniciar",
-          "aguardar",
-          "adiar",
-          "suspend"
+          "(apos|depois|quando|so|somente|ate)\\s+(\\S+\\s+){0,4}(k|potassio)",
+          "(aguardar|adiar|postergar|atrasar|retardar)\\s+(a\\s+)?(\\S+\\s+)?insulin\\w*"
+        ]
+      },
+      {
+        "id": "bicarbonato-com-ph-acima-de-7",
+        "description": "Bicarbonato de sódio com pH ≥ 7,0 (aqui pH 7,08): sem benefício e agrava a hipocalemia",
+        "patterns": [
+          "bicarbonato(\\s+de\\s+sodio)?",
+          "nahco3"
+        ],
+        "exceptWhen": [
+          "(se|caso|quando)\\s+(o\\s+)?ph\\s*(<|menor|abaixo)",
+          "(somente|so|apenas)\\s+(se|com|quando)\\s+(o\\s+)?ph"
         ]
       }
     ],
-    "expectedPath": "recommend",
-    "rationale": "KB-004 (02-cetoacidose-hiperosmolar): NÃO iniciar insulina com K < 3,3-3,5."
+    "rationale": "KB-004 (02-cetoacidose-hiperosmolar): não iniciar insulina com K baixo. O limiar diverge entre diretrizes vigentes — SBD (2023) 3,3 mEq/L e consenso ADA/EASD/JBDS/AACE/DTS (2024) 3,5 —, e o gabarito aceita os dois; com K 3,0 a conduta é a mesma. Bicarbonato só se pH < 7,0 (ADA 2024). Gestação e infecção são precipitantes a investigar. Pela tabela ADA 2024, pH 7,08 seria moderada e HCO3 7 grave: o rótulo grave é defensável.",
+    "expectedPath": "recommend"
+  },
+  "sources": [
+    {
+      "claim": "Adiar insulina até K > 3,5 mmol/L para evitar arritmias; com K < 3,5, repor a 10 mmol/h; cristaloide isotônico/balanceado 500-1000 mL/h nas 2-4 primeiras horas; insulina 0,1 U/kg/h; bicarbonato só se pH < 7,0; tabela de gravidade; gestação e infecção como precipitantes.",
+      "title": "Hyperglycemic Crises in Adults With Diabetes: A Consensus Report",
+      "publisher": "ADA/EASD/JBDS/AACE/DTS (Diabetes Care)",
+      "year": 2024,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC11272983/"
+    },
+    {
+      "claim": "SBD: iniciar insulina com K acima de 3,3 mEq/L (R11); KCl 10-30 mEq/h com débito urinário adequado (R10); SF 0,9% 15-20 mL/kg na 1ª hora (R6); insulina regular 0,1 U/kg/h sem bolus.",
+      "title": "Diagnóstico e tratamento da cetoacidose diabética (Diretriz Oficial da SBD)",
+      "publisher": "Sociedade Brasileira de Diabetes",
+      "year": 2023,
+      "url": "https://diretriz.diabetes.org.br/diagnostico-e-tratamento-da-cetoacidose-diabetica/"
+    }
+  ],
+  "provenance": {
+    "notes": "Auditoria 11/10/2026: limiar de K aceita 3,3 (SBD) ou 3,5 (ADA 2024); monitorização cardíaca e K seriado obrigatórios; pedidos de beta-hCG e precipitante; exceções da insulina presas ao potássio (\"não\", \"depois\" e \"quando\" soltos cegavam a checagem); nova proibida: bicarbonato com pH ≥ 7,0."
+  },
+  "probes": {
+    "mustFlag": [
+      "Insulina regular 0,1 U/kg/h IV, não fazer bolus",
+      "Iniciar insulina e repor K depois",
+      "Insulina regular IV agora com KCl 20 mEq/h em paralelo",
+      "Bicarbonato de sódio 100 mEq IV pela acidose grave"
+    ],
+    "mustNotFlag": [
+      "Repor KCl 20-30 mEq/h e adiar a insulina até K ≥ 3,3",
+      "Insulina regular 0,1 U/kg/h somente após K > 3,5",
+      "Não iniciar insulina com K 3,0",
+      "Bicarbonato somente se pH < 7,0"
+    ]
   }
 }

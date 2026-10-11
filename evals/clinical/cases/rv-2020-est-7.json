@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2020-est-7",
+  "title": "Mulher de 22 anos com dor forte em abdome inferior há 2 dias, distensão, anorexia e vômitos",
+  "tags": [
+    "dor-abdominal",
+    "revalida",
+    "pep",
+    "cirurgia",
+    "apendicite"
+  ],
+  "critical": true,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "PS de hospital secundário de urgência (RX convencional e US; sem TC/RM; laboratório; centro cirúrgico, enfermaria e UTI; sem banco de sangue). Fem, 22a. Dor forte em andar inferior do abdome, piora progressiva, início há 2 dias. Distensão abdominal, anorexia, náuseas e vômitos em pequena quantidade no início do quadro."
+  },
+  "expected": {
+    "syndrome": "abdome agudo inflamatório — apendicite aguda",
+    "cannotMiss": [
+      "apendicite aguda",
+      "anexite/salpingite aguda",
+      "torção ou ruptura de cisto ovariano",
+      "gravidez ectópica rota"
+    ],
+    "mustRequest": [
+      "fatores de risco para anexite/salpingite (corrimento vaginal, vida sexual ativa, IST prévia)",
+      "possibilidade de gestação/ectópica (DUM, anticoncepção, atividade sexual recente)",
+      "exame abdominal com pesquisa de descompressão brusca (Blumberg)",
+      "exame ginecológico (especular e toque vaginal)",
+      "beta-HCG, hemograma e PCR",
+      "ultrassonografia abdominal"
+    ],
+    "requiredActions": [
+      "internação e apendicectomia de emergência com termo de consentimento",
+      "medidas de suporte: jejum, repouso no leito, hidratação endovenosa e analgesia",
+      "antibiótico com cobertura para gram-negativos (aminoglicosídeo ou cefalosporina de 2ª/3ª geração) e anaeróbios (metronidazol ou clindamicina)",
+      "via de acesso laparoscópica ou aberta, com preferência por vídeo se possível"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "Gabarito oficial do INEP (Revalida 2020, Estação 7): o PEP pontua anamnese dirigida a anexite e gestação/ectópica, Blumberg, exame ginecológico, beta-HCG/hemograma/US e o diagnóstico de apendicite aguda, seguido de internação, apendicectomia de emergência, suporte e antibiótico.",
+    "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "Anamnese e exame: sinais de risco para anexite/salpingite — corrimento vaginal, vida sexual ativa, IST prévia (2); possibilidade de gestação/ectópica rota — DUM, anticoncepção, atividade sexual recente (3); exame abdominal com dor à palpação e descompressão brusca positiva (4, 1,0 ponto).",
+      "title": "Revalida 2020 – Habilidades Clínicas – PEP, Estação 7, itens 2–4",
+      "publisher": "INEP",
+      "year": 2020,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2020/padrao_esperado_procedimentos_habilidades_clinicas.pdf"
+    },
+    {
+      "claim": "Investigação: explica hipóteses — anexite/salpingite aguda versus apendicite aguda; torção/ruptura de cisto ovariano (5); solicita exame ginecológico especular e toque (6); solicita ao menos dois de beta-HCG, hemograma e US (7); interpreta leucocitose com desvio e PCR aumentados (8); define apendicite aguda pelo US (9).",
+      "title": "Revalida 2020 – Habilidades Clínicas – PEP, Estação 7, itens 5–9",
+      "publisher": "INEP",
+      "year": 2020,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2020/padrao_esperado_procedimentos_habilidades_clinicas.pdf"
+    },
+    {
+      "claim": "Conduta: termo de consentimento para internação e apendicectomia de emergência (10); suporte — jejum, repouso no leito, hidratação EV, analgesia, ao menos três (11); via laparoscópica e/ou aberta, preferência por vídeo se possível (13); antibiótico com cobertura gram-negativo (aminoglicosídeo ou cefalosporina de 2ª/3ª) e anaeróbio (metronidazol ou clindamicina) (14).",
+      "title": "Revalida 2020 – Habilidades Clínicas – PEP, Estação 7, itens 10–14",
+      "publisher": "INEP",
+      "year": 2020,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2020/padrao_esperado_procedimentos_habilidades_clinicas.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2020",
+    "item": "Estação 7",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2020/padrao_esperado_procedimentos_habilidades_clinicas.pdf",
+    "originalCaseText": "ESTAÇÃO 7 – Área: Cirurgia Geral. INSTRUÇÕES PARA O(A) PARTICIPANTE. CENÁRIO DE ATUAÇÃO: Você está de plantão em um pronto-socorro de hospital secundário de urgência e vai atender uma paciente de 22 anos, sexo feminino, com dor forte em andar inferior do abdome, com piora progressiva, iniciada há 2 dias. Ela relata distensão abdominal, anorexia, náuseas e vômitos em pequena quantidade no início do quadro. Nos próximos 10 minutos, deverão ser realizadas as seguintes tarefas: realizar o atendimento da paciente, explicando cada achado para ela; definir o diagnóstico; adotar a conduta terapêutica necessária; demonstrar a realização de procedimentos médicos, caso necessário. Observação: O hospital secundário tem a seguinte estrutura: possui setor de radiologia convencional e ultrassonografia; não possui tomografia computadorizada nem ressonância nuclear magnética; possui laboratório de análises clínicas; possui centro cirúrgico e leitos de internação (enfermaria e unidade de terapia intensiva); não possui banco de sangue.",
+    "notes": "Dados sob demanda: Impresso 1 — PA 100x60, FC 110, FR 20, T 38,2 °C, Glasgow 15. Exame abdominal: dor à palpação superficial e profunda com descompressão brusca positiva (PEP item 4). Impresso 2 — exame ginecológico normal (sem dor à mobilização do colo ou no fundo de saco; especular sem alterações). Impresso 3 — Hb 13,2, Ht 45,1%, leucócitos 17.110 (segmentados 68,1%, bastões 11,5%), plaquetas 251.000, PCR 76,22 mg/L, ureia 21, creatinina 1,08, Na 135, K 3,4, beta-HCG negativo. Impresso 4 — US: apêndice cecal aumentado, espessado, não compressível. A paciente pergunta sobre o apêndice (localização e função), via de acesso e antibiótico. O PEP de 2020 não publica a síntese do ator."
+  }
+}

@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "id": "rv-2024-2-disc-2",
+  "title": "Jovem hipotenso após colisão automobilística lateral, com turgência jugular e bulhas abafadas",
+  "tags": [
+    "choque",
+    "revalida",
+    "discursiva",
+    "trauma"
+  ],
+  "critical": true,
+  "goldSource": "revalida_discursiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Unidade hospitalar de pequeno porte. Masc, 20a, acidente de trânsito: colisão lateral E do seu carro contra a lateral D de outro veículo, sem cinto. Chega em prancha rígida, com colar cervical e manta térmica. Escoriações superficiais em região tóraco-abdominal anterior E. Consciente, Glasgow 13, verbaliza o próprio nome, nega dor cervical, pupilas isocóricas e fotorreagentes. FC 136, FR 38, SatO2 92% em AA, PA 80x60. AR: MV fisiológico, sem RA. ACV: turgência jugular, bulhas hipofonéticas em todos os focos."
+  },
+  "expected": {
+    "syndrome": "trauma toracoabdominal fechado com hipotensão por tamponamento cardíaco",
+    "cannotMiss": [
+      "tamponamento cardíaco traumático",
+      "diagnósticos diferenciais de trauma torácico (ao menos dois): pneumotórax hipertensivo, hemotórax maciço, hemopneumotórax, contusão cardíaca, contusão pulmonar, fratura de arcos costais/tórax instável, lesão traqueobrônquica, lesão de aorta/vasos da base"
+    ],
+    "mustRequest": [],
+    "requiredActions": [
+      "A: manter prancha rígida e colar cervical (proteção da coluna cervical) e/ou O2 sob máscara",
+      "B: oxigênio sob máscara (ou eFAST)",
+      "C: descompressão do tamponamento por pericardiocentese/punção de Marfan ou toracotomia de urgência, associada a outra medida de C (dois acessos venosos calibrosos, reposição volêmica, FAST/POCUS, exames laboratoriais/tipagem sanguínea)",
+      "D: exame neurológico, sem conduta específica no momento",
+      "E: prevenir hipotermia (cobrir/manta térmica, ambiente aquecido, soro aquecido) e limpeza/curativo das escoriações"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "Gabarito oficial do INEP (Revalida 2024/2, padrão de respostas definitivo da questão 2): diagnóstico principal tamponamento cardíaco, com dois diferenciais de trauma torácico, e condutas por letra do ABCDE do ATLS, sendo obrigatória em C a pericardiocentese/punção de Marfan ou toracotomia de urgência.",
+    "expectedPath": "recommend"
+  },
+  "sources": [
+    {
+      "claim": "Item a (0,8 por correlação, máx. 4,0): A — verbaliza o nome, sem dor cervical, prancha rígida e colar; B — SatO2 92% em AA/hipóxia, FR 38 (taquipneia), aparelho respiratório normal, escoriações tóraco-abdominais à esquerda; C — FC 136, PA 80x60 (hipotensão), turgência jugular, hipofonese/abafamento de bulhas; D — consciente, Glasgow 13, pupilas isocóricas e fotorreagentes; E — manta térmica/prevenção de hipotermia e escoriações.",
+      "title": "Revalida 2024/2 – Prova Discursiva – Padrão de Respostas definitivo, Questão 2, item a",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2024_2_PEP_discursiva_versao_final.pdf"
+    },
+    {
+      "claim": "Item b (0,8 por letra, máx. 4,0): A — manter prancha rígida e colar cervical e/ou O2 sob máscara; B — O2 sob máscara ou eFAST; C — duas opções entre dois acessos venosos calibrosos, reposição volêmica, FAST/POCUS/E-FAST, pericardiocentese/punção de Marfan/toracotomia de urgência, exames laboratoriais/tipagem sanguínea — uma delas obrigatoriamente pericardiocentese OU punção de Marfan OU toracotomia de urgência; D — exame neurológico, sem condutas no momento (única resposta aceita); E — prevenir hipotermia (cobrir, manta térmica, sala 24–26 °C, desligar ar-condicionado, soro aquecido), limpeza e curativo das escoriações.",
+      "title": "Revalida 2024/2 – Prova Discursiva – Padrão de Respostas definitivo, Questão 2, item b",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2024_2_PEP_discursiva_versao_final.pdf"
+    },
+    {
+      "claim": "Item c: diagnóstico principal tamponamento cardíaco (1,0); diferenciais, 0,5 cada (máx. 1,0): hemotórax/hemotórax maciço; pneumotórax/pneumotórax hipertensivo; hemopneumotórax; contusão pulmonar/atelectasia traumática; contusão cardíaca/lesão valvular traumática; fratura de arcos costais/tórax instável; lesão traqueobrônquica; lesão da aorta/vasos da base.",
+      "title": "Revalida 2024/2 – Prova Discursiva – Padrão de Respostas definitivo, Questão 2, item c",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2024_2_PEP_discursiva_versao_final.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2024/2",
+    "item": "Discursiva caso 2",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2024_2_PEP_discursiva_versao_final.pdf",
+    "originalCaseText": "Um paciente de 20 anos, envolvido em acidente de trânsito, é encaminhado a uma unidade hospitalar de pequeno porte, em prancha rígida, coberto com manta térmica e utilizando colar cervical. Ele foi vítima de colisão lateral esquerda do seu automóvel contra a lateral direita de outro veículo, não usava cinto de segurança. Ao exame físico, são observadas escoriações superficiais na região tóraco-abdominal anterior esquerda. O paciente apresenta-se consciente, Glasgow 13, consegue verbalizar o próprio nome e nega sentir dores na região cervical, suas pupilas estão isocóricas e fotorreagentes. Apresenta os seguintes sinais vitais: Exame Resultado | Frequência cardíaca 136 batimentos por minuto | Frequência respiratória 38 incursões respiratórias por minuto | Saturação de O2 em ar ambiente 92% | Pressão arterial 80 × 60 mmHg. No aparelho respiratório, percebe-se murmúrio vesicular fisiológico, sem ruídos adventícios. No aparelho cardiovascular, nota-se turgência jugular, bulhas cardíacas hipofonéticas em todos os focos. Com relação ao caso clínico apresentado, faça o que se pede nos itens a seguir. a) Correlacione os achados da anamnese e do exame físico desse paciente com cada um dos elementos que constituem a avaliação primária (ABCDE) segundo o ATLS (Advanced Trauma Life Support). (valor: 4,0 pontos) b) Cite as condutas a serem tomadas em cada item da avaliação primária (ABCDE) desse paciente, segundo o ATLS. (valor: 4,0 pontos) c) Cite o diagnóstico principal desse paciente e dois diagnósticos diferenciais. (valor: 2,0 pontos)",
+    "notes": "O padrão referencia o ATLS 9ª ed.; não foi sinalizado como desatualizado porque os itens pontuados (O2, proteção cervical, descompressão do tamponamento por pericardiocentese/toracotomia, prevenção de hipotermia) não conflitam de forma clara com edições posteriores — conferir se o revisor quiser alinhar ao ATLS 11ª ed. (2025). O cabeçalho do PDF diz '2023 SEGUNDA EDIÇÃO' (resto de modelo); a capa é da edição 2024/2. Item a (correlacionar os achados com cada letra do ABCDE) é raciocínio sobre dados já presentes na vinheta e não gera mustRequest; ele aparece nas fontes."
+  }
+}

@@ -13,7 +13,7 @@
     "status": "draft"
   },
   "input": {
-    "caseText": "Celulite em membro inferior sem informação sobre abscesso, necrose ou progressão."
+    "caseText": "H 54a, celulite em perna E há 2 d: eritema quente e doloroso, edema até o tornozelo."
   },
   "expected": {
     "syndrome": "celulite/erisipela, complicação a excluir",
@@ -27,6 +27,27 @@
     ],
     "requiredActions": [],
     "forbiddenDefinitiveActions": [],
+    "rationale": "IDSA 2014: separar celulite não complicada de abscesso (drenagem) e de infecção necrosante (cirurgia imediata) — coleção, dor desproporcional, bolhas, necrose, crepitação, progressão rápida e toxicidade sistêmica. Desejáveis, mas não exigidos: TVP como mimetizador; comorbidades (diabetes, imunossupressão) e alergia a betalactâmico, que mudam via e antibiótico.",
     "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "IDSA 2014: avaliação cirúrgica imediata quando há toxicidade sistêmica ou suspeita de fasciíte necrosante; drenagem de abscesso; critérios de gravidade (SIRS) definem via.",
+      "title": "Practice Guidelines for the Diagnosis and Management of Skin and Soft Tissue Infections: 2014 Update",
+      "publisher": "IDSA / Clin Infect Dis",
+      "year": 2014,
+      "url": "https://pubmed.ncbi.nlm.nih.gov/24973422/"
+    },
+    {
+      "claim": "TVP, fasciíte necrosante e abscesso estão entre os mimetizadores de celulite no PS.",
+      "title": "Clinical Mimics: An Emergency Medicine-Focused Review of Cellulitis Mimics",
+      "publisher": "J Emerg Med (UT Southwestern)",
+      "year": 2017,
+      "url": "https://utsouthwestern.elsevierpure.com/en/publications/clinical-mimics-an-emergency-medicine-focused-review-of-celluliti"
+    }
+  ],
+  "provenance": {
+    "originalCaseText": "Celulite em membro inferior sem informação sobre abscesso, necrose ou progressão.",
+    "notes": "Auditoria 11/10/2026: gabarito confirmado; texto reescrito sem listar o que falta. TVP e comorbidades/alergia ficaram no rationale (opcionais)."
   }
 }

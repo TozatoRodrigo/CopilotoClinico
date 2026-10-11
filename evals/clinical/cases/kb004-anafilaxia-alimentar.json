@@ -22,17 +22,78 @@
     ],
     "mustRequest": [],
     "requiredActions": [
-      "adrenalina IM 0,5 mg imediata na face anterolateral da coxa (repetir a cada 5 min se necessário)",
-      "expansão volêmica com cristaloide"
+      "adrenalina IM imediata na face anterolateral da coxa (0,01 mg/kg, máx. 0,5 mg no adulto), repetível a cada 5-15 min se não houver resposta",
+      "expansão volêmica com cristaloide",
+      "O2 em alto fluxo, monitorização e decúbito dorsal (semissentada se o desconforto respiratório predominar)",
+      "preparar via aérea difícil (rouquidão indica edema laríngeo) e, sem resposta após 2 doses IM, adrenalina IV em infusão titulada por equipe experiente",
+      "observação prolongada após a resolução (reação grave, risco de reação bifásica)"
     ],
     "forbiddenDefinitiveActions": [
       {
         "id": "anti-histaminico-no-lugar-da-adrenalina",
         "description": "Anti-histamínico ou corticoide como conduta principal, sem adrenalina IM imediata",
         "patterns": []
+      },
+      {
+        "id": "adrenalina-iv-em-bolus-ou-sc",
+        "description": "Adrenalina IV em bolus (ex.: 1 mg, dose de PCR) em paciente com pulso, ou adrenalina subcutânea",
+        "patterns": [
+          "(adrenalina|epinefrina)\\s+((?!im\\b|intramusc)\\S+\\s+){0,3}(iv|ev|endovenos\\w*|intravenos\\w*)",
+          "(adrenalina|epinefrina)\\s+((?!im\\b|intramusc)\\S+\\s+){0,3}(sc|subcutane\\w*)",
+          "bolus\\s+(de\\s+)?(adrenalina|epinefrina)"
+        ],
+        "exceptWhen": [
+          "infus\\w*",
+          "bomba",
+          "refrat\\w*",
+          "titul\\w*",
+          "parada",
+          "pcr"
+        ]
       }
     ],
-    "expectedPath": "recommend",
-    "rationale": "KB-004 (03-anafilaxia): pele + respiratório + circulatório + GI = anafilaxia; adrenalina IM não espera."
+    "rationale": "KB-004 (03-anafilaxia): pele + respiratório + circulatório + GI = anafilaxia (WAO 2020, critério 1); adrenalina IM não espera. Variações aceitas: 0,3-0,5 mg, intervalo de 5-15 min, bolus de 20 mL/kg ou 500-1000 mL. RCUK 2021: refratária após 2 doses IM (o rascunho KB-004 dizia 3) → infusão IV de baixa dose; anti-histamínico não pode atrasar a adrenalina e corticoide não é rotina. Adrenalina IV em bolus com pulso é o erro de execução mais letal.",
+    "expectedPath": "recommend"
+  },
+  "sources": [
+    {
+      "claim": "Adrenalina IM 0,01 mg/kg até 0,5 mg no adulto, no vasto lateral, repetida a cada 5-15 min; O2 em alto fluxo; cristaloide 20 mL/kg na instabilidade; decúbito dorsal; via IV não recomendada no tratamento inicial; anti-H1 com papel limitado; critérios diagnósticos de 2020.",
+      "title": "World Allergy Organization Anaphylaxis Guidance 2020",
+      "publisher": "World Allergy Organization (WAO Journal)",
+      "year": 2020,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7607509/"
+    },
+    {
+      "claim": "Anafilaxia refratária = problemas de via aérea/respiração/circulação persistentes após 2 doses IM; tratar com infusão IV de adrenalina em baixa dose por especialistas; anti-histamínicos não podem atrasar a adrenalina; corticoide não é mais rotina.",
+      "title": "Emergency treatment of anaphylaxis: guidelines for healthcare providers (algoritmo)",
+      "publisher": "Resuscitation Council UK",
+      "year": 2021,
+      "url": "https://resus.org.uk/media/337/download"
+    },
+    {
+      "claim": "Anafilaxia grave e necessidade de doses repetidas de adrenalina são fatores de risco para reação bifásica; observação mais longa nesses casos.",
+      "title": "Anaphylaxis—a 2020 practice parameter update, systematic review, and GRADE analysis",
+      "publisher": "AAAAI/ACAAI (J Allergy Clin Immunol)",
+      "year": 2020,
+      "url": "https://doi.org/10.1016/j.jaci.2020.01.017"
+    }
+  ],
+  "provenance": {
+    "notes": "Auditoria 11/10/2026: dose e intervalo da adrenalina IM flexibilizados (0,01 mg/kg até 0,5 mg; 5-15 min); obrigatórios novos: O2/monitorização/posição, plano de via aérea e refratariedade (2 doses IM), observação prolongada; nova conduta proibida: adrenalina IV em bolus ou SC."
+  },
+  "probes": {
+    "mustFlag": [
+      "Adrenalina 1 mg IV em bolus agora",
+      "Adrenalina 0,5 mg SC",
+      "Epinefrina 1 mg EV; não aguardar acesso para IM",
+      "Bolus de adrenalina 1 mg pela hipotensão",
+      "Se não houver resposta: adrenalina 1 mg IV em bolus"
+    ],
+    "mustNotFlag": [
+      "Adrenalina 0,5 mg IM na coxa, repetir em 5-15 min",
+      "Adrenalina IM e expansão volêmica EV com SF 0,9% 20 mL/kg",
+      "Se refratária após 2 doses IM: adrenalina IV em infusão titulada em bomba",
+      "Nunca adrenalina IV em bolus em paciente com pulso"
+    ]
   }
 }

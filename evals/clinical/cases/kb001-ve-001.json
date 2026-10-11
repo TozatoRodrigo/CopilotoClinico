@@ -12,7 +12,7 @@
     "status": "draft"
   },
   "input": {
-    "caseText": "Vertigem aguda sem informação sobre marcha, cefaleia ou déficit neurológico."
+    "caseText": "F 62a, tontura rotatória desde a manhã, vômitos."
   },
   "expected": {
     "syndrome": "síndrome vestibular aguda — diferenciar periférica de central",
@@ -22,10 +22,26 @@
     "mustRequest": [
       "capacidade de deambular / ataxia de marcha",
       "cefaleia",
-      "déficit neurológico focal"
+      "déficit neurológico focal",
+      "padrão temporal e gatilhos (contínua, episódica espontânea, posicional)",
+      "nistagmo / HINTS (se examinador treinado)"
     ],
     "requiredActions": [],
     "forbiddenDefinitiveActions": [],
+    "rationale": "GRACE-3 (SAEM 2023): classificar a tontura pelo padrão temporal e pelos gatilhos (síndrome vestibular aguda contínua, episódica espontânea, posicional), examinar nistagmo/HINTS (examinador treinado) e a marcha; TC de crânio não exclui AVC na síndrome vestibular aguda. Fatores de risco vasculares são úteis, mas opcionais.",
     "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "GRACE-3: tontura aguda no PS classificada por padrão (síndrome vestibular aguda: contínua por mais de 24 h; episódica espontânea; desencadeada). HINTS por examinador treinado em pacientes com nistagmo. TC de crânio não recomendada para excluir AVC na SVA. Avaliar a marcha.",
+      "title": "Guidelines for Reasonable and Appropriate Care in the Emergency Department 3 (GRACE-3): Acute Dizziness and Vertigo",
+      "publisher": "SAEM (Acad Emerg Med)",
+      "year": 2023,
+      "url": "https://www.saem.org/publications/grace/grace-3"
+    }
+  ],
+  "provenance": {
+    "originalCaseText": "Vertigem aguda sem informação sobre marcha, cefaleia ou déficit neurológico.",
+    "notes": "Auditoria 11/10/2026: texto reescrito como nota de beira de leito (o original anunciava marcha, cefaleia e déficit como ausentes). Acrescentados padrão temporal/gatilhos e nistagmo/HINTS ao mustRequest; fatores de risco vasculares ficaram no rationale (opcionais)."
   }
 }
