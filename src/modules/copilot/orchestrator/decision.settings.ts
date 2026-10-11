@@ -25,26 +25,46 @@ export interface DecisionPipelineReading {
   downgrades: string[];
 }
 
-/** `COPILOT_DECISION_PROMPT`: `v1` (padrão) ou `v2`. Typo cai em `v1`. */
+/** `COPILOT_DECISION_PROMPT`: `v1` (padrão), `v2` ou `v3`. Typo cai em `v1`. */
 export function readDecisionPromptVersion(config: ConfigService): DecisionPromptVersion {
   return readChoiceFlag(config, 'COPILOT_DECISION_PROMPT', DECISION_PROMPT_VERSIONS, 'v1');
 }
 
 /**
+ * v2 e v3 decidem a partir do entendimento do caso (Etapa 1) e sabem citar
+ * página web e rotular a origem; a v1 não faz nenhuma das duas coisas.
+ */
+export function isStagedDecisionPrompt(version: DecisionPromptVersion): boolean {
+  return version !== 'v1';
+}
+
+/**
  * `COPILOT_KNOWLEDGE_SOURCE`: `internal_kb` (padrão, a busca de sempre),
- * `model_only` (nenhuma busca) ou `web` (pesquisa em fontes oficiais). Typo
- * cai em `internal_kb`: um valor errado nunca liga um caminho não aprovado.
+ * `model_only` (nenhuma busca), `web` (pesquisa em fontes oficiais antes da
+ * decisão) ou `verify` (decisão sem evidência, conferida em fontes oficiais
+ * depois). Typo cai em `internal_kb`: um valor errado nunca liga um caminho
+ * não aprovado.
  */
 export function readKnowledgeSource(config: ConfigService): KnowledgeSource {
   return readChoiceFlag(config, 'COPILOT_KNOWLEDGE_SOURCE', KNOWLEDGE_SOURCES, 'internal_kb');
 }
 
 /**
- * A decisão v2 e a pesquisa web partem do entendimento do caso: sem `stages`,
- * a v2 cede à v1. A pesquisa também precisa da v2 — só ela sabe citar uma
- * página web e rotular a origem; com a v1, a pesquisa seria paga e ignorada.
- * Sem uma das duas, `web` cede a `model_only` — nunca à base interna, que
- * chamaria o provedor de embedding que quem escolheu `web` quer evitar.
+ * Como a pesquisa de cada fonte que pesquisa aparece no log quando cede:
+ * `web` pesquisa antes da decisão; `verify` confere a decisão depois.
+ */
+const RESEARCH_SOURCE_FALLBACK: Readonly<Record<'web' | 'verify', string>> = {
+  web: 'seguindo sem busca (model_only)',
+  verify: 'seguindo sem verificação (model_only)',
+};
+
+/**
+ * As decisões v2 e v3 e as fontes que pesquisam (`web` e `verify`) partem do
+ * entendimento do caso: sem `stages`, as decisões cedem à v1. A pesquisa
+ * também precisa da v2 ou da v3 — só elas sabem citar uma página web e
+ * rotular a origem; com a v1, a pesquisa seria paga e ignorada. Sem uma das
+ * duas, `web` e `verify` cedem a `model_only` — nunca à base interna, que
+ * chamaria o provedor de embedding que quem escolheu pesquisar quer evitar.
  */
 export function readDecisionPipeline(config: ConfigService): DecisionPipelineReading {
   const reasoning = readReasoningMode(config);
@@ -53,15 +73,20 @@ export function readDecisionPipeline(config: ConfigService): DecisionPipelineRea
   const downgrades: string[] = [];
 
   const stagesOff = reasoning !== 'stages';
-  if (requestedPrompt === 'v2' && stagesOff) {
-    downgrades.push('COPILOT_DECISION_PROMPT=v2 exige COPILOT_REASONING=stages: usando v1');
-  }
-  const decisionPrompt = requestedPrompt === 'v2' && stagesOff ? 'v1' : requestedPrompt;
-
-  const webUnavailable = requestedSource === 'web' && (stagesOff || decisionPrompt !== 'v2');
-  if (webUnavailable) {
+  const promptUnavailable = isStagedDecisionPrompt(requestedPrompt) && stagesOff;
+  if (promptUnavailable) {
     downgrades.push(
-      'COPILOT_KNOWLEDGE_SOURCE=web exige COPILOT_REASONING=stages e COPILOT_DECISION_PROMPT=v2: seguindo sem busca (model_only)',
+      `COPILOT_DECISION_PROMPT=${requestedPrompt} exige COPILOT_REASONING=stages: usando v1`,
+    );
+  }
+  const decisionPrompt = promptUnavailable ? 'v1' : requestedPrompt;
+
+  const researchUnavailable =
+    (requestedSource === 'web' || requestedSource === 'verify') &&
+    (stagesOff || !isStagedDecisionPrompt(decisionPrompt));
+  if (researchUnavailable) {
+    downgrades.push(
+      `COPILOT_KNOWLEDGE_SOURCE=${requestedSource} exige COPILOT_REASONING=stages e COPILOT_DECISION_PROMPT=v2 ou v3: ${RESEARCH_SOURCE_FALLBACK[requestedSource]}`,
     );
   }
 
@@ -69,7 +94,7 @@ export function readDecisionPipeline(config: ConfigService): DecisionPipelineRea
     pipeline: {
       reasoning,
       decisionPrompt,
-      knowledgeSource: webUnavailable ? 'model_only' : requestedSource,
+      knowledgeSource: researchUnavailable ? 'model_only' : requestedSource,
     },
     downgrades,
   };

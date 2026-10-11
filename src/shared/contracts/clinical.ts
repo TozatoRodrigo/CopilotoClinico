@@ -210,6 +210,9 @@ export interface RedFlag {
  * - `unverified_dose` (F1, decisão v2): conhecimento geral do modelo que
  *   ainda traz dose depois do retry. Rótulo de proveniência, como
  *   `unreviewed_source`: a conduta continua recomendada.
+ * - `source_conflict` (verificação com fonte, `COPILOT_KNOWLEDGE_SOURCE=verify`):
+ *   a fonte oficial achada depois da decisão diverge da conduta (outro
+ *   fármaco, via, momento ou contraindicação). O `rationale` diz no quê.
  */
 export const PRELIMINARY_REASONS = [
   'pending_questions',
@@ -217,6 +220,7 @@ export const PRELIMINARY_REASONS = [
   'subtype_ambiguity',
   'depends_on_data',
   'unverified_dose',
+  'source_conflict',
 ] as const;
 
 export type PreliminaryReason = (typeof PRELIMINARY_REASONS)[number];
@@ -377,12 +381,20 @@ export interface WebEvidenceItem {
   citedText: string;
 }
 
-/** F1 — de onde vem a evidência da análise (`COPILOT_KNOWLEDGE_SOURCE`). */
-export const KNOWLEDGE_SOURCES = ['internal_kb', 'model_only', 'web'] as const;
+/**
+ * F1 — de onde vem a evidência da análise (`COPILOT_KNOWLEDGE_SOURCE`).
+ * `verify` (emenda de 11/10/2026 ao ADR-013): a decisão roda como em
+ * `model_only` e só depois a pesquisa em fontes oficiais confere as condutas.
+ */
+export const KNOWLEDGE_SOURCES = ['internal_kb', 'model_only', 'web', 'verify'] as const;
 export type KnowledgeSource = (typeof KNOWLEDGE_SOURCES)[number];
 
-/** F1 — prompt da decisão (`COPILOT_DECISION_PROMPT`). */
-export const DECISION_PROMPT_VERSIONS = ['v1', 'v2'] as const;
+/**
+ * F1 — prompt da decisão (`COPILOT_DECISION_PROMPT`). `v3` (emenda de
+ * 11/10/2026 ao ADR-013) mantém o contrato de saída da v2 e muda as regras:
+ * até 2 perguntas, tetos por camada e destino do paciente.
+ */
+export const DECISION_PROMPT_VERSIONS = ['v1', 'v2', 'v3'] as const;
 export type DecisionPromptVersion = (typeof DECISION_PROMPT_VERSIONS)[number];
 
 export interface Citation {
@@ -496,8 +508,9 @@ export interface CopilotAnalysis {
   understanding?: CaseUnderstanding | null;
   /**
    * F1 — trechos da pesquisa web entregues à decisão
-   * (`COPILOT_KNOWLEDGE_SOURCE=web`). Ausente nos outros modos; vazio quando a
-   * pesquisa falhou e a análise seguiu só com o conhecimento do modelo.
+   * (`COPILOT_KNOWLEDGE_SOURCE=web`) ou achados pela verificação depois dela
+   * (`verify`). Ausente nos outros modos; vazio quando a pesquisa falhou e a
+   * análise seguiu só com o conhecimento do modelo.
    */
   webEvidence?: WebEvidenceItem[];
 }
@@ -540,7 +553,7 @@ export interface CopilotAnalyzeResponse {
     /** F1 — fonte de conhecimento e prompt da decisão efetivos neste turno. */
     knowledgeSource?: KnowledgeSource;
     decisionPrompt?: DecisionPromptVersion;
-    /** F1 — duração da pesquisa web. Só quando ela rodou. */
+    /** F1 — duração da pesquisa web (ou da verificação, em `verify`). Só quando ela rodou. */
     researchLatencyMs?: number;
   };
 }

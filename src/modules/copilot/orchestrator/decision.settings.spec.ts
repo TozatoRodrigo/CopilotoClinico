@@ -19,6 +19,9 @@ describe('readDecisionPipeline', () => {
     ['v2', 'model_only'],
     ['v1', 'internal_kb'],
     ['V2', 'WEB'],
+    ['v3', 'web'],
+    ['v3', 'model_only'],
+    ['v3', 'internal_kb'],
   ])(
     'reads COPILOT_DECISION_PROMPT=%s and COPILOT_KNOWLEDGE_SOURCE=%s with stages',
     (prompt, source) => {
@@ -40,7 +43,7 @@ describe('readDecisionPipeline', () => {
   it('falls back to the defaults on a typo', () => {
     const { pipeline } = read({
       COPILOT_REASONING: 'stages',
-      COPILOT_DECISION_PROMPT: 'v3',
+      COPILOT_DECISION_PROMPT: 'v9',
       COPILOT_KNOWLEDGE_SOURCE: 'internet',
     });
 
@@ -52,6 +55,15 @@ describe('readDecisionPipeline', () => {
 
     expect(pipeline.decisionPrompt).toBe('v1');
     expect(downgrades).toEqual([expect.stringContaining('COPILOT_DECISION_PROMPT=v2 exige')]);
+  });
+
+  it('uses v1 and says why when v3 is asked for without stages', () => {
+    const { pipeline, downgrades } = read({ COPILOT_DECISION_PROMPT: 'v3' });
+
+    expect(pipeline.decisionPrompt).toBe('v1');
+    expect(downgrades).toEqual([
+      'COPILOT_DECISION_PROMPT=v3 exige COPILOT_REASONING=stages: usando v1',
+    ]);
   });
 
   it('never falls back to the embedding search when web is asked for without stages', () => {
@@ -73,6 +85,49 @@ describe('readDecisionPipeline', () => {
       knowledgeSource: 'model_only',
     });
     expect(downgrades).toEqual([expect.stringContaining('COPILOT_DECISION_PROMPT=v2')]);
+  });
+
+  describe('COPILOT_KNOWLEDGE_SOURCE=verify', () => {
+    it.each(['v2', 'v3'])('verifies after a %s decision with stages', (prompt) => {
+      const { pipeline, downgrades } = read({
+        COPILOT_REASONING: 'stages',
+        COPILOT_DECISION_PROMPT: prompt,
+        COPILOT_KNOWLEDGE_SOURCE: 'verify',
+      });
+
+      expect(pipeline).toEqual({
+        reasoning: 'stages',
+        decisionPrompt: prompt,
+        knowledgeSource: 'verify',
+      });
+      expect(downgrades).toEqual([]);
+    });
+
+    it('decides without the embedding search and says why when stages is off', () => {
+      const { pipeline, downgrades } = read({
+        COPILOT_DECISION_PROMPT: 'v3',
+        COPILOT_KNOWLEDGE_SOURCE: 'verify',
+      });
+
+      expect(pipeline).toEqual({
+        reasoning: 'legacy',
+        decisionPrompt: 'v1',
+        knowledgeSource: 'model_only',
+      });
+      expect(downgrades).toEqual([
+        'COPILOT_DECISION_PROMPT=v3 exige COPILOT_REASONING=stages: usando v1',
+        'COPILOT_KNOWLEDGE_SOURCE=verify exige COPILOT_REASONING=stages e COPILOT_DECISION_PROMPT=v2 ou v3: seguindo sem verificação (model_only)',
+      ]);
+    });
+
+    it('does not pay for a verification the v1 prompt could not use', () => {
+      const { pipeline } = read({
+        COPILOT_REASONING: 'stages',
+        COPILOT_KNOWLEDGE_SOURCE: 'verify',
+      });
+
+      expect(pipeline).toMatchObject({ decisionPrompt: 'v1', knowledgeSource: 'model_only' });
+    });
   });
 
   it('keeps model_only without stages: it needs no understanding', () => {
