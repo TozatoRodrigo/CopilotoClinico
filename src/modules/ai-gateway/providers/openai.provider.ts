@@ -1,7 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { z } from 'zod';
-import { AiRefusalError, AiTruncatedError } from '../ai-gateway.errors';
+import {
+  AiCapabilityUnsupportedError,
+  AiRefusalError,
+  AiTruncatedError,
+} from '../ai-gateway.errors';
 import { readFlag, readMaxOutputTokens, readOptionalChoice } from '../ai-gateway.settings';
 import type {
   AIProvider,
@@ -12,6 +16,7 @@ import type {
   EmbeddingParams,
   EmbeddingResponse,
   ProviderOverrides,
+  ResearchResponse,
   StreamCompletionResult,
 } from './provider.interface';
 
@@ -233,6 +238,14 @@ export class OpenAIProvider implements AIProvider {
       maxTokens: body.max_completion_tokens,
     });
     return { content, model, usage, stopReason: finishReason };
+  }
+
+  /**
+   * F1 — a pesquisa web usa as ferramentas de servidor da Anthropic; a
+   * OpenAI não as tem. A análise segue sem a pesquisa.
+   */
+  async research(): Promise<ResearchResponse> {
+    throw new AiCapabilityUnsupportedError({ provider: this.name, capability: 'web_research' });
   }
 
   async embed(params: EmbeddingParams): Promise<EmbeddingResponse> {

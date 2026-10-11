@@ -37,6 +37,11 @@ export interface CompletionUsage {
   totalTokens: number;
   cacheReadTokens?: number;
   cacheWriteTokens?: number;
+  /**
+   * F1 — buscas feitas pela ferramenta de servidor `web_search`, cobradas à
+   * parte dos tokens (US$ 10 por 1.000). Só a pesquisa web as faz.
+   */
+  webSearchRequests?: number;
 }
 
 export interface CompletionResponse {
@@ -73,6 +78,46 @@ export interface EmbeddingResponse {
   };
 }
 
+/**
+ * F1 — pesquisa com as ferramentas de servidor da Anthropic (web search e web
+ * fetch), restrita a uma lista de domínios. A busca roda nos servidores da
+ * Anthropic; a resposta é texto com citações das páginas lidas.
+ */
+export interface ResearchParams {
+  model: string;
+  system: string;
+  /** Mensagem do usuário: só o que a diretriz responde, nunca dado do paciente. */
+  prompt: string;
+  effort?: AiEffort;
+  maxTokens?: number;
+  /** Hosts permitidos nas duas ferramentas; cada um cobre os seus subdomínios. */
+  allowedDomains: readonly string[];
+  maxSearches: number;
+  maxFetches: number;
+  /** Teto de tokens do texto de cada página lida (não vale para PDF). */
+  maxFetchContentTokens: number;
+}
+
+/** Trecho citado na resposta da pesquisa, já com a URL da página de onde veio. */
+export interface ResearchCitation {
+  url: string;
+  title: string | null;
+  citedText: string;
+}
+
+export interface ResearchResponse {
+  text: string;
+  citations: ResearchCitation[];
+  model: string;
+  /** Soma das chamadas (turno inicial + retomadas), com `webSearchRequests`. */
+  usage: CompletionUsage;
+  latencyMs: number;
+  /** Retomadas depois de `pause_turn`. */
+  continuations: number;
+  /** `pause_turn` quando o teto de retomadas acabou antes do fim do turno. */
+  stopReason: string | null;
+}
+
 export interface ProviderOverrides {
   apiKey?: string;
   baseUrl?: string;
@@ -82,5 +127,7 @@ export interface AIProvider {
   complete(params: CompletionParams): Promise<CompletionResponse>;
   completeStream(params: CompletionParams): AsyncGenerator<string, StreamCompletionResult>;
   embed(params: EmbeddingParams): Promise<EmbeddingResponse>;
+  /** F1 — só a Anthropic implementa; os demais lançam `AiCapabilityUnsupportedError`. */
+  research(params: ResearchParams): Promise<ResearchResponse>;
   readonly name: string;
 }

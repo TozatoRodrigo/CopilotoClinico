@@ -45,3 +45,23 @@ export class AiTruncatedError extends Error {
     );
   }
 }
+
+interface AiCapabilityUnsupportedDetails {
+  provider: string;
+  capability: 'web_research';
+}
+
+/**
+ * F1 — o provider configurado não tem a capacidade pedida (ex.: pesquisa web
+ * fora da Anthropic). Quem chama degrada: a análise segue sem a etapa.
+ */
+export class AiCapabilityUnsupportedError extends Error {
+  override readonly name = 'AiCapabilityUnsupportedError';
+
+  constructor(readonly details: AiCapabilityUnsupportedDetails) {
+    super(
+      `Provider ${details.provider} does not support ${details.capability}. ` +
+        'Use AI_PROVIDER=anthropic.',
+    );
+  }
+}

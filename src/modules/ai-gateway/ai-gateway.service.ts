@@ -6,6 +6,8 @@ import {
   CompletionResponse,
   EmbeddingParams,
   EmbeddingResponse,
+  ResearchParams,
+  ResearchResponse,
   StreamCompletionResult,
 } from './providers/provider.interface';
 import { AnthropicProvider } from './providers/anthropic.provider';
@@ -118,6 +120,25 @@ export class AiGatewayService {
     const result = yield* this.completionProvider.completeStream(fullParams);
     this.logger.debug(
       `Stream response: model=${result.model}, tokens=${result.usage.totalTokens}, stop=${result.stopReason ?? '-'}`,
+    );
+    return result;
+  }
+
+  /**
+   * F1 — pesquisa web com as ferramentas de servidor do provider de
+   * completion. Só a Anthropic implementa; nos demais lança
+   * `AiCapabilityUnsupportedError` e quem chama segue sem a pesquisa.
+   */
+  async research(
+    params: Omit<ResearchParams, 'model'> & { model?: string },
+  ): Promise<ResearchResponse> {
+    const model = params.model ?? this.defaultModel;
+    this.logger.debug(
+      `Research request: model=${model}, domains=${params.allowedDomains.length}, maxSearches=${params.maxSearches}`,
+    );
+    const result = await this.completionProvider.research({ ...params, model });
+    this.logger.debug(
+      `Research response: latency=${result.latencyMs}ms, searches=${result.usage.webSearchRequests ?? 0}, citations=${result.citations.length}`,
     );
     return result;
   }

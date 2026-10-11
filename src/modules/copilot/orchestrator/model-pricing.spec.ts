@@ -133,4 +133,35 @@ describe('calculateInferenceCost', () => {
       expect(hasModelPrice('deterministic-test')).toBe(false);
     });
   });
+
+  // F1 — pesquisa web: cada busca custa US$ 0,01 além dos tokens.
+  describe('web search', () => {
+    it('adds US$ 10 per 1,000 searches to the token cost', () => {
+      const tokensOnly = calculateInferenceCost({
+        model: 'claude-sonnet-5-5',
+        usage: { promptTokens: 1_000_000, completionTokens: 0, totalTokens: 1_000_000 },
+      });
+      const withSearches = calculateInferenceCost({
+        model: 'claude-sonnet-5-5',
+        usage: {
+          promptTokens: 1_000_000,
+          completionTokens: 0,
+          totalTokens: 1_000_000,
+          webSearchRequests: 5,
+        },
+      });
+
+      expect(tokensOnly).toBe(2);
+      expect(withSearches).toBeCloseTo(2.05, 10);
+    });
+
+    it('charges the searches even for a model without a known price', () => {
+      expect(
+        calculateInferenceCost({
+          model: 'modelo-desconhecido',
+          usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, webSearchRequests: 3 },
+        }),
+      ).toBeCloseTo(0.03, 10);
+    });
+  });
 });
