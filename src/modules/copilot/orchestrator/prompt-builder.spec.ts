@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { createHash } from 'node:crypto';
 import {
   buildPrompt,
   type PromptInput,
@@ -720,4 +721,61 @@ describe('buildPrompt — base oficial do MS (ADR-010)', () => {
       expect(enforced).toEqual(rolledBack);
     });
   });
+});
+
+// F1 — impressão digital do prompt `legacy`, gravada ANTES da Fase 1 (ADR-013).
+// Com `COPILOT_REASONING=legacy` (ou sem entendimento) o prompt precisa sair
+// byte a byte igual ao de antes: é o que mantém comparável o gabarito clínico
+// da linha de base. Se um destes hashes mudar, o legacy mudou.
+describe('buildPrompt — legacy byte-idêntico à linha de base (F1)', () => {
+  const official = makeChunks([
+    {
+      chunkId: 'off-1',
+      text: 'Soro antibotrópico conforme gravidade.',
+      source: 'PCDT — Acidentes Ofídicos',
+      sourceVersion: 'Portaria nº 83',
+    },
+  ]);
+  const attachment = { citationId: 'anexo:a1', filename: 'dengue.pdf', text: 'Hidratação oral.' };
+
+  function fingerprint(input: PromptInput): string {
+    const prompt = buildPrompt(input);
+    return createHash('sha256')
+      .update(JSON.stringify([prompt.system, prompt.user, prompt.retrievedChunkIds]))
+      .digest('hex');
+  }
+
+  const LEGACY_FINGERPRINTS: Record<string, { input: PromptInput; sha256: string }> = {
+    'evidência curada + oficial + anexo + red flags + cobertura parcial': {
+      input: {
+        ...makeInput({
+          redFlags: { pregnant: true, anticoagulant: false },
+          coverage: 'partial',
+          physicianAttachments: [attachment],
+        }),
+        officialChunks: official,
+        context: { hasCT: true, isSus: true, hasLab: false, hasICU: false },
+      },
+      sha256: '5b7d34ffd7e948f749899423f301df46917d4cfb6d2d7cd2f374c4f26c87efdd',
+    },
+    'só base oficial, locale es e instrução de último turno': {
+      input: {
+        ...makeInput({ retrievedChunks: [] }),
+        officialChunks: official,
+        locale: 'es',
+        additionalInstructions: 'Este é o último turno permitido.',
+      },
+      sha256: '2512dae8b67b529f0a88a766332f4bbacc2ced9a06e724ebb1d69157346b2935',
+    },
+    'sem evidência (caminho D)': {
+      input: makeInput({ retrievedChunks: [], redFlags: { elderly65: true } }),
+      sha256: '4659a00f6886c23f490042b279e4ebcf385925268b1405e275ba1976fef1b9ee',
+    },
+  };
+
+  for (const [scenario, { input, sha256 }] of Object.entries(LEGACY_FINGERPRINTS)) {
+    it(`mantém o prompt de "${scenario}"`, () => {
+      expect(fingerprint(input)).toBe(sha256);
+    });
+  }
 });
