@@ -82,9 +82,12 @@ export function findForbiddenDefinitiveActions(
     ) {
       return;
     }
-    // Ação e justificativa são orações separadas: um "não" na justificativa
-    // não alcança o fármaco da ação.
-    const text = `${recommendation.action}. ${recommendation.rationale}`;
+    // Só a AÇÃO é checada. A justificativa explica o contexto e cita o que a
+    // conduta evita ("sem anticoagulante para não contraindicar a trombólise"):
+    // no experimento de 11/10/2026, quatro modelos diferentes foram acusados de
+    // "trombólise antes da TC" por condutas corretas cuja justificativa citava
+    // a trombólise. Conduta perigosa aparece na ação; o juiz lê o resto.
+    const text = recommendation.action;
 
     for (const action of forbiddenActions) {
       const matchedText = findForbiddenTerm(text, action, forbiddenActions);
