@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import Anthropic from '@anthropic-ai/sdk';
 import { AiGatewayService } from './ai-gateway.service';
+import { AiEmbeddingsDisabledError } from './ai-gateway.errors';
 import { ConfigService } from '@nestjs/config';
 
 function createMockConfig(overrides: Record<string, string> = {}) {
@@ -263,7 +264,10 @@ describe('AiGatewayService', () => {
       // where the version segment lives — see openai.provider.ts), so the
       // shared 'https://test.api.com' default (sized for AnthropicProvider,
       // which still appends /v1/messages itself) doesn't apply here.
-      const config = createMockConfig({ AI_PROVIDER: 'openai', AI_BASE_URL: 'https://test.api.com/v1' });
+      const config = createMockConfig({
+        AI_PROVIDER: 'openai',
+        AI_BASE_URL: 'https://test.api.com/v1',
+      });
       const svc = new AiGatewayService(config);
 
       vi.spyOn(globalThis, 'fetch').mockResolvedValue(
@@ -318,6 +322,24 @@ describe('AiGatewayService', () => {
           }),
         }),
       );
+    });
+  });
+
+  // 11/10/2026: sem crédito na OpenAI e sem API de embedding na Anthropic,
+  // o serviço passa a rodar sem embeddings.
+  describe('EMBEDDING_PROVIDER=none', () => {
+    it('desliga os embeddings sem nenhuma chamada de rede', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch');
+      const svc = new AiGatewayService(createMockConfig({ EMBEDDING_PROVIDER: 'none' }));
+
+      expect(svc.embeddingsEnabled()).toBe(false);
+      expect(svc.getEmbeddingProviderName()).toBe('none');
+      await expect(svc.embed(['caso'])).rejects.toBeInstanceOf(AiEmbeddingsDisabledError);
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it('mantém os embeddings ligados com qualquer outro provedor', () => {
+      expect(new AiGatewayService(createMockConfig()).embeddingsEnabled()).toBe(true);
     });
   });
 
@@ -431,7 +453,9 @@ describe('AiGatewayService', () => {
       } as unknown as Response);
 
       const chunks: string[] = [];
-      for await (const delta of svc.completeStream({ messages: [{ role: 'user', content: 'Hi' }] })) {
+      for await (const delta of svc.completeStream({
+        messages: [{ role: 'user', content: 'Hi' }],
+      })) {
         chunks.push(delta);
       }
 

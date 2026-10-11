@@ -61,6 +61,24 @@ describe('GuidelineConsultSheet', () => {
     expect(screen.getByText(/Buscando pelo caso:/)).toBeInTheDocument();
   });
 
+  // Sem busca por significado (sem embeddings desde 11/10/2026), as consultas
+  // curtas do entendimento acham o documento certo; o texto livre do caso, nem
+  // sempre.
+  it('com entendimento, abre buscando pelas consultas do Copiloto e cada uma vira atalho', async () => {
+    const user = userEvent.setup();
+    const topics = ['escorpionismo classificação gravidade', 'soro antiescorpiônico dose'];
+    render(
+      <GuidelineConsultSheet open onOpenChange={vi.fn()} caseText={CASE} searchTopics={topics} />,
+    );
+
+    expect(consult).toHaveBeenLastCalledWith(topics.join('; '));
+    expect(screen.getByText(/Buscando pelo que o Copiloto entendeu do caso/)).toBeInTheDocument();
+    expect(screen.queryByText(/Buscando pelo caso:/)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'soro antiescorpiônico dose' }));
+    await waitFor(() => expect(consult).toHaveBeenLastCalledWith('soro antiescorpiônico dose'));
+  });
+
   it('mostra o documento usado na análise primeiro, com origem e link do PDF oficial', () => {
     consultReturns([
       result({
