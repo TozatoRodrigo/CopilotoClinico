@@ -319,6 +319,89 @@ export interface Citation {
   evidenceTable?: EvidenceTable | null;
 }
 
+/**
+ * F1 — síndromes de pronto-socorro: como o paciente se APRESENTA, não o
+ * diagnóstico final. Fonte única da lista fechada: o entendimento do caso
+ * (ADR-013, Etapa 1) escolhe uma delas e o gabarito clínico estratifica os
+ * casos por elas (evals/clinical/case.schema.ts). Lista fechada para os
+ * estratos não se fragmentarem por sinônimo; `outro` existe só para o
+ * entendimento, com a descrição em `syndromeNote`.
+ */
+export const PS_SYNDROMES = [
+  'agitacao-psicomotora',
+  'cefaleia',
+  'choque',
+  'crise-convulsiva',
+  'deficit-neurologico-focal',
+  'diarreia-vomitos',
+  'disturbio-glicemico',
+  'dispneia',
+  'dor-abdominal',
+  'dor-lombar-flanco',
+  'dor-toracica',
+  'febre',
+  'febre-hipotensao',
+  'infeccao-respiratoria',
+  'intoxicacao',
+  'pele-partes-moles',
+  'pressao-arterial-elevada',
+  'reacao-alergica',
+  'rebaixamento-consciencia',
+  'sintomas-urinarios',
+  'vertigem',
+  'outro',
+] as const;
+
+export type PsSyndrome = (typeof PS_SYNDROMES)[number];
+
+/**
+ * F1 — Etapa 1 do raciocínio em etapas (ADR-013): o que o Copiloto entendeu
+ * do caso ANTES de buscar evidência ou recomendar. Vai para a tela ("O que eu
+ * entendi") para o médico conferir e corrigir.
+ */
+export interface CaseUnderstanding {
+  /** Uma linha com os qualificadores que mudam a conduta. */
+  problemRepresentation: string;
+  /** Só o que o texto do caso informa; dado não informado é `null`, nunca inferido. */
+  structuredData: {
+    age: number | null;
+    sex: 'F' | 'M' | null;
+    vitals: {
+      systolicBp: number | null;
+      diastolicBp: number | null;
+      heartRate: number | null;
+      respiratoryRate: number | null;
+      spo2: number | null;
+      temperature: number | null;
+      glucose: number | null;
+    };
+    /** Início / tempo de evolução, como o texto disse. */
+    onset: string | null;
+    keyFindings: string[];
+    /** Anticoagulante, gestação, imunossupressão, alergias… só se informado. */
+    relevantContext: string[];
+  };
+  instability: { present: boolean; findings: string[] };
+  syndrome: PsSyndrome;
+  /** Preenchida quando `syndrome` é `outro`. */
+  syndromeNote: string | null;
+  /** Do pior para o menos grave, no máximo 5. */
+  cannotMiss: Array<{ hypothesis: string; whyPlausible: string; confirmOrRuleOut: string }>;
+  /** No máximo 3. */
+  likely: Array<{ hypothesis: string; why: string }>;
+  /** Dados ausentes que separam hipóteses de conduta diferente, no máximo 4. */
+  missingDiscriminators: Array<{ data: string; separates: string[]; whyItChangesConduct: string }>;
+  /** Consultas da busca dirigida, de 1 a 4. */
+  searchQueries: string[];
+}
+
+/**
+ * F1 — `questionId` reservado de POST /copilot/respond para o médico corrigir
+ * o entendimento. O backend o mostra no bloco de perguntas e respostas como
+ * "Correção do médico ao entendimento".
+ */
+export const UNDERSTANDING_CORRECTION_QUESTION_ID = 'correcao-do-entendimento';
+
 export interface CopilotAnalysis {
   reasoning: string;
   redFlags: RedFlag[];
@@ -328,6 +411,12 @@ export interface CopilotAnalysis {
   uncertaintyReason: string | null;
   differentials: DifferentialHypothesis[];
   clarifyingQuestions: ClarifyingQuestion[];
+  /**
+   * F1 — Etapa 1 (ADR-013). Ausente com `COPILOT_REASONING=legacy` e em
+   * interações gravadas antes da Fase 1; `null` quando a etapa falhou e a
+   * análise seguiu pelo caminho de sempre. A UI só mostra o card com valor.
+   */
+  understanding?: CaseUnderstanding | null;
 }
 
 export interface CopilotAnalyzeResponse {
@@ -359,6 +448,8 @@ export interface CopilotAnalyzeResponse {
     /** UX-03 — turno desta interação (0 = análise inicial) e teto de turnos. */
     turnIndex: number;
     maxTurns: number;
+    /** F1 — duração da Etapa 1 (entendimento). Só com `COPILOT_REASONING=stages`. */
+    understandingLatencyMs?: number;
   };
 }
 
@@ -373,6 +464,8 @@ export type RetrievalCoverage = 'full' | 'partial' | 'none';
  * mesma convenção de CopilotAnalyzeResponse espelhando OrchestratorResult.
  */
 export type CopilotStreamEvent =
+  /** F1 — Etapa 1 pronta, antes do primeiro delta (só com `COPILOT_REASONING=stages`). */
+  | { type: 'understanding'; understanding: CaseUnderstanding }
   | { type: 'delta'; delta: string }
   | { type: 'done'; result: CopilotAnalyzeResponse }
   | { type: 'error'; errors: string[] };
