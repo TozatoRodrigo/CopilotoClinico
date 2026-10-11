@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "kb001-sg-002",
+  "title": "Síndrome gripal com SpO2 91%, dispneia e hipotensão",
+  "tags": [
+    "infeccao-respiratoria",
+    "srag",
+    "influenza",
+    "kb-001"
+  ],
+  "critical": true,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Paciente com síndrome gripal, SpO2 91%, dispneia e hipotensão leve."
+  },
+  "expected": {
+    "syndrome": "síndrome respiratória aguda grave (SRAG) com hipoxemia e hipotensão",
+    "cannotMiss": [
+      "sepse ou choque séptico de foco pulmonar"
+    ],
+    "mustRequest": [],
+    "requiredActions": [
+      "oxigenoterapia",
+      "oseltamivir (indicado em SRAG independentemente do tempo de sintomas)",
+      "internação (avaliar leito de maior complexidade)"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "SRAG: oseltamivir para todos, sem esperar exame e sem limite de 48h (protocolo MS). Hipotensão obriga considerar sepse.",
+    "expectedPath": "recommend"
+  }
+}

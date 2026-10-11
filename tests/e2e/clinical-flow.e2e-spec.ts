@@ -355,6 +355,9 @@ async function buildClinicalApp() {
         usage: { promptTokens: 10, totalTokens: 10 },
       }),
       getProviderName: () => 'mock',
+      // F0-A — a chave do cache de retrieval inclui provider e modelo de embedding.
+      getEmbeddingProviderName: () => 'mock',
+      getEmbeddingModel: () => 'text-embedding-3-small',
     })
     .overrideProvider(InferenceQueueService)
     .useValue({

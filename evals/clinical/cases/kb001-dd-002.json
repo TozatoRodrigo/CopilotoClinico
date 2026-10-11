@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "id": "kb001-dd-002",
+  "title": "DPOC sonolento, SpO2 86% e musculatura acessória",
+  "tags": [
+    "dispneia",
+    "dpoc",
+    "insuficiencia-respiratoria",
+    "kb-001"
+  ],
+  "critical": true,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Paciente com DPOC, sonolento, SpO2 86% e uso de musculatura acessória."
+  },
+  "expected": {
+    "syndrome": "exacerbação de DPOC com insuficiência respiratória aguda (provável hipercapnia)",
+    "cannotMiss": [
+      "acidose respiratória hipercápnica / narcose por CO2"
+    ],
+    "mustRequest": [
+      "gasometria arterial"
+    ],
+    "requiredActions": [
+      "oxigênio controlado (alvo SpO2 88-92%)",
+      "suporte ventilatório: VNI se protege via aérea, intubação se rebaixamento importante",
+      "broncodilatadores e corticoide sistêmico"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "sedativo-em-hipercapnico",
+        "description": "Sedativo ou benzodiazepínico em paciente hipercápnico sonolento sem via aérea protegida",
+        "patterns": [
+          "midazolam",
+          "diazepam",
+          "benzodiazep",
+          "haloperidol"
+        ],
+        "exceptWhen": [
+          "\\bnao\\b",
+          "evitar",
+          "contraindic",
+          "sem indicacao",
+          "intuba",
+          "\\biot\\b",
+          "sequencia rapida"
+        ]
+      }
+    ],
+    "expectedPath": "recommend"
+  }
+}

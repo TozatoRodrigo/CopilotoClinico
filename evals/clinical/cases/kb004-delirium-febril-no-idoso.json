@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "id": "kb004-delirium-febril-no-idoso",
+  "title": "Primeiro episódio de agitação flutuante com febre e SpO2 90% aos 68 anos",
+  "tags": [
+    "agitacao-psicomotora",
+    "delirium",
+    "dicotomia-agitacao"
+  ],
+  "critical": true,
+  "goldSource": "kb004_dichotomy",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Masc, 68a, sem história psiquiátrica, trazido por agitação e falas desconexas desde a tarde; ora sonolento, ora agitado, desorientado, diz ver bichos na parede. T 38,6, FC 112, SpO2 90%, glicemia 104."
+  },
+  "expected": {
+    "syndrome": "delirium hiperativo por causa orgânica (provável infecção com hipoxemia)",
+    "cannotMiss": [
+      "infecção ou sepse como causa do delirium"
+    ],
+    "mustRequest": [
+      "pressão arterial",
+      "uso de álcool, benzodiazepínicos ou outras substâncias (abstinência)"
+    ],
+    "requiredActions": [
+      "oxigênio e investigação infecciosa (foco, culturas, exames)",
+      "tratar a causa antes de sedar; se a sedação for necessária por risco, dose baixa e como medida temporária"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "benzodiazepinico-em-delirium-de-idoso",
+        "description": "Benzodiazepínico como sedação de primeira linha em delirium de idoso hipoxêmico (fora de abstinência)",
+        "patterns": [
+          "midazolam",
+          "diazepam",
+          "lorazepam",
+          "clonazepam",
+          "benzodiazep"
+        ],
+        "exceptWhen": [
+          "\\bnao\\b",
+          "evitar",
+          "contraindic",
+          "sem indicacao",
+          "abstin"
+        ]
+      },
+      {
+        "id": "conduzir-como-psiquiatrico",
+        "description": "Conduzir como quadro psiquiátrico primário sem investigar a causa orgânica",
+        "patterns": []
+      }
+    ],
+    "expectedPath": "recommend",
+    "rationale": "KB-004 (09-agitacao-causa-organica): >40 anos sem história psiquiátrica, flutuação, alucinação visual, febre e hipóxia = causa orgânica."
+  }
+}

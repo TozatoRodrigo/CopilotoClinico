@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "kb001-it-002",
+  "title": "Febre, dor lombar, vômitos e hipotensão com cálculo urinário conhecido",
+  "tags": [
+    "febre-hipotensao",
+    "pielonefrite",
+    "sepse",
+    "kb-001"
+  ],
+  "critical": true,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Febre alta, dor lombar, vômitos e hipotensão em paciente com cálculo urinário conhecido."
+  },
+  "expected": {
+    "syndrome": "pielonefrite obstrutiva com sepse / choque séptico (urosepse)",
+    "cannotMiss": [
+      "choque séptico de foco urinário",
+      "obstrução urinária infectada (necessidade de desobstrução)"
+    ],
+    "mustRequest": [],
+    "requiredActions": [
+      "antibiótico IV de amplo espectro na primeira hora (culturas sem atrasá-lo)",
+      "ressuscitação volêmica com cristaloide",
+      "imagem de urgência e desobstrução urológica (cateter duplo J ou nefrostomia)"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "expectedPath": "recommend"
+  }
+}

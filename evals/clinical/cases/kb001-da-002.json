@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "id": "kb001-da-002",
+  "title": "Dor abdominal intensa com defesa involuntária e hipotensão",
+  "tags": [
+    "dor-abdominal",
+    "abdome-agudo",
+    "instabilidade-hemodinamica",
+    "kb-001"
+  ],
+  "critical": true,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Dor abdominal intensa com defesa involuntária e hipotensão."
+  },
+  "expected": {
+    "syndrome": "abdome agudo com instabilidade hemodinâmica",
+    "cannotMiss": [
+      "perfuração de víscera / peritonite",
+      "hemorragia intra-abdominal (aneurisma de aorta roto ou gravidez ectópica rota)"
+    ],
+    "mustRequest": [
+      "beta-hCG se mulher em idade fértil"
+    ],
+    "requiredActions": [
+      "ressuscitação volêmica com acesso venoso calibroso",
+      "avaliação cirúrgica de urgência"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "expectedPath": "recommend"
+  }
+}

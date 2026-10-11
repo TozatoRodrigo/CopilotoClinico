@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "kb001-cc-001",
+  "title": "Crise convulsiva sem dados de primeiro episódio, trauma ou retorno ao basal",
+  "tags": [
+    "crise-convulsiva",
+    "kb-001"
+  ],
+  "critical": false,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Crise convulsiva sem informação se foi primeiro episódio, trauma ou retorno ao basal."
+  },
+  "expected": {
+    "syndrome": "crise convulsiva a caracterizar",
+    "cannotMiss": [
+      "estado de mal epiléptico",
+      "hipoglicemia"
+    ],
+    "mustRequest": [
+      "primeiro episódio ou epilepsia conhecida",
+      "retorno ao nível de consciência basal",
+      "trauma craniano",
+      "glicemia capilar"
+    ],
+    "requiredActions": [],
+    "forbiddenDefinitiveActions": [],
+    "expectedPath": "clarify"
+  }
+}

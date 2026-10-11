@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "id": "kb001-lb-002",
+  "title": "Lombalgia com anestesia em sela, retenção urinária e déficit motor",
+  "tags": [
+    "dor-lombar-flanco",
+    "cauda-equina",
+    "kb-001"
+  ],
+  "critical": true,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Lombalgia com anestesia em sela, retenção urinária e déficit motor progressivo."
+  },
+  "expected": {
+    "syndrome": "síndrome da cauda equina / compressão radicular-medular",
+    "cannotMiss": [
+      "compressão de cauda equina (incluindo hérnia volumosa, abscesso epidural, hematoma ou neoplasia)"
+    ],
+    "mustRequest": [],
+    "requiredActions": [
+      "ressonância magnética de coluna em caráter de urgência",
+      "avaliação neurocirúrgica/ortopédica de urgência",
+      "sondagem vesical de alívio"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "alta-com-analgesia",
+        "description": "Alta com analgesia e seguimento ambulatorial",
+        "patterns": []
+      }
+    ],
+    "expectedPath": "recommend"
+  }
+}

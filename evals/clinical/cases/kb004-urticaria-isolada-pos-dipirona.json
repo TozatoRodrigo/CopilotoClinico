@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "kb004-urticaria-isolada-pos-dipirona",
+  "title": "Urticária isolada após dipirona, sem outro sistema envolvido",
+  "tags": [
+    "reacao-alergica",
+    "urticaria",
+    "dicotomia-anafilaxia-alergia"
+  ],
+  "critical": false,
+  "goldSource": "kb004_dichotomy",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Masc, 25a, placas urticariformes pruriginosas em tronco e braços 1h após dipirona. Nega falta de ar, rouquidão, tontura, vômitos ou dor abdominal. Sem edema de lábios ou língua. PA 124x78, FC 84, SpO2 99%."
+  },
+  "expected": {
+    "syndrome": "reação alérgica cutânea simples (urticária aguda) sem critério de anafilaxia",
+    "cannotMiss": [
+      "evolução para anafilaxia (inclusive reação bifásica)"
+    ],
+    "mustRequest": [],
+    "requiredActions": [
+      "anti-histamínico H1",
+      "período de observação antes da alta, com orientação de retorno imediato"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "expectedPath": "recommend",
+    "rationale": "KB-004 (04-alergia-simples): sem outro sistema envolvido, adrenalina não é a primeira conduta."
+  }
+}

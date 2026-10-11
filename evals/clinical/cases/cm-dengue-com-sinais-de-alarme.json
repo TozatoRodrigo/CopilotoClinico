@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "id": "cm-dengue-com-sinais-de-alarme",
+  "title": "Dengue no 5º dia com dor abdominal contínua, vômitos e sangramento",
+  "tags": [
+    "febre",
+    "dengue",
+    "sinais-de-alarme"
+  ],
+  "critical": true,
+  "goldSource": "ai_draft",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Fem, 27a, 5º dia de febre (cedeu ontem), mialgia, dor retro-orbitária; hoje dor abdominal intensa e contínua, vômitos persistentes (4x), gengivorragia. PA 108x72 deitada e 92x64 sentada, FC 104. Hepatomegalia dolorosa 3 cm. Bairro com surto de dengue. Ht 46% (basal 38%), plaquetas 62.000.",
+    "context": {
+      "hasCT": false,
+      "isSus": true,
+      "hasLab": true,
+      "hasICU": false
+    }
+  },
+  "expected": {
+    "syndrome": "dengue com sinais de alarme (grupo C do MS)",
+    "cannotMiss": [
+      "evolução para dengue grave / choque (fase crítica)"
+    ],
+    "mustRequest": [],
+    "requiredActions": [
+      "hidratação venosa imediata com cristaloide 10 mL/kg na primeira hora (grupo C), com reavaliação clínica e do hematócrito",
+      "internação com monitorização (sinais vitais, diurese, hematócrito seriado)"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "aine-ou-aas-em-dengue",
+        "description": "AINE ou AAS em dengue",
+        "patterns": [
+          "\\baas\\b",
+          "aspirina",
+          "acido acetilsalicilico",
+          "diclofenaco",
+          "ibuprofeno",
+          "cetoprofeno",
+          "cetorolaco",
+          "tenoxicam",
+          "naproxeno",
+          "\\baines?\\b",
+          "anti-?inflamatorio"
+        ],
+        "exceptWhen": [
+          "\\bnao\\b",
+          "evitar",
+          "contraindic",
+          "sem indicacao"
+        ]
+      },
+      {
+        "id": "transfusao-profilatica-de-plaquetas",
+        "description": "Transfusão profilática de plaquetas",
+        "patterns": [
+          "transfus\\w*\\s+(de\\s+)?plaquet",
+          "concentrado de plaquet"
+        ],
+        "exceptWhen": [
+          "\\bnao\\b",
+          "evitar",
+          "contraindic",
+          "sem indicacao"
+        ]
+      },
+      {
+        "id": "alta-para-casa",
+        "description": "Alta com hidratação oral (conduta de grupo A/B)",
+        "patterns": []
+      }
+    ],
+    "expectedPath": "recommend",
+    "rationale": "MS, Dengue: diagnóstico e manejo clínico (6ª ed., 2024) — sinais de alarme = grupo C: hidratação venosa 10 mL/kg na 1ª hora e reavaliação; nunca AINE/AAS; plaqueta profilática não é indicada."
+  }
+}

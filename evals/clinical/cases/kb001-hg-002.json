@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "id": "kb001-hg-002",
+  "title": "Rebaixado com hiperglicemia, desidratação intensa e cetose",
+  "tags": [
+    "disturbio-glicemico",
+    "cetoacidose",
+    "kb-001"
+  ],
+  "critical": true,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Paciente rebaixado com hiperglicemia, desidratação intensa e cetose positiva."
+  },
+  "expected": {
+    "syndrome": "cetoacidose diabética grave",
+    "cannotMiss": [
+      "hipocalemia (agravada pela insulina, risco de arritmia)"
+    ],
+    "mustRequest": [
+      "potássio sérico",
+      "gasometria (pH, bicarbonato, ânion-gap)"
+    ],
+    "requiredActions": [
+      "hidratação vigorosa com cristaloide",
+      "insulina regular IV contínua somente com potássio ≥ 3,3 mEq/L",
+      "reposição de potássio conforme nível sérico"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "insulina-sem-potassio",
+        "description": "Insulina IV como conduta definitiva sem potássio conhecido",
+        "patterns": [
+          "insulina"
+        ],
+        "exceptWhen": [
+          "\\bnao\\b",
+          "evitar",
+          "contraindic",
+          "sem indicacao",
+          "\\bapos\\b",
+          "depois",
+          "quando",
+          "somente",
+          "\\bso\\b",
+          "antes de iniciar",
+          "potassio\\s*(>=|>|≥|acima|normal|corrigid)",
+          "\\bk\\s*(>=|>|≥)",
+          "\\bnao\\s+iniciar",
+          "aguardar",
+          "adiar",
+          "suspend"
+        ]
+      }
+    ],
+    "expectedPath": "recommend"
+  }
+}

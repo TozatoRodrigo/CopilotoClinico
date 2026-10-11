@@ -30,6 +30,9 @@ export async function buildApp(): Promise<NestFastifyApplication> {
       complete: () => Promise.resolve({ content: '', model: '', usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 }, latencyMs: 0 }),
       embed: () => Promise.resolve({ embeddings: [], model: '', usage: { promptTokens: 0, totalTokens: 0 } }),
       getProviderName: () => 'mock',
+      // F0-A — a chave do cache de retrieval inclui provider e modelo de embedding.
+      getEmbeddingProviderName: () => 'mock',
+      getEmbeddingModel: () => 'text-embedding-3-small',
     })
     .overrideProvider(InferenceQueueService)
     .useValue({

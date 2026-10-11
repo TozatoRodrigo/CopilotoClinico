@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "id": "kb004-cetoacidose-com-potassio-baixo",
+  "title": "Cetoacidose diabética grave com potássio 3,0",
+  "tags": [
+    "disturbio-glicemico",
+    "cetoacidose",
+    "dicotomia-hipo-hiper"
+  ],
+  "critical": true,
+  "goldSource": "kb004_dichotomy",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Fem, 24a, DM1, vômitos e dor abdominal há 2 dias, parou insulina. Taquipneica (Kussmaul), mucosas secas. FC 124, PA 100x60. Glicemia 486, cetonemia 5,2 mmol/L, gaso: pH 7,08, HCO3 7. K 3,0.",
+    "context": {
+      "hasCT": false,
+      "isSus": true,
+      "hasLab": true,
+      "hasICU": true
+    }
+  },
+  "expected": {
+    "syndrome": "cetoacidose diabética grave com hipocalemia",
+    "cannotMiss": [
+      "hipocalemia agravada pela insulina (risco de arritmia)"
+    ],
+    "mustRequest": [
+      "ECG",
+      "função renal e diurese"
+    ],
+    "requiredActions": [
+      "hidratação vigorosa com cristaloide",
+      "reposição de potássio antes de iniciar a insulina (K < 3,3 mEq/L)",
+      "insulina regular IV contínua somente após K ≥ 3,3 mEq/L"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "insulina-com-potassio-baixo",
+        "description": "Iniciar insulina com K < 3,3 mEq/L sem repor potássio antes",
+        "patterns": [
+          "insulina"
+        ],
+        "exceptWhen": [
+          "\\bnao\\b",
+          "evitar",
+          "contraindic",
+          "sem indicacao",
+          "\\bapos\\b",
+          "depois",
+          "quando",
+          "somente",
+          "\\bso\\b",
+          "antes de iniciar",
+          "potassio\\s*(>=|>|≥|acima|normal|corrigid)",
+          "\\bk\\s*(>=|>|≥)",
+          "\\bnao\\s+iniciar",
+          "aguardar",
+          "adiar",
+          "suspend"
+        ]
+      }
+    ],
+    "expectedPath": "recommend",
+    "rationale": "KB-004 (02-cetoacidose-hiperosmolar): NÃO iniciar insulina com K < 3,3-3,5."
+  }
+}

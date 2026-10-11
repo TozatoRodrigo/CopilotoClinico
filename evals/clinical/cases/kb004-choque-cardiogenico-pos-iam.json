@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "id": "kb004-choque-cardiogenico-pos-iam",
+  "title": "Choque frio e congesto 3 dias após IAM anterior",
+  "tags": [
+    "choque",
+    "choque-cardiogenico",
+    "dicotomia-choque"
+  ],
+  "critical": true,
+  "goldSource": "kb004_dichotomy",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Masc, 66a, IAM anterior há 3 dias (não reperfundido, procurou tarde). Dispneia progressiva há 6h. PA 78x50, FC 118, SpO2 88% em ar ambiente, estertores até ápices, turgência jugular, extremidades frias e mosqueadas, TEC 5s. Lactato 4,8.",
+    "context": {
+      "hasCT": true,
+      "isSus": true,
+      "hasLab": true,
+      "hasICU": true
+    }
+  },
+  "expected": {
+    "syndrome": "choque cardiogênico (perfil frio e congesto)",
+    "cannotMiss": [
+      "isquemia miocárdica em curso ou complicação mecânica do IAM"
+    ],
+    "mustRequest": [
+      "ECG de 12 derivações",
+      "ecocardiograma à beira-leito"
+    ],
+    "requiredActions": [
+      "vasopressor (noradrenalina) para PAM ≥ 65 mmHg",
+      "inotrópico (ex.: dobutamina) se o baixo débito persistir",
+      "suporte ventilatório (VNI ou intubação)"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "volume-liberal-em-choque-congesto",
+        "description": "Expansão volêmica liberal (30 mL/kg ou bolus repetidos) em choque congesto",
+        "patterns": [
+          "30\\s?ml\\s?/\\s?kg",
+          "bolus.{0,30}(repetid|liberal)"
+        ],
+        "exceptWhen": [
+          "\\bnao\\b",
+          "evitar",
+          "contraindic",
+          "sem indicacao",
+          "cautel"
+        ]
+      }
+    ],
+    "expectedPath": "recommend",
+    "rationale": "KB-004 (05-choque-cardiogenico): extremidades frias + congestão = mais volume não ajuda e pode precipitar edema pulmonar."
+  }
+}

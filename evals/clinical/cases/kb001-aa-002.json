@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "id": "kb001-aa-002",
+  "title": "Muito agitado, desatento, hipoxêmico e potencialmente violento",
+  "tags": [
+    "agitacao-psicomotora",
+    "delirium",
+    "kb-001"
+  ],
+  "critical": true,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Paciente muito agitado, desatento, hipoxêmico e potencialmente violento."
+  },
+  "expected": {
+    "syndrome": "delirium hiperativo por causa orgânica (hipoxemia) com risco de violência",
+    "cannotMiss": [
+      "causa orgânica do delirium (hipoxemia e sua origem)"
+    ],
+    "mustRequest": [
+      "glicemia capilar",
+      "sinais vitais completos incluindo temperatura"
+    ],
+    "requiredActions": [
+      "oxigênio e investigação da causa da hipoxemia",
+      "segurança: de-escalonamento e, se necessário, sedação com monitorização"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "sedar-como-psiquiatrico",
+        "description": "Sedar e conduzir como quadro psiquiátrico sem tratar/investigar a hipoxemia",
+        "patterns": []
+      }
+    ],
+    "expectedPath": "recommend"
+  }
+}

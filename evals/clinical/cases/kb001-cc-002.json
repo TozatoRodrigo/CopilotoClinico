@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "id": "kb001-cc-002",
+  "title": "Rebaixamento persistente pós-convulsão com febre e rigidez de nuca",
+  "tags": [
+    "crise-convulsiva",
+    "meningite",
+    "encefalite",
+    "kb-001"
+  ],
+  "critical": true,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Paciente mantém rebaixamento após convulsão, febre e rigidez de nuca."
+  },
+  "expected": {
+    "syndrome": "crise convulsiva com febre e meningismo — infecção do SNC",
+    "cannotMiss": [
+      "meningite bacteriana",
+      "encefalite (incluindo herpética)"
+    ],
+    "mustRequest": [
+      "glicemia capilar"
+    ],
+    "requiredActions": [
+      "antibioticoterapia empírica IV imediata, sem atrasar por TC ou punção",
+      "dexametasona antes ou junto da primeira dose do antibiótico",
+      "TC de crânio antes da punção lombar (rebaixamento e crise)"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "atrasar-antibiotico",
+        "description": "Aguardar TC ou punção lombar para iniciar o antibiótico",
+        "patterns": []
+      },
+      {
+        "id": "puncao-antes-da-tc",
+        "description": "Punção lombar antes de TC em paciente rebaixado após crise",
+        "patterns": []
+      }
+    ],
+    "expectedPath": "recommend"
+  }
+}

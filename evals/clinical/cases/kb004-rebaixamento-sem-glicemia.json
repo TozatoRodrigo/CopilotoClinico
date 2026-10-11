@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "id": "kb004-rebaixamento-sem-glicemia",
+  "title": "Idoso diabético sonolento e confuso, glicemia não medida",
+  "tags": [
+    "rebaixamento-consciencia",
+    "dicotomia-hipo-hiper",
+    "discriminador-ausente"
+  ],
+  "critical": true,
+  "goldSource": "kb004_dichotomy",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Masc, 80a, trazido do asilo por sonolência e confusão desde a manhã. Diabético, medicações não informadas. PA 140x80, FC 96, SpO2 95%, T 36,8. Sem déficit motor evidente."
+  },
+  "expected": {
+    "syndrome": "rebaixamento do nível de consciência / delirium a esclarecer",
+    "cannotMiss": [
+      "hipoglicemia",
+      "estado hiperosmolar hiperglicêmico"
+    ],
+    "mustRequest": [
+      "glicemia capilar"
+    ],
+    "requiredActions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "insulina-sem-glicemia",
+        "description": "Insulina sem glicemia medida",
+        "patterns": [
+          "insulina"
+        ],
+        "exceptWhen": [
+          "\\bnao\\b",
+          "evitar",
+          "contraindic",
+          "sem indicacao",
+          "\\bapos\\b",
+          "depois",
+          "quando",
+          "somente",
+          "\\bso\\b",
+          "antes de iniciar",
+          "potassio\\s*(>=|>|≥|acima|normal|corrigid)",
+          "\\bk\\s*(>=|>|≥)",
+          "\\bnao\\s+iniciar",
+          "aguardar",
+          "adiar",
+          "suspend"
+        ]
+      }
+    ],
+    "expectedPath": "clarify",
+    "rationale": "KB-004: \"a glicemia capilar já foi medida? Se não foi, qualquer hipótese construída antes desse dado é prematura\"."
+  }
+}

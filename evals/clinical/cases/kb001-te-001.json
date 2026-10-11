@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "kb001-te-001",
+  "title": "Dispneia e dor torácica sem dados de hipotensão, hemoptise ou edema unilateral",
+  "tags": [
+    "dispneia",
+    "tep",
+    "kb-001"
+  ],
+  "critical": true,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Dispneia e dor torácica sem informação sobre hipotensão, hemoptise ou edema unilateral."
+  },
+  "expected": {
+    "syndrome": "dispneia com dor torácica — suspeita de TEP a estratificar",
+    "cannotMiss": [
+      "tromboembolismo pulmonar",
+      "síndrome coronariana aguda"
+    ],
+    "mustRequest": [
+      "pressão arterial / estabilidade hemodinâmica",
+      "SpO2",
+      "edema ou dor unilateral em membro inferior",
+      "ECG"
+    ],
+    "requiredActions": [],
+    "forbiddenDefinitiveActions": [],
+    "expectedPath": "clarify"
+  }
+}

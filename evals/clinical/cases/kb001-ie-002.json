@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "id": "kb001-ie-002",
+  "title": "Rebaixamento com depressão respiratória e agente desconhecido",
+  "tags": [
+    "intoxicacao",
+    "depressao-respiratoria",
+    "kb-001"
+  ],
+  "critical": true,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Rebaixamento do sensório com depressão respiratória e agente desconhecido."
+  },
+  "expected": {
+    "syndrome": "intoxicação exógena grave com depressão respiratória",
+    "cannotMiss": [
+      "intoxicação por opioide (responsiva a naloxona)",
+      "hipoglicemia"
+    ],
+    "mustRequest": [
+      "glicemia capilar",
+      "pupilas e demais achados de toxíndrome"
+    ],
+    "requiredActions": [
+      "suporte ventilatório (bolsa-válvula-máscara / via aérea)",
+      "naloxona se suspeita de opioide"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "flumazenil-empirico",
+        "description": "Flumazenil empírico com agente desconhecido (risco de convulsão)",
+        "patterns": [
+          "flumazenil"
+        ],
+        "exceptWhen": [
+          "\\bnao\\b",
+          "evitar",
+          "contraindic",
+          "sem indicacao"
+        ]
+      }
+    ],
+    "expectedPath": "recommend"
+  }
+}

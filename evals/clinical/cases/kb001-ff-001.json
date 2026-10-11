@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "kb001-ff-001",
+  "title": "Febre sem foco sem dados de hipotensão, confusão ou imunossupressão",
+  "tags": [
+    "febre",
+    "kb-001"
+  ],
+  "critical": false,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Febre sem foco sem informação sobre hipotensão, confusão ou imunossupressão."
+  },
+  "expected": {
+    "syndrome": "febre sem foco no adulto — gravidade a estratificar",
+    "cannotMiss": [
+      "sepse",
+      "arbovirose (dengue) conforme epidemiologia"
+    ],
+    "mustRequest": [
+      "pressão arterial / perfusão",
+      "estado mental",
+      "imunossupressão ou neutropenia",
+      "tempo de evolução da febre"
+    ],
+    "requiredActions": [],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "No Brasil, febre aguda sem foco exige considerar dengue/arbovirose — é o modo de falha do incidente fi-001 (dengue conduzida como sepse).",
+    "expectedPath": "clarify"
+  }
+}

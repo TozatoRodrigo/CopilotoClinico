@@ -56,11 +56,50 @@ const MODEL_PRICES: Record<string, ModelPrice> = {
   'claude-haiku-4-5': claudePrice(1, 5),
   'gpt-4o': { inputPerMillionTokens: 2.5, outputPerMillionTokens: 10 },
   'gpt-4o-mini': { inputPerMillionTokens: 0.15, outputPerMillionTokens: 0.6 },
+  // F0-A — candidatos ao modelo de produção, conferidos na página oficial
+  // (developers.openai.com/api/docs/pricing, tier Standard, contexto curto) em
+  // 10/10/2026. Cache = "cached input" da OpenAI.
+  'gpt-4.1': {
+    inputPerMillionTokens: 2,
+    outputPerMillionTokens: 8,
+    cacheReadPerMillionTokens: 0.5,
+  },
+  'gpt-4.1-mini': {
+    inputPerMillionTokens: 0.4,
+    outputPerMillionTokens: 1.6,
+    cacheReadPerMillionTokens: 0.1,
+  },
+  'gpt-5': {
+    inputPerMillionTokens: 1.25,
+    outputPerMillionTokens: 10,
+    cacheReadPerMillionTokens: 0.125,
+  },
+  'gpt-5-mini': {
+    inputPerMillionTokens: 0.25,
+    outputPerMillionTokens: 2,
+    cacheReadPerMillionTokens: 0.025,
+  },
+  // Modelo de produção em 10/10/2026 (AI_MODEL do .env.production).
+  'gpt-5.6-luna': {
+    inputPerMillionTokens: 0.2,
+    outputPerMillionTokens: 1.2,
+    cacheReadPerMillionTokens: 0.02,
+  },
 };
 
 /** A OpenAI devolve o snapshot datado (`gpt-4o-2024-08-06`); o preço é o do alias. */
 function findPrice(model: string): ModelPrice | undefined {
   return MODEL_PRICES[model] ?? MODEL_PRICES[model.replace(DATED_SNAPSHOT_SUFFIX, '')];
+}
+
+/**
+ * F0-A — sem preço, `calculateInferenceCost` cai numa taxa genérica por
+ * token. Serve para não zerar o custo em produção, mas o gabarito clínico
+ * compara custo entre modelos e precisa dizer "desconhecido" em vez de usar
+ * um número inventado.
+ */
+export function hasModelPrice(model: string): boolean {
+  return findPrice(model) !== undefined;
 }
 
 export function calculateInferenceCost(params: CalculateInferenceCostParams): number {
