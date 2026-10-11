@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import * as Sentry from '@sentry/node';
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GuidelineChunkStatus, Prisma } from '@prisma/client';
@@ -179,6 +180,48 @@ export class RetrievalService {
   }
 
   /**
+   * Embeddings das consultas, ou `null` quando o provedor falha (sem crédito,
+   * fora do ar, chave inválida) ou devolve menos vetores que consultas.
+   *
+   * Busca sem embedding não pode derrubar a análise: em 11/10/2026 a conta da
+   * OpenAI ficou sem crédito e toda análise passaria a falhar com 500 — o
+   * médico sem resposta por causa de uma peça acessória. Sem vetor, a análise
+   * segue sem trechos (caminho "sem evidência" do prompt: declara a lacuna e
+   * pergunta o que falta), e a falha vai para o Sentry para ser corrigida.
+   */
+  private async embedOrUnavailable(texts: readonly string[]): Promise<number[][] | null> {
+    try {
+      const { embeddings } = await this.aiGateway.embed([...texts]);
+      if (embeddings.length !== texts.length || embeddings.some((vector) => !vector?.length)) {
+        throw new Error(
+          `embedding provider returned ${embeddings.length} of ${texts.length} vectors`,
+        );
+      }
+      return embeddings;
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      this.logger.error(`RETRIEVAL_EMBEDDING_UNAVAILABLE queries=${texts.length}: ${reason}`);
+      Sentry.captureMessage(`RETRIEVAL_EMBEDDING_UNAVAILABLE: ${reason}`, 'error');
+      return null;
+    }
+  }
+
+  /**
+   * Resultado de busca indisponível. Não vai para o cache: quando o provedor
+   * voltar, a próxima análise já busca de novo.
+   */
+  private unavailableResult(officialEnabled: boolean): RetrievalResult {
+    return {
+      chunks: [],
+      totalRetrieved: 0,
+      coverage: 'none',
+      bestSemanticScore: 0,
+      discardedByFloor: 0,
+      official: { ...OFFICIAL_DISABLED, enabled: officialEnabled },
+    };
+  }
+
+  /**
    * @param institutionId Instituição do encounter (PROT-004). `undefined`/`null`
    * restringe a busca a conteúdo global (institution_id IS NULL). Quando
    * informado, a busca retorna conteúdo global + da instituição (isolamento
@@ -200,11 +243,9 @@ export class RetrievalService {
       return parseCachedResult(cached);
     }
 
-    const embeddingResponse = await this.aiGateway.embed([query]);
-    const queryEmbedding = embeddingResponse.embeddings[0];
-    if (!queryEmbedding) {
-      throw new Error('Failed to generate query embedding');
-    }
+    const embeddings = await this.embedOrUnavailable([query]);
+    const queryEmbedding = embeddings?.[0];
+    if (!queryEmbedding) return this.unavailableResult(officialEnabled);
 
     const semanticHits = await this.semanticSearch(queryEmbedding, topK * 2, institutionId);
     const keywordHits = await this.keywordSearch(query, queryEmbedding, topK * 2, institutionId);
@@ -304,12 +345,8 @@ export class RetrievalService {
       return parseCachedResult(cached);
     }
 
-    const { embeddings } = await this.aiGateway.embed(distinct);
-    if (embeddings.length !== distinct.length) {
-      throw new Error(
-        `Failed to generate query embeddings: ${embeddings.length} of ${distinct.length}`,
-      );
-    }
+    const embeddings = await this.embedOrUnavailable(distinct);
+    if (!embeddings) return this.unavailableResult(officialEnabled);
 
     const rankings = await Promise.all(
       distinct.map((query, index) =>
