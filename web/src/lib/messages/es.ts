@@ -45,11 +45,15 @@ export const es: Messages = {
       // "2 definitivas · 1 preliminar"
       preliminarySummary: (definitive: number, preliminary: number) =>
         `${definitive} definitiva${definitive === 1 ? '' : 's'} · ${preliminary} preliminar${preliminary === 1 ? '' : 'es'}`,
+      // "2 para ahora · 1 depende de un dato"
+      layersSummary: (now: number, depends: number) =>
+        `${now} para ahora · ${depends} depende${depends === 1 ? '' : 'n'} de un dato`,
     },
 
     questions: {
       heading: 'Para orientar con seguridad, necesito:',
       whyAsk: '¿Por qué esta pregunta?',
+      separates: (hypotheses: string[]) => `Separa: ${hypotheses.join(' × ')}`,
       boolean: {
         yes: 'Sí',
         no: 'No',
@@ -130,7 +134,16 @@ export const es: Messages = {
     preliminaryReason: {
       unreviewed_source: 'Fuente no revisada por un médico',
       subtype_ambiguity: 'Subtipo indefinido — depende del dato que lo discrimina',
+      depends_on_data: 'Depende de un dato aún no disponible',
+      unverified_dose: 'Dosis sin fuente citada — confirme en el protocolo local',
     },
+    layers: {
+      now: { label: 'Hacer ahora', hint: 'seguro en todas las hipótesis abiertas' },
+      depends: { label: 'Depende de…', hint: 'solo después del dato que decide' },
+    },
+    dependsOn: (data: string) => `Depende de: ${data}`,
+    dependsOnMissing: 'Depende de un dato aún no informado',
+    openSourcePage: 'Abrir la página de la fuente',
   },
 
   sourceOrigin: {
@@ -139,6 +152,8 @@ export const es: Messages = {
     physician_attachment: 'Adjunto del médico · no curado',
     official_unreviewed: 'Ministerio de Salud · no revisado por el equipo',
     curated_unsigned: 'Base curada · sin firma médica',
+    model_knowledge: 'Conocimiento general del modelo — confirme en el protocolo local',
+    web_official: 'Fuente oficial externa',
   },
 
   redFlags: {

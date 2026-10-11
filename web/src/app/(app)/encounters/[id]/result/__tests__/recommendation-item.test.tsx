@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { RecommendationItem } from "../page";
+import { RecommendationItem, planGroups } from "../page";
+import { getMessages } from "@/lib/messages";
 import type { CopilotRecommendation } from "@/lib/types";
 import type { RecommendationDecisionState } from "@/hooks/use-recommendation-decisions";
 
@@ -247,5 +248,166 @@ describe("RecommendationItem — F0-C: confiança e motivo do preliminar", () =>
 
     expect(tagOf("Base curada · sem assinatura médica")).toHaveAttribute("data-variant", "gray");
     expect(screen.queryByRole("link", { name: "Ver documento oficial" })).not.toBeInTheDocument();
+  });
+});
+
+// F1 — decisão v2 (ADR-013): conduta em duas camadas e origem da fonte.
+describe("RecommendationItem — F1: decisão v2", () => {
+  function renderRec(rec: CopilotRecommendation, footnote?: number | null) {
+    render(
+      <RecommendationItem
+        rec={rec}
+        index={0}
+        footnote={footnote}
+        decision={undefined}
+        onAdopt={vi.fn()}
+        onReject={vi.fn()}
+        onNote={vi.fn()}
+      />,
+    );
+  }
+
+  function tagOf(text: string): HTMLElement {
+    const tag = screen.getByText(text).closest<HTMLElement>('[data-slot="badge"]');
+    if (!tag) throw new Error(`"${text}" não está numa tag`);
+    return tag;
+  }
+
+  const modelKnowledge: CopilotRecommendation = {
+    ...baseRec,
+    citationChunkId: null,
+    layer: "now",
+    dependsOn: null,
+    basis: "model_knowledge",
+    source: "Conhecimento geral do modelo",
+    sourceVersion: "",
+    sourceText: "",
+    sourceUrl: "",
+    origin: "model_knowledge",
+  };
+
+  it("diz do que a conduta depende, em vez da tag genérica de preliminar", () => {
+    renderRec({
+      ...baseRec,
+      action: "Trombólise com alteplase",
+      layer: "depends",
+      dependsOn: "TC de crânio sem contraste sem sangramento",
+      basis: "source",
+      preliminary: true,
+      preliminaryReason: "depends_on_data",
+    });
+
+    expect(
+      screen.getByText("Depende de: TC de crânio sem contraste sem sangramento"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Preliminar/)).not.toBeInTheDocument();
+  });
+
+  it("avisa quando a conduta depende de um dado que o modelo não nomeou", () => {
+    renderRec({
+      ...baseRec,
+      layer: "depends",
+      dependsOn: null,
+      basis: "source",
+      preliminary: true,
+      preliminaryReason: "depends_on_data",
+    });
+
+    expect(screen.getByText("Depende de dado ainda não informado")).toBeInTheDocument();
+  });
+
+  it("marca conhecimento geral do modelo, sem nota de rodapé nem fonte inventada", () => {
+    renderRec(modelKnowledge, null);
+
+    expect(
+      tagOf("Conhecimento geral do modelo — confirme no protocolo local"),
+    ).toHaveAttribute("data-variant", "blue");
+    expect(screen.queryByRole("link", { name: /Fonte/ })).not.toBeInTheDocument();
+    expect(screen.queryByText("Conhecimento geral do modelo")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Preliminar/)).not.toBeInTheDocument();
+  });
+
+  it("marca, em laranja, conhecimento geral do modelo que ainda traz dose", () => {
+    renderRec({
+      ...modelKnowledge,
+      action: "Glicose 50% 40 mL IV",
+      preliminary: true,
+      preliminaryReason: "unverified_dose",
+    });
+
+    expect(
+      tagOf("Preliminar · Dose sem fonte citada — confirme no protocolo local"),
+    ).toHaveAttribute("data-variant", "warning");
+  });
+
+  it("marca a fonte oficial externa com o domínio e leva à página em nova aba", () => {
+    renderRec({
+      ...baseRec,
+      citationChunkId: "web:1",
+      layer: "now",
+      dependsOn: null,
+      basis: "source",
+      source: "Guidelines for the Early Management of Acute Ischemic Stroke",
+      sourceVersion: "ahajournals.org",
+      sourceUrl: "https://www.ahajournals.org/doi/10.1161/STR.0000000000000211",
+      origin: "web_official",
+    });
+
+    expect(tagOf("Fonte oficial externa · ahajournals.org")).toHaveAttribute(
+      "data-variant",
+      "gray",
+    );
+    const link = screen.getByRole("link", { name: "Abrir página da fonte" });
+    expect(link).toHaveAttribute(
+      "href",
+      "https://www.ahajournals.org/doi/10.1161/STR.0000000000000211",
+    );
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  });
+});
+
+describe("planGroups — F1: plano em duas camadas", () => {
+  const messages = getMessages("pt-BR");
+  const now: CopilotRecommendation = { ...baseRec, action: "Glicemia capilar", layer: "now" };
+  const depends: CopilotRecommendation = {
+    ...baseRec,
+    action: "Trombólise",
+    category: "therapeutic",
+    layer: "depends",
+    dependsOn: "TC sem sangramento",
+  };
+
+  it("separa a v2 em Fazer agora e Depende de…", () => {
+    const groups = planGroups([depends, now], messages);
+
+    expect(groups.map((group) => [group.label, group.items.map(({ rec }) => rec.action)])).toEqual([
+      ["Fazer agora", ["Glicemia capilar"]],
+      ["Depende de…", ["Trombólise"]],
+    ]);
+    expect(groups[1]?.items[0]?.index).toBe(0);
+  });
+
+  it("mantém os três tempos de sempre para análises v1 e antigas, sem camada", () => {
+    const groups = planGroups(
+      [
+        { ...baseRec, category: "stabilization", action: "Via aérea" },
+        { ...baseRec, category: "therapeutic", action: "Antibiótico" },
+        { ...baseRec, category: "diagnostic", action: "ECG" },
+      ],
+      messages,
+    );
+
+    expect(groups.map((group) => [group.label, group.items.map(({ rec }) => rec.action)])).toEqual([
+      ["Agora", ["Via aérea"]],
+      ["Em seguida", ["Antibiótico"]],
+      ["Se piorar", ["ECG"]],
+    ]);
+  });
+
+  it("usa o espanhol quando o médico usa a UI em espanhol", () => {
+    const groups = planGroups([now, depends], getMessages("es"));
+
+    expect(groups.map((group) => group.label)).toEqual(["Hacer ahora", "Depende de…"]);
   });
 });
