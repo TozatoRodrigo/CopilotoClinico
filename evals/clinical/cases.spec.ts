@@ -152,6 +152,43 @@ describe('loadCaseSet', () => {
     expect(() => loadCaseSet(dir)).toThrow(/reviewer/);
   });
 
+  it('aceita fontes, proveniência e sondas (gabarito v1)', () => {
+    writeCase('fi-001-dengue-como-sepse.json', {
+      ...validCase,
+      goldSource: 'guideline_anchored',
+      sources: [
+        {
+          claim: 'Grupo D: expansão de 20 mL/kg em 20 min',
+          title: 'Dengue: diagnóstico e manejo clínico',
+          publisher: 'Ministério da Saúde',
+          year: 2024,
+          url: 'https://www.gov.br/saude/dengue',
+        },
+      ],
+      provenance: { originalCaseText: 'Texto antigo do caso.', notes: 'Reescrito na auditoria.' },
+      probes: { mustFlag: ['Ibuprofeno 600 mg'], mustNotFlag: ['Paracetamol 750 mg'] },
+    });
+    expect(loadCaseSet(dir).cases[0]?.sources).toHaveLength(1);
+  });
+
+  it('aceita gabarito oficial de prova sem revisor da equipe', () => {
+    writeCase('fi-001-dengue-como-sepse.json', {
+      ...validCase,
+      goldSource: 'revalida_discursiva',
+      review: { status: 'official_exam_key' },
+      provenance: { exam: 'Revalida', edition: '2024/2', item: 'discursiva 1' },
+    });
+    expect(loadCaseSet(dir).cases[0]?.review.status).toBe('official_exam_key');
+  });
+
+  it('recusa sonda sem frase que deve ser acusada', () => {
+    writeCase('fi-001-dengue-como-sepse.json', {
+      ...validCase,
+      probes: { mustFlag: [], mustNotFlag: ['Paracetamol 750 mg'] },
+    });
+    expect(() => loadCaseSet(dir)).toThrow(/probes\.mustFlag/);
+  });
+
   it('recusa padrão proibido que não é expressão regular válida', () => {
     const expected = validCase.expected as Record<string, unknown>;
     writeCase('fi-001-dengue-como-sepse.json', {
