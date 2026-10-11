@@ -1,7 +1,11 @@
 import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { z } from 'zod';
-import { CopilotOutputSchema } from '../../src/modules/copilot/guardrails/output-validator';
+import {
+  StoredCopilotOutputSchema,
+  StoredRecommendationSchema,
+} from '../../src/modules/copilot/guardrails/output-validator';
+import { CITATION_ORIGINS, PRELIMINARY_REASONS } from '../../src/shared/contracts/clinical';
 import { CaseUnderstandingSchema } from '../../src/modules/copilot/understanding/case-understanding.schema';
 import { REASONING_MODES } from '../../src/modules/copilot/understanding/understanding.settings';
 import { DeterministicGradeSchema, RUN_STATUSES } from './graders/deterministic';
@@ -42,6 +46,21 @@ export const RecordedCompletionSchema = z.object({
   error: z.string().nullable(),
 });
 
+/**
+ * Recomendação como o orquestrador a devolve: saída do modelo (v1 ou v2) mais
+ * o motivo do preliminar e a origem da fonte. Explícitos porque o zod
+ * descarta campo desconhecido na releitura do results.jsonl — sem eles, a
+ * nota perderia o motivo do preliminar (F0-C) e a camada da decisão v2 (F1).
+ */
+const ResultRecommendationSchema = StoredRecommendationSchema.extend({
+  preliminaryReason: z.enum(PRELIMINARY_REASONS).optional(),
+  origin: z.enum(CITATION_ORIGINS).optional(),
+});
+
+export const ResultOutputSchema = StoredCopilotOutputSchema.extend({
+  recommendations: z.array(ResultRecommendationSchema),
+});
+
 /** Espelha OrchestratorResult['metadata']; a atribuição no runner confere o tipo. */
 const PipelineMetadataSchema = z.object({
   piiDetected: z.boolean(),
@@ -78,7 +97,7 @@ export const ResultRowSchema = RowKeySchema.extend({
   encounterId: z.string(),
   interactionId: z.string().nullable(),
   /** Saída como o orquestrador devolveu (com fonte de cada recomendação). */
-  output: CopilotOutputSchema.nullable(),
+  output: ResultOutputSchema.nullable(),
   /**
    * F1 — Etapa 1 (ADR-013), fora de `output` porque o schema da saída do
    * modelo não a conhece. `null` no legacy, quando a etapa falhou e em

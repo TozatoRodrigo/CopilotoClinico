@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { CopilotOutputSchema } from '../guardrails/output-validator';
-import { COPILOT_OUTPUT_JSON_SCHEMA } from './copilot-output.json-schema';
+import { CopilotOutputV2Schema } from '../guardrails/output-validator-v2';
+import {
+  COPILOT_OUTPUT_JSON_SCHEMA,
+  COPILOT_OUTPUT_V2_JSON_SCHEMA,
+} from './copilot-output.json-schema';
 import {
   collectObjects,
   jsonShape,
@@ -28,6 +32,38 @@ describe('COPILOT_OUTPUT_JSON_SCHEMA', () => {
 
     for (const keyword of UNSUPPORTED_KEYWORDS) {
       expect(serialized).not.toContain(`"${keyword}"`);
+    }
+  });
+});
+
+// F1 — decisão v2: mesmas garantias, contra o zod da v2.
+describe('COPILOT_OUTPUT_V2_JSON_SCHEMA', () => {
+  it('mirrors the v2 zod schema field names, types, enums and nullability', () => {
+    expect(jsonShape(COPILOT_OUTPUT_V2_JSON_SCHEMA.schema)).toEqual(
+      zodShape(CopilotOutputV2Schema),
+    );
+  });
+
+  it('closes every object and lists every property as required', () => {
+    for (const object of collectObjects(COPILOT_OUTPUT_V2_JSON_SCHEMA.schema)) {
+      expect(object.additionalProperties).toBe(false);
+      expect(object.required).toEqual(Object.keys(object.properties));
+    }
+  });
+
+  it('uses only keywords supported by both providers', () => {
+    const serialized = JSON.stringify(COPILOT_OUTPUT_V2_JSON_SCHEMA.schema);
+
+    for (const keyword of UNSUPPORTED_KEYWORDS) {
+      expect(serialized).not.toContain(`"${keyword}"`);
+    }
+  });
+
+  it('leaves the v1 schema without the v2 fields', () => {
+    const serialized = JSON.stringify(COPILOT_OUTPUT_JSON_SCHEMA.schema);
+
+    for (const field of ['layer', 'dependsOn', 'basis', 'separates']) {
+      expect(serialized).not.toContain(`"${field}"`);
     }
   });
 });

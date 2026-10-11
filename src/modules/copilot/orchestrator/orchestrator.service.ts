@@ -64,7 +64,8 @@ const RECOMMENDATION_CATEGORY_ORDER = {
 } as const;
 
 export interface RecommendationSource {
-  chunkId: string;
+  /** F1 — `null` em conhecimento geral do modelo (decisão v2): não há trecho citado. */
+  chunkId: string | null;
   source: string;
   sourceVersion: string;
   sourceText: string;
@@ -199,11 +200,7 @@ interface AttachmentForCitation {
  * do médico. Centralizado porque os três caminhos do orquestrador (analyze,
  * analyzeStream, continueAnalysis) montam citações da mesma forma.
  */
-function resolveCitationSource(
-  citationChunkId: string,
-  chunks: RetrievedChunk[],
-  attachments: AttachmentForCitation[],
-): {
+interface ResolvedSource {
   source: string;
   sourceVersion: string;
   text: string;
@@ -211,7 +208,28 @@ function resolveCitationSource(
   origin: CitationOrigin;
   sourceUrl: string;
   chunk?: { metadata: Record<string, unknown> };
-} {
+}
+
+/**
+ * F1 — conhecimento geral do modelo (decisão v2): nenhuma fonte para mostrar,
+ * só o rótulo de origem.
+ */
+const MODEL_KNOWLEDGE_SOURCE: ResolvedSource = {
+  source: 'Conhecimento geral do modelo',
+  sourceVersion: '',
+  text: '',
+  institutionId: null,
+  origin: 'model_knowledge',
+  sourceUrl: '',
+};
+
+function resolveCitationSource(
+  citationChunkId: string | null,
+  chunks: RetrievedChunk[],
+  attachments: AttachmentForCitation[],
+): ResolvedSource {
+  if (citationChunkId === null) return MODEL_KNOWLEDGE_SOURCE;
+
   if (isAttachmentCitation(citationChunkId)) {
     const attachment = attachments.find((item) => item.citationId === citationChunkId);
     return {
@@ -1300,10 +1318,12 @@ export class OrchestratorService {
     output: EnrichedCopilotOutput,
   ): OrchestratorResult['citations'] {
     const chunks = citableChunks(prepared.retrievalResult);
-    return output.recommendations.map((rec) => {
-      const resolved = resolveCitationSource(rec.citationChunkId, chunks, prepared.attachments);
+    // F1 — conhecimento geral do modelo não tem fonte a citar.
+    return output.recommendations.flatMap((rec) => {
+      if (rec.chunkId === null) return [];
+      const resolved = resolveCitationSource(rec.chunkId, chunks, prepared.attachments);
       return {
-        chunkId: rec.citationChunkId,
+        chunkId: rec.chunkId,
         source: resolved.source,
         sourceVersion: resolved.sourceVersion,
         text: resolved.text,

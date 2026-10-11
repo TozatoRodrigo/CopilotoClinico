@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { RECOMMENDATION_BASES, RECOMMENDATION_LAYERS } from '../../../shared/contracts/clinical';
 import { isAttachmentCitation } from '../orchestrator/prompt-builder';
 
 export const RecommendationCategorySchema = z.enum([
@@ -16,7 +17,7 @@ export const RedFlagSeveritySchema = z.enum(['critical', 'high', 'moderate']);
  * anuláveis no JSON Schema (schemas/copilot-output.json-schema.ts); `null` é
  * lido como ausente para o resto do pipeline não mudar.
  */
-function optionalFromModel<T extends z.ZodTypeAny>(schema: T) {
+export function optionalFromModel<T extends z.ZodTypeAny>(schema: T) {
   return schema.nullish().transform((value) => value ?? undefined);
 }
 
@@ -26,7 +27,10 @@ export const RedFlagSchema = z.object({
   action: z.string().min(1),
 });
 
-const RecommendationSchema = z.object({
+export const RecommendationLayerSchema = z.enum(RECOMMENDATION_LAYERS);
+export const RecommendationBasisSchema = z.enum(RECOMMENDATION_BASES);
+
+export const RecommendationSchema = z.object({
   action: z.string().min(1),
   rationale: z.string().min(1),
   citationChunkId: z.string().min(1),
@@ -35,7 +39,7 @@ const RecommendationSchema = z.object({
   category: RecommendationCategorySchema.default('therapeutic'),
 });
 
-const ClarifyingQuestionSchema = z.object({
+export const ClarifyingQuestionSchema = z.object({
   id: z.string().min(1),
   question: z.string().min(1),
   why: z.string().min(1),
@@ -48,7 +52,7 @@ const ClarifyingQuestionSchema = z.object({
   purpose: optionalFromModel(z.string()),
 });
 
-const DifferentialSchema = z.object({
+export const DifferentialSchema = z.object({
   hypothesis: z.string().min(1),
   whyConsider: z.string().min(1),
   whatDistinguishes: z.string().min(1),
@@ -61,27 +65,36 @@ const DifferentialSchema = z.object({
   timeToHarm: optionalFromModel(z.enum(['minutos', 'horas', 'dias'])),
 });
 
-export const CopilotOutputSchema = z
-  .object({
-    reasoning: z.string().min(1),
-    redFlags: z.array(RedFlagSchema).default([]),
-    recommendations: z.array(RecommendationSchema).min(0),
-    uncertainty: z.boolean(),
-    uncertaintyReason: z.string().nullable(),
-    differentials: z.array(DifferentialSchema).max(3).default([]),
-    clarifyingQuestions: z
-      .array(ClarifyingQuestionSchema)
-      .max(3, 'clarifyingQuestions must contain at most 3 items per turn')
-      .default([]),
-  })
-  .refine(
-    (data) =>
-      !data.uncertainty || (data.uncertaintyReason !== null && data.uncertaintyReason.length > 0),
-    {
-      message: 'uncertaintyReason is required and must be non-empty when uncertainty is true',
-      path: ['uncertaintyReason'],
-    },
-  )
+/**
+ * Campos de topo comuns às duas versões do prompt de decisão; cada versão
+ * troca `recommendations` e `clarifyingQuestions` pelos seus.
+ */
+export const CopilotOutputBaseSchema = z.object({
+  reasoning: z.string().min(1),
+  redFlags: z.array(RedFlagSchema).default([]),
+  recommendations: z.array(RecommendationSchema).min(0),
+  uncertainty: z.boolean(),
+  uncertaintyReason: z.string().nullable(),
+  differentials: z.array(DifferentialSchema).max(3).default([]),
+  clarifyingQuestions: z
+    .array(ClarifyingQuestionSchema)
+    .max(3, 'clarifyingQuestions must contain at most 3 items per turn')
+    .default([]),
+});
+
+export const UNCERTAINTY_REASON_REQUIRED = {
+  check: (data: { uncertainty: boolean; uncertaintyReason: string | null }) =>
+    !data.uncertainty || (data.uncertaintyReason !== null && data.uncertaintyReason.length > 0),
+  message: 'uncertaintyReason is required and must be non-empty when uncertainty is true',
+} as const;
+
+export const CopilotOutputSchema = CopilotOutputBaseSchema.refine(
+  UNCERTAINTY_REASON_REQUIRED.check,
+  {
+    message: UNCERTAINTY_REASON_REQUIRED.message,
+    path: ['uncertaintyReason'],
+  },
+)
   .refine(
     (data) => {
       const hasBlocker = data.clarifyingQuestions.some((q) => q.criticality === 'blocker');
@@ -111,7 +124,32 @@ export const CopilotOutputSchema = z
     },
   );
 
-export type CopilotOutput = z.infer<typeof CopilotOutputSchema>;
+/**
+ * F1 — saída de qualquer versão do prompt de decisão: v1 (o schema acima),
+ * v2 (output-validator-v2.ts) e interações gravadas antes da Fase 1. Os
+ * campos da v2 são opcionais e `citationChunkId` aceita `null` (só a v2, com
+ * `basis: 'model_knowledge'`, o devolve).
+ */
+export const StoredRecommendationSchema = RecommendationSchema.extend({
+  citationChunkId: z.string().min(1).nullable(),
+  layer: RecommendationLayerSchema.optional(),
+  dependsOn: z.string().nullable().optional(),
+  basis: RecommendationBasisSchema.optional(),
+});
+
+export const StoredClarifyingQuestionSchema = ClarifyingQuestionSchema.extend({
+  separates: z.array(z.string()).optional(),
+});
+
+export const StoredCopilotOutputSchema = CopilotOutputBaseSchema.extend({
+  recommendations: z.array(StoredRecommendationSchema),
+  clarifyingQuestions: z.array(StoredClarifyingQuestionSchema).default([]),
+});
+
+export type CopilotOutput = z.infer<typeof StoredCopilotOutputSchema>;
+
+/** Saída do prompt v1: toda recomendação cita um id. */
+type CopilotOutputV1 = z.infer<typeof CopilotOutputSchema>;
 
 export interface ValidationResult {
   valid: boolean;
@@ -123,6 +161,12 @@ export interface ValidationResult {
    * (S21-CLIN-01), que vira rótulo preliminar na contenção do orquestrador.
    */
   warnings?: string[];
+  /**
+   * F1 — regras da decisão v2 que valem UM retry com feedback e nunca
+   * bloqueiam: o que sobra depois do retry vira aviso (emenda de 10/10/2026
+   * ao ADR-012). Ausente na v1.
+   */
+  correctable?: string[];
 }
 
 /**
@@ -144,34 +188,10 @@ export function validateOutput(
 ): ValidationResult {
   const errors: string[] = [];
 
-  let parsed: unknown;
-  try {
-    const cleaned = rawOutput
-      .replace(/```json\n?/g, '')
-      .replace(/```\n?/g, '')
-      .trim();
-    parsed = JSON.parse(cleaned);
-  } catch {
-    return {
-      valid: false,
-      output: null,
-      errors: ['Output is not valid JSON'],
-      unfoundedRecommendations: [],
-    };
-  }
+  const parsed = parseModelOutput(rawOutput, CopilotOutputSchema);
+  if (!parsed.success) return parsed.failure;
 
-  const schemaResult = CopilotOutputSchema.safeParse(parsed);
-  if (!schemaResult.success) {
-    const fieldErrors = schemaResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`);
-    return {
-      valid: false,
-      output: null,
-      errors: ['Schema validation failed', ...fieldErrors],
-      unfoundedRecommendations: [],
-    };
-  }
-
-  const output = schemaResult.data;
+  const output = parsed.output;
   const chunkIdSet = new Set(validChunkIds);
   const unfoundedRecommendations: number[] = [];
 
@@ -211,14 +231,8 @@ export function validateOutput(
   //    literalmente no retry de correção (orchestrator.service.ts), então
   //    precisa dizer ao modelo o que fazer, não só o que está errado — é
   //    isto que inverte o gradiente do retry a favor de perguntar.
-  if (output.recommendations.length === 0 && output.clarifyingQuestions.length === 0) {
-    errors.push(
-      'DEAD END: output must contain at least one recommendation or at least one ' +
-        'clarifying question. Declaring uncertainty alone leaves the physician with ' +
-        'no next step. If evidence is insufficient, ask the triage questions needed ' +
-        'to narrow the case instead of stopping.',
-    );
-  }
+  const deadEnd = deadEndError(output);
+  if (deadEnd) errors.push(deadEnd);
 
   // F4 — Uma recomendação que cita um anexo do médico está apoiada em fonte
   // NÃO CURADA. A decisão de produto foi permitir a citação (senão anexar a
@@ -290,16 +304,8 @@ export function validateOutput(
   // barra isso estruturalmente, mas os campos de texto livre (hypothesis,
   // whyConsider, whatDistinguishes) ainda podem escapar. Rejeitar aqui
   // aciona o mesmo retry-com-feedback dos outros guard rails.
-  const probabilityOffenses = findProbabilityLanguageInDifferentials(output.differentials);
-  if (probabilityOffenses.length > 0) {
-    errors.push(
-      'PROBABILITY LANGUAGE NOT ALLOWED in differentials: found ' +
-        probabilityOffenses.join('; ') +
-        '. Differentials must use "cannotMiss" (boolean) and "timeToHarm" ' +
-        '("minutos" | "horas" | "dias") only — never a percentage, score, or ' +
-        'likelihood statement in any field.',
-    );
-  }
+  const probabilityLanguage = probabilityLanguageError(output);
+  if (probabilityLanguage) errors.push(probabilityLanguage);
 
   // UX-07 — bug relatado ao vivo pelo médico piloto: o modelo pedia "quais
   // são os valores de PA, FC, FR, SpO2..." mas marcava a pergunta como
@@ -309,18 +315,8 @@ export function validateOutput(
   // é isto que o médico percebeu como "loop". Ver ANSWER TYPE MATCHING
   // RULE em prompt-builder.ts para a instrução que evita isto na origem;
   // esta é a barreira em runtime para quando a instrução não for seguida.
-  const answerTypeOffenses = findAnswerTypeMismatches(output.clarifyingQuestions);
-  if (answerTypeOffenses.length > 0) {
-    errors.push(
-      'ANSWER TYPE MISMATCH in clarifyingQuestions: ' +
-        answerTypeOffenses.join('; ') +
-        '. A question whose text asks "quais/qual/quando/quantos/quem/onde" ' +
-        'requests a VALUE, not a yes/no fact — it cannot have ' +
-        '"expectedAnswerType": "boolean" (the physician cannot answer ' +
-        '"Sim/Não/Não sei" to a request for numbers or a list). Use "text" ' +
-        '(or "number" for a single isolated value) instead.',
-    );
-  }
+  const answerType = answerTypeMismatchError(output);
+  if (answerType) errors.push(answerType);
 
   return {
     valid: errors.length === 0,
@@ -331,9 +327,97 @@ export function validateOutput(
   };
 }
 
-function allRecommendationsUnfounded(output: CopilotOutput, validChunkIds: string[]): boolean {
+function allRecommendationsUnfounded(output: CopilotOutputV1, validChunkIds: string[]): boolean {
   if (validChunkIds.length === 0) return false;
   return output.recommendations.every((rec) => !new Set(validChunkIds).has(rec.citationChunkId));
+}
+
+type ParsedModelOutput<T> =
+  | { success: true; output: T }
+  | { success: false; failure: ValidationResult };
+
+/**
+ * JSON do modelo validado pelo schema da versão do prompt. Modelo sem
+ * structured output às vezes embrulha o JSON em bloco de código.
+ */
+export function parseModelOutput<T>(
+  rawOutput: string,
+  schema: z.ZodType<T, z.ZodTypeDef, unknown>,
+): ParsedModelOutput<T> {
+  let parsed: unknown;
+  try {
+    const cleaned = rawOutput
+      .replace(/```json\n?/g, '')
+      .replace(/```\n?/g, '')
+      .trim();
+    parsed = JSON.parse(cleaned);
+  } catch {
+    return {
+      success: false,
+      failure: {
+        valid: false,
+        output: null,
+        errors: ['Output is not valid JSON'],
+        unfoundedRecommendations: [],
+      },
+    };
+  }
+
+  const schemaResult = schema.safeParse(parsed);
+  if (!schemaResult.success) {
+    const fieldErrors = schemaResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`);
+    return {
+      success: false,
+      failure: {
+        valid: false,
+        output: null,
+        errors: ['Schema validation failed', ...fieldErrors],
+        unfoundedRecommendations: [],
+      },
+    };
+  }
+  return { success: true, output: schemaResult.data };
+}
+
+type OutputShape = Pick<CopilotOutput, 'recommendations' | 'clarifyingQuestions' | 'differentials'>;
+
+/** CC-02 — ver a regra dura em `validateOutput`. Vale para as duas versões. */
+export function deadEndError(output: OutputShape): string | null {
+  if (output.recommendations.length > 0 || output.clarifyingQuestions.length > 0) return null;
+  return (
+    'DEAD END: output must contain at least one recommendation or at least one ' +
+    'clarifying question. Declaring uncertainty alone leaves the physician with ' +
+    'no next step. If evidence is insufficient, ask the triage questions needed ' +
+    'to narrow the case instead of stopping.'
+  );
+}
+
+/** PI-03 — ver `validateOutput`. Vale para as duas versões. */
+export function probabilityLanguageError(output: OutputShape): string | null {
+  const offenses = findProbabilityLanguageInDifferentials(output.differentials);
+  if (offenses.length === 0) return null;
+  return (
+    'PROBABILITY LANGUAGE NOT ALLOWED in differentials: found ' +
+    offenses.join('; ') +
+    '. Differentials must use "cannotMiss" (boolean) and "timeToHarm" ' +
+    '("minutos" | "horas" | "dias") only — never a percentage, score, or ' +
+    'likelihood statement in any field.'
+  );
+}
+
+/** UX-07 — ver `validateOutput`. Vale para as duas versões. */
+export function answerTypeMismatchError(output: OutputShape): string | null {
+  const offenses = findAnswerTypeMismatches(output.clarifyingQuestions);
+  if (offenses.length === 0) return null;
+  return (
+    'ANSWER TYPE MISMATCH in clarifyingQuestions: ' +
+    offenses.join('; ') +
+    '. A question whose text asks "quais/qual/quando/quantos/quem/onde" ' +
+    'requests a VALUE, not a yes/no fact — it cannot have ' +
+    '"expectedAnswerType": "boolean" (the physician cannot answer ' +
+    '"Sim/Não/Não sei" to a request for numbers or a list). Use "text" ' +
+    '(or "number" for a single isolated value) instead.'
+  );
 }
 
 // PI-03 — percentuais ("70%"), termos de probabilidade em pt/en, e razões
@@ -380,7 +464,7 @@ type SubtypeGroups = Map<string, Map<string, Set<string>>>;
  * espaço — a metadata usa `alergia_simples`, o modelo escreve "alergia
  * simples"; a metadata usa `isquemico`, o modelo escreve "Isquêmico".
  */
-function normalize(value: string): string {
+export function normalize(value: string): string {
   return value
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
@@ -466,7 +550,7 @@ export function ambiguousSubtypeChunkIds(retrievedChunks: ChunkForCoherenceCheck
  * médico revisando o output —, só barra a ambiguidade citada em silêncio.
  */
 function findUnresolvedSubtypeAmbiguity(
-  output: CopilotOutput,
+  output: CopilotOutputV1,
   retrievedChunks: ChunkForCoherenceCheck[],
 ): SubtypeOffense | null {
   if (retrievedChunks.length === 0 || output.recommendations.length === 0) return null;
