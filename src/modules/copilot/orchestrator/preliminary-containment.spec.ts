@@ -8,8 +8,14 @@ const NO_RISK: ContainmentContext = {
   hasClarifyingQuestions: false,
 };
 
-function recommendation(origin: CitationOrigin, preliminary = false) {
-  return { citationChunkId: 'chunk-1', preliminary, origin };
+type Category = Parameters<typeof preliminaryReasonFor>[0]['category'];
+
+function recommendation(
+  origin: CitationOrigin,
+  preliminary = false,
+  category: Category = 'therapeutic',
+) {
+  return { citationChunkId: 'chunk-1', preliminary, origin, category };
 }
 
 describe('preliminaryReasonFor', () => {
@@ -69,6 +75,28 @@ describe('preliminaryReasonFor', () => {
       expect(preliminaryReasonFor(recommendation('curated_unsigned', true), NO_RISK)).toBe(
         'unreviewed_source',
       );
+    });
+
+    it('never labels stabilization as subtype-dependent: it is safe in any subtype', () => {
+      const context = { ...NO_RISK, ambiguousSubtypeChunkIds: new Set(['chunk-1']) };
+
+      expect(
+        preliminaryReasonFor(recommendation('public', false, 'stabilization'), context),
+      ).toBeNull();
+      expect(preliminaryReasonFor(recommendation('public', false, 'therapeutic'), context)).toBe(
+        'subtype_ambiguity',
+      );
+    });
+
+    it('keeps the provenance label on stabilization citing an unreviewed source', () => {
+      const context = { ...NO_RISK, ambiguousSubtypeChunkIds: new Set(['chunk-1']) };
+
+      expect(
+        preliminaryReasonFor(
+          recommendation('official_unreviewed', false, 'stabilization'),
+          context,
+        ),
+      ).toBe('unreviewed_source');
     });
 
     it('never turns a model-declared preliminary into definitive', () => {

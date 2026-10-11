@@ -1023,6 +1023,13 @@ export class OrchestratorService {
       return { valid: false, errors: validation.errors };
     }
 
+    if (validation.warnings?.length) {
+      // Não bloqueia (ver S21-CLIN-01 em output-validator.ts): fica no log para
+      // medir com que frequência a evidência traz subtipos de conduta oposta.
+      this.logger.warn(
+        `OUTPUT_VALIDATION_WARNING${prepared.logLabel}: ${validation.warnings.join(' | ')}`,
+      );
+    }
     const output = this.enrichOutput(prepared, validation.output);
     const interaction = await this.prisma.aiInteraction.create({
       data: {

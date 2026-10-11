@@ -1,4 +1,7 @@
 import type { CitationOrigin, PreliminaryReason } from '../../../shared/contracts/clinical';
+import type { CopilotOutput } from '../guardrails/output-validator';
+
+type RecommendationCategory = CopilotOutput['recommendations'][number]['category'];
 
 /**
  * F0-C / ADR-012 — origens que nenhum médico com CRM verificado assinou.
@@ -34,7 +37,8 @@ export interface ContainmentContext {
  *    POR DESENHO: marca preliminar mesmo quando o modelo discriminou certo,
  *    porque ainda não há como separar a conduta comum aos subtipos da conduta
  *    que depende do dado discriminante. A Fase 1 (conduta em duas camadas)
- *    é que permite afrouxar isto.
+ *    é que permite afrouxar isto. Exceção já agora: `stabilization`, que é
+ *    segura em qualquer subtipo.
  * 2. `pending_questions` — o modelo marcou preliminar e há perguntas em
  *    aberto: responder pode tornar a conduta definitiva.
  * 3. `unreviewed_source` — cita fonte não assinada por médico (ADR-012).
@@ -43,10 +47,22 @@ export interface ContainmentContext {
  *    (red flag crítica, anexo, último turno): o significado histórico.
  */
 export function preliminaryReasonFor(
-  recommendation: { citationChunkId: string; preliminary: boolean; origin: CitationOrigin },
+  recommendation: {
+    citationChunkId: string;
+    preliminary: boolean;
+    origin: CitationOrigin;
+    category: RecommendationCategory;
+  },
   context: ContainmentContext,
 ): PreliminaryReason | null {
-  if (context.ambiguousSubtypeChunkIds.has(recommendation.citationChunkId)) {
+  // Estabilização (adrenalina na anafilaxia, via aérea, acesso, monitorização)
+  // é segura em qualquer subtipo — é a "camada 1" da conduta. Rotulá-la como
+  // "depende do dado que discrimina" diria ao médico para esperar justamente
+  // o que não pode esperar.
+  if (
+    recommendation.category !== 'stabilization' &&
+    context.ambiguousSubtypeChunkIds.has(recommendation.citationChunkId)
+  ) {
     return 'subtype_ambiguity';
   }
   if (recommendation.preliminary && context.hasClarifyingQuestions) return 'pending_questions';

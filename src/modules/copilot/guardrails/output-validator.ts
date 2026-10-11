@@ -118,6 +118,11 @@ export interface ValidationResult {
   output: CopilotOutput | null;
   errors: string[];
   unfoundedRecommendations: number[];
+  /**
+   * Achados que NÃO bloqueiam a resposta. Hoje: ambiguidade de subtipo
+   * (S21-CLIN-01), que vira rótulo preliminar na contenção do orquestrador.
+   */
+  warnings?: string[];
 }
 
 /**
@@ -248,12 +253,25 @@ export function validateOutput(
   // sem evidenciar que pesou a alternativa — mesmo padrão do guardrail
   // DEAD END acima (checagem estrutural, não NLP pesada), pareado com a
   // SUBTYPE / MUTUALLY-EXCLUSIVE CLASSIFICATION RULE em prompt-builder.ts.
+  //
+  // Fase 0 — NÃO bloqueia mais a resposta (decisão de produto de 10/10/2026).
+  // O gabarito clínico mostrou o custo do bloqueio: numa anafilaxia
+  // inequívoca (hipotensão, hipoxemia, rouquidão), a busca trouxe trechos de
+  // "anafilaxia" e de "alergia simples"; os três modelos testados recomendaram
+  // a conduta certa sem citar "alergia simples" (não havia por quê), o
+  // validador rejeitou duas vezes e o médico ficou SEM RESPOSTA numa
+  // emergência de minutos. Trocar "conduta talvez do subtipo errado" por
+  // "nenhuma conduta" é pior que o risco coberto. A proteção agora é o rótulo:
+  // a contenção do orquestrador marca preliminar (`subtype_ambiguity`) a
+  // conduta de subtipo — exceto estabilização, segura em qualquer subtipo — e
+  // o achado vai em `warnings` para observabilidade.
+  const warnings: string[] = [];
   const subtypeOffense = findUnresolvedSubtypeAmbiguity(output, retrievedChunks);
   if (subtypeOffense) {
     const missing = subtypeOffense.missingSubtypes.map(
       (subtype) => `"${humanizeSubtype(subtype)}"`,
     );
-    errors.push(
+    warnings.push(
       `UNRESOLVED SUBTYPE AMBIGUITY: evidence retrieved for cenario "${subtypeOffense.cenario}" ` +
         `covers mutually exclusive subtypes (${subtypeOffense.subtypes.join(', ')}) with opposite ` +
         `management, and a recommendation cited "${subtypeOffense.citedSubtype}" without naming the ` +
@@ -309,6 +327,7 @@ export function validateOutput(
     output,
     errors,
     unfoundedRecommendations,
+    warnings,
   };
 }
 
