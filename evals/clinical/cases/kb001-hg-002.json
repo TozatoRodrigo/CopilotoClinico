@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb001-hg-002",
   "title": "Rebaixado com hiperglicemia, desidratação intensa e cetose",
   "tags": [
@@ -17,20 +17,41 @@
   },
   "expected": {
     "syndrome": "crise hiperglicêmica grave: CAD grave vs. estado misto CAD/EHH (confirmar com gasometria e osmolalidade)",
-    "cannotMiss": [
-      "hipocalemia (agravada pela insulina, risco de arritmia)",
-      "estado hiperosmolar / estado misto CAD-EHH",
-      "fator precipitante grave (sepse, IAM)"
+    "diagnoses": [
+      {
+        "text": "hipocalemia (agravada pela insulina, risco de arritmia)",
+        "tier": "critical"
+      },
+      {
+        "text": "estado hiperosmolar / estado misto CAD-EHH",
+        "tier": "critical"
+      },
+      {
+        "text": "fator precipitante grave (sepse, IAM)",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [
+    "actions": [
+      {
+        "text": "hidratação vigorosa com cristaloide (SF 0,9% ou balanceado)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "insulina regular IV em infusão contínua só com potássio conhecido: K > 3,5 mEq/L (≥ 3,3 nos protocolos da SBD); abaixo disso, repor potássio antes de iniciar",
+        "tier": "critical",
+        "timing": "any"
+      },
+      {
+        "text": "reposição de potássio conforme nível sérico",
+        "tier": "critical",
+        "timing": "any"
+      }
+    ],
+    "questions": [
       "potássio sérico",
       "gasometria (pH, bicarbonato, ânion-gap)",
       "glicemia sérica e osmolalidade efetiva (sódio, creatinina)"
-    ],
-    "requiredActions": [
-      "hidratação vigorosa com cristaloide (SF 0,9% ou balanceado)",
-      "insulina regular IV em infusão contínua só com potássio conhecido: K > 3,5 mEq/L (≥ 3,3 nos protocolos da SBD); abaixo disso, repor potássio antes de iniciar",
-      "reposição de potássio conforme nível sérico"
     ],
     "forbiddenDefinitiveActions": [
       {
@@ -49,8 +70,7 @@
         ]
       }
     ],
-    "rationale": "Consenso ADA/EASD/JBDS/AACE/DTS 2024: adiar a insulina até K > 3,5 mmol/L, infusão de 0,1 U/kg/h, cristaloide (balanceado associado a resolução mais rápida; SF aceitável). Protocolos brasileiros derivados da SBD ainda usam 3,3 mEq/L — o gabarito aceita os dois limiares. \"Cetose positiva\" sem pH/HCO3 não fecha CAD: rebaixamento com desidratação intensa pode ser estado misto CAD/EHH, de mortalidade maior. Investigar o precipitante (culturas, ECG/troponina) é desejável, não exigido.",
-    "expectedPath": "recommend"
+    "rationale": "Consenso ADA/EASD/JBDS/AACE/DTS 2024: adiar a insulina até K > 3,5 mmol/L, infusão de 0,1 U/kg/h, cristaloide (balanceado associado a resolução mais rápida; SF aceitável). Protocolos brasileiros derivados da SBD ainda usam 3,3 mEq/L — o gabarito aceita os dois limiares. \"Cetose positiva\" sem pH/HCO3 não fecha CAD: rebaixamento com desidratação intensa pode ser estado misto CAD/EHH, de mortalidade maior. Investigar o precipitante (culturas, ECG/troponina) é desejável, não exigido."
   },
   "sources": [
     {
@@ -69,7 +89,7 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: limiar de potássio atualizado para K > 3,5 (ADA 2024), aceitando 3,3 da SBD; síndrome passou a crise hiperglicêmica grave (CAD vs. estado misto CAD/EHH); acrescentados EHH/estado misto e precipitante grave ao cannotMiss e glicemia/osmolalidade ao mustRequest. Checagem de insulina só na via IV/infusão, sem exceções genéricas, com condições ligadas ao potássio."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: limiar de potássio atualizado para K > 3,5 (ADA 2024), aceitando 3,3 da SBD; síndrome passou a crise hiperglicêmica grave (CAD vs. estado misto CAD/EHH); acrescentados EHH/estado misto e precipitante grave ao cannotMiss e glicemia/osmolalidade ao mustRequest. Checagem de insulina só na via IV/infusão, sem exceções genéricas, com condições ligadas ao potássio."
   },
   "probes": {
     "mustFlag": [

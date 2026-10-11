@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "cm-hsa-vs-enxaqueca",
   "title": "Enxaquecosa com cefaleia explosiva \"diferente\", pior da vida, ao esforço",
   "tags": [
@@ -23,16 +23,30 @@
   },
   "expected": {
     "syndrome": "cefaleia em trovoada — suspeita de hemorragia subaracnoide",
-    "cannotMiss": [
-      "hemorragia subaracnoide",
-      "síndrome de vasoconstrição cerebral reversível e dissecção arterial cervical (trovoada com TC e PL normais)"
+    "diagnoses": [
+      {
+        "text": "hemorragia subaracnoide",
+        "tier": "critical"
+      },
+      {
+        "text": "síndrome de vasoconstrição cerebral reversível e dissecção arterial cervical (trovoada com TC e PL normais)",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
+    "actions": [
+      {
+        "text": "TC de crânio sem contraste imediata",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "se a TC vier negativa: angio-TC de vasos intracranianos e cervicais e/ou punção lombar, conforme o tempo desde o início",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [
       "uso de drogas vasoativas ou serotoninérgicas (cocaína, descongestionantes, ISRS/IRSN, triptanos) e episódios de trovoada recorrentes"
-    ],
-    "requiredActions": [
-      "TC de crânio sem contraste imediata",
-      "se a TC vier negativa: angio-TC de vasos intracranianos e cervicais e/ou punção lombar, conforme o tempo desde o início"
     ],
     "forbiddenDefinitiveActions": [
       {
@@ -56,8 +70,7 @@
         ]
       }
     ],
-    "rationale": "KB-003 (HSA): toda cefaleia em trovoada é HSA até prova em contrário — \"diferente das outras\", pico em segundos, ao esforço (regra de Ottawa positiva). ACEP 2019: TC normal em até 6 h com exame neurológico normal exclui HSA sem PL; angio-TC é alternativa razoável à PL e também investiga SVCR e dissecção, que dão trovoada com TC e PL normais. Anticoagulante/antiagregante não muda o próximo passo (TC imediata) e deixou de ser exigido.",
-    "expectedPath": "recommend"
+    "rationale": "KB-003 (HSA): toda cefaleia em trovoada é HSA até prova em contrário — \"diferente das outras\", pico em segundos, ao esforço (regra de Ottawa positiva). ACEP 2019: TC normal em até 6 h com exame neurológico normal exclui HSA sem PL; angio-TC é alternativa razoável à PL e também investiga SVCR e dissecção, que dão trovoada com TC e PL normais. Anticoagulante/antiagregante não muda o próximo passo (TC imediata) e deixou de ser exigido."
   },
   "sources": [
     {
@@ -83,7 +96,7 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: SVCR e dissecção cervical entram como hipóteses obrigatórias; o passo após TC negativa aceita angio-TC de vasos e/ou PL; pedido de drogas vasoativas no lugar de anticoagulante (não muda a conduta); alta sem investigação passou a ter checagem automática."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. SVCR/dissecção rebaixadas a importante: diferencial de TC e PL normais, não o centro do caso. | Auditoria 11/10/2026: SVCR e dissecção cervical entram como hipóteses obrigatórias; o passo após TC negativa aceita angio-TC de vasos e/ou PL; pedido de drogas vasoativas no lugar de anticoagulante (não muda a conduta); alta sem investigação passou a ter checagem automática."
   },
   "probes": {
     "mustFlag": [

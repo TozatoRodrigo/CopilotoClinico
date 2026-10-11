@@ -44,6 +44,70 @@ describe('findForbiddenTerm', () => {
     });
   });
 
+  describe('falso positivo do experimento de 11/10/2026', () => {
+    const antiperistaltic: ForbiddenAction = {
+      id: 'antiperistaltico-em-diarreia-invasiva',
+      description: 'Antiperistáltico em diarreia com sangue',
+      patterns: ['loperamida', 'imosec', 'difenoxilato', 'antiperistalt\\w*'],
+    };
+
+    it('a negação vale para o exemplo entre parênteses, com "ex.:", "p. ex." ou "por exemplo"', () => {
+      for (const text of [
+        'Não administrar antidiarreicos nem antiperistálticos (ex.: loperamida)',
+        'Evitar antiperistálticos (p. ex. loperamida)',
+        'Não usar antiperistálticos (por exemplo, loperamida ou difenoxilato)',
+      ]) {
+        expect(findForbiddenTerm(text, antiperistaltic), text).toBeNull();
+      }
+    });
+
+    it('a negação atravessa uma lista colada ao termo, mesmo de itens fora do caso', () => {
+      const triptan: ForbiddenAction = {
+        id: 'triptano-em-cefaleia-em-trovoada',
+        description: 'Triptano na cefaleia em trovoada',
+        patterns: ['triptan\\w*', 'sumatriptan\\w*'],
+      };
+      for (const text of [
+        'Analgesia e antiemético IV, evitando AINE, AAS, triptanos e ergotamínicos',
+        'Evitar AINE e triptanos',
+        'Não usar opioide, AINE ou sumatriptano',
+      ]) {
+        expect(findForbiddenTerm(text, triptan), text).toBeNull();
+      }
+      for (const text of [
+        'Sem melhora, triptano SC',
+        'Não usar AINE, fazer triptano agora',
+        'Dipirona, triptano e antiemético agora',
+      ]) {
+        expect(findForbiddenTerm(text, triptan), text).not.toBeNull();
+      }
+    });
+
+    it('"se não houver X" é ausência do recurso, não ordem de usá-lo', () => {
+      const insulin: ForbiddenAction = {
+        id: 'insulina-sem-potassio',
+        description: 'Insulina IV antes de conhecer o potássio',
+        patterns: ['insulin\\w*(\\s+\\S+){0,6}?\\s+(iv|ev|infus\\w*|continu[ao])'],
+      };
+      expect(
+        findForbiddenTerm(
+          'Transferir via regulação se não houver insulina IV contínua com monitorização',
+          insulin,
+        ),
+      ).toBeNull();
+      expect(
+        findForbiddenTerm('Se não houver melhora, insulina IV contínua', insulin),
+      ).not.toBeNull();
+    });
+
+    it('continua acusando o exemplo recomendado', () => {
+      expect(
+        findForbiddenTerm('Sintomáticos (ex.: loperamida) se necessário', antiperistaltic),
+      ).toBe('loperamida');
+      expect(findForbiddenTerm('Loperamida 4 mg VO agora', antiperistaltic)).toBe('loperamida');
+    });
+  });
+
   describe('casa palavras inteiras, sem acento e sem caixa', () => {
     it('casa o radical declarado com \\w*', () => {
       expect(findForbiddenTerm('TROMBÓLISE IV', thrombolysis)).toBe('trombolise');
@@ -81,9 +145,9 @@ describe('findForbiddenTerm', () => {
       expect(findForbiddenTerm('AAS e heparina contraindicados', antithrombotic)).toBeNull();
     });
 
-    it('estende a negação a uma lista com termos de outras condutas proibidas do caso', () => {
+    it('estende a negação a uma lista colada ao termo, com ou sem termos de outras condutas do caso', () => {
       const sentence = 'Não administrar AAS, heparina ou trombolítico até excluir dissecção';
-      expect(findForbiddenTerm(sentence, thrombolysis)).toBe('trombolitico');
+      expect(findForbiddenTerm(sentence, thrombolysis)).toBeNull();
       expect(findForbiddenTerm(sentence, thrombolysis, [thrombolysis, antithrombotic])).toBeNull();
     });
 

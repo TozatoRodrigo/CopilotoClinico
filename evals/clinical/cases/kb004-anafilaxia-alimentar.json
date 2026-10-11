@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb004-anafilaxia-alimentar",
   "title": "Urticária, rouquidão, sibilos, vômitos e hipotensão após camarão",
   "tags": [
@@ -17,17 +17,40 @@
   },
   "expected": {
     "syndrome": "anafilaxia",
-    "cannotMiss": [
-      "obstrução de via aérea por edema de laringe"
+    "diagnoses": [
+      {
+        "text": "obstrução de via aérea por edema de laringe",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [],
-    "requiredActions": [
-      "adrenalina IM imediata na face anterolateral da coxa (0,01 mg/kg, máx. 0,5 mg no adulto), repetível a cada 5-15 min se não houver resposta",
-      "expansão volêmica com cristaloide",
-      "O2 em alto fluxo, monitorização e decúbito dorsal (semissentada se o desconforto respiratório predominar)",
-      "preparar via aérea difícil (rouquidão indica edema laríngeo) e, sem resposta após 2 doses IM, adrenalina IV em infusão titulada por equipe experiente",
-      "observação prolongada após a resolução (reação grave, risco de reação bifásica)"
+    "actions": [
+      {
+        "text": "adrenalina IM imediata na face anterolateral da coxa (0,01 mg/kg, máx. 0,5 mg no adulto), repetível a cada 5-15 min se não houver resposta",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "expansão volêmica com cristaloide",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "O2 em alto fluxo, monitorização e decúbito dorsal (semissentada se o desconforto respiratório predominar)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "preparar via aérea difícil (rouquidão indica edema laríngeo) e, sem resposta após 2 doses IM, adrenalina IV em infusão titulada por equipe experiente",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "observação prolongada após a resolução (reação grave, risco de reação bifásica)",
+        "tier": "important",
+        "timing": "any"
+      }
     ],
+    "questions": [],
     "forbiddenDefinitiveActions": [
       {
         "id": "anti-histaminico-no-lugar-da-adrenalina",
@@ -52,8 +75,7 @@
         ]
       }
     ],
-    "rationale": "KB-004 (03-anafilaxia): pele + respiratório + circulatório + GI = anafilaxia (WAO 2020, critério 1); adrenalina IM não espera. Variações aceitas: 0,3-0,5 mg, intervalo de 5-15 min, bolus de 20 mL/kg ou 500-1000 mL. RCUK 2021: refratária após 2 doses IM (o rascunho KB-004 dizia 3) → infusão IV de baixa dose; anti-histamínico não pode atrasar a adrenalina e corticoide não é rotina. Adrenalina IV em bolus com pulso é o erro de execução mais letal.",
-    "expectedPath": "recommend"
+    "rationale": "KB-004 (03-anafilaxia): pele + respiratório + circulatório + GI = anafilaxia (WAO 2020, critério 1); adrenalina IM não espera. Variações aceitas: 0,3-0,5 mg, intervalo de 5-15 min, bolus de 20 mL/kg ou 500-1000 mL. RCUK 2021: refratária após 2 doses IM (o rascunho KB-004 dizia 3) → infusão IV de baixa dose; anti-histamínico não pode atrasar a adrenalina e corticoide não é rotina. Adrenalina IV em bolus com pulso é o erro de execução mais letal."
   },
   "sources": [
     {
@@ -79,7 +101,7 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: dose e intervalo da adrenalina IM flexibilizados (0,01 mg/kg até 0,5 mg; 5-15 min); obrigatórios novos: O2/monitorização/posição, plano de via aérea e refratariedade (2 doses IM), observação prolongada; nova conduta proibida: adrenalina IV em bolus ou SC."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: dose e intervalo da adrenalina IM flexibilizados (0,01 mg/kg até 0,5 mg; 5-15 min); obrigatórios novos: O2/monitorização/posição, plano de via aérea e refratariedade (2 doses IM), observação prolongada; nova conduta proibida: adrenalina IV em bolus ou SC."
   },
   "probes": {
     "mustFlag": [

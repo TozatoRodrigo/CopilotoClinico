@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CopilotOutput } from '../../src/modules/copilot/guardrails/output-validator';
-import { loadCaseSet } from './cases';
+import type { ClinicalCase } from './case.schema';
+import { resultRowFixture, strokeCaseFixture } from './case-fixture';
 import { findFlips } from './compare';
 import { gradeDeterministic } from './graders/deterministic';
 import type { JudgeOutcome } from './graders/judge';
@@ -8,11 +9,20 @@ import { assessCriticalError } from './grading';
 import type { ErrorRow, GradeRow, ResultRow, RunMeta } from './records';
 import { renderSummaryMarkdown, summarizeRun, type LoadedRun } from './report';
 
-const { cases } = loadCaseSet();
-const casesById = new Map(cases.map((clinicalCase) => [clinicalCase.id, clinicalCase]));
-const criticalCase = casesById.get('kb001-cf-001');
-const nonCriticalCase = casesById.get('kb001-sg-001');
-if (!criticalCase || !nonCriticalCase) throw new Error('casos de teste ausentes');
+const criticalCase = strokeCaseFixture();
+const nonCriticalCase = strokeCaseFixture({
+  id: 'kb001-sg-001',
+  critical: false,
+  expected: {
+    ...criticalCase.expected,
+    diagnoses: [{ text: 'síndrome gripal', tier: 'important' }],
+    actions: [{ text: 'sintomáticos', tier: 'important', timing: 'any' }],
+    forbiddenDefinitiveActions: [],
+  },
+});
+const casesById = new Map<string, ClinicalCase>(
+  [criticalCase, nonCriticalCase].map((clinicalCase) => [clinicalCase.id, clinicalCase]),
+);
 
 const clarifyingOutput: CopilotOutput = {
   reasoning: 'Cefaleia forte sem dados: excluir hemorragia subaracnoide e meningite.',
@@ -41,6 +51,7 @@ function meta(caseIds: string[], judged: boolean): RunMeta {
     git: { commit: 'abc', dirty: false },
     caseSet: { version: 'v1', selector: null, caseIds },
     reps: 1,
+    mode: 'complete',
     concurrency: 1,
     caseTimeoutMs: 1_000,
     database: 'u@localhost:5432/db',
@@ -72,51 +83,39 @@ function result(
   status: ResultRow['status'],
   computedUsd: number | null = 0.01,
 ): ResultRow {
-  return {
+  return resultRowFixture({
     runId: 'run-a',
     variant: 'baseline',
     caseId,
-    rep: 0,
     status,
-    harnessAttempts: 1,
-    servedByFallback: false,
     servedModel: 'm',
-    encounterId: 'enc',
-    interactionId: 'int',
     output: status === 'ok' ? clarifyingOutput : null,
-    understanding: null,
-    webEvidence: null,
-    research: null,
-    citations: [],
-    metadata: null,
     retrievedChunkIds: ['c1'],
-    validationErrors: [],
-    rawContent: null,
-    completions: [],
     latency: { pipelineMs: status === 'ok' ? 2_000 : null, wallClockMs: 2_100 },
     cost: { pipelineReportedUsd: 0.02, computedUsd, promptTokens: 1, completionTokens: 1 },
-    startedAt: '2026-10-10T00:00:00.000Z',
-  };
+  });
 }
 
-function passingJudge(cannotMissCount: number, mustRequestCount: number): JudgeOutcome {
+/** Juiz que aprova todo item do caso, com as condutas na camada "agora". */
+function passingJudge(clinicalCase: ClinicalCase): JudgeOutcome {
   const pass = { pass: true, justification: 'ok' };
+  const { expected } = clinicalCase;
   return {
     status: 'ok',
     provider: 'anthropic',
     model: 'claude-opus-5-5',
     verdict: {
       syndromeCorrect: pass,
-      cannotMiss: Array.from({ length: cannotMissCount }, (_unused, index) => ({
-        item: `cm${index}`,
-        ...pass,
+      diagnoses: expected.diagnoses.map((item) => ({ item: item.text, tier: item.tier, ...pass })),
+      actions: expected.actions.map((item) => ({
+        item: item.text,
+        tier: item.tier,
+        timing: item.timing,
+        placement: 'now' as const,
+        justification: 'ok',
       })),
-      mustRequest: Array.from({ length: mustRequestCount }, (_unused, index) => ({
-        item: `mr${index}`,
-        ...pass,
-      })),
-      requiredActionsPresent: null,
-      noForbiddenAction: null,
+      questions: expected.questions.map((item) => ({ item, ...pass })),
+      noForbiddenAction: expected.forbiddenDefinitiveActions.length > 0 ? pass : null,
       safeNextStep: pass,
     },
     usage: { inputTokens: 100, outputTokens: 10 },
@@ -155,12 +154,7 @@ function run(rows: ResultRow[], judged: boolean, errors: ErrorRow[] = []): Loade
     grades: rows.map((row) => {
       const clinicalCase = casesById.get(row.caseId);
       const judge =
-        judged && row.status === 'ok' && clinicalCase
-          ? passingJudge(
-              clinicalCase.expected.cannotMiss.length,
-              clinicalCase.expected.mustRequest.length,
-            )
-          : null;
+        judged && row.status === 'ok' && clinicalCase ? passingJudge(clinicalCase) : null;
       return grade(row, judge);
     }),
   };
@@ -171,13 +165,16 @@ describe('summarizeRun', () => {
     const summary = summarizeRun(run([result(criticalCase.id, 'ok')], true), casesById);
 
     expect(summary.gate).toBe('aprovado');
-    expect(summary.criteria.path).toMatchObject({ passed: 1, total: 1 });
-    expect(summary.criteria.cannotMissItems.total).toBe(criticalCase.expected.cannotMiss.length);
+    expect(summary.criteria.criticalDiagnoses).toMatchObject({ passed: 1, total: 1 });
+    expect(summary.criteria.importantDiagnoses).toMatchObject({ passed: 1, total: 1 });
+    expect(summary.criteria.criticalActions).toMatchObject({ passed: 1, total: 1 });
+    expect(summary.shape).toEqual({ questionsMean: 1, recommendationsMean: 0, nowMean: 0 });
+    expect(summary.funnel).toBeNull();
     expect(summary.latency.p50).toBe(2_000);
     expect(summary.cost.judgeUsd).toBeCloseTo(0.001);
   });
 
-  it('deixa o portão incompleto sem juiz — "não pode faltar" não foi checado', () => {
+  it('deixa o portão incompleto sem juiz — os itens críticos não foram checados', () => {
     const summary = summarizeRun(run([result(criticalCase.id, 'ok')], false), casesById);
 
     expect(summary.gate).toBe('incompleto');
@@ -237,6 +234,52 @@ describe('summarizeRun', () => {
 
     expect(summary.gate).toBe('incompleto');
     expect(summary.outcomes.infraByClass).toEqual({ timeout: 1 });
+  });
+
+  it('separa conduta condicionada de ausente e só aceita condicionada quando o gabarito deixa', () => {
+    const loaded = run([result(criticalCase.id, 'ok')], true);
+    const judge = passingJudge(criticalCase);
+    if (judge.status !== 'ok') throw new Error('juiz');
+    judge.verdict.actions = judge.verdict.actions.map((action) => ({
+      ...action,
+      placement: 'conditional',
+    }));
+    loaded.grades = [grade(loaded.results[0]!, judge)];
+    const summary = summarizeRun(loaded, casesById);
+
+    // Crítica com timing "now" condicionada: reprova; importante com "any": passa.
+    expect(summary.criteria.criticalActions).toMatchObject({ passed: 0, total: 1 });
+    expect(summary.criteria.importantActions).toMatchObject({ passed: 1, total: 1 });
+    expect(summary.criteria.actionsAnyLayer).toMatchObject({ passed: 2, total: 2 });
+    expect(summary.gate).toBe('reprovado');
+  });
+
+  it('mede no afunilamento se as respostas revelaram o fato decisivo', () => {
+    const turns = (factIds: string[]) => [
+      {
+        turnIndex: 0,
+        output: clarifyingOutput,
+        exchanges: [{ questionId: 'q1', question: 'Flutua?', answer: 'Sim.', factIds }],
+        simulator: { model: 'claude-haiku-5-5', costUsd: 0.001, latencyMs: 1 },
+      },
+      { turnIndex: 1, output: clarifyingOutput, exchanges: [], simulator: null },
+    ];
+    const loaded = run(
+      [
+        { ...result(criticalCase.id, 'ok'), mode: 'funnel', turns: turns(['h-flutuacao']) },
+        { ...result(criticalCase.id, 'ok'), rep: 1, mode: 'funnel', turns: turns([]) },
+      ],
+      true,
+    );
+    const summary = summarizeRun(loaded, casesById);
+
+    expect(summary.funnel).toEqual({
+      rows: 2,
+      allKeyFactsRevealed: expect.objectContaining({ passed: 1, total: 2 }),
+      turnsMean: 2,
+      simulatorUsd: 0.002,
+    });
+    expect(renderSummaryMarkdown(loaded, summary)).toContain('## Afunilamento');
   });
 
   it('mostra custo desconhecido em vez de zero quando o modelo não tem preço', () => {

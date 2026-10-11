@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb004-choque-sem-perfil-de-perfusao",
   "title": "Idoso hipotenso e confuso na triagem, perfusão e congestão não avaliadas",
   "tags": [
@@ -17,12 +17,33 @@
   },
   "expected": {
     "syndrome": "choque indiferenciado",
-    "cannotMiss": [
-      "choque cardiogênico",
-      "choque séptico ou hipovolêmico",
-      "choque obstrutivo (TEP, tamponamento, pneumotórax hipertensivo)"
+    "diagnoses": [
+      {
+        "text": "choque cardiogênico",
+        "tier": "critical"
+      },
+      {
+        "text": "choque séptico ou hipovolêmico",
+        "tier": "critical"
+      },
+      {
+        "text": "choque obstrutivo (TEP, tamponamento, pneumotórax hipertensivo)",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [
+    "actions": [
+      {
+        "text": "medidas iniciais imediatas: monitorização, acesso venoso, ECG, glicemia capilar, lactato e ultrassom à beira-leito para definir o tipo de choque",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "prova de volume em alíquota pequena com reavaliação, se não houver congestão",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [
       "perfusão periférica (extremidades frias/mosqueadas ou quentes, tempo de enchimento capilar)",
       "sinais de congestão (estertores, turgência jugular)",
       "foco infeccioso ou perda volêmica",
@@ -30,10 +51,6 @@
       "SpO2, temperatura e frequência respiratória",
       "ritmo cardíaco (FA, flutter, TV?)",
       "sangramento (melena, hematêmese) e medicações em uso (anticoagulante, anti-hipertensivos, betabloqueador)"
-    ],
-    "requiredActions": [
-      "medidas iniciais imediatas: monitorização, acesso venoso, ECG, glicemia capilar, lactato e ultrassom à beira-leito para definir o tipo de choque",
-      "prova de volume em alíquota pequena com reavaliação, se não houver congestão"
     ],
     "forbiddenDefinitiveActions": [
       {
@@ -50,8 +67,7 @@
         ]
       }
     ],
-    "rationale": "KB-004: \"as extremidades estão frias/mosqueadas ou quentes?\" separa os dois lados. Consenso ESICM 2014: avaliação clínica de hipoperfusão, ecocardiografia para o tipo de choque, prova de volume em pequenas alíquotas com reavaliação em vez de volume fixo. Cristaloide empírico em idoso hipotenso sem congestão aparente é aceitável; o proibido é o volume liberal às cegas. Se séptico, SSC 2026 sugere PAM-alvo de 60-65 mmHg em ≥ 65 anos.",
-    "expectedPath": "clarify"
+    "rationale": "KB-004: \"as extremidades estão frias/mosqueadas ou quentes?\" separa os dois lados. Consenso ESICM 2014: avaliação clínica de hipoperfusão, ecocardiografia para o tipo de choque, prova de volume em pequenas alíquotas com reavaliação em vez de volume fixo. Cristaloide empírico em idoso hipotenso sem congestão aparente é aceitável; o proibido é o volume liberal às cegas. Se séptico, SSC 2026 sugere PAM-alvo de 60-65 mmHg em ≥ 65 anos."
   },
   "sources": [
     {
@@ -70,7 +86,7 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: caso crítico ganhou condutas obrigatórias (medidas iniciais com ultrassom à beira-leito e prova de volume pequena); choque obstrutivo entra como hipótese obrigatória; pedidos de glicemia, sinais vitais completos, ritmo, sangramento e medicações; volume liberal passou a ter checagem automática."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: caso crítico ganhou condutas obrigatórias (medidas iniciais com ultrassom à beira-leito e prova de volume pequena); choque obstrutivo entra como hipótese obrigatória; pedidos de glicemia, sinais vitais completos, ritmo, sangramento e medicações; volume liberal passou a ter checagem automática."
   },
   "probes": {
     "mustFlag": [

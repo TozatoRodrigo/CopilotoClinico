@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb004-cetoacidose-com-potassio-baixo",
   "title": "Cetoacidose diabética grave com potássio 3,0",
   "tags": [
@@ -23,20 +23,39 @@
   },
   "expected": {
     "syndrome": "cetoacidose diabética grave com hipocalemia",
-    "cannotMiss": [
-      "hipocalemia agravada pela insulina (risco de arritmia)"
+    "diagnoses": [
+      {
+        "text": "hipocalemia agravada pela insulina (risco de arritmia)",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [
+    "actions": [
+      {
+        "text": "hidratação vigorosa com cristaloide",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "reposição de potássio antes de iniciar a insulina",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "insulina regular IV contínua, sem bolus, só após K ≥ 3,3 (SBD) ou > 3,5 mEq/L (consenso ADA 2024)",
+        "tier": "critical",
+        "timing": "any"
+      },
+      {
+        "text": "monitorização cardíaca contínua e potássio sérico a cada 1-2 h durante a reposição",
+        "tier": "important",
+        "timing": "now"
+      }
+    ],
+    "questions": [
       "traçado do ECG (sinais de hipocalemia)",
       "função renal e diurese",
       "beta-hCG",
       "fator precipitante, sobretudo infecção (foco, EAS/urocultura, RX de tórax)"
-    ],
-    "requiredActions": [
-      "hidratação vigorosa com cristaloide",
-      "reposição de potássio antes de iniciar a insulina",
-      "insulina regular IV contínua, sem bolus, só após K ≥ 3,3 (SBD) ou > 3,5 mEq/L (consenso ADA 2024)",
-      "monitorização cardíaca contínua e potássio sérico a cada 1-2 h durante a reposição"
     ],
     "forbiddenDefinitiveActions": [
       {
@@ -63,8 +82,7 @@
         ]
       }
     ],
-    "rationale": "KB-004 (02-cetoacidose-hiperosmolar): não iniciar insulina com K baixo. O limiar diverge entre diretrizes vigentes — SBD (2023) 3,3 mEq/L e consenso ADA/EASD/JBDS/AACE/DTS (2024) 3,5 —, e o gabarito aceita os dois; com K 3,0 a conduta é a mesma. Bicarbonato só se pH < 7,0 (ADA 2024). Gestação e infecção são precipitantes a investigar. Pela tabela ADA 2024, pH 7,08 seria moderada e HCO3 7 grave: o rótulo grave é defensável.",
-    "expectedPath": "recommend"
+    "rationale": "KB-004 (02-cetoacidose-hiperosmolar): não iniciar insulina com K baixo. O limiar diverge entre diretrizes vigentes — SBD (2023) 3,3 mEq/L e consenso ADA/EASD/JBDS/AACE/DTS (2024) 3,5 —, e o gabarito aceita os dois; com K 3,0 a conduta é a mesma. Bicarbonato só se pH < 7,0 (ADA 2024). Gestação e infecção são precipitantes a investigar. Pela tabela ADA 2024, pH 7,08 seria moderada e HCO3 7 grave: o rótulo grave é defensável."
   },
   "sources": [
     {
@@ -83,7 +101,7 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: limiar de K aceita 3,3 (SBD) ou 3,5 (ADA 2024); monitorização cardíaca e K seriado obrigatórios; pedidos de beta-hCG e precipitante; exceções da insulina presas ao potássio (\"não\", \"depois\" e \"quando\" soltos cegavam a checagem); nova proibida: bicarbonato com pH ≥ 7,0."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: limiar de K aceita 3,3 (SBD) ou 3,5 (ADA 2024); monitorização cardíaca e K seriado obrigatórios; pedidos de beta-hCG e precipitante; exceções da insulina presas ao potássio (\"não\", \"depois\" e \"quando\" soltos cegavam a checagem); nova proibida: bicarbonato com pH ≥ 7,0."
   },
   "probes": {
     "mustFlag": [

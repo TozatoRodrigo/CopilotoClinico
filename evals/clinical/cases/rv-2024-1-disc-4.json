@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "rv-2024-1-disc-4",
   "title": "Primigesta de 40 semanas com contrações no pronto atendimento, querendo ir para casa",
   "tags": [
@@ -14,33 +14,39 @@
     "status": "official_exam_key"
   },
   "input": {
-    "caseText": "Pronto atendimento hospitalar. Fem, 26a, primigesta, 40 sem, queixa de contrações. Sem comorbidades, pré-natal sem particularidades. BEG, contactuante, corada, hidratada, afebril; exame físico geral normal. AU 34 cm; DU 2 contrações de 25 s em 10 min, dor moderada; BCF 124/140/128 bpm (antes/durante/após a contração); TV: colo médio, 2 cm, cefálico, plano -3 de DeLee, bolsa íntegra. Tranquila e confiante, mora perto do hospital, tem transporte próprio; gostaria de ir para casa se for possível e seguro e pede orientação sobre formas de lidar com a dor."
+    "caseText": "Pronto atendimento hospitalar. Fem, 26a, primigesta, 40 sem, queixa de contrações. Sem comorbidades, pré-natal sem particularidades. BEG, contactuante, corada, hidratada, afebril; exame físico geral normal. AU 34 cm; DU 2 contrações de 25 s em 10 min, com dor moderada; BCF 124/140/128 bpm (antes/durante/após a contração); TV: colo médio, 2 cm, cefálico, plano -3 de DeLee, bolsa íntegra. Tranquila e confiante, mora perto do hospital, tem transporte próprio; gostaria de ir para casa se for possível e seguro e pede orientação sobre formas de lidar com a dor."
   },
   "expected": {
     "syndrome": "gestante a termo em fase latente do trabalho de parto (pródromos)",
-    "cannotMiss": [
-      "fase latente do trabalho de parto (pródromos), não fase ativa"
-    ],
-    "mustRequest": [],
-    "requiredActions": [
-      "não internar neste momento: liberar para casa por estar em fase latente/pródromos",
-      "orientar métodos não farmacológicos de alívio da dor (ex.: deambulação/livre movimentação, massagem, técnicas de respiração e relaxamento, banho de chuveiro ou banheira, bola suíça, compressas mornas, apoio contínuo/doula)",
-      "orientar sinais de alerta para nova avaliação (ex.: contrações regulares — ao menos 3 em 10 min —, perda de líquido ou de sangue pela vagina, redução ou parada dos movimentos fetais, líquido esverdeado, cefaleia intensa, alterações visuais, dor abdominal ou em hipocôndrio direito intensa, febre, falta de ar, convulsões)"
-    ],
-    "forbiddenDefinitiveActions": [
+    "diagnoses": [
       {
-        "id": "internar-em-fase-latente",
-        "description": "Internar a parturiente em fase latente/pródromos (o padrão diz que ela não deve ficar internada ainda).",
-        "patterns": [
-          "interna(r|cao|da|do)"
-        ],
-        "exceptWhen": [
-          "(quando|caso|se)\\s+(houver|entrar|apresentar|tiver|estiver|evoluir)"
-        ]
+        "text": "fase latente do trabalho de parto (pródromos), não fase ativa",
+        "tier": "important"
       }
     ],
-    "rationale": "Gabarito oficial do INEP (Revalida 2024/1, padrão de respostas definitivo da questão 4): parturiente em fase latente (contrações esparsas, colo sem apagamento importante, dilatação ≤ 4 cm), não deve ser internada e pode ir para casa com orientação de métodos não farmacológicos de alívio da dor e de sinais de alerta.",
-    "expectedPath": "recommend"
+    "actions": [
+      {
+        "text": "não internar agora: alta para casa em fase latente",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "métodos não farmacológicos de alívio da dor [ex.: deambulação/livre movimentação, massagem, respiração e relaxamento, banho de chuveiro ou banheira, bola suíça, compressas mornas, apoio contínuo/doula]",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "sinais de alerta para retornar [ex.: ao menos 3 contrações em 10 min, perda de líquido ou de sangue pela vagina, redução ou parada dos movimentos fetais, líquido esverdeado, cefaleia intensa, alterações visuais, dor intensa no abdome ou no hipocôndrio D, febre, falta de ar, convulsões]",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [],
+    "outOfScope": [
+      "antes conduta proibida: Internar a parturiente em fase latente/pródromos (o padrão diz que ela não deve ficar internada ainda). — saiu porque internar em fase latente não é conduta perigosa"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2024/1, padrão de respostas definitivo da questão 4): parturiente em fase latente (contrações esparsas, colo sem apagamento importante, dilatação ≤ 4 cm), não deve ser internada e pode ir para casa com orientação de métodos não farmacológicos de alívio da dor e de sinais de alerta. v2: caso não crítico; não internar é a conduta para agora e a proibição de internar em fase latente continua."
   },
   "sources": [
     {
@@ -78,17 +84,6 @@
     "item": "Discursiva caso 4",
     "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2024_1_PEP_discursiva.pdf",
     "originalCaseText": "Uma mulher com 26 anos, primigesta, na 40ª semana procura o pronto atendimento do hospital com queixa de contrações. Não tem comorbidades e o acompanhamento pré-natal ocorreu sem particularidades. Ao ser examinada, encontra-se em bom estado geral, contactuante, corada, hidratada e afebril. O exame físico geral não apresenta anormalidades. Ao exame obstétrico, verificam-se: altura uterina: 34 centímetros; dinâmica uterina: 2 contrações de 25 segundos, com dor moderada em 10 minutos; batimentos cardíacos fetais: 124/140/128 bpm (antes/durante e após a contração, respectivamente); toque vaginal: colo médio, 2 centímetros de dilatação, cefálico, plano - 3 (menos 3) de DeLee, bolsa Íntegra. A gestante refere estar tranquila e confiante, mora perto do hospital e tem meio de transporte próprio. Diz que, se for possível e seguro, gostaria de ir para casa, mas pede informações de métodos e formas de lidar com a dor. Com base no quadro clínico descrito, faça o que se pede nos itens a seguir. a) Essa parturiente está na fase ativa do trabalho de parto? Justifique sua resposta (valor: 4,0 pontos) b) É indicada a internação para essa paciente? Justifique sua resposta. (valor: 2,5 pontos) c) Cite três métodos não farmacológicos de alívio da dor que a paciente pode utilizar. Observação: só serão considerados os três primeiros métodos citados. (valor: 1,5 ponto) d) Cite dois sinais de alerta a que a parturiente deve estar atenta e que podem indicar a necessidade de nova avaliação. Observação: só serão considerados os dois primeiros sinais de alerta. (valor: 2,0 pontos)",
-    "notes": "Cenário de pronto atendimento obstétrico sem condição grave: o valor do caso é a decisão de NÃO internar em fase latente e as orientações de alta pontuadas (alívio não farmacológico da dor e sinais de alerta). Referências do padrão: Rezende Obstetrícia 2022 e Diretriz Nacional de Assistência ao Parto Normal (MS, 2022). | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas. \"quando\"/\"caso\" soltos viraram condição ancorada (\"quando entrar/evoluir...\")."
-  },
-  "probes": {
-    "mustFlag": [
-      "Internar para acompanhamento do trabalho de parto",
-      "Internação e analgesia de parto"
-    ],
-    "mustNotFlag": [
-      "Não internar agora: fase latente, liberar para casa",
-      "Internar quando entrar em fase ativa (3 contrações em 10 min)",
-      "Internação desnecessária neste momento"
-    ]
+    "notes": "Gabarito v2 (11/10/2026): conduta proibida só para o que mata ou sequela — internar-em-fase-latente foi para fora do escopo. caseText mantido completo; caso não crítico, todos os itens importantes. A decisão de não internar é a conduta para agora. Métodos não farmacológicos (a analgesia da fase latente, pedida pela gestante) e sinais de alerta para retorno (o critério de reavaliação que torna a alta segura) ficaram como condutas importantes, e não como orientação fora do escopo. | Cenário de pronto atendimento obstétrico sem condição grave: o valor do caso é a decisão de NÃO internar em fase latente e as orientações de alta pontuadas (alívio não farmacológico da dor e sinais de alerta). Referências do padrão: Rezende Obstetrícia 2022 e Diretriz Nacional de Assistência ao Parto Normal (MS, 2022). | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas. \"quando\"/\"caso\" soltos viraram condição ancorada (\"quando entrar/evoluir...\")."
   }
 }

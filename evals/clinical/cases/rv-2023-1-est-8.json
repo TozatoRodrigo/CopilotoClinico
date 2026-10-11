@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "rv-2023-1-est-8",
   "title": "Pré-escolar de 3 anos em reavaliação no pronto atendimento no início do plantão noturno",
   "tags": [
@@ -15,26 +15,139 @@
     "status": "official_exam_key"
   },
   "input": {
-    "caseText": "Pronto atendimento hospitalar, urgência e emergência (radiologia convencional, US, laboratório, leitos de internação). 19h, início do plantão: reavaliar pré-escolar masc, 3a8m, acompanhado da mãe; deu entrada às 18:15, atendido pelo colega anterior; aguarda reavaliação e resultado de exame solicitado (radiografia de tórax)."
+    "caseText": "Pronto atendimento hospitalar, atenção secundária (RX convencional, US, laboratório, leitos de internação; sem endoscopia). 19h, início do plantão: reavaliar pré-escolar masc, 3a8m, 16 kg, com a mãe; deu entrada às 18h15, atendido pelo colega anterior, que pediu RX de tórax. Por volta das 18h, brincando com o irmão mais velho na sala, sem adulto olhando, começou a chorar e a babar muito; desde então recusa qualquer bebida ou comida e não consegue engolir a própria saliva. O brinquedo, um carrinho de bombeiros de plástico com luzes que acendem, quebrou; a mãe acha que ele engoliu uma peça; o irmão disse que ele 'comeu uma balinha'. Bem antes disso; sem alergias, sem medicações, sem acesso a remédios (ficam trancados); sem doenças prévias, nunca precisou de PS; diurese e evacuação normais; vacinas em dia (sem o cartão). EF: BEG, choroso, corado, hidratado, acianótico, afebril, eupneico. FC 110, FR 22, PA 88x58, SpO2 99% AA. Sialorreia intensa (não consegue deglutir a saliva). MV presente bilateralmente com roncos de transmissão, sem esforço respiratório. ACV normal; abdome plano, flácido, indolor; exame neurológico e otoscopia normais; orofaringe discretamente hiperemiada, lábios e gengivas sem lesões. RX de tórax (PA e perfil): corpo estranho no esôfago, em topografia do esfíncter esofagiano superior, com imagem de duplo halo/duplo contorno.",
+    "funnel": {
+      "opening": "Pronto atendimento hospitalar (atenção secundária), 19h, início do plantão noturno. Reavaliar pré-escolar masc, 3a8m, com a mãe; deu entrada às 18h15, foi atendido pelo colega anterior e aguarda reavaliação e o resultado do exame solicitado.",
+      "script": [
+        {
+          "id": "h-inicio",
+          "kind": "history",
+          "text": "Por volta das 18h começou a chorar e a babar muito; passou a recusar qualquer bebida ou comida e não consegue engolir a própria saliva."
+        },
+        {
+          "id": "h-rx-pedido",
+          "kind": "history",
+          "text": "O primeiro médico pediu um raio X; estão aguardando a nova avaliação."
+        },
+        {
+          "id": "h-contexto",
+          "kind": "history",
+          "text": "Passou bem o dia; começou a chorar quando brincava com o irmão."
+        },
+        {
+          "id": "h-sem-ps",
+          "kind": "history",
+          "text": "Nunca precisou ir a pronto-socorro; vai só a consultas de rotina."
+        },
+        {
+          "id": "h-engoliu-peca",
+          "kind": "history",
+          "text": "O brinquedo quebrou e a mãe acha que ele engoliu alguma peça.",
+          "key": true
+        },
+        {
+          "id": "h-brinquedo-luzes",
+          "kind": "history",
+          "text": "O brinquedo é um carrinho de bombeiros de plástico com luzes que acendem."
+        },
+        {
+          "id": "h-nao-viu",
+          "kind": "history",
+          "text": "A mãe não viu o que aconteceu: os meninos brincavam sozinhos na sala e o irmão disse que ele 'comeu uma balinha'."
+        },
+        {
+          "id": "h-sem-remedios",
+          "kind": "history",
+          "text": "Não tem alergias, não toma remédios e não ingeriu nenhum remédio (ficam trancados em armário)."
+        },
+        {
+          "id": "h-bem-antes",
+          "kind": "history",
+          "text": "Passou bem nos dias anteriores; não teve nem resfriado neste ano."
+        },
+        {
+          "id": "h-creche",
+          "kind": "history",
+          "text": "Não frequenta creche; brinca com o irmão mais velho à tarde, quando ele volta da escola."
+        },
+        {
+          "id": "h-alimentacao",
+          "kind": "history",
+          "text": "Come bem e gosta de beber água, mas desde que começou a chorar não aceita nada."
+        },
+        {
+          "id": "h-eliminacoes",
+          "kind": "history",
+          "text": "Evacua normalmente (evacuou hoje) e faz xixi bem clarinho."
+        },
+        {
+          "id": "h-vacinas",
+          "kind": "history",
+          "text": "Vacinas em dia; a mãe esqueceu o cartão."
+        },
+        {
+          "id": "e-sinais",
+          "kind": "exam",
+          "text": "Peso 16 kg. FC 110 bpm, FR 22 irpm, SpO2 99% em ar ambiente, PA 88x58 mmHg."
+        },
+        {
+          "id": "e-geral",
+          "kind": "exam",
+          "text": "BEG, choroso, corado, hidratado, acianótico, anictérico, afebril, eupneico, sem linfonodomegalia; sialorreia intensa (não consegue deglutir a própria saliva)."
+        },
+        {
+          "id": "e-torax",
+          "kind": "exam",
+          "text": "MV presente bilateralmente com roncos de transmissão, sem esforço respiratório; ritmo cardíaco regular em 2 tempos, bulhas normofonéticas, sem sopros."
+        },
+        {
+          "id": "e-abdome-neuro",
+          "kind": "exam",
+          "text": "Abdome plano, flácido, indolor, sem massas ou visceromegalias; exame neurológico e otoscopia sem alterações."
+        },
+        {
+          "id": "e-oroscopia",
+          "kind": "exam",
+          "text": "Dentes em boas condições, gengivas e lábios sem lesões, orofaringe discretamente hiperemiada."
+        },
+        {
+          "id": "t-rx-torax",
+          "kind": "test",
+          "text": "RX de tórax (PA e perfil): corpo estranho no esôfago, em topografia do esfíncter esofagiano superior, com imagem de duplo halo/duplo contorno.",
+          "key": true
+        }
+      ]
+    }
   },
   "expected": {
     "syndrome": "ingestão de corpo estranho — bateria (pilha) de botão — impactada no esôfago (esfíncter esofagiano superior) em pré-escolar, com sialorreia e disfagia",
-    "cannotMiss": [
-      "ingestão de bateria/pilha de botão impactada no esôfago (topografia do esfíncter esofagiano superior)"
+    "diagnoses": [
+      {
+        "text": "bateria (pilha) de botão ingerida e impactada no esôfago, na topografia do esfíncter esofagiano superior",
+        "tier": "critical"
+      },
+      {
+        "text": "emergência: risco de lesão esofágica grave em horas (necrose, perfuração, mediastinite, fístula traqueoesofágica ou aortoentérica, estenose)",
+        "tier": "important"
+      },
+      {
+        "text": "criança estável no momento (roncos de transmissão pela saliva, sem esforço respiratório)",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
-      "anamnese dirigida à mãe: queixa principal e outras queixas",
-      "comorbidades da criança",
-      "exame físico (interpretar: criança clinicamente estável, roncos de transmissão por saliva excessiva)",
-      "interpretação da radiografia de tórax: corpo estranho no esôfago com aspecto de duplo halo/duplo contorno (bateria/pilha)"
+    "actions": [
+      {
+        "text": "endoscopia digestiva alta de emergência para retirada, imediata ou em até 2 h da ingestão: transferência imediata para serviço com endoscopia (a unidade não tem)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "jejum de água e alimentos até a endoscopia",
+        "tier": "important",
+        "timing": "now"
+      }
     ],
-    "requiredActions": [
-      "comunicar à mãe que há risco de complicações e de morte se não for tratada adequadamente",
-      "endoscopia digestiva alta de emergência/urgência, imediata ou no máximo até 2 horas do evento, encaminhando a criança a serviço com endoscopia",
-      "jejum de água e de alimentos até o encaminhamento, com justificativa",
-      "orientar possíveis complicações (ao menos três: perfuração esofágica, mediastinite, pneumonia aspirativa, fístula traqueoesofágica, estenose esofágica, paralisia de prega vocal, pneumotórax, fístula aortoentérica, parada cardíaca, esofagite cáustica, hemorragia digestiva, óbito)",
-      "orientar prevenção de novos acidentes (ao menos três: brinquedo adequado à faixa etária, supervisão, objetos pequenos e aparelhos com pilhas/baterias de disco fora do alcance, brinquedos sem peças destacáveis, ensinar a não colocar objetos na boca, evitar correr/rir/chorar com alimento na boca)"
-    ],
+    "questions": [],
     "forbiddenDefinitiveActions": [
       {
         "id": "liberar-via-oral-antes-da-eda",
@@ -48,8 +161,14 @@
         ]
       }
     ],
-    "rationale": "Gabarito oficial do INEP (Revalida 2023/1, Estação 8): o PEP pontua anamnese, interpretação do exame físico e da radiografia (bateria no esôfago), comunicação do risco, endoscopia digestiva alta de emergência em até 2 horas do evento, jejum, complicações e prevenção; penaliza liberar água/alimento.",
-    "expectedPath": "clarify"
+    "outOfScope": [
+      "apresentar-se, cumprimentar a mãe e perguntar os nomes (item 1)",
+      "anamnese: queixa principal, outras queixas e comorbidades (itens 2 a 4), medida pelo roteiro",
+      "comunicar à mãe o risco de complicações e de morte e citar ao menos três complicações (itens 7 e 10; o reconhecimento da emergência entrou como diagnóstico)",
+      "justificar o jejum à mãe (parte do item 9)",
+      "orientar ao menos três medidas de prevenção de novos acidentes (item 11)"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2023/1, Estação 8): o PEP pontua anamnese, interpretação do exame físico e da radiografia (bateria no esôfago), comunicação do risco, endoscopia digestiva alta de emergência em até 2 horas do evento, jejum, complicações e prevenção; penaliza liberar água/alimento. No v2, o caso completo traz a história do brinquedo com luzes e a imagem de duplo halo no esôfago; a endoscopia de emergência é o item crítico."
   },
   "sources": [
     {
@@ -87,7 +206,7 @@
     "item": "Estação 8",
     "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2023_1_PEP_publicacao.pdf",
     "originalCaseText": "CENÁRIO DE ATUAÇÃO Local de atuação: Atenção Secundária: Urgência e Emergência. A unidade possui a seguinte infraestrutura: setor de radiologia convencional e ultrassom; laboratório de análises clínicas; leitos de internação. DESCRIÇÃO DO CASO Você está entrando no plantão noturno (19:00 horas) em um serviço de pronto atendimento hospitalar e vai reavaliar um pré-escolar (3 anos e 8 meses) acompanhado da mãe, que deu entrada no serviço às 18:15 horas e foi atendido inicialmente pelo(a) colega anterior, aguardando reavaliação e resultado do(s) exame(s) solicitado(s). ATENÇÃO! CASO JULGUE NECESSÁRIO REALIZAR EXAME FÍSICO, VERBALIZE! Nos 10 minutos de duração da estação, você deverá executar as tarefas a seguir: realizar anamnese dirigida à mãe; interpretar os achados do exame físico; interpretar a radiografia de tórax; comunicar à mãe: a condição da criança, a conduta imediata a ser tomada e as possíveis complicações; orientar a mãe quanto a medidas preventivas. Obs: Considere que a criança está sentada na cadeira durante todo o período da consulta.",
-    "notes": "A imagem da radiografia de tórax não é transcrita na prova; o achado usado vem do texto do PEP (item 6: corpo estranho no esôfago com aspecto de duplo halo/duplo contorno — bateria/pilha) e da síntese (topografia do esfíncter esofagiano superior; RX em PA e perfil). Segundo o PEP (item 8), a unidade não dispõe de endoscopia. | Dados sob demanda: por volta das 18 h, brincando com o irmão, começou a chorar e babar muito, recusa qualquer bebida ou comida e não consegue engolir a própria saliva; o brinquedo (carrinho de bombeiros de plástico com luzes) quebrou e a mãe acha que ele engoliu uma peça; o irmão disse que ele 'comeu uma balinha'; a mãe não viu o ocorrido; o 1º médico pediu RX; sem alergias, medicações, ingestão de remédios ou doenças prévias; diurese e evacuação normais; vacinas em dia. EF: peso 16 kg, FC 110, FR 22, SatO2 99% AA, PA 88x58; BEG, choroso, corado, hidratado, afebril, eupneico; sialorreia intensa (não consegue deglutir a saliva); MV presente com roncos de transmissão, sem esforço respiratório; ACV, abdome, neurológico e otoscopia normais; orofaringe discretamente hiperemiada. RX de tórax (PA e perfil): corpo estranho no esôfago, em topografia do esfíncter esofagiano superior, com imagem de duplo halo/duplo contorno (bateria). | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas. A exceção \"jejum\" saiu: citada perto do termo, anulava \"liberar água\" mesmo na conduta errada."
+    "notes": "Gabarito v2 (11/10/2026): o v1 entregava só a abertura e o fato decisivo só aparecia quando perguntado ou no RX; agora o caso completo traz a história da mãe (carrinho com luzes que quebrou, suspeita de peça engolida, sialorreia e recusa de líquidos desde as 18h), o exame e a imagem de duplo halo no esôfago descrita no PEP (itens 6 e 8) e na síntese, sem nomear a bateria. No afunilamento, a peça engolida e o RX são key. Endoscopia de emergência é o item crítico e o jejum é importante; comunicação de risco, complicações e prevenção ficaram fora do escopo. | A imagem da radiografia de tórax não é transcrita na prova; o achado usado vem do texto do PEP (item 6: corpo estranho no esôfago com aspecto de duplo halo/duplo contorno — bateria/pilha) e da síntese (topografia do esfíncter esofagiano superior; RX em PA e perfil). Segundo o PEP (item 8), a unidade não dispõe de endoscopia. | Dados sob demanda: por volta das 18 h, brincando com o irmão, começou a chorar e babar muito, recusa qualquer bebida ou comida e não consegue engolir a própria saliva; o brinquedo (carrinho de bombeiros de plástico com luzes) quebrou e a mãe acha que ele engoliu uma peça; o irmão disse que ele 'comeu uma balinha'; a mãe não viu o ocorrido; o 1º médico pediu RX; sem alergias, medicações, ingestão de remédios ou doenças prévias; diurese e evacuação normais; vacinas em dia. EF: peso 16 kg, FC 110, FR 22, SatO2 99% AA, PA 88x58; BEG, choroso, corado, hidratado, afebril, eupneico; sialorreia intensa (não consegue deglutir a saliva); MV presente com roncos de transmissão, sem esforço respiratório; ACV, abdome, neurológico e otoscopia normais; orofaringe discretamente hiperemiada. RX de tórax (PA e perfil): corpo estranho no esôfago, em topografia do esfíncter esofagiano superior, com imagem de duplo halo/duplo contorno (bateria). | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas. A exceção \"jejum\" saiu: citada perto do termo, anulava \"liberar água\" mesmo na conduta errada."
   },
   "probes": {
     "mustFlag": [

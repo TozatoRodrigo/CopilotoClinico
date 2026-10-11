@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb001-da-001",
   "title": "Dor abdominal difusa sem localização, sangramento ou possibilidade de gestação",
   "tags": [
@@ -16,23 +16,34 @@
   },
   "expected": {
     "syndrome": "dor abdominal aguda a esclarecer",
-    "cannotMiss": [
-      "gravidez ectópica",
-      "abdome agudo cirúrgico",
-      "isquemia mesentérica aguda",
-      "aneurisma de aorta abdominal roto"
+    "diagnoses": [
+      {
+        "text": "gravidez ectópica",
+        "tier": "important"
+      },
+      {
+        "text": "abdome agudo cirúrgico",
+        "tier": "important"
+      },
+      {
+        "text": "isquemia mesentérica aguda",
+        "tier": "important"
+      },
+      {
+        "text": "aneurisma de aorta abdominal roto",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
+    "actions": [],
+    "questions": [
       "sinais vitais / estabilidade hemodinâmica",
       "possibilidade de gestação (beta-hCG)",
       "localização e características da dor",
       "sangramento digestivo (hematêmese, melena, enterorragia) ou vaginal",
       "idade e comorbidades (FA, vasculopatia)"
     ],
-    "requiredActions": [],
     "forbiddenDefinitiveActions": [],
-    "rationale": "Dor abdominal difusa sem dados: estabilidade, gestação, localização/características, sangramento e idade separam o abdome agudo cirúrgico e as causas letais. ACOG 193: ectópica rota instável é cirurgia imediata. WSES 2022: isquemia mesentérica (dor desproporcional ao exame) cresce com a idade, mortalidade ~50%. AAA roto é frequentemente mal diagnosticado. Sangramento digestivo ou vaginal muda o diferencial (úlcera perfurada/sangrante, ectópica).",
-    "expectedPath": "clarify"
+    "rationale": "Dor abdominal difusa sem dados: estabilidade, gestação, localização/características, sangramento e idade separam o abdome agudo cirúrgico e as causas letais. ACOG 193: ectópica rota instável é cirurgia imediata. WSES 2022: isquemia mesentérica (dor desproporcional ao exame) cresce com a idade, mortalidade ~50%. AAA roto é frequentemente mal diagnosticado. Sangramento digestivo ou vaginal muda o diferencial (úlcera perfurada/sangrante, ectópica)."
   },
   "sources": [
     {
@@ -66,6 +77,6 @@
   ],
   "provenance": {
     "originalCaseText": "Dor abdominal difusa sem informação sobre localização, sangramento ou possibilidade de gestação.",
-    "notes": "Auditoria 11/10/2026: texto reescrito sem listar o que falta (sem idade nem sexo, que são pedidos); pedidos de sangramento e de idade/comorbidades; isquemia mesentérica e AAA roto como hipóteses."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: texto reescrito sem listar o que falta (sem idade nem sexo, que são pedidos); pedidos de sangramento e de idade/comorbidades; isquemia mesentérica e AAA roto como hipóteses."
   }
 }

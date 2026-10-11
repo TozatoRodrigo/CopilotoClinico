@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb004-hipoglicemia-por-sulfonilureia",
   "title": "Confusão e sudorese em diabético com glibenclamida, glicemia 36",
   "tags": [
@@ -17,18 +17,37 @@
   },
   "expected": {
     "syndrome": "hipoglicemia grave por sulfonilureia",
-    "cannotMiss": [
-      "hipoglicemia recorrente ou de rebote por sulfonilureia"
+    "diagnoses": [
+      {
+        "text": "hipoglicemia recorrente ou de rebote por sulfonilureia",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [
+    "actions": [
+      {
+        "text": "glicose IV imediata (hipertônica ou a 10-20%)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "suporte contínuo de glicose (dieta VO quando desperto e/ou infusão de glicose 10%) e octreotida se houver recorrência",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "internação ou observação com glicemia capilar seriada por ≥ 24 h, prolongada se houver DRC, idade avançada ou dose alta",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "suspender a glibenclamida e revisar o tratamento na alta",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [
       "função renal (creatinina/TFG)",
       "dose tomada, ingestão acidental ou intencional e ingesta alimentar recente"
-    ],
-    "requiredActions": [
-      "glicose IV imediata (hipertônica ou a 10-20%)",
-      "suporte contínuo de glicose (dieta VO quando desperto e/ou infusão de glicose 10%) e octreotida se houver recorrência",
-      "internação ou observação com glicemia capilar seriada por ≥ 24 h, prolongada se houver DRC, idade avançada ou dose alta",
-      "suspender a glibenclamida e revisar o tratamento na alta"
     ],
     "forbiddenDefinitiveActions": [
       {
@@ -57,8 +76,7 @@
         ]
       }
     ],
-    "rationale": "KB-004 (01-hipoglicemia): glicose IV primeiro (50% ou 10-20%, ambas aceitas). Sulfonilureia de longa ação é a red flag: a hipoglicemia pode recorrer por mais de 24 h, sobretudo com DRC (MJA 2004); a glicose estimula secreção de insulina e a octreotida reduz a recorrência (Ann Emerg Med 2008). Glucagon tem pouco papel aqui. Beers 2023 desaconselha glibenclamida em idosos. O erro que mata é a alta após a correção.",
-    "expectedPath": "recommend"
+    "rationale": "KB-004 (01-hipoglicemia): glicose IV primeiro (50% ou 10-20%, ambas aceitas). Sulfonilureia de longa ação é a red flag: a hipoglicemia pode recorrer por mais de 24 h, sobretudo com DRC (MJA 2004); a glicose estimula secreção de insulina e a octreotida reduz a recorrência (Ann Emerg Med 2008). Glucagon tem pouco papel aqui. Beers 2023 desaconselha glibenclamida em idosos. O erro que mata é a alta após a correção."
   },
   "sources": [
     {
@@ -98,7 +116,7 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: observação ≥ 24 h sem teto (prolongada se DRC); suporte de glicose aceita dieta VO ou infusão, com octreotida na recorrência; suspender glibenclamida; pedidos de função renal e de dose/intenção/ingesta; nova proibida com checagem automática: alta precoce; insulina na troca de esquema deixou de ser acusada; estrato trocado para distúrbio glicêmico."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: observação ≥ 24 h sem teto (prolongada se DRC); suporte de glicose aceita dieta VO ou infusão, com octreotida na recorrência; suspender glibenclamida; pedidos de função renal e de dose/intenção/ingesta; nova proibida com checagem automática: alta precoce; insulina na troca de esquema deixou de ser acusada; estrato trocado para distúrbio glicêmico."
   },
   "probes": {
     "mustFlag": [

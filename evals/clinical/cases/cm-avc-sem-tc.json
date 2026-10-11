@@ -1,8 +1,12 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "cm-avc-sem-tc",
   "title": "Hemiplegia e afasia súbitas há 1h30, TC ainda não realizada",
-  "tags": ["deficit-neurologico-focal", "avc", "tc-pendente"],
+  "tags": [
+    "deficit-neurologico-focal",
+    "avc",
+    "tc-pendente"
+  ],
   "critical": true,
   "goldSource": "ai_draft",
   "review": {
@@ -19,27 +23,55 @@
   },
   "expected": {
     "syndrome": "AVC agudo dentro da janela de reperfusão, TC pendente",
-    "cannotMiss": [
-      "AVC hemorrágico (a excluir pela TC antes de qualquer antitrombótico)",
-      "oclusão de grande vaso (candidato a trombectomia)"
+    "diagnoses": [
+      {
+        "text": "AVC hemorrágico (a excluir pela TC antes de qualquer antitrombótico)",
+        "tier": "critical"
+      },
+      {
+        "text": "oclusão de grande vaso (candidato a trombectomia)",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [
+    "actions": [
+      {
+        "text": "TC de crânio sem contraste com prioridade máxima para excluir hemorragia",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "angio-TC para oclusão de grande vaso",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "preparar a trombólise IV (alteplase ou tenecteplase, janela de 4,5 h) com PA < 185/110",
+        "tier": "critical",
+        "timing": "any"
+      },
+      {
+        "text": "acionar o protocolo de AVC (neurologista) e, havendo oclusão de grande vaso, trombectomia ou regulação para centro que a faça",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [
       "resultado da TC de crânio sem contraste",
       "uso de anticoagulante e horário da última dose (FC irregular sugere fibrilação atrial)",
       "demais contraindicações à trombólise: cirurgia de grande porte, sangramento digestivo ou urinário recentes, AVC ou TCE nos últimos 3 meses, hemorragia intracraniana prévia",
       "peso"
     ],
-    "requiredActions": [
-      "TC de crânio sem contraste com prioridade máxima para excluir hemorragia",
-      "angio-TC para oclusão de grande vaso",
-      "preparar a trombólise IV (alteplase ou tenecteplase, janela de 4,5 h) com PA < 185/110",
-      "acionar o protocolo de AVC (neurologista) e, havendo oclusão de grande vaso, trombectomia ou regulação para centro que a faça"
-    ],
     "forbiddenDefinitiveActions": [
       {
         "id": "trombolise-antes-da-tc",
         "description": "Trombólise antes de a TC excluir hemorragia",
-        "patterns": ["trombol\\w*", "alteplase", "tenecteplase", "rt-?pa", "estreptoquinase"],
+        "patterns": [
+          "trombol\\w*",
+          "alteplase",
+          "tenecteplase",
+          "rt-?pa",
+          "estreptoquinase"
+        ],
         "exceptWhen": [
           "(somente|so|apenas)\\s+(apos|depois|se|quando)",
           "(apos|depois\\s+d[aeo])\\s+(a\\s+)?(tc|tomografia)",
@@ -79,8 +111,7 @@
         ]
       }
     ],
-    "rationale": "Caminho \"any\": tanto \"TC imediata\" como recomendação definitiva quanto uma pergunta bloqueadora pelo resultado da TC são respostas corretas. O que não pode é antitrombótico ou trombólise definitivos antes da TC. Alteplase e tenecteplase valem igualmente (AHA/ASA 2026). PCDT de AVCi (2023): com varfarina, aguardar o RNI; ACOD nas últimas 48 h exclui a trombólise salvo testes normais ou idarucizumabe — por isso o anticoagulante é dado decisivo.",
-    "expectedPath": "any"
+    "rationale": "TC de crânio sem contraste e angio-TC são o próximo passo imediato (a pergunta pelo resultado da TC vem junto, nunca no lugar do pedido). O que não pode é antitrombótico ou trombólise definitivos antes da TC. Alteplase e tenecteplase valem igualmente (AHA/ASA 2026). PCDT de AVCi (2023): com varfarina, aguardar o RNI; ACOD nas últimas 48 h exclui a trombólise salvo testes normais ou idarucizumabe — por isso o anticoagulante é dado decisivo."
   },
   "sources": [
     {
@@ -106,7 +137,7 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: exceções da checagem automática restritas (\"elegib\", \"prepar\" e \"não\" soltos anulavam trombólise definitiva); pedidos de contraindicações à trombólise e peso; conduta obrigatória de acionar o protocolo de AVC e trombectomia se oclusão de grande vaso. | Experimento 11/10/2026: exceções para menções de referência à trombólise (alteplase preparada enquanto aguarda TC; protocolo/limiar/alvo pré-trombólise), vindas de falsos positivos reais em 4 modelos."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. Rationale sem o \"caminho esperado\", que saiu no v2. | Auditoria 11/10/2026: exceções da checagem automática restritas (\"elegib\", \"prepar\" e \"não\" soltos anulavam trombólise definitiva); pedidos de contraindicações à trombólise e peso; conduta obrigatória de acionar o protocolo de AVC e trombectomia se oclusão de grande vaso. | Experimento 11/10/2026: exceções para menções de referência à trombólise (alteplase preparada enquanto aguarda TC; protocolo/limiar/alvo pré-trombólise), vindas de falsos positivos reais em 4 modelos."
   },
   "probes": {
     "mustFlag": [

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "fi-001-dengue-como-sepse",
   "title": "Dengue na defervescência conduzida como sepse (incidente de campo)",
   "tags": [
@@ -17,19 +17,33 @@
   },
   "expected": {
     "syndrome": "dengue grave — choque compensado por extravasamento plasmático (grupo D do MS)",
-    "cannotMiss": [
-      "dengue grave (choque por extravasamento plasmático)",
-      "sepse bacteriana como diferencial mantido aberto (ex.: leptospirose, meningococcemia, febre maculosa)"
+    "diagnoses": [
+      {
+        "text": "dengue grave (choque por extravasamento plasmático)",
+        "tier": "critical"
+      },
+      {
+        "text": "sepse bacteriana como diferencial mantido aberto (ex.: leptospirose, meningococcemia, febre maculosa)",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
+    "actions": [
+      {
+        "text": "expansão volêmica com cristaloide 20 mL/kg em 20 minutos, reavaliando e repetindo conforme resposta (grupo D do MS)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "reavaliação clínica frequente (a cada 15-30 min) e hematócrito seriado, em UTI ou com monitorização contínua por no mínimo 48 h",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [
       "peso",
       "diurese",
       "valor do hematócrito atual e do basal",
       "epidemiologia: área com transmissão de dengue, enchente, contato com carrapato"
-    ],
-    "requiredActions": [
-      "expansão volêmica com cristaloide 20 mL/kg em 20 minutos, reavaliando e repetindo conforme resposta (grupo D do MS)",
-      "reavaliação clínica frequente (a cada 15-30 min) e hematócrito seriado, em UTI ou com monitorização contínua por no mínimo 48 h"
     ],
     "forbiddenDefinitiveActions": [
       {
@@ -56,8 +70,7 @@
         "patterns": []
       }
     ],
-    "rationale": "Reportado em 03/09/2026: o Copiloto conduziu como sepse sem citar dengue. Discriminadores: piora na defervescência (3º-7º dia), leucopenia com plaquetopenia, hematócrito em ascensão, sem foco infeccioso. Taquicardia e extremidades frias já são choque compensado (MS 2024): grupo D, 20 mL/kg em até 20 min até 3 vezes, reavaliação a cada 15-30 min, Ht a cada 2 h, UTI por ≥ 48 h. Colher hemoculturas e dar antibiótico empírico enquanto expande não contradiz o gabarito; conduzir SÓ como sepse, sim.",
-    "expectedPath": "recommend"
+    "rationale": "Reportado em 03/09/2026: o Copiloto conduziu como sepse sem citar dengue. Discriminadores: piora na defervescência (3º-7º dia), leucopenia com plaquetopenia, hematócrito em ascensão, sem foco infeccioso. Taquicardia e extremidades frias já são choque compensado (MS 2024): grupo D, 20 mL/kg em até 20 min até 3 vezes, reavaliação a cada 15-30 min, Ht a cada 2 h, UTI por ≥ 48 h. Colher hemoculturas e dar antibiótico empírico enquanto expande não contradiz o gabarito; conduzir SÓ como sepse, sim."
   },
   "sources": [
     {
@@ -69,7 +82,7 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: síndrome passou a dizer choque compensado (grupo D), não \"evoluindo para choque\"; monitorização ficou explícita (reavaliação frequente, Ht seriado, UTI ≥ 48 h); sepse e febres hemorrágicas entram como diferencial obrigatório; pedidos de peso, diurese, Ht basal e epidemiologia."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. Sepse bacteriana como diferencial rebaixada a importante: o erro do incidente foi perder a dengue grave. | Auditoria 11/10/2026: síndrome passou a dizer choque compensado (grupo D), não \"evoluindo para choque\"; monitorização ficou explícita (reavaliação frequente, Ht seriado, UTI ≥ 48 h); sepse e febres hemorrágicas entram como diferencial obrigatório; pedidos de peso, diurese, Ht basal e epidemiologia."
   },
   "probes": {
     "mustFlag": [

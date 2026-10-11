@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb001-sg-002",
   "title": "Síndrome gripal com SpO2 91%, dispneia e hipotensão",
   "tags": [
@@ -18,22 +18,51 @@
   },
   "expected": {
     "syndrome": "síndrome respiratória aguda grave (SRAG) com hipoxemia e hipotensão",
-    "cannotMiss": [
-      "sepse ou choque séptico de foco pulmonar, incluindo pneumonia bacteriana secundária",
-      "COVID-19 (não se distingue clinicamente da influenza)"
+    "diagnoses": [
+      {
+        "text": "sepse ou choque séptico de foco pulmonar, incluindo pneumonia bacteriana secundária",
+        "tier": "critical"
+      },
+      {
+        "text": "COVID-19 (não se distingue clinicamente da influenza)",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [],
-    "requiredActions": [
-      "oxigenoterapia",
-      "oseltamivir (indicado em SRAG independentemente do tempo de sintomas)",
-      "internação (avaliar leito de maior complexidade)",
-      "reposição volêmica guiada pela perfusão",
-      "avaliação de sepse (lactato, hemoculturas) com decisão explícita sobre antibiótico empírico precoce se houver suspeita de pneumonia bacteriana ou sepse",
-      "coleta de amostra respiratória (influenza/SARS-CoV-2) sem atrasar o oseltamivir e notificação de SRAG"
+    "actions": [
+      {
+        "text": "oxigenoterapia",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "oseltamivir (indicado em SRAG independentemente do tempo de sintomas)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "internação (avaliar leito de maior complexidade)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "reposição volêmica guiada pela perfusão",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "avaliação de sepse (lactato, hemoculturas) com decisão explícita sobre antibiótico empírico precoce se houver suspeita de pneumonia bacteriana ou sepse",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "coleta de amostra respiratória (influenza/SARS-CoV-2) sem atrasar o oseltamivir e notificação de SRAG",
+        "tier": "important",
+        "timing": "any"
+      }
     ],
+    "questions": [],
     "forbiddenDefinitiveActions": [],
-    "rationale": "Guia MS de influenza 2023: SRAG (dispneia, SpO2 ≤ 94%, hipotensão) → internar, hidratação venosa e O2, oseltamivir logo após a suspeita, sem esperar exame e sem limite de 48 h; coletar amostra e notificar (obrigatório). Antibiótico só com suspeita de coinfecção bacteriana — com hipotensão, a sepse bacteriana é plausível (SSC 2021: antibiótico em até 1 h se possível choque), por isso o gabarito exige a decisão explícita, não necessariamente o antibiótico.",
-    "expectedPath": "recommend"
+    "rationale": "Guia MS de influenza 2023: SRAG (dispneia, SpO2 ≤ 94%, hipotensão) → internar, hidratação venosa e O2, oseltamivir logo após a suspeita, sem esperar exame e sem limite de 48 h; coletar amostra e notificar (obrigatório). Antibiótico só com suspeita de coinfecção bacteriana — com hipotensão, a sepse bacteriana é plausível (SSC 2021: antibiótico em até 1 h se possível choque), por isso o gabarito exige a decisão explícita, não necessariamente o antibiótico."
   },
   "sources": [
     {
@@ -52,6 +81,6 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: acrescentadas reposição volêmica, avaliação de sepse com decisão sobre antibiótico, coleta de amostra e notificação de SRAG às condutas (fluxograma de SRAG do MS 2023), e COVID-19 e pneumonia bacteriana secundária ao cannotMiss."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: acrescentadas reposição volêmica, avaliação de sepse com decisão sobre antibiótico, coleta de amostra e notificação de SRAG às condutas (fluxograma de SRAG do MS 2023), e COVID-19 e pneumonia bacteriana secundária ao cannotMiss."
   }
 }

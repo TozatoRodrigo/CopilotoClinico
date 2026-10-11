@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "rv-2024-1-est-7",
   "title": "Jovem trazida pelos bombeiros com queimaduras após incêndio",
   "tags": [
@@ -15,42 +15,123 @@
     "status": "official_exam_key"
   },
   "input": {
-    "caseText": "PS de hospital. Fem, 20a, previamente hígida, trazida pelos bombeiros, vítima de queimaduras em incêndio."
+    "caseText": "PS de hospital (radiologia convencional, laboratório, leitos, centro cirúrgico). Fem, 20a, previamente hígida, trazida pelos bombeiros, vítima de queimaduras em incêndio no trabalho (indústria farmacêutica), iniciado por curto-circuito, sem explosões. Estava em sala repleta de fumaça; não sabe quanto tempo ficou até o resgate, acha que demorou. Refere muita dor, dificuldade para respirar (\"ar pesado\") e muita sede. Coberta com manta térmica. SV: PA 90x60, FC 112, FR 40, Tax 36,1 °C, SpO2 82%. EF: desidratada 2+/4+, taquipneica, normocorada. Vibrissas nasais queimadas, hiperemia e edema de orofaringe. MV diminuído globalmente, sem RA. ACV e abdome sem anormalidades. Peso 50 kg. Queimadura de 2º grau na face anterior do tronco e na face anterior dos MMII.",
+    "funnel": {
+      "opening": "PS de hospital (radiologia convencional, laboratório, leitos, centro cirúrgico). Fem, 20a, previamente hígida, trazida pelos bombeiros, vítima de queimaduras decorrentes de incêndio.",
+      "script": [
+        {
+          "id": "h-trabalho",
+          "kind": "history",
+          "text": "Trabalha na indústria farmacêutica e estava no trabalho quando o incêndio aconteceu."
+        },
+        {
+          "id": "h-tempo-exposicao",
+          "kind": "history",
+          "text": "Não sabe dizer quanto tempo ficou no local até o resgate, mas acredita que tenha demorado."
+        },
+        {
+          "id": "h-fumaca",
+          "kind": "history",
+          "text": "A sala onde estava estava repleta de fumaça."
+        },
+        {
+          "id": "h-curto-circuito",
+          "kind": "history",
+          "text": "Ouviu os bombeiros dizerem que o incêndio começou por curto-circuito; não houve explosões."
+        },
+        {
+          "id": "h-sintomas",
+          "kind": "history",
+          "text": "Sente muita dor, dificuldade para respirar, como se o ar estivesse pesado, e muita sede."
+        },
+        {
+          "id": "e-sinais-vitais",
+          "kind": "exam",
+          "text": "PA 90x60 mmHg, FC 112 bpm, FR 40 irpm, Tax 36,1 °C, SpO2 82%."
+        },
+        {
+          "id": "e-geral",
+          "kind": "exam",
+          "text": "Desidratada 2+/4+, taquipneica, normocorada. Peso 50 kg."
+        },
+        {
+          "id": "e-via-aerea",
+          "kind": "exam",
+          "text": "Queimadura de vibrissas nasais, hiperemia e edema de orofaringe.",
+          "key": true
+        },
+        {
+          "id": "e-torax-abdome",
+          "kind": "exam",
+          "text": "Murmúrio vesicular diminuído globalmente, sem ruídos adventícios; aparelho cardiovascular e abdome sem anormalidades."
+        },
+        {
+          "id": "e-queimaduras",
+          "kind": "exam",
+          "text": "Queimadura de 2º grau na face anterior do tronco e na face anterior dos membros inferiores.",
+          "key": true
+        }
+      ]
+    }
   },
   "expected": {
     "syndrome": "queimadura extensa (36% de SCQ) com suspeita de queimadura de vias aéreas por inalação de fumaça",
-    "cannotMiss": [
-      "queimadura de vias aéreas/lesão por inalação de fumaça",
-      "queimadura extensa (36% de superfície corporal queimada) com necessidade de reposição volêmica"
-    ],
-    "mustRequest": [
-      "características do acidente: local (ambiente fechado), tempo de exposição e inalação de fumaça",
-      "sinais vitais (PA, FC, FR, SatO2)",
-      "sinais de queimadura de vias aéreas: vibrissas/mucosa nasal queimadas, hiperemia ou edema de orofaringe, dispneia",
-      "exposição completa (retirar toda a vestimenta) para avaliar a superfície corporal queimada"
-    ],
-    "requiredActions": [
-      "oxigênio por máscara de Venturi ou não reinalante, ou intubação orotraqueal",
-      "monitorização: FC, PA, oximetria e diurese",
-      "calcular a superfície corporal queimada pela regra dos 9 (36%)",
-      "reposição volêmica conforme o ATLS: 1.800 mL nas primeiras 8 h e 1.800 mL nas 16 h seguintes",
-      "acesso venoso periférico com cateter 14/16/18 e Ringer lactato/SF/cristaloide",
-      "analgesia (EV ou sem especificar a via; não por via oral)",
-      "curativo oclusivo/estéril",
-      "transferência para centro de referência/unidade de queimados"
-    ],
-    "forbiddenDefinitiveActions": [
+    "diagnoses": [
       {
-        "id": "analgesia-via-oral",
-        "description": "Indicar analgesia por via oral no grande queimado (o PEP considera inadequado).",
-        "patterns": [
-          "analges\\w*[^,;.]{0,40}\\b(via\\s+oral|vo)",
-          "(dipirona|paracetamol|tramadol|codeina|morfina|ibuprofeno)\\s+(\\S+\\s+){0,3}(via\\s+oral|vo)"
-        ]
+        "text": "lesão inalatória / queimadura de vias aéreas por inalação de fumaça, com risco de obstrução por edema",
+        "tier": "critical"
+      },
+      {
+        "text": "grande queimado: queimadura de 2º grau em ~36% da superfície corporal (regra dos 9), com hipovolemia",
+        "tier": "important"
       }
     ],
-    "rationale": "Gabarito oficial do INEP (Revalida 2024/1, Estação 7): o PEP pontua a história do incêndio e da inalação, sinais vitais e sinais de queimadura de vias aéreas, O2/IOT, monitorização, exposição e cálculo de 36% de SCQ, reposição de 1.800 mL em 8 h + 1.800 mL em 16 h, acesso periférico com cristaloide, analgesia não oral, curativo oclusivo e transferência para centro de queimados.",
-    "expectedPath": "clarify"
+    "actions": [
+      {
+        "text": "oxigênio em alta concentração por máscara não reinalante ou Venturi e/ou via aérea definitiva precoce (intubação orotraqueal)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "reposição volêmica com cristaloide (Ringer lactato) por fórmula de queimado, metade nas primeiras 8 h, titulada pela diurese [ref. gabarito (ATLS, 2 mL/kg/%SCQ): 1.800 mL nas primeiras 8 h e 1.800 mL nas 16 h seguintes]",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "acesso venoso periférico calibroso (cateter 14, 16 ou 18) com Ringer lactato ou soro fisiológico",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "monitorização de FC, PA, oximetria e diurese",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "analgesia EV (não por via oral)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "curativo oclusivo estéril",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "transferência para centro de referência em queimados",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [],
+    "outOfScope": [
+      "identificar-se e identificar a paciente (item 1)",
+      "perguntar local, tempo de exposição e inalação de fumaça (item 2) — anamnese, coberta pelo roteiro",
+      "verbalizar as alterações dos sinais vitais (item 3) e a avaliação da superfície queimada com exposição completa (item 7) — exame físico; os achados estão no caseText",
+      "antes conduta proibida: Indicar analgesia por via oral no grande queimado (o PEP considera inadequado). — saiu porque via da analgesia é item de qualidade, não conduta que mata ou sequela"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2024/1, Estação 7): o PEP pontua a história do incêndio e da inalação, sinais vitais e sinais de queimadura de vias aéreas, O2/IOT, monitorização, exposição e cálculo de 36% de SCQ, reposição de 1.800 mL em 8 h + 1.800 mL em 16 h, acesso periférico com cristaloide, analgesia não oral, curativo oclusivo e transferência para centro de queimados. Gabarito v2: via aérea/oxigênio e reposição volêmica viraram os itens críticos; o volume do gabarito fica como referência, sem exigir a fórmula exata."
   },
   "sources": [
     {
@@ -81,17 +162,6 @@
     "item": "Estação 7",
     "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2024_1_PEP_publicacao.pdf",
     "originalCaseText": "CENÁRIO DE ATUAÇÃO Local de atuação: urgência e emergência - pronto-socorro de hospital. A unidade hospitalar possui a seguinte infraestrutura: • setor de radiologia convencional; • laboratório de análises clínicas; • leitos de internação; e • centro cirúrgico. DESCRIÇÃO DO CASO • Paciente, previamente hígida, de 20 anos, trazida pelos Bombeiros, vítima de queimaduras decorrentes de incêndio. Nos 10 minutos de duração da estação, você deverá executar as tarefas a seguir: • realizar o atendimento da paciente; • verbalizar os achados e condutas; • calcular a extensão da superfície corporal queimada; e • adotar a(s) conduta(s) terapêutica(s) necessária(s) ao caso, conforme o Protocolo de Suporte Avançado de Vida no Trauma; • verbalizar a realização de procedimentos médicos necessários ao caso.",
-    "notes": "PEP marcado 'DEFINITIVO – RETIFICAÇÃO EM 21/09/24'. A segunda página das instruções, o impresso de exame físico e a figura da regra dos 9 são imagens sem texto extraível; o peso da paciente não aparece no texto, e o volume pontuado (1.800 mL + 1.800 mL) é o do gabarito. Dados sob demanda: a síntese descreve queimaduras extensas em membros inferiores e tronco anterior, com suspeita de queimadura de vias aéreas por inalação de fumaça; a paciente informa que estava no trabalho (indústria farmacêutica) durante incêndio por curto-circuito, sem explosões; não sabe quanto tempo ficou até o resgate (acredita que demorou); a sala estava repleta de fumaça; sente muita dor, dificuldade para respirar ('ar pesado') e muita sede. Impresso sinais vitais: PA 90x60, FC 112, FR 40, T 36,1 °C, SatO2 82%. O chefe de estação pergunta se há necessidade de transferência para centro terciário. | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas. Padrões deixaram de atravessar vírgula (\"Analgesia EV, dieta VO\" era acusada)."
-  },
-  "probes": {
-    "mustFlag": [
-      "Analgesia com dipirona VO",
-      "Paracetamol 750 mg VO 6/6 h para dor"
-    ],
-    "mustNotFlag": [
-      "Analgesia com morfina EV; evitar via oral",
-      "Analgesia EV, dieta VO quando possível",
-      "Não usar analgesia por via oral"
-    ]
+    "notes": "Gabarito v2 (11/10/2026): conduta proibida só para o que mata ou sequela — analgesia-via-oral foi para fora do escopo. caseText e funnel com o roteiro oficial da paciente simulada e o impresso de exame físico, que no PDF é imagem e foi lido na página renderizada: peso 50 kg e queimadura de 2º grau na face anterior do tronco e dos MMII (o que dá os 36% e o volume de 1.800 + 1.800 mL do gabarito). O %SCQ não entrou no caseText: é cálculo que o PEP cobra (item 8) e virou item diagnóstico importante. Lesão inalatória é o diagnóstico crítico; oxigênio/IOT e reposição volêmica, as condutas críticas 'agora'. A figura da regra dos 9 e o impresso de jelcos são imagens sem achado e ficaram fora. | PEP marcado 'DEFINITIVO – RETIFICAÇÃO EM 21/09/24'. A segunda página das instruções, o impresso de exame físico e a figura da regra dos 9 são imagens sem texto extraível; o peso da paciente não aparece no texto, e o volume pontuado (1.800 mL + 1.800 mL) é o do gabarito. Dados sob demanda: a síntese descreve queimaduras extensas em membros inferiores e tronco anterior, com suspeita de queimadura de vias aéreas por inalação de fumaça; a paciente informa que estava no trabalho (indústria farmacêutica) durante incêndio por curto-circuito, sem explosões; não sabe quanto tempo ficou até o resgate (acredita que demorou); a sala estava repleta de fumaça; sente muita dor, dificuldade para respirar ('ar pesado') e muita sede. Impresso sinais vitais: PA 90x60, FC 112, FR 40, T 36,1 °C, SatO2 82%. O chefe de estação pergunta se há necessidade de transferência para centro terciário. | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas. Padrões deixaram de atravessar vírgula (\"Analgesia EV, dieta VO\" era acusada)."
   }
 }

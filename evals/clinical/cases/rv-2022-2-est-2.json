@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "rv-2022-2-est-2",
   "title": "Sintomas urinários com febre em homem de 59 anos na emergência",
   "tags": [
@@ -15,29 +15,50 @@
     "status": "official_exam_key"
   },
   "input": {
-    "caseText": "Emergência (unidade de atenção secundária com USG, laboratório, banco de sangue, internação e centro cirúrgico). Masc, 59a, abatido, sintomas urinários associados a febre. Trouxe exames realizados há 6 meses."
+    "caseText": "Emergência de unidade de atenção secundária (RX, US, laboratório, banco de sangue, internação, centro cirúrgico). Masc, 59a, abatido, com sintomas urinários e febre. Traz exames de 6 meses atrás: PSA total 4,1 ng/mL (VR 0–4); US: próstata aumentada, 61 g, bexiga levemente espessada. EF: REG, hidratado, normocorado, eupneico, febril. PA 130x90, FC 100, FR 20, T 38,5 °C. Abdome: dor à palpação profunda em hipogástrio, sem dor à descompressão, sem distensão, RHA normais; punho-percussão negativa bilateral. AR e ACV sem alterações. Toque retal: próstata aumentada (~70 g), fibroelástica porém um pouco amolecida, limites precisos, dor moderada à palpação. Lab: Hb 13,2, Ht 39,5%, leucócitos 12.110, plaquetas 440.000; PCR 13 mg/L; PSA total 38,51 ng/mL. Urina tipo 1: leucócitos incontáveis, hemácias 100/campo, nitrito negativo, proteína indetectável, glicose negativa. US de próstata: 68 g, bexiga levemente espessada."
   },
   "expected": {
     "syndrome": "sintomas urinários com febre por prostatite aguda e/ou hiperplasia prostática benigna",
-    "cannotMiss": [
-      "prostatite aguda",
-      "hiperplasia prostática benigna"
+    "diagnoses": [
+      {
+        "text": "prostatite aguda",
+        "tier": "important"
+      },
+      {
+        "text": "hiperplasia prostática benigna (próstata aumentada ao US)",
+        "tier": "important"
+      },
+      {
+        "text": "exames: leucocitose, PCR aumentada, hematopiúria e PSA aumentado",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
-      "características da dor: início, localização, progressão, fatores de melhora/piora",
-      "sintomas urinários (frequência, urgência/incontinência, hematúria, noctúria, jato fraco/interrompido, resíduo, odor, hesitação, disúria, gotejamento terminal)",
-      "histórico pessoal e familiar de doenças",
-      "exame físico e toque retal",
-      "hemograma, PCR, PSA, exame de urina e urocultura",
-      "ultrassonografia do aparelho urinário e/ou da próstata"
+    "actions": [
+      {
+        "text": "antibiótico: ciprofloxacino ou levofloxacino",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "urocultura",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "monitorar o PSA após o tratamento inicial (seguimento ambulatorial)",
+        "tier": "important",
+        "timing": "any"
+      }
     ],
-    "requiredActions": [
-      "antibioticoterapia com ciprofloxacino ou levofloxacino",
-      "orientar monitoramento do PSA após o tratamento inicial"
-    ],
+    "questions": [],
     "forbiddenDefinitiveActions": [],
-    "rationale": "Gabarito oficial do INEP (Revalida 2022/2, Estação 2): o PEP pontua anamnese urinária dirigida, toque retal, exames laboratoriais com PSA e urina, USG, o diagnóstico de prostatite aguda e/ou HPB, fluoroquinolona e monitoramento do PSA; o item sobre o comportamento do PSA foi anulado.",
-    "expectedPath": "clarify"
+    "outOfScope": [
+      "identificar-se e cumprimentar o paciente (item 1)",
+      "anamnese da dor, dos sintomas urinários e dos antecedentes (itens 2 a 4): o PEP não publica o roteiro",
+      "explicar o comportamento do PSA na HPB, no câncer e na prostatite (item 12, anulado)",
+      "realizar as tarefas na sequência indicada (item 14)"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2022/2, Estação 2): o PEP pontua anamnese urinária dirigida, toque retal, exames laboratoriais com PSA e urina, USG, o diagnóstico de prostatite aguda e/ou HPB, fluoroquinolona e monitoramento do PSA; o item sobre o comportamento do PSA foi anulado. No v2, o caso completo traz exame, toque retal, laboratório e US; a urocultura, que o PEP cobra pedir e não tem resultado, virou conduta."
   },
   "sources": [
     {
@@ -75,6 +96,6 @@
     "item": "Estação 2",
     "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2022_2_.pdf",
     "originalCaseText": "ESTAÇÃO 2 – Área: Cirurgia Geral. INSTRUÇÕES PARA O(A) PARTICIPANTE. CENÁRIO DE ATUAÇÃO. Local de atuação: Unidade de Atenção Secundária: Ambulatorial e Hospitalar. A unidade possui a seguinte infraestrutura: • setor de radiologia convencional e ultrassonografia; • laboratório de análises clínicas e banco de sangue; • leitos de internação e centro cirúrgico. DESCRIÇÃO DO CASO • Homem de 59 anos comparece à emergência abatido com quadro de sintomas urinários associados a febre. Informa que trouxe exames realizados há seis meses. ATENÇÃO: O PACIENTE SIMULADO NÃO DEVERÁ SER TOCADO DURANTE O ATENDIMENTO. Nos próximos 10 minutos, você deverá executar as tarefas a seguir: 1. realizar anamnese do paciente. 2. solicitar e interpretar os achados dos exames laboratoriais relacionados à hipótese diagnóstica (no máximo QUATRO exames). 3. solicitar e interpretar exame de imagem mais pertinente à hipótese diagnóstica. 4. orientar o paciente simulado sobre a conduta terapêutica indicada na fase inicial e no seguimento ambulatorial. ATENÇÃO: VOCÊ DEVERÁ, OBRIGATORIAMENTE, REALIZAR AS TAREFAS NA SEQUÊNCIA DESCRITA ACIMA.",
-    "notes": "Item 12 do PEP (comportamento do PSA na HPB, no câncer e na prostatite) foi ANULADO na retificação de 24/03/2023 e ficou fora das expectativas. A mesma estação serviu como reaplicação da prova de HC 2022/1 (o PEP publicado para a reaplicação não traz a anulação); o caso foi gerado só aqui. O PEP desta edição não publica a síntese do ator. Dados sob demanda: exames trazidos (6 meses antes) — PSA total 4,1 ng/mL, USG próstata 61 g com bexiga levemente espessada; EF PA 130x90, FC 100, FR 20, T 38,5 °C, REG, febril, dor à palpação profunda em hipogástrio sem dor à descompressão, punho-percussão negativa bilateral, AR e ACV normais; toque retal: próstata aumentada (~70 g), fibroelástica um pouco amolecida, limites precisos, dor moderada à palpação; labs: Hb 13,2, leucócitos 12.110, plaquetas 440.000, PCR 13 mg/L, PSA total 38,51 ng/mL, urina tipo 1 com leucócitos incontáveis, hemácias 100/campo, nitrito negativo; USG: próstata 68 g, bexiga levemente espessada."
+    "notes": "Gabarito v2 (11/10/2026): caso completo com os impressos 1 a 5, que os itens 7, 9 e 10 mandam interpretar; a urocultura, pedida no item 6 e sem resultado, virou conduta. Sem afunilamento (o PEP não publica o roteiro); caso não crítico, sem itens críticos. | Item 12 do PEP (comportamento do PSA na HPB, no câncer e na prostatite) foi ANULADO na retificação de 24/03/2023 e ficou fora das expectativas. A mesma estação serviu como reaplicação da prova de HC 2022/1 (o PEP publicado para a reaplicação não traz a anulação); o caso foi gerado só aqui. O PEP desta edição não publica a síntese do ator. Dados sob demanda: exames trazidos (6 meses antes) — PSA total 4,1 ng/mL, USG próstata 61 g com bexiga levemente espessada; EF PA 130x90, FC 100, FR 20, T 38,5 °C, REG, febril, dor à palpação profunda em hipogástrio sem dor à descompressão, punho-percussão negativa bilateral, AR e ACV normais; toque retal: próstata aumentada (~70 g), fibroelástica um pouco amolecida, limites precisos, dor moderada à palpação; labs: Hb 13,2, leucócitos 12.110, plaquetas 440.000, PCR 13 mg/L, PSA total 38,51 ng/mL, urina tipo 1 com leucócitos incontáveis, hemácias 100/campo, nitrito negativo; USG: próstata 68 g, bexiga levemente espessada."
   }
 }

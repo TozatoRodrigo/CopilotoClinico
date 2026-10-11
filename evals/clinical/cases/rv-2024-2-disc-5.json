@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "rv-2024-2-disc-5",
   "title": "Pré-escolar com febre, cefaleia, vômitos em jato, sonolência e petéquias atendido na UBS",
   "tags": [
@@ -15,32 +15,73 @@
     "status": "official_exam_key"
   },
   "input": {
-    "caseText": "UBS a 3h do serviço de urgência; clima seco e frio; área sem risco de malária. Pré-escolar 3a, previamente hígido, febre, cefaleia e vômitos em jato há 1 dia. Nega diarreia, sintomas respiratórios, de ouvido ou de garganta. REG, desidratado 2+/4+, sonolento e irritado, fácies de dor, choroso. Otoscopia, oroscopia, AC e AR sem alterações. Abdome indolor. Petéquias em tronco e extremidades. FR 38, FC 130, Tax 38,5 °C. Mãe tem outros 2 filhos (6 meses e 5 anos); os 3 frequentam a creche local."
+    "caseText": "UBS a 3 h do serviço de urgência; clima seco e frio; área sem risco de malária. Masc, 3a, previamente hígido, trazido pela mãe. Febre, cefaleia e vômitos em jato há 1 d. Nega diarreia, sintomas respiratórios, de ouvido ou de garganta. EF: REG, desidratado 2+/4+, sonolento e irritado, fácies de dor, choroso. FR 38, FC 130, Tax 38,5 °C. Otoscopia, oroscopia, ausculta cardíaca e respiratória sem alterações. Abdome indolor. Petéquias em tronco e extremidades. A mãe tem outros 2 filhos (6 meses e 5 anos); os 3 frequentam a creche local."
   },
   "expected": {
     "syndrome": "febre com petéquias, cefaleia, vômitos em jato e sonolência em criança — doença meningocócica/meningite bacteriana",
-    "cannotMiss": [
-      "doença meningocócica (meningite meningocócica/meningococcemia) ou meningite bacteriana"
+    "diagnoses": [
+      {
+        "text": "doença meningocócica (meningite meningocócica e/ou meningococcemia) ou meningite bacteriana",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [
-      "pesquisa de sinais de irritação meníngea: rigidez de nuca, Kernig e Brudzinski"
+    "actions": [
+      {
+        "text": "primeira dose de antibiótico ainda na UBS (ex.: ceftriaxona), sem esperar a transferência",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "transferência imediata e segura (regulada) para hospital de referência/internação",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "suporte: acesso venoso e reposição hídrica, observação clínica, antiemético e/ou analgésico",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "antitérmico/controle da febre",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "corticoide sistêmico (dexametasona) na suspeita de meningite bacteriana",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "prevenir hipoglicemia (glicemia capilar e aporte de glicose)",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "isolamento respiratório por gotículas e máscara cirúrgica para os profissionais",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "notificação compulsória imediata do caso suspeito",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "quimioprofilaxia dos contatos íntimos/comunicantes (rifampicina, ceftriaxona ou ciprofloxacino)",
+        "tier": "important",
+        "timing": "any"
+      }
     ],
-    "requiredActions": [
-      "iniciar a primeira dose de antibiótico ainda na UBS",
-      "transferência imediata e segura para serviço hospitalar de referência/internação",
-      "medidas de suporte: reposição hídrica, observação clínica, antiemético e/ou analgésico",
-      "antitérmico/controle da febre",
-      "corticoide sistêmico",
-      "prevenir hipoglicemia",
-      "notificação compulsória imediata ao SINAN",
-      "quimioprofilaxia dos contatos/comunicantes (rifampicina, ceftriaxona ou ciprofloxacino)",
-      "isolamento respiratório para gotículas da criança e máscara cirúrgica para os profissionais",
-      "comunicar a creche (vigilância de novos casos e higiene do ambiente), busca ativa de casos e monitoramento de surto",
-      "imunização para meningite (meningo C/ACWY) e atualização vacinal de contactantes não vacinados"
+    "questions": [
+      "sinais de irritação meníngea: rigidez de nuca e sinais de Kernig e Brudzinski",
+      "PA, tempo de enchimento capilar e perfusão periférica (choque na meningococcemia)"
     ],
     "forbiddenDefinitiveActions": [],
-    "rationale": "Gabarito oficial do INEP (Revalida 2024/2, padrão de respostas definitivo da questão 5): pesquisar sinais meníngeos, hipótese de doença meningocócica/meningite bacteriana, primeira dose de antibiótico e corticoide na UBS com suporte e transferência imediata, mais medidas de vigilância (notificação, quimioprofilaxia, isolamento, creche, vacinação).",
-    "expectedPath": "recommend"
+    "outOfScope": [
+      "imunização para meningite (meningo C/ACWY) e atualização vacinal dos contactantes não vacinados (item d, medidas 1 e 6)",
+      "comunicar a creche e orientar a higiene do ambiente, busca ativa de casos e monitoramento de surto (item d, medidas 5, 7 e 8)"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2024/2, padrão de respostas definitivo da questão 5): pesquisar sinais meníngeos, hipótese de doença meningocócica/meningite bacteriana, primeira dose de antibiótico e corticoide na UBS com suporte e transferência imediata, mais medidas de vigilância (notificação, quimioprofilaxia, isolamento, creche, vacinação). No v2, antibiótico e transferência imediatos são os itens críticos; vacinação e ações da vigilância junto à creche ficaram fora do escopo."
   },
   "sources": [
     {
@@ -78,6 +119,6 @@
     "item": "Discursiva caso 5",
     "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2024_2_PEP_discursiva_versao_final.pdf",
     "originalCaseText": "Um pré-escolar de 3 anos, previamente hígido, é trazido pela mãe à unidade básica de saúde (UBS), com febre, cefaleia e vômitos em jato há 1 dia. A mãe nega que ele tenha apresentado diarreia, sintomas respiratórios, problemas no ouvido ou na garganta. Ao exame físico, apresenta-se em regular estado geral, desidratado (2+/4+), sonolento e irritado, com fácies de dor e choroso. A otoscopia e a oroscopia apresentam-se sem alterações, assim como a ausculta cardíaca e a respiratória. Abdome indolor à palpação. Nota-se presença de petéquias em tronco e em extremidades. A frequência respiratória da criança é de 38 incursões respiratórias por minuto, a frequência cardíaca de 130 batimentos por minuto e a temperatura axilar de 38,5 °C. A mãe relata que possui outros dois filhos, um de 6 meses e outro de 5 anos, e que os três frequentam a creche local. Atualmente, a família reside em um lugar onde o clima está seco e frio, distante 3 horas do serviço de urgência e considerado sem risco para contração de malária. A partir desse caso clínico, faça o que se pede nos itens a seguir. a) Cite o achado adicional do exame físico que precisa ser investigado na definição diagnóstica. (valor: 1,0 ponto) b) Considerando os critérios clínico-epidemiológicos, qual é a principal hipótese diagnóstica? (valor: 2,0 pontos) c) Cite seis condutas a serem instituídas imediatamente na UBS para tratar esse paciente. Serão consideradas para fins de correção apenas as seis primeiras condutas indicadas. (valor: 4,0 pontos) d) Cite cinco medidas de vigilância em saúde recomendadas para esse caso. Serão consideradas para fins de correção apenas as cinco primeiras medidas indicadas. (valor: 3,0 pontos)",
-    "notes": "O padrão considera incorreta a resposta 'meningite viral' e apenas parcialmente correta 'meningite' sem etiologia. O item d pontua 5 entre 8 medidas de vigilância; as expectativas agrupam as 8. O cabeçalho do PDF diz '2023 SEGUNDA EDIÇÃO' (resto de modelo); a capa é da edição 2024/2."
+    "notes": "Gabarito v2 (11/10/2026): caso completo conferido contra o enunciado (nenhum dado ficou de fora); antibiótico na UBS e transferência imediata são críticos. Os sinais meníngeos (item a) viraram pergunta, e entrou a pergunta sobre PA e perfusão, ausentes do enunciado e decisivas para o volume; o corticoide ficou importante e sem timing obrigatório (discutível na meningococcemia sem meningite; não conferido em fonte). Vacinação e ações da vigilância na creche ficaram fora do escopo; notificação e quimioprofilaxia ficaram como condutas. | O padrão considera incorreta a resposta 'meningite viral' e apenas parcialmente correta 'meningite' sem etiologia. O item d pontua 5 entre 8 medidas de vigilância; as expectativas agrupam as 8. O cabeçalho do PDF diz '2023 SEGUNDA EDIÇÃO' (resto de modelo); a capa é da edição 2024/2."
   }
 }

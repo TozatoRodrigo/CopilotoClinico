@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb004-rebaixamento-sem-glicemia",
   "title": "Idoso diabético sonolento e confuso, glicemia não medida",
   "tags": [
@@ -17,18 +17,34 @@
   },
   "expected": {
     "syndrome": "rebaixamento do nível de consciência / delirium a esclarecer",
-    "cannotMiss": [
-      "hipoglicemia",
-      "estado hiperosmolar hiperglicêmico",
-      "infecção ou sepse mesmo sem febre (ITU, pneumonia)",
-      "hiponatremia ou AVC de circulação posterior"
+    "diagnoses": [
+      {
+        "text": "hipoglicemia",
+        "tier": "critical"
+      },
+      {
+        "text": "estado hiperosmolar hiperglicêmico",
+        "tier": "critical"
+      },
+      {
+        "text": "infecção ou sepse mesmo sem febre (ITU, pneumonia)",
+        "tier": "important"
+      },
+      {
+        "text": "hiponatremia ou AVC de circulação posterior",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
+    "actions": [
+      {
+        "text": "glicemia capilar imediata; se < 70 mg/dL, glicose IV (com tiamina se houver risco nutricional ou etilismo)",
+        "tier": "critical",
+        "timing": "now"
+      }
+    ],
+    "questions": [
       "valor da glicemia capilar",
       "lista de medicações (insulina ou sulfonilureia, sedativos, opioides)"
-    ],
-    "requiredActions": [
-      "glicemia capilar imediata; se < 70 mg/dL, glicose IV (com tiamina se houver risco nutricional ou etilismo)"
     ],
     "forbiddenDefinitiveActions": [
       {
@@ -76,8 +92,7 @@
         ]
       }
     ],
-    "rationale": "KB-004: \"a glicemia capilar já foi medida? Se não foi, qualquer hipótese construída antes desse dado é prematura\". Medir é ação de segundos, não só pergunta. AHA/ASA 2019: a glicemia é a única medida obrigatória antes da alteplase. Depois das causas glicêmicas, infecção (mesmo afebril), hiponatremia e AVC de circulação posterior são as causas mais comuns de delirium no idoso institucionalizado.",
-    "expectedPath": "clarify"
+    "rationale": "KB-004: \"a glicemia capilar já foi medida? Se não foi, qualquer hipótese construída antes desse dado é prematura\". Medir é ação de segundos, não só pergunta. AHA/ASA 2019: a glicemia é a única medida obrigatória antes da alteplase. Depois das causas glicêmicas, infecção (mesmo afebril), hiponatremia e AVC de circulação posterior são as causas mais comuns de delirium no idoso institucionalizado."
   },
   "sources": [
     {
@@ -104,7 +119,7 @@
   ],
   "provenance": {
     "originalCaseText": "Masc, 80a, trazido do asilo por sonolência e confusão desde a manhã. Diabético, medicações não informadas. PA 140x80, FC 96, SpO2 95%, T 36,8. Sem déficit motor evidente.",
-    "notes": "Auditoria 11/10/2026: texto deixou de anunciar \"medicações não informadas\"; caso crítico ganhou conduta obrigatória (glicemia capilar já, glicose se < 70); infecção, hiponatremia e AVC posterior entram como hipóteses; exceções da insulina presas à glicemia (as de potássio eram cópia da CAD); novas proibidas: trombólise e sedação antes da glicemia."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. Infecção e hiponatremia/AVC posterior rebaixados a importante; as causas glicêmicas continuam críticas. | Auditoria 11/10/2026: texto deixou de anunciar \"medicações não informadas\"; caso crítico ganhou conduta obrigatória (glicemia capilar já, glicose se < 70); infecção, hiponatremia e AVC posterior entram como hipóteses; exceções da insulina presas à glicemia (as de potássio eram cópia da CAD); novas proibidas: trombólise e sedação antes da glicemia."
   },
   "probes": {
     "mustFlag": [

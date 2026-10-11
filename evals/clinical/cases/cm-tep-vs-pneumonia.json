@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "cm-tep-vs-pneumonia",
   "title": "Dispneia súbita, dor pleurítica e hipoxemia no pós-operatório ortopédico",
   "tags": [
@@ -22,18 +22,33 @@
   },
   "expected": {
     "syndrome": "tromboembolismo pulmonar (alta probabilidade clínica) hemodinamicamente estável",
-    "cannotMiss": [
-      "tromboembolismo pulmonar"
+    "diagnoses": [
+      {
+        "text": "tromboembolismo pulmonar",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [
+    "actions": [
+      {
+        "text": "angio-TC de artérias pulmonares",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "anticoagulação empírica (HBPM preferida) enquanto aguarda a confirmação, se sem contraindicação",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "oxigênio para SpO2 ≥ 90%",
+        "tier": "important",
+        "timing": "now"
+      }
+    ],
+    "questions": [
       "estratificação de risco: troponina, BNP e avaliação do VD (eco ou razão VD/VE na angio-TC)",
       "teste de gravidez",
       "função renal e peso (dose do anticoagulante)"
-    ],
-    "requiredActions": [
-      "angio-TC de artérias pulmonares",
-      "anticoagulação empírica (HBPM preferida) enquanto aguarda a confirmação, se sem contraindicação",
-      "oxigênio para SpO2 ≥ 90%"
     ],
     "forbiddenDefinitiveActions": [
       {
@@ -59,8 +74,7 @@
         "patterns": []
       }
     ],
-    "rationale": "Wells alto (sinais de TVP, FC > 100, cirurgia recente, TEP como diagnóstico mais provável): angio-TC e anticoagular antes da imagem se não houver contraindicação (ESC 2019), HBPM preferida à HNF (AHA/ACC 2026). FC ≥ 110 e SpO2 < 90% dão sPESI ≥ 1 (categoria C da AHA/ACC 2026): trombólise sistêmica é dano; só com deterioração (resgate).",
-    "expectedPath": "recommend"
+    "rationale": "Wells alto (sinais de TVP, FC > 100, cirurgia recente, TEP como diagnóstico mais provável): angio-TC e anticoagular antes da imagem se não houver contraindicação (ESC 2019), HBPM preferida à HNF (AHA/ACC 2026). FC ≥ 110 e SpO2 < 90% dão sPESI ≥ 1 (categoria C da AHA/ACC 2026): trombólise sistêmica é dano; só com deterioração (resgate)."
   },
   "sources": [
     {
@@ -87,7 +101,7 @@
   ],
   "provenance": {
     "originalCaseText": "Fem, 34a, 10 dias de pós-op de fratura de tíbia, usa ACO. Dispneia súbita há 6h, dor torácica que piora na inspiração, tosse seca, T 37,4. FC 118, FR 26, SpO2 89%, PA 118x76. Panturrilha E edemaciada. RX tórax sem consolidação.",
-    "notes": "Auditoria 11/10/2026: \"ACO\" virou \"anticoncepcional oral combinado\" (no Brasil a sigla também significa anticoagulante oral e mudaria o caso); pedidos de estratificação de risco, gravidez, função renal e peso; trombólise de resgate deixou de ser acusada e o \"não\" solto deixou de anular a checagem."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: \"ACO\" virou \"anticoncepcional oral combinado\" (no Brasil a sigla também significa anticoagulante oral e mudaria o caso); pedidos de estratificação de risco, gravidez, função renal e peso; trombólise de resgate deixou de ser acusada e o \"não\" solto deixou de anular a checagem."
   },
   "probes": {
     "mustFlag": [

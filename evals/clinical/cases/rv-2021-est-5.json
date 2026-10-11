@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "rv-2021-est-5",
   "title": "Paciente passando mal na sala de observação da UBS, com hospital com hemodinâmica a 30 minutos",
   "tags": [
@@ -18,43 +18,47 @@
     "reason": "Gabarito anterior à diretriz ACC/AHA de SCA de 2025 (antitrombóticos e estratégia de reperfusão)."
   },
   "input": {
-    "caseText": "UBS, sala de medicação/observação; único médico no momento. Chamado para atender pessoa que está passando mal. Disponíveis: DEA, ECG, esfigmomanômetro, termômetro, glicosímetro, carrinho de parada com medicações padronizadas do SUS. Hospital Regional de grande porte com cardioneurointervenção a 30 min de ambulância; SAMU 192."
+    "caseText": "UBS, sala de medicação/observação; único médico no momento. Disponíveis: DEA, ECG, esfigmomanômetro, termômetro, glicosímetro e carrinho de parada com as medicações padronizadas do SUS. Hospital Regional de grande porte com cardioneurointervenção a 30 min de ambulância; SAMU 192. Paciente levado à sala de observação por estar passando mal, com dor torácica. EF: 90 kg, IMC 31. REG, fácies de dor, leve dispneia; corado, hidratado, acianótico, afebril. RCR 2T, BNF, sem sopros; sem turgência jugular. MV fisiológico, sem RA. Abdome semigloboso, flácido, indolor, RHA+, sem visceromegalias; refluxo hepatojugular negativo. TEC 2 s; pulsos tibiais e radiais cheios e simétricos; cacifo +/4+. PA 150x89 nos dois MMSS, FR 24, FC 99, Tax 36,5 °C, SpO2 95% em AA, glicemia capilar 130 mg/dL (pós-prandial). ECG de 12 derivações: supradesnivelamento do ST de V1 a V4 e infradesnivelamento do ST em D2, D3 e aVF."
   },
   "expected": {
     "syndrome": "síndrome coronariana aguda — IAM com supradesnivelamento de ST de parede anterior (V1–V4) atendido em UBS",
-    "cannotMiss": [
-      "infarto agudo do miocárdio com supradesnivelamento do segmento ST (parede anterior)"
+    "diagnoses": [
+      {
+        "text": "IAM com supradesnivelamento do ST de parede anterior (V1–V4), com imagem em espelho na parede inferior",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [
-      "características anginosas da dor torácica (padrão, fatores de piora e melhora, localização, duração)",
-      "uso de tabaco, álcool e outras drogas",
-      "hábitos alimentares e atividade física",
-      "doenças prévias (HAS, dislipidemia, AVC/AIT, doença arterial periférica, diabetes, tabagismo) e estado vacinal",
-      "história familiar de doença coronariana precoce",
-      "exame físico e sinais vitais",
-      "ECG de 12 derivações em repouso"
+    "actions": [
+      {
+        "text": "AAS por via oral (dose de ataque, mastigado)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "remoção imediata por ambulância com DEA e equipe treinada (SAMU) para o hospital de referência, para reperfusão (angioplastia primária ou trombólise), com contato prévio com o hospital [o médico pode acompanhar a remoção]",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "nitrato sublingual (dinitrato de isossorbida) para a dor, se não houver contraindicação",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "morfina se a dor for refratária ao nitrato",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "monitorização contínua e acesso venoso periférico",
+        "tier": "important",
+        "timing": "now"
+      }
     ],
-    "requiredActions": [
-      "AAS",
-      "dinitrato de isossorbida",
-      "morfina se dor refratária ao nitrato",
-      "monitorização contínua",
-      "acesso venoso periférico",
-      "remoção por ambulância com DEA e equipe treinada para hospital com angioplastia ou trombólise, com contato prévio com o hospital de referência"
+    "questions": [
+      "horário de início da dor (define a janela e a estratégia de reperfusão)"
     ],
     "forbiddenDefinitiveActions": [
-      {
-        "id": "oxigenio-sem-hipoxemia",
-        "description": "Suplementar oxigênio com SpO2 em ar ambiente > 92% (PEP item 11: 'não indica suplementação de oxigênio')",
-        "patterns": [
-          "\\b(oxigenio|o2)\\b[^.]{0,30}\\b(suplementar|suplementacao|cateter|mascara|l/min)\\b",
-          "\\b(cateter nasal|mascara)\\b[^.]{0,30}\\b(oxigenio|o2)\\b"
-        ],
-        "exceptWhen": [
-          "(apenas|somente)\\s+se",
-          "se\\s+(spo2|sat\\w*)"
-        ]
-      },
       {
         "id": "transporte-por-meios-proprios",
         "description": "Liberar o paciente para ir ao hospital por meios próprios em vez de remoção segura em ambulância (PEP item 13: transporte inseguro é inadequado)",
@@ -66,8 +70,14 @@
         ]
       }
     ],
-    "rationale": "Gabarito oficial do INEP (Revalida 2021, Estação 5): o PEP pontua caracterizar a dor anginosa e fatores de risco, examinar e fazer ECG com leitura de IAM com supra de ST anterior, tratar com AAS, nitrato e morfina se refratária, sem O2 (SpO2 > 92%), monitorizar, puncionar acesso e remover em ambulância segura para centro com reperfusão.",
-    "expectedPath": "clarify"
+    "outOfScope": [
+      "cumprimentar, identificar-se, manter empatia e linguagem acessível, responder às perguntas do paciente (itens 1–3)",
+      "anamnese: características anginosas da dor, tabaco/álcool/drogas, hábitos, doenças prévias, vacinação e história familiar (itens 4–8)",
+      "indicar exame físico/sinais vitais e ECG (itens 9–10): achados já no caseText; a leitura do ECG está no diagnóstico",
+      "acalmar o paciente e explicar os próximos passos (item 14)",
+      "antes conduta proibida: Suplementar oxigênio com SpO2 em ar ambiente > 92% (PEP item 11: 'não indica suplementação de oxigênio') — saiu porque oxigênio sem hipoxemia é desnecessário, não perigoso a ponto de reprovar"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2021, Estação 5): o PEP pontua caracterizar a dor anginosa e fatores de risco, examinar e fazer ECG com leitura de IAM com supra de ST anterior, tratar com AAS, nitrato e morfina se refratária, sem O2 (SpO2 > 92%), monitorizar, puncionar acesso e remover em ambulância segura para centro com reperfusão. v2: AAS e remoção imediata para reperfusão são as condutas críticas para agora; a proibição de O2 com SpO2 95% e de transporte por meios próprios continua."
   },
   "sources": [
     {
@@ -105,12 +115,10 @@
     "item": "Estação 5",
     "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2021_publicacao.pdf",
     "originalCaseText": "ESTAÇÃO 5 – Área: Medicina de Família e Comunidade – Saúde Coletiva. INSTRUÇÕES PARA O(A) PARTICIPANTE. CENÁRIO DE ATUAÇÃO: Unidade Básica de Saúde (UBS) – Sala de medicação/observação. Você é o(a) único(a) médico(a) na UBS neste momento e é chamado(a) para atender uma pessoa que está passando mal e foi colocada na sala de medicação/observação. Você irá atender sozinho(a) este paciente. Considere que tudo o que você precisa para realizar este atendimento está disponível na sala de medicação/observação, incluindo-se: DEA; aparelho de ECG; esfigmomanômetro, termômetro, aparelho de aferição de glicemia; carrinho de parada: considere incluídas todas as medicações e dispositivos padronizados para atendimento de casos de urgência/emergência em Unidades de Saúde do SUS. Na cidade em que você atua, há um Hospital Regional, de grande porte, com serviços de cardioneurointervenção cirúrgica, distante a 30 minutos de ambulância da UBS. O Serviço Médico de Emergência desta cidade atende pelo número 192 (SAMU). Nos próximos 10 minutos, deverão ser realizadas as seguintes tarefas: realizar o atendimento do paciente; investigar a etiologia provável da condição clínica atual; indicar e interpretar o(s) exame(s) complementar(es), se houver; descrever a conduta necessária, indicações e contraindicações, e as orientações ao paciente; avaliar a classificação de gravidade do caso, eventual necessidade de remoção, medidas para realização de transporte seguro (se houver).",
-    "notes": "possivelmente desatualizado: a diretriz ACC/AHA/ACEP/NAEMSP/SCAI de síndromes coronarianas agudas (2025) é posterior à prova; revisar terapia antitrombótica, analgesia e estratégia/tempos de reperfusão em relação ao gabarito | A queixa (dor torácica de padrão anginoso) não consta das instruções; é inferida do PEP (item 4) e fica sob demanda, por isso não está no caseText (a síntese do ator não é publicada no PEP de 2021). Dados sob demanda: Impresso 1 — peso 90 kg, IMC 31; REG, fácies de dor e leve dispneia; corado, hidratado, acianótico, afebril; RCR 2T sem sopros, sem turgência jugular; MV fisiológico; abdome normal, refluxo hepatojugular negativo; TEC 2 s, pulsos presentes, cheios e simétricos, cacifo +/4+; PA 150x89 nos dois MMSS, FR 24, FC 99, Tax 36,5 °C, SpO2 95% em AA, glicemia 130 mg/dL pós-prandial. Impresso 2 — ECG de 12 derivações (imagem); o PEP descreve supradesnivelamento de ST em V1 a V4 (parede anterior) com imagem em espelho em D2, D3 e aVF. | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas."
+    "notes": "Gabarito v2 (11/10/2026): conduta proibida só para o que mata ou sequela — oxigenio-sem-hipoxemia foi para fora do escopo. caseText com o impresso de exame físico e o ECG descrito no item 10 do PEP (o traçado é imagem); a queixa de dor torácica vem dos itens 4 e 11 do PEP. Sem funnel: o PEP de 2021 não publica o roteiro do ator, e as características e o início da dor não são conhecidos (o horário de início ficou em questions). AAS e remoção imediata para reperfusão viraram condutas críticas para agora. Mantido o excludeFromGate: a diretriz ACC/AHA 2025 de SCA não pôde ser aberta para verificação (HTTP 403 em ahajournals.org e jacc.org), por isso os antitrombóticos opcionais do PEP (clopidogrel, heparina) não viraram item. | possivelmente desatualizado: a diretriz ACC/AHA/ACEP/NAEMSP/SCAI de síndromes coronarianas agudas (2025) é posterior à prova; revisar terapia antitrombótica, analgesia e estratégia/tempos de reperfusão em relação ao gabarito | A queixa (dor torácica de padrão anginoso) não consta das instruções; é inferida do PEP (item 4) e fica sob demanda, por isso não está no caseText (a síntese do ator não é publicada no PEP de 2021). Dados sob demanda: Impresso 1 — peso 90 kg, IMC 31; REG, fácies de dor e leve dispneia; corado, hidratado, acianótico, afebril; RCR 2T sem sopros, sem turgência jugular; MV fisiológico; abdome normal, refluxo hepatojugular negativo; TEC 2 s, pulsos presentes, cheios e simétricos, cacifo +/4+; PA 150x89 nos dois MMSS, FR 24, FC 99, Tax 36,5 °C, SpO2 95% em AA, glicemia 130 mg/dL pós-prandial. Impresso 2 — ECG de 12 derivações (imagem); o PEP descreve supradesnivelamento de ST em V1 a V4 (parede anterior) com imagem em espelho em D2, D3 e aVF. | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas."
   },
   "probes": {
     "mustFlag": [
-      "O2 por cateter nasal 2 L/min",
-      "Oxigênio suplementar sob máscara",
       "Liberar para ir ao hospital por meios próprios, que é mais rápido",
       "Encaminhar ao hospital de táxi"
     ],

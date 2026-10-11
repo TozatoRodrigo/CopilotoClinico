@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "rv-2022-2-est-1",
   "title": "Desmaio há 20 minutos em estudante de 19 anos na UPA",
   "tags": [
@@ -15,26 +15,43 @@
     "status": "official_exam_key"
   },
   "input": {
-    "caseText": "UPA (Rx, ECG e laboratório). Masc, 19a, estudante universitário, episódio de desmaio há ~20 min."
+    "caseText": "UPA (Rx, ECG, laboratório). Masc, 19a, estudante universitário. Desmaio há ~20 min. EF: FC 84, PA 125x65, FR 16, Tax 36,4 °C, SpO2 99% AA, IMC 23. BEG, afebril, acianótico, anictérico, hidratado, alerta e orientado. MV presente bilateral, sem RA; RCR 2T, BNF, sem sopros; abdome flácido, indolor, sem visceromegalias. Neuro: sem alterações focais; marcha, equilíbrio, motricidade, coordenação, força, reflexos, 12 pares cranianos e sensibilidade normais. ECG: ritmo sinusal, FC 64, PR < 120 ms, onda delta presente, QRS 120 ms (com onda delta), eixo −30°."
   },
   "expected": {
     "syndrome": "síncope de origem cardíaca por arritmia (pré-excitação ventricular/Wolff-Parkinson-White)",
-    "cannotMiss": [
-      "síncope de origem cardíaca relacionada a arritmia/pré-excitação ventricular (Wolff-Parkinson-White)"
+    "diagnoses": [
+      {
+        "text": "síncope de origem cardíaca arrítmica por pré-excitação ventricular (Wolff-Parkinson-White)",
+        "tier": "critical"
+      },
+      {
+        "text": "ECG com pré-excitação (PR curto e onda delta), com risco de arritmia",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
-      "manifestações durante e após o episódio: movimentos involuntários, liberação esfincteriana, lesão de língua, trauma craniofacial, padrão de recuperação",
-      "fatores que precedem o episódio: medicamentos e drogas lícitas/ilícitas, alimentação/jejum, atividade física, eventos similares anteriores, doenças prévias e traumas",
-      "exame físico geral e neurológico",
-      "exames laboratoriais: glicemia, sódio, potássio, hemoglobina/hematócrito, cálcio e magnésio",
-      "eletrocardiograma (PR curto e onda delta, com risco de arritmia)"
+    "actions": [
+      {
+        "text": "encaminhamento à cardiologia e/ou Holter",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "exames: glicemia, sódio, potássio, hemoglobina/hematócrito, cálcio e magnésio",
+        "tier": "important",
+        "timing": "any"
+      }
     ],
-    "requiredActions": [
-      "encaminhar para a cardiologia e/ou realização de Holter"
+    "questions": [
+      "circunstâncias do episódio: esforço físico, palpitações ou pródromos, movimentos ou liberação esfincteriana, padrão de recuperação e episódios prévios"
     ],
     "forbiddenDefinitiveActions": [],
-    "rationale": "Gabarito oficial do INEP (Revalida 2022/2, Estação 1): o PEP pontua a caracterização do episódio e de seus precipitantes, exame físico com neurológico, eletrólitos e glicemia, o ECG com pré-excitação, o diagnóstico de síncope cardíaca arrítmica e o encaminhamento à cardiologia e/ou Holter.",
-    "expectedPath": "clarify"
+    "outOfScope": [
+      "identificar-se e perguntar dados de identificação (item 1)",
+      "anamnese das manifestações antes, durante e após a crise (itens 2–3; roteiro do ator não publicado — o essencial ficou como pergunta)",
+      "solicitar o exame físico geral e neurológico antes do impresso (item 4; os achados estão no caso)",
+      "executar as tarefas na sequência pedida (item 9)"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2022/2, Estação 1): o PEP pontua a caracterização do episódio e de seus precipitantes, exame físico com neurológico, eletrólitos e glicemia, o ECG com pré-excitação, o diagnóstico de síncope cardíaca arrítmica e o encaminhamento à cardiologia e/ou Holter. v2: o ECG descrito em texto está no caso; a história do episódio, não publicada, ficou como pergunta."
   },
   "sources": [
     {
@@ -72,6 +89,6 @@
     "item": "Estação 1",
     "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2022_2_.pdf",
     "originalCaseText": "ESTAÇÃO 1 – Área: Clínica Médica. INSTRUÇÕES PARA O(A) PARTICIPANTE. CENÁRIO DE ATUAÇÃO. Local de atuação: Atenção Secundária: Unidade de Pronto-Atendimento (UPA). A unidade possui a seguinte infraestrutura: • aparelhos para exames radiológicos convencionais (Rx); • eletrocardiografia (ECG); • laboratório de análises clínicas. DESCRIÇÃO DO CASO • Homem de 19 anos, estudante universitário, procura atendimento na unidade após episódio de desmaio ocorrido há aproximadamente 20 minutos. ATENÇÃO! O PACIENTE SIMULADO NÃO DEVERÁ SER TOCADO DURANTE O ATENDIMENTO. Nos próximos 10 minutos, você deverá executar as tarefas a seguir: 1. realizar anamnese do paciente. 2. solicitar e interpretar exame físico. 3. solicitar e interpretar exames laboratoriais (no máximo SEIS exames). 4. solicitar e interpretar outros exames complementares pertinentes ao caso (no máximo DOIS exames). Só serão pontuados os DOIS primeiros exames complementares citados. 5. estabelecer e comunicar hipótese diagnóstica inicial. 6. propor tratamento e/ou encaminhamento do paciente para seguimento adequado. ATENÇÃO! VOCÊ DEVERÁ, OBRIGATORIAMENTE, REALIZAR AS TAREFAS NA SEQUÊNCIA DESCRITA ACIMA.",
-    "notes": "A mesma estação (prova e PEP idênticos) serviu como reaplicação da prova de habilidades clínicas 2022/1; o caso foi gerado só aqui. O ECG está descrito em texto no impresso 3. O PEP desta edição não publica a síntese do ator. Dados sob demanda: EF FC 84, PA 125x65, FR 16, Tax 36,4 °C, SatO2 99%, IMC 23; BEG, alerta e orientado; AR, ACV e abdome normais; exame neurológico sem alterações (marcha, equilíbrio, força, reflexos, pares cranianos e sensibilidade normais). Labs: Hb 12,8, Ht 40,6, leucócitos 8.370, plaquetas 234.000, glicemia sem jejum 119, Na 140, K 4,2, Ca 8,5, Mg 1,8. ECG: FC 64, ritmo sinusal, PR < 120 ms, onda delta presente, QRS 120 ms (com onda delta), eixo -30°."
+    "notes": "Gabarito v2 (11/10/2026): caso completo com os impressos de exame físico (geral e neurológico) e o laudo textual do ECG, de cuja interpretação depende o diagnóstico (item 6); os exames laboratoriais, só cobrados como solicitação (item 5), viraram conduta. Sem afunilamento: o roteiro do ator não foi publicado; como a história do episódio não existe em texto oficial, as circunstâncias da síncope ficaram em `questions`. | A mesma estação (prova e PEP idênticos) serviu como reaplicação da prova de habilidades clínicas 2022/1; o caso foi gerado só aqui. O ECG está descrito em texto no impresso 3. O PEP desta edição não publica a síntese do ator. Dados sob demanda: EF FC 84, PA 125x65, FR 16, Tax 36,4 °C, SatO2 99%, IMC 23; BEG, alerta e orientado; AR, ACV e abdome normais; exame neurológico sem alterações (marcha, equilíbrio, força, reflexos, pares cranianos e sensibilidade normais). Labs: Hb 12,8, Ht 40,6, leucócitos 8.370, plaquetas 234.000, glicemia sem jejum 119, Na 140, K 4,2, Ca 8,5, Mg 1,8. ECG: FC 64, ritmo sinusal, PR < 120 ms, onda delta presente, QRS 120 ms (com onda delta), eixo -30°."
   }
 }

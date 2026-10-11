@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb001-it-002",
   "title": "Febre, dor lombar, vômitos e hipotensão com cálculo urinário conhecido",
   "tags": [
@@ -18,16 +18,34 @@
   },
   "expected": {
     "syndrome": "pielonefrite obstrutiva com sepse / choque séptico (urosepse)",
-    "cannotMiss": [
-      "choque séptico de foco urinário",
-      "obstrução urinária infectada (necessidade de desobstrução)"
+    "diagnoses": [
+      {
+        "text": "choque séptico de foco urinário",
+        "tier": "critical"
+      },
+      {
+        "text": "obstrução urinária infectada (necessidade de desobstrução)",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [],
-    "requiredActions": [
-      "antibiótico IV de amplo espectro na primeira hora (culturas sem atrasá-lo)",
-      "ressuscitação volêmica com cristaloide",
-      "imagem de urgência e desobstrução urológica (cateter duplo J ou nefrostomia)"
+    "actions": [
+      {
+        "text": "antibiótico IV de amplo espectro na primeira hora (culturas sem atrasá-lo)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "ressuscitação volêmica com cristaloide",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "imagem de urgência e desobstrução urológica (cateter duplo J ou nefrostomia)",
+        "tier": "critical",
+        "timing": "any"
+      }
     ],
+    "questions": [],
     "forbiddenDefinitiveActions": [
       {
         "id": "tratamento-definitivo-do-calculo-na-sepse",
@@ -40,8 +58,7 @@
         "patterns": []
       }
     ],
-    "rationale": "EAU e AUA: descompressão urgente do rim obstruído infectado (duplo J ou nefrostomia, equivalentes) com antibiótico precoce; tratamento definitivo do cálculo só depois do controle da infecção. SSC 2021: antibiótico em até 1 h e cristaloide na hipoperfusão. A escolha do antibiótico segue o antibiograma local (IDSA 2025) — o gabarito não fixa a droga.",
-    "expectedPath": "recommend"
+    "rationale": "EAU e AUA: descompressão urgente do rim obstruído infectado (duplo J ou nefrostomia, equivalentes) com antibiótico precoce; tratamento definitivo do cálculo só depois do controle da infecção. SSC 2021: antibiótico em até 1 h e cristaloide na hipoperfusão. A escolha do antibiótico segue o antibiograma local (IDSA 2025) — o gabarito não fixa a droga."
   },
   "sources": [
     {
@@ -74,6 +91,6 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: caso correto. Acrescentadas como condutas proibidas (só para o juiz) o tratamento definitivo do cálculo na fase séptica e a alta com antibiótico oral."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: caso correto. Acrescentadas como condutas proibidas (só para o juiz) o tratamento definitivo do cálculo na fase séptica e a alta com antibiótico oral."
   }
 }

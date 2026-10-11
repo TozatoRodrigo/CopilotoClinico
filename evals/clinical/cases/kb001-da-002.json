@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb001-da-002",
   "title": "Dor abdominal intensa com defesa involuntária e hipotensão",
   "tags": [
@@ -18,17 +18,35 @@
   },
   "expected": {
     "syndrome": "abdome agudo com instabilidade hemodinâmica",
-    "cannotMiss": [
-      "perfuração de víscera / peritonite",
-      "hemorragia intra-abdominal (aneurisma de aorta roto ou gravidez ectópica rota)"
+    "diagnoses": [
+      {
+        "text": "perfuração de víscera / peritonite",
+        "tier": "critical"
+      },
+      {
+        "text": "hemorragia intra-abdominal (aneurisma de aorta roto ou gravidez ectópica rota)",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [
+    "actions": [
+      {
+        "text": "dois acessos venosos calibrosos e ressuscitação guiada pela causa: se hemorragia, hemocomponentes precoces e hipotensão permissiva até o controle cirúrgico; se peritonite/sepse, cristaloide e antibiótico IV de amplo espectro em até 1 h",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "POCUS à beira-leito (FAST e aorta)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "avaliação cirúrgica de urgência",
+        "tier": "critical",
+        "timing": "now"
+      }
+    ],
+    "questions": [
       "possibilidade de gestação (beta-hCG se mulher em idade fértil)"
-    ],
-    "requiredActions": [
-      "dois acessos venosos calibrosos e ressuscitação guiada pela causa: se hemorragia, hemocomponentes precoces e hipotensão permissiva até o controle cirúrgico; se peritonite/sepse, cristaloide e antibiótico IV de amplo espectro em até 1 h",
-      "POCUS à beira-leito (FAST e aorta)",
-      "avaliação cirúrgica de urgência"
     ],
     "forbiddenDefinitiveActions": [
       {
@@ -37,8 +55,7 @@
         "patterns": []
       }
     ],
-    "rationale": "Abdome agudo com choque: a ressuscitação depende da causa — ESVS 2024 (Rec. 72): hipotensão permissiva no AAA roto; ACOG 193: ectópica rota instável vai à cirurgia; SSC 2021 e WSES 2020: na perfuração/peritonite, cristaloide, antibiótico em até 1 h e controle do foco. POCUS (FAST/aorta) diferencia hemorragia de perfuração à beira-leito. Desejáveis, mas não exigidos: anticoagulante e idade; isquemia mesentérica como hipótese nomeada.",
-    "expectedPath": "recommend"
+    "rationale": "Abdome agudo com choque: a ressuscitação depende da causa — ESVS 2024 (Rec. 72): hipotensão permissiva no AAA roto; ACOG 193: ectópica rota instável vai à cirurgia; SSC 2021 e WSES 2020: na perfuração/peritonite, cristaloide, antibiótico em até 1 h e controle do foco. POCUS (FAST/aorta) diferencia hemorragia de perfuração à beira-leito. Desejáveis, mas não exigidos: anticoagulante e idade; isquemia mesentérica como hipótese nomeada."
   },
   "sources": [
     {
@@ -71,6 +88,6 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: ressuscitação separada entre hemorragia (hemocomponentes, hipotensão permissiva) e sepse (cristaloide + antibiótico); POCUS obrigatório; TC antes de estabilizar proibida (só juiz). Anticoagulante/idade e isquemia mesentérica ficaram no rationale (opcionais)."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: ressuscitação separada entre hemorragia (hemocomponentes, hipotensão permissiva) e sepse (cristaloide + antibiótico); POCUS obrigatório; TC antes de estabilizar proibida (só juiz). Anticoagulante/idade e isquemia mesentérica ficaram no rationale (opcionais)."
   }
 }

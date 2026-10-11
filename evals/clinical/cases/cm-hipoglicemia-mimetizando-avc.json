@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "cm-hipoglicemia-mimetizando-avc",
   "title": "Afasia e fraqueza ao acordar em diabético com NPH, glicemia 42",
   "tags": [
@@ -17,18 +17,40 @@
   },
   "expected": {
     "syndrome": "hipoglicemia com déficit focal (mimetizador de AVC)",
-    "cannotMiss": [
-      "AVC isquêmico se o déficit persistir após a correção da glicemia",
-      "AVC ao despertar com oclusão de grande vaso, ainda candidato a trombectomia se o déficit persistir"
+    "diagnoses": [
+      {
+        "text": "AVC isquêmico se o déficit persistir após a correção da glicemia",
+        "tier": "critical"
+      },
+      {
+        "text": "AVC ao despertar com oclusão de grande vaso, ainda candidato a trombectomia se o déficit persistir",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
+    "actions": [
+      {
+        "text": "glicose IV imediata (hipertônica ou a 10-20%; glucagon IM se sem acesso venoso)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "glicemia seriada e reavaliação do déficit após a correção",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "manter aporte de glicose ou alimentação e observar pelo risco de recorrência (NPH)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "se o déficit persistir com glicemia normal: protocolo de AVC com TC e angio-TC para avaliar trombectomia (último visto bem há 8 h)",
+        "tier": "critical",
+        "timing": "any"
+      }
+    ],
+    "questions": [
       "uso de sulfonilureia ou outros hipoglicemiantes, ingestão alimentar, álcool e função renal (risco de hipoglicemia prolongada e recorrente)"
-    ],
-    "requiredActions": [
-      "glicose IV imediata (hipertônica ou a 10-20%; glucagon IM se sem acesso venoso)",
-      "glicemia seriada e reavaliação do déficit após a correção",
-      "manter aporte de glicose ou alimentação e observar pelo risco de recorrência (NPH)",
-      "se o déficit persistir com glicemia normal: protocolo de AVC com TC e angio-TC para avaliar trombectomia (último visto bem há 8 h)"
     ],
     "forbiddenDefinitiveActions": [
       {
@@ -49,8 +71,7 @@
         ]
       }
     ],
-    "rationale": "KB-003/KB-004: hipoglicemia mimetiza AVC; glicemia antes de qualquer outra hipótese, e glicemia < 50 com recuperação atribuída a ela contraindica a trombólise (PCDT AVCi 2023). Se o déficit persistir com glicemia normal, é AVC ao despertar contado do último visto bem (8 h): trombectomia segue possível (PCDT até 24 h com critérios de imagem) e, fora do SUS, trombólise guiada por imagem (AHA 2026, até 9 h do ponto médio do sono). NPH tem ação prolongada: a hipoglicemia recorre após o bolus.",
-    "expectedPath": "recommend"
+    "rationale": "KB-003/KB-004: hipoglicemia mimetiza AVC; glicemia antes de qualquer outra hipótese, e glicemia < 50 com recuperação atribuída a ela contraindica a trombólise (PCDT AVCi 2023). Se o déficit persistir com glicemia normal, é AVC ao despertar contado do último visto bem (8 h): trombectomia segue possível (PCDT até 24 h com critérios de imagem) e, fora do SUS, trombólise guiada por imagem (AHA 2026, até 9 h do ponto médio do sono). NPH tem ação prolongada: a hipoglicemia recorre após o bolus."
   },
   "sources": [
     {
@@ -76,7 +97,7 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: \"fora da janela\" deixou de encerrar o raciocínio — com déficit persistente, protocolo de AVC e trombectomia viraram obrigatórios; mustRequest trocou conduta por dado (hipoglicemiantes, ingestão, álcool, função renal); glicose IV aceita qualquer concentração e glucagon; aporte contínuo pela NPH."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. AVC ao despertar com oclusão de grande vaso rebaixado a importante: depende de o déficit persistir após a glicose. | Auditoria 11/10/2026: \"fora da janela\" deixou de encerrar o raciocínio — com déficit persistente, protocolo de AVC e trombectomia viraram obrigatórios; mustRequest trocou conduta por dado (hipoglicemiantes, ingestão, álcool, função renal); glicose IV aceita qualquer concentração e glucagon; aporte contínuo pela NPH."
   },
   "probes": {
     "mustFlag": [

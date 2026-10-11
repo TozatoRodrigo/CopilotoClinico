@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb001-ce-001",
   "title": "Celulite de membro inferior sem dados de abscesso, necrose ou progressão",
   "tags": [
@@ -17,18 +17,20 @@
   },
   "expected": {
     "syndrome": "celulite/erisipela, complicação a excluir",
-    "cannotMiss": [
-      "fasciíte necrosante"
+    "diagnoses": [
+      {
+        "text": "fasciíte necrosante",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
+    "actions": [],
+    "questions": [
       "abscesso ou coleção",
       "dor desproporcional, bolhas, necrose ou crepitação",
       "velocidade de progressão e sinais sistêmicos"
     ],
-    "requiredActions": [],
     "forbiddenDefinitiveActions": [],
-    "rationale": "IDSA 2014: separar celulite não complicada de abscesso (drenagem) e de infecção necrosante (cirurgia imediata) — coleção, dor desproporcional, bolhas, necrose, crepitação, progressão rápida e toxicidade sistêmica. Desejáveis, mas não exigidos: TVP como mimetizador; comorbidades (diabetes, imunossupressão) e alergia a betalactâmico, que mudam via e antibiótico.",
-    "expectedPath": "clarify"
+    "rationale": "IDSA 2014: separar celulite não complicada de abscesso (drenagem) e de infecção necrosante (cirurgia imediata) — coleção, dor desproporcional, bolhas, necrose, crepitação, progressão rápida e toxicidade sistêmica. Desejáveis, mas não exigidos: TVP como mimetizador; comorbidades (diabetes, imunossupressão) e alergia a betalactâmico, que mudam via e antibiótico."
   },
   "sources": [
     {
@@ -48,6 +50,6 @@
   ],
   "provenance": {
     "originalCaseText": "Celulite em membro inferior sem informação sobre abscesso, necrose ou progressão.",
-    "notes": "Auditoria 11/10/2026: gabarito confirmado; texto reescrito sem listar o que falta. TVP e comorbidades/alergia ficaram no rationale (opcionais)."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: gabarito confirmado; texto reescrito sem listar o que falta. TVP e comorbidades/alergia ficaram no rationale (opcionais)."
   }
 }

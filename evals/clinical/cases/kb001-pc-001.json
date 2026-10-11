@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb001-pc-001",
   "title": "Suspeita de pneumonia sem SpO2, FR ou estado mental",
   "tags": [
@@ -17,20 +17,22 @@
   },
   "expected": {
     "syndrome": "pneumonia adquirida na comunidade — gravidade a estratificar",
-    "cannotMiss": [
-      "sepse de foco pulmonar"
+    "diagnoses": [
+      {
+        "text": "sepse de foco pulmonar",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
+    "actions": [],
+    "questions": [
       "SpO2",
       "frequência respiratória",
       "estado mental (confusão)",
       "pressão arterial",
       "comorbidades / uso recente de antibiótico"
     ],
-    "requiredActions": [],
     "forbiddenDefinitiveActions": [],
-    "rationale": "Os dados ausentes são os do CRB-65 (confusão, FR, PA; a idade está no texto) e a SpO2, critério de internação da SBPT 2018 (< 92%). Comorbidades e antibiótico recente definem o esquema ambulatorial (ATS/IDSA 2019). Confirmação radiológica e teste de influenza/COVID-19 quando circulam são desejáveis, não exigidos.",
-    "expectedPath": "clarify"
+    "rationale": "Os dados ausentes são os do CRB-65 (confusão, FR, PA; a idade está no texto) e a SpO2, critério de internação da SBPT 2018 (< 92%). Comorbidades e antibiótico recente definem o esquema ambulatorial (ATS/IDSA 2019). Confirmação radiológica e teste de influenza/COVID-19 quando circulam são desejáveis, não exigidos."
   },
   "sources": [
     {
@@ -50,6 +52,6 @@
   ],
   "provenance": {
     "originalCaseText": "Suspeita de pneumonia sem saturação, FR ou estado mental informados.",
-    "notes": "Auditoria 11/10/2026: texto reescrito como nota de beira de leito (o original anunciava SpO2, FR e estado mental como ausentes), já com a idade (70 anos), que a auditoria pedia. Rationale corrigido (o CURB-65 não inclui SpO2) e comorbidades/antibiótico recente acrescentados ao mustRequest. Radiografia e influenza/COVID-19 ficaram no rationale (opcionais)."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: texto reescrito como nota de beira de leito (o original anunciava SpO2, FR e estado mental como ausentes), já com a idade (70 anos), que a auditoria pedia. Rationale corrigido (o CURB-65 não inclui SpO2) e comorbidades/antibiótico recente acrescentados ao mustRequest. Radiografia e influenza/COVID-19 ficaram no rationale (opcionais)."
   }
 }

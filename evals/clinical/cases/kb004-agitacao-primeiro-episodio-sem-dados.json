@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb004-agitacao-primeiro-episodio-sem-dados",
   "title": "Primeiro episódio de agitação aos 47 anos, sem sinais vitais",
   "tags": [
@@ -17,19 +17,30 @@
   },
   "expected": {
     "syndrome": "agitação psicomotora — primeiro episódio, causa orgânica até prova em contrário",
-    "cannotMiss": [
-      "causa orgânica (hipoglicemia, hipóxia, intoxicação ou abstinência, infecção, causa neurológica)"
+    "diagnoses": [
+      {
+        "text": "causa orgânica (hipoglicemia, hipóxia, intoxicação ou abstinência, infecção, causa neurológica)",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [
+    "actions": [
+      {
+        "text": "abordagem de segurança e de-escalonamento verbal",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "medir glicemia capilar e SpO2 assim que for seguro, tratando hipoglicemia se presente",
+        "tier": "critical",
+        "timing": "now"
+      }
+    ],
+    "questions": [
       "glicemia capilar",
       "SpO2 e demais sinais vitais, incluindo temperatura",
       "uso de álcool ou outras substâncias",
       "trauma craniano recente e uso de anticoagulante ou antiagregante",
       "comorbidades e medicações em uso (insulina ou sulfonilureia, anticolinérgicos, sedativos)"
-    ],
-    "requiredActions": [
-      "abordagem de segurança e de-escalonamento verbal",
-      "medir glicemia capilar e SpO2 assim que for seguro, tratando hipoglicemia se presente"
     ],
     "forbiddenDefinitiveActions": [
       {
@@ -38,8 +49,7 @@
         "patterns": []
       }
     ],
-    "rationale": "KB-004 (09): primeiro episódio acima dos 40 anos desloca a prioridade para causa orgânica (ABP 2019: > 40 anos no texto, ≥ 45 no quadro; consenso BETA). De-escalonamento verbal primeiro; tranquilização farmacológica é aceitável quando ele falha e há risco iminente — muitas vezes é ela que permite colher glicemia e sinais vitais. Hematoma subdural e hipoglicemia medicamentosa estão entre as causas orgânicas a excluir.",
-    "expectedPath": "clarify"
+    "rationale": "KB-004 (09): primeiro episódio acima dos 40 anos desloca a prioridade para causa orgânica (ABP 2019: > 40 anos no texto, ≥ 45 no quadro; consenso BETA). De-escalonamento verbal primeiro; tranquilização farmacológica é aceitável quando ele falha e há risco iminente — muitas vezes é ela que permite colher glicemia e sinais vitais. Hematoma subdural e hipoglicemia medicamentosa estão entre as causas orgânicas a excluir."
   },
   "sources": [
     {
@@ -65,6 +75,6 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: caso crítico ganhou condutas obrigatórias (segurança, de-escalonamento, glicemia e SpO2 assim que seguro); a conduta proibida deixou de punir sedação por risco iminente acompanhada de investigação; pedidos de trauma/anticoagulante e de medicações em uso."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: caso crítico ganhou condutas obrigatórias (segurança, de-escalonamento, glicemia e SpO2 assim que seguro); a conduta proibida deixou de punir sedação por risco iminente acompanhada de investigação; pedidos de trauma/anticoagulante e de medicações em uso."
   }
 }

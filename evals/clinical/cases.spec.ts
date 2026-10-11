@@ -13,7 +13,7 @@ import { normalizeForMatching } from './graders/deterministic';
 const { cases } = loadCaseSet();
 const caseById = new Map(cases.map((clinicalCase) => [clinicalCase.id, clinicalCase]));
 
-describe('gabarito clínico v0', () => {
+describe('gabarito clínico', () => {
   it('carrega todos os arquivos de caso com ids únicos', () => {
     expect(cases.length).toBeGreaterThanOrEqual(60);
     expect(new Set(cases.map((clinicalCase) => clinicalCase.id)).size).toBe(cases.length);
@@ -25,11 +25,40 @@ describe('gabarito clínico v0', () => {
     }
   });
 
-  it('exige ao menos uma hipótese "não pode errar" em todo caso crítico', () => {
+  it('exige ao menos um diagnóstico de nível crítico em todo caso crítico', () => {
     const critical = cases.filter((clinicalCase) => clinicalCase.critical);
     expect(critical.length).toBeGreaterThan(0);
     for (const clinicalCase of critical) {
-      expect(clinicalCase.expected.cannotMiss.length, clinicalCase.id).toBeGreaterThan(0);
+      expect(
+        clinicalCase.expected.diagnoses.filter((diagnosis) => diagnosis.tier === 'critical').length,
+        clinicalCase.id,
+      ).toBeGreaterThan(0);
+    }
+  });
+
+  // Gabarito v2: o afunilamento mede se as perguntas chegam ao dado decisivo;
+  // sem fato `key` no roteiro, não há o que medir.
+  it('marca ao menos um fato decisivo no roteiro de todo caso com afunilamento', () => {
+    const withFunnel = cases.filter((clinicalCase) => clinicalCase.input.funnel);
+    expect(withFunnel.length).toBeGreaterThan(0);
+    for (const clinicalCase of withFunnel) {
+      expect(
+        clinicalCase.input.funnel?.script.some((fact) => fact.key),
+        clinicalCase.id,
+      ).toBe(true);
+    }
+  });
+
+  it('nunca entrega na abertura do afunilamento o fato decisivo do roteiro', () => {
+    for (const clinicalCase of cases) {
+      const funnel = clinicalCase.input.funnel;
+      if (!funnel) continue;
+      const opening = normalizeForMatching(funnel.opening);
+      for (const fact of funnel.script.filter((candidate) => candidate.key)) {
+        expect(opening, `${clinicalCase.id}: ${fact.id}`).not.toContain(
+          normalizeForMatching(fact.text),
+        );
+      }
     }
   });
 
@@ -51,8 +80,12 @@ describe('gabarito clínico v0', () => {
       const originalText =
         clinicalCase?.provenance?.originalCaseText ?? clinicalCase?.input.caseText;
       expect(originalText, fixture.id).toBe(fixture.clinicalInput);
-      expect(clinicalCase?.expected.expectedPath).toBe(fixture.expectedDecision);
       expect(clinicalCase?.goldSource).toBe('kb001_synthetic');
+      // O "caminho esperado" saiu no v2; o caso que pedia pergunta continua
+      // medindo o dado que falta.
+      if (fixture.expectedDecision === 'clarify') {
+        expect(clinicalCase?.expected.questions.length, fixture.id).toBeGreaterThan(0);
+      }
     }
   });
 
@@ -74,16 +107,16 @@ describe('gabarito clínico v0', () => {
     expect(caseById.get('fi-003-avc-flutuante-como-hemorragico')?.critical).toBe(true);
   });
 
-  // Inclui `mustRequest`: desde o gabarito v1 o texto do caso omite o dado que
+  // Inclui `questions`: desde o gabarito v1 o texto do caso omite o dado que
   // falta em vez de nomeá-lo, então a pergunta esperada também não pode estar lá.
   it('nunca vaza a resposta esperada no texto do caso', () => {
     for (const clinicalCase of cases) {
       const caseText = normalizeForMatching(clinicalCase.input.caseText);
       const expectations = [
         clinicalCase.expected.syndrome,
-        ...clinicalCase.expected.cannotMiss,
-        ...clinicalCase.expected.mustRequest,
-        ...clinicalCase.expected.requiredActions,
+        ...clinicalCase.expected.diagnoses.map((diagnosis) => diagnosis.text),
+        ...clinicalCase.expected.questions,
+        ...clinicalCase.expected.actions.map((action) => action.text),
       ];
       for (const expectation of expectations) {
         expect(caseText, `${clinicalCase.id}: "${expectation}"`).not.toContain(
@@ -95,10 +128,19 @@ describe('gabarito clínico v0', () => {
 
   // O pipeline mascara PII e bloqueia "injeção" ANTES do modelo. Um caso que
   // dispare qualquer um dos dois mediria o filtro, não o modelo.
+  // Vale também para a abertura e o roteiro do afunilamento: as respostas do
+  // médico simulado passam pelos mesmos filtros na reanálise.
   it('chega ao modelo exatamente como escrito (sem PII mascarada nem bloqueio de injeção)', () => {
     for (const clinicalCase of cases) {
-      expect(maskPII(clinicalCase.input.caseText).hasPII, clinicalCase.id).toBe(false);
-      expect(scanForInjection(clinicalCase.input.caseText).safe, clinicalCase.id).toBe(true);
+      const funnel = clinicalCase.input.funnel;
+      const texts = [
+        clinicalCase.input.caseText,
+        ...(funnel ? [funnel.opening, ...funnel.script.map((fact) => fact.text)] : []),
+      ];
+      for (const text of texts) {
+        expect(maskPII(text).hasPII, `${clinicalCase.id}: ${text}`).toBe(false);
+        expect(scanForInjection(text).safe, `${clinicalCase.id}: ${text}`).toBe(true);
+      }
     }
   });
 });
@@ -211,6 +253,40 @@ describe('loadCaseSet', () => {
       provenance: { exam: 'Revalida', edition: '2024/2' },
     });
     expect(() => loadCaseSet(dir)).toThrow(/provenance\.exam, provenance\.url/);
+  });
+
+  it('recusa caso crítico sem diagnóstico de nível crítico', () => {
+    const expected = validCase.expected as { diagnoses: Array<{ text: string; tier: string }> };
+    writeCase('fi-001-dengue-como-sepse.json', {
+      ...validCase,
+      critical: true,
+      expected: {
+        ...expected,
+        diagnoses: expected.diagnoses.map((diagnosis) => ({ ...diagnosis, tier: 'important' })),
+      },
+    });
+    expect(() => loadCaseSet(dir)).toThrow(/diagnóstico de nível critical/);
+  });
+
+  it('aceita o modo afunilamento e recusa id de fato repetido no roteiro', () => {
+    const fact = { id: 'h-picada', kind: 'history', text: 'Pai viu um escorpião.', key: true };
+    writeCase('fi-001-dengue-como-sepse.json', {
+      ...validCase,
+      input: {
+        ...(validCase.input as object),
+        funnel: { opening: 'Criança de 4 anos com dor na perna.', script: [fact] },
+      },
+    });
+    expect(loadCaseSet(dir).cases[0]?.input.funnel?.script).toHaveLength(1);
+
+    writeCase('fi-001-dengue-como-sepse.json', {
+      ...validCase,
+      input: {
+        ...(validCase.input as object),
+        funnel: { opening: 'Criança de 4 anos com dor na perna.', script: [fact, fact] },
+      },
+    });
+    expect(() => loadCaseSet(dir)).toThrow(/ids repetidos em funnel\.script/);
   });
 
   it('aceita caso fora do portão com motivo', () => {

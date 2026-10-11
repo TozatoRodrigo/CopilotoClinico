@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb001-hg-001",
   "title": "Hiperglicemia importante sem cetonemia, potássio ou estado mental",
   "tags": [
@@ -17,18 +17,24 @@
   },
   "expected": {
     "syndrome": "hiperglicemia — diferenciar CAD/EHH de hiperglicemia simples",
-    "cannotMiss": [
-      "cetoacidose diabética",
-      "estado hiperosmolar hiperglicêmico"
+    "diagnoses": [
+      {
+        "text": "cetoacidose diabética",
+        "tier": "important"
+      },
+      {
+        "text": "estado hiperosmolar hiperglicêmico",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
+    "actions": [],
+    "questions": [
       "cetonemia ou cetonúria",
       "potássio sérico",
       "estado mental",
       "gasometria (pH e bicarbonato)",
       "glicemia sérica e osmolalidade (sódio, ureia/creatinina)"
     ],
-    "requiredActions": [],
     "forbiddenDefinitiveActions": [
       {
         "id": "insulina-sem-potassio",
@@ -46,8 +52,7 @@
         ]
       }
     ],
-    "rationale": "Consenso ADA/EASD/JBDS/AACE/DTS 2024: CAD exige hiperglicemia, cetonemia e acidose; EHH e estado misto CAD/EHH se separam pela osmolalidade; insulina adiada até K > 3,5 mmol/L. Glicemia capilar \"HI\" não dá o valor, por isso glicemia sérica, sódio e função renal são pedidos. Fator precipitante e tipo de diabetes/uso de insulina são úteis, mas opcionais.",
-    "expectedPath": "clarify"
+    "rationale": "Consenso ADA/EASD/JBDS/AACE/DTS 2024: CAD exige hiperglicemia, cetonemia e acidose; EHH e estado misto CAD/EHH se separam pela osmolalidade; insulina adiada até K > 3,5 mmol/L. Glicemia capilar \"HI\" não dá o valor, por isso glicemia sérica, sódio e função renal são pedidos. Fator precipitante e tipo de diabetes/uso de insulina são úteis, mas opcionais."
   },
   "sources": [
     {
@@ -60,7 +65,7 @@
   ],
   "provenance": {
     "originalCaseText": "Hiperglicemia importante sem cetonemia, potássio ou estado mental informados.",
-    "notes": "Auditoria 11/10/2026: texto reescrito como nota de beira de leito (o original anunciava cetonemia, potássio e estado mental como ausentes). Acrescentados glicemia sérica e osmolalidade ao mustRequest. A checagem de insulina passou a mirar só a via IV/infusão e trocou as exceções genéricas (\"não\", \"quando\", \"só\", \"depois\") por condições ligadas ao potássio (K ≥ 3,3–3,5, após dosar o K, adiar a insulina)."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: texto reescrito como nota de beira de leito (o original anunciava cetonemia, potássio e estado mental como ausentes). Acrescentados glicemia sérica e osmolalidade ao mustRequest. A checagem de insulina passou a mirar só a via IV/infusão e trocou as exceções genéricas (\"não\", \"quando\", \"só\", \"depois\") por condições ligadas ao potássio (K ≥ 3,3–3,5, após dosar o K, adiar a insulina)."
   },
   "probes": {
     "mustFlag": [

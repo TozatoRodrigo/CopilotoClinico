@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "rv-2025-2-est-2",
   "title": "Dor abdominal forte com náuseas e vômitos em mulher de 30 anos no plantão de emergência",
   "tags": [
@@ -15,31 +15,131 @@
     "status": "official_exam_key"
   },
   "input": {
-    "caseText": "Plantão de emergência, hospital terciário. Mulher, 30a, dor forte em região abdominal com náuseas e vômitos."
+    "caseText": "Plantão de emergência de hospital terciário (RX, US, laboratório, leitos). Fem, 30a, técnica de enfermagem, sem comorbidades, usa só contraceptivo oral. Dor intensa em cólica no hipocôndrio D, de início súbito há ~12 h, depois de comer pizza de calabresa, irradiada para o ombro D; buscopan aliviou pouco e a dor voltou. Náuseas e 3 vômitos amarelados com restos alimentares. Não aferiu febre. Sedentária, sem álcool ou tabaco, alimentação normal. EF: REG, desidratada 2+/4+, normocorada, acianótica, anictérica. FC 104, PA 110x70, FR 24, Tax 37,8 °C, IMC 27. Abdome levemente distendido, RHA normoativos, dor à palpação profunda no hipocôndrio D, demais quadrantes indolores; interrupção da inspiração profunda à palpação do ponto cístico; sem dor à descompressão. AR e ACV normais. Lab: Hb 14,8, Ht 44,2%, leucócitos 16.500, plaquetas 240.000, PCR 76 mg/L (VR < 5), BT 1,0, BD 0,3, AST 42, ALT 38, FA 110, GGT 36, amilase 90, lipase 34. USG de abdome: fígado normal; vesícula distendida com múltiplos cálculos móveis e um cálculo impactado no infundíbulo; parede de 5,5 mm; líquido pericolecístico; colédoco de 4 mm; sem dilatação de vias biliares intra-hepáticas.",
+    "funnel": {
+      "opening": "Plantão de emergência de hospital terciário (RX, US, laboratório, leitos). Fem, 30a, com dor forte em região abdominal, náuseas e vômitos.",
+      "script": [
+        {
+          "id": "h-identificacao",
+          "kind": "history",
+          "text": "Tem 30 anos, é casada e trabalha como técnica de enfermagem."
+        },
+        {
+          "id": "h-dor",
+          "kind": "history",
+          "text": "Sente dor intensa no hipocôndrio direito, em cólica, de início súbito há cerca de 12 horas, com irradiação para o ombro direito."
+        },
+        {
+          "id": "h-buscopan",
+          "kind": "history",
+          "text": "Usou buscopan, aliviou um pouco, mas logo a dor voltou."
+        },
+        {
+          "id": "h-comorbidades",
+          "kind": "history",
+          "text": "Não tem comorbidades; usa somente contraceptivo oral."
+        },
+        {
+          "id": "h-habitos",
+          "kind": "history",
+          "text": "É sedentária, não consome álcool e não fuma."
+        },
+        {
+          "id": "h-alimentacao",
+          "kind": "history",
+          "text": "Tem alimentação normal."
+        },
+        {
+          "id": "h-febre",
+          "kind": "history",
+          "text": "Não aferiu se está com febre."
+        },
+        {
+          "id": "h-vomitos",
+          "kind": "history",
+          "text": "Está com náuseas e teve 3 episódios de vômitos amarelados, com restos alimentares."
+        },
+        {
+          "id": "h-pizza",
+          "kind": "history",
+          "text": "Tinha comido pizza de calabresa antes de começar a dor."
+        },
+        {
+          "id": "e-geral",
+          "kind": "exam",
+          "text": "REG, desidratada 2+/4+, normocorada, acianótica, anictérica. FC 104, PA 110x70, FR 24, Tax 37,8 °C, IMC 27; aparelhos respiratório e cardiovascular sem anormalidades."
+        },
+        {
+          "id": "e-abdome",
+          "kind": "exam",
+          "text": "Abdome levemente distendido, RHA normoativos; dor à palpação profunda no hipocôndrio direito, demais quadrantes indolores; interrupção da inspiração profunda à palpação do ponto cístico; sem dor à descompressão.",
+          "key": true
+        },
+        {
+          "id": "t-laboratorio",
+          "kind": "test",
+          "text": "Hb 14,8, Ht 44,2%, leucócitos 16.500, plaquetas 240.000; PCR 76 mg/L (VR < 5); BT 1,0, BD 0,3; AST 42, ALT 38; FA 110, GGT 36; amilase 90, lipase 34."
+        },
+        {
+          "id": "t-usg-abdome",
+          "kind": "test",
+          "text": "USG de abdome: fígado normal; vesícula distendida com múltiplos cálculos móveis e um cálculo impactado no infundíbulo; parede de 5,5 mm, com líquido pericolecístico; colédoco de 4 mm; sem dilatação de vias biliares intra-hepáticas.",
+          "key": true
+        }
+      ]
+    }
   },
   "expected": {
     "syndrome": "abdome agudo inflamatório por colecistite aguda",
-    "cannotMiss": [
-      "colecistite aguda"
+    "diagnoses": [
+      {
+        "text": "colecistite aguda litiásica",
+        "tier": "important"
+      },
+      {
+        "text": "achados que a sustentam: sinal de Murphy, febre e taquicardia; leucocitose e PCR elevada; USG com cálculo impactado no infundíbulo, parede espessada e líquido pericolecístico",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
-      "características da dor (início, irradiação, tipo, intensidade, fatores agravantes e atenuantes)",
-      "fatores relevantes: náuseas/vômitos, febre, icterícia, desencadeante alimentar (refeição gordurosa), episódios prévios semelhantes",
-      "exame físico, identificando desidratação, taquicardia, febre e sinal de Murphy",
-      "exames laboratoriais: PCR e/ou VHS, hemograma, amilase e/ou lipase, TGO/TGP, GGT, fosfatase alcalina, bilirrubinas (identificar leucocitose e PCR elevada)",
-      "ultrassonografia de abdome superior/vias biliares (cálculos, cálculo impactado no infundíbulo, espessamento da parede, líquido pericolecístico)"
+    "actions": [
+      {
+        "text": "internação hospitalar",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "jejum",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "analgesia",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "hidratação venosa",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "antibioticoterapia",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "colecistectomia precoce, nesta internação [ref.: PEP: em até 48 a 72 h]",
+        "tier": "important",
+        "timing": "any"
+      }
     ],
-    "requiredActions": [
-      "internação hospitalar",
-      "jejum",
-      "analgesia",
-      "hidratação venosa",
-      "antibioticoterapia",
-      "colecistectomia em até 48–72 h"
-    ],
+    "questions": [],
     "forbiddenDefinitiveActions": [],
-    "rationale": "Gabarito oficial do INEP (Revalida 2025/2, Estação 2, PEP preliminar): a descrição inicial é curta; o PEP pontua anamnese dirigida, exame físico, laboratório e USG antes do diagnóstico de colecistite aguda, com internação, jejum, analgesia, hidratação venosa, antibiótico e colecistectomia em 48–72 h.",
-    "expectedPath": "clarify"
+    "outOfScope": [
+      "apresentar-se e cumprimentar a paciente (item 1)",
+      "anamnese das características da dor e dos fatores relevantes (itens 2–3; cobertas pelo roteiro)"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2025/2, Estação 2, PEP preliminar): a descrição inicial é curta; o PEP pontua anamnese dirigida, exame físico, laboratório e USG antes do diagnóstico de colecistite aguda, com internação, jejum, analgesia, hidratação venosa, antibiótico e colecistectomia em 48–72 h. Gabarito v2: exame físico, laboratório e USG entraram no caso completo porque o PEP pontua interpretá-los; cada medida do tratamento virou item próprio."
   },
   "sources": [
     {
@@ -77,6 +177,6 @@
     "item": "Estação 2",
     "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_2_pep_premilminar.pdf",
     "originalCaseText": "CENÁRIO DE ATENDIMENTO Nível de atenção: terciária. Tipo de atendimento: urgência e emergência. A unidade possui a seguinte infraestrutura: ● setor de radiologia convencional e ultrassonografia; ● laboratório de análises clínicas; ● leitos de internação. DESCRIÇÃO DO CASO Durante seu plantão, você recebe uma paciente de 30 anos que apresenta queixa de dor forte em região abdominal, com quadro de náuseas e de vômitos. Nos 10 minutos de duração da estação, você deverá executar as seguintes tarefas: ● realizar anamnese; ● solicitar e interpretar o exame físico da paciente; ● solicitar e interpretar exames laboratoriais; ● solicitar e interpretar exames complementares pertinentes ao caso; ● formular e verbalizar a hipótese diagnóstica definitiva; ● orientar tratamento inicial e tratamento definitivo. ATENÇÃO! CASO JULGUE NECESSÁRIO REALIZAR EXAME FÍSICO, VERBALIZE. A PACIENTE SIMULADA NÃO DEVERÁ SER TOCADA DURANTE O ATENDIMENTO.",
-    "notes": "PEP preliminar (Revalida 2025/2; não há versão definitiva no material baixado). Dados sob demanda: técnica de enfermagem, sem comorbidades, usa só contraceptivo oral; dor intensa em cólica no hipocôndrio direito, início súbito há ~12 h após comer pizza de calabresa, irradiada para o ombro direito; buscopan aliviou pouco e a dor voltou; náuseas e 3 vômitos amarelados com restos alimentares; não aferiu febre; sedentária, sem álcool ou tabaco. Exame físico: REG, desidratada ++/4+, normocorada, anictérica, FC 104, PA 110x70, FR 24, Tax 37,8 °C, abdome levemente distendido, RHA normoativos, dor à palpação profunda em hipocôndrio direito, interrupção da inspiração profunda à palpação do ponto cístico, sem dor à descompressão. Lab: Hb 14,8, Ht 44,2%, leucócitos 16.500, plaquetas 240.000, PCR 76 mg/L (ref < 5), BT 1,0, BD 0,3, AST 42, ALT 38, FA 110, GGT 36, amilase 90, lipase 34. USG de abdome: fígado normal; vesícula distendida com múltiplos cálculos móveis e um cálculo impactado no infundíbulo, parede de 5,5 mm, líquido pericolecístico; colédoco 4 mm; sem dilatação de vias biliares intra-hepáticas."
+    "notes": "Gabarito v2 (11/10/2026): caso completo com o roteiro oficial da paciente simulada e os impressos de exame físico, laboratório e USG (o PEP pontua interpretá-los, itens 4, 6 e 8), por isso os pedidos de exame (itens 5 e 7) não são pontuados; funnel com a abertura oficial, fatos key no exame abdominal e na USG. Cada medida do item 10 virou item próprio; caso não crítico, todos importantes. | PEP preliminar (Revalida 2025/2; não há versão definitiva no material baixado). Dados sob demanda: técnica de enfermagem, sem comorbidades, usa só contraceptivo oral; dor intensa em cólica no hipocôndrio direito, início súbito há ~12 h após comer pizza de calabresa, irradiada para o ombro direito; buscopan aliviou pouco e a dor voltou; náuseas e 3 vômitos amarelados com restos alimentares; não aferiu febre; sedentária, sem álcool ou tabaco. Exame físico: REG, desidratada ++/4+, normocorada, anictérica, FC 104, PA 110x70, FR 24, Tax 37,8 °C, abdome levemente distendido, RHA normoativos, dor à palpação profunda em hipocôndrio direito, interrupção da inspiração profunda à palpação do ponto cístico, sem dor à descompressão. Lab: Hb 14,8, Ht 44,2%, leucócitos 16.500, plaquetas 240.000, PCR 76 mg/L (ref < 5), BT 1,0, BD 0,3, AST 42, ALT 38, FA 110, GGT 36, amilase 90, lipase 34. USG de abdome: fígado normal; vesícula distendida com múltiplos cálculos móveis e um cálculo impactado no infundíbulo, parede de 5,5 mm, líquido pericolecístico; colédoco 4 mm; sem dilatação de vias biliares intra-hepáticas."
   }
 }

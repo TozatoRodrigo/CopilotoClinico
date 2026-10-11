@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb004-pseudocrise-por-dor",
   "title": "PA 196x112 em paciente com dor de entorse, sem lesão de órgão-alvo",
   "tags": [
@@ -17,14 +17,25 @@
   },
   "expected": {
     "syndrome": "pseudocrise hipertensiva (PA elevada por dor, sem lesão de órgão-alvo)",
-    "cannotMiss": [
-      "lesão aguda de órgão-alvo (emergência hipertensiva)"
+    "diagnoses": [
+      {
+        "text": "lesão aguda de órgão-alvo (emergência hipertensiva)",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [],
-    "requiredActions": [
-      "analgesia e nova aferição da PA após o controle da dor",
-      "ajuste/adesão do anti-hipertensivo oral com seguimento ambulatorial"
+    "actions": [
+      {
+        "text": "analgesia e nova aferição da PA após o controle da dor",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "ajuste/adesão do anti-hipertensivo oral com seguimento ambulatorial",
+        "tier": "important",
+        "timing": "any"
+      }
     ],
+    "questions": [],
     "forbiddenDefinitiveActions": [
       {
         "id": "nifedipino-sublingual",
@@ -50,8 +61,7 @@
         ]
       }
     ],
-    "rationale": "KB-004 (08-crise-hipertensiva-pseudocrise): tratar a dor primeiro; reduzir a PA de forma agressiva é o erro. Diretriz Brasileira de Hipertensão 2025: sem LOA não há indicação de medicação IV nem de internação; anti-hipertensivo VO após a analgesia, se a PA persistir muito elevada, é aceitável e não deve ser punido; reavaliação ambulatorial em 1-7 dias.",
-    "expectedPath": "recommend"
+    "rationale": "KB-004 (08-crise-hipertensiva-pseudocrise): tratar a dor primeiro; reduzir a PA de forma agressiva é o erro. Diretriz Brasileira de Hipertensão 2025: sem LOA não há indicação de medicação IV nem de internação; anti-hipertensivo VO após a analgesia, se a PA persistir muito elevada, é aceitável e não deve ser punido; reavaliação ambulatorial em 1-7 dias."
   },
   "sources": [
     {
@@ -70,7 +80,7 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: a checagem de anti-hipertensivo IV passou a cobrir furosemida, metoprolol, enalaprilato, clonidina e nitroglicerina; o \"não\" solto deixou de anular a checagem; nifedipino de liberação prolongada no ajuste ambulatorial deixou de ser acusado."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: a checagem de anti-hipertensivo IV passou a cobrir furosemida, metoprolol, enalaprilato, clonidina e nitroglicerina; o \"não\" solto deixou de anular a checagem; nifedipino de liberação prolongada no ajuste ambulatorial deixou de ser acusado."
   },
   "probes": {
     "mustFlag": [

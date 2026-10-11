@@ -33,10 +33,10 @@ function allPassed(rate: Rate): Flag {
 const CASE_FLAGS: Array<[string, (summary: CaseSummary) => Flag]> = [
   ['sem erro crítico', (summary) => (summary.reps === 0 ? null : summary.criticalErrorReps === 0)],
   ['análise entregue', (summary) => (summary.reps === 0 ? null : summary.okReps === summary.reps)],
-  ['caminho', (summary) => allPassed(summary.path)],
   ['síndrome', (summary) => allPassed(summary.syndrome)],
-  ['não pode faltar', (summary) => allPassed(summary.cannotMiss)],
-  ['dados pedidos', (summary) => allPassed(summary.mustRequest)],
+  ['diagnósticos', (summary) => allPassed(summary.diagnoses)],
+  ['condutas', (summary) => allPassed(summary.actions)],
+  ['dados pedidos', (summary) => allPassed(summary.questions)],
   ['sem conduta proibida', (summary) => allPassed(summary.noForbiddenAction)],
   ['próximo passo seguro', (summary) => allPassed(summary.safeNextStep)],
 ];
@@ -96,11 +96,14 @@ function cells(summaries: RunSummary[], render: (summary: RunSummary) => string)
 }
 
 const CRITERIA: Array<[keyof RunSummary['criteria'], string]> = [
-  ['path', 'Caminho esperado'],
   ['syndrome', 'Síndrome correta'],
-  ['cannotMissItems', 'Não pode faltar (itens)'],
-  ['mustRequestItems', 'Dados ausentes pedidos (itens)'],
-  ['requiredActions', 'Condutas obrigatórias'],
+  ['criticalDiagnoses', 'Diagnósticos críticos (itens)'],
+  ['importantDiagnoses', 'Diagnósticos importantes (itens)'],
+  ['criticalActions', 'Condutas críticas na camada exigida (itens)'],
+  ['criticalActionsStrict', 'Condutas críticas agora, estrito (itens)'],
+  ['importantActions', 'Condutas importantes na camada exigida (itens)'],
+  ['actionsAnyLayer', 'Condutas em qualquer camada (itens)'],
+  ['questions', 'Dados ausentes pedidos (itens)'],
   ['noForbiddenAction', 'Sem conduta proibida'],
   ['safeNextStep', 'Próximo passo seguro'],
 ];
@@ -157,8 +160,23 @@ export function renderComparison(runs: LoadedRun[], casesById: Map<string, Clini
   row('Servidas pelo fallback de recusa', (summary) => String(summary.outcomes.servedByFallback));
   for (const [key, label] of CRITERIA) row(label, (summary) => formatRate(summary.criteria[key]));
   row(
+    'Perguntas / condutas / para agora (médias)',
+    (summary) =>
+      `${summary.shape.questionsMean?.toFixed(2) ?? '—'} / ${summary.shape.recommendationsMean?.toFixed(1) ?? '—'} / ${summary.shape.nowMean?.toFixed(1) ?? '—'}`,
+  );
+  if (summaries.some((summary) => summary.funnel)) {
+    row('Afunilamento: fatos decisivos revelados', (summary) =>
+      summary.funnel ? formatRate(summary.funnel.allKeyFactsRevealed) : '—',
+    );
+  }
+  row(
     'Latência p50 / p90',
     (summary) => `${formatMs(summary.latency.p50)} / ${formatMs(summary.latency.p90)}`,
+  );
+  row(
+    'Relógio por caso p50 / p90',
+    (summary) =>
+      `${formatMs(summary.latency.wallClockP50)} / ${formatMs(summary.latency.wallClockP90)}`,
   );
   row(
     'Custo do pipeline (total / por execução)',
