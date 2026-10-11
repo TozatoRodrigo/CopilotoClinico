@@ -34,7 +34,7 @@ export function normalizeForMatching(text: string): string {
 }
 
 function stripAccents(text: string): string {
-  return text.normalize('NFD').replace(/[̀-ͯ]/g, '');
+  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
 /** A fonte não passa por `toLowerCase`: `\S`, `\W` e `\B` mudariam de sentido. */
