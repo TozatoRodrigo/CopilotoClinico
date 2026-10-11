@@ -15,11 +15,13 @@ import type {
   StreamCompletionResult,
 } from './provider.interface';
 
-// OpenAI's reasoning-style model families (o1/o3/o4, gpt-5.x) reject any
-// `temperature` other than the implicit default (1) — the param must be
+// OpenAI's reasoning-style model families (o-series, gpt-5.x and later) reject
+// any `temperature` other than the implicit default (1) — the param must be
 // omitted entirely rather than sent as 1, since some of these models reject
 // the key being present at all. Only these families accept `reasoning_effort`.
-const REASONING_MODEL = /^(o1|o3|o4|gpt-5)/i;
+// F0-A — gpt-6.x também rejeita (verificado em 10/10/2026 com gpt-6.1-sol):
+// a regra cobre qualquer geração gpt ≥ 5 para não quebrar na próxima.
+const REASONING_MODEL = /^(o\d|gpt-([5-9]|\d{2,})(\b|[.-]))/i;
 const REASONING_EFFORTS = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh'] as const;
 type ReasoningEffort = (typeof REASONING_EFFORTS)[number];
 const DEFAULT_TEMPERATURE = 0.3;
