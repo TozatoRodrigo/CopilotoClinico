@@ -11,7 +11,7 @@
 | **Finalidade** | Dados clínicos usados exclusivamente para assistência ao médico no atendimento |
 | **Adequação** | Apenas dados necessários ao atendimento são coletados |
 | **Necessidade** | `patientRef` é identificador opaco — não armazenamos identidade do paciente |
-| **Livre acesso** | `GET /lgpd/data` — exportação completa dos dados do médico |
+| **Livre acesso** | `GET /lgpd/export` — exportação completa dos dados do médico |
 | **Qualidade** | Hash encadeado na auditoria garante integridade dos dados |
 | **Transparência** | Banner de status do CRM no dashboard |
 | **Segurança** | Audit log append-only (AUD-001), verificação de cadeia (AUD-003) |
@@ -50,10 +50,24 @@
 
 | Direito (Art. 18) | Endpoint |
 |---|---|
-| Acesso | `GET /lgpd/data` |
-| Portabilidade | `GET /lgpd/data` (formato JSON) |
-| Eliminação | `DELETE /lgpd/erasure` |
+| Acesso | `GET /lgpd/export` |
+| Portabilidade | `GET /lgpd/export` (formato JSON) |
+| Eliminação | `POST /lgpd/erasure` |
 | Revogação de consentimento | `DELETE /lgpd/consent/:scope` |
+
+### O que a exportação inclui
+
+`data` traz, do médico: cadastro (sem hash de senha nem segredo de MFA),
+`encounters`, `documents`, `aiInteractions`, `recommendationDecisions`,
+`copilotFeedback`, `audioCaptures`, `consents` e `auditLog`. Refresh tokens não
+entram.
+
+As capturas de áudio (`audioCaptures`) vão com metadados (id, atendimento, tipo
+MIME, tamanho, status, `retainUntil`, datas) e a transcrição já mascarada de PII.
+O áudio cifrado (`encryptedContent`) não é exportado: está cifrado com a chave do
+servidor, e decifrá-lo poria a voz do paciente, sem máscara, num arquivo baixado
+pelo navegador. Entram todas as capturas, qualquer que seja o status, inclusive
+`deleted`, quando o áudio já foi eliminado na retenção.
 
 ## Política de patientRef
 
