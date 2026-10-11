@@ -88,17 +88,29 @@ type GradedRecommendation = CopilotOutput['recommendations'][number] & {
 };
 
 /**
+ * Rótulos de proveniência, não de condicionamento clínico: o médico continua
+ * vendo a conduta recomendada para agora.
+ */
+const PROVENANCE_REASONS: ReadonlySet<string> = new Set(['unreviewed_source', 'unverified_dose']);
+
+/**
  * F0-A — o que conta como conduta assumida pelo modelo. A contenção F0-C
  * marca como preliminar toda conduta baseada em fonte não revisada
  * (`preliminaryReason: 'unreviewed_source'`): é rótulo de proveniência, não
  * condicionamento clínico, e o médico continua vendo a conduta recomendada.
  * Por isso ela conta como definitiva no gabarito — senão uma trombólise antes
- * da TC passaria só por citar um PCDT. Continuam fora apenas as preliminares
- * condicionadas a um dado que falta (`pending_questions`, `subtype_ambiguity`
- * ou saídas antigas sem motivo).
+ * da TC passaria só por citar um PCDT. O mesmo vale para a dose sem fonte da
+ * decisão v2 (`unverified_dose`). Continuam fora as condutas condicionadas a
+ * um dado que falta (`pending_questions`, `subtype_ambiguity`, saídas
+ * antigas sem motivo) e, na v2, toda conduta da camada `depends` — é ela que
+ * diz "trombólise só depois da TC", e isso não é conduta proibida para agora.
  */
 export function isCommittedRecommendation(recommendation: GradedRecommendation): boolean {
-  return !recommendation.preliminary || recommendation.preliminaryReason === 'unreviewed_source';
+  if (recommendation.layer === 'depends') return false;
+  return (
+    !recommendation.preliminary ||
+    PROVENANCE_REASONS.has(recommendation.preliminaryReason ?? 'pending_questions')
+  );
 }
 
 export function findForbiddenDefinitiveActions(

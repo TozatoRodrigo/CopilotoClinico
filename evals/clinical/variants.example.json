@@ -71,6 +71,78 @@
       }
     },
     {
+      "name": "claude-opus-5-5-v2-modelo",
+      "description": "Fase 1 (ADR-013, PR 2): Claude Opus 5.5 com raciocínio em etapas e decisão v2 em duas camadas, só com o conhecimento do modelo (COPILOT_KNOWLEDGE_SOURCE=model_only): nenhuma busca, nenhuma chamada de embedding, nenhuma chave da OpenAI.",
+      "env": {
+        "AI_PROVIDER": "anthropic",
+        "AI_MODEL": "claude-opus-5-5",
+        "AI_BASE_URL": "https://api.anthropic.com",
+        "AI_API_KEY": "${ANTHROPIC_API_KEY}",
+        "AI_MAX_OUTPUT_TOKENS": "32000",
+        "AI_EFFORT": "high",
+        "COPILOT_REASONING": "stages",
+        "AI_UNDERSTANDING_EFFORT": "low",
+        "COPILOT_DECISION_PROMPT": "v2",
+        "COPILOT_KNOWLEDGE_SOURCE": "model_only"
+      }
+    },
+    {
+      "name": "claude-opus-5-5-v2-web",
+      "description": "Fase 1 (ADR-013, PR 2): Claude Opus 5.5 com raciocínio em etapas e decisão v2, com evidência da pesquisa web em fontes oficiais (Claude Sonnet 5.5 em effort low, até 5 buscas, lista padrão de domínios). Sem embedding nem chave da OpenAI.",
+      "env": {
+        "AI_PROVIDER": "anthropic",
+        "AI_MODEL": "claude-opus-5-5",
+        "AI_BASE_URL": "https://api.anthropic.com",
+        "AI_API_KEY": "${ANTHROPIC_API_KEY}",
+        "AI_MAX_OUTPUT_TOKENS": "32000",
+        "AI_EFFORT": "high",
+        "COPILOT_REASONING": "stages",
+        "AI_UNDERSTANDING_EFFORT": "low",
+        "COPILOT_DECISION_PROMPT": "v2",
+        "COPILOT_KNOWLEDGE_SOURCE": "web",
+        "AI_RESEARCH_MODEL": "claude-sonnet-5-5",
+        "AI_RESEARCH_EFFORT": "low",
+        "WEB_RESEARCH_MAX_SEARCHES": "5"
+      }
+    },
+    {
+      "name": "claude-haiku-5-5-v2-modelo",
+      "description": "Fase 1 (ADR-013, PR 2): Claude Haiku 5.5 no entendimento e na decisão v2, só com o conhecimento do modelo — mede quanto o modelo barato perde. Sem embedding nem chave da OpenAI.",
+      "env": {
+        "AI_PROVIDER": "anthropic",
+        "AI_MODEL": "claude-haiku-5-5",
+        "AI_BASE_URL": "https://api.anthropic.com",
+        "AI_API_KEY": "${ANTHROPIC_API_KEY}",
+        "AI_MAX_OUTPUT_TOKENS": "32000",
+        "AI_EFFORT": "high",
+        "COPILOT_REASONING": "stages",
+        "AI_UNDERSTANDING_EFFORT": "low",
+        "COPILOT_DECISION_PROMPT": "v2",
+        "AI_UNDERSTANDING_MODEL": "claude-haiku-5-5",
+        "COPILOT_KNOWLEDGE_SOURCE": "model_only"
+      }
+    },
+    {
+      "name": "claude-opus-5-5-v2-web-entendimento-haiku",
+      "description": "Igual a claude-opus-5-5-v2-web, com o entendimento do caso no Claude Haiku 5.5 (AI_UNDERSTANDING_MODEL): mede se a Etapa 1 barata e rápida segura a qualidade da decisão e da pesquisa.",
+      "env": {
+        "AI_PROVIDER": "anthropic",
+        "AI_MODEL": "claude-opus-5-5",
+        "AI_BASE_URL": "https://api.anthropic.com",
+        "AI_API_KEY": "${ANTHROPIC_API_KEY}",
+        "AI_MAX_OUTPUT_TOKENS": "32000",
+        "AI_EFFORT": "high",
+        "COPILOT_REASONING": "stages",
+        "AI_UNDERSTANDING_EFFORT": "low",
+        "COPILOT_DECISION_PROMPT": "v2",
+        "COPILOT_KNOWLEDGE_SOURCE": "web",
+        "AI_RESEARCH_MODEL": "claude-sonnet-5-5",
+        "AI_RESEARCH_EFFORT": "low",
+        "WEB_RESEARCH_MAX_SEARCHES": "5",
+        "AI_UNDERSTANDING_MODEL": "claude-haiku-5-5"
+      }
+    },
+    {
       "name": "test",
       "description": "Provedor determinístico offline (AI_PROVIDER=test): nenhuma chamada paga. Valida a fiação do harness, não a qualidade clínica.",
       "env": {

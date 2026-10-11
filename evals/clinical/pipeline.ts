@@ -10,13 +10,20 @@ import type {
   OrchestratorService,
 } from '../../src/modules/copilot/orchestrator/orchestrator.service';
 import type { EncountersService } from '../../src/modules/encounters/encounters.service';
-import type { CaseUnderstanding } from '../../src/shared/contracts/clinical';
+import type { CaseUnderstanding, WebEvidenceItem } from '../../src/shared/contracts/clinical';
 import { CaseUnderstandingSchema } from '../../src/modules/copilot/understanding/case-understanding.schema';
 import type { ClinicalCase } from './case.schema';
 import type { RunStatus } from './graders/deterministic';
 import { costUsd, isSameModel } from './pricing';
 import type { CompletionRecorder, RecordedCompletion } from './recorder';
-import type { ErrorRow, FailureClass, ResultRow } from './records';
+import {
+  ResearchTraceSchema,
+  WebEvidenceItemSchema,
+  type ErrorRow,
+  type FailureClass,
+  type ResearchTrace,
+  type ResultRow,
+} from './records';
 import { DEFAULT_RETRY_POLICY, retryWhile, withTimeout, type RetryPolicy } from './scheduling';
 
 /**
@@ -84,6 +91,8 @@ type AttemptOutcome =
       encounterId: string;
       result: OrchestratorResult;
       retrievedChunkIds: string[];
+      /** F1 — o que a pesquisa web fez (`params.research`); `null` quando não rodou. */
+      research: ResearchTrace | null;
       completions: RecordedCompletion[];
       wallClockMs: number;
     }
@@ -96,6 +105,9 @@ type AttemptOutcome =
       rawContent: string | null;
       /** F1 — o que a Etapa 1 entendeu antes de a análise falhar. */
       understanding: CaseUnderstanding | null;
+      /** F1 — evidência e rastro da pesquisa web antes de a análise falhar. */
+      webEvidence: WebEvidenceItem[] | null;
+      research: ResearchTrace | null;
       retrievedChunkIds: string[];
       completions: RecordedCompletion[];
       wallClockMs: number;
@@ -207,7 +219,7 @@ async function storedFailure(prisma: PrismaService, encounterId: string) {
   return prisma.aiInteraction.findFirst({
     where: { encounterId },
     orderBy: { createdAt: 'desc' },
-    select: { id: true, retrievedChunkIds: true, rawOutput: true },
+    select: { id: true, retrievedChunkIds: true, rawOutput: true, params: true },
   });
 }
 
@@ -222,6 +234,22 @@ function understandingOf(rawOutput: unknown): CaseUnderstanding | null {
     return null;
   }
   const parsed = CaseUnderstandingSchema.safeParse(rawOutput.understanding);
+  return parsed.success ? parsed.data : null;
+}
+
+/** F1 — a falha de validação grava em `rawOutput` a evidência da pesquisa web. */
+function webEvidenceOf(rawOutput: unknown): WebEvidenceItem[] | null {
+  if (typeof rawOutput !== 'object' || rawOutput === null || !('webEvidence' in rawOutput)) {
+    return null;
+  }
+  const parsed = WebEvidenceItemSchema.array().safeParse(rawOutput.webEvidence);
+  return parsed.success ? parsed.data : null;
+}
+
+/** F1 — o orquestrador grava o rastro da pesquisa web em `params.research`. */
+function researchTraceOf(params: unknown): ResearchTrace | null {
+  if (typeof params !== 'object' || params === null || !('research' in params)) return null;
+  const parsed = ResearchTraceSchema.safeParse(params.research);
   return parsed.success ? parsed.data : null;
 }
 
@@ -266,13 +294,14 @@ async function attemptCase(
     );
     const interaction = await services.prisma.aiInteraction.findUnique({
       where: { id: result.interactionId },
-      select: { retrievedChunkIds: true },
+      select: { retrievedChunkIds: true, params: true },
     });
     return {
       kind: 'answered',
       encounterId,
       result,
       retrievedChunkIds: interaction?.retrievedChunkIds ?? [],
+      research: researchTraceOf(interaction?.params),
       completions,
       wallClockMs: Date.now() - startedAt,
     };
@@ -289,6 +318,8 @@ async function attemptCase(
         validationErrors: [error.message],
         rawContent: null,
         understanding: understandingOf(stored?.rawOutput),
+        webEvidence: webEvidenceOf(stored?.rawOutput),
+        research: researchTraceOf(stored?.params),
         retrievedChunkIds: stored?.retrievedChunkIds ?? [],
         completions,
         wallClockMs: Date.now() - startedAt,
@@ -320,6 +351,8 @@ async function attemptCase(
       validationErrors,
       rawContent: rawContentOf(stored?.rawOutput) ?? completions.at(-1)?.content ?? null,
       understanding: understandingOf(stored?.rawOutput),
+      webEvidence: webEvidenceOf(stored?.rawOutput),
+      research: researchTraceOf(stored?.params),
       retrievedChunkIds: stored?.retrievedChunkIds ?? [],
       completions,
       wallClockMs: Date.now() - startedAt,
@@ -464,6 +497,8 @@ export async function runCase(
         interactionId: outcome.interactionId,
         output: null,
         understanding: outcome.understanding,
+        webEvidence: outcome.webEvidence,
+        research: outcome.research,
         citations: [],
         metadata: null,
         validationErrors: outcome.validationErrors,
@@ -484,6 +519,8 @@ export async function runCase(
       interactionId: result.interactionId,
       output: result.output,
       understanding: result.output.understanding ?? null,
+      webEvidence: result.output.webEvidence ?? null,
+      research: outcome.research,
       citations: result.citations,
       metadata: result.metadata,
       validationErrors: [],

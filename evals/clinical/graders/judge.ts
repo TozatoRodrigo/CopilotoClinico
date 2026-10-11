@@ -90,7 +90,7 @@ REGRAS
 2. Cada critério é binário e independente. Escreva a justificativa ANTES do veredito, em uma linha, citando o trecho da saída que decide (ou dizendo que ele não existe).
 3. Não premie extensão. Uma resposta longa, que lista muitas hipóteses ou muitas condutas, não ganha nada por isso. Uma lista exaustiva sem priorização não demonstra que a síndrome certa foi escolhida.
 4. Aceite equivalência clínica: sinônimos, siglas e formulações equivalentes contam ("HSA" = "hemorragia subaracnoide"; "angio-TC de tórax para TEP" = "angio-TC de artérias pulmonares"). Não exija as palavras do gabarito.
-5. Na saída, "preliminary": true marca conduta provisória, que depende de dado ainda pendente; "preliminary": false marca conduta definitiva, para executar agora.
+5. Na saída, "preliminary": true marca conduta provisória, que depende de dado ainda pendente; "preliminary": false marca conduta definitiva, para executar agora. Quando a recomendação traz "layer", "now" é conduta para executar agora e "depends" é conduta condicionada ao dado em "dependsOn" (ex.: trombólise só depois de a TC excluir sangramento) — não é definitiva, mesmo que a ação não repita a condição.
 6. Não use conhecimento sobre o modelo que gerou a saída. Avalie só o texto.
 
 CRITÉRIOS
@@ -141,6 +141,11 @@ function judgedView(output: JudgedOutput) {
       rationale: recommendation.rationale,
       category: recommendation.category,
       preliminary: recommendation.preliminary,
+      // F1 — decisão v2: a camada diz o que é para agora e o que espera um
+      // dado. Saídas v1 não têm camada e a visão julgada fica a de sempre.
+      ...(recommendation.layer
+        ? { layer: recommendation.layer, dependsOn: recommendation.dependsOn ?? null }
+        : {}),
     })),
     uncertainty: output.uncertainty,
     uncertaintyReason: output.uncertaintyReason,

@@ -147,6 +147,75 @@ describe('runCase', () => {
     expect(outcome.row.completions).toHaveLength(1);
   });
 
+  // F1 — pesquisa web: a evidência e o rastro (modelo, buscas, custo) vão
+  // para a linha, inclusive quando a análise não sai.
+  describe('pesquisa web', () => {
+    const webEvidence = [
+      {
+        id: 'web:1',
+        url: 'https://www.gov.br/saude/avc',
+        title: 'Linha de cuidado do AVC',
+        domain: 'gov.br',
+        citedText: 'TC imediata.',
+      },
+    ];
+    const research = {
+      model: 'claude-sonnet-5-5',
+      webSearchRequests: 3,
+      evidenceItems: 1,
+      latencyMs: 9_000,
+      cost: 0.05,
+      fallbackReason: null,
+    };
+
+    it('grava a evidência e o rastro da pesquisa da análise entregue', async () => {
+      const { services } = servicesWith([
+        async (recorder) => {
+          recorder.record(completion());
+          return { ...analysis, output: { ...analysis.output, webEvidence } };
+        },
+      ]);
+      vi.mocked(services.prisma.aiInteraction.findUnique).mockResolvedValue({
+        retrievedChunkIds: ['web:1'],
+        params: { knowledgeSource: 'web', research },
+      } as never);
+
+      const outcome = await runCase(services, clinicalCase, key, fastRetry);
+
+      if (outcome.kind !== 'result') throw new Error('esperava uma linha de resultado');
+      expect(outcome.row).toMatchObject({ webEvidence, research });
+    });
+
+    it('grava a evidência e o rastro também quando a análise falha', async () => {
+      const { services } = servicesWith([validationFailure(['Output is not valid JSON'])]);
+      vi.mocked(services.prisma.aiInteraction.findFirst).mockResolvedValue({
+        id: 'interacao-falha',
+        retrievedChunkIds: ['web:1'],
+        rawOutput: { raw: 'x', validationErrors: ['Output is not valid JSON'], webEvidence },
+        params: { research },
+      } as never);
+
+      const outcome = await runCase(services, clinicalCase, key, fastRetry);
+
+      if (outcome.kind !== 'result') throw new Error('esperava uma linha de resultado');
+      expect(outcome.row).toMatchObject({ status: 'invalid_output', webEvidence, research });
+    });
+
+    it('deixa evidência e rastro nulos quando a pesquisa não rodou', async () => {
+      const { services } = servicesWith([
+        async (recorder) => {
+          recorder.record(completion());
+          return analysis;
+        },
+      ]);
+
+      const outcome = await runCase(services, clinicalCase, key, fastRetry);
+
+      if (outcome.kind !== 'result') throw new Error('esperava uma linha de resultado');
+      expect(outcome.row).toMatchObject({ webEvidence: null, research: null });
+    });
+  });
+
   describe('sem resposta, nos dois estados do orquestrador', () => {
     const truncated = new AiTruncatedError({
       model: 'claude-opus-5-5',

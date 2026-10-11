@@ -8,6 +8,8 @@ import type {
   CompletionParams,
   CompletionResponse,
   CompletionUsage,
+  ResearchParams,
+  ResearchResponse,
 } from '../../src/modules/ai-gateway/providers/provider.interface';
 
 /** Motivo de parada que o gabarito precisa distinguir; `null` = parada normal. */
@@ -19,6 +21,8 @@ export type RecordedStopReason = 'max_tokens' | 'refusal' | null;
  * É o que permite explicar uma nota sem rodar o caso de novo.
  */
 export interface RecordedCompletion {
+  /** F1 — `research` é a chamada da pesquisa web; ausente = completion. */
+  kind?: 'completion' | 'research';
   messages: ChatMessage[];
   requestedModel: string;
   servedModel: string | null;
@@ -110,6 +114,46 @@ export class RecordingAiGatewayService extends AiGatewayService {
         ...call,
         servedModel: response.model,
         content: response.content,
+        stopReason: null,
+        refusalCategory: null,
+        usage: response.usage,
+        latencyMs: response.latencyMs,
+        error: null,
+      });
+      return response;
+    } catch (error) {
+      this.recorder.record({
+        ...call,
+        ...failedCompletion(error),
+        latencyMs: Date.now() - startedAt,
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * F1 — a pesquisa web também é gravada: custo (tokens + buscas), modelo
+   * servido e o resumo que ela escreveu. As citações viram `webEvidence` na
+   * linha do resultado.
+   */
+  override async research(
+    params: Omit<ResearchParams, 'model'> & { model?: string },
+  ): Promise<ResearchResponse> {
+    const call = {
+      kind: 'research' as const,
+      messages: [
+        { role: 'system' as const, content: params.system },
+        { role: 'user' as const, content: params.prompt },
+      ],
+      requestedModel: params.model ?? this.configuredModel,
+    };
+    const startedAt = Date.now();
+    try {
+      const response = await super.research(params);
+      this.recorder.record({
+        ...call,
+        servedModel: response.model,
+        content: response.text,
         stopReason: null,
         refusalCategory: null,
         usage: response.usage,

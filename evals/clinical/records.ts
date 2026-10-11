@@ -34,9 +34,13 @@ const UsageSchema = z.object({
   totalTokens: z.number(),
   cacheReadTokens: z.number().optional(),
   cacheWriteTokens: z.number().optional(),
+  /** F1 — buscas da pesquisa web (cobradas à parte). */
+  webSearchRequests: z.number().optional(),
 });
 
 export const RecordedCompletionSchema = z.object({
+  /** F1 — `research` é a chamada da pesquisa web; ausente = completion. */
+  kind: z.enum(['completion', 'research']).optional(),
   messages: z.array(
     z.object({ role: z.enum(['system', 'user', 'assistant']), content: z.string() }),
   ),
@@ -65,6 +69,29 @@ const ResultRecommendationSchema = StoredRecommendationSchema.extend({
 export const ResultOutputSchema = StoredCopilotOutputSchema.extend({
   recommendations: z.array(ResultRecommendationSchema),
 });
+
+/** F1 — página oficial achada pela pesquisa web (contrato `WebEvidenceItem`). */
+export const WebEvidenceItemSchema = z.object({
+  id: z.string(),
+  url: z.string(),
+  title: z.string().nullable(),
+  domain: z.string(),
+  citedText: z.string(),
+});
+
+/** F1 — o que a pesquisa web fez no caso, como o orquestrador grava em `params.research`. */
+export const ResearchTraceSchema = z.object({
+  model: z.string().nullable(),
+  webSearchRequests: z.number(),
+  evidenceItems: z.number(),
+  latencyMs: z.number(),
+  /** Tokens + buscas, em US$. */
+  cost: z.number(),
+  /** `null` quando a pesquisa entregou evidência. */
+  fallbackReason: z.string().nullable(),
+});
+
+export type ResearchTrace = z.infer<typeof ResearchTraceSchema>;
 
 /** Espelha OrchestratorResult['metadata']; a atribuição no runner confere o tipo. */
 const PipelineMetadataSchema = z.object({
@@ -115,6 +142,14 @@ export const ResultRowSchema = RowKeySchema.extend({
    * execuções anteriores à Fase 1.
    */
   understanding: CaseUnderstandingSchema.nullable().default(null),
+  /**
+   * F1 — evidência da pesquisa web entregue à decisão. `null` quando a
+   * pesquisa não rodou (fora de COPILOT_KNOWLEDGE_SOURCE=web); vazia quando
+   * rodou e não achou fonte permitida.
+   */
+  webEvidence: z.array(WebEvidenceItemSchema).nullable().default(null),
+  /** F1 — rastro e custo da pesquisa web; `null` quando ela não rodou. */
+  research: ResearchTraceSchema.nullable().default(null),
   citations: z.array(z.record(z.string(), z.unknown())),
   metadata: PipelineMetadataSchema.nullable(),
   retrievedChunkIds: z.array(z.string()),
@@ -216,6 +251,19 @@ export const RunMetaSchema = z.object({
     /** F1 — modelo e esforço da Etapa 1; `null` no legacy. */
     understandingModel: z.string().nullable().default(null),
     understandingEffort: z.string().nullable().default(null),
+    /** F1 — prompt da decisão e fonte de conhecimento efetivos; antes da Fase 1, v1 + internal_kb. */
+    decisionPrompt: z.enum(DECISION_PROMPT_VERSIONS).default('v1'),
+    knowledgeSource: z.enum(KNOWLEDGE_SOURCES).default('internal_kb'),
+    /** F1 — configuração da pesquisa web; `null` fora de COPILOT_KNOWLEDGE_SOURCE=web. */
+    research: z
+      .object({
+        model: z.string(),
+        effort: z.string(),
+        maxSearches: z.number().int(),
+        allowedDomains: z.array(z.string()),
+      })
+      .nullable()
+      .default(null),
     structuredOutput: z.boolean(),
     refusalFallback: z.boolean(),
   }),

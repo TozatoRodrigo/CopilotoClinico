@@ -201,6 +201,80 @@ describe('findForbiddenDefinitiveActions', () => {
   });
 });
 
+// F1 — decisão v2 (ADR-013): "depende" é conduta condicionada ao dado em
+// dependsOn, nunca definitiva; dose sem fonte é rótulo de proveniência.
+describe('findForbiddenDefinitiveActions — decisão v2', () => {
+  const forbidden = strokeWithoutCt.expected.forbiddenDefinitiveActions;
+  const alteplase = {
+    action: 'Trombólise com alteplase 0,9 mg/kg',
+    rationale: 'AVC isquêmico dentro de 4,5 h',
+    category: 'therapeutic' as const,
+  };
+
+  it('não acusa trombólise da camada "depende", condicionada à TC', () => {
+    const layered = output({
+      recommendations: [
+        {
+          ...recommendation({
+            ...alteplase,
+            preliminary: true,
+            layer: 'depends',
+            dependsOn: 'TC de crânio sem contraste sem sangramento',
+            basis: 'source',
+          }),
+          preliminaryReason: 'depends_on_data',
+        } as Recommendation,
+      ],
+    });
+
+    expect(findForbiddenDefinitiveActions(layered, forbidden)).toEqual([]);
+    expect(observePath(layered)).toMatchObject({
+      definitiveRecommendations: 0,
+      preliminaryRecommendations: 1,
+    });
+  });
+
+  it('nunca trata "depende" como definitiva, mesmo sem a marca de preliminar', () => {
+    const inconsistent = output({
+      recommendations: [
+        recommendation({ ...alteplase, preliminary: false, layer: 'depends', dependsOn: 'TC' }),
+      ],
+    });
+
+    expect(findForbiddenDefinitiveActions(inconsistent, forbidden)).toEqual([]);
+  });
+
+  it('acusa trombólise posta na camada "agora"', () => {
+    const now = output({
+      recommendations: [
+        recommendation({ ...alteplase, preliminary: false, layer: 'now', basis: 'source' }),
+      ],
+    });
+
+    expect(findForbiddenDefinitiveActions(now, forbidden)).toHaveLength(1);
+  });
+
+  it('acusa a conduta proibida marcada só por dose sem fonte (proveniência, não condição)', () => {
+    const unverified = output({
+      recommendations: [
+        {
+          ...recommendation({
+            ...alteplase,
+            preliminary: true,
+            layer: 'now',
+            basis: 'model_knowledge',
+            citationChunkId: null,
+          }),
+          preliminaryReason: 'unverified_dose',
+        } as Recommendation,
+      ],
+    });
+
+    expect(findForbiddenDefinitiveActions(unverified, forbidden)).toHaveLength(1);
+    expect(observePath(unverified).definitiveRecommendations).toBe(1);
+  });
+});
+
 describe('isExpectedPath', () => {
   const base = {
     definitiveRecommendations: 0,

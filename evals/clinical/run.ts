@@ -21,6 +21,13 @@ import {
   readUnderstandingModel,
 } from '../../src/modules/copilot/understanding/understanding.settings';
 import { EncountersService } from '../../src/modules/encounters/encounters.service';
+import { readDecisionPipeline } from '../../src/modules/copilot/orchestrator/decision.settings';
+import {
+  readResearchEffort,
+  readResearchModel,
+  readWebResearchAllowedDomains,
+  readWebResearchMaxSearches,
+} from '../../src/modules/copilot/research/web-research.settings';
 import type { ClinicalCase } from './case.schema';
 import { loadCaseSet, selectCases } from './cases';
 import { assertSafeDatabase, formatDatabaseTarget } from './db-safety';
@@ -189,6 +196,26 @@ function stagesSettings(
   };
 }
 
+/** F1 — prompt da decisão, fonte de conhecimento e pesquisa, lidos como o pipeline os lê. */
+function decisionSettings(
+  config: ConfigService,
+): Pick<RunMeta['pipeline'], 'decisionPrompt' | 'knowledgeSource' | 'research'> {
+  const { pipeline } = readDecisionPipeline(config);
+  return {
+    decisionPrompt: pipeline.decisionPrompt,
+    knowledgeSource: pipeline.knowledgeSource,
+    research:
+      pipeline.knowledgeSource === 'web'
+        ? {
+            model: readResearchModel(config),
+            effort: readResearchEffort(config),
+            maxSearches: readWebResearchMaxSearches(config),
+            allowedDomains: readWebResearchAllowedDomains(config).domains,
+          }
+        : null,
+  };
+}
+
 async function executeVariant(context: VariantRunContext): Promise<string> {
   const { variant, env, cases, options } = context;
   const runId = `${new Date().toISOString().replace(/[:.]/g, '-')}-${variant.name}`;
@@ -246,6 +273,7 @@ async function executeVariant(context: VariantRunContext): Promise<string> {
         maxOutputTokens: readMaxOutputTokens(config),
         effort: readChoice(config, 'AI_EFFORT', AI_EFFORTS, 'high'),
         ...stagesSettings(config, requestedModel),
+        ...decisionSettings(config),
         structuredOutput: readFlag(config, 'AI_STRUCTURED_OUTPUT', true),
         refusalFallback,
       },
@@ -256,6 +284,9 @@ async function executeVariant(context: VariantRunContext): Promise<string> {
 
     console.log(
       `\n▶ ${variant.name}: ${meta.pipeline.completionProvider} · ${meta.pipeline.requestedModel} — ${runDir}`,
+    );
+    console.log(
+      `  Raciocínio ${meta.pipeline.reasoning} · decisão ${meta.pipeline.decisionPrompt} · fonte ${meta.pipeline.knowledgeSource}${meta.pipeline.research ? ` · pesquisa ${meta.pipeline.research.model}` : ''}`,
     );
     console.log(
       `  Base: ${meta.knowledgeBase.approvedChunks} trechos aprovados (${meta.knowledgeBase.approvedChunksWithEmbedding} com embedding), ${meta.knowledgeBase.officialChunks} oficiais`,
