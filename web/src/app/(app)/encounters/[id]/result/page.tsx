@@ -184,6 +184,8 @@ const PRELIMINARY_TONE: Record<
   // conferida antes de seguir: os dois em laranja.
   depends_on_data: { variant: 'warning', markerClassName: 'text-tone-orange' },
   unverified_dose: { variant: 'warning', markerClassName: 'text-tone-orange' },
+  // Verificação com fonte: a fonte oficial diverge da conduta — pode mudá-la.
+  source_conflict: { variant: 'warning', markerClassName: 'text-tone-orange' },
 };
 
 /**

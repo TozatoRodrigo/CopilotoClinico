@@ -417,6 +417,7 @@ export const ptBR: Messages = {
       subtype_ambiguity: 'Subtipo indefinido — depende do dado que discrimina',
       depends_on_data: 'Depende de dado ainda não disponível',
       unverified_dose: 'Dose sem fonte citada — confirme no protocolo local',
+      source_conflict: 'Fonte oficial diverge — confira antes de seguir',
     },
     layers: {
       now: { label: 'Fazer agora', hint: 'seguro em todas as hipóteses abertas' },
