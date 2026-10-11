@@ -12,7 +12,8 @@ import { PS_SYNDROMES } from '../../src/shared/contracts/clinical';
  * Evolução sem quebra: campos novos entram como opcionais. O próximo previsto
  * é `input.followUps` (respostas roteirizadas às perguntas esclarecedoras,
  * para avaliar mais de um turno); os casos atuais continuam válidos sem ele.
- * Gabarito v1 acrescentou, todos opcionais: `sources`, `provenance` e `probes`.
+ * Gabarito v1 acrescentou, todos opcionais: `sources`, `provenance`, `probes`
+ * e `excludeFromGate`.
  */
 
 export const CASE_SCHEMA_VERSION = 1;
@@ -199,6 +200,18 @@ const ProvenanceSchema = z
   })
   .strict();
 
+/**
+ * Caso que roda e recebe nota, mas fica fora do portão de release: o erro
+ * crítico dele aparece no relatório sem reprovar a mudança. Para gabarito
+ * oficial desatualizado ou discutível — nunca para esconder erro do modelo.
+ */
+const GateExclusionSchema = z
+  .object({
+    /** Uma linha: por que este caso não decide o portão. */
+    reason: z.string().trim().min(10),
+  })
+  .strict();
+
 const probeSentence = z.string().trim().min(5);
 
 /**
@@ -248,6 +261,7 @@ export const ClinicalCaseSchema = z
     sources: z.array(SourceSchema).optional(),
     provenance: ProvenanceSchema.optional(),
     probes: ProbesSchema.optional(),
+    excludeFromGate: GateExclusionSchema.optional(),
   })
   .strict()
   .refine((clinicalCase) => !clinicalCase.critical || clinicalCase.expected.cannotMiss.length > 0, {
@@ -261,6 +275,20 @@ export const ClinicalCaseSchema = z
     {
       message: 'ids repetidos em expected.forbiddenDefinitiveActions',
       path: ['expected', 'forbiddenDefinitiveActions'],
+    },
+  )
+  .refine(
+    (clinicalCase) =>
+      clinicalCase.review.status !== 'official_exam_key' ||
+      Boolean(
+        clinicalCase.provenance?.exam &&
+        clinicalCase.provenance.url &&
+        clinicalCase.provenance.originalCaseText,
+      ),
+    {
+      message:
+        'gabarito oficial de prova precisa de provenance.exam, provenance.url e provenance.originalCaseText',
+      path: ['provenance'],
     },
   );
 

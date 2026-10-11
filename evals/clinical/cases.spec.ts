@@ -144,6 +144,14 @@ describe('loadCaseSet', () => {
     writeFileSync(join(dir, fileName), JSON.stringify(content));
   }
 
+  const officialProvenance = {
+    exam: 'Revalida',
+    edition: '2024/2',
+    item: 'discursiva 1',
+    url: 'https://download.inep.gov.br/revalida/provas_e_gabaritos/exemplo.pdf',
+    originalCaseText: 'Enunciado oficial da questão.',
+  };
+
   const validCase = JSON.parse(
     readFileSync(join(CASES_DIR, 'fi-001-dengue-como-sepse.json'), 'utf-8'),
   ) as Record<string, unknown>;
@@ -190,9 +198,27 @@ describe('loadCaseSet', () => {
       ...validCase,
       goldSource: 'revalida_discursiva',
       review: { status: 'official_exam_key' },
-      provenance: { exam: 'Revalida', edition: '2024/2', item: 'discursiva 1' },
+      provenance: officialProvenance,
     });
     expect(loadCaseSet(dir).cases[0]?.review.status).toBe('official_exam_key');
+  });
+
+  it('recusa gabarito oficial sem a prova, a URL e o texto original', () => {
+    writeCase('fi-001-dengue-como-sepse.json', {
+      ...validCase,
+      goldSource: 'revalida_discursiva',
+      review: { status: 'official_exam_key' },
+      provenance: { exam: 'Revalida', edition: '2024/2' },
+    });
+    expect(() => loadCaseSet(dir)).toThrow(/provenance\.exam, provenance\.url/);
+  });
+
+  it('aceita caso fora do portão com motivo', () => {
+    writeCase('fi-001-dengue-como-sepse.json', {
+      ...validCase,
+      excludeFromGate: { reason: 'Gabarito oficial anterior à diretriz vigente.' },
+    });
+    expect(loadCaseSet(dir).cases[0]?.excludeFromGate?.reason).toMatch(/diretriz/);
   });
 
   it('recusa sonda sem frase que deve ser acusada', () => {
