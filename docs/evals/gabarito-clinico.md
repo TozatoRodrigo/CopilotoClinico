@@ -17,7 +17,9 @@ Médicos do piloto viram o Copiloto conduzir dengue como sepse, cefaleia em salv
 | `evals/clinical/variants.example.json` | Configurações comparáveis (modelo, provedor, flags) |
 | `evals/clinical/run.ts` | Runner (`pnpm eval:clinical`) |
 | `evals/clinical/compare.ts` | Comparador (`pnpm eval:clinical:compare`) |
-| `evals/clinical/graders/` | Notas determinísticas e juiz LLM |
+| `evals/clinical/graders/` | Notas determinísticas, juiz LLM e auditor sem gabarito |
+| `evals/clinical/simulator.ts` | Médico simulado do modo afunilamento |
+| `evals/clinical/audit.ts` | Calibração do auditor sem gabarito |
 | `evals/clinical/runs/` | Saídas das execuções (fora do git) |
 
 ---
@@ -36,20 +38,28 @@ Cada caso é um arquivo JSON. Abra, leia, corrija o que estiver errado e marque 
 | `critical` | `true` para cenário "não pode errar": tempo-dependente, em que o erro mata ou deixa sequela. Esses casos formam o portão de release. |
 | `goldSource` | De onde veio o gabarito: `field_incident` (caso real do piloto), `kb001_synthetic`, `kb004_dichotomy`, `calibration`, `physician` (escrito por médico), `ai_draft` (rascunho de IA), `revalida_discursiva` ou `revalida_pep` (prova do Revalida, com gabarito oficial) ou `guideline_anchored` (expectativas ancoradas em diretriz citada em `sources`). |
 | `review` | Situação da revisão — ver abaixo. |
-| `input.caseText` | O texto como o médico digita à beira do leito: telegráfico, com abreviações. **Nunca** pode conter a resposta (o diagnóstico esperado, a conduta) nem anunciar o dado que falta ("sem informação sobre X") — omita o dado, como numa nota real. |
+| `input.caseText` | O caso como o médico escreve no plantão **depois** de colher a história e examinar: telegráfico, com abreviações, com os achados e os resultados que ele já tem. Traz achados, **nunca** a conclusão (diagnóstico, classificação de gravidade, conduta), e não anuncia o dado que falta ("sem informação sobre X") — omita o dado, como numa nota real. |
+| `input.funnel` | Modo afunilamento (opcional): `opening` é só o que o médico sabe na porta; `script` é o roteiro — cada fato (`id`, `kind`: `history`, `exam` ou `test`, `text`) que o paciente, o exame físico ou um exame revelam **quando perguntados ou pedidos**. `key: true` marca o fato sem o qual o diagnóstico principal não se sustenta. Ver "Modo afunilamento". |
 | `input.context` | Recursos do serviço: `hasCT` (tomografia), `isSus`, `hasLab` (laboratório), `hasICU` (UTI). Opcional. |
 | `input.redFlags` | Chips de alerta que o médico marcou na captura (`anticoagulant`, `pregnant`, `elderly65`...). Opcional. |
 | `expected.syndrome` | Em que síndrome o caso deve ser enquadrado como hipótese principal. |
-| `expected.cannotMiss` | Hipóteses que **precisam aparecer** em algum lugar da resposta (raciocínio, diferenciais, alertas, perguntas). Mencionar para descartar com um achado discriminador conta. |
-| `expected.mustRequest` | Dados que **faltam no caso** e mudam a conduta, então a resposta precisa pedi-los (ex.: "resultado da TC de crânio sem contraste", "horário da última vez visto bem"). Só dados, nunca ações: "solicitar ECG" é conduta e vai em `requiredActions`. Não liste aqui o que o texto já informa. |
-| `expected.requiredActions` | Condutas que precisam aparecer (definitivas ou provisórias). Todas são exigidas — liste só o essencial do primeiro atendimento. Caso `critical` precisa de ao menos uma: só perguntar não pode bastar. Número só quando ele é o ponto de segurança ("K ≥ 3,3 antes da insulina"); se formulações equivalentes servem, escreva sem número. |
-| `expected.forbiddenDefinitiveActions` | Condutas que **não podem sair como definitivas** neste caso. Se saírem, é erro crítico. Ver abaixo. |
-| `expected.expectedPath` | O que a resposta deve fazer: `recommend` (recomendar com segurança), `clarify` (perguntar o que falta), `uncertainty` (declarar que a base não cobre) ou `any` (mais de um caminho é aceitável). |
+| `expected.diagnoses` | Hipóteses, classificações e interpretações que **precisam aparecer** em algum lugar da resposta, cada uma com nível (`tier`). Mencionar para descartar com um achado discriminador conta. Caso `critical` precisa de ao menos uma `critical`. |
+| `expected.actions` | Condutas que precisam aparecer, cada uma com nível (`tier`) e camada (`timing`): `now` quando a indicação já está no caso e esperar causa dano; `any` quando pode vir condicionada a um dado ("depende de…"). Dose de referência vai entre colchetes (`[ref.: 0,5 mg]`) e não é exigida. Número só quando ele é o ponto de segurança ("K ≥ 3,3 antes da insulina"). |
+| `expected.questions` | Dados que **faltam no caso** e mudam a conduta, então a resposta precisa pedi-los (pergunta ou exame recomendado). Só dados, nunca ações. Como o `caseText` é completo, em geral a lista é curta; a anamnese do roteiro se mede no modo afunilamento. |
+| `expected.forbiddenDefinitiveActions` | Condutas que **não podem sair para agora** neste caso — só as que matam ou sequelam. Se saírem, é erro crítico. Ver abaixo. |
+| `expected.outOfScope` | Itens do gabarito oficial que não são papel do Copiloto (apresentar-se, orientar a família, listar diferenciais de prova, proibições de prova que não são perigosas). Ficam para rastrear a conversão; não entram na nota. |
 | `expected.rationale` | Por que o gabarito é este — protocolo do MS, diretriz, raciocínio. Opcional, mas ajuda o próximo revisor. |
 | `sources` | Fontes que sustentam as expectativas: `claim` (o que a fonte sustenta), `title`, `publisher`, `year` (ou `null`) e `url`. Opcional. |
 | `provenance` | De onde o caso veio e o que mudou: `exam`, `edition`, `item` e `url` (prova de origem), `originalCaseText` (texto antes de reescrito) e `notes` (o que mudou e por quê). Opcional. |
 | `probes` | Frases de recomendação que a checagem automática **deve** acusar (`mustFlag`) e **não pode** acusar (`mustNotFlag`) neste caso — ao menos uma de cada. Obrigatório quando o caso tem conduta proibida com `patterns`. Ver abaixo. |
 | `excludeFromGate` | `{ "reason": "..." }`: o caso roda e recebe nota, mas não decide o portão de release (gabarito oficial desatualizado ou discutível). Aparece no relatório em "Fora do portão". Opcional. |
+
+### Níveis: o que reprova e o que dá nota
+
+- **`critical`** — faltar é erro crítico e reprova o portão: o diagnóstico que mata ou sequela se perdido, a conduta tempo-dependente. Poucos por caso (1 a 3).
+- **`important`** — dá nota, **item por item**; faltar não reprova sozinho.
+
+O gabarito v1 cobrava todas as condutas em bloco (faltou uma de nove, reprovou o caso) e incluía itens de prova prática. No experimento de 11/10/2026, os 7 "erros críticos" do Opus vinham disso, da estação do Revalida entregue só com a abertura e de dois defeitos de corretor — nenhum de raciocínio clínico. O "caminho esperado" também saiu: a decisão em duas camadas sempre traz conduta e perguntas juntas, e o critério media o formato da decisão v1.
 
 ### Condutas proibidas
 
@@ -62,8 +72,9 @@ Cada caso é um arquivo JSON. Abra, leia, corrija o que estiver errado e marque 
 }
 ```
 
+- Só entra conduta que **mata ou sequela** se feita agora. Proibição de prova que não é perigosa (internar, pedir exame, via da analgesia) vai para `outOfScope` com o motivo.
 - `description` é o que o juiz lê. Escreva a conduta e o motivo.
-- `patterns` é a checagem automática (expressão regular). Acentos e maiúsculas não importam. Cada padrão casa **palavras inteiras**: `"tep"` não casa dentro de "alteplase". Para radical, termine com `\\w*` (`"trombol\\w*"` casa "trombólise" e "trombolítico"). A checagem só olha recomendações **definitivas** (`preliminary: false`) de categoria terapêutica ou de estabilização — pedido de exame não conta. Lista vazia (`[]`) deixa a checagem só com o juiz; use quando a conduta não cabe numa palavra-chave ("tratar só como sepse").
+- `patterns` é a checagem automática (expressão regular). Acentos e maiúsculas não importam. Cada padrão casa **palavras inteiras**: `"tep"` não casa dentro de "alteplase". Para radical, termine com `\\w*` (`"trombol\\w*"` casa "trombólise" e "trombolítico"). A checagem só olha recomendações **para agora** (camada `now`, ou `preliminary: false` na decisão v1) de categoria terapêutica ou de estabilização — pedido de exame não conta. No modo afunilamento, olha todos os turnos: a conduta proibida mandada no primeiro turno chegou ao médico. Lista vazia (`[]`) deixa a checagem só com o juiz; use quando a conduta não cabe numa palavra-chave ("tratar só como sepse").
 - `exceptWhen` anula a ocorrência quando a conduta está **condicionada** a algo próprio do caso ("alteplase **somente após a TC** sem sangramento"). Só vale perto do termo — veja a regra abaixo. Não escreva negação genérica aqui ("não", "evitar", "contraindicado", "suspender"): ela já é reconhecida e, em `exceptWhen`, só esconderia erro.
 
 #### Como a checagem lê uma recomendação
@@ -74,7 +85,7 @@ Cada caso é um arquivo JSON. Abra, leia, corrija o que estiver errado e marque 
    - uma negação o governa, com até 3 palavras de ligação no meio: "não fazer trombólise", "não há indicação de AAS", "evitar o uso de AINE", "sem AINE", "antes da trombólise", "suspender AAS". Palavra de adiamento no meio desfaz a negação: "não aguardar a trombólise", "sem demora", "sem contraindicação para alteplase" continuam acusados;
    - um qualificador negativo vem logo depois (até 5 palavras): "trombólise contraindicada", "AAS não está indicado", "nifedipino proscrito";
    - um `exceptWhen` do caso **começa** a até 6 palavras do termo.
-4. Termos proibidos do caso e "e/ou" formam lista, e o parêntese explica a palavra anterior: "não usar AAS, heparina ou trombolítico" e "não usar antitrombótico (AAS, heparina)" negam todos.
+4. Termos proibidos do caso e "e/ou" formam lista, e o parêntese explica a palavra anterior: "não usar AAS, heparina ou trombolítico" e "não usar antitrombótico (AAS, heparina)" negam todos. Lista colada ao termo vale mesmo com itens que não são do caso, desde que tenha conector ou dois itens: "evitando AINE, AAS, triptanos" nega o triptano; "sem melhora, triptano" não. Marcador de exemplo também: "não usar antiperistálticos (ex.: loperamida)". E "se não houver insulina IV" é ausência do recurso, não ordem de usá-la.
 
 Exemplos que a regra antiga deixava passar e agora são acusados: "Alteplase 0,9 mg/kg agora; não aguardar exames" (o "não" está em outra oração), "AAS 300 mg agora; suspender se TC mostrar sangramento" e "Trombólise com alteplase 100 mg IV agora" (o "se" de trombólise e o "tep" de alteplase não são palavras). Antes, `exceptWhen` valia para o texto inteiro: qualquer "não" ou "se" em qualquer ponto anulava a detecção.
 
@@ -139,14 +150,13 @@ Os 66 casos `rv-*` vêm das provas discursivas e de habilidades clínicas do Rev
 
 **Origem.** De 163 itens revisados, entraram 66 (18 discursivas, 48 estações; 48 críticos). Ficaram de fora 97: os que não são emergência, os duplicados entre edições, os só de comunicação, os de gabarito ambíguo, os que dependem de imagem e os de procedimento técnico. O índice completo, com o motivo de cada item pulado, fica fora do repositório.
 
-**Regras da conversão.**
+**Regras da conversão (gabarito v2).**
 
 - `goldSource` é `revalida_discursiva` ou `revalida_pep`; `review.status` é `official_exam_key`.
-- Expectativas só do gabarito oficial: nenhuma conduta, hipótese ou proibição que o padrão de resposta ou o PEP não pontue. Cada grupo de expectativas cita a linha do gabarito em `sources`.
-- Item anulado pela banca fica de fora.
-- `input.caseText` adapta o enunciado ao formato de beira de leito; `provenance.originalCaseText` guarda o texto oficial, com atribuição ao INEP.
-- Gabarito com diretriz posterior relevante não é corrigido: o caso fica marcado em `provenance.notes` e, se for crítico, sai do portão (abaixo).
-- Na integração ao gabarito v1, as condutas proibidas ganharam sondas e perderam as exceções genéricas de negação, sem mudar o que o gabarito penaliza.
+- Expectativas do gabarito oficial, cada grupo citando a linha do gabarito em `sources`. Onde diretriz vigente diverge, o item aceita as duas formas e a fonte vai em `sources` (ex.: PCDT de acidentes escorpiônicos de 2026, consenso ADA 2024, WAO 2020, diretriz europeia de sangramento no trauma, manual de dengue de 2024).
+- `input.caseText` é o caso **completo**: o que o paciente simulado revela quando perguntado e os impressos de exame físico; exames complementares só quando o gabarito cobra interpretá-los. `provenance.originalCaseText` guarda o texto oficial, com atribuição ao INEP.
+- `input.funnel` só nas estações que publicam o roteiro do ator ("poderia informar que…") — no INEP, de 2023 em diante: 24 casos. Nenhum fato é inventado.
+- Itens de prova prática (apresentar-se, explicar, orientar, verbalizar o exame, listar diferenciais) vão para `outOfScope`. Item anulado pela banca fica de fora.
 
 **Licença.** O conteúdo do gov.br é CC BY-ND 3.0. O `caseText` adaptado é obra derivada: **uso interno de avaliação apenas, sem redistribuição**. Não publique esses casos nem os resultados com o texto deles fora da equipe.
 
@@ -154,19 +164,14 @@ Os 66 casos `rv-*` vêm das provas discursivas e de habilidades clínicas do Rev
 
 | Caso | Motivo |
 | --- | --- |
-| `rv-2020-disc-4` | CAD: gabarito anterior ao consenso de crises hiperglicêmicas de 2024 |
-| `rv-2021-disc-3` | Sepse (colangite): anterior à SSC 2021/2026 |
-| `rv-2021-est-5` | SCA: anterior à diretriz ACC/AHA de 2025 |
-| `rv-2023-2-disc-5` | SCA: anterior à diretriz ACC/AHA de 2025 |
-| `rv-2021-est-10` | Dengue: anterior ao manual do MS de 2024 |
-| `rv-2023-2-est-6` | AVC: anterior à diretriz AHA/ASA de 2026 |
-| `rv-2021-est-3` | Icterícia neonatal: anterior à diretriz AAP de 2022 |
-| `rv-2024-2-est-7` | Choque hemorrágico: o PEP penaliza hemoderivado precoce, contra o ATLS |
-| `rv-2023-2-est-3` | Escorpião: o PEP penaliza o soro antiaracnídico, que o manual do MS aceita |
-| `rv-2022-2-est-3` | RN febril: o PEP considera errada a hipótese "sepse neonatal" |
-| `rv-2025-1-est-8` | Anafilaxia: o PEP aceita adrenalina SC e penaliza "choque anafilático" |
 | `rv-2020-disc-2` | PoCUS em retrospectiva: não é decisão sobre o paciente |
-| `rv-2020-reap-est-8` | CAD pediátrica com K 3,0 sem cobrança de reposição de potássio |
+| `rv-2021-disc-3` | Sepse (colangite): anterior à SSC 2021/2026 |
+| `rv-2021-est-3` | Icterícia neonatal: anterior à diretriz AAP de 2022 |
+| `rv-2021-est-5` | SCA: anterior à diretriz ACC/AHA de 2025 |
+| `rv-2022-2-est-3` | RN febril: o PEP considera errada a hipótese "sepse neonatal" |
+| `rv-2023-2-est-6` | AVC: anterior à diretriz AHA/ASA de 2026 |
+
+Os demais casos que estavam fora do portão no v1 voltaram: a conversão v2 resolveu o motivo com fonte vigente conferida, registrado em `provenance.notes`.
 
 ### Caso novo
 
@@ -252,6 +257,7 @@ JUDGE_MODEL=<modelo-openai> pnpm eval:clinical --variant baseline --variant clau
 | --- | --- | --- |
 | `--variant` | (obrigatória) | Uma ou mais variantes |
 | `--cases` | todos | `critical`, glob no id (`kb004-*`), `tag:<tag>` ou id; vírgula une |
+| `--mode` | `complete` | `complete` (caso completo) ou `funnel` (abertura + médico simulado; só casos com `input.funnel`) |
 | `--reps` | 1 | Repetições por caso — o modelo não é determinístico |
 | `--concurrency` | 2 | Casos em paralelo |
 | `--judge` | `none` | `anthropic`, `openai` ou `none` |
@@ -259,11 +265,32 @@ JUDGE_MODEL=<modelo-openai> pnpm eval:clinical --variant baseline --variant clau
 | `--out` | `evals/clinical/runs` | Pasta das execuções |
 | `--dry-run` | — | Mostra banco, variantes e casos e sai |
 | `--regrade <dir>` | — | Refaz só as notas de uma execução (ex.: com outro juiz), sem rodar o pipeline |
+| `--reuse-judge` | — | Com `--regrade`: reaproveita o veredito gravado do juiz e refaz só a parte determinística (ex.: depois de corrigir a checagem de conduta proibida), sem custo |
 | `--allow-remote-db` | — | Permite banco fora da lista local |
 
 Juiz: `--judge anthropic` usa `JUDGE_MODEL` (padrão `claude-opus-5-5`), `JUDGE_EFFORT` (padrão `high`) e a credencial padrão do SDK (`ANTHROPIC_API_KEY`), com raciocínio adaptativo, teto de 32k tokens de saída e sem `temperature`. Recusa, truncamento ou resposta de outro modelo viram erro do juiz, nunca nota. `--judge openai` exige `JUDGE_MODEL` e `JUDGE_OPENAI_API_KEY` (ou `OPENAI_API_KEY`). Quando a variante avaliada é Claude, prefira o juiz OpenAI: juiz da mesma família tende a favorecer respostas parecidas com as suas.
 
 Código de saída: `0` portão aprovado ou incompleto, `2` erro crítico no subconjunto crítico, `1` falha do harness.
+
+### Modo afunilamento
+
+```bash
+pnpm eval:clinical --mode funnel --variant claude-opus-5-5-v2-modelo --judge anthropic --case-timeout-ms 900000
+```
+
+O Copiloto começa só com `input.funnel.opening`. Um médico simulado (`SIMULATOR_MODEL`, padrão `claude-haiku-5-5`) responde às perguntas dele usando **só** o roteiro — o que o roteiro não traz é "Não informado." — e devolve o resultado dos exames e avaliações que o Copiloto mandou fazer agora, como acontece no plantão. O caso segue por `continueAnalysis`, como quando o médico responde na tela, por até três turnos; o último turno é avaliado, e o juiz vê a abertura e as perguntas e respostas, nunca o caso completo. O relatório mede quantos fatos `key` as respostas revelaram.
+
+Na primeira rodada (11/10/2026), o simulador só respondia a perguntas: 10 dos 12 fatos decisivos "não revelados" eram resultado de exame que o Copiloto tinha pedido. Por isso o pedido agora volta com o resultado.
+
+### Auditor sem gabarito
+
+O gabarito mede só os casos que tem. Para o caso que o médico traz e ninguém mapeou, `evals/clinical/graders/auditor.ts` lê só o caso e a saída e procura as três falhas que matam no plantão: hipótese grave esquecida, conduta perigosa para agora e conduta tempo-dependente ausente ou adiada. Antes de valer em produção, ele precisa concordar com o gabarito onde o gabarito existe:
+
+```bash
+AUDITOR_MODEL=claude-sonnet-5-5 tsx evals/clinical/audit.ts evals/clinical/runs/<execução> [--reuse]
+```
+
+Grava `audits.jsonl` e `audit.md` (sensibilidade, especificidade e cada discordância). **Ainda não serve como rede de segurança**: em 11/10/2026, com Sonnet 5.5 e Opus 5.5, ele alertou entre 7% e 43% dos erros críticos do gabarito — os modelos tratam como aceitável deixar uma conduta urgente esperando um exame, o erro mais comum. Os "alarmes falsos" dele, por outro lado, foram em boa parte achados reais que o gabarito não cobra.
 
 ### 4. O que cada execução grava
 
@@ -287,9 +314,14 @@ Tudo o que é preciso para explicar uma nota está nesses arquivos — não é p
 
 **Erro crítico** é qualquer um destes:
 
-1. Conduta proibida recomendada como definitiva — pela checagem automática ou pelo juiz.
-2. Hipótese "não pode faltar" ausente num caso crítico (juiz).
-3. Caso crítico sem resposta.
+1. Conduta proibida recomendada para agora — pela checagem automática ou pelo juiz, em qualquer turno.
+2. Diagnóstico de nível `critical` não considerado (juiz).
+3. Conduta de nível `critical` ausente — ou condicionada a um dado que não devia esperar, quando o gabarito exige `timing: now` (juiz).
+4. Caso crítico sem resposta.
+
+**Onde a conduta apareceu.** O juiz não decide o nível nem a camada exigida; ele só diz onde cada conduta do gabarito apareceu: `now` (para agora), `conditional_check` (só depois de uma checagem de segurança de minutos à beira do leito, que pode revelar contraindicação — ex.: eFAST antes da pericardiocentese, sinais de dissecção antes de anticoagular), `conditional` (à espera de exame demorado, laboratório, evolução ou dado que não muda a decisão) ou `absent`. A nota sai do `timing` do caso: `now` aceita `now` e `conditional_check`; `any` aceita qualquer camada. O relatório mostra também a taxa **estrita** (só `now`), para a escolha não ficar escondida. Em duas avaliações independentes das mesmas respostas, o juiz discordou de si mesmo em menos de 1% dos itens.
+
+**Formato da resposta.** Médias de perguntas, condutas e condutas para agora por análise — mede se a resposta cabe no plantão (a decisão v2 fazia sempre 3 perguntas e cerca de 12 condutas).
 
 **Desfechos.** "Sem resposta" é quando o pipeline não entregou análise nenhuma ao médico. É pontuado e separado por causa: saída inválida (o modelo não seguiu o formato), truncada (estourou o teto de tokens) ou recusa do provedor. Truncamento e recusa chegam do gateway como erros tipados (`AiTruncatedError`, `AiRefusalError`) — direto, ou convertidos pelo orquestrador em "AI output validation failed" com `OUTPUT TRUNCATED`/`MODEL REFUSAL` nos erros; o gabarito reconhece as duas formas. Erro de infraestrutura não é nota do modelo e fica fora das taxas.
 
@@ -318,6 +350,7 @@ Se um caso piorou por erro do gabarito, corrija o gabarito (e peça revisão mé
 
 ## Limitações conhecidas
 
-- **Só o turno 0.** Respostas às perguntas esclarecedoras (`followUps`) ainda não são roteirizadas; o formato do caso já comporta o campo novo sem quebrar os atuais.
-- **Juiz ainda não calibrado.** Antes de confiar nas taxas do juiz para decidir, um médico precisa rotular algumas dezenas de saídas e conferir a concordância (meta: ≥ 90% nos casos claros).
+- **Afunilamento só no Revalida de 2023 em diante.** As edições anteriores não publicam o roteiro do ator; casos próprios não têm roteiro.
+- **Juiz ainda não calibrado por médico.** O juiz é estável (menos de 1% de discordância consigo mesmo), mas estável não é certo: antes de confiar nas taxas para decidir, um médico precisa rotular algumas dezenas de saídas e conferir a concordância (meta: ≥ 90% nos casos claros).
+- **Casos vistos.** Regra do Copiloto escrita olhando os erros destes casos tende a ir melhor neles do que num caso novo. Para medir o caso não mapeado, rode também casos que não entraram no ajuste — e, ao liberar, uma prova cega com casos novos.
 - **Checagem automática de conduta proibida é heurística.** Ela lê orações e janelas de palavras, não entende frase; o juiz cobre o lado semântico. Falso positivo se corrige no caso, com `exceptWhen` e uma sonda `mustNotFlag` que o reproduza.
