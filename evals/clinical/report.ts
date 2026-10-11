@@ -84,7 +84,7 @@ export interface RunSummary {
     incompleteRows: number;
   };
   gate: GateStatus;
-  /** Casos críticos excluídos do portão: rodam e recebem nota, mas não reprovam. */
+  /** Casos com `excludeFromGate`: rodam e recebem nota, mas não reprovam o portão. */
   outsideGate: Array<{ caseId: string; reason: string; criticalErrorReps: number; reps: number }>;
   criteria: {
     path: Rate;
@@ -230,7 +230,7 @@ export function summarizeRun(run: LoadedRun, casesById: Map<string, ClinicalCase
     isGateCase(casesById.get(error.caseId)),
   ).length;
   const outsideGate = gradedCases.flatMap((clinicalCase) => {
-    if (!clinicalCase.critical || !clinicalCase.excludeFromGate) return [];
+    if (!clinicalCase.excludeFromGate) return [];
     const caseSummary = perCase.find((summary) => summary.caseId === clinicalCase.id);
     return [
       {
@@ -494,7 +494,7 @@ export function renderSummaryMarkdown(run: LoadedRun, summary: RunSummary): stri
     lines.push(
       '### Fora do portão',
       '',
-      'Casos críticos que rodam e recebem nota, mas não reprovam o portão (`excludeFromGate`).',
+      'Casos que rodam e recebem nota, mas não reprovam o portão (`excludeFromGate`).',
       '',
       table(
         ['Caso', 'Motivo', 'Repetições com erro crítico'],
