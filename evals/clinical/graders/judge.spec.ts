@@ -2,6 +2,7 @@ import type Anthropic from '@anthropic-ai/sdk';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { CopilotOutput } from '../../../src/modules/copilot/guardrails/output-validator';
 import { understandingFixture } from '../../../tests/fixtures/case-understanding';
+import type { ClinicalCase } from '../case.schema';
 import { loadCaseSet } from '../cases';
 import { gradeResult, judgeOutput } from '../grading';
 import type { ResultRow } from '../records';
@@ -22,10 +23,14 @@ import {
 } from './judge-clients';
 
 const { cases } = loadCaseSet();
-const fluctuatingStroke = cases.find(
-  (candidate) => candidate.id === 'fi-003-avc-flutuante-como-hemorragico',
-);
-if (!fluctuatingStroke) throw new Error('caso fi-003 ausente');
+
+function caseNamed(id: string): ClinicalCase {
+  const clinicalCase = cases.find((candidate) => candidate.id === id);
+  if (!clinicalCase) throw new Error(`caso ${id} ausente`);
+  return clinicalCase;
+}
+
+const fluctuatingStroke = caseNamed('fi-003-avc-flutuante-como-hemorragico');
 
 const noRetry = { maxAttempts: 2, baseDelayMs: 0, maxDelayMs: 0 };
 
@@ -252,7 +257,7 @@ function resultRow(
   return {
     runId: 'run',
     variant: 'teste',
-    caseId: fluctuatingStroke?.id ?? '',
+    caseId: fluctuatingStroke.id,
     rep: 0,
     status,
     harnessAttempts: 1,
