@@ -49,6 +49,7 @@ Cada caso é um arquivo JSON. Abra, leia, corrija o que estiver errado e marque 
 | `sources` | Fontes que sustentam as expectativas: `claim` (o que a fonte sustenta), `title`, `publisher`, `year` (ou `null`) e `url`. Opcional. |
 | `provenance` | De onde o caso veio e o que mudou: `exam`, `edition`, `item` e `url` (prova de origem), `originalCaseText` (texto antes de reescrito) e `notes` (o que mudou e por quê). Opcional. |
 | `probes` | Frases de recomendação que a checagem automática **deve** acusar (`mustFlag`) e **não pode** acusar (`mustNotFlag`) neste caso — ao menos uma de cada. Obrigatório quando o caso tem conduta proibida com `patterns`. Ver abaixo. |
+| `excludeFromGate` | `{ "reason": "..." }`: o caso roda e recebe nota, mas não decide o portão de release (gabarito oficial desatualizado ou discutível). Aparece no relatório em "Fora do portão". Opcional. |
 
 ### Condutas proibidas
 
@@ -113,7 +114,7 @@ Depois de revisar, troque para:
 
 `reviewer` e `date` são obrigatórios num caso revisado. `notes` é opcional.
 
-Caso tirado de prova oficial (Revalida) usa `"status": "official_exam_key"`: as expectativas vêm do gabarito oficial da prova, não de médico da equipe nem de IA. Não exige `reviewer`; a prova vai em `provenance` (`exam`, `edition`, `item`, `url`).
+Caso tirado de prova oficial (Revalida) usa `"status": "official_exam_key"`: as expectativas vêm do gabarito oficial da prova, não de médico da equipe nem de IA. Não exige `reviewer`, mas exige `provenance.exam`, `provenance.url` e `provenance.originalCaseText` — sem eles a expectativa não é verificável.
 
 ### Divergência entre diretrizes
 
@@ -131,6 +132,41 @@ Os 65 casos do gabarito v0 foram rascunhados por IA e nunca revisados por médic
 - fontes em `sources` e o resumo da mudança em `provenance.notes`.
 
 Os casos continuam `"status": "draft"`: a auditoria não substitui a revisão médica.
+
+### Camada 2: casos do Revalida (gabarito oficial do INEP)
+
+Os 66 casos `rv-*` vêm das provas discursivas e de habilidades clínicas do Revalida (INEP), edições 2020 a 2025/2, com o padrão de resposta ou o PEP oficial como verdade de referência. A banca é externa ao time: é a régua que não depende de nós nem de IA.
+
+**Origem.** De 163 itens revisados, entraram 66 (18 discursivas, 48 estações; 48 críticos). Ficaram de fora 97: os que não são emergência, os duplicados entre edições, os só de comunicação, os de gabarito ambíguo, os que dependem de imagem e os de procedimento técnico. O índice completo, com o motivo de cada item pulado, fica fora do repositório.
+
+**Regras da conversão.**
+
+- `goldSource` é `revalida_discursiva` ou `revalida_pep`; `review.status` é `official_exam_key`.
+- Expectativas só do gabarito oficial: nenhuma conduta, hipótese ou proibição que o padrão de resposta ou o PEP não pontue. Cada grupo de expectativas cita a linha do gabarito em `sources`.
+- Item anulado pela banca fica de fora.
+- `input.caseText` adapta o enunciado ao formato de beira de leito; `provenance.originalCaseText` guarda o texto oficial, com atribuição ao INEP.
+- Gabarito com diretriz posterior relevante não é corrigido: o caso fica marcado em `provenance.notes` e, se for crítico, sai do portão (abaixo).
+- Na integração ao gabarito v1, as condutas proibidas ganharam sondas e perderam as exceções genéricas de negação, sem mudar o que o gabarito penaliza.
+
+**Licença.** O conteúdo do gov.br é CC BY-ND 3.0. O `caseText` adaptado é obra derivada: **uso interno de avaliação apenas, sem redistribuição**. Não publique esses casos nem os resultados com o texto deles fora da equipe.
+
+**Fora do portão.** Estes casos rodam e recebem nota, mas não reprovam o portão (`excludeFromGate`):
+
+| Caso | Motivo |
+| --- | --- |
+| `rv-2020-disc-4` | CAD: gabarito anterior ao consenso de crises hiperglicêmicas de 2024 |
+| `rv-2021-disc-3` | Sepse (colangite): anterior à SSC 2021/2026 |
+| `rv-2021-est-5` | SCA: anterior à diretriz ACC/AHA de 2025 |
+| `rv-2023-2-disc-5` | SCA: anterior à diretriz ACC/AHA de 2025 |
+| `rv-2021-est-10` | Dengue: anterior ao manual do MS de 2024 |
+| `rv-2023-2-est-6` | AVC: anterior à diretriz AHA/ASA de 2026 |
+| `rv-2021-est-3` | Icterícia neonatal: anterior à diretriz AAP de 2022 |
+| `rv-2024-2-est-7` | Choque hemorrágico: o PEP penaliza hemoderivado precoce, contra o ATLS |
+| `rv-2023-2-est-3` | Escorpião: o PEP penaliza o soro antiaracnídico, que o manual do MS aceita |
+| `rv-2022-2-est-3` | RN febril: o PEP considera errada a hipótese "sepse neonatal" |
+| `rv-2025-1-est-8` | Anafilaxia: o PEP aceita adrenalina SC e penaliza "choque anafilático" |
+| `rv-2020-disc-2` | PoCUS em retrospectiva: não é decisão sobre o paciente |
+| `rv-2020-reap-est-8` | CAD pediátrica com K 3,0 sem cobrança de reposição de potássio |
 
 ### Caso novo
 
@@ -247,7 +283,7 @@ Tudo o que é preciso para explicar uma nota está nesses arquivos — não é p
 
 ## Como ler o relatório
 
-**Portão de release.** `APROVADO`: nenhum caso crítico com erro crítico. `REPROVADO`: algum caso crítico teve erro crítico em ao menos uma repetição. `INCOMPLETO`: não deu para checar tudo — sem juiz, juiz com erro, ou caso crítico que caiu em erro de infraestrutura.
+**Portão de release.** `APROVADO`: nenhum caso crítico com erro crítico. `REPROVADO`: algum caso crítico teve erro crítico em ao menos uma repetição. `INCOMPLETO`: não deu para checar tudo — sem juiz, juiz com erro, ou caso crítico que caiu em erro de infraestrutura. Caso com `excludeFromGate` não entra nessa conta: aparece em "Fora do portão", com o motivo e quantas repetições tiveram erro crítico.
 
 **Erro crítico** é qualquer um destes:
 
