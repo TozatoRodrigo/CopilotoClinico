@@ -112,7 +112,10 @@ export function validateOutputV2(
   };
 }
 
-function isCitable(citationChunkId: string | null, citableIds: ReadonlySet<string>): boolean {
+export function isCitable(
+  citationChunkId: string | null,
+  citableIds: ReadonlySet<string>,
+): boolean {
   return citationChunkId !== null && citableIds.has(citationChunkId);
 }
 
@@ -120,7 +123,7 @@ function indexesWhere<T>(items: readonly T[], predicate: (item: T) => boolean): 
   return items.flatMap((item, index) => (predicate(item) ? [index] : []));
 }
 
-function dependsWithoutData(output: CopilotOutputV2): string[] {
+export function dependsWithoutData(output: CopilotOutputV2): string[] {
   const offending = indexesWhere(
     output.recommendations,
     (rec) => rec.layer === 'depends' && !rec.dependsOn?.trim(),
@@ -134,7 +137,7 @@ function dependsWithoutData(output: CopilotOutputV2): string[] {
   ];
 }
 
-function sourceWithoutValidCitation(
+export function sourceWithoutValidCitation(
   output: CopilotOutputV2,
   citableIds: ReadonlySet<string>,
 ): string[] {
@@ -152,7 +155,7 @@ function sourceWithoutValidCitation(
   ];
 }
 
-function modelKnowledgeWithCitation(output: CopilotOutputV2): string[] {
+export function modelKnowledgeWithCitation(output: CopilotOutputV2): string[] {
   const offending = indexesWhere(
     output.recommendations,
     (rec) => rec.basis === 'model_knowledge' && rec.citationChunkId !== null,
@@ -165,7 +168,7 @@ function modelKnowledgeWithCitation(output: CopilotOutputV2): string[] {
   ];
 }
 
-function modelKnowledgeWithDose(output: CopilotOutputV2): string[] {
+export function modelKnowledgeWithDose(output: CopilotOutputV2): string[] {
   const offenses = output.recommendations.flatMap((rec, index) => {
     if (rec.basis !== 'model_knowledge') return [];
     const doses = findDoseMentions(`${rec.action} ${rec.rationale}`);
@@ -180,11 +183,19 @@ function modelKnowledgeWithDose(output: CopilotOutputV2): string[] {
   ];
 }
 
-function questionsWithoutSeparates(output: CopilotOutputV2): string[] {
+/**
+ * `skip`: perguntas que a v3 já removeu da saída (dado já informado) — não
+ * vale pedir correção do que o médico nunca vai ver. Os índices continuam os
+ * da resposta que o modelo escreveu, que é a que ele vê no retry.
+ */
+export function questionsWithoutSeparates(
+  output: CopilotOutputV2,
+  skip: ReadonlySet<number> = new Set(),
+): string[] {
   const offending = indexesWhere(
     output.clarifyingQuestions,
     (question) => question.separates.length === 0,
-  );
+  ).filter((index) => !skip.has(index));
   if (offending.length === 0) return [];
   return [
     `QUESTION WITHOUT SEPARATES: clarifyingQuestions at index ${offending.join(', ')} do not say ` +
@@ -245,20 +256,40 @@ const STRUCTURED_FIELD_QUESTIONS: Array<{
   },
 ];
 
+/** Pergunta que pede dado já presente no `structuredData`, com os dados que ela pede. */
+export interface KnownDataQuestion {
+  index: number;
+  labels: string[];
+}
+
+export function findQuestionsForKnownData(
+  output: Pick<CopilotOutputV2, 'clarifyingQuestions'>,
+  understanding: CaseUnderstanding,
+): KnownDataQuestion[] {
+  return output.clarifyingQuestions.flatMap((question, index) => {
+    const text = normalize(question.question);
+    const labels = STRUCTURED_FIELD_QUESTIONS.filter(
+      (field) => field.isKnown(understanding.structuredData) && field.asks.test(text),
+    ).map((field) => field.label);
+    return labels.length > 0 ? [{ index, labels }] : [];
+  });
+}
+
+/** Rótulo de cada pergunta nos achados: "index 1 asks for idade, sexo". */
+export function describeKnownDataQuestions(questions: readonly KnownDataQuestion[]): string {
+  return questions
+    .map(({ index, labels }) => `index ${index} asks for ${labels.join(', ')}`)
+    .join('; ');
+}
+
 function questionsForKnownData(
   output: CopilotOutputV2,
   understanding: CaseUnderstanding,
 ): string[] {
-  const offenses = output.clarifyingQuestions.flatMap((question, index) => {
-    const text = normalize(question.question);
-    const known = STRUCTURED_FIELD_QUESTIONS.filter(
-      (field) => field.isKnown(understanding.structuredData) && field.asks.test(text),
-    ).map((field) => field.label);
-    return known.length > 0 ? [`index ${index} asks for ${known.join(', ')}`] : [];
-  });
-  if (offenses.length === 0) return [];
+  const offending = findQuestionsForKnownData(output, understanding);
+  if (offending.length === 0) return [];
   return [
-    `QUESTION FOR KNOWN DATA: clarifyingQuestions ${offenses.join('; ')}, already given in the ` +
+    `QUESTION FOR KNOWN DATA: clarifyingQuestions ${describeKnownDataQuestions(offending)}, already given in the ` +
       'case (see structuredData in <case_understanding>). Ask only for data ABSENT from the case, ' +
       'starting from the missingDiscriminators.',
   ];
@@ -329,7 +360,10 @@ function outputStems(output: CopilotOutputV2): Set<string> {
   );
 }
 
-function uncoveredCannotMiss(output: CopilotOutputV2, understanding: CaseUnderstanding): string[] {
+export function uncoveredCannotMiss(
+  output: CopilotOutputV2,
+  understanding: CaseUnderstanding,
+): string[] {
   const stems = outputStems(output);
   const missing = understanding.cannotMiss
     .map((item) => item.hypothesis)

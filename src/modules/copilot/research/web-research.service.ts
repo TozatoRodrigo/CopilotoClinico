@@ -19,8 +19,11 @@ import {
   readWebResearchMaxSearches,
 } from './web-research.settings';
 
-/** Teto de tokens do texto de cada página lida: o bastante para a seção que importa. */
-const WEB_FETCH_MAX_CONTENT_TOKENS = 6000;
+/**
+ * Teto de tokens do texto de cada página lida: o bastante para a seção que
+ * importa. O mesmo vale para a verificação com fonte (`verify`).
+ */
+export const WEB_FETCH_MAX_CONTENT_TOKENS = 6000;
 
 export interface ResearchRequest {
   understanding: CaseUnderstanding;

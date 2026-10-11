@@ -136,6 +136,7 @@ export const es: Messages = {
       subtype_ambiguity: 'Subtipo indefinido — depende del dato que lo discrimina',
       depends_on_data: 'Depende de un dato aún no disponible',
       unverified_dose: 'Dosis sin fuente citada — confirme en el protocolo local',
+      source_conflict: 'La fuente oficial diverge — verifique antes de continuar',
     },
     layers: {
       now: { label: 'Hacer ahora', hint: 'seguro en todas las hipótesis abiertas' },

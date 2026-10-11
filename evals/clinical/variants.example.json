@@ -151,6 +151,59 @@
         "AI_API_KEY": "offline",
         "AI_EMBEDDING_MODEL": "deterministic-test-embedding"
       }
+    },
+    {
+      "name": "claude-opus-5-5-v3-modelo",
+      "description": "Regras v3 (emenda de 11/10/2026 ao ADR-013): Claude Opus 5.5, decisão v3 (0 a 2 perguntas, até 6 condutas para agora, destino e notificação, correções determinísticas no lugar de retry), só com o conhecimento do modelo. Sem embedding nem chave da OpenAI.",
+      "env": {
+        "AI_PROVIDER": "anthropic",
+        "AI_MODEL": "claude-opus-5-5",
+        "AI_BASE_URL": "https://api.anthropic.com",
+        "AI_API_KEY": "${ANTHROPIC_API_KEY}",
+        "AI_MAX_OUTPUT_TOKENS": "32000",
+        "AI_EFFORT": "high",
+        "COPILOT_REASONING": "stages",
+        "AI_UNDERSTANDING_EFFORT": "low",
+        "COPILOT_DECISION_PROMPT": "v3",
+        "COPILOT_KNOWLEDGE_SOURCE": "model_only"
+      }
+    },
+    {
+      "name": "claude-opus-5-5-v3-verifica",
+      "description": "Regras v3 com verificação com fonte DEPOIS da decisão (COPILOT_KNOWLEDGE_SOURCE=verify): o plano sai do conhecimento do Opus 5.5; a pesquisa (Sonnet 5.5, effort low, até 5 buscas, domínios oficiais) confere as condutas e o vínculo (Sonnet 5.5) anexa fonte e dose literal ou aponta divergência.",
+      "env": {
+        "AI_PROVIDER": "anthropic",
+        "AI_MODEL": "claude-opus-5-5",
+        "AI_BASE_URL": "https://api.anthropic.com",
+        "AI_API_KEY": "${ANTHROPIC_API_KEY}",
+        "AI_MAX_OUTPUT_TOKENS": "32000",
+        "AI_EFFORT": "high",
+        "COPILOT_REASONING": "stages",
+        "AI_UNDERSTANDING_EFFORT": "low",
+        "COPILOT_DECISION_PROMPT": "v3",
+        "COPILOT_KNOWLEDGE_SOURCE": "verify",
+        "AI_RESEARCH_MODEL": "claude-sonnet-5-5",
+        "AI_RESEARCH_EFFORT": "low",
+        "WEB_RESEARCH_MAX_SEARCHES": "5",
+        "AI_VERIFY_ATTACH_MODEL": "claude-sonnet-5-5"
+      }
+    },
+    {
+      "name": "claude-haiku-5-5-v3-modelo",
+      "description": "Regras v3 com Claude Haiku 5.5 no entendimento e na decisão, só com o conhecimento do modelo — mede se o modelo barato e rápido segura o gabarito v2.",
+      "env": {
+        "AI_PROVIDER": "anthropic",
+        "AI_MODEL": "claude-haiku-5-5",
+        "AI_BASE_URL": "https://api.anthropic.com",
+        "AI_API_KEY": "${ANTHROPIC_API_KEY}",
+        "AI_MAX_OUTPUT_TOKENS": "32000",
+        "AI_EFFORT": "high",
+        "COPILOT_REASONING": "stages",
+        "AI_UNDERSTANDING_EFFORT": "low",
+        "AI_UNDERSTANDING_MODEL": "claude-haiku-5-5",
+        "COPILOT_DECISION_PROMPT": "v3",
+        "COPILOT_KNOWLEDGE_SOURCE": "model_only"
+      }
     }
   ]
 }

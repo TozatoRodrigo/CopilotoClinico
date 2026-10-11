@@ -32,6 +32,7 @@ import {
   type ValidationResult,
 } from '../guardrails/output-validator';
 import { validateOutputV2 } from '../guardrails/output-validator-v2';
+import { validateOutputV3 } from '../guardrails/output-validator-v3';
 import { findDoseMentions } from '../guardrails/dose-detector';
 import type { AnalyzeInput, RespondInput } from '../schemas/copilot.schemas';
 import { calculateInferenceCost } from './model-pricing';
@@ -59,8 +60,18 @@ import {
 } from '../understanding/understanding.service';
 import { WebResearchService, type ResearchOutcome } from '../research/web-research.service';
 import { isWebEvidenceId } from '../research/web-evidence';
+import {
+  SourceVerificationService,
+  type SourceVerificationOutcome,
+} from '../research/source-verification.service';
+import { applySourceLinkText, type SourceLink } from '../research/source-links';
 import { buildDecisionV2Prompt } from './decision-prompt-v2';
-import { readDecisionPipeline, type DecisionPipeline } from './decision.settings';
+import { buildDecisionV3Prompt } from './decision-prompt-v3';
+import {
+  isStagedDecisionPrompt,
+  readDecisionPipeline,
+  type DecisionPipeline,
+} from './decision.settings';
 
 const DEFAULT_MAX_TURNS = 5;
 
@@ -83,17 +94,21 @@ const RECOMMENDATION_LAYER_ORDER = { now: 0, depends: 1 } as const;
 
 /**
  * CC-03 — no último turno não há próxima rodada para responder perguntas:
- * "recommendations" nunca pode ficar vazio. Na v2, o que ainda depende de
- * dado vai na camada "depends" em vez de virar recomendação preliminar.
+ * "recommendations" nunca pode ficar vazio. Na v2 e na v3, o que ainda
+ * depende de dado vai na camada "depends" em vez de virar recomendação
+ * preliminar.
  */
+const FINAL_TURN_INSTRUCTIONS_STAGED =
+  'Este é o último turno permitido para esta análise. NÃO inclua clarifyingQuestions (a lista deve ficar vazia). Como não há próximo turno, "recommendations" NÃO PODE ficar vazio: dê ao menos uma conduta com a melhor evidência e informação disponíveis. O que ainda depender de dado ausente vai na camada "depends", com esse dado em "dependsOn".';
 const FINAL_TURN_INSTRUCTIONS: Record<DecisionPromptVersion, string> = {
   v1: 'Este é o último turno permitido para esta análise. NÃO inclua novas clarifyingQuestions (a lista deve ficar vazia). Como não há próximo turno, "recommendations" NÃO PODE ficar vazio: forneça ao menos uma recomendação preliminar com base na melhor evidência e informação disponíveis, mesmo que incompletas. Se ainda houver incerteza sobre a cobertura da diretriz, defina uncertainty=true e descreva uncertaintyReason, mas isso não substitui a obrigação de recomendar algo — declare a incerteza E recomende, não incerteza no lugar de recomendar.',
-  v2: 'Este é o último turno permitido para esta análise. NÃO inclua clarifyingQuestions (a lista deve ficar vazia). Como não há próximo turno, "recommendations" NÃO PODE ficar vazio: dê ao menos uma conduta com a melhor evidência e informação disponíveis. O que ainda depender de dado ausente vai na camada "depends", com esse dado em "dependsOn".',
+  v2: FINAL_TURN_INSTRUCTIONS_STAGED,
+  v3: FINAL_TURN_INSTRUCTIONS_STAGED,
 };
 
 /**
- * F1 — busca não feita (`COPILOT_KNOWLEDGE_SOURCE=model_only|web`): nenhum
- * trecho e nenhuma chamada ao provedor de embedding.
+ * F1 — busca não feita (`COPILOT_KNOWLEDGE_SOURCE=model_only|web|verify`):
+ * nenhum trecho e nenhuma chamada ao provedor de embedding.
  */
 const NO_RETRIEVAL: RetrievalResult = {
   chunks: [],
@@ -133,9 +148,10 @@ export type EnrichedCopilotOutput = Omit<CopilotOutput, 'recommendations'> & {
    */
   understanding?: CaseUnderstanding | null;
   /**
-   * F1 — trechos da pesquisa web entregues à decisão, gravados para
-   * auditoria. Só com `COPILOT_KNOWLEDGE_SOURCE=web`; vazio quando a pesquisa
-   * falhou e a decisão seguiu só com o conhecimento do modelo.
+   * F1 — trechos da pesquisa web entregues à decisão (`web`) ou achados pela
+   * verificação depois dela (`verify`), gravados para auditoria e para o
+   * gabarito. Vazio quando a pesquisa falhou e a decisão seguiu só com o
+   * conhecimento do modelo.
    */
   webEvidence?: WebEvidenceItem[];
 };
@@ -408,26 +424,28 @@ export interface AnsweredQuestion {
   turnIndex: number;
 }
 
-function sortRecommendations<T extends CopilotOutput['recommendations'][number]>(
-  recommendations: T[],
-): T[] {
-  return [...recommendations].sort((left, right) => {
-    // F1 — só a v2 tem camada; na v1 os dois lados são `undefined` e empatam.
-    const layerDelta =
-      (left.layer ? RECOMMENDATION_LAYER_ORDER[left.layer] : 0) -
-      (right.layer ? RECOMMENDATION_LAYER_ORDER[right.layer] : 0);
-    if (layerDelta !== 0) {
-      return layerDelta;
-    }
+type DecidedRecommendation = CopilotOutput['recommendations'][number];
 
-    const categoryDelta =
-      RECOMMENDATION_CATEGORY_ORDER[left.category] - RECOMMENDATION_CATEGORY_ORDER[right.category];
-    if (categoryDelta !== 0) {
-      return categoryDelta;
-    }
+function compareRecommendations(left: DecidedRecommendation, right: DecidedRecommendation): number {
+  // F1 — só v2 e v3 têm camada; na v1 os dois lados são `undefined` e empatam.
+  const layerDelta =
+    (left.layer ? RECOMMENDATION_LAYER_ORDER[left.layer] : 0) -
+    (right.layer ? RECOMMENDATION_LAYER_ORDER[right.layer] : 0);
+  if (layerDelta !== 0) {
+    return layerDelta;
+  }
 
-    return right.confidence - left.confidence;
-  });
+  const categoryDelta =
+    RECOMMENDATION_CATEGORY_ORDER[left.category] - RECOMMENDATION_CATEGORY_ORDER[right.category];
+  if (categoryDelta !== 0) {
+    return categoryDelta;
+  }
+
+  return right.confidence - left.confidence;
+}
+
+function sortRecommendations<T extends DecidedRecommendation>(recommendations: T[]): T[] {
+  return [...recommendations].sort(compareRecommendations);
 }
 
 /**
@@ -562,7 +580,7 @@ function analysisCost(
 }
 
 /**
- * F1 — achados corrigíveis da decisão v2 viram aviso na resposta aceita: já
+ * F1 — achados corrigíveis das decisões v2 e v3 viram aviso na resposta aceita: já
  * tiveram o seu retry e nunca bloqueiam (emenda de 10/10/2026 ao ADR-012).
  */
 function acceptCorrectable(validation: ValidationResult): ValidationResult {
@@ -578,9 +596,9 @@ function hasCorrectable(validation: ValidationResult): boolean {
   return (validation.correctable?.length ?? 0) > 0;
 }
 
-/** F1 — JSON Schema da saída na versão do prompt de decisão. */
+/** F1 — JSON Schema da saída na versão do prompt de decisão (v2 e v3 têm o mesmo contrato). */
 function responseSchemaOf(pipeline: DecisionPipeline) {
-  return pipeline.decisionPrompt === 'v2'
+  return isStagedDecisionPrompt(pipeline.decisionPrompt)
     ? COPILOT_OUTPUT_V2_JSON_SCHEMA
     : COPILOT_OUTPUT_JSON_SCHEMA;
 }
@@ -598,7 +616,10 @@ function coverageOf(prepared: {
     : null;
 }
 
-/** F1 — o que a pesquisa web fez, para a trilha técnica (`params`). */
+/**
+ * F1 — o que a pesquisa web (ou a verificação, em `verify`) fez, para a
+ * trilha técnica (`params`).
+ */
 function researchTrace(research: ResearchOutcome) {
   return {
     model: research.model,
@@ -607,6 +628,36 @@ function researchTrace(research: ResearchOutcome) {
     latencyMs: research.latencyMs,
     cost: research.cost,
     fallbackReason: research.fallbackReason,
+  };
+}
+
+const NO_SOURCE_LINKS: ReadonlyMap<number, SourceLink> = new Map();
+
+/**
+ * Verificação com fonte (`verify`): a conduta ganha a fonte oficial que a
+ * sustenta — origem e campos de fonte iguais aos de uma recomendação que
+ * cita `web:N` no modo web, para a UI mostrar o link —, a dose como o trecho
+ * a escreve e, quando a fonte diverge, no quê. O rótulo preliminar já veio
+ * da contenção com a origem DECIDIDA: a verificação acrescenta fonte, dose e
+ * divergência, e nunca tira uma cautela que a decisão já tinha (ex.: dose sem
+ * fonte continua `unverified_dose`, com a dose da fonte ao lado).
+ */
+function withSourceLink(
+  recommendation: EnrichedRecommendation,
+  link: SourceLink,
+  resolved: ResolvedSource,
+): EnrichedRecommendation {
+  return {
+    ...recommendation,
+    ...applySourceLinkText(recommendation, link),
+    basis: 'source',
+    citationChunkId: link.citationId,
+    chunkId: link.citationId,
+    source: resolved.source,
+    sourceVersion: resolved.sourceVersion,
+    sourceText: resolved.text,
+    sourceUrl: resolved.sourceUrl,
+    origin: resolved.origin,
   };
 }
 
@@ -704,7 +755,12 @@ interface PreparedAnalysis {
   logLabel: string;
   /** F1 — Etapa 1 deste turno; `null` com `COPILOT_REASONING=legacy`. */
   stage: UnderstandingOutcome | null;
-  /** F1 — pesquisa web deste turno; `null` fora de `COPILOT_KNOWLEDGE_SOURCE=web`. */
+  /**
+   * F1 — pesquisa web deste turno; `null` fora de `COPILOT_KNOWLEDGE_SOURCE=web`.
+   * Em `verify`, é `null` até a decisão e passa a ser a verificação depois
+   * dela (ver `settleAnalysis`): o rastro, o custo e a evidência gravados são
+   * os mesmos do modo web.
+   */
   research: ResearchOutcome | null;
 }
 
@@ -731,6 +787,15 @@ type AnalysisOutcome =
 @Injectable()
 export class OrchestratorService {
   private readonly logger = new Logger(OrchestratorService.name);
+  /**
+   * Verificação com fonte depois da decisão (`verify`). Montada aqui, e não
+   * injetada: depende só do gateway e da config que o orquestrador já recebe,
+   * e assim todo contexto que monta o orquestrador — o servidor, o gabarito
+   * clínico (evals/, com a sua própria lista de providers) e os testes — tem a
+   * verificação sem mudar a sua lista de providers. As chamadas passam pelo
+   * mesmo gateway, então o custo aparece onde aparecem as outras.
+   */
+  private readonly sourceVerification: SourceVerificationService;
 
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
@@ -742,7 +807,9 @@ export class OrchestratorService {
     @Inject(ConfigService) private readonly config: ConfigService,
     @Inject(UnderstandingService) private readonly understanding: UnderstandingService,
     @Inject(WebResearchService) private readonly webResearch: WebResearchService,
-  ) {}
+  ) {
+    this.sourceVerification = new SourceVerificationService(aiGateway, config);
+  }
 
   /**
    * F4 — anexos deste atendimento no formato que o prompt espera. O id de
@@ -818,7 +885,9 @@ export class OrchestratorService {
    *   sempre, pelo texto do caso, sem ele);
    * - `model_only`: nenhuma busca e nenhuma chamada de embedding;
    * - `web`: pesquisa em fontes oficiais a partir do entendimento; sem
-   *   entendimento ou sem resultado, segue como `model_only`.
+   *   entendimento ou sem resultado, segue como `model_only`;
+   * - `verify`: a decisão roda exatamente como em `model_only`; a pesquisa
+   *   vem depois dela, para conferir as condutas (`verifySources`).
    */
   private async gatherEvidence(
     caseText: string,
@@ -833,7 +902,7 @@ export class OrchestratorService {
         research: null,
       };
     }
-    if (pipeline.knowledgeSource === 'model_only') {
+    if (pipeline.knowledgeSource === 'model_only' || pipeline.knowledgeSource === 'verify') {
       return { retrievalResult: NO_RETRIEVAL, research: null };
     }
     if (!stage?.understanding) {
@@ -891,8 +960,11 @@ export class OrchestratorService {
     const understanding = input.stage?.understanding ?? undefined;
     const evidence = promptEvidence(input.evidence.retrievalResult, input.attachments);
 
-    if (pipeline.decisionPrompt === 'v2') {
-      return buildDecisionV2Prompt({
+    if (isStagedDecisionPrompt(pipeline.decisionPrompt)) {
+      // v2 e v3: a mesma mensagem do usuário; só o system prompt muda.
+      const buildStaged =
+        pipeline.decisionPrompt === 'v3' ? buildDecisionV3Prompt : buildDecisionV2Prompt;
+      return buildStaged({
         caseText: input.caseText,
         understanding,
         redFlags: input.redFlags,
@@ -1343,10 +1415,12 @@ export class OrchestratorService {
   }
 
   private validate(prepared: PreparedAnalysis, content: string): ValidationResult {
+    const decisionContext = { understanding: prepared.stage?.understanding ?? null };
+    if (prepared.pipeline.decisionPrompt === 'v3') {
+      return validateOutputV3(content, prepared.prompt.retrievedChunkIds, decisionContext);
+    }
     if (prepared.pipeline.decisionPrompt === 'v2') {
-      return validateOutputV2(content, prepared.prompt.retrievedChunkIds, {
-        understanding: prepared.stage?.understanding ?? null,
-      });
+      return validateOutputV2(content, prepared.prompt.retrievedChunkIds, decisionContext);
     }
     return validateOutput(
       content,
@@ -1399,7 +1473,7 @@ export class OrchestratorService {
     if (firstIsValid && !hasCorrectable(attempt.validation)) return attempt;
     if (!attempt.retryable) return attempt;
 
-    // F1 — na v2, achado corrigível (camada sem dado, dose sem fonte…) também
+    // F1 — na v2 e na v3, achado corrigível (camada sem dado, dose sem fonte…) também
     // ganha o retry, junto com os erros que bloqueiam.
     const feedback = [...attempt.validation.errors, ...(attempt.validation.correctable ?? [])];
     this.logger.warn(
@@ -1473,13 +1547,22 @@ export class OrchestratorService {
         `OUTPUT_VALIDATION_WARNING${prepared.logLabel}: ${validation.warnings.join(' | ')}`,
       );
     }
-    const output =
-      prepared.pipeline.decisionPrompt === 'v2'
-        ? this.enrichOutputV2(prepared, validation.output)
-        : this.enrichOutput(prepared, validation.output);
+
+    // Verificação com fonte (`verify`): depois de uma decisão válida e antes
+    // de gravar — no streaming, depois dos deltas e antes do `done`. Daqui em
+    // diante, `research` é a verificação: rastro, custo, tempo e evidência
+    // saem como no modo web.
+    const verification = await this.verifySources(prepared, validation.output);
+    const settled: PreparedAnalysis = verification
+      ? { ...prepared, research: verification }
+      : prepared;
+
+    const output = isStagedDecisionPrompt(settled.pipeline.decisionPrompt)
+      ? this.enrichOutputV2(settled, validation.output, verification?.links)
+      : this.enrichOutput(settled, validation.output);
     const interaction = await this.prisma.aiInteraction.create({
       data: {
-        ...this.interactionRecord(prepared, attempt),
+        ...this.interactionRecord(settled, attempt),
         rawOutput: output as unknown as Prisma.InputJsonValue,
         citations: {
           recommendations: output.recommendations,
@@ -1489,39 +1572,63 @@ export class OrchestratorService {
       },
     });
 
-    await this.encounters.update(prepared.physicianId, prepared.encounterId, {
+    await this.encounters.update(settled.physicianId, settled.encounterId, {
       status: 'in_review',
     });
-    const cost = analysisCost(prepared, attempt);
-    await this.recordTurn(prepared, interaction.id, output, cost);
+    const cost = analysisCost(settled, attempt);
+    await this.recordTurn(settled, interaction.id, output, cost);
 
-    const { retrievalResult } = prepared;
+    const { retrievalResult } = settled;
     return {
       valid: true,
       result: {
         interactionId: interaction.id,
         output,
-        citations: this.buildCitations(prepared, output),
+        citations: this.buildCitations(settled, output),
         metadata: {
-          piiDetected: prepared.piiDetected,
+          piiDetected: settled.piiDetected,
           // Chegar aqui implica scan limpo: entrada com injeção é recusada
           // antes de qualquer chamada ao modelo (rejectInjection).
           injectionDetected: false,
           chunksRetrieved: retrievalResult.totalRetrieved,
-          retrievalCoverage: coverageOf(prepared),
+          retrievalCoverage: coverageOf(settled),
           officialChunksRetrieved: retrievalResult.official.chunks.length,
-          latencyMs: Date.now() - prepared.startedAt,
+          latencyMs: Date.now() - settled.startedAt,
           cost,
           model: attempt.model,
-          turnIndex: turnIndexOf(prepared.turn),
-          maxTurns: prepared.maxTurns,
-          ...(prepared.stage ? { understandingLatencyMs: prepared.stage.latencyMs } : {}),
-          knowledgeSource: prepared.pipeline.knowledgeSource,
-          decisionPrompt: prepared.pipeline.decisionPrompt,
-          ...(prepared.research ? { researchLatencyMs: prepared.research.latencyMs } : {}),
+          turnIndex: turnIndexOf(settled.turn),
+          maxTurns: settled.maxTurns,
+          ...(settled.stage ? { understandingLatencyMs: settled.stage.latencyMs } : {}),
+          knowledgeSource: settled.pipeline.knowledgeSource,
+          decisionPrompt: settled.pipeline.decisionPrompt,
+          ...(settled.research ? { researchLatencyMs: settled.research.latencyMs } : {}),
         },
       },
     };
+  }
+
+  /**
+   * Verificação com fonte depois da decisão (`verify`); `null` nos outros
+   * modos. Sem entendimento não há síndrome nem hipóteses para pesquisar: a
+   * saída da decisão segue intacta, como a pesquisa do modo web sem ele.
+   */
+  private async verifySources(
+    prepared: PreparedAnalysis,
+    output: CopilotOutput,
+  ): Promise<SourceVerificationOutcome | null> {
+    if (prepared.pipeline.knowledgeSource !== 'verify') return null;
+    const understanding = prepared.stage?.understanding;
+    if (!understanding) {
+      this.logger.warn(
+        `SOURCE_VERIFICATION_FALLBACK${prepared.logLabel}: sem entendimento do caso não há o que verificar — segue a saída da decisão`,
+      );
+      return null;
+    }
+    return this.sourceVerification.verify({
+      understanding,
+      recommendations: output.recommendations,
+      logLabel: prepared.logLabel,
+    });
   }
 
   /** Campos de `ai_interactions` comuns à gravação válida e à de falha. */
@@ -1602,18 +1709,28 @@ export class OrchestratorService {
   }
 
   /**
-   * F1 — decisão v2 (ADR-013): a fonte de cada recomendação vem da base que
-   * ela declarou e a contenção v2 decide o rótulo. Recomendação `source` cujo
-   * id não está entre os citáveis — o que sobrou depois do retry — é
+   * F1 — decisões v2 e v3 (ADR-013): a fonte de cada recomendação vem da base
+   * que ela declarou e a contenção v2 decide o rótulo. Recomendação `source`
+   * cujo id não está entre os citáveis — o que sobrou depois do retry — é
    * mostrada como conhecimento geral do modelo: nada no prompt a sustenta.
+   *
+   * `links` (só em `verify`): os vínculos da verificação com fonte, pelo
+   * índice da recomendação na saída da decisão — por isso entram antes da
+   * ordenação.
    */
-  private enrichOutputV2(prepared: PreparedAnalysis, output: CopilotOutput): EnrichedCopilotOutput {
+  private enrichOutputV2(
+    prepared: PreparedAnalysis,
+    output: CopilotOutput,
+    links: ReadonlyMap<number, SourceLink> = NO_SOURCE_LINKS,
+  ): EnrichedCopilotOutput {
     const chunks = citableChunks(prepared.retrievalResult);
     const citableIds = new Set(prepared.prompt.retrievedChunkIds);
     const webEvidence = prepared.research?.evidence ?? [];
     let demoted = 0;
 
-    const recommendations = sortRecommendations(output.recommendations).map((rec) => {
+    const decided = output.recommendations.map((rec, index) => ({ rec, link: links.get(index) }));
+    decided.sort((left, right) => compareRecommendations(left.rec, right.rec));
+    const recommendations = decided.map(({ rec, link }): EnrichedRecommendation => {
       const cited = rec.citationChunkId !== null && citableIds.has(rec.citationChunkId);
       const citationChunkId = rec.basis === 'source' && cited ? rec.citationChunkId : null;
       if (rec.basis === 'source' && citationChunkId === null) demoted += 1;
@@ -1629,8 +1746,9 @@ export class OrchestratorService {
         layer: rec.layer ?? 'depends',
         origin: resolved.origin,
         carriesDose: findDoseMentions(`${rec.action} ${rec.rationale}`).length > 0,
+        sourceConflict: Boolean(link?.conflict),
       });
-      return {
+      const enriched: EnrichedRecommendation = {
         ...rec,
         citationChunkId,
         basis: citationChunkId === null ? ('model_knowledge' as const) : ('source' as const),
@@ -1643,6 +1761,12 @@ export class OrchestratorService {
         sourceUrl: resolved.sourceUrl,
         origin: resolved.origin,
       };
+      if (!link) return enriched;
+      return withSourceLink(
+        enriched,
+        link,
+        resolveCitationSource(link.citationId, chunks, prepared.attachments, webEvidence),
+      );
     });
 
     if (demoted > 0) {

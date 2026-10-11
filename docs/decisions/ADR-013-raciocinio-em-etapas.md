@@ -200,3 +200,90 @@ alternativas.
 `claude-haiku-5-5-v2-modelo` e `claude-opus-5-5-v2-web-entendimento-haiku` no
 gabarito, com a parcela de condutas com fonte citada e o custo da pesquisa no
 relatório. Os critérios de liberação da tabela acima valem para cada uma.
+
+## Emenda 11/10/2026 — regras v3 e verificação depois da decisão
+
+**Contexto.** O experimento de 11/10/2026 (92 casos críticos, Opus 5.5,
+decisão v2) mostrou:
+
+- **Perguntas:** a v2 fez exatamente 3 perguntas em 272 de 272 análises —
+  "até 3" virou "3".
+- **Excesso de condutas:** cerca de 12 por análise, 43% delas condicionais.
+- **Doses:** 0% das condutas com dose no modo sem pesquisa.
+- **Retentativas:** 41% das análises fizeram uma 2ª chamada (cerca de +27 s).
+  Causas, em ordem: hipótese grave não citada, pergunta sobre dado já
+  informado e linguagem de probabilidade.
+- **Sem resposta:** a regra de linguagem de probabilidade bloqueou uma resposta
+  inteira, e o médico ficou sem nada (kb001-pc-002).
+- **Pesquisa antes da decisão puxa o raciocínio:** com `web`, as condutas
+  obrigatórias caíram de 62% para 48%, e o complexo protrombínico ficou
+  condicionado ao INR.
+
+**Decisão.**
+
+1. **Prompt v3** (`COPILOT_DECISION_PROMPT=v3`, exige `stages`, como a v2):
+   mesmo contrato de saída e mesma mensagem do usuário da v2. Regras novas:
+   tratamento tempo-crítico já indicado pelo caso é "now" (não espera exame
+   que não muda a decisão); no máximo 6 "now" e 5 "depends"; o destino do
+   paciente sempre como recomendação (e a notificação SINAN, quando couber);
+   0 a 2 perguntas, só quando a resposta muda a conduta. A v2 fica byte a
+   byte igual.
+2. **Validador v3.** Só JSON/schema, beco sem saída e tipo de resposta
+   bloqueiam. Linguagem de probabilidade vira corrigível (um retry, depois
+   aviso). Pergunta sobre dado já presente no `structuredData` sai da
+   resposta sem retry e vira aviso — salvo se deixaria a resposta sem próximo
+   passo. Hipótese grave não citada e passar dos tetos viram só aviso: o card
+   "O que eu entendi" já mostra todas as hipóteses graves ao médico. O schema
+   mantém o teto rígido de 3 perguntas.
+3. **Verificação depois da decisão** (`COPILOT_KNOWLEDGE_SOURCE=verify`, exige
+   `stages` e v2 ou v3, como `web`). Entendimento e decisão rodam exatamente
+   como em `model_only`. Depois de uma decisão válida, uma pesquisa com os
+   settings de `web` confere as condutas de tratamento e estabilização (até 8,
+   nunca o texto do caso), e uma chamada curta (`AI_VERIFY_ATTACH_MODEL`,
+   padrão `claude-sonnet-5-5`, esforço baixo) liga cada conduta a um trecho
+   citado. O código só aceita id desta análise e dose que aparece literalmente
+   no trecho. A conduta vinculada ganha a fonte (origem `web_official`), a dose
+   da fonte no texto e, quando a fonte diverge, o preliminar `source_conflict`
+   com o motivo no `rationale`. A verificação nunca tira um rótulo de cautela
+   que a decisão já tinha e nunca bloqueia: falha, recusa ou nenhuma citação
+   devolvem a saída da decisão intacta (`SOURCE_VERIFICATION_FALLBACK`). Roda
+   na análise, no streaming (depois dos deltas, antes do `done`) e na
+   reanálise; rastro, evidência, tempo e custo são gravados como no modo web.
+
+**Medição.** As variantes v3 com `model_only` e com `verify` entram no
+gabarito ao lado das v2, com os mesmos critérios de liberação, mais o número
+de perguntas por análise, a taxa de 2ª chamada e a parcela de condutas com
+fonte e dose citadas.
+
+**Resultado (11/10/2026, gabarito v2, juiz Sonnet 5.5).** Nos 92 casos
+críticos, no modo caso completo (86 decidem o portão):
+
+| | Opus v2 | Opus v3 | Opus v3 + `verify` | Haiku v3 |
+| --- | --- | --- | --- | --- |
+| Casos com erro crítico | 10 (3 sem resposta) | 3 | 3 | 4 |
+| Condutas críticas na camada exigida | 95% | 98% | 98% | 97% |
+| Condutas importantes | 87% | 88% | 87% | 78% |
+| Perguntas por análise | 3,0 | 1,6 | 1,6 | 1,9 |
+| Latência p50 | 61 s | 58 s | 79 s | 49 s |
+| Custo por análise | US$ 0,19 | US$ 0,15 | US$ 0,30 | US$ 0,006 |
+
+No afunilamento (24 estações com roteiro), a v3 chega ao fato decisivo em
+88% dos casos (v2: 92%) com 1,0 pergunta por análise (v2: 3,0). Nos 39 casos
+que não entraram na escrita destas regras, v3 e v2 empatam — parte do ganho
+nos críticos é ajuste a casos já vistos.
+
+**Decisão de produção.** `COPILOT_REASONING=stages`,
+`COPILOT_DECISION_PROMPT=v3`, `COPILOT_KNOWLEDGE_SOURCE=model_only`.
+`verify` fica desligado: não melhorou a segurança, custa +21 s e o dobro, e
+ainda precisa de três correções — domínios só de diretriz oficial (a maior
+parte das citações veio de artigos do PubMed/PMC), conferir que a dose é do
+fármaco da conduta (houve dexametasona em dose de outra indicação) e
+divergências falsas (trombectomia "divergindo" da AHA por leitura errada do
+trecho). Haiku não decide conduta: perde condutas importantes (manejo de
+insulina e potássio, drenagem após descompressão).
+
+**Pendente (v3.1).** Condutas como anticoagulação e VNI ainda saem
+condicionadas a checagens rápidas quando a diretriz manda iniciar já; o
+destino do paciente não pode sugerir alta antes do dado decisivo (edema
+periorbitário: "alta com antibiótico oral" no primeiro turno); trombólise não
+aparece nem condicionada em cefaleia em trovoada.

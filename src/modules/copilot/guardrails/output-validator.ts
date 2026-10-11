@@ -405,9 +405,16 @@ export function probabilityLanguageError(output: OutputShape): string | null {
   );
 }
 
-/** UX-07 — ver `validateOutput`. Vale para as duas versões. */
-export function answerTypeMismatchError(output: OutputShape): string | null {
-  const offenses = findAnswerTypeMismatches(output.clarifyingQuestions);
+/**
+ * UX-07 — ver `validateOutput`. Vale para todas as versões. `skip`: perguntas
+ * que a v3 já removeu da saída (dado já informado), pelos índices da resposta
+ * do modelo.
+ */
+export function answerTypeMismatchError(
+  output: OutputShape,
+  skip: ReadonlySet<number> = new Set(),
+): string | null {
+  const offenses = findAnswerTypeMismatches(output.clarifyingQuestions, skip);
   if (offenses.length === 0) return null;
   return (
     'ANSWER TYPE MISMATCH in clarifyingQuestions: ' +
@@ -438,9 +445,11 @@ const OPEN_VALUE_REQUEST_PATTERN = /\b(qual|quais|quando|quantos?|quantas?|quem|
 
 function findAnswerTypeMismatches(
   clarifyingQuestions: CopilotOutput['clarifyingQuestions'],
+  skip: ReadonlySet<number>,
 ): string[] {
   const offenses: string[] = [];
   clarifyingQuestions.forEach((q, index) => {
+    if (skip.has(index)) return;
     if (q.expectedAnswerType === 'boolean' && OPEN_VALUE_REQUEST_PATTERN.test(q.question)) {
       offenses.push(`clarifyingQuestions[${index}] ("${q.question}")`);
     }

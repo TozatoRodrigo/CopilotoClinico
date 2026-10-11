@@ -155,3 +155,31 @@ describe('preliminaryReasonForV2', () => {
     ).toBe('pending_questions');
   });
 });
+
+// Verificação com fonte (`verify`): divergência da fonte oficial vem antes de tudo.
+describe('preliminaryReasonForV2 — divergência da fonte oficial', () => {
+  it.each([
+    ['now', 'model_knowledge', false],
+    ['depends', 'model_knowledge', false],
+    ['now', 'model_knowledge', true],
+    ['now', 'physician_attachment', false],
+  ] as const)(
+    'marks a %s recommendation from %s (dose: %s) as conflicting with the source',
+    (layer, origin, carriesDose) => {
+      expect(preliminaryReasonForV2({ layer, origin, carriesDose, sourceConflict: true })).toBe(
+        'source_conflict',
+      );
+    },
+  );
+
+  it('changes nothing without a conflict', () => {
+    expect(
+      preliminaryReasonForV2({
+        layer: 'now',
+        origin: 'model_knowledge',
+        carriesDose: false,
+        sourceConflict: false,
+      }),
+    ).toBeNull();
+  });
+});

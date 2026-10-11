@@ -85,16 +85,23 @@ export function preliminaryReasonFor(
  * ambiguidade de subtipo também sai: é exatamente o que a camada `depends`
  * resolve.
  *
- * 1. `depends_on_data` — conduta da camada `depends`;
- * 2. `unverified_dose` — conhecimento geral do modelo que ainda traz dose
+ * 1. `source_conflict` — a verificação com fonte (`verify`) achou uma fonte
+ *    oficial que diverge da conduta. Vem antes de tudo: é o que mais pode
+ *    mudar o que o médico faz, e a camada `depends` continua visível no grupo
+ *    "Depende de…";
+ * 2. `depends_on_data` — conduta da camada `depends`;
+ * 3. `unverified_dose` — conhecimento geral do modelo que ainda traz dose
  *    depois do retry: fica, mas marcada (dose só de fonte citada);
- * 3. `pending_questions` — anexo do médico, que nunca sai definitivo (F4).
+ * 4. `pending_questions` — anexo do médico, que nunca sai definitivo (F4).
  */
 export function preliminaryReasonForV2(recommendation: {
   layer: RecommendationLayer;
   origin: CitationOrigin;
   carriesDose: boolean;
+  /** Só na verificação com fonte; ausente nos outros modos. */
+  sourceConflict?: boolean;
 }): PreliminaryReason | null {
+  if (recommendation.sourceConflict) return 'source_conflict';
   if (recommendation.layer === 'depends') return 'depends_on_data';
   if (recommendation.origin === 'model_knowledge' && recommendation.carriesDose) {
     return 'unverified_dose';
