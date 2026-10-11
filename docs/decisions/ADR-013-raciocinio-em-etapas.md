@@ -183,7 +183,8 @@ alternativas.
      a partir do entendimento do caso — nunca do texto do caso. Só as
      citações viram evidência (`web:1`…), com origem `web_official`.
    `model_only` e `web` nunca chamam o provedor de embedding; falha da
-   pesquisa segue como `model_only`.
+   pesquisa segue como `model_only`. `web` exige `stages` e a v2 (só ela cita
+   página web); sem elas, também vira `model_only`.
 3. **Proveniência vira rótulo, não preliminar.** Diferente do texto original
    desta ADR ("ela sai sempre preliminar"), na v2 `preliminary` volta a dizer
    uma coisa só — "espere o dado": é a camada `depends` (`depends_on_data`).

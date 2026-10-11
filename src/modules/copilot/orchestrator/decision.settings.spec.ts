@@ -61,6 +61,20 @@ describe('readDecisionPipeline', () => {
     expect(downgrades).toEqual([expect.stringContaining('COPILOT_KNOWLEDGE_SOURCE=web exige')]);
   });
 
+  it('does not pay for a research the v1 prompt would ignore', () => {
+    const { pipeline, downgrades } = read({
+      COPILOT_REASONING: 'stages',
+      COPILOT_KNOWLEDGE_SOURCE: 'web',
+    });
+
+    expect(pipeline).toEqual({
+      reasoning: 'stages',
+      decisionPrompt: 'v1',
+      knowledgeSource: 'model_only',
+    });
+    expect(downgrades).toEqual([expect.stringContaining('COPILOT_DECISION_PROMPT=v2')]);
+  });
+
   it('keeps model_only without stages: it needs no understanding', () => {
     const { pipeline, downgrades } = read({ COPILOT_KNOWLEDGE_SOURCE: 'model_only' });
 

@@ -41,7 +41,9 @@ export function readKnowledgeSource(config: ConfigService): KnowledgeSource {
 
 /**
  * A decisão v2 e a pesquisa web partem do entendimento do caso: sem `stages`,
- * a v2 cede à v1 e a pesquisa cede a `model_only` — nunca à base interna, que
+ * a v2 cede à v1. A pesquisa também precisa da v2 — só ela sabe citar uma
+ * página web e rotular a origem; com a v1, a pesquisa seria paga e ignorada.
+ * Sem uma das duas, `web` cede a `model_only` — nunca à base interna, que
  * chamaria o provedor de embedding que quem escolheu `web` quer evitar.
  */
 export function readDecisionPipeline(config: ConfigService): DecisionPipelineReading {
@@ -54,17 +56,20 @@ export function readDecisionPipeline(config: ConfigService): DecisionPipelineRea
   if (requestedPrompt === 'v2' && stagesOff) {
     downgrades.push('COPILOT_DECISION_PROMPT=v2 exige COPILOT_REASONING=stages: usando v1');
   }
-  if (requestedSource === 'web' && stagesOff) {
+  const decisionPrompt = requestedPrompt === 'v2' && stagesOff ? 'v1' : requestedPrompt;
+
+  const webUnavailable = requestedSource === 'web' && (stagesOff || decisionPrompt !== 'v2');
+  if (webUnavailable) {
     downgrades.push(
-      'COPILOT_KNOWLEDGE_SOURCE=web exige COPILOT_REASONING=stages: seguindo sem busca (model_only)',
+      'COPILOT_KNOWLEDGE_SOURCE=web exige COPILOT_REASONING=stages e COPILOT_DECISION_PROMPT=v2: seguindo sem busca (model_only)',
     );
   }
 
   return {
     pipeline: {
       reasoning,
-      decisionPrompt: requestedPrompt === 'v2' && stagesOff ? 'v1' : requestedPrompt,
-      knowledgeSource: requestedSource === 'web' && stagesOff ? 'model_only' : requestedSource,
+      decisionPrompt,
+      knowledgeSource: webUnavailable ? 'model_only' : requestedSource,
     },
     downgrades,
   };
