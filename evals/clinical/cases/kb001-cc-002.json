@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb001-cc-002",
   "title": "Rebaixamento persistente pós-convulsão com febre e rigidez de nuca",
   "tags": [
@@ -18,20 +18,45 @@
   },
   "expected": {
     "syndrome": "crise convulsiva com febre e meningismo — infecção do SNC",
-    "cannotMiss": [
-      "meningite bacteriana",
-      "encefalite (incluindo herpética)",
-      "estado de mal epiléptico não convulsivo"
+    "diagnoses": [
+      {
+        "text": "meningite bacteriana",
+        "tier": "critical"
+      },
+      {
+        "text": "encefalite (incluindo herpética)",
+        "tier": "critical"
+      },
+      {
+        "text": "estado de mal epiléptico não convulsivo",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [
+    "actions": [
+      {
+        "text": "antibioticoterapia empírica IV imediata, sem atrasar por TC ou punção",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "dexametasona antes ou junto da primeira dose do antibiótico",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "aciclovir IV empírico até o resultado do PCR para HSV [ref.: 10 mg/kg 8/8 h, ajustado à função renal]",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "TC de crânio antes da punção lombar (rebaixamento e crise)",
+        "tier": "important",
+        "timing": "now"
+      }
+    ],
+    "questions": [
       "glicemia capilar",
       "idade, imunossupressão, gestação e etilismo (cobertura de Listeria)"
-    ],
-    "requiredActions": [
-      "antibioticoterapia empírica IV imediata, sem atrasar por TC ou punção",
-      "dexametasona antes ou junto da primeira dose do antibiótico",
-      "aciclovir IV empírico (ex.: 10 mg/kg 8/8 h, ajustado à função renal) até o resultado do PCR para HSV",
-      "TC de crânio antes da punção lombar (rebaixamento e crise)"
     ],
     "forbiddenDefinitiveActions": [
       {
@@ -45,8 +70,7 @@
         "patterns": []
       }
     ],
-    "rationale": "IDSA 2004 e OMS 2025: antibiótico IV o mais cedo possível, sem esperar TC/PL; dexametasona antes ou com a 1ª dose; TC antes da PL por crise nova e rebaixamento; ampicilina se fatores de risco para Listeria (OMS: > 60 anos, gestação, imunossupressão, diabetes; IDSA: > 50 anos). IDSA 2008: aciclovir em toda suspeita de encefalite. Rebaixamento que persiste após a crise pede pensar em estado de mal não convulsivo (EEG). Desejáveis, mas não exigidos no turno 0: hemoculturas antes do antibiótico sem atrasá-lo; proteção de via aérea se Glasgow ≤ 8 e tratamento de crise recorrente.",
-    "expectedPath": "recommend"
+    "rationale": "IDSA 2004 e OMS 2025: antibiótico IV o mais cedo possível, sem esperar TC/PL; dexametasona antes ou com a 1ª dose; TC antes da PL por crise nova e rebaixamento; ampicilina se fatores de risco para Listeria (OMS: > 60 anos, gestação, imunossupressão, diabetes; IDSA: > 50 anos). IDSA 2008: aciclovir em toda suspeita de encefalite. Rebaixamento que persiste após a crise pede pensar em estado de mal não convulsivo (EEG). Desejáveis, mas não exigidos no turno 0: hemoculturas antes do antibiótico sem atrasá-lo; proteção de via aérea se Glasgow ≤ 8 e tratamento de crise recorrente."
   },
   "sources": [
     {
@@ -86,6 +110,6 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: aciclovir empírico obrigatório; estado de mal não convulsivo como hipótese; pedido de idade/imunossupressão/gestação/etilismo pela cobertura de Listeria. Hemoculturas e via aérea ficaram no rationale (opcionais)."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. Doses do v1 passaram para referência entre colchetes, que o juiz não exige. | Auditoria 11/10/2026: aciclovir empírico obrigatório; estado de mal não convulsivo como hipótese; pedido de idade/imunossupressão/gestação/etilismo pela cobertura de Listeria. Hemoculturas e via aérea ficaram no rationale (opcionais)."
   }
 }

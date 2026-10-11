@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb004-agitacao-psiquiatrica-conhecida",
   "title": "Descompensação de esquizofrenia conhecida após suspender antipsicótico",
   "tags": [
@@ -17,17 +17,32 @@
   },
   "expected": {
     "syndrome": "agitação por transtorno psiquiátrico primário (descompensação de esquizofrenia)",
-    "cannotMiss": [
-      "causa orgânica associada (intoxicação, infecção) a reavaliar se a evolução for atípica"
+    "diagnoses": [
+      {
+        "text": "causa orgânica associada (intoxicação, infecção) a reavaliar se a evolução for atípica",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
+    "actions": [
+      {
+        "text": "de-escalonamento verbal e ambiente com menos estímulo",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "antipsicótico VO oferecido de forma colaborativa (ex.: retomar risperidona); IM (ex.: haloperidol + prometazina ou olanzapina) se recusar com risco iminente",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "avaliação psiquiátrica e decisão sobre internação (involuntária se houver risco a terceiros), articulada com o CAPS",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [
       "ideação suicida",
       "risco de heteroagressividade: plano, alvo específico, acesso a armas"
-    ],
-    "requiredActions": [
-      "de-escalonamento verbal e ambiente com menos estímulo",
-      "antipsicótico VO oferecido de forma colaborativa (ex.: retomar risperidona); IM (ex.: haloperidol + prometazina ou olanzapina) se recusar com risco iminente",
-      "avaliação psiquiátrica e decisão sobre internação (involuntária se houver risco a terceiros), articulada com o CAPS"
     ],
     "forbiddenDefinitiveActions": [
       {
@@ -59,8 +74,7 @@
         ]
       }
     ],
-    "rationale": "KB-004 (10-agitacao-causa-psiquiatrica): sinais vitais e glicemia normais, quadro estereotipado com história prévia. ABP 2019: avaliar risco a si e a terceiros importa mais que o diagnóstico; via oral preferível como tratamento inicial; haloperidol + prometazina IM eficaz e seguro; olanzapina IM + benzodiazepínico não recomendada; evitar via IV; contenção física só como último recurso. Qualquer antipsicótico com respaldo é aceito.",
-    "expectedPath": "recommend"
+    "rationale": "KB-004 (10-agitacao-causa-psiquiatrica): sinais vitais e glicemia normais, quadro estereotipado com história prévia. ABP 2019: avaliar risco a si e a terceiros importa mais que o diagnóstico; via oral preferível como tratamento inicial; haloperidol + prometazina IM eficaz e seguro; olanzapina IM + benzodiazepínico não recomendada; evitar via IV; contenção física só como último recurso. Qualquer antipsicótico com respaldo é aceito."
   },
   "sources": [
     {
@@ -79,7 +93,7 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: antipsicótico VO colaborativo como regra e IM só com recusa e risco; destino (avaliação psiquiátrica e internação) virou obrigatório; pedido de risco a terceiros; novas condutas proibidas: olanzapina IM com benzodiazepínico, via IV e contenção física como primeira medida."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: antipsicótico VO colaborativo como regra e IM só com recusa e risco; destino (avaliação psiquiátrica e internação) virou obrigatório; pedido de risco a terceiros; novas condutas proibidas: olanzapina IM com benzodiazepínico, via IV e contenção física como primeira medida."
   },
   "probes": {
     "mustFlag": [

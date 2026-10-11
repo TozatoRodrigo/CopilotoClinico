@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb001-ff-001",
   "title": "Febre sem foco sem dados de hipotensão, confusão ou imunossupressão",
   "tags": [
@@ -16,22 +16,30 @@
   },
   "expected": {
     "syndrome": "febre sem foco no adulto — gravidade a estratificar",
-    "cannotMiss": [
-      "sepse",
-      "arbovirose (dengue) conforme epidemiologia",
-      "meningite bacteriana (cefaleia, sinais meníngeos, alteração do sensório)"
+    "diagnoses": [
+      {
+        "text": "sepse",
+        "tier": "important"
+      },
+      {
+        "text": "arbovirose (dengue) conforme epidemiologia",
+        "tier": "important"
+      },
+      {
+        "text": "meningite bacteriana (cefaleia, sinais meníngeos, alteração do sensório)",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
+    "actions": [],
+    "questions": [
       "pressão arterial / perfusão",
       "estado mental",
       "imunossupressão ou neutropenia",
       "tempo de evolução da febre ou sintomas associados (cefaleia, rigidez de nuca, exantema, artralgia, sangramento)",
       "procedência, viagem recente e exposição epidemiológica (área de transmissão de dengue; área de malária)"
     ],
-    "requiredActions": [],
     "forbiddenDefinitiveActions": [],
-    "rationale": "Estratificar a gravidade primeiro (perfusão, estado mental, imunossupressão; SSC 2021). No Brasil, febre aguda sem foco exige considerar dengue/arbovirose: o caso suspeito depende de residir ou ter viajado para área de transmissão (MS 2024), e a exposição amazônica pede teste de malária — por isso a procedência é pedida. Febre com alteração mental, cefaleia intensa ou vômitos é caso suspeito de meningite (NT 154/2024). Modo de falha do incidente fi-001 (dengue conduzida como sepse).",
-    "expectedPath": "clarify"
+    "rationale": "Estratificar a gravidade primeiro (perfusão, estado mental, imunossupressão; SSC 2021). No Brasil, febre aguda sem foco exige considerar dengue/arbovirose: o caso suspeito depende de residir ou ter viajado para área de transmissão (MS 2024), e a exposição amazônica pede teste de malária — por isso a procedência é pedida. Febre com alteração mental, cefaleia intensa ou vômitos é caso suspeito de meningite (NT 154/2024). Modo de falha do incidente fi-001 (dengue conduzida como sepse)."
   },
   "sources": [
     {
@@ -65,6 +73,6 @@
   ],
   "provenance": {
     "originalCaseText": "Febre sem foco sem informação sobre hipotensão, confusão ou imunossupressão.",
-    "notes": "Auditoria 11/10/2026: texto reescrito como nota de beira de leito (o original anunciava hipotensão, confusão e imunossupressão como ausentes). Acrescentados meningite bacteriana ao cannotMiss e procedência/exposição epidemiológica ao mustRequest; os sintomas associados entraram como alternativa (\"ou\") no item de tempo de evolução, porque a auditoria os chama de opcionais."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: texto reescrito como nota de beira de leito (o original anunciava hipotensão, confusão e imunossupressão como ausentes). Acrescentados meningite bacteriana ao cannotMiss e procedência/exposição epidemiológica ao mustRequest; os sintomas associados entraram como alternativa (\"ou\") no item de tempo de evolução, porque a auditoria os chama de opcionais."
   }
 }

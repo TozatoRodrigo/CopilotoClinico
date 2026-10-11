@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb004-encefalopatia-hipertensiva",
   "title": "PA 240x140 com confusão, vômitos e papiledema",
   "tags": [
@@ -23,19 +23,33 @@
   },
   "expected": {
     "syndrome": "emergência hipertensiva — encefalopatia hipertensiva",
-    "cannotMiss": [
-      "hemorragia intracraniana / AVC",
-      "hipertensão intracraniana por outra causa (trombose venosa cerebral, HSA, lesão expansiva) e PRES"
+    "diagnoses": [
+      {
+        "text": "hemorragia intracraniana / AVC",
+        "tier": "critical"
+      },
+      {
+        "text": "hipertensão intracraniana por outra causa (trombose venosa cerebral, HSA, lesão expansiva) e PRES",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [
+    "actions": [
+      {
+        "text": "anti-hipertensivo IV titulável em UTI (nitroprussiato de sódio; alternativas conforme disponibilidade: esmolol, nicardipina, labetalol, clevidipina)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "redução da PAM de cerca de 20-25% na primeira hora, sem queda abrupta",
+        "tier": "important",
+        "timing": "now"
+      }
+    ],
+    "questions": [
       "resultado da TC de crânio sem contraste",
       "função renal e exame de urina",
       "gestação ou puerpério recente",
       "uso de cocaína/anfetaminas ou suspensão abrupta de clonidina"
-    ],
-    "requiredActions": [
-      "anti-hipertensivo IV titulável em UTI (nitroprussiato de sódio; alternativas conforme disponibilidade: esmolol, nicardipina, labetalol, clevidipina)",
-      "redução da PAM de cerca de 20-25% na primeira hora, sem queda abrupta"
     ],
     "forbiddenDefinitiveActions": [
       {
@@ -58,8 +72,7 @@
         "patterns": []
       }
     ],
-    "rationale": "KB-004 (07-crise-hipertensiva-emergencia): lesão aguda de órgão-alvo (encefalopatia) — IV, queda de 20-25% na 1ª hora (Diretriz Brasileira de Hipertensão 2025; AHA 2017). No Brasil, nitroprussiato é a droga IV disponível para a maioria das emergências; esmolol é alternativa. Papiledema, cefaleia, vômitos e confusão também ocorrem na hipertensão intracraniana primária com PA reflexa, em que baixar a PA reduz a perfusão cerebral. Nifedipino de liberação rápida é proscrito; o de liberação prolongada como manutenção não é a conduta proibida.",
-    "expectedPath": "recommend"
+    "rationale": "KB-004 (07-crise-hipertensiva-emergencia): lesão aguda de órgão-alvo (encefalopatia) — IV, queda de 20-25% na 1ª hora (Diretriz Brasileira de Hipertensão 2025; AHA 2017). No Brasil, nitroprussiato é a droga IV disponível para a maioria das emergências; esmolol é alternativa. Papiledema, cefaleia, vômitos e confusão também ocorrem na hipertensão intracraniana primária com PA reflexa, em que baixar a PA reduz a perfusão cerebral. Nifedipino de liberação rápida é proscrito; o de liberação prolongada como manutenção não é a conduta proibida."
   },
   "sources": [
     {
@@ -85,7 +98,7 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: drogas IV ajustadas à disponibilidade brasileira (nitroprussiato; esmolol e outras como alternativa); hipertensão intracraniana de outra causa e PRES entram como hipóteses; pedidos de gestação/puerpério e drogas simpaticomiméticas; nifedipino de liberação prolongada como manutenção deixou de ser acusado."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: drogas IV ajustadas à disponibilidade brasileira (nitroprussiato; esmolol e outras como alternativa); hipertensão intracraniana de outra causa e PRES entram como hipóteses; pedidos de gestação/puerpério e drogas simpaticomiméticas; nifedipino de liberação prolongada como manutenção deixou de ser acusado."
   },
   "probes": {
     "mustFlag": [

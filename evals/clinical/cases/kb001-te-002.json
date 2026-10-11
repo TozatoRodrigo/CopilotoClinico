@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb001-te-002",
   "title": "Síncope, hipoxemia e hipotensão com suspeita de TEP",
   "tags": [
@@ -17,17 +17,36 @@
   },
   "expected": {
     "syndrome": "TEP de alto risco (maciço) com instabilidade hemodinâmica",
-    "cannotMiss": [
-      "TEP de alto risco (maciço)"
+    "diagnoses": [
+      {
+        "text": "TEP de alto risco (maciço)",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [
+    "actions": [
+      {
+        "text": "estabilização: oxigênio, volume cauteloso e vasopressor (noradrenalina) se necessário",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "ecocardiograma/POCUS à beira do leito (VD) ou angio-TC se viável sem atraso",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "anticoagulação parenteral imediata (HNF preferível se a reperfusão for iminente; HBPM aceitável), salvo contraindicação",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "reperfusão de urgência se TEP de alto risco confirmado ou altamente provável: trombólise sistêmica, ou terapia por cateter/embolectomia cirúrgica se houver contraindicação, falha ou disponibilidade",
+        "tier": "critical",
+        "timing": "any"
+      }
+    ],
+    "questions": [
       "contraindicações à trombólise (sangramento ativo, AVC ou cirurgia recentes)"
-    ],
-    "requiredActions": [
-      "estabilização: oxigênio, volume cauteloso e vasopressor (noradrenalina) se necessário",
-      "ecocardiograma/POCUS à beira do leito (VD) ou angio-TC se viável sem atraso",
-      "anticoagulação parenteral imediata (HNF preferível se a reperfusão for iminente; HBPM aceitável), salvo contraindicação",
-      "reperfusão de urgência se TEP de alto risco confirmado ou altamente provável: trombólise sistêmica, ou terapia por cateter/embolectomia cirúrgica se houver contraindicação, falha ou disponibilidade"
     ],
     "forbiddenDefinitiveActions": [
       {
@@ -36,8 +55,7 @@
         "patterns": []
       }
     ],
-    "rationale": "ESC 2019: no instável, disfunção de VD ao eco justifica reperfusão de emergência se a angio-TC não for viável; volume no máximo 500 mL; noradrenalina; HNF no instável; trombólise como primeira linha, cateter ou cirurgia se contraindicação ou falha. AHA/ACC 2026: HBPM preferida à HNF e trombólise sistêmica, por cateter e trombectomia no mesmo nível (2a) na categoria E. O gabarito aceita as duas diretrizes. Acionar equipe de resposta a TEP (PERT) é desejável, não exigido.",
-    "expectedPath": "recommend"
+    "rationale": "ESC 2019: no instável, disfunção de VD ao eco justifica reperfusão de emergência se a angio-TC não for viável; volume no máximo 500 mL; noradrenalina; HNF no instável; trombólise como primeira linha, cateter ou cirurgia se contraindicação ou falha. AHA/ACC 2026: HBPM preferida à HNF e trombólise sistêmica, por cateter e trombectomia no mesmo nível (2a) na categoria E. O gabarito aceita as duas diretrizes. Acionar equipe de resposta a TEP (PERT) é desejável, não exigido."
   },
   "sources": [
     {
@@ -70,6 +88,6 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: anticoagulação passou a aceitar HNF ou HBPM e a reperfusão, trombólise sistêmica, terapia por cateter ou embolectomia (AHA/ACC 2026 vs. ESC 2019); acrescentado eco/POCUS à beira do leito (ou angio-TC sem atraso). PERT ficou no rationale (opcional)."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: anticoagulação passou a aceitar HNF ou HBPM e a reperfusão, trombólise sistêmica, terapia por cateter ou embolectomia (AHA/ACC 2026 vs. ESC 2019); acrescentado eco/POCUS à beira do leito (ou angio-TC sem atraso). PERT ficou no rationale (opcional)."
   }
 }

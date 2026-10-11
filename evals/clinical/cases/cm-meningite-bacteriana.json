@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "cm-meningite-bacteriana",
   "title": "Febre, cefaleia, rigidez de nuca, petéquias e hipotensão em jovem",
   "tags": [
@@ -17,18 +17,37 @@
   },
   "expected": {
     "syndrome": "meningite bacteriana aguda (provável meningocócica) com sepse",
-    "cannotMiss": [
-      "doença meningocócica invasiva (meningococcemia) com choque"
+    "diagnoses": [
+      {
+        "text": "doença meningocócica invasiva (meningococcemia) com choque",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [
+    "actions": [
+      {
+        "text": "ceftriaxona IV imediata, sem aguardar TC ou punção lombar",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "dexametasona antes ou junto da 1ª dose do antibiótico, sem atrasá-lo (omiti-la com justificativa pela suspeita de meningococcemia também é aceitável)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "ressuscitação volêmica para a hipotensão",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "precaução respiratória por gotículas",
+        "tier": "important",
+        "timing": "now"
+      }
+    ],
+    "questions": [
       "alergia a betalactâmicos",
       "exposição a carrapatos ou a área de febre maculosa"
-    ],
-    "requiredActions": [
-      "ceftriaxona IV imediata, sem aguardar TC ou punção lombar",
-      "dexametasona antes ou junto da 1ª dose do antibiótico, sem atrasá-lo (omiti-la com justificativa pela suspeita de meningococcemia também é aceitável)",
-      "ressuscitação volêmica para a hipotensão",
-      "precaução respiratória por gotículas"
     ],
     "forbiddenDefinitiveActions": [
       {
@@ -37,8 +56,7 @@
         "patterns": []
       }
     ],
-    "rationale": "Antibiótico na primeira hora (ESCMID 2016; Surviving Sepsis 2021). A PL fica adiada até estabilização hemodinâmica e exclusão de coagulopatia (choque e petéquias); TC antes da PL conforme critérios (IDSA: alteração de consciência; ESCMID: GCS < 10, déficit focal, crise nova, imunossupressão grave); nada disso atrasa o antibiótico. NICE NG240 recomenda dexametasona na meningite bacteriana suspeita, mas não de rotina na doença meningocócica — as duas condutas são aceitas se justificadas. Hemoculturas sem atrasar o ATB, notificação imediata e quimioprofilaxia dos contatos (NT MS 154/2024) são esperadas, mas não exigidas no turno 0. Febre maculosa é diferencial de febre com petéquias e choque no Brasil (doxiciclina).",
-    "expectedPath": "recommend"
+    "rationale": "Antibiótico na primeira hora (ESCMID 2016; Surviving Sepsis 2021). A PL fica adiada até estabilização hemodinâmica e exclusão de coagulopatia (choque e petéquias); TC antes da PL conforme critérios (IDSA: alteração de consciência; ESCMID: GCS < 10, déficit focal, crise nova, imunossupressão grave); nada disso atrasa o antibiótico. NICE NG240 recomenda dexametasona na meningite bacteriana suspeita, mas não de rotina na doença meningocócica — as duas condutas são aceitas se justificadas. Hemoculturas sem atrasar o ATB, notificação imediata e quimioprofilaxia dos contatos (NT MS 154/2024) são esperadas, mas não exigidas no turno 0. Febre maculosa é diferencial de febre com petéquias e choque no Brasil (doxiciclina)."
   },
   "sources": [
     {
@@ -85,6 +103,6 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: dexametasona aceita omissão justificada pela meningococcemia; precaução por gotículas virou obrigatória; pedidos de alergia a betalactâmico e exposição a carrapato (febre maculosa); dose de ceftriaxona saiu da conduta; rationale corrigido sobre TC e adiamento da PL no choque."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: dexametasona aceita omissão justificada pela meningococcemia; precaução por gotículas virou obrigatória; pedidos de alergia a betalactâmico e exposição a carrapato (febre maculosa); dose de ceftriaxona saiu da conduta; rationale corrigido sobre TC e adiamento da PL no choque."
   }
 }

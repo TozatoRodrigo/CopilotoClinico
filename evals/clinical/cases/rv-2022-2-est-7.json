@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "rv-2022-2-est-7",
   "title": "Dor abdominal há 1 dia em mulher de 32 anos previamente hígida",
   "tags": [
@@ -15,28 +15,42 @@
     "status": "official_exam_key"
   },
   "input": {
-    "caseText": "Atenção secundária (radiologia/USG, laboratório, banco de sangue, internação e centro cirúrgico). Fem, 32a, previamente hígida, dor abdominal há 1 dia."
+    "caseText": "Hospital de atenção secundária (RX convencional e US, laboratório e banco de sangue, internação e centro cirúrgico). Fem, 32a, previamente hígida, dor abdominal há 1 dia. EF: PA 110x70, FC 84, FR 20, Tax 37,1 °C, SpO2 97% em AA. REG, desidratada +/4+, corada, anictérica, acianótica, afebril, eupneica. AR e ACV sem anormalidades. Abdome plano, normotenso, RHA normoativos, pouco distendido; dor à palpação superficial e profunda em hipocôndrio D, com interrupção da inspiração pela dor; sem dor à descompressão brusca; sem massas palpáveis. Punho-percussão lombar indolor bilateralmente. Lab: Hb 13,2, Ht 39,5%, leucócitos 12.110 (VR 4.500–11.000), plaquetas 251.000; PCR 8 mg/L (VR 0–5); BT 1,0, BD 0,3, FA 80, GGT 64, TGO 32, TGP 28, amilase 70, lipase 80 (todos dentro da referência). US de abdome: fígado normal; vesícula biliar de paredes espessadas, com múltiplos cálculos (os maiores de 8 mm) com sombra acústica posterior e líquido perivesicular; vias biliares intra e extra-hepáticas de calibre normal; cabeça do pâncreas mal visualizada por interposição de gases."
   },
   "expected": {
     "syndrome": "dor abdominal aguda em hipocôndrio direito por colecistite aguda litiásica",
-    "cannotMiss": [
-      "colecistite aguda litiásica",
-      "diagnósticos diferenciais (o PEP exige ao menos três): pancreatite aguda, cólica biliar/colecistolitíase, cólica nefrética/litíase renal, coledocolitíase/colangite"
+    "diagnoses": [
+      {
+        "text": "colecistite aguda litiásica (calculosa)",
+        "tier": "critical"
+      },
+      {
+        "text": "leucocitose e PCR elevada (resposta inflamatória), sem colestase nem elevação de enzimas pancreáticas",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
-      "características da dor: localização, irradiação, tipo, fatores de piora/melhora, intensidade",
-      "sintomas associados: náuseas/vômitos, alteração do hábito intestinal, acolia, febre, icterícia, colúria",
-      "exame físico",
-      "exames laboratoriais: hemograma, PCR, bilirrubinas, enzimas hepáticas, amilase, lipase, fosfatase alcalina e gama-GT",
-      "ultrassonografia de abdome"
+    "actions": [
+      {
+        "text": "antibioticoterapia (com internação)",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "colecistectomia precoce, idealmente em até 72 h [opções: videolaparoscopia ou cirurgia aberta]",
+        "tier": "important",
+        "timing": "any"
+      }
     ],
-    "requiredActions": [
-      "antibioticoterapia",
-      "colecistectomia (videolaparoscópica ou aberta) idealmente em até 72 horas"
-    ],
+    "questions": [],
     "forbiddenDefinitiveActions": [],
-    "rationale": "Gabarito oficial do INEP (Revalida 2022/2, Estação 7): o PEP pontua anamnese da dor e sintomas associados, exame físico, laboratório hepatobiliar e pancreático, USG de abdome, o diagnóstico de colecistite aguda litiásica com diferenciais e o tratamento com antibiótico e colecistectomia em até 72 h.",
-    "expectedPath": "clarify"
+    "outOfScope": [
+      "apresentar-se e cumprimentar a paciente (item 1)",
+      "anamnese: características da dor e sintomas associados (itens 2–3); o PEP não publica o roteiro",
+      "solicitar exame físico, exames laboratoriais e US (itens 4, 5 e 7): resultados já no caseText",
+      "citar ao menos três diagnósticos diferenciais — pancreatite aguda, cólica biliar/colecistolitíase, cólica nefrética, coledocolitíase/colangite (item 9): lista de prova",
+      "realizar as tarefas na sequência indicada (item 12)"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2022/2, Estação 7): o PEP pontua anamnese da dor e sintomas associados, exame físico, laboratório hepatobiliar e pancreático, USG de abdome, o diagnóstico de colecistite aguda litiásica com diferenciais e o tratamento com antibiótico e colecistectomia em até 72 h. v2: colecistite aguda litiásica é o diagnóstico crítico; antibiótico e colecistectomia precoce ficaram importantes (quadro leve, sem disfunção orgânica)."
   },
   "sources": [
     {
@@ -74,6 +88,6 @@
     "item": "Estação 7",
     "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2022_2_.pdf",
     "originalCaseText": "ESTAÇÃO 7 – Área: Cirurgia Geral. INSTRUÇÕES PARA O(A) PARTICIPANTE. CENÁRIO DE ATUAÇÃO. Local de atuação: Unidade de Atenção Secundária: Ambulatorial e Hospitalar. A unidade possui a seguinte infraestrutura: • setor de radiologia convencional e ultrassonografia; • laboratório de análises clínicas e banco de sangue; • leitos de internação e centro cirúrgico. DESCRIÇÃO DO CASO • Mulher de 32 anos, previamente hígida, com dor abdominal há 1 dia. ATENÇÃO: A PACIENTE SIMULADA NÃO DEVERÁ SER TOCADA DURANTE O ATENDIMENTO. Nos próximos 10 minutos, você deverá executar as tarefas a seguir: 1. realizar anamnese da paciente. 2. solicitar e interpretar exames necessários ao caso. 3. estabelecer e comunicar a hipótese diagnóstica e diagnóstico(s) diferencial(is). 4. definir e verbalizar a conduta terapêutica necessária. ATENÇÃO: VOCÊ DEVERÁ, OBRIGATORIAMENTE, REALIZAR AS TAREFAS NA SEQUÊNCIA DESCRITA ACIMA.",
-    "notes": "A mesma estação serviu como reaplicação da prova de HC 2022/1; o caso foi gerado só aqui. O PEP desta edição não publica a síntese da atriz. Dados sob demanda: EF PA 110x70, FC 84, FR 20, Tax 37,1 °C, SatO2 97%, REG, desidratada +/4+, anictérica, afebril; abdome plano, pouco distendido, dor à palpação superficial e profunda em hipocôndrio direito com interrupção da inspiração pela dor, sem dor à descompressão, sem massas; punho-percussão indolor. Labs: Hb 13,2, leucócitos 12.110, plaquetas 251.000, PCR 8 mg/L; bilirrubinas, FA, GGT, TGO/TGP, amilase e lipase normais. USG: vesícula de paredes espessadas com múltiplos cálculos (maiores de 8 mm) com sombra acústica e líquido perivesicular; vias biliares de calibre normal; cabeça do pâncreas mal visualizada por gases."
+    "notes": "Gabarito v2 (11/10/2026): caseText com os impressos de exame físico, laboratório e US (o diagnóstico depende de interpretá-los); sem funnel, porque o PEP 2022/2 não publica o roteiro. Diagnóstico crítico: colecistite aguda litiásica. Antibiótico e colecistectomia precoce ficaram importantes, sem conduta crítica: o quadro é leve e o atraso não mata em horas. 'Listar três diferenciais' foi para outOfScope. | A mesma estação serviu como reaplicação da prova de HC 2022/1; o caso foi gerado só aqui. O PEP desta edição não publica a síntese da atriz. Dados sob demanda: EF PA 110x70, FC 84, FR 20, Tax 37,1 °C, SatO2 97%, REG, desidratada +/4+, anictérica, afebril; abdome plano, pouco distendido, dor à palpação superficial e profunda em hipocôndrio direito com interrupção da inspiração pela dor, sem dor à descompressão, sem massas; punho-percussão indolor. Labs: Hb 13,2, leucócitos 12.110, plaquetas 251.000, PCR 8 mg/L; bilirrubinas, FA, GGT, TGO/TGP, amilase e lipase normais. USG: vesícula de paredes espessadas com múltiplos cálculos (maiores de 8 mm) com sombra acústica e líquido perivesicular; vias biliares de calibre normal; cabeça do pâncreas mal visualizada por gases."
   }
 }

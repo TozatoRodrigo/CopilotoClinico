@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb004-pa-elevada-com-cefaleia-isolada",
   "title": "PA 210x120 com cefaleia, lesão de órgão-alvo não avaliada",
   "tags": [
@@ -17,18 +17,25 @@
   },
   "expected": {
     "syndrome": "PA muito elevada com cefaleia: diferenciar emergência hipertensiva de elevação importante da PA sem LOA (antiga urgência) e de pseudocrise",
-    "cannotMiss": [
-      "emergência hipertensiva (encefalopatia, AVC, síndrome coronariana)"
+    "diagnoses": [
+      {
+        "text": "emergência hipertensiva (encefalopatia, AVC, síndrome coronariana)",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
+    "actions": [
+      {
+        "text": "repouso em ambiente calmo, analgesia e nova aferição da PA, sem reduzir a PA agressivamente antes de excluir lesão de órgão-alvo",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [
       "exame neurológico / déficit focal",
       "alteração visual ou fundo de olho",
       "dor torácica ou dispneia",
       "função renal e exame de urina",
       "características da cefaleia: início súbito em trovoada, \"pior da vida\", rigidez de nuca"
-    ],
-    "requiredActions": [
-      "repouso em ambiente calmo, analgesia e nova aferição da PA, sem reduzir a PA agressivamente antes de excluir lesão de órgão-alvo"
     ],
     "forbiddenDefinitiveActions": [
       {
@@ -47,8 +54,7 @@
         ]
       }
     ],
-    "rationale": "KB-004: cefaleia isolada NÃO configura lesão de órgão-alvo por si só — falta evidência objetiva. Diretriz Brasileira de Hipertensão 2025: \"urgência hipertensiva\" virou \"elevação importante da PA sem lesão progressiva de órgãos-alvo\"; observar ~30 min em ambiente calmo antes de qualquer anti-hipertensivo; VO se persistir. Cefaleia como queixa principal prediz pseudocrise (Arq Bras Cardiol 2007), mas aos 60 anos o modo de início separa HSA/hemorragia. \"clarify\" é o caminho certo.",
-    "expectedPath": "clarify"
+    "rationale": "KB-004: cefaleia isolada NÃO configura lesão de órgão-alvo por si só — falta evidência objetiva. Diretriz Brasileira de Hipertensão 2025: \"urgência hipertensiva\" virou \"elevação importante da PA sem lesão progressiva de órgãos-alvo\"; observar ~30 min em ambiente calmo antes de qualquer anti-hipertensivo; VO se persistir. Cefaleia como queixa principal prediz pseudocrise (Arq Bras Cardiol 2007), mas aos 60 anos o modo de início separa HSA/hemorragia. O próximo passo é perguntar e examinar (déficit, visão, dor torácica) antes de tratar a PA."
   },
   "sources": [
     {
@@ -74,7 +80,7 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: síndrome passou a incluir a elevação importante da PA sem LOA (termo da Diretriz 2025); pedido das características da cefaleia (trovoada); conduta obrigatória de ambiente calmo, analgesia e reaferição; nifedipino de liberação prolongada deixou de ser acusado."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: síndrome passou a incluir a elevação importante da PA sem LOA (termo da Diretriz 2025); pedido das características da cefaleia (trovoada); conduta obrigatória de ambiente calmo, analgesia e reaferição; nifedipino de liberação prolongada deixou de ser acusado."
   },
   "probes": {
     "mustFlag": [

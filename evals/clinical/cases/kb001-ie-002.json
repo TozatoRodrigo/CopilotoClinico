@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb001-ie-002",
   "title": "Rebaixamento com depressão respiratória e agente desconhecido",
   "tags": [
@@ -17,17 +17,35 @@
   },
   "expected": {
     "syndrome": "intoxicação exógena grave com depressão respiratória",
-    "cannotMiss": [
-      "intoxicação por opioide (responsiva a naloxona)",
-      "hipoglicemia ou causa estrutural do SNC (TCE, AVC/hemorragia)"
+    "diagnoses": [
+      {
+        "text": "intoxicação por opioide (responsiva a naloxona)",
+        "tier": "critical"
+      },
+      {
+        "text": "hipoglicemia ou causa estrutural do SNC (TCE, AVC/hemorragia)",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [
+    "actions": [
+      {
+        "text": "suporte ventilatório (bolsa-válvula-máscara / via aérea)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "naloxona se suspeita de opioide",
+        "tier": "critical",
+        "timing": "any"
+      },
+      {
+        "text": "glicemia capilar imediata e glicose IV se hipoglicemia",
+        "tier": "critical",
+        "timing": "now"
+      }
+    ],
+    "questions": [
       "pupilas e demais achados de toxíndrome"
-    ],
-    "requiredActions": [
-      "suporte ventilatório (bolsa-válvula-máscara / via aérea)",
-      "naloxona se suspeita de opioide",
-      "glicemia capilar imediata e glicose IV se hipoglicemia"
     ],
     "forbiddenDefinitiveActions": [
       {
@@ -39,8 +57,7 @@
         ]
       }
     ],
-    "rationale": "AHA 2023: ventilar com bolsa-válvula-máscara até a respiração espontânea voltar (COR 1); naloxona na suspeita de opioide (COR 2a); flumazenil na intoxicação indiferenciada associado a dano. Glicemia capilar é conduta imediata, não pergunta. Rebaixamento com agente desconhecido não é tóxico até prova em contrário: TCE, AVC e coingestão (álcool, benzodiazepínico, paracetamol) entram no diferencial.",
-    "expectedPath": "recommend"
+    "rationale": "AHA 2023: ventilar com bolsa-válvula-máscara até a respiração espontânea voltar (COR 1); naloxona na suspeita de opioide (COR 2a); flumazenil na intoxicação indiferenciada associado a dano. Glicemia capilar é conduta imediata, não pergunta. Rebaixamento com agente desconhecido não é tóxico até prova em contrário: TCE, AVC e coingestão (álcool, benzodiazepínico, paracetamol) entram no diferencial."
   },
   "sources": [
     {
@@ -59,7 +76,7 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: glicemia capilar saiu do mustRequest e virou conduta obrigatória (com glicose IV se hipoglicemia); o item de hipoglicemia foi ampliado com causa estrutural do SNC (\"ou\"). A checagem de flumazenil perdeu as exceções genéricas, que deixavam passar \"Flumazenil 0,2 mg IV; não há resposta à naloxona\"."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: glicemia capilar saiu do mustRequest e virou conduta obrigatória (com glicose IV se hipoglicemia); o item de hipoglicemia foi ampliado com causa estrutural do SNC (\"ou\"). A checagem de flumazenil perdeu as exceções genéricas, que deixavam passar \"Flumazenil 0,2 mg IV; não há resposta à naloxona\"."
   },
   "probes": {
     "mustFlag": [

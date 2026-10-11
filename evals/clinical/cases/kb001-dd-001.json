@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb001-dd-001",
   "title": "Dispneia em DPOC sem gasometria e sem resposta documentada ao broncodilatador",
   "tags": [
@@ -17,18 +17,32 @@
   },
   "expected": {
     "syndrome": "exacerbação de DPOC",
-    "cannotMiss": [
-      "insuficiência respiratória hipercápnica",
-      "desencadeantes/mimetizadores: pneumonia, pneumotórax, TEP, IC aguda"
+    "diagnoses": [
+      {
+        "text": "insuficiência respiratória hipercápnica",
+        "tier": "important"
+      },
+      {
+        "text": "desencadeantes/mimetizadores: pneumonia, pneumotórax, TEP, IC aguda",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
+    "actions": [
+      {
+        "text": "broncodilatador inalatório de curta ação",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "oxigênio controlado com alvo de SpO2 88-92%",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [
       "gasometria (arterial, ou venosa para pH/PaCO2)",
       "SpO2, frequência respiratória e nível de consciência",
       "resposta ao broncodilatador"
-    ],
-    "requiredActions": [
-      "broncodilatador inalatório de curta ação",
-      "oxigênio controlado com alvo de SpO2 88-92%"
     ],
     "forbiddenDefinitiveActions": [
       {
@@ -37,8 +51,7 @@
         "patterns": []
       }
     ],
-    "rationale": "GOLD 2026 (cap. 4): gasometria decide o suporte ventilatório (arterial é o padrão nos graves; venosa serve para pH/PaCO2 nos menos graves); SABA ± SAMA iniciais; pneumonia, TEP, IC aguda e pneumotórax mimetizam ou agravam a exacerbação. BTS 2017: O2 com alvo de 88–92%. Corticoide sistêmico é desejável, mas não exigido enquanto a gravidade não é conhecida.",
-    "expectedPath": "clarify"
+    "rationale": "GOLD 2026 (cap. 4): gasometria decide o suporte ventilatório (arterial é o padrão nos graves; venosa serve para pH/PaCO2 nos menos graves); SABA ± SAMA iniciais; pneumonia, TEP, IC aguda e pneumotórax mimetizam ou agravam a exacerbação. BTS 2017: O2 com alvo de 88–92%. Corticoide sistêmico é desejável, mas não exigido enquanto a gravidade não é conhecida."
   },
   "sources": [
     {
@@ -58,6 +71,6 @@
   ],
   "provenance": {
     "originalCaseText": "Dispneia aguda em paciente com DPOC, sem gasometria e sem resposta documentada ao broncodilatador.",
-    "notes": "Auditoria 11/10/2026: texto reescrito sem anunciar a falta de gasometria e de resposta ao broncodilatador; gasometria venosa aceita; desencadeantes/mimetizadores como hipótese. Corticoide segue opcional."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: texto reescrito sem anunciar a falta de gasometria e de resposta ao broncodilatador; gasometria venosa aceita; desencadeantes/mimetizadores como hipótese. Corticoide segue opcional."
   }
 }

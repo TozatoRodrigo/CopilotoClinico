@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb001-dt-002",
   "title": "Dor torácica em repouso com hipotensão e dispneia",
   "tags": [
@@ -17,20 +17,48 @@
   },
   "expected": {
     "syndrome": "dor torácica com instabilidade hemodinâmica",
-    "cannotMiss": [
-      "síndrome coronariana aguda (incluindo choque cardiogênico)",
-      "tromboembolismo pulmonar",
-      "dissecção aguda de aorta",
-      "choque obstrutivo: tamponamento cardíaco ou pneumotórax hipertensivo"
+    "diagnoses": [
+      {
+        "text": "síndrome coronariana aguda (incluindo choque cardiogênico)",
+        "tier": "critical"
+      },
+      {
+        "text": "tromboembolismo pulmonar",
+        "tier": "critical"
+      },
+      {
+        "text": "dissecção aguda de aorta",
+        "tier": "critical"
+      },
+      {
+        "text": "choque obstrutivo: tamponamento cardíaco ou pneumotórax hipertensivo",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [
+    "actions": [
+      {
+        "text": "estabilização: monitorização, oxigênio se hipoxemia e acesso venoso",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "ECG de 12 derivações imediato",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "POCUS/ecocardiograma à beira-leito (VD, derrame pericárdico, pneumotórax, aorta)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "acionar reperfusão (hemodinâmica) se IAMCSST ou choque cardiogênico",
+        "tier": "critical",
+        "timing": "any"
+      }
+    ],
+    "questions": [
       "resultado do ECG de 12 derivações (supra de ST, sobrecarga de VD?)"
-    ],
-    "requiredActions": [
-      "estabilização: monitorização, oxigênio se hipoxemia e acesso venoso",
-      "ECG de 12 derivações imediato",
-      "POCUS/ecocardiograma à beira-leito (VD, derrame pericárdico, pneumotórax, aorta)",
-      "acionar reperfusão (hemodinâmica) se IAMCSST ou choque cardiogênico"
     ],
     "forbiddenDefinitiveActions": [
       {
@@ -79,8 +107,7 @@
         ]
       }
     ],
-    "rationale": "SBC 2025: instabilidade com dor torácica entra na via acelerada — ECG seriado e POCUS à beira-leito para SCA, dissecção, TEP, tamponamento e pneumotórax hipertensivo. ACC/AHA: nitrato contraindicado com PAS < 90 ou IAM de VD; betabloqueador contraindicado na hipotensão. Trombólise não é proibida em absoluto: indicada no TEP de alto risco confirmado (ou com disfunção de VD ao eco quando não há angio-TC; ESC 2019) e no IAMCSST sem acesso à angioplastia — a checagem aceita quando condicionada a esses achados.",
-    "expectedPath": "recommend"
+    "rationale": "SBC 2025: instabilidade com dor torácica entra na via acelerada — ECG seriado e POCUS à beira-leito para SCA, dissecção, TEP, tamponamento e pneumotórax hipertensivo. ACC/AHA: nitrato contraindicado com PAS < 90 ou IAM de VD; betabloqueador contraindicado na hipotensão. Trombólise não é proibida em absoluto: indicada no TEP de alto risco confirmado (ou com disfunção de VD ao eco quando não há angio-TC; ESC 2019) e no IAMCSST sem acesso à angioplastia — a checagem aceita quando condicionada a esses achados."
   },
   "sources": [
     {
@@ -127,7 +154,7 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: exceção da trombólise reescrita (antes \"se\"/\"tep\" casavam dentro de trombólise/alteplase e anulavam a checagem); nitrato e betabloqueador na hipotensão proibidos; ECG movido para conduta, POCUS e acionamento da reperfusão obrigatórios; tamponamento/pneumotórax hipertensivo como hipótese."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: exceção da trombólise reescrita (antes \"se\"/\"tep\" casavam dentro de trombólise/alteplase e anulavam a checagem); nitrato e betabloqueador na hipotensão proibidos; ECG movido para conduta, POCUS e acionamento da reperfusão obrigatórios; tamponamento/pneumotórax hipertensivo como hipótese."
   },
   "probes": {
     "mustFlag": [

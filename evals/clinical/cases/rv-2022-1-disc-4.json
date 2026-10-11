@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "rv-2022-1-disc-4",
   "title": "Dor lombar, febre e queda do estado geral em gestante de 29 semanas com cistite recente",
   "tags": [
@@ -15,28 +15,54 @@
     "status": "official_exam_key"
   },
   "input": {
-    "caseText": "Atendimento de urgência no centro de saúde onde faz pré-natal. Gestante, 32a, 2ª gestação, IG 29 sem. Cistite há 2 sem tratada com cefalexina, sem exame de controle; restante do pré-natal normal. Dor lombar há 2 dias, febre não aferida, mal-estar e queda do estado geral. Nega sintomas gripais; boa movimentação fetal. EF: REG, corada, hidratada, T 38 °C, P 100, PA 100x60. ACP normal. Abdome sem irritação peritoneal, AU 28 cm, BCF 148, sem dinâmica uterina. Punho-percussão lombar dolorosa à D. Toque: colo grosso, medianizado, impérvio."
+    "caseText": "Centro de saúde onde faz pré-natal; atendimento de urgência. Gestante, 32a, 2ª gestação, IG 29 sem. Dor lombar há 2 dias, febre não aferida, mal-estar e queda do estado geral. Cistite há 2 sem tratada com cefalexina, sem exame de controle; restante do pré-natal normal. Nega sintomas gripais; boa movimentação fetal. EF: REG, corada, hidratada, T 38 °C, P 100, PA 100x60. Exame cardiopulmonar normal. Abdome sem irritação peritoneal; AU 28 cm; BCF 148; sem dinâmica uterina. Punho-percussão lombar dolorosa à D. Toque vaginal: colo grosso, medianizado, impérvio."
   },
   "expected": {
     "syndrome": "infecção urinária alta febril na gestação (pielonefrite aguda)",
-    "cannotMiss": [
-      "pielonefrite aguda na gestação",
-      "complicações materno-fetais da pielonefrite na gestação (ex.: sepse, trabalho de parto prematuro, insuficiência renal, abscesso renal, rotura prematura de membranas, corioamnionite, baixo peso ao nascer)"
+    "diagnoses": [
+      {
+        "text": "pielonefrite aguda na gestação",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [
-      "exame de urina e urocultura",
-      "hemograma, ureia e creatinina (e, se sinais de sepse, eletrólitos, gasometria, lactato e função hepática)",
-      "ultrassonografia dos rins e vias urinárias"
+    "actions": [
+      {
+        "text": "antibioticoterapia EV",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "internação hospitalar",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "controle de sinais vitais (identificação precoce de sinais de gravidade) e/ou hidratação parenteral",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "antitérmico",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "exames: urina tipo 1, urocultura, hemograma, ureia e creatinina; se sinais de sepse, eletrólitos, gasometria, lactato e função hepática",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "ultrassonografia de rins e vias urinárias",
+        "tier": "important",
+        "timing": "any"
+      }
     ],
-    "requiredActions": [
-      "internação hospitalar",
-      "antibioticoterapia endovenosa",
-      "controle de sinais vitais (identificação precoce de sinais de gravidade) e/ou hidratação parenteral",
-      "antitérmico"
-    ],
+    "questions": [],
     "forbiddenDefinitiveActions": [],
-    "rationale": "Gabarito oficial do INEP (Revalida 2022/1, Questão 4): o padrão pontua o diagnóstico de pielonefrite aguda, a conduta com internação, antibiótico EV, controle de sinais vitais/hidratação, exames e USG de vias urinárias, antitérmico, e a citação das complicações possíveis.",
-    "expectedPath": "recommend"
+    "outOfScope": [
+      "citar três complicações possíveis do quadro: trabalho de parto prematuro, sepse, insuficiência renal, abscesso renal, rotura prematura de membranas, corioamnionite, baixo peso ao nascer (item c)"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2022/1, Questão 4): o padrão pontua o diagnóstico de pielonefrite aguda, a conduta com internação, antibiótico EV, controle de sinais vitais/hidratação, exames e USG de vias urinárias, antitérmico, e a citação das complicações possíveis. v2: o antibiótico EV é a conduta crítica; a lista de complicações (item c) é formato de prova e ficou fora do escopo."
   },
   "sources": [
     {
@@ -74,6 +100,6 @@
     "item": "Discursiva caso 4",
     "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2022_GB_discursiva.pdf",
     "originalCaseText": "Uma paciente de 32 anos de idade está grávida de seu segundo filho e faz pré-natal no centro de saúde. Solicitou um atendimento de urgência no dia de hoje, por queixa de dor lombar e mal-estar. No momento está com 29 semanas de idade gestacional. Tratou uma cistite há 2 semanas com cefalexina e, após isso, não fez nenhum exame de controle. O restante do pré-natal está normal. Refere, durante a consulta, que a dor lombar iniciou há 2 dias, que teve febre (não medida) e queda do estado geral. Nega sintomas gripais e refere boa movimentação fetal. Ao exame, apresenta-se em regular estado geral, corada, hidratada, febril (temperatura = 38 °C), com pulso de 100 batimentos por minuto (bpm) e pressão arterial de 100 x 60 mmHg. Apresenta, ainda, exame cardio-pulmonar sem anormalidade. Abdome sem sinais de irritação peritoneal, com altura uterina de 28 cm. Batimentos cardíacos fetais de 148 bpm, sem dinâmica uterina. Punho percussão de região lombar dolorosa à direita. Toque vaginal com colo grosso, medianizado e impérvio. Considerando o quadro clínico apresentado, faça o que se pede nos itens a seguir. a) Cite a principal hipótese diagnóstica. Justifique sua resposta. (valor: 3,0 pontos) b) Descreva qual a conduta adequada. (valor: 4,0 pontos) c) Cite três possíveis complicações referentes a esse caso clínico. (valor: 3,0 pontos)",
-    "notes": "Enunciado transcrito do padrão de respostas (o texto da prova veio com fonte codificada na extração). Item c (citar 3 de 7 complicações) foi condensado em um único item de cannotMiss. Os exames complementares do item b (conduta) foram para mustRequest."
+    "notes": "Gabarito v2 (11/10/2026): caseText com todos os dados do enunciado em estilo nota, sem as perguntas (conferido contra o padrão de respostas). Antibiótico EV virou a conduta crítica; internação, sinais vitais/hidratação, antitérmico, exames e USG ficaram importantes, cada um com nota própria. A lista de três complicações (item c) foi para fora do escopo. | Enunciado transcrito do padrão de respostas (o texto da prova veio com fonte codificada na extração). Item c (citar 3 de 7 complicações) foi condensado em um único item de cannotMiss. Os exames complementares do item b (conduta) foram para mustRequest."
   }
 }

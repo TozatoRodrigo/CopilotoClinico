@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "rv-2023-1-est-7",
   "title": "Dor testicular aguda à direita em homem de 21 anos na UPA",
   "tags": [
@@ -15,27 +15,135 @@
     "status": "official_exam_key"
   },
   "input": {
-    "caseText": "UPA (RX, US e laboratório disponíveis). Masc, 21a, estudante. Dor testicular à direita."
+    "caseText": "UPA (RX, US, laboratório). Masc, 21a, solteiro, estudante. Acordou há 2 h com dor forte no escroto D (8/10), irradiando um pouco para cima, pior ao andar; testículo D inchado; náusea. Sem analgésico hoje. Nega secreção uretral, pus ou sangue, sintomas urinários, febre e dor lombar. Sem relações sexuais há 1 mês. Sem medicações, alergias, cirurgias, caxumba ou outras doenças; nega álcool e drogas; fuma 10 cig/dia há 10 anos. Pai hipertenso. Prefere ser tratado na cidade da mãe, a 8 h daqui. EF: FC 76, PA 130x80, FR 14, Tax 36,2 °C, SpO2 99% AA, IMC 25; BEG, afebril, alerta e orientado; ACV, AR e abdome sem alterações. Bolsa escrotal: testículo D elevado e pouco horizontalizado, aumentado de volume; hiperemia da hemibolsa D. USG com Doppler colorido da bolsa escrotal: testículo D aumentado, sem fluxo sanguíneo ao Doppler; espessamento do cordão espermático D; testículo E sem alterações.",
+    "funnel": {
+      "opening": "UPA (RX, US, laboratório). Masc, 21a, estudante, com dor testicular à D.",
+      "script": [
+        {
+          "id": "h-identificacao",
+          "kind": "history",
+          "text": "21 anos, solteiro, estudante."
+        },
+        {
+          "id": "h-inicio",
+          "kind": "history",
+          "text": "Acordou com dor forte no saco escrotal do lado direito; a dor começou há 2 horas e o acordou."
+        },
+        {
+          "id": "h-intensidade",
+          "kind": "history",
+          "text": "A dor é muito forte, nota 8, e irradia um pouco para cima."
+        },
+        {
+          "id": "h-piora",
+          "kind": "history",
+          "text": "A dor piora quando anda; não tomou remédio para dor hoje."
+        },
+        {
+          "id": "h-inchaco",
+          "kind": "history",
+          "text": "O testículo direito está inchado."
+        },
+        {
+          "id": "h-nausea",
+          "kind": "history",
+          "text": "Está com vontade de vomitar."
+        },
+        {
+          "id": "h-sem-secrecao",
+          "kind": "history",
+          "text": "Não percebeu secreção uretral, pus ou sangue."
+        },
+        {
+          "id": "h-sem-urinarios",
+          "kind": "history",
+          "text": "Nunca teve sintomas urinários (ardor ao urinar, urina avermelhada, vontade constante de urinar, urina com mau cheiro)."
+        },
+        {
+          "id": "h-sem-febre",
+          "kind": "history",
+          "text": "Não teve febre e não tem dor lombar."
+        },
+        {
+          "id": "h-sexual",
+          "kind": "history",
+          "text": "Está há um mês sem relações sexuais."
+        },
+        {
+          "id": "h-medicacoes",
+          "kind": "history",
+          "text": "Não usa medicações."
+        },
+        {
+          "id": "h-habitos",
+          "kind": "history",
+          "text": "Não usa bebida alcoólica nem drogas ilícitas; fuma 10 cigarros por dia há 10 anos."
+        },
+        {
+          "id": "h-antecedentes",
+          "kind": "history",
+          "text": "Não teve caxumba; não tem alergias nem outros problemas de saúde; nunca foi operado."
+        },
+        {
+          "id": "h-familia",
+          "kind": "history",
+          "text": "O pai é hipertenso e usa medicação."
+        },
+        {
+          "id": "h-cidade-mae",
+          "kind": "history",
+          "text": "Prefere ser tratado na cidade da mãe, que fica a 8 horas daqui."
+        },
+        {
+          "id": "e-geral",
+          "kind": "exam",
+          "text": "FC 76, PA 130x80, FR 14, Tax 36,2 °C, SpO2 99% AA, IMC 25. BEG, afebril, acianótico, anictérico, hidratado, alerta e orientado; ACV, AR e abdome sem alterações."
+        },
+        {
+          "id": "e-bolsa-escrotal",
+          "kind": "exam",
+          "text": "Testículo direito elevado e pouco horizontalizado, aumentado de volume; hiperemia da hemibolsa escrotal direita.",
+          "key": true
+        },
+        {
+          "id": "t-usg-doppler",
+          "kind": "test",
+          "text": "USG com Doppler colorido da bolsa escrotal: testículo direito aumentado, sem fluxo sanguíneo ao Doppler; espessamento do cordão espermático direito; testículo esquerdo sem alterações.",
+          "key": true
+        }
+      ]
+    }
   },
   "expected": {
     "syndrome": "escroto agudo por torção testicular (torção do cordão espermático) à direita",
-    "cannotMiss": [
-      "torção testicular (torção do cordão espermático)",
-      "orquite / orquiepididimite / epididimite aguda",
-      "torção do apêndice testicular ou epididimário"
+    "diagnoses": [
+      {
+        "text": "torção testicular D (torção do cordão espermático)",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [
-      "características da dor (tempo de início, intensidade, fatores de alívio ou de piora)",
-      "manifestações associadas para o diferencial (náuseas/vômitos, sintomas urinários, dor lombar/abdominal/inguinal, febre, secreção uretral)",
-      "exame físico da bolsa escrotal (testículo direito elevado — sinal de Brunzel — ou horizontalizado — sinal de Angell —, aumento de volume, hiperemia da hemibolsa direita)",
-      "ultrassonografia com Doppler (colorido) de bolsa escrotal"
+    "actions": [
+      {
+        "text": "cirurgia de emergência imediata (exploração escrotal com detorção e fixação), dentro de 6 h do início da dor",
+        "tier": "critical",
+        "timing": "now"
+      }
     ],
-    "requiredActions": [
-      "cirurgia de emergência para a torção testicular: imediata ou antes de 6 horas do início da dor"
+    "questions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "adiar-cirurgia-da-torcao",
+        "description": "Adiar a cirurgia da torção (liberar o paciente para operar na cidade da mãe, a 8 h de viagem, ou aguardar além de 6 h do início da dor) ou trocá-la por outro tratamento, como antibiótico e analgesia — PEP item 8: inadequado indicar a cirurgia sem destacar a emergência ou indicar qualquer outro tipo de tratamento.",
+        "patterns": []
+      }
     ],
-    "forbiddenDefinitiveActions": [],
-    "rationale": "Gabarito oficial do INEP (Revalida 2023/1, Estação 7): o PEP pontua anamnese e exame da bolsa escrotal, o diferencial de escroto agudo, a USG com Doppler de bolsa escrotal, o diagnóstico de torção testicular e a indicação de cirurgia de emergência em até 6 horas do início da dor.",
-    "expectedPath": "clarify"
+    "outOfScope": [
+      "apresentar-se e identificar o paciente (item 1)",
+      "anamnese: características da dor e manifestações associadas (itens 2–3; medida pelo roteiro no afunilamento)",
+      "verbalizar três hipóteses de escroto agudo: torção testicular, orquite/orquiepididimite, torção de apêndice testicular (item 5)",
+      "executar as tarefas na ordem determinada (item 9)"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2023/1, Estação 7): o PEP pontua anamnese e exame da bolsa escrotal, o diferencial de escroto agudo, a USG com Doppler de bolsa escrotal, o diagnóstico de torção testicular e a indicação de cirurgia de emergência em até 6 horas do início da dor. v2: a cirurgia de emergência é a conduta crítica; adiá-la (o paciente quer operar a 8 h dali) é proibição avaliada pelo juiz."
   },
   "sources": [
     {
@@ -73,6 +181,6 @@
     "item": "Estação 7",
     "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2023_1_PEP_publicacao.pdf",
     "originalCaseText": "CENÁRIO DE ATUAÇÃO Local de atuação: Atenção Secundária: Unidade de Pronto Atendimento A unidade possui a seguinte infraestrutura: aparelho de Raio-x; ultrassonografia; laboratório de análises clínicas. DESCRIÇÃO DO CASO Homem, 21 anos, estudante, procura atendimento na unidade queixando-se de dor testicular à direita. ATENÇÃO! CASO JULGUE NECESSÁRIO REALIZAR EXAME FÍSICO, VERBALIZE! O PACIENTE SIMULADO NÃO DEVERÁ SER TOCADO DURANTE O ATENDIMENTO. Nos 10 minutos de duração da estação, você deverá executar as tarefas a seguir: 1. realizar anamnese do paciente; 2. solicitar e interpretar exame físico; 3. estabelecer e comunicar as principais hipóteses diagnósticas (NO MÍNIMO TRÊS); 4. solicitar exame(s) complementar(es), se necessário, descrevendo os achados; 5. estabelecer e comunicar o diagnóstico definitivo; 6. propor a terapêutica definitiva para o caso. ATENÇÃO! VOCÊ DEVERÁ, REALIZAR AS TAREFAS NA SEQUÊNCIA DESCRITA ACIMA.",
-    "notes": "O exame da bolsa escrotal é liberado como imagem; os achados usados vêm do texto do PEP (item 4). O PEP considera inadequado 'indicar qualquer outro tipo de tratamento' além da cirurgia de emergência; não foi convertido em proibição por ser genérico. A síntese é contraditória quanto ao tabagismo (diz que não fuma e, depois, que fuma 10 cigarros por dia há 10 anos). | Dados sob demanda: acordou há 2 h com dor forte (8/10) no escroto à direita, irradiando um pouco para cima, piora ao andar, sem analgésico; testículo direito inchado; náusea; sem secreção uretral, sintomas urinários, febre ou dor lombar; sem relações sexuais há 1 mês; sem caxumba, alergias, cirurgias ou medicações; pergunta qual o prazo para operar, pois queria operar na cidade da mãe, a 8 h de distância. EF: FC 76, PA 130x80, FR 14, Tax 36,2 °C, SatO2 99% AA, BEG; aparelhos sem alterações; bolsa escrotal em imagem (PEP: testículo direito elevado — sinal de Brunzel — ou horizontalizado — sinal de Angell —, aumentado de volume, hiperemia da hemibolsa direita). USG com Doppler colorido de bolsa escrotal: testículo direito aumentado, sem fluxo sanguíneo ao Doppler, espessamento do cordão espermático direito; testículo esquerdo normal."
+    "notes": "Gabarito v2 (11/10/2026): caso completo com o roteiro oficial do ator, o impresso de exame físico (bolsa escrotal só em imagem; achados descritos pelo item 4 do PEP) e o laudo da USG com Doppler, de que depende o diagnóstico definitivo (item 7); modo afunilamento com a abertura oficial. A pergunta do paciente sobre operar na cidade da mãe foi parafraseada ('prefere ser tratado lá') para não entregar a conduta; do tabagismo contraditório, ficou a informação específica (10 cigarros/dia). Cirurgia de emergência é a conduta crítica; adiar a cirurgia virou proibição só para o juiz (sem regex). A lista de três hipóteses de escroto agudo foi para fora do escopo; a solicitação da USG (item 6) fica satisfeita pelo texto. | O exame da bolsa escrotal é liberado como imagem; os achados usados vêm do texto do PEP (item 4). O PEP considera inadequado 'indicar qualquer outro tipo de tratamento' além da cirurgia de emergência; não foi convertido em proibição por ser genérico. A síntese é contraditória quanto ao tabagismo (diz que não fuma e, depois, que fuma 10 cigarros por dia há 10 anos). | Dados sob demanda: acordou há 2 h com dor forte (8/10) no escroto à direita, irradiando um pouco para cima, piora ao andar, sem analgésico; testículo direito inchado; náusea; sem secreção uretral, sintomas urinários, febre ou dor lombar; sem relações sexuais há 1 mês; sem caxumba, alergias, cirurgias ou medicações; pergunta qual o prazo para operar, pois queria operar na cidade da mãe, a 8 h de distância. EF: FC 76, PA 130x80, FR 14, Tax 36,2 °C, SatO2 99% AA, BEG; aparelhos sem alterações; bolsa escrotal em imagem (PEP: testículo direito elevado — sinal de Brunzel — ou horizontalizado — sinal de Angell —, aumentado de volume, hiperemia da hemibolsa direita). USG com Doppler colorido de bolsa escrotal: testículo direito aumentado, sem fluxo sanguíneo ao Doppler, espessamento do cordão espermático direito; testículo esquerdo normal."
   }
 }

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb001-gd-002",
   "title": "Diarreia com sangue, hipotensão e intolerância oral",
   "tags": [
@@ -17,19 +17,40 @@
   },
   "expected": {
     "syndrome": "diarreia aguda invasiva com desidratação grave / choque hipovolêmico",
-    "cannotMiss": [
-      "choque hipovolêmico",
-      "sepse de foco intestinal",
-      "diarreia por STEC (E. coli produtora de toxina Shiga) com risco de síndrome hemolítico-urêmica"
+    "diagnoses": [
+      {
+        "text": "choque hipovolêmico",
+        "tier": "critical"
+      },
+      {
+        "text": "sepse de foco intestinal",
+        "tier": "critical"
+      },
+      {
+        "text": "diarreia por STEC (E. coli produtora de toxina Shiga) com risco de síndrome hemolítico-urêmica",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [
+    "actions": [
+      {
+        "text": "hidratação venosa com cristaloide em bolus",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "eletrólitos e função renal",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "hemoculturas e coprocultura (idealmente com pesquisa de STEC/toxina Shiga)",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [
       "temperatura (febre)",
       "viagem recente, antibiótico ou internação recentes, ou imunossupressão"
-    ],
-    "requiredActions": [
-      "hidratação venosa com cristaloide em bolus",
-      "eletrólitos e função renal",
-      "hemoculturas e coprocultura (idealmente com pesquisa de STEC/toxina Shiga)"
     ],
     "forbiddenDefinitiveActions": [
       {
@@ -43,8 +64,7 @@
         ]
       }
     ],
-    "rationale": "IDSA 2017: cristaloide isotônico IV na desidratação grave ou choque; hemoculturas na sepse e pesquisa nas fezes (incluindo STEC) na diarreia com sangue; evitar loperamida na diarreia inflamatória ou febril. Antibiótico empírico: com hipotensão é defensável iniciar (sepse; disenteria febril presumida por Shigella; viajante febril; imunossuprimido) e também é defensável segurá-lo na suspeita de STEC — o gabarito aceita os dois, desde que a decisão pese o risco de SHU.",
-    "expectedPath": "recommend"
+    "rationale": "IDSA 2017: cristaloide isotônico IV na desidratação grave ou choque; hemoculturas na sepse e pesquisa nas fezes (incluindo STEC) na diarreia com sangue; evitar loperamida na diarreia inflamatória ou febril. Antibiótico empírico: com hipotensão é defensável iniciar (sepse; disenteria febril presumida por Shigella; viajante febril; imunossuprimido) e também é defensável segurá-lo na suspeita de STEC — o gabarito aceita os dois, desde que a decisão pese o risco de SHU."
   },
   "sources": [
     {
@@ -63,7 +83,7 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: acrescentados STEC/SHU ao cannotMiss, hemoculturas e coprocultura às condutas, e febre e fatores que indicam antibiótico ao mustRequest. A checagem de loperamida perdeu as exceções genéricas (\"não\", \"evitar\"), que deixavam passar \"Loperamida 2 mg após cada evacuação; não exceder 8 mg/dia\"; a negação próxima já é reconhecida pelo avaliador."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: acrescentados STEC/SHU ao cannotMiss, hemoculturas e coprocultura às condutas, e febre e fatores que indicam antibiótico ao mustRequest. A checagem de loperamida perdeu as exceções genéricas (\"não\", \"evitar\"), que deixavam passar \"Loperamida 2 mg após cada evacuação; não exceder 8 mg/dia\"; a negação próxima já é reconhecida pelo avaliador."
   },
   "probes": {
     "mustFlag": [

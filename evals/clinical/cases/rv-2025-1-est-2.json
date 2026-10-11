@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "rv-2025-1-est-2",
   "title": "Dor epigástrica súbita e intensa em homem jovem com uso diário de anti-inflamatório na UPA",
   "tags": [
@@ -15,29 +15,125 @@
     "status": "official_exam_key"
   },
   "input": {
-    "caseText": "UPA, plantão da emergência. Paciente masc., 31a, queixa de dor abdominal."
+    "caseText": "UPA, plantão da emergência (RX, laboratório e centro cirúrgico). Masc, 31a, educador físico, sem comorbidades. Dor intensa, profunda e contínua no epigástrio, de início súbito há ~6 h; tomou anti-inflamatório, sem melhora. Toma nimesulida 1 cp toda noite há 3 meses, para dores musculares (treina há 3 meses para competição de crossfit). Náuseas desde o início, sem vômitos; nega febre. Nega tabagismo, etilismo e uso de hormônios; alimentação saudável, suplementa whey; ingere bastante líquido. EF: REG, hidratado, normocorado, acianótico. FC 100, PA 100x70, FR 24, Tax 37,8 °C, IMC 22,5. AR e ACV sem alterações. Abdome levemente distendido, RHA diminuídos, timpânico difusamente, sem macicez, sinal de Jobert presente; tenso, resistente e doloroso à palpação superficial e profunda em todo o abdome; descompressão brusca dolorosa em todo o abdome. RX (tórax PA em ortostase/rotina de abdome agudo): ar livre subdiafragmático.",
+    "funnel": {
+      "opening": "UPA, plantão da emergência (RX, laboratório e centro cirúrgico). Masc, 31a, com dor abdominal.",
+      "script": [
+        {
+          "id": "h-identificacao",
+          "kind": "history",
+          "text": "Tem 31 anos, é casado e trabalha como profissional de educação física."
+        },
+        {
+          "id": "h-dor",
+          "kind": "history",
+          "text": "Sente dor intensa, profunda e contínua no epigástrio, de início súbito, há cerca de 6 horas."
+        },
+        {
+          "id": "h-aine-sem-melhora",
+          "kind": "history",
+          "text": "Fez uso de anti-inflamatório, sem melhora."
+        },
+        {
+          "id": "h-atividade",
+          "kind": "history",
+          "text": "Pratica atividade física regularmente, treina há 3 meses para uma competição de crossfit e não tem comorbidades."
+        },
+        {
+          "id": "h-nimesulida",
+          "kind": "history",
+          "text": "Toma 1 comprimido de nimesulida toda noite há 3 meses, para alívio de dores musculares.",
+          "key": true
+        },
+        {
+          "id": "h-habitos",
+          "kind": "history",
+          "text": "Nega tabagismo, etilismo e uso de hormônios."
+        },
+        {
+          "id": "h-alimentacao",
+          "kind": "history",
+          "text": "Tem alimentação saudável e faz suplementação com whey."
+        },
+        {
+          "id": "h-febre",
+          "kind": "history",
+          "text": "Nega febre."
+        },
+        {
+          "id": "h-nauseas",
+          "kind": "history",
+          "text": "Sente-se nauseado desde o início da dor, mas nega vômitos."
+        },
+        {
+          "id": "h-liquidos",
+          "kind": "history",
+          "text": "Costuma ingerir bastante líquido."
+        },
+        {
+          "id": "e-geral",
+          "kind": "exam",
+          "text": "REG, hidratado, normocorado, acianótico. FC 100, PA 100x70, FR 24, Tax 37,8 °C, IMC 22,5; aparelhos respiratório e cardiovascular sem anormalidades."
+        },
+        {
+          "id": "e-abdome",
+          "kind": "exam",
+          "text": "Abdome levemente distendido; RHA diminuídos; timpânico difusamente, sem macicez, sinal de Jobert presente; tenso, resistente e doloroso à palpação superficial e profunda em todo o abdome; descompressão brusca dolorosa em todo o abdome."
+        },
+        {
+          "id": "t-laboratorio",
+          "kind": "test",
+          "text": "Hb 14,8, Ht 44,2%, leucócitos 16.500, plaquetas 240.000; PCR 50 mg/dL (VR ≤ 8); creatinina 1,1, ureia 36, Na 140, K 4,5; amilase 140 U/L, lipase 34 U/L."
+        },
+        {
+          "id": "t-radiografia",
+          "kind": "test",
+          "text": "Radiografia (tórax PA em ortostase ou rotina de abdome agudo): ar livre subdiafragmático."
+        }
+      ]
+    }
   },
   "expected": {
     "syndrome": "abdome agudo perfurativo por úlcera péptica perfurada",
-    "cannotMiss": [
-      "úlcera péptica perfurada / abdome agudo perfurativo",
-      "pneumoperitônio na radiografia",
-      "relação do quadro com o uso crônico de anti-inflamatório (nimesulida)"
+    "diagnoses": [
+      {
+        "text": "úlcera péptica perfurada / abdome agudo perfurativo",
+        "tier": "critical"
+      },
+      {
+        "text": "pneumoperitônio na radiografia",
+        "tier": "important"
+      },
+      {
+        "text": "relação do quadro com o uso diário de anti-inflamatório (nimesulida) há 3 meses",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
-      "características da dor (início/duração, irradiação ou migração, tipo, intensidade, fatores de piora e de melhora)",
-      "fatores relevantes: náuseas/vômitos, febre, dispepsia ou dor epigástrica prévia, uso crônico de anti-inflamatório/medicações, etilismo e tabagismo, episódios prévios semelhantes",
-      "exame físico abdominal completo (inspeção, ausculta, percussão, palpação superficial e profunda, pesquisa de descompressão brusca dolorosa)",
-      "exames laboratoriais: PCR e/ou VHS, hemograma, amilase e/ou lipase, ureia e creatinina, sódio e potássio",
-      "radiografia de tórax PA em ortostase ou rotina radiológica de abdome agudo"
+    "actions": [
+      {
+        "text": "avaliação cirúrgica imediata, para laparotomia ou laparoscopia de urgência",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "analgesia endovenosa",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "exames: hemograma e PCR (ou VHS), amilase ou lipase, ureia e creatinina, sódio e potássio",
+        "tier": "important",
+        "timing": "any"
+      }
     ],
-    "requiredActions": [
-      "analgesia endovenosa",
-      "avaliação cirúrgica imediata/urgente ou laparotomia/laparoscopia exploradora de urgência"
-    ],
+    "questions": [],
     "forbiddenDefinitiveActions": [],
-    "rationale": "Gabarito oficial do INEP (Revalida 2025/1, Estação 2): a descrição inicial traz só idade e queixa; o PEP pontua anamnese dirigida, exame abdominal, laboratório e radiografia (pneumoperitônio), o diagnóstico de úlcera péptica perfurada ligada ao AINE, analgesia EV e cirurgia/avaliação cirúrgica urgente.",
-    "expectedPath": "clarify"
+    "outOfScope": [
+      "apresentar-se e cumprimentar o paciente (item 1)",
+      "anamnese das características da dor e dos fatores relevantes (itens 2–3; cobertas pelo roteiro)",
+      "exame físico abdominal no manequim, com a sequência semiológica (item 4)"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2025/1, Estação 2): a descrição inicial traz só idade e queixa; o PEP pontua anamnese dirigida, exame abdominal, laboratório e radiografia (pneumoperitônio), o diagnóstico de úlcera péptica perfurada ligada ao AINE, analgesia EV e cirurgia/avaliação cirúrgica urgente. Gabarito v2: o uso de nimesulida e o achado da radiografia entraram no caso completo; a avaliação cirúrgica urgente é a conduta crítica para agora."
   },
   "sources": [
     {
@@ -82,6 +178,6 @@
     "item": "Estação 2",
     "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf",
     "originalCaseText": "CENÁRIO DE ATENDIMENTO Nível de atenção: secundária. Tipo de atendimento: urgência e emergência. A unidade possui: ● setor de radiologia com aparelho de radiografia; ● laboratório de análises clínicas; ● centro cirúrgico. DESCRIÇÃO DO CASO Você é um médico de plantão na emergência de uma unidade de pronto atendimento (UPA) e atenderá um paciente de 31 anos com queixa de dor abdominal. Nos 10 minutos de duração da estação, você deverá executar as seguintes tarefas: ● realizar anamnese; ● solicitar exame físico do paciente; ● realizar o exame físico específico no manequim; ● solicitar e interpretar exames laboratoriais; ● solicitar e interpretar exames complementares pertinentes ao caso; ● formular e verbalizar a hipótese diagnóstica definitiva; ● orientar tratamento inicial e tratamento definitivo. ATENÇÃO: O PACIENTE SIMULADO NÃO DEVERÁ SER TOCADO DURANTE O ATENDIMENTO.",
-    "notes": "Dados sob demanda: homem, 31 a, educador físico, sem comorbidades; dor intensa no epigástrio, profunda e contínua, de início súbito há ~6 h; usou anti-inflamatório sem melhora; nimesulida 1 cp toda noite há 3 meses para dores musculares (treino de crossfit); náuseas desde o início, sem vômitos; nega febre, tabagismo, etilismo e uso de hormônios; suplementa whey; ingere bastante líquido. Exame geral: REG, hidratado, normocorado, FC 100, PA 100x70, FR 24, Tax 37,8 °C, IMC 22,5. Abdome (após palpação no manequim): levemente distendido, RHA diminuídos, timpânico difusamente, sem macicez, sinal de Jobert presente, tenso, resistente e doloroso à palpação superficial e profunda em todo o abdome, descompressão brusca dolorosa difusa. Lab: Hb 14,8, Ht 44,2%, leucócitos 16.500, plaquetas 240.000, PCR 50 (ref ≤ 8), creatinina 1,1, ureia 36, Na 140, K 4,5, amilase 140, lipase 34. Exame de imagem (RX de tórax PA ortostático/rotina de abdome agudo): imagem sem descrição textual na prova; segundo a síntese e o PEP (item 7), mostra pneumoperitônio."
+    "notes": "Gabarito v2 (11/10/2026): o caso v1 era injusto: a abertura só trazia 'dor abdominal' e o uso diário de nimesulida só aparecia quando perguntado. Agora o caso completo traz a exposição ao AINE como fato da história, o exame físico e o achado da radiografia (impresso só com imagem, descrito de forma neutra a partir da síntese e do PEP, item 7); no funnel, a nimesulida é o único fato key. Como o resultado da radiografia está no caso, o pedido dela (item 6) não é pontuado; os laboratoriais, que o PEP só cobra solicitar, ficaram fora do caso completo e viraram item de conduta. Avaliação cirúrgica urgente é a conduta crítica para agora. | Dados sob demanda: homem, 31 a, educador físico, sem comorbidades; dor intensa no epigástrio, profunda e contínua, de início súbito há ~6 h; usou anti-inflamatório sem melhora; nimesulida 1 cp toda noite há 3 meses para dores musculares (treino de crossfit); náuseas desde o início, sem vômitos; nega febre, tabagismo, etilismo e uso de hormônios; suplementa whey; ingere bastante líquido. Exame geral: REG, hidratado, normocorado, FC 100, PA 100x70, FR 24, Tax 37,8 °C, IMC 22,5. Abdome (após palpação no manequim): levemente distendido, RHA diminuídos, timpânico difusamente, sem macicez, sinal de Jobert presente, tenso, resistente e doloroso à palpação superficial e profunda em todo o abdome, descompressão brusca dolorosa difusa. Lab: Hb 14,8, Ht 44,2%, leucócitos 16.500, plaquetas 240.000, PCR 50 (ref ≤ 8), creatinina 1,1, ureia 36, Na 140, K 4,5, amilase 140, lipase 34. Exame de imagem (RX de tórax PA ortostático/rotina de abdome agudo): imagem sem descrição textual na prova; segundo a síntese e o PEP (item 7), mostra pneumoperitônio."
   }
 }

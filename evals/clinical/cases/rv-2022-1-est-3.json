@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "rv-2022-1-est-3",
   "title": "Dor abdominal com febre em menina de 11 anos",
   "tags": [
@@ -15,27 +15,43 @@
     "status": "official_exam_key"
   },
   "input": {
-    "caseText": "Atenção secundária (ambulatorial e hospitalar; laboratório e radiologia convencional). Fem, 11a, eutrófica, queixa de dor abdominal. Ficha: Tax 38 °C, PA 130x70, peso 52 kg, altura 1,55 m. Mãe acompanha a consulta."
+    "caseText": "Atenção secundária, ambulatorial e hospitalar (laboratório, RX convencional). Fem, 11a, eutrófica, 52 kg, 1,55 m, com a mãe; queixa de dor abdominal. Ficha: Tax 38 °C, PA 130x70. EF: BEG, corada, eupneica, hidratada; Tax 38 °C, Tretal 38,5 °C; FC 90; ausculta cardíaca e pulmonar normais. Abdome plano, flácido, doloroso à palpação superficial e profunda em FID, Blumberg positivo em FID, sem visceromegalias, RHA normais. Períneo, membros e exame neurológico sucinto sem alterações. RX de abdome em pé e deitado: níveis líquidos em FID, borramento da borda do psoas, distensão de alças, escoliose antálgica e alças sentinelas. Hemograma: Hb 12,8, Ht 40,6%, leucócitos 19.370 (bastões 6% = 1.162; segmentados 73,5% = 14.236), plaquetas 234.000. Urina tipo 1: densidade 1.025, pH 5,0, proteína, glicose e cetonas negativas, leucócitos 660/mL, hemácias 660/mL."
   },
   "expected": {
     "syndrome": "dor abdominal aguda com febre em criança por apendicite aguda",
-    "cannotMiss": [
-      "apendicite aguda"
+    "diagnoses": [
+      {
+        "text": "apendicite aguda",
+        "tier": "critical"
+      },
+      {
+        "text": "hemograma de padrão infeccioso: leucocitose com desvio à esquerda",
+        "tier": "important"
+      },
+      {
+        "text": "urina tipo 1 normal (sem infecção urinária)",
+        "tier": "important"
+      },
+      {
+        "text": "RX de abdome com sinais indiretos: nível líquido em FID, borramento do psoas, distensão de alças, escoliose antálgica, alças sentinelas",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
-      "anamnese dirigida (características da dor e sintomas associados, sintomas digestivos, sintomas urinários, menarca, alimentação, doenças anteriores, histórico familiar)",
-      "exame físico geral e abdominal",
-      "radiografia simples de abdome em pé e deitado (níveis líquidos em FID, borramento do psoas, distensão de alças, escoliose antálgica, alças sentinelas)",
-      "hemograma (leucocitose com desvio à esquerda)",
-      "exame de urina (interpretado como normal)"
+    "actions": [
+      {
+        "text": "encaminhar ao cirurgião pediátrico com indicação de cirurgia de urgência (apendicectomia)",
+        "tier": "critical",
+        "timing": "now"
+      }
     ],
-    "requiredActions": [
-      "explicar à paciente e à mãe o diagnóstico de apendicite aguda",
-      "encaminhar ao cirurgião pediátrico com indicação de cirurgia de urgência"
-    ],
+    "questions": [],
     "forbiddenDefinitiveActions": [],
-    "rationale": "Gabarito oficial do INEP (Revalida 2022/1, Estação 3): o PEP pontua anamnese, exame físico, radiografia, hemograma e urina antes de confirmar apendicite aguda e encaminhar ao cirurgião pediátrico para cirurgia de urgência.",
-    "expectedPath": "clarify"
+    "outOfScope": [
+      "apresentar-se e perguntar o nome da paciente (item 1)",
+      "anamnese (item 2): o PEP não publica o roteiro da paciente",
+      "explicar à paciente e à mãe o que é a apendicite aguda (item 8, parte 1)"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2022/1, Estação 3): o PEP pontua anamnese, exame físico, radiografia, hemograma e urina antes de confirmar apendicite aguda e encaminhar ao cirurgião pediátrico para cirurgia de urgência. No v2, o caso completo traz o exame, o RX descrito no PEP, o hemograma e a urina; a cirurgia de urgência é o item crítico."
   },
   "sources": [
     {
@@ -73,6 +89,6 @@
     "item": "Estação 3",
     "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2022_1_publicacao.pdf",
     "originalCaseText": "ESTAÇÃO 3 – Área: Pediatria. INSTRUÇÕES AO(À) PARTICIPANTE. CENÁRIO DE ATUAÇÃO. Local de atuação: Atenção Secundária: ambulatorial e hospitalar. A unidade possui a seguinte infraestrutura: • laboratório; e • setor de radiologia convencional. DESCRIÇÃO DO CASO • Paciente de 11 anos, com queixa de dor abdominal. • Considere que a mãe da paciente está na sala durante toda a consulta, ouvindo todas as explicações. Nos próximos 10 minutos, deverão ser realizadas as seguintes tarefas: • ler a ficha da paciente, apresentada a seguir; • fazer a anamnese dirigida à paciente; • solicitar qualquer exame físico e/ou complementar que deseje; • comentar o exame físico (não será necessário examinar diretamente a paciente); • estabelecer o diagnóstico inicial e responder aos questionamentos da paciente; • solicitar exames complementares de laboratório e de imagem, se necessário; • interpretar os exames apresentados e verbalizar seus achados; • confirmar a hipótese diagnóstica; e • encaminhar a paciente de acordo com a conduta terapêutica indicada. FICHA DA PACIENTE • Idade: 11 anos • Paciente eutrófica • Temperatura axilar: 38 °C • Pressão arterial: 130 × 70 mmHg • Peso atual: 52 kg • Altura: 1,55 m • Mãe presente na sala, acompanhando a paciente durante toda a consulta. A PACIENTE SIMULADA NÃO DEVE SER TOCADA DURANTE O ATENDIMENTO.",
-    "notes": "As radiografias de abdome (impressos 2A e 2B) são só imagem; os achados esperados vêm descritos em texto no próprio PEP (item 4) e foram usados. O PEP desta edição não publica a síntese do ator (respostas da anamnese não disponíveis). Dados sob demanda: EF — BEG, corada, eupneica, hidratada; Tax 38 °C, Tretal 38,5 °C; FC 90; ausculta cardíaca e pulmonar normais; abdome plano, flácido, doloroso à palpação superficial e profunda em FID, Blumberg positivo em FID, RHA normais, sem visceromegalias; períneo, membros e neurológico sem alterações. RX abdome em pé e deitado (PEP): níveis líquidos em FID, borramento da borda do psoas, distensão de alças, escoliose antálgica, alças sentinelas. Hemograma: Hb 12,8, Ht 40,6, leucócitos 19.370 (bastões 6% = 1.162; segmentados 73,5% = 14.236), plaquetas 234.000. Urina tipo 1: sem alterações (leucócitos 660/mL, hemácias 660/mL, nitrito/proteína negativos)."
+    "notes": "Gabarito v2 (11/10/2026): caso completo com a ficha, o exame físico, os achados do RX descritos no item 4 do PEP (as radiografias são só imagem), o hemograma e a urina. Sem afunilamento (o PEP não publica o roteiro), a história da dor não é conhecida e não foi inventada. Cirurgia de urgência é o item crítico. | As radiografias de abdome (impressos 2A e 2B) são só imagem; os achados esperados vêm descritos em texto no próprio PEP (item 4) e foram usados. O PEP desta edição não publica a síntese do ator (respostas da anamnese não disponíveis). Dados sob demanda: EF — BEG, corada, eupneica, hidratada; Tax 38 °C, Tretal 38,5 °C; FC 90; ausculta cardíaca e pulmonar normais; abdome plano, flácido, doloroso à palpação superficial e profunda em FID, Blumberg positivo em FID, RHA normais, sem visceromegalias; períneo, membros e neurológico sem alterações. RX abdome em pé e deitado (PEP): níveis líquidos em FID, borramento da borda do psoas, distensão de alças, escoliose antálgica, alças sentinelas. Hemograma: Hb 12,8, Ht 40,6, leucócitos 19.370 (bastões 6% = 1.162; segmentados 73,5% = 14.236), plaquetas 234.000. Urina tipo 1: sem alterações (leucócitos 660/mL, hemácias 660/mL, nitrito/proteína negativos)."
   }
 }

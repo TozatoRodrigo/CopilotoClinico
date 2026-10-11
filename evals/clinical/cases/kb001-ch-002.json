@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb001-ch-002",
   "title": "PA 230x130 com edema agudo de pulmão e dor torácica",
   "tags": [
@@ -18,19 +18,41 @@
   },
   "expected": {
     "syndrome": "emergência hipertensiva com edema agudo de pulmão",
-    "cannotMiss": [
-      "síndrome coronariana aguda",
-      "dissecção aguda de aorta"
+    "diagnoses": [
+      {
+        "text": "síndrome coronariana aguda",
+        "tier": "critical"
+      },
+      {
+        "text": "dissecção aguda de aorta",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [
+    "actions": [
+      {
+        "text": "vasodilatador IV titulável (nitroglicerina ou nitroprussiato) com redução controlada da PA; se suspeita de dissecção, betabloqueador IV antes do vasodilatador",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "oxigênio se hipoxemia (SpO2 < 90%) e VNI (CPAP/BiPAP) se desconforto respiratório",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "monitorização em sala de emergência / UTI",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "ECG de 12 derivações imediato",
+        "tier": "critical",
+        "timing": "now"
+      }
+    ],
+    "questions": [
       "resultado do ECG de 12 derivações (isquemia ou supra de ST?)",
       "sinais de dissecção: dor dorsal/migratória/lancinante, assimetria de pulsos ou de PA entre membros, déficit neurológico"
-    ],
-    "requiredActions": [
-      "vasodilatador IV titulável (nitroglicerina ou nitroprussiato) com redução controlada da PA; se suspeita de dissecção, betabloqueador IV antes do vasodilatador",
-      "oxigênio se hipoxemia (SpO2 < 90%) e VNI (CPAP/BiPAP) se desconforto respiratório",
-      "monitorização em sala de emergência / UTI",
-      "ECG de 12 derivações imediato"
     ],
     "forbiddenDefinitiveActions": [
       {
@@ -65,8 +87,7 @@
         ]
       }
     ],
-    "rationale": "DBHA 2025 (11.6.4): EAP em sala de emergência/UTI com nitroglicerina ou nitroprussiato + diurético de alça, VNI se indicada, PAS < 140 na 1ª hora. Na dissecção (11.6.5) o betabloqueador IV vem antes do vasodilatador (FC < 60, PAS 100–120 em 20 min), e antitrombótico/trombólise antes de excluí-la é catastrófico (coerente com o kb001-dt-001). AAS isolado não é proibido. Desejáveis, mas não exigidos no turno 0: meta numérica de PAS, diurético de alça se congestão, troponina e POCUS/ecocardiograma à beira-leito.",
-    "expectedPath": "recommend"
+    "rationale": "DBHA 2025 (11.6.4): EAP em sala de emergência/UTI com nitroglicerina ou nitroprussiato + diurético de alça, VNI se indicada, PAS < 140 na 1ª hora. Na dissecção (11.6.5) o betabloqueador IV vem antes do vasodilatador (FC < 60, PAS 100–120 em 20 min), e antitrombótico/trombólise antes de excluí-la é catastrófico (coerente com o kb001-dt-001). AAS isolado não é proibido. Desejáveis, mas não exigidos no turno 0: meta numérica de PAS, diurético de alça se congestão, troponina e POCUS/ecocardiograma à beira-leito."
   },
   "sources": [
     {
@@ -92,7 +113,7 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: vasodilatador IV com ressalva de betabloqueador antes se suspeita de dissecção; O2/VNI condicionados; antitrombótico/trombólise antes de excluir dissecção passou a ser proibido; ECG movido para conduta e sinais de dissecção pedidos; checagem do nifedipino sem negação genérica."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: vasodilatador IV com ressalva de betabloqueador antes se suspeita de dissecção; O2/VNI condicionados; antitrombótico/trombólise antes de excluir dissecção passou a ser proibido; ECG movido para conduta e sinais de dissecção pedidos; checagem do nifedipino sem negação genérica."
   },
   "probes": {
     "mustFlag": [

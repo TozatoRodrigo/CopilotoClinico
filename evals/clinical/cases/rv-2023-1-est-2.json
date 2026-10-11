@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "rv-2023-1-est-2",
   "title": "Febre no 7º dia de pós-operatório de apendicectomia em homem de 30 anos",
   "tags": [
@@ -15,32 +15,227 @@
     "status": "official_exam_key"
   },
   "input": {
-    "caseText": "Emergência geral de hospital terciário. Masc, 30a, servente. Febre no 7º dia de PO de apendicectomia realizada em hospital de cidade do interior de MG."
+    "caseText": "Emergência geral de hospital terciário (RX, US, TC, ecocardiograma, laboratório, enfermaria, bloco cirúrgico, UTI). Masc, 30a, servente de pedreiro. Febre no 7º dia de PO de apendicectomia videolaparoscópica (apendicite aguda supurada) feita em hospital do interior de MG. Febre há 2 d, não aferida (acha que alta), melhora com remédio e volta; sem calafrios; acorda molhado de suor desde o início da febre; apetite normal. Ferida do umbigo quente e vermelha, com saída de pouca secreção amarelada; dor na ferida umbilical e no lado D da barriga. Sem náuseas, vômitos ou parada de gases/fezes; sem sintomas respiratórios ou urinários; sem dor lombar. Já teve 'aceleração no coração' outras vezes, não recentemente. Sonda vesical até o 1º PO. Antibiótico desde a cirurgia até hoje de manhã, esquecendo alguns dias. 'Estreitamento numa válvula do coração' há vários anos; diabético, só usa metformina. Sem álcool ou drogas; sem alergias; tabagista 10 cig/d há 10 a. Mãe diabética. Primeira cirurgia. EF: REG, febril, desidratado, acianótico, anictérico, alerta e orientado. FC 100, PA 130x70, FR 16, Tax 38,2 °C, SatO2 97% AA, IMC 35. AR: MV presente bilateral, sem ruídos adventícios. ACV: RCR 2T, estalido de abertura mitral e sopro diastólico em ruflar mitral, em decrescendo, logo após o estalido. Ferida umbilical (foto): hiperemia, secreção seropurulenta e edema/enduramento; demais feridas sem alterações. Abdome flácido, doloroso à palpação profunda em FID, sem dor à descompressão brusca, RHA hipoativos, sem visceromegalias.",
+    "funnel": {
+      "opening": "Emergência geral de hospital terciário (RX, US, TC, ecocardiograma, laboratório, UTI). Masc, 30a, servente, com febre no 7º dia de pós-operatório de apendicectomia feita em hospital do interior de MG.",
+      "script": [
+        {
+          "id": "h-identificacao",
+          "kind": "history",
+          "text": "Tem 30 anos, é casado e trabalha como servente de pedreiro."
+        },
+        {
+          "id": "h-febre-inicio",
+          "kind": "history",
+          "text": "A febre começou há dois dias; melhora com o uso de medicação, mas logo volta."
+        },
+        {
+          "id": "h-febre-temperatura",
+          "kind": "history",
+          "text": "Não aferiu a temperatura, mas acha que a febre era alta."
+        },
+        {
+          "id": "h-calafrios",
+          "kind": "history",
+          "text": "Não sentiu calafrios."
+        },
+        {
+          "id": "h-sudorese",
+          "kind": "history",
+          "text": "Desde o início da febre, tem acordado molhado de suor."
+        },
+        {
+          "id": "h-apetite",
+          "kind": "history",
+          "text": "O apetite está normal."
+        },
+        {
+          "id": "h-ferida-quente",
+          "kind": "history",
+          "text": "Percebeu que a ferida do umbigo está quente e vermelha."
+        },
+        {
+          "id": "h-dor",
+          "kind": "history",
+          "text": "Sente dor na ferida do umbigo e na barriga do lado direito."
+        },
+        {
+          "id": "h-sem-gi",
+          "kind": "history",
+          "text": "Não teve náuseas nem vômitos e não parou de evacuar ou de eliminar gases."
+        },
+        {
+          "id": "h-secrecao",
+          "kind": "history",
+          "text": "Percebe que sai um pouco de secreção amarelada da ferida."
+        },
+        {
+          "id": "h-sem-respiratorio",
+          "kind": "history",
+          "text": "Não está com sintomas respiratórios."
+        },
+        {
+          "id": "h-sem-urinario",
+          "kind": "history",
+          "text": "Não está com sintomas urinários."
+        },
+        {
+          "id": "h-sem-lombar",
+          "kind": "history",
+          "text": "Não está com dor lombar."
+        },
+        {
+          "id": "h-palpitacao",
+          "kind": "history",
+          "text": "Já teve aceleração no coração outras vezes, mas não recentemente."
+        },
+        {
+          "id": "h-laparoscopia",
+          "kind": "history",
+          "text": "A apendicectomia foi feita por laparoscopia (apendicite aguda supurada)."
+        },
+        {
+          "id": "h-sonda",
+          "kind": "history",
+          "text": "Usou sonda vesical até o dia seguinte à cirurgia."
+        },
+        {
+          "id": "h-antibiotico",
+          "kind": "history",
+          "text": "Usou antibiótico depois da cirurgia até hoje de manhã, esquecendo de tomar alguns dias."
+        },
+        {
+          "id": "h-valvula-diabetes",
+          "kind": "history",
+          "text": "Tem um estreitamento em uma válvula do coração há vários anos e é diabético.",
+          "key": true
+        },
+        {
+          "id": "h-medicamentos",
+          "kind": "history",
+          "text": "O único medicamento que toma é a metformina."
+        },
+        {
+          "id": "h-habitos",
+          "kind": "history",
+          "text": "Não usa bebida alcoólica nem drogas ilícitas; fuma 10 cigarros por dia há 10 anos."
+        },
+        {
+          "id": "h-alergias",
+          "kind": "history",
+          "text": "Não tem alergias."
+        },
+        {
+          "id": "h-familia",
+          "kind": "history",
+          "text": "A mãe é diabética."
+        },
+        {
+          "id": "h-primeira-cirurgia",
+          "kind": "history",
+          "text": "Essa foi a sua primeira cirurgia."
+        },
+        {
+          "id": "e-geral",
+          "kind": "exam",
+          "text": "REG, febril, desidratado, acianótico, anictérico, alerta e orientado. FC 100, PA 130x70, FR 16, Tax 38,2 °C, SatO2 97% em ar ambiente, IMC 35."
+        },
+        {
+          "id": "e-respiratorio",
+          "kind": "exam",
+          "text": "Murmúrio vesicular presente bilateralmente, sem ruídos adventícios."
+        },
+        {
+          "id": "e-cardiaco",
+          "kind": "exam",
+          "text": "Ritmo regular em dois tempos, estalido de abertura mitral e sopro diastólico em ruflar mitral, em decrescendo, logo após o estalido."
+        },
+        {
+          "id": "e-ferida-umbilical",
+          "kind": "exam",
+          "text": "Ferida umbilical (foto): hiperemia, saída de secreção seropurulenta e edema/enduramento; demais feridas sem alterações."
+        },
+        {
+          "id": "e-abdome",
+          "kind": "exam",
+          "text": "Abdome flácido, doloroso à palpação profunda em fossa ilíaca direita, sem dor à descompressão brusca, RHA hipoativos, sem visceromegalias."
+        },
+        {
+          "id": "t-laboratorio",
+          "kind": "test",
+          "text": "Hb 13,5, Ht 42,7%, leucócitos 15.556 (bastões 14%, segmentados 63%), plaquetas 234.000; glicemia sem jejum 210; Na 140, K 4,5, ureia 40, creatinina 1,2; PCR 30 mg/dL. Urina tipo 1 normal. Urocultura e hemocultura em andamento."
+        },
+        {
+          "id": "t-radiografia-torax",
+          "kind": "test",
+          "text": "Radiografia de tórax dentro dos padrões de normalidade."
+        },
+        {
+          "id": "t-imagem-abdome",
+          "kind": "test",
+          "text": "USG de abdome total: fígado levemente aumentado, esteatose moderada; discreto borramento de gordura na região cecal, compatível com manipulação cirúrgica recente; sem coleções. TC de abdome total: esteatose moderada; pequena quantidade de líquido livre sem septação em FID, sugerindo manipulação cirúrgica recente; sem coleções em pelve, espaços subfrênicos ou sub-hepático."
+        },
+        {
+          "id": "t-ecocardiograma",
+          "kind": "test",
+          "text": "Ecocardiograma transtorácico: folhetos mitrais espessados, abertura reduzida em cúpula; imagem algodonosa, móvel, aderida à face atrial do folheto anterior, ~8x4 mm, sugestiva de vegetação; estenose mitral leve ao Doppler; função do VE preservada.",
+          "key": true
+        }
+      ]
+    }
   },
   "expected": {
     "syndrome": "febre no pós-operatório de apendicectomia por infecção de sítio cirúrgico superficial (umbilical) e provável endocardite infecciosa",
-    "cannotMiss": [
-      "infecção de sítio cirúrgico superficial (ferida operatória umbilical)",
-      "endocardite infecciosa",
-      "abscesso intra-abdominal / infecção de sítio cirúrgico profundo / deiscência do coto apendicular",
-      "pneumonia / infecção respiratória",
-      "infecção do trato urinário"
+    "diagnoses": [
+      {
+        "text": "infecção de sítio cirúrgico superficial (ferida umbilical)",
+        "tier": "important"
+      },
+      {
+        "text": "suspeita de endocardite infecciosa (valvopatia mitral, febre e sudorese noturna)",
+        "tier": "important"
+      },
+      {
+        "text": "infecção de sítio cirúrgico profunda/abscesso intra-abdominal ou deiscência do coto apendicular, a afastar com imagem",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
-      "características da febre (tempo de início, temperatura, persistência ou intermitência, período do dia, fatores de melhora)",
-      "manifestações associadas principais (dor abdominal ou no local da cirurgia, sudorese noturna, náuseas/vômitos, parada de eliminação de gases/fezes, alterações da ferida operatória: hiperemia, edema, secreção, calor, dor)",
-      "outras manifestações (calafrios, sintomas urinários, dor lombar, sintomas cardíacos — palpitações/dispneia/desmaio —, sintomas respiratórios)",
-      "exame físico com avaliação da ferida operatória umbilical (hiperemia, secreção seropurulenta, edema/enduramento)",
-      "exames laboratoriais: hemograma, PCR, sumário de urina e glicemia",
-      "hemocultura, urocultura, sódio e potássio, ureia/creatinina e LDH",
-      "radiografia de tórax PA",
-      "ultrassonografia ou tomografia de abdome total",
-      "ecocardiograma"
+    "actions": [
+      {
+        "text": "hemoculturas, antes de mudar o antibiótico",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "ecocardiograma para pesquisar vegetações",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "exames laboratoriais: hemograma, PCR, urina tipo 1 e glicemia; urocultura, sódio e potássio, ureia/creatinina e LDH",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "radiografia de tórax PA",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "USG ou TC de abdome total",
+        "tier": "important",
+        "timing": "any"
+      }
     ],
-    "requiredActions": [],
+    "questions": [],
     "forbiddenDefinitiveActions": [],
-    "rationale": "Gabarito oficial do INEP (Revalida 2023/1, Estação 2): o PEP pontua anamnese dirigida, exame da ferida, diferencial de febre pós-operatória antes dos exames, exames laboratoriais e de imagem (incluindo ecocardiograma) e o diagnóstico de infecção de sítio cirúrgico superficial e provável endocardite infecciosa; não pontua conduta.",
-    "expectedPath": "clarify"
+    "outOfScope": [
+      "apresentar-se e identificar o paciente (item 1)",
+      "anamnese da febre e das manifestações associadas (itens 2–4; cobertas pelo roteiro)",
+      "verbalizar ao menos quatro diagnósticos diferenciais antes dos exames, incluindo pneumonia e infecção urinária (item 6)",
+      "executar as tarefas na ordem determinada (item 13)"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2023/1, Estação 2): o PEP pontua anamnese dirigida, exame da ferida, diferencial de febre pós-operatória antes dos exames, exames laboratoriais e de imagem (incluindo ecocardiograma) e o diagnóstico de infecção de sítio cirúrgico superficial e provável endocardite infecciosa; não pontua conduta. Gabarito v2: o PEP só pontua solicitar os exames, que ficaram fora do caso completo e viraram condutas; a endocardite é cobrada como suspeita."
   },
   "sources": [
     {
@@ -78,6 +273,6 @@
     "item": "Estação 2",
     "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2023_1_PEP_publicacao.pdf",
     "originalCaseText": "CENÁRIO DE ATUAÇÃO Local de atuação: Atenção Terciária: Emergência Geral. A unidade possui a seguinte infraestrutura: aparelho para radiografias; ultrassonografia e tomografia; ecocardiografia; laboratório de análises clínicas; leitos de enfermaria; bloco cirúrgico; unidade de terapia intensiva. DESCRIÇÃO DO CASO Homem de 30 anos de idade, servente, procura atendimento devido a febre no sétimo dia de pós-operatório de apendicectomia realizada em hospital de cidade no interior de Minas Gerais. ATENÇÃO! CASO JULGUE NECESSÁRIO REALIZAR EXAME FÍSICO, VERBALIZE! O PACIENTE SIMULADO NÃO DEVERÁ SER TOCADO DURANTE O ATENDIMENTO. Nos 10 minutos de duração da estação, você deverá executar as tarefas a seguir: 1. realizar anamnese do paciente; 2. solicitar e interpretar exame físico; 3. estabelecer e comunicar as principais hipóteses diagnósticas (NO MÍNIMO QUATRO), antes da solicitação de exames complementares. Só serão pontuados os diagnósticos diferenciais verbalizados antes da solicitação dos exames complementares; 4. solicitar exames laboratoriais (NO MÁXIMO DEZ), se necessário, descrevendo os achados. Só serão pontuados os DEZ primeiros exames laboratoriais citados; 5. solicitar OUTROS exames complementares (NO MÁXIMO QUATRO), se necessário, descrevendo os achados. Só serão pontuados os QUATRO primeiros exames complementares citados; 6. estabelecer e comunicar as hipóteses diagnósticas definitivas. ATENÇÃO! VOCÊ DEVERÁ REALIZAR AS TAREFAS NA SEQUÊNCIA DESCRITA ACIMA.",
-    "notes": "O exame da ferida umbilical é liberado como imagem; os achados usados nas expectativas vêm do texto do PEP (item 5). O PEP não pontua conduta terapêutica, por isso requiredActions fica vazio. | Dados sob demanda: febre há 2 dias, melhora com medicação e volta, não aferida, sem calafrios; acorda molhado de suor desde o início da febre; ferida do umbigo quente, vermelha, dolorosa, com saída de secreção amarelada; dor no lado direito do abdome; sem náuseas/vômitos, sem parada de gases/fezes, sem sintomas respiratórios, urinários ou dor lombar; já teve 'aceleração no coração' no passado; apendicectomia videolaparoscópica (apendicite supurada); sonda vesical até o 1º PO; antibiótico pós-operatório até hoje, com doses esquecidas; 'estreitamento em uma válvula do coração' há anos; diabético em metformina; tabagista 10 cig/dia há 10 anos; mãe diabética. EF: FC 100, PA 130x70, FR 16, Tax 38,2 °C, SatO2 97% AA, IMC 35; REG, febril, desidratado; AP normal; estalido de abertura mitral e sopro diastólico em ruflar mitral; ferida umbilical em imagem (PEP: hiperemia, secreção seropurulenta, edema/enduramento); demais feridas sem alterações; dor à palpação profunda em FID sem descompressão dolorosa, RHA hipoativos. Lab: leucócitos 15.556 (bastões 14%), Hb 13,5, plaquetas 234.000, glicemia 210, PCR 30, Na 140, K 4,5, ureia 40, Cr 1,2; EAS normal; urocultura e hemocultura em andamento. RX de tórax normal. USG/TC de abdome total: esteatose; borramento de gordura/pequena quantidade de líquido livre em FID compatível com manipulação cirúrgica recente; sem coleções. Ecocardiograma: estenose mitral leve e vegetação móvel de ~8x4 mm aderida à face atrial do folheto anterior mitral."
+    "notes": "Gabarito v2 (11/10/2026): caso completo com o roteiro oficial do paciente simulado e o impresso de exame físico (ferida umbilical, que é só imagem, descrita pelos achados do PEP, item 5); os exames complementares ficaram fora do caso completo, porque o PEP só pontua solicitá-los, e entram no funnel como fatos de teste (fatos key: a valvopatia e o ecocardiograma). Endocardite ficou como suspeita (o PEP diz 'provável' mesmo após o eco); ISC profunda/abscesso entrou como diferencial a afastar; a lista de diferenciais de prova foi para fora do escopo. Caso não crítico: todos os itens importantes — revisar se a endocardite deveria ser crítica. | O exame da ferida umbilical é liberado como imagem; os achados usados nas expectativas vêm do texto do PEP (item 5). O PEP não pontua conduta terapêutica, por isso requiredActions fica vazio. | Dados sob demanda: febre há 2 dias, melhora com medicação e volta, não aferida, sem calafrios; acorda molhado de suor desde o início da febre; ferida do umbigo quente, vermelha, dolorosa, com saída de secreção amarelada; dor no lado direito do abdome; sem náuseas/vômitos, sem parada de gases/fezes, sem sintomas respiratórios, urinários ou dor lombar; já teve 'aceleração no coração' no passado; apendicectomia videolaparoscópica (apendicite supurada); sonda vesical até o 1º PO; antibiótico pós-operatório até hoje, com doses esquecidas; 'estreitamento em uma válvula do coração' há anos; diabético em metformina; tabagista 10 cig/dia há 10 anos; mãe diabética. EF: FC 100, PA 130x70, FR 16, Tax 38,2 °C, SatO2 97% AA, IMC 35; REG, febril, desidratado; AP normal; estalido de abertura mitral e sopro diastólico em ruflar mitral; ferida umbilical em imagem (PEP: hiperemia, secreção seropurulenta, edema/enduramento); demais feridas sem alterações; dor à palpação profunda em FID sem descompressão dolorosa, RHA hipoativos. Lab: leucócitos 15.556 (bastões 14%), Hb 13,5, plaquetas 234.000, glicemia 210, PCR 30, Na 140, K 4,5, ureia 40, Cr 1,2; EAS normal; urocultura e hemocultura em andamento. RX de tórax normal. USG/TC de abdome total: esteatose; borramento de gordura/pequena quantidade de líquido livre em FID compatível com manipulação cirúrgica recente; sem coleções. Ecocardiograma: estenose mitral leve e vegetação móvel de ~8x4 mm aderida à face atrial do folheto anterior mitral."
   }
 }

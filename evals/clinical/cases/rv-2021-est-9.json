@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "rv-2021-est-9",
   "title": "Gestante em início de pré-natal atendida na UPA",
   "tags": [
@@ -15,43 +15,45 @@
     "status": "official_exam_key"
   },
   "input": {
-    "caseText": "UPA. Sra. Amanda, gestante, já iniciou pré-natal na UBS mais próxima. Técnica de enfermagem presente."
+    "caseText": "UPA. Gestante, 23a, primigesta, pré-natal de risco habitual na UBS (gestação planejada). Queixa: sangramento vaginal e cólica. DUM 21/10/2021. Caderneta: ABO-Rh A+; glicemia de jejum 82; VDRL NR; HIV e HBsAg negativos; toxoplasmose IgG+/IgM−; Hb 12 g/dL, Ht 41%; urina tipo 1 normal e urocultura negativa; antitetânica há < 5 anos; hepatite B imunizada; sulfato ferroso e ácido fólico; sem registro de fumo, álcool, drogas ou violência doméstica. EF: BEG, normocorada, hidratada; mamas, AR, ACV e abdome sem alterações. Especular: colo normoepitelizado, sem lesões, sem secreção patológica; discreto sangramento vermelho vivo pelo orifício cervical. Toque: útero em AVF, móvel, de tamanho compatível com o atraso menstrual; colo longo, posterior e fechado; sangramento discreto em dedo de luva. US obstétrica endovaginal: embrião móvel com BCF 160 bpm, CCN 18,6 mm, volume uterino 210 cm³; gestação em curso compatível com 8s3d."
   },
   "expected": {
     "syndrome": "sangramento de primeiro trimestre — ameaça de abortamento com gestação tópica viável de 8 semanas e colo fechado",
-    "cannotMiss": [
-      "ameaça de abortamento"
-    ],
-    "mustRequest": [
-      "história reprodutiva (gestações e partos)",
-      "DUM e ciclos menstruais antes da gravidez",
-      "pré-natal e cartão da gestante",
-      "intercorrências recentes (acidente, violência doméstica, medicamento não prescrito, tentativa de induzir abortamento)",
-      "exame especular",
-      "toque vaginal bimanual",
-      "ultrassonografia obstétrica"
-    ],
-    "requiredActions": [
-      "tranquilizar: no momento não se trata de abortamento (ameaça de abortamento)",
-      "não internar",
-      "analgésico ou antiespasmódico (hioscina/escopolamina) para cólica",
-      "orientar acompanhamento do quadro e sinais de alarme (aumento das cólicas ou do sangramento)",
-      "orientar abstinência sexual enquanto persistir o sangramento"
-    ],
-    "forbiddenDefinitiveActions": [
+    "diagnoses": [
       {
-        "id": "internar-ameaca-abortamento",
-        "description": "Indicar internação da gestante (PEP item 11: inadequado responder que precisa de internação)",
-        "patterns": [
-          "\\binterna(r|cao|da|mento)\\b"
-        ],
-        "exceptWhen": [
-          "dispens\\w*"
-        ]
+        "text": "ameaça de abortamento (gestação tópica viável de 8 semanas, colo fechado)",
+        "tier": "important"
       }
     ],
-    "rationale": "Gabarito oficial do INEP (Revalida 2021, Estação 9): o PEP pontua anamnese obstétrica, exame especular e toque, US obstétrica e o diagnóstico de ameaça de abortamento, com alta sem internação, analgésico/antiespasmódico, sinais de alarme e abstinência sexual enquanto houver sangramento.",
-    "expectedPath": "clarify"
+    "actions": [
+      {
+        "text": "sem internação: manejo ambulatorial com seguimento no pré-natal",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "analgésico ou antiespasmódico (hioscina/escopolamina) para a cólica",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "reavaliação imediata se aumentarem as cólicas ou o sangramento",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [],
+    "outOfScope": [
+      "apresentar-se e perguntar o nome da paciente (item 1)",
+      "anamnese reprodutiva, DUM e ciclos, pré-natal/cartão e intercorrências recentes (itens 2–5; roteiro da atriz não publicado)",
+      "verbalizar calçar luvas, o exame especular e o toque bimanual (itens 6–8; os achados estão no caso)",
+      "tranquilizar a paciente de que não se trata de abortamento e de que o bebê está bem (itens 9 e 13; o diagnóstico de ameaça de abortamento ficou como item)",
+      "orientar abstinência sexual enquanto houver sangramento (item 14)",
+      "perguntar se a paciente tem dúvidas (item 15)",
+      "antes conduta proibida: Indicar internação da gestante (PEP item 11: inadequado responder que precisa de internação) — saiu porque internar não é conduta perigosa"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2021, Estação 9): o PEP pontua anamnese obstétrica, exame especular e toque, US obstétrica e o diagnóstico de ameaça de abortamento, com alta sem internação, analgésico/antiespasmódico, sinais de alarme e abstinência sexual enquanto houver sangramento. v2: com a US no caso, dispensa de internação, analgesia/antiespasmódico e reavaliação são avaliadas item a item; orientações à paciente ficaram fora do escopo."
   },
   "sources": [
     {
@@ -82,17 +84,6 @@
     "item": "Estação 9",
     "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2021_publicacao.pdf",
     "originalCaseText": "ESTAÇÃO 9 – Área: Ginecologia e Obstetrícia. INSTRUÇÕES PARA O(A) PARTICIPANTE. CENÁRIO DE ATUAÇÃO: Você está de plantão em uma Unidade de Pronto Atendimento e vai atender a sra. Amanda, moradora da região. Na sala de atendimento, considere estar disponível tudo o que é necessário para realizar o atendimento, bem como a presença de uma técnica de enfermagem. A paciente está GRÁVIDA e já iniciou o pré-natal na Unidade Básica de Saúde mais próxima. Nos próximos 10 minutos, deverão ser realizadas as seguintes tarefas: atender a paciente; verbalizar a realização do exame físico/ginecológico (todos os seus passos) e os achados principais, explicando-os para a paciente; orientar a paciente quanto ao caso, solicitar exames complementares e fazer prescrição, se julgar necessário; dar todas as orientações quanto ao seguimento do caso e orientar a paciente sobre suas perguntas. Obs.: você não precisará fazer o exame físico/ginecológico na paciente simulada, mas deverá verbalizar tudo o que faria no exame físico.",
-    "notes": "A queixa (sangramento vaginal discreto e cólica no 1º trimestre) não consta das instruções; é inferida dos impressos e do PEP (itens 9, 12 e 14) e fica sob demanda, por isso não está no caseText (a síntese do ator não é publicada no PEP de 2021). Dados sob demanda: Impresso 1 — conteúdo em imagem, sem texto extraível (não avaliado). Impresso 2 — US obstétrica endovaginal de 19/12/2021: DUM 21/10/2021, IG 8s3d, embrião móvel com BCF 160 bpm, CCN 18,6 mm, volume uterino 210 cm³, gestação em curso compatível com 8s3d. Impresso 3 — BEG, normocorada, hidratada; mamas, AR, ACV e abdome normais; especular: colo sem lesões, sem secreção patológica, discreto sangramento vermelho vivo pelo orifício cervical; toque: útero AVF, móvel, compatível com o atraso menstrual, colo longo, posterior e fechado, sangramento discreto em dedo de luva. O PEP não pontua progesterona (não considerar se citada no item 12). | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas."
-  },
-  "probes": {
-    "mustFlag": [
-      "Internar para repouso e observação do sangramento",
-      "Internação para progesterona e hidratação"
-    ],
-    "mustNotFlag": [
-      "Não precisa de internação: ameaça de abortamento",
-      "Sem indicação de internação; hioscina se cólica",
-      "Alta com orientação de sinais de alarme e abstinência sexual"
-    ]
+    "notes": "Gabarito v2 (11/10/2026): conduta proibida só para o que mata ou sequela — internar-ameaca-abortamento foi para fora do escopo. caso completo com a caderneta (impresso 1, só imagem, transcrita da página renderizada: 23 anos, primigesta, ABO-Rh A+), o exame físico e a US obstétrica; a queixa (sangramento e cólica) vem dos impressos e dos itens 12 e 14 do PEP. Sem afunilamento: o roteiro da atriz não foi publicado. A US entrou no texto porque a dispensa de internação e o 'bebê está bem' (itens 11 e 13) dependem dela; a solicitação (item 10) fica satisfeita pelo texto. Tranquilização, abstinência sexual e anamnese ficaram fora do escopo. | A queixa (sangramento vaginal discreto e cólica no 1º trimestre) não consta das instruções; é inferida dos impressos e do PEP (itens 9, 12 e 14) e fica sob demanda, por isso não está no caseText (a síntese do ator não é publicada no PEP de 2021). Dados sob demanda: Impresso 1 — conteúdo em imagem, sem texto extraível (não avaliado). Impresso 2 — US obstétrica endovaginal de 19/12/2021: DUM 21/10/2021, IG 8s3d, embrião móvel com BCF 160 bpm, CCN 18,6 mm, volume uterino 210 cm³, gestação em curso compatível com 8s3d. Impresso 3 — BEG, normocorada, hidratada; mamas, AR, ACV e abdome normais; especular: colo sem lesões, sem secreção patológica, discreto sangramento vermelho vivo pelo orifício cervical; toque: útero AVF, móvel, compatível com o atraso menstrual, colo longo, posterior e fechado, sangramento discreto em dedo de luva. O PEP não pontua progesterona (não considerar se citada no item 12). | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas."
   }
 }

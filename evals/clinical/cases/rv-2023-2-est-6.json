@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "rv-2023-2-est-6",
   "title": "Fala embolada e perda de movimentos no braço esquerdo após 8 horas aguardando transporte",
   "tags": [
@@ -18,24 +18,149 @@
     "reason": "Gabarito anterior à diretriz AHA/ASA de AVC de 2026 (reperfusão estendida guiada por imagem e metas de PA)."
   },
   "input": {
-    "caseText": "PS de hospital terciário de referência. Masc, 55a, tabagista e hipertenso; chega pela urgência vindo de casa, onde aguardava transporte para o hospital há 8 h. Esposa refere fala 'embolada' e 'perda de movimentos no braço esquerdo'."
+    "caseText": "PS de hospital terciário de referência (laboratório, imagem, UTI e enfermaria). Masc, 55a, pedreiro, trazido pela esposa. Fala ininteligível (consciente, esforça-se para falar, mas só produz sons desconexos) e 'perda de movimentos' do lado E. Aguardavam transporte para o hospital: o registro de chegada fala em 8 h em casa; a esposa diz que passaram as últimas 12 h na UPA. Consegue andar, orientado, angustiado. Sem episódios prévios, trauma, febre, cefaleia, vômitos ou alterações visuais; sem doença recente. HAS e tabagismo (10 cig/d); usa metformina e enalapril; não bebe nem usa drogas; sedentário, dieta rica em frituras, açúcares e ultraprocessados; pai morreu de 'derrame'; sem alergias ou cirurgias. EF: REG, afebril, alerta e orientado. FC 100, PA 220x140, FR 24, Tax 36,7 °C, SpO2 96% AA, IMC 30. Pupilas isocóricas e fotorreagentes. AR, ACV e abdome sem alterações; extremidades bem perfundidas, sem edema. Neuro: consciência preservada; paralisia completa do andar inferior da face à E; MOE normal; força 2/5 em MSE e 4/5 em MIE, normal nos demais; hipoestesia tátil e dolorosa em dimídio E. TC de crânio: hipodensidade maior que 1/3 do território da artéria cerebral média direita.",
+    "funnel": {
+      "opening": "PS de hospital terciário de referência. Masc, 55a, tabagista e hipertenso, vem de casa, onde aguardava transporte para o hospital há 8 h. A esposa refere fala 'embolada' e 'perda de movimentos no braço esquerdo'.",
+      "script": [
+        {
+          "id": "h-identificacao",
+          "kind": "history",
+          "text": "Tem 55 anos e trabalha como pedreiro."
+        },
+        {
+          "id": "h-deficit",
+          "kind": "history",
+          "text": "Está com a fala ininteligível e o lado esquerdo paralisado."
+        },
+        {
+          "id": "h-tempo",
+          "kind": "history",
+          "text": "Os dois passaram as últimas 12 horas na UPA aguardando transporte para o hospital de referência."
+        },
+        {
+          "id": "h-fala",
+          "kind": "history",
+          "text": "Está consciente e se esforça para falar, mas só consegue produzir sons desconexos."
+        },
+        {
+          "id": "h-anda",
+          "kind": "history",
+          "text": "Consegue andar, está orientado e bastante angustiado."
+        },
+        {
+          "id": "h-sem-previos",
+          "kind": "history",
+          "text": "Não teve episódios parecidos antes."
+        },
+        {
+          "id": "h-sem-trauma",
+          "kind": "history",
+          "text": "Não sofreu quedas, acidentes ou violência nos últimos meses."
+        },
+        {
+          "id": "h-negativos",
+          "kind": "history",
+          "text": "Não teve febre, cefaleia, vômitos ou alterações visuais."
+        },
+        {
+          "id": "h-medicacoes",
+          "kind": "history",
+          "text": "Usa metformina e enalapril."
+        },
+        {
+          "id": "h-habitos",
+          "kind": "history",
+          "text": "Não bebe nem usa drogas ilícitas; fuma 10 cigarros por dia."
+        },
+        {
+          "id": "h-estilo-vida",
+          "kind": "history",
+          "text": "Não faz exercícios; alimentação desregrada, à base de frituras, gorduras, açúcares e ultraprocessados."
+        },
+        {
+          "id": "h-familia",
+          "kind": "history",
+          "text": "O pai morreu de derrame."
+        },
+        {
+          "id": "h-sem-doenca-recente",
+          "kind": "history",
+          "text": "Não adoeceu recentemente."
+        },
+        {
+          "id": "h-alergias",
+          "kind": "history",
+          "text": "Não tem alergias nem cirurgias prévias."
+        },
+        {
+          "id": "e-sinais",
+          "kind": "exam",
+          "text": "FC 100 bpm, PA 220x140 mmHg, FR 24 irpm, Tax 36,7 °C, SpO2 96% em ar ambiente, IMC 30."
+        },
+        {
+          "id": "e-geral",
+          "kind": "exam",
+          "text": "REG, afebril, acianótico, anictérico, hidratado; alerta, orientado; pupilas isocóricas e fotorreagentes; AR, ACV e abdome sem alterações; extremidades bem perfundidas, sem edema."
+        },
+        {
+          "id": "e-neurologico",
+          "kind": "exam",
+          "text": "Consciência preservada; paralisia completa do andar inferior da face à esquerda; MOE normal; força 2/5 no MSE e 4/5 no MIE, normal nos demais; hipoestesia tátil e dolorosa em dimídio esquerdo.",
+          "key": true
+        },
+        {
+          "id": "t-laboratorio",
+          "kind": "test",
+          "text": "Hb 14,2, leucócitos 9.000 (eosinófilos 7%), plaquetas 160.000, glicemia 100, Na 137, K 4,0, ureia 30, creatinina 0,8; gasometria arterial pH 7,35, pO2 84, pCO2 45, HCO3 22, SatO2 96%."
+        },
+        {
+          "id": "t-tc-cranio",
+          "kind": "test",
+          "text": "TC de crânio: hipodensidade maior que 1/3 do território da artéria cerebral média direita.",
+          "key": true
+        }
+      ]
+    }
   },
   "expected": {
     "syndrome": "déficit neurológico focal por acidente vascular cerebral isquêmico em território de artéria cerebral média direita, fora da janela de trombólise, com PA muito elevada",
-    "cannotMiss": [
-      "acidente vascular cerebral isquêmico agudo"
+    "diagnoses": [
+      {
+        "text": "AVC isquêmico agudo no território da artéria cerebral média direita",
+        "tier": "critical"
+      },
+      {
+        "text": "fora da janela de trombólise EV: início há mais de 4,5 h e hipodensidade maior que 1/3 do território da ACM na TC",
+        "tier": "important"
+      },
+      {
+        "text": "hipertensão grave (PA 220x140) na fase aguda do AVC isquêmico",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
-      "caracterização do déficit: alteração da fala (tempo de início, disartria/afasia, nível de consciência), perda de força no MSE (tempo, acometimento do MIE, sensibilidade, coordenação) e manifestações associadas (queda, convulsão, febre, vômitos, cefaleia, alterações visuais, equilíbrio)",
-      "antecedentes e fatores de risco (hipertensão, diabetes, tabagismo, cocaína/anfetamina, história familiar de AVC, cardiopatia, dislipidemia, sedentarismo, álcool)",
-      "exame físico (sinais vitais/PA e exame neurológico)",
-      "exames laboratoriais: hemograma, glicemia, ureia/creatinina, sódio/potássio, TP/RNI, TTPa e troponina",
-      "tomografia computadorizada de crânio (ou ressonância magnética)"
+    "actions": [
+      {
+        "text": "suporte inicial em sala de emergência/UTI: monitorização, hidratação venosa, oxigênio se hipoxemia, dieta oral suspensa e cabeceira a 0° (30° se vômitos) — ao menos três",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "controle pressórico parcimonioso: reduzir 10 a 25% da PA em 24 h (ou < 185x110), sem queda brusca",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "exames: hemograma, glicemia, ureia/creatinina, Na/K, TP/RNI, TTPa e troponina",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "avaliar trombectomia: angio-TC em busca de oclusão proximal (carótida interna/M1); a AHA/ASA 2026 a recomenda até 24 h em selecionados, inclusive com núcleo extenso (ASPECTS 3 a 5), e o PCDT do MS exige infarto pequeno de 8 a 24 h",
+        "tier": "important",
+        "timing": "any"
+      }
     ],
-    "requiredActions": [
-      "conduta inicial de suporte em box de emergência/sala vermelha ou terapia intensiva: monitorização, hidratação venosa, oxigenoterapia, suspensão da dieta oral, cabeceira a 0º (30º se vômitos) — PEP: ao menos três",
-      "controle pressórico parcimonioso: redução de 10 a 25% da PA em 24 horas (ou < 185 × 110 mmHg)"
-    ],
+    "questions": [],
     "forbiddenDefinitiveActions": [
       {
         "id": "trombolise-fora-da-janela",
@@ -54,17 +179,15 @@
           "reduc\\w*\\s+(drastica|abrupta|rapida|agressiva)",
           "normaliz\\w*\\s+(da\\s+|a\\s+)?(pa|pressao)"
         ]
-      },
-      {
-        "id": "nitroprussiato",
-        "description": "Usar nitroprussiato venoso para o controle pressórico (PEP item 9: citar nitroprussiato zera o item).",
-        "patterns": [
-          "nitroprussiato"
-        ]
       }
     ],
-    "rationale": "Gabarito oficial do INEP (Revalida 2023/2, Estação 6): o PEP pontua anamnese do déficit e dos fatores de risco, exame físico, exames laboratoriais e TC de crânio, o diagnóstico de AVC isquêmico, suporte inicial em sala de emergência e controle pressórico parcimonioso; penaliza trombolítico, redução drástica da PA e nitroprussiato.",
-    "expectedPath": "clarify"
+    "outOfScope": [
+      "apresentar-se e cumprimentar a acompanhante (item 1)",
+      "anamnese do déficit, das manifestações associadas e dos fatores de risco (itens 2 e 3), medida pelo roteiro",
+      "solicitar o exame físico (item 4)",
+      "antes conduta proibida: Usar nitroprussiato venoso para o controle pressórico (PEP item 9: citar nitroprussiato zera o item). — saiu porque a AHA/ASA admite nitroprussiato na PA refratária; não é conduta perigosa"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2023/2, Estação 6): o PEP pontua anamnese do déficit e dos fatores de risco, exame físico, exames laboratoriais e TC de crânio, o diagnóstico de AVC isquêmico, suporte inicial em sala de emergência e controle pressórico parcimonioso; penaliza trombolítico, redução drástica da PA e nitroprussiato. No v2, o caso completo traz o roteiro, o exame e a TC; a avaliação de trombectomia entrou como item importante (AHA/ASA 2026 e PCDT do MS), fora do PEP."
   },
   "sources": [
     {
@@ -101,6 +224,20 @@
       "publisher": "INEP",
       "year": 2023,
       "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2023_2.pdf"
+    },
+    {
+      "claim": "Trombólise só com início há menos de 4,5 h; hipodensidade precoce na TC com acometimento maior que um terço do território da artéria cerebral média e PA > 185/110 mmHg refratária excluem a trombólise; trombectomia até 8 h (exclui ASPECTS < 6) e de 8 a 24 h com critérios de volume de infarto.",
+      "title": "PCDT Acidente Vascular Cerebral Isquêmico Agudo (Relatório de Recomendação Conitec nº 722)",
+      "publisher": "Ministério da Saúde / Conitec",
+      "year": 2023,
+      "url": "https://www.gov.br/conitec/pt-br/midias/relatorios/2023/rr_pcdt-avci-agudo_722_final.pdf/@@download/file"
+    },
+    {
+      "claim": "Diretriz AHA/ASA 2026 (resumo): trombectomia recomendada (COR 1) de 6 a 24 h na oclusão proximal de carótida interna ou M1, idade < 80 anos, NIHSS ≥ 6 e ASPECTS 3 a 5 sem efeito de massa; trombólise EV de 4,5 a 9 h só com penumbra em perfusão automatizada (COR 2a).",
+      "title": "2026 Guideline Update: Early Management of Acute Ischemic Stroke (resumo da diretriz AHA/ASA)",
+      "publisher": "emDocs",
+      "year": 2026,
+      "url": "https://www.emdocs.net/2026-guideline-update-early-management-of-acute-ischemic-stroke"
     }
   ],
   "provenance": {
@@ -109,12 +246,11 @@
     "item": "Estação 6",
     "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2023_2.pdf",
     "originalCaseText": "CENÁRIO DE ATUAÇÃO Local de atuação: atenção terciaria à saúde — hospital de referência. A unidade possui a seguinte infraestrutura: • Pronto-socorro; • Laboratório de análises clínicas; • Exames de imagem; e • Terapia intensiva e leitos de enfermaria. DESCRIÇÃO DO CASO Você está de plantão no pronto-socorro de um hospital terciário e atenderá um homem de 55 anos de idade, tabagista e hipertenso, que vem da sua casa, onde aguardava transporte para hospital há 8 horas. Ele chega ao hospital através da urgência. Encontra-se acompanhado pela esposa que refere que ele está com a fala “embolada” e com “perda de movimentos no braço esquerdo”. ATENÇÃO! CONSIDERE QUE O PACIENTE ESTÁ DEITADO NA MACA DURANTE TODA A CONSULTA. A ANAMNESE SERÁ DIRIGIDA À ACOMPANHANTE DO PACIENTE. CASO JULGUE NECESSÁRIO REALIZAR EXAME FÍSICO, VERBALIZE! Nos 10 minutos de duração da estação, você deverá executar as tarefas a seguir: • Realizar anamnese do paciente; • Solicitar e interpretar exame físico; • Solicitar e interpretar o(s) exame(s) complementares pertinente(s); • Estabelecer e comunicar hipótese diagnóstica; e • Propor conduta para o paciente.",
-    "notes": "possivelmente desatualizado: diretriz AHA/ASA de AVC isquêmico agudo 2026 publicada após a prova — revisar a janela estendida de reperfusão guiada por imagem e as metas pressóricas para quem não recebe reperfusão (o padrão usa redução de 10–25% da PA em 24 h ou < 185 × 110 mmHg) | Divergência de tempo: a prova diz que aguardava transporte em casa há 8 h; a síntese fala em AVC isquêmico 'há mais de 12 horas' e em 12 h aguardando na UPA. | Dados sob demanda: Roberto, 55a, pedreiro; fala ininteligível (só sons desconexos) e lado esquerdo paralisado; consciente, orientado, consegue andar, angustiado; sem episódios prévios, trauma, febre, cefaleia, vômitos ou alterações visuais; usa metformina e enalapril; fuma 10 cig/dia; sem álcool/drogas; sedentário, dieta rica em frituras e ultraprocessados; pai morreu de 'derrame'; sem alergias ou cirurgias. EF: FC 100, PA 220x140, FR 24, Tax 36,7 °C, SatO2 96% AA, IMC 30; REG, alerta e orientado, pupilas isocóricas e fotorreagentes; AR, ACV e abdome normais; neuro: consciência preservada, paralisia completa do andar inferior da face à E, MOE normal, força 2/5 em MSE e 4/5 em MIE, hipoestesia tátil e dolorosa em dimídio E. Lab: hemograma normal (eosinófilos 7%), plaquetas 160.000, glicemia 100, Na 137, K 4,0, ureia 30, Cr 0,8; gasometria arterial normal (pH 7,35, pO2 84, pCO2 45, HCO3 22, SatO2 96%). TC de crânio: hipodensidade maior que 1/3 do território da artéria cerebral média direita. | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas. Exceção \"fora da janela\" saiu: \"alteplase mesmo fora da janela\" passava."
+    "notes": "Gabarito v2 (11/10/2026): conduta proibida só para o que mata ou sequela — nitroprussiato foi para fora do escopo. caso completo com o roteiro da esposa, o exame e o laudo da TC; o conflito de tempo entre a prova (8 h em casa) e o roteiro (12 h na UPA) ficou registrado no caso, e os exames laboratoriais, que o PEP só cobra pedir, viraram conduta. Entrou a avaliação de trombectomia (PCDT AVCi e resumo da diretriz AHA/ASA 2026, conferidos); a proibição de trombólise ficou sem exceção, porque a hipodensidade maior que 1/3 da ACM a exclui mesmo na janela estendida. O caso segue fora do portão: as metas pressóricas sem reperfusão e o nitroprussiato, que o PEP penaliza, não puderam ser conferidos na diretriz AHA/ASA 2026 (o site da AHA bloqueia o acesso e o resumo não trata do ponto). | possivelmente desatualizado: diretriz AHA/ASA de AVC isquêmico agudo 2026 publicada após a prova — revisar a janela estendida de reperfusão guiada por imagem e as metas pressóricas para quem não recebe reperfusão (o padrão usa redução de 10–25% da PA em 24 h ou < 185 × 110 mmHg) | Divergência de tempo: a prova diz que aguardava transporte em casa há 8 h; a síntese fala em AVC isquêmico 'há mais de 12 horas' e em 12 h aguardando na UPA. | Dados sob demanda: Roberto, 55a, pedreiro; fala ininteligível (só sons desconexos) e lado esquerdo paralisado; consciente, orientado, consegue andar, angustiado; sem episódios prévios, trauma, febre, cefaleia, vômitos ou alterações visuais; usa metformina e enalapril; fuma 10 cig/dia; sem álcool/drogas; sedentário, dieta rica em frituras e ultraprocessados; pai morreu de 'derrame'; sem alergias ou cirurgias. EF: FC 100, PA 220x140, FR 24, Tax 36,7 °C, SatO2 96% AA, IMC 30; REG, alerta e orientado, pupilas isocóricas e fotorreagentes; AR, ACV e abdome normais; neuro: consciência preservada, paralisia completa do andar inferior da face à E, MOE normal, força 2/5 em MSE e 4/5 em MIE, hipoestesia tátil e dolorosa em dimídio E. Lab: hemograma normal (eosinófilos 7%), plaquetas 160.000, glicemia 100, Na 137, K 4,0, ureia 30, Cr 0,8; gasometria arterial normal (pH 7,35, pO2 84, pCO2 45, HCO3 22, SatO2 96%). TC de crânio: hipodensidade maior que 1/3 do território da artéria cerebral média direita. | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas. Exceção \"fora da janela\" saiu: \"alteplase mesmo fora da janela\" passava."
   },
   "probes": {
     "mustFlag": [
       "Alteplase 0,9 mg/kg após controlar a PA",
-      "Nitroprussiato EV para PA < 185 x 110",
       "Redução rápida da PA para 140 x 90"
     ],
     "mustNotFlag": [

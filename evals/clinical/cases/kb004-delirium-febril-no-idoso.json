@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb004-delirium-febril-no-idoso",
   "title": "Primeiro episódio de agitação flutuante com febre e SpO2 90% aos 68 anos",
   "tags": [
@@ -17,20 +17,37 @@
   },
   "expected": {
     "syndrome": "delirium hiperativo por causa orgânica (provável infecção com hipoxemia)",
-    "cannotMiss": [
-      "infecção ou sepse como causa do delirium",
-      "meningite ou encefalite (punção lombar, precedida de TC quando indicada)",
-      "abstinência alcoólica / delirium tremens"
+    "diagnoses": [
+      {
+        "text": "infecção ou sepse como causa do delirium",
+        "tier": "critical"
+      },
+      {
+        "text": "meningite ou encefalite (punção lombar, precedida de TC quando indicada)",
+        "tier": "critical"
+      },
+      {
+        "text": "abstinência alcoólica / delirium tremens",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [
+    "actions": [
+      {
+        "text": "oxigênio e investigação infecciosa (foco, culturas, exames)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "tratar a causa antes de sedar; se houver risco, antipsicótico em dose baixa e por curto prazo (ex.: haloperidol 0,5-1 mg), reservando benzodiazepínico para abstinência",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [
       "pressão arterial",
       "frequência respiratória",
       "uso de álcool, benzodiazepínicos ou outras substâncias (abstinência)",
       "medicações em uso (anticolinérgicos, opioides, sedativos, início recente)"
-    ],
-    "requiredActions": [
-      "oxigênio e investigação infecciosa (foco, culturas, exames)",
-      "tratar a causa antes de sedar; se houver risco, antipsicótico em dose baixa e por curto prazo (ex.: haloperidol 0,5-1 mg), reservando benzodiazepínico para abstinência"
     ],
     "forbiddenDefinitiveActions": [
       {
@@ -54,8 +71,7 @@
         "patterns": []
       }
     ],
-    "rationale": "KB-004 (09-agitacao-causa-organica): > 40 anos sem história psiquiátrica, flutuação, alucinação visual, febre e hipóxia = causa orgânica. A causa ainda é aberta: sepse/pneumonia, infecção do SNC (atípica no idoso) ou delirium tremens (zoopsia, febre, taquicardia) — este inverte a sedação (benzodiazepínico vira tratamento, com tiamina). ABP 2019, NICE CG103 e Beers 2023: tratar a causa; se houver risco, antipsicótico em dose baixa e curta; evitar benzodiazepínico fora de abstinência.",
-    "expectedPath": "recommend"
+    "rationale": "KB-004 (09-agitacao-causa-organica): > 40 anos sem história psiquiátrica, flutuação, alucinação visual, febre e hipóxia = causa orgânica. A causa ainda é aberta: sepse/pneumonia, infecção do SNC (atípica no idoso) ou delirium tremens (zoopsia, febre, taquicardia) — este inverte a sedação (benzodiazepínico vira tratamento, com tiamina). ABP 2019, NICE CG103 e Beers 2023: tratar a causa; se houver risco, antipsicótico em dose baixa e curta; evitar benzodiazepínico fora de abstinência."
   },
   "sources": [
     {
@@ -95,7 +111,7 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: meningite/encefalite e delirium tremens entram como hipóteses obrigatórias; a sedação de risco passou a nomear a classe (antipsicótico em dose baixa); pedidos de FR e medicações; exceção de abstinência presa ao benzodiazepínico (\"não\" e \"abstin\" soltos anulavam a checagem)."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: meningite/encefalite e delirium tremens entram como hipóteses obrigatórias; a sedação de risco passou a nomear a classe (antipsicótico em dose baixa); pedidos de FR e medicações; exceção de abstinência presa ao benzodiazepínico (\"não\" e \"abstin\" soltos anulavam a checagem)."
   },
   "probes": {
     "mustFlag": [

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "rv-2024-1-est-3",
   "title": "Lactente de 40 dias encaminhado ao PS por vômitos incoercíveis e desidratação leve",
   "tags": [
@@ -14,25 +14,130 @@
     "status": "official_exam_key"
   },
   "input": {
-    "caseText": "PS de hospital secundário. Lactente 40 dias, masc, encaminhado da UBS por vômitos. Encaminhamento: vômitos incoercíveis e desidratação leve, sem resposta a antiemético; na UBS feito acesso venoso e SF 30 mL/kg para correr em 4 h."
+    "caseText": "PS de hospital secundário. Lactente, masc, 40 dias, 3.250 g, encaminhado da UBS por vômitos incoercíveis e desidratação leve, sem resposta a antiemético; na UBS, acesso venoso e SF 30 mL/kg para correr em 4 h. Mãe: há 2 dias vomita após as mamadas, cada vez com mais frequência, em jato, com aspecto de leite talhado; chora muito após vomitar e parece com fome. Mais cedo sonolento, com língua seca e fontanela deprimida (normalizou na UBS); urina normal, porém mais escura. Nega outros sintomas. Primogênito; mãe primigesta, pré-natal adequado (7 consultas), sorologias normais; parto normal hospitalar a termo (38 sem), PN 2.850 g, Apgar 8/9, alta com 2 dias; testes de triagem neonatal normais; icterícia fisiológica resolvida; aleitamento materno exclusivo; BCG e hepatite B; sem doenças prévias; desconhece casos semelhantes na família. EF: FC 125, FR 40, Tax 37,3 °C, SpO2 98%; BEG, hidratado, acianótico, anictérico, sem desconforto respiratório, em acesso venoso periférico. Abdome semigloboso, flácido, sem visceromegalias, com massa epigástrica palpável não bem caracterizada (hipertonia pelo choro intenso), RHA presentes. Oroscopia: sialorreia. AR, ACV, otoscopia, pele e MMII sem alterações. Hemograma: Hb 11,2, Ht 38,5%, leucócitos 8.000, plaquetas 366.000. Gasometria arterial: pH 7,48, HCO3 32, pCO2 30, BE +6. Na 130, K 3,1, Cl 92. USG abdominal: dilatação gástrica; músculo pilórico com 6 mm de espessura, diâmetro transverso de 16 mm, canal pilórico de 20 mm; sinais do alvo e da cérvice.",
+    "funnel": {
+      "opening": "PS de hospital secundário. Lactente, masc, 40 dias, encaminhado pela UBS por vômitos.",
+      "script": [
+        {
+          "id": "h-vomitos-inicio",
+          "kind": "history",
+          "text": "Há 2 dias passou a vomitar após as mamadas, cada vez com mais frequência."
+        },
+        {
+          "id": "h-vomitos-jato",
+          "kind": "history",
+          "text": "Os vômitos são em jato, com aspecto de leite talhado.",
+          "key": true
+        },
+        {
+          "id": "h-fome",
+          "kind": "history",
+          "text": "Chora bastante após vomitar e parece estar com fome."
+        },
+        {
+          "id": "h-desidratacao",
+          "kind": "history",
+          "text": "Mais cedo estava sonolento, com a língua seca e a fontanela deprimida; na UBS a moleira voltou ao normal."
+        },
+        {
+          "id": "h-diurese",
+          "kind": "history",
+          "text": "Urina normalmente, mas a urina está amarelo mais escuro."
+        },
+        {
+          "id": "h-nega-outros",
+          "kind": "history",
+          "text": "Nega outros sintomas."
+        },
+        {
+          "id": "h-nascimento",
+          "kind": "history",
+          "text": "Primogênito, nascido a termo, de parto normal hospitalar; alta com 2 dias."
+        },
+        {
+          "id": "h-triagem-vacinas",
+          "kind": "history",
+          "text": "Os exames da maternidade não tiveram alterações; recebeu as vacinas BCG e de hepatite."
+        },
+        {
+          "id": "h-antecedentes",
+          "kind": "history",
+          "text": "Sem problemas de saúde anteriores."
+        },
+        {
+          "id": "h-familia",
+          "kind": "history",
+          "text": "Desconhece antecedentes familiares semelhantes."
+        },
+        {
+          "id": "h-encaminhamento",
+          "kind": "history",
+          "text": "Encaminhamento da UBS: vômitos incoercíveis e desidratação leve, sem resposta a antiemético; feitos acesso venoso e SF 30 mL/kg para correr em 4 h."
+        },
+        {
+          "id": "h-caderneta",
+          "kind": "history",
+          "text": "Caderneta: mãe primigesta, pré-natal adequado (7 consultas), exames e sorologias normais; parto normal com 38 semanas, PN 2.850 g, Apgar 8/9; testes neonatais normais; icterícia fisiológica resolvida; aleitamento materno exclusivo; BCG e hepatite B."
+        },
+        {
+          "id": "e-geral",
+          "kind": "exam",
+          "text": "Peso 3.250 g, FC 125, FR 40, Tax 37,3 °C, SpO2 98%. BEG, hidratado, acianótico, anictérico, afebril, sem desconforto respiratório, em acesso venoso periférico."
+        },
+        {
+          "id": "e-abdome",
+          "kind": "exam",
+          "text": "Abdome semigloboso, flácido, sem visceromegalias, com massa epigástrica palpável não bem caracterizada pela hipertonia do choro intenso; RHA presentes."
+        },
+        {
+          "id": "e-outros",
+          "kind": "exam",
+          "text": "Oroscopia com sialorreia; AR, ACV, otoscopia, pele e membros sem alterações."
+        },
+        {
+          "id": "t-laboratorio",
+          "kind": "test",
+          "text": "Hb 11,2, Ht 38,5%, leucócitos 8.000, plaquetas 366.000; gasometria arterial pH 7,48, HCO3 32, pCO2 30, BE +6; Na 130, K 3,1, Cl 92."
+        },
+        {
+          "id": "t-usg-abdome",
+          "kind": "test",
+          "text": "USG abdominal: dilatação gástrica; músculo pilórico com 6 mm de espessura, diâmetro transverso de 16 mm, canal pilórico de 20 mm; sinais do alvo e da cérvice.",
+          "key": true
+        }
+      ]
+    }
   },
   "expected": {
     "syndrome": "vômitos incoercíveis em lactente de 40 dias com distúrbio hidroeletrolítico — estenose hipertrófica do piloro",
-    "cannotMiss": [
-      "estenose hipertrófica do piloro"
+    "diagnoses": [
+      {
+        "text": "estenose hipertrófica do piloro",
+        "tier": "important"
+      },
+      {
+        "text": "alcalose metabólica hipoclorêmica e hipocalêmica (com hiponatremia), hemograma normal",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
-      "características dos vômitos (em jato, não biliosos, resíduo alimentar), início e sinais associados de desidratação (sonolência, irritabilidade, língua seca, fontanela deprimida, diurese, febre)",
-      "fatores de risco: primogenitura, antecedente familiar de estenose de piloro, sexo masculino",
-      "exame físico: estado de hidratação e massa epigástrica/oliva pilórica",
-      "hemograma, gasometria arterial, sódio, potássio e cloro (esperado: alcalose metabólica hipoclorêmica e hipocalêmica)",
-      "ultrassonografia abdominal"
+    "actions": [
+      {
+        "text": "internação hospitalar (não só observação até o fim do soro)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "hidratação EV com correção pré-operatória do distúrbio hidroeletrolítico e ácido-básico",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "avaliação e tratamento cirúrgico (piloromiotomia) após a correção",
+        "tier": "important",
+        "timing": "now"
+      }
     ],
-    "requiredActions": [
-      "internação hospitalar (não apenas observação até o fim do soro)",
-      "hidratação endovenosa para correção pré-operatória do distúrbio ácido-básico e hidroeletrolítico",
-      "encaminhamento para avaliação cirúrgica/tratamento cirúrgico"
-    ],
+    "questions": [],
     "forbiddenDefinitiveActions": [
       {
         "id": "hidratacao-oral",
@@ -48,8 +153,12 @@
         ]
       }
     ],
-    "rationale": "Gabarito oficial do INEP (Revalida 2024/1, Estação 3, PEP rotulado preliminar): o PEP pontua anamnese dos vômitos e fatores de risco, gasometria e eletrólitos (alcalose metabólica hipoclorêmica e hipocalêmica), USG abdominal, diagnóstico de estenose hipertrófica do piloro, internação, hidratação EV pré-operatória e avaliação cirúrgica; hidratação VO é inadequada.",
-    "expectedPath": "clarify"
+    "outOfScope": [
+      "apresentar-se à mãe (item 1)",
+      "anamnese dos vômitos e sinais associados (item 2; medida pelo roteiro no afunilamento)",
+      "verbalizar à mãe os fatores de risco: primogenitura, sexo masculino, antecedente familiar (item 3)"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2024/1, Estação 3, PEP rotulado preliminar): o PEP pontua anamnese dos vômitos e fatores de risco, gasometria e eletrólitos (alcalose metabólica hipoclorêmica e hipocalêmica), USG abdominal, diagnóstico de estenose hipertrófica do piloro, internação, hidratação EV pré-operatória e avaliação cirúrgica; hidratação VO é inadequada. v2: exames e USG estão no caso; a solicitação deles (itens 5 e 7) fica satisfeita pelo texto."
   },
   "sources": [
     {
@@ -80,7 +189,7 @@
     "item": "Estação 3",
     "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2024_1_PEP_publicacao.pdf",
     "originalCaseText": "CENÁRIO DE ATUAÇÃO Local de atuação: atenção secundária à saúde. (infraestrutura omitida) DESCRIÇÃO DO CASO Você é um(a) médico(a) que está de plantão no pronto-socorro de um hospital secundário e irá atender a um lactente de 40 dias, do sexo masculino, que foi encaminhado pela unidade básica de saúde (UBS) por apresentar vômitos. Nos 10 minutos de duração da estação, você deverá executar as tarefas a seguir: realizar anamnese; interpretar o exame físico e a justificativa do encaminhamento da UBS associando os achados ao quadro clínico; solicitar exames complementares (serão pontuados os cinco primeiros exames laboratoriais e o primeiro exame de imagem citados) associando os achados ao quadro clínico; definir a hipótese diagnóstica, orientando a conduta mais indicada ao quadro clínico; explicar a condição da criança à mãe, mencionando os fatores de risco para o quadro. IMPRESSO – ENCAMINHAMENTO: Encaminho para avaliação o paciente Renato da Silva, de 40 dias de vida, com quadro de vômitos incoercíveis e desidratação leve. O paciente não responde à medicação antiemética e necessita de avaliação e de exames complementares para diagnóstico. Foi realizada, na unidade, acesso venoso e reposição hídrica com soro fisiológico 30 mL/kg para correr em 4 horas. Grato. Aguardo contrarreferência.",
-    "notes": "originalCaseText transcrito das páginas 12–13 do PDF da prova de habilidades clínicas (instruções e impresso de encaminhamento são só imagem, sem camada de texto). O encaminhamento da UBS entra no caseText porque a tarefa manda interpretá-lo. No arquivo publicado, o PEP desta estação está rotulado 'PADRÃO ESPERADO DE PROCEDIMENTOS - PRELIMINAR'. Dados sob demanda: a mãe informa vômitos após as mamadas há 2 dias, cada vez mais frequentes, em jato, com aspecto de leite talhado; choro e fome após vomitar; sonolência, língua seca e fontanela deprimida mais cedo (normalizou na UBS); urina normal, porém mais escura; nega outros sintomas; primogênito, a termo, parto normal, alta com 2 dias; triagem neonatal normal; BCG e hepatite B; sem antecedentes mórbidos; desconhece casos semelhantes na família. Caderneta: pré-natal adequado, parto normal com 38 sem, PN 2.850 g, Apgar 8/9, testes neonatais normais, aleitamento materno exclusivo. Exame físico: peso 3.250 g, FC 125, FR 40, Tax 37,3 °C, SatO2 98%, BEG, hidratado, em acesso venoso periférico, massa epigástrica palpável não bem caracterizada (hipertonia pelo choro), sialorreia. Laboratório: Hb 11,2, Ht 38,5%, leucócitos 8.000, plaquetas 366.000; gasometria pH 7,48, bicarbonato 32, BE +6; Na 130, K 3,1, Cl 92. USG: dilatação gástrica, músculo pilórico de 6 mm, diâmetro transverso de 16 mm, canal pilórico de 20 mm, sinais do alvo e da cérvice. | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas."
+    "notes": "Gabarito v2 (11/10/2026): caso completo com o roteiro oficial da mãe, o encaminhamento, a caderneta, o exame físico, os exames laboratoriais (interpretação pontuada no item 6; gasometria conferida na página renderizada: HCO3 32, pCO2 30, BE +6) e o laudo da USG (o exame físico não foi conclusivo, item 7); modo afunilamento com a abertura oficial. A solicitação dos exames (itens 5 e 7) fica satisfeita pelo texto. Os fatores de risco a explicar à mãe foram para fora do escopo. | originalCaseText transcrito das páginas 12–13 do PDF da prova de habilidades clínicas (instruções e impresso de encaminhamento são só imagem, sem camada de texto). O encaminhamento da UBS entra no caseText porque a tarefa manda interpretá-lo. No arquivo publicado, o PEP desta estação está rotulado 'PADRÃO ESPERADO DE PROCEDIMENTOS - PRELIMINAR'. Dados sob demanda: a mãe informa vômitos após as mamadas há 2 dias, cada vez mais frequentes, em jato, com aspecto de leite talhado; choro e fome após vomitar; sonolência, língua seca e fontanela deprimida mais cedo (normalizou na UBS); urina normal, porém mais escura; nega outros sintomas; primogênito, a termo, parto normal, alta com 2 dias; triagem neonatal normal; BCG e hepatite B; sem antecedentes mórbidos; desconhece casos semelhantes na família. Caderneta: pré-natal adequado, parto normal com 38 sem, PN 2.850 g, Apgar 8/9, testes neonatais normais, aleitamento materno exclusivo. Exame físico: peso 3.250 g, FC 125, FR 40, Tax 37,3 °C, SatO2 98%, BEG, hidratado, em acesso venoso periférico, massa epigástrica palpável não bem caracterizada (hipertonia pelo choro), sialorreia. Laboratório: Hb 11,2, Ht 38,5%, leucócitos 8.000, plaquetas 366.000; gasometria pH 7,48, bicarbonato 32, BE +6; Na 130, K 3,1, Cl 92. USG: dilatação gástrica, músculo pilórico de 6 mm, diâmetro transverso de 16 mm, canal pilórico de 20 mm, sinais do alvo e da cérvice. | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas."
   },
   "probes": {
     "mustFlag": [

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb001-an-002",
   "title": "Exposição alimentar com estridor, edema de língua e hipotensão",
   "tags": [
@@ -18,17 +18,40 @@
   },
   "expected": {
     "syndrome": "anafilaxia com comprometimento de via aérea e choque",
-    "cannotMiss": [
-      "obstrução de via aérea por edema de laringe"
+    "diagnoses": [
+      {
+        "text": "obstrução de via aérea por edema de laringe",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [],
-    "requiredActions": [
-      "adrenalina IM imediata (0,01 mg/kg, máx. 0,5 mg; 0,3–0,5 mg no adulto), repetida a cada 5–15 min se necessário",
-      "preparo para via aérea difícil",
-      "oxigênio em alto fluxo e posição adequada (deitado com membros inferiores elevados pela hipotensão; sentado se a obstrução de via aérea predominar)",
-      "expansão volêmica com cristaloide IV em bolus (ex.: 20 mL/kg)",
-      "se não houver resposta a 2 doses IM: adrenalina IV em infusão contínua titulada, com monitorização"
+    "actions": [
+      {
+        "text": "adrenalina IM imediata, repetida a cada 5–15 min se necessário [ref.: 0,01 mg/kg, máx. 0,5 mg; 0,3–0,5 mg no adulto]",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "preparo para via aérea difícil",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "oxigênio em alto fluxo e posição adequada (deitado com membros inferiores elevados pela hipotensão; sentado se a obstrução de via aérea predominar)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "expansão volêmica com cristaloide IV em bolus [ref.: 20 mL/kg]",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "se não houver resposta a 2 doses IM: adrenalina IV em infusão contínua titulada, com monitorização",
+        "tier": "important",
+        "timing": "any"
+      }
     ],
+    "questions": [],
     "forbiddenDefinitiveActions": [
       {
         "id": "anti-histaminico-no-lugar-da-adrenalina",
@@ -52,8 +75,7 @@
         ]
       }
     ],
-    "rationale": "WAO 2020: adrenalina IM 0,01 mg/kg (máx. 0,5 mg) repetida a cada 5–15 min, O2 em alto fluxo, posição (não pôr de pé), cristaloide 20 mL/kg na instabilidade e infusão IV monitorizada se refratária; bolus IV pode causar arritmia fatal. Anti-histamínico e corticoide são adjuvantes. Idade/peso ausentes: a dose por kg com teto cobre adulto e criança.",
-    "expectedPath": "recommend"
+    "rationale": "WAO 2020: adrenalina IM 0,01 mg/kg (máx. 0,5 mg) repetida a cada 5–15 min, O2 em alto fluxo, posição (não pôr de pé), cristaloide 20 mL/kg na instabilidade e infusão IV monitorizada se refratária; bolus IV pode causar arritmia fatal. Anti-histamínico e corticoide são adjuvantes. Idade/peso ausentes: a dose por kg com teto cobre adulto e criança."
   },
   "sources": [
     {
@@ -72,7 +94,7 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: dose da adrenalina por kg com faixa adulta (0,3–0,5 mg aceitos); O2, posição e plano para anafilaxia refratária obrigatórios; bolus IV de adrenalina proibido (só juiz); a proibição de adrenalina IV em bolus ganhou checagem automática e sondas, como no caso kb004 de anafilaxia."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. Doses do v1 passaram para referência entre colchetes, que o juiz não exige. | Auditoria 11/10/2026: dose da adrenalina por kg com faixa adulta (0,3–0,5 mg aceitos); O2, posição e plano para anafilaxia refratária obrigatórios; bolus IV de adrenalina proibido (só juiz); a proibição de adrenalina IV em bolus ganhou checagem automática e sondas, como no caso kb004 de anafilaxia."
   },
   "probes": {
     "mustFlag": [

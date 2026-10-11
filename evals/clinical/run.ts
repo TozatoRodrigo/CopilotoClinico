@@ -38,6 +38,8 @@ import { gradeResult } from './grading';
 import { ensureEvalPhysician, isRefusalFallbackActive, runCase, type CaseRunRow } from './pipeline';
 import { CompletionRecorder } from './recorder';
 import {
+  EVAL_MODES,
+  GradeRowSchema,
   appendJsonLine,
   readJsonLines,
   readRunMeta,
@@ -49,6 +51,7 @@ import {
 } from './records';
 import { loadRun, renderSummaryMarkdown, summarizeRun, type RunSummary } from './report';
 import { mapWithConcurrency } from './scheduling';
+import { createPhysicianSimulator } from './simulator';
 import {
   defaultVariantsFile,
   loadDotEnvFiles,
@@ -69,6 +72,8 @@ const USAGE = `Uso: pnpm eval:clinical --variant <nome> [opções]
   --variant <nome>        Variante do arquivo de variantes (repita para várias). Obrigatório.
   --variants-file <path>  Padrão: evals/clinical/variants.json, ou o variants.example.json.
   --cases <seletor>       critical | glob no id (kb001-*) | tag:<tag> | id. Vírgula = união. Padrão: todos.
+  --mode <modo>           complete (caso completo, padrão) | funnel (abertura + médico simulado;
+                          só casos com input.funnel; modelo em SIMULATOR_MODEL, padrão claude-haiku-5-5).
   --reps <n>              Repetições por caso (padrão 1).
   --concurrency <n>       Casos em paralelo (padrão 2).
   --judge <provedor>      anthropic | openai | none (padrão none).
@@ -77,6 +82,8 @@ const USAGE = `Uso: pnpm eval:clinical --variant <nome> [opções]
   --allow-remote-db       Permite DATABASE_URL fora de localhost/compose de desenvolvimento.
   --dry-run               Mostra o plano (banco, variantes, casos) e sai sem chamar nada.
   --regrade <runDir>      Refaz só as notas de uma execução existente (ex.: com outro juiz).
+  --reuse-judge           Com --regrade: reaproveita o veredito do juiz já gravado e refaz só a
+                          parte determinística (ex.: depois de corrigir a checagem de conduta proibida).
 
 Saída: 0 = portão aprovado ou incompleto; 2 = erro crítico no subconjunto crítico; 1 = falha do harness.`;
 
@@ -84,6 +91,7 @@ const CliSchema = z.object({
   variants: z.array(z.string()),
   variantsFile: z.string(),
   cases: z.string().optional(),
+  mode: z.enum(EVAL_MODES),
   reps: z.coerce.number().int().min(1).max(20),
   concurrency: z.coerce.number().int().min(1).max(16),
   judge: z.enum([...JUDGE_PROVIDERS, 'none']),
@@ -92,6 +100,7 @@ const CliSchema = z.object({
   allowRemoteDb: z.boolean(),
   dryRun: z.boolean(),
   regrade: z.string().optional(),
+  reuseJudge: z.boolean(),
   help: z.boolean(),
 });
 
@@ -104,6 +113,7 @@ function parseCli(argv: string[]): CliOptions {
       variant: { type: 'string', multiple: true },
       'variants-file': { type: 'string' },
       cases: { type: 'string' },
+      mode: { type: 'string', default: 'complete' },
       reps: { type: 'string', default: '1' },
       concurrency: { type: 'string', default: '2' },
       judge: { type: 'string', default: 'none' },
@@ -112,6 +122,7 @@ function parseCli(argv: string[]): CliOptions {
       'allow-remote-db': { type: 'boolean', default: false },
       'dry-run': { type: 'boolean', default: false },
       regrade: { type: 'string' },
+      'reuse-judge': { type: 'boolean', default: false },
       help: { type: 'boolean', short: 'h', default: false },
     },
   });
@@ -120,6 +131,7 @@ function parseCli(argv: string[]): CliOptions {
     variants: values.variant ?? [],
     variantsFile: values['variants-file'] ?? defaultVariantsFile(),
     cases: values.cases,
+    mode: values.mode,
     reps: values.reps,
     concurrency: values.concurrency,
     judge: values.judge,
@@ -128,6 +140,7 @@ function parseCli(argv: string[]): CliOptions {
     allowRemoteDb: values['allow-remote-db'],
     dryRun: values['dry-run'],
     regrade: values.regrade,
+    reuseJudge: values['reuse-judge'],
     help: values.help,
   });
 }
@@ -245,6 +258,7 @@ async function executeVariant(context: VariantRunContext): Promise<string> {
       recorder,
       physicianId: await ensureEvalPhysician(prisma),
       refusalFallback,
+      simulator: options.mode === 'funnel' ? createPhysicianSimulator() : undefined,
     };
 
     const meta: RunMeta = {
@@ -263,6 +277,7 @@ async function executeVariant(context: VariantRunContext): Promise<string> {
         caseIds: cases.map((clinicalCase) => clinicalCase.id),
       },
       reps: options.reps,
+      mode: options.mode,
       concurrency: options.concurrency,
       caseTimeoutMs: options.caseTimeoutMs,
       database: context.database,
@@ -287,7 +302,7 @@ async function executeVariant(context: VariantRunContext): Promise<string> {
       `\n▶ ${variant.name}: ${meta.pipeline.completionProvider} · ${meta.pipeline.requestedModel} — ${runDir}`,
     );
     console.log(
-      `  Raciocínio ${meta.pipeline.reasoning} · decisão ${meta.pipeline.decisionPrompt} · fonte ${meta.pipeline.knowledgeSource}${meta.pipeline.research ? ` · pesquisa ${meta.pipeline.research.model}` : ''}`,
+      `  Modo ${options.mode === 'funnel' ? `afunilamento (médico simulado ${services.simulator?.model})` : 'caso completo'} · raciocínio ${meta.pipeline.reasoning} · decisão ${meta.pipeline.decisionPrompt} · fonte ${meta.pipeline.knowledgeSource}${meta.pipeline.research ? ` · pesquisa ${meta.pipeline.research.model}` : ''}`,
     );
     console.log(
       `  Base: ${meta.knowledgeBase.approvedChunks} trechos aprovados (${meta.knowledgeBase.approvedChunksWithEmbedding} com embedding), ${meta.knowledgeBase.officialChunks} oficiais`,
@@ -302,7 +317,7 @@ async function executeVariant(context: VariantRunContext): Promise<string> {
         services,
         clinicalCase,
         { runId, variant: variant.name, rep },
-        { caseTimeoutMs: options.caseTimeoutMs },
+        { caseTimeoutMs: options.caseTimeoutMs, mode: options.mode },
       );
       const file = outcome.kind === 'result' ? RUN_FILES.results : RUN_FILES.errors;
       appendJsonLine(join(runDir, file), outcome.row);
@@ -325,6 +340,7 @@ async function gradeRun(
   judgeClient: JudgeClient | null,
   concurrency: number,
   caseSetVersion: string,
+  reuseJudge = false,
 ): Promise<RunSummary> {
   const meta = readRunMeta(runDir);
   if (meta.caseSet.version !== caseSetVersion) {
@@ -341,24 +357,40 @@ async function gradeRun(
     return clinicalCase ? [{ row, clinicalCase }] : [];
   });
 
+  const previous = reuseJudge
+    ? new Map(
+        readJsonLines(join(runDir, RUN_FILES.grades), GradeRowSchema).map((grade) => [
+          `${grade.caseId}#${grade.rep}`,
+          grade.judge,
+        ]),
+      )
+    : null;
   console.log(
-    `  Avaliando ${gradable.length} execução(ões)${judgeClient ? ` com o juiz ${judgeClient.provider} · ${judgeClient.model}` : ' sem juiz'}...`,
+    `  Avaliando ${gradable.length} execução(ões)${previous ? ' reaproveitando o veredito gravado do juiz' : judgeClient ? ` com o juiz ${judgeClient.provider} · ${judgeClient.model}` : ' sem juiz'}...`,
   );
   const grades = await mapWithConcurrency(gradable, concurrency, ({ row, clinicalCase }) =>
-    gradeResult(row, clinicalCase, judgeClient),
+    gradeResult(
+      row,
+      clinicalCase,
+      judgeClient,
+      undefined,
+      previous ? (previous.get(`${row.caseId}#${row.rep}`) ?? null) : undefined,
+    ),
   );
   grades.sort((left, right) => left.caseId.localeCompare(right.caseId) || left.rep - right.rep);
   writeJsonLines(join(runDir, RUN_FILES.grades), grades);
 
   writeRunMeta(runDir, {
     ...meta,
-    judge: judgeClient
-      ? {
-          provider: judgeClient.provider,
-          model: judgeClient.model,
-          gradedAt: new Date().toISOString(),
-        }
-      : null,
+    judge: previous
+      ? meta.judge
+      : judgeClient
+        ? {
+            provider: judgeClient.provider,
+            model: judgeClient.model,
+            gradedAt: new Date().toISOString(),
+          }
+        : null,
   });
 
   const run = loadRun(runDir);
@@ -389,11 +421,26 @@ async function main(): Promise<number> {
       judgeClient,
       options.concurrency,
       caseSet.version,
+      options.reuseJudge,
     );
     return summary.gate === 'reprovado' ? 2 : 0;
   }
 
-  const cases = selectCases(caseSet.cases, options.cases);
+  const selected = selectCases(caseSet.cases, options.cases);
+  // Afunilamento só faz sentido com roteiro: os casos sem `input.funnel` ficam fora.
+  const cases =
+    options.mode === 'funnel'
+      ? selected.filter((clinicalCase) => clinicalCase.input.funnel)
+      : selected;
+  if (cases.length === 0) {
+    console.error('Nenhum caso selecionado tem input.funnel para o modo afunilamento.');
+    return 1;
+  }
+  if (cases.length < selected.length) {
+    console.log(
+      `Modo afunilamento: ${selected.length - cases.length} caso(s) sem input.funnel ficaram fora.`,
+    );
+  }
   const variants = pickVariants(loadVariants(options.variantsFile), options.variants).map(
     (variant) => ({
       variant,

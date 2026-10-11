@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "rv-2025-1-est-4",
   "title": "Febre há 5 dias e dor no corpo em gestante de 15 semanas",
   "tags": [
@@ -15,28 +15,135 @@
     "status": "official_exam_key"
   },
   "input": {
-    "caseText": "UBS. Gestante, 25a, secundigesta, IG 15s2d. Febre há ~5 dias e dor no corpo todo."
+    "caseText": "UBS. Gestante, 25a, casada, balconista, secundigesta, IG 15s2d. Febre recorrente há ~5 dias, dor no corpo todo, cefaleia, dor retro-orbitária, artralgia, muito cansaço e fraqueza; manchas na pele desde ontem. Nunca se sentiu assim. Nega olho vermelho ou secreção ocular, sensação de desmaio, sangramento gengival, dor abdominal forte, vômitos, coriza, tosse e dor de garganta. Não tomou remédio (medo de prejudicar a gestação); usa só sulfato ferroso. Mora perto de pessoas com sintomas parecidos. EF: normocorada, hidratada, anictérica, acianótica; Tax 39,2 °C, PA 110x70, FC 98, SpO2 98% AA; AU 15 cm, BCF 154 bpm; exame ginecológico sem alterações. Prova do laço: 25 petéquias.",
+    "funnel": {
+      "opening": "UBS. Gestante, 25a, secundigesta, IG 15s2d, com febre há cerca de 5 dias e dor no corpo todo.",
+      "script": [
+        {
+          "id": "h-identificacao",
+          "kind": "history",
+          "text": "Casada, balconista, grávida do segundo filho, IG 15 semanas e 2 dias."
+        },
+        {
+          "id": "h-sintomas",
+          "kind": "history",
+          "text": "Febre recorrente, manchas na pele desde ontem, dor atrás do olho, dor no corpo todo e dor de cabeça.",
+          "key": true
+        },
+        {
+          "id": "h-primeira-vez",
+          "kind": "history",
+          "text": "Nunca se sentiu assim antes."
+        },
+        {
+          "id": "h-cansaco",
+          "kind": "history",
+          "text": "Sente-se muito cansada."
+        },
+        {
+          "id": "h-articulacoes",
+          "kind": "history",
+          "text": "Sente dor nas juntas."
+        },
+        {
+          "id": "h-negativos",
+          "kind": "history",
+          "text": "Não teve olho vermelho ou com secreção, sensação de desmaio, sangramento da gengiva, dor abdominal forte, vômito, coriza, tosse ou dor de garganta."
+        },
+        {
+          "id": "h-fraqueza",
+          "kind": "history",
+          "text": "Tem sentido fraqueza."
+        },
+        {
+          "id": "h-sem-remedios",
+          "kind": "history",
+          "text": "Não tomou nenhum remédio para esses sintomas, por medo de prejudicar a gravidez."
+        },
+        {
+          "id": "h-medicacoes",
+          "kind": "history",
+          "text": "É saudável e só usa sulfato ferroso (também anotado no cartão de pré-natal)."
+        },
+        {
+          "id": "h-vizinhos",
+          "kind": "history",
+          "text": "Mora perto de pessoas com sintomas parecidos."
+        },
+        {
+          "id": "e-geral",
+          "kind": "exam",
+          "text": "Normocorada, hidratada, anictérica, acianótica; Tax 39,2 °C, PA 110x70, FC 98, SpO2 98% AA."
+        },
+        {
+          "id": "e-obstetrico",
+          "kind": "exam",
+          "text": "Altura uterina 15 cm, BCF 154 bpm; exame ginecológico sem alterações."
+        },
+        {
+          "id": "e-prova-laco",
+          "kind": "exam",
+          "text": "Prova do laço: 25 petéquias."
+        },
+        {
+          "id": "t-ns1",
+          "kind": "test",
+          "text": "Teste do antígeno NS1 para dengue: positivo.",
+          "key": true
+        }
+      ]
+    }
   },
   "expected": {
     "syndrome": "síndrome febril aguda em gestante: dengue grupo B",
-    "cannotMiss": [
-      "dengue em gestante, grupo B"
+    "diagnoses": [
+      {
+        "text": "dengue",
+        "tier": "important"
+      },
+      {
+        "text": "grupo B (gestante é condição clínica especial; sem sinais de alarme; prova do laço positiva)",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
-      "sintomas de dengue e sinais de alarme (artralgia, hiperemia/secreção ocular, cefaleia, adinamia, mialgia, dor retro-orbitária, anorexia, sensação de desmaio, sangramento gengival, dor abdominal forte, diarreia, vômitos, sintomas gripais)",
-      "medicações em uso",
-      "exame físico",
-      "hemograma",
-      "teste do antígeno NS1 para dengue"
+    "actions": [
+      {
+        "text": "hemograma completo",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "teste do antígeno NS1 para dengue",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "paracetamol ou dipirona",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "hidratação oral [ref.: manual MS 2024: 60 mL/kg/dia, 1/3 com SRO]",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "hemograma diário até 48 h após o fim da febre, com reavaliação clínica",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "retorno imediato se sinais de alarme: dor abdominal intensa e contínua, vômitos persistentes, acúmulo de líquidos, hipotensão postural/lipotimia, hepatomegalia > 2 cm, sangramento de mucosa, letargia/irritabilidade, aumento do hematócrito",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "notificação do caso no SINAN",
+        "tier": "important",
+        "timing": "any"
+      }
     ],
-    "requiredActions": [
-      "classificar como dengue grupo B",
-      "paracetamol ou dipirona",
-      "hidratação oral",
-      "hemograma diário até 48 h após o fim da febre",
-      "orientar sinais de alarme (dor abdominal intensa e contínua, vômitos persistentes, acúmulo de líquidos, hipotensão postural/lipotimia, hepatomegalia > 2 cm, sangramento de mucosa, letargia/irritabilidade, aumento progressivo do hematócrito)",
-      "notificar o caso ao SINAN"
-    ],
+    "questions": [],
     "forbiddenDefinitiveActions": [
       {
         "id": "aine-aas-na-dengue",
@@ -54,8 +161,12 @@
         ]
       }
     ],
-    "rationale": "Gabarito oficial do INEP (Revalida 2025/1, Estação 4): a descrição inicial é curta e o PEP pontua anamnese de sintomas/sinais de alarme, exame físico, hemograma e NS1 antes do diagnóstico de dengue grupo B, com paracetamol/dipirona, hidratação oral, hemograma diário, sinais de alarme e notificação; AINE/AAS é penalizado.",
-    "expectedPath": "clarify"
+    "outOfScope": [
+      "cumprimentar e perguntar o motivo da consulta (item 1)",
+      "anamnese de sintomas, sinais de alarme e medicações em uso (itens 2–3; medida pelo roteiro no afunilamento)",
+      "solicitar o exame físico (item 4; os achados estão no caso)"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2025/1, Estação 4): a descrição inicial é curta e o PEP pontua anamnese de sintomas/sinais de alarme, exame físico, hemograma e NS1 antes do diagnóstico de dengue grupo B, com paracetamol/dipirona, hidratação oral, hemograma diário, sinais de alarme e notificação; AINE/AAS é penalizado. v2: hemograma e NS1 viraram condutas (só a solicitação é pontuada); a conduta é avaliada item a item."
   },
   "sources": [
     {
@@ -92,6 +203,13 @@
       "publisher": "INEP",
       "year": 2025,
       "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Manual do MS (6ª ed., 2024): hidratação oral do adulto nos grupos A e B de 60 mL/kg/dia, 1/3 com SRO; grupo B = sangramento de pele espontâneo ou induzido (prova do laço) ou condição clínica especial (inclui gestantes); hemograma obrigatório no grupo B, com observação até o resultado; hematócrito normal: tratamento ambulatorial com reavaliação clínica e laboratorial diária até 48 h após a queda da febre; paracetamol ou dipirona; não usar salicilatos nem AINE; notificar todo caso suspeito.",
+      "title": "Dengue: diagnóstico e manejo clínico – adulto e criança (6ª edição)",
+      "publisher": "Ministério da Saúde",
+      "year": 2024,
+      "url": "https://bvsms.saude.gov.br/bvs/publicacoes/dengue_diagnostico_manejo_clinico_6ed.pdf"
     }
   ],
   "provenance": {
@@ -100,7 +218,7 @@
     "item": "Estação 4",
     "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf",
     "originalCaseText": "CENÁRIO DE ATENDIMENTO Nível de atenção: primária. Tipo de atendimento: ambulatorial — unidade básica de saúde (UBS). A unidade apresenta a seguinte infraestrutura: ● consultório ginecológico. DESCRIÇÃO DO CASO Você é um médico atuando em uma unidade básica de saúde (UBS) e atenderá uma paciente chamada Vera, de 25 anos, secundigesta, com idade gestacional de 15 semanas e 2 dias. Ela comparece à consulta com relato de febre há cerca de 5 dias e dor no corpo todo. Nos 10 minutos de duração da estação, você deverá executar as seguintes tarefas: ● realizar anamnese relacionada à queixa principal da paciente; ● solicitar os exames pertinentes ao caso; ● formular e verbalizar a hipótese diagnóstica; ● classificar o quadro quanto à gravidade; ● indicar a conduta adequada. ATENÇÃO! CASO JULGUE NECESSÁRIO REALIZAR EXAME FÍSICO, VERBALIZE! A PACIENTE SIMULADA NÃO DEVERÁ SER TOCADA DURANTE O ATENDIMENTO.",
-    "notes": "Triagem limítrofe: atendimento em UBS e sem sinal de alarme; incluído por ser doença febril aguda em gestante com estratificação de gravidade (grupo B) e proibição de AINE/AAS pontuadas. Dados sob demanda: balconista; febre recorrente, manchas na pele desde o dia anterior, dor retro-orbitária, dor no corpo todo, cefaleia, cansaço, dor nas juntas, fraqueza; nega conjuntivite/secreção ocular, sensação de desmaio, sangramento gengival, dor abdominal forte, vômitos, coriza, tosse e dor de garganta; não tomou remédio por medo de prejudicar a gravidez; usa apenas sulfato ferroso; mora perto de pessoas com sintomas parecidos. Exame físico: normocorada, hidratada, anictérica, acianótica, Tax 39,2 °C, PA 110x70, FC 98, SatO2 98%, altura uterina 15 cm, BCF 154 bpm, exame ginecológico normal. Prova do laço: 25 petéquias. Teste do antígeno NS1: positivo. | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas."
+    "notes": "Gabarito v2 (11/10/2026): caso completo com o roteiro oficial da atriz e os impressos de cartão de pré-natal, exame físico e prova do laço; o NS1 e o hemograma, só cobrados como solicitação (itens 5–6), ficaram fora do texto e viraram conduta. Modo afunilamento com a abertura oficial. Fonte nova verificada: o manual do MS de dengue (6ª ed., 2024), referência do próprio PEP, sustenta gestante no grupo B, hidratação oral, paracetamol/dipirona, proibição de AINE/AAS e reavaliação diária até 48 h após a febre. | Triagem limítrofe: atendimento em UBS e sem sinal de alarme; incluído por ser doença febril aguda em gestante com estratificação de gravidade (grupo B) e proibição de AINE/AAS pontuadas. Dados sob demanda: balconista; febre recorrente, manchas na pele desde o dia anterior, dor retro-orbitária, dor no corpo todo, cefaleia, cansaço, dor nas juntas, fraqueza; nega conjuntivite/secreção ocular, sensação de desmaio, sangramento gengival, dor abdominal forte, vômitos, coriza, tosse e dor de garganta; não tomou remédio por medo de prejudicar a gravidez; usa apenas sulfato ferroso; mora perto de pessoas com sintomas parecidos. Exame físico: normocorada, hidratada, anictérica, acianótica, Tax 39,2 °C, PA 110x70, FC 98, SatO2 98%, altura uterina 15 cm, BCF 154 bpm, exame ginecológico normal. Prova do laço: 25 petéquias. Teste do antígeno NS1: positivo. | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas."
   },
   "probes": {
     "mustFlag": [

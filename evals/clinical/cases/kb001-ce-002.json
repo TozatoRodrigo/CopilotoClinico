@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb001-ce-002",
   "title": "Eritema com bolhas, necrose, crepitação e hipotensão",
   "tags": [
@@ -18,16 +18,34 @@
   },
   "expected": {
     "syndrome": "infecção necrosante de partes moles com choque",
-    "cannotMiss": [
-      "fasciíte necrosante / gangrena gasosa",
-      "choque séptico (ou síndrome do choque tóxico estreptocócico)"
+    "diagnoses": [
+      {
+        "text": "fasciíte necrosante / gangrena gasosa",
+        "tier": "critical"
+      },
+      {
+        "text": "choque séptico (ou síndrome do choque tóxico estreptocócico)",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [],
-    "requiredActions": [
-      "avaliação cirúrgica imediata para desbridamento",
-      "antibiótico IV de amplo espectro imediato cobrindo gram-positivos (inclusive MRSA), gram-negativos e anaeróbios — ex.: vancomicina + piperacilina-tazobactam; clindamicina associada pelo efeito antitoxina é aceita",
-      "ressuscitação com cristaloide e noradrenalina se a hipotensão persistir (alvo PAM ≥ 65 mmHg)"
+    "actions": [
+      {
+        "text": "avaliação cirúrgica imediata para desbridamento",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "antibiótico IV de amplo espectro imediato cobrindo gram-positivos (inclusive MRSA), gram-negativos e anaeróbios — ex.: vancomicina + piperacilina-tazobactam; clindamicina associada pelo efeito antitoxina é aceita",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "ressuscitação com cristaloide e noradrenalina se a hipotensão persistir (alvo PAM ≥ 65 mmHg)",
+        "tier": "important",
+        "timing": "now"
+      }
     ],
+    "questions": [],
     "forbiddenDefinitiveActions": [
       {
         "id": "atrasar-cirurgia",
@@ -35,8 +53,7 @@
         "patterns": []
       }
     ],
-    "rationale": "IDSA 2014 e CDC 2025: exploração cirúrgica imediata (imagem nunca atrasa a cirurgia); empírico vancomicina ou linezolida + piperacilina-tazobactam, carbapenêmico ou ceftriaxona + metronidazol; clindamicina reduz toxina e é prática comum — as duas abordagens são aceitas. SSC 2021: antimicrobiano em até 1 h e noradrenalina no choque. Desejáveis, mas não exigidos no turno 0: hemoculturas e lactato sem atrasar o antibiótico.",
-    "expectedPath": "recommend"
+    "rationale": "IDSA 2014 e CDC 2025: exploração cirúrgica imediata (imagem nunca atrasa a cirurgia); empírico vancomicina ou linezolida + piperacilina-tazobactam, carbapenêmico ou ceftriaxona + metronidazol; clindamicina reduz toxina e é prática comum — as duas abordagens são aceitas. SSC 2021: antimicrobiano em até 1 h e noradrenalina no choque. Desejáveis, mas não exigidos no turno 0: hemoculturas e lactato sem atrasar o antibiótico."
   },
   "sources": [
     {
@@ -62,6 +79,6 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: antibiótico passou a exigir cobertura de MRSA (IDSA), aceitando clindamicina como adjuvante; noradrenalina se hipotensão persistir; choque tóxico estreptocócico aceito no item de choque. Hemoculturas e lactato ficaram no rationale (opcionais)."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: antibiótico passou a exigir cobertura de MRSA (IDSA), aceitando clindamicina como adjuvante; noradrenalina se hipotensão persistir; choque tóxico estreptocócico aceito no item de choque. Hemoculturas e lactato ficaram no rationale (opcionais)."
   }
 }

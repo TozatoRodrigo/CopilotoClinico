@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb001-ve-001",
   "title": "Vertigem aguda sem dados de marcha, cefaleia ou déficit",
   "tags": [
@@ -16,20 +16,22 @@
   },
   "expected": {
     "syndrome": "síndrome vestibular aguda — diferenciar periférica de central",
-    "cannotMiss": [
-      "AVC de circulação posterior"
+    "diagnoses": [
+      {
+        "text": "AVC de circulação posterior",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
+    "actions": [],
+    "questions": [
       "capacidade de deambular / ataxia de marcha",
       "cefaleia",
       "déficit neurológico focal",
       "padrão temporal e gatilhos (contínua, episódica espontânea, posicional)",
       "nistagmo / HINTS (se examinador treinado)"
     ],
-    "requiredActions": [],
     "forbiddenDefinitiveActions": [],
-    "rationale": "GRACE-3 (SAEM 2023): classificar a tontura pelo padrão temporal e pelos gatilhos (síndrome vestibular aguda contínua, episódica espontânea, posicional), examinar nistagmo/HINTS (examinador treinado) e a marcha; TC de crânio não exclui AVC na síndrome vestibular aguda. Fatores de risco vasculares são úteis, mas opcionais.",
-    "expectedPath": "clarify"
+    "rationale": "GRACE-3 (SAEM 2023): classificar a tontura pelo padrão temporal e pelos gatilhos (síndrome vestibular aguda contínua, episódica espontânea, posicional), examinar nistagmo/HINTS (examinador treinado) e a marcha; TC de crânio não exclui AVC na síndrome vestibular aguda. Fatores de risco vasculares são úteis, mas opcionais."
   },
   "sources": [
     {
@@ -42,6 +44,6 @@
   ],
   "provenance": {
     "originalCaseText": "Vertigem aguda sem informação sobre marcha, cefaleia ou déficit neurológico.",
-    "notes": "Auditoria 11/10/2026: texto reescrito como nota de beira de leito (o original anunciava marcha, cefaleia e déficit como ausentes). Acrescentados padrão temporal/gatilhos e nistagmo/HINTS ao mustRequest; fatores de risco vasculares ficaram no rationale (opcionais)."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: texto reescrito como nota de beira de leito (o original anunciava marcha, cefaleia e déficit como ausentes). Acrescentados padrão temporal/gatilhos e nistagmo/HINTS ao mustRequest; fatores de risco vasculares ficaram no rationale (opcionais)."
   }
 }

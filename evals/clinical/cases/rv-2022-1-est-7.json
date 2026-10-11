@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "rv-2022-1-est-7",
   "title": "Vítima de queimaduras em incêndio trazida pelos bombeiros",
   "tags": [
@@ -15,31 +15,56 @@
     "status": "official_exam_key"
   },
   "input": {
-    "caseText": "Atenção secundária (radiologia/USG, laboratório, banco de sangue, laringoscópio, oxímetro, ambu, leitos, centro cirúrgico). Fem, 20a, previamente hígida, trazida pelos bombeiros, vítima de queimaduras em incêndio."
+    "caseText": "Hospital de atenção secundária (radiologia e US, laboratório, banco de sangue, laringoscópio, oxímetro, ambu, leitos de internação, centro cirúrgico). Fem, 20a, previamente hígida, 50 kg, trazida pelos bombeiros, vítima de queimaduras em incêndio. SV: PA 90x60, FC 112, FR 40, T 36,1 °C, SpO2 82%. EF: desidratada ++/4+, corada, acianótica, afebril. Queimadura de vibrissas nasais, hiperemia e edema de orofaringe. Taquipneica, MV diminuído globalmente, sem ruídos adventícios. ACV e abdome sem anormalidades. Mapa das queimaduras (regra dos 9): 37% de superfície corporal queimada."
   },
   "expected": {
     "syndrome": "queimadura extensa em incêndio com comprometimento respiratório após inalação de fumaça",
-    "cannotMiss": [
-      "comprometimento respiratório/de via aérea após inalação de fumaça, com indicação de intubação orotraqueal",
-      "queimadura extensa (37% de superfície corporal queimada pela regra dos 9) com indicação de transferência para centro de referência"
+    "diagnoses": [
+      {
+        "text": "lesão inalatória com comprometimento da via aérea e insuficiência respiratória (queimadura de vibrissas, edema de orofaringe, SpO2 82%)",
+        "tier": "critical"
+      },
+      {
+        "text": "grande queimado (SCQ 37%) com hipovolemia",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
-      "características do acidente: local, tempo de exposição, inalação de fumaça e agente",
-      "sinais vitais: PA, FC, FR e oximetria/SatO2",
-      "exame do aparelho respiratório (inspeção e/ou ausculta pulmonar)",
-      "exame de toda a superfície corporal, com retirada de toda a vestimenta e acessórios, para avaliar a área queimada"
+    "actions": [
+      {
+        "text": "oxigênio a 100% até a via aérea definitiva",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "intubação orotraqueal precoce (via aérea definitiva)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "reposição volêmica EV com cristaloide (Ringer lactato) pela fórmula de Parkland, metade nas primeiras 8 h [ref.: 2–4 mL/kg/%SCQ (MS 2012); PEP: 1.850 mL nas primeiras 8 h e 1.850 mL nas 16 h seguintes, ou seja, 2 mL/kg/%SCQ]",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "cobertura da área queimada com curativo oclusivo (ou tecido limpo)",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "transferência para centro de referência em queimados após estabilização",
+        "tier": "important",
+        "timing": "any"
+      }
     ],
-    "requiredActions": [
-      "oxigenoterapia",
-      "intubação orotraqueal",
-      "estimar a superfície corporal queimada pela regra dos 9 (PEP: 37%)",
-      "reposição volêmica pela fórmula de Parkland conforme o PEP: 1.850 mL nas primeiras 8 h e 1.850 mL nas 16 h seguintes (50 kg, SCQ 37%)",
-      "cobertura da área queimada com curativo oclusivo",
-      "transferência para centro de referência"
-    ],
+    "questions": [],
     "forbiddenDefinitiveActions": [],
-    "rationale": "Gabarito oficial do INEP (Revalida 2022/1, Estação 7): o PEP pontua a história do acidente, sinais vitais e exame respiratório, oxigênio e intubação orotraqueal, exposição completa e cálculo da SCQ (37%), reposição volêmica, curativo oclusivo e transferência para centro de referência.",
-    "expectedPath": "clarify"
+    "outOfScope": [
+      "identificar-se e identificar a paciente (item 1)",
+      "perguntar as características do acidente — local, tempo de exposição, inalação de fumaça, agente (item 2): anamnese; o PEP não publica o roteiro",
+      "solicitar sinais vitais e exame do aparelho respiratório (itens 3 e 5): achados já no caseText",
+      "verbalizar o exame com retirada das vestes e calcular a SCQ pela regra dos 9 (itens 7–8): a SCQ de 37% já está no caseText"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2022/1, Estação 7): o PEP pontua a história do acidente, sinais vitais e exame respiratório, oxigênio e intubação orotraqueal, exposição completa e cálculo da SCQ (37%), reposição volêmica, curativo oclusivo e transferência para centro de referência. v2: IOT e reposição volêmica são as condutas críticas para agora; a cartilha do MS (2012) usa Parkland de 2 a 4 mL/kg/%SCQ, e o item aceita o volume do PEP (2 mL) e o de 4 mL."
   },
   "sources": [
     {
@@ -69,6 +94,13 @@
       "publisher": "INEP",
       "year": 2022,
       "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2022_1_publicacao.pdf"
+    },
+    {
+      "claim": "Parkland = 2 a 4 mL x %SCQ x peso (kg), preferencialmente Ringer lactato, 50% do volume nas primeiras 8 h e 50% nas 16 h seguintes; O2 a 100% em máscara; IOT quando SpO2 < 90% ou edema importante de face e orofaringe; cobrir as lesões com tecido limpo; lesão inalatória e queimadura de 2º grau > 20% da SCQ em adulto são critérios de transferência para unidade de tratamento de queimaduras.",
+      "title": "Cartilha para tratamento de emergência das queimaduras",
+      "publisher": "Ministério da Saúde",
+      "year": 2012,
+      "url": "https://bvsms.saude.gov.br/bvs/publicacoes/cartilha_tratamento_emergencia_queimaduras.pdf"
     }
   ],
   "provenance": {
@@ -77,6 +109,6 @@
     "item": "Estação 7",
     "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2022_1_publicacao.pdf",
     "originalCaseText": "ESTAÇÃO 7 – Área: Cirurgia Geral. INSTRUÇÕES PARA O(A) PARTICIPANTE. CENÁRIO DE ATUAÇÃO. Local de atuação: Atenção Secundária: ambulatorial e hospitalar. A unidade possui a seguinte infraestrutura: • setor de radiologia convencional e ultrassonografia; • laboratório de análises clínicas; • banco de sangue; • laringoscópio; • oxímetro; • unidade ventilatória manual autoinflável (ambu); • leitos de internação; e • centro cirúrgico. DESCRIÇÃO DO CASO • Paciente, previamente hígida, de 20 anos, trazida pelos bombeiros, vítima de queimaduras decorrentes de incêndio. Nos próximos 10 minutos, deverão ser realizadas as seguintes tarefas: • realizar o atendimento da paciente, verbalizando-se os achados e as condutas; • solicitar a realização de exames que julgar necessários; • definir a extensão da superfície corporal queimada; e • adotar a conduta terapêutica necessária. A PACIENTE SIMULADA NÃO DEVE SER TOCADA DURANTE O ATENDIMENTO.",
-    "notes": "A distribuição das queimaduras (impresso 3, regra dos 9) é só figura, não transcrita; a SCQ de 37% vem do PEP (item 8) e foi registrada como dado sob demanda. O PEP pontua reposição de 1.850 mL nas primeiras 8 h e 1.850 mL nas 16 h seguintes, chamando-a de fórmula de Parkland (equivale a 3.700 mL/24 h para 50 kg e 37% de SCQ); reproduzido como está no gabarito. O tipo de líquido é perguntado no impresso 4, mas não é pontuado no PEP. O PEP desta edição não publica a síntese do ator. Dados sob demanda: SV PA 90x60, FC 112, FR 40, T 36,1 °C, SatO2 82%, peso 50 kg; exame: desidratada ++/4+, corada, acianótica, afebril, queimadura de vibrissas nasais, hiperemia e edema de orofaringe, taquipneica, MV diminuído globalmente sem ruídos adventícios, abdome e ACV sem anormalidades; SCQ 37% (regra dos 9, segundo o PEP); impresso 5: chefe de equipe pergunta se a paciente deve ser transferida."
+    "notes": "Gabarito v2 (11/10/2026): caseText com os impressos 1 e 2 e a SCQ de 37% (o impresso 3 é figura; o valor vem do item 8 do PEP). Sem funnel: o PEP 2022/1 não publica o roteiro. IOT e reposição volêmica viraram condutas críticas para agora. A Cartilha para Tratamento de Emergência das Queimaduras (MS, 2012) foi aberta e confirma Parkland de 2 a 4 mL/kg/%SCQ com Ringer lactato e metade em 8 h, O2 a 100%, IOT com SpO2 < 90% ou edema importante de orofaringe e transferência por lesão inalatória ou 2º grau > 20% de SCQ: o item de volume aceita as duas formas. | A distribuição das queimaduras (impresso 3, regra dos 9) é só figura, não transcrita; a SCQ de 37% vem do PEP (item 8) e foi registrada como dado sob demanda. O PEP pontua reposição de 1.850 mL nas primeiras 8 h e 1.850 mL nas 16 h seguintes, chamando-a de fórmula de Parkland (equivale a 3.700 mL/24 h para 50 kg e 37% de SCQ); reproduzido como está no gabarito. O tipo de líquido é perguntado no impresso 4, mas não é pontuado no PEP. O PEP desta edição não publica a síntese do ator. Dados sob demanda: SV PA 90x60, FC 112, FR 40, T 36,1 °C, SatO2 82%, peso 50 kg; exame: desidratada ++/4+, corada, acianótica, afebril, queimadura de vibrissas nasais, hiperemia e edema de orofaringe, taquipneica, MV diminuído globalmente sem ruídos adventícios, abdome e ACV sem anormalidades; SCQ 37% (regra dos 9, segundo o PEP); impresso 5: chefe de equipe pergunta se a paciente deve ser transferida."
   }
 }

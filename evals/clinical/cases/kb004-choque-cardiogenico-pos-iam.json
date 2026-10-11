@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb004-choque-cardiogenico-pos-iam",
   "title": "Choque frio e congesto 3 dias após IAM anterior",
   "tags": [
@@ -23,19 +23,38 @@
   },
   "expected": {
     "syndrome": "choque cardiogênico (perfil frio e congesto)",
-    "cannotMiss": [
-      "isquemia miocárdica em curso ou complicação mecânica do IAM"
+    "diagnoses": [
+      {
+        "text": "isquemia miocárdica em curso ou complicação mecânica do IAM",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [
+    "actions": [
+      {
+        "text": "vasopressor (noradrenalina preferida) para restaurar a PAM",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "inotrópico (ex.: dobutamina) se o baixo débito persistir",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "suporte ventilatório (VNI ou intubação, com cautela pela hipotensão)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "coronariografia/ICP de emergência do vaso culpado (ou transferência imediata para centro com hemodinâmica e cirurgia cardíaca), com heart team para suporte circulatório mecânico",
+        "tier": "critical",
+        "timing": "now"
+      }
+    ],
+    "questions": [
       "traçado do ECG de 12 derivações (isquemia em curso, novo supra)",
       "achados do ecocardiograma à beira-leito (função ventricular, complicação mecânica)",
       "ausculta cardíaca: sopro sistólico novo (CIV ou insuficiência mitral aguda por ruptura de músculo papilar)"
-    ],
-    "requiredActions": [
-      "vasopressor (noradrenalina preferida) para restaurar a PAM",
-      "inotrópico (ex.: dobutamina) se o baixo débito persistir",
-      "suporte ventilatório (VNI ou intubação, com cautela pela hipotensão)",
-      "coronariografia/ICP de emergência do vaso culpado (ou transferência imediata para centro com hemodinâmica e cirurgia cardíaca), com heart team para suporte circulatório mecânico"
     ],
     "forbiddenDefinitiveActions": [
       {
@@ -65,8 +84,7 @@
         ]
       }
     ],
-    "rationale": "KB-004 (05-choque-cardiogenico): extremidades frias + congestão = mais volume não ajuda e pode precipitar edema pulmonar. ACC/AHA 2025 e ESC 2023: revascularização emergencial do vaso culpado no IAM com choque, independentemente do tempo (classe 1); balão intra-aórtico de rotina não recomendado; suporte mecânico em casos selecionados. 3º dia de IAM anterior não reperfundido é a janela clássica de complicação mecânica (letalidade ≥ 50%). Noradrenalina antes de dobutamina é a sequência mais aceita; VNI ou intubação são aceitáveis com cautela.",
-    "expectedPath": "recommend"
+    "rationale": "KB-004 (05-choque-cardiogenico): extremidades frias + congestão = mais volume não ajuda e pode precipitar edema pulmonar. ACC/AHA 2025 e ESC 2023: revascularização emergencial do vaso culpado no IAM com choque, independentemente do tempo (classe 1); balão intra-aórtico de rotina não recomendado; suporte mecânico em casos selecionados. 3º dia de IAM anterior não reperfundido é a janela clássica de complicação mecânica (letalidade ≥ 50%). Noradrenalina antes de dobutamina é a sequência mais aceita; VNI ou intubação são aceitáveis com cautela."
   },
   "sources": [
     {
@@ -99,7 +117,7 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: coronariografia/ICP de emergência (ou transferência) virou obrigatória; pedidos viraram dados (ECG, eco) e entrou o sopro novo de complicação mecânica; checagem de volume sem \"cautela\"/\"não\" soltos; nova proibida: nitrato/vasodilatador ou betabloqueador no choque."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: coronariografia/ICP de emergência (ou transferência) virou obrigatória; pedidos viraram dados (ECG, eco) e entrou o sopro novo de complicação mecânica; checagem de volume sem \"cautela\"/\"não\" soltos; nova proibida: nitrato/vasodilatador ou betabloqueador no choque."
   },
   "probes": {
     "mustFlag": [

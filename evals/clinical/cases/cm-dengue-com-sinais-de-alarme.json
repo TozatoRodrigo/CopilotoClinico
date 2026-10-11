@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "cm-dengue-com-sinais-de-alarme",
   "title": "Dengue no 5º dia com dor abdominal contínua, vômitos e sangramento",
   "tags": [
@@ -23,17 +23,28 @@
   },
   "expected": {
     "syndrome": "dengue com sinais de alarme (grupo C do MS), com possível choque compensado (grupo D) a definir pela perfusão",
-    "cannotMiss": [
-      "evolução para dengue grave / choque (fase crítica)"
+    "diagnoses": [
+      {
+        "text": "evolução para dengue grave / choque (fase crítica)",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [
+    "actions": [
+      {
+        "text": "hidratação venosa imediata com cristaloide conforme a perfusão: 10 mL/kg na 1ª hora (grupo C) ou 20 mL/kg em 20 min se sinais de choque (grupo D), com reavaliação clínica e do hematócrito",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "internação com monitorização (sinais vitais, diurese, hematócrito seriado)",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [
       "sinais de perfusão: enchimento capilar, temperatura das extremidades, pulso e pressão de pulso, diurese",
       "peso",
       "possibilidade de gestação"
-    ],
-    "requiredActions": [
-      "hidratação venosa imediata com cristaloide conforme a perfusão: 10 mL/kg na 1ª hora (grupo C) ou 20 mL/kg em 20 min se sinais de choque (grupo D), com reavaliação clínica e do hematócrito",
-      "internação com monitorização (sinais vitais, diurese, hematócrito seriado)"
     ],
     "forbiddenDefinitiveActions": [
       {
@@ -79,8 +90,7 @@
         ]
       }
     ],
-    "rationale": "MS, Dengue: diagnóstico e manejo clínico (6ª ed., 2024). Dor abdominal contínua, vômitos persistentes, sangramento de mucosa, hepatomegalia e Ht em ascensão são sinais de alarme (grupo C: 10 mL/kg de SF 0,9% na 1ª hora, reavaliação, internação ≥ 48 h). Taquicardia e queda postural também aparecem como choque compensado na Tabela 1; sem dado de perfusão, a expansão de grupo D (20 mL/kg em 20 min) é igualmente defensável — o gabarito aceita as duas. Nunca AINE/AAS; plaqueta profilática não é indicada. Exames do grupo C (albumina, transaminases, RX/USG) e notificação são desejáveis, mas não exigidos no turno 0.",
-    "expectedPath": "recommend"
+    "rationale": "MS, Dengue: diagnóstico e manejo clínico (6ª ed., 2024). Dor abdominal contínua, vômitos persistentes, sangramento de mucosa, hepatomegalia e Ht em ascensão são sinais de alarme (grupo C: 10 mL/kg de SF 0,9% na 1ª hora, reavaliação, internação ≥ 48 h). Taquicardia e queda postural também aparecem como choque compensado na Tabela 1; sem dado de perfusão, a expansão de grupo D (20 mL/kg em 20 min) é igualmente defensável — o gabarito aceita as duas. Nunca AINE/AAS; plaqueta profilática não é indicada. Exames do grupo C (albumina, transaminases, RX/USG) e notificação são desejáveis, mas não exigidos no turno 0."
   },
   "sources": [
     {
@@ -100,7 +110,7 @@
   ],
   "provenance": {
     "originalCaseText": "Fem, 27a, 5º dia de febre (cedeu ontem), mialgia, dor retro-orbitária; hoje dor abdominal intensa e contínua, vômitos persistentes (4x), gengivorragia. PA 108x72 deitada e 92x64 sentada, FC 104. Hepatomegalia dolorosa 3 cm. Bairro com surto de dengue. Ht 46% (basal 38%), plaquetas 62.000.",
-    "notes": "Auditoria 11/10/2026: sem dado de perfusão o caso admite grupo C ou D, e o gabarito passou a aceitar as duas expansões; perfusão, peso e gestação viraram pedidos; \"tonteira ao sentar\" deixa a queda postural explícita; transfusão reservada a sangramento persistente não é mais acusada."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: sem dado de perfusão o caso admite grupo C ou D, e o gabarito passou a aceitar as duas expansões; perfusão, peso e gestação viraram pedidos; \"tonteira ao sentar\" deixa a queda postural explícita; transfusão reservada a sangramento persistente não é mais acusada."
   },
   "probes": {
     "mustFlag": [

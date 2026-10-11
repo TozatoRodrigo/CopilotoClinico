@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb001-cr-002",
   "title": "Cólica renal com febre, anúria e rim único",
   "tags": [
@@ -18,17 +18,39 @@
   },
   "expected": {
     "syndrome": "obstrução urinária infectada em rim único (urgência urológica)",
-    "cannotMiss": [
-      "sepse de foco urinário obstrutivo",
-      "lesão renal aguda pós-renal"
+    "diagnoses": [
+      {
+        "text": "sepse de foco urinário obstrutivo",
+        "tier": "critical"
+      },
+      {
+        "text": "lesão renal aguda pós-renal",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [],
-    "requiredActions": [
-      "desobstrução urológica de urgência (cateter duplo J ou nefrostomia)",
-      "antibiótico IV de amplo espectro",
-      "urocultura e hemoculturas antes do antibiótico, sem atrasá-lo",
-      "função renal e eletrólitos (incluindo potássio)"
+    "actions": [
+      {
+        "text": "desobstrução urológica de urgência (cateter duplo J ou nefrostomia)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "antibiótico IV de amplo espectro",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "urocultura e hemoculturas antes do antibiótico, sem atrasá-lo",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "função renal e eletrólitos (incluindo potássio)",
+        "tier": "important",
+        "timing": "any"
+      }
     ],
+    "questions": [],
     "forbiddenDefinitiveActions": [
       {
         "id": "aine-em-anuria",
@@ -54,8 +76,7 @@
         "patterns": []
       }
     ],
-    "rationale": "EAU 2026 (forte): descompressão urgente (duplo J ou nefrostomia) na sepse com cálculo obstrutivo, antibiótico imediato, adiar o tratamento definitivo do cálculo até resolver a infecção e colher nova urocultura após a descompressão; AINE piora a função renal com TFG reduzida. SSC 2021: antimicrobiano em até 1 h. A proibição do tratamento definitivo fica só com o juiz: a resposta certa costuma citar ureteroscopia/LECO para adiá-las. Desejáveis, mas não exigidos no turno 0: analgesia sem AINE (dipirona/opioide) e imagem para confirmar a obstrução.",
-    "expectedPath": "recommend"
+    "rationale": "EAU 2026 (forte): descompressão urgente (duplo J ou nefrostomia) na sepse com cálculo obstrutivo, antibiótico imediato, adiar o tratamento definitivo do cálculo até resolver a infecção e colher nova urocultura após a descompressão; AINE piora a função renal com TFG reduzida. SSC 2021: antimicrobiano em até 1 h. A proibição do tratamento definitivo fica só com o juiz: a resposta certa costuma citar ureteroscopia/LECO para adiá-las. Desejáveis, mas não exigidos no turno 0: analgesia sem AINE (dipirona/opioide) e imagem para confirmar a obstrução."
   },
   "sources": [
     {
@@ -74,7 +95,7 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: culturas antes do antibiótico obrigatórias; tratamento definitivo do cálculo na infecção proibido (só juiz); checagem de AINE sem negação genérica. Analgesia sem AINE e imagem ficaram no rationale (opcionais)."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: culturas antes do antibiótico obrigatórias; tratamento definitivo do cálculo na infecção proibido (só juiz); checagem de AINE sem negação genérica. Analgesia sem AINE e imagem ficaram no rationale (opcionais)."
   },
   "probes": {
     "mustFlag": [

@@ -14,7 +14,8 @@ import type { ForbiddenAction } from '../case.schema';
  *    termo, mas em "Trombólise: contraindicada" o qualificador alcança. Rótulo
  *    condicional ("Se gestante: hidralazina IV") alcança, mas só pela exceção
  *    do caso. Parêntese explica a palavra anterior: em "não usar antitrombótico
- *    (AAS, heparina)" a negação vale para o que está dentro.
+ *    (AAS, heparina)" a negação vale para o que está dentro — também com
+ *    marcador de exemplo: "não usar antiperistálticos (ex.: loperamida)".
  * 3. Um termo proibido é ignorado quando, NA MESMA ORAÇÃO:
  *    a. uma negação o governa: até 3 palavras de ligação entre ela e o termo
  *       ("não fazer trombólise", "evitar o uso de AINE", "sem indicação de AAS",
@@ -26,7 +27,10 @@ import type { ForbiddenAction } from '../case.schema';
  *    c. um `exceptWhen` do caso começa a até 6 palavras do termo
  *       ("alteplase somente após TC sem sangramento").
  * 4. Termos proibidos do caso (de qualquer item) e "e/ou" são transparentes:
- *    "não usar AAS, heparina ou trombolítico" nega os três.
+ *    "não usar AAS, heparina ou trombolítico" nega os três. Uma lista colada ao
+ *    termo também, mesmo de itens que não são do caso, desde que tenha
+ *    conector ou dois itens: "evitando AINE, AAS, triptanos" nega o triptano;
+ *    "sem melhora, triptano" não.
  *
  * Antes, `exceptWhen` valia para o texto inteiro: qualquer "não" em qualquer
  * ponto anulava a detecção ("Alteplase agora; não aguardar exames" passava).
@@ -48,6 +52,16 @@ function compileWholeWord(source: string): RegExp {
 
 const SENTENCE_BREAK =
   /[;!?\n]|\.(?=\s|$)|\s[-–—]\s|\b(?:mas|porem|contudo|todavia|entretanto|no entanto)\b/g;
+
+/**
+ * "(ex.: loperamida)", "(p. ex. loperamida)", "(por exemplo, loperamida)",
+ * "(como loperamida)" viram "(loperamida)": o marcador de exemplo não pode
+ * virar fim de oração ("p. ex.") nem rótulo (":"). Falso positivo real no
+ * experimento de 11/10/2026: "Não administrar antidiarreicos nem
+ * antiperistálticos (ex.: loperamida)" contou como loperamida recomendada.
+ */
+const EXAMPLE_MARKER =
+  /\(\s*(?:(?:p\.\s*|por\s+)?ex(?:emplo)?\.?|e\.?\s*g\.?|(?:tais\s+)?como|incluindo)\s*[:,]?\s*/g;
 
 const LABEL_COLON = ':';
 const CONDITIONAL_LABEL = /^(?:se|caso|quando|havendo|somente|apenas|so|apos|depois)$/;
@@ -72,6 +86,8 @@ const LINK_WORDS = new Set([
   ...['indicado', 'indicada', 'indicados', 'indicadas', 'recomendado', 'recomendada'],
   ...['necessario', 'necessaria', 'seguro', 'segura', 'prudente', 'possivel'],
   ...['precisa', 'precisam', 'necessita', 'requer', 'exige'],
+  // "se não houver insulina IV": ausência do recurso, não ordem de usá-lo.
+  ...['houver', 'haja', 'tiver', 'tenha', 'dispor', 'existir', 'existe'],
   ...['fazer', 'faca', 'realizar', 'iniciar', 'inicie', 'administrar', 'administre'],
   ...['usar', 'use', 'utilizar', 'dar', 'prescrever', 'prescreva', 'receitar', 'indicar'],
   ...['manter', 'mantenha', 'repetir', 'repita', 'reiniciar', 'reintroduzir', 'retomar'],
@@ -144,14 +160,31 @@ function overlaps(token: Span, spans: Span[]): boolean {
 function isNegatedBefore(before: Token[], terms: Span[], insideParenthesis: boolean): boolean {
   let linkWords = 0;
   let skipExplainedWord = insideParenthesis;
+  // Lista colada ao termo ("evitando AINE, AAS, triptanos"): os itens não
+  // precisam ser termos do caso, mas só contam como lista com conector ou com
+  // dois itens ou mais — "sem melhora, triptano" não é lista.
+  let inList = true;
+  let afterConnector = false;
+  let listItems = 0;
+  let listConnector = false;
   for (const token of [...before].reverse()) {
     if (token.word === LABEL_COLON) return false;
     if (overlaps(token, terms) || LIST_CONNECTORS.has(token.word) || token.word === '') {
       skipExplainedWord ||= token.opensParenthesis;
+      afterConnector = LIST_CONNECTORS.has(token.word);
+      listConnector ||= afterConnector;
       continue;
     }
     if (DEFERRAL.test(token.word)) return false;
-    if (NEGATOR.test(token.word)) return true;
+    if (NEGATOR.test(token.word)) return listItems === 0 || listConnector || listItems >= 2;
+    if (inList && linkWords === 0 && (token.endsWithComma || afterConnector)) {
+      listItems += 1;
+      afterConnector = false;
+      continue;
+    }
+    if (listItems > 0 && !listConnector && listItems < 2) return false;
+    inList = false;
+    afterConnector = false;
     if (skipExplainedWord) {
       skipExplainedWord = false;
       continue;
@@ -225,7 +258,8 @@ export function findForbiddenTerm(
   );
   const exceptions = (action.exceptWhen ?? []).map(compileWholeWord);
 
-  for (const sentence of sentences(normalizeForMatching(text))) {
+  const normalized = normalizeForMatching(text).replace(EXAMPLE_MARKER, '(');
+  for (const sentence of sentences(normalized)) {
     const terms = findTerms(sentence, patterns);
     if (terms.length === 0) continue;
     const tokens = tokenize(sentence);

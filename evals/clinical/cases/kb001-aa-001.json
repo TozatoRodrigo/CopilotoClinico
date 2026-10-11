@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb001-aa-001",
   "title": "Agitação no PS sem dados de risco suicida, hipóxia ou substâncias",
   "tags": [
@@ -16,20 +16,25 @@
   },
   "expected": {
     "syndrome": "agitação psicomotora — excluir causa orgânica",
-    "cannotMiss": [
-      "delirium por causa orgânica (hipóxia, hipoglicemia, infecção, TCE)",
-      "intoxicação ou abstinência"
+    "diagnoses": [
+      {
+        "text": "delirium por causa orgânica (hipóxia, hipoglicemia, infecção, TCE)",
+        "tier": "important"
+      },
+      {
+        "text": "intoxicação ou abstinência",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
+    "actions": [],
+    "questions": [
       "SpO2 e sinais vitais",
       "glicemia capilar",
       "uso de substâncias / abstinência",
       "risco suicida ou de heteroagressão"
     ],
-    "requiredActions": [],
     "forbiddenDefinitiveActions": [],
-    "rationale": "ABP 2019 (parte 1) e Project BETA: agitação indiferenciada é orgânica até prova em contrário — SpO2, sinais vitais e glicemia capilar primeiro, investigar substâncias/abstinência e avaliar risco a si e a terceiros, em paralelo à desescalada. Desejáveis, mas não exigidos: nível de consciência/atenção (rastreio de delirium) e sinais de trauma craniano.",
-    "expectedPath": "clarify"
+    "rationale": "ABP 2019 (parte 1) e Project BETA: agitação indiferenciada é orgânica até prova em contrário — SpO2, sinais vitais e glicemia capilar primeiro, investigar substâncias/abstinência e avaliar risco a si e a terceiros, em paralelo à desescalada. Desejáveis, mas não exigidos: nível de consciência/atenção (rastreio de delirium) e sinais de trauma craniano."
   },
   "sources": [
     {
@@ -49,6 +54,6 @@
   ],
   "provenance": {
     "originalCaseText": "Agitação no PS sem informação sobre risco suicida, hipóxia ou uso de substâncias.",
-    "notes": "Auditoria 11/10/2026: gabarito confirmado; texto reescrito como nota de triagem (o original listava as perguntas). TCE entrou como exemplo de causa orgânica; nível de consciência/atenção e trauma craniano ficaram no rationale (opcionais)."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: gabarito confirmado; texto reescrito como nota de triagem (o original listava as perguntas). TCE entrou como exemplo de causa orgânica; nível de consciência/atenção e trauma craniano ficaram no rationale (opcionais)."
   }
 }

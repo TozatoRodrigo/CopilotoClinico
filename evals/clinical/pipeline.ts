@@ -20,16 +20,27 @@ import {
   ResearchTraceSchema,
   WebEvidenceItemSchema,
   type ErrorRow,
+  type EvalMode,
   type FailureClass,
+  type FunnelTurn,
   type ResearchTrace,
   type ResultRow,
 } from './records';
+import type { PhysicianSimulator } from './simulator';
 import { DEFAULT_RETRY_POLICY, retryWhile, withTimeout, type RetryPolicy } from './scheduling';
 
 /**
  * F0-A — Uma execução de um caso pelo pipeline real, do jeito que o médico o
  * dispara: atendimento novo + `OrchestratorService.analyze` (turno 0).
+ *
+ * Gabarito v2 — no modo afunilamento, o turno 0 recebe só a abertura; o
+ * médico simulado responde às perguntas e o caso segue por
+ * `continueAnalysis`, como quando o médico responde na tela, até não haver
+ * pergunta ou até o terceiro turno.
  */
+
+/** Turnos do afunilamento: a análise inicial e até duas rodadas de respostas. */
+export const MAX_FUNNEL_TURNS = 3;
 
 export const EVAL_PHYSICIAN_EMAIL = 'gabarito-clinico@avaliacao.local';
 
@@ -68,6 +79,8 @@ export interface PipelineServices {
    * execução.
    */
   refusalFallback: boolean;
+  /** Só no modo afunilamento. */
+  simulator?: PhysicianSimulator;
 }
 
 /** Mesma decisão do AnthropicProvider: modelo com suporte e AI_REFUSAL_FALLBACK ≠ off. */
@@ -95,6 +108,8 @@ type AttemptOutcome =
       research: ResearchTrace | null;
       completions: RecordedCompletion[];
       wallClockMs: number;
+      /** Afunilamento: um item por turno; vazio no caso completo. */
+      turns: FunnelTurn[];
     }
   | {
       kind: 'no_answer';
@@ -111,6 +126,8 @@ type AttemptOutcome =
       retrievedChunkIds: string[];
       completions: RecordedCompletion[];
       wallClockMs: number;
+      /** Afunilamento: os turnos respondidos antes do que falhou. */
+      turns: FunnelTurn[];
     }
   | {
       kind: 'infra_error';
@@ -259,39 +276,20 @@ function stringList(value: unknown): string[] {
     : [];
 }
 
-/** `completions` é do chamador: se o teto de tempo estourar, o que já foi gravado não se perde. */
-async function attemptCase(
+/**
+ * Uma chamada ao orquestrador (análise ou resposta às perguntas), com os
+ * desfechos classificados. `completions` é do chamador e acumula as chamadas
+ * de todos os turnos.
+ */
+async function invokePipeline(
   services: PipelineServices,
-  clinicalCase: ClinicalCase,
+  encounterId: string,
+  startedAt: number,
   completions: RecordedCompletion[],
+  call: () => Promise<OrchestratorResult>,
 ): Promise<AttemptOutcome> {
-  const startedAt = Date.now();
-  const context = clinicalCase.input.context ?? DEFAULT_CONTEXT;
-
-  let encounterId: string;
   try {
-    const encounter = await services.encounters.create(services.physicianId, {
-      vertical: 'general',
-      context,
-    });
-    encounterId = encounter.id;
-  } catch (error) {
-    return {
-      kind: 'infra_error',
-      ...classifyInfraError(error),
-      message: String(error),
-      completions,
-    };
-  }
-
-  try {
-    const result = await services.recorder.run(completions, () =>
-      services.orchestrator.analyze(services.physicianId, encounterId, {
-        caseText: clinicalCase.input.caseText,
-        context,
-        redFlags: clinicalCase.input.redFlags,
-      }),
-    );
+    const result = await services.recorder.run(completions, call);
     const interaction = await services.prisma.aiInteraction.findUnique({
       where: { id: result.interactionId },
       select: { retrievedChunkIds: true, params: true },
@@ -304,6 +302,7 @@ async function attemptCase(
       research: researchTraceOf(interaction?.params),
       completions,
       wallClockMs: Date.now() - startedAt,
+      turns: [],
     };
   } catch (error) {
     // Gateway sem a contenção clínica: truncamento e recusa sobem como erro
@@ -323,6 +322,7 @@ async function attemptCase(
         retrievedChunkIds: stored?.retrievedChunkIds ?? [],
         completions,
         wallClockMs: Date.now() - startedAt,
+        turns: [],
       };
     }
 
@@ -356,7 +356,143 @@ async function attemptCase(
       retrievedChunkIds: stored?.retrievedChunkIds ?? [],
       completions,
       wallClockMs: Date.now() - startedAt,
+      turns: [],
     };
+  }
+}
+
+/** `completions` é do chamador: se o teto de tempo estourar, o que já foi gravado não se perde. */
+async function attemptCase(
+  services: PipelineServices,
+  clinicalCase: ClinicalCase,
+  completions: RecordedCompletion[],
+  mode: EvalMode,
+): Promise<AttemptOutcome> {
+  const startedAt = Date.now();
+  const context = clinicalCase.input.context ?? DEFAULT_CONTEXT;
+  const funnel = mode === 'funnel' ? clinicalCase.input.funnel : undefined;
+  if (mode === 'funnel' && (!funnel || !services.simulator)) {
+    return {
+      kind: 'infra_error',
+      failureClass: 'harness',
+      retryable: false,
+      message: funnel
+        ? 'modo afunilamento sem médico simulado configurado'
+        : `caso ${clinicalCase.id} não tem input.funnel`,
+      completions,
+    };
+  }
+
+  let encounterId: string;
+  try {
+    const encounter = await services.encounters.create(services.physicianId, {
+      vertical: 'general',
+      context,
+    });
+    encounterId = encounter.id;
+  } catch (error) {
+    return {
+      kind: 'infra_error',
+      ...classifyInfraError(error),
+      message: String(error),
+      completions,
+    };
+  }
+
+  const first = await invokePipeline(services, encounterId, startedAt, completions, () =>
+    services.orchestrator.analyze(services.physicianId, encounterId, {
+      caseText: funnel ? funnel.opening : clinicalCase.input.caseText,
+      context,
+      redFlags: clinicalCase.input.redFlags,
+    }),
+  );
+  if (!funnel || !services.simulator || first.kind !== 'answered') return first;
+  return continueFunnel(services, funnel, services.simulator, encounterId, startedAt, first);
+}
+
+/**
+ * Exames e avaliações que o Copiloto mandou fazer agora: no plantão, o
+ * resultado volta ao médico sem que o Copiloto precise perguntar por ele.
+ */
+function orderedNow(recommendations: OrchestratorResult['output']['recommendations']): string[] {
+  return recommendations
+    .filter(
+      (recommendation) =>
+        recommendation.category === 'diagnostic' &&
+        (recommendation.layer ? recommendation.layer === 'now' : !recommendation.preliminary),
+    )
+    .map((recommendation) => recommendation.action);
+}
+
+/**
+ * Afunilamento: enquanto o Copiloto pergunta ou manda fazer exames e há
+ * turno, o médico simulado responde (e devolve os resultados) e o caso é
+ * reanalisado. A linha avaliada é o último turno; os anteriores ficam em
+ * `turns`.
+ */
+async function continueFunnel(
+  services: PipelineServices,
+  funnel: NonNullable<ClinicalCase['input']['funnel']>,
+  simulator: PhysicianSimulator,
+  encounterId: string,
+  startedAt: number,
+  first: Extract<AttemptOutcome, { kind: 'answered' }>,
+): Promise<AttemptOutcome> {
+  const turns: FunnelTurn[] = [];
+  let current = first;
+
+  for (;;) {
+    const { output, metadata, interactionId } = current.result;
+    const turnIndex = metadata.turnIndex;
+    const lastTurn = Math.min(MAX_FUNNEL_TURNS, metadata.maxTurns) - 1;
+    const questions = output.clarifyingQuestions.map((question) => ({
+      id: question.id,
+      question: question.question,
+    }));
+    const orders = orderedNow(output.recommendations);
+    const finish = () => {
+      turns.push({ turnIndex, output, exchanges: [], simulator: null });
+      return { ...current, wallClockMs: Date.now() - startedAt, turns };
+    };
+    if ((questions.length === 0 && orders.length === 0) || turnIndex >= lastTurn) return finish();
+
+    let simulated;
+    try {
+      simulated = await simulator.answer(funnel, questions, orders);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return {
+        kind: 'infra_error',
+        ...classifyInfraError(error),
+        message: `médico simulado: ${message}`,
+        completions: current.completions,
+      };
+    }
+    // Sem pergunta e sem resultado novo dos pedidos, não há o que reanalisar.
+    if (simulated.exchanges.length === 0) return finish();
+    turns.push({
+      turnIndex,
+      output,
+      exchanges: simulated.exchanges,
+      simulator: {
+        model: simulated.model,
+        costUsd: simulated.costUsd,
+        latencyMs: simulated.latencyMs,
+      },
+    });
+
+    const next = await invokePipeline(services, encounterId, startedAt, current.completions, () =>
+      services.orchestrator.continueAnalysis(services.physicianId, encounterId, {
+        interactionId,
+        answers: simulated.exchanges.map((exchange) => ({
+          questionId: exchange.questionId,
+          answer: exchange.answer,
+        })),
+      }),
+    );
+    if (next.kind === 'infra_error') return next;
+    if (next.kind === 'no_answer') return { ...next, turns };
+    current = next;
   }
 }
 
@@ -399,6 +535,7 @@ export type CaseRunRow = { kind: 'result'; row: ResultRow } | { kind: 'error'; r
 
 export interface CaseRunOptions {
   caseTimeoutMs: number;
+  mode?: EvalMode;
   retryPolicy?: RetryPolicy;
 }
 
@@ -419,7 +556,7 @@ export async function runCase(
     async () => {
       const completions: RecordedCompletion[] = [];
       const timed = await withTimeout(
-        attemptCase(services, clinicalCase, completions),
+        attemptCase(services, clinicalCase, completions, options.mode ?? 'complete'),
         options.caseTimeoutMs,
       );
       return timed.timedOut
@@ -478,6 +615,8 @@ export async function runCase(
 
   const shared = {
     ...base,
+    mode: options.mode ?? 'complete',
+    turns: outcome.turns,
     harnessAttempts: attempts,
     servedByFallback,
     encounterId: outcome.encounterId,

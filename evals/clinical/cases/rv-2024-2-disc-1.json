@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "rv-2024-2-disc-1",
   "title": "Dispneia súbita com hipoxemia em mulher com LES e SAAF tratada como pneumonia",
   "tags": [
@@ -14,21 +14,27 @@
     "status": "official_exam_key"
   },
   "input": {
-    "caseText": "PS. Fem, 38a, LES + SAAF. Dispneia muito intensa de início súbito há 2h. Há 3 dias atendida na emergência por dispneia, tosse, hemoptise e dor torácica ventilatório-dependente à E; iniciado tto para pneumonia. Pálida, cianose labial. FC 132, FR 34, PA 100x70, Tax 36,8 °C, SatO2 88% em AA -> 93% com O2 100% em máscara não reinalante com reservatório. AP: MV presente e simétrico."
+    "caseText": "PS hospitalar. Fem, 38a, LES e síndrome do anticorpo antifosfolípide. Dispneia muito intensa, de início súbito há 2 h. Acompanhante: há 3 d procurou a emergência por dispneia, tosse, hemoptise e dor torácica ventilatório-dependente à E; iniciado tratamento para pneumonia. EF: pálida, cianose labial. FC 132, FR 34, PA 100x70, Tax 36,8 °C, SatO2 88% AA, que sobe para 93% com O2 a 100% em máscara não reinalante com reservatório. AP: sons pulmonares presentes e simétricos. RX de tórax: opacidade em cunha, com base voltada para a pleura, no hemitórax E."
   },
   "expected": {
     "syndrome": "dispneia aguda com hipoxemia por tromboembolismo pulmonar agudo",
-    "cannotMiss": [
-      "tromboembolismo pulmonar agudo"
+    "diagnoses": [
+      {
+        "text": "tromboembolismo pulmonar agudo",
+        "tier": "critical"
+      },
+      {
+        "text": "radiografia: opacidade em cunha de base pleural no hemitórax E (corcova de Hampton), compatível com infarto pulmonar",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
-      "exame dos membros inferiores em busca de sinais de TVP (edema/empastamento e dor à palpação da panturrilha, sinal de Homans, assimetria de circunferência)",
-      "sinais de sobrecarga de VD ao exame (turgência jugular/PVJ aumentada, impulsão paraesternal de VD, hiperfonese de B2)"
+    "actions": [],
+    "questions": [
+      "exame dos membros inferiores: sinais de TVP (edema/empastamento da panturrilha com dor à palpação, sinal de Homans, assimetria de circunferência > 3 cm)",
+      "sinais de sobrecarga de VD ao exame: turgência jugular/PVJ aumentada, impulsão paraesternal de VD, hiperfonese de B2"
     ],
-    "requiredActions": [],
     "forbiddenDefinitiveActions": [],
-    "rationale": "Gabarito oficial do INEP (Revalida 2024/2, padrão de respostas definitivo da questão 1): o padrão pontua o diagnóstico de TEP e a busca de sinais clínicos que o corroboram no seguimento do exame físico; não pontua conduta.",
-    "expectedPath": "clarify"
+    "rationale": "Gabarito oficial do INEP (Revalida 2024/2, padrão de respostas definitivo da questão 1): o padrão pontua o diagnóstico de TEP e a busca de sinais clínicos que o corroboram no seguimento do exame físico; não pontua conduta. Gabarito v2: o achado da radiografia (item c) entrou no caso completo, descrito como no padrão, e virou item de interpretação."
   },
   "sources": [
     {
@@ -52,6 +58,6 @@
     "item": "Discursiva caso 1",
     "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2024_2_PEP_discursiva_versao_final.pdf",
     "originalCaseText": "Uma mulher de 38 anos é atendida em hospital de pronto-socorro com dispneia acentuada. Ela queixa-se de falta de ar muito intensa, iniciada, subitamente, há 2 horas. A acompanhante relata que, há 3 dias, a paciente procurou a emergência por dispneia, tosse, hemoptise e dor torácica ventilatório-dependente à esquerda. Nessa ocasião, foi iniciado tratamento para pneumonia. Atualmente, a paciente se encontra pálida, com cianose labial. Em exame físico, constatam-se os seguintes resultados: Exame Resultado | Frequência cardíaca 132 batimentos por minuto | Frequência respiratória 34 incursões respiratórias por minuto | Pressão arterial 100 × 70 mmHg | Temperatura axilar 36,8 °C | Saturação de O2 88% em ar ambiente (medida por oxímetro de pulso). O médico solicita administração de oxigênio a 100% por máscara não reinalante, com reservatório. A saturação de O2 eleva-se para 93%. À ausculta pulmonar, nota-se sons pulmonares presentes e simétricos. Como antecedentes patológicos, a paciente apresenta lúpus eritematoso sistêmico e síndrome do anticorpo antifosfolípide. O médico solicita uma radiografia de tórax, cujo resultado é apresentado na imagem seguinte. Acerca desse caso, faça o que se pede nos itens a seguir. a) Qual é o diagnóstico atual mais provável para explicar o agravamento do quadro respiratório? (valor: 4,0 pontos) b) Cite três sinais clínicos que, se presentes no seguimento do exame físico da paciente, corroborariam o diagnóstico mais provável. (valor: 3,0 pontos) c) Descreva a alteração radiológica presente que corrobora o diagnóstico mais provável. (valor: 3,0 pontos)",
-    "notes": "Item c (descrição da radiografia) omitido das expectativas: depende de imagem não transcrita no texto da prova. O padrão de resposta não pontua conduta terapêutica, por isso requiredActions fica vazio."
+    "notes": "Gabarito v2 (11/10/2026): caso completo com todos os dados do enunciado e o achado da radiografia (imagem) descrito de forma neutra a partir do padrão do item c, que agora é item importante de interpretação; os sinais do item b (TVP e sobrecarga de VD) ficaram como perguntas de exame físico. O padrão não pontua conduta, por isso actions fica vazio. | Item c (descrição da radiografia) omitido das expectativas: depende de imagem não transcrita no texto da prova. O padrão de resposta não pontua conduta terapêutica, por isso requiredActions fica vazio."
   }
 }

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "rv-2021-est-2",
   "title": "Mulher de 45 anos na UPA com dor abdominal, vômitos, distensão e parada de eliminação de flatos há 2 dias",
   "tags": [
@@ -15,33 +15,61 @@
     "status": "official_exam_key"
   },
   "input": {
-    "caseText": "UPA (RX convencional e US, laboratório, leitos de internação; sem TC/RM, sem centro cirúrgico, sem banco de sangue). Fem, 45a. Dor abdominal e vômitos com piora progressiva há 2 dias. Distensão abdominal, anorexia e parada de eliminação de flatos."
+    "caseText": "UPA (RX convencional e US, laboratório, leitos de internação; sem TC/RM, sem centro cirúrgico, sem banco de sangue). Fem, 45a. Dor abdominal e vômitos com piora progressiva há 2 d; distensão abdominal, anorexia e parada de eliminação de flatos. EF: REG, desidratada 2+/4+, hipocorada 1+/4+, acianótica, afebril. PA 100x60, FC 100, FR 20, T 37,1 °C. Abdome globoso, distendido, hipertimpânico difusamente, doloroso à palpação superficial e profunda em todo o abdome, sem dor à descompressão brusca, RHA hipoativos. AR e ACV sem alterações. Lab: Hb 11,2, Ht 34,5%, leucócitos 12.110 sem desvio, plaquetas 251.000, PCR 10 mg/L (VR 5); ureia 21, creatinina 1,45, Na 125, K 3,0."
   },
   "expected": {
     "syndrome": "abdome agudo obstrutivo — obstrução intestinal alta por bridas",
-    "cannotMiss": [
-      "obstrução intestinal (alta) por bridas",
-      "neoplasia como causa de obstrução intestinal"
+    "diagnoses": [
+      {
+        "text": "obstrução intestinal alta (abdome agudo obstrutivo)",
+        "tier": "critical"
+      },
+      {
+        "text": "causa provável: bridas/aderências se houver cirurgia abdominal prévia; neoplasia como diferencial",
+        "tier": "important"
+      },
+      {
+        "text": "desidratação com hiponatremia (Na 125), hipocalemia (K 3,0) e creatinina elevada; leucocitose leve e PCR aumentada",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
-      "características da dor (início, localização, intensidade, progressão, fatores de melhora/piora)",
-      "sintomas associados (náuseas, vômitos, ritmo intestinal, febre)",
-      "antecedentes cirúrgicos e alterações/sangramento nas fezes",
-      "sinais vitais e exame do abdome",
-      "hemograma, PCR, eletrólitos e função renal",
-      "rotina radiológica de abdome agudo (RX de abdome)"
+    "actions": [
+      {
+        "text": "hidratação EV com cristaloide e reposição de eletrólitos (K 3,0; Na 125)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "jejum e sonda nasogástrica para descompressão",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "analgesia",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "rotina radiológica de abdome agudo (RX de abdome)",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "tratamento clínico inicial com possibilidade de cirurgia (laparoscópica ou aberta): avaliação do cirurgião, com transferência/regulação para hospital com centro cirúrgico (a UPA não tem)",
+        "tier": "important",
+        "timing": "any"
+      }
     ],
-    "requiredActions": [
-      "jejum",
-      "hidratação endovenosa",
-      "reposição de eletrólitos",
-      "analgesia",
-      "sonda nasogástrica",
-      "tentativa de tratamento clínico com possibilidade de cirurgia (laparoscópica ou aberta, preferência por vídeo)"
+    "questions": [
+      "antecedente de cirurgia abdominal (bridas) e alteração do hábito intestinal ou sangramento nas fezes (neoplasia)"
     ],
     "forbiddenDefinitiveActions": [],
-    "rationale": "Gabarito oficial do INEP (Revalida 2021, Estação 2): o PEP pontua anamnese dirigida (incluindo cirurgias prévias), exames laboratoriais e rotina de abdome agudo com leitura de obstrução intestinal alta por bridas, e conduta com jejum, hidratação, eletrólitos, analgesia e SNG, explicando tratamento clínico vs cirúrgico.",
-    "expectedPath": "clarify"
+    "outOfScope": [
+      "identificar a paciente perguntando idade e profissão (item 1)",
+      "anamnese das características da dor e dos sintomas associados (itens 2 e 3): o PEP 2021 não publica o roteiro da paciente",
+      "explicar à paciente as hipóteses (obstrução alta e baixa, neoplasia), o que são bridas e as vias de acesso cirúrgico (itens 12, 13 e 15)"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2021, Estação 2): o PEP pontua anamnese dirigida (incluindo cirurgias prévias), exames laboratoriais e rotina de abdome agudo com leitura de obstrução intestinal alta por bridas, e conduta com jejum, hidratação, eletrólitos, analgesia e SNG, explicando tratamento clínico vs cirúrgico. No v2, o caso completo traz sinais vitais, exame e laboratório; a hidratação com reposição de eletrólitos virou o item crítico e o antecedente cirúrgico (bridas) virou pergunta."
   },
   "sources": [
     {
@@ -72,6 +100,6 @@
     "item": "Estação 2",
     "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2021_publicacao.pdf",
     "originalCaseText": "ESTAÇÃO 2 – Área: Cirurgia Geral. INSTRUÇÕES PARA O(A) PARTICIPANTE. CENÁRIO DE ATUAÇÃO: Você está de plantão em uma Unidade de Pronto Atendimento (UPA) e vai atender uma paciente de 45 anos de idade, com queixa de dor abdominal e vômitos, com piora progressiva, iniciados há 2 dias. A paciente relata distensão abdominal, anorexia e parada de eliminação de flatus. Nos próximos 10 minutos, deverão ser realizadas as seguintes tarefas: realizar o atendimento da paciente, explicando a ela cada um dos achados; definir o diagnóstico; adotar a conduta terapêutica necessária; demonstrar a realização de procedimentos médicos, caso necessário. OBSERVAÇÃO: A UPA possui a seguinte infraestrutura: setor de radiologia convencional e ultrassonografia; laboratório de análises clínicas; leitos de internação. A UPA não dispõe dos seguintes exames e infraestrutura: tomografia computadorizada; ressonância nuclear magnética; centro cirúrgico; banco de sangue.",
-    "notes": "Dados sob demanda: Impresso 1 — PA 100x60, FC 100, FR 20, T 37,1 °C. Impresso 2 — REG, desidratada 2+/4+, hipocorada +/4+, acianótica, afebril; abdome globoso, distendido, hipertimpânico, doloroso à palpação superficial e profunda em todo o abdome, sem dor à descompressão brusca, RHA hipoativos; AR e ACV normais. Impresso 3 — Hb 11,2, Ht 34,5%, leucócitos 12.110 sem desvio, plaquetas 251.000, PCR 10 mg/L. Impresso 4 — ureia 21, creatinina 1,45, Na 125, K 3,0. Impresso 5 — radiografia de abdome (imagem sem laudo); o PEP espera a leitura de obstrução intestinal alta (item 9). Causa esperada: bridas (PEP item 13; antecedente cirúrgico é perguntado no item 4). A síntese do ator não é publicada no PEP de 2021. O PEP não pontua transferência, apesar de a UPA não ter centro cirúrgico."
+    "notes": "Gabarito v2 (11/10/2026): caso completo com o cenário e os impressos 1 a 4; o RX (impresso 5) é só imagem e o PEP só dá a conclusão, então ficou fora do caso e virou conduta. Sem afunilamento (o PEP 2021 não publica o roteiro), o antecedente cirúrgico que sustenta as bridas virou pergunta. Hidratação com reposição de eletrólitos é o item crítico; a transferência para hospital com centro cirúrgico, que o PEP não pontua, entrou junto do item 14 porque a UPA não tem centro cirúrgico. | Dados sob demanda: Impresso 1 — PA 100x60, FC 100, FR 20, T 37,1 °C. Impresso 2 — REG, desidratada 2+/4+, hipocorada +/4+, acianótica, afebril; abdome globoso, distendido, hipertimpânico, doloroso à palpação superficial e profunda em todo o abdome, sem dor à descompressão brusca, RHA hipoativos; AR e ACV normais. Impresso 3 — Hb 11,2, Ht 34,5%, leucócitos 12.110 sem desvio, plaquetas 251.000, PCR 10 mg/L. Impresso 4 — ureia 21, creatinina 1,45, Na 125, K 3,0. Impresso 5 — radiografia de abdome (imagem sem laudo); o PEP espera a leitura de obstrução intestinal alta (item 9). Causa esperada: bridas (PEP item 13; antecedente cirúrgico é perguntado no item 4). A síntese do ator não é publicada no PEP de 2021. O PEP não pontua transferência, apesar de a UPA não ter centro cirúrgico."
   }
 }
