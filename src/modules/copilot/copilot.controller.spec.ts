@@ -3,6 +3,7 @@ import { CopilotController } from './copilot.controller';
 import { CopilotService } from './copilot.service';
 import { CopilotFeedbackService } from './feedback/copilot-feedback.service';
 import { lastValueFrom, toArray } from 'rxjs';
+import { understandingFixture } from '../../../tests/fixtures/case-understanding';
 
 describe('CopilotController', () => {
   let controller: CopilotController;
@@ -166,6 +167,30 @@ describe('CopilotController', () => {
         encounterId,
         expect.objectContaining({ demoCase: 'sindrome-gripal' }),
       );
+    });
+
+    // F1 — o entendimento do caso (ADR-013) chega ao navegador como evento
+    // SSE próprio, antes dos deltas, no mesmo formato `data: <json>`.
+    it('forwards the understanding event before the deltas', async () => {
+      const understanding = understandingFixture();
+      async function* stagesGen() {
+        yield { type: 'understanding' as const, understanding };
+        yield { type: 'delta' as const, delta: '{' };
+        yield { type: 'done' as const, result: analyzeResult };
+      }
+      serviceMock.stream.mockReturnValue(stagesGen());
+
+      const query = { caseText: body.caseText, ...noRedFlagsQuery };
+      const events = await lastValueFrom(
+        controller.stream(req, encounterId, query).pipe(toArray()),
+      );
+
+      expect(events.map((event) => (event.data as { type: string }).type)).toEqual([
+        'understanding',
+        'delta',
+        'done',
+      ]);
+      expect(events[0]?.data).toEqual({ type: 'understanding', understanding });
     });
 
     it('completes observable after done event', async () => {
