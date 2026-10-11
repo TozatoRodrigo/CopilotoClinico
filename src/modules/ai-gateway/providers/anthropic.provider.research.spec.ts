@@ -195,13 +195,13 @@ describe('AnthropicProvider.research', () => {
       const body = sentBody(fetchMock);
       expect(body.tools).toEqual([
         {
-          type: 'web_search_20260209',
+          type: 'web_search_20250305',
           name: 'web_search',
           max_uses: 5,
           allowed_domains: ALLOWED_DOMAINS,
         },
         {
-          type: 'web_fetch_20260209',
+          type: 'web_fetch_20250910',
           name: 'web_fetch',
           max_uses: 5,
           allowed_domains: ALLOWED_DOMAINS,
@@ -220,7 +220,7 @@ describe('AnthropicProvider.research', () => {
       expect(body).not.toHaveProperty('temperature');
     });
 
-    it('calls the tools directly on a model without dynamic filtering', async () => {
+    it('uses the basic tool versions on every model (they return citations)', async () => {
       const fetchMock = mockAnthropicApi({
         model: 'claude-haiku-5-5',
         content: [{ type: 'text', text: 'Resumo.' }],
@@ -229,7 +229,8 @@ describe('AnthropicProvider.research', () => {
       await createProvider().research(params({ model: 'claude-haiku-5-5' }));
 
       const tools = sentBody(fetchMock).tools as Array<Record<string, unknown>>;
-      expect(tools.map((tool) => tool.allowed_callers)).toEqual([['direct'], ['direct']]);
+      expect(tools.map((tool) => tool.type)).toEqual(['web_search_20250305', 'web_fetch_20250910']);
+      expect(tools.every((tool) => !('allowed_callers' in tool))).toBe(true);
     });
   });
 

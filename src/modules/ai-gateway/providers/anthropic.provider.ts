@@ -218,8 +218,8 @@ export class AnthropicProvider implements AIProvider {
   }
 
   /**
-   * F1 — pesquisa com web search + web fetch (`_20260209`, com filtragem
-   * dinâmica nos modelos que a têm), restrita a `allowedDomains`. Retoma o
+   * F1 — pesquisa com web search + web fetch nas versões básicas
+   * (`web_search_20250305`, `web_fetch_20250910`), restrita a `allowedDomains`. Retoma o
    * turno pausado (`pause_turn`) até MAX_RESEARCH_CONTINUATIONS vezes, soma
    * tokens e buscas de todas as chamadas e devolve o texto e as citações já
    * com a URL de cada página.
@@ -319,33 +319,33 @@ export class AnthropicProvider implements AIProvider {
   ): MessageStreamParams & { max_tokens: number; messages: MessageParam[] } {
     const capabilities = claudeCapabilities(params.model);
     const allowedDomains = [...params.allowedDomains];
-    // Sem filtragem dinâmica, as ferramentas `_20260209` só aceitam chamada direta.
-    const callers = capabilities.dynamicWebFiltering
-      ? {}
-      : { allowed_callers: ['direct' as const] };
+    // Versões básicas de propósito. Medido em 11/10/2026 com a mesma pergunta
+    // (dengue grupo C + janela de trombólise, gov.br): `web_search_20250305`
+    // devolveu 6 citações com URL e trecho literal do manual do MS e da Conitec;
+    // `web_search_20260209` (filtragem dinâmica em execução de código) devolveu
+    // os mesmos 18 resultados e ZERO citações. Sem citação a pesquisa não vira
+    // evidência citável — e a análise cairia em `model_only` sem ninguém notar.
+    // Bônus: as versões básicas não têm a restrição de ZDR da filtragem dinâmica.
     const tools: ToolUnion[] = [
       {
-        type: 'web_search_20260209',
+        type: 'web_search_20250305',
         name: 'web_search',
         max_uses: params.maxSearches,
         allowed_domains: allowedDomains,
-        ...callers,
       },
       {
-        type: 'web_fetch_20260209',
+        type: 'web_fetch_20250910',
         name: 'web_fetch',
         max_uses: params.maxFetches,
         allowed_domains: allowedDomains,
         citations: { enabled: true },
         max_content_tokens: params.maxFetchContentTokens,
-        ...callers,
       },
     ];
 
     this.logger.debug(
       `Anthropic research request: model=${params.model} effort=${params.effort ?? this.defaultEffort} ` +
-        `domains=${allowedDomains.length} maxSearches=${params.maxSearches} ` +
-        `dynamicFiltering=${capabilities.dynamicWebFiltering}`,
+        `domains=${allowedDomains.length} maxSearches=${params.maxSearches}`,
     );
 
     return {

@@ -33,7 +33,9 @@ describe('DeterministicProvider', () => {
   });
 
   it('produces an uncertain turn with a blocker question when the sentinel is present', async () => {
-    const result = await provider.complete(userWith('Quadro atípico [uncertain] sem dados suficientes.'));
+    const result = await provider.complete(
+      userWith('Quadro atípico [uncertain] sem dados suficientes.'),
+    );
     const parsed = JSON.parse(result.content);
 
     expect(parsed.uncertainty).toBe(true);

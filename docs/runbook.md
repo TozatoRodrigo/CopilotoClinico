@@ -684,16 +684,17 @@ Logs para acompanhar depois da troca:
 
 #### Pesquisa web (`COPILOT_KNOWLEDGE_SOURCE=web`)
 
-A pesquisa usa as ferramentas de servidor da Anthropic (`web_search_20260209` e
-`web_fetch_20260209`, com filtragem dinâmica), restritas à lista de domínios.
+A pesquisa usa as ferramentas de servidor da Anthropic nas versões básicas
+(`web_search_20250305` e `web_fetch_20250910`), restritas à lista de domínios.
+A versão `_20260209` (filtragem dinâmica) foi descartada: medida em 11/10/2026,
+devolveu os mesmos resultados e nenhuma citação, e sem citação não há evidência.
 Antes de ligar:
 
 - web search precisa estar habilitado para a organização no Claude Console
   (senão a API responde 400 e toda pesquisa cai no fallback);
 - se a organização restringe domínios no Console, a lista da pesquisa precisa
   ser subconjunto dela (entrada fora dela = 400);
-- as versões `_20260209` não são elegíveis a Zero Data Retention por padrão
-  (a filtragem dinâmica roda em execução de código). A pesquisa só recebe o
+- a pesquisa só recebe o
   entendimento do caso (síndrome, hipóteses, dados que faltam) — nunca o texto
   do caso nem dado do paciente;
 - custo: tokens do modelo de pesquisa + US$ 0,01 por busca, somados ao custo
