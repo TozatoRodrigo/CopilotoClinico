@@ -109,6 +109,13 @@ services:
       # motivo das linhas acima: sem repassar aqui, "=false" no .env.production
       # não chegaria ao container. Default igual ao do código (ligado).
       UNREVIEWED_SOURCES_PRELIMINARY: ${UNREVIEWED_SOURCES_PRELIMINARY:-true}
+      # F1 / ADR-013 — raciocínio em etapas (entender o caso antes de buscar).
+      # legacy = pipeline de sempre; stages liga a Etapa 1 e a busca dirigida.
+      # Mesmo motivo das linhas acima: sem repassar aqui, a troca no
+      # .env.production não chega ao container. Modelo vazio = AI_MODEL.
+      COPILOT_REASONING: ${COPILOT_REASONING:-legacy}
+      AI_UNDERSTANDING_MODEL: ${AI_UNDERSTANDING_MODEL:-}
+      AI_UNDERSTANDING_EFFORT: ${AI_UNDERSTANDING_EFFORT:-low}
       THROTTLER_TTL: ${THROTTLER_TTL:-60000}
       THROTTLER_LIMIT: ${THROTTLER_LIMIT:-600}
       FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY}
