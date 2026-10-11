@@ -287,3 +287,13 @@ condicionadas a checagens rápidas quando a diretriz manda iniciar já; o
 destino do paciente não pode sugerir alta antes do dado decisivo (edema
 periorbitário: "alta com antibiótico oral" no primeiro turno); trombólise não
 aparece nem condicionada em cefaleia em trovoada.
+
+**Decisão v4 (`COPILOT_DECISION_PROMPT=v4`, desligada).** A v3 com as quatro
+regras do "Pendente (v3.1)": suporte ventilatório já indicado pelos sinais
+clínicos é tempo-crítico; checagem de segurança de minutos à beira do leito
+fica na mesma conduta em "now"; "depends" só quando existe dado que decide —
+sem exame que exclua a hipótese que torna a conduta perigosa, a conduta não
+aparece; sem o dado do destino, observação, nunca alta, e transferência para
+recurso que falta no serviço já. Mesmo contrato e validador da v3. As regras
+nasceram dos erros deste gabarito: liberar só depois de medir também em casos
+que não entraram no ajuste.

@@ -17,6 +17,7 @@ import type {
 } from '../understanding/understanding.service';
 import type { ResearchOutcome, WebResearchService } from '../research/web-research.service';
 import { DECISION_V3_SYSTEM_PROMPT } from './decision-prompt-v3';
+import { DECISION_V4_SYSTEM_PROMPT } from './decision-prompt-v4';
 import { COPILOT_OUTPUT_V2_JSON_SCHEMA } from '../schemas/copilot-output.json-schema';
 import { understandingFixture } from '../../../../tests/fixtures/case-understanding';
 
@@ -207,6 +208,17 @@ describe('OrchestratorService — decisão v3', () => {
       origin: 'model_knowledge',
       preliminary: false,
     });
+  });
+
+  it('v4: decides with the v4 system prompt, the same contract and the v3 validator', async () => {
+    env = { ...env, COPILOT_DECISION_PROMPT: 'v4' };
+
+    const result = await service.analyze(physicianId, encounterId, input);
+
+    const { messages, responseSchema } = sentRequest();
+    expect(messages[0]).toEqual({ role: 'system', content: DECISION_V4_SYSTEM_PROMPT });
+    expect(responseSchema).toBe(COPILOT_OUTPUT_V2_JSON_SCHEMA);
+    expect(result.metadata).toMatchObject({ decisionPrompt: 'v4' });
   });
 
   it('falls back to v1 without stages, as v2 does', async () => {
