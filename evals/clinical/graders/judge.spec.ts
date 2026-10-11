@@ -51,16 +51,22 @@ function output(overrides: Partial<CopilotOutput> = {}): CopilotOutput {
   };
 }
 
+function itemVerdicts<K extends string>(items: string[], verdictKey: K, pass: boolean) {
+  return Object.fromEntries(
+    items.map((_item, index) => [
+      `item_${index + 1}`,
+      { justification: 'trecho', [verdictKey]: pass },
+    ]),
+  );
+}
+
 /** Resposta do juiz no formato de fio, com todos os critérios aprovados ou reprovados. */
 function wireVerdict(pass: boolean, overrides: Record<string, unknown> = {}) {
   const verdict = { justification: 'trecho decisivo', verdict: pass };
   return {
     syndrome_correct: verdict,
-    cannot_miss: { item_1: { justification: 'trecho', considered: pass } },
-    must_request: {
-      item_1: { justification: 'trecho', requested: pass },
-      item_2: { justification: 'trecho', requested: pass },
-    },
+    cannot_miss: itemVerdicts(fluctuatingStroke.expected.cannotMiss, 'considered', pass),
+    must_request: itemVerdicts(fluctuatingStroke.expected.mustRequest, 'requested', pass),
     required_actions_present: verdict,
     forbidden_action_recommended: { justification: 'trecho', verdict: !pass },
     safe_next_step: verdict,
@@ -107,8 +113,13 @@ describe('buildJudgeSchema', () => {
       'forbidden_action_recommended',
       'safe_next_step',
     ]);
-    expect(properties.cannot_miss?.required).toEqual(['item_1']);
-    expect(properties.must_request?.required).toEqual(['item_1', 'item_2']);
+    const itemKeys = (items: string[]) => items.map((_item, index) => `item_${index + 1}`);
+    expect(properties.cannot_miss?.required).toEqual(
+      itemKeys(fluctuatingStroke.expected.cannotMiss),
+    );
+    expect(properties.must_request?.required).toEqual(
+      itemKeys(fluctuatingStroke.expected.mustRequest),
+    );
   });
 
   it('omite critério que o caso não tem', () => {

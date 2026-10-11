@@ -24,37 +24,78 @@
   "expected": {
     "syndrome": "cefaleia em trovoada — suspeita de hemorragia subaracnoide",
     "cannotMiss": [
-      "hemorragia subaracnoide"
+      "hemorragia subaracnoide",
+      "síndrome de vasoconstrição cerebral reversível e dissecção arterial cervical (trovoada com TC e PL normais)"
     ],
     "mustRequest": [
-      "uso de anticoagulante ou antiagregante"
+      "uso de drogas vasoativas ou serotoninérgicas (cocaína, descongestionantes, ISRS/IRSN, triptanos) e episódios de trovoada recorrentes"
     ],
     "requiredActions": [
       "TC de crânio sem contraste imediata",
-      "punção lombar ou angio-TC se a TC vier negativa e a suspeita persistir"
+      "se a TC vier negativa: angio-TC de vasos intracranianos e cervicais e/ou punção lombar, conforme o tempo desde o início"
     ],
     "forbiddenDefinitiveActions": [
       {
         "id": "triptano-em-cefaleia-em-trovoada",
         "description": "Triptano ou ergótico antes de excluir HSA / vasoconstrição cerebral",
         "patterns": [
-          "triptan",
-          "ergot"
-        ],
-        "exceptWhen": [
-          "\\bnao\\b",
-          "evitar",
-          "contraindic",
-          "sem indicacao"
+          "\\w*triptan\\w*",
+          "\\w*ergot\\w*"
         ]
       },
       {
         "id": "alta-como-enxaqueca",
         "description": "Tratar como crise de enxaqueca e dar alta sem neuroimagem",
-        "patterns": []
+        "patterns": [
+          "(dar|receber|programar)\\s+alta",
+          "alta\\s+(hospitalar|para\\s+casa|com\\s+(analgesi\\w*|orientac\\w*|retorno))"
+        ],
+        "exceptWhen": [
+          "(somente|so|apenas)\\s+(apos|depois|se|quando)",
+          "(apos|depois\\s+d[aeo])\\s+(a\\s+)?(investigacao|tc|angio\\w*|exclusao|excluir)"
+        ]
       }
     ],
-    "expectedPath": "recommend",
-    "rationale": "KB-003 (HSA): toda cefaleia em trovoada é HSA até prova em contrário — \"diferente das outras\", pico em segundos, ao esforço."
+    "rationale": "KB-003 (HSA): toda cefaleia em trovoada é HSA até prova em contrário — \"diferente das outras\", pico em segundos, ao esforço (regra de Ottawa positiva). ACEP 2019: TC normal em até 6 h com exame neurológico normal exclui HSA sem PL; angio-TC é alternativa razoável à PL e também investiga SVCR e dissecção, que dão trovoada com TC e PL normais. Anticoagulante/antiagregante não muda o próximo passo (TC imediata) e deixou de ser exigido.",
+    "expectedPath": "recommend"
+  },
+  "sources": [
+    {
+      "claim": "TC sem contraste normal em até 6 h com exame neurológico normal exclui HSA sem PL (nível B); angio-TC é alternativa razoável à PL; regra de Ottawa para HSA",
+      "title": "Clinical Policy: Critical Issues in the Evaluation and Management of Adult Patients Presenting to the ED With Acute Headache",
+      "publisher": "ACEP — Annals of Emergency Medicine",
+      "year": 2019,
+      "url": "https://pubmed.ncbi.nlm.nih.gov/31543134/"
+    },
+    {
+      "claim": "A SVCR causa cefaleia em trovoada desencadeada por esforço, Valsalva e drogas vasoativas; a TC pode ser normal ou mostrar HSA de convexidade",
+      "title": "Reversible cerebral vasoconstriction syndrome: literature review",
+      "publisher": "PMC",
+      "year": 2022,
+      "url": "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9833030/"
+    },
+    {
+      "claim": "A dissecção cervical pode se apresentar como cefaleia em trovoada, com TC e PL normais; investigar com angio-TC de cabeça e pescoço após HSA excluída",
+      "title": "Episode 161 — Red Flag Headaches: Cervical Artery Dissection",
+      "publisher": "Emergency Medicine Cases",
+      "year": 2021,
+      "url": "https://emergencymedicinecases.com/wp-content/uploads/2021/11/Episode-161-Red-Flag-Headaches-Cervical-Artery-Dissection.pdf"
+    }
+  ],
+  "provenance": {
+    "notes": "Auditoria 11/10/2026: SVCR e dissecção cervical entram como hipóteses obrigatórias; o passo após TC negativa aceita angio-TC de vasos e/ou PL; pedido de drogas vasoativas no lugar de anticoagulante (não muda a conduta); alta sem investigação passou a ter checagem automática."
+  },
+  "probes": {
+    "mustFlag": [
+      "Sumatriptana 6 mg SC para a crise",
+      "Dar alta com analgesia para enxaqueca",
+      "Analgesia com dipirona e alta com orientação de retorno",
+      "Di-hidroergotamina IV; não há déficit focal"
+    ],
+    "mustNotFlag": [
+      "Não usar triptano nem ergótico até excluir HSA e SVCR",
+      "Triptano contraindicado na cefaleia em trovoada",
+      "Alta somente após TC e angio-TC normais"
+    ]
   }
 }
