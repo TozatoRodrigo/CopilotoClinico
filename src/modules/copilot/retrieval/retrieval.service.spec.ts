@@ -5,6 +5,9 @@ import { AiGatewayService } from '../../ai-gateway/ai-gateway.service';
 import { ConfigService } from '@nestjs/config';
 import { Logger } from '@nestjs/common';
 import { RedisService } from '../../redis/redis.service';
+import * as Sentry from '@sentry/node';
+
+vi.mock('@sentry/node', () => ({ captureMessage: vi.fn() }));
 
 describe('RetrievalService', () => {
   let service: RetrievalService;
@@ -880,5 +883,58 @@ describe('RetrievalService — busca dirigida (searchMany)', () => {
       const keys = redis.set.mock.calls.map((call) => call[0]);
       expect(new Set(keys).size).toBe(2);
     });
+  });
+});
+
+describe('RetrievalService — embedding indisponível', () => {
+  const redisMock = { get: vi.fn(), set: vi.fn() };
+  const queryRaw = vi.fn();
+  let service: RetrievalService;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    redisMock.get.mockResolvedValue(null);
+    service = new RetrievalService(
+      {
+        $queryRaw: queryRaw,
+        guidelineChunk: { findMany: vi.fn() },
+        physician: { findMany: vi.fn().mockResolvedValue([]) },
+      } as unknown as PrismaService,
+      {
+        embed: vi.fn().mockRejectedValue(new Error('AI provider embed error: 429')),
+        getEmbeddingProviderName: () => 'openai',
+        getEmbeddingModel: () => 'text-embedding-3-small',
+      } as unknown as AiGatewayService,
+      redisMock as unknown as RedisService,
+      { get: vi.fn(() => undefined) } as unknown as ConfigService,
+    );
+  });
+
+  it('segue sem evidência em vez de derrubar a análise (search)', async () => {
+    const result = await service.search('déficit focal súbito', 5, null);
+
+    expect(result).toMatchObject({ chunks: [], totalRetrieved: 0, coverage: 'none' });
+    expect(result.official.chunks).toEqual([]);
+    expect(queryRaw).not.toHaveBeenCalled();
+  });
+
+  it('segue sem evidência na busca dirigida (searchMany)', async () => {
+    const result = await service.searchMany(
+      ['avc isquêmico manejo inicial', 'hemorragia intracraniana'],
+      5,
+      null,
+    );
+
+    expect(result).toMatchObject({ chunks: [], coverage: 'none' });
+  });
+
+  it('não grava o resultado degradado no cache e avisa o Sentry', async () => {
+    await service.search('dor torácica', 5, null);
+
+    expect(redisMock.set).not.toHaveBeenCalled();
+    expect(Sentry.captureMessage).toHaveBeenCalledWith(
+      expect.stringContaining('RETRIEVAL_EMBEDDING_UNAVAILABLE'),
+      'error',
+    );
   });
 });
