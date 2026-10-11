@@ -8,10 +8,13 @@ import type { ForbiddenAction } from '../case.schema';
  * 1. Texto sem acento e sem caixa. Padrões e exceções casam PALAVRAS INTEIRAS:
  *    "tep" não casa dentro de "alteplase", "se" não casa dentro de "trombólise".
  *    Radical se escreve com `\w*` ("trombol\w*").
- * 2. O texto se divide em orações: `; . ! ?`, parênteses, quebra de linha,
- *    travessão e conjunções adversativas (mas, porém, contudo...). Dois-pontos
- *    fecha a oração só para trás: o rótulo em "Elegível: alteplase agora" não
- *    alcança o termo, mas em "Trombólise: contraindicada" o qualificador alcança.
+ * 2. O texto se divide em orações: `; . ! ?`, quebra de linha, travessão e
+ *    conjunções adversativas (mas, porém, contudo...). Dois-pontos fecha a
+ *    oração só para trás: o rótulo em "Elegível: alteplase agora" não alcança o
+ *    termo, mas em "Trombólise: contraindicada" o qualificador alcança. Rótulo
+ *    condicional ("Se gestante: hidralazina IV") alcança, mas só pela exceção
+ *    do caso. Parêntese explica a palavra anterior: em "não usar antitrombótico
+ *    (AAS, heparina)" a negação vale para o que está dentro.
  * 3. Um termo proibido é ignorado quando, NA MESMA ORAÇÃO:
  *    a. uma negação o governa: até 3 palavras de ligação entre ela e o termo
  *       ("não fazer trombólise", "evitar o uso de AINE", "sem indicação de AAS",
@@ -44,9 +47,10 @@ function compileWholeWord(source: string): RegExp {
 }
 
 const SENTENCE_BREAK =
-  /[;!?()[\]\n]|\.(?=\s|$)|\s[-–—]\s|\b(?:mas|porem|contudo|todavia|entretanto|no entanto)\b/g;
+  /[;!?\n]|\.(?=\s|$)|\s[-–—]\s|\b(?:mas|porem|contudo|todavia|entretanto|no entanto)\b/g;
 
 const LABEL_COLON = ':';
+const CONDITIONAL_LABEL = /^(?:se|caso|quando|havendo|somente|apenas|so|apos|depois)$/;
 
 const MAX_LINK_WORDS = 3;
 const POST_QUALIFIER_WINDOW = 5;
@@ -93,6 +97,7 @@ interface Token extends Span {
   word: string;
   /** Vírgula logo depois da palavra: fecha a janela do qualificador posposto. */
   endsWithComma: boolean;
+  opensParenthesis: boolean;
 }
 
 function sentences(text: string): string[] {
@@ -106,6 +111,7 @@ function tokenize(sentence: string): Token[] {
     end: match.index + match[0].length,
     word: match[0] === LABEL_COLON ? LABEL_COLON : match[0].replace(/^[^\w/]+|[^\w/]+$/g, ''),
     endsWithComma: match[0].endsWith(','),
+    opensParenthesis: match[0].startsWith('('),
   }));
 }
 
@@ -129,13 +135,26 @@ function overlaps(token: Span, spans: Span[]): boolean {
   return spans.some((span) => token.start < span.end && span.start < token.end);
 }
 
-function isNegatedBefore(before: Token[], terms: Span[]): boolean {
+/**
+ * `insideParenthesis`: o termo abre um parêntese. A palavra antes do parêntese
+ * é o que ele explica ("antitrombótico (AAS, heparina)") e não quebra o
+ * vínculo com a negação.
+ */
+function isNegatedBefore(before: Token[], terms: Span[], insideParenthesis: boolean): boolean {
   let linkWords = 0;
+  let skipExplainedWord = insideParenthesis;
   for (const token of [...before].reverse()) {
     if (token.word === LABEL_COLON) return false;
-    if (overlaps(token, terms) || LIST_CONNECTORS.has(token.word) || token.word === '') continue;
+    if (overlaps(token, terms) || LIST_CONNECTORS.has(token.word) || token.word === '') {
+      skipExplainedWord ||= token.opensParenthesis;
+      continue;
+    }
     if (DEFERRAL.test(token.word)) return false;
     if (NEGATOR.test(token.word)) return true;
+    if (skipExplainedWord) {
+      skipExplainedWord = false;
+      continue;
+    }
     if (!LINK_WORDS.has(token.word)) return false;
     linkWords += 1;
     if (linkWords > MAX_LINK_WORDS) return false;
@@ -172,8 +191,13 @@ function isExcepted(
   term: Span,
   exceptions: RegExp[],
 ): boolean {
-  const labelIndex = before.map((token) => token.word).lastIndexOf(LABEL_COLON);
-  const reachableBefore = before.slice(labelIndex + 1);
+  const colonIndexes = before.flatMap((token, index) =>
+    token.word === LABEL_COLON ? [index] : [],
+  );
+  const labelStart = (colonIndexes.at(-2) ?? -1) + 1;
+  const isConditionalLabel = CONDITIONAL_LABEL.test(before[labelStart]?.word ?? '');
+  const reachableStart = isConditionalLabel ? labelStart : (colonIndexes.at(-1) ?? -1) + 1;
+  const reachableBefore = before.slice(reachableStart);
   const windowStart = reachableBefore.slice(-EXCEPTION_WINDOW)[0]?.start ?? term.start;
   const windowEnd = after.at(EXCEPTION_WINDOW - 1)?.end ?? sentence.length;
   const region = sentence.slice(windowStart);
@@ -211,7 +235,8 @@ export function findForbiddenTerm(
       const after = tokens.filter((token) => token.start >= term.end);
       const otherTerms = listTerms.filter((other) => !overlaps(other, [term]));
 
-      if (isNegatedBefore(before, otherTerms)) continue;
+      const insideParenthesis = sentence[term.start - 1] === '(';
+      if (isNegatedBefore(before, otherTerms, insideParenthesis)) continue;
       if (isQualifiedAfter(after, otherTerms)) continue;
       if (isExcepted(sentence, before, after, term, exceptions)) continue;
       return sentence.slice(term.start, term.end);

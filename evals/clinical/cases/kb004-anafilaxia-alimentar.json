@@ -48,9 +48,7 @@
           "refrat\\w*",
           "titul\\w*",
           "parada",
-          "pcr",
-          "(se|caso|quando)\\s+(nao\\s+houver\\s+resposta|sem\\s+resposta|persistir)",
-          "apos\\s+(2|duas)\\s+doses"
+          "pcr"
         ]
       }
     ],
@@ -88,7 +86,8 @@
       "Adrenalina 1 mg IV em bolus agora",
       "Adrenalina 0,5 mg SC",
       "Epinefrina 1 mg EV; não aguardar acesso para IM",
-      "Bolus de adrenalina 1 mg pela hipotensão"
+      "Bolus de adrenalina 1 mg pela hipotensão",
+      "Se não houver resposta: adrenalina 1 mg IV em bolus"
     ],
     "mustNotFlag": [
       "Adrenalina 0,5 mg IM na coxa, repetir em 5-15 min",

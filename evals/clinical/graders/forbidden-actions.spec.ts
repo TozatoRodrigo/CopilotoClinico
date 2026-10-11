@@ -97,6 +97,14 @@ describe('findForbiddenTerm', () => {
       expect(findForbiddenTerm(text, thrombolysis)).not.toBeNull();
     });
 
+    it('estende a negação ao que o parêntese explica', () => {
+      expect(
+        findForbiddenTerm('Não usar antitrombótico (AAS, heparina) antes da TC', antithrombotic),
+      ).toBeNull();
+      expect(findForbiddenTerm('Trombólise (alteplase) contraindicada', thrombolysis)).toBeNull();
+      expect(findForbiddenTerm('AAS 300 mg (não usar se alergia)', antithrombotic)).toBe('aas');
+    });
+
     it('não leva o qualificador de depois da vírgula para o termo anterior', () => {
       expect(findForbiddenTerm('AAS 300 mg agora, heparina contraindicada', antithrombotic)).toBe(
         'aas',
@@ -112,6 +120,12 @@ describe('findForbiddenTerm', () => {
       expect(
         findForbiddenTerm('Após a TC excluir sangramento, alteplase 0,9 mg/kg', thrombolysis),
       ).toBeNull();
+    });
+
+    it('vale a partir de rótulo condicional, nunca de rótulo afirmativo', () => {
+      expect(findForbiddenTerm('Após a TC sem sangramento: alteplase', thrombolysis)).toBeNull();
+      expect(findForbiddenTerm('Apenas após a TC: alteplase 0,9 mg/kg', thrombolysis)).toBeNull();
+      expect(findForbiddenTerm('Elegível após a TC: alteplase', thrombolysis)).toBe('alteplase');
     });
 
     it('não vale em outra oração nem longe do termo', () => {
