@@ -105,6 +105,10 @@ services:
       OFFICIAL_CHRONIC_PENALTY: ${OFFICIAL_CHRONIC_PENALTY:-0.10}
       OFFICIAL_MAX_CHUNKS_PER_DOCUMENT: ${OFFICIAL_MAX_CHUNKS_PER_DOCUMENT:-2}
       OFFICIAL_RETRIEVAL_TOP_K: ${OFFICIAL_RETRIEVAL_TOP_K:-3}
+      # F0-C / ADR-012 — kill-switch da contenção de fonte não revisada. Mesmo
+      # motivo das linhas acima: sem repassar aqui, "=false" no .env.production
+      # não chegaria ao container. Default igual ao do código (ligado).
+      UNREVIEWED_SOURCES_PRELIMINARY: ${UNREVIEWED_SOURCES_PRELIMINARY:-true}
       THROTTLER_TTL: ${THROTTLER_TTL:-60000}
       THROTTLER_LIMIT: ${THROTTLER_LIMIT:-600}
       FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY}

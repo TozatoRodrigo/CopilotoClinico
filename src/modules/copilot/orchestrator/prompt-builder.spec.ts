@@ -677,4 +677,47 @@ describe('buildPrompt — base oficial do MS (ADR-010)', () => {
 
     expect(result.user).toContain('No relevant guideline evidence was found');
   });
+
+  // F0-C / ADR-012 — só a frase sobre `preliminary` muda; o resto da regra é
+  // a linha de base do bake-off de modelos.
+  describe('F0-C: trecho oficial embasa conduta preliminar', () => {
+    const ADR_010_SENTENCE =
+      'When an excerpt DIRECTLY addresses the acute management of THIS presentation, it counts as guideline evidence for Axis 1 of the DECISION MATRIX: recommendations citing it do not need to be preliminary for that reason alone, and "uncertainty" may be false.';
+
+    it('manda marcar como preliminar toda recomendação que cita trecho oficial', () => {
+      const result = buildPrompt({ ...makeInput(), officialChunks: official });
+
+      expect(result.system).toContain(
+        'it counts as guideline evidence for Axis 1 of the DECISION MATRIX and "uncertainty" may be false, but every recommendation citing it MUST have "preliminary": true',
+      );
+      expect(result.system).not.toContain('do not need to be preliminary');
+    });
+
+    it('com o kill-switch desligado, volta à frase da ADR-010 byte a byte', () => {
+      const enforced = buildPrompt({ ...makeInput(), officialChunks: official });
+      const rolledBack = buildPrompt({
+        ...makeInput(),
+        officialChunks: official,
+        unreviewedSourcesPreliminary: false,
+      });
+
+      expect(rolledBack.system).toContain(ADR_010_SENTENCE);
+      expect(rolledBack.user).toBe(enforced.user);
+      // Única diferença entre os dois prompts é a frase.
+      const enforcedLines = enforced.system.split('\n');
+      const changedLines = rolledBack.system
+        .split('\n')
+        .filter((line, index) => line !== enforcedLines[index]);
+      expect(changedLines).toEqual([
+        `- You MAY cite an excerpt's id in "citationChunkId". ${ADR_010_SENTENCE}`,
+      ]);
+    });
+
+    it('não muda nada no prompt sem trecho oficial', () => {
+      const enforced = buildPrompt(makeInput());
+      const rolledBack = buildPrompt({ ...makeInput(), unreviewedSourcesPreliminary: false });
+
+      expect(enforced).toEqual(rolledBack);
+    });
+  });
 });

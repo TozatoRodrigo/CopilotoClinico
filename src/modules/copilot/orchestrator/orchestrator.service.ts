@@ -3,25 +3,39 @@ import { ConfigService } from '@nestjs/config';
 import { createHash } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../config/prisma.service';
+import { readBooleanFlag } from '../../../config/feature-flag';
 import { AiGatewayService } from '../../ai-gateway/ai-gateway.service';
-import type { StreamCompletionResult } from '../../ai-gateway/providers/provider.interface';
+import { AiRefusalError, AiTruncatedError } from '../../ai-gateway/ai-gateway.errors';
+import type {
+  CompletionUsage,
+  StreamCompletionResult,
+} from '../../ai-gateway/providers/provider.interface';
 import { RetrievalService, type RetrievalResult } from '../retrieval/retrieval.service';
 import type { RetrievalCoverage, RetrievedChunk } from '../retrieval/hybrid-search';
 import { EncountersService } from '../../encounters/encounters.service';
 import { AttachmentsService } from '../../encounters/attachments/attachments.service';
 import { AuditService } from '../../audit/audit.service';
 import { maskPII } from '../guardrails/pii-filter';
-import { scanForInjection } from '../guardrails/injection-defense';
+import { scanForInjection, type InjectionScanResult } from '../guardrails/injection-defense';
 import {
   buildPrompt,
   attachmentCitationId,
   isAttachmentCitation,
+  type BuiltPrompt,
   type EncounterContext,
+  type PromptInput,
 } from './prompt-builder';
-import { validateOutput, type CopilotOutput } from '../guardrails/output-validator';
+import {
+  validateOutput,
+  ambiguousSubtypeChunkIds,
+  type CopilotOutput,
+  type ValidationResult,
+} from '../guardrails/output-validator';
 import type { AnalyzeInput, RespondInput } from '../schemas/copilot.schemas';
 import { calculateInferenceCost } from './model-pricing';
 import { COPILOT_OUTPUT_JSON_SCHEMA } from '../schemas/copilot-output.json-schema';
+import { preliminaryReasonFor, type ContainmentContext } from './preliminary-containment';
+import type { CitationOrigin, PreliminaryReason } from '../../../shared/contracts/clinical';
 
 const DEFAULT_MAX_TURNS = 5;
 const RECOMMENDATION_CATEGORY_ORDER = {
@@ -45,7 +59,10 @@ export interface RecommendationSource {
 }
 
 export type EnrichedRecommendation = CopilotOutput['recommendations'][number] &
-  RecommendationSource;
+  RecommendationSource & {
+    /** F0-C — presente sempre que `preliminary` é true. */
+    preliminaryReason?: PreliminaryReason;
+  };
 
 export type EnrichedCopilotOutput = Omit<CopilotOutput, 'recommendations'> & {
   recommendations: EnrichedRecommendation[];
@@ -99,18 +116,6 @@ function firstClause(text: string): string | null {
 }
 
 /**
- * F4 — Fonte de uma citação. `physician_attachment` é conteúdo que o médico
- * anexou a ESTE atendimento e que ninguém curou: a UI marca visualmente e a
- * recomendação correspondente é sempre preliminar (imposto pelo validador de
- * saída, não só pelo prompt).
- */
-export type CitationOrigin =
-  | 'institutional'
-  | 'public'
-  | 'physician_attachment'
-  | 'official_unreviewed';
-
-/**
  * ADR-010 — trechos que podem ser citados: base curada + base oficial do MS.
  * Usado para validar a saída e resolver a fonte de cada citação.
  */
@@ -141,6 +146,24 @@ function toPromptContext(chunk: RetrievedChunk) {
   };
 }
 
+/**
+ * Evidência que os três caminhos entregam ao prompt, montada do mesmo jeito:
+ * base curada, cobertura (KB-005/KB-006 — 'partial' injeta o aviso de encaixe
+ * fraco), base oficial do MS em bloco próprio (ADR-010) e anexos do médico
+ * (F4).
+ */
+function promptEvidence(
+  retrievalResult: RetrievalResult,
+  attachments: AttachmentForCitation[],
+): Pick<PromptInput, 'retrievedChunks' | 'coverage' | 'officialChunks' | 'physicianAttachments'> {
+  return {
+    retrievedChunks: retrievalResult.chunks.map(toPromptContext),
+    coverage: retrievalResult.coverage,
+    officialChunks: retrievalResult.official.chunks.map(toPromptContext),
+    physicianAttachments: attachments,
+  };
+}
+
 interface AttachmentForCitation {
   citationId: string;
   filename: string;
@@ -154,14 +177,7 @@ interface AttachmentForCitation {
  */
 function resolveCitationSource(
   citationChunkId: string,
-  chunks: Array<{
-    id: string;
-    source: string;
-    sourceVersion: string;
-    text: string;
-    institutionId: string | null;
-    metadata: Record<string, unknown>;
-  }>,
+  chunks: RetrievedChunk[],
   attachments: AttachmentForCitation[],
 ): {
   source: string;
@@ -206,10 +222,22 @@ function resolveCitationSource(
     sourceVersion: chunk?.sourceVersion ?? 'Unknown',
     text: chunk?.text ?? '',
     institutionId: chunk?.institutionId ?? null,
-    origin: chunk?.institutionId ? 'institutional' : 'public',
+    origin: curatedOrigin(chunk),
     sourceUrl: `/v1/guidelines/chunks/${citationChunkId}`,
     chunk,
   };
+}
+
+/**
+ * ADR-012 — "Diretriz pública" e "Protocolo institucional" o médico lê como
+ * conteúdo revisado; só valem para chunk assinado por médico com CRM
+ * verificado. Chunk sem assinatura — ou id que não resolve para chunk nenhum
+ * — vira `curated_unsigned`. `!clinicallySigned` também cobre resultado de
+ * cache gravado antes do campo existir.
+ */
+function curatedOrigin(chunk: RetrievedChunk | undefined): CitationOrigin {
+  if (!chunk?.clinicallySigned) return 'curated_unsigned';
+  return chunk.institutionId ? 'institutional' : 'public';
 }
 
 export interface OrchestratorResult {
@@ -330,6 +358,12 @@ function extractEvidenceFromChunk(chunk: ChunkMetadata | undefined): {
   return result;
 }
 
+/** demoCase/redFlags gravados em `params` — e herdados entre turnos (CC-05). */
+interface InheritableParams {
+  demoCase: string | null;
+  redFlags: Record<string, boolean>;
+}
+
 /**
  * CC-05 — Extrai demoCase/redFlags do `params` persistido de uma interação
  * anterior, para propagação transitiva entre turnos de reanálise.
@@ -340,10 +374,7 @@ function extractEvidenceFromChunk(chunk: ChunkMetadata | undefined): {
  * `params` é `Prisma.JsonValue`, o shape é validado defensivamente aqui em
  * vez de um cast cego.
  */
-function extractInteractionParams(params: Prisma.JsonValue | null): {
-  demoCase: string | null;
-  redFlags: Record<string, boolean>;
-} {
+function extractInteractionParams(params: Prisma.JsonValue | null): InheritableParams {
   if (!params || typeof params !== 'object' || Array.isArray(params)) {
     return { demoCase: null, redFlags: {} };
   }
@@ -365,6 +396,132 @@ function extractInteractionParams(params: Prisma.JsonValue | null): {
   return { demoCase, redFlags };
 }
 
+type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: string };
+
+function promptMessages(prompt: BuiltPrompt): ChatMessage[] {
+  return [
+    { role: 'system', content: prompt.system },
+    { role: 'user', content: prompt.user },
+  ];
+}
+
+/**
+ * Feedback do retry de validação. A mensagem do validador entra literalmente:
+ * os guardrails são escritos para dizer ao modelo O QUE fazer, não só o que
+ * está errado (ver DEAD END em output-validator.ts).
+ */
+function validationFeedback(errors: string[]): string {
+  return (
+    `A resposta anterior falhou na validação pelos seguintes motivos: ${errors.join('; ')}. ` +
+    'Gere novamente o JSON completo, corrigindo exatamente esses problemas e mantendo o restante da ' +
+    'resposta clinicamente equivalente. Responda apenas com o JSON, sem texto adicional.'
+  );
+}
+
+/**
+ * F0-C — custo de UMA chamada ao modelo. Sem `usage` o custo é desconhecido e
+ * conta 0 (provider que não informa uso). O pipeline soma tentativa + retry.
+ */
+function inferenceCostOf(model: string, usage: CompletionUsage | undefined): number {
+  return usage ? calculateInferenceCost({ model, usage }) : 0;
+}
+
+/** Uma resposta do modelo já validada. */
+interface CompletionAttempt {
+  content: string;
+  model: string;
+  /** Custo acumulado das chamadas até aqui (tentativa + retry). */
+  cost: number;
+  validation: ValidationResult;
+  /**
+   * F0-B — recusa por política: o fallback do provider já tentou outro
+   * modelo, então repetir o mesmo pedido só gasta tempo do plantão.
+   */
+  retryable: boolean;
+}
+
+function failedValidation(errors: string[]): ValidationResult {
+  return { valid: false, output: null, errors, unfoundedRecommendations: [] };
+}
+
+/**
+ * F0-B — truncamento e recusa chegam do gateway como erros tipados. Viram uma
+ * tentativa inválida para seguir o caminho de sempre (retry com feedback,
+ * falha gravada com `params` para a trilha CFM) em vez de um 500 sem rastro.
+ * Qualquer outro erro continua subindo: é falha de infraestrutura.
+ */
+function providerFailureAttempt(error: unknown, previousCost: number): CompletionAttempt | null {
+  if (error instanceof AiTruncatedError) {
+    return {
+      content: '',
+      model: error.details.model,
+      cost: previousCost + inferenceCostOf(error.details.model, error.details.usage),
+      validation: failedValidation([
+        'OUTPUT TRUNCATED: the response hit the output token limit before the JSON was complete. ' +
+          'Generate the complete JSON again, more concisely: keep "reasoning" short and every list ' +
+          'within its maximum size.',
+      ]),
+      retryable: true,
+    };
+  }
+  if (error instanceof AiRefusalError) {
+    return {
+      content: '',
+      model: error.details.model,
+      cost: previousCost + inferenceCostOf(error.details.model, error.details.usage),
+      validation: failedValidation([
+        `MODEL REFUSAL: the model declined to analyze this case (category: ${
+          error.details.category ?? 'unspecified'
+        }).`,
+      ]),
+      retryable: false,
+    };
+  }
+  return null;
+}
+
+/** Turno 0 (analyze/analyzeStream) ou reanálise com respostas (continueAnalysis). */
+type AnalysisTurn =
+  | { kind: 'initial' }
+  | {
+      kind: 'follow_up';
+      index: number;
+      parentInteractionId: string;
+      answeredQuestions: AnsweredQuestion[];
+    };
+
+function turnIndexOf(turn: AnalysisTurn): number {
+  return turn.kind === 'initial' ? 0 : turn.index;
+}
+
+/**
+ * F0-C — tudo que os três caminhos do orquestrador têm em comum depois de
+ * montar o prompt. Antes, cada caminho repetia validação, retry, enriquecimento
+ * e persistência — e o streaming, o caminho principal da captura, ficou para
+ * trás: sem retry, sem `params`, sem a contenção de fonte não revisada.
+ */
+interface PreparedAnalysis {
+  physicianId: string;
+  encounterId: string;
+  startedAt: number;
+  maxTurns: number;
+  /** Texto do caso já redigido (PII + patientRef) gravado em `inputRedacted`. */
+  inputRedacted: string;
+  piiDetected: boolean;
+  retrievalResult: RetrievalResult;
+  attachments: AttachmentForCitation[];
+  prompt: BuiltPrompt;
+  params: InheritableParams;
+  unreviewedSourcesPreliminary: boolean;
+  turn: AnalysisTurn;
+  /** Sufixo dos logs: '' (analyze), ' (stream)' ou ' (respond)'. */
+  logLabel: string;
+}
+
+type AnalysisOutcome =
+  | { valid: true; result: OrchestratorResult }
+  | { valid: false; errors: string[] };
+
 @Injectable()
 export class OrchestratorService {
   private readonly logger = new Logger(OrchestratorService.name);
@@ -380,18 +537,11 @@ export class OrchestratorService {
   ) {}
 
   /**
-   * PI-05 — locale de UI salvo na conta do médico, para instruir o modelo a
-   * responder no idioma certo (ver LANGUAGE RULE em prompt-builder.ts).
-   * Falha "aberta" para undefined (comportamento pt-BR de sempre) em vez de
-   * lançar: a ausência do preceptor no idioma certo nunca deve bloquear a
-   * análise clínica.
-   */
-  /**
    * F4 — anexos deste atendimento no formato que o prompt espera. O id de
    * citação é derivado do id do anexo (`anexo:<uuid>`), o que permite ao
    * validador de saída e à UI reconhecerem a fonte como não curada.
    */
-  private async loadAttachments(encounterId: string) {
+  private async loadAttachments(encounterId: string): Promise<AttachmentForCitation[]> {
     const attachments = await this.attachments.forPrompt(encounterId);
     return attachments.map((attachment) => ({
       citationId: attachmentCitationId(attachment.id),
@@ -400,6 +550,13 @@ export class OrchestratorService {
     }));
   }
 
+  /**
+   * PI-05 — locale de UI salvo na conta do médico, para instruir o modelo a
+   * responder no idioma certo (ver LANGUAGE RULE em prompt-builder.ts).
+   * Falha "aberta" para undefined (comportamento pt-BR de sempre) em vez de
+   * lançar: a ausência do preceptor no idioma certo nunca deve bloquear a
+   * análise clínica.
+   */
   private async getPhysicianLocale(physicianId: string): Promise<string | undefined> {
     const physician = await this.prisma.physician.findUnique({
       where: { id: physicianId },
@@ -408,305 +565,34 @@ export class OrchestratorService {
     return physician?.locale;
   }
 
+  private maxTurns(): number {
+    return this.config.get<number>('COPILOT_MAX_TURNS', DEFAULT_MAX_TURNS);
+  }
+
+  /**
+   * ADR-012 — kill-switch da contenção de fonte não revisada. Ligado por
+   * padrão; `UNREVIEWED_SOURCES_PRELIMINARY=false` volta ao comportamento da
+   * ADR-010 (prompt incluso) sem redeploy.
+   */
+  private unreviewedSourcesPreliminary(): boolean {
+    return readBooleanFlag(this.config, 'UNREVIEWED_SOURCES_PRELIMINARY', true);
+  }
+
   async analyze(
     physicianId: string,
     encounterId: string,
     input: AnalyzeInput,
   ): Promise<OrchestratorResult> {
-    const start = Date.now();
-    // UX-03 — a análise inicial é sempre o turno 0; maxTurns vem da mesma
-    // config que já governa o teto de reanálises em continueAnalysis().
-    const maxTurns = this.config.get<number>('COPILOT_MAX_TURNS', DEFAULT_MAX_TURNS);
-
-    // Buscar encounter para obter patientRef — necessário para redação explícita (LGPD-005)
-    const encounter = await this.encounters.findById(physicianId, encounterId);
-
-    // Camada 1: filtro geral de PII (CPF, CNPJ, telefone, email, CEP, datas, RG)
-    const piiResult = maskPII(input.caseText);
-    this.logger.debug(
-      `PII detection: ${piiResult.hasPII ? 'FOUND' : 'NONE'} (${piiResult.detections.length} items)`,
-    );
-
-    // Camada 2: redação explícita do patientRef (LGPD-005 defense-in-depth)
-    // Garante que o identificador do paciente nunca chegue ao provider de IA,
-    // mesmo que o médico o tenha digitado no texto livre do caso clínico.
-    const fullyRedacted = redactPatientRef(piiResult.redacted, encounter.patientRef);
-
-    const injectionResult = scanForInjection(fullyRedacted);
-    if (!injectionResult.safe) {
-      this.logger.warn(`Injection detected: ${injectionResult.reasons.join(', ')}`);
-      await this.auditService.log({
-        actorId: physicianId,
-        action: 'PROMPT_INJECTION_DETECTED',
-        entity: 'Encounter',
-        entityId: encounterId,
-        payload: {
-          reasons: injectionResult.reasons,
-          confidence: injectionResult.confidence,
-          piiDetected: piiResult.hasPII,
-          patientRefRedacted: piiResult.redacted !== fullyRedacted,
-          inputLength: input.caseText.length,
-        },
-      });
-      throw new BadRequestException({
-        message: 'Input contains potentially unsafe content',
-        reasons: injectionResult.reasons,
-      });
-    }
-
-    const retrievalResult = await this.retrieval.search(fullyRedacted, 5, encounter.institutionId);
-    // F4 — referências que o médico anexou a este atendimento. Conteúdo não
-    // curado: entra no prompt em bloco próprio e é citável só como preliminar.
-    const attachments = await this.loadAttachments(encounterId);
-    this.logger.debug(`Retrieved ${retrievalResult.totalRetrieved} chunks`);
-
-    const encounterContext: EncounterContext = {
-      hasCT: input.context.hasCT,
-      isSus: input.context.isSus,
-      hasLab: input.context.hasLab,
-      hasICU: input.context.hasICU,
-    };
-
-    const locale = await this.getPhysicianLocale(physicianId);
-
-    const prompt = buildPrompt({
-      caseText: fullyRedacted,
-      retrievedChunks: retrievalResult.chunks.map((c) => ({
-        chunkId: c.id,
-        text: c.text,
-        source: c.source,
-        sourceVersion: c.sourceVersion,
-        score: c.score,
-      })),
-      context: encounterContext,
-      // S20-CLIN-01 — injeta red flags explícitas do médico no prompt.
-      redFlags: input.redFlags,
-      // PI-05 — instrui o idioma de resposta conforme a conta do médico.
-      locale,
-      // KB-005/KB-006 — cobertura vinda do piso de relevância: 'partial'
-      // injeta o aviso de encaixe fraco no prompt.
-      coverage: retrievalResult.coverage,
-      // ADR-010 — base oficial do MS, em bloco próprio no prompt.
-      officialChunks: retrievalResult.official.chunks.map(toPromptContext),
-      physicianAttachments: attachments,
-    });
-
-    const baseMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
-      { role: 'system', content: prompt.system },
-      { role: 'user', content: prompt.user },
-    ];
-
-    let completion = await this.aiGateway.complete({
-      messages: baseMessages,
-      responseSchema: COPILOT_OUTPUT_JSON_SCHEMA,
-    });
-    let inferenceCost = calculateInferenceCost({
-      model: completion.model,
-      usage: completion.usage,
-    });
-    let validation = validateOutput(
-      completion.content,
-      prompt.retrievedChunkIds,
-      citableChunks(retrievalResult),
-    );
-
-    // Cheaper/weaker models occasionally violate a schema refinement (e.g. a
-    // critical red flag paired with a non-preliminary recommendation) despite
-    // the instruction being in the prompt. One bounded retry with the exact
-    // validation error fed back as feedback resolves most of these without
-    // materially changing cost/latency on the (common) first-try-valid path.
-    if (!validation.valid || !validation.output) {
-      this.logger.warn(
-        `Output validation failed on first attempt, retrying once: ${validation.errors.join(', ')}`,
-      );
-      const retryMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
-        ...baseMessages,
-        { role: 'assistant', content: completion.content },
-        {
-          role: 'user',
-          content:
-            `A resposta anterior falhou na validação pelos seguintes motivos: ${validation.errors.join('; ')}. ` +
-            'Gere novamente o JSON completo, corrigindo exatamente esses problemas e mantendo o restante da ' +
-            'resposta clinicamente equivalente. Responda apenas com o JSON, sem texto adicional.',
-        },
-      ];
-      completion = await this.aiGateway.complete({
-        messages: retryMessages,
-        responseSchema: COPILOT_OUTPUT_JSON_SCHEMA,
-      });
-      inferenceCost += calculateInferenceCost({
-        model: completion.model,
-        usage: completion.usage,
-      });
-      validation = validateOutput(
-        completion.content,
-        prompt.retrievedChunkIds,
-        citableChunks(retrievalResult),
-      );
-    }
-
-    if (!validation.valid || !validation.output) {
-      this.logger.error(`Output validation failed: ${validation.errors.join(', ')}`);
-
-      await this.prisma.aiInteraction.create({
-        data: {
-          encounterId,
-          inputRedacted: fullyRedacted,
-          retrievedChunkIds: prompt.retrievedChunkIds,
-          model: completion.model,
-          // S20-CLIN-01 — persiste red flags marcadas mesmo em falha (rastreabilidade CFM).
-          params: {
-            demoCase: input.demoCase ?? null,
-            redFlags: input.redFlags ?? {},
-            // KB-005/KB-006 — persistido para GET /copilot/latest poder
-            // reconstruir o aviso de cobertura num carregamento fresco de
-            // página, sem depender do sessionStorage da sessão ao vivo.
-            retrievalCoverage: displayedCoverage(retrievalResult),
-            officialChunksRetrieved: retrievalResult.official.chunks.length,
-          },
-          rawOutput: {
-            raw: completion.content,
-            validationErrors: validation.errors,
-          },
-          uncertainty: true,
-          uncertaintyReason: 'Output validation failed',
-          latencyMs: Date.now() - start,
-          cost: inferenceCost,
-        },
-      });
-
+    const prepared = await this.prepareInitialAnalysis(physicianId, encounterId, input, '');
+    const attempt = await this.completeWithRetry(prepared);
+    const outcome = await this.settleAnalysis(prepared, attempt);
+    if (!outcome.valid) {
       throw new BadRequestException({
         message: 'AI output validation failed',
-        errors: validation.errors,
+        errors: outcome.errors,
       });
     }
-
-    const enrichedOutput: EnrichedCopilotOutput = {
-      ...validation.output,
-      recommendations: sortRecommendations(validation.output.recommendations).map((rec) => {
-        const resolved = resolveCitationSource(
-          rec.citationChunkId,
-          citableChunks(retrievalResult),
-          attachments,
-        );
-        return {
-          ...rec,
-          chunkId: rec.citationChunkId,
-          source: resolved.source,
-          sourceVersion: resolved.sourceVersion,
-          sourceText: resolved.text,
-          sourceUrl: resolved.sourceUrl,
-          origin: resolved.origin,
-        };
-      }),
-    };
-
-    const interaction = await this.prisma.aiInteraction.create({
-      data: {
-        encounterId,
-        inputRedacted: fullyRedacted,
-        retrievedChunkIds: prompt.retrievedChunkIds,
-        model: completion.model,
-        // S20-CLIN-01 — persiste as red flags marcadas pelo médico para rastreabilidade
-        // CFM (qualquer auditoria futura pode reconstruir quais bandeiras o médico
-        // confirmou explicitamente, independentemente do texto do caso).
-        params: {
-          demoCase: input.demoCase ?? null,
-          redFlags: input.redFlags ?? {},
-          // KB-005/KB-006 — persistido para GET /copilot/latest poder
-          // reconstruir o aviso de cobertura num carregamento fresco de
-          // página, sem depender do sessionStorage da sessão ao vivo.
-          retrievalCoverage: displayedCoverage(retrievalResult),
-          officialChunksRetrieved: retrievalResult.official.chunks.length,
-        },
-        rawOutput: enrichedOutput as unknown as Prisma.InputJsonValue,
-        citations: {
-          recommendations: enrichedOutput.recommendations,
-        } as unknown as Prisma.InputJsonValue,
-        uncertainty: enrichedOutput.uncertainty,
-        uncertaintyReason: enrichedOutput.uncertaintyReason,
-        latencyMs: Date.now() - start,
-        cost: inferenceCost,
-      },
-    });
-
-    const citations = enrichedOutput.recommendations.map((rec) => {
-      const resolved = resolveCitationSource(
-        rec.citationChunkId,
-        citableChunks(retrievalResult),
-        attachments,
-      );
-      return {
-        chunkId: rec.citationChunkId,
-        source: resolved.source,
-        sourceVersion: resolved.sourceVersion,
-        text: resolved.text,
-        institutionId: resolved.institutionId,
-        origin: resolved.origin,
-        ...extractEvidenceFromChunk(resolved.chunk),
-      };
-    });
-
-    await this.encounters.update(physicianId, encounterId, {
-      status: 'in_review',
-    });
-    await this.encounters.updateChiefComplaint(
-      encounterId,
-      deriveChiefComplaint(enrichedOutput, fullyRedacted),
-    );
-
-    await this.logQuestionsEmittedIfAny(
-      physicianId,
-      encounterId,
-      interaction.id,
-      0,
-      enrichedOutput.clarifyingQuestions,
-    );
-
-    return {
-      interactionId: interaction.id,
-      output: enrichedOutput,
-      citations,
-      metadata: {
-        piiDetected: piiResult.hasPII,
-        injectionDetected: !injectionResult.safe,
-        chunksRetrieved: retrievalResult.totalRetrieved,
-        retrievalCoverage: displayedCoverage(retrievalResult),
-        officialChunksRetrieved: retrievalResult.official.chunks.length,
-        latencyMs: Date.now() - start,
-        cost: inferenceCost,
-        model: completion.model,
-        turnIndex: 0,
-        maxTurns,
-      },
-    };
-  }
-
-  /**
-   * DEC-005: registra COPILOT_QUESTIONS_EMITTED na cadeia de auditoria
-   * sempre que a análise (inicial ou de um turno subsequente) gera novas
-   * perguntas de esclarecimento para o médico.
-   */
-  private async logQuestionsEmittedIfAny(
-    physicianId: string,
-    encounterId: string,
-    interactionId: string,
-    turnIndex: number,
-    questions: EnrichedCopilotOutput['clarifyingQuestions'],
-  ): Promise<void> {
-    if (!questions?.length) return;
-
-    await this.auditService.log({
-      actorId: physicianId,
-      action: 'COPILOT_QUESTIONS_EMITTED',
-      entity: 'Encounter',
-      entityId: encounterId,
-      payload: {
-        interactionId,
-        turnIndex,
-        questionIds: questions.map((q) => q.id),
-      },
-    });
+    return outcome.result;
   }
 
   async *analyzeStream(
@@ -714,216 +600,61 @@ export class OrchestratorService {
     encounterId: string,
     input: AnalyzeInput,
   ): AsyncGenerator<StreamEvent> {
-    const start = Date.now();
-    // UX-03 — mesma lógica de analyze(): stream também é sempre turno 0.
-    const maxTurns = this.config.get<number>('COPILOT_MAX_TURNS', DEFAULT_MAX_TURNS);
-
-    const encounter = await this.encounters.findById(physicianId, encounterId);
-
-    const piiResult = maskPII(input.caseText);
-    const fullyRedacted = redactPatientRef(piiResult.redacted, encounter.patientRef);
-
-    const injectionResult = scanForInjection(fullyRedacted);
-    if (!injectionResult.safe) {
-      this.logger.warn(`Injection detected (stream): ${injectionResult.reasons.join(', ')}`);
-      await this.auditService.log({
-        actorId: physicianId,
-        action: 'PROMPT_INJECTION_DETECTED',
-        entity: 'Encounter',
-        entityId: encounterId,
-        payload: {
-          reasons: injectionResult.reasons,
-          confidence: injectionResult.confidence,
-          piiDetected: piiResult.hasPII,
-          patientRefRedacted: piiResult.redacted !== fullyRedacted,
-          inputLength: input.caseText.length,
-        },
-      });
-      throw new BadRequestException({
-        message: 'Input contains potentially unsafe content',
-        reasons: injectionResult.reasons,
-      });
-    }
-
-    const retrievalResult = await this.retrieval.search(fullyRedacted, 5, encounter.institutionId);
-    // F4 — referências que o médico anexou a este atendimento. Conteúdo não
-    // curado: entra no prompt em bloco próprio e é citável só como preliminar.
-    const attachments = await this.loadAttachments(encounterId);
-
-    const encounterContext: EncounterContext = {
-      hasCT: input.context.hasCT,
-      isSus: input.context.isSus,
-      hasLab: input.context.hasLab,
-      hasICU: input.context.hasICU,
-    };
-
-    const locale = await this.getPhysicianLocale(physicianId);
-
-    const prompt = buildPrompt({
-      caseText: fullyRedacted,
-      retrievedChunks: retrievalResult.chunks.map((c) => ({
-        chunkId: c.id,
-        text: c.text,
-        source: c.source,
-        sourceVersion: c.sourceVersion,
-        score: c.score,
-      })),
-      context: encounterContext,
-      // S20-CLIN-01 — injeta red flags explícitas do médico no prompt (stream).
-      redFlags: input.redFlags,
-      // PI-05 — instrui o idioma de resposta conforme a conta do médico.
-      locale,
-      // KB-005/KB-006 — cobertura vinda do piso de relevância: 'partial'
-      // injeta o aviso de encaixe fraco no prompt.
-      coverage: retrievalResult.coverage,
-      // ADR-010 — base oficial do MS, em bloco próprio no prompt.
-      officialChunks: retrievalResult.official.chunks.map(toPromptContext),
-      physicianAttachments: attachments,
-    });
-
-    // Iteração manual: o valor de retorno do gerador (modelo, usage) é o que
-    // dá o custo real da análise, e `for await` o descartaria.
-    const stream: AsyncIterator<string, StreamCompletionResult> = this.aiGateway.completeStream({
-      messages: [
-        { role: 'system', content: prompt.system },
-        { role: 'user', content: prompt.user },
-      ],
-      responseSchema: COPILOT_OUTPUT_JSON_SCHEMA,
-    });
-    let next = await stream.next();
-    try {
-      while (!next.done) {
-        yield { type: 'delta', delta: next.value };
-        next = await stream.next();
-      }
-    } finally {
-      // Consumidor saiu antes do fim: fecha o stream para o modelo parar de gerar.
-      if (!next.done) await stream.return?.();
-    }
-
-    // Post-stream: validate output before persisting. `content` é o texto
-    // autoritativo — após um fallback de recusa no meio do stream, os deltas
-    // também trazem o trecho parcial do modelo que recusou.
-    const fullContent = next.value.content;
-    const mockCompletion = { content: fullContent, model: next.value.model };
-    const inferenceCost = calculateInferenceCost({
-      model: mockCompletion.model,
-      usage: next.value.usage,
-    });
-
-    const validation = validateOutput(
-      fullContent,
-      prompt.retrievedChunkIds,
-      citableChunks(retrievalResult),
-    );
-
-    if (!validation.valid || !validation.output) {
-      this.logger.error(`Stream output validation failed: ${validation.errors.join(', ')}`);
-      await this.prisma.aiInteraction.create({
-        data: {
-          encounterId,
-          inputRedacted: fullyRedacted,
-          retrievedChunkIds: prompt.retrievedChunkIds,
-          model: mockCompletion.model,
-          rawOutput: { raw: fullContent, validationErrors: validation.errors },
-          uncertainty: true,
-          uncertaintyReason: 'Output validation failed',
-          latencyMs: Date.now() - start,
-          cost: inferenceCost,
-        },
-      });
-      yield { type: 'error', errors: validation.errors };
-      return;
-    }
-
-    const enrichedOutput: EnrichedCopilotOutput = {
-      ...validation.output,
-      recommendations: sortRecommendations(validation.output.recommendations).map((rec) => {
-        const resolved = resolveCitationSource(
-          rec.citationChunkId,
-          citableChunks(retrievalResult),
-          attachments,
-        );
-        return {
-          ...rec,
-          chunkId: rec.citationChunkId,
-          source: resolved.source,
-          sourceVersion: resolved.sourceVersion,
-          sourceText: resolved.text,
-          sourceUrl: resolved.sourceUrl,
-          origin: resolved.origin,
-        };
-      }),
-    };
-
-    const interaction = await this.prisma.aiInteraction.create({
-      data: {
-        encounterId,
-        inputRedacted: fullyRedacted,
-        retrievedChunkIds: prompt.retrievedChunkIds,
-        model: mockCompletion.model,
-        rawOutput: enrichedOutput as unknown as Prisma.InputJsonValue,
-        citations: {
-          recommendations: enrichedOutput.recommendations,
-        } as unknown as Prisma.InputJsonValue,
-        uncertainty: enrichedOutput.uncertainty,
-        uncertaintyReason: enrichedOutput.uncertaintyReason,
-        latencyMs: Date.now() - start,
-        cost: inferenceCost,
-      },
-    });
-
-    const citations = enrichedOutput.recommendations.map((rec) => {
-      const resolved = resolveCitationSource(
-        rec.citationChunkId,
-        citableChunks(retrievalResult),
-        attachments,
-      );
-      return {
-        chunkId: rec.citationChunkId,
-        source: resolved.source,
-        sourceVersion: resolved.sourceVersion,
-        text: resolved.text,
-        institutionId: resolved.institutionId,
-        origin: resolved.origin,
-        ...extractEvidenceFromChunk(resolved.chunk),
-      };
-    });
-
-    await this.encounters.update(physicianId, encounterId, { status: 'in_review' });
-    await this.encounters.updateChiefComplaint(
-      encounterId,
-      deriveChiefComplaint(enrichedOutput, fullyRedacted),
-    );
-
-    await this.logQuestionsEmittedIfAny(
+    const prepared = await this.prepareInitialAnalysis(
       physicianId,
       encounterId,
-      interaction.id,
-      0,
-      enrichedOutput.clarifyingQuestions,
+      input,
+      ' (stream)',
     );
 
-    yield {
-      type: 'done',
-      result: {
-        interactionId: interaction.id,
-        output: enrichedOutput,
-        citations,
-        metadata: {
-          piiDetected: piiResult.hasPII,
-          injectionDetected: false,
-          chunksRetrieved: retrievalResult.totalRetrieved,
-          retrievalCoverage: displayedCoverage(retrievalResult),
-          officialChunksRetrieved: retrievalResult.official.chunks.length,
-          latencyMs: Date.now() - start,
-          cost: inferenceCost,
-          model: mockCompletion.model,
-          turnIndex: 0,
-          maxTurns,
-        },
-      },
-    };
+    // F0-B — iteração manual: o valor de retorno do gerador (texto final,
+    // modelo, usage) é o que dá o custo real da análise, e `for await` o
+    // descartaria.
+    const stream: AsyncIterator<string, StreamCompletionResult> = this.aiGateway.completeStream({
+      messages: promptMessages(prepared.prompt),
+      responseSchema: COPILOT_OUTPUT_JSON_SCHEMA,
+    });
+    let streamed: CompletionAttempt;
+    try {
+      let next = await stream.next();
+      try {
+        while (!next.done) {
+          yield { type: 'delta', delta: next.value };
+          next = await stream.next();
+        }
+      } finally {
+        // Consumidor saiu antes do fim: fecha o stream para o modelo parar de gerar.
+        if (!next.done) await stream.return?.();
+      }
+      // `content` é o texto autoritativo: após um fallback de recusa no meio do
+      // stream, os deltas também trazem o trecho parcial do modelo que recusou.
+      const streamedResult = next.value;
+      streamed = {
+        content: streamedResult.content,
+        model: streamedResult.model,
+        cost: inferenceCostOf(streamedResult.model, streamedResult.usage),
+        validation: this.validate(prepared, streamedResult.content),
+        retryable: true,
+      };
+    } catch (error) {
+      const failed = providerFailureAttempt(error, 0);
+      if (!failed) throw error;
+      streamed = failed;
+    }
+
+    // F0-C — o streaming ganha a mesma segunda chance do POST: se o JSON
+    // transmitido falha na validação, um retry SEM streaming com o feedback do
+    // validador, e o `done` traz o resultado do retry. Os deltas já enviados
+    // nunca foram exibidos como conteúdo clínico (use-copilot-stream.ts só os
+    // usa como sinal de progresso), então não há o que desfazer na tela.
+    const attempt = await this.retryOnceIfInvalid(prepared, streamed);
+    const outcome = await this.settleAnalysis(prepared, attempt);
+
+    if (!outcome.valid) {
+      yield { type: 'error', errors: outcome.errors };
+      return;
+    }
+    yield { type: 'done', result: outcome.result };
   }
 
   async continueAnalysis(
@@ -931,7 +662,7 @@ export class OrchestratorService {
     encounterId: string,
     input: RespondInput,
   ): Promise<OrchestratorResult> {
-    const start = Date.now();
+    const startedAt = Date.now();
 
     const encounter = await this.encounters.findById(physicianId, encounterId);
 
@@ -946,7 +677,7 @@ export class OrchestratorService {
     // turno 3 herda o que o turno 2 herdou do turno 1, e assim por diante).
     const inheritedParams = extractInteractionParams(parentInteraction.params);
 
-    const maxTurns = this.config.get<number>('COPILOT_MAX_TURNS', DEFAULT_MAX_TURNS);
+    const maxTurns = this.maxTurns();
     const newTurnIndex = parentInteraction.turnIndex + 1;
     if (newTurnIndex >= maxTurns) {
       throw new BadRequestException({
@@ -965,28 +696,16 @@ export class OrchestratorService {
       redactPatientRef(r.redacted, encounter.patientRef),
     );
 
-    const injectionResult = scanForInjection(redactedAnswers.join('\n'));
-    if (!injectionResult.safe) {
-      this.logger.warn(`Injection detected (respond): ${injectionResult.reasons.join(', ')}`);
-      await this.auditService.log({
-        actorId: physicianId,
-        action: 'PROMPT_INJECTION_DETECTED',
-        entity: 'Encounter',
-        entityId: encounterId,
-        payload: {
-          reasons: injectionResult.reasons,
-          confidence: injectionResult.confidence,
-          piiDetected,
-          patientRefRedacted:
-            piiResults.map((r) => r.redacted).join('\n') !== redactedAnswers.join('\n'),
-          inputLength: input.answers.reduce((sum, a) => sum + String(a.answer).length, 0),
-        },
-      });
-      throw new BadRequestException({
-        message: 'Input contains potentially unsafe content',
-        reasons: injectionResult.reasons,
-      });
-    }
+    await this.rejectInjection(
+      { physicianId, encounterId, logLabel: ' (respond)' },
+      scanForInjection(redactedAnswers.join('\n')),
+      {
+        piiDetected,
+        patientRefRedacted:
+          piiResults.map((r) => r.redacted).join('\n') !== redactedAnswers.join('\n'),
+        inputLength: input.answers.reduce((sum, a) => sum + String(a.answer).length, 0),
+      },
+    );
 
     // DEC-005: registra a submissão de respostas do médico na cadeia de
     // auditoria. Por minimização de dados (LGPD), o conteúdo das respostas
@@ -1041,16 +760,11 @@ export class OrchestratorService {
     };
 
     const locale = await this.getPhysicianLocale(physicianId);
+    const unreviewedSourcesPreliminary = this.unreviewedSourcesPreliminary();
 
     const prompt = buildPrompt({
       caseText: augmentedCaseText,
-      retrievedChunks: retrievalResult.chunks.map((c) => ({
-        chunkId: c.id,
-        text: c.text,
-        source: c.source,
-        sourceVersion: c.sourceVersion,
-        score: c.score,
-      })),
+      ...promptEvidence(retrievalResult, attachments),
       context: encounterContext,
       // CC-05 — sem isto, as red flags que o médico confirmou no turno 1
       // (S20-CLIN-01) desapareciam do prompt a partir do turno 2.
@@ -1066,111 +780,349 @@ export class OrchestratorService {
       additionalInstructions: forceFinal
         ? 'Este é o último turno permitido para esta análise. NÃO inclua novas clarifyingQuestions (a lista deve ficar vazia). Como não há próximo turno, "recommendations" NÃO PODE ficar vazio: forneça ao menos uma recomendação preliminar com base na melhor evidência e informação disponíveis, mesmo que incompletas. Se ainda houver incerteza sobre a cobertura da diretriz, defina uncertainty=true e descreva uncertaintyReason, mas isso não substitui a obrigação de recomendar algo — declare a incerteza E recomende, não incerteza no lugar de recomendar.'
         : undefined,
-      // KB-005/KB-006 — cobertura vinda do piso de relevância: 'partial'
-      // injeta o aviso de encaixe fraco no prompt.
-      coverage: retrievalResult.coverage,
-      // ADR-010 — base oficial do MS, em bloco próprio no prompt.
-      officialChunks: retrievalResult.official.chunks.map(toPromptContext),
-      physicianAttachments: attachments,
+      unreviewedSourcesPreliminary,
     });
 
-    const baseMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
-      { role: 'system', content: prompt.system },
-      { role: 'user', content: prompt.user },
-    ];
+    const prepared: PreparedAnalysis = {
+      physicianId,
+      encounterId,
+      startedAt,
+      maxTurns,
+      inputRedacted: baseCaseText,
+      piiDetected,
+      retrievalResult,
+      attachments,
+      prompt,
+      // CC-05 — repropaga demoCase/redFlags (inclusive em falha de validação)
+      // para que o PRÓXIMO turno continue herdando a cadeia de red flags.
+      params: inheritedParams,
+      unreviewedSourcesPreliminary,
+      turn: {
+        kind: 'follow_up',
+        index: newTurnIndex,
+        parentInteractionId: parentInteraction.id,
+        answeredQuestions: allAnsweredQuestions,
+      },
+      logLabel: ' (respond)',
+    };
 
-    let completion = await this.aiGateway.complete({
-      messages: baseMessages,
-      responseSchema: COPILOT_OUTPUT_JSON_SCHEMA,
-    });
-    let inferenceCost = calculateInferenceCost({
-      model: completion.model,
-      usage: completion.usage,
-    });
-    let validation = validateOutput(
-      completion.content,
-      prompt.retrievedChunkIds,
-      citableChunks(retrievalResult),
-    );
-
-    // See the `analyze` method for why this bounded retry exists.
-    if (!validation.valid || !validation.output) {
-      this.logger.warn(
-        `Output validation failed on first attempt (respond), retrying once: ${validation.errors.join(', ')}`,
-      );
-      const retryMessages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
-        ...baseMessages,
-        { role: 'assistant', content: completion.content },
-        {
-          role: 'user',
-          content:
-            `A resposta anterior falhou na validação pelos seguintes motivos: ${validation.errors.join('; ')}. ` +
-            'Gere novamente o JSON completo, corrigindo exatamente esses problemas e mantendo o restante da ' +
-            'resposta clinicamente equivalente. Responda apenas com o JSON, sem texto adicional.',
-        },
-      ];
-      completion = await this.aiGateway.complete({
-        messages: retryMessages,
-        responseSchema: COPILOT_OUTPUT_JSON_SCHEMA,
-      });
-      inferenceCost += calculateInferenceCost({
-        model: completion.model,
-        usage: completion.usage,
-      });
-      validation = validateOutput(
-        completion.content,
-        prompt.retrievedChunkIds,
-        citableChunks(retrievalResult),
-      );
-    }
-
-    if (!validation.valid || !validation.output) {
-      this.logger.error(`Output validation failed (respond): ${validation.errors.join(', ')}`);
-
-      await this.prisma.aiInteraction.create({
-        data: {
-          encounterId,
-          inputRedacted: baseCaseText,
-          retrievedChunkIds: prompt.retrievedChunkIds,
-          model: completion.model,
-          // CC-05 — persiste o herdado mesmo em falha de validação, para que
-          // um eventual próximo turno não perca a cadeia de red flags.
-          params: {
-            demoCase: inheritedParams.demoCase,
-            redFlags: inheritedParams.redFlags,
-            retrievalCoverage: displayedCoverage(retrievalResult),
-            officialChunksRetrieved: retrievalResult.official.chunks.length,
-          },
-          rawOutput: {
-            raw: completion.content,
-            validationErrors: validation.errors,
-          },
-          uncertainty: true,
-          uncertaintyReason: 'Output validation failed',
-          latencyMs: Date.now() - start,
-          cost: inferenceCost,
-          turnIndex: newTurnIndex,
-          parentInteractionId: parentInteraction.id,
-          answeredQuestions: allAnsweredQuestions as unknown as Prisma.InputJsonValue,
-        },
-      });
-
+    const attempt = await this.completeWithRetry(prepared);
+    const outcome = await this.settleAnalysis(prepared, attempt);
+    if (!outcome.valid) {
       throw new BadRequestException({
         message: 'AI output validation failed',
-        errors: validation.errors,
+        errors: outcome.errors,
       });
     }
+    return outcome.result;
+  }
 
-    const enrichedOutput: EnrichedCopilotOutput = {
-      ...validation.output,
-      recommendations: sortRecommendations(validation.output.recommendations).map((rec) => {
-        const resolved = resolveCitationSource(
-          rec.citationChunkId,
-          citableChunks(retrievalResult),
-          attachments,
+  /**
+   * Turno 0, comum a analyze() e analyzeStream(): redação de PII, barreira de
+   * injeção, retrieval e prompt.
+   */
+  private async prepareInitialAnalysis(
+    physicianId: string,
+    encounterId: string,
+    input: AnalyzeInput,
+    logLabel: string,
+  ): Promise<PreparedAnalysis> {
+    const startedAt = Date.now();
+    // UX-03 — a análise inicial é sempre o turno 0; maxTurns vem da mesma
+    // config que já governa o teto de reanálises em continueAnalysis().
+    const maxTurns = this.maxTurns();
+
+    // Buscar encounter para obter patientRef — necessário para redação explícita (LGPD-005)
+    const encounter = await this.encounters.findById(physicianId, encounterId);
+
+    // Camada 1: filtro geral de PII (CPF, CNPJ, telefone, email, CEP, datas, RG)
+    const piiResult = maskPII(input.caseText);
+    this.logger.debug(
+      `PII detection${logLabel}: ${piiResult.hasPII ? 'FOUND' : 'NONE'} (${piiResult.detections.length} items)`,
+    );
+
+    // Camada 2: redação explícita do patientRef (LGPD-005 defense-in-depth)
+    // Garante que o identificador do paciente nunca chegue ao provider de IA,
+    // mesmo que o médico o tenha digitado no texto livre do caso clínico.
+    const fullyRedacted = redactPatientRef(piiResult.redacted, encounter.patientRef);
+
+    await this.rejectInjection(
+      { physicianId, encounterId, logLabel },
+      scanForInjection(fullyRedacted),
+      {
+        piiDetected: piiResult.hasPII,
+        patientRefRedacted: piiResult.redacted !== fullyRedacted,
+        inputLength: input.caseText.length,
+      },
+    );
+
+    const retrievalResult = await this.retrieval.search(fullyRedacted, 5, encounter.institutionId);
+    // F4 — referências que o médico anexou a este atendimento. Conteúdo não
+    // curado: entra no prompt em bloco próprio e é citável só como preliminar.
+    const attachments = await this.loadAttachments(encounterId);
+    this.logger.debug(`Retrieved ${retrievalResult.totalRetrieved} chunks${logLabel}`);
+
+    // S20-CLIN-01 — red flags marcadas pelo médico na captura: vão para o
+    // prompt e para `params` (rastreabilidade CFM, herança entre turnos).
+    const params: InheritableParams = {
+      demoCase: input.demoCase ?? null,
+      redFlags: input.redFlags ?? {},
+    };
+    const locale = await this.getPhysicianLocale(physicianId);
+    const unreviewedSourcesPreliminary = this.unreviewedSourcesPreliminary();
+
+    const prompt = buildPrompt({
+      caseText: fullyRedacted,
+      ...promptEvidence(retrievalResult, attachments),
+      context: {
+        hasCT: input.context.hasCT,
+        isSus: input.context.isSus,
+        hasLab: input.context.hasLab,
+        hasICU: input.context.hasICU,
+      },
+      // S20-CLIN-01 — injeta red flags explícitas do médico no prompt.
+      redFlags: params.redFlags,
+      // PI-05 — instrui o idioma de resposta conforme a conta do médico.
+      locale,
+      unreviewedSourcesPreliminary,
+    });
+
+    return {
+      physicianId,
+      encounterId,
+      startedAt,
+      maxTurns,
+      inputRedacted: fullyRedacted,
+      piiDetected: piiResult.hasPII,
+      retrievalResult,
+      attachments,
+      prompt,
+      params,
+      unreviewedSourcesPreliminary,
+      turn: { kind: 'initial' },
+      logLabel,
+    };
+  }
+
+  /**
+   * Barreira de injeção: audita a tentativa sem gravar o texto clínico (só
+   * tamanho e sinais) e recusa a análise antes de qualquer chamada ao modelo.
+   */
+  private async rejectInjection(
+    request: { physicianId: string; encounterId: string; logLabel: string },
+    scan: InjectionScanResult,
+    evidence: { piiDetected: boolean; patientRefRedacted: boolean; inputLength: number },
+  ): Promise<void> {
+    if (scan.safe) return;
+
+    this.logger.warn(`Injection detected${request.logLabel}: ${scan.reasons.join(', ')}`);
+    await this.auditService.log({
+      actorId: request.physicianId,
+      action: 'PROMPT_INJECTION_DETECTED',
+      entity: 'Encounter',
+      entityId: request.encounterId,
+      payload: {
+        reasons: scan.reasons,
+        confidence: scan.confidence,
+        ...evidence,
+      },
+    });
+    throw new BadRequestException({
+      message: 'Input contains potentially unsafe content',
+      reasons: scan.reasons,
+    });
+  }
+
+  private validate(prepared: PreparedAnalysis, content: string): ValidationResult {
+    return validateOutput(
+      content,
+      prepared.prompt.retrievedChunkIds,
+      citableChunks(prepared.retrievalResult),
+    );
+  }
+
+  private async completeWithRetry(prepared: PreparedAnalysis): Promise<CompletionAttempt> {
+    const firstAttempt = await this.requestCompletion(prepared, promptMessages(prepared.prompt), 0);
+    return this.retryOnceIfInvalid(prepared, firstAttempt);
+  }
+
+  private async requestCompletion(
+    prepared: PreparedAnalysis,
+    messages: ChatMessage[],
+    previousCost: number,
+  ): Promise<CompletionAttempt> {
+    try {
+      const completion = await this.aiGateway.complete({
+        messages,
+        responseSchema: COPILOT_OUTPUT_JSON_SCHEMA,
+      });
+      return {
+        content: completion.content,
+        model: completion.model,
+        cost: previousCost + inferenceCostOf(completion.model, completion.usage),
+        validation: this.validate(prepared, completion.content),
+        retryable: true,
+      };
+    } catch (error) {
+      const failed = providerFailureAttempt(error, previousCost);
+      if (!failed) throw error;
+      return failed;
+    }
+  }
+
+  /**
+   * Cheaper/weaker models occasionally violate a schema refinement (e.g. a
+   * critical red flag paired with a non-preliminary recommendation) despite
+   * the instruction being in the prompt. One bounded retry with the exact
+   * validation error fed back as feedback resolves most of these without
+   * materially changing cost/latency on the (common) first-try-valid path.
+   */
+  private async retryOnceIfInvalid(
+    prepared: PreparedAnalysis,
+    attempt: CompletionAttempt,
+  ): Promise<CompletionAttempt> {
+    if (attempt.validation.valid && attempt.validation.output) return attempt;
+    if (!attempt.retryable) return attempt;
+
+    this.logger.warn(
+      `Output validation failed on first attempt${prepared.logLabel}, retrying once: ${attempt.validation.errors.join(', ')}`,
+    );
+    // Resposta vazia (ex.: truncada antes de qualquer texto) não entra como
+    // turno do assistente: a API rejeita mensagem de assistente vazia.
+    const retryMessages: ChatMessage[] = [
+      ...promptMessages(prepared.prompt),
+      ...(attempt.content ? [{ role: 'assistant' as const, content: attempt.content }] : []),
+      { role: 'user', content: validationFeedback(attempt.validation.errors) },
+    ];
+    return this.requestCompletion(prepared, retryMessages, attempt.cost);
+  }
+
+  /**
+   * Persiste a interação (válida ou não) e, se válida, devolve o resultado
+   * enriquecido. Falha de validação também é gravada — com `params` — para a
+   * trilha CFM reconstruir o que o médico informou mesmo quando a análise não
+   * saiu.
+   */
+  private async settleAnalysis(
+    prepared: PreparedAnalysis,
+    attempt: CompletionAttempt,
+  ): Promise<AnalysisOutcome> {
+    const { validation } = attempt;
+    if (!validation.valid || !validation.output) {
+      this.logger.error(
+        `Output validation failed${prepared.logLabel}: ${validation.errors.join(', ')}`,
+      );
+      await this.prisma.aiInteraction.create({
+        data: {
+          ...this.interactionRecord(prepared, attempt),
+          rawOutput: { raw: attempt.content, validationErrors: validation.errors },
+          uncertainty: true,
+          uncertaintyReason: 'Output validation failed',
+        },
+      });
+      return { valid: false, errors: validation.errors };
+    }
+
+    const output = this.enrichOutput(prepared, validation.output);
+    const interaction = await this.prisma.aiInteraction.create({
+      data: {
+        ...this.interactionRecord(prepared, attempt),
+        rawOutput: output as unknown as Prisma.InputJsonValue,
+        citations: {
+          recommendations: output.recommendations,
+        } as unknown as Prisma.InputJsonValue,
+        uncertainty: output.uncertainty,
+        uncertaintyReason: output.uncertaintyReason,
+      },
+    });
+
+    await this.encounters.update(prepared.physicianId, prepared.encounterId, {
+      status: 'in_review',
+    });
+    await this.recordTurn(prepared, interaction.id, output, attempt.cost);
+
+    const { retrievalResult } = prepared;
+    return {
+      valid: true,
+      result: {
+        interactionId: interaction.id,
+        output,
+        citations: this.buildCitations(prepared, output),
+        metadata: {
+          piiDetected: prepared.piiDetected,
+          // Chegar aqui implica scan limpo: entrada com injeção é recusada
+          // antes de qualquer chamada ao modelo (rejectInjection).
+          injectionDetected: false,
+          chunksRetrieved: retrievalResult.totalRetrieved,
+          retrievalCoverage: displayedCoverage(retrievalResult),
+          officialChunksRetrieved: retrievalResult.official.chunks.length,
+          latencyMs: Date.now() - prepared.startedAt,
+          cost: attempt.cost,
+          model: attempt.model,
+          turnIndex: turnIndexOf(prepared.turn),
+          maxTurns: prepared.maxTurns,
+        },
+      },
+    };
+  }
+
+  /** Campos de `ai_interactions` comuns à gravação válida e à de falha. */
+  private interactionRecord(prepared: PreparedAnalysis, attempt: CompletionAttempt) {
+    const { retrievalResult, turn } = prepared;
+    return {
+      encounterId: prepared.encounterId,
+      inputRedacted: prepared.inputRedacted,
+      retrievedChunkIds: prepared.prompt.retrievedChunkIds,
+      model: attempt.model,
+      // S20-CLIN-01 — red flags marcadas pelo médico, para rastreabilidade
+      // CFM (qualquer auditoria futura reconstrói quais bandeiras o médico
+      // confirmou, independentemente do texto do caso); CC-05 — herdadas
+      // pelo próximo turno. KB-005/KB-006 — cobertura persistida para GET
+      // /copilot/latest reconstruir o aviso num carregamento fresco de
+      // página, sem depender do sessionStorage da sessão ao vivo.
+      params: {
+        demoCase: prepared.params.demoCase,
+        redFlags: prepared.params.redFlags,
+        retrievalCoverage: displayedCoverage(retrievalResult),
+        officialChunksRetrieved: retrievalResult.official.chunks.length,
+      },
+      latencyMs: Date.now() - prepared.startedAt,
+      cost: attempt.cost,
+      ...(turn.kind === 'follow_up'
+        ? {
+            turnIndex: turn.index,
+            parentInteractionId: turn.parentInteractionId,
+            answeredQuestions: turn.answeredQuestions as unknown as Prisma.InputJsonValue,
+          }
+        : {}),
+    };
+  }
+
+  /**
+   * Fontes resolvidas + contenção F0-C: decide `preliminary` e
+   * `preliminaryReason` de cada recomendação de forma determinística — ver
+   * preliminary-containment.ts.
+   */
+  private enrichOutput(prepared: PreparedAnalysis, output: CopilotOutput): EnrichedCopilotOutput {
+    const chunks = citableChunks(prepared.retrievalResult);
+    const containment: ContainmentContext = {
+      ambiguousSubtypeChunkIds: ambiguousSubtypeChunkIds(chunks),
+      unreviewedSourcesPreliminary: prepared.unreviewedSourcesPreliminary,
+      hasClarifyingQuestions: output.clarifyingQuestions.length > 0,
+    };
+
+    return {
+      ...output,
+      recommendations: sortRecommendations(output.recommendations).map((rec) => {
+        const resolved = resolveCitationSource(rec.citationChunkId, chunks, prepared.attachments);
+        const preliminaryReason = preliminaryReasonFor(
+          { ...rec, origin: resolved.origin },
+          containment,
         );
         return {
           ...rec,
+          preliminary: preliminaryReason !== null,
+          ...(preliminaryReason ? { preliminaryReason } : {}),
           chunkId: rec.citationChunkId,
           source: resolved.source,
           sourceVersion: resolved.sourceVersion,
@@ -1180,41 +1132,15 @@ export class OrchestratorService {
         };
       }),
     };
+  }
 
-    const interaction = await this.prisma.aiInteraction.create({
-      data: {
-        encounterId,
-        inputRedacted: baseCaseText,
-        retrievedChunkIds: prompt.retrievedChunkIds,
-        model: completion.model,
-        // CC-05 — repropaga demoCase/redFlags para que o PRÓXIMO turno (ex:
-        // turno 3) continue herdando, fechando a cadeia de forma transitiva.
-        params: {
-          demoCase: inheritedParams.demoCase,
-          redFlags: inheritedParams.redFlags,
-          retrievalCoverage: displayedCoverage(retrievalResult),
-          officialChunksRetrieved: retrievalResult.official.chunks.length,
-        },
-        rawOutput: enrichedOutput as unknown as Prisma.InputJsonValue,
-        citations: {
-          recommendations: enrichedOutput.recommendations,
-        } as unknown as Prisma.InputJsonValue,
-        uncertainty: enrichedOutput.uncertainty,
-        uncertaintyReason: enrichedOutput.uncertaintyReason,
-        latencyMs: Date.now() - start,
-        cost: inferenceCost,
-        turnIndex: newTurnIndex,
-        parentInteractionId: parentInteraction.id,
-        answeredQuestions: allAnsweredQuestions as unknown as Prisma.InputJsonValue,
-      },
-    });
-
-    const citations = enrichedOutput.recommendations.map((rec) => {
-      const resolved = resolveCitationSource(
-        rec.citationChunkId,
-        citableChunks(retrievalResult),
-        attachments,
-      );
+  private buildCitations(
+    prepared: PreparedAnalysis,
+    output: EnrichedCopilotOutput,
+  ): OrchestratorResult['citations'] {
+    const chunks = citableChunks(prepared.retrievalResult);
+    return output.recommendations.map((rec) => {
+      const resolved = resolveCitationSource(rec.citationChunkId, chunks, prepared.attachments);
       return {
         chunkId: rec.citationChunkId,
         source: resolved.source,
@@ -1225,49 +1151,75 @@ export class OrchestratorService {
         ...extractEvidenceFromChunk(resolved.chunk),
       };
     });
+  }
 
-    await this.encounters.update(physicianId, encounterId, {
-      status: 'in_review',
-    });
+  /**
+   * Efeitos de fim de turno. Turno 0 fixa o título do caso (RD-E7);
+   * reanálise registra COPILOT_ANALYSIS_REFINED (DEC-005) e nunca mexe no
+   * título. Os dois registram as perguntas emitidas.
+   */
+  private async recordTurn(
+    prepared: PreparedAnalysis,
+    interactionId: string,
+    output: EnrichedCopilotOutput,
+    cost: number,
+  ): Promise<void> {
+    const { physicianId, encounterId, turn } = prepared;
 
-    await this.auditService.log({
-      actorId: physicianId,
-      action: 'COPILOT_ANALYSIS_REFINED',
-      entity: 'Encounter',
-      entityId: encounterId,
-      payload: {
-        interactionId: interaction.id,
-        parentInteractionId: parentInteraction.id,
-        turnIndex: newTurnIndex,
-        uncertainty: enrichedOutput.uncertainty,
-        cost: inferenceCost,
-      },
-    });
+    if (turn.kind === 'initial') {
+      await this.encounters.updateChiefComplaint(
+        encounterId,
+        deriveChiefComplaint(output, prepared.inputRedacted),
+      );
+    } else {
+      await this.auditService.log({
+        actorId: physicianId,
+        action: 'COPILOT_ANALYSIS_REFINED',
+        entity: 'Encounter',
+        entityId: encounterId,
+        payload: {
+          interactionId,
+          parentInteractionId: turn.parentInteractionId,
+          turnIndex: turn.index,
+          uncertainty: output.uncertainty,
+          cost,
+        },
+      });
+    }
 
     await this.logQuestionsEmittedIfAny(
       physicianId,
       encounterId,
-      interaction.id,
-      newTurnIndex,
-      enrichedOutput.clarifyingQuestions,
+      interactionId,
+      turnIndexOf(turn),
+      output.clarifyingQuestions,
     );
+  }
 
-    return {
-      interactionId: interaction.id,
-      output: enrichedOutput,
-      citations,
-      metadata: {
-        piiDetected,
-        injectionDetected: !injectionResult.safe,
-        chunksRetrieved: retrievalResult.totalRetrieved,
-        retrievalCoverage: displayedCoverage(retrievalResult),
-        officialChunksRetrieved: retrievalResult.official.chunks.length,
-        latencyMs: Date.now() - start,
-        cost: inferenceCost,
-        model: completion.model,
-        turnIndex: newTurnIndex,
-        maxTurns,
+  /**
+   * DEC-005: registra COPILOT_QUESTIONS_EMITTED na cadeia de auditoria
+   * sempre que a análise (inicial ou de um turno subsequente) gera novas
+   * perguntas de esclarecimento para o médico.
+   */
+  private async logQuestionsEmittedIfAny(
+    physicianId: string,
+    encounterId: string,
+    interactionId: string,
+    turnIndex: number,
+    questions: EnrichedCopilotOutput['clarifyingQuestions'],
+  ): Promise<void> {
+    if (!questions?.length) return;
+
+    await this.auditService.log({
+      actorId: physicianId,
+      action: 'COPILOT_QUESTIONS_EMITTED',
+      entity: 'Encounter',
+      entityId: encounterId,
+      payload: {
+        interactionId,
+        turnIndex,
+        questionIds: questions.map((q) => q.id),
       },
-    };
+    });
   }
 }

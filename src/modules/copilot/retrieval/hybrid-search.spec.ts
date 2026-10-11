@@ -101,6 +101,7 @@ describe('sortByScore', () => {
         institutionId: null,
         score: 0.5,
         metadata: {},
+        clinicallySigned: true,
       },
       {
         id: 'b',
@@ -112,6 +113,7 @@ describe('sortByScore', () => {
         institutionId: null,
         score: 0.9,
         metadata: {},
+        clinicallySigned: true,
       },
       {
         id: 'c',
@@ -123,6 +125,7 @@ describe('sortByScore', () => {
         institutionId: null,
         score: 0.7,
         metadata: {},
+        clinicallySigned: true,
       },
     ];
 

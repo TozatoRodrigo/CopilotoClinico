@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateOutput, CopilotOutputSchema } from './output-validator';
+import { validateOutput, CopilotOutputSchema, ambiguousSubtypeChunkIds } from './output-validator';
 
 const VALID_CHUNK_IDS = ['chunk-1', 'chunk-2', 'chunk-3'];
 
@@ -1042,6 +1042,159 @@ describe('validateOutput', () => {
       expect(result.valid).toBe(false);
       expect(result.errors.some((e) => e.startsWith('UNRESOLVED SUBTYPE AMBIGUITY'))).toBe(true);
     });
+
+    // F0-C — antes, QUALQUER diferencial satisfazia a regra: um diferencial
+    // sobre outra coisa liberava a citação silenciosa de um subtipo.
+    describe('F0-C: o subtipo alternativo precisa ser nomeado', () => {
+      const hemorrhagicRecommendation = {
+        action: 'Reverter anticoagulação e controlar PA <150mmHg',
+        rationale: 'Conduta de hemorragia intracraniana',
+        citationChunkId: 'chunk-avc-hemorragico',
+        confidence: 0.8,
+      };
+
+      it('rejects a differential that does not name the other subtype', () => {
+        const result = validateOutput(
+          makeValidOutput({
+            reasoning: 'Paciente com déficit focal agudo, TC com ASPECTS 10.',
+            recommendations: [hemorrhagicRecommendation],
+            differentials: [
+              {
+                hypothesis: 'Hipoglicemia',
+                whyConsider: 'Mimetiza déficit focal.',
+                whatDistinguishes: 'Glicemia capilar.',
+                cannotMiss: true,
+                timeToHarm: 'minutos',
+              },
+            ],
+          }),
+          AVC_CHUNK_IDS,
+          AVC_CHUNKS,
+        );
+
+        expect(result.valid).toBe(false);
+        const error = result.errors.find((e) => e.startsWith('UNRESOLVED SUBTYPE AMBIGUITY'));
+        expect(error).toContain('"isquemico"');
+      });
+
+      it('accepts the other subtype named in whatDistinguishes, ignoring accents and case', () => {
+        const result = validateOutput(
+          makeValidOutput({
+            reasoning: 'Paciente com déficit focal agudo.',
+            recommendations: [hemorrhagicRecommendation],
+            differentials: [
+              {
+                hypothesis: 'Hipoglicemia',
+                whyConsider: 'Mimetiza déficit focal.',
+                whatDistinguishes: 'TC sem sangue aponta para AVC ISQUÊMICO.',
+                cannotMiss: false,
+              },
+            ],
+          }),
+          AVC_CHUNK_IDS,
+          AVC_CHUNKS,
+        );
+
+        expect(result.valid).toBe(true);
+      });
+
+      it('matches a snake_case subtype written with spaces', () => {
+        const chunks = [
+          { id: 'chunk-anafilaxia', metadata: { cenario: 'anafilaxia_urticaria', subtipo: 'anafilaxia' } },
+          {
+            id: 'chunk-alergia-simples',
+            metadata: { cenario: 'anafilaxia_urticaria', subtipo: 'alergia_simples' },
+          },
+        ];
+
+        const result = validateOutput(
+          makeValidOutput({
+            reasoning: 'Sem envolvimento respiratório ou hemodinâmico: não é alergia simples.',
+            recommendations: [
+              {
+                action: 'Adrenalina IM',
+                rationale: 'Anafilaxia',
+                citationChunkId: 'chunk-anafilaxia',
+                confidence: 0.9,
+              },
+            ],
+            differentials: [],
+          }),
+          chunks.map((c) => c.id),
+          chunks,
+        );
+
+        expect(result.valid).toBe(true);
+      });
+
+      it('requires the whole word: "NSTEMI" does not count as naming "STEMI"', () => {
+        const chunks = [
+          { id: 'chunk-stemi', metadata: { cenario: 'SCA', subtipo: 'STEMI' } },
+          { id: 'chunk-nstemi', metadata: { cenario: 'SCA', subtipo: 'NSTEMI' } },
+        ];
+
+        const result = validateOutput(
+          makeValidOutput({
+            reasoning: 'ECG sem supra; conduzir como NSTEMI.',
+            recommendations: [
+              {
+                action: 'Estratificar risco',
+                rationale: 'SCA sem supra',
+                citationChunkId: 'chunk-nstemi',
+                confidence: 0.8,
+              },
+            ],
+            differentials: [],
+          }),
+          chunks.map((c) => c.id),
+          chunks,
+        );
+
+        expect(result.valid).toBe(false);
+        expect(result.errors.find((e) => e.startsWith('UNRESOLVED SUBTYPE AMBIGUITY'))).toContain(
+          '"STEMI"',
+        );
+      });
+
+      it('requires every alternative subtype when the evidence spans three', () => {
+        const chunks = [
+          { id: 'chunk-a', metadata: { cenario: 'cenario_x', subtipo: 'tipo_a' } },
+          { id: 'chunk-b', metadata: { cenario: 'cenario_x', subtipo: 'tipo_b' } },
+          { id: 'chunk-c', metadata: { cenario: 'cenario_x', subtipo: 'tipo_c' } },
+        ];
+
+        const result = validateOutput(
+          makeValidOutput({
+            reasoning: 'Descartado tipo b pelo exame.',
+            recommendations: [
+              { action: 'Conduta A', rationale: 'R', citationChunkId: 'chunk-a', confidence: 0.8 },
+            ],
+            differentials: [],
+          }),
+          chunks.map((c) => c.id),
+          chunks,
+        );
+
+        expect(result.valid).toBe(false);
+        const error = result.errors.find((e) => e.startsWith('UNRESOLVED SUBTYPE AMBIGUITY'));
+        expect(error).toContain('"tipo c"');
+        expect(error).not.toContain('"tipo b"');
+      });
+    });
+  });
+});
+
+describe('ambiguousSubtypeChunkIds', () => {
+  it('returns the subtype-specific chunks of scenarios that span at least two subtypes', () => {
+    const ids = ambiguousSubtypeChunkIds([
+      { id: 'avc-i', metadata: { cenario: 'avc_agudo', subtipo: 'isquemico' } },
+      { id: 'avc-h', metadata: { cenario: 'avc_agudo', subtipo: 'hemorragico' } },
+      { id: 'avc-geral', metadata: { cenario: 'avc_agudo' } },
+      { id: 'sepse-choque', metadata: { cenario: 'sepse', subtipo: 'choque_septico' } },
+      { id: 'oficial', metadata: { cenario: null, subtipo: null } },
+    ]);
+
+    expect([...ids].sort()).toEqual(['avc-h', 'avc-i']);
   });
 });
 

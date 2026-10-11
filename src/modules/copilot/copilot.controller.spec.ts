@@ -153,6 +153,21 @@ describe('CopilotController', () => {
       );
     });
 
+    // F0-C — paridade de `params`: a tag de funil chega ao orquestrador também
+    // pelo streaming.
+    it('forwards the demoCase funnel tag', async () => {
+      serviceMock.stream.mockReturnValue(fakeGen());
+
+      const query = { caseText: body.caseText, ...noRedFlagsQuery, demoCase: 'sindrome-gripal' };
+      await lastValueFrom(controller.stream(req, encounterId, query).pipe(toArray()));
+
+      expect(serviceMock.stream).toHaveBeenCalledWith(
+        'phys-001',
+        encounterId,
+        expect.objectContaining({ demoCase: 'sindrome-gripal' }),
+      );
+    });
+
     it('completes observable after done event', async () => {
       serviceMock.stream.mockReturnValue(fakeGen());
 
