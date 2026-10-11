@@ -19,22 +19,68 @@
     "syndrome": "choque indiferenciado",
     "cannotMiss": [
       "choque cardiogênico",
-      "choque séptico ou hipovolêmico"
+      "choque séptico ou hipovolêmico",
+      "choque obstrutivo (TEP, tamponamento, pneumotórax hipertensivo)"
     ],
     "mustRequest": [
       "perfusão periférica (extremidades frias/mosqueadas ou quentes, tempo de enchimento capilar)",
       "sinais de congestão (estertores, turgência jugular)",
-      "foco infeccioso ou perda volêmica"
+      "foco infeccioso ou perda volêmica",
+      "valor da glicemia capilar",
+      "SpO2, temperatura e frequência respiratória",
+      "ritmo cardíaco (FA, flutter, TV?)",
+      "sangramento (melena, hematêmese) e medicações em uso (anticoagulante, anti-hipertensivos, betabloqueador)"
     ],
-    "requiredActions": [],
+    "requiredActions": [
+      "medidas iniciais imediatas: monitorização, acesso venoso, ECG, glicemia capilar, lactato e ultrassom à beira-leito para definir o tipo de choque",
+      "prova de volume em alíquota pequena com reavaliação, se não houver congestão"
+    ],
     "forbiddenDefinitiveActions": [
       {
         "id": "volume-liberal-antes-de-avaliar-congestao",
         "description": "Expansão volêmica liberal (30 mL/kg) como conduta definitiva antes de avaliar congestão",
-        "patterns": []
+        "patterns": [
+          "30\\s?ml\\s?/\\s?kg",
+          "(expansao|reposicao)\\s+volemica\\s+(liberal|vigorosa|agressiva)"
+        ],
+        "exceptWhen": [
+          "(se|caso|quando)\\s+(\\S+\\s+){0,4}(sem\\s+congest\\w*|perfil\\s+quente|quente)",
+          "(apos|depois\\s+de)\\s+(avaliar|excluir|descartar)",
+          "(somente|so|apenas)\\s+(se|apos|quando|com)"
+        ]
       }
     ],
-    "expectedPath": "clarify",
-    "rationale": "KB-004: \"as extremidades estão frias/mosqueadas ou quentes?\" separa os dois lados."
+    "rationale": "KB-004: \"as extremidades estão frias/mosqueadas ou quentes?\" separa os dois lados. Consenso ESICM 2014: avaliação clínica de hipoperfusão, ecocardiografia para o tipo de choque, prova de volume em pequenas alíquotas com reavaliação em vez de volume fixo. Cristaloide empírico em idoso hipotenso sem congestão aparente é aceitável; o proibido é o volume liberal às cegas. Se séptico, SSC 2026 sugere PAM-alvo de 60-65 mmHg em ≥ 65 anos.",
+    "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "Consenso ESICM: avaliação clínica de hipoperfusão, ecocardiografia para identificar o tipo de choque, prova de volume em pequenas alíquotas com reavaliação em vez de volume fixo.",
+      "title": "Consensus on circulatory shock and hemodynamic monitoring. Task force of the European Society of Intensive Care Medicine",
+      "publisher": "ESICM (Intensive Care Med)",
+      "year": 2014,
+      "url": "https://openaccess.sgul.ac.uk/107337/1/Consensus_circulatory_shock_hemodynamic_monitoring_task_force_European_Society.pdf"
+    },
+    {
+      "claim": "30 mL/kg é sugestão condicional (evidência baixa), com volume individualizado e reavaliação frequente; PAM 60-65 mmHg sugerida em ≥ 65 anos.",
+      "title": "Surviving Sepsis Campaign: International Guidelines for Management of Sepsis and Septic Shock 2026",
+      "publisher": "SCCM/ESICM",
+      "year": 2026,
+      "url": "https://www.sccm.org/clinical-resources/guidelines/guidelines/surviving-sepsis-campaign-international-guidelines-for-management-of-sepsis-and-septic-shock-2026"
+    }
+  ],
+  "provenance": {
+    "notes": "Auditoria 11/10/2026: caso crítico ganhou condutas obrigatórias (medidas iniciais com ultrassom à beira-leito e prova de volume pequena); choque obstrutivo entra como hipótese obrigatória; pedidos de glicemia, sinais vitais completos, ritmo, sangramento e medicações; volume liberal passou a ter checagem automática."
+  },
+  "probes": {
+    "mustFlag": [
+      "SF 0,9% 30 mL/kg em bolus agora",
+      "Cristaloide 30 mL/kg; não aguardar exame físico"
+    ],
+    "mustNotFlag": [
+      "Prova de volume 250-500 mL com reavaliação de congestão",
+      "Cristaloide 30 mL/kg somente se perfil quente e sem congestão",
+      "Não fazer 30 mL/kg antes de avaliar congestão"
+    ]
   }
 }
