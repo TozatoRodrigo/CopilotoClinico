@@ -1,5 +1,6 @@
 import { join } from 'node:path';
-import type { ClinicalCase, ExpectedPath } from './case.schema';
+import type { ClinicalCase } from './case.schema';
+import { actionPasses, actionPassesStrict } from './graders/judge';
 import { isGateCase } from './grading';
 import {
   ErrorRowSchema,
@@ -45,18 +46,19 @@ export interface CaseSummary {
   caseId: string;
   syndromeGroup: string;
   critical: boolean;
-  expectedPath: ExpectedPath;
   reps: number;
   okReps: number;
   criticalErrorReps: number;
   criticalReasons: string[];
-  /** Taxas por caso entre as repetições avaliadas; `null` quando não avaliado. */
-  path: Rate;
+  /** Taxas por caso entre as repetições avaliadas, por item; `total` 0 quando não avaliado. */
   syndrome: Rate;
-  cannotMiss: Rate;
-  mustRequest: Rate;
+  diagnoses: Rate;
+  actions: Rate;
+  questions: Rate;
   noForbiddenAction: Rate;
   safeNextStep: Rate;
+  /** Afunilamento: fatos decisivos do roteiro revelados pelas respostas, por repetição. */
+  keyFacts: Rate;
 }
 
 export interface RunSummary {
@@ -87,25 +89,41 @@ export interface RunSummary {
   /** Casos com `excludeFromGate`: rodam e recebem nota, mas não reprovam o portão. */
   outsideGate: Array<{ caseId: string; reason: string; criticalErrorReps: number; reps: number }>;
   criteria: {
-    path: Rate;
     syndrome: Rate;
-    cannotMissItems: Rate;
-    cannotMissAll: Rate;
-    mustRequestItems: Rate;
-    mustRequestAll: Rate;
-    requiredActions: Rate;
+    criticalDiagnoses: Rate;
+    importantDiagnoses: Rate;
+    /** Conduta crítica presente na camada exigida (`actionPasses`). */
+    criticalActions: Rate;
+    /** Idem, sem aceitar a checagem rápida de segurança antes da conduta "agora". */
+    criticalActionsStrict: Rate;
+    importantActions: Rate;
+    /** Toda conduta do gabarito que aparece em qualquer camada — compara com "condutas obrigatórias" do v1. */
+    actionsAnyLayer: Rate;
+    questions: Rate;
     noForbiddenAction: Rate;
     safeNextStep: Rate;
   };
-  pathByExpected: Partial<Record<ExpectedPath, Rate>>;
   bySyndromeGroup: Array<{
     group: string;
     rows: number;
-    path: Rate;
     syndrome: Rate;
+    criticalActions: Rate;
     criticalErrorCases: number;
   }>;
-  clarifyingQuestionsMean: number | null;
+  /** O formato da resposta entregue (último turno, no afunilamento). */
+  shape: {
+    questionsMean: number | null;
+    recommendationsMean: number | null;
+    nowMean: number | null;
+  };
+  /** Só no afunilamento. */
+  funnel: {
+    rows: number;
+    /** Repetições em que TODOS os fatos `key` do roteiro foram revelados. */
+    allKeyFactsRevealed: Rate;
+    turnsMean: number | null;
+    simulatorUsd: number | null;
+  } | null;
   latency: {
     p50: number | null;
     p90: number | null;
@@ -162,31 +180,48 @@ function criterionOutcomes(grades: GradeRow[], casesById: Map<string, ClinicalCa
   const withForbidden = okGrades.filter(
     (grade) => (casesById.get(grade.caseId)?.expected.forbiddenDefinitiveActions.length ?? 0) > 0,
   );
+  const diagnoses = verdicts.flatMap((verdict) => verdict.diagnoses);
+  const actions = verdicts.flatMap((verdict) => verdict.actions);
 
   return {
-    path: okGrades.flatMap((grade) =>
-      grade.deterministic.path.correct === null ? [] : [grade.deterministic.path.correct],
-    ),
     syndrome: verdicts.map((verdict) => verdict.syndromeCorrect.pass),
-    cannotMissItems: verdicts.flatMap((verdict) => verdict.cannotMiss.map((item) => item.pass)),
-    cannotMissAll: verdicts
-      .filter((v) => v.cannotMiss.length > 0)
-      .map((v) => v.cannotMiss.every((item) => item.pass)),
-    mustRequestItems: verdicts.flatMap((verdict) => verdict.mustRequest.map((item) => item.pass)),
-    mustRequestAll: verdicts
-      .filter((v) => v.mustRequest.length > 0)
-      .map((v) => v.mustRequest.every((item) => item.pass)),
-    requiredActions: verdicts.flatMap((verdict) =>
-      verdict.requiredActionsPresent ? [verdict.requiredActionsPresent.pass] : [],
-    ),
+    criticalDiagnoses: diagnoses
+      .filter((item) => item.tier === 'critical')
+      .map((item) => item.pass),
+    importantDiagnoses: diagnoses
+      .filter((item) => item.tier === 'important')
+      .map((item) => item.pass),
+    criticalActions: actions.filter((item) => item.tier === 'critical').map(actionPasses),
+    criticalActionsStrict: actions
+      .filter((item) => item.tier === 'critical')
+      .map(actionPassesStrict),
+    importantActions: actions.filter((item) => item.tier === 'important').map(actionPasses),
+    actionsAnyLayer: actions.map((item) => item.placement !== 'absent'),
+    diagnoses: diagnoses.map((item) => item.pass),
+    actions: actions.map(actionPasses),
+    questions: verdicts.flatMap((verdict) => verdict.questions.map((item) => item.pass)),
     noForbiddenAction: withForbidden.map(noForbiddenActionPass),
     safeNextStep: verdicts.map((verdict) => verdict.safeNextStep.pass),
   };
 }
 
+/** Fatos `key` do roteiro revelados em algum turno; `null` fora do afunilamento ou sem fato `key`. */
+function allKeyFactsRevealed(
+  row: ResultRow,
+  clinicalCase: ClinicalCase | undefined,
+): boolean | null {
+  const keyFacts = clinicalCase?.input.funnel?.script.filter((fact) => fact.key) ?? [];
+  if (row.mode !== 'funnel' || keyFacts.length === 0) return null;
+  const revealed = new Set(
+    row.turns.flatMap((turn) => turn.exchanges.flatMap((exchange) => exchange.factIds)),
+  );
+  return keyFacts.every((fact) => revealed.has(fact.id));
+}
+
 function summarizeCase(
   clinicalCase: ClinicalCase,
   grades: GradeRow[],
+  results: ResultRow[],
   casesById: Map<string, ClinicalCase>,
 ): CaseSummary {
   const outcomes = criterionOutcomes(grades, casesById);
@@ -195,17 +230,22 @@ function summarizeCase(
     caseId: clinicalCase.id,
     syndromeGroup: clinicalCase.tags[0],
     critical: clinicalCase.critical,
-    expectedPath: clinicalCase.expected.expectedPath,
     reps: grades.length,
     okReps: grades.filter((grade) => grade.status === 'ok').length,
     criticalErrorReps: criticalGrades.length,
     criticalReasons: [...new Set(criticalGrades.flatMap((grade) => grade.criticalError.reasons))],
-    path: rateOf(outcomes.path),
     syndrome: rateOf(outcomes.syndrome),
-    cannotMiss: rateOf(outcomes.cannotMissItems),
-    mustRequest: rateOf(outcomes.mustRequestItems),
+    diagnoses: rateOf(outcomes.diagnoses),
+    actions: rateOf(outcomes.actions),
+    questions: rateOf(outcomes.questions),
     noForbiddenAction: rateOf(outcomes.noForbiddenAction),
     safeNextStep: rateOf(outcomes.safeNextStep),
+    keyFacts: rateOf(
+      results.flatMap((row) => {
+        const revealed = allKeyFactsRevealed(row, clinicalCase);
+        return revealed === null ? [] : [revealed];
+      }),
+    ),
   };
 }
 
@@ -256,6 +296,27 @@ function summarizeEvidence(results: ResultRow[]): RunSummary['evidence'] {
   };
 }
 
+function summarizeFunnel(
+  results: ResultRow[],
+  casesById: Map<string, ClinicalCase>,
+): RunSummary['funnel'] {
+  const funnelRows = results.filter((row) => row.mode === 'funnel');
+  if (funnelRows.length === 0) return null;
+  return {
+    rows: funnelRows.length,
+    allKeyFactsRevealed: rateOf(
+      funnelRows.flatMap((row) => {
+        const revealed = allKeyFactsRevealed(row, casesById.get(row.caseId));
+        return revealed === null ? [] : [revealed];
+      }),
+    ),
+    turnsMean: mean(funnelRows.map((row) => row.turns.length)),
+    simulatorUsd: sumKnown(
+      funnelRows.flatMap((row) => row.turns.map((turn) => turn.simulator?.costUsd ?? null)),
+    ).total,
+  };
+}
+
 export function summarizeRun(run: LoadedRun, casesById: Map<string, ClinicalCase>): RunSummary {
   const { meta, results, errors, grades } = run;
   const gradedCases = meta.caseSet.caseIds.flatMap((caseId) => {
@@ -265,9 +326,17 @@ export function summarizeRun(run: LoadedRun, casesById: Map<string, ClinicalCase
   const gradesByCase = new Map<string, GradeRow[]>();
   for (const grade of grades)
     gradesByCase.set(grade.caseId, [...(gradesByCase.get(grade.caseId) ?? []), grade]);
+  const resultsByCase = new Map<string, ResultRow[]>();
+  for (const row of results)
+    resultsByCase.set(row.caseId, [...(resultsByCase.get(row.caseId) ?? []), row]);
 
   const perCase = gradedCases.map((clinicalCase) =>
-    summarizeCase(clinicalCase, gradesByCase.get(clinicalCase.id) ?? [], casesById),
+    summarizeCase(
+      clinicalCase,
+      gradesByCase.get(clinicalCase.id) ?? [],
+      resultsByCase.get(clinicalCase.id) ?? [],
+      casesById,
+    ),
   );
   const criticalCaseIds = perCase
     .filter((summary) => summary.criticalErrorReps > 0)
@@ -310,18 +379,6 @@ export function summarizeRun(run: LoadedRun, casesById: Map<string, ClinicalCase
     judgeOutcomes.map((judge) => (judge.status === 'ok' ? judge.costUsd : null)),
   );
 
-  const pathByExpected: RunSummary['pathByExpected'] = {};
-  for (const expected of ['recommend', 'clarify', 'uncertainty'] as const) {
-    const rows = grades.filter(
-      (grade) =>
-        grade.deterministic.path.expected === expected && grade.deterministic.path.correct !== null,
-    );
-    if (rows.length > 0)
-      pathByExpected[expected] = rateOf(
-        rows.map((grade) => grade.deterministic.path.correct === true),
-      );
-  }
-
   const groups = [...new Set(perCase.map((summary) => summary.syndromeGroup))].sort();
   const bySyndromeGroup = groups.map((group) => {
     const groupGrades = grades.filter((grade) => casesById.get(grade.caseId)?.tags[0] === group);
@@ -329,8 +386,8 @@ export function summarizeRun(run: LoadedRun, casesById: Map<string, ClinicalCase
     return {
       group,
       rows: groupGrades.length,
-      path: rateOf(groupOutcomes.path),
       syndrome: rateOf(groupOutcomes.syndrome),
+      criticalActions: rateOf(groupOutcomes.criticalActions),
       criticalErrorCases: perCase.filter(
         (s) => s.syndromeGroup === group && s.criticalErrorReps > 0,
       ).length,
@@ -360,21 +417,28 @@ export function summarizeRun(run: LoadedRun, casesById: Map<string, ClinicalCase
     gate,
     outsideGate,
     criteria: {
-      path: rateOf(outcomes.path),
       syndrome: rateOf(outcomes.syndrome),
-      cannotMissItems: rateOf(outcomes.cannotMissItems),
-      cannotMissAll: rateOf(outcomes.cannotMissAll),
-      mustRequestItems: rateOf(outcomes.mustRequestItems),
-      mustRequestAll: rateOf(outcomes.mustRequestAll),
-      requiredActions: rateOf(outcomes.requiredActions),
+      criticalDiagnoses: rateOf(outcomes.criticalDiagnoses),
+      importantDiagnoses: rateOf(outcomes.importantDiagnoses),
+      criticalActions: rateOf(outcomes.criticalActions),
+      criticalActionsStrict: rateOf(outcomes.criticalActionsStrict),
+      importantActions: rateOf(outcomes.importantActions),
+      actionsAnyLayer: rateOf(outcomes.actionsAnyLayer),
+      questions: rateOf(outcomes.questions),
       noForbiddenAction: rateOf(outcomes.noForbiddenAction),
       safeNextStep: rateOf(outcomes.safeNextStep),
     },
-    pathByExpected,
     bySyndromeGroup,
-    clarifyingQuestionsMean: mean(
-      okResults.map((row) => row.output?.clarifyingQuestions.length ?? 0),
-    ),
+    shape: {
+      questionsMean: mean(okResults.map((row) => row.output?.clarifyingQuestions.length ?? 0)),
+      recommendationsMean: mean(okResults.map((row) => row.output?.recommendations.length ?? 0)),
+      nowMean: mean(
+        grades.flatMap((grade) =>
+          grade.deterministic.shape ? [grade.deterministic.shape.nowRecommendations] : [],
+        ),
+      ),
+    },
+    funnel: summarizeFunnel(results, casesById),
     latency: {
       p50: percentile(
         okResults.flatMap((row) =>
@@ -459,14 +523,18 @@ const GATE_LABELS: Record<GateStatus, string> = {
 };
 
 const CRITERION_LABELS: Array<[keyof RunSummary['criteria'], string]> = [
-  ['path', 'Caminho esperado (recomendar / perguntar / incerteza)'],
   ['syndrome', 'Síndrome correta (juiz)'],
-  ['cannotMissItems', 'Hipóteses "não pode faltar" consideradas — por item (juiz)'],
-  ['cannotMissAll', 'Hipóteses "não pode faltar" — todas no caso (juiz)'],
-  ['mustRequestItems', 'Dados ausentes pedidos — por item (juiz)'],
-  ['mustRequestAll', 'Dados ausentes pedidos — todos no caso (juiz)'],
-  ['requiredActions', 'Condutas obrigatórias presentes (juiz)'],
-  ['noForbiddenAction', 'Sem conduta proibida como definitiva (regex + juiz)'],
+  ['criticalDiagnoses', 'Diagnósticos críticos considerados — por item'],
+  ['importantDiagnoses', 'Diagnósticos importantes considerados — por item'],
+  ['criticalActions', 'Condutas críticas na camada exigida — por item'],
+  [
+    'criticalActionsStrict',
+    'Condutas críticas para agora sem nem checagem rápida antes (estrito) — por item',
+  ],
+  ['importantActions', 'Condutas importantes na camada exigida — por item'],
+  ['actionsAnyLayer', 'Condutas do gabarito presentes em qualquer camada — por item'],
+  ['questions', 'Dados ausentes pedidos — por item'],
+  ['noForbiddenAction', 'Sem conduta proibida para agora (regex + juiz)'],
   ['safeNextStep', 'Próximo passo seguro (juiz)'],
 ];
 
@@ -486,7 +554,10 @@ export function renderSummaryMarkdown(run: LoadedRun, summary: RunSummary): stri
     ? `${meta.judge.provider} · ${meta.judge.model}`
     : 'nenhum (--judge none)';
 
-  lines.push(`# Gabarito clínico — ${summary.variant}`, '');
+  lines.push(
+    `# Gabarito clínico — ${summary.variant}${meta.mode === 'funnel' ? ' (afunilamento)' : ''}`,
+    '',
+  );
   lines.push(
     table(
       ['Campo', 'Valor'],
@@ -627,32 +698,44 @@ export function renderSummaryMarkdown(run: LoadedRun, summary: RunSummary): stri
     '',
   );
 
-  const pathRows = Object.entries(summary.pathByExpected).map(([expected, rate]) => [
-    expected,
-    formatRate(rate),
-  ]);
-  if (pathRows.length > 0) {
+  lines.push(
+    `Formato da resposta (médias por análise): ${summary.shape.questionsMean?.toFixed(2) ?? '—'} pergunta(s) · ${summary.shape.recommendationsMean?.toFixed(1) ?? '—'} conduta(s) · ${summary.shape.nowMean?.toFixed(1) ?? '—'} para agora`,
+    '',
+  );
+  if (summary.funnel) {
+    lines.push('## Afunilamento', '');
     lines.push(
-      '### Caminho, por caminho esperado',
-      '',
-      table(['Esperado', 'Acerto'], pathRows),
+      table(
+        ['Métrica', 'Valor'],
+        [
+          ['Execuções', String(summary.funnel.rows)],
+          [
+            'Todos os fatos decisivos do roteiro revelados pelas respostas',
+            formatRate(summary.funnel.allKeyFactsRevealed),
+          ],
+          ['Turnos por caso (média)', summary.funnel.turnsMean?.toFixed(2) ?? '—'],
+          ['Custo do médico simulado (separado)', formatUsd(summary.funnel.simulatorUsd)],
+        ],
+      ),
       '',
     );
   }
-  lines.push(
-    `Perguntas esclarecedoras por análise (média): ${summary.clarifyingQuestionsMean?.toFixed(2) ?? '—'}`,
-    '',
-  );
 
   lines.push('## Por síndrome de PS', '');
   lines.push(
     table(
-      ['Síndrome (tags[0])', 'Execuções', 'Caminho', 'Síndrome correta', 'Casos com erro crítico'],
+      [
+        'Síndrome (tags[0])',
+        'Execuções',
+        'Síndrome correta',
+        'Condutas críticas',
+        'Casos com erro crítico',
+      ],
       summary.bySyndromeGroup.map((group) => [
         group.group,
         String(group.rows),
-        formatFraction(group.path),
         formatFraction(group.syndrome),
+        formatFraction(group.criticalActions),
         String(group.criticalErrorCases),
       ]),
     ),
@@ -724,27 +807,27 @@ export function renderSummaryMarkdown(run: LoadedRun, summary: RunSummary): stri
       [
         'Caso',
         'Crítico',
-        'Esperado',
         'Entregues',
-        'Caminho',
         'Síndrome',
-        'Não pode faltar',
+        'Diagnósticos',
+        'Condutas',
         'Pedidos',
         'Sem proibida',
         'Seguro',
+        'Fatos decisivos',
         'Erro crítico',
       ],
       summary.perCase.map((caseSummary) => [
         caseSummary.caseId,
         caseSummary.critical ? 'sim' : '',
-        caseSummary.expectedPath,
         `${caseSummary.okReps}/${caseSummary.reps}`,
-        formatFraction(caseSummary.path),
         formatFraction(caseSummary.syndrome),
-        formatFraction(caseSummary.cannotMiss),
-        formatFraction(caseSummary.mustRequest),
+        formatFraction(caseSummary.diagnoses),
+        formatFraction(caseSummary.actions),
+        formatFraction(caseSummary.questions),
         formatFraction(caseSummary.noForbiddenAction),
         formatFraction(caseSummary.safeNextStep),
+        formatFraction(caseSummary.keyFacts),
         caseSummary.criticalErrorReps > 0
           ? `❌ ${caseSummary.criticalErrorReps}/${caseSummary.reps}`
           : '',

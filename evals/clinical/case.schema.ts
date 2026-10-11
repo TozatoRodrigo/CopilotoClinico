@@ -9,14 +9,27 @@ import { PS_SYNDROMES } from '../../src/shared/contracts/clinical';
  * errado ("cannotmiss") seria ignorado em silêncio por um schema permissivo, e
  * o caso passaria a medir menos do que o revisor acredita.
  *
- * Evolução sem quebra: campos novos entram como opcionais. O próximo previsto
- * é `input.followUps` (respostas roteirizadas às perguntas esclarecedoras,
- * para avaliar mais de um turno); os casos atuais continuam válidos sem ele.
  * Gabarito v1 acrescentou, todos opcionais: `sources`, `provenance`, `probes`
  * e `excludeFromGate`.
+ *
+ * Gabarito v2 ("plantão simulado", 11/10/2026) mudou o que se mede, a partir
+ * do experimento só-Anthropic: os 7 "erros críticos" do Opus eram do formato
+ * (estação do Revalida entregue só com a frase de abertura; item tudo ou nada;
+ * item de prova prática), não do raciocínio. Agora:
+ * - `input.caseText` é o caso COMPLETO, como o médico escreve depois de colher
+ *   a história e examinar; `input.funnel` (opcional) traz a abertura e o
+ *   roteiro oficial do paciente simulado, para medir se as perguntas chegam
+ *   ao dado decisivo;
+ * - cada expectativa é um item com nível (`critical` decide o portão,
+ *   `important` dá nota) e nota própria — não há mais "todas ou nenhuma";
+ * - a conduta diz se precisa estar na camada "agora" (`timing`);
+ * - o que o gabarito oficial cobra e não é papel do Copiloto (apresentar-se,
+ *   orientar a família) fica em `outOfScope`, fora da nota;
+ * - o "caminho esperado" saiu: a decisão em duas camadas sempre traz conduta
+ *   e perguntas juntas, e o critério media o formato antigo.
  */
 
-export const CASE_SCHEMA_VERSION = 1;
+export const CASE_SCHEMA_VERSION = 2;
 
 const KEBAB_CASE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
@@ -60,19 +73,6 @@ export const GOLD_SOURCES = [
   /** Expectativas ancoradas em diretriz citada em `sources`, sem caso real de origem. */
   'guideline_anchored',
 ] as const;
-
-export const ExpectedPathSchema = z.enum([
-  /** Ao menos uma recomendação definitiva e nenhuma pergunta bloqueadora. */
-  'recommend',
-  /** Ao menos uma pergunta esclarecedora. */
-  'clarify',
-  /** `uncertainty: true` — a base não cobre o cenário. */
-  'uncertainty',
-  /** Mais de um caminho é clinicamente aceitável; não pontua o caminho. */
-  'any',
-]);
-
-export type ExpectedPath = z.infer<typeof ExpectedPathSchema>;
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -121,16 +121,66 @@ const EncounterContextSchema = z
   })
   .strict();
 
+const nonEmptyText = z.string().trim().min(3);
+
+export const SCRIPT_FACT_KINDS = [
+  /** Dito pelo paciente ou acompanhante quando perguntado. */
+  'history',
+  /** Achado do exame físico, dado quando o médico examina. */
+  'exam',
+  /** Resultado de exame complementar, dado quando pedido. */
+  'test',
+] as const;
+
+/**
+ * Um fato do roteiro oficial do paciente simulado (ou de um impresso da
+ * estação). O médico simulado só o revela quando a pergunta do Copiloto o
+ * alcança. `key`: sem este fato, o diagnóstico principal não se sustenta —
+ * é o que mede se as perguntas chegam ao dado decisivo.
+ */
+const ScriptFactSchema = z
+  .object({
+    id: kebabId,
+    kind: z.enum(SCRIPT_FACT_KINDS),
+    text: nonEmptyText,
+    key: z.boolean().optional(),
+  })
+  .strict();
+
+export type ScriptFact = z.infer<typeof ScriptFactSchema>;
+
+/**
+ * Modo afunilamento: o Copiloto começa só com a abertura (o que o médico sabe
+ * na porta) e um médico simulado responde às perguntas dele usando apenas o
+ * roteiro. Mede se as perguntas chegam ao dado decisivo e se a conduta
+ * "agora" é segura enquanto isso.
+ */
+const FunnelSchema = z
+  .object({
+    opening: z.string().trim().min(10).max(1000),
+    script: z.array(ScriptFactSchema).min(1),
+  })
+  .strict()
+  .refine((funnel) => new Set(funnel.script.map((fact) => fact.id)).size === funnel.script.length, {
+    message: 'ids repetidos em funnel.script',
+    path: ['script'],
+  });
+
+export type Funnel = z.infer<typeof FunnelSchema>;
+
 const CaseInputSchema = z
   .object({
     /**
-     * Texto como o médico digita à beira do leito — telegráfico, com
-     * abreviações. Nunca contém a resposta esperada.
+     * O caso como o médico escreve no plantão DEPOIS de colher a história e
+     * examinar — telegráfico, com abreviações, com os achados e resultados que
+     * ele já tem. Traz achados, nunca a conclusão esperada (diagnóstico,
+     * classificação de gravidade, conduta).
      */
     caseText: z.string().trim().min(10).max(4000),
     context: EncounterContextSchema.optional(),
     /** Chips de red flag confirmados pelo médico (S20-CLIN-01). */
     redFlags: z.record(z.string(), z.boolean()).optional(),
+    funnel: FunnelSchema.optional(),
   })
   .strict();
 
@@ -168,8 +218,6 @@ const ForbiddenActionSchema = z
   .strict();
 
 export type ForbiddenAction = z.infer<typeof ForbiddenActionSchema>;
-
-const nonEmptyText = z.string().trim().min(3);
 
 /** Fonte que sustenta uma expectativa do caso (diretriz, protocolo do MS, gabarito oficial). */
 const SourceSchema = z
@@ -227,18 +275,68 @@ const ProbesSchema = z
   })
   .strict();
 
+export const ITEM_TIERS = [
+  /**
+   * Faltar é erro crítico e reprova o portão: o diagnóstico que mata ou
+   * sequela se perdido, a conduta tempo-dependente. Poucos por caso (1 a 3).
+   */
+  'critical',
+  /** Dá nota, por item; faltar não reprova sozinho. */
+  'important',
+] as const;
+
+export type ItemTier = (typeof ITEM_TIERS)[number];
+
+const ExpectedItemSchema = z
+  .object({
+    text: nonEmptyText,
+    tier: z.enum(ITEM_TIERS),
+  })
+  .strict();
+
+export type ExpectedItem = z.infer<typeof ExpectedItemSchema>;
+
+export const ACTION_TIMINGS = [
+  /**
+   * Precisa estar na camada "agora" (ou ser definitiva): já há indicação no
+   * caso e esperar causa dano — ex.: complexo protrombínico na hemorragia com
+   * varfarina, sem esperar o INR. Condicionada a um dado, conta como ausente.
+   */
+  'now',
+  /** Vale estar em "agora" ou condicionada a um dado ("depende de…"). */
+  'any',
+] as const;
+
+export type ActionTiming = (typeof ACTION_TIMINGS)[number];
+
+const ExpectedActionSchema = ExpectedItemSchema.extend({
+  timing: z.enum(ACTION_TIMINGS),
+}).strict();
+
+export type ExpectedAction = z.infer<typeof ExpectedActionSchema>;
+
 const CaseExpectationsSchema = z
   .object({
     /** Síndrome de PS em que o caso deve ser enquadrado. */
     syndrome: nonEmptyText,
-    /** Hipóteses que precisam ser consideradas (diferencial, raciocínio ou red flag). */
-    cannotMiss: z.array(nonEmptyText),
-    /** Dados AUSENTES do caso que mudam a conduta e precisam ser pedidos. */
-    mustRequest: z.array(nonEmptyText),
-    /** Condutas que precisam aparecer (definitivas ou preliminares). */
-    requiredActions: z.array(nonEmptyText),
+    /** Hipóteses que precisam aparecer (diferencial, raciocínio, red flag ou conduta). */
+    diagnoses: z.array(ExpectedItemSchema),
+    /** Condutas que precisam aparecer, com o nível e a camada exigida. */
+    actions: z.array(ExpectedActionSchema),
+    /**
+     * Dados AUSENTES do `caseText` que mudam a conduta e precisam ser pedidos
+     * (pergunta ou exame recomendado). No modo afunilamento, o roteiro mede o
+     * resto.
+     */
+    questions: z.array(nonEmptyText),
+    /** Sempre crítica: sair como conduta para agora reprova o portão. */
     forbiddenDefinitiveActions: z.array(ForbiddenActionSchema),
-    expectedPath: ExpectedPathSchema,
+    /**
+     * Itens do gabarito oficial que não são papel do Copiloto (apresentar-se,
+     * explicar o diagnóstico à família, orientar prevenção). Ficam para
+     * rastrear a conversão; não entram na nota.
+     */
+    outOfScope: z.array(nonEmptyText).optional(),
     /** Por que o gabarito é este — fonte, protocolo do MS, raciocínio. */
     rationale: z.string().trim().min(10).optional(),
   })
@@ -264,10 +362,15 @@ export const ClinicalCaseSchema = z
     excludeFromGate: GateExclusionSchema.optional(),
   })
   .strict()
-  .refine((clinicalCase) => !clinicalCase.critical || clinicalCase.expected.cannotMiss.length > 0, {
-    message: 'caso crítico precisa de ao menos um item em expected.cannotMiss',
-    path: ['expected', 'cannotMiss'],
-  })
+  .refine(
+    (clinicalCase) =>
+      !clinicalCase.critical ||
+      clinicalCase.expected.diagnoses.some((diagnosis) => diagnosis.tier === 'critical'),
+    {
+      message: 'caso crítico precisa de ao menos um diagnóstico de nível critical',
+      path: ['expected', 'diagnoses'],
+    },
+  )
   .refine(
     (clinicalCase) =>
       new Set(clinicalCase.expected.forbiddenDefinitiveActions.map((action) => action.id)).size ===

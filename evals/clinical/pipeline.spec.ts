@@ -9,13 +9,13 @@ import type {
 } from '../../src/modules/copilot/orchestrator/orchestrator.service';
 import type { EncountersService } from '../../src/modules/encounters/encounters.service';
 import { understandingFixture } from '../../tests/fixtures/case-understanding';
-import { loadCaseSet } from './cases';
+import { strokeCaseFixture } from './case-fixture';
 import { classifyInfraError, runCase, type PipelineServices } from './pipeline';
 import { CompletionRecorder, type RecordedCompletion, type RecordedStopReason } from './recorder';
+import type { Funnel } from './case.schema';
+import type { PhysicianSimulator, SimulatorQuestion } from './simulator';
 
-const { cases } = loadCaseSet();
-const clinicalCase = cases.find((candidate) => candidate.id === 'kb001-cf-002');
-if (!clinicalCase) throw new Error('caso kb001-cf-002 ausente');
+const clinicalCase = strokeCaseFixture();
 
 const key = { runId: 'run', variant: 'teste', rep: 0 };
 const fastRetry = {
@@ -83,13 +83,16 @@ function servicesWith(
   refusalFallback = false,
 ) {
   const recorder = new CompletionRecorder();
-  const analyze = vi.fn(() => {
+  const next = () => {
     const script = scripts.shift();
     if (!script) throw new Error('sem roteiro');
     return script(recorder);
-  });
+  };
+  const analyze = vi.fn((..._args: unknown[]) => next());
+  // Gabarito v2 — afunilamento: a resposta às perguntas segue o mesmo roteiro.
+  const continueAnalysis = vi.fn((..._args: unknown[]) => next());
   const services: PipelineServices = {
-    orchestrator: { analyze } as unknown as OrchestratorService,
+    orchestrator: { analyze, continueAnalysis } as unknown as OrchestratorService,
     encounters: {
       create: vi.fn().mockResolvedValue({ id: 'atendimento-1' }),
     } as unknown as EncountersService,
@@ -110,7 +113,7 @@ function servicesWith(
     physicianId: 'medico-1',
     refusalFallback,
   };
-  return { services, analyze };
+  return { services, analyze, continueAnalysis };
 }
 
 function validationFailure(errors: string[], stopReason: RecordedStopReason = null) {
@@ -444,6 +447,160 @@ describe('runCase', () => {
 
     expect(outcome).toMatchObject({ kind: 'error', row: { failureClass: 'timeout' } });
     if (outcome.kind === 'error') expect(outcome.row.completions).toHaveLength(1);
+  });
+});
+
+// Gabarito v2 — afunilamento: o Copiloto recebe só a abertura e o médico
+// simulado responde às perguntas pelo roteiro.
+describe('runCase — afunilamento', () => {
+  const simulator: PhysicianSimulator = {
+    model: 'claude-haiku-5-5',
+    answer: vi.fn(async (_funnel: Funnel, questions: SimulatorQuestion[]) => ({
+      exchanges: questions.map((question) => ({
+        questionId: question.id,
+        question: question.question,
+        answer: 'A fraqueza melhora e piora há 2 horas.',
+        factIds: ['h-flutuacao'],
+      })),
+      model: 'claude-haiku-5-5',
+      costUsd: 0.001,
+      latencyMs: 5,
+    })),
+  };
+  const turn = (turnIndex: number, withQuestions: boolean): OrchestratorResult => ({
+    ...analysis,
+    interactionId: `interacao-${turnIndex}`,
+    output: {
+      ...analysis.output,
+      clarifyingQuestions: withQuestions ? analysis.output.clarifyingQuestions : [],
+    },
+    metadata: { ...analysis.metadata, turnIndex },
+  });
+  const funnelRun = { ...fastRetry, mode: 'funnel' as const };
+
+  it('começa pela abertura, responde às perguntas e avalia o último turno', async () => {
+    const { services, analyze, continueAnalysis } = servicesWith([
+      async () => turn(0, true),
+      async () => turn(1, false),
+    ]);
+
+    const outcome = await runCase({ ...services, simulator }, clinicalCase, key, funnelRun);
+
+    expect(analyze.mock.calls[0]?.[2]).toMatchObject({ caseText: 'M 67a, fraqueza no braço D.' });
+    expect(continueAnalysis.mock.calls[0]?.[2]).toEqual({
+      interactionId: 'interacao-0',
+      answers: [{ questionId: 'q1', answer: 'A fraqueza melhora e piora há 2 horas.' }],
+    });
+    expect(outcome.kind).toBe('result');
+    if (outcome.kind !== 'result') return;
+    expect(outcome.row).toMatchObject({
+      mode: 'funnel',
+      status: 'ok',
+      interactionId: 'interacao-1',
+    });
+    expect(outcome.row.turns.map((item) => item.exchanges.length)).toEqual([1, 0]);
+    expect(outcome.row.turns[0]?.exchanges[0]?.factIds).toEqual(['h-flutuacao']);
+  });
+
+  it('sem pergunta, mas com exame pedido, devolve o resultado e reanalisa', async () => {
+    const ordering: OrchestratorResult = {
+      ...turn(0, false),
+      output: {
+        ...turn(0, false).output,
+        recommendations: [
+          {
+            action: 'TC de crânio sem contraste agora',
+            rationale: 'Separa isquemia de hemorragia',
+            citationChunkId: null,
+            confidence: 0.9,
+            preliminary: false,
+            category: 'diagnostic',
+            layer: 'now',
+            dependsOn: null,
+            basis: 'model_knowledge',
+            chunkId: null,
+            source: 'Conhecimento geral do modelo',
+            sourceVersion: '',
+            sourceText: '',
+            sourceUrl: '',
+            origin: 'model_knowledge',
+          },
+        ],
+      },
+    };
+    const answer = vi.fn(async () => ({
+      exchanges: [
+        {
+          questionId: 'correcao-do-entendimento',
+          question: 'Resultado do que o Copiloto mandou fazer: TC de crânio sem contraste agora',
+          answer: 'Resultados: TC sem sangramento.',
+          factIds: ['t-tc'],
+        },
+      ],
+      model: 'claude-haiku-5-5',
+      costUsd: 0.001,
+      latencyMs: 5,
+    }));
+    const { services, continueAnalysis } = servicesWith([
+      async () => ordering,
+      async () => turn(1, false),
+    ]);
+
+    await runCase(
+      { ...services, simulator: { model: 'claude-haiku-5-5', answer } },
+      clinicalCase,
+      key,
+      funnelRun,
+    );
+
+    expect(answer).toHaveBeenCalledWith(
+      clinicalCase.input.funnel,
+      [],
+      ['TC de crânio sem contraste agora'],
+    );
+    expect(continueAnalysis.mock.calls[0]?.[2]).toMatchObject({
+      answers: [
+        { questionId: 'correcao-do-entendimento', answer: 'Resultados: TC sem sangramento.' },
+      ],
+    });
+  });
+
+  it('para no terceiro turno mesmo com pergunta pendente', async () => {
+    const { services, continueAnalysis } = servicesWith([
+      async () => turn(0, true),
+      async () => turn(1, true),
+      async () => turn(2, true),
+    ]);
+
+    const outcome = await runCase({ ...services, simulator }, clinicalCase, key, funnelRun);
+
+    expect(continueAnalysis).toHaveBeenCalledTimes(2);
+    if (outcome.kind === 'result') expect(outcome.row.turns).toHaveLength(3);
+  });
+
+  it('guarda os turnos respondidos quando a reanálise fica sem resposta', async () => {
+    const { services } = servicesWith([
+      async () => turn(0, true),
+      validationFailure(['Output is not valid JSON']),
+    ]);
+
+    const outcome = await runCase({ ...services, simulator }, clinicalCase, key, funnelRun);
+
+    expect(outcome.kind).toBe('result');
+    if (outcome.kind !== 'result') return;
+    expect(outcome.row.status).toBe('invalid_output');
+    expect(outcome.row.turns).toHaveLength(1);
+  });
+
+  it('é falha do harness, fora da nota, quando o caso não tem roteiro', async () => {
+    const { services } = servicesWith([]);
+    const withoutFunnel = strokeCaseFixture({
+      input: { caseText: clinicalCase.input.caseText },
+    });
+
+    const outcome = await runCase({ ...services, simulator }, withoutFunnel, key, funnelRun);
+
+    expect(outcome).toMatchObject({ kind: 'error', row: { failureClass: 'harness' } });
   });
 });
 

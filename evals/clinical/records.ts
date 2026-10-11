@@ -115,6 +115,43 @@ const PipelineMetadataSchema = z.object({
   researchLatencyMs: z.number().optional(),
 });
 
+/**
+ * Gabarito v2 — como o caso é entregue ao Copiloto:
+ * - `complete`: o `caseText` completo, num turno;
+ * - `funnel`: a abertura; o médico simulado responde às perguntas do Copiloto
+ *   com o roteiro oficial, por até três turnos, e o último turno é avaliado.
+ */
+export const EVAL_MODES = ['complete', 'funnel'] as const;
+export type EvalMode = (typeof EVAL_MODES)[number];
+
+/** Uma pergunta do Copiloto e a resposta do médico simulado. */
+export const FunnelExchangeSchema = z.object({
+  questionId: z.string(),
+  question: z.string(),
+  answer: z.string(),
+  /** Fatos do roteiro (`funnel.script[].id`) que a resposta revelou. */
+  factIds: z.array(z.string()),
+});
+
+export type FunnelExchange = z.infer<typeof FunnelExchangeSchema>;
+
+export const FunnelTurnSchema = z.object({
+  turnIndex: z.number().int(),
+  /** Saída deste turno; a do último também é `output` da linha. */
+  output: ResultOutputSchema.nullable(),
+  /** Perguntas deste turno respondidas pelo médico simulado (vazio no último). */
+  exchanges: z.array(FunnelExchangeSchema),
+  simulator: z
+    .object({
+      model: z.string(),
+      costUsd: z.number().nullable(),
+      latencyMs: z.number(),
+    })
+    .nullable(),
+});
+
+export type FunnelTurn = z.infer<typeof FunnelTurnSchema>;
+
 const RowKeySchema = z.object({
   runId: z.string(),
   variant: z.string(),
@@ -124,6 +161,9 @@ const RowKeySchema = z.object({
 
 export const ResultRowSchema = RowKeySchema.extend({
   status: z.enum(RUN_STATUSES),
+  mode: z.enum(EVAL_MODES).default('complete'),
+  /** Só no afunilamento: um item por turno, na ordem. */
+  turns: z.array(FunnelTurnSchema).default([]),
   /** Tentativas do runner (retry de falha transitória), não do pipeline. */
   harnessAttempts: z.number().int(),
   servedModel: z.string().nullable(),
@@ -234,6 +274,7 @@ export const RunMetaSchema = z.object({
     caseIds: z.array(z.string()),
   }),
   reps: z.number().int(),
+  mode: z.enum(EVAL_MODES).default('complete'),
   concurrency: z.number().int(),
   caseTimeoutMs: z.number().int(),
   database: z.string(),
