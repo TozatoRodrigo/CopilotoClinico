@@ -1,3 +1,5 @@
+import type { CaseUnderstanding } from '../../../shared/contracts/clinical';
+
 export interface RetrievedContext {
   chunkId: string;
   text: string;
@@ -64,6 +66,13 @@ export interface PromptInput {
    * frase da ADR-010, byte a byte — rollback completo, prompt incluso.
    */
   unreviewedSourcesPreliminary?: boolean;
+  /**
+   * F1 — Etapa 1 do raciocínio em etapas (ADR-013), só com
+   * `COPILOT_REASONING=stages`. Ausente (legacy ou etapa que falhou), o
+   * prompt fica byte a byte igual ao anterior — ver o teste de impressão
+   * digital em prompt-builder.spec.ts.
+   */
+  understanding?: CaseUnderstanding;
 }
 
 export interface PhysicianAttachment {
@@ -425,6 +434,24 @@ ${items}
 </official_guidelines>\n`;
 }
 
+/**
+ * F1 — bloco do entendimento do caso (ADR-013, Etapa 1). Saída de modelo
+ * derivada de texto não confiável: vai como JSON, com `<` escapado para não
+ * fechar a tag, e o modelo é lembrado de que o texto do caso prevalece. A
+ * evidência que vem depois foi buscada para estas hipóteses — sem o bloco, o
+ * modelo não saberia por que ela está ali.
+ */
+function buildUnderstandingBlock(understanding?: CaseUnderstanding): string {
+  if (!understanding) return '';
+  const serialized = JSON.stringify(understanding, null, 2).replace(/</g, '\\u003c');
+  return `
+<case_understanding type="MODEL_DERIVED_FROM_CASE">
+Stage 1 of the reasoning, produced from the case text before any retrieval. The guideline evidence in this message was retrieved for these hypotheses. Use it as your starting point, but check it against the case text and trust the case text when they disagree. Address every "cannotMiss" hypothesis in "differentials", "redFlags" or "reasoning". When you ask "clarifyingQuestions", prefer the "missingDiscriminators" and never ask for data the case already gives.
+${serialized}
+</case_understanding>
+`;
+}
+
 function buildContextBlock(context: EncounterContext): string {
   const contextLines: string[] = [];
   if (context.hasCT) contextLines.push('- Tomografia disponível');
@@ -440,6 +467,7 @@ export function buildPrompt(input: PromptInput): BuiltPrompt {
     : '';
 
   const redFlagsBlock = buildConfirmedRedFlagsBlock(input.redFlags);
+  const understandingBlock = buildUnderstandingBlock(input.understanding);
   const officialChunks = input.officialChunks ?? [];
   const systemInstruction =
     buildSystemInstruction(input.locale) +
@@ -461,7 +489,7 @@ export function buildPrompt(input: PromptInput): BuiltPrompt {
   if (input.retrievedChunks.length === 0 && officialChunks.length === 0) {
     return {
       system: systemInstruction,
-      user: `${buildCaseOnlyUser(input, redFlagsBlock)}${instructionsBlock}`,
+      user: `${buildCaseOnlyUser(input, redFlagsBlock, understandingBlock)}${instructionsBlock}`,
       // F4 — mesmo sem cobertura de diretriz, o anexo do médico continua
       // citável: é exatamente o cenário do reporte original (a base não cobre
       // dengue, o médico anexa a diretriz).
@@ -476,7 +504,7 @@ export function buildPrompt(input: PromptInput): BuiltPrompt {
     const user = `<clinical_case type="UNTRUSTED_INPUT">
 ${input.caseText}
 </clinical_case>
-${redFlagsBlock ? `\n${redFlagsBlock}\n` : ''}
+${redFlagsBlock ? `\n${redFlagsBlock}\n` : ''}${understandingBlock}
 NOTE: No curated guideline in the knowledge base matched this case. The only guideline evidence available is the official Ministry of Health material below. Apply the OFFICIAL MS GUIDELINES RULE: if it directly covers the acute presentation, decide by DECISION MATRIX paths A/B; if it does not, follow path D.
 ${officialBlock}${buildAttachmentsBlock(input.physicianAttachments)}${contextBlock ? `\n${contextBlock}\n` : ''}
 Analyze this case and provide structured recommendations with citations.${instructionsBlock}`;
@@ -494,7 +522,7 @@ Analyze this case and provide structured recommendations with citations.${instru
   const user = `<clinical_case type="UNTRUSTED_INPUT">
 ${input.caseText}
 </clinical_case>
-${redFlagsBlock ? `\n${redFlagsBlock}\n` : ''}${buildCoverageWarning(input.coverage)}
+${redFlagsBlock ? `\n${redFlagsBlock}\n` : ''}${understandingBlock}${buildCoverageWarning(input.coverage)}
 <guideline_evidence type="TRUSTED_CURATED_SOURCE">
 ${evidenceBlock}
 </guideline_evidence>
@@ -515,11 +543,15 @@ Analyze this case and provide structured recommendations with citations.${instru
  * perguntar, para que uma reanálise subsequente (respond()) tenha texto
  * suficiente para o retrieval encontrar o protocolo certo.
  */
-function buildCaseOnlyUser(input: PromptInput, redFlagsBlock: string = ''): BuiltPrompt['user'] {
+function buildCaseOnlyUser(
+  input: PromptInput,
+  redFlagsBlock: string = '',
+  understandingBlock: string = '',
+): BuiltPrompt['user'] {
   return `<clinical_case type="UNTRUSTED_INPUT">
 ${input.caseText}
 </clinical_case>
-${redFlagsBlock ? `\n${redFlagsBlock}\n` : ''}${buildAttachmentsBlock(input.physicianAttachments)}
+${redFlagsBlock ? `\n${redFlagsBlock}\n` : ''}${understandingBlock}${buildAttachmentsBlock(input.physicianAttachments)}
 WARNING: No relevant guideline evidence was found for this case — most likely because the case description is too brief or too vague for retrieval to match a protocol.
 
 Do NOT simply declare insufficiency and stop. Follow DECISION MATRIX path D: set "uncertainty" to true with a reason describing the missing GUIDELINE coverage (never blame the physician's description), AND emit up to 3 UNIVERSAL-TRIAGE-ANCHORED clarifyingQuestions (see ANTI-INTERROGATION RULE) that would let a follow-up analysis find the right protocol — prioritise, in order: time course (sudden vs progressive), hemodynamic stability / vital signs, and the single most discriminating red flag for this presentation. "recommendations" may be empty here ONLY because you are asking — never leave both recommendations and clarifyingQuestions empty (Rule 7).

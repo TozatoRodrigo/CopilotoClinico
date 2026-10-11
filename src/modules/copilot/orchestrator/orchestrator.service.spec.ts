@@ -14,6 +14,7 @@ import { AiRefusalError, AiTruncatedError } from '../../ai-gateway/ai-gateway.er
 import type { StreamCompletionResult } from '../../ai-gateway/providers/provider.interface';
 import { COPILOT_OUTPUT_JSON_SCHEMA } from '../schemas/copilot-output.json-schema';
 import { ConfigService } from '@nestjs/config';
+import type { UnderstandingService } from '../understanding/understanding.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 /** ADR-010 — busca sem trechos da base oficial do MS. */
@@ -139,6 +140,13 @@ describe('OrchestratorService', () => {
       encountersMock as unknown as EncountersService,
       auditMock as unknown as AuditService,
       configMock as unknown as ConfigService,
+      // F1 — COPILOT_REASONING fica no padrão (legacy): a Etapa 1 nunca roda
+      // aqui, e chamá-la quebra o teste.
+      {
+        understand: () => {
+          throw new Error('legacy não chama a Etapa 1');
+        },
+      } as unknown as UnderstandingService,
     );
   }
 

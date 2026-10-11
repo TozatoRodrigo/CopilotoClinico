@@ -5,6 +5,7 @@ import { AiGatewayService } from '../../src/modules/ai-gateway/ai-gateway.servic
 import { AuditModule } from '../../src/modules/audit/audit.module';
 import { OrchestratorService } from '../../src/modules/copilot/orchestrator/orchestrator.service';
 import { RetrievalService } from '../../src/modules/copilot/retrieval/retrieval.service';
+import { UnderstandingService } from '../../src/modules/copilot/understanding/understanding.service';
 import { AttachmentsService } from '../../src/modules/encounters/attachments/attachments.service';
 import { EncountersService } from '../../src/modules/encounters/encounters.service';
 import { GuidelinesModule } from '../../src/modules/guidelines/guidelines.module';
@@ -50,6 +51,7 @@ export class EvalModule {
         EncountersService,
         AttachmentsService,
         RetrievalService,
+        UnderstandingService,
         OrchestratorService,
       ],
     };

@@ -49,6 +49,7 @@ import { EncountersService } from '../../src/modules/encounters/encounters.servi
 import { AttachmentsService } from '../../src/modules/encounters/attachments/attachments.service';
 import { AuditService } from '../../src/modules/audit/audit.service';
 import { ConfigService } from '@nestjs/config';
+import type { UnderstandingService } from '../../src/modules/copilot/understanding/understanding.service';
 import { validateOutput } from '../../src/modules/copilot/guardrails/output-validator';
 
 /** ADR-010 — busca sem trechos da base oficial do MS. */
@@ -152,6 +153,13 @@ describe('CC-06: Golden cases — copilot never leaves the physician at a dead e
       encountersMock as unknown as EncountersService,
       auditMock as unknown as AuditService,
       configMock as unknown as ConfigService,
+      // F1 — COPILOT_REASONING fica no padrão (legacy): a Etapa 1 nunca roda
+      // aqui, e chamá-la quebra o teste.
+      {
+        understand: () => {
+          throw new Error('legacy não chama a Etapa 1');
+        },
+      } as unknown as UnderstandingService,
     );
 
     encountersMock.findById.mockResolvedValue({
