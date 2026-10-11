@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { createHash } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../config/prisma.service';
-import { readBooleanFlag, readChoiceFlag } from '../../../config/feature-flag';
+import { readBooleanFlag } from '../../../config/feature-flag';
 import { AiGatewayService } from '../../ai-gateway/ai-gateway.service';
 import { AiRefusalError, AiTruncatedError } from '../../ai-gateway/ai-gateway.errors';
 import type {
@@ -45,15 +45,9 @@ import {
   UnderstandingService,
   type UnderstandingOutcome,
 } from '../understanding/understanding.service';
+import { readReasoningMode } from '../understanding/understanding.settings';
 
 const DEFAULT_MAX_TURNS = 5;
-
-/**
- * F1 — `COPILOT_REASONING` (ADR-013). `legacy` (padrão) é o pipeline de
- * sempre, byte a byte; `stages` entende o caso antes de buscar e busca pelas
- * hipóteses. Lida a cada análise: voltar para `legacy` não pede redeploy.
- */
-const REASONING_MODES = ['legacy', 'stages'] as const;
 
 /**
  * F1 — rótulo, no bloco de perguntas e respostas, das respostas que não
@@ -638,16 +632,15 @@ export class OrchestratorService {
 
   /**
    * F1 — Etapa 1 (ADR-013) com `COPILOT_REASONING=stages`; `null` no
-   * `legacy`, e aí nada no turno muda. A flag é lida uma vez por turno: o
-   * resto do pipeline decide pelo `stage`.
+   * `legacy`, e aí nada no turno muda. A flag é lida uma vez por turno, sem
+   * redeploy para voltar; o resto do pipeline decide pelo `stage`.
    */
   private async understandingStage(
     caseText: string,
     redFlags: Record<string, boolean> | undefined,
     logLabel: string,
   ): Promise<UnderstandingOutcome | null> {
-    const mode = readChoiceFlag(this.config, 'COPILOT_REASONING', REASONING_MODES, 'legacy');
-    if (mode !== 'stages') return null;
+    if (readReasoningMode(this.config) !== 'stages') return null;
     return this.understanding.understand({ caseText, redFlags, logLabel });
   }
 

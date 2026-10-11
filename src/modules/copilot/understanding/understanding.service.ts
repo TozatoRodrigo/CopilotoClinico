@@ -1,14 +1,8 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { readChoiceFlag } from '../../../config/feature-flag';
 import { AiGatewayService } from '../../ai-gateway/ai-gateway.service';
 import { AiRefusalError, AiTruncatedError } from '../../ai-gateway/ai-gateway.errors';
-import {
-  AI_EFFORTS,
-  type AiEffort,
-  type ChatMessage,
-  type CompletionUsage,
-} from '../../ai-gateway/providers/provider.interface';
+import type { ChatMessage, CompletionUsage } from '../../ai-gateway/providers/provider.interface';
 import type { CaseUnderstanding } from '../../../shared/contracts/clinical';
 import { calculateInferenceCost } from '../orchestrator/model-pricing';
 import { CASE_UNDERSTANDING_JSON_SCHEMA } from './case-understanding.json-schema';
@@ -18,9 +12,7 @@ import {
   understandingRetryFeedback,
   type UnderstandingPromptInput,
 } from './understanding-prompt';
-
-/** F1 — a Etapa 1 é curta: esforço baixo por padrão (meta de ≤ 10 s, ADR-013). */
-const DEFAULT_UNDERSTANDING_EFFORT: AiEffort = 'low';
+import { readUnderstandingEffort, readUnderstandingModel } from './understanding.settings';
 
 export interface UnderstandingRequest extends UnderstandingPromptInput {
   /** Sufixo dos logs, o mesmo do orquestrador: '', ' (stream)' ou ' (respond)'. */
@@ -138,8 +130,8 @@ export class UnderstandingService {
     try {
       const completion = await this.aiGateway.complete({
         messages,
-        model: this.model(),
-        effort: this.effort(),
+        model: readUnderstandingModel(this.config),
+        effort: readUnderstandingEffort(this.config),
         responseSchema: CASE_UNDERSTANDING_JSON_SCHEMA,
       });
       this.account(outcome, completion.model, completion.usage);
@@ -164,20 +156,5 @@ export class UnderstandingService {
     outcome.model = model;
     outcome.usage = addUsage(outcome.usage, usage);
     outcome.cost += calculateInferenceCost({ model, usage });
-  }
-
-  /** Vazio cai no `AI_MODEL` do gateway — o mesmo modelo da análise. */
-  private model(): string | undefined {
-    const configured = this.config.get<string | undefined>('AI_UNDERSTANDING_MODEL')?.trim();
-    return configured ? configured : undefined;
-  }
-
-  private effort(): AiEffort {
-    return readChoiceFlag(
-      this.config,
-      'AI_UNDERSTANDING_EFFORT',
-      AI_EFFORTS,
-      DEFAULT_UNDERSTANDING_EFFORT,
-    );
   }
 }
