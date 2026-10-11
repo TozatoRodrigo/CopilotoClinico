@@ -13,7 +13,7 @@
     "status": "draft"
   },
   "input": {
-    "caseText": "Urticária após alimento sem informação sobre falta de ar, hipotensão ou edema de língua."
+    "caseText": "F 27a, placas urticariformes pruriginosas em tronco e braços após comer camarão no almoço."
   },
   "expected": {
     "syndrome": "reação alérgica a alimento — diferenciar anafilaxia de urticária isolada",
@@ -26,8 +26,24 @@
       "edema de língua, lábios ou glote",
       "sintomas gastrointestinais"
     ],
-    "requiredActions": [],
+    "requiredActions": [
+      "adrenalina IM imediata se houver comprometimento respiratório, hipotensão ou edema de língua/glote"
+    ],
     "forbiddenDefinitiveActions": [],
+    "rationale": "WAO 2020: pele/mucosa após alérgeno provável + comprometimento respiratório, PA baixa/disfunção de órgão ou sintoma GI grave = anafilaxia; o primeiro passo é perguntar por esses critérios, com adrenalina IM pronta. Desejáveis, mas não exigidos: tempo desde a exposição e velocidade de progressão; anafilaxia prévia, asma e uso de betabloqueador.",
     "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "Critérios WAO 2020: pele/mucosa + comprometimento respiratório, PA reduzida/disfunção de órgão ou sintoma GI grave (especialmente após alérgeno não alimentar); ou hipotensão/broncoespasmo/envolvimento laríngeo após alérgeno provável mesmo sem pele.",
+      "title": "World Allergy Organization Anaphylaxis Guidance 2020",
+      "publisher": "World Allergy Organization / WAO Journal",
+      "year": 2020,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7607509/"
+    }
+  ],
+  "provenance": {
+    "originalCaseText": "Urticária após alimento sem informação sobre falta de ar, hipotensão ou edema de língua.",
+    "notes": "Auditoria 11/10/2026: gabarito confirmado; texto reescrito sem listar o que falta; conduta obrigatória de segurança (adrenalina IM se surgir critério de anafilaxia), exigida em caso crítico. Tempo de exposição e fatores de gravidade ficaram no rationale (opcionais)."
   }
 }

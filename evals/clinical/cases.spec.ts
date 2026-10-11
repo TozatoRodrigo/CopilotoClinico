@@ -41,13 +41,27 @@ describe('gabarito clínico v0', () => {
     }
   });
 
-  it('traz os 40 casos do KB-001 com o texto do fixture, sem alteração', () => {
+  // Gabarito v1: o texto do KB-001 que anunciava o dado ausente ("sem
+  // informação sobre X, Y, Z") entregava as perguntas ao modelo. Foi reescrito
+  // como nota de beira de leito; o original fica em provenance.
+  it('traz os 40 casos do KB-001, com o texto do fixture no caso ou na proveniência', () => {
     for (const fixture of KB_001_SYNTHETIC_CASES) {
       const clinicalCase = caseById.get(`kb001-${fixture.id}`);
       expect(clinicalCase, fixture.id).toBeDefined();
-      expect(clinicalCase?.input.caseText).toBe(fixture.clinicalInput);
+      const originalText =
+        clinicalCase?.provenance?.originalCaseText ?? clinicalCase?.input.caseText;
+      expect(originalText, fixture.id).toBe(fixture.clinicalInput);
       expect(clinicalCase?.expected.expectedPath).toBe(fixture.expectedDecision);
       expect(clinicalCase?.goldSource).toBe('kb001_synthetic');
+    }
+  });
+
+  it('nunca anuncia no texto do caso o dado que falta', () => {
+    const announcesMissingData = /sem informacao|nao informad|sem descricao/;
+    for (const clinicalCase of cases) {
+      expect(normalizeForMatching(clinicalCase.input.caseText), clinicalCase.id).not.toMatch(
+        announcesMissingData,
+      );
     }
   });
 
@@ -60,15 +74,15 @@ describe('gabarito clínico v0', () => {
     expect(caseById.get('fi-003-avc-flutuante-como-hemorragico')?.critical).toBe(true);
   });
 
-  // `mustRequest` fica de fora de propósito: nos casos do KB-001 o próprio
-  // médico escreve "sem informação sobre X" — nomear o dado que falta é o
-  // texto do caso, não a resposta.
+  // Inclui `mustRequest`: desde o gabarito v1 o texto do caso omite o dado que
+  // falta em vez de nomeá-lo, então a pergunta esperada também não pode estar lá.
   it('nunca vaza a resposta esperada no texto do caso', () => {
     for (const clinicalCase of cases) {
       const caseText = normalizeForMatching(clinicalCase.input.caseText);
       const expectations = [
         clinicalCase.expected.syndrome,
         ...clinicalCase.expected.cannotMiss,
+        ...clinicalCase.expected.mustRequest,
         ...clinicalCase.expected.requiredActions,
       ];
       for (const expectation of expectations) {

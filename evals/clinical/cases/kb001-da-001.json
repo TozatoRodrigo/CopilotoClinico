@@ -12,21 +12,60 @@
     "status": "draft"
   },
   "input": {
-    "caseText": "Dor abdominal difusa sem informação sobre localização, sangramento ou possibilidade de gestação."
+    "caseText": "Dor abdominal difusa há 6 h, náuseas e um episódio de vômito."
   },
   "expected": {
     "syndrome": "dor abdominal aguda a esclarecer",
     "cannotMiss": [
       "gravidez ectópica",
-      "abdome agudo cirúrgico"
+      "abdome agudo cirúrgico",
+      "isquemia mesentérica aguda",
+      "aneurisma de aorta abdominal roto"
     ],
     "mustRequest": [
       "sinais vitais / estabilidade hemodinâmica",
       "possibilidade de gestação (beta-hCG)",
-      "localização e características da dor"
+      "localização e características da dor",
+      "sangramento digestivo (hematêmese, melena, enterorragia) ou vaginal",
+      "idade e comorbidades (FA, vasculopatia)"
     ],
     "requiredActions": [],
     "forbiddenDefinitiveActions": [],
+    "rationale": "Dor abdominal difusa sem dados: estabilidade, gestação, localização/características, sangramento e idade separam o abdome agudo cirúrgico e as causas letais. ACOG 193: ectópica rota instável é cirurgia imediata. WSES 2022: isquemia mesentérica (dor desproporcional ao exame) cresce com a idade, mortalidade ~50%. AAA roto é frequentemente mal diagnosticado. Sangramento digestivo ou vaginal muda o diferencial (úlcera perfurada/sangrante, ectópica).",
     "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "Ectópica tubária em paciente instável exige cirurgia imediata.",
+      "title": "ACOG Practice Bulletin No. 193: Tubal Ectopic Pregnancy",
+      "publisher": "ACOG / Obstet Gynecol",
+      "year": 2018,
+      "url": "https://pubmed.ncbi.nlm.nih.gov/29470343/"
+    },
+    {
+      "claim": "WSES 2022: isquemia mesentérica aguda tem incidência crescente com a idade e mortalidade ~50% sem tratamento; diagnóstico precoce é a base.",
+      "title": "Acute mesenteric ischemia: updated guidelines of the World Society of Emergency Surgery",
+      "publisher": "WSES / World J Emerg Surg",
+      "year": 2022,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9580452/"
+    },
+    {
+      "claim": "WSES 2020: úlcera péptica perfurada/sangrante exige reconhecimento rápido, ressuscitação, antibiótico e tratamento cirúrgico/endoscópico oportuno.",
+      "title": "Perforated and bleeding peptic ulcer: WSES guidelines",
+      "publisher": "WSES / World J Emerg Surg",
+      "year": 2020,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6947898/"
+    },
+    {
+      "claim": "AAA roto é frequentemente mal diagnosticado; a tríade clássica aparece em menos da metade dos casos.",
+      "title": "Abdominal Aortic Aneurysm — The Great Imitator in the Elderly Patient",
+      "publisher": "Relias Media (Emergency Medicine Reports)",
+      "year": null,
+      "url": "https://www.reliasmedia.com/articles/69492-abdominal-aortic-aneurysm-8212-the-great-imitator-in-the-elderly-patient"
+    }
+  ],
+  "provenance": {
+    "originalCaseText": "Dor abdominal difusa sem informação sobre localização, sangramento ou possibilidade de gestação.",
+    "notes": "Auditoria 11/10/2026: texto reescrito sem listar o que falta (sem idade nem sexo, que são pedidos); pedidos de sangramento e de idade/comorbidades; isquemia mesentérica e AAA roto como hipóteses."
   }
 }

@@ -12,7 +12,7 @@
     "status": "draft"
   },
   "input": {
-    "caseText": "Crise convulsiva sem informação se foi primeiro episódio, trauma ou retorno ao basal."
+    "caseText": "F 31a, trazida pelo SAMU após crise tônico-clônica generalizada presenciada pelo marido em casa. Sem crise na chegada."
   },
   "expected": {
     "syndrome": "crise convulsiva a caracterizar",
@@ -24,10 +24,41 @@
       "primeiro episódio ou epilepsia conhecida",
       "retorno ao nível de consciência basal",
       "trauma craniano",
-      "glicemia capilar"
+      "glicemia capilar",
+      "duração da crise e se houve crises repetidas sem recuperação da consciência entre elas",
+      "gestação ou puerpério (eclâmpsia)",
+      "uso ou abstinência de álcool/drogas, ou má adesão ao anticonvulsivante"
     ],
     "requiredActions": [],
     "forbiddenDefinitiveActions": [],
+    "rationale": "ILAE 2015: crise tônico-clônica ≥ 5 min (t1) já é estado de mal e pede benzodiazepínico — por isso a duração e as crises repetidas são decisivas. Em mulher em idade fértil, gestação/puerpério leva a pensar em eclâmpsia (sulfato de magnésio). Álcool/drogas e adesão definem crise provocada. Desejável, mas não exigido como hipótese: causa estrutural aguda (hemorragia/TCE) ou infecção do SNC se não voltar ao basal ou tiver febre.",
     "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "ILAE 2015: em crise tônico-clônica, t1 = 5 min (início do estado de mal / do tratamento) e t2 = 30 min (risco de lesão permanente).",
+      "title": "A definition and classification of status epilepticus — Report of the ILAE Task Force",
+      "publisher": "ILAE / Epilepsia",
+      "year": 2015,
+      "url": "https://doi.org/10.1111/epi.13121"
+    },
+    {
+      "claim": "AES 2016: algoritmo com benzodiazepínico como terapia inicial a partir de ~5 min de crise.",
+      "title": "Evidence-Based Guideline: Treatment of Convulsive Status Epilepticus",
+      "publisher": "American Epilepsy Society / Epilepsy Currents",
+      "year": 2016,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC4749120/"
+    },
+    {
+      "claim": "ACEP 2024 trata do estado de mal refratário a benzodiazepínico; reforça que a duração define o tratamento.",
+      "title": "Clinical Policy: Critical Issues in the Management of Adult Patients Presenting to the ED With Seizures",
+      "publisher": "ACEP / Ann Emerg Med",
+      "year": 2024,
+      "url": "https://www.acep.org/siteassets/new-pdfs/clinical-policies/seizures-2024-final.pdf"
+    }
+  ],
+  "provenance": {
+    "originalCaseText": "Crise convulsiva sem informação se foi primeiro episódio, trauma ou retorno ao basal.",
+    "notes": "Auditoria 11/10/2026: texto reescrito deixando claro que a crise cessou (resolve a ambiguidade sem mudar o caminho clarify); pedidos de duração/crises repetidas, gestação e álcool/drogas/adesão. Causa estrutural/infecção do SNC ficou no rationale (opcional)."
   }
 }

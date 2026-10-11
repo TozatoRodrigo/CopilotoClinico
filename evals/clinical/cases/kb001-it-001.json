@@ -13,7 +13,7 @@
     "status": "draft"
   },
   "input": {
-    "caseText": "Disúria e polaciúria sem informação sobre febre, dor lombar ou gestação."
+    "caseText": "F 28a, disúria e polaciúria há 1 d."
   },
   "expected": {
     "syndrome": "infecção do trato urinário baixo (cistite) a confirmar",
@@ -23,10 +23,39 @@
     "mustRequest": [
       "febre",
       "dor lombar / punho-percussão",
-      "gestação"
+      "gestação",
+      "corrimento ou irritação vaginal e risco de IST"
     ],
     "requiredActions": [],
     "forbiddenDefinitiveActions": [],
+    "rationale": "EAU 2024: cistite não complicada vale para mulher não grávida, sem sinais sistêmicos; febre, dor em flanco e punho-percussão positiva caracterizam ITU complicada/pielonefrite (IDSA 2025). Corrimento ou irritação vaginal reduz a probabilidade de cistite e aponta para vaginite ou cervicite/IST (AAFP 2011). IST e vaginite como hipóteses são desejáveis, não exigidas.",
     "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "Cistite não complicada: aguda, em mulher não grávida, sem anormalidade anatômica/funcional relevante nem comorbidade.",
+      "title": "EAU Pocket Guidelines on Urological Infections 2024",
+      "publisher": "European Association of Urology",
+      "year": 2024,
+      "url": "https://srm.ro/media/2024/12/7-eau-pocket-on-urological-infections-2024.pdf"
+    },
+    {
+      "claim": "Corrimento ou irritação vaginal reduz a probabilidade de cistite; disúria e polaciúria sem corrimento têm alta razão de verossimilhança para ITU.",
+      "title": "Diagnosis and Management of Acute Uncomplicated Urinary Tract Infections",
+      "publisher": "American Family Physician (AAFP)",
+      "year": 2011,
+      "url": "https://www.aafp.org/pubs/afp/issues/2011/1001/p771.pdf"
+    },
+    {
+      "claim": "Sinais sistêmicos (febre, dor em flanco, calafrios, punho-percussão positiva) caracterizam ITU complicada.",
+      "title": "Guideline Update: 2025 IDSA Management of Complicated UTI (resumo)",
+      "publisher": "IDSA (Clin Infect Dis 2025) – resumo emDocs",
+      "year": 2025,
+      "url": "https://www.emdocs.net/guideline-update-2025-idsa-management-of-complicated-uti/"
+    }
+  ],
+  "provenance": {
+    "originalCaseText": "Disúria e polaciúria sem informação sobre febre, dor lombar ou gestação.",
+    "notes": "Auditoria 11/10/2026: texto reescrito como nota de beira de leito (o original anunciava febre, dor lombar e gestação como ausentes), com o sexo fixado (mulher, 28 anos) para a gestação ser pertinente. Acrescentados corrimento/risco de IST ao mustRequest; IST/vaginite como hipótese ficou no rationale (opcional)."
   }
 }

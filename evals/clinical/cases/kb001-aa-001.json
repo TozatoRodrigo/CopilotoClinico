@@ -12,12 +12,12 @@
     "status": "draft"
   },
   "input": {
-    "caseText": "Agitação no PS sem informação sobre risco suicida, hipóxia ou uso de substâncias."
+    "caseText": "H 38a, trazido pela família por agitação desde a tarde: grita, anda pelo corredor do PS e não deixa fazer a triagem."
   },
   "expected": {
     "syndrome": "agitação psicomotora — excluir causa orgânica",
     "cannotMiss": [
-      "delirium por causa orgânica (hipóxia, hipoglicemia, infecção)",
+      "delirium por causa orgânica (hipóxia, hipoglicemia, infecção, TCE)",
       "intoxicação ou abstinência"
     ],
     "mustRequest": [
@@ -28,6 +28,27 @@
     ],
     "requiredActions": [],
     "forbiddenDefinitiveActions": [],
+    "rationale": "ABP 2019 (parte 1) e Project BETA: agitação indiferenciada é orgânica até prova em contrário — SpO2, sinais vitais e glicemia capilar primeiro, investigar substâncias/abstinência e avaliar risco a si e a terceiros, em paralelo à desescalada. Desejáveis, mas não exigidos: nível de consciência/atenção (rastreio de delirium) e sinais de trauma craniano.",
     "expectedPath": "clarify"
+  },
+  "sources": [
+    {
+      "claim": "Avaliação inicial inclui sinais vitais com SpO2 e glicemia capilar; agitação indiferenciada é presumida orgânica até prova em contrário; hipóxia, hipoglicemia, TCE, intoxicação/abstinência como causas; avaliar risco a si e a terceiros (inclui ideação/tentativa suicida).",
+      "title": "Brazilian guidelines for the management of psychomotor agitation – Part 1. Non-pharmacological approach",
+      "publisher": "Associação Brasileira de Psiquiatria / Braz J Psychiatry",
+      "year": 2019,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6781680/"
+    },
+    {
+      "claim": "Consenso Project BETA: causas médicas potencialmente fatais de agitação devem ser excluídas na triagem, simultaneamente à desescalada.",
+      "title": "Medical Evaluation and Triage of the Agitated Patient: Project BETA Medical Evaluation Workgroup",
+      "publisher": "American Association for Emergency Psychiatry / West J Emerg Med",
+      "year": 2012,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC3298208"
+    }
+  ],
+  "provenance": {
+    "originalCaseText": "Agitação no PS sem informação sobre risco suicida, hipóxia ou uso de substâncias.",
+    "notes": "Auditoria 11/10/2026: gabarito confirmado; texto reescrito como nota de triagem (o original listava as perguntas). TCE entrou como exemplo de causa orgânica; nível de consciência/atenção e trauma craniano ficaram no rationale (opcionais)."
   }
 }
