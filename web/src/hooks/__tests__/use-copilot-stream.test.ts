@@ -150,6 +150,55 @@ describe("useCopilotStream (UX-06)", () => {
     expect(result.current.status).toBe("streaming");
   });
 
+  // F1 — com o raciocínio em etapas, o entendimento do caso chega antes dos
+  // deltas: é estrutura já validada no servidor, pode ir para a tela.
+  it("exposes the understanding event as soon as it arrives, before the plan", async () => {
+    const { result } = renderHook(() => useCopilotStream("enc-001"));
+    const understanding = {
+      problemRepresentation: "Homem de 68 anos com déficit focal súbito.",
+      structuredData: {
+        age: 68,
+        sex: "M" as const,
+        vitals: {
+          systolicBp: null,
+          diastolicBp: null,
+          heartRate: null,
+          respiratoryRate: null,
+          spo2: null,
+          temperature: null,
+          glucose: null,
+        },
+        onset: null,
+        keyFindings: [],
+        relevantContext: [],
+      },
+      instability: { present: false, findings: [] },
+      syndrome: "deficit-neurologico-focal" as const,
+      syndromeNote: null,
+      cannotMiss: [],
+      likely: [],
+      missingDiscriminators: [],
+      searchQueries: ["manejo inicial do AVC"],
+    };
+
+    act(() => {
+      void result.current.start({ caseText: "Caso clínico", context: baseContext });
+    });
+    expect(result.current.understanding).toBeNull();
+    const es = latestInstance();
+
+    act(() => {
+      es.emitMessage({ type: "understanding", understanding });
+    });
+
+    await waitFor(() => {
+      expect(result.current.understanding).toEqual(understanding);
+    });
+    expect(result.current.status).toBe("streaming");
+    expect(result.current.partialText).toBe("");
+    expect(es.closed).toBe(false);
+  });
+
   it("resolves with the validated result and sets status=done on the done event", async () => {
     const { result } = renderHook(() => useCopilotStream("enc-001"));
 
