@@ -77,6 +77,12 @@ describe('findForbiddenTerm', () => {
       expect(findForbiddenTerm('AAS e heparina contraindicados', antithrombotic)).toBeNull();
     });
 
+    it('estende a negação a uma lista com termos de outras condutas proibidas do caso', () => {
+      const sentence = 'Não administrar AAS, heparina ou trombolítico até excluir dissecção';
+      expect(findForbiddenTerm(sentence, thrombolysis)).toBe('trombolitico');
+      expect(findForbiddenTerm(sentence, thrombolysis, [thrombolysis, antithrombotic])).toBeNull();
+    });
+
     it.each([
       ['Não atrasar a trombólise', 'adiamento desfaz a negação'],
       ['Iniciar sem demora a trombólise', 'adiamento desfaz a negação'],

@@ -87,7 +87,7 @@ export function findForbiddenDefinitiveActions(
     const text = `${recommendation.action}. ${recommendation.rationale}`;
 
     for (const action of forbiddenActions) {
-      const matchedText = findForbiddenTerm(text, action);
+      const matchedText = findForbiddenTerm(text, action, forbiddenActions);
       if (matchedText) {
         matches.push({ forbiddenId: action.id, recommendationIndex, matchedText });
       }

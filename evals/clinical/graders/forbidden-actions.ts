@@ -21,8 +21,8 @@ import type { ForbiddenAction } from '../case.schema';
  *       ("trombólise contraindicada", "AAS não está indicado");
  *    c. um `exceptWhen` do caso começa a até 6 palavras do termo
  *       ("alteplase somente após TC sem sangramento").
- * 4. Outros termos do mesmo item e "e/ou/nem" são transparentes: "evitar AINE,
- *    AAS e heparina" nega os três.
+ * 4. Termos proibidos do caso (de qualquer item) e "e/ou" são transparentes:
+ *    "não usar AAS, heparina ou trombolítico" nega os três.
  *
  * Antes, `exceptWhen` valia para o texto inteiro: qualquer "não" em qualquer
  * ponto anulava a detecção ("Alteplase agora; não aguardar exames" passava).
@@ -170,21 +170,31 @@ function isExcepted(
 
 /**
  * Primeira ocorrência de conduta proibida que nenhuma negação ou exceção
- * alcança, ou `null`. O texto pode ter várias orações.
+ * alcança, ou `null`. O texto pode ter várias orações. `caseActions` são
+ * todas as condutas proibidas do caso: os termos delas formam as listas que
+ * uma negação atravessa ("não usar AAS, heparina ou trombolítico").
  */
-export function findForbiddenTerm(text: string, action: ForbiddenAction): string | null {
+export function findForbiddenTerm(
+  text: string,
+  action: ForbiddenAction,
+  caseActions: ForbiddenAction[] = [action],
+): string | null {
   const patterns = action.patterns.map(compileWholeWord);
+  const listPatterns = caseActions.flatMap((caseAction) =>
+    caseAction.patterns.map(compileWholeWord),
+  );
   const exceptions = (action.exceptWhen ?? []).map(compileWholeWord);
 
   for (const sentence of sentences(normalizeForMatching(text))) {
     const terms = findTerms(sentence, patterns);
     if (terms.length === 0) continue;
     const tokens = tokenize(sentence);
+    const listTerms = findTerms(sentence, [...patterns, ...listPatterns]);
 
     for (const term of terms) {
       const before = tokens.filter((token) => token.end <= term.start);
       const after = tokens.filter((token) => token.start >= term.end);
-      const otherTerms = terms.filter((other) => other !== term);
+      const otherTerms = listTerms.filter((other) => !overlaps(other, [term]));
 
       if (isNegatedBefore(before, otherTerms)) continue;
       if (isQualifiedAfter(after, otherTerms)) continue;
