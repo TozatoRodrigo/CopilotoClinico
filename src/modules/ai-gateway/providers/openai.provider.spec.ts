@@ -97,7 +97,7 @@ describe('OpenAIProvider', () => {
       expect(body).not.toHaveProperty('response_format');
     });
 
-    it.each(['gpt-5.1', 'o4-mini', 'o3'])(
+    it.each(['gpt-5.1', 'gpt-5.6-luna', 'gpt-6.1-sol', 'o4-mini', 'o3'])(
       'sends reasoning_effort and no temperature to %s',
       async (model) => {
         const fetchMock = mockJson(chatCompletion());
