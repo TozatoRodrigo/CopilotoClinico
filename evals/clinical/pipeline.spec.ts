@@ -69,6 +69,8 @@ const analysis: OrchestratorResult = {
     model: 'claude-opus-5-5',
     turnIndex: 0,
     maxTurns: 5,
+    knowledgeSource: 'internal_kb',
+    decisionPrompt: 'v1',
   },
 };
 

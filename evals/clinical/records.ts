@@ -5,7 +5,12 @@ import {
   StoredCopilotOutputSchema,
   StoredRecommendationSchema,
 } from '../../src/modules/copilot/guardrails/output-validator';
-import { CITATION_ORIGINS, PRELIMINARY_REASONS } from '../../src/shared/contracts/clinical';
+import {
+  CITATION_ORIGINS,
+  DECISION_PROMPT_VERSIONS,
+  KNOWLEDGE_SOURCES,
+  PRELIMINARY_REASONS,
+} from '../../src/shared/contracts/clinical';
 import { CaseUnderstandingSchema } from '../../src/modules/copilot/understanding/case-understanding.schema';
 import { REASONING_MODES } from '../../src/modules/copilot/understanding/understanding.settings';
 import { DeterministicGradeSchema, RUN_STATUSES } from './graders/deterministic';
@@ -66,7 +71,8 @@ const PipelineMetadataSchema = z.object({
   piiDetected: z.boolean(),
   injectionDetected: z.boolean(),
   chunksRetrieved: z.number(),
-  retrievalCoverage: z.enum(['full', 'partial', 'none']),
+  /** F1 — `null` quando a base não foi consultada (model_only/web). */
+  retrievalCoverage: z.enum(['full', 'partial', 'none']).nullable(),
   officialChunksRetrieved: z.number(),
   latencyMs: z.number(),
   cost: z.number(),
@@ -75,6 +81,11 @@ const PipelineMetadataSchema = z.object({
   maxTurns: z.number(),
   /** F1 — só com COPILOT_REASONING=stages. */
   understandingLatencyMs: z.number().optional(),
+  /** F1 — execuções anteriores eram internal_kb + v1. */
+  knowledgeSource: z.enum(KNOWLEDGE_SOURCES).default('internal_kb'),
+  decisionPrompt: z.enum(DECISION_PROMPT_VERSIONS).default('v1'),
+  /** F1 — só quando a pesquisa web rodou. */
+  researchLatencyMs: z.number().optional(),
 });
 
 const RowKeySchema = z.object({

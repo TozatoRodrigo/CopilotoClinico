@@ -16,6 +16,7 @@ import type {
   UnderstandingOutcome,
   UnderstandingService,
 } from '../understanding/understanding.service';
+import type { WebResearchService } from '../research/web-research.service';
 import { UNDERSTANDING_CORRECTION_QUESTION_ID } from '../../../shared/contracts/clinical';
 import { understandingFixture } from '../../../../tests/fixtures/case-understanding';
 
@@ -95,6 +96,7 @@ function stageOutcome(overrides: Partial<UnderstandingOutcome> = {}): Understand
 describe('OrchestratorService — raciocínio em etapas (F1)', () => {
   let env: Record<string, string>;
   let understand: ReturnType<typeof vi.fn>;
+  let research: ReturnType<typeof vi.fn>;
   let retrieval: { search: ReturnType<typeof vi.fn>; searchMany: ReturnType<typeof vi.fn> };
   let gateway: { complete: ReturnType<typeof vi.fn>; completeStream: ReturnType<typeof vi.fn> };
   let interactionCreate: ReturnType<typeof vi.fn>;
@@ -108,6 +110,11 @@ describe('OrchestratorService — raciocínio em etapas (F1)', () => {
     understand = vi.fn(async () => {
       calls.push('understand');
       return stageOutcome();
+    });
+    // A pesquisa web só roda com COPILOT_KNOWLEDGE_SOURCE=web (ver
+    // orchestrator.decision-v2.spec.ts).
+    research = vi.fn(() => {
+      throw new Error('internal_kb não chama a pesquisa web');
     });
     retrieval = {
       search: vi.fn(async () => {
@@ -154,6 +161,7 @@ describe('OrchestratorService — raciocínio em etapas (F1)', () => {
       { log: vi.fn().mockResolvedValue({ id: 'audit-1' }) } as unknown as AuditService,
       config as unknown as ConfigService,
       { understand } as unknown as UnderstandingService,
+      { research } as unknown as WebResearchService,
     );
   });
 

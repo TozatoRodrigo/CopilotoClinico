@@ -31,21 +31,36 @@ import {
   type CopilotOutput,
   type ValidationResult,
 } from '../guardrails/output-validator';
+import { validateOutputV2 } from '../guardrails/output-validator-v2';
+import { findDoseMentions } from '../guardrails/dose-detector';
 import type { AnalyzeInput, RespondInput } from '../schemas/copilot.schemas';
 import { calculateInferenceCost } from './model-pricing';
-import { COPILOT_OUTPUT_JSON_SCHEMA } from '../schemas/copilot-output.json-schema';
-import { preliminaryReasonFor, type ContainmentContext } from './preliminary-containment';
+import {
+  COPILOT_OUTPUT_JSON_SCHEMA,
+  COPILOT_OUTPUT_V2_JSON_SCHEMA,
+} from '../schemas/copilot-output.json-schema';
+import {
+  preliminaryReasonFor,
+  preliminaryReasonForV2,
+  type ContainmentContext,
+} from './preliminary-containment';
 import {
   UNDERSTANDING_CORRECTION_QUESTION_ID,
   type CaseUnderstanding,
   type CitationOrigin,
+  type DecisionPromptVersion,
+  type KnowledgeSource,
   type PreliminaryReason,
+  type WebEvidenceItem,
 } from '../../../shared/contracts/clinical';
 import {
   UnderstandingService,
   type UnderstandingOutcome,
 } from '../understanding/understanding.service';
-import { readReasoningMode } from '../understanding/understanding.settings';
+import { WebResearchService, type ResearchOutcome } from '../research/web-research.service';
+import { isWebEvidenceId } from '../research/web-evidence';
+import { buildDecisionV2Prompt } from './decision-prompt-v2';
+import { readDecisionPipeline, type DecisionPipeline } from './decision.settings';
 
 const DEFAULT_MAX_TURNS = 5;
 
@@ -62,6 +77,32 @@ const RECOMMENDATION_CATEGORY_ORDER = {
   therapeutic: 2,
   verify: 3,
 } as const;
+
+/** F1 — decisão v2: o que fazer agora vem antes do que depende de dado. */
+const RECOMMENDATION_LAYER_ORDER = { now: 0, depends: 1 } as const;
+
+/**
+ * CC-03 — no último turno não há próxima rodada para responder perguntas:
+ * "recommendations" nunca pode ficar vazio. Na v2, o que ainda depende de
+ * dado vai na camada "depends" em vez de virar recomendação preliminar.
+ */
+const FINAL_TURN_INSTRUCTIONS: Record<DecisionPromptVersion, string> = {
+  v1: 'Este é o último turno permitido para esta análise. NÃO inclua novas clarifyingQuestions (a lista deve ficar vazia). Como não há próximo turno, "recommendations" NÃO PODE ficar vazio: forneça ao menos uma recomendação preliminar com base na melhor evidência e informação disponíveis, mesmo que incompletas. Se ainda houver incerteza sobre a cobertura da diretriz, defina uncertainty=true e descreva uncertaintyReason, mas isso não substitui a obrigação de recomendar algo — declare a incerteza E recomende, não incerteza no lugar de recomendar.',
+  v2: 'Este é o último turno permitido para esta análise. NÃO inclua clarifyingQuestions (a lista deve ficar vazia). Como não há próximo turno, "recommendations" NÃO PODE ficar vazio: dê ao menos uma conduta com a melhor evidência e informação disponíveis. O que ainda depender de dado ausente vai na camada "depends", com esse dado em "dependsOn".',
+};
+
+/**
+ * F1 — busca não feita (`COPILOT_KNOWLEDGE_SOURCE=model_only|web`): nenhum
+ * trecho e nenhuma chamada ao provedor de embedding.
+ */
+const NO_RETRIEVAL: RetrievalResult = {
+  chunks: [],
+  totalRetrieved: 0,
+  coverage: 'none',
+  bestSemanticScore: 0,
+  discardedByFloor: 0,
+  official: { enabled: false, chunks: [], bestSemanticScore: 0, discardedByFloor: 0 },
+};
 
 export interface RecommendationSource {
   /** F1 — `null` em conhecimento geral do modelo (decisão v2): não há trecho citado. */
@@ -91,6 +132,12 @@ export type EnrichedCopilotOutput = Omit<CopilotOutput, 'recommendations'> & {
    * seguiu pela busca de sempre.
    */
   understanding?: CaseUnderstanding | null;
+  /**
+   * F1 — trechos da pesquisa web entregues à decisão, gravados para
+   * auditoria. Só com `COPILOT_KNOWLEDGE_SOURCE=web`; vazio quando a pesquisa
+   * falhou e a decisão seguiu só com o conhecimento do modelo.
+   */
+  webEvidence?: WebEvidenceItem[];
 };
 
 const CHIEF_COMPLAINT_MAX_LENGTH = 140;
@@ -227,8 +274,24 @@ function resolveCitationSource(
   citationChunkId: string | null,
   chunks: RetrievedChunk[],
   attachments: AttachmentForCitation[],
+  webEvidence: readonly WebEvidenceItem[] = [],
 ): ResolvedSource {
   if (citationChunkId === null) return MODEL_KNOWLEDGE_SOURCE;
+
+  // F1 — página oficial achada pela pesquisa web: o link leva à página.
+  const webItem = isWebEvidenceId(citationChunkId)
+    ? webEvidence.find((item) => item.id === citationChunkId)
+    : undefined;
+  if (webItem) {
+    return {
+      source: webItem.title ?? webItem.domain,
+      sourceVersion: webItem.domain,
+      text: webItem.citedText,
+      institutionId: null,
+      origin: 'web_official',
+      sourceUrl: webItem.url,
+    };
+  }
 
   if (isAttachmentCitation(citationChunkId)) {
     const attachment = attachments.find((item) => item.citationId === citationChunkId);
@@ -304,8 +367,10 @@ export interface OrchestratorResult {
      * entraram com aviso de encaixe fraco. A UI usa isto para dizer ao médico
      * que a base não cobre o cenário, em vez de deixá-lo achar que a ausência
      * de recomendação é indecisão do modelo.
+     *
+     * F1 — `null` quando a base não foi consultada (`model_only`/`web`).
      */
-    retrievalCoverage: RetrievalCoverage;
+    retrievalCoverage: RetrievalCoverage | null;
     /** ADR-010 — trechos da base oficial do MS entregues ao modelo. */
     officialChunksRetrieved: number;
     latencyMs: number;
@@ -321,6 +386,11 @@ export interface OrchestratorResult {
     maxTurns: number;
     /** F1 — duração da Etapa 1. Só com `COPILOT_REASONING=stages`. */
     understandingLatencyMs?: number;
+    /** F1 — fonte de conhecimento e prompt da decisão efetivos neste turno. */
+    knowledgeSource: KnowledgeSource;
+    decisionPrompt: DecisionPromptVersion;
+    /** F1 — duração da pesquisa web. Só quando ela rodou. */
+    researchLatencyMs?: number;
   };
 }
 
@@ -342,6 +412,14 @@ function sortRecommendations<T extends CopilotOutput['recommendations'][number]>
   recommendations: T[],
 ): T[] {
   return [...recommendations].sort((left, right) => {
+    // F1 — só a v2 tem camada; na v1 os dois lados são `undefined` e empatam.
+    const layerDelta =
+      (left.layer ? RECOMMENDATION_LAYER_ORDER[left.layer] : 0) -
+      (right.layer ? RECOMMENDATION_LAYER_ORDER[right.layer] : 0);
+    if (layerDelta !== 0) {
+      return layerDelta;
+    }
+
     const categoryDelta =
       RECOMMENDATION_CATEGORY_ORDER[left.category] - RECOMMENDATION_CATEGORY_ORDER[right.category];
     if (categoryDelta !== 0) {
@@ -473,14 +551,63 @@ function inferenceCostOf(model: string, usage: CompletionUsage | undefined): num
 }
 
 /**
- * F1 — custo da interação: análise (tentativa + retry) mais a Etapa 1, que
- * também foi paga mesmo quando falhou.
+ * F1 — custo da interação: análise (tentativa + retry) mais a Etapa 1 e a
+ * pesquisa web, que também foram pagas mesmo quando falharam.
  */
 function analysisCost(
-  prepared: { stage: UnderstandingOutcome | null },
+  prepared: { stage: UnderstandingOutcome | null; research: ResearchOutcome | null },
   attempt: { cost: number },
 ): number {
-  return attempt.cost + (prepared.stage?.cost ?? 0);
+  return attempt.cost + (prepared.stage?.cost ?? 0) + (prepared.research?.cost ?? 0);
+}
+
+/**
+ * F1 — achados corrigíveis da decisão v2 viram aviso na resposta aceita: já
+ * tiveram o seu retry e nunca bloqueiam (emenda de 10/10/2026 ao ADR-012).
+ */
+function acceptCorrectable(validation: ValidationResult): ValidationResult {
+  if (!validation.correctable?.length) return validation;
+  return {
+    ...validation,
+    warnings: [...(validation.warnings ?? []), ...validation.correctable],
+    correctable: [],
+  };
+}
+
+function hasCorrectable(validation: ValidationResult): boolean {
+  return (validation.correctable?.length ?? 0) > 0;
+}
+
+/** F1 — JSON Schema da saída na versão do prompt de decisão. */
+function responseSchemaOf(pipeline: DecisionPipeline) {
+  return pipeline.decisionPrompt === 'v2'
+    ? COPILOT_OUTPUT_V2_JSON_SCHEMA
+    : COPILOT_OUTPUT_JSON_SCHEMA;
+}
+
+/**
+ * KB-005/KB-006 — cobertura da base mostrada ao médico. F1 — `null` quando a
+ * base não foi consultada: nunca afirmar cobertura que não foi medida.
+ */
+function coverageOf(prepared: {
+  pipeline: DecisionPipeline;
+  retrievalResult: RetrievalResult;
+}): RetrievalCoverage | null {
+  return prepared.pipeline.knowledgeSource === 'internal_kb'
+    ? displayedCoverage(prepared.retrievalResult)
+    : null;
+}
+
+/** F1 — o que a pesquisa web fez, para a trilha técnica (`params`). */
+function researchTrace(research: ResearchOutcome) {
+  return {
+    model: research.model,
+    webSearchRequests: research.usage?.webSearchRequests ?? 0,
+    evidenceItems: research.evidence.length,
+    latencyMs: research.latencyMs,
+    cost: research.cost,
+    fallbackReason: research.fallbackReason,
+  };
 }
 
 /** Uma resposta do modelo já validada. */
@@ -558,6 +685,8 @@ function turnIndexOf(turn: AnalysisTurn): number {
  * trás: sem retry, sem `params`, sem a contenção de fonte não revisada.
  */
 interface PreparedAnalysis {
+  /** F1 — prompt da decisão e fonte de conhecimento efetivos neste turno. */
+  pipeline: DecisionPipeline;
   physicianId: string;
   encounterId: string;
   startedAt: number;
@@ -575,6 +704,14 @@ interface PreparedAnalysis {
   logLabel: string;
   /** F1 — Etapa 1 deste turno; `null` com `COPILOT_REASONING=legacy`. */
   stage: UnderstandingOutcome | null;
+  /** F1 — pesquisa web deste turno; `null` fora de `COPILOT_KNOWLEDGE_SOURCE=web`. */
+  research: ResearchOutcome | null;
+}
+
+/** F1 — evidência de um turno: busca na base interna e/ou pesquisa web. */
+interface GatheredEvidence {
+  retrievalResult: RetrievalResult;
+  research: ResearchOutcome | null;
 }
 
 /** Turno 0 depois da redação de PII e da barreira de injeção. */
@@ -604,6 +741,7 @@ export class OrchestratorService {
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(ConfigService) private readonly config: ConfigService,
     @Inject(UnderstandingService) private readonly understanding: UnderstandingService,
+    @Inject(WebResearchService) private readonly webResearch: WebResearchService,
   ) {}
 
   /**
@@ -649,17 +787,66 @@ export class OrchestratorService {
   }
 
   /**
+   * F1 — flags do turno (raciocínio, prompt da decisão, fonte de
+   * conhecimento), lidas uma vez por turno e sem redeploy para voltar.
+   */
+  private decisionPipeline(logLabel: string): DecisionPipeline {
+    const { pipeline, downgrades } = readDecisionPipeline(this.config);
+    for (const downgrade of downgrades) {
+      this.logger.warn(`DECISION_PIPELINE_DOWNGRADE${logLabel}: ${downgrade}`);
+    }
+    return pipeline;
+  }
+
+  /**
    * F1 — Etapa 1 (ADR-013) com `COPILOT_REASONING=stages`; `null` no
-   * `legacy`, e aí nada no turno muda. A flag é lida uma vez por turno, sem
-   * redeploy para voltar; o resto do pipeline decide pelo `stage`.
+   * `legacy`, e aí nada no turno muda. O resto do pipeline decide pelo `stage`.
    */
   private async understandingStage(
     caseText: string,
     redFlags: Record<string, boolean> | undefined,
+    pipeline: DecisionPipeline,
     logLabel: string,
   ): Promise<UnderstandingOutcome | null> {
-    if (readReasoningMode(this.config) !== 'stages') return null;
+    if (pipeline.reasoning !== 'stages') return null;
     return this.understanding.understand({ caseText, redFlags, logLabel });
+  }
+
+  /**
+   * F1 — evidência do turno pela fonte de conhecimento:
+   * - `internal_kb`: busca na base (Etapa 2 da ADR-013 com entendimento; a de
+   *   sempre, pelo texto do caso, sem ele);
+   * - `model_only`: nenhuma busca e nenhuma chamada de embedding;
+   * - `web`: pesquisa em fontes oficiais a partir do entendimento; sem
+   *   entendimento ou sem resultado, segue como `model_only`.
+   */
+  private async gatherEvidence(
+    caseText: string,
+    stage: UnderstandingOutcome | null,
+    institutionId: string | null | undefined,
+    pipeline: DecisionPipeline,
+    logLabel: string,
+  ): Promise<GatheredEvidence> {
+    if (pipeline.knowledgeSource === 'internal_kb') {
+      return {
+        retrievalResult: await this.retrieveEvidence(caseText, stage, institutionId, logLabel),
+        research: null,
+      };
+    }
+    if (pipeline.knowledgeSource === 'model_only') {
+      return { retrievalResult: NO_RETRIEVAL, research: null };
+    }
+    if (!stage?.understanding) {
+      this.logger.warn(
+        `WEB_RESEARCH_FALLBACK${logLabel}: sem entendimento do caso não há o que pesquisar — a decisão segue só com o conhecimento do modelo`,
+      );
+      return { retrievalResult: NO_RETRIEVAL, research: null };
+    }
+    const research = await this.webResearch.research({
+      understanding: stage.understanding,
+      logLabel,
+    });
+    return { retrievalResult: NO_RETRIEVAL, research };
   }
 
   /**
@@ -683,19 +870,72 @@ export class OrchestratorService {
     return this.retrieval.search(caseText, 5, institutionId);
   }
 
+  /** F1 — o prompt da decisão da versão do turno, com a mesma evidência. */
+  private buildDecisionPrompt(
+    pipeline: DecisionPipeline,
+    input: {
+      caseText: string;
+      evidence: GatheredEvidence;
+      attachments: AttachmentForCitation[];
+      context: EncounterContext;
+      redFlags: Record<string, boolean>;
+      locale: string | undefined;
+      unreviewedSourcesPreliminary: boolean;
+      stage: UnderstandingOutcome | null;
+      finalTurn: boolean;
+    },
+  ): BuiltPrompt {
+    const additionalInstructions = input.finalTurn
+      ? FINAL_TURN_INSTRUCTIONS[pipeline.decisionPrompt]
+      : undefined;
+    const understanding = input.stage?.understanding ?? undefined;
+    const evidence = promptEvidence(input.evidence.retrievalResult, input.attachments);
+
+    if (pipeline.decisionPrompt === 'v2') {
+      return buildDecisionV2Prompt({
+        caseText: input.caseText,
+        understanding,
+        redFlags: input.redFlags,
+        context: input.context,
+        locale: input.locale,
+        retrievedChunks: evidence.retrievedChunks,
+        coverage: evidence.coverage,
+        officialChunks: evidence.officialChunks ?? [],
+        physicianAttachments: input.attachments,
+        webEvidence: input.evidence.research?.evidence ?? [],
+        additionalInstructions,
+      });
+    }
+
+    return buildPrompt({
+      caseText: input.caseText,
+      ...evidence,
+      context: input.context,
+      // S20-CLIN-01 / CC-05 — red flags confirmadas pelo médico (herdadas
+      // entre turnos): sem isto, sumiam do prompt a partir do turno 2.
+      redFlags: input.redFlags,
+      // PI-05 — instrui o idioma de resposta conforme a conta do médico.
+      locale: input.locale,
+      additionalInstructions,
+      unreviewedSourcesPreliminary: input.unreviewedSourcesPreliminary,
+      understanding,
+    });
+  }
+
   async analyze(
     physicianId: string,
     encounterId: string,
     input: AnalyzeInput,
   ): Promise<OrchestratorResult> {
     const screened = await this.screenInitialCase(physicianId, encounterId, input, '');
-    const stage = await this.understandingStage(screened.caseText, input.redFlags, '');
+    const pipeline = this.decisionPipeline('');
+    const stage = await this.understandingStage(screened.caseText, input.redFlags, pipeline, '');
     const prepared = await this.prepareInitialAnalysis(
       physicianId,
       encounterId,
       input,
       screened,
-      stage,
+      { pipeline, stage },
       '',
     );
     const attempt = await this.completeWithRetry(prepared);
@@ -716,7 +956,13 @@ export class OrchestratorService {
   ): AsyncGenerator<StreamEvent> {
     const logLabel = ' (stream)';
     const screened = await this.screenInitialCase(physicianId, encounterId, input, logLabel);
-    const stage = await this.understandingStage(screened.caseText, input.redFlags, logLabel);
+    const pipeline = this.decisionPipeline(logLabel);
+    const stage = await this.understandingStage(
+      screened.caseText,
+      input.redFlags,
+      pipeline,
+      logLabel,
+    );
     // F1 — o entendimento sai assim que fica pronto, antes da busca e do
     // primeiro delta: o médico confere em segundos se o caso foi entendido.
     if (stage?.understanding) {
@@ -727,7 +973,7 @@ export class OrchestratorService {
       encounterId,
       input,
       screened,
-      stage,
+      { pipeline, stage },
       logLabel,
     );
 
@@ -736,7 +982,7 @@ export class OrchestratorService {
     // descartaria.
     const stream: AsyncIterator<string, StreamCompletionResult> = this.aiGateway.completeStream({
       messages: promptMessages(prepared.prompt),
-      responseSchema: COPILOT_OUTPUT_JSON_SCHEMA,
+      responseSchema: responseSchemaOf(prepared.pipeline),
     });
     let streamed: CompletionAttempt;
     try {
@@ -870,19 +1116,22 @@ export class OrchestratorService {
 
     // F1 — a resposta do médico pode mudar a síndrome: o entendimento é
     // refeito com o caso e todas as perguntas e respostas acumuladas.
+    const pipeline = this.decisionPipeline(' (respond)');
     const stage = await this.understandingStage(
       augmentedCaseText,
       inheritedParams.redFlags,
+      pipeline,
       ' (respond)',
     );
-    const retrievalResult = await this.retrieveEvidence(
+    const evidence = await this.gatherEvidence(
       augmentedCaseText,
       stage,
       encounter.institutionId,
+      pipeline,
       ' (respond)',
     );
     const attachments = await this.loadAttachments(encounterId);
-    this.logger.debug(`Retrieved ${retrievalResult.totalRetrieved} chunks (respond)`);
+    this.logger.debug(`Retrieved ${evidence.retrievalResult.totalRetrieved} chunks (respond)`);
 
     const encounterContext = (encounter.context as unknown as EncounterContext | null) ?? {
       hasCT: false,
@@ -894,36 +1143,32 @@ export class OrchestratorService {
     const locale = await this.getPhysicianLocale(physicianId);
     const unreviewedSourcesPreliminary = this.unreviewedSourcesPreliminary();
 
-    const prompt = buildPrompt({
+    // CC-03 — no turno final, clarifyingQuestions É obrigatoriamente vazio
+    // (não há próximo turno para respondê-las), então "recommendations" NUNCA
+    // pode ficar vazio aqui, sob pena de violar a Rule 7 (dead end) do system
+    // prompt — ver FINAL_TURN_INSTRUCTIONS.
+    const prompt = this.buildDecisionPrompt(pipeline, {
       caseText: augmentedCaseText,
-      ...promptEvidence(retrievalResult, attachments),
+      evidence,
+      attachments,
       context: encounterContext,
-      // CC-05 — sem isto, as red flags que o médico confirmou no turno 1
-      // (S20-CLIN-01) desapareciam do prompt a partir do turno 2.
+      // CC-05 — herdadas do turno anterior.
       redFlags: inheritedParams.redFlags,
-      // PI-05 — instrui o idioma de resposta conforme a conta do médico.
       locale,
-      // CC-03 — no turno final, clarifyingQuestions É obrigatoriamente vazio
-      // (não há próximo turno para respondê-las), então "recommendations"
-      // NUNCA pode ficar vazio aqui, sob pena de violar a Rule 7 (dead end)
-      // do system prompt. Mesmo com incerteza remanescente, o modelo deve
-      // arriscar ao menos uma recomendação preliminar com a melhor evidência
-      // disponível — silêncio não é uma opção neste turno.
-      additionalInstructions: forceFinal
-        ? 'Este é o último turno permitido para esta análise. NÃO inclua novas clarifyingQuestions (a lista deve ficar vazia). Como não há próximo turno, "recommendations" NÃO PODE ficar vazio: forneça ao menos uma recomendação preliminar com base na melhor evidência e informação disponíveis, mesmo que incompletas. Se ainda houver incerteza sobre a cobertura da diretriz, defina uncertainty=true e descreva uncertaintyReason, mas isso não substitui a obrigação de recomendar algo — declare a incerteza E recomende, não incerteza no lugar de recomendar.'
-        : undefined,
       unreviewedSourcesPreliminary,
-      understanding: stage?.understanding ?? undefined,
+      stage,
+      finalTurn: forceFinal,
     });
 
     const prepared: PreparedAnalysis = {
+      pipeline,
       physicianId,
       encounterId,
       startedAt,
       maxTurns,
       inputRedacted: baseCaseText,
       piiDetected,
-      retrievalResult,
+      retrievalResult: evidence.retrievalResult,
       attachments,
       prompt,
       // CC-05 — repropaga demoCase/redFlags (inclusive em falha de validação)
@@ -938,6 +1183,7 @@ export class OrchestratorService {
       },
       logLabel: ' (respond)',
       stage,
+      research: evidence.research,
     };
 
     const attempt = await this.completeWithRetry(prepared);
@@ -999,25 +1245,26 @@ export class OrchestratorService {
     };
   }
 
-  /** Turno 0, comum a analyze() e analyzeStream(): retrieval e prompt. */
+  /** Turno 0, comum a analyze() e analyzeStream(): evidência e prompt. */
   private async prepareInitialAnalysis(
     physicianId: string,
     encounterId: string,
     input: AnalyzeInput,
     screened: ScreenedCase,
-    stage: UnderstandingOutcome | null,
+    { pipeline, stage }: { pipeline: DecisionPipeline; stage: UnderstandingOutcome | null },
     logLabel: string,
   ): Promise<PreparedAnalysis> {
-    const retrievalResult = await this.retrieveEvidence(
+    const evidence = await this.gatherEvidence(
       screened.caseText,
       stage,
       screened.institutionId,
+      pipeline,
       logLabel,
     );
     // F4 — referências que o médico anexou a este atendimento. Conteúdo não
     // curado: entra no prompt em bloco próprio e é citável só como preliminar.
     const attachments = await this.loadAttachments(encounterId);
-    this.logger.debug(`Retrieved ${retrievalResult.totalRetrieved} chunks${logLabel}`);
+    this.logger.debug(`Retrieved ${evidence.retrievalResult.totalRetrieved} chunks${logLabel}`);
 
     // S20-CLIN-01 — red flags marcadas pelo médico na captura: vão para o
     // prompt e para `params` (rastreabilidade CFM, herança entre turnos).
@@ -1028,9 +1275,10 @@ export class OrchestratorService {
     const locale = await this.getPhysicianLocale(physicianId);
     const unreviewedSourcesPreliminary = this.unreviewedSourcesPreliminary();
 
-    const prompt = buildPrompt({
+    const prompt = this.buildDecisionPrompt(pipeline, {
       caseText: screened.caseText,
-      ...promptEvidence(retrievalResult, attachments),
+      evidence,
+      attachments,
       context: {
         hasCT: input.context.hasCT,
         isSus: input.context.isSus,
@@ -1039,20 +1287,21 @@ export class OrchestratorService {
       },
       // S20-CLIN-01 — injeta red flags explícitas do médico no prompt.
       redFlags: params.redFlags,
-      // PI-05 — instrui o idioma de resposta conforme a conta do médico.
       locale,
       unreviewedSourcesPreliminary,
-      understanding: stage?.understanding ?? undefined,
+      stage,
+      finalTurn: false,
     });
 
     return {
+      pipeline,
       physicianId,
       encounterId,
       startedAt: screened.startedAt,
       maxTurns: screened.maxTurns,
       inputRedacted: screened.caseText,
       piiDetected: screened.piiDetected,
-      retrievalResult,
+      retrievalResult: evidence.retrievalResult,
       attachments,
       prompt,
       params,
@@ -1060,6 +1309,7 @@ export class OrchestratorService {
       turn: { kind: 'initial' },
       logLabel,
       stage,
+      research: evidence.research,
     };
   }
 
@@ -1093,6 +1343,11 @@ export class OrchestratorService {
   }
 
   private validate(prepared: PreparedAnalysis, content: string): ValidationResult {
+    if (prepared.pipeline.decisionPrompt === 'v2') {
+      return validateOutputV2(content, prepared.prompt.retrievedChunkIds, {
+        understanding: prepared.stage?.understanding ?? null,
+      });
+    }
     return validateOutput(
       content,
       prepared.prompt.retrievedChunkIds,
@@ -1113,7 +1368,7 @@ export class OrchestratorService {
     try {
       const completion = await this.aiGateway.complete({
         messages,
-        responseSchema: COPILOT_OUTPUT_JSON_SCHEMA,
+        responseSchema: responseSchemaOf(prepared.pipeline),
       });
       return {
         content: completion.content,
@@ -1140,20 +1395,36 @@ export class OrchestratorService {
     prepared: PreparedAnalysis,
     attempt: CompletionAttempt,
   ): Promise<CompletionAttempt> {
-    if (attempt.validation.valid && attempt.validation.output) return attempt;
+    const firstIsValid = attempt.validation.valid && attempt.validation.output !== null;
+    if (firstIsValid && !hasCorrectable(attempt.validation)) return attempt;
     if (!attempt.retryable) return attempt;
 
+    // F1 — na v2, achado corrigível (camada sem dado, dose sem fonte…) também
+    // ganha o retry, junto com os erros que bloqueiam.
+    const feedback = [...attempt.validation.errors, ...(attempt.validation.correctable ?? [])];
     this.logger.warn(
-      `Output validation failed on first attempt${prepared.logLabel}, retrying once: ${attempt.validation.errors.join(', ')}`,
+      `Output validation failed on first attempt${prepared.logLabel}, retrying once: ${feedback.join(', ')}`,
     );
     // Resposta vazia (ex.: truncada antes de qualquer texto) não entra como
     // turno do assistente: a API rejeita mensagem de assistente vazia.
     const retryMessages: ChatMessage[] = [
       ...promptMessages(prepared.prompt),
       ...(attempt.content ? [{ role: 'assistant' as const, content: attempt.content }] : []),
-      { role: 'user', content: validationFeedback(attempt.validation.errors) },
+      { role: 'user', content: validationFeedback(feedback) },
     ];
-    return this.requestCompletion(prepared, retryMessages, attempt.cost);
+    const retried = await this.requestCompletion(prepared, retryMessages, attempt.cost);
+    if (retried.validation.valid && retried.validation.output) {
+      return { ...retried, validation: acceptCorrectable(retried.validation) };
+    }
+    if (!firstIsValid) return retried;
+
+    // F1 — o retry de um achado corrigível piorou a resposta (JSON inválido,
+    // truncamento, recusa): fica a primeira, com os achados como aviso. Uma
+    // regra que nunca bloqueia não pode deixar o médico sem resposta.
+    this.logger.warn(
+      `DECISION_V2_RETRY_DISCARDED${prepared.logLabel}: o retry falhou (${retried.validation.errors.join(', ')}); mantida a primeira resposta`,
+    );
+    return { ...attempt, cost: retried.cost, validation: acceptCorrectable(attempt.validation) };
   }
 
   /**
@@ -1177,9 +1448,15 @@ export class OrchestratorService {
           rawOutput: {
             raw: attempt.content,
             validationErrors: validation.errors,
-            // F1 — o que a Etapa 1 entendeu ajuda a triar a falha.
+            // F1 — o que a Etapa 1 entendeu e o que a pesquisa achou ajudam a
+            // triar a falha.
             ...(prepared.stage
               ? { understanding: prepared.stage.understanding as Prisma.InputJsonValue | null }
+              : {}),
+            ...(prepared.research
+              ? {
+                  webEvidence: prepared.research.evidence as unknown as Prisma.InputJsonValue,
+                }
               : {}),
           },
           uncertainty: true,
@@ -1196,7 +1473,10 @@ export class OrchestratorService {
         `OUTPUT_VALIDATION_WARNING${prepared.logLabel}: ${validation.warnings.join(' | ')}`,
       );
     }
-    const output = this.enrichOutput(prepared, validation.output);
+    const output =
+      prepared.pipeline.decisionPrompt === 'v2'
+        ? this.enrichOutputV2(prepared, validation.output)
+        : this.enrichOutput(prepared, validation.output);
     const interaction = await this.prisma.aiInteraction.create({
       data: {
         ...this.interactionRecord(prepared, attempt),
@@ -1228,7 +1508,7 @@ export class OrchestratorService {
           // antes de qualquer chamada ao modelo (rejectInjection).
           injectionDetected: false,
           chunksRetrieved: retrievalResult.totalRetrieved,
-          retrievalCoverage: displayedCoverage(retrievalResult),
+          retrievalCoverage: coverageOf(prepared),
           officialChunksRetrieved: retrievalResult.official.chunks.length,
           latencyMs: Date.now() - prepared.startedAt,
           cost,
@@ -1236,6 +1516,9 @@ export class OrchestratorService {
           turnIndex: turnIndexOf(prepared.turn),
           maxTurns: prepared.maxTurns,
           ...(prepared.stage ? { understandingLatencyMs: prepared.stage.latencyMs } : {}),
+          knowledgeSource: prepared.pipeline.knowledgeSource,
+          decisionPrompt: prepared.pipeline.decisionPrompt,
+          ...(prepared.research ? { researchLatencyMs: prepared.research.latencyMs } : {}),
         },
       },
     };
@@ -1258,11 +1541,16 @@ export class OrchestratorService {
       params: {
         demoCase: prepared.params.demoCase,
         redFlags: prepared.params.redFlags,
-        retrievalCoverage: displayedCoverage(retrievalResult),
+        retrievalCoverage: coverageOf(prepared),
         officialChunksRetrieved: retrievalResult.official.chunks.length,
         // F1 — modelo da Etapa 1 (pode ser outro que o da análise, via
         // AI_UNDERSTANDING_MODEL): a trilha registra toda IA que o médico viu.
         ...(prepared.stage ? { understandingModel: prepared.stage.model } : {}),
+        // F1 — prompt e fonte de conhecimento efetivos, e o que a pesquisa
+        // web fez (modelo, buscas, custo, motivo do fallback).
+        knowledgeSource: prepared.pipeline.knowledgeSource,
+        decisionPrompt: prepared.pipeline.decisionPrompt,
+        ...(prepared.research ? { research: researchTrace(prepared.research) } : {}),
       },
       latencyMs: Date.now() - prepared.startedAt,
       cost: analysisCost(prepared, attempt),
@@ -1313,15 +1601,79 @@ export class OrchestratorService {
     };
   }
 
+  /**
+   * F1 — decisão v2 (ADR-013): a fonte de cada recomendação vem da base que
+   * ela declarou e a contenção v2 decide o rótulo. Recomendação `source` cujo
+   * id não está entre os citáveis — o que sobrou depois do retry — é
+   * mostrada como conhecimento geral do modelo: nada no prompt a sustenta.
+   */
+  private enrichOutputV2(prepared: PreparedAnalysis, output: CopilotOutput): EnrichedCopilotOutput {
+    const chunks = citableChunks(prepared.retrievalResult);
+    const citableIds = new Set(prepared.prompt.retrievedChunkIds);
+    const webEvidence = prepared.research?.evidence ?? [];
+    let demoted = 0;
+
+    const recommendations = sortRecommendations(output.recommendations).map((rec) => {
+      const cited = rec.citationChunkId !== null && citableIds.has(rec.citationChunkId);
+      const citationChunkId = rec.basis === 'source' && cited ? rec.citationChunkId : null;
+      if (rec.basis === 'source' && citationChunkId === null) demoted += 1;
+      const resolved = resolveCitationSource(
+        citationChunkId,
+        chunks,
+        prepared.attachments,
+        webEvidence,
+      );
+      const preliminaryReason = preliminaryReasonForV2({
+        // Inalcançável: o schema da v2 exige a camada. Na dúvida, o lado
+        // seguro é esperar o dado.
+        layer: rec.layer ?? 'depends',
+        origin: resolved.origin,
+        carriesDose: findDoseMentions(`${rec.action} ${rec.rationale}`).length > 0,
+      });
+      return {
+        ...rec,
+        citationChunkId,
+        basis: citationChunkId === null ? ('model_knowledge' as const) : ('source' as const),
+        preliminary: preliminaryReason !== null,
+        ...(preliminaryReason ? { preliminaryReason } : {}),
+        chunkId: citationChunkId,
+        source: resolved.source,
+        sourceVersion: resolved.sourceVersion,
+        sourceText: resolved.text,
+        sourceUrl: resolved.sourceUrl,
+        origin: resolved.origin,
+      };
+    });
+
+    if (demoted > 0) {
+      this.logger.warn(
+        `DECISION_V2_CITATION_DEMOTED${prepared.logLabel}: ${demoted} recomendação(ões) "source" sem id citável, mostradas como conhecimento geral do modelo`,
+      );
+    }
+
+    return {
+      ...output,
+      ...(prepared.stage ? { understanding: prepared.stage.understanding } : {}),
+      ...(prepared.research ? { webEvidence } : {}),
+      recommendations,
+    };
+  }
+
   private buildCitations(
     prepared: PreparedAnalysis,
     output: EnrichedCopilotOutput,
   ): OrchestratorResult['citations'] {
     const chunks = citableChunks(prepared.retrievalResult);
+    const webEvidence = prepared.research?.evidence ?? [];
     // F1 — conhecimento geral do modelo não tem fonte a citar.
     return output.recommendations.flatMap((rec) => {
       if (rec.chunkId === null) return [];
-      const resolved = resolveCitationSource(rec.chunkId, chunks, prepared.attachments);
+      const resolved = resolveCitationSource(
+        rec.chunkId,
+        chunks,
+        prepared.attachments,
+        webEvidence,
+      );
       return {
         chunkId: rec.chunkId,
         source: resolved.source,
