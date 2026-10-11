@@ -67,6 +67,7 @@ dado pessoal no payload:
 | `COPILOT_FEEDBACK` | `comment` | comentário do médico (sem máscara antes do F0-D; com `maskFreeText` depois, que não pega nomes) |
 | `CRM_VERIFICATION_APPROVED`, `CRM_VERIFICATION_REJECTED` | `notes` | nota do admin ou resposta crua da verificação automática |
 | `PROTOCOL_RUN_ABANDONED` | `reason` | motivo digitado pelo médico |
+| `GUIDELINE_REJECTED` | `reason` | motivo do curador ao rejeitar um trecho de diretriz (as telas de curadoria mandam um texto fixo; a API aceita texto livre) |
 | `AUTH_REGISTER` | `email` | email do médico |
 
 Essas linhas ficam como estão. Corrigi-las exigiria desligar o trigger por
@@ -85,16 +86,13 @@ WHERE actor_id = '<physician-id>'
                 'PROMPT_INJECTION_DETECTED') AND payload ? 'filename')
     OR (action = 'COPILOT_FEEDBACK' AND payload ? 'comment')
     OR (action = 'PROTOCOL_RUN_ABANDONED' AND payload ? 'reason')
+    OR (action = 'GUIDELINE_REJECTED' AND payload ? 'reason')
     OR (action = 'AUTH_REGISTER' AND payload ? 'email')
   );
 ```
 
 As notas de verificação de CRM têm o admin como `actor_id`; filtre por
 `payload->>'physicianId'`.
-
-Fora da regra, por ora: `GUIDELINE_REJECTED` grava o `reason` do curador. É
-texto sobre o documento, não sobre pessoa, e a trilha é o único lugar onde ele
-existe — tirá-lo exige antes uma coluna em `guideline_chunks`.
 
 ## Direitos do Titular (Médico)
 
