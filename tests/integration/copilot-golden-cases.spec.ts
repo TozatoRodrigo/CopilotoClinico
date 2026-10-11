@@ -104,6 +104,9 @@ describe('CC-06: Golden cases — copilot never leaves the physician at a dead e
       institutionId: null,
       score: 0.95,
       metadata: {},
+      // ADR-012 — diretriz assinada por médico com CRM verificado: o caminho
+      // A (conduta definitiva) só existe para fonte assinada.
+      clinicallySigned: true,
     },
   ];
 

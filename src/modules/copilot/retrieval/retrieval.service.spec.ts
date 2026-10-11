@@ -12,6 +12,9 @@ describe('RetrievalService', () => {
     guidelineChunk: {
       findMany: ReturnType<typeof vi.fn>;
     };
+    physician: {
+      findMany: ReturnType<typeof vi.fn>;
+    };
   };
   let aiGatewayMock: {
     embed: ReturnType<typeof vi.fn>;
@@ -27,6 +30,9 @@ describe('RetrievalService', () => {
       $queryRaw: vi.fn(),
       guidelineChunk: {
         findMany: vi.fn(),
+      },
+      physician: {
+        findMany: vi.fn().mockResolvedValue([]),
       },
     };
 
@@ -263,7 +269,84 @@ describe('RetrievalService', () => {
           evidenceLevel: true,
           institutionId: true,
           metadata: true,
+          status: true,
+          reviewedBy: true,
         },
+      });
+    });
+
+    // F0-C / ADR-012 — "assinado" = `approved` + revisor médico com CRM
+    // verificado. Seed e pacotes KB-003/KB-004 entraram aprovados sem revisor.
+    describe('assinatura clínica do chunk', () => {
+      const VERIFIED_REVIEWER = '11111111-1111-1111-1111-111111111111';
+      const UNVERIFIED_REVIEWER = '22222222-2222-2222-2222-222222222222';
+
+      function chunkRow(id: string, overrides: Record<string, unknown> = {}) {
+        return {
+          id,
+          text: `texto ${id}`,
+          source: 'diretriz',
+          sourceVersion: '1.0',
+          specialty: 'emergencia',
+          evidenceLevel: null,
+          institutionId: null,
+          metadata: null,
+          status: 'approved',
+          reviewedBy: null,
+          ...overrides,
+        };
+      }
+
+      beforeEach(() => {
+        aiGatewayMock.embed.mockResolvedValue({ embeddings: [[0.1]] });
+        prismaMock.$queryRaw
+          .mockResolvedValueOnce([
+            { id: 'signed', similarity: 0.9, institution_id: null },
+            { id: 'unverified', similarity: 0.85, institution_id: null },
+            { id: 'seed', similarity: 0.8, institution_id: null },
+          ])
+          .mockResolvedValueOnce([]);
+        prismaMock.physician.findMany.mockResolvedValue([{ id: VERIFIED_REVIEWER }]);
+      });
+
+      it('só conta como assinado o chunk revisado por médico com CRM verificado', async () => {
+        prismaMock.guidelineChunk.findMany.mockResolvedValue([
+          chunkRow('signed', { reviewedBy: VERIFIED_REVIEWER }),
+          chunkRow('unverified', { reviewedBy: UNVERIFIED_REVIEWER }),
+          chunkRow('seed'),
+        ]);
+
+        const result = await service.search('dor torácica', 5);
+
+        const signing = Object.fromEntries(result.chunks.map((c) => [c.id, c.clinicallySigned]));
+        expect(signing).toEqual({ signed: true, unverified: false, seed: false });
+        expect(prismaMock.physician.findMany).toHaveBeenCalledWith({
+          where: { id: { in: [VERIFIED_REVIEWER, UNVERIFIED_REVIEWER] }, crmVerified: true },
+          select: { id: true },
+        });
+      });
+
+      it('não consulta médicos quando nenhum chunk tem revisor', async () => {
+        prismaMock.guidelineChunk.findMany.mockResolvedValue([
+          chunkRow('signed'),
+          chunkRow('unverified'),
+          chunkRow('seed'),
+        ]);
+
+        const result = await service.search('dor torácica', 5);
+
+        expect(result.chunks.every((c) => !c.clinicallySigned)).toBe(true);
+        expect(prismaMock.physician.findMany).not.toHaveBeenCalled();
+      });
+
+      it('nunca conta como assinado um chunk fora de approved', async () => {
+        prismaMock.guidelineChunk.findMany.mockResolvedValue([
+          chunkRow('signed', { reviewedBy: VERIFIED_REVIEWER, status: 'official_unreviewed' }),
+        ]);
+
+        const result = await service.search('dor torácica', 5);
+
+        expect(result.chunks[0]!.clinicallySigned).toBe(false);
       });
     });
 
@@ -485,6 +568,7 @@ describe('RetrievalService — chave do cache', () => {
     const prisma = {
       $queryRaw: vi.fn().mockResolvedValue([]),
       guidelineChunk: { findMany: vi.fn().mockResolvedValue([]) },
+      physician: { findMany: vi.fn().mockResolvedValue([]) },
     };
     const ai = {
       embed: vi.fn().mockResolvedValue({ embeddings: [[0.1, 0.2]] }),
