@@ -400,6 +400,9 @@ model GuidelineChunk {
   institutionId String?                      @map("institution_id") @db.Uuid
   reviewedBy    String?                      @map("reviewed_by") @db.Uuid
   reviewedAt    DateTime?                    @map("reviewed_at")
+  /// Motivo da rejeição escrito pelo curador, já mascarado (`maskFreeText`).
+  /// A trilha (GUIDELINE_REJECTED) leva só o hash — ver docs/compliance/LGPD.md.
+  reviewNote    String?                      @map("review_note") @db.Text
   validFrom     DateTime                     @default(now()) @map("valid_from")
   validTo       DateTime?                    @map("valid_to")
   createdAt     DateTime                     @default(now()) @map("created_at")
