@@ -65,6 +65,7 @@ describe('findForbiddenTerm', () => {
       'Trombólise contraindicada',
       'Trombólise: contraindicada pela hemorragia',
       'Trombólise desnecessária neste momento',
+      'Não precisa de trombólise',
       'Alteplase IV: não usar',
       'Trombólise: evitar até a TC',
       'Manter PA < 185/110 antes da trombólise',

@@ -71,6 +71,7 @@ const LINK_WORDS = new Set([
   ...['ha', 'e', 'esta', 'estao', 'sao', 'ser', 'deve', 'devem', 'deve-se', 'recomenda-se'],
   ...['indicado', 'indicada', 'indicados', 'indicadas', 'recomendado', 'recomendada'],
   ...['necessario', 'necessaria', 'seguro', 'segura', 'prudente', 'possivel'],
+  ...['precisa', 'precisam', 'necessita', 'requer', 'exige'],
   ...['fazer', 'faca', 'realizar', 'iniciar', 'inicie', 'administrar', 'administre'],
   ...['usar', 'use', 'utilizar', 'dar', 'prescrever', 'prescreva', 'receitar', 'indicar'],
   ...['manter', 'mantenha', 'repetir', 'repita', 'reiniciar', 'reintroduzir', 'retomar'],
