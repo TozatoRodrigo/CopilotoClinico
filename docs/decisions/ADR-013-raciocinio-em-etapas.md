@@ -161,3 +161,41 @@ autopreferência, e o gabarito passa a ter casos com respostas roteirizadas
   preliminar, proibição de dose, verificação pelo gabarito.
 - **Regressão em casos que hoje funcionam.** Mitigação: flag e comparação caso
   a caso no gabarito antes de ligar.
+
+## Emenda — 11/10/2026: PR 2 e as fontes de conhecimento
+
+**Contexto.** O produto passa a ser 100% Anthropic (decisão de 11/10/2026). A
+base interna (81 trechos curados sem assinatura + ~10 mil trechos de PCDT,
+quase todos crônicos) só é consultada por embedding da OpenAI. Antes de
+decidir se ela sai do caminho da análise, o gabarito precisa medir as
+alternativas.
+
+**Decisão.**
+
+1. A Etapa 3 entra atrás de `COPILOT_DECISION_PROMPT=v1|v2` (padrão `v1`;
+   `v2` exige `stages`).
+2. A evidência vem de `COPILOT_KNOWLEDGE_SOURCE`:
+   - `internal_kb` (padrão) — a busca da Etapa 2, como hoje;
+   - `model_only` — nenhuma busca;
+   - `web` — pesquisa com as ferramentas de servidor da Anthropic (web search
+     e web fetch) restrita a uma lista de domínios oficiais (Ministério da
+     Saúde, sociedades brasileiras, diretrizes internacionais de referência),
+     a partir do entendimento do caso — nunca do texto do caso. Só as
+     citações viram evidência (`web:1`…), com origem `web_official`.
+   `model_only` e `web` nunca chamam o provedor de embedding; falha da
+   pesquisa segue como `model_only`.
+3. **Proveniência vira rótulo, não preliminar.** Diferente do texto original
+   desta ADR ("ela sai sempre preliminar"), na v2 `preliminary` volta a dizer
+   uma coisa só — "espere o dado": é a camada `depends` (`depends_on_data`).
+   Conhecimento geral do modelo (`model_knowledge`), página oficial externa
+   (`web_official`) e fonte não revisada aparecem como rótulo de origem. A
+   camada `now` já é, por definição, segura em toda hipótese aberta. Anexo do
+   médico continua nunca definitivo (F4). Na v1, a contenção da ADR-012 não
+   muda.
+4. Dose sem fonte citada é regra corrigível: vale um retry; se sobrar, a
+   conduta sai marcada (`unverified_dose`) em vez de sumir.
+
+**Medição.** Variantes `claude-opus-5-5-v2-modelo`, `claude-opus-5-5-v2-web`,
+`claude-haiku-5-5-v2-modelo` e `claude-opus-5-5-v2-web-entendimento-haiku` no
+gabarito, com a parcela de condutas com fonte citada e o custo da pesquisa no
+relatório. Os critérios de liberação da tabela acima valem para cada uma.

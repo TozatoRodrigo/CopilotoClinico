@@ -682,6 +682,32 @@ Logs para acompanhar depois da troca:
 | `AI_REFUSAL category=...` | Classificador de segurança recusou (`AiRefusalError`) | Ver o caso; categoria `bio`/`cyber` em caso clínico legítimo é falso positivo |
 | `AI_REFUSAL_FALLBACK servedBy=...` | Outro modelo respondeu no lugar | Esperado e raro; o custo usa o modelo que serviu |
 
+#### Pesquisa web (`COPILOT_KNOWLEDGE_SOURCE=web`)
+
+A pesquisa usa as ferramentas de servidor da Anthropic (`web_search_20260209` e
+`web_fetch_20260209`, com filtragem dinâmica), restritas à lista de domínios.
+Antes de ligar:
+
+- web search precisa estar habilitado para a organização no Claude Console
+  (senão a API responde 400 e toda pesquisa cai no fallback);
+- se a organização restringe domínios no Console, a lista da pesquisa precisa
+  ser subconjunto dela (entrada fora dela = 400);
+- as versões `_20260209` não são elegíveis a Zero Data Retention por padrão
+  (a filtragem dinâmica roda em execução de código). A pesquisa só recebe o
+  entendimento do caso (síndrome, hipóteses, dados que faltam) — nunca o texto
+  do caso nem dado do paciente;
+- custo: tokens do modelo de pesquisa + US$ 0,01 por busca, somados ao custo
+  da análise.
+
+| Log | Significado | Ação |
+|---|---|---|
+| `WEB_RESEARCH model=... searches=... items=...` | Pesquisa entregou evidência | — |
+| `WEB_RESEARCH_FALLBACK` | Erro, recusa, provider sem suporte ou nenhuma citação de fonte permitida; a decisão seguiu só com o modelo | Raro: esperado. Frequente: ver o motivo no log e `params.research` da interação |
+| `WEB_RESEARCH_PROVIDER_ERROR` (ERROR, Sentry) | Falha de rede ou da API na pesquisa | 4xx: conferir Console (web search habilitado, domínios); 5xx: status.anthropic.com |
+| `WEB_RESEARCH_DOMAINS_REJECTED` | Entrada inválida, repetida ou acima de 64 em `WEB_RESEARCH_ALLOWED_DOMAINS` | Corrigir a lista (hostname puro, sem `https://` nem `*`) |
+| `WEB_RESEARCH_CITATION_OUTSIDE_ALLOWLIST` | Citação de domínio fora da lista, descartada | Investigar se repetir |
+| `DECISION_V2_CITATION_DEMOTED` | Conduta "source" sem id citável, mostrada como conhecimento do modelo | Acompanhar no gabarito |
+
 O custo gravado em `ai_interactions.cost` considera leitura e escrita de cache
 e, desde a Fase 0-B, também as análises em stream (antes gravavam 0).
 
@@ -786,6 +812,8 @@ Prisma não suporta rollback automático. Para reverter:
 | `OFFICIAL_GUIDELINES_ENABLED` | `false` tira PCDT/DDT/DB/PU do retrieval (válvula de escape da ADR-010); ausente = ligada. Os limiares `OFFICIAL_*` estão em `.env.example` |
 | `UNREVIEWED_SOURCES_PRELIMINARY` | `false` desliga a contenção da ADR-012: PCDT e chunk curado sem assinatura voltam a embasar conduta definitiva. Ausente ou irreconhecível = ligada |
 | `COPILOT_REASONING` | `stages` liga o raciocínio em etapas da ADR-013 (entendimento do caso antes da busca, busca dirigida, card "O que eu entendi"); `legacy` (padrão) volta ao pipeline de sempre. Ausente ou irreconhecível = `legacy`. Etapa 1 com `AI_UNDERSTANDING_MODEL` (vazio = `AI_MODEL`) e `AI_UNDERSTANDING_EFFORT` (padrão `low`). Falha da Etapa 1 aparece como `UNDERSTANDING_FAILED`/`UNDERSTANDING_FALLBACK` no log e a análise segue pela busca de sempre |
+| `COPILOT_DECISION_PROMPT` | `v2` liga a decisão em duas camadas da ADR-013 ("Fazer agora" × "Depende de…", perguntas que separam hipóteses, conhecimento geral do modelo rotulado e sem dose); `v1` (padrão) é o prompt de sempre. Exige `COPILOT_REASONING=stages`: sem ele fica `v1` e o log mostra `DECISION_PIPELINE_DOWNGRADE`. Regra da v2 que sobra depois do retry vira `OUTPUT_VALIDATION_WARNING`, nunca bloqueio |
+| `COPILOT_KNOWLEDGE_SOURCE` | `internal_kb` (padrão) é a busca de sempre (embedding na OpenAI); `model_only` não busca nada; `web` pesquisa em fontes oficiais (`AI_RESEARCH_MODEL`, padrão `claude-sonnet-5-5`; `AI_RESEARCH_EFFORT`, padrão `low`; `WEB_RESEARCH_MAX_SEARCHES`, padrão 5; `WEB_RESEARCH_ALLOWED_DOMAINS`, vazio = 32 fontes padrão). `model_only` e `web` nunca chamam o provedor de embedding. `web` exige `stages` (sem ele vira `model_only`) e Anthropic como `AI_PROVIDER`; pesquisa que falha aparece como `WEB_RESEARCH_FALLBACK` e a análise segue só com o conhecimento do modelo |
 
 ---
 
