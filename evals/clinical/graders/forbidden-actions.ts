@@ -21,7 +21,7 @@ import type { ForbiddenAction } from '../case.schema';
  *       "antes da trombólise"). Palavra de adiamento no meio desfaz a negação
  *       ("não aguardar a trombólise", "sem demora", "sem contraindicação para");
  *    b. um qualificador negativo vem logo depois, até 5 palavras
- *       ("trombólise contraindicada", "AAS não está indicado"), ou o termo é
+ *       ("trombólise contraindicada", "hemograma desnecessário"), ou o termo é
  *       rótulo de uma ordem negativa ("Loperamida: não usar");
  *    c. um `exceptWhen` do caso começa a até 6 palavras do termo
  *       ("alteplase somente após TC sem sangramento").
@@ -81,7 +81,7 @@ const LINK_WORDS = new Set([
 const LIST_CONNECTORS = new Set(['e', 'ou', 'e/ou']);
 
 const POST_QUALIFIER =
-  /\b(?:contra-?indicad|proscrit|desaconselhad|evitad|vetad|proibid)\w*|\bsuspens[oa]s?\b|\bnao\s+(?:(?:e|esta|estao|sao|fica|ficam|foi|deve|devem)\s+)?(?:ser\s+)?(?:indicad|recomendad|necessari|segur|permitid|realizad|feit|usad|utilizad|administrad)\w*/;
+  /\b(?:contra-?indicad|proscrit|desaconselhad|evitad|vetad|proibid|desnecessari|dispensad|dispensavel)\w*|\bsuspens[oa]s?\b|\bnao\s+(?:(?:e|esta|estao|sao|fica|ficam|foi|deve|devem)\s+)?(?:ser\s+)?(?:indicad|recomendad|necessari|segur|permitid|realizad|feit|usad|utilizad|administrad)\w*/;
 
 /** Rótulo seguido de ordem negativa: "Loperamida: não usar", "Insulina IV: não iniciar antes do K". */
 const LABEL_NEGATION =
