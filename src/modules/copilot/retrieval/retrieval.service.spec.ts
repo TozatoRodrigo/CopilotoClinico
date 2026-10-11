@@ -23,6 +23,7 @@ describe('RetrievalService', () => {
   let aiGatewayMock: {
     embed: ReturnType<typeof vi.fn>;
     getEmbeddingProviderName: () => string;
+    embeddingsEnabled: () => boolean;
     getEmbeddingModel: () => string;
   };
   let env: Record<string, string | undefined>;
@@ -43,6 +44,7 @@ describe('RetrievalService', () => {
     aiGatewayMock = {
       embed: vi.fn(),
       getEmbeddingProviderName: () => 'openai',
+      embeddingsEnabled: () => true,
       getEmbeddingModel: () => 'text-embedding-3-small',
     };
 
@@ -577,6 +579,7 @@ describe('RetrievalService — chave do cache', () => {
     const ai = {
       embed: vi.fn().mockResolvedValue({ embeddings: [[0.1, 0.2]] }),
       getEmbeddingProviderName: () => 'openai',
+      embeddingsEnabled: () => true,
       getEmbeddingModel: () => embeddingModel,
     };
     const config = { get: vi.fn((key: string) => env[key]) };
@@ -717,6 +720,7 @@ describe('RetrievalService — busca dirigida (searchMany)', () => {
         embeddings: texts.map((_text, index) => [index + 1, 0]),
       })),
       getEmbeddingProviderName: () => 'openai',
+      embeddingsEnabled: () => true,
       getEmbeddingModel: () => 'text-embedding-3-small',
     };
     const config = {
@@ -903,6 +907,7 @@ describe('RetrievalService — embedding indisponível', () => {
       {
         embed: vi.fn().mockRejectedValue(new Error('AI provider embed error: 429')),
         getEmbeddingProviderName: () => 'openai',
+        embeddingsEnabled: () => true,
         getEmbeddingModel: () => 'text-embedding-3-small',
       } as unknown as AiGatewayService,
       redisMock as unknown as RedisService,
@@ -936,5 +941,30 @@ describe('RetrievalService — embedding indisponível', () => {
       expect.stringContaining('RETRIEVAL_EMBEDDING_UNAVAILABLE'),
       'error',
     );
+  });
+
+  it('com EMBEDDING_PROVIDER=none, segue sem evidência sem chamar o provedor nem alertar', async () => {
+    const embed = vi.fn();
+    const disabled = new RetrievalService(
+      {
+        $queryRaw: queryRaw,
+        guidelineChunk: { findMany: vi.fn() },
+        physician: { findMany: vi.fn().mockResolvedValue([]) },
+      } as unknown as PrismaService,
+      {
+        embed,
+        getEmbeddingProviderName: () => 'none',
+        embeddingsEnabled: () => false,
+        getEmbeddingModel: () => 'text-embedding-3-small',
+      } as unknown as AiGatewayService,
+      redisMock as unknown as RedisService,
+      { get: vi.fn(() => undefined) } as unknown as ConfigService,
+    );
+
+    const result = await disabled.search('dor torácica', 5, null);
+
+    expect(result).toMatchObject({ chunks: [], coverage: 'none' });
+    expect(embed).not.toHaveBeenCalled();
+    expect(Sentry.captureMessage).not.toHaveBeenCalled();
   });
 });

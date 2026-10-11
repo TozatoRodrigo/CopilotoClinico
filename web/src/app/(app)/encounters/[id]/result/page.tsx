@@ -513,6 +513,7 @@ function ResultView({ encounterId, result }: { encounterId: string; result: Stor
         open={consultOpen}
         onOpenChange={setConsultOpen}
         caseText={result.caseText ?? encounterQuery.data?.chiefComplaint ?? null}
+        searchTopics={analysis.understanding?.searchQueries}
         citedChunkIds={sourcedRecommendations.map((rec) => rec.citationChunkId)}
         citedSources={sourcedRecommendations.map((rec) => rec.source)}
       />
