@@ -10,6 +10,7 @@ import {
   reciprocalRankFuse,
   applyInstitutionBoost,
   applyRelevanceFloor,
+  mergeQueryRankings,
   semanticScoresForFloor,
   sortByScore,
   DEFAULT_MIN_SEMANTIC_SCORE,
@@ -17,6 +18,7 @@ import {
   DEFAULT_MIN_KEYWORD_RANK,
   type RetrievalCoverage,
   type KeywordHit,
+  type QueryRanking,
   type RetrievedChunk,
   type SearchHit,
 } from './hybrid-search';
@@ -25,9 +27,11 @@ import {
   DEFAULT_OFFICIAL_MAX_PER_DOCUMENT,
   DEFAULT_OFFICIAL_MIN_SEMANTIC_SCORE,
   DEFAULT_OFFICIAL_TOP_K,
+  bestOfficialHitPerChunk,
   selectOfficialChunks,
   type OfficialCareSetting,
   type OfficialHit,
+  type OfficialSelectionOptions,
 } from './official-search';
 
 /**
@@ -71,6 +75,48 @@ export interface RetrievalResult {
   discardedByFloor: number;
   /** ADR-010 — base oficial do MS, em pool separado. */
   official: OfficialRetrieval;
+}
+
+/**
+ * Entradas gravadas por uma versão anterior ao piso de relevância não têm os
+ * campos de cobertura. O TTL de 60s faz isso se resolver sozinho logo após um
+ * deploy, mas o default explícito evita que a janela produza `undefined` num
+ * campo tipado como obrigatório.
+ *
+ * F0-C — chunks gravados antes de `clinicallySigned` existir chegam sem o
+ * campo; o orquestrador lê `!chunk.clinicallySigned` e os trata como não
+ * assinados durante essa janela (falha para o lado seguro).
+ */
+function parseCachedResult(cached: string): RetrievalResult {
+  const parsed = JSON.parse(cached) as Partial<RetrievalResult> & {
+    chunks: RetrievedChunk[];
+    totalRetrieved: number;
+  };
+  return {
+    ...parsed,
+    coverage: parsed.coverage ?? (parsed.chunks.length > 0 ? 'full' : 'none'),
+    bestSemanticScore: parsed.bestSemanticScore ?? 0,
+    discardedByFloor: parsed.discardedByFloor ?? 0,
+    official: parsed.official ?? OFFICIAL_DISABLED,
+  };
+}
+
+/**
+ * F1 — consultas da busca dirigida sem vazias nem repetidas (sem caixa). A
+ * ordem fica: a primeira consulta (manejo inicial da síndrome) desempata o
+ * ranking — ver `mergeQueryRankings`.
+ */
+function distinctQueries(queries: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const distinct: string[] = [];
+  for (const query of queries) {
+    const trimmed = query.trim();
+    const key = trimmed.toLowerCase();
+    if (!trimmed || seen.has(key)) continue;
+    seen.add(key);
+    distinct.push(trimmed);
+  }
+  return distinct;
 }
 
 @Injectable()
@@ -151,24 +197,7 @@ export class RetrievalService {
     const cached = await this.redis.get(cacheKey);
     if (cached) {
       this.logger.debug('Retrieval cache hit');
-      const parsed = JSON.parse(cached) as Partial<RetrievalResult> & {
-        chunks: RetrievedChunk[];
-        totalRetrieved: number;
-      };
-      // Entradas gravadas por uma versão anterior ao piso de relevância não
-      // têm os campos de cobertura. O TTL de 60s faz isso se resolver sozinho
-      // logo após um deploy, mas o default explícito evita que a janela
-      // produza `undefined` num campo tipado como obrigatório.
-      // F0-C — chunks gravados antes de `clinicallySigned` existir chegam sem o
-      // campo; o orquestrador lê `!chunk.clinicallySigned` e os trata como não
-      // assinados durante essa janela (falha para o lado seguro).
-      return {
-        ...parsed,
-        coverage: parsed.coverage ?? (parsed.chunks.length > 0 ? 'full' : 'none'),
-        bestSemanticScore: parsed.bestSemanticScore ?? 0,
-        discardedByFloor: parsed.discardedByFloor ?? 0,
-        official: parsed.official ?? OFFICIAL_DISABLED,
-      };
+      return parseCachedResult(cached);
     }
 
     const embeddingResponse = await this.aiGateway.embed([query]);
@@ -246,11 +275,117 @@ export class RetrievalService {
   }
 
   /**
-   * ADR-010 — busca na base oficial. Só semântica: a busca lexical
-   * (`keywordSearch`) filtra `status = 'approved'` e não enxerga estes chunks;
-   * levar a busca lexical à base oficial é decisão da medição (passo 8 do
-   * docs/plano-fontes-oficiais-pcdt.md). Conteúdo oficial é sempre global.
+   * F1 — Etapa 2 do raciocínio em etapas (ADR-013): busca dirigida pelas
+   * consultas do entendimento do caso, em vez do texto inteiro do caso.
+   *
+   * Um único `embed` para todas as consultas; para cada uma, a mesma busca
+   * semântica + lexical de `search()`; os resultados se juntam pela melhor
+   * pontuação de cada trecho (`mergeQueryRankings`) e passam pelo MESMO piso
+   * de relevância e corte em `topK`. A base oficial junta os candidatos de
+   * todas as consultas e aplica a seleção de sempre, com os tetos valendo
+   * para a análise inteira. `search()` continua sendo o caminho `legacy`.
    */
+  async searchMany(
+    queries: readonly string[],
+    topK: number = 5,
+    institutionId?: string | null,
+  ): Promise<RetrievalResult> {
+    const distinct = distinctQueries(queries);
+    if (distinct.length === 0) {
+      throw new Error('Directed retrieval needs at least one non-empty query');
+    }
+    this.logger.debug(`Directed search: queries=${JSON.stringify(distinct)}, topK=${topK}`);
+
+    const officialEnabled = this.officialEnabled();
+    const cacheKey = this.cacheKey(distinct, topK, institutionId, officialEnabled);
+    const cached = await this.redis.get(cacheKey);
+    if (cached) {
+      this.logger.debug('Retrieval cache hit (directed)');
+      return parseCachedResult(cached);
+    }
+
+    const { embeddings } = await this.aiGateway.embed(distinct);
+    if (embeddings.length !== distinct.length) {
+      throw new Error(
+        `Failed to generate query embeddings: ${embeddings.length} of ${distinct.length}`,
+      );
+    }
+
+    const rankings = await Promise.all(
+      distinct.map((query, index) =>
+        this.rankQuery(query, embeddings[index]!, topK * 2, institutionId),
+      ),
+    );
+    const merged = mergeQueryRankings(rankings);
+
+    // O piso é aplicado ANTES do corte em topK, como em search().
+    const floor = applyRelevanceFloor(merged.rankedIds, {
+      semanticScores: merged.semanticScores,
+      keywordScores: merged.keywordScores,
+      ...this.relevanceThresholds(),
+    });
+    const selectedIds = floor.keptChunkIds.slice(0, topK);
+
+    // Proveniência: qual consulta trouxe cada trecho selecionado. É o que
+    // diz, no log, se a hipótese que não pode passar achou evidência.
+    const provenance = selectedIds
+      .map((chunkId) => `${chunkId}:q${(merged.provenance.get(chunkId) ?? []).join('+q')}`)
+      .join(',');
+    this.logger.log(
+      `RETRIEVAL_DIRECTED queries=${distinct.length} candidates=${merged.rankedIds.length} ` +
+        `kept=${selectedIds.length} coverage=${floor.coverage} ` +
+        `best=${floor.bestSemanticScore.toFixed(3)} discarded=${floor.discardedCount} ` +
+        `provenance=[${provenance}]`,
+    );
+
+    const official = officialEnabled
+      ? await this.searchOfficialMany(embeddings)
+      : OFFICIAL_DISABLED;
+
+    const chunks = selectedIds.length > 0 ? await this.fetchChunks(selectedIds) : [];
+    const scored = chunks.map((chunk) => ({ ...chunk, score: merged.scores.get(chunk.id) ?? 0 }));
+
+    const result: RetrievalResult = {
+      chunks: sortByScore(scored),
+      totalRetrieved: scored.length,
+      coverage: scored.length > 0 ? floor.coverage : 'none',
+      bestSemanticScore: floor.bestSemanticScore,
+      discardedByFloor: floor.discardedCount,
+      official,
+    };
+
+    await this.redis.set(cacheKey, JSON.stringify(result), 60);
+    return result;
+  }
+
+  /** F1 — ranking de uma consulta da busca dirigida: o mesmo RRF + boost de `search()`. */
+  private async rankQuery(
+    query: string,
+    embedding: number[],
+    limit: number,
+    institutionId?: string | null,
+  ): Promise<QueryRanking> {
+    const [semanticHits, keywordHits] = await Promise.all([
+      this.semanticSearch(embedding, limit, institutionId),
+      this.keywordSearch(query, embedding, limit, institutionId),
+    ]);
+
+    const chunkInstitutions = new Map<string, string | null>();
+    for (const hit of [...semanticHits, ...keywordHits]) {
+      chunkInstitutions.set(hit.chunkId, hit.institutionId);
+    }
+
+    return {
+      scores: applyInstitutionBoost(
+        reciprocalRankFuse(semanticHits, keywordHits),
+        chunkInstitutions,
+        institutionId,
+      ),
+      semanticScores: semanticScoresForFloor(semanticHits, keywordHits),
+      keywordScores: new Map(keywordHits.map((hit) => [hit.chunkId, hit.score])),
+    };
+  }
+
   /**
    * Chave do cache da busca (TTL 60 s).
    *
@@ -266,9 +401,13 @@ export class RetrievalService {
    * depende do vetor da consulta. Sem isso, trocar o modelo de embedding (ou
    * rodar duas variantes do gabarito clínico em sequência) servia por até
    * 60 s a seleção calculada com o vetor do modelo anterior.
+   *
+   * F1 — na busca dirigida, `query` é a lista inteira de consultas, na ordem:
+   * qualquer consulta diferente (ou fora de ordem, que muda o desempate) é
+   * outra busca. Uma string continua gerando a mesma chave de antes.
    */
   private cacheKey(
-    query: string,
+    query: string | readonly string[],
     topK: number,
     institutionId: string | null | undefined,
     officialEnabled: boolean,
@@ -292,7 +431,7 @@ export class RetrievalService {
     return `retrieval:${digest}`;
   }
 
-  private officialOptions() {
+  private officialOptions(): OfficialSelectionOptions {
     return {
       minSemanticScore: this.numericConfig(
         'OFFICIAL_MIN_SEMANTIC_SCORE',
@@ -310,10 +449,39 @@ export class RetrievalService {
     };
   }
 
+  /**
+   * ADR-010 — busca na base oficial. Só semântica: a busca lexical
+   * (`keywordSearch`) filtra `status = 'approved'` e não enxerga estes chunks;
+   * levar a busca lexical à base oficial é decisão da medição (passo 8 do
+   * docs/plano-fontes-oficiais-pcdt.md). Conteúdo oficial é sempre global.
+   */
   private async searchOfficial(embedding: number[]): Promise<OfficialRetrieval> {
     const options = this.officialOptions();
     if (options.topK <= 0) return { ...OFFICIAL_DISABLED, enabled: true };
 
+    const hits = await this.officialCandidates(embedding, options.topK);
+    return this.selectOfficial(hits, options, 'OFFICIAL_RETRIEVAL');
+  }
+
+  /**
+   * F1 — base oficial na busca dirigida: candidatos de cada consulta, cada
+   * trecho com a melhor similaridade, e a seleção de sempre sobre a união.
+   */
+  private async searchOfficialMany(embeddings: number[][]): Promise<OfficialRetrieval> {
+    const options = this.officialOptions();
+    if (options.topK <= 0) return { ...OFFICIAL_DISABLED, enabled: true };
+
+    const hitsPerQuery = await Promise.all(
+      embeddings.map((embedding) => this.officialCandidates(embedding, options.topK)),
+    );
+    return this.selectOfficial(
+      bestOfficialHitPerChunk(hitsPerQuery),
+      options,
+      'OFFICIAL_RETRIEVAL_DIRECTED',
+    );
+  }
+
+  private async officialCandidates(embedding: number[], topK: number): Promise<OfficialHit[]> {
     const vectorStr = `[${embedding.join(',')}]`;
     const rows = await this.prisma.$queryRaw<
       Array<{
@@ -332,10 +500,10 @@ export class RetrievalService {
         AND (valid_to IS NULL OR valid_to > NOW())
         AND institution_id IS NULL
       ORDER BY embedding <=> ${vectorStr}::vector
-      LIMIT ${options.topK * OFFICIAL_CANDIDATES_PER_SLOT}
+      LIMIT ${topK * OFFICIAL_CANDIDATES_PER_SLOT}
     `;
 
-    const hits: OfficialHit[] = rows.map((row) => ({
+    return rows.map((row) => ({
       chunkId: row.id,
       similarity: Number(row.similarity),
       // Sem documento, cada chunk conta como documento próprio no teto.
@@ -344,11 +512,17 @@ export class RetrievalService {
         ? (row.care_setting as OfficialCareSetting)
         : 'indefinido',
     }));
+  }
 
+  private async selectOfficial(
+    hits: OfficialHit[],
+    options: OfficialSelectionOptions,
+    logKey: 'OFFICIAL_RETRIEVAL' | 'OFFICIAL_RETRIEVAL_DIRECTED',
+  ): Promise<OfficialRetrieval> {
     const selection = selectOfficialChunks(hits, options);
 
     this.logger.log(
-      `OFFICIAL_RETRIEVAL best=${selection.bestSemanticScore.toFixed(3)} candidates=${hits.length} ` +
+      `${logKey} best=${selection.bestSemanticScore.toFixed(3)} candidates=${hits.length} ` +
         `kept=${selection.selected.length} discarded=${selection.discardedByFloor} ` +
         `docs=${new Set(selection.selected.map((hit) => hit.documentId)).size}`,
     );
