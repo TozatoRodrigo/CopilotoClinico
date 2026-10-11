@@ -19,6 +19,12 @@
  */
 import type { Messages } from './pt-BR';
 
+const ES_NUMBER = new Intl.NumberFormat('es');
+
+function formatNumberEs(value: number): string {
+  return ES_NUMBER.format(value);
+}
+
 export const es: Messages = {
   common: {
     actions: {
@@ -169,6 +175,66 @@ export const es: Messages = {
       placeholder:
         'Agregue lo que ayude a aclarar el cuadro — tiempo de evolución, signos vitales, exámenes ya realizados...',
       submit: 'Reanalizar con el complemento',
+      submitting: 'Reanalizando...',
+      cancel: 'Cancelar',
+    },
+  },
+
+  // F1 — el contenido del entendimiento (hipótesis, hallazgos) llega en
+  // portugués: el prompt de la Etapa 1 pide pt-BR. Solo la interfaz se traduce.
+  understanding: {
+    heading: 'Lo que entendí',
+    description: 'Revíselo antes del plan. Si algo está mal, corríjalo y el copiloto reanaliza.',
+    streamingHint: 'Armando el plan a partir de este entendimiento…',
+    syndrome: 'Síndrome',
+    syndromes: {
+      'agitacao-psicomotora': 'Agitación psicomotora',
+      cefaleia: 'Cefalea',
+      choque: 'Shock',
+      'crise-convulsiva': 'Crisis convulsiva',
+      'deficit-neurologico-focal': 'Déficit neurológico focal',
+      'diarreia-vomitos': 'Diarrea y vómitos',
+      'disturbio-glicemico': 'Trastorno glucémico',
+      dispneia: 'Disnea',
+      'dor-abdominal': 'Dolor abdominal',
+      'dor-lombar-flanco': 'Dolor lumbar o en flanco',
+      'dor-toracica': 'Dolor torácico',
+      febre: 'Fiebre',
+      'febre-hipotensao': 'Fiebre con hipotensión',
+      'infeccao-respiratoria': 'Infección respiratoria',
+      intoxicacao: 'Intoxicación',
+      'pele-partes-moles': 'Piel y partes blandas',
+      'pressao-arterial-elevada': 'Presión arterial elevada',
+      'reacao-alergica': 'Reacción alérgica',
+      'rebaixamento-consciencia': 'Disminución del nivel de conciencia',
+      'sintomas-urinarios': 'Síntomas urinarios',
+      vertigem: 'Vértigo',
+      outro: 'Otro síndrome',
+    },
+    instabilityTitle: 'Inestabilidad — amenaza inmediata',
+    data: {
+      heading: 'Datos informados',
+      age: (years: number) => `${formatNumberEs(years)} años`,
+      sex: { F: 'Femenino', M: 'Masculino' },
+      bloodPressure: (systolic: number | null, diastolic: number | null) =>
+        `PA ${systolic ?? '?'}/${diastolic ?? '?'}`,
+      heartRate: (value: number) => `FC ${formatNumberEs(value)}`,
+      respiratoryRate: (value: number) => `FR ${formatNumberEs(value)}`,
+      spo2: (value: number) => `SpO₂ ${formatNumberEs(value)}%`,
+      temperature: (value: number) => `T ${formatNumberEs(value)}`,
+      glucose: (value: number) => `Glucemia ${formatNumberEs(value)}`,
+      onset: (value: string) => `Inicio: ${value}`,
+    },
+    cannotMissHeading: 'Ineludible',
+    confirmOrRuleOut: 'Confirma o descarta:',
+    likelyHeading: 'Más probables',
+    missingHeading: 'Lo que falta saber',
+    separates: (hypotheses: string[]) => `Distingue ${hypotheses.join(' × ')}`,
+    correction: {
+      cta: 'Corregir entendimiento',
+      label: '¿Qué entendió mal el copiloto o qué dejó fuera?',
+      placeholder: 'Ej.: el déficit cedió en 10 minutos y volvió dos veces.',
+      submit: 'Reanalizar con la corrección',
       submitting: 'Reanalizando...',
       cancel: 'Cancelar',
     },
