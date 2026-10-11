@@ -109,11 +109,19 @@ const RED_FLAG_LABELS: Record<string, string> = {
   allergy: 'Paciente com alergia medicamentosa relatada',
 };
 
-function buildConfirmedRedFlagsBlock(redFlags?: Record<string, boolean>): string {
-  if (!redFlags) return '';
-  const confirmed = Object.entries(redFlags)
+/**
+ * Rótulos das red flags marcadas como true. Exportado para a Etapa 1 (F1)
+ * receber os mesmos fatos confirmados pelo médico que a análise recebe.
+ */
+export function confirmedRedFlagLabels(redFlags?: Record<string, boolean>): string[] {
+  if (!redFlags) return [];
+  return Object.entries(redFlags)
     .filter(([, v]) => v === true)
     .map(([key]) => RED_FLAG_LABELS[key] ?? `Red flag marcada pelo médico: ${key}`);
+}
+
+function buildConfirmedRedFlagsBlock(redFlags?: Record<string, boolean>): string {
+  const confirmed = confirmedRedFlagLabels(redFlags);
   if (confirmed.length === 0) return '';
   const items = confirmed.map((label) => `- ${label}`).join('\n');
   return `<physician_confirmed_red_flags type="TRUSTED_PHYSICIAN_INPUT">
