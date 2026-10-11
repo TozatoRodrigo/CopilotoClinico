@@ -10,6 +10,7 @@ import {
 import { PrismaService } from '../../../config/prisma.service';
 import { AiGatewayService } from '../../ai-gateway/ai-gateway.service';
 import { AuditService } from '../../audit/audit.service';
+import { embedOrNull } from '../embeddings';
 import { normalizePdfText, readPdfText } from '../ingestion/document-text';
 import { parseConitecListing } from './conitec-listing';
 import {
@@ -277,7 +278,12 @@ export class OfficialGuidelinesSyncService {
         return { ...report, outcome: 'reactivated', chunks: undefined };
       }
 
-      const embeddings = await this.embed(chunks.map((chunk) => chunk.text));
+      // Sem vetor, o trecho é gravado mesmo assim: a busca textual já o acha.
+      const embeddings = await embedOrNull(
+        this.aiGateway,
+        chunks.map((chunk) => chunk.text),
+        { logger: this.logger, label: item.documentKey, batchSize: EMBEDDING_BATCH },
+      );
       await this.persist({
         item,
         kindLabel,
@@ -348,18 +354,6 @@ export class OfficialGuidelinesSyncService {
     return heuristicClassification(item);
   }
 
-  private async embed(texts: string[]): Promise<number[][]> {
-    const embeddings: number[][] = [];
-    for (let start = 0; start < texts.length; start += EMBEDDING_BATCH) {
-      const response = await this.aiGateway.embed(texts.slice(start, start + EMBEDDING_BATCH));
-      embeddings.push(...response.embeddings);
-    }
-    if (embeddings.length !== texts.length) {
-      throw new Error(`Embeddings incompletos: ${embeddings.length} de ${texts.length}`);
-    }
-    return embeddings;
-  }
-
   private async persist(input: {
     item: ConitecListingItem;
     kindLabel: string;
@@ -369,7 +363,8 @@ export class OfficialGuidelinesSyncService {
     classification: DocumentClassification;
     sourceVersion: string;
     chunks: OfficialChunk[];
-    embeddings: number[][];
+    /** `null` sem embedding: o trecho entra só para a busca textual. */
+    embeddings: number[][] | null;
     fetchedAt: Date;
     previousId?: string;
   }): Promise<void> {
@@ -414,7 +409,8 @@ export class OfficialGuidelinesSyncService {
         });
 
         for (const [index, chunk] of input.chunks.entries()) {
-          const embedding = `[${input.embeddings[index]!.join(',')}]`;
+          const vector = input.embeddings?.[index];
+          const embedding = vector ? `[${vector.join(',')}]` : null;
           await tx.$executeRaw`
             INSERT INTO "guideline_chunks"
               (id, source, source_version, specialty, text, metadata, status, document_id, valid_from, embedding)

@@ -188,8 +188,11 @@ export class RetrievalService {
    * médico sem resposta por causa de uma peça acessória. Sem vetor, a análise
    * segue sem trechos (caminho "sem evidência" do prompt: declara a lacuna e
    * pergunta o que falta), e a falha vai para o Sentry para ser corrigida.
+   * Com `EMBEDDING_PROVIDER=none` não há falha: o serviço roda sem embeddings
+   * de propósito, então não há chamada nem alerta.
    */
   private async embedOrUnavailable(texts: readonly string[]): Promise<number[][] | null> {
+    if (!this.aiGateway.embeddingsEnabled()) return null;
     try {
       const { embeddings } = await this.aiGateway.embed([...texts]);
       if (embeddings.length !== texts.length || embeddings.some((vector) => !vector?.length)) {
