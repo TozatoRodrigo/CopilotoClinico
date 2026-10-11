@@ -5,7 +5,6 @@ import { Test } from '@nestjs/testing';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
-  defaultVariantsFile,
   loadVariants,
   pickVariants,
   redactVariantEnv,
@@ -25,16 +24,20 @@ const claude: Variant = {
   },
 };
 
+// O arquivo versionado — `defaultVariantsFile()` prefere o variants.json local
+// (fora do git) quando existe, o que tornaria o teste dependente da máquina.
+const VERSIONED_VARIANTS_FILE = join(__dirname, 'variants.example.json');
+
 describe('variantes versionadas', () => {
   it('trazem baseline, os dois Claude e a variante offline', () => {
-    const names = loadVariants(defaultVariantsFile()).map((variant) => variant.name);
+    const names = loadVariants(VERSIONED_VARIANTS_FILE).map((variant) => variant.name);
     expect(names).toEqual(
       expect.arrayContaining(['baseline', 'claude-sonnet-5-5', 'claude-opus-5-5', 'test']),
     );
   });
 
   it('não guardam nenhuma chave literal', () => {
-    for (const variant of loadVariants(defaultVariantsFile())) {
+    for (const variant of loadVariants(VERSIONED_VARIANTS_FILE)) {
       for (const [key, value] of Object.entries(variant.env)) {
         if (SECRET_KEY.test(key) && variant.name !== 'test')
           expect(value).toMatch(/^\$\{[A-Z_]+\}$/);
