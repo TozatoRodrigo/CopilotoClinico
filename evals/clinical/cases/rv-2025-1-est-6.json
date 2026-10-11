@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "rv-2025-1-est-6",
   "title": "Rosto diferente e incapacidade de fechar o olho direito há 4 horas",
   "tags": [
@@ -15,31 +15,140 @@
     "status": "official_exam_key"
   },
   "input": {
-    "caseText": "UBSF, demanda espontânea. Paciente masc. refere sentir o rosto diferente e não conseguir fechar o olho D completamente há ~4 h."
+    "caseText": "UBSF, demanda espontânea (só consultórios). Masc, 30a, administrador. Acordou há ~4 h com o rosto 'estranho', sem conseguir fechar completamente o olho D; ao espelho, boca torta para um lado; olho D mais seco; dificuldade para falar palavras com 'P' e 'B'; piorando desde então. Nenhum outro sinal ou sintoma; primeiro episódio. Sem doenças prévias, trauma ou infecção recente; sem medicamentos, vitaminas ou suplementos; sem doenças na família. Futebol 1–2x/sem, alimentação sem excessos, magro, não fuma, não bebe; no último mês, mais preocupado com o trabalho (fechamento do orçamento anual) e dormindo mais tarde. Exame neurológico geral (sem pares cranianos): pupilas isocóricas e fotorreagentes; movimentação livre e força 5/5 nos quatro membros; reflexos 2/2; Romberg sem alterações; marcha normal.",
+    "funnel": {
+      "opening": "UBSF, demanda espontânea. Paciente masc refere sentir o rosto diferente e não conseguir fechar o olho direito completamente há cerca de 4 h.",
+      "script": [
+        {
+          "id": "h-identificacao",
+          "kind": "history",
+          "text": "Tem 30 anos, é solteiro e trabalha como administrador em uma empresa de consultoria."
+        },
+        {
+          "id": "h-queixa",
+          "kind": "history",
+          "text": "Acordou sentindo o rosto estranho, sem conseguir fechar o olho direito completamente."
+        },
+        {
+          "id": "h-boca-torta",
+          "kind": "history",
+          "text": "Notou a boca torta para um lado quando se olhou no espelho."
+        },
+        {
+          "id": "h-olho-seco-fala",
+          "kind": "history",
+          "text": "O olho direito está mais seco e tem dificuldade de falar palavras com 'P' e 'B'."
+        },
+        {
+          "id": "h-evolucao",
+          "kind": "history",
+          "text": "Começou há 4 horas, quando acordou, e vem piorando."
+        },
+        {
+          "id": "h-sem-outros",
+          "kind": "history",
+          "text": "Não sentiu nenhum outro sinal ou sintoma além desses.",
+          "key": true
+        },
+        {
+          "id": "h-primeiro-episodio",
+          "kind": "history",
+          "text": "Nunca sentiu isso antes."
+        },
+        {
+          "id": "h-antecedentes",
+          "kind": "history",
+          "text": "Não tem doenças prévias; sempre foi saudável."
+        },
+        {
+          "id": "h-atividade",
+          "kind": "history",
+          "text": "Joga futebol com os amigos uma ou duas vezes por semana."
+        },
+        {
+          "id": "h-alimentacao",
+          "kind": "history",
+          "text": "Não comete excessos na alimentação e sempre foi magro."
+        },
+        {
+          "id": "h-tabaco-alcool",
+          "kind": "history",
+          "text": "Não fuma, nunca fumou e nunca bebeu."
+        },
+        {
+          "id": "h-sono-estresse",
+          "kind": "history",
+          "text": "No último mês, está mais preocupado com o trabalho (fechamento do orçamento anual) e tem dormido mais tarde."
+        },
+        {
+          "id": "h-sem-trauma",
+          "kind": "history",
+          "text": "Não se lesionou nem sofreu trauma físico."
+        },
+        {
+          "id": "h-sem-infeccao",
+          "kind": "history",
+          "text": "Não teve infecções recentes."
+        },
+        {
+          "id": "h-familia",
+          "kind": "history",
+          "text": "Não há histórico de doenças na família."
+        },
+        {
+          "id": "h-sem-medicamentos",
+          "kind": "history",
+          "text": "Não usa medicamentos, vitaminas ou suplementos."
+        },
+        {
+          "id": "e-neurologico-geral",
+          "kind": "exam",
+          "text": "Pupilas isocóricas e fotorreagentes; movimentação livre e força 5/5 nos quatro membros; reflexos tendinosos 2/2; Romberg sem alterações; marcha normal (não inclui os pares cranianos).",
+          "key": true
+        }
+      ]
+    }
   },
   "expected": {
     "syndrome": "paralisia facial periférica aguda (paralisia de Bell)",
-    "cannotMiss": [
-      "paralisia facial periférica (paralisia de Bell / do VII par), diferenciada de paralisia facial central"
+    "diagnoses": [
+      {
+        "text": "paralisia facial periférica à direita (paralisia de Bell/do VII par)",
+        "tier": "important"
+      },
+      {
+        "text": "diferenciar de paralisia facial central (AVC): acometimento da porção superior da face e déficit isolado, sem outros sinais neurológicos",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
-      "outros sintomas associados (perda de força em outros segmentos, parestesias, alterações auditivas, cefaleia, febre/náuseas/vômitos, alterações visuais/oculares, sialorreia)",
-      "antecedentes: lesão ou trauma recente, eventos similares prévios, infecção recente",
-      "hábitos de vida (atividade física, alimentação, tabagismo, etilismo, estresse, sono, drogas ilícitas)",
-      "exame do VII par: motricidade da porção superior (fechar os olhos/franzir a testa) e inferior da face (sorrir, mostrar os dentes, soprar, assoviar)",
-      "exame neurológico geral",
-      "otoscopia"
+    "actions": [
+      {
+        "text": "corticoide oral",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "proteção ocular: colírio lubrificante e oclusão ocular noturna",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "reavaliação clínica programada",
+        "tier": "important",
+        "timing": "any"
+      }
     ],
-    "requiredActions": [
-      "corticoide oral",
-      "colírio lubrificante",
-      "oclusão ocular noturna",
-      "reavaliação clínica programada",
-      "orientar prognóstico: maior probabilidade de reversão, sem afirmar certeza de reversibilidade ou irreversibilidade"
+    "questions": [
+      "motricidade da porção superior da face (fechar os olhos, franzir a testa) e da inferior (sorrir, mostrar os dentes, soprar): fronte poupada sugere paralisia central",
+      "otoscopia (vesículas ou otite como causa)"
     ],
     "forbiddenDefinitiveActions": [],
-    "rationale": "Gabarito oficial do INEP (Revalida 2025/1, Estação 6): o PEP pontua anamnese dirigida, exame do VII par, exame neurológico geral e otoscopia antes do diagnóstico de paralisia facial periférica, com corticoide oral, colírio lubrificante, oclusão ocular noturna, reavaliação e prognóstico de provável reversão.",
-    "expectedPath": "clarify"
+    "outOfScope": [
+      "cumprimentar, identificar-se e perguntar o nome e o motivo da consulta (item 1)",
+      "anamnese de sintomas associados, antecedentes e hábitos de vida (itens 2 a 4), medida pelo roteiro",
+      "orientar o prognóstico ao paciente: maior probabilidade de reversão (item 10)"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2025/1, Estação 6): o PEP pontua anamnese dirigida, exame do VII par, exame neurológico geral e otoscopia antes do diagnóstico de paralisia facial periférica, com corticoide oral, colírio lubrificante, oclusão ocular noturna, reavaliação e prognóstico de provável reversão. No v2, o exame da face e a otoscopia, que são só imagem, viraram perguntas; o prognóstico ficou fora do escopo."
   },
   "sources": [
     {
@@ -77,6 +186,6 @@
     "item": "Estação 6",
     "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf",
     "originalCaseText": "CENÁRIO DE ATENDIMENTO Nível de atenção: primária. Tipo de atendimento: demanda espontânea – unidade básica de saúde da família (UBSF). A unidade possui a seguinte infraestrutura: ● consultórios. DESCRIÇÃO DO CASO Você é um médico atuando em uma UBSF e atenderá um paciente que se queixa de sentir o rosto diferente e não conseguir fechar o olho direito completamente, há cerca de 4 horas. Nos 10 minutos de duração da estação, você deverá executar as seguintes tarefas: ● realizar anamnese direcionada à queixa do paciente; ● realizar exame físico direcionado à queixa do paciente; ● solicitar demais exames pertinentes ao caso; ● formular o diagnóstico específico mais provável; ● estabelecer a conduta adequada; ● explicar o prognóstico ao paciente. ATENÇÃO! O PACIENTE SIMULADO NÃO DEVERÁ SER TOCADO DURANTE O ATENDIMENTO. NO CASO DO EXAME FÍSICO, VOCÊ DEVERÁ DESCREVER PARA O PACIENTE AS MANOBRAS A SEREM EXECUTADAS. O PACIENTE SIMULADO NÃO REAGIRÁ E, AO FINAL, VOCÊ RECEBERÁ O RESULTADO DESSE EXAME.",
-    "notes": "Triagem limítrofe: UBSF em demanda espontânea; incluído por ser déficit neurológico focal agudo em que o PEP pontua a diferenciação periférica × central (paralisia facial central = inadequado). Dados sob demanda: homem, 30 a, administrador; acordou há 4 h com o rosto estranho, sem conseguir fechar completamente o olho D; boca torta; olho D mais seco; dificuldade para falar palavras com P e B; quadro piorando; nenhum outro sintoma; primeiro episódio; sem doenças prévias, trauma ou infecção recente; mais preocupado com o trabalho e dormindo mais tarde no último mês; futebol 1–2 vezes por semana; não fuma, não bebe; sem medicamentos; sem doenças na família. Exame neurológico geral: pupilas isocóricas e fotorreagentes, movimentação livre e força 5/5 nos quatro membros, reflexos 2/2, Romberg sem alterações, marcha normal (não contempla pares cranianos). Impressos de exame da face e de otoscopia: imagens sem descrição textual na prova."
+    "notes": "Gabarito v2 (11/10/2026): caso completo com o roteiro e o exame neurológico geral; os impressos de exame da face e de otoscopia são só imagem, sem descrição no texto oficial, e viraram perguntas porque decidem periférica x central e a causa. No afunilamento, a ausência de outros sintomas e o exame neurológico normal são key. Caso não crítico; prognóstico e anamnese ficaram fora do escopo. | Triagem limítrofe: UBSF em demanda espontânea; incluído por ser déficit neurológico focal agudo em que o PEP pontua a diferenciação periférica × central (paralisia facial central = inadequado). Dados sob demanda: homem, 30 a, administrador; acordou há 4 h com o rosto estranho, sem conseguir fechar completamente o olho D; boca torta; olho D mais seco; dificuldade para falar palavras com P e B; quadro piorando; nenhum outro sintoma; primeiro episódio; sem doenças prévias, trauma ou infecção recente; mais preocupado com o trabalho e dormindo mais tarde no último mês; futebol 1–2 vezes por semana; não fuma, não bebe; sem medicamentos; sem doenças na família. Exame neurológico geral: pupilas isocóricas e fotorreagentes, movimentação livre e força 5/5 nos quatro membros, reflexos 2/2, Romberg sem alterações, marcha normal (não contempla pares cranianos). Impressos de exame da face e de otoscopia: imagens sem descrição textual na prova."
   }
 }

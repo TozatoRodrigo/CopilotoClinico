@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "rv-2022-1-est-9",
   "title": "Gestante pálida com dor no pronto-socorro da maternidade",
   "tags": [
@@ -15,30 +15,44 @@
     "status": "official_exam_key"
   },
   "input": {
-    "caseText": "PS de maternidade (atenção secundária hospitalar; consultórios e laboratório). Gestante, 35a, visivelmente pálida, queixa de dor; deseja avaliação."
+    "caseText": "PS de maternidade (atenção secundária hospitalar; consultórios e laboratório). Gestante, 35a, visivelmente pálida, com queixa de dor; deseja avaliação. SV: PA 90x60, FC 100, FR 20, T 36 °C, SatO2 98%. Exame obstétrico: AU 32 cm, feto cefálico, longitudinal, dorso à D; útero hipertônico; BCF 85 bpm. Especular: grande quantidade de sangue no canal vaginal. Toque: sangramento vermelho-escuro com coágulos em grande quantidade; colo posterior, pérvio para 2 cm."
   },
   "expected": {
     "syndrome": "dor com sangramento na gestação e sofrimento fetal por descolamento prematuro de placenta",
-    "cannotMiss": [
-      "descolamento prematuro de placenta",
-      "sofrimento fetal agudo",
-      "diagnósticos diferenciais (o PEP exige ao menos dois): placenta prévia, rotura de seio marginal, rotura de vasa prévia, rotura uterina"
+    "diagnoses": [
+      {
+        "text": "descolamento prematuro de placenta",
+        "tier": "critical"
+      },
+      {
+        "text": "sofrimento fetal agudo (bradicardia fetal, BCF 85 bpm)",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
-      "características da dor e do sangramento (início e duração, tipo de dor, aspecto do sangramento)",
-      "movimentos fetais",
-      "idade gestacional/data da última menstruação",
-      "cartão de pré-natal",
-      "exame obstétrico abdominal",
-      "exame ginecológico (especular e/ou toque vaginal)"
+    "actions": [
+      {
+        "text": "interrupção imediata da gestação por cesariana de urgência",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "acionar a neonatologia e prever UTI neonatal para o recém-nascido",
+        "tier": "important",
+        "timing": "any"
+      }
     ],
-    "requiredActions": [
-      "interrupção imediata da gravidez por cesariana de urgência",
-      "orientar a gestante sobre o risco fetal e a necessidade de internação do recém-nascido em UTI neonatal"
+    "questions": [
+      "idade gestacional (DUM) e cartão de pré-natal"
     ],
     "forbiddenDefinitiveActions": [],
-    "rationale": "Gabarito oficial do INEP (Revalida 2022/1, Estação 9): o PEP pontua anamnese obstétrica dirigida, exames obstétrico e ginecológico, o diagnóstico de DPP com sofrimento fetal agudo e diferenciais, a cesariana de urgência e a orientação sobre risco fetal e UTI neonatal.",
-    "expectedPath": "clarify"
+    "outOfScope": [
+      "apresentar-se e cumprimentar a paciente (item 1)",
+      "anamnese da dor, do sangramento e dos movimentos fetais (itens 2–3; respostas da atriz não publicadas)",
+      "indicar o exame obstétrico abdominal e o exame ginecológico (itens 6–7; achados já no caso)",
+      "citar ao menos dois diagnósticos diferenciais: placenta prévia, rotura de seio marginal, rotura de vasa prévia, rotura uterina (item 9)",
+      "orientar a gestante sobre o risco fetal e a necessidade de UTI neonatal (item 11)"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2022/1, Estação 9): o PEP pontua anamnese obstétrica dirigida, exames obstétrico e ginecológico, o diagnóstico de DPP com sofrimento fetal agudo e diferenciais, a cesariana de urgência e a orientação sobre risco fetal e UTI neonatal. Gabarito v2: DPP e cesariana de urgência são os itens críticos; diferenciais e orientações ficaram fora do escopo."
   },
   "sources": [
     {
@@ -76,6 +90,6 @@
     "item": "Estação 9",
     "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2022_1_publicacao.pdf",
     "originalCaseText": "ESTAÇÃO 9 – Área: Ginecologia e Obstetrícia. INSTRUÇÕES PARA O(A) PARTICIPANTE. CENÁRIO DE ATUAÇÃO. Local de atuação: Atenção Secundária Hospitalar. A unidade possui a seguinte infraestrutura: • consultórios para atendimento; e • laboratório de análises clínicas. DESCRIÇÃO DO CASO. Uma gestante de 35 anos, visivelmente pálida, comparece para atendimento no pronto socorro de uma maternidade, apresentando queixa de dor e desejando avaliação. Nos próximos 10 minutos, deverão ser realizadas as seguintes tarefas: • realizar anamnese; • solicitar os exames que julgar necessários; • responder aos questionamentos da paciente simulada; • citar hipótese diagnóstica; • realizar as condutas necessárias; e • estabelecer a orientação final à paciente simulada. A PACIENTE SIMULADA NÃO DEVE SER TOCADA DURANTE O ATENDIMENTO.",
-    "notes": "O PEP desta edição não publica a síntese da atriz (respostas sobre dor, sangramento, IG e movimentos fetais não disponíveis). Dados sob demanda: SV PA 90x60, T 36 °C, FC 100, FR 20, SatO2 98%; exame obstétrico: AU 32 cm, feto cefálico, longitudinal, dorso à D, útero hipertônico, BCF 85 bpm; especular: grande quantidade de sangue no canal vaginal; toque: sangramento vermelho-escuro com coágulos em grande quantidade, colo posterior, pérvio para 2 cm."
+    "notes": "Gabarito v2 (11/10/2026): caso completo com o cenário oficial e os três impressos (sinais vitais, exame obstétrico e exame ginecológico); sem funnel, porque o PEP de 2022/1 não publica o roteiro da atriz (dor, sangramento, IG e movimentos fetais sem resposta publicada). DPP é o diagnóstico crítico e a cesariana de urgência a conduta crítica para agora; sofrimento fetal ficou importante (interpretação do BCF); IG e cartão de pré-natal ficaram como pergunta; a lista de diferenciais e as orientações foram para fora do escopo. O PEP não pontua estabilização materna (acessos, reserva de sangue, coagulograma) e ela não foi acrescentada. | O PEP desta edição não publica a síntese da atriz (respostas sobre dor, sangramento, IG e movimentos fetais não disponíveis). Dados sob demanda: SV PA 90x60, T 36 °C, FC 100, FR 20, SatO2 98%; exame obstétrico: AU 32 cm, feto cefálico, longitudinal, dorso à D, útero hipertônico, BCF 85 bpm; especular: grande quantidade de sangue no canal vaginal; toque: sangramento vermelho-escuro com coágulos em grande quantidade, colo posterior, pérvio para 2 cm."
   }
 }

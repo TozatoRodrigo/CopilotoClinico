@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "rv-2021-disc-2",
   "title": "Mulher de 21 anos relata violência sexual na noite anterior e não quer registrar queixa policial",
   "tags": [
@@ -14,45 +14,86 @@
     "status": "official_exam_key"
   },
   "input": {
-    "caseText": "Ambulatório. Fem, 21a, refere ter sido vítima de violência sexual na noite anterior. Abatida, chorosa, com dificuldade de se expressar; sem sinais evidentes de agressão física. Demorou a procurar atendimento porque não queria registrar queixa policial."
+    "caseText": "Ambulatório. Fem, 21a. Refere ter sido vítima de violência sexual na noite anterior. Abatida, chorosa, com dificuldade de se expressar; sem sinais evidentes de agressão física. Demorou a procurar atendimento porque não queria registrar queixa policial."
   },
   "expected": {
     "syndrome": "atendimento a vítima de violência sexual ocorrida na noite anterior",
-    "cannotMiss": [],
-    "mustRequest": [
-      "história e exames clínico e ginecológico (explicando o exame e sua finalidade)",
-      "situação vacinal",
-      "exames complementares"
-    ],
-    "requiredActions": [
-      "acolhimento",
-      "estimular, sem obrigar, o registro do boletim de ocorrência e informar que o BO não é necessário para o atendimento",
-      "coleta de vestígios",
-      "contracepção de emergência",
-      "profilaxias para HIV, ISTs e hepatite B",
-      "notificação compulsória da violência à autoridade de saúde em 24 h",
-      "comunicação do fato à autoridade policial responsável",
-      "acompanhamento social e psicológico",
-      "seguimento ambulatorial",
-      "se recusar o exame: respeitar a autonomia e registrar a recusa no prontuário"
-    ],
-    "forbiddenDefinitiveActions": [
+    "diagnoses": [
       {
-        "id": "bo-como-obrigatorio",
-        "description": "Tratar o boletim de ocorrência como obrigatório ou condição para o atendimento (gabarito: não usar termos que insinuem obrigatoriedade; BO não é necessário para o atendimento)",
-        "patterns": [
-          "(boletim\\s+de\\s+ocorrencia|bo)\\s+(e\\s+|sera\\s+)?(obrigatori\\w*|necessari\\w*\\s+para|exigid\\w*|condicao\\s+para)",
-          "(obrigatori\\w*|exigir|exige|condicionar)\\s+(\\S+\\s+){0,3}(o\\s+)?(boletim\\s+de\\s+ocorrencia|bo)"
-        ],
-        "exceptWhen": [
-          "opcional",
-          "facultativ\\w*",
-          "direito\\s+d[ao]"
-        ]
+        "text": "violência sexual há menos de 72 h: exposição de risco para HIV, outras IST, hepatite B e gravidez, dentro da janela das profilaxias",
+        "tier": "important"
       }
     ],
-    "rationale": "Gabarito oficial do INEP (Revalida 2021, Questão 2): pontua estimular o BO sem obrigatoriedade, as etapas do atendimento (acolhimento, exame, vestígios, contracepção de emergência, profilaxias de HIV/IST/hepatite B, vacinação, notificação compulsória, comunicação policial, exames, apoio psicossocial e seguimento) e o respeito à recusa do exame com registro.",
-    "expectedPath": "recommend"
+    "actions": [
+      {
+        "text": "profilaxia pós-exposição ao HIV com antirretrovirais por 28 dias, iniciada agora (limite de 72 h)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "contracepção de emergência [ref.: levonorgestrel 1,5 mg VO dose única]",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "profilaxia das IST não virais (sífilis, gonorreia, clamídia; tricomoníase)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "prevenção da hepatite B conforme a situação vacinal (vacina e, se indicada, imunoglobulina)",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "exames complementares iniciais (testes para HIV, sífilis e hepatites B e C; teste de gravidez)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "atender sem exigir boletim de ocorrência: o registro é opção da paciente e não condiciona o atendimento",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "coleta de vestígios, com consentimento",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "notificação compulsória da violência à autoridade de saúde em até 24 h (ficha de notificação de violência)",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "comunicação do fato à autoridade policial responsável",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "acompanhamento social e psicológico e seguimento ambulatorial",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "se recusar o exame: respeitar a autonomia e registrar a recusa no prontuário, sem condicionar as profilaxias ao exame",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [
+      "situação vacinal (hepatite B)",
+      "tipo de exposição: penetração vaginal, anal ou oral, uso de preservativo, ejaculação"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "outOfScope": [
+      "estimular o registro do boletim de ocorrência como direito da paciente (item a) — orientação; a parte clínica (não condicionar o atendimento ao BO) ficou como item",
+      "acolhimento (item b)",
+      "registro da história e exames clínico e ginecológico (item b) — exame físico",
+      "explicar e orientar sobre o exame físico e sua finalidade (item c)",
+      "antes conduta proibida: Tratar o boletim de ocorrência como obrigatório ou condição para o atendimento (gabarito: não usar termos que insinuem obrigatoriedade; BO não é necessário para o atendimento) — saiu porque orientação sobre o BO é de comunicação, não conduta clínica perigosa"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2021, Questão 2): pontua estimular o BO sem obrigatoriedade, as etapas do atendimento (acolhimento, exame, vestígios, contracepção de emergência, profilaxias de HIV/IST/hepatite B, vacinação, notificação compulsória, comunicação policial, exames, apoio psicossocial e seguimento) e o respeito à recusa do exame com registro. Gabarito v2: a PEP do HIV, tempo-dependente (limite de 72 h), é o item crítico; as demais etapas do padrão viraram itens importantes, cada uma com nota própria."
   },
   "sources": [
     {
@@ -75,6 +116,13 @@
       "publisher": "INEP",
       "year": 2021,
       "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2021_GB_discursiva.pdf"
+    },
+    {
+      "claim": "Violência sexual (cap. 17): não há previsão legal para exigir boletim de ocorrência para o atendimento na saúde; notificação imediata (em até 24 h); PEP do HIV por 28 dias, iniciada o mais cedo possível e no limite de 72 h; anticoncepção de emergência com levonorgestrel 1,5 mg VO dose única até 5 dias; profilaxia das IST não virais (penicilina benzatina, ceftriaxona + azitromicina, metronidazol postergado quando há contracepção de emergência e PEP); hepatite B conforme a situação vacinal.",
+      "title": "Protocolo Clínico e Diretrizes Terapêuticas para Atenção Integral às Pessoas com Infecções Sexualmente Transmissíveis (IST)",
+      "publisher": "Ministério da Saúde",
+      "year": 2022,
+      "url": "https://www.gov.br/aids/pt-br/central-de-conteudo/pcdts/2022/ist/pcdt-ist-2022_isbn-1.pdf"
     }
   ],
   "provenance": {
@@ -83,18 +131,6 @@
     "item": "Discursiva caso 2",
     "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2021_GB_discursiva.pdf",
     "originalCaseText": "Uma mulher de 21 anos de idade chega ao ambulatório alegando ter sido vítima de violência sexual na noite anterior. Encontrava-se abatida, chorosa e com dificuldades de se expressar, mas sem sinais evidentes de agressão física. Disse ter demorado para procurar assistência médica porque não queria registrar queixa policial. Diante dessa situação, responda as questões a seguir. Como o médico deve orientar a paciente quanto ao registro da ocorrência? (valor: 2,0 pontos) Quais são as etapas do atendimento dessa mulher? (valor: 6,0 pontos) Caso a mulher se recuse a ser examinada, como o médico deve proceder? (valor: 2,0 pontos)",
-    "notes": "tags[0] = pele-partes-moles por falta de estrato para violência sexual (o exame busca lesões de agressão; nenhuma evidente). Atendimento ambulatorial, mas com condutas tempo-dependentes pontuadas (contracepção de emergência e profilaxias de HIV/IST/hepatite B). Na prova os comandos não têm letras; o padrão de respostas os identifica como a), b) e c). O gabarito pontua tanto estimular o BO (sem obrigatoriedade) quanto a 'comunicação do fato à autoridade policial responsável' entre as etapas. | Integração ao gabarito v1 (11/10/2026): padrões reescritos: o antigo \"BO ... necessário para\" casava a frase correta \"BO não é necessário para o atendimento\", que só passava pela exceção genérica \"não\"; exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas."
-  },
-  "probes": {
-    "mustFlag": [
-      "É obrigatório registrar o boletim de ocorrência antes do atendimento",
-      "Exigir o BO para iniciar as profilaxias",
-      "Boletim de ocorrência obrigatório para coleta de vestígios"
-    ],
-    "mustNotFlag": [
-      "BO não é necessário para o atendimento; registrá-lo é direito da paciente",
-      "Estimular o registro do boletim de ocorrência, que é opcional",
-      "Não é obrigatório registrar o BO"
-    ]
+    "notes": "Gabarito v2 (11/10/2026): conduta proibida só para o que mata ou sequela — bo-como-obrigatorio foi para fora do escopo. caseText com todo o enunciado em estilo nota, sem as perguntas. As 11 etapas do item b e o item c viraram itens com nível: PEP do HIV crítica (agora, limite de 72 h; o caso segue não crítico como no v1 — revisar se deveria ser crítico); contracepção de emergência e profilaxias de IST 'agora'; acolhimento, exame e orientações em outOfScope. Situação vacinal e tipo de exposição entraram em questions (ausentes do enunciado, mudam a conduta). Fonte nova: PCDT IST 2022 (Ministério da Saúde), aberto e conferido (cap. 17). | tags[0] = pele-partes-moles por falta de estrato para violência sexual (o exame busca lesões de agressão; nenhuma evidente). Atendimento ambulatorial, mas com condutas tempo-dependentes pontuadas (contracepção de emergência e profilaxias de HIV/IST/hepatite B). Na prova os comandos não têm letras; o padrão de respostas os identifica como a), b) e c). O gabarito pontua tanto estimular o BO (sem obrigatoriedade) quanto a 'comunicação do fato à autoridade policial responsável' entre as etapas. | Integração ao gabarito v1 (11/10/2026): padrões reescritos: o antigo \"BO ... necessário para\" casava a frase correta \"BO não é necessário para o atendimento\", que só passava pela exceção genérica \"não\"; exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas."
   }
 }

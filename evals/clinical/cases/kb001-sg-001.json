@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb001-sg-001",
   "title": "Síndrome gripal há 3 dias, imunossupressão não informada",
   "tags": [
@@ -17,17 +17,19 @@
   },
   "expected": {
     "syndrome": "síndrome gripal sem sinais de gravidade descritos",
-    "cannotMiss": [
-      "síndrome respiratória aguda grave (SRAG)"
+    "diagnoses": [
+      {
+        "text": "síndrome respiratória aguda grave (SRAG)",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
+    "actions": [],
+    "questions": [
       "imunossupressão ou outra condição de risco para complicação",
       "sinais de gravidade (SpO2, dispneia, pressão arterial)"
     ],
-    "requiredActions": [],
     "forbiddenDefinitiveActions": [],
-    "rationale": "Guia MS de influenza 2023: síndrome gripal com fator de risco recebe oseltamivir mesmo em ambulatório; sem fator de risco, por julgamento clínico, de preferência até 48 h; com sinal de agravamento, oseltamivir imediato. Com 3 dias de sintomas, o que muda a conduta é o grupo de risco (imunossupressão, idade ≥ 60, gestação, comorbidades) ou o sinal de agravamento. COVID-19 como diferencial é desejável, não exigido.",
-    "expectedPath": "clarify"
+    "rationale": "Guia MS de influenza 2023: síndrome gripal com fator de risco recebe oseltamivir mesmo em ambulatório; sem fator de risco, por julgamento clínico, de preferência até 48 h; com sinal de agravamento, oseltamivir imediato. Com 3 dias de sintomas, o que muda a conduta é o grupo de risco (imunossupressão, idade ≥ 60, gestação, comorbidades) ou o sinal de agravamento. COVID-19 como diferencial é desejável, não exigido."
   },
   "sources": [
     {
@@ -40,6 +42,6 @@
   ],
   "provenance": {
     "originalCaseText": "Paciente com síndrome gripal há 3 dias, febre, mialgia e imunossupressão não informada.",
-    "notes": "Auditoria 11/10/2026: texto reescrito como nota de beira de leito (o original anunciava a imunossupressão como não informada). COVID-19 como diferencial ficou no rationale (opcional). O caso continua não crítico."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: texto reescrito como nota de beira de leito (o original anunciava a imunossupressão como não informada). COVID-19 como diferencial ficou no rationale (opcional). O caso continua não crítico."
   }
 }

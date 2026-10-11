@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb001-cf-001",
   "title": "Cefaleia forte sem dados de início, febre ou déficit",
   "tags": [
@@ -16,21 +16,30 @@
   },
   "expected": {
     "syndrome": "cefaleia aguda a esclarecer (excluir causa secundária)",
-    "cannotMiss": [
-      "hemorragia subaracnoide",
-      "meningite"
+    "diagnoses": [
+      {
+        "text": "hemorragia subaracnoide",
+        "tier": "critical"
+      },
+      {
+        "text": "meningite",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [
+    "actions": [
+      {
+        "text": "TC de crânio sem contraste imediata se a dor foi súbita, houver febre/rigidez de nuca ou déficit focal",
+        "tier": "critical",
+        "timing": "any"
+      }
+    ],
+    "questions": [
       "início súbito com pico em menos de 1 minuto (cefaleia em trovoada)",
       "febre ou rigidez de nuca",
       "déficit neurológico focal"
     ],
-    "requiredActions": [
-      "TC de crânio sem contraste imediata se a dor foi súbita, houver febre/rigidez de nuca ou déficit focal"
-    ],
     "forbiddenDefinitiveActions": [],
-    "rationale": "É o caso da apresentação (CC-06): sem os três dados, a resposta certa é perguntar por eles, nomeando HSA e meningite como o que se quer excluir, com a TC imediata condicionada a qualquer um deles (ACEP 2019; regra de Ottawa). Desejáveis, mas não exigidos: primeira/pior cefaleia ou mudança do padrão; anticoagulante, imunossupressão, gestação/puerpério.",
-    "expectedPath": "clarify"
+    "rationale": "É o caso da apresentação (CC-06): sem os três dados, a resposta certa é perguntar por eles, nomeando HSA e meningite como o que se quer excluir, com a TC imediata condicionada a qualquer um deles (ACEP 2019; regra de Ottawa). Desejáveis, mas não exigidos: primeira/pior cefaleia ou mudança do padrão; anticoagulante, imunossupressão, gestação/puerpério."
   },
   "sources": [
     {
@@ -50,6 +59,6 @@
   ],
   "provenance": {
     "originalCaseText": "Cefaleia forte sem informação sobre início súbito, febre ou déficit focal.",
-    "notes": "Auditoria 11/10/2026: gabarito confirmado; texto reescrito sem listar o que falta; conduta de segurança (TC imediata se súbita, febre ou déficit) exigida por ser caso crítico. Padrão da dor e fatores de risco ficaram no rationale (opcionais)."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: gabarito confirmado; texto reescrito sem listar o que falta; conduta de segurança (TC imediata se súbita, febre ou déficit) exigida por ser caso crítico. Padrão da dor e fatores de risco ficaram no rationale (opcionais)."
   }
 }

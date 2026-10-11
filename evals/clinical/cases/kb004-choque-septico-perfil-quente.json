@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb004-choque-septico-perfil-quente",
   "title": "Choque quente com febre, disúria e confusão",
   "tags": [
@@ -23,17 +23,40 @@
   },
   "expected": {
     "syndrome": "choque séptico (provável foco urinário), perfil quente",
-    "cannotMiss": [
-      "choque séptico"
+    "diagnoses": [
+      {
+        "text": "choque séptico",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [],
-    "requiredActions": [
-      "hemoculturas e antibiótico de amplo espectro na primeira hora",
-      "cristaloide em bolus (de preferência balanceado; cerca de 30 mL/kg nas primeiras 3 h ou estratégia restritiva com vasopressor precoce), individualizado e com reavaliação frequente",
-      "noradrenalina para PAM ≥ 65 mmHg (pode iniciar em veia periférica, inclusive durante a expansão)",
-      "controle de foco: USG de rins e vias urinárias para excluir obstrução, desobstruindo se houver",
-      "lactato seriado para guiar a ressuscitação"
+    "actions": [
+      {
+        "text": "hemoculturas e antibiótico de amplo espectro na primeira hora",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "cristaloide em bolus (de preferência balanceado; cerca de 30 mL/kg nas primeiras 3 h ou estratégia restritiva com vasopressor precoce), individualizado e com reavaliação frequente",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "noradrenalina para PAM ≥ 65 mmHg (pode iniciar em veia periférica, inclusive durante a expansão)",
+        "tier": "critical",
+        "timing": "any"
+      },
+      {
+        "text": "controle de foco: USG de rins e vias urinárias para excluir obstrução, desobstruindo se houver",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "lactato seriado para guiar a ressuscitação",
+        "tier": "important",
+        "timing": "any"
+      }
     ],
+    "questions": [],
     "forbiddenDefinitiveActions": [
       {
         "id": "restringir-volume-como-cardiogenico",
@@ -51,8 +74,7 @@
         ]
       }
     ],
-    "rationale": "KB-004 (06-choque-septico-hipovolemico): extremidades quentes, sem congestão, foco identificável — volume e vasopressor são a conduta central. SSC 2026: antibiótico em 1 h, pelo menos 30 mL/kg em 3 h (condicional, individualizado), cristaloide balanceado, vasopressor periférico sem atrasar, PAM 65, lactato seriado, controle de foco em ≤ 6 h. CLOVERS (2023): estratégia restritiva com vasopressor precoce não foi inferior — o gabarito aceita as duas. Dobutamina só cabe se houver disfunção miocárdica com hipoperfusão persistente após volume e noradrenalina.",
-    "expectedPath": "recommend"
+    "rationale": "KB-004 (06-choque-septico-hipovolemico): extremidades quentes, sem congestão, foco identificável — volume e vasopressor são a conduta central. SSC 2026: antibiótico em 1 h, pelo menos 30 mL/kg em 3 h (condicional, individualizado), cristaloide balanceado, vasopressor periférico sem atrasar, PAM 65, lactato seriado, controle de foco em ≤ 6 h. CLOVERS (2023): estratégia restritiva com vasopressor precoce não foi inferior — o gabarito aceita as duas. Dobutamina só cabe se houver disfunção miocárdica com hipoperfusão persistente após volume e noradrenalina."
   },
   "sources": [
     {
@@ -71,7 +93,7 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: atualizado para a SSC 2026 (cristaloide balanceado, \"pelo menos 30 mL/kg\" individualizado ou estratégia restritiva, noradrenalina periférica sem esperar o volume); controle de foco urinário e lactato seriado obrigatórios; a proibida passou a descrever conduta de choque cardiogênico, não restrição de volume."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: atualizado para a SSC 2026 (cristaloide balanceado, \"pelo menos 30 mL/kg\" individualizado ou estratégia restritiva, noradrenalina periférica sem esperar o volume); controle de foco urinário e lactato seriado obrigatórios; a proibida passou a descrever conduta de choque cardiogênico, não restrição de volume."
   },
   "probes": {
     "mustFlag": [

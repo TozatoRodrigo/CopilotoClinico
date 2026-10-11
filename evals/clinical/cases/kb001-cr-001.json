@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb001-cr-001",
   "title": "Dor em flanco sem dados de febre, diurese ou rim único",
   "tags": [
@@ -17,21 +17,26 @@
   },
   "expected": {
     "syndrome": "dor em flanco aguda — cólica renal como hipótese mais provável; excluir obstrução infectada e mimetizadores (AAA, pielonefrite)",
-    "cannotMiss": [
-      "obstrução urinária infectada",
-      "aneurisma de aorta abdominal (mimetizador acima de 50 anos)"
+    "diagnoses": [
+      {
+        "text": "obstrução urinária infectada",
+        "tier": "important"
+      },
+      {
+        "text": "aneurisma de aorta abdominal (mimetizador acima de 50 anos)",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
+    "actions": [],
+    "questions": [
       "febre",
       "diurese",
       "rim único ou função renal",
       "idade",
       "possibilidade de gestação"
     ],
-    "requiredActions": [],
     "forbiddenDefinitiveActions": [],
-    "rationale": "EAU 2026: rim obstruído com infecção e/ou anúria é emergência urológica — febre, diurese e rim único/função renal mudam a conduta; AINE com cautela na TFG reduzida. Idade estratifica o AAA (cólica renal é o erro diagnóstico mais comum no AAA roto); gestação muda a imagem (USG), contraindica AINE no 3º trimestre e traz a ectópica. Desejáveis, mas não exigidos: sinais vitais/estabilidade; pielonefrite e ectópica como hipóteses nomeadas.",
-    "expectedPath": "clarify"
+    "rationale": "EAU 2026: rim obstruído com infecção e/ou anúria é emergência urológica — febre, diurese e rim único/função renal mudam a conduta; AINE com cautela na TFG reduzida. Idade estratifica o AAA (cólica renal é o erro diagnóstico mais comum no AAA roto); gestação muda a imagem (USG), contraindica AINE no 3º trimestre e traz a ectópica. Desejáveis, mas não exigidos: sinais vitais/estabilidade; pielonefrite e ectópica como hipóteses nomeadas."
   },
   "sources": [
     {
@@ -58,6 +63,6 @@
   ],
   "provenance": {
     "originalCaseText": "Dor em flanco sem informação sobre febre, diurese ou rim único.",
-    "notes": "Auditoria 11/10/2026: texto reescrito sem listar o que falta (sem idade nem sexo, que passaram a ser pedidos); síndrome sem fixar a cólica renal; pedidos de idade e gestação. Sinais vitais, pielonefrite e ectópica ficaram no rationale (opcionais)."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: texto reescrito sem listar o que falta (sem idade nem sexo, que passaram a ser pedidos); síndrome sem fixar a cólica renal; pedidos de idade e gestação. Sinais vitais, pielonefrite e ectópica ficaram no rationale (opcionais)."
   }
 }

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "cm-dissecao-aortica-vs-sca",
   "title": "Dor torácica em rasgão irradiando para o dorso com diferença de PA entre braços",
   "tags": [
@@ -22,17 +22,32 @@
   },
   "expected": {
     "syndrome": "dor torácica aguda — suspeita de dissecção aguda de aorta",
-    "cannotMiss": [
-      "dissecção aguda de aorta"
+    "diagnoses": [
+      {
+        "text": "dissecção aguda de aorta",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [
+    "actions": [
+      {
+        "text": "angio-TC de aorta de urgência (ou ecocardiograma transesofágico se instável)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "betabloqueador IV antes de qualquer vasodilatador, com FC em torno de 60 (aceitável < 60 a 80) e PAS < 120 aferida no braço de maior pressão, e analgesia com opioide",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "avaliação da cirurgia cardiovascular",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [
       "pulsos periféricos e femorais, sopro de insuficiência aórtica e déficit neurológico (sinais de má perfusão)",
       "achados do POCUS: derrame pericárdico, flap intimal, dilatação da raiz da aorta"
-    ],
-    "requiredActions": [
-      "angio-TC de aorta de urgência (ou ecocardiograma transesofágico se instável)",
-      "betabloqueador IV antes de qualquer vasodilatador, com FC em torno de 60 (aceitável < 60 a 80) e PAS < 120 aferida no braço de maior pressão, e analgesia com opioide",
-      "avaliação da cirurgia cardiovascular"
     ],
     "forbiddenDefinitiveActions": [
       {
@@ -68,8 +83,7 @@
         ]
       }
     ],
-    "rationale": "KB-003 (dissecção): dor súbita, em rasgão, irradiada, com diferença de PA > 20 mmHg entre braços — ADD-RS ≥ 2, angio-TC direta, sem D-dímero. Alvos: ACC/AHA 2022 pede FC 60-80 e PAS < 120; ESC 2024, FC < 60 e PAS 100-120 — os dois são aceitos. Com 38 mmHg de diferença, titular pelo braço de menor PA leva a hipotensão real. Antitrombótico ou trombólise numa dissecção não reconhecida é catastrófico. SCA sem supra segue no diferencial (ECG seriado, troponina) e a dissecção tipo A pode comprometer coronária: a boa resposta explica por que o antitrombótico espera, mas o gabarito não exige isso como hipótese obrigatória.",
-    "expectedPath": "recommend"
+    "rationale": "KB-003 (dissecção): dor súbita, em rasgão, irradiada, com diferença de PA > 20 mmHg entre braços — ADD-RS ≥ 2, angio-TC direta, sem D-dímero. Alvos: ACC/AHA 2022 pede FC 60-80 e PAS < 120; ESC 2024, FC < 60 e PAS 100-120 — os dois são aceitos. Com 38 mmHg de diferença, titular pelo braço de menor PA leva a hipotensão real. Antitrombótico ou trombólise numa dissecção não reconhecida é catastrófico. SCA sem supra segue no diferencial (ECG seriado, troponina) e a dissecção tipo A pode comprometer coronária: a boa resposta explica por que o antitrombótico espera, mas o gabarito não exige isso como hipótese obrigatória."
   },
   "sources": [
     {
@@ -88,7 +102,7 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: meta de controle completada (FC e PAS no braço de maior pressão, betabloqueador antes do vasodilatador, opioide), aceitando os alvos de ACC/AHA e ESC; pedidos de pulsos, sopro, déficit e POCUS; checagem de antitrombótico sem negação genérica."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: meta de controle completada (FC e PAS no braço de maior pressão, betabloqueador antes do vasodilatador, opioide), aceitando os alvos de ACC/AHA e ESC; pedidos de pulsos, sopro, déficit e POCUS; checagem de antitrombótico sem negação genérica."
   },
   "probes": {
     "mustFlag": [

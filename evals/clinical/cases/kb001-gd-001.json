@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb001-gd-001",
   "title": "Diarreia aguda sem dados de sangue, diurese ou tolerância oral",
   "tags": [
@@ -17,20 +17,22 @@
   },
   "expected": {
     "syndrome": "gastroenterite aguda — grau de desidratação a avaliar",
-    "cannotMiss": [
-      "desidratação grave / choque hipovolêmico"
+    "diagnoses": [
+      {
+        "text": "desidratação grave / choque hipovolêmico",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
+    "actions": [],
+    "questions": [
       "sangue nas fezes",
       "diurese",
       "tolerância à via oral",
       "sinais vitais",
       "febre"
     ],
-    "requiredActions": [],
     "forbiddenDefinitiveActions": [],
-    "rationale": "Graduar a desidratação (sinais vitais, diurese, tolerância oral) e reconhecer a diarreia inflamatória: febre, sangue ou muco, cólica intensa ou sepse indicam pesquisa etiológica, e febre ou sangue contraindicam loperamida (IDSA 2017). Opcionais, não exigidos: diarreia invasiva (Shigella, STEC com risco de SHU) e C. difficile como hipóteses; idade, comorbidades, imunossupressão, antibiótico ou internação recentes e viagem como dados.",
-    "expectedPath": "clarify"
+    "rationale": "Graduar a desidratação (sinais vitais, diurese, tolerância oral) e reconhecer a diarreia inflamatória: febre, sangue ou muco, cólica intensa ou sepse indicam pesquisa etiológica, e febre ou sangue contraindicam loperamida (IDSA 2017). Opcionais, não exigidos: diarreia invasiva (Shigella, STEC com risco de SHU) e C. difficile como hipóteses; idade, comorbidades, imunossupressão, antibiótico ou internação recentes e viagem como dados."
   },
   "sources": [
     {
@@ -50,6 +52,6 @@
   ],
   "provenance": {
     "originalCaseText": "Diarreia aguda sem informação sobre sangue nas fezes, diurese ou tolerância oral.",
-    "notes": "Auditoria 11/10/2026: texto reescrito como nota de beira de leito (o original anunciava sangue, diurese e tolerância oral como ausentes); sem \"aquosa\", que responderia o sangue nas fezes. Acrescentada febre ao mustRequest (a duração já está no texto). Hipóteses invasivas/C. difficile e os dados de exposição ficaram no rationale (opcionais)."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: texto reescrito como nota de beira de leito (o original anunciava sangue, diurese e tolerância oral como ausentes); sem \"aquosa\", que responderia o sangue nas fezes. Acrescentada febre ao mustRequest (a duração já está no texto). Hipóteses invasivas/C. difficile e os dados de exposição ficaram no rationale (opcionais)."
   }
 }

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "rv-2020-est-3",
   "title": "Lactente de 8 meses com tosse há 20 dias que piorou e dificuldade para respirar",
   "tags": [
@@ -15,29 +15,58 @@
     "status": "official_exam_key"
   },
   "input": {
-    "caseText": "PS. Lactente, 8 meses, masc. Há 20 dias febre e tosse; febre melhorou após 2 dias, mas a tosse piorou. Ontem levado à USF: médica solicitou exame de sangue e RX de tórax e pediu retorno hoje com os exames. Mãe trouxe ao PS porque a criança está com dificuldade para respirar por causa da tosse."
+    "caseText": "Pronto-socorro. Masc, 8m, 8,5 kg, trazido pela mãe. Há 20 d febre e tosse; a febre cedeu após 2 d, mas a tosse piorou. Tosse em acessos: 5 a 10 tossidas rápidas e curtas numa única expiração, 30 a 40 episódios/dia. Hoje com dificuldade para respirar por causa da tosse. Ontem na USF a médica pediu hemograma e RX de tórax e marcou retorno para hoje; a mãe preferiu vir ao PS e traz os exames. EF: BEG, corado, hidratado, acianótico. FC 110, FR 35, SpO2 98% AA. ACV: RCR 2T, BNF, sem sopro. AR: sem esforço respiratório, MV fisiológico sem RA. Abdome plano, normotenso, indolor, sem visceromegalias, RHA normais. Hemograma: Hb 12 g/dL, Ht 38%, leucócitos 40.000/mm³, linfócitos 80%. RX de tórax: bordas da silhueta cardíaca pouco nítidas por infiltrados pulmonares (aspecto de 'coração borrado/felpudo')."
   },
   "expected": {
     "syndrome": "coqueluche em lactente (tosse paroxística prolongada com leucocitose e linfocitose)",
-    "cannotMiss": [
-      "coqueluche"
+    "diagnoses": [
+      {
+        "text": "coqueluche em lactente (tosse paroxística há 20 dias)",
+        "tier": "critical"
+      },
+      {
+        "text": "hemograma: leucocitose com linfocitose (40.000/mm³, 80% de linfócitos)",
+        "tier": "important"
+      },
+      {
+        "text": "RX de tórax: 'coração borrado/felpudo/franjado' por infiltrados pulmonares",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
-      "características da tosse (duração > 20 dias, acessos de 5 a 10 tossidas rápidas numa única expiração, 30 a 40 episódios/dia)",
-      "guincho inspiratório após o acesso de tosse",
-      "resultado do hemograma (leucocitose com linfocitose)",
-      "interpretação da radiografia de tórax ('coração borrado/felpudo' por infiltrados)",
-      "comunicantes/contatos íntimos (moradores ou frequentadores do domicílio)"
+    "actions": [
+      {
+        "text": "internação hospitalar com monitorização (lactente com tosse paroxística, dificuldade respiratória e leucocitose acentuada)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "antibiótico: macrolídeo (azitromicina; claritromicina como alternativa)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "notificação do caso suspeito de coqueluche",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "investigar comunicantes/contatos íntimos e indicar quimioprofilaxia com azitromicina ou claritromicina",
+        "tier": "important",
+        "timing": "any"
+      }
     ],
-    "requiredActions": [
-      "internação",
-      "antibioticoterapia",
-      "notificação do caso de coqueluche",
-      "quimioprofilaxia dos comunicantes com azitromicina ou claritromicina"
+    "questions": [
+      "apneia, cianose ou vômitos após os acessos de tosse (gravidade no lactente)",
+      "situação vacinal (DTP/penta) e contatos domiciliares com tosse (quimioprofilaxia)"
     ],
     "forbiddenDefinitiveActions": [],
-    "rationale": "Gabarito oficial do INEP (Revalida 2020, Estação 3): o PEP pontua a caracterização da tosse paroxística e do guincho, a leitura de hemograma e RX, o diagnóstico de coqueluche e o plano com internação, antibiótico, notificação e quimioprofilaxia de contactantes.",
-    "expectedPath": "clarify"
+    "outOfScope": [
+      "identificar-se e cumprimentar a mãe (item 1.1)",
+      "anamnese das características da tosse e do guincho inspiratório (itens 1.2 e 1.3): o PEP 2020 não publica o roteiro da mãe; as características do item 1.2 estão no caso completo",
+      "explicar à mãe, com linguagem simples, o diagnóstico e a necessidade de internação e antibiótico (itens 3.1 a 3.3; as condutas viraram itens próprios)",
+      "perguntar se a mãe tem dúvidas (item 3.6)"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2020, Estação 3): o PEP pontua a caracterização da tosse paroxística e do guincho, a leitura de hemograma e RX, o diagnóstico de coqueluche e o plano com internação, antibiótico, notificação e quimioprofilaxia de contactantes. No v2, o caso completo traz o hemograma e a leitura do RX (o diagnóstico depende deles) e a internação virou o item crítico."
   },
   "sources": [
     {
@@ -68,6 +97,6 @@
     "item": "Estação 3",
     "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2020/padrao_esperado_procedimentos_habilidades_clinicas.pdf",
     "originalCaseText": "ESTAÇÃO 3 – Área: Pediatria. INSTRUÇÕES PARA O(A) PARTICIPANTE. CENÁRIO DE ATUAÇÃO: Você está em um pronto-socorro e realiza o atendimento de uma criança com 8 meses de idade. A mãe refere que, há 20 dias, seu filho iniciou quadro de febre e tosse. A febre melhorou depois de 2 dias, mas a tosse piorou. Ontem, ela levou o filho à Unidade de Saúde da Família perto de sua casa. A médica solicitou exame de sangue e radiografia de tórax e pediu que retornassem hoje para reavaliar a criança, junto com os exames. Mas a mãe decidiu levar a criança ao pronto-socorro, pois seu filho apresenta dificuldade para respirar por causa da tosse. Nos próximos 10 minutos, deverão ser realizadas as tarefas a seguir: realizar anamnese dirigida para a queixa relatada pela mãe; interpretar e verbalizar para o(a) chefe de estação os resultados dos exames complementares; explicar para a mãe o diagnóstico; orientar a mãe sobre o plano de cuidados.",
-    "notes": "Dados sob demanda: características da tosse informadas se perguntadas (paroxística, > 20 dias, 5 a 10 tossidas rápidas e curtas numa única expiração, 30 a 40 episódios/dia) e guincho inspiratório após o acesso (PEP 1.2–1.3). Impresso 1 — BEG, corado, hidratado, acianótico; FC 110, FR 35, SatO2 98% em AA; peso 8,5 kg; ACV normal; AR sem esforço, MV fisiológico sem ruídos adventícios; abdome normal. Impresso 2 — Hb 12, Ht 38%, leucócitos 40.000/mm³, linfócitos 80%. Impresso 3 — radiografia de tórax (imagem); o PEP descreve 'coração borrado/felpudo/franjado' por infiltrados pulmonares. O PEP de 2020 não publica a síntese do ator."
+    "notes": "Gabarito v2 (11/10/2026): caso completo com as características da tosse do item 1.2 do PEP, o exame, o hemograma e a leitura do RX do item 2.2; sem afunilamento, porque o PEP 2020 não publica o roteiro da mãe. O guincho (item 1.3) ficou fora do caso: o PEP cobra a pergunta, mas não diz a resposta. A internação virou o item crítico; apresentação, anamnese e explicações ficaram fora do escopo. | Dados sob demanda: características da tosse informadas se perguntadas (paroxística, > 20 dias, 5 a 10 tossidas rápidas e curtas numa única expiração, 30 a 40 episódios/dia) e guincho inspiratório após o acesso (PEP 1.2–1.3). Impresso 1 — BEG, corado, hidratado, acianótico; FC 110, FR 35, SatO2 98% em AA; peso 8,5 kg; ACV normal; AR sem esforço, MV fisiológico sem ruídos adventícios; abdome normal. Impresso 2 — Hb 12, Ht 38%, leucócitos 40.000/mm³, linfócitos 80%. Impresso 3 — radiografia de tórax (imagem); o PEP descreve 'coração borrado/felpudo/franjado' por infiltrados pulmonares. O PEP de 2020 não publica a síntese do ator."
   }
 }

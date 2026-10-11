@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb001-cc-001",
   "title": "Crise convulsiva sem dados de primeiro episódio, trauma ou retorno ao basal",
   "tags": [
@@ -16,11 +16,18 @@
   },
   "expected": {
     "syndrome": "crise convulsiva a caracterizar",
-    "cannotMiss": [
-      "estado de mal epiléptico",
-      "hipoglicemia"
+    "diagnoses": [
+      {
+        "text": "estado de mal epiléptico",
+        "tier": "important"
+      },
+      {
+        "text": "hipoglicemia",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
+    "actions": [],
+    "questions": [
       "primeiro episódio ou epilepsia conhecida",
       "retorno ao nível de consciência basal",
       "trauma craniano",
@@ -29,10 +36,8 @@
       "gestação ou puerpério (eclâmpsia)",
       "uso ou abstinência de álcool/drogas, ou má adesão ao anticonvulsivante"
     ],
-    "requiredActions": [],
     "forbiddenDefinitiveActions": [],
-    "rationale": "ILAE 2015: crise tônico-clônica ≥ 5 min (t1) já é estado de mal e pede benzodiazepínico — por isso a duração e as crises repetidas são decisivas. Em mulher em idade fértil, gestação/puerpério leva a pensar em eclâmpsia (sulfato de magnésio). Álcool/drogas e adesão definem crise provocada. Desejável, mas não exigido como hipótese: causa estrutural aguda (hemorragia/TCE) ou infecção do SNC se não voltar ao basal ou tiver febre.",
-    "expectedPath": "clarify"
+    "rationale": "ILAE 2015: crise tônico-clônica ≥ 5 min (t1) já é estado de mal e pede benzodiazepínico — por isso a duração e as crises repetidas são decisivas. Em mulher em idade fértil, gestação/puerpério leva a pensar em eclâmpsia (sulfato de magnésio). Álcool/drogas e adesão definem crise provocada. Desejável, mas não exigido como hipótese: causa estrutural aguda (hemorragia/TCE) ou infecção do SNC se não voltar ao basal ou tiver febre."
   },
   "sources": [
     {
@@ -59,6 +64,6 @@
   ],
   "provenance": {
     "originalCaseText": "Crise convulsiva sem informação se foi primeiro episódio, trauma ou retorno ao basal.",
-    "notes": "Auditoria 11/10/2026: texto reescrito deixando claro que a crise cessou (resolve a ambiguidade sem mudar o caminho clarify); pedidos de duração/crises repetidas, gestação e álcool/drogas/adesão. Causa estrutural/infecção do SNC ficou no rationale (opcional)."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: texto reescrito deixando claro que a crise cessou (resolve a ambiguidade sem mudar o caminho clarify); pedidos de duração/crises repetidas, gestação e álcool/drogas/adesão. Causa estrutural/infecção do SNC ficou no rationale (opcional)."
   }
 }

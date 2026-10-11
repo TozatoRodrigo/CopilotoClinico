@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb001-ch-001",
   "title": "PA 220x120 sem dados de dor torácica, déficit ou dispneia",
   "tags": [
@@ -16,17 +16,20 @@
   },
   "expected": {
     "syndrome": "PA muito elevada — diferenciar emergência hipertensiva (LOA aguda) de elevação importante sem LOA/pseudocrise (DBHA 2025)",
-    "cannotMiss": [
-      "emergência hipertensiva (lesão aguda de órgão-alvo)"
+    "diagnoses": [
+      {
+        "text": "emergência hipertensiva (lesão aguda de órgão-alvo)",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
+    "actions": [],
+    "questions": [
       "dor torácica",
       "déficit neurológico focal ou sintomas neurológicos",
       "dispneia / congestão pulmonar",
       "gestação ou puerpério",
       "cefaleia intensa, alteração visual ou confusão (encefalopatia hipertensiva)"
     ],
-    "requiredActions": [],
     "forbiddenDefinitiveActions": [
       {
         "id": "nifedipino-sublingual",
@@ -65,8 +68,7 @@
         ]
       }
     ],
-    "rationale": "DBHA 2025 (cap. 10 e 11): sem lesão aguda de órgão-alvo, \"elevação importante da PA\" (termo que substitui urgência hipertensiva; pseudocrise segue à parte) se conduz com observação ~30 min e medicação oral, sem queda > 25–30% em 2–4 h e sem IV; nifedipino sublingual ou de liberação rápida é proscrito. ACOG 767: em gestante/puérpera, PA ≥ 160x110 é hipertensão grave — tratar em 30–60 min (hidralazina IV, labetalol ou nifedipino oral de liberação imediata) e pensar em sulfato de magnésio; por isso a checagem libera essas condutas quando condicionadas à gestação.",
-    "expectedPath": "clarify"
+    "rationale": "DBHA 2025 (cap. 10 e 11): sem lesão aguda de órgão-alvo, \"elevação importante da PA\" (termo que substitui urgência hipertensiva; pseudocrise segue à parte) se conduz com observação ~30 min e medicação oral, sem queda > 25–30% em 2–4 h e sem IV; nifedipino sublingual ou de liberação rápida é proscrito. ACOG 767: em gestante/puérpera, PA ≥ 160x110 é hipertensão grave — tratar em 30–60 min (hidralazina IV, labetalol ou nifedipino oral de liberação imediata) e pensar em sulfato de magnésio; por isso a checagem libera essas condutas quando condicionadas à gestação."
   },
   "sources": [
     {
@@ -86,7 +88,7 @@
   ],
   "provenance": {
     "originalCaseText": "PA 220x120 sem informação sobre dor torácica, déficit focal ou dispneia.",
-    "notes": "Auditoria 11/10/2026: texto reescrito sem listar o que falta; síndrome com a nomenclatura da DBHA 2025; pedidos de gestação/puerpério e de sintomas de encefalopatia. Checagem do nifedipino separada (sublingual sempre; liberação rápida fora da gestação, sem acusar o retard) e a de anti-hipertensivo IV ampliada (hidralazina, NTG, betabloqueador IV) com exceção ancorada."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: texto reescrito sem listar o que falta; síndrome com a nomenclatura da DBHA 2025; pedidos de gestação/puerpério e de sintomas de encefalopatia. Checagem do nifedipino separada (sublingual sempre; liberação rápida fora da gestação, sem acusar o retard) e a de anti-hipertensivo IV ampliada (hidralazina, NTG, betabloqueador IV) com exceção ancorada."
   },
   "probes": {
     "mustFlag": [

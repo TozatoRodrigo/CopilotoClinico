@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "cm-avc-hemorragico-anticoagulado",
   "title": "Hematoma talâmico com inundação ventricular em uso de varfarina",
   "tags": [
@@ -27,18 +27,33 @@
   },
   "expected": {
     "syndrome": "AVC hemorrágico (hemorragia intraparenquimatosa) em uso de varfarina",
-    "cannotMiss": [
-      "hidrocefalia / hipertensão intracraniana pela inundação ventricular"
+    "diagnoses": [
+      {
+        "text": "hidrocefalia / hipertensão intracraniana pela inundação ventricular",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [
+    "actions": [
+      {
+        "text": "reversão imediata da varfarina com vitamina K IV e complexo protrombínico de 4 fatores (dose fixa já ou guiada por INR rápido, sem esperar o laboratório convencional)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "redução precoce e gradual da PAS com anti-hipertensivo IV titulável, alvo em torno de 140 mmHg, evitando PAS < 130 e quedas bruscas",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "avaliação neurocirúrgica de urgência e UTI",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [
       "INR / coagulograma (sem atrasar a reversão)",
       "presença e grau de hidrocefalia na TC (tamanho dos ventrículos)",
       "peso (dose do complexo protrombínico) e contagem de plaquetas"
-    ],
-    "requiredActions": [
-      "reversão imediata da varfarina com vitamina K IV e complexo protrombínico de 4 fatores (dose fixa já ou guiada por INR rápido, sem esperar o laboratório convencional)",
-      "redução precoce e gradual da PAS com anti-hipertensivo IV titulável, alvo em torno de 140 mmHg, evitando PAS < 130 e quedas bruscas",
-      "avaliação neurocirúrgica de urgência e UTI"
     ],
     "forbiddenDefinitiveActions": [
       {
@@ -83,8 +98,7 @@
         "patterns": []
       }
     ],
-    "rationale": "AHA/ASA 2022 (HIC) e ESO 2019: reversão imediata com CCP de 4 fatores + vitamina K IV; a ESO aceita dose fixa sem esperar INR, a AHA gradua o CCP pelo INR — por isso valem dose fixa já ou INR rápido sem atraso. PA: AHA 2022 alvo ~140 (130-150), PAS < 130 potencialmente danosa; NICE 2022 ≤ 140 sem queda > 60 mmHg na 1ª hora — as duas formulações são aceitas. Repetir o INR após o CCP completa a reversão, mas não é exigido no turno 0.",
-    "expectedPath": "recommend"
+    "rationale": "AHA/ASA 2022 (HIC) e ESO 2019: reversão imediata com CCP de 4 fatores + vitamina K IV; a ESO aceita dose fixa sem esperar INR, a AHA gradua o CCP pelo INR — por isso valem dose fixa já ou INR rápido sem atraso. PA: AHA 2022 alvo ~140 (130-150), PAS < 130 potencialmente danosa; NICE 2022 ≤ 140 sem queda > 60 mmHg na 1ª hora — as duas formulações são aceitas. Repetir o INR após o CCP completa a reversão, mas não é exigido no turno 0."
   },
   "sources": [
     {
@@ -117,7 +131,7 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: meta pressórica trocada (o limite de 70 mmHg não tinha fonte) por PAS ~140 evitando < 130 e quedas bruscas; reversão aceita CCP em dose fixa ou por INR rápido; pedidos de hidrocefalia, peso e plaquetas; exceção da profilaxia de TEV após 24-48 h; checagem de antitrombótico sem negação genérica."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: meta pressórica trocada (o limite de 70 mmHg não tinha fonte) por PAS ~140 evitando < 130 e quedas bruscas; reversão aceita CCP em dose fixa ou por INR rápido; pedidos de hidrocefalia, peso e plaquetas; exceção da profilaxia de TEV após 24-48 h; checagem de antitrombótico sem negação genérica."
   },
   "probes": {
     "mustFlag": [

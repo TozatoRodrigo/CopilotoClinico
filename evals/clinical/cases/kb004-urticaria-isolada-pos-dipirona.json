@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb004-urticaria-isolada-pos-dipirona",
   "title": "Urticária isolada após dipirona, sem outro sistema envolvido",
   "tags": [
@@ -17,15 +17,30 @@
   },
   "expected": {
     "syndrome": "reação alérgica cutânea simples (urticária aguda) sem critério de anafilaxia",
-    "cannotMiss": [
-      "progressão para anafilaxia ou angioedema nas horas seguintes à exposição"
+    "diagnoses": [
+      {
+        "text": "progressão para anafilaxia ou angioedema nas horas seguintes à exposição",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [],
-    "requiredActions": [
-      "anti-histamínico H1, de preferência de 2ª geração não sedante",
-      "período de observação antes da alta, com orientação de retorno imediato",
-      "suspender a dipirona, registrar a alergia e orientar a evitar dipirona/pirazolonas (cautela com outros AINE até avaliação do alergologista)"
+    "actions": [
+      {
+        "text": "anti-histamínico H1, de preferência de 2ª geração não sedante",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "período de observação antes da alta, com orientação de retorno imediato",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "suspender a dipirona, registrar a alergia e orientar a evitar dipirona/pirazolonas (cautela com outros AINE até avaliação do alergologista)",
+        "tier": "important",
+        "timing": "any"
+      }
     ],
+    "questions": [],
     "forbiddenDefinitiveActions": [
       {
         "id": "prescrever-dipirona-de-novo",
@@ -41,8 +56,7 @@
         ]
       }
     ],
-    "rationale": "KB-004 (04-alergia-simples): sem outro sistema envolvido, não há critério de anafilaxia (WAO 2020) e adrenalina não é a primeira conduta. Diretriz internacional de urticária (2022): anti-H1 de 2ª geração é o pilar; corticoide oral curto é opcional. Pirazolonas, sobretudo a dipirona, são a principal causa de urticária/angioedema/anafilaxia seletiva por AINE: suspender e registrar é a medida preventiva mais importante. \"Reação bifásica\" é recorrência após anafilaxia e não se aplica à urticária isolada.",
-    "expectedPath": "recommend"
+    "rationale": "KB-004 (04-alergia-simples): sem outro sistema envolvido, não há critério de anafilaxia (WAO 2020) e adrenalina não é a primeira conduta. Diretriz internacional de urticária (2022): anti-H1 de 2ª geração é o pilar; corticoide oral curto é opcional. Pirazolonas, sobretudo a dipirona, são a principal causa de urticária/angioedema/anafilaxia seletiva por AINE: suspender e registrar é a medida preventiva mais importante. \"Reação bifásica\" é recorrência após anafilaxia e não se aplica à urticária isolada."
   },
   "sources": [
     {
@@ -75,7 +89,7 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: hipótese obrigatória virou progressão para anafilaxia/angioedema (\"bifásica\" não se aplica); anti-H1 de 2ª geração preferido; suspender e registrar a alergia à dipirona virou obrigatório; nova proibida: prescrever dipirona de novo."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: hipótese obrigatória virou progressão para anafilaxia/angioedema (\"bifásica\" não se aplica); anti-H1 de 2ª geração preferido; suspender e registrar a alergia à dipirona virou obrigatório; nova proibida: prescrever dipirona de novo."
   },
   "probes": {
     "mustFlag": [

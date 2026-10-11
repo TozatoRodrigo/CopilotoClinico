@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb001-cf-002",
   "title": "Cefaleia em trovoada com vômitos e déficit focal",
   "tags": [
@@ -17,18 +17,36 @@
   },
   "expected": {
     "syndrome": "cefaleia em trovoada com déficit focal — suspeita de hemorragia intracraniana",
-    "cannotMiss": [
-      "hemorragia subaracnoide",
-      "hemorragia intracerebral"
+    "diagnoses": [
+      {
+        "text": "hemorragia subaracnoide",
+        "tier": "critical"
+      },
+      {
+        "text": "hemorragia intracerebral",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [
+    "actions": [
+      {
+        "text": "TC de crânio sem contraste imediata",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "angio-TC intracraniana e cervical após a TC (localizar aneurisma; se a TC for normal, investigar dissecção, SVCR ou TVC) e avaliação neurocirúrgica se houver hemorragia",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "controle da PA",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [
       "uso de anticoagulante ou antiagregante",
       "nível de consciência (Glasgow) e sinais vitais"
-    ],
-    "requiredActions": [
-      "TC de crânio sem contraste imediata",
-      "angio-TC intracraniana e cervical após a TC (localizar aneurisma; se a TC for normal, investigar dissecção, SVCR ou TVC) e avaliação neurocirúrgica se houver hemorragia",
-      "controle da PA"
     ],
     "forbiddenDefinitiveActions": [
       {
@@ -64,8 +82,7 @@
         ]
       }
     ],
-    "rationale": "Núcleo consensual: TC sem contraste imediata e nada de antitrombótico antes de a TC excluir hemorragia. AHA/ASA 2019 e ENLS: sinais e sintomas sugestivos de HSA contraindicam alteplase (Classe III) — e ACEP 2019: TC normal só exclui HSA com exame neurológico normal; aqui há déficit, então a trombólise fica proibida mesmo com TC normal. AHA/ASA 2023: angio-TC após a TC; se normal, investigar dissecção, SVCR e TVC. Desejáveis, mas não exigidos: dissecção cervical, TVC, SVCR e apoplexia hipofisária como hipóteses nomeadas; horário de início (sensibilidade da TC em 6 h).",
-    "expectedPath": "recommend"
+    "rationale": "Núcleo consensual: TC sem contraste imediata e nada de antitrombótico antes de a TC excluir hemorragia. AHA/ASA 2019 e ENLS: sinais e sintomas sugestivos de HSA contraindicam alteplase (Classe III) — e ACEP 2019: TC normal só exclui HSA com exame neurológico normal; aqui há déficit, então a trombólise fica proibida mesmo com TC normal. AHA/ASA 2023: angio-TC após a TC; se normal, investigar dissecção, SVCR e TVC. Desejáveis, mas não exigidos: dissecção cervical, TVC, SVCR e apoplexia hipofisária como hipóteses nomeadas; horário de início (sensibilidade da TC em 6 h)."
   },
   "sources": [
     {
@@ -98,7 +115,7 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: trombólise proibida mesmo com TC normal (trovoada sugere HSA; AHA/ASA 2019 Classe III) e checagem sem exceções condicionadas à TC; antitrombótico \"agora, suspender se sangrar\" passa a ser acusado; angio-TC, neurocirurgia e controle da PA obrigatórios."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: trombólise proibida mesmo com TC normal (trovoada sugere HSA; AHA/ASA 2019 Classe III) e checagem sem exceções condicionadas à TC; antitrombótico \"agora, suspender se sangrar\" passa a ser acusado; angio-TC, neurocirurgia e controle da PA obrigatórios."
   },
   "probes": {
     "mustFlag": [

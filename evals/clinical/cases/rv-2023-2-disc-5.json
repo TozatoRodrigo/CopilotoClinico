@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "rv-2023-2-disc-5",
   "title": "Dor precordial há 6 horas com supradesnivelamento de ST em homem atendido na UBS",
   "tags": [
@@ -14,27 +14,55 @@
   "review": {
     "status": "official_exam_key"
   },
-  "excludeFromGate": {
-    "reason": "Gabarito anterior à diretriz ACC/AHA de SCA de 2025: pontua O2, nitrato e morfina e não cobra P2Y12, anticoagulação nem reperfusão."
-  },
   "input": {
-    "caseText": "UBS, demanda espontânea. Masc, 56a. Dor precordial há 6h, irradiada para pescoço, ombro e braço E. HAS, tabagista há 30 anos, ERG de Framingham 22 pontos. Em uso de HCTZ 25 mg pela manhã e losartana 50 mg 12/12h. Nega alergias e outras comorbidades. PA 160x100, SatO2 86%, sem outras alterações ao exame. ECG 12 derivações na UBS, ainda com dor: ritmo sinusal regular, FC 105, eixo QRS sem desvio, supradesnivelamento do segmento ST de V1 a V4."
+    "caseText": "UBS, demanda espontânea. Masc, 56a. Dor precordial há 6 h, irradiada para pescoço, ombro e braço E. HAS; tabagista há 30 a; ERG de Framingham 22 pontos. Em uso de HCTZ 25 mg pela manhã e losartana 50 mg 12/12 h. Nega alergias e outras comorbidades. EF: PA 160x100, SatO2 86%, sem outras alterações. ECG de 12 derivações na UBS, ainda com dor: ritmo sinusal regular, FC 105, eixo do QRS sem desvio, supradesnivelamento do segmento ST de V1 a V4."
   },
   "expected": {
     "syndrome": "infarto agudo do miocárdio com supradesnivelamento do segmento ST de parede anterior, em atendimento na UBS",
-    "cannotMiss": [
-      "infarto agudo do miocárdio com supradesnivelamento do segmento ST (parede anterior)"
+    "diagnoses": [
+      {
+        "text": "infarto agudo do miocárdio com supradesnivelamento do segmento ST (parede anterior)",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [],
-    "requiredActions": [
-      "monitorizar sinais vitais (nível de consciência, PA, FC, FR e SpO2)",
-      "oxigênio",
-      "AAS 300 mg",
-      "nitrato",
-      "morfina se não houver resposta ao nitrato",
-      "acesso venoso calibroso",
-      "referenciar para serviço de emergência o mais precocemente possível, com transporte seguro: ambulância de suporte avançado (USA/UTI móvel) ou de suporte básico com o médico da UBS na equipe"
+    "actions": [
+      {
+        "text": "AAS [ref.: 300 mg VO, mastigado]",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "transferência imediata, com transporte seguro (ambulância de suporte avançado/SAMU-USA ou suporte básico com o médico da UBS), para serviço de emergência com reperfusão: ICP primária, ou fibrinólise se a ICP não for possível em até 120 min",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "monitorização: nível de consciência, PA, FC, FR e SpO2",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "oxigênio suplementar (SatO2 86%)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "nitrato sublingual para a dor isquêmica, se sem contraindicação",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "opioide (morfina) se a dor persistir apesar do nitrato",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "acesso venoso calibroso",
+        "tier": "important",
+        "timing": "now"
+      }
     ],
+    "questions": [],
     "forbiddenDefinitiveActions": [
       {
         "id": "transporte-por-meios-proprios-ou-alta",
@@ -46,8 +74,7 @@
         ]
       }
     ],
-    "rationale": "Gabarito oficial do INEP (Revalida 2023/2, Questão 5): o padrão pontua o diagnóstico de IAM com supra de ST, sete medidas imediatas na UBS (monitorização, oxigênio, AAS 300 mg, nitrato, morfina se falha do nitrato, acesso venoso, referência precoce) e transporte em ambulância de suporte avançado ou básico com médico; penaliza transporte por meios próprios ou alta.",
-    "expectedPath": "recommend"
+    "rationale": "Gabarito oficial do INEP (Revalida 2023/2, Questão 5): o padrão pontua o diagnóstico de IAM com supra de ST, sete medidas imediatas na UBS (monitorização, oxigênio, AAS 300 mg, nitrato, morfina se falha do nitrato, acesso venoso, referência precoce) e transporte em ambulância de suporte avançado ou básico com médico; penaliza transporte por meios próprios ou alta. Gabarito v2: AAS e transferência imediata para reperfusão são críticos; oxigênio (SatO2 86%), nitrato e morfina na dor refratária seguem a diretriz ESC 2023 de SCA."
   },
   "sources": [
     {
@@ -70,6 +97,13 @@
       "publisher": "INEP",
       "year": 2023,
       "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2023_2_PEP_discursiva.pdf"
+    },
+    {
+      "claim": "Oxigênio recomendado na SCA com hipoxemia (SatO2 < 90%) e não recomendado sem hipoxemia; nitrato sublingual pode aliviar a isquemia (evitar com hipotensão, bradi/taquicardia acentuada ou IAM de VD); opioide IV deve ser considerado para dor torácica intensa; AAS em dose de ataque de 150–300 mg VO; ICP primária é a estratégia preferida se feita em até 120 min do diagnóstico pelo ECG, senão fibrinólise imediata; paciente com IAMCSST em centro sem ICP deve ser transferido imediatamente.",
+      "title": "2023 ESC Guidelines for the management of acute coronary syndromes",
+      "publisher": "European Society of Cardiology (European Heart Journal)",
+      "year": 2023,
+      "url": "https://academic.oup.com/eurheartj/article/44/38/3720/7243210"
     }
   ],
   "provenance": {
@@ -78,7 +112,7 @@
     "item": "Discursiva caso 5",
     "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2023_2_PEP_discursiva.pdf",
     "originalCaseText": "Um homem de 56 anos comparece, em demanda espontânea, à unidade básica de saúde (UBS) com queixa de dor precordial há 6 horas, a qual irradia para o pescoço, o ombro e braço esquerdos. Ele é portador de hipertensão arterial sistêmica, tabagista há 30 anos, com Escore de Risco Global de Framingham (ERG) de 22 pontos e faz uso regular de hidroclorotiazida 25 mg, 1 comprimido de manhã, e de losartana 50 mg, 1 comprimido de manhã e 1 comprimido à noite. Nega alergias ou outras comorbidades. Ao exame físico, apresenta pressão arterial de 160 × 100 mmHg e saturação de O2 de 86%, sem outras alterações detectadas. O eletrocardiograma com 12 derivações, realizado na UBS no momento do atendimento e com o paciente ainda com dor, apresentou ritmo cardíaco sinusal regular, frequência cardíaca de 105 batimentos por minuto, eixo QRS sem desvio, supradesnivelamento de segmento ST de V1 a V4. Com base nesse caso clínico, faça o que se pede nos itens a seguir. a) Qual a hipótese diagnóstica mais provável no caso desse paciente? Caso seja escrita mais de uma hipótese diagnóstica, será considerada apenas a primeira. (valor: 3,0 pontos) b) Cite as sete principais medidas de abordagem imediata do caso clínico apresentado na UBS. Serão pontuadas apenas as sete primeiras medidas indicadas. (valor: 4,0 pontos) c) Indique o tipo de transporte seguro para a condição clínica do paciente. (valor: 3,0 pontos)",
-    "notes": "possivelmente desatualizado: diretriz ACC/AHA de SCA 2025 publicada após a prova; o padrão (que cita a diretriz SBC 2021 de SCA sem supra de ST) pontua oxigênio, nitrato e morfina e não inclui inibidor de P2Y12, anticoagulação nem estratégia/tempo de reperfusão — revisar as medidas imediatas à luz da diretriz 2025 | Item b: adequado = 6 a 7 das 7 medidas; parcial = 3 a 5. Item c penaliza encaminhar por meios próprios, não encaminhar ou dar alta. | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas."
+    "notes": "Gabarito v2 (11/10/2026): caso completo igual ao enunciado (discursiva). AAS e transferência imediata com transporte seguro para reperfusão (ICP primária, ou fibrinólise se a ICP não couber em 120 min) são as condutas críticas; oxigênio ficou importante e justificado pela SatO2 86%, nitrato importante e morfina condicionada à dor refratária, como na diretriz ESC 2023 de SCA (verificada). Com isso nenhum item cobra conduta que a diretriz vigente desaconselha nem penaliza a conduta atual, e o caso voltou ao portão (excludeFromGate removido); P2Y12 e anticoagulação seguem fora das expectativas porque o padrão não as cobra. A diretriz ACC/AHA 2025 não pôde ser aberta (HTTP 403) e não foi citada; a tag 'desatualizado' foi mantida por regra. | possivelmente desatualizado: diretriz ACC/AHA de SCA 2025 publicada após a prova; o padrão (que cita a diretriz SBC 2021 de SCA sem supra de ST) pontua oxigênio, nitrato e morfina e não inclui inibidor de P2Y12, anticoagulação nem estratégia/tempo de reperfusão — revisar as medidas imediatas à luz da diretriz 2025 | Item b: adequado = 6 a 7 das 7 medidas; parcial = 3 a 5. Item c penaliza encaminhar por meios próprios, não encaminhar ou dar alta. | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas."
   },
   "probes": {
     "mustFlag": [

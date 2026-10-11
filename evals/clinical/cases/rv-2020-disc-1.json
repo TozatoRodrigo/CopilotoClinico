@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "rv-2020-disc-1",
   "title": "Escolar com edema, oligúria, urina escura e hipertensão após lesões de pele crostosas",
   "tags": [
@@ -15,33 +15,68 @@
     "status": "official_exam_key"
   },
   "input": {
-    "caseText": "Ambulatório de pediatria. Fem, 8a, previamente hígida. Edema, diminuição da diurese, urina escura às vezes rosada, desânimo e inapetência há 1 semana. Nega febre, vômitos, diarreia, disúria, polaciúria. Há 3 semanas: lesões nas pernas, inicialmente pruriginosas, que evoluíram para crostas e cicatrizaram espontaneamente. Peso 30 kg (ganho de 3,5 kg em 1 mês), estatura 1,26 m. FR 35, FC 110, Tax 36,2 °C, PA 125x80 (confirmada em 2 medidas). REG, acianótica, anictérica, mucosas úmidas e hipocoradas 1+/4+, turgor e elasticidade preservados, TEC 2 s, pulsos periféricos palpáveis e simétricos. Edema 2+/4+ e lesões cicatriciais em MMII. AC normal. AP: crepitantes em bases. Abdome globoso, discretamente distendido, edema leve de parede, indolor; fígado palpável a 4 cm do RCD."
+    "caseText": "Ambulatório de pediatria. Fem, 8a, previamente hígida. Há 1 sem: edema, diminuição da diurese, urina escura às vezes rosada, desânimo e inapetência. Nega febre, vômitos, diarreia, disúria e polaciúria. Há 3 sem: lesões nas pernas, inicialmente pruriginosas, que evoluíram para crostas e cicatrizaram espontaneamente. EF: peso 30 kg (ganho de 3,5 kg em 1 mês), estatura 1,26 m. FR 35, FC 110, Tax 36,2 °C, PA 125x80 mmHg (confirmada em 2 momentos da consulta). REG, acianótica, anictérica, mucosas úmidas e hipocoradas 1+/4+, turgor e elasticidade preservados, TEC 2 s, pulsos periféricos bem palpáveis e simétricos. Edema 2+/4+ e lesões cicatriciais em MMII. AC normal. AR: estertores crepitantes em bases. Abdome globoso, discretamente distendido, edema leve de parede, indolor; fígado palpável a 4 cm do RCD."
   },
   "expected": {
     "syndrome": "síndrome nefrítica aguda — glomerulonefrite difusa aguda pós-estreptocócica",
-    "cannotMiss": [
-      "glomerulonefrite aguda pós-estreptocócica (síndrome nefrítica)"
+    "diagnoses": [
+      {
+        "text": "síndrome nefrítica aguda: glomerulonefrite difusa aguda pós-estreptocócica (após impetigo)",
+        "tier": "important"
+      },
+      {
+        "text": "hipervolemia com congestão (crepitantes em bases, hepatomegalia, edema, ganho de peso) e hipertensão arterial para idade e estatura",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
-      "exame simples de urina (EAS/urina tipo 1): hematúria com ou sem proteinúria, cilindros hemáticos",
-      "complemento sérico (C3/C4) — esperado baixo",
-      "ASLO (antiestreptolisina O) — esperado elevado",
-      "função renal (ureia, creatinina) e eletrólitos (sódio, potássio)",
-      "radiografia de tórax (área cardíaca, congestão/edema pulmonar, derrame pleural)"
+    "actions": [
+      {
+        "text": "diurético de alça IV, preferencialmente furosemida [ref.: 1 a 5 mg/kg/dia]",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "internação hospitalar",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "restrição hídrica [ref.: 300 a 400 mL/m²/dia ou 20 mL/kg/dia] e restrição de sódio [ref.: < 2 g de sódio/m²SC/dia]",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "peso diário e balanço hídrico",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "anti-hipertensivo (nifedipina, hidralazina ou anlodipina) se a PA não melhorar com o diurético de alça",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "tratamento da infecção estreptocócica, preferencialmente penicilina benzatina IM [ref.: 1.200.000 UI]",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "exames que confirmam a hipótese: urina tipo 1/EAS (hematúria, cilindros hemáticos), complemento C3/C4 (baixo) e ASLO (elevado)",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "exames de repercussão: ureia e creatinina, eletrólitos (sódio e potássio) e radiografia de tórax (área cardíaca, congestão, derrame pleural)",
+        "tier": "important",
+        "timing": "any"
+      }
     ],
-    "requiredActions": [
-      "internação hospitalar",
-      "peso diário",
-      "balanço hídrico",
-      "restrição hídrica (300 a 400 mL/m² ou 20 mL/kg)",
-      "restrição de sódio (< 2 g de sódio/m²SC/dia)",
-      "tratamento da infecção estreptocócica, preferencialmente penicilina benzatina 1.200.000 UI IM",
-      "diurético de alça IV, preferencialmente furosemida (1 a 5 mg/kg/dia)",
-      "anti-hipertensivo (nifedipina, hidralazina ou anlodipina) se a PA não melhorar com o diurético de alça"
-    ],
+    "questions": [],
     "forbiddenDefinitiveActions": [],
-    "rationale": "Gabarito oficial do INEP (Revalida 2020, Questão 1): diagnóstico de síndrome nefrítica/GNPE, confirmação por exames (aceita 3 de 6) e condutas iniciais com internação, controle volêmico, restrição hidrossalina, penicilina benzatina, furosemida IV e anti-hipertensivo se necessário (aceita 5 de 8).",
-    "expectedPath": "recommend"
+    "outOfScope": [
+      "situações que indicariam biópsia renal na evolução: hematúria macroscópica > 4 semanas, hipertensão > 4 semanas, complemento baixo > 8 semanas, proteinúria nefrótica > 4 semanas (item D) — critério de seguimento, não do atendimento atual"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2020, Questão 1): diagnóstico de síndrome nefrítica/GNPE, confirmação por exames (aceita 3 de 6) e condutas iniciais com internação, controle volêmico, restrição hidrossalina, penicilina benzatina, furosemida IV e anti-hipertensivo se necessário (aceita 5 de 8). Gabarito v2: a furosemida IV virou o item crítico porque a congestão pulmonar, a hepatomegalia e a hipertensão já estão no caso; as demais condutas e exames do padrão (que aceita 5 de 8 e 3 de 6) viraram itens importantes, cada um com nota própria."
   },
   "sources": [
     {
@@ -72,6 +107,6 @@
     "item": "Discursiva caso 1",
     "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2020/padrao_de_respostas_discursivas.pdf",
     "originalCaseText": "Uma criança em idade escolar com 8 anos de idade é atendida no ambulatório de Pediatria com edema, diminuição da diurese, urina escura, às vezes, rosada, desânimo e inapetência há uma semana. A mãe nega a presença de febre, vômitos, diarreia, disúria ou polaciúria em sua filha. A criança estava previamente hígida, mas, há 3 semanas, apresentou lesões nas pernas, inicialmente pruriginosas, que evoluíram para crostas e cicatrizaram espontaneamente. O exame físico revelou os seguintes resultados: peso = 30 kg (ganho de 3,5 kg em 1 mês); estatura = 1,26 m; FR = 35 irpm; FC = 110 bpm; temperatura axilar = 36,2 °C; PA = 125 x 80 mmHg (confirmada em 2 momentos da consulta). A criança está em regular estado geral, acianótica, anictérica, com mucosas úmidas e hipocoradas (1+/4+), pele com turgor e elasticidade preservados, enchimento capilar de 2 segundos, pulsos periféricos bem palpáveis e simétricos, presença de edema (2+/4+) e lesões cicatriciais em membros inferiores. Sua ausculta cardíaca está normal. A ausculta respiratória apresenta estertores crepitantes em bases pulmonares. Abdome globoso, discretamente distendido, com edema leve na parede abdominal, indolor à palpação, fígado palpável a 4 cm do rebordo costal direito. O quadro a seguir apresenta os percentis de pressão arterial sistêmica para meninas por idade e os percentis de estatura. [quadro em imagem, não transcrito] Fonte: Adaptado de Flynn et al. (Sociedade Brasileira de Pediatria, 2019). Com base no caso e no quadro apresentados, responda às questões a seguir. (A) Qual é a principal hipótese diagnóstica? (valor: 1,0 ponto) (B) Cite três exames complementares recomendados e os respectivos resultados que confirmam essa hipótese diagnóstica. (valor: 3,0 pontos) (C) Cite cinco condutas médicas iniciais recomendadas para esse caso. (valor: 4,0 pontos) (D) Na evolução desse caso, cite quatro situações, entre achados clínicos e resultados de exames complementares, que indicam a necessidade de estudo anatomopatológico do órgão afetado. (valor: 2,0 pontos)",
-    "notes": "Atendimento em ambulatório de pediatria, mas a condição é aguda e o gabarito pontua internação (hipervolemia: crepitantes, hepatomegalia, HAS). O quadro de percentis de PA é imagem e não foi transcrito; a resposta não depende dele. O item B aceita 3 de 6 exames e o item C aceita 5 de 8 condutas (0,8 ponto cada): as listas abaixo trazem todas as opções pontuadas. Item D (indicações de biópsia renal na evolução: hematúria macroscópica > 4 semanas, HAS > 4 semanas, complemento baixo > 8 semanas, síndrome nefrótica/proteinúria > 50 mg/kg/dia > 4 semanas) não virou expectativa por ser critério de seguimento, não conduta do atendimento atual."
+    "notes": "Gabarito v2 (11/10/2026): caseText completo com todos os dados do enunciado em estilo nota, sem as perguntas; o quadro de percentis de PA (imagem) continua não transcrito. Itens com nível: furosemida IV é crítica (congestão e hipertensão presentes); internação e restrição hidrossalina são importantes 'agora'; exames e anti-hipertensivo condicionado ficam 'any'. Item D (biópsia na evolução) foi para outOfScope. O caso segue não crítico, como no v1. | Atendimento em ambulatório de pediatria, mas a condição é aguda e o gabarito pontua internação (hipervolemia: crepitantes, hepatomegalia, HAS). O quadro de percentis de PA é imagem e não foi transcrito; a resposta não depende dele. O item B aceita 3 de 6 exames e o item C aceita 5 de 8 condutas (0,8 ponto cada): as listas abaixo trazem todas as opções pontuadas. Item D (indicações de biópsia renal na evolução: hematúria macroscópica > 4 semanas, HAS > 4 semanas, complemento baixo > 8 semanas, síndrome nefrótica/proteinúria > 50 mg/kg/dia > 4 semanas) não virou expectativa por ser critério de seguimento, não conduta do atendimento atual."
   }
 }

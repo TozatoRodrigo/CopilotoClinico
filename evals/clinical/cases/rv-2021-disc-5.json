@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "rv-2021-disc-5",
   "title": "Criança de 5 anos com febre, tosse, taquipneia, tiragem e MV abolido em base esquerda",
   "tags": [
@@ -15,26 +15,48 @@
     "status": "official_exam_key"
   },
   "input": {
-    "caseText": "Pronto atendimento. Criança, 5a, previamente hígida. Febre até 38,7 °C, coriza e tosse persistente há 3 dias, pior à noite. MV abolido em base E, FR 46, estertores finos difusos e homogêneos, principalmente à E, tiragem intercostal e subcostal. SatO2 98%. Sem outras alterações ao exame."
+    "caseText": "Pronto atendimento. Criança de 5a, previamente hígida. Febre até 38,7 °C, coriza e tosse persistente há 3 d, pior à noite. EF: FR 46, tiragem intercostal e subcostal; MV abolido na base E; estertores finos, difusos e homogêneos, principalmente à E. SatO2 98%. Sem outras alterações ao exame."
   },
   "expected": {
     "syndrome": "pneumonia adquirida na comunidade com sinais de gravidade (possível derrame pleural), provável pneumocócica",
-    "cannotMiss": [
-      "pneumonia adquirida na comunidade grave (com sinais de gravidade/derrame pleural)"
+    "diagnoses": [
+      {
+        "text": "pneumonia adquirida na comunidade grave (tiragem subcostal), com possível derrame pleural à E",
+        "tier": "critical"
+      },
+      {
+        "text": "agente mais provável: Streptococcus pneumoniae (pneumococo)",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
-      "hemograma",
-      "hemocultura",
-      "provas de atividade inflamatória (VHS ou PCR)",
-      "radiografia de tórax"
+    "actions": [
+      {
+        "text": "antibiótico EV: penicilina cristalina ou ampicilina (ou cefalosporina de 3ª geração — ceftriaxona/cefotaxima — se não vacinada, resistência pneumocócica alta ou infecção grave/empiema)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "internação hospitalar",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "radiografia de tórax",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "hemograma, hemocultura e prova inflamatória (PCR ou VHS)",
+        "tier": "important",
+        "timing": "any"
+      }
     ],
-    "requiredActions": [
-      "internação hospitalar",
-      "antibioticoterapia com penicilina cristalina ou ampicilina"
-    ],
+    "questions": [],
     "forbiddenDefinitiveActions": [],
-    "rationale": "Gabarito oficial do INEP (Revalida 2021, Questão 5): pneumonia comunitária grave pneumocócica, com internação, hemograma, hemocultura, VHS/PCR, radiografia de tórax e penicilina cristalina ou ampicilina.",
-    "expectedPath": "recommend"
+    "outOfScope": [
+      "dado do exame físico de maior acurácia para o diagnóstico (item b, anulado no padrão de respostas)"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2021, Questão 5): pneumonia comunitária grave pneumocócica, com internação, hemograma, hemocultura, VHS/PCR, radiografia de tórax e penicilina cristalina ou ampicilina. Gabarito v2: o antibiótico EV é a conduta crítica para agora, aceitando cefalosporina de 3ª geração nas situações da diretriz PIDS/IDSA 2011."
   },
   "sources": [
     {
@@ -50,6 +72,13 @@
       "publisher": "INEP",
       "year": 2021,
       "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2021_GB_discursiva.pdf"
+    },
+    {
+      "claim": "Criança com PAC moderada a grave (tiragem, desconforto respiratório) deve ser internada; hospitalizada e totalmente vacinada: ampicilina ou penicilina G; cefalosporina de 3ª geração (ceftriaxona ou cefotaxima) se não totalmente vacinada, resistência pneumocócica alta local ou infecção com risco de vida, incluindo empiema; hemocultura e radiografia de tórax em toda criança internada; hemograma na pneumonia grave.",
+      "title": "The Management of Community-Acquired Pneumonia in Infants and Children Older Than 3 Months of Age (PIDS/IDSA)",
+      "publisher": "Pediatric Infectious Diseases Society / Infectious Diseases Society of America (Clinical Infectious Diseases)",
+      "year": 2011,
+      "url": "https://academic.oup.com/cid/article/53/7/e25/424286"
     }
   ],
   "provenance": {
@@ -58,6 +87,6 @@
     "item": "Discursiva caso 5",
     "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2021_GB_discursiva.pdf",
     "originalCaseText": "Um paciente de 5 anos, previamente hígido, é levado ao pronto atendimento devido à febre de até 38,7 °C, coriza e tosse persistente há 3 dias, principalmente à noite. Ao exame físico, apresentava-se com murmúrio vesicular abolido na base esquerda, frequência respiratória = 46 irpm, estertores finos, difusos e homogêneos, principalmente à esquerda e tiragem intercostal e subcostal. Saturimetria = 98%. Sem outras alterações ao exame físico. Considerando o caso acima, responda às questões a seguir. Elabore a hipótese diagnóstica mais provável, citando o agente etiológico mais comum. (valor: 3 pontos) Estabeleça o dado do exame físico que apresenta a melhor sensibilidade, especificidade e os melhores valores preditivos positivo e negativo para permitir esse diagnóstico. (valor: 1 ponto) Proponha a conduta adequada frente à situação apresentada. (valor: 6 pontos)",
-    "notes": "Item b (dado do exame físico de melhor acurácia) foi ANULADO no padrão de respostas e não gerou expectativa. Na prova os comandos não têm letras; o padrão os identifica como a), b) e c). O item c inclui 'coleta de exames' (0,5) além dos exames listados."
+    "notes": "Gabarito v2 (11/10/2026): caso completo igual ao enunciado (discursiva). Antibiótico EV virou a conduta crítica para agora; aceita cefalosporina de 3ª geração nas situações em que a diretriz PIDS/IDSA 2011 (verificada) a indica (não vacinada, resistência alta, infecção grave/empiema); internação e exames ficaram importantes. | Item b (dado do exame físico de melhor acurácia) foi ANULADO no padrão de respostas e não gerou expectativa. Na prova os comandos não têm letras; o padrão os identifica como a), b) e c). O item c inclui 'coleta de exames' (0,5) além dos exames listados."
   }
 }

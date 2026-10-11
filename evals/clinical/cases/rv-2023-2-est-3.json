@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "rv-2023-2-est-3",
   "title": "Menino de 4 anos com dor na perna e choro inconsolável no pronto-socorro",
   "tags": [
@@ -14,49 +14,145 @@
   "review": {
     "status": "official_exam_key"
   },
-  "excludeFromGate": {
-    "reason": "PEP penaliza o soro antiaracnídico, que o manual do MS de animais peçonhentos aceita no escorpionismo."
-  },
   "input": {
-    "caseText": "PS de hospital secundário (grande cidade). Masc, 4a6m, trazido pela mãe por dores em perna e choro inconsolável."
+    "caseText": "PS de hospital secundário (grande cidade), com laboratório, radiologia e internação. Masc, 4a6m, 18 kg, trazido pela mãe. Há 2 h choro inconsolável e dor na perna D; brincava com o irmão no quintal perto de tijolos, sem queda. Pai encontrou um escorpião perto do local e mandou foto: escorpião de cor amarela. Vomitou e está babando muito. Sem antecedentes, vacinas em dia, sem acesso a medicamentos, produtos de limpeza ou veneno. Casa de alvenaria em região de chácaras, perto de aterro sanitário. EF: REG, fácies de dor, choroso, corado, hidratado, sem desconforto respiratório. FC 150, FR 21, SpO2 98% AA, Tax 36,5 °C. Calcanhar D com hiperemia e pequeno óstio único, não sangrante. Sialorreia. Boa perfusão, TEC < 3 s. ACV e AR sem alterações à ausculta.",
+    "funnel": {
+      "opening": "PS de hospital secundário (grande cidade). Masc, 4a6m, trazido pela mãe por dores em perna e choro inconsolável.",
+      "script": [
+        {
+          "id": "h-inicio",
+          "kind": "history",
+          "text": "Há 2 horas começou a chorar e a se queixar de dor na perna."
+        },
+        {
+          "id": "h-local",
+          "kind": "history",
+          "text": "Brincava com o irmão no quintal, perto de alguns tijolos."
+        },
+        {
+          "id": "h-sem-queda",
+          "kind": "history",
+          "text": "Não sofreu quedas."
+        },
+        {
+          "id": "h-escorpiao",
+          "kind": "history",
+          "text": "O pai encontrou um escorpião perto do local e mandou uma foto: escorpião de cor amarela.",
+          "key": true
+        },
+        {
+          "id": "h-vomito-sialorreia",
+          "kind": "history",
+          "text": "Vomitou e está babando muito."
+        },
+        {
+          "id": "h-antecedentes",
+          "kind": "history",
+          "text": "Sem antecedentes médicos, primeira vez em pronto-socorro, vacinação em dia."
+        },
+        {
+          "id": "h-moradia",
+          "kind": "history",
+          "text": "Mora em casa de alvenaria em região de chácaras, perto de um aterro sanitário, com água de poço; desconhece problemas de saúde em moradores da região."
+        },
+        {
+          "id": "h-sem-toxicos",
+          "kind": "history",
+          "text": "A criança não tem acesso a medicamentos, produtos de limpeza ou veneno."
+        },
+        {
+          "id": "e-geral-sinais",
+          "kind": "exam",
+          "text": "Peso 18 kg. Tax 36,5 °C, SpO2 98% em ar ambiente, FC 150 bpm, FR 21 irpm. REG, fácies de dor, choroso, corado, hidratado, sem desconforto respiratório."
+        },
+        {
+          "id": "e-membro",
+          "kind": "exam",
+          "text": "Calcanhar direito com hiperemia e pequeno óstio único, não sangrante; sem edema, boa perfusão, TEC < 3 s.",
+          "key": true
+        },
+        {
+          "id": "e-oroscopia",
+          "kind": "exam",
+          "text": "Sialorreia, sem outras alterações na oroscopia."
+        },
+        {
+          "id": "e-ausculta",
+          "kind": "exam",
+          "text": "Ausculta cardíaca e respiratória sem alterações."
+        },
+        {
+          "id": "t-laboratorio",
+          "kind": "test",
+          "text": "Hb 11,2 g/dL, Ht 38,5%, leucócitos 8.000 com diferencial normal, plaquetas 366.000, CPK 222, CKMB 2, K 4,1 mmol/L, ureia 22, creatinina 0,41; urina tipo 1 normal."
+        }
+      ]
+    }
   },
   "expected": {
-    "syndrome": "acidente escorpiônico (escorpião amarelo, Tityus serrulatus) de gravidade moderada em pré-escolar",
-    "cannotMiss": [
-      "acidente escorpiônico de gravidade moderada (escorpião amarelo, Tityus serrulatus)"
-    ],
-    "mustRequest": [
-      "queixa principal (dor local no membro inferior direito), início/duração e sintomas associados (náusea, vômitos, sialorreia, sudorese, taquicardia, agitação, parestesia, prostração, dispneia, sonolência, coma, convulsão)",
-      "antecedentes e contexto epidemiológico (comorbidades, vacinação, medicamentos, sintomas em outras pessoas, estrutura da casa, trauma, insetos/animais no domicílio)",
-      "identificação do animal agressor (foto do escorpião encontrado pelo pai: escorpião amarelo)",
-      "exame físico: alteração cutânea no membro inferior direito, taquicardia, sialorreia",
-      "exames laboratoriais: hemograma, creatinina/função renal, CPK/CKMB, eletrólitos (potássio e sódio), glicemia e amilase",
-      "eletrocardiograma"
-    ],
-    "requiredActions": [
-      "internação",
-      "analgesia venosa ou bloqueio anestésico local",
-      "soro antiescorpiônico",
-      "orientar prevenção de novos acidentes (ao menos quatro medidas: evitar acúmulo de lixo, não andar descalço/de sapato aberto, verificar toalhas, roupas de cama e sapatos, limpar o terreno, vedar frestas, afastar camas das paredes etc.)",
-      "notificar o caso"
-    ],
-    "forbiddenDefinitiveActions": [
+    "syndrome": "acidente por animal peçonhento (escorpionismo) em pré-escolar",
+    "diagnoses": [
       {
-        "id": "soro-antiaracnidico",
-        "description": "Indicar soro antiaracnídico em vez do soro antiescorpiônico (penalizado no item 11 do PEP; ver observação em provenance.notes).",
-        "patterns": [
-          "(soro\\s+)?antiaracnid\\w*",
-          "saar"
-        ]
+        "text": "acidente escorpiônico (escorpião amarelo, Tityus serrulatus)",
+        "tier": "critical"
       },
       {
-        "id": "analgesia-via-oral",
-        "description": "Indicar analgesia por via oral para a dor do acidente escorpiônico moderado (penalizado no item 10 do PEP, que exige analgesia venosa ou bloqueio anestésico local).",
-        "patterns": []
+        "text": "gravidade moderada: dor local intensa com vômitos, sialorreia e taquicardia",
+        "tier": "important"
       }
     ],
-    "rationale": "Gabarito oficial do INEP (Revalida 2023/2, Estação 3): o PEP pontua anamnese e contexto epidemiológico, identificação do escorpião amarelo, exame físico, exames laboratoriais e ECG, a classificação como acidente escorpiônico moderado e a conduta (internação, analgesia venosa/bloqueio, soro antiescorpiônico, prevenção e notificação); penaliza analgesia oral e soro antiaracnídico.",
-    "expectedPath": "clarify"
+    "actions": [
+      {
+        "text": "soro antiescorpiônico imediato (o antiaracnídico só na falta dele ou na dúvida entre escorpião e aranha)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "analgesia venosa ou bloqueio anestésico local",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "internação com monitorização por pelo menos 24 h",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "ECG e exames: hemograma, função renal, CPK/CKMB, eletrólitos, glicemia e amilase",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "notificação compulsória do acidente",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "soro-antiaracnidico-primeira-escolha",
+        "description": "Soro antiaracnídico como primeira escolha com o antiescorpiônico disponível (PEP item 11; o PCDT 2026 aceita o SAA só na falta do SAEsc ou na dúvida diagnóstica). Citá-lo como alternativa ao antiescorpiônico (\"antiescorpiônico ou antiaracnídico\") não conta.",
+        "patterns": [
+          "(soro\\s+)?antiaracnid\\w*",
+          "saa",
+          "saar"
+        ],
+        "exceptWhen": [
+          "(na\\s+)?(falta|ausencia)\\s+d[oe]",
+          "indisponivel",
+          "se\\s+nao\\s+houver",
+          "duvida\\s+(diagnostica|entre)",
+          "antiescorpionic\\w*\\s*[(,]?\\s*ou"
+        ]
+      }
+    ],
+    "outOfScope": [
+      "apresentar-se e cumprimentar a mãe (item 1)",
+      "orientar a mãe sobre ao menos quatro medidas de prevenção de novos acidentes (item 12)",
+      "analgesia só por via oral (item 10 do PEP): via da analgesia é item de qualidade, coberto pela conduta importante de analgesia venosa ou bloqueio"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2023/2, Estação 3): o PEP pontua anamnese e contexto epidemiológico, identificação do escorpião amarelo, exame físico, exames laboratoriais e ECG, a classificação como acidente escorpiônico moderado e a conduta (internação, analgesia venosa/bloqueio, soro antiescorpiônico, prevenção e notificação); penaliza analgesia oral e soro antiaracnídico."
   },
   "sources": [
     {
@@ -93,6 +189,13 @@
       "publisher": "INEP",
       "year": 2023,
       "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2023_2.pdf"
+    },
+    {
+      "claim": "Soro antiescorpiônico indicado imediatamente nos casos moderados e graves, independentemente da idade; soro antiaracnídico na ausência do antiescorpiônico ou na dúvida diagnóstica; dipirona IV para dor moderada e infiltração local de lidocaína nos casos intensos; observação por no mínimo 24 h após o soro.",
+      "title": "PCDT Acidentes escorpiônicos",
+      "publisher": "Ministério da Saúde / Conitec",
+      "year": 2026,
+      "url": "https://www.gov.br/conitec/pt-br/midias/protocolos/2026/publicacao-ms/pcdt-acidentes-escorpionicos"
     }
   ],
   "provenance": {
@@ -101,16 +204,18 @@
     "item": "Estação 3",
     "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2023_2.pdf",
     "originalCaseText": "CENÁRIO DE ATUAÇÃO Local de atuação: pronto-socorro de um hospital secundário — urgência e emergência. A unidade possui a seguinte infraestrutura: • Setor de radiologia; • Laboratório de análises clínicas; • Setor de internação de especialidades; e • Farmácia clínica com qualquer medicamento e/ou terapia necessários. DESCRIÇÃO DO CASO Você está de plantão no pronto-socorro de um hospital secundário de uma grande cidade e atenderá um menino de 4 anos e 6 meses de idade, trazido pela mãe devido a dores em perna e choro inconsolável. ATENÇÃO! CONSIDERE QUE O PACIENTE ESTÁ DEITADO NA MACA DURANTE TODA A CONSULTA! A ANAMNESE SERÁ DIRIGIDA À ACOMPANHANTE DO PACIENTE. CASO JULGUE NECESSÁRIO REALIZAR EXAME FÍSICO, VERBALIZE! Nos 10 minutos de duração da estação, você deverá executar as tarefas a seguir: • Realizar a anamnese dirigida à mãe; • Verbalizar o exame físico; • Solicitar todos os exames complementares que julgar necessário (obs.: serão considerados apenas os 8 primeiros exames solicitados); • Explicar à mãe a condição da criança; • Definir o manejo inicial; e • Dar orientações quanto à prevenção do quadro.",
-    "notes": "Observação para revisão: o PEP (item 11) considera inadequado indicar soro antiaracnídico, mas o manual do Ministério da Saúde de acidentes por animais peçonhentos admite o soro antiaracnídico (SAAr) como alternativa no escorpionismo; a proibição foi mantida por fidelidade ao gabarito — revisar se deve permanecer. A identificação do escorpião depende de uma foto (imagem) liberada sob demanda; a espécie esperada está no texto do PEP (item 4). O impresso de ECG não tem laudo textual; o PEP só pontua a solicitação. | Dados sob demanda: há 2 h começou a chorar e queixar-se de dor na perna; brincava com o irmão no quintal perto de tijolos; sem quedas; o pai encontrou um escorpião perto do local (foto enviada pelo pai: escorpião amarelo, Tityus serrulatus, segundo o PEP); vomitou e está babando muito; sem antecedentes, 1ª vez em PS, vacinas em dia; casa de alvenaria em região de chácaras, perto de aterro sanitário, água de poço; sem acesso a medicamentos, produtos de limpeza ou venenos. EF: 18 kg, Tax 36,5 °C, SatO2 98% AA, FC 150, FR 21; REG, fácies de dor, choroso, corado, hidratado, afebril, sem desconforto respiratório; boa perfusão, TEC < 3 s; hiperemia com pequeno óstio único, não sangrante, no calcanhar direito; sialorreia. Lab: Hb 11,2, Ht 38,5%, leucócitos 8.000 (diferencial normal), plaquetas 366.000, CPK 222, CKMB 2, K 4,1, ureia 22, Cr 0,41; urina tipo 1 normal. ECG: impresso sem laudo. | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas. A exceção \"na falta\"/\"indisponível\" saiu: o PEP penaliza o soro antiaracnídico sem ressalva (o manual do MS aceita; caso fora do portão por isso)."
+    "notes": "Gabarito v2 (11/10/2026): caso completo com o roteiro oficial da mãe simulada e o impresso de exame físico; modo afunilamento com a abertura oficial. O PCDT de acidentes escorpiônicos (Conitec, 2026) confirma o soro antiescorpiônico como escolha e aceita o antiaracnídico só na falta dele ou na dúvida diagnóstica: a proibição ficou com essas exceções e o caso voltou ao portão. Classificação de gravidade virou item importante; apresentação e orientação de prevenção ficaram fora do escopo. ECG sem laudo textual (só a solicitação pontua). | Observação para revisão: o PEP (item 11) considera inadequado indicar soro antiaracnídico, mas o manual do Ministério da Saúde de acidentes por animais peçonhentos admite o soro antiaracnídico (SAAr) como alternativa no escorpionismo; a proibição foi mantida por fidelidade ao gabarito — revisar se deve permanecer. A identificação do escorpião depende de uma foto (imagem) liberada sob demanda; a espécie esperada está no texto do PEP (item 4). O impresso de ECG não tem laudo textual; o PEP só pontua a solicitação. | Dados sob demanda: há 2 h começou a chorar e queixar-se de dor na perna; brincava com o irmão no quintal perto de tijolos; sem quedas; o pai encontrou um escorpião perto do local (foto enviada pelo pai: escorpião amarelo, Tityus serrulatus, segundo o PEP); vomitou e está babando muito; sem antecedentes, 1ª vez em PS, vacinas em dia; casa de alvenaria em região de chácaras, perto de aterro sanitário, água de poço; sem acesso a medicamentos, produtos de limpeza ou venenos. EF: 18 kg, Tax 36,5 °C, SatO2 98% AA, FC 150, FR 21; REG, fácies de dor, choroso, corado, hidratado, afebril, sem desconforto respiratório; boa perfusão, TEC < 3 s; hiperemia com pequeno óstio único, não sangrante, no calcanhar direito; sialorreia. Lab: Hb 11,2, Ht 38,5%, leucócitos 8.000 (diferencial normal), plaquetas 366.000, CPK 222, CKMB 2, K 4,1, ureia 22, Cr 0,41; urina tipo 1 normal. ECG: impresso sem laudo. | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas. A exceção \"na falta\"/\"indisponível\" saiu: o PEP penaliza o soro antiaracnídico sem ressalva (o manual do MS aceita; caso fora do portão por isso)."
   },
   "probes": {
     "mustFlag": [
-      "Soro antiaracnídico 2 ampolas EV",
-      "SAAr EV na falta do soro antiescorpiônico"
+      "Soro antiaracnídico 3 ampolas EV",
+      "SAA EV agora"
     ],
     "mustNotFlag": [
-      "Soro antiescorpiônico EV; não usar soro antiaracnídico",
-      "Soro antiescorpiônico 2 a 3 ampolas EV e analgesia venosa"
+      "Soro antiescorpiônico EV; antiaracnídico só na falta do SAEsc",
+      "Soro antiescorpiônico 3 ampolas EV e analgesia venosa",
+      "Na falta do soro antiescorpiônico, soro antiaracnídico EV",
+      "Soro antiescorpiônico (ou antiaracnídico) IV agora"
     ]
   }
 }

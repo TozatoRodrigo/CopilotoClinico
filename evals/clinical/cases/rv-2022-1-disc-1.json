@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "rv-2022-1-disc-1",
   "title": "Confusão mental súbita com sudorese fria e tremores em idoso diabético em uso de insulina",
   "tags": [
@@ -14,22 +14,32 @@
     "status": "official_exam_key"
   },
   "input": {
-    "caseText": "Pronto atendimento. Masc, 65a, DM há 20a, acompanha com endocrinologista; insulina há 2 meses, 2x/dia (dose desconhecida). Acompanha com nefrologista há 1 mês por alteração renal não especificada. Ontem começou caminhadas e vem reduzindo a alimentação para controlar o DM. Hoje pela manhã: suor frio e tontura, em poucos minutos ficou confuso, com dificuldade para articular palavras. EF normal, sem sinais focais, mas confuso, não mantém conversa nem contato visual. PA 130x90, FC 110, tremores de extremidades. Já monitorizado, com O2 suplementar e AVP."
+    "caseText": "Pronto atendimento. Masc, 65a, trazido por familiares por confusão mental. DM há 20 anos, acompanha com endocrinologista; insulina há 2 meses, 2x/dia (dose desconhecida). Acompanha com nefrologista há 1 mês por alteração renal não especificada. Ontem começou caminhadas e vem reduzindo a alimentação, para controlar o DM. Hoje pela manhã: sudorese fria e tontura; em poucos minutos ficou confuso, com dificuldade para articular as palavras. EF: normal, sem sinais focais, mas confuso, sem manter conversa nem contato visual; PA 130x90, FC 110, tremores de extremidades. Já monitorizado, com O2 suplementar e acesso venoso periférico."
   },
   "expected": {
     "syndrome": "confusão mental aguda com sinais adrenérgicos por hipoglicemia grave em diabético insulinizado",
-    "cannotMiss": [
-      "hipoglicemia grave"
+    "diagnoses": [
+      {
+        "text": "hipoglicemia grave (sintomas neuroglicopênicos e adrenérgicos em diabético insulinizado, após início de exercício, redução da alimentação e com doença renal)",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [
-      "glicemia capilar imediata (HGT/dextro; glicemia sérica ou de urgência também aceitas)"
+    "actions": [
+      {
+        "text": "glicemia capilar imediata (HGT/dextro; glicemia sérica ou de urgência também valem)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "glicose hipertônica EV em bólus [ref.: glicose 50% 50 mL; alternativa: glicose 25% 100 mL]",
+        "tier": "critical",
+        "timing": "any"
+      }
     ],
-    "requiredActions": [
-      "glicose a 50% 50 mL EV em bólus (alternativa aceita: glicose a 25% 100 mL EV em bólus)"
-    ],
+    "questions": [],
     "forbiddenDefinitiveActions": [],
-    "rationale": "Gabarito oficial do INEP (Revalida 2022/1, Questão 1): o padrão pontua o diagnóstico de hipoglicemia (grave), a glicemia capilar imediata e a glicose hipertônica EV em bólus como conduta medicamentosa imediata.",
-    "expectedPath": "recommend"
+    "outOfScope": [],
+    "rationale": "Gabarito oficial do INEP (Revalida 2022/1, Questão 1): o padrão pontua o diagnóstico de hipoglicemia (grave), a glicemia capilar imediata e a glicose hipertônica EV em bólus como conduta medicamentosa imediata. v2: a glicemia capilar é crítica para agora; a glicose EV é crítica e vale também condicionada ao HGT."
   },
   "sources": [
     {
@@ -60,6 +70,6 @@
     "item": "Discursiva caso 1",
     "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2022_GB_discursiva.pdf",
     "originalCaseText": "Um homem com 65 anos de idade, diabético, chega com familiares para consulta no serviço de pronto atendimento devido a confusão mental. Os familiares informam que ele é diabético há 20 anos e faz acompanhamento com o endocrinologista, em uso de insulina há 2 meses (não sabem a dose, mas que faz uso 2 vezes ao dia), além de acompanhamento com o nefrologista há 1 mês, por uma alteração renal que não sabem especificar qual é. Relatam que, no dia anterior, o paciente havia começado a realizar caminhadas para tentar melhor controle do diabetes e que ele vem reduzindo sua quantidade de alimentos com essa mesma intenção. Contam que hoje pela manhã, começou a queixar-se de suor frio e tontura e que, em poucos minutos, tornou-se confuso, apresentando dificuldade para articular as palavras. Ao exame físico apresenta-se normal, sem sinais focais, mas confuso, sem conseguir manter uma conversa ou contato visual. Apresenta pressão arterial de 130 x 90 mmHg e frequência cardíaca de 110 batimentos por minuto, com tremores de extremidades. Considerando que, na abordagem inicial do paciente, foram realizadas monitorização, suplementação de oxigênio e punção de acesso venoso periférico, faça o que se pede nos itens a seguir. a) Cite a principal hipótese diagnóstica a ser considerada. Justifique sua resposta. (valor: 3,0 pontos) b) Indique o exame complementar a ser solicitado imediatamente nesse caso. (valor: 3,0 pontos) c) Descreva a conduta medicamentosa imediata. (valor: 4,0 pontos)",
-    "notes": "Enunciado transcrito do padrão de respostas (o texto da prova veio com fonte codificada na extração; o padrão repete o enunciado). A vinheta informa que monitorização, oxigênio suplementar e acesso venoso periférico já foram feitos; o padrão não pontua conduta além da glicose EV."
+    "notes": "Gabarito v2 (11/10/2026): caseText com todos os dados do enunciado; a glicemia não é dada (o padrão cobra solicitá-la), por isso a glicemia capilar é conduta crítica para agora e a glicose hipertônica EV é crítica com timing any (vale condicionada ao resultado do HGT, que sai em segundos). | Enunciado transcrito do padrão de respostas (o texto da prova veio com fonte codificada na extração; o padrão repete o enunciado). A vinheta informa que monitorização, oxigênio suplementar e acesso venoso periférico já foram feitos; o padrão não pontua conduta além da glicose EV."
   }
 }

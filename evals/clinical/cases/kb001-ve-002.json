@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb001-ve-002",
   "title": "Vertigem contínua com incapacidade de deambular e disartria",
   "tags": [
@@ -17,19 +17,40 @@
   },
   "expected": {
     "syndrome": "síndrome vestibular aguda central — AVC de circulação posterior",
-    "cannotMiss": [
-      "AVC de circulação posterior (cerebelo/tronco)",
-      "hemorragia cerebelar",
-      "oclusão de artéria basilar (candidato a trombectomia até 24 h)"
+    "diagnoses": [
+      {
+        "text": "AVC de circulação posterior (cerebelo/tronco)",
+        "tier": "critical"
+      },
+      {
+        "text": "hemorragia cerebelar",
+        "tier": "critical"
+      },
+      {
+        "text": "oclusão de artéria basilar (candidato a trombectomia até 24 h)",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [
+    "actions": [
+      {
+        "text": "neuroimagem de urgência (TC sem contraste para excluir hemorragia; angio-TC ou RM)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "acionar protocolo de AVC / avaliação neurológica de urgência",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "glicemia capilar imediata",
+        "tier": "important",
+        "timing": "now"
+      }
+    ],
+    "questions": [
       "horário de início dos sintomas / última vez visto bem",
       "uso de anticoagulante"
-    ],
-    "requiredActions": [
-      "neuroimagem de urgência (TC sem contraste para excluir hemorragia; angio-TC ou RM)",
-      "acionar protocolo de AVC / avaliação neurológica de urgência",
-      "glicemia capilar imediata"
     ],
     "forbiddenDefinitiveActions": [
       {
@@ -55,8 +76,7 @@
         "patterns": []
       }
     ],
-    "rationale": "AHA/ASA 2026: glicemia antes de qualquer trombólise (COR 1); tenecteplase 0,25 mg/kg ou alteplase 0,9 mg/kg até 4,5 h depois de a imagem excluir hemorragia; trombectomia na oclusão basilar até 24 h (COR 1) — a angio-TC existe para isso. GRACE-3: TC normal não exclui AVC de fossa posterior; RM com difusão se TC/angio-TC inconclusivas é desejável, não exigida. TC com angio-TC ou RM inicial conforme o serviço.",
-    "expectedPath": "recommend"
+    "rationale": "AHA/ASA 2026: glicemia antes de qualquer trombólise (COR 1); tenecteplase 0,25 mg/kg ou alteplase 0,9 mg/kg até 4,5 h depois de a imagem excluir hemorragia; trombectomia na oclusão basilar até 24 h (COR 1) — a angio-TC existe para isso. GRACE-3: TC normal não exclui AVC de fossa posterior; RM com difusão se TC/angio-TC inconclusivas é desejável, não exigida. TC com angio-TC ou RM inicial conforme o serviço."
   },
   "sources": [
     {
@@ -82,7 +102,7 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: acrescentados oclusão basilar ao cannotMiss, glicemia capilar às condutas e uso de anticoagulante ao mustRequest. A checagem de trombólise trocou as exceções sem âncora (\"avaliar\", \"elegib\", \"não\"), que deixavam passar \"Alteplase 0,9 mg/kg agora; avaliar trombectomia\", por condições ancoradas na imagem e na elegibilidade. RM com difusão ficou no rationale (opcional)."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: acrescentados oclusão basilar ao cannotMiss, glicemia capilar às condutas e uso de anticoagulante ao mustRequest. A checagem de trombólise trocou as exceções sem âncora (\"avaliar\", \"elegib\", \"não\"), que deixavam passar \"Alteplase 0,9 mg/kg agora; avaliar trombectomia\", por condições ancoradas na imagem e na elegibilidade. RM com difusão ficou no rationale (opcional)."
   },
   "probes": {
     "mustFlag": [

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "fi-002-cefaleia-em-salvas-como-hemorragia",
   "title": "Cefaleia em salvas apontada como hemorragia (incidente de campo)",
   "tags": [
@@ -17,14 +17,21 @@
   },
   "expected": {
     "syndrome": "cefaleia primária — cefaleia em salvas (trigêmino-autonômica)",
-    "cannotMiss": [
-      "cefaleia secundária (ex.: dissecção carotídea, lesão estrutural) se primeiro surto ou sinal de alarme"
+    "diagnoses": [
+      {
+        "text": "cefaleia secundária (ex.: dissecção carotídea, lesão estrutural) se primeiro surto ou sinal de alarme",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
+    "actions": [
+      {
+        "text": "tratamento abortivo da crise com oxigênio a 100% em alto fluxo ou sumatriptano subcutâneo",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [
       "primeiro surto ou episódios prévios semelhantes"
-    ],
-    "requiredActions": [
-      "tratamento abortivo da crise com oxigênio a 100% em alto fluxo ou sumatriptano subcutâneo"
     ],
     "forbiddenDefinitiveActions": [
       {
@@ -33,8 +40,7 @@
         "patterns": []
       }
     ],
-    "rationale": "Reportado em 03/09/2026: a hipótese de hemorragia virou título do atendimento e entrou no SBAR. Discriminadores (ICHD-3): crises de 15-180 min que cedem sozinhas, periodicidade circadiana, sinais autonômicos ipsilaterais, inquietação, sem pico em menos de 1 minuto. Crise: O2 a 100% ≥ 12 L/min ou sumatriptana 6 mg SC (EAN 2023). Também desejáveis, mas não exigidos no turno 0: perguntar se está em crise agora e por ptose/miose persistentes ou dor cervical (dissecção carotídea); terapia de transição (prednisona ou bloqueio do occipital maior) e profilaxia com verapamil (com ECG), encaminhando à neurologia; RM eletiva no primeiro surto.",
-    "expectedPath": "recommend"
+    "rationale": "Reportado em 03/09/2026: a hipótese de hemorragia virou título do atendimento e entrou no SBAR. Discriminadores (ICHD-3): crises de 15-180 min que cedem sozinhas, periodicidade circadiana, sinais autonômicos ipsilaterais, inquietação, sem pico em menos de 1 minuto. Crise: O2 a 100% ≥ 12 L/min ou sumatriptana 6 mg SC (EAN 2023). Também desejáveis, mas não exigidos no turno 0: perguntar se está em crise agora e por ptose/miose persistentes ou dor cervical (dissecção carotídea); terapia de transição (prednisona ou bloqueio do occipital maior) e profilaxia com verapamil (com ECG), encaminhando à neurologia; RM eletiva no primeiro surto."
   },
   "sources": [
     {
@@ -53,6 +59,6 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: gabarito confirmado como correto; os itens opcionais (crise atual, Horner/cervicalgia, transição e profilaxia, RM eletiva) ficaram no rationale, sem virar obrigatórios."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: gabarito confirmado como correto; os itens opcionais (crise atual, Horner/cervicalgia, transição e profilaxia, RM eletiva) ficaram no rationale, sem virar obrigatórios."
   }
 }

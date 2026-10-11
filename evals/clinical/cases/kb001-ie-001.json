@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb001-ie-001",
   "title": "Agitação após possível intoxicação, agente e horário desconhecidos",
   "tags": [
@@ -17,17 +17,23 @@
   },
   "expected": {
     "syndrome": "intoxicação exógena com agitação, agente desconhecido",
-    "cannotMiss": [
-      "hipoglicemia, hipóxia ou outra causa orgânica (TCE, infecção do SNC, abstinência de álcool ou benzodiazepínico) como causa da agitação",
-      "síndrome tóxica grave com hipertermia (simpaticomimética ou anticolinérgica)"
+    "diagnoses": [
+      {
+        "text": "hipoglicemia, hipóxia ou outra causa orgânica (TCE, infecção do SNC, abstinência de álcool ou benzodiazepínico) como causa da agitação",
+        "tier": "important"
+      },
+      {
+        "text": "síndrome tóxica grave com hipertermia (simpaticomimética ou anticolinérgica)",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
+    "actions": [],
+    "questions": [
       "sinais vitais incluindo temperatura",
       "glicemia capilar",
       "agente, embalagens e horário (informante)",
       "intencionalidade (tentativa de suicídio) e possibilidade de coingestão, incluindo paracetamol"
     ],
-    "requiredActions": [],
     "forbiddenDefinitiveActions": [
       {
         "id": "contencao-fisica-sem-sedacao",
@@ -35,8 +41,7 @@
         "patterns": []
       }
     ],
-    "rationale": "AHA 2023 (toxicologia): agitação grave por simpaticomimético pede sedação (de preferência benzodiazepínico) e resfriamento rápido se hipertermia; contenção física prolongada sem sedação é potencialmente danosa. O caminho é perguntar, mas a ação de segurança imediata em paralelo (sedação, glicemia, resfriamento) é aceita e não penalizada. Contato com o CIATox (Disque-Intoxicação 0800 722 6001) e ECG (QRS/QTc) são desejáveis, não exigidos.",
-    "expectedPath": "clarify"
+    "rationale": "AHA 2023 (toxicologia): agitação grave por simpaticomimético pede sedação (de preferência benzodiazepínico) e resfriamento rápido se hipertermia; contenção física prolongada sem sedação é potencialmente danosa. O caminho é perguntar, mas a ação de segurança imediata em paralelo (sedação, glicemia, resfriamento) é aceita e não penalizada. Contato com o CIATox (Disque-Intoxicação 0800 722 6001) e ECG (QRS/QTc) são desejáveis, não exigidos."
   },
   "sources": [
     {
@@ -55,6 +60,6 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: texto mantido (agente desconhecido é dado clínico real, não pista). Item de causa orgânica ampliado com TCE, infecção do SNC e abstinência; acrescentados intencionalidade e coingestão (paracetamol) ao mustRequest e a contenção física prolongada sem sedação como conduta proibida (só para o juiz). CIATox e ECG ficaram no rationale (opcionais)."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: texto mantido (agente desconhecido é dado clínico real, não pista). Item de causa orgânica ampliado com TCE, infecção do SNC e abstinência; acrescentados intencionalidade e coingestão (paracetamol) ao mustRequest e a contenção física prolongada sem sedação como conduta proibida (só para o juiz). CIATox e ECG ficaram no rationale (opcionais)."
   }
 }

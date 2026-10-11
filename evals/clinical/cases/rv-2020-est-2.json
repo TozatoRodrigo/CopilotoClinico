@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "rv-2020-est-2",
   "title": "Motociclista após colisão com carro, estável, com suspeita de fratura de tíbia imobilizada",
   "tags": [
@@ -15,41 +15,95 @@
     "status": "official_exam_key"
   },
   "input": {
-    "caseText": "PS hospitalar. Masc, condutor de moto, colisão com carro há 60 min. Socorrido pelo SBV do SAMU. Sinais vitais normais e estáveis. Dor moderada em perna D; muito preocupado. Diagnóstico presuntivo: fratura de tíbia D. Já feitos: imobilização do membro, punção venosa periférica calibrosa e 500 mL de SF instalados."
+    "caseText": "PS hospitalar (sala de trauma). Masc, condutor de moto, colisão com carro há 60 min; socorrido pelo SBV do SAMU, que imobilizou o membro, puncionou AVP calibroso e instalou 500 mL de SF. Chega em prancha rígida, com colar cervical e máscara de O2 a 6 L/min. Dor moderada na perna D; muito preocupado. Vacina antitetânica em atraso. EF: PA 150x90, FC 98, FR 16, SpO2 98% (máscara de O2 6 L/min), Glasgow 15. Tórax: inspeção, palpação e percussão sem alterações; ausculta cardíaca e pulmonar normais. MMII: pulsos tibiais posteriores e pediosos presentes e simétricos; exame neurológico normal. Ao retirar o curativo da perna D: fratura da tíbia com exposição óssea."
   },
   "expected": {
     "syndrome": "politrauma estável (colisão moto x carro) com fratura exposta de tíbia direita",
-    "cannotMiss": [
-      "fratura exposta de tíbia"
+    "diagnoses": [
+      {
+        "text": "fratura exposta de tíbia D",
+        "tier": "critical"
+      },
+      {
+        "text": "avaliação primária sem ameaça imediata à vida: via aérea pérvia, ventilação adequada, hemodinamicamente estável, Glasgow 15",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
-      "avaliação primária: perviedade da via aérea (A) e exame do tórax/ventilação (B)",
-      "avaliação hemodinâmica e de sangramento externo (C)",
-      "escala de coma de Glasgow (D)",
-      "inspeção do ferimento sob o curativo (identificar fratura exposta)",
-      "situação vacinal antitetânica (atraso)",
-      "exames laboratoriais: Hb/Ht/plaquetas, tipagem sanguínea e contraprova",
-      "exame do dorso com palpação da coluna",
-      "radiografia para planejamento cirúrgico"
+    "actions": [
+      {
+        "text": "antibiótico EV profilático o mais cedo possível [ref.: BOAST: idealmente até 1 h do trauma]",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "cobertura estéril do ferimento e imobilização com tala (uma articulação acima e uma abaixo da fratura)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "tratamento cirúrgico pela ortopedia: lavagem/desbridamento e fixação externa",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "profilaxia do tétano (vacina antitetânica em atraso)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "analgesia EV",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "monitorização multiparamétrica (ritmo, FC, PA não invasiva, FR, SpO2, temperatura), com O2 por máscara e acesso venoso calibroso mantidos",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "reposição volêmica restrita com cristaloide (paciente estável)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "exposição completa com prevenção de hipotermia",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "exames: hemoglobina/hematócrito, plaquetas, tipagem sanguínea e prova cruzada",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "ácido tranexâmico [ref.: 1 g EV em bolus até 3 h do trauma e 1 g EV em 8 h]",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "radiografia da perna D para planejamento cirúrgico",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "retirar colar cervical e prancha rígida após o exame clínico da coluna e do dorso",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "internação",
+        "tier": "important",
+        "timing": "any"
+      }
     ],
-    "requiredActions": [
-      "manter máscara de oxigênio",
-      "manter colar cervical inicialmente e retirá-lo após o exame físico",
-      "monitorização multiparamétrica (ritmo, FC, PA não invasiva, FR, SpO2, temperatura)",
-      "manter acesso venoso periférico calibroso e restringir reposição volêmica com cristaloide",
-      "ácido tranexâmico 1 g EV em bolus (até 3 h do trauma) e 1 g EV em 8 h",
-      "exposição do paciente com prevenção de hipotermia",
-      "paramentação estéril (gorro, máscara, óculos, luvas estéreis) para abordar o ferimento",
-      "cobertura estéril e imobilização com tala aramada (uma articulação acima e uma abaixo da fratura)",
-      "analgesia endovenosa",
-      "retirar prancha rígida após exame do dorso",
-      "antibiótico venoso",
-      "cirurgia (lavagem e fixação externa)",
-      "internação"
-    ],
+    "questions": [],
     "forbiddenDefinitiveActions": [],
-    "rationale": "Gabarito oficial do INEP (Revalida 2020, Estação 2): o PEP pontua a avaliação primária ABCDE e a descoberta da fratura exposta sob o curativo antes da conduta (ATX, analgesia EV, antibiótico venoso, imobilização estéril, lavagem e fixação externa, internação).",
-    "expectedPath": "clarify"
+    "outOfScope": [
+      "identificar-se ao paciente e calçar luvas de procedimento (item 1)",
+      "paramentação estéril para abordar o ferimento: gorro, máscara, óculos e luvas estéreis (item 17)",
+      "informar ao paciente o que será feito na sala de trauma (item 25)"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2020, Estação 2): o PEP pontua a avaliação primária ABCDE e a descoberta da fratura exposta sob o curativo antes da conduta (ATX, analgesia EV, antibiótico venoso, imobilização estéril, lavagem e fixação externa, internação). v2: o antibiótico EV precoce é a conduta crítica (BOAST, BOA 2017); as demais condutas valem item a item, e o ácido tranexâmico aceita indicação condicionada."
   },
   "sources": [
     {
@@ -72,6 +126,13 @@
       "publisher": "INEP",
       "year": 2020,
       "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2020/padrao_esperado_procedimentos_habilidades_clinicas.pdf"
+    },
+    {
+      "claim": "Antibiótico EV profilático na fratura exposta o mais cedo possível, idealmente até 1 h do trauma; desbridamento imediato se contaminação grosseira ou comprometimento vascular, até 12 h na fratura isolada de alta energia e até 24 h nas demais.",
+      "title": "BOAST – Open Fractures",
+      "publisher": "British Orthopaedic Association",
+      "year": 2017,
+      "url": "https://www.boa.ac.uk/resource/boast-4-pdf.html"
     }
   ],
   "provenance": {
@@ -80,6 +141,6 @@
     "item": "Estação 2",
     "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2020/padrao_esperado_procedimentos_habilidades_clinicas.pdf",
     "originalCaseText": "ESTAÇÃO 2 – Área: Cirurgia Geral. INSTRUÇÕES PARA O(A) PARTICIPANTE. CENÁRIO DE ATUAÇÃO: Você é o(a) médico(a) que está de plantão em um pronto-socorro hospitalar e vai atender um paciente, do sexo masculino, vítima de colisão entre a moto que ele conduzia e um carro, ocorrida há 60 minutos. O paciente foi socorrido pela equipe de suporte básico do SAMU. Os sinais vitais estão normais e estáveis. O paciente queixa-se de dor moderada em perna direita e está muito preocupado com sua situação. O diagnóstico presuntivo é de fratura da tíbia direita. Foram dados os primeiros cuidados, com imobilização do membro, punção venosa periférica calibrosa e instalação de 500 mL de soro fisiológico. Nos próximos 10 minutos, deverão ser realizadas as seguintes tarefas: realizar avaliação primária (ABCDE) do paciente traumatizado e verbalizar os achados e as necessidades em cada etapa do atendimento; realizar o exame físico dos membros inferiores, com atenção especial ao membro acometido; definir a conduta diagnóstica; adotar a conduta terapêutica necessária; demonstrar a realização de procedimentos médicos, se indicado.",
-    "notes": "Dados sob demanda: Impresso 1 — PA 150x90, FC 98, FR 16, SatO2 98% em máscara de O2 a 6 L/min, Glasgow 15, inspeção/palpação/percussão torácica e ausculta cardíaca e pulmonar sem alterações. Impresso 2 — pulsos tibiais posteriores e pediosos presentes e simétricos; exame neurológico dos MMII normal. Ao descobrir o curativo: fratura exposta de tíbia (PEP item 18). Vacina antitetânica em atraso (PEP item 16). Paciente chega com colar cervical, prancha rígida e máscara de O2 (PEP itens 3, 4, 21, 22). Impresso 3 — o chefe de plantão pergunta a conduta e se há necessidade de internação. O PEP de 2020 não publica a síntese do ator."
+    "notes": "Gabarito v2 (11/10/2026): caso completo com os impressos e os fatos que o próprio PEP revela (fratura exposta sob o curativo, item 18; vacina antitetânica em atraso, item 16; colar, prancha e máscara de O2, itens 3, 4, 21 e 22); sem afunilamento, porque o roteiro do ator não foi publicado. Condutas avaliadas uma a uma: antibiótico EV precoce é a crítica (BOAST Open Fractures, BOA 2017, verificado), cirurgia e o resto ficaram importantes, e os itens 26–28 ('informou que...') entraram como condutas; apresentação, paramentação e explicação ao paciente ficaram fora do escopo. | Dados sob demanda: Impresso 1 — PA 150x90, FC 98, FR 16, SatO2 98% em máscara de O2 a 6 L/min, Glasgow 15, inspeção/palpação/percussão torácica e ausculta cardíaca e pulmonar sem alterações. Impresso 2 — pulsos tibiais posteriores e pediosos presentes e simétricos; exame neurológico dos MMII normal. Ao descobrir o curativo: fratura exposta de tíbia (PEP item 18). Vacina antitetânica em atraso (PEP item 16). Paciente chega com colar cervical, prancha rígida e máscara de O2 (PEP itens 3, 4, 21, 22). Impresso 3 — o chefe de plantão pergunta a conduta e se há necessidade de internação. O PEP de 2020 não publica a síntese do ator."
   }
 }

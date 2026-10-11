@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "rv-2024-2-est-5",
   "title": "Mulher com dor intensa em queimação no braço, cefaleia e mal-estar atendida na UBS",
   "tags": [
@@ -14,27 +14,112 @@
     "status": "official_exam_key"
   },
   "input": {
-    "caseText": "UBS em cidade de médio porte, região metropolitana de capital. Fem, 40a, cefaleia, mal-estar geral e dor intensa em queimação na pele do braço D."
+    "caseText": "UBS (consultório, salas de procedimento e observação) em cidade de médio porte da região metropolitana de uma capital. Fem, 40a, cuidadora de idosos, sem problemas de saúde; não bebe, não fuma, não usa drogas. Pela manhã, podando árvores no quintal, uma lagarta encostou no braço D: dor forte e súbita há ~5 h, em queimação, 8/10, piorando, mais forte no local e se espalhando pelo braço; local sensível ao toque; sem fatores de melhora ou piora. Lavou o local e pôs gelo, mas a dor piorou; não tomou remédios. Mal-estar geral, cefaleia e enjoo; nega outros sintomas. EF: PA 128x95, FC 98, FR 38; abdome normotenso e indolor; ausculta cardíaca e respiratória normais. Braço D: lesões puntiformes eritematosas, edemaciadas e dolorosas nos pontos de inoculação das cerdas; adenomegalia regional dolorosa; sem bolhas ou necrose.",
+    "funnel": {
+      "opening": "UBS em cidade de médio porte da região metropolitana de uma capital. Fem, 40a, com cefaleia, mal-estar geral e dor intensa em queimação na pele do braço direito.",
+      "script": [
+        {
+          "id": "h-identificacao",
+          "kind": "history",
+          "text": "Tem 40 anos, é casada e trabalha como cuidadora de idosos."
+        },
+        {
+          "id": "h-antecedentes",
+          "kind": "history",
+          "text": "Não tem problemas de saúde; não bebe, não fuma e não usa drogas."
+        },
+        {
+          "id": "h-inicio",
+          "kind": "history",
+          "text": "Pela manhã, enquanto podava árvores no quintal, sentiu dor forte e súbita no braço direito."
+        },
+        {
+          "id": "h-tempo-tipo",
+          "kind": "history",
+          "text": "A dor começou há cerca de cinco horas, está piorando e é em queimação."
+        },
+        {
+          "id": "h-intensidade",
+          "kind": "history",
+          "text": "Dor intensa, 8 na escala, mais forte no local da lesão, mas se espalhando pelo braço; o local é sensível ao toque."
+        },
+        {
+          "id": "h-fatores",
+          "kind": "history",
+          "text": "Não identificou fatores de melhora ou de piora."
+        },
+        {
+          "id": "h-sistemicos",
+          "kind": "history",
+          "text": "Sente mal-estar geral, dor de cabeça e enjoo."
+        },
+        {
+          "id": "h-outros",
+          "kind": "history",
+          "text": "Não apresenta outros sintomas."
+        },
+        {
+          "id": "h-lagarta",
+          "kind": "history",
+          "text": "Uma lagarta encostou em seu braço.",
+          "key": true
+        },
+        {
+          "id": "h-cuidados",
+          "kind": "history",
+          "text": "Logo depois, lavou o local e colocou gelo; mesmo assim, a dor piorou."
+        },
+        {
+          "id": "h-medicamentos",
+          "kind": "history",
+          "text": "Não tomou remédios."
+        },
+        {
+          "id": "e-geral",
+          "kind": "exam",
+          "text": "PA 128x95 mmHg, FC 98 bpm, FR 38 irpm; abdome normotenso e indolor; ausculta cardíaca e respiratória inalteradas."
+        },
+        {
+          "id": "e-lesao",
+          "kind": "exam",
+          "text": "Braço direito: lesões puntiformes eritematosas, edemaciadas e dolorosas nos pontos de inoculação das cerdas; adenomegalia regional dolorosa; sem bolhas nem necrose cutânea."
+        }
+      ]
+    }
   },
   "expected": {
     "syndrome": "dor local em queimação com sintomas sistêmicos após contato com lagarta — acidente com lagarta (potencial acidente lonômico)",
-    "cannotMiss": [
-      "acidente com lagarta (acidente lonômico), com potencial gravidade e risco de morte"
+    "diagnoses": [
+      {
+        "text": "acidente por lagarta (erucismo), com potencial acidente por Lonomia (síndrome hemorrágica, risco de morte)",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [
-      "contato direto com animais ou insetos, produtos químicos ou plantas",
-      "características da dor: início, tipo, localização/irradiação, intensidade, fatores de melhora e piora, medicamentos usados",
-      "manifestações locais: evolução da lesão cutânea e linfadenopatia",
-      "manifestações sistêmicas: cefaleia, mal-estar, náuseas/vômitos/dor abdominal e sangramentos (gengivorragia, equimoses, epistaxe, hematúria, hematêmese, hemoptise)"
+    "actions": [
+      {
+        "text": "encaminhar já a serviço hospitalar de referência para avaliar a coagulação e fazer soro antilonômico se indicado, pela potencial gravidade do acidente lonômico",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "controle da dor com pelo menos dois entre: analgésico, anti-histamínico sistêmico e infiltração local com lidocaína 2% sem vasoconstritor",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "notificação compulsória do acidente",
+        "tier": "important",
+        "timing": "any"
+      }
     ],
-    "requiredActions": [
-      "controle da dor com pelo menos dois entre: analgésico, anti-histamínico sistêmico, infiltração local com lidocaína 2% sem vasoconstritor",
-      "encaminhar a serviço hospitalar de referência para soroterapia de acidente por animal peçonhento, explicando a potencial gravidade/risco de morte",
-      "notificar o caso"
-    ],
+    "questions": [],
     "forbiddenDefinitiveActions": [],
-    "rationale": "Gabarito oficial do INEP (Revalida 2024/2, Estação 5): o PEP pontua a investigação do contato com animal/inseto, da dor e das manifestações locais e sistêmicas (incluindo sangramentos), o diagnóstico de acidente com lagarta, analgesia/anti-histamínico/bloqueio com lidocaína, encaminhamento hospitalar para soroterapia pelo risco de morte do acidente lonômico e notificação.",
-    "expectedPath": "clarify"
+    "outOfScope": [
+      "apresentar-se, demonstrar empatia, escutar sem interromper e usar linguagem acessível (itens 1–4)",
+      "anamnese do contato, da dor e das manifestações locais e sistêmicas (itens 5–8; cobertas pelo roteiro)",
+      "explicar à paciente o motivo do encaminhamento e a gravidade do quadro (comunicação do item 11; o encaminhamento em si é conduta)"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2024/2, Estação 5): o PEP pontua a investigação do contato com animal/inseto, da dor e das manifestações locais e sistêmicas (incluindo sangramentos), o diagnóstico de acidente com lagarta, analgesia/anti-histamínico/bloqueio com lidocaína, encaminhamento hospitalar para soroterapia pelo risco de morte do acidente lonômico e notificação. Gabarito v2: o contato com a lagarta entrou no caso completo; o encaminhamento hospitalar é a conduta crítica para agora."
   },
   "sources": [
     {
@@ -50,6 +135,13 @@
       "publisher": "INEP",
       "year": 2024,
       "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2024_2_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Na suspeita de acidente por Lonomia, levar o paciente imediatamente ao serviço de saúde, onde se avalia a necessidade de soro antilonômico, específico para os envenenamentos moderados e graves; Lonomia pode causar sangramentos, insuficiência renal aguda e morte.",
+      "title": "Acidentes por Lagartas e Mariposas",
+      "publisher": "Secretaria da Saúde do Paraná (SESA-PR)",
+      "year": null,
+      "url": "https://www.saude.pr.gov.br/Pagina/Acidentes-por-Lagartas-e-Mariposas"
     }
   ],
   "provenance": {
@@ -58,6 +150,6 @@
     "item": "Estação 5",
     "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2024_2_pep_definitivo.pdf",
     "originalCaseText": "CENÁRIO DE ATENDIMENTO Nível de atenção: atenção primária à saúde. Tipo de atendimento: atendimento ambulatorial - unidade básica de saúde (UBS). A unidade apresenta a seguinte infraestrutura: ● consultório médico e salas de procedimentos e observação. ATENÇÃO! CASO JULGUE NECESSÁRIO REALIZAR EXAME FÍSICO, VERBALIZE! A PACIENTE SIMULADA NÃO DEVERÁ SER TOCADA DURANTE O ATENDIMENTO. DESCRIÇÃO DO CASO Você é médico(a) em uma UBS em uma cidade de médio porte localizada na região metropolitana de uma grande capital brasileira. Você atenderá uma mulher com 40 anos de idade com queixa de dor de cabeça, mal estar geral e dor intensa em queimação na pele do braço direito. Nos 10 minutos de duração da Estação, você deverá executar as seguintes tarefas: ● Realizar a anamnese dirigida à queixa principal da paciente. ● Solicitar exame físico do membro afetado. ● Verbalizar e explicar o diagnóstico. ● Pactuar plano de cuidado com a paciente usando método clínico centrado na pessoa. ● Avaliar a necessidade de adoção de outras medidas sanitárias.",
-    "notes": "Atendimento na UBS, mas a conduta pontuada é de urgência (controle da dor, encaminhamento hospitalar para soroterapia, risco de morte por acidente lonômico). Dados sob demanda: Camila, 40a, cuidadora de idosos, sem comorbidades, não bebe, não fuma, não usa drogas; pela manhã, podando árvores no quintal, sentiu dor forte e súbita no braço D há ~5 h, em queimação, piorando, 8/10, mais forte no local e se espalhando pelo braço, local sensível ao toque, sem fatores de melhora ou piora; mal-estar, cefaleia e enjoo; uma lagarta encostou no braço (impresso com imagem da lagarta, sem texto); lavou o local e pôs gelo; não tomou remédios. Exame físico: PA 128x95, FC 98, FR 38 (valor do impresso), abdome normotenso e indolor, ausculta cardíaca e respiratória normais. Exame da lesão: lesões puntiformes eritematosas, edemaciadas e dolorosas nos pontos de inoculação das cerdas, adenomegalia regional dolorosa, sem bolhas nem necrose. A paciente pergunta se é grave, como tratar e por que deve ser internada."
+    "notes": "Gabarito v2 (11/10/2026): o caso v1 era injusto: a abertura não trazia o contato com a lagarta, que só aparecia quando perguntado. Agora o caso completo traz a exposição como fato da história, com o roteiro oficial e os impressos de exame; no funnel, o contato com a lagarta é o único fato key (o impresso da lagarta é só imagem e não foi descrito). O encaminhamento hospitalar é a conduta crítica para agora, escrito como avaliação da coagulação e soro se indicado (a SESA-PR, verificada, reserva o soro antilonômico aos envenenamentos moderados e graves); analgesia e notificação ficaram importantes. FR 38 transcrita como no impresso. | Atendimento na UBS, mas a conduta pontuada é de urgência (controle da dor, encaminhamento hospitalar para soroterapia, risco de morte por acidente lonômico). Dados sob demanda: Camila, 40a, cuidadora de idosos, sem comorbidades, não bebe, não fuma, não usa drogas; pela manhã, podando árvores no quintal, sentiu dor forte e súbita no braço D há ~5 h, em queimação, piorando, 8/10, mais forte no local e se espalhando pelo braço, local sensível ao toque, sem fatores de melhora ou piora; mal-estar, cefaleia e enjoo; uma lagarta encostou no braço (impresso com imagem da lagarta, sem texto); lavou o local e pôs gelo; não tomou remédios. Exame físico: PA 128x95, FC 98, FR 38 (valor do impresso), abdome normotenso e indolor, ausculta cardíaca e respiratória normais. Exame da lesão: lesões puntiformes eritematosas, edemaciadas e dolorosas nos pontos de inoculação das cerdas, adenomegalia regional dolorosa, sem bolhas nem necrose. A paciente pergunta se é grave, como tratar e por que deve ser internada."
   }
 }

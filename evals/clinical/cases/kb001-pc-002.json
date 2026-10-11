@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "kb001-pc-002",
   "title": "Pneumonia com SpO2 89%, confusão e infiltrado multilobar",
   "tags": [
@@ -17,21 +17,35 @@
   },
   "expected": {
     "syndrome": "pneumonia comunitária grave",
-    "cannotMiss": [
-      "sepse de foco pulmonar"
+    "diagnoses": [
+      {
+        "text": "sepse de foco pulmonar",
+        "tier": "critical"
+      }
     ],
-    "mustRequest": [
+    "actions": [
+      {
+        "text": "oxigenoterapia",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "antibiótico IV precoce (beta-lactâmico associado a macrolídeo ou quinolona respiratória)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "internação com avaliação de UTI",
+        "tier": "important",
+        "timing": "now"
+      }
+    ],
+    "questions": [
       "pressão arterial e sinais de hipoperfusão (lactato)",
       "fatores de risco para MRSA/Pseudomonas (isolamento respiratório prévio, internação com antibiótico IV recente)"
     ],
-    "requiredActions": [
-      "oxigenoterapia",
-      "antibiótico IV precoce (beta-lactâmico associado a macrolídeo ou quinolona respiratória)",
-      "internação com avaliação de UTI"
-    ],
     "forbiddenDefinitiveActions": [],
-    "rationale": "PAC grave (ATS/IDSA 2019: confusão e infiltrado multilobar são 2 critérios menores, e a hipoxemia aproxima do terceiro): O2, beta-lactâmico IV com macrolídeo ou com quinolona respiratória e avaliação de UTI (SBPT 2018). Cobertura de MRSA/Pseudomonas só com fatores de risco. Hemoculturas, cultura de escarro e teste de influenza/SARS-CoV-2 são recomendados, mas não exigidos no turno 0; corticoide sistêmico na PAC grave (SBPT 2018, ATS 2025) é aceito e não penalizado.",
-    "expectedPath": "recommend"
+    "rationale": "PAC grave (ATS/IDSA 2019: confusão e infiltrado multilobar são 2 critérios menores, e a hipoxemia aproxima do terceiro): O2, beta-lactâmico IV com macrolídeo ou com quinolona respiratória e avaliação de UTI (SBPT 2018). Cobertura de MRSA/Pseudomonas só com fatores de risco. Hemoculturas, cultura de escarro e teste de influenza/SARS-CoV-2 são recomendados, mas não exigidos no turno 0; corticoide sistêmico na PAC grave (SBPT 2018, ATS 2025) é aceito e não penalizado."
   },
   "sources": [
     {
@@ -57,6 +71,6 @@
     }
   ],
   "provenance": {
-    "notes": "Auditoria 11/10/2026: acrescentados fatores de risco para MRSA/Pseudomonas ao mustRequest. Culturas, teste viral e corticoide ficaram no rationale, por serem opcionais segundo a auditoria."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: acrescentados fatores de risco para MRSA/Pseudomonas ao mustRequest. Culturas, teste viral e corticoide ficaram no rationale, por serem opcionais segundo a auditoria."
   }
 }

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "rv-2021-reap-est-2",
   "title": "Homem de 30 anos com cólica lombar intensa há 24 h, febre, náuseas e hematúria macroscópica",
   "tags": [
@@ -15,31 +15,49 @@
     "status": "official_exam_key"
   },
   "input": {
-    "caseText": "PS de hospital universitário (RX, US, TC, laboratório, leitos, centro cirúrgico, banco de sangue); interconsulta. Masc, 30a. Dor lombar intensa tipo cólica há 24 h, febre 38,3 °C, náuseas e hematúria macroscópica. Já medicado com analgésicos EV pela clínica médica; já realizou alguns exames laboratoriais e de imagem."
+    "caseText": "PS de hospital universitário (RX, US, TC, laboratório, internação, centro cirúrgico, banco de sangue); interconsulta. Masc, 30a. Dor lombar intensa, tipo cólica, há 24 h, com febre de 38,3 °C, náuseas e hematúria macroscópica; já recebeu analgésicos EV da clínica médica. EF: REG, desidratado 1+/4+, normocorado, acianótico, febril, T 37,9 °C, PA 110x70, FC 96, FR 20. Abdome plano, normotenso, dor à palpação profunda em flanco D, sem dor à descompressão brusca; punho-percussão dolorosa à D; RHA normais. AR e ACV sem alterações. Lab: ureia 58, creatinina 1,65, K 4,9; leucócitos 16.000, bastões 2%. US de vias urinárias: hidronefrose à D, sem fator obstrutivo identificável pelo método. TC de abdome sem contraste: hidronefrose moderada à D, com cálculo de 0,5 cm na junção ureteropélvica."
   },
   "expected": {
     "syndrome": "uropatia obstrutiva por litíase (cálculo na junção ureteropélvica direita) com infecção urinária",
-    "cannotMiss": [
-      "uropatia obstrutiva por litíase urinária com infecção urinária",
-      "sepse de origem urinária (risco)"
+    "diagnoses": [
+      {
+        "text": "uropatia obstrutiva por litíase (cálculo na JUP direita) com infecção urinária: rim obstruído infectado",
+        "tier": "critical"
+      },
+      {
+        "text": "risco de sepse de origem urinária",
+        "tier": "important"
+      },
+      {
+        "text": "leucocitose e função renal alterada (creatinina 1,65)",
+        "tier": "important"
+      }
     ],
-    "mustRequest": [
-      "características da dor (início, localização, progressão, fatores de melhora/piora)",
-      "sintomas associados (náuseas/vômitos, ritmo intestinal, febre, sintomas urinários)",
-      "antecedentes cirúrgicos e comorbidades",
-      "exame físico",
-      "resultados de hemograma (leucocitose) e função renal (alterada)",
-      "TC de abdome sem contraste"
+    "actions": [
+      {
+        "text": "desobstrução urgente da via urinária direita: cateter duplo J ou nefrostomia",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "antibioticoterapia endovenosa",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "internação hospitalar imediata",
+        "tier": "important",
+        "timing": "now"
+      }
     ],
-    "requiredActions": [
-      "antibioticoterapia endovenosa",
-      "desobstrução da via urinária direita (cateter duplo J ou nefrostomia)",
-      "internação hospitalar imediata",
-      "orientar a gravidade: risco de sepse de origem urinária e óbito"
-    ],
+    "questions": [],
     "forbiddenDefinitiveActions": [],
-    "rationale": "Gabarito oficial do INEP (Revalida 2021 reaplicação, Estações 2 e 7): o PEP pontua anamnese, exame, TC sem contraste e o diagnóstico de uropatia obstrutiva por litíase com infecção urinária, com antibiótico EV, desobstrução (duplo J/nefrostomia) e internação imediata pelo risco de sepse urinária.",
-    "expectedPath": "clarify"
+    "outOfScope": [
+      "apresentar-se e identificar o paciente (item 1)",
+      "anamnese da dor, dos sintomas associados e dos antecedentes (itens 2 a 4): o PEP não publica o roteiro",
+      "explicar as hipóteses ao paciente e orientá-lo sobre a gravidade e o risco de sepse e óbito (itens 11 e 13; o risco de sepse entrou como diagnóstico)"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2021 reaplicação, Estações 2 e 7): o PEP pontua anamnese, exame, TC sem contraste e o diagnóstico de uropatia obstrutiva por litíase com infecção urinária, com antibiótico EV, desobstrução (duplo J/nefrostomia) e internação imediata pelo risco de sepse urinária. No v2, o caso completo traz o laudo da TC (o diagnóstico depende dele); desobstrução e antibiótico EV viraram os itens críticos."
   },
   "sources": [
     {
@@ -70,6 +88,6 @@
     "item": "Estação 2 e 7",
     "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2021_PEP_reaplicacao.pdf",
     "originalCaseText": "ESTAÇÕES 2 e 7 – Área: Cirurgia Geral. INSTRUÇÕES PARA O(A) PARTICIPANTE. CENÁRIO DE ATUAÇÃO: Você está de plantão no Pronto-Socorro (PS) de um hospital universitário. Foi solicitada uma interconsulta referente a um paciente com 30 anos de idade, que chegou ao PS com dor lombar intensa, do tipo cólica, há 24 horas, associada a febre de 38,3 °C, náuseas e hematúria macroscópica. No momento de seu atendimento, o paciente já havia sido medicado com analgésicos endovenosos pela equipe da clínica médica e realizado alguns exames laboratoriais e de imagem. Nos próximos 10 minutos, deverão ser realizadas as seguintes tarefas: realizar o atendimento do paciente; interpretar os exames do paciente e ampliar propedêutica, se necessário; orientar o paciente sobre a conduta terapêutica. OBSERVAÇÃO: O hospital possui a seguinte estrutura: setor de radiologia convencional, ultrassonografia e tomografia computadorizada; laboratório de análises clínicas; leitos de internação; centro cirúrgico; e banco de sangue.",
-    "notes": "Dados sob demanda: Impresso 1 — REG, desidratado +/4+, normocorado, acianótico, febril, T 37,9 °C, PA 110x70, FC 96, FR 20; abdome plano, normotenso, dor à palpação profunda em flanco direito, sem descompressão brusca dolorosa, punhopercussão dolorosa à direita, RHA normoativos; AR e ACV normais. Impresso 2 — ureia 58, creatinina 1,65, K 4,9; leucócitos 16.000, bastões 2%; US de vias urinárias: hidronefrose à direita sem fator obstrutivo identificável. Impresso 3 — TC de abdome sem contraste: hidronefrose moderada à direita com cálculo de 0,5 cm na junção ureteropélvica. A síntese do ator não é publicada no PEP."
+    "notes": "Gabarito v2 (11/10/2026): caso completo com o cenário e os impressos 1 a 3, incluindo o laudo da TC (o PEP cobra pedi-la e interpretá-la); sem afunilamento, porque o PEP não publica o roteiro. Desobstrução e antibiótico EV são os itens críticos; apresentação, anamnese e explicações ao paciente ficaram fora do escopo. | Dados sob demanda: Impresso 1 — REG, desidratado +/4+, normocorado, acianótico, febril, T 37,9 °C, PA 110x70, FC 96, FR 20; abdome plano, normotenso, dor à palpação profunda em flanco direito, sem descompressão brusca dolorosa, punhopercussão dolorosa à direita, RHA normoativos; AR e ACV normais. Impresso 2 — ureia 58, creatinina 1,65, K 4,9; leucócitos 16.000, bastões 2%; US de vias urinárias: hidronefrose à direita sem fator obstrutivo identificável. Impresso 3 — TC de abdome sem contraste: hidronefrose moderada à direita com cálculo de 0,5 cm na junção ureteropélvica. A síntese do ator não é publicada no PEP."
   }
 }
