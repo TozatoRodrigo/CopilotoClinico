@@ -127,3 +127,30 @@ Hoje só chunks `pending_review` podem ser aprovados. A Fase 2 precisa de:
 - **Cache.** Por até 60 s após o deploy, resultados de retrieval gravados
   antes do campo `clinicallySigned` são tratados como não assinados (falha
   para o lado seguro).
+
+## Emenda — 10/10/2026: ambiguidade de subtipo não bloqueia a resposta
+
+**Contexto.** A primeira execução do gabarito clínico (65 casos, 4 modelos)
+mostrou que a guarda de subtipo S21-CLIN-01, quando rejeitava a saída no
+validador, deixava o médico **sem resposta**. No caso
+`kb004-anafilaxia-alimentar` (urticária, rouquidão, sibilos, PA 84x50,
+SpO₂ 91%), a busca trouxe trechos de "anafilaxia" e de "alergia simples"; os
+três modelos testados (gpt-5.6-luna, Claude Sonnet 5.5, Claude Opus 5.5)
+recomendaram a conduta de anafilaxia sem citar "alergia simples" — não havia
+motivo clínico para isso — e o validador rejeitou as duas tentativas.
+
+**Decisão** (de produto, 10/10/2026):
+
+1. A ambiguidade de subtipo deixa de ser erro de validação. Vai para
+   `ValidationResult.warnings` e para o log (`OUTPUT_VALIDATION_WARNING`).
+2. A proteção passa a ser só o rótulo: a contenção continua marcando
+   preliminar, com motivo `subtype_ambiguity`, a conduta que cita um trecho
+   específico de subtipo quando a evidência cobre subtipos de conduta oposta.
+3. **Estabilização nunca recebe `subtype_ambiguity`.** Ação de estabilização
+   (adrenalina na anafilaxia, via aérea, acesso, monitorização) é segura em
+   qualquer subtipo — é a camada 1 da conduta. Ela ainda pode receber o
+   rótulo de proveniência `unreviewed_source`.
+
+**Princípio.** Uma guarda clínica nunca pode trocar "conduta talvez do
+subtipo errado" por "nenhuma conduta". Na dúvida, a resposta sai com o risco
+visível no rótulo.
