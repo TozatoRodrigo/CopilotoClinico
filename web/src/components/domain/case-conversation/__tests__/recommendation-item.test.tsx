@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { RecommendationItem, planGroups } from "../page";
+import { RecommendationItem, planGroups } from "../analysis-view";
 import { getMessages } from "@/lib/messages";
 import type { CopilotRecommendation } from "@/lib/types";
 import type { RecommendationDecisionState } from "@/hooks/use-recommendation-decisions";

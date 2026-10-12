@@ -256,6 +256,67 @@ export interface Messages {
     streamingHint: string;
   };
 
+  /**
+   * ADR-014 — Copiloto guiado: a conversa do caso. Primeira pessoa e sem
+   * culpa ("a parede" da Sprint 26): o Copiloto pede porque quer acertar a
+   * conduta, e pular nunca é erro.
+   */
+  conversation: {
+    title: string;
+    description: string;
+    sendCase: string;
+    sendingCase: string;
+    you: string;
+    copilot: string;
+    reading: string;
+    understood: string;
+    correct: string;
+    correctionPlaceholder: string;
+    correctionNoted: string;
+    questionsIntro: (count: number) => string;
+    progress: (current: number, total: number) => string;
+    analyzeNow: string;
+    unstableTitle: (findings: string) => string;
+    unstableBody: string;
+    complete: string;
+    urgentStop: string;
+    skipped: string;
+    allAnswered: string;
+    buildingPlan: string;
+    buildingPlanHint: string;
+    rebuildingPlan: string;
+    planFailed: string;
+    retryPlan: string;
+    followUpIntro: (count: number) => string;
+    keepPlan: string;
+    rebuildNow: string;
+    previousPlan: (round: number) => string;
+    youAnswered: string;
+    lastRound: string;
+    limitReached: string;
+    numberPlaceholder: string;
+    numberSend: string;
+    numberUnknown: string;
+    vitals: {
+      labels: Record<'bloodPressure' | 'heartRate' | 'respiratoryRate' | 'spo2' | 'temperature' | 'glucose', string>;
+      units: Record<'bloodPressure' | 'heartRate' | 'respiratoryRate' | 'spo2' | 'temperature' | 'glucose', string>;
+      bloodPressurePlaceholder: string;
+      send: string;
+      none: string;
+      invalid: string;
+    };
+    composer: {
+      answerPlaceholder: string;
+      complementPlaceholder: string;
+      waitingPlaceholder: string;
+      send: string;
+      dictate: string;
+      stopDictation: string;
+      transcribing: string;
+      offline: string;
+    };
+  };
+
   documents: {
     generateHeading: string;
     generating: string;
@@ -587,6 +648,85 @@ export const ptBR: Messages = {
     templateApplied: (name: string) => `Modelo "${name}" adicionado ao caso.`,
     // UX-06 — streaming: sinal de vida rápido em vez de spinner mudo.
     streamingHint: 'O copiloto já está respondendo...',
+  },
+
+  conversation: {
+    title: 'Descreva o caso',
+    description:
+      'Dite ou digite como passaria o caso a um colega. Se faltar algo que muda a conduta, eu pergunto — uma coisa por vez.',
+    sendCase: 'Enviar caso',
+    sendingCase: 'Enviando…',
+    you: 'Você',
+    copilot: 'Copiloto',
+    reading: 'Lendo o caso…',
+    understood: 'Entendi:',
+    correct: 'Corrigir',
+    correctionPlaceholder: 'O que eu entendi errado ou deixei de fora?',
+    correctionNoted: 'Anotei a correção — ela entra no plano.',
+    questionsIntro: (count: number) =>
+      count === 1
+        ? 'Antes do plano, 1 pergunta rápida que muda a conduta.'
+        : `Antes do plano, ${count} perguntas rápidas que mudam a conduta.`,
+    progress: (current: number, total: number) => `Pergunta ${current} de ${total}`,
+    analyzeNow: 'Analisar agora com o que tenho',
+    unstableTitle: (findings: string) => `Paciente instável: ${findings}.`,
+    unstableBody:
+      'Vou direto ao que fazer agora, sem perguntas antes. Se eu precisar de algo, pergunto depois do plano.',
+    complete: 'Tenho o que preciso para começar.',
+    urgentStop: 'Essa resposta muda a prioridade. Vou direto ao plano.',
+    skipped:
+      'Sem problema. Sigo com o que tenho; o que ficou aberto entra no plano como "Depende de…".',
+    allAnswered: 'Obrigado. Montando o plano com o que você me contou.',
+    buildingPlan: 'Montando o plano…',
+    buildingPlanHint: 'Leva cerca de 1 minuto. Pode sair desta tela: o plano fica salvo no caso.',
+    rebuildingPlan: 'Refazendo o plano com a sua resposta…',
+    planFailed: 'Não consegui montar o plano agora.',
+    retryPlan: 'Tentar de novo',
+    followUpIntro: (count: number) =>
+      count === 1
+        ? 'Para fechar o plano, 1 pergunta. Responder refaz o plano (cerca de 1 minuto).'
+        : `Para fechar o plano, ${count} perguntas. Responder refaz o plano (cerca de 1 minuto).`,
+    keepPlan: 'Seguir com este plano',
+    rebuildNow: 'Refazer o plano agora',
+    previousPlan: (round: number) => `Plano anterior · rodada ${round}`,
+    youAnswered: 'Você informou',
+    lastRound: 'Última rodada — o próximo plano sai com o que você tiver informado.',
+    limitReached: 'Você chegou ao limite de rodadas deste caso.',
+    numberPlaceholder: 'Valor',
+    numberSend: 'Enviar',
+    numberUnknown: 'Não medi',
+    vitals: {
+      labels: {
+        bloodPressure: 'PA',
+        heartRate: 'FC',
+        respiratoryRate: 'FR',
+        spo2: 'SpO₂',
+        temperature: 'Tax',
+        glucose: 'Glicemia capilar',
+      },
+      units: {
+        bloodPressure: 'mmHg',
+        heartRate: 'bpm',
+        respiratoryRate: 'irpm',
+        spo2: '%',
+        temperature: '°C',
+        glucose: 'mg/dL',
+      },
+      bloodPressurePlaceholder: '120/80',
+      send: 'Enviar',
+      none: 'Não tenho agora',
+      invalid: 'Confira os valores: a PA vai como 120/80 e os outros só com números.',
+    },
+    composer: {
+      answerPlaceholder: 'Ou responda com suas palavras…',
+      complementPlaceholder: 'Acrescente algo ao caso (ex.: resultado de exame)…',
+      waitingPlaceholder: 'Aguarde o plano…',
+      send: 'Enviar',
+      dictate: 'Ditar',
+      stopDictation: 'Parar e transcrever',
+      transcribing: 'Transcrevendo…',
+      offline: 'Sem conexão. Sua mensagem fica no campo até a internet voltar.',
+    },
   },
 
   documents: {

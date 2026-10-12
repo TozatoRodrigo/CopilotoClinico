@@ -8,6 +8,7 @@ import type {
   Encounter,
   Document as DocumentRecord,
   AiInteraction,
+  CaseIntake,
   AuditLog,
   RecommendationDecision,
   CopilotFeedback,
@@ -25,6 +26,8 @@ export interface PhysicianDataExport {
     encounters: Encounter[];
     documents: DocumentRecord[];
     aiInteractions: AiInteraction[];
+    /** ADR-014 — conversas antes do plano (caso e respostas já redigidos). */
+    caseIntakes: CaseIntake[];
     /** F0-D — Adotar/Rejeitar/Anotar por recomendação (notas já mascaradas). */
     recommendationDecisions: RecommendationDecision[];
     /** F0-D — reportes do médico sobre análises (comentário já mascarado). */
@@ -169,6 +172,7 @@ export class LgpdService {
       aiInteractions,
       recommendationDecisions,
       copilotFeedback,
+      caseIntakes,
     ] = await Promise.all([
       this.prisma.document.findMany({ where: { physicianId } }),
       this.prisma.consent.findMany({ where: { physicianId } }),
@@ -180,6 +184,8 @@ export class LgpdService {
         : Promise.resolve([]),
       this.prisma.recommendationDecision.findMany({ where: { physicianId } }),
       this.prisma.copilotFeedback.findMany({ where: { physicianId } }),
+      // ADR-014 — a conversa antes do plano (caso e respostas já redigidos).
+      this.prisma.caseIntake.findMany({ where: { physicianId } }),
     ]);
 
     return {
@@ -194,6 +200,7 @@ export class LgpdService {
         encounters,
         documents,
         aiInteractions,
+        caseIntakes,
         recommendationDecisions,
         copilotFeedback,
         consents,

@@ -48,6 +48,7 @@ const ADMIN_CHILDREN: Record<string, BreadcrumbItem> = {
 const CASE_CHILDREN: Record<string, string> = {
   capture: 'Captura',
   result: 'Análise',
+  conversation: 'Conversa',
   documents: 'Documentos',
 };
 
