@@ -77,13 +77,13 @@ describe('sanitizeForLog', () => {
   });
 });
 
-// OPS-003 — a reanálise por streaming leva as respostas do médico na
-// querystring (EventSource só faz GET): a linha de acesso nunca as grava.
+// OPS-003 — a rota GET /copilot/stream (clientes PWA antigos) leva o texto do
+// caso na querystring (EventSource só faz GET): a linha de acesso nunca o grava.
 describe('pathForLog', () => {
   it('drops the query string, where streaming routes carry the physician text', () => {
     expect(
-      pathForLog('/v1/encounters/enc-1/copilot/respond/stream?interactionId=i-1&answers=%5B%7B%5D'),
-    ).toBe('/v1/encounters/enc-1/copilot/respond/stream');
+      pathForLog('/v1/encounters/enc-1/copilot/stream?caseText=dor%20tor%C3%A1cica&hasCT=true'),
+    ).toBe('/v1/encounters/enc-1/copilot/stream');
   });
 
   it('keeps a path without query string unchanged', () => {

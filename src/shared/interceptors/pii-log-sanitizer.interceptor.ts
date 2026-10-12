@@ -41,10 +41,9 @@ export function sanitizeForLog(value: unknown, depth = 0): unknown {
 }
 
 /**
- * Caminho da requisição sem a querystring. Rotas GET de streaming levam texto
- * do médico na query — as respostas da reanálise em GET
- * /copilot/respond/stream —, e a linha de acesso não precisa dele: método,
- * caminho e tempo bastam para depurar.
+ * Caminho da requisição sem a querystring. A rota GET /copilot/stream, mantida
+ * para clientes PWA antigos, ainda leva o texto do caso na query, e a linha de
+ * acesso não precisa dele: método, caminho e tempo bastam para depurar.
  */
 export function pathForLog(url: string): string {
   const queryStart = url.indexOf('?');
