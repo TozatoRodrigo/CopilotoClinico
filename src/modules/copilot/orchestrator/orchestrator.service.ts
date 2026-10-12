@@ -65,8 +65,9 @@ import {
   type SourceVerificationOutcome,
 } from '../research/source-verification.service';
 import { applySourceLinkText, type SourceLink } from '../research/source-links';
-import { buildDecisionV2Prompt } from './decision-prompt-v2';
+import { buildDecisionV2Prompt, type DecisionV2PromptInput } from './decision-prompt-v2';
 import { buildDecisionV3Prompt } from './decision-prompt-v3';
+import { buildDecisionV4Prompt } from './decision-prompt-v4';
 import {
   isStagedDecisionPrompt,
   readDecisionPipeline,
@@ -104,6 +105,16 @@ const FINAL_TURN_INSTRUCTIONS: Record<DecisionPromptVersion, string> = {
   v1: 'Este é o último turno permitido para esta análise. NÃO inclua novas clarifyingQuestions (a lista deve ficar vazia). Como não há próximo turno, "recommendations" NÃO PODE ficar vazio: forneça ao menos uma recomendação preliminar com base na melhor evidência e informação disponíveis, mesmo que incompletas. Se ainda houver incerteza sobre a cobertura da diretriz, defina uncertainty=true e descreva uncertaintyReason, mas isso não substitui a obrigação de recomendar algo — declare a incerteza E recomende, não incerteza no lugar de recomendar.',
   v2: FINAL_TURN_INSTRUCTIONS_STAGED,
   v3: FINAL_TURN_INSTRUCTIONS_STAGED,
+  v4: FINAL_TURN_INSTRUCTIONS_STAGED,
+};
+
+const STAGED_PROMPT_BUILDERS: Record<
+  Exclude<DecisionPromptVersion, 'v1'>,
+  (input: DecisionV2PromptInput) => BuiltPrompt
+> = {
+  v2: buildDecisionV2Prompt,
+  v3: buildDecisionV3Prompt,
+  v4: buildDecisionV4Prompt,
 };
 
 /**
@@ -961,9 +972,8 @@ export class OrchestratorService {
     const evidence = promptEvidence(input.evidence.retrievalResult, input.attachments);
 
     if (isStagedDecisionPrompt(pipeline.decisionPrompt)) {
-      // v2 e v3: a mesma mensagem do usuário; só o system prompt muda.
-      const buildStaged =
-        pipeline.decisionPrompt === 'v3' ? buildDecisionV3Prompt : buildDecisionV2Prompt;
+      // v2, v3 e v4: a mesma mensagem do usuário; só o system prompt muda.
+      const buildStaged = STAGED_PROMPT_BUILDERS[pipeline.decisionPrompt];
       return buildStaged({
         caseText: input.caseText,
         understanding,
@@ -1416,7 +1426,8 @@ export class OrchestratorService {
 
   private validate(prepared: PreparedAnalysis, content: string): ValidationResult {
     const decisionContext = { understanding: prepared.stage?.understanding ?? null };
-    if (prepared.pipeline.decisionPrompt === 'v3') {
+    // A v4 muda as regras do prompt, não o contrato: valida como a v3.
+    if (prepared.pipeline.decisionPrompt === 'v3' || prepared.pipeline.decisionPrompt === 'v4') {
       return validateOutputV3(content, prepared.prompt.retrievedChunkIds, decisionContext);
     }
     if (prepared.pipeline.decisionPrompt === 'v2') {
