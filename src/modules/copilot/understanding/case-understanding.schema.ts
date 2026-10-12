@@ -27,7 +27,7 @@ const hypothesisText = text.refine((value) => !PROBABILITY_WORDS.test(value), {
   message: 'never use probability language; state the clinical reason instead',
 });
 
-const VitalsSchema = z.object({
+export const VitalsSchema = z.object({
   systolicBp: z.number().nullable(),
   diastolicBp: z.number().nullable(),
   heartRate: z.number().nullable(),

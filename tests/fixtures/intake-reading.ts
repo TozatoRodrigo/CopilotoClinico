@@ -1,6 +1,8 @@
-import type {
-  IntakeQuestionCandidate,
-  IntakeReading,
+import {
+  READING_VITAL_SIGNS,
+  type IntakeQuestionCandidate,
+  type IntakeReading,
+  type IntakeReadingWire,
 } from '../../src/modules/copilot/intake/intake-reading.schema';
 import { understandingFixture } from './case-understanding';
 
@@ -28,5 +30,22 @@ export function intakeReadingFixture(overrides: Partial<IntakeReading> = {}): In
     timeCritical: false,
     intakeQuestions: [intakeCandidateFixture()],
     ...overrides,
+  };
+}
+
+/** A leitura como o modelo a escreve: os sinais vitais informados, em lista. */
+export function intakeReadingWire(
+  reading: IntakeReading = intakeReadingFixture(),
+): IntakeReadingWire {
+  const { vitals } = reading.structuredData;
+  return {
+    ...reading,
+    structuredData: {
+      ...reading.structuredData,
+      vitals: READING_VITAL_SIGNS.flatMap((sign) => {
+        const value = vitals[sign];
+        return value === null ? [] : [{ sign, value }];
+      }),
+    },
   };
 }

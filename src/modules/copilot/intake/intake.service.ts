@@ -25,7 +25,11 @@ import { UnderstandingService } from '../understanding/understanding.service';
 import { intakeAnswerText } from './intake-answer-text';
 import { isUrgentAnswer } from './intake-urgency';
 import { decideIntake, toIntakeQuestion, type IntakeQuestionRecord } from './intake-gate';
-import { IntakeReadingSchema, understandingOf, type IntakeReading } from './intake-reading.schema';
+import {
+  StoredIntakeReadingSchema,
+  understandingOf,
+  type IntakeReading,
+} from './intake-reading.schema';
 import { readStoredAnswers, readStoredQuestions, type AnswerIntakeInput } from './intake.schemas';
 import {
   INTAKE_ANALYSIS_STALE_MS,
@@ -76,7 +80,7 @@ function hashOf(value: unknown): string {
 
 function readReading(value: Prisma.JsonValue | null): IntakeReading | null {
   if (value === null) return null;
-  const parsed = IntakeReadingSchema.safeParse(value);
+  const parsed = StoredIntakeReadingSchema.safeParse(value);
   return parsed.success ? parsed.data : null;
 }
 
