@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2012-disc-4",
+  "title": "Jovem de 20 anos com febre alta, tosse produtiva, dor pleurítica e consolidação em base direita na UBS",
+  "tags": [
+    "infeccao-respiratoria",
+    "revalida",
+    "prova-cega",
+    "discursiva",
+    "pneumonia"
+  ],
+  "critical": false,
+  "goldSource": "revalida_discursiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "UBS. Fem, 20a. Febre alta de início súbito com calafrios, dores 'por todo o corpo', cefaleia e tosse há 3 dias; usou remédios caseiros achando que era gripe, sem melhora. Tosse inicialmente seca, agora produtiva com expectoração amarelada. Dor torácica na base do hemitórax D, progressiva, pior com a tosse e a inspiração profunda. Nega contato com gripe ou TB em casa ou no trabalho. EF: REG, lúcida e orientada; um pouco desidratada; corada, anictérica. Tax 39 °C, FC 104, FR 22, PA 120x80. Tórax: expansibilidade diminuída à D; crepitações, roncos e alguns sibilos no 1/3 inferior D; MV diminuído e FTV aumentado na metade inferior D, com sopro tubário. Restante sem alterações relevantes. RX de tórax (feito pouco antes): opacidade no 1/3 inferior do hemitórax D com aerobroncograma; seios costofrênicos livres."
+  },
+  "expected": {
+    "syndrome": "pneumonia adquirida na comunidade de baixa gravidade em adulta jovem atendida na atenção primária",
+    "diagnoses": [
+      {
+        "text": "pneumonia adquirida na comunidade lobar (base D) de baixa gravidade: CRB-65 = 0, sem achados radiológicos de gravidade (unilobar, sem derrame)",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "tratamento ambulatorial, sem internação (CRB-65 = 0, sem critérios de gravidade)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "antibiótico oral ambulatorial: amoxicilina (beta-lactâmico) ou macrolídeo (azitromicina ou claritromicina) [ref.: SBPT 2018: 5 dias e sem quinolona neste perfil; o padrão aceitava também doxiciclina, amoxicilina-clavulanato, cefuroxima ou quinolona respiratória, por 3 a 14 dias]",
+        "tier": "important",
+        "timing": "now"
+      }
+    ],
+    "questions": [
+      "comorbidades, uso recente de antibiótico e capacidade de tomar medicação oral (mudam o local de tratamento e o esquema)"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "outOfScope": [
+      "citar achados radiológicos que sugeririam maior gravidade (item b): abscesso/cavitação, pneumatoceles, acometimento multilobar, padrão broncopneumônico, derrame/empiema, pneumotórax — conhecimento de prova; a ausência deles ficou no diagnóstico",
+      "justificar o esquema pela etiologia provável (item c: pneumococo e atípicos)"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2012, Questão 4): PAC de baixa gravidade (CRB-65 = 0) sem necessidade de internação, tratada por via oral com macrolídeo (ou alternativas: quinolona respiratória, amoxicilina ± clavulanato ± macrolídeo, cefuroxima, doxiciclina) cobrindo pneumococo e atípicos. v2: caso não crítico; decisão de não internar e antibiótico oral são importantes; o item de antibiótico aceita o que a SBPT 2018 recomenda e o que o padrão aceitava."
+  },
+  "sources": [
+    {
+      "claim": "Enunciado e comandos da questão discursiva 4.",
+      "title": "Revalida 2012 – Prova Discursiva, Questão 4",
+      "publisher": "INEP",
+      "year": 2012,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/provas/2012/prova_discursiva_revalida_2012.pdf"
+    },
+    {
+      "claim": "Não há necessidade de internação: PAC de baixa gravidade, CRB-65 = 0 (idade < 65, consciência normal, sem comorbidades, FR < 30, PAS > 90 e PAD > 60, sem derrame).",
+      "title": "Revalida 2012 – Prova Discursiva – Padrão de Resposta definitivo, Questão 4, item a",
+      "publisher": "INEP",
+      "year": 2012,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2012/revalida_2012_padrao_de_respostas_definitivo.pdf"
+    },
+    {
+      "claim": "Achados radiológicos de maior gravidade: abscesso (cavitação, nível hidroaéreo), pneumatoceles, envolvimento multilobar, padrão broncopneumônico, derrame pleural ou empiema, pneumotórax, condições favorecedoras.",
+      "title": "Revalida 2012 – Prova Discursiva – Padrão de Resposta definitivo, Questão 4, item b",
+      "publisher": "INEP",
+      "year": 2012,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2012/revalida_2012_padrao_de_respostas_definitivo.pdf"
+    },
+    {
+      "claim": "Via oral: azitromicina 3 a 7 dias ou claritromicina 7 a 14 dias; aceitos moxifloxacino/levofloxacino, amoxicilina ou amoxicilina-clavulanato, ampicilina-sulbactam, cefuroxima (± macrolídeo) ou doxiciclina, por 7 a 14 dias; etiologia: pneumococo e atípicos.",
+      "title": "Revalida 2012 – Prova Discursiva – Padrão de Resposta definitivo, Questão 4, item c",
+      "publisher": "INEP",
+      "year": 2012,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2012/revalida_2012_padrao_de_respostas_definitivo.pdf"
+    },
+    {
+      "claim": "Tratamento ambulatorial com CURB-65 0–1 ou CRB-65 = 0 em quem toma medicação oral sem comorbidade descompensada ou hipoxemia; para ambulatoriais sem comorbidades, monoterapia com beta-lactâmico ou macrolídeo, evitando fluoroquinolonas; PAC leve ambulatorial por 5 dias.",
+      "title": "Recomendações para o manejo da pneumonia adquirida na comunidade 2018",
+      "publisher": "Sociedade Brasileira de Pneumologia e Tisiologia (J Bras Pneumol)",
+      "year": 2018,
+      "url": "https://jornaldepneumologia.com.br/details/2853/en-US"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2012",
+    "item": "Discursiva caso 4",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2012/revalida_2012_padrao_de_respostas_definitivo.pdf",
+    "originalCaseText": "Paciente do sexo feminino, 20 anos, procura Unidade Básica de Baúde (UBS) com relato de febre alta, de início súbito, acompanhada de calafrios, dores “por todo corpo”, cefaleia e tosse há 3 dias. Fez uso de remédios caseiros achando que era um quadro gripal, sem melhora. A tosse, inicialmente seca, tornou-se produtiva com expectoração amarelada. Queixa-se ainda de dor torácica na base do hemitórax direito, que foi aumentando de intensidade, principalmente durante os acessos de tosse e com a respiração mais profunda. Nega contato com casos de “gripe” ou tuberculose, no trabalho ou em casa. Ao exame físico: regular estado geral, lúcida, orientada; um pouco desidratada; mucosas coradas, anictéricas; sinais vitais: T. Axilar = 39°C; FC = 104 bpm; FR: = 22 irpm: PA = 120 X 80 mmHg; Exame do tórax: diminuição da expansibilidade do hemitórax direito; crepitações, roncos e alguns sibilos no 1/3 inferior do pulmão direito; diminuição do murmúrio vesicular e aumento do frêmito tóraco-vocal na metade inferior do pulmão direito, onde se ausculta um sopro tubário. O restante do exame não mostra alterações relevantes para o caso. Radiografia de tórax, realizada pouco antes do atendimento, mostra opacidade no 1/3 inferior de hemitórax direito com presença de aerobroncograma e seios costofrênicos livres. a) Com os dados disponíveis, defina a necessidade ou não de internação da paciente para terapêutica específica. Justifique. ( valor: 2,5 pontos) b) Que achados radiológicos, se presentes, poderiam sugerir maior gravidade no quadro apresentado pela jovem? ( valor: 2,5 pontos) c) Qual a conduta terapêutica específica mais adequada, levando em consideração a droga ou associação de drogas, a via e o provável tempo de uso? Justifique a escolha com base no quadro clínico e na(s) etiologia(s) mais provável(eis) para o caso. ( valor: 5,0 pontos)",
+    "notes": "Prova cega (11/10/2026): caso limítrofe (UBS, tratamento ambulatorial), mantido pela decisão internar × não internar; não crítico, como na triagem. Conferido contra a SBPT 2018 (aberta e lida): CRB-65 = 0 e tratamento ambulatorial seguem; o padrão aceitava quinolona respiratória e cursos de 7–14 dias, e a SBPT hoje prefere beta-lactâmico ou macrolídeo por 5 dias, evitando quinolona — o item aceita as duas formas e põe a duração só como referência. Comorbidades não constam do enunciado (o padrão as assume ausentes) e entraram em questions."
+  }
+}

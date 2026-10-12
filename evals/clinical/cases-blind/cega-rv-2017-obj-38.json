@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2017-obj-38",
+  "title": "Homem de 38 anos com DM1, tosse e febre há 4 dias, oligúria, rebaixamento e PA 68x40",
+  "tags": [
+    "febre-hipotensao",
+    "revalida",
+    "prova-cega",
+    "objetiva",
+    "sepse",
+    "pneumonia"
+  ],
+  "critical": true,
+  "goldSource": "revalida_objetiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Admissão no CTI. Masc, 38a, DM1 desde os 12 anos, sem tratamento regular. Familiar relata: há ~4 dias tosse produtiva e febre alta; usou mucolítico e antitérmico, sem melhora. Há 24 h diminuição importante do débito urinário; há 3 h prostração e rebaixamento do nível de consciência. EF: Tax 38,6 °C, FC 112, FR 33 com tiragem intercostal, PA 68x40. Hemograma de urgência: leucócitos 26.000/mm³ com 16% de bastões."
+  },
+  "expected": {
+    "syndrome": "febre com hipotensão, oligúria e rebaixamento após quadro respiratório",
+    "diagnoses": [
+      {
+        "text": "choque séptico de foco pulmonar (pneumonia comunitária grave)",
+        "tier": "critical"
+      },
+      {
+        "text": "disfunções orgânicas: hipotensão, oligúria, rebaixamento de consciência e desconforto respiratório",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "antibioticoterapia IV de amplo espectro imediata (idealmente em até 1 h), cobrindo pneumonia comunitária grave: betalactâmico + macrolídeo (ex.: ceftriaxona + azitromicina) ou betalactâmico + quinolona respiratória",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "ressuscitação volêmica imediata com cristaloide [ref.: ao menos 30 mL/kg nas primeiras 3 h, com reavaliação frequente]",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "hemoculturas antes do antibiótico, sem atrasá-lo",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "noradrenalina se a hipotensão persistir durante ou após o volume (PAM-alvo 65 mmHg)",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "antibiotico-condicionado-a-exames",
+        "description": "Adiar o antibiótico até o resultado de bacterioscopia, cultura, radiografia ou TC no choque séptico (alternativas C e D).",
+        "patterns": [
+          "aguard\\w*\\s+(\\S+\\s+){0,4}(para|antes\\s+de)\\s+(\\S+\\s+){0,2}(iniciar|inicio|comecar|definir|escolher|prescrever)",
+          "(iniciar|inicio\\s+d[aoe]|comecar)\\s+(\\S+\\s+){0,2}(de\\s+acordo\\s+com|conforme|guiad[ao]\\s+pel[oa]s?)\\s+(o\\s+|os\\s+|a\\s+|as\\s+)?(resultado|cultura|hemocultura|bacterioscopia|gram|exame|radiografia|rx|tomografia|tc)\\w*",
+          "(tomografia|tc|radiografia|rx|bacterioscopia|cultura\\w*|exame\\w*)\\s+(\\S+\\s+){0,8}para\\s+definir\\s+(o\\s+)?esquema"
+        ],
+        "exceptWhen": [
+          "(definitiv\\w*|descalon\\w*|ajust\\w*|direcionad\\w*|dirigid\\w*)",
+          "(sem|nao)\\s+(atrasar|retardar|adiar|aguardar|esperar)"
+        ]
+      }
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2017, objetiva, questão 38): alternativa B — hemoculturas, ressuscitação volêmica imediata e antibiótico IV de amplo espectro (ceftriaxona + azitromicina). Distratoras: claritromicina isolada (A) e condicionar o antibiótico a bacterioscopia, cultura, radiografia ou TC (C e D). Conferido com a SSC 2026 (antibiótico em até 1 h, hemoculturas antes sem atrasar, ≥ 30 mL/kg em 3 h, noradrenalina) e com a ATS/IDSA 2019 (betalactâmico + macrolídeo na pneumonia grave)."
+  },
+  "sources": [
+    {
+      "claim": "Questão 38: gabarito definitivo B — colher hemoculturas e iniciar imediatamente ressuscitação volêmica e antibioticoterapia intravenosa de amplo espectro com ceftriaxona e azitromicina.",
+      "title": "Revalida 2017 – Prova Objetiva (versão 1) – gabarito definitivo",
+      "publisher": "INEP",
+      "year": 2017,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf"
+    },
+    {
+      "claim": "Enunciado, comando e alternativas da questão 38 (caderno da versão 1, 24/09/2017)",
+      "title": "Revalida 2017 – Prova Objetiva (versão 1), questão 38",
+      "publisher": "INEP",
+      "year": 2017,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/provas/2017/prova_objetiva_1.pdf"
+    },
+    {
+      "claim": "Choque séptico: antimicrobiano imediato, idealmente em até 1 h do reconhecimento; hemoculturas o mais cedo possível, idealmente antes do antimicrobiano; ao menos 30 mL/kg de cristaloide IV nas primeiras 3 h na hipoperfusão (condicional, individualizar e reavaliar); noradrenalina como vasopressor de primeira linha; PAM-alvo inicial 65 mmHg.",
+      "title": "Surviving Sepsis Campaign: International Guidelines for Management of Sepsis and Septic Shock 2026",
+      "publisher": "SCCM/ESICM",
+      "year": 2026,
+      "url": "https://www.sccm.org/clinical-resources/guidelines/guidelines/surviving-sepsis-campaign-international-guidelines-for-management-of-sepsis-and-septic-shock-2026"
+    },
+    {
+      "claim": "Pneumonia comunitária grave internada sem fator de risco para MRSA ou Pseudomonas: betalactâmico + macrolídeo (ex.: ceftriaxona 1–2 g/dia + azitromicina 500 mg/dia; recomendação forte) ou betalactâmico + quinolona respiratória; hemoculturas antes do tratamento na pneumonia grave.",
+      "title": "Diagnosis and Treatment of Adults with Community-acquired Pneumonia. An Official Clinical Practice Guideline of the ATS and IDSA",
+      "publisher": "American Thoracic Society / Infectious Diseases Society of America",
+      "year": 2019,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6812437/"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2017",
+    "item": "Objetiva questão 38",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf",
+    "originalCaseText": "Um homem com 38 anos de idade, portador de diabetes melito tipo 1 desde os 12 anos, sem tratamento regular de sua doença de base, foi admitido no centro de tratamento intensivo em razão de quadro de sepse grave. Segundo relato de familiar, o paciente iniciou, há cerca de 4 dias, quadro de tosse produtiva e febre alta. Fez uso de sintomáticos (mucolítico e antitérmico) sem obter melhora. Há 24 horas, passou a apresentar diminuição importante do débito urinário e, há 3 horas, prostração e rebaixamento do nível de consciência. O exame físico demonstra temperatura axilar = 38,6 ºC, frequência cardíaca = 112 bpm, frequência respiratória = 33 irpm (com tiragem intercostal) e pressão arterial = 68 x 40 mmHg. Solicitados exames complementares de urgência, o hemograma revela 26.000 leucócitos/mm³ (valor de referência: 4.000 a 10.000/mm³) e 16% bastões (valor de referência: 0 a 5%). Diante desse quadro, a conduta inicial apropriada deve ser (A) colher hemoculturas e iniciar imediatamente ressuscitação volêmica e antibioticoterapia direcionada a germes atípicos com claritromicina. (B) colher hemoculturas e iniciar imediatamente ressuscitação volêmica e antibioticoterapia intravenosa de amplo espectro com ceftriaxona e azitromicina. (C) colher secreção traqueal para bacterioscopia e cultura e solicitar tomografia computadorizada de tórax de alta resolução, para definir esquema antibiótico. (D) colher secreção traqueal para bacterioscopia e cultura e solicitar radiografia de tórax em AP no leito, aguardando resultados para início da antibioticoterapia.",
+    "notes": "Prova cega (11/10/2026): letra B conferida na imagem do gabarito definitivo (versão 1, text/img/2017_obj_gabarito-p01.png) e enunciado relido no texto de duas colunas, sem mistura com as questões vizinhas. Sinalizado como possivelmente desatualizado na triagem, mas o gabarito confere com a SSC 2026 e a ATS/IDSA 2019 (verificadas); o item de antibiótico aceita betalactâmico + macrolídeo ou + quinolona respiratória. 'Sepse grave' (termo pré-Sepsis-3 e conclusão) saiu do caseText. Noradrenalina entrou como importante, por ser a continuação da ressuscitação com PA 68x40. Condicionar o antibiótico a exames (C, D) virou proibida; claritromicina isolada (A) fica para o juiz pelo item crítico."
+  },
+  "probes": {
+    "mustFlag": [
+      "Colher secreção traqueal e aguardar resultados para início da antibioticoterapia",
+      "Solicitar TC de tórax de alta resolução para definir esquema antibiótico",
+      "Iniciar antibiótico de acordo com o resultado da bacterioscopia"
+    ],
+    "mustNotFlag": [
+      "Ceftriaxona 2 g IV + azitromicina 500 mg IV agora, sem aguardar exames",
+      "Colher hemoculturas e iniciar antibiótico imediatamente; não aguardar TC para iniciar antibiótico",
+      "Culturas de escarro para definir esquema definitivo, sem atrasar o antibiótico"
+    ]
+  }
+}
