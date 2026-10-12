@@ -10,6 +10,7 @@ import { syncOfflineQueue } from "@/lib/copilot-queue";
 import { useOnlineStatus } from "@/components/providers/offline-provider";
 import { markFirstAnalysisDone } from "@/components/domain/install-prompt-banner";
 import { useCopilotStream } from "@/hooks/use-copilot-stream";
+import { CopilotStreamError, isRespondStreamEligible } from "@/lib/copilot-stream";
 import { useMessages } from "@/lib/messages/use-messages";
 import {
   COMPLEMENT_QUESTION_ID,
@@ -19,6 +20,7 @@ import {
 } from "@/lib/case-conversation";
 import type {
   CaseConversationResponse,
+  CaseUnderstanding,
   ClarifyingAnswer,
   EncounterContext,
   IntakeAnswerChannel,
@@ -107,6 +109,16 @@ function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback;
 }
 
+/**
+ * A reanálise por streaming só cai no POST quando o servidor não começou
+ * nada: a conexão nunca abriu, ou o EventSource nem chegou a ser criado.
+ * Com a conexão aberta a reanálise já roda no servidor (os ~20 s da Etapa 1
+ * passam sem frame nenhum), e o POST gravaria uma segunda interação.
+ */
+function canRetryWithPost(error: unknown): boolean {
+  return !(error instanceof CopilotStreamError) || error.neverOpened;
+}
+
 export type ConversationPhase =
   | "loading"
   | "compose"
@@ -121,6 +133,9 @@ export function useCaseConversation(encounterId: string) {
   const queryClient = useQueryClient();
   const { isOnline } = useOnlineStatus();
   const stream = useCopilotStream(encounterId);
+  // A reanálise tem o seu próprio stream: o estado (entendimento novo,
+  // status) não se mistura com o do primeiro plano.
+  const respondStream = useCopilotStream(encounterId);
   const queryKey = clinicalQueryKeys.caseConversation(encounterId);
 
   const [planError, setPlanError] = useState<string | null>(null);
@@ -329,6 +344,26 @@ export function useCaseConversation(encounterId: string) {
 
   // ── Depois do plano ─────────────────────────────────────────────────────
 
+  // Na produção, uma reanálise levou 81 s sem nada na tela. Por streaming, o
+  // entendimento refeito aparece em segundos; o `done` traz o mesmo resultado
+  // do POST e a conversa recarrega do servidor como sempre. Sem EventSource,
+  // com respostas longas demais para a URL ou com conexão que nunca abriu, o
+  // POST de sempre — uma vez só (ver canRetryWithPost).
+  const startRespondStream = respondStream.startRespond;
+  const requestReanalysis = useCallback(
+    async (variables: { interactionId: string; answers: ClarifyingAnswer[] }) => {
+      if (typeof EventSource !== "undefined" && isRespondStreamEligible(variables.answers)) {
+        try {
+          return await startRespondStream(variables.interactionId, variables.answers);
+        } catch (error) {
+          if (!canRetryWithPost(error)) throw error;
+        }
+      }
+      return apiClient.post(`/encounters/${encounterId}/copilot/respond`, variables);
+    },
+    [startRespondStream, encounterId],
+  );
+
   const respondMutation = useMutation({
     mutationFn: async (variables: { interactionId: string; answers: ClarifyingAnswer[] }) => {
       if (!isOnline) {
@@ -338,7 +373,7 @@ export function useCaseConversation(encounterId: string) {
       const pending = { parentInteractionId: variables.interactionId, startedAt: Date.now() };
       writeSession(pendingRespondKey(encounterId), pending);
       setPendingRespond(pending);
-      await apiClient.post(`/encounters/${encounterId}/copilot/respond`, variables);
+      await requestReanalysis(variables);
       return { queued: false };
     },
     onSuccess: async ({ queued }) => {
@@ -490,6 +525,11 @@ export function useCaseConversation(encounterId: string) {
               : "compose";
 
   const canRespond = latestTurn !== null && latestTurn.turnIndex < maxTurns - 1;
+  // O entendimento refeito pela reanálise por streaming, assim que chega; a
+  // rodada anterior continua na tela até a nova chegar.
+  const rebuildUnderstanding: CaseUnderstanding | null = respondMutation.isPending
+    ? respondStream.understanding
+    : null;
 
   return {
     phase,
@@ -530,6 +570,7 @@ export function useCaseConversation(encounterId: string) {
     complementCase,
     correctUnderstanding,
     rebuilding: respondMutation.isPending || respondElsewhere,
+    rebuildUnderstanding,
     respondError: respondMutation.error
       ? errorMessage(respondMutation.error, messages.copilot.reanalyze.errorTitle)
       : null,

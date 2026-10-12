@@ -133,6 +133,7 @@ function ConversationThread({
     intake?.pendingQuestionId,
     followUps.pending?.id,
     conversation.rebuilding,
+    conversation.rebuildUnderstanding !== null,
   ].join("|");
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
@@ -257,9 +258,16 @@ function ConversationThread({
           </CopilotMessage>
         )}
 
+        {/* A reanálise por streaming mostra o entendimento refeito assim que
+            chega, como no primeiro plano; a rodada anterior fica acima até a
+            nova chegar. */}
         {conversation.rebuilding && (
           <CopilotMessage author={copy.copilot}>
             <TypingLine label={copy.rebuildingPlan} hint={copy.buildingPlanHint} />
+            <UnderstandingCard
+              understanding={conversation.rebuildUnderstanding}
+              footnote={messages.understanding.streamingHint}
+            />
           </CopilotMessage>
         )}
 
