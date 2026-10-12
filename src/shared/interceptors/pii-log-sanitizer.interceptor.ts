@@ -41,6 +41,17 @@ export function sanitizeForLog(value: unknown, depth = 0): unknown {
 }
 
 /**
+ * Caminho da requisição sem a querystring. Rotas GET de streaming levam texto
+ * do médico na query — as respostas da reanálise em GET
+ * /copilot/respond/stream —, e a linha de acesso não precisa dele: método,
+ * caminho e tempo bastam para depurar.
+ */
+export function pathForLog(url: string): string {
+  const queryStart = url.indexOf('?');
+  return queryStart === -1 ? url : url.slice(0, queryStart);
+}
+
+/**
  * Interceptor que loga requests/responses HTTP com campos sensíveis redactados.
  *
  * Garante que credenciais, tokens e dados pessoais nunca apareçam nos logs
@@ -62,14 +73,15 @@ export class PiiLogSanitizerInterceptor implements NestInterceptor {
       ip: string;
     }>();
 
-    const { method, url, ip } = req;
+    const { method, ip } = req;
+    const path = pathForLog(req.url);
     const start = Date.now();
 
     return next.handle().pipe(
       tap({
         next: () => {
           const ms = Date.now() - start;
-          this.logger.debug(`${method} ${url} — ${ms}ms [${ip ?? 'unknown'}]`);
+          this.logger.debug(`${method} ${path} — ${ms}ms [${ip ?? 'unknown'}]`);
         },
         error: (err: unknown) => {
           const ms = Date.now() - start;
@@ -77,7 +89,7 @@ export class PiiLogSanitizerInterceptor implements NestInterceptor {
           // Sanitiza o body antes de logar erros — pode conter campos sensíveis
           const safeBody = sanitizeForLog(req.body);
           this.logger.warn(
-            `${method} ${url} — ERROR ${ms}ms [${ip ?? 'unknown'}]: ${message} ` +
+            `${method} ${path} — ERROR ${ms}ms [${ip ?? 'unknown'}]: ${message} ` +
               `body=${JSON.stringify(safeBody)}`,
           );
         },

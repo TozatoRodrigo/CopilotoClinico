@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sanitizeForLog } from './pii-log-sanitizer.interceptor';
+import { pathForLog, sanitizeForLog } from './pii-log-sanitizer.interceptor';
 
 describe('sanitizeForLog', () => {
   it('redacts password field', () => {
@@ -74,5 +74,21 @@ describe('sanitizeForLog', () => {
     expect(sanitizeForLog('string')).toBe('string');
     expect(sanitizeForLog(42)).toBe(42);
     expect(sanitizeForLog(true)).toBe(true);
+  });
+});
+
+// OPS-003 — a reanálise por streaming leva as respostas do médico na
+// querystring (EventSource só faz GET): a linha de acesso nunca as grava.
+describe('pathForLog', () => {
+  it('drops the query string, where streaming routes carry the physician text', () => {
+    expect(
+      pathForLog('/v1/encounters/enc-1/copilot/respond/stream?interactionId=i-1&answers=%5B%7B%5D'),
+    ).toBe('/v1/encounters/enc-1/copilot/respond/stream');
+  });
+
+  it('keeps a path without query string unchanged', () => {
+    expect(pathForLog('/v1/encounters/enc-1/copilot/respond')).toBe(
+      '/v1/encounters/enc-1/copilot/respond',
+    );
   });
 });
