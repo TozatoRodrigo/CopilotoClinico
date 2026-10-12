@@ -98,15 +98,13 @@ export class DeterministicProvider implements AIProvider {
       structuredData: {
         age: 34,
         sex: 'F',
-        vitals: {
-          systolicBp: unstable ? 70 : null,
-          diastolicBp: unstable ? 40 : null,
-          heartRate: null,
-          respiratoryRate: null,
-          spo2: null,
-          temperature: null,
-          glucose: null,
-        },
+        // A leitura traz os sinais vitais em lista (ver ReadingVitalsSchema).
+        vitals: unstable
+          ? [
+              { sign: 'systolicBp', value: 70 },
+              { sign: 'diastolicBp', value: 40 },
+            ]
+          : [],
         onset: 'há 12 horas',
         keyFindings: ['cefaleia intensa (determinístico)'],
         relevantContext: [],

@@ -7,7 +7,7 @@ import { understandingFixture } from '../../../../tests/fixtures/case-understand
 import { CASE_UNDERSTANDING_JSON_SCHEMA } from './case-understanding.json-schema';
 import { UNDERSTANDING_SYSTEM_PROMPT } from './understanding-prompt';
 import { UnderstandingService } from './understanding.service';
-import { intakeReadingFixture } from '../../../../tests/fixtures/intake-reading';
+import { intakeReadingFixture, intakeReadingWire } from '../../../../tests/fixtures/intake-reading';
 import { INTAKE_READING_JSON_SCHEMA } from '../intake/intake-reading.json-schema';
 import { INTAKE_READING_SYSTEM_PROMPT } from '../intake/intake-reading-prompt';
 
@@ -201,7 +201,7 @@ describe('UnderstandingService', () => {
   describe('readForIntake (ADR-014)', () => {
     it('returns the validated reading with the intake prompt and schema', async () => {
       const reading = intakeReadingFixture();
-      complete.mockResolvedValue(completion(JSON.stringify(reading)));
+      complete.mockResolvedValue(completion(JSON.stringify(intakeReadingWire(reading))));
 
       const outcome = await service.readForIntake({ caseText, logLabel: ' (conversa)' });
 
@@ -217,7 +217,7 @@ describe('UnderstandingService', () => {
     });
 
     it('uses AI_INTAKE_MODEL, then the understanding model', async () => {
-      complete.mockResolvedValue(completion(JSON.stringify(intakeReadingFixture())));
+      complete.mockResolvedValue(completion(JSON.stringify(intakeReadingWire())));
       env = { AI_UNDERSTANDING_MODEL: 'claude-opus-5-5' };
       await service.readForIntake({ caseText, logLabel: '' });
       env = { AI_UNDERSTANDING_MODEL: 'claude-opus-5-5', AI_INTAKE_MODEL: 'claude-sonnet-5-5' };

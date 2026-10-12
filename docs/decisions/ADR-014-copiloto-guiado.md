@@ -119,6 +119,15 @@ mesma conversa, mas sem leitura: o caso vai direto ao plano, como antes.
 `AI_INTAKE_MODEL` troca o modelo da leitura (vazio = o da Etapa 1) se a
 primeira pergunta passar de 8 s.
 
+**Emenda (12/10/2026), depois do deploy:**
+- A leitura falhava sempre em produção, com o erro 400 "compiled grammar is too large": o entendimento da Etapa 1 com sete sinais vitais anuláveis, somado às perguntas, passava do limite do structured output da Anthropic. Toda leitura caía em `reading_failed`, e o caso ia ao plano sem perguntas.
+- Correção: só na leitura, os sinais vitais vêm em lista (`sign`, `value`), apenas os informados, e o código os converte no objeto do entendimento.
+- Latência medida na API real, com 2 casos e esforço baixo:
+  - Opus 5.5: 18–20 s, no limite do teto;
+  - Sonnet 5.5: 13–15 s, com perguntas do mesmo nível;
+  - Haiku 5.5: 9–10 s, mas errou o sexo do paciente.
+- Produção passa a usar `AI_INTAKE_MODEL=claude-sonnet-5-5`. A meta de 8 s continua não atingida.
+
 ## Consequências
 
 ### Positivas

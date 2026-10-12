@@ -7,6 +7,7 @@ import {
 import {
   CaseUnderstandingFields,
   validateStructured,
+  VitalsSchema,
   withUnderstandingRules,
   type StructuredValidation,
 } from '../understanding/case-understanding.schema';
@@ -32,19 +33,55 @@ const IntakeQuestionCandidateSchema = z.object({
 
 export type IntakeQuestionCandidate = z.infer<typeof IntakeQuestionCandidateSchema>;
 
+type Vitals = z.infer<typeof VitalsSchema>;
+
+/** Os sinais vitais do entendimento, na ordem do `VitalsSchema`. */
+export const READING_VITAL_SIGNS = VitalsSchema.keyof().options;
+
+/**
+ * Na leitura, os sinais vitais chegam como lista — só os que o caso informa —
+ * e viram o objeto do entendimento (o que falta, `null`). O objeto com sete
+ * campos anuláveis, somado às perguntas, estoura a gramática do structured
+ * output da Anthropic (400 "compiled grammar is too large", medido em
+ * 12/10/2026): toda leitura falhava, e o caso ia ao plano sem perguntas.
+ */
+const ReadingVitalsSchema = z
+  .array(z.object({ sign: z.enum(READING_VITAL_SIGNS), value: z.number() }))
+  .refine((vitals) => new Set(vitals.map(({ sign }) => sign)).size === vitals.length, {
+    message: 'list each vital sign at most once',
+  })
+  .transform(
+    (vitals): Vitals => ({
+      ...(Object.fromEntries(READING_VITAL_SIGNS.map((sign) => [sign, null])) as Vitals),
+      ...Object.fromEntries(vitals.map(({ sign, value }) => [sign, value])),
+    }),
+  );
+
+const IntakeReadingFields = CaseUnderstandingFields.extend({
+  timeCritical: z.boolean(),
+  intakeQuestions: z
+    .array(IntakeQuestionCandidateSchema)
+    .max(
+      MAX_INTAKE_QUESTIONS,
+      `intakeQuestions must contain at most ${MAX_INTAKE_QUESTIONS} questions`,
+    ),
+});
+
+/** A leitura que o modelo escreve, com os sinais vitais em lista. */
 export const IntakeReadingSchema = withUnderstandingRules(
-  CaseUnderstandingFields.extend({
-    timeCritical: z.boolean(),
-    intakeQuestions: z
-      .array(IntakeQuestionCandidateSchema)
-      .max(
-        MAX_INTAKE_QUESTIONS,
-        `intakeQuestions must contain at most ${MAX_INTAKE_QUESTIONS} questions`,
-      ),
+  IntakeReadingFields.extend({
+    structuredData: CaseUnderstandingFields.shape.structuredData.extend({
+      vitals: ReadingVitalsSchema,
+    }),
   }),
 );
 
-export type IntakeReading = z.infer<typeof IntakeReadingSchema>;
+/** A leitura gravada em case_intakes.reading: já no formato do entendimento. */
+export const StoredIntakeReadingSchema = withUnderstandingRules(IntakeReadingFields);
+
+export type IntakeReading = z.output<typeof IntakeReadingSchema>;
+/** A leitura como o modelo a escreve: sinais vitais em lista. */
+export type IntakeReadingWire = z.input<typeof IntakeReadingSchema>;
 
 export function validateIntakeReading(rawOutput: string): StructuredValidation<IntakeReading> {
   return validateStructured(IntakeReadingSchema, rawOutput);
