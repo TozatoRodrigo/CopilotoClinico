@@ -63,52 +63,70 @@ const MissingDiscriminatorSchema = z.object({
   whyItChangesConduct: text,
 });
 
-export const CaseUnderstandingSchema = z
-  .object({
-    problemRepresentation: text.max(400, 'problemRepresentation must be a single line'),
-    structuredData: StructuredDataSchema,
-    instability: z.object({ present: z.boolean(), findings: z.array(text).max(8) }),
-    syndrome: z.enum(PS_SYNDROMES),
-    syndromeNote: z.string().trim().nullable(),
-    cannotMiss: z
-      .array(CannotMissSchema)
-      .max(MAX_CANNOT_MISS, `cannotMiss must contain at most ${MAX_CANNOT_MISS} items`),
-    likely: z
-      .array(LikelySchema)
-      .max(MAX_LIKELY, `likely must contain at most ${MAX_LIKELY} items`),
-    missingDiscriminators: z
-      .array(MissingDiscriminatorSchema)
-      .max(
-        MAX_MISSING_DISCRIMINATORS,
-        `missingDiscriminators must contain at most ${MAX_MISSING_DISCRIMINATORS} items`,
-      ),
-    searchQueries: z
-      .array(text.max(200))
-      .min(1, 'searchQueries must contain at least 1 query')
-      .max(MAX_SEARCH_QUERIES, `searchQueries must contain at most ${MAX_SEARCH_QUERIES} items`),
-  })
-  .refine((understanding) => understanding.syndrome !== 'outro' || !!understanding.syndromeNote, {
-    message: 'syndromeNote is required when syndrome is "outro": describe the syndrome',
-    path: ['syndromeNote'],
-  })
-  .refine(
-    (understanding) =>
-      !understanding.instability.present || understanding.instability.findings.length > 0,
-    {
-      message: 'instability.findings must list the findings when instability.present is true',
-      path: ['instability', 'findings'],
-    },
-  );
+/**
+ * Campos do entendimento, sem as regras entre campos. A leitura do caso do
+ * Copiloto guiado (ADR-014) estende estes campos e aplica as mesmas regras.
+ */
+export const CaseUnderstandingFields = z.object({
+  problemRepresentation: text.max(400, 'problemRepresentation must be a single line'),
+  structuredData: StructuredDataSchema,
+  instability: z.object({ present: z.boolean(), findings: z.array(text).max(8) }),
+  syndrome: z.enum(PS_SYNDROMES),
+  syndromeNote: z.string().trim().nullable(),
+  cannotMiss: z
+    .array(CannotMissSchema)
+    .max(MAX_CANNOT_MISS, `cannotMiss must contain at most ${MAX_CANNOT_MISS} items`),
+  likely: z.array(LikelySchema).max(MAX_LIKELY, `likely must contain at most ${MAX_LIKELY} items`),
+  missingDiscriminators: z
+    .array(MissingDiscriminatorSchema)
+    .max(
+      MAX_MISSING_DISCRIMINATORS,
+      `missingDiscriminators must contain at most ${MAX_MISSING_DISCRIMINATORS} items`,
+    ),
+  searchQueries: z
+    .array(text.max(200))
+    .min(1, 'searchQueries must contain at least 1 query')
+    .max(MAX_SEARCH_QUERIES, `searchQueries must contain at most ${MAX_SEARCH_QUERIES} items`),
+});
 
-export type UnderstandingValidation =
-  | { valid: true; understanding: CaseUnderstanding }
+type UnderstandingFieldsOutput = z.output<typeof CaseUnderstandingFields>;
+
+/** Regras entre campos do entendimento: síndrome "outro" descrita e instabilidade com achados. */
+export function withUnderstandingRules<Output extends UnderstandingFieldsOutput, Input>(
+  schema: z.ZodType<Output, z.ZodTypeDef, Input>,
+) {
+  return schema
+    .refine((understanding) => understanding.syndrome !== 'outro' || !!understanding.syndromeNote, {
+      message: 'syndromeNote is required when syndrome is "outro": describe the syndrome',
+      path: ['syndromeNote'],
+    })
+    .refine(
+      (understanding) =>
+        !understanding.instability.present || understanding.instability.findings.length > 0,
+      {
+        message: 'instability.findings must list the findings when instability.present is true',
+        path: ['instability', 'findings'],
+      },
+    );
+}
+
+export const CaseUnderstandingSchema = withUnderstandingRules(CaseUnderstandingFields);
+
+export type StructuredValidation<Value> =
+  | { valid: true; value: Value }
   | { valid: false; errors: string[] };
 
-export function validateUnderstanding(rawOutput: string): UnderstandingValidation {
+/**
+ * Valida a saída estruturada de uma etapa. Mesmo tratamento do validador de
+ * saída: modelo sem structured output às vezes embrulha o JSON em bloco de
+ * código. As mensagens de erro viram o feedback do único retry.
+ */
+export function validateStructured<Value>(
+  schema: z.ZodType<Value, z.ZodTypeDef, unknown>,
+  rawOutput: string,
+): StructuredValidation<Value> {
   let parsed: unknown;
   try {
-    // Mesmo tratamento do validador de saída: modelo sem structured output às
-    // vezes embrulha o JSON em bloco de código.
     parsed = JSON.parse(
       rawOutput
         .replace(/```json\n?/g, '')
@@ -119,7 +137,7 @@ export function validateUnderstanding(rawOutput: string): UnderstandingValidatio
     return { valid: false, errors: ['Output is not valid JSON'] };
   }
 
-  const result = CaseUnderstandingSchema.safeParse(parsed);
+  const result = schema.safeParse(parsed);
   if (!result.success) {
     return {
       valid: false,
@@ -128,5 +146,16 @@ export function validateUnderstanding(rawOutput: string): UnderstandingValidatio
       ),
     };
   }
-  return { valid: true, understanding: result.data };
+  return { valid: true, value: result.data };
+}
+
+export type UnderstandingValidation =
+  | { valid: true; understanding: CaseUnderstanding }
+  | { valid: false; errors: string[] };
+
+export function validateUnderstanding(rawOutput: string): UnderstandingValidation {
+  const validation = validateStructured(CaseUnderstandingSchema, rawOutput);
+  return validation.valid
+    ? { valid: true, understanding: validation.value }
+    : { valid: false, errors: validation.errors };
 }

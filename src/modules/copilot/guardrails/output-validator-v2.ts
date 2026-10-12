@@ -262,15 +262,20 @@ export interface KnownDataQuestion {
   labels: string[];
 }
 
+/** Dados do `structuredData` que o texto de uma pergunta pede e o caso já informou. */
+export function knownDataAskedBy(question: string, structuredData: StructuredData): string[] {
+  const text = normalize(question);
+  return STRUCTURED_FIELD_QUESTIONS.filter(
+    (field) => field.isKnown(structuredData) && field.asks.test(text),
+  ).map((field) => field.label);
+}
+
 export function findQuestionsForKnownData(
   output: Pick<CopilotOutputV2, 'clarifyingQuestions'>,
   understanding: CaseUnderstanding,
 ): KnownDataQuestion[] {
   return output.clarifyingQuestions.flatMap((question, index) => {
-    const text = normalize(question.question);
-    const labels = STRUCTURED_FIELD_QUESTIONS.filter(
-      (field) => field.isKnown(understanding.structuredData) && field.asks.test(text),
-    ).map((field) => field.label);
+    const labels = knownDataAskedBy(question.question, understanding.structuredData);
     return labels.length > 0 ? [{ index, labels }] : [];
   });
 }

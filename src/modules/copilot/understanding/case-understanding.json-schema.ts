@@ -39,7 +39,7 @@ const STRUCTURED_DATA = strictObject({
 // emergencista do system prompt: os dados que o caso dá, a estabilidade, a
 // representação do problema, a síndrome e só então as hipóteses, o que falta
 // saber e as consultas da busca.
-const CASE_UNDERSTANDING = strictObject({
+export const CASE_UNDERSTANDING_PROPERTIES = {
   structuredData: STRUCTURED_DATA,
   instability: strictObject({ present: BOOLEAN, findings: arrayOf(STRING) }),
   problemRepresentation: STRING,
@@ -53,9 +53,9 @@ const CASE_UNDERSTANDING = strictObject({
     strictObject({ data: STRING, separates: arrayOf(STRING), whyItChangesConduct: STRING }),
   ),
   searchQueries: arrayOf(STRING),
-});
+};
 
 export const CASE_UNDERSTANDING_JSON_SCHEMA = {
   name: 'case_understanding',
-  schema: CASE_UNDERSTANDING,
+  schema: strictObject(CASE_UNDERSTANDING_PROPERTIES),
 } satisfies JsonResponseSchema;

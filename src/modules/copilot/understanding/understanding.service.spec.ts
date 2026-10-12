@@ -7,6 +7,9 @@ import { understandingFixture } from '../../../../tests/fixtures/case-understand
 import { CASE_UNDERSTANDING_JSON_SCHEMA } from './case-understanding.json-schema';
 import { UNDERSTANDING_SYSTEM_PROMPT } from './understanding-prompt';
 import { UnderstandingService } from './understanding.service';
+import { intakeReadingFixture } from '../../../../tests/fixtures/intake-reading';
+import { INTAKE_READING_JSON_SCHEMA } from '../intake/intake-reading.json-schema';
+import { INTAKE_READING_SYSTEM_PROMPT } from '../intake/intake-reading-prompt';
 
 const usage = { promptTokens: 1000, completionTokens: 500, totalTokens: 1500 };
 const caseText = 'Homem, 68 anos, hemiparesia direita e afasia há 1h30. PA 182x104.';
@@ -192,6 +195,48 @@ describe('UnderstandingService', () => {
       const outcome = await service.understand({ caseText, logLabel: '' });
 
       expect(outcome).toMatchObject({ understanding: null, model: null, usage: null, cost: 0 });
+    });
+  });
+
+  describe('readForIntake (ADR-014)', () => {
+    it('returns the validated reading with the intake prompt and schema', async () => {
+      const reading = intakeReadingFixture();
+      complete.mockResolvedValue(completion(JSON.stringify(reading)));
+
+      const outcome = await service.readForIntake({ caseText, logLabel: ' (conversa)' });
+
+      expect(outcome.reading).toEqual(reading);
+      expect(outcome.cost).toBe(0.007);
+      expect(complete).toHaveBeenCalledWith(
+        expect.objectContaining({ responseSchema: INTAKE_READING_JSON_SCHEMA, effort: 'low' }),
+      );
+      expect(sentMessages()[0]).toEqual({ role: 'system', content: INTAKE_READING_SYSTEM_PROMPT });
+      expect(sentMessages()[1]?.content).toContain(
+        'Produce the case understanding and the intake questions now.',
+      );
+    });
+
+    it('uses AI_INTAKE_MODEL, then the understanding model', async () => {
+      complete.mockResolvedValue(completion(JSON.stringify(intakeReadingFixture())));
+      env = { AI_UNDERSTANDING_MODEL: 'claude-opus-5-5' };
+      await service.readForIntake({ caseText, logLabel: '' });
+      env = { AI_UNDERSTANDING_MODEL: 'claude-opus-5-5', AI_INTAKE_MODEL: 'claude-sonnet-5-5' };
+      await service.readForIntake({ caseText, logLabel: '' });
+
+      expect(complete.mock.calls.map(([params]) => (params as { model?: string }).model)).toEqual([
+        'claude-opus-5-5',
+        'claude-sonnet-5-5',
+      ]);
+    });
+
+    it('returns no reading after a second invalid answer, with the cost of both calls', async () => {
+      complete.mockResolvedValue(completion('{"not": "a reading"}'));
+
+      const outcome = await service.readForIntake({ caseText, logLabel: '' });
+
+      expect(outcome.reading).toBeNull();
+      expect(complete).toHaveBeenCalledTimes(2);
+      expect(outcome.cost).toBe(0.014);
     });
   });
 });

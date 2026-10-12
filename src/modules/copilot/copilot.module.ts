@@ -14,6 +14,9 @@ import { RecommendationDecisionsController } from './decisions/recommendation-de
 import { RecommendationDecisionsService } from './decisions/recommendation-decisions.service';
 import { CopilotFeedbackService } from './feedback/copilot-feedback.service';
 import { CopilotFeedbackTriageController } from './feedback/copilot-feedback-triage.controller';
+import { IntakeController } from './intake/intake.controller';
+import { IntakeService } from './intake/intake.service';
+import { ConversationService } from './intake/conversation.service';
 
 @Module({
   imports: [
@@ -27,6 +30,7 @@ import { CopilotFeedbackTriageController } from './feedback/copilot-feedback-tri
     CopilotController,
     RecommendationDecisionsController,
     CopilotFeedbackTriageController,
+    IntakeController,
   ],
   providers: [
     CopilotService,
@@ -36,6 +40,8 @@ import { CopilotFeedbackTriageController } from './feedback/copilot-feedback-tri
     WebResearchService,
     RecommendationDecisionsService,
     CopilotFeedbackService,
+    IntakeService,
+    ConversationService,
   ],
   exports: [CopilotService, OrchestratorService],
 })

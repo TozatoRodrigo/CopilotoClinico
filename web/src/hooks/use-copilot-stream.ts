@@ -1,8 +1,9 @@
 "use client";
 
 /**
- * UX-06 — consome o endpoint SSE já existente no backend
- * (GET /encounters/:id/copilot/stream) para a análise inicial começar a
+ * UX-06 — consome o SSE do plano (ADR-014: GET
+ * /encounters/:id/copilot/intake/:intakeId/stream, só com o id da conversa
+ * na URL — o caso nunca vai na querystring) para a análise começar a
  * dar sinal de vida em segundos, em vez do médico encarar um spinner pelo
  * tempo inteiro da inferência (reclamação direta do Dr. Gustavo comparando
  * com o concorrente: "achei que é lento... enquanto aqui, se eu responder
@@ -27,38 +28,9 @@ import type {
   CaseUnderstanding,
   CopilotAnalyzeResponse,
   CopilotStreamEvent,
-  EncounterContext,
 } from "@/lib/types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/v1";
-
-/**
- * EventSource é GET puro — o texto do caso vai na querystring. URLs muito
- * longas estouram limites práticos de navegador/proxy bem antes do limite
- * teórico (proxies intermediários de hospital são um risco real aqui).
- * Acima deste limite, usar o caminho POST não-streaming diretamente é mais
- * seguro que arriscar truncar o relato clínico do médico no meio.
- */
-const MAX_STREAM_CASE_TEXT_LENGTH = 3000;
-
-export function isStreamEligible(caseText: string): boolean {
-  return caseText.length <= MAX_STREAM_CASE_TEXT_LENGTH;
-}
-
-const RED_FLAG_KEYS = [
-  "immunosuppressed",
-  "pregnant",
-  "anticoagulant",
-  "pediatric",
-  "elderly65",
-  "allergy",
-] as const;
-
-export interface StartStreamInput {
-  caseText: string;
-  context: EncounterContext;
-  redFlags?: Partial<Record<(typeof RED_FLAG_KEYS)[number], boolean>>;
-}
 
 export type CopilotStreamStatus = "idle" | "streaming" | "done" | "error";
 
@@ -80,21 +52,9 @@ export function useCopilotStream(encounterId: string) {
     eventSourceRef.current = null;
   }, []);
 
-  const start = useCallback(
-    (input: StartStreamInput): Promise<CopilotAnalyzeResponse> => {
+  const open = useCallback(
+    (url: string): Promise<CopilotAnalyzeResponse> => {
       return new Promise((resolve, reject) => {
-        const params = new URLSearchParams();
-        params.set("caseText", input.caseText);
-        params.set("hasCT", String(input.context.hasCT));
-        params.set("isSus", String(input.context.isSus));
-        params.set("hasLab", String(input.context.hasLab));
-        params.set("hasICU", String(input.context.hasICU));
-        for (const key of RED_FLAG_KEYS) {
-          params.set(key, String(input.redFlags?.[key] ?? false));
-        }
-
-        const url = `${BASE_URL}/encounters/${encounterId}/copilot/stream?${params.toString()}`;
-
         gotTerminalEventRef.current = false;
         setPartialText("");
         setUnderstanding(null);
@@ -155,8 +115,18 @@ export function useCopilotStream(encounterId: string) {
         };
       });
     },
-    [encounterId, stop],
+    [stop],
   );
 
-  return { start, stop, status, partialText, understanding };
+  /**
+   * ADR-014 — plano a partir da conversa do Copiloto guiado. Só o id da
+   * conversa vai na URL: o caso e as respostas já estão no servidor.
+   */
+  const startFromIntake = useCallback(
+    (intakeId: string): Promise<CopilotAnalyzeResponse> =>
+      open(`${BASE_URL}/encounters/${encounterId}/copilot/intake/${intakeId}/stream`),
+    [encounterId, open],
+  );
+
+  return { startFromIntake, stop, status, partialText, understanding };
 }

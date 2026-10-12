@@ -30,3 +30,13 @@ export function readUnderstandingModel(config: ConfigService): string | undefine
 export function readUnderstandingEffort(config: ConfigService): AiEffort {
   return readChoiceFlag(config, 'AI_UNDERSTANDING_EFFORT', AI_EFFORTS, 'low');
 }
+
+/**
+ * ADR-014 — `AI_INTAKE_MODEL`, o modelo da leitura do caso do Copiloto guiado.
+ * Vazio = o mesmo da Etapa 1. Existe para trocar por um modelo mais rápido se
+ * a primeira pergunta passar da meta de 8 s, sem mexer no entendimento da análise.
+ */
+export function readIntakeReadingModel(config: ConfigService): string | undefined {
+  const configured = config.get<string | undefined>('AI_INTAKE_MODEL')?.trim();
+  return configured ? configured : readUnderstandingModel(config);
+}

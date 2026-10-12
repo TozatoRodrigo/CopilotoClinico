@@ -12,7 +12,7 @@ import { AuditHash } from '@/components/domain/audit-hash';
 import { ConnectionStatus } from '@/components/domain/connection-status';
 import { UnderstandingCard } from '@/components/domain/understanding-card';
 import type { CaseUnderstanding, CopilotRecommendation } from '@/lib/types';
-import { RecommendationItem } from '@/app/(app)/encounters/[id]/result/page';
+import { RecommendationItem } from '@/components/domain/case-conversation/analysis-view';
 import { DEMO_CASE_PRESETS } from '@/lib/demo-case-presets';
 import { ShowcaseSection, Specimen } from './showcase';
 

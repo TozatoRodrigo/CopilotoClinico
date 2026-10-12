@@ -227,6 +227,7 @@ model Encounter {
 
   recommendationDecisions RecommendationDecision[]
   copilotFeedback         CopilotFeedback[]
+  caseIntakes             CaseIntake[]
 
   @@index([physicianId])
   @@index([institutionId])
@@ -285,10 +286,75 @@ model AiInteraction {
 
   recommendationDecisions RecommendationDecision[]
   copilotFeedback         CopilotFeedback[]
+  caseIntake              CaseIntake?
 
   @@index([encounterId])
   @@index([parentInteractionId])
   @@map("ai_interactions")
+}
+
+/// ADR-014 — Copiloto guiado: para onde a leitura do caso mandou a conversa.
+enum CaseIntakePath {
+  ask
+  unstable
+  complete
+  reading_failed
+  disabled
+}
+
+enum CaseIntakeStatus {
+  asking
+  closed
+}
+
+enum CaseIntakeCloseReason {
+  all_answered
+  skipped
+  urgent_answer
+  not_needed
+}
+
+/// ADR-014 — a conversa antes do primeiro plano: o caso como o médico mandou,
+/// a leitura do caso, as perguntas (no máximo 3) e as respostas.
+///
+/// Fica no servidor para o médico interrompido voltar de qualquer aparelho e
+/// continuar na pergunta da vez. Texto do caso e respostas são gravados JÁ
+/// REDIGIDOS (PII + patientRef), como em `ai_interactions.input_redacted`.
+/// A análise que nasce da conversa continua sendo uma `AiInteraction`, ligada
+/// aqui por `analysis_interaction_id`: o funil de produto segue contando planos.
+model CaseIntake {
+  id                    String                 @id @default(uuid()) @db.Uuid
+  encounterId           String                 @map("encounter_id") @db.Uuid
+  physicianId           String                 @map("physician_id") @db.Uuid
+  caseTextRedacted      String                 @map("case_text_redacted") @db.Text
+  context               Json
+  redFlags              Json                   @map("red_flags")
+  demoCase              String?                @map("demo_case") @db.VarChar(64)
+  piiDetected           Boolean                @default(false) @map("pii_detected")
+  path                  CaseIntakePath
+  status                CaseIntakeStatus
+  closeReason           CaseIntakeCloseReason? @map("close_reason")
+  /// Leitura do caso (entendimento + perguntas candidatas); null sem leitura.
+  reading               Json?
+  readingModel          String?                @map("reading_model")
+  /// IntakeQuestionRecord[] — as perguntas que o portão deixou passar.
+  questions             Json
+  /// IntakeAnswer[] — respostas já redigidas, na ordem em que vieram.
+  answers               Json
+  /// Custo e tempo da leitura do caso; os da análise ficam na AiInteraction.
+  cost                  Float                  @default(0)
+  latencyMs             Int                    @default(0) @map("latency_ms")
+  analysisStartedAt     DateTime?              @map("analysis_started_at")
+  analysisInteractionId String?                @unique @map("analysis_interaction_id") @db.Uuid
+  closedAt              DateTime?              @map("closed_at")
+  createdAt             DateTime               @default(now()) @map("created_at")
+  updatedAt             DateTime               @updatedAt @map("updated_at")
+
+  encounter           Encounter      @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  analysisInteraction AiInteraction? @relation(fields: [analysisInteractionId], references: [id], onDelete: SetNull)
+
+  @@index([encounterId, createdAt])
+  @@map("case_intakes")
 }
 
 /// F0-D — decisão do médico sobre UMA recomendação de UMA análise.

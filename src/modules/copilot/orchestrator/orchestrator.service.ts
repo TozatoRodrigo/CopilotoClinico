@@ -18,6 +18,10 @@ import { AuditService } from '../../audit/audit.service';
 import { maskPII } from '../guardrails/pii-filter';
 import { scanForInjection, type InjectionScanResult } from '../guardrails/injection-defense';
 import {
+  redactPatientRef,
+  rejectInjection as rejectInjectionAndAudit,
+} from '../guardrails/clinical-text-screening';
+import {
   buildPrompt,
   attachmentCitationId,
   isAttachmentCitation,
@@ -448,25 +452,6 @@ function sortRecommendations<T extends DecidedRecommendation>(recommendations: T
   return [...recommendations].sort(compareRecommendations);
 }
 
-/**
- * LGPD-005: Redação explícita do patientRef no texto clínico.
- *
- * Mesmo após LGPD-001 (patientRef como identificador opaco), o médico pode
- * digitar o valor do patientRef no texto livre do caso clínico. Esta função
- * garante que o valor nunca chegue ao provider de IA, independente da camada
- * de pseudonimização da integração hospitalar.
- *
- * Defense-in-depth: opera APÓS maskPII() para cobrir casos que o filtro
- * geral de PII não captura (ex: identificadores de prontuário específicos).
- */
-// S25-QC-01 — patientRef agora é opcional (consulta rápida); o `!patientRef`
-// já cobria string vazia e continua cobrindo `null`/`undefined` sem mudança
-// de comportamento.
-function redactPatientRef(text: string, patientRef: string | null): string {
-  if (!patientRef) return text;
-  return text.split(patientRef).join('[PATIENT_REF_REDACTED]');
-}
-
 interface ChunkMetadata {
   metadata: Record<string, unknown>;
 }
@@ -715,9 +700,12 @@ function providerFailureAttempt(error: unknown, previousCost: number): Completio
   return null;
 }
 
-/** Turno 0 (analyze/analyzeStream) ou reanálise com respostas (continueAnalysis). */
+/**
+ * Turno 0 (analyze/analyzeStream, ou a conversa do Copiloto guiado com as
+ * respostas dadas antes do plano) ou reanálise com respostas (continueAnalysis).
+ */
 type AnalysisTurn =
-  | { kind: 'initial' }
+  | { kind: 'initial'; answeredQuestions: AnsweredQuestion[] }
   | {
       kind: 'follow_up';
       index: number;
@@ -775,9 +763,39 @@ interface ScreenedCase {
   startedAt: number;
   maxTurns: number;
   institutionId: string | null;
-  /** Texto do caso já redigido (PII + patientRef). */
+  /** Texto do caso já redigido (PII + patientRef), gravado em `inputRedacted`. */
   caseText: string;
+  /** ADR-014 — perguntas e respostas da conversa antes do plano; vazio sem ela. */
+  answeredQuestions: AnsweredQuestion[];
   piiDetected: boolean;
+}
+
+/** O que o turno 0 lê do pedido, venha ele da captura ou da conversa do Copiloto guiado. */
+type InitialRequest = Pick<AnalyzeInput, 'context' | 'redFlags' | 'demoCase'>;
+
+/**
+ * ADR-014 — turno 0 vindo da conversa do Copiloto guiado: o caso e as
+ * respostas já passaram pela redação de PII e pela barreira de injeção quando
+ * o médico os mandou (intake.service.ts).
+ */
+export interface ScreenedAnalysisInput extends InitialRequest {
+  caseText: string;
+  answeredQuestions: AnsweredQuestion[];
+  piiDetected: boolean;
+  /**
+   * Entendimento que a leitura do caso já fez, quando o médico não respondeu
+   * nada: a Etapa 1 não roda de novo. Com respostas, ela refaz o entendimento.
+   */
+  understanding: { value: CaseUnderstanding; model: string | null } | null;
+}
+
+const ANSWERED_QUESTIONS_HEADER = '--- Informações adicionais fornecidas pelo médico ---';
+
+/** O caso com o bloco "P: … R: …" das respostas do médico, como a análise o lê. */
+function withAnsweredQuestions(caseText: string, answers: readonly AnsweredQuestion[]): string {
+  if (answers.length === 0) return caseText;
+  const qaBlock = answers.map((qa) => `P: ${qa.question}\nR: ${qa.answer}`).join('\n\n');
+  return `${caseText}\n\n${ANSWERED_QUESTIONS_HEADER}\n${qaBlock}`;
 }
 
 type AnalysisOutcome =
@@ -1000,15 +1018,72 @@ export class OrchestratorService {
     input: AnalyzeInput,
   ): Promise<OrchestratorResult> {
     const screened = await this.screenInitialCase(physicianId, encounterId, input, '');
-    const pipeline = this.decisionPipeline('');
-    const stage = await this.understandingStage(screened.caseText, input.redFlags, pipeline, '');
-    const prepared = await this.prepareInitialAnalysis(
+    return this.analyzeInitial(physicianId, encounterId, input, screened, null, '');
+  }
+
+  /** ADR-014 — turno 0 a partir da conversa do Copiloto guiado. */
+  async analyzeScreened(
+    physicianId: string,
+    encounterId: string,
+    input: ScreenedAnalysisInput,
+  ): Promise<OrchestratorResult> {
+    const logLabel = ' (conversa)';
+    const screened = await this.screenedFromConversation(physicianId, encounterId, input);
+    return this.analyzeInitial(
       physicianId,
       encounterId,
       input,
       screened,
+      input.understanding,
+      logLabel,
+    );
+  }
+
+  async *analyzeStream(
+    physicianId: string,
+    encounterId: string,
+    input: AnalyzeInput,
+  ): AsyncGenerator<StreamEvent> {
+    const logLabel = ' (stream)';
+    const screened = await this.screenInitialCase(physicianId, encounterId, input, logLabel);
+    yield* this.streamInitial(physicianId, encounterId, input, screened, null, logLabel);
+  }
+
+  /** ADR-014 — turno 0 a partir da conversa do Copiloto guiado, por streaming. */
+  async *analyzeScreenedStream(
+    physicianId: string,
+    encounterId: string,
+    input: ScreenedAnalysisInput,
+  ): AsyncGenerator<StreamEvent> {
+    const logLabel = ' (conversa stream)';
+    const screened = await this.screenedFromConversation(physicianId, encounterId, input);
+    yield* this.streamInitial(
+      physicianId,
+      encounterId,
+      input,
+      screened,
+      input.understanding,
+      logLabel,
+    );
+  }
+
+  private async analyzeInitial(
+    physicianId: string,
+    encounterId: string,
+    request: InitialRequest,
+    screened: ScreenedCase,
+    precomputed: ScreenedAnalysisInput['understanding'],
+    logLabel: string,
+  ): Promise<OrchestratorResult> {
+    const pipeline = this.decisionPipeline(logLabel);
+    const stage = await this.initialStage(screened, request, pipeline, precomputed, logLabel);
+    const prepared = await this.prepareInitialAnalysis(
+      physicianId,
+      encounterId,
+      request,
+      screened,
       { pipeline, stage },
-      '',
+      logLabel,
     );
     const attempt = await this.completeWithRetry(prepared);
     const outcome = await this.settleAnalysis(prepared, attempt);
@@ -1021,20 +1096,16 @@ export class OrchestratorService {
     return outcome.result;
   }
 
-  async *analyzeStream(
+  private async *streamInitial(
     physicianId: string,
     encounterId: string,
-    input: AnalyzeInput,
+    request: InitialRequest,
+    screened: ScreenedCase,
+    precomputed: ScreenedAnalysisInput['understanding'],
+    logLabel: string,
   ): AsyncGenerator<StreamEvent> {
-    const logLabel = ' (stream)';
-    const screened = await this.screenInitialCase(physicianId, encounterId, input, logLabel);
     const pipeline = this.decisionPipeline(logLabel);
-    const stage = await this.understandingStage(
-      screened.caseText,
-      input.redFlags,
-      pipeline,
-      logLabel,
-    );
+    const stage = await this.initialStage(screened, request, pipeline, precomputed, logLabel);
     // F1 — o entendimento sai assim que fica pronto, antes da busca e do
     // primeiro delta: o médico confere em segundos se o caso foi entendido.
     if (stage?.understanding) {
@@ -1043,7 +1114,7 @@ export class OrchestratorService {
     const prepared = await this.prepareInitialAnalysis(
       physicianId,
       encounterId,
-      input,
+      request,
       screened,
       { pipeline, stage },
       logLabel,
@@ -1097,6 +1168,37 @@ export class OrchestratorService {
       return;
     }
     yield { type: 'done', result: outcome.result };
+  }
+
+  /**
+   * F1 — Etapa 1 do turno 0. ADR-014 — quando a leitura do caso já entendeu o
+   * caso e o médico não respondeu nada, o entendimento dela vale: refazer a
+   * etapa só atrasaria o plano. Com respostas, o entendimento é refeito com
+   * elas. No `legacy`, nada muda.
+   */
+  private async initialStage(
+    screened: ScreenedCase,
+    request: InitialRequest,
+    pipeline: DecisionPipeline,
+    precomputed: ScreenedAnalysisInput['understanding'],
+    logLabel: string,
+  ): Promise<UnderstandingOutcome | null> {
+    if (pipeline.reasoning !== 'stages') return null;
+    if (precomputed && screened.answeredQuestions.length === 0) {
+      return {
+        understanding: precomputed.value,
+        model: precomputed.model,
+        usage: null,
+        cost: 0,
+        latencyMs: 0,
+      };
+    }
+    return this.understandingStage(
+      withAnsweredQuestions(screened.caseText, screened.answeredQuestions),
+      request.redFlags,
+      pipeline,
+      logLabel,
+    );
   }
 
   async continueAnalysis(
@@ -1179,12 +1281,8 @@ export class OrchestratorService {
       (parentInteraction.answeredQuestions as unknown as AnsweredQuestion[] | null) ?? [];
     const allAnsweredQuestions = [...previousAnswers, ...newAnswers];
 
-    const qaBlock = allAnsweredQuestions
-      .map((qa) => `P: ${qa.question}\nR: ${qa.answer}`)
-      .join('\n\n');
-
     const baseCaseText = parentInteraction.inputRedacted ?? '';
-    const augmentedCaseText = `${baseCaseText}\n\n--- Informações adicionais fornecidas pelo médico ---\n${qaBlock}`;
+    const augmentedCaseText = withAnsweredQuestions(baseCaseText, allAnsweredQuestions);
 
     // F1 — a resposta do médico pode mudar a síndrome: o entendimento é
     // refeito com o caso e todas as perguntas e respostas acumuladas.
@@ -1313,7 +1411,26 @@ export class OrchestratorService {
       maxTurns,
       institutionId: encounter.institutionId,
       caseText: fullyRedacted,
+      answeredQuestions: [],
       piiDetected: piiResult.hasPII,
+    };
+  }
+
+  /** ADR-014 — a conversa já redigiu o caso e as respostas; aqui só a posse do caso. */
+  private async screenedFromConversation(
+    physicianId: string,
+    encounterId: string,
+    input: ScreenedAnalysisInput,
+  ): Promise<ScreenedCase> {
+    const startedAt = Date.now();
+    const encounter = await this.encounters.findById(physicianId, encounterId);
+    return {
+      startedAt,
+      maxTurns: this.maxTurns(),
+      institutionId: encounter.institutionId,
+      caseText: input.caseText,
+      answeredQuestions: input.answeredQuestions,
+      piiDetected: input.piiDetected,
     };
   }
 
@@ -1321,13 +1438,14 @@ export class OrchestratorService {
   private async prepareInitialAnalysis(
     physicianId: string,
     encounterId: string,
-    input: AnalyzeInput,
+    input: InitialRequest,
     screened: ScreenedCase,
     { pipeline, stage }: { pipeline: DecisionPipeline; stage: UnderstandingOutcome | null },
     logLabel: string,
   ): Promise<PreparedAnalysis> {
+    const caseText = withAnsweredQuestions(screened.caseText, screened.answeredQuestions);
     const evidence = await this.gatherEvidence(
-      screened.caseText,
+      caseText,
       stage,
       screened.institutionId,
       pipeline,
@@ -1348,7 +1466,7 @@ export class OrchestratorService {
     const unreviewedSourcesPreliminary = this.unreviewedSourcesPreliminary();
 
     const prompt = this.buildDecisionPrompt(pipeline, {
-      caseText: screened.caseText,
+      caseText,
       evidence,
       attachments,
       context: {
@@ -1378,40 +1496,25 @@ export class OrchestratorService {
       prompt,
       params,
       unreviewedSourcesPreliminary,
-      turn: { kind: 'initial' },
+      turn: { kind: 'initial', answeredQuestions: screened.answeredQuestions },
       logLabel,
       stage,
       research: evidence.research,
     };
   }
 
-  /**
-   * Barreira de injeção: audita a tentativa sem gravar o texto clínico (só
-   * tamanho e sinais) e recusa a análise antes de qualquer chamada ao modelo.
-   */
+  /** Barreira de injeção — ver clinical-text-screening.ts. */
   private async rejectInjection(
     request: { physicianId: string; encounterId: string; logLabel: string },
     scan: InjectionScanResult,
     evidence: { piiDetected: boolean; patientRefRedacted: boolean; inputLength: number },
   ): Promise<void> {
-    if (scan.safe) return;
-
-    this.logger.warn(`Injection detected${request.logLabel}: ${scan.reasons.join(', ')}`);
-    await this.auditService.log({
-      actorId: request.physicianId,
-      action: 'PROMPT_INJECTION_DETECTED',
-      entity: 'Encounter',
-      entityId: request.encounterId,
-      payload: {
-        reasons: scan.reasons,
-        confidence: scan.confidence,
-        ...evidence,
-      },
-    });
-    throw new BadRequestException({
-      message: 'Input contains potentially unsafe content',
-      reasons: scan.reasons,
-    });
+    await rejectInjectionAndAudit(
+      { audit: this.auditService, logger: this.logger },
+      request,
+      scan,
+      evidence,
+    );
   }
 
   private validate(prepared: PreparedAnalysis, content: string): ValidationResult {
@@ -1560,12 +1663,17 @@ export class OrchestratorService {
     const output = isStagedDecisionPrompt(settled.pipeline.decisionPrompt)
       ? this.enrichOutputV2(settled, validation.output, verification?.links)
       : this.enrichOutput(settled, validation.output);
+    const citations = this.buildCitations(settled, output);
     const interaction = await this.prisma.aiInteraction.create({
       data: {
         ...this.interactionRecord(settled, attempt),
         rawOutput: output as unknown as Prisma.InputJsonValue,
+        // ADR-014 — `sources` guarda as citações como a resposta as devolve
+        // (com figura e tabela da evidência), para a conversa do caso mostrar
+        // o plano igual depois de recarregar.
         citations: {
           recommendations: output.recommendations,
+          sources: citations,
         } as unknown as Prisma.InputJsonValue,
         uncertainty: output.uncertainty,
         uncertaintyReason: output.uncertaintyReason,
@@ -1584,7 +1692,7 @@ export class OrchestratorService {
       result: {
         interactionId: interaction.id,
         output,
-        citations: this.buildCitations(settled, output),
+        citations,
         metadata: {
           piiDetected: settled.piiDetected,
           // Chegar aqui implica scan limpo: entrada com injeção é recusada
@@ -1667,6 +1775,11 @@ export class OrchestratorService {
             parentInteractionId: turn.parentInteractionId,
             answeredQuestions: turn.answeredQuestions as unknown as Prisma.InputJsonValue,
           }
+        : {}),
+      // ADR-014 — respostas da conversa antes do plano: ficam no turno 0 para
+      // as reanálises seguintes continuarem lendo o que o médico já contou.
+      ...(turn.kind === 'initial' && turn.answeredQuestions.length > 0
+        ? { answeredQuestions: turn.answeredQuestions as unknown as Prisma.InputJsonValue }
         : {}),
     };
   }

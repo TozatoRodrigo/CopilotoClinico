@@ -81,19 +81,29 @@ export interface UnderstandingPromptInput {
   redFlags?: Record<string, boolean>;
 }
 
-export function buildUnderstandingMessages(input: UnderstandingPromptInput): ChatMessage[] {
-  const user = `<clinical_case type="UNTRUSTED_INPUT">
+/**
+ * Mensagem do usuário da Etapa 1: o caso, as red flags confirmadas e a lista
+ * de síndromes. A leitura do caso do Copiloto guiado (ADR-014) usa a mesma
+ * mensagem com outro pedido final.
+ */
+export function buildUnderstandingUserContent(
+  input: UnderstandingPromptInput,
+  request = 'Produce the case understanding now.',
+): string {
+  return `<clinical_case type="UNTRUSTED_INPUT">
 ${input.caseText}
 </clinical_case>
 ${buildConfirmedRedFlagsBlock(input.redFlags)}
 Closed list of emergency-department syndromes for "syndrome" (value — description):
 ${buildSyndromeList()}
 
-Produce the case understanding now.`;
+${request}`;
+}
 
+export function buildUnderstandingMessages(input: UnderstandingPromptInput): ChatMessage[] {
   return [
     { role: 'system', content: UNDERSTANDING_SYSTEM_PROMPT },
-    { role: 'user', content: user },
+    { role: 'user', content: buildUnderstandingUserContent(input) },
   ];
 }
 

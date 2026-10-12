@@ -305,6 +305,86 @@ export const es: Messages = {
     streamingHint: 'El copiloto ya está respondiendo...',
   },
 
+  conversation: {
+    title: 'Describa el caso',
+    description:
+      'Dicte o escriba el caso como se lo pasaría a un colega. Si falta algo que cambia la conducta, le pregunto — una cosa a la vez.',
+    sendCase: 'Enviar caso',
+    sendingCase: 'Enviando…',
+    you: 'Usted',
+    copilot: 'Copiloto',
+    reading: 'Leyendo el caso…',
+    understood: 'Entendí:',
+    correct: 'Corregir',
+    correctionPlaceholder: '¿Qué entendí mal o dejé fuera?',
+    correctionNoted: 'Anoté la corrección — entra en el plan.',
+    questionsIntro: (count: number) =>
+      count === 1
+        ? 'Antes del plan, 1 pregunta rápida que cambia la conducta.'
+        : `Antes del plan, ${count} preguntas rápidas que cambian la conducta.`,
+    progress: (current: number, total: number) => `Pregunta ${current} de ${total}`,
+    analyzeNow: 'Analizar ahora con lo que tengo',
+    unstableTitle: (findings: string) => `Paciente inestable: ${findings}.`,
+    unstableBody:
+      'Voy directo a lo que hay que hacer ahora, sin preguntas antes. Si necesito algo, pregunto después del plan.',
+    complete: 'Tengo lo que necesito para empezar.',
+    urgentStop: 'Esa respuesta cambia la prioridad. Voy directo al plan.',
+    skipped:
+      'Sin problema. Sigo con lo que tengo; lo que quedó abierto entra en el plan como "Depende de…".',
+    allAnswered: 'Gracias. Armando el plan con lo que me contó.',
+    buildingPlan: 'Armando el plan…',
+    buildingPlanHint:
+      'Toma cerca de 1 minuto. Puede salir de esta pantalla: el plan queda guardado en el caso.',
+    rebuildingPlan: 'Rehaciendo el plan con su respuesta…',
+    planFailed: 'No pude armar el plan ahora.',
+    retryPlan: 'Intentar de nuevo',
+    followUpIntro: (count: number) =>
+      count === 1
+        ? 'Para cerrar el plan, 1 pregunta. Responder rehace el plan (cerca de 1 minuto).'
+        : `Para cerrar el plan, ${count} preguntas. Responder rehace el plan (cerca de 1 minuto).`,
+    keepPlan: 'Seguir con este plan',
+    rebuildNow: 'Rehacer el plan ahora',
+    previousPlan: (round: number) => `Plan anterior · ronda ${round}`,
+    youAnswered: 'Usted informó',
+    lastRound: 'Última ronda — el próximo plan sale con lo que usted haya informado.',
+    limitReached: 'Llegó al límite de rondas de este caso.',
+    numberPlaceholder: 'Valor',
+    numberSend: 'Enviar',
+    numberUnknown: 'No lo medí',
+    vitals: {
+      labels: {
+        bloodPressure: 'PA',
+        heartRate: 'FC',
+        respiratoryRate: 'FR',
+        spo2: 'SpO₂',
+        temperature: 'Temp.',
+        glucose: 'Glucemia capilar',
+      },
+      units: {
+        bloodPressure: 'mmHg',
+        heartRate: 'lpm',
+        respiratoryRate: 'rpm',
+        spo2: '%',
+        temperature: '°C',
+        glucose: 'mg/dL',
+      },
+      bloodPressurePlaceholder: '120/80',
+      send: 'Enviar',
+      none: 'No los tengo ahora',
+      invalid: 'Revise los valores: la PA va como 120/80 y los demás solo con números.',
+    },
+    composer: {
+      answerPlaceholder: 'O responda con sus palabras…',
+      complementPlaceholder: 'Agregue algo al caso (ej.: resultado de examen)…',
+      waitingPlaceholder: 'Espere el plan…',
+      send: 'Enviar',
+      dictate: 'Dictar',
+      stopDictation: 'Detener y transcribir',
+      transcribing: 'Transcribiendo…',
+      offline: 'Sin conexión. Su mensaje queda en el campo hasta que vuelva internet.',
+    },
+  },
+
   documents: {
     generateHeading: 'Generar documento',
     generating: 'Generando...',

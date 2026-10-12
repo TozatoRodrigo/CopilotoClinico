@@ -1,4 +1,5 @@
 import { AiCapabilityUnsupportedError } from '../ai-gateway.errors';
+import { INTAKE_READING_JSON_SCHEMA } from '../../copilot/intake/intake-reading.json-schema';
 import type {
   AIProvider,
   CompletionParams,
@@ -22,6 +23,11 @@ import type {
  *   - any subsequent turn (detectable via the QA block added by continueAnalysis)
  *     or no sentinel → emits a definitive conduta that closes the loop.
  *
+ * ADR-014 — the case reading of the guided copilot (`case_intake_reading`)
+ * is steered the same way: `[instavel]` → unstable patient (no questions),
+ * `[incompleto]` → two questions (yes/no with an urgent "Sim", and the
+ * missing vital signs), anything else → complete case (no questions).
+ *
  * Embeddings return a fixed 1536-dim unit vector (matches `vector(1536)`).
  */
 export class DeterministicProvider implements AIProvider {
@@ -35,6 +41,8 @@ export class DeterministicProvider implements AIProvider {
   private static readonly EMBEDDING_DIM = 1536;
   private static readonly UNCERTAIN_SENTINEL = '[uncertain]';
   private static readonly RESPOND_MARKER = 'Informações adicionais fornecidas pelo médico';
+  private static readonly UNSTABLE_SENTINEL = '[instavel]';
+  private static readonly INCOMPLETE_SENTINEL = '[incompleto]';
 
   async complete(params: CompletionParams): Promise<CompletionResponse> {
     const content = DeterministicProvider.outputFor(params);
@@ -77,7 +85,75 @@ export class DeterministicProvider implements AIProvider {
 
   private static outputFor(params: CompletionParams): string {
     const userText = params.messages.find((m) => m.role === 'user')?.content ?? '';
+    if (params.responseSchema?.name === INTAKE_READING_JSON_SCHEMA.name) {
+      return DeterministicProvider.buildIntakeReading(userText);
+    }
     return DeterministicProvider.buildOutput(userText);
+  }
+
+  private static buildIntakeReading(userText: string): string {
+    const unstable = userText.includes(DeterministicProvider.UNSTABLE_SENTINEL);
+    const incomplete = userText.includes(DeterministicProvider.INCOMPLETE_SENTINEL);
+    return JSON.stringify({
+      structuredData: {
+        age: 34,
+        sex: 'F',
+        vitals: {
+          systolicBp: unstable ? 70 : null,
+          diastolicBp: unstable ? 40 : null,
+          heartRate: null,
+          respiratoryRate: null,
+          spo2: null,
+          temperature: null,
+          glucose: null,
+        },
+        onset: 'há 12 horas',
+        keyFindings: ['cefaleia intensa (determinístico)'],
+        relevantContext: [],
+      },
+      instability: unstable
+        ? { present: true, findings: ['PA 70×40 (determinístico)'] }
+        : { present: false, findings: [] },
+      problemRepresentation:
+        'Mulher, 34 anos, cefaleia intensa há cerca de 12 h (leitura determinística de teste).',
+      syndrome: 'cefaleia',
+      syndromeNote: null,
+      cannotMiss: [
+        {
+          hypothesis: 'Hemorragia subaracnóidea',
+          whyPlausible: 'Cefaleia intensa (determinístico)',
+          confirmOrRuleOut: 'TC de crânio sem contraste',
+        },
+      ],
+      likely: [{ hypothesis: 'Enxaqueca', why: 'Cefaleia com vômitos (determinístico)' }],
+      missingDiscriminators: [],
+      searchQueries: ['manejo inicial da cefaleia aguda'],
+      timeCritical: false,
+      intakeQuestions: incomplete
+        ? [
+            {
+              question: 'A dor chegou ao máximo em menos de 1 minuto? (determinístico)',
+              answerType: 'boolean',
+              choices: [],
+              unit: null,
+              vitalSigns: [],
+              separates: ['Hemorragia subaracnóidea', 'Enxaqueca'],
+              why: 'Início súbito pede TC de crânio imediata (determinístico).',
+              urgentAnswers: ['Sim'],
+            },
+            {
+              question: 'Quais sinais vitais você já tem? (determinístico)',
+              answerType: 'vitals',
+              choices: [],
+              unit: null,
+              vitalSigns: ['bloodPressure', 'heartRate', 'temperature'],
+              separates: ['Emergência hipertensiva', 'Meningite'],
+              why: 'PA muito alta e febre mudam a investigação (determinístico).',
+              urgentAnswers: [],
+            },
+          ]
+        : [],
+    });
   }
 
   private static usageFor(content: string): CompletionUsage {

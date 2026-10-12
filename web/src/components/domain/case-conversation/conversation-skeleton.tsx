@@ -2,15 +2,15 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Page } from '@/components/layout/page';
 
 /**
- * Esqueleto da página de análise — mesma silhueta do resultado (etapas,
+ * Esqueleto da conversa do caso — mesma silhueta do plano (etapas,
  * título, propriedades, perguntas, plano), para a troca não "pular".
  * Usado pelo loading.tsx da rota e pelo estado pendente da query.
  */
-export function ResultSkeleton() {
+export function ConversationSkeleton() {
   return (
     <Page width="narrow">
       <span className="sr-only" role="status">
-        Carregando a análise do copiloto…
+        Carregando a conversa do caso…
       </span>
       <Skeleton className="h-6 w-64" />
 

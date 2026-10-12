@@ -41,6 +41,9 @@ export default defineConfig({
       env: {
         AI_PROVIDER: 'test',
         AI_API_KEY: 'dummy',
+        // ADR-014 — Copiloto guiado ligado: a leitura determinística pergunta
+        // só com o sentinel [incompleto]; os outros casos seguem direto ao plano.
+        COPILOT_INTAKE: 'on',
       },
     },
     {

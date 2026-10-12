@@ -601,6 +601,132 @@ export interface LatestInteractionResponse {
 }
 
 /**
+ * ADR-014 — Copiloto guiado: antes do primeiro plano, a leitura do caso
+ * decide se pergunta (no máximo 3 perguntas, uma por vez) ou vai direto ao
+ * plano (paciente instável, caso completo).
+ */
+export const INTAKE_ANSWER_TYPES = ['boolean', 'choice', 'number', 'text', 'vitals'] as const;
+export type IntakeAnswerType = (typeof INTAKE_ANSWER_TYPES)[number];
+
+/** Sinais vitais que uma pergunta do tipo `vitals` pode pedir, na ordem da tela. */
+export const VITAL_SIGNS = [
+  'bloodPressure',
+  'heartRate',
+  'respiratoryRate',
+  'spo2',
+  'temperature',
+  'glucose',
+] as const;
+export type VitalSign = (typeof VITAL_SIGNS)[number];
+
+/** Opções de toque de toda pergunta `boolean`: "Não sei" é resposta válida. */
+export const BOOLEAN_ANSWER_CHOICES = ['Sim', 'Não', 'Não sei'] as const;
+
+export interface IntakeQuestion {
+  id: string;
+  question: string;
+  answerType: IntakeAnswerType;
+  /** Opções de toque: em `boolean`, sempre `BOOLEAN_ANSWER_CHOICES`; vazio em número, texto e sinais vitais. */
+  choices: string[];
+  /** Unidade de uma pergunta `number` (ex.: "mg/dL"). */
+  unit: string | null;
+  /** Só em `vitals`: os sinais que o caso ainda não deu. */
+  vitalSigns: VitalSign[];
+  /** Hipóteses que a resposta separa ("Separa: A × B"). */
+  separates: string[];
+  /** Por que a resposta muda a conduta ("Por que pergunto?"). */
+  why: string;
+}
+
+/** Mesmo formato de `CaseUnderstanding.structuredData.vitals`; `null` = não informado. */
+export interface VitalsAnswer {
+  systolicBp: number | null;
+  diastolicBp: number | null;
+  heartRate: number | null;
+  respiratoryRate: number | null;
+  spo2: number | null;
+  temperature: number | null;
+  glucose: number | null;
+}
+
+export type IntakeAnswerValue = string | number | VitalsAnswer;
+
+/** Como o médico respondeu — mede o atrito (toque × digitação × voz). */
+export const INTAKE_ANSWER_CHANNELS = ['tap', 'text', 'voice'] as const;
+export type IntakeAnswerChannel = (typeof INTAKE_ANSWER_CHANNELS)[number];
+
+export interface IntakeAnswer {
+  questionId: string;
+  question: string;
+  /** Resposta já em texto e redigida (PII + patientRef), como entra na análise. */
+  answer: string;
+  channel: IntakeAnswerChannel;
+  answeredAt: string;
+}
+
+/**
+ * Para onde a leitura do caso mandou a conversa:
+ * - `ask`: faltam dados que mudam a conduta e o médico tem à mão;
+ * - `unstable`: paciente instável, plano direto;
+ * - `complete`: nada que falte muda a conduta agora;
+ * - `reading_failed`: a leitura falhou ou demorou; plano direto;
+ * - `disabled`: `COPILOT_INTAKE=off`; plano direto, sem leitura.
+ */
+export const INTAKE_PATHS = ['ask', 'unstable', 'complete', 'reading_failed', 'disabled'] as const;
+export type IntakePath = (typeof INTAKE_PATHS)[number];
+
+export const INTAKE_STATUSES = ['asking', 'closed'] as const;
+export type IntakeStatus = (typeof INTAKE_STATUSES)[number];
+
+export const INTAKE_CLOSE_REASONS = [
+  'all_answered',
+  'skipped',
+  'urgent_answer',
+  'not_needed',
+] as const;
+export type IntakeCloseReason = (typeof INTAKE_CLOSE_REASONS)[number];
+
+export interface IntakeView {
+  intakeId: string;
+  path: IntakePath;
+  status: IntakeStatus;
+  closeReason: IntakeCloseReason | null;
+  /** Texto do caso como o médico mandou, já redigido. */
+  caseText: string;
+  /** "Entendi: …" — a representação do problema; `null` sem leitura. */
+  summary: string | null;
+  /** Achados de instabilidade, quando `path` é `unstable`. */
+  instabilityFindings: string[];
+  questions: IntakeQuestion[];
+  answers: IntakeAnswer[];
+  /** A pergunta da vez; `null` fora de `asking`. */
+  pendingQuestionId: string | null;
+  /** A análise que nasceu desta conversa; `null` até o plano sair. */
+  analysisInteractionId: string | null;
+  /** O plano está sendo montado agora (começou há pouco e ainda não saiu). */
+  analysisInProgress: boolean;
+  createdAt: string;
+}
+
+/** Uma rodada do plano na conversa do caso. */
+export interface ConversationTurn extends Omit<
+  LatestInteractionResponse,
+  'maxTurns' | 'createdAt'
+> {
+  createdAt: string;
+  /** Respostas à rodada anterior que geraram esta; vazio na primeira. */
+  answeredQuestions: Array<{ questionId: string; question: string; answer: string }>;
+}
+
+/** GET /encounters/:id/copilot/conversation — a conversa inteira do caso. */
+export interface CaseConversationResponse {
+  intake: IntakeView | null;
+  /** Rodadas do plano em ordem; só as que saíram válidas. */
+  turns: ConversationTurn[];
+  maxTurns: number;
+}
+
+/**
  * F7 — feedback estruturado do médico sobre uma análise.
  *
  * `wrong_scenario` é o caso dos dois incidentes de campo: o Copiloto conduziu

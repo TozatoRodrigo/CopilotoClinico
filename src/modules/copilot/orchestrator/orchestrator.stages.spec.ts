@@ -482,4 +482,97 @@ describe('OrchestratorService — raciocínio em etapas (F1)', () => {
       expect(result.output.understanding).toBeNull();
     });
   });
+
+  describe('analyzeScreened (ADR-014 — Copiloto guiado)', () => {
+    const intakeAnswer = {
+      questionId: 'intake-1',
+      question: 'Qual a glicemia capilar?',
+      answer: '112 mg/dL',
+      turnIndex: -1,
+    };
+    const screenedInput = {
+      caseText,
+      answeredQuestions: [],
+      context: input.context,
+      redFlags: input.redFlags,
+      piiDetected: false,
+      understanding: { value: understandingFixture(), model: 'claude-opus-5-5' },
+    };
+
+    it('reuses the understanding of the case reading when nothing was answered', async () => {
+      const result = await service.analyzeScreened(physicianId, encounterId, screenedInput);
+
+      expect(understand).not.toHaveBeenCalled();
+      expect(retrieval.searchMany).toHaveBeenCalledWith(
+        understandingFixture().searchQueries,
+        5,
+        'inst-1',
+      );
+      expect(result.output.understanding).toEqual(understandingFixture());
+      expect(persisted().data.params).toMatchObject({ understandingModel: 'claude-opus-5-5' });
+      expect(persisted().data).not.toHaveProperty('answeredQuestions');
+    });
+
+    it('re-understands the case with the answers given before the plan', async () => {
+      await service.analyzeScreened(physicianId, encounterId, {
+        ...screenedInput,
+        answeredQuestions: [intakeAnswer],
+      });
+
+      const qa = 'P: Qual a glicemia capilar?\nR: 112 mg/dL';
+      const request = understand.mock.calls[0]![0] as { caseText: string; logLabel: string };
+      expect(request.caseText).toContain(qa);
+      expect(request.logLabel).toBe(' (conversa)');
+      expect(sentMessages()[1]?.content).toContain(qa);
+    });
+
+    it('saves the case text without the answers and the answers on turn 0', async () => {
+      const result = await service.analyzeScreened(physicianId, encounterId, {
+        ...screenedInput,
+        answeredQuestions: [intakeAnswer],
+      });
+
+      const record = interactionCreate.mock.calls[0]![0] as {
+        data: { inputRedacted: string; answeredQuestions: unknown; turnIndex?: number };
+      };
+      expect(record.data.inputRedacted).toBe(caseText);
+      expect(record.data.answeredQuestions).toEqual([intakeAnswer]);
+      expect(record.data.turnIndex).toBeUndefined();
+      expect(result.metadata.turnIndex).toBe(0);
+    });
+
+    it('streams the understanding of the reading first when nothing was answered', async () => {
+      gateway.completeStream.mockImplementation(async function* () {
+        yield analysisOutput;
+        return {
+          content: analysisOutput,
+          model: 'claude-3-sonnet',
+          usage: analysisCompletion.usage,
+          stopReason: 'end_turn',
+        };
+      });
+
+      const events: StreamEvent[] = [];
+      for await (const event of service.analyzeScreenedStream(
+        physicianId,
+        encounterId,
+        screenedInput,
+      )) {
+        events.push(event);
+      }
+
+      expect(understand).not.toHaveBeenCalled();
+      expect(events.map((event) => event.type)).toEqual(['understanding', 'delta', 'done']);
+    });
+
+    it('ignores the reading understanding in legacy', async () => {
+      env = {};
+
+      const result = await service.analyzeScreened(physicianId, encounterId, screenedInput);
+
+      expect(understand).not.toHaveBeenCalled();
+      expect(retrieval.search).toHaveBeenCalledWith(caseText, 5, 'inst-1');
+      expect(result.output).not.toHaveProperty('understanding');
+    });
+  });
 });
