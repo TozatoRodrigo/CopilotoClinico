@@ -21,7 +21,7 @@ import type { RespondInput } from '../schemas/copilot.schemas';
 import { understandingFixture } from '../../../../tests/fixtures/case-understanding';
 
 /**
- * Reanálise por streaming (GET /copilot/respond/stream): os mesmos eventos da
+ * Reanálise por streaming (POST /copilot/respond/stream): os mesmos eventos da
  * análise inicial, com a preparação e a gravação do POST /respond. O POST
  * continua coberto por orchestrator.service.spec.ts e
  * orchestrator.stages.spec.ts; aqui, a paridade entre os dois caminhos.
