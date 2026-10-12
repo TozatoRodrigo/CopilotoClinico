@@ -205,17 +205,107 @@ curl -X POST http://localhost:3000/v1/audit/verify-chain \
   -H "x-internal-token: $INTERNAL_SERVICE_TOKEN"
 ```
 
+Sem a API (só leitura), apontando direto para um banco — por exemplo um
+backup restaurado:
+
+```bash
+DATABASE_URL=postgresql://... pnpm verify:audit-chain   # sai com 2 se a cadeia está rompida
+```
+
 Resposta esperada (cadeia íntegra):
 ```json
-{ "valid": true, "count": 1234 }
+{ "valid": true, "count": 1234,
+  "legacy": { "verified": 1180, "unverifiable": 0, "unverifiableSample": [] } }
 ```
 
-Resposta em caso de corrupção:
+Resposta em caso de cadeia rompida:
 ```json
-{ "valid": false, "count": 45, "brokenAt": "<uuid>", "message": "afterHash mismatch at record ..." }
+{ "valid": false, "count": 45, "brokenAt": "<uuid>", "message": "afterHash mismatch at record ...",
+  "legacy": { "verified": 44, "unverifiable": 0, "unverifiableSample": [] } }
 ```
 
-O cron `AuditChainCronService` executa isso automaticamente às 02:00 UTC e loga `ERROR` em caso de falha.
+O cron `AuditChainCronService` faz o mesmo às 02:00 UTC:
+
+- **cadeia rompida:** loga `ERROR` `AUDIT CHAIN INTEGRITY FAILURE` e manda
+  alerta ao Sentry (com o id e a contagem, nada do payload);
+- **cadeia íntegra:** loga `Audit chain verification PASSED — N records
+  verified (legacy: X verified, Y unverifiable)`, sem alarme.
+
+O alarme só dispara com `valid: false`. Antes de 12/10/2026 ele disparava em
+todo registro com payload de 2+ chaves — falso alarme, não adulteração
+(ADR-015).
+
+#### Como ler o resultado (ADR-015)
+
+- **`hash_version` = 2** — registros a partir do deploy da ADR-015. O hash é
+  sobre o JSON canônico e o verificador o refaz byte a byte. Qualquer
+  diferença é falha.
+- **`hash_version` NULL (legado)** — registros anteriores. O hash usava a
+  ordem de inserção das chaves, que o jsonb não guarda, e o Prisma alterou
+  parte dos números não inteiros ao gravar. O verificador reconstrói o texto
+  original testando as ordens de chave e os doubles vizinhos. Conferidos
+  contam em `legacy.verified`.
+- **"Legado não verificável"** — `legacy.unverifiable`, com até 20 ids em
+  `unverifiableSample`. É um registro legado cujo hash não dá para refazer a
+  partir do banco. Não é alarme nem prova de adulteração, e o elo dele com o
+  registro seguinte continua conferido. Motivos:
+
+  | `reason` | Significa |
+  |---|---|
+  | `key-order-search-limit` | Ordem de chaves perdida no jsonb: o payload tem tantas chaves que as ordens possíveis passam de 40.320 (8!). Nenhum payload gravado pela aplicação até 12/10/2026 chega a isso. |
+  | `rewritten-number` | Nenhuma ordem bate e o payload tem número não inteiro (ex.: `cost`). O Prisma o gravou mais longe do original do que os 4 ULPs testados. |
+
+- **O total de não verificáveis fica congelado.** Desde a ADR-015 só se grava
+  `hash_version` = 2, e um legado depois do primeiro canônico já é falha.
+  Anote `legacy.unverifiable` na primeira verificação depois do deploy. Se o
+  número crescer, trate como falha: é sinal de `hash_version` rebaixada num
+  registro novo.
+
+#### Mensagens de falha
+
+| `message` | Significa | O que olhar |
+|---|---|---|
+| `afterHash mismatch at record X` | O registro canônico não tem o conteúdo que foi hasheado. | Adulteração: ver "Logs de nível ERROR" abaixo. |
+| `afterHash mismatch at record X (legacy hash)` | Registro legado: nenhuma ordem de chaves reproduz o hash, e o payload não tem número não inteiro. | Adulteração — **ou** registro gravado antes do #14 (06/06/2026), quando o hash usava um timestamp diferente do `created_at`. Confira o `created_at` do registro. |
+| `beforeHash mismatch at record X — chain link severed` | O elo com o registro anterior está rompido. | Registro removido ou inserido no meio, `after_hash` do anterior trocado, ou cadeia bifurcada por escrita concorrente antes do lock do #14. |
+| `legacy hash after the canonical chain started at record X` | Registro sem versão depois do primeiro canônico. | `hash_version` rebaixada, ou gravação fora do `AuditService` (por exemplo, script). |
+| `unknown hash_version N at record X` | Versão que o código não conhece. | `hash_version` alterada, ou API antiga (rollback) verificando registros de versão mais nova. |
+
+Para investigar, o registro e os vizinhos na cadeia (só leitura):
+
+```sql
+SELECT id, created_at, action, hash_version, before_hash, after_hash, payload::text
+FROM audit_log
+WHERE created_at BETWEEN (SELECT created_at FROM audit_log WHERE id = '<brokenAt>') - interval '1 minute'
+                     AND (SELECT created_at FROM audit_log WHERE id = '<brokenAt>') + interval '1 minute'
+ORDER BY created_at, id;
+```
+
+#### Deploy da ADR-015 (hash canônico)
+
+1. **Antes, num backup — nunca no banco de produção.** Restaure o dump mais
+   recente num PostgreSQL local, aplique as migrations e rode o verificador
+   novo:
+
+   ```bash
+   docker run -d --name audit-check -e POSTGRES_PASSWORD=check -p 127.0.0.1:55499:5432 pgvector/pgvector:pg16
+   psql postgresql://postgres:check@localhost:55499/postgres -c 'CREATE DATABASE copiloto_clinico'
+   psql postgresql://postgres:check@localhost:55499/copiloto_clinico < backup.sql   # erros de GRANT a roles inexistentes podem ser ignorados
+   DATABASE_URL=postgresql://postgres:check@localhost:55499/copiloto_clinico pnpm prisma migrate deploy
+   DATABASE_URL=postgresql://postgres:check@localhost:55499/copiloto_clinico pnpm verify:audit-chain
+   ```
+
+   Espera-se `valid: true`. Se vier `false`, leia a tabela de mensagens acima
+   antes do deploy, porque o alarme continuaria disparando. Anote
+   `legacy.unverifiable`.
+2. **Deploy:** a migration `20261012180000_aud_007_audit_log_hash_version`
+   antes da API, como em "Aplicar migrations em produção".
+3. **Depois:** `POST /v1/audit/verify-chain` deve dar `valid: true`, com
+   `legacy.unverifiable` igual ao do backup. Na manhã seguinte, o log das
+   02:00 deve ter `Audit chain verification PASSED`.
+4. **Rollback do código:** a API antiga não conhece `hash_version` e volta a
+   acusar falha, agora já no primeiro registro canônico. Os dados ficam
+   corretos e voltar à versão nova resolve. A coluna pode ficar.
 
 ### Aplicar migrations em produção
 
@@ -260,7 +350,7 @@ docker compose --env-file .env.production -f docker-compose.prod.yml up -d --no-
 deve continuar usando `DATABASE_URL` com o usuário LOGIN membro de
 `copiloto_app`, sem privilégios de DDL e sem `DELETE`/`TRUNCATE` em `audit_log`.
 
-⚠️ **ATENÇÃO — audit_log:** Qualquer migration que altere a tabela `audit_log` (ex: adicionar coluna) precisa de revisão manual. O trigger `audit_log_no_update_delete` bloqueia `UPDATE`/`DELETE` mas **não bloqueia DDL**. Verificar que a migration não remove dados existentes.
+⚠️ **ATENÇÃO — audit_log:** Qualquer migration que altere a tabela `audit_log` (ex: adicionar coluna) precisa de revisão manual. O trigger `audit_log_no_update_delete` bloqueia `UPDATE`/`DELETE` mas **não bloqueia DDL**. Verificar que a migration não remove dados existentes. Desde a ADR-015 o `audit_log` é gravado por SQL em `AuditService.writeAuditLogEntry`, não pelo Prisma Client: coluna nova precisa entrar nesse `INSERT`.
 
 ### Rodar testes de integração
 
@@ -792,6 +882,7 @@ apenas na resposta. Acesso a um protocolo de outra instituição retorna `404`
 | `20260924120000_adr_010_official_guideline_documents` | Status `official_unreviewed`, tabela `official_guideline_documents` (uma linha por versão) e `document_id` em `guideline_chunks` (ADR-010) |
 | `20260924180000_f9_guideline_chunks_text_tsv_generated` | `guideline_chunks.text_tsv` vira coluna gerada + índice GIN — liga a busca lexical (ver "Busca lexical (`text_tsv`) — F9") |
 | `20260924220000_ivfflat_probes_exact` | `ivfflat.probes = 100` no banco: busca vetorial exata (incidente de 24/09/2026) |
+| `20261012180000_aud_007_audit_log_hash_version` | `audit_log.hash_version` (NULL = hash legado, 2 = JSON canônico) — ADR-015; só adiciona coluna nula |
 
 ### Rollback de Migration
 
@@ -827,7 +918,7 @@ Prisma não suporta rollback automático. Para reverter:
 
 | Log | Causa | Ação |
 |---|---|---|
-| `AUDIT CHAIN INTEGRITY FAILURE` | Hash corrompido detectado | Isolar sistema, investigar registros suspeitos, acionar DPO |
+| `AUDIT CHAIN INTEGRITY FAILURE` (também alerta no Sentry) | Cadeia rompida: conteúdo, elo ou versão de hash que não confere (ADR-015). "Legado não verificável" **não** dispara isto. | Ler a mensagem na tabela "Mensagens de falha" (em "Verificar integridade da trilha de auditoria"). Se for adulteração: isolar o sistema, investigar os registros suspeitos e acionar o DPO |
 | `Audit chain verification failed with exception` | Erro ao verificar cadeia | Verificar conectividade com banco |
 | `Output validation failed` | IA retornou resposta inválida | Verificar provider, possível mudança de modelo |
 | `Anthropic API error: status=...` | Falha na API da Anthropic | 4xx: ver "Trocar o provider ou o modelo de IA"; 429/5xx: o SDK já retentou 2x, checar status.anthropic.com |
@@ -841,7 +932,7 @@ Para uma auditoria regulatória do CFM, verificar:
 
 - [ ] `audit_log` tem registros para todos os atendimentos (`ENCOUNTER_CREATED`)
 - [ ] Todos os documentos confirmados têm `DOCUMENT_CONFIRMED` com `afterHash`
-- [ ] Cadeia de hash está íntegra (`POST /audit/verify-chain`)
+- [ ] Cadeia de hash está íntegra (`POST /audit/verify-chain` → `valid: true`), com `legacy.unverifiable` igual ao anotado no deploy da ADR-015
 - [ ] Trigger `audit_log_no_update_delete` está ativo no banco
 - [ ] Role runtime não consegue `TRUNCATE`/`DROP TABLE audit_log`
 - [ ] Logs de login existem para todos os acessos (`AUTH_LOGIN`)

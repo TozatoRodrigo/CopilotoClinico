@@ -530,16 +530,18 @@ model OfficialGuidelineDocument {
 }
 
 model AuditLog {
-  id         String   @id @default(uuid()) @db.Uuid
-  actorId    String   @map("actor_id")
-  action     String
-  entity     String
-  entityId   String   @map("entity_id")
-  beforeHash String?  @map("before_hash") @db.Char(64)
-  afterHash  String?  @map("after_hash") @db.Char(64)
-  payload    Json?
-  ip         String?  @db.VarChar(45)
-  createdAt  DateTime @default(now()) @map("created_at")
+  id          String   @id @default(uuid()) @db.Uuid
+  actorId     String   @map("actor_id")
+  action      String
+  entity      String
+  entityId    String   @map("entity_id")
+  beforeHash  String?  @map("before_hash") @db.Char(64)
+  afterHash   String?  @map("after_hash") @db.Char(64)
+  /// ADR-015: NULL = hash legado (ordem de inserção); 2 = JSON canônico.
+  hashVersion Int?     @map("hash_version") @db.SmallInt
+  payload     Json?
+  ip          String?  @db.VarChar(45)
+  createdAt   DateTime @default(now()) @map("created_at")
 
   @@index([entity, entityId])
   @@index([actorId])

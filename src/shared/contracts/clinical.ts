@@ -176,6 +176,8 @@ export interface AuditEntry {
   entityId: string;
   beforeHash: string | null;
   afterHash: string | null;
+  /** ADR-015: null = hash legado; 2 = JSON canônico. */
+  hashVersion: number | null;
   payload: Record<string, unknown> | null;
   ip: string | null;
   createdAt: string;
