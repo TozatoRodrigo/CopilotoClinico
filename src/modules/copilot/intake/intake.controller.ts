@@ -14,6 +14,7 @@ import {
 import { Observable } from 'rxjs';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { ZodValidationPipe } from '../../../shared/pipes/zod-validation.pipe';
+import { streamEvents } from '../stream-events';
 import { analyzeSchema, type AnalyzeInput } from '../schemas/copilot.schemas';
 import { ConversationService } from './conversation.service';
 import { IntakeService } from './intake.service';
@@ -77,22 +78,11 @@ export class IntakeController {
     @Param('encounterId') encounterId: string,
     @Param('intakeId', ParseUUIDPipe) intakeId: string,
   ): Observable<MessageEvent> {
-    return new Observable((subscriber) => {
-      const events = this.conversation.stream(req.user.physicianId, encounterId, intakeId);
-      // O plano segue até o fim mesmo se o médico fechar a aba: ele fica
-      // gravado e aparece quando a conversa for reaberta.
-      void (async () => {
-        try {
-          for await (const event of events) {
-            subscriber.next({ data: event });
-            if (event.type === 'done' || event.type === 'error') break;
-          }
-          subscriber.complete();
-        } catch (error) {
-          subscriber.error(error);
-        }
-      })();
-    });
+    // O plano segue até o fim mesmo se o médico fechar a aba: ele fica
+    // gravado e aparece quando a conversa for reaberta (ver streamEvents).
+    return streamEvents(() =>
+      this.conversation.stream(req.user.physicianId, encounterId, intakeId),
+    );
   }
 
   @Get('conversation')

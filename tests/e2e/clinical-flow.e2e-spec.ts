@@ -556,6 +556,88 @@ describe('Clinical Flow E2E', () => {
     expect(body).toHaveProperty('interactionId');
   });
 
+  // ── 6b. Reanálise por streaming (POST, resposta text/event-stream) ────────
+  // As respostas do médico vão no corpo, nunca na URL (ADR-014), e passam pelo
+  // mesmo schema do POST /respond antes de qualquer byte da resposta.
+  it.each([
+    ['an empty list', { interactionId: INTERACTION_ID, answers: [] }],
+    ['an interactionId that is not a UUID', { interactionId: 'abc', answers: [{ questionId: 'q1', answer: 'sim' }] }],
+  ])('POST /copilot/respond/stream returns 400 for %s', async (_label, payload) => {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/v1/encounters/${ENCOUNTER_ID}/copilot/respond/stream`,
+      headers: { cookie: `access_token=${accessToken}` },
+      payload,
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json<{ message: string }>().message).toBe('Validation failed');
+  });
+
+  it('POST /copilot/respond/stream streams the reanalysis as text/event-stream', async () => {
+    const content = JSON.stringify({
+      reasoning: MOCK_COPILOT_OUTPUT.reasoning,
+      recommendations: MOCK_COPILOT_OUTPUT.recommendations,
+      uncertainty: false,
+      uncertaintyReason: null,
+    });
+    const gateway = app.get(AiGatewayService) as unknown as Record<string, unknown>;
+    gateway.completeStream = vi.fn(async function* () {
+      yield content.slice(0, 20);
+      yield content.slice(20);
+      return {
+        content,
+        model: 'gpt-4o',
+        usage: { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
+        stopReason: 'end_turn',
+      };
+    });
+    prismaMock.aiInteraction.findFirst.mockResolvedValueOnce({
+      id: INTERACTION_ID,
+      encounterId: ENCOUNTER_ID,
+      turnIndex: 0,
+      inputRedacted: MOCK_COPILOT_OUTPUT.reasoning,
+      answeredQuestions: null,
+      params: { demoCase: null, redFlags: {} },
+      rawOutput: { ...MOCK_COPILOT_OUTPUT, clarifyingQuestions: [] },
+    });
+    // A trilha de auditoria (respostas e reanálise) passa pelo lock do encadeamento.
+    const transaction = prismaMock.$transaction.getMockImplementation();
+    prismaMock.$transaction.mockImplementation((cb: (tx: unknown) => Promise<unknown>) =>
+      cb({
+        $executeRaw: vi.fn().mockResolvedValue(0),
+        auditLog: {
+          findFirst: vi.fn().mockResolvedValue(null),
+          create: vi.fn().mockResolvedValue({ id: 'audit-tx-002', afterHash: 'hash' }),
+        },
+      }),
+    );
+
+    try {
+      const res = await app.inject({
+        method: 'POST',
+        url: `/v1/encounters/${ENCOUNTER_ID}/copilot/respond/stream`,
+        headers: { cookie: `access_token=${accessToken}` },
+        payload: {
+          interactionId: INTERACTION_ID,
+          answers: [{ questionId: 'Informações adicionais fornecidas pelo médico', answer: 'Troponina positiva' }],
+        },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.headers['content-type']).toBe('text/event-stream; charset=utf-8');
+      const events = res.payload
+        .split('\n\n')
+        .filter((frame) => frame.startsWith('data: '))
+        .map((frame) => JSON.parse(frame.slice('data: '.length)) as { type: string; result?: { interactionId: string } });
+      expect(events.map((event) => event.type)).toEqual(['delta', 'delta', 'done']);
+      expect(events.at(-1)?.result?.interactionId).toBe(INTERACTION_ID);
+    } finally {
+      prismaMock.$transaction.mockImplementation(transaction!);
+      delete gateway.completeStream;
+    }
+  });
+
   // ── 7. Generate SOAP document ────────────────────────────────────────────────
   it('POST /documents generates a SOAP document', async () => {
     const res = await app.inject({

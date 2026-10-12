@@ -176,8 +176,8 @@ const CHIEF_COMPLAINT_MAX_LENGTH = 140;
 /**
  * RD-E7 — resumo curto exibido como título do caso em Plantão/Casos, no
  * lugar de patientRef. Só chamado no turno 0 (analyze/analyzeStream) — não
- * em continueAnalysis() — para o "título" do caso não mudar a cada resposta
- * de pergunta esclarecedora.
+ * na reanálise (continueAnalysis/continueAnalysisStream) — para o "título"
+ * do caso não mudar a cada resposta de pergunta esclarecedora.
  *
  * KB-006 — NUNCA derivar de `differentials[0].hypothesis`. Um diferencial é,
  * pela definição do próprio system prompt, "um lembrete, não um bloqueador":
@@ -275,8 +275,8 @@ interface AttachmentForCitation {
 
 /**
  * F4 — resolve a fonte de uma citação, seja ela um chunk curado ou um anexo
- * do médico. Centralizado porque os três caminhos do orquestrador (analyze,
- * analyzeStream, continueAnalysis) montam citações da mesma forma.
+ * do médico. Centralizado porque todos os caminhos do orquestrador (análise
+ * inicial e reanálise, com ou sem streaming) montam citações da mesma forma.
  */
 interface ResolvedSource {
   source: string;
@@ -713,7 +713,8 @@ function providerFailureAttempt(error: unknown, previousCost: number): Completio
 
 /**
  * Turno 0 (analyze/analyzeStream, ou a conversa do Copiloto guiado com as
- * respostas dadas antes do plano) ou reanálise com respostas (continueAnalysis).
+ * respostas dadas antes do plano) ou reanálise com respostas
+ * (continueAnalysis/continueAnalysisStream).
  */
 type AnalysisTurn =
   | { kind: 'initial'; answeredQuestions: AnsweredQuestion[] }
@@ -750,7 +751,10 @@ interface PreparedAnalysis {
   params: InheritableParams;
   unreviewedSourcesPreliminary: boolean;
   turn: AnalysisTurn;
-  /** Sufixo dos logs: '' (analyze), ' (stream)' ou ' (respond)'. */
+  /**
+   * Sufixo dos logs: '' (analyze), ' (stream)', ' (conversa)', ' (conversa
+   * stream)', ' (respond)' ou ' (respond stream)'.
+   */
   logLabel: string;
   /** F1 — Etapa 1 deste turno; `null` com `COPILOT_REASONING=legacy`. */
   stage: UnderstandingOutcome | null;
@@ -807,6 +811,27 @@ function withAnsweredQuestions(caseText: string, answers: readonly AnsweredQuest
   if (answers.length === 0) return caseText;
   const qaBlock = answers.map((qa) => `P: ${qa.question}\nR: ${qa.answer}`).join('\n\n');
   return `${caseText}\n\n${ANSWERED_QUESTIONS_HEADER}\n${qaBlock}`;
+}
+
+/**
+ * Reanálise depois da interação-pai, do teto de turnos, da redação de PII e
+ * da barreira de injeção nas respostas e da auditoria delas.
+ */
+interface ScreenedFollowUp {
+  startedAt: number;
+  maxTurns: number;
+  /** CC-03 — último turno permitido: a decisão não pode ficar sem conduta. */
+  finalTurn: boolean;
+  institutionId: string | null;
+  context: EncounterContext;
+  /** Texto do caso do turno 0, já redigido — o que vai para `inputRedacted`. */
+  baseCaseText: string;
+  /** Caso + todas as perguntas e respostas acumuladas, já redigidas. */
+  augmentedCaseText: string;
+  piiDetected: boolean;
+  /** CC-05 — demoCase/redFlags herdados do turno anterior. */
+  params: InheritableParams;
+  turn: Extract<AnalysisTurn, { kind: 'follow_up' }>;
 }
 
 type AnalysisOutcome =
@@ -1129,7 +1154,15 @@ export class OrchestratorService {
       { pipeline, stage },
       logLabel,
     );
+    yield* this.streamDecision(prepared);
+  }
 
+  /**
+   * Decisão por streaming, comum à análise inicial e à reanálise: deltas do
+   * modelo, a mesma segunda chance do POST e a mesma gravação
+   * (`settleAnalysis`), terminando em `done` ou `error`.
+   */
+  private async *streamDecision(prepared: PreparedAnalysis): AsyncGenerator<StreamEvent> {
     // F0-B — iteração manual: o valor de retorno do gerador (texto final,
     // modelo, usage) é o que dá o custo real da análise, e `for await` o
     // descartaria.
@@ -1216,155 +1249,24 @@ export class OrchestratorService {
     encounterId: string,
     input: RespondInput,
   ): Promise<OrchestratorResult> {
-    const startedAt = Date.now();
-
-    const encounter = await this.encounters.findById(physicianId, encounterId);
-
-    const parentInteraction = await this.prisma.aiInteraction.findFirst({
-      where: { id: input.interactionId, encounterId },
-    });
-    if (!parentInteraction) {
-      throw new NotFoundException('Interaction not found');
-    }
-
-    // CC-05 — herda demoCase/redFlags do turno anterior (propagação transitiva:
-    // turno 3 herda o que o turno 2 herdou do turno 1, e assim por diante).
-    const inheritedParams = extractInteractionParams(parentInteraction.params);
-
-    const maxTurns = this.maxTurns();
-    const newTurnIndex = parentInteraction.turnIndex + 1;
-    if (newTurnIndex >= maxTurns) {
-      throw new BadRequestException({
-        message: `Maximum number of conversation turns (${maxTurns}) reached for this encounter`,
-      });
-    }
-    const forceFinal = newTurnIndex === maxTurns - 1;
-
-    const parentOutput = parentInteraction.rawOutput as unknown as EnrichedCopilotOutput;
-    const clarifyingQuestions = parentOutput.clarifyingQuestions ?? [];
-
-    // Camada 1+2: PII mask + redação patientRef nas respostas do médico (LGPD-005)
-    const piiResults = input.answers.map((a) => maskPII(String(a.answer)));
-    const piiDetected = piiResults.some((r) => r.hasPII);
-    const redactedAnswers = piiResults.map((r) =>
-      redactPatientRef(r.redacted, encounter.patientRef),
-    );
-
-    await this.rejectInjection(
-      { physicianId, encounterId, logLabel: ' (respond)' },
-      scanForInjection(redactedAnswers.join('\n')),
-      {
-        piiDetected,
-        patientRefRedacted:
-          piiResults.map((r) => r.redacted).join('\n') !== redactedAnswers.join('\n'),
-        inputLength: input.answers.reduce((sum, a) => sum + String(a.answer).length, 0),
-      },
-    );
-
-    // DEC-005: registra a submissão de respostas do médico na cadeia de
-    // auditoria. Por minimização de dados (LGPD), o conteúdo das respostas
-    // nunca é gravado em texto claro — apenas seu hash SHA-256.
-    await this.auditService.log({
-      actorId: physicianId,
-      action: 'COPILOT_QUESTION_ANSWERED',
-      entity: 'Encounter',
-      entityId: encounterId,
-      payload: {
-        interactionId: parentInteraction.id,
-        turnIndex: newTurnIndex,
-        questionIds: input.answers.map((a) => a.questionId),
-        answersHash: createHash('sha256').update(JSON.stringify(input.answers)).digest('hex'),
-      },
-    });
-
-    const newAnswers: AnsweredQuestion[] = input.answers.map((a, index) => {
-      const question = clarifyingQuestions.find((q) => q.id === a.questionId);
-      return {
-        questionId: a.questionId,
-        question: question?.question ?? RESERVED_QUESTION_LABELS[a.questionId] ?? a.questionId,
-        answer: redactedAnswers[index] ?? '',
-        turnIndex: parentInteraction.turnIndex,
-      };
-    });
-
-    const previousAnswers =
-      (parentInteraction.answeredQuestions as unknown as AnsweredQuestion[] | null) ?? [];
-    const allAnsweredQuestions = [...previousAnswers, ...newAnswers];
-
-    const baseCaseText = parentInteraction.inputRedacted ?? '';
-    const augmentedCaseText = withAnsweredQuestions(baseCaseText, allAnsweredQuestions);
-
+    const logLabel = ' (respond)';
+    const screened = await this.screenFollowUp(physicianId, encounterId, input, logLabel);
     // F1 — a resposta do médico pode mudar a síndrome: o entendimento é
     // refeito com o caso e todas as perguntas e respostas acumuladas.
-    const pipeline = this.decisionPipeline(' (respond)');
+    const pipeline = this.decisionPipeline(logLabel);
     const stage = await this.understandingStage(
-      augmentedCaseText,
-      inheritedParams.redFlags,
+      screened.augmentedCaseText,
+      screened.params.redFlags,
       pipeline,
-      ' (respond)',
+      logLabel,
     );
-    const evidence = await this.gatherEvidence(
-      augmentedCaseText,
-      stage,
-      encounter.institutionId,
-      pipeline,
-      ' (respond)',
-    );
-    const attachments = await this.loadAttachments(encounterId);
-    this.logger.debug(`Retrieved ${evidence.retrievalResult.totalRetrieved} chunks (respond)`);
-
-    const encounterContext = (encounter.context as unknown as EncounterContext | null) ?? {
-      hasCT: false,
-      isSus: false,
-      hasLab: false,
-      hasICU: false,
-    };
-
-    const locale = await this.getPhysicianLocale(physicianId);
-    const unreviewedSourcesPreliminary = this.unreviewedSourcesPreliminary();
-
-    // CC-03 — no turno final, clarifyingQuestions É obrigatoriamente vazio
-    // (não há próximo turno para respondê-las), então "recommendations" NUNCA
-    // pode ficar vazio aqui, sob pena de violar a Rule 7 (dead end) do system
-    // prompt — ver FINAL_TURN_INSTRUCTIONS.
-    const prompt = this.buildDecisionPrompt(pipeline, {
-      caseText: augmentedCaseText,
-      evidence,
-      attachments,
-      context: encounterContext,
-      // CC-05 — herdadas do turno anterior.
-      redFlags: inheritedParams.redFlags,
-      locale,
-      unreviewedSourcesPreliminary,
-      stage,
-      finalTurn: forceFinal,
-    });
-
-    const prepared: PreparedAnalysis = {
-      pipeline,
+    const prepared = await this.prepareFollowUp(
       physicianId,
       encounterId,
-      startedAt,
-      maxTurns,
-      inputRedacted: baseCaseText,
-      piiDetected,
-      retrievalResult: evidence.retrievalResult,
-      attachments,
-      prompt,
-      // CC-05 — repropaga demoCase/redFlags (inclusive em falha de validação)
-      // para que o PRÓXIMO turno continue herdando a cadeia de red flags.
-      params: inheritedParams,
-      unreviewedSourcesPreliminary,
-      turn: {
-        kind: 'follow_up',
-        index: newTurnIndex,
-        parentInteractionId: parentInteraction.id,
-        answeredQuestions: allAnsweredQuestions,
-      },
-      logLabel: ' (respond)',
-      stage,
-      research: evidence.research,
-    };
+      screened,
+      { pipeline, stage },
+      logLabel,
+    );
 
     const attempt = await this.completeWithRetry(prepared);
     const outcome = await this.settleAnalysis(prepared, attempt);
@@ -1375,6 +1277,60 @@ export class OrchestratorService {
       });
     }
     return outcome.result;
+  }
+
+  /**
+   * Reanálise por streaming (responder às perguntas, complementar o caso,
+   * corrigir o entendimento): os mesmos eventos de `analyzeStream`. Na
+   * produção, uma reanálise com `COPILOT_REASONING=stages` levou 81 s sem nada
+   * na tela; aqui o entendimento refeito sai em segundos e os deltas mostram
+   * que o plano está sendo montado.
+   *
+   * Abre em duas etapas. O que recusa o pedido (interação de outro
+   * atendimento, teto de turnos, injeção) é exceção ao abrir, antes de
+   * qualquer byte da resposta: vira o mesmo 4xx do POST /respond. Aceito o
+   * pedido, os eventos; a falha de validação vira `error`.
+   *
+   * Preparação e gravação são as do POST /respond (`screenFollowUp`,
+   * `prepareFollowUp`, `settleAnalysis`): a interação, a auditoria e o
+   * resultado do `done` são os mesmos.
+   */
+  async continueAnalysisStream(
+    physicianId: string,
+    encounterId: string,
+    input: RespondInput,
+  ): Promise<AsyncGenerator<StreamEvent>> {
+    const logLabel = ' (respond stream)';
+    const screened = await this.screenFollowUp(physicianId, encounterId, input, logLabel);
+    return this.streamFollowUp(physicianId, encounterId, screened, logLabel);
+  }
+
+  private async *streamFollowUp(
+    physicianId: string,
+    encounterId: string,
+    screened: ScreenedFollowUp,
+    logLabel: string,
+  ): AsyncGenerator<StreamEvent> {
+    const pipeline = this.decisionPipeline(logLabel);
+    const stage = await this.understandingStage(
+      screened.augmentedCaseText,
+      screened.params.redFlags,
+      pipeline,
+      logLabel,
+    );
+    // F1 — o entendimento refeito sai antes da busca e do primeiro delta,
+    // como na análise inicial: o médico confere se a resposta mudou o caso.
+    if (stage?.understanding) {
+      yield { type: 'understanding', understanding: stage.understanding };
+    }
+    const prepared = await this.prepareFollowUp(
+      physicianId,
+      encounterId,
+      screened,
+      { pipeline, stage },
+      logLabel,
+    );
+    yield* this.streamDecision(prepared);
   }
 
   /**
@@ -1507,6 +1463,180 @@ export class OrchestratorService {
       params,
       unreviewedSourcesPreliminary,
       turn: { kind: 'initial', answeredQuestions: screened.answeredQuestions },
+      logLabel,
+      stage,
+      research: evidence.research,
+    };
+  }
+
+  /**
+   * Reanálise, comum a continueAnalysis() e continueAnalysisStream():
+   * interação-pai, teto de turnos, redação de PII e barreira de injeção nas
+   * respostas, auditoria das respostas e o caso aumentado — tudo antes de
+   * qualquer chamada ao modelo, inclusive a Etapa 1.
+   */
+  private async screenFollowUp(
+    physicianId: string,
+    encounterId: string,
+    input: RespondInput,
+    logLabel: string,
+  ): Promise<ScreenedFollowUp> {
+    const startedAt = Date.now();
+
+    const encounter = await this.encounters.findById(physicianId, encounterId);
+
+    const parentInteraction = await this.prisma.aiInteraction.findFirst({
+      where: { id: input.interactionId, encounterId },
+    });
+    if (!parentInteraction) {
+      throw new NotFoundException('Interaction not found');
+    }
+
+    // CC-05 — herda demoCase/redFlags do turno anterior (propagação transitiva:
+    // turno 3 herda o que o turno 2 herdou do turno 1, e assim por diante).
+    const inheritedParams = extractInteractionParams(parentInteraction.params);
+
+    const maxTurns = this.maxTurns();
+    const newTurnIndex = parentInteraction.turnIndex + 1;
+    if (newTurnIndex >= maxTurns) {
+      throw new BadRequestException({
+        message: `Maximum number of conversation turns (${maxTurns}) reached for this encounter`,
+      });
+    }
+
+    const parentOutput = parentInteraction.rawOutput as unknown as EnrichedCopilotOutput;
+    const clarifyingQuestions = parentOutput.clarifyingQuestions ?? [];
+
+    // Camada 1+2: PII mask + redação patientRef nas respostas do médico (LGPD-005)
+    const piiResults = input.answers.map((a) => maskPII(String(a.answer)));
+    const piiDetected = piiResults.some((r) => r.hasPII);
+    const redactedAnswers = piiResults.map((r) =>
+      redactPatientRef(r.redacted, encounter.patientRef),
+    );
+
+    await this.rejectInjection(
+      { physicianId, encounterId, logLabel },
+      scanForInjection(redactedAnswers.join('\n')),
+      {
+        piiDetected,
+        patientRefRedacted:
+          piiResults.map((r) => r.redacted).join('\n') !== redactedAnswers.join('\n'),
+        inputLength: input.answers.reduce((sum, a) => sum + String(a.answer).length, 0),
+      },
+    );
+
+    // DEC-005: registra a submissão de respostas do médico na cadeia de
+    // auditoria. Por minimização de dados (LGPD), o conteúdo das respostas
+    // nunca é gravado em texto claro — apenas seu hash SHA-256.
+    await this.auditService.log({
+      actorId: physicianId,
+      action: 'COPILOT_QUESTION_ANSWERED',
+      entity: 'Encounter',
+      entityId: encounterId,
+      payload: {
+        interactionId: parentInteraction.id,
+        turnIndex: newTurnIndex,
+        questionIds: input.answers.map((a) => a.questionId),
+        answersHash: createHash('sha256').update(JSON.stringify(input.answers)).digest('hex'),
+      },
+    });
+
+    const newAnswers: AnsweredQuestion[] = input.answers.map((a, index) => {
+      const question = clarifyingQuestions.find((q) => q.id === a.questionId);
+      return {
+        questionId: a.questionId,
+        question: question?.question ?? RESERVED_QUESTION_LABELS[a.questionId] ?? a.questionId,
+        answer: redactedAnswers[index] ?? '',
+        turnIndex: parentInteraction.turnIndex,
+      };
+    });
+
+    const previousAnswers =
+      (parentInteraction.answeredQuestions as unknown as AnsweredQuestion[] | null) ?? [];
+    const allAnsweredQuestions = [...previousAnswers, ...newAnswers];
+
+    const baseCaseText = parentInteraction.inputRedacted ?? '';
+    const augmentedCaseText = withAnsweredQuestions(baseCaseText, allAnsweredQuestions);
+
+    return {
+      startedAt,
+      maxTurns,
+      // CC-03 — último turno permitido: ver FINAL_TURN_INSTRUCTIONS.
+      finalTurn: newTurnIndex === maxTurns - 1,
+      institutionId: encounter.institutionId,
+      context: (encounter.context as unknown as EncounterContext | null) ?? {
+        hasCT: false,
+        isSus: false,
+        hasLab: false,
+        hasICU: false,
+      },
+      baseCaseText,
+      augmentedCaseText,
+      piiDetected,
+      params: inheritedParams,
+      turn: {
+        kind: 'follow_up',
+        index: newTurnIndex,
+        parentInteractionId: parentInteraction.id,
+        answeredQuestions: allAnsweredQuestions,
+      },
+    };
+  }
+
+  /** Reanálise, comum a continueAnalysis() e continueAnalysisStream(): evidência e prompt. */
+  private async prepareFollowUp(
+    physicianId: string,
+    encounterId: string,
+    screened: ScreenedFollowUp,
+    { pipeline, stage }: { pipeline: DecisionPipeline; stage: UnderstandingOutcome | null },
+    logLabel: string,
+  ): Promise<PreparedAnalysis> {
+    const evidence = await this.gatherEvidence(
+      screened.augmentedCaseText,
+      stage,
+      screened.institutionId,
+      pipeline,
+      logLabel,
+    );
+    const attachments = await this.loadAttachments(encounterId);
+    this.logger.debug(`Retrieved ${evidence.retrievalResult.totalRetrieved} chunks${logLabel}`);
+
+    const locale = await this.getPhysicianLocale(physicianId);
+    const unreviewedSourcesPreliminary = this.unreviewedSourcesPreliminary();
+
+    // CC-03 — no turno final, clarifyingQuestions É obrigatoriamente vazio
+    // (não há próximo turno para respondê-las), então "recommendations" NUNCA
+    // pode ficar vazio aqui, sob pena de violar a Rule 7 (dead end) do system
+    // prompt — ver FINAL_TURN_INSTRUCTIONS.
+    const prompt = this.buildDecisionPrompt(pipeline, {
+      caseText: screened.augmentedCaseText,
+      evidence,
+      attachments,
+      context: screened.context,
+      // CC-05 — herdadas do turno anterior.
+      redFlags: screened.params.redFlags,
+      locale,
+      unreviewedSourcesPreliminary,
+      stage,
+      finalTurn: screened.finalTurn,
+    });
+
+    return {
+      pipeline,
+      physicianId,
+      encounterId,
+      startedAt: screened.startedAt,
+      maxTurns: screened.maxTurns,
+      inputRedacted: screened.baseCaseText,
+      piiDetected: screened.piiDetected,
+      retrievalResult: evidence.retrievalResult,
+      attachments,
+      prompt,
+      // CC-05 — repropaga demoCase/redFlags (inclusive em falha de validação)
+      // para que o PRÓXIMO turno continue herdando a cadeia de red flags.
+      params: screened.params,
+      unreviewedSourcesPreliminary,
+      turn: screened.turn,
       logLabel,
       stage,
       research: evidence.research,
