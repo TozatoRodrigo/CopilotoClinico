@@ -49,7 +49,7 @@ function meta(caseIds: string[], judged: boolean): RunMeta {
     startedAt: '2026-10-10T00:00:00.000Z',
     finishedAt: '2026-10-10T00:01:00.000Z',
     git: { commit: 'abc', dirty: false },
-    caseSet: { version: 'v1', selector: null, caseIds },
+    caseSet: { set: 'main', version: 'v1', selector: null, caseIds },
     reps: 1,
     mode: 'complete',
     concurrency: 1,

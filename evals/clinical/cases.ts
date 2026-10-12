@@ -5,6 +5,17 @@ import { ClinicalCaseSchema, type ClinicalCase } from './case.schema';
 
 export const CASES_DIR = join(__dirname, 'cases');
 
+/**
+ * Prova cega: casos que NUNCA entram no ajuste de regra ou de prompt — só
+ * rodam na decisão de liberar uma versão (`--set blind`). Mede o caso que o
+ * Copiloto não viu, o que o conjunto principal não consegue depois que as
+ * regras foram escritas olhando os erros dele.
+ */
+export const BLIND_CASES_DIR = join(__dirname, 'cases-blind');
+
+export const CASE_SETS = { main: CASES_DIR, blind: BLIND_CASES_DIR } as const;
+export type CaseSetName = keyof typeof CASE_SETS;
+
 export interface CaseSet {
   cases: ClinicalCase[];
   /**

@@ -173,6 +173,20 @@ Os 66 casos `rv-*` vêm das provas discursivas e de habilidades clínicas do Rev
 
 Os demais casos que estavam fora do portão no v1 voltaram: a conversão v2 resolveu o motivo com fonte vigente conferida, registrado em `provenance.notes`.
 
+### Prova cega (`cases-blind/`)
+
+Regra do Copiloto escrita olhando os erros do conjunto principal tende a ir melhor nele do que num caso novo — a decisão v3 nasceu dos erros destes casos. A prova cega mede o caso que o Copiloto não viu:
+
+- **Origem:** Revalida 2011–2016 (discursivas, com padrão de resposta) e 2017 (objetiva, com gabarito oficial; a discursiva de 2017 não tem padrão publicado), baixados do INEP. Nenhuma dessas edições publicou habilidades clínicas: não há modo afunilamento. Ids `cega-*`; `goldSource` `revalida_discursiva` ou `revalida_objetiva` (a verdade é uma alternativa só — nível mais fraco).
+- **Nunca entra no ajuste.** Não leia os erros da prova cega para mudar regra, prompt ou caso do conjunto principal. Ela roda só na decisão de liberar uma versão, ao lado do conjunto principal:
+
+  ```bash
+  pnpm eval:clinical --set blind --variant <variante> --cases critical --judge anthropic
+  ```
+
+- **Erro que revela um problema real:** o caso sai da prova cega e vai para o conjunto principal (com id novo, sem o prefixo `cega-`), e a prova cega ganha um caso novo no lugar. Assim ela continua cega.
+- O comparador recusa misturar execuções da prova cega com as do conjunto principal.
+
 ### Caso novo
 
 Todo incidente reportado em campo vira caso: copie um arquivo parecido, troque o `id` (e o nome do arquivo), escreva o texto como o médico digitou e preencha o gabarito. `goldSource` é `field_incident` ou `physician`.
@@ -259,6 +273,7 @@ JUDGE_MODEL=<modelo-openai> pnpm eval:clinical --variant baseline --variant clau
 | --- | --- | --- |
 | `--variant` | (obrigatória) | Uma ou mais variantes |
 | `--cases` | todos | `critical`, glob no id (`kb004-*`), `tag:<tag>` ou id; vírgula une |
+| `--set` | `main` | `main` (conjunto principal) ou `blind` (prova cega) |
 | `--mode` | `complete` | `complete` (caso completo) ou `funnel` (abertura + médico simulado; só casos com `input.funnel`) |
 | `--reps` | 1 | Repetições por caso — o modelo não é determinístico |
 | `--concurrency` | 2 | Casos em paralelo |

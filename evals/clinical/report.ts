@@ -570,7 +570,7 @@ export function renderSummaryMarkdown(run: LoadedRun, summary: RunSummary): stri
         ],
         [
           'Gabarito',
-          `versão ${meta.caseSet.version} · ${summary.caseCount} casos · seletor ${meta.caseSet.selector ?? 'todos'}`,
+          `${meta.caseSet.set === 'blind' ? 'PROVA CEGA · ' : ''}versão ${meta.caseSet.version} · ${summary.caseCount} casos · seletor ${meta.caseSet.selector ?? 'todos'}`,
         ],
         ['Repetições', String(meta.reps)],
         ['Banco', meta.database],

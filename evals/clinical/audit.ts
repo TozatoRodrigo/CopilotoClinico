@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { z } from 'zod';
 import type { ClinicalCase } from './case.schema';
-import { loadCaseSet } from './cases';
+import { CASE_SETS, loadCaseSet } from './cases';
 import {
   auditFlagsCritical,
   AuditVerdictSchema,
@@ -19,6 +19,7 @@ import { costUsd, judgeUsage } from './pricing';
 import {
   GradeRowSchema,
   readJsonLines,
+  readRunMeta,
   ResultRowSchema,
   RUN_FILES,
   writeJsonLines,
@@ -207,7 +208,7 @@ async function main(): Promise<number> {
     return 1;
   }
   const dir = resolve(runDir);
-  const { cases } = loadCaseSet();
+  const { cases } = loadCaseSet(CASE_SETS[readRunMeta(dir).caseSet.set]);
   const casesById = new Map(cases.map((clinicalCase) => [clinicalCase.id, clinicalCase]));
   const results = readJsonLines(join(dir, RUN_FILES.results), ResultRowSchema);
   const grades = readJsonLines(join(dir, RUN_FILES.grades), GradeRowSchema);

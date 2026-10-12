@@ -70,6 +70,12 @@ export const GOLD_SOURCES = [
   'revalida_discursiva',
   /** Estação de habilidades clínicas do Revalida (PEP), com o checklist oficial. */
   'revalida_pep',
+  /**
+   * Questão objetiva do Revalida com o gabarito oficial: a verdade é uma
+   * alternativa só. Usada na prova cega quando a edição não publicou padrão
+   * de resposta (2017).
+   */
+  'revalida_objetiva',
   /** Expectativas ancoradas em diretriz citada em `sources`, sem caso real de origem. */
   'guideline_anchored',
 ] as const;
