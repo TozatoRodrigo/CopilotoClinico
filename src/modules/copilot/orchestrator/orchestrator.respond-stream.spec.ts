@@ -210,7 +210,11 @@ describe('OrchestratorService — reanálise por streaming', () => {
 
   async function collect(input: RespondInput = respondInput): Promise<StreamEvent[]> {
     const events: StreamEvent[] = [];
-    for await (const event of service.continueAnalysisStream(physicianId, encounterId, input)) {
+    for await (const event of await service.continueAnalysisStream(
+      physicianId,
+      encounterId,
+      input,
+    )) {
       events.push(event);
     }
     return events;
@@ -353,7 +357,7 @@ describe('OrchestratorService — reanálise por streaming', () => {
   describe('eventos', () => {
     it('emite o entendimento refeito antes da busca e do primeiro delta', async () => {
       const events: StreamEvent[] = [];
-      for await (const event of service.continueAnalysisStream(
+      for await (const event of await service.continueAnalysisStream(
         physicianId,
         encounterId,
         respondInput,
@@ -400,12 +404,11 @@ describe('OrchestratorService — reanálise por streaming', () => {
     });
   });
 
-  // Como em analyzeStream: o que recusa o pedido é exceção antes do primeiro
-  // evento — o controller a repassa ao Observable e o web cai no POST, que
-  // devolve o mesmo erro ao médico.
-  describe('recusas antes do primeiro evento', () => {
+  // O que recusa o pedido é exceção ao abrir o stream, antes de qualquer byte
+  // da resposta: o controller devolve o mesmo 4xx do POST /respond.
+  describe('recusas ao abrir', () => {
     it('bloqueia injeção nas respostas antes da Etapa 1 e de qualquer chamada ao modelo', async () => {
-      const stream = service.continueAnalysisStream(physicianId, encounterId, {
+      const opening = service.continueAnalysisStream(physicianId, encounterId, {
         ...respondInput,
         answers: [
           {
@@ -415,7 +418,7 @@ describe('OrchestratorService — reanálise por streaming', () => {
         ],
       });
 
-      await expect(stream.next()).rejects.toThrow(BadRequestException);
+      await expect(opening).rejects.toThrow(BadRequestException);
       expect(understand).not.toHaveBeenCalled();
       expect(gateway.completeStream).not.toHaveBeenCalled();
       expect(interactionCreate).not.toHaveBeenCalled();
@@ -426,9 +429,9 @@ describe('OrchestratorService — reanálise por streaming', () => {
     it('recusa a interação de outro atendimento', async () => {
       interactionFindFirst.mockResolvedValue(null);
 
-      const stream = service.continueAnalysisStream(physicianId, encounterId, respondInput);
-
-      await expect(stream.next()).rejects.toThrow(NotFoundException);
+      await expect(
+        service.continueAnalysisStream(physicianId, encounterId, respondInput),
+      ).rejects.toThrow(NotFoundException);
       expect(auditLog).not.toHaveBeenCalled();
       expect(understand).not.toHaveBeenCalled();
     });
@@ -437,9 +440,9 @@ describe('OrchestratorService — reanálise por streaming', () => {
       env = { ...env, COPILOT_MAX_TURNS: 2 };
       interactionFindFirst.mockResolvedValue({ ...parentInteraction, turnIndex: 1 });
 
-      const stream = service.continueAnalysisStream(physicianId, encounterId, respondInput);
-
-      await expect(stream.next()).rejects.toThrow(BadRequestException);
+      await expect(
+        service.continueAnalysisStream(physicianId, encounterId, respondInput),
+      ).rejects.toThrow(BadRequestException);
       expect(auditLog).not.toHaveBeenCalled();
       expect(understand).not.toHaveBeenCalled();
     });

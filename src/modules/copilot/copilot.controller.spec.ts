@@ -1,13 +1,13 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { BadRequestException, type PipeTransform } from '@nestjs/common';
 import { ROUTE_ARGS_METADATA } from '@nestjs/common/constants';
+import Fastify, { type FastifyInstance } from 'fastify';
 import { CopilotController } from './copilot.controller';
 import { CopilotService } from './copilot.service';
 import { CopilotFeedbackService } from './feedback/copilot-feedback.service';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import { lastValueFrom, toArray } from 'rxjs';
 import { understandingFixture } from '../../../tests/fixtures/case-understanding';
-import { MAX_RESPOND_STREAM_ANSWERS_LENGTH } from '../../shared/contracts/clinical';
 
 describe('CopilotController', () => {
   let controller: CopilotController;
@@ -216,8 +216,9 @@ describe('CopilotController', () => {
   });
 });
 
-// Reanálise por streaming: EventSource só faz GET, então as respostas chegam
-// como JSON na querystring e precisam passar pelo mesmo schema do POST.
+// Reanálise por streaming: POST com o mesmo corpo e a mesma validação do POST
+// /respond, e a resposta em text/event-stream — nenhum texto clínico na URL
+// (ADR-014).
 describe('CopilotController — respond/stream', () => {
   const req = { user: { physicianId: 'phys-001' } };
   const encounterId = 'enc-001';
@@ -227,6 +228,7 @@ describe('CopilotController — respond/stream', () => {
     { questionId: 'q-peso', answer: 70 },
     { questionId: 'q-anticoagulante', answer: true },
   ];
+  const body = { interactionId, answers };
   const doneResult = {
     interactionId: 'interaction-002',
     output: { reasoning: 'test', recommendations: [], uncertainty: false, uncertaintyReason: null },
@@ -236,135 +238,136 @@ describe('CopilotController — respond/stream', () => {
 
   let respondStream: ReturnType<typeof vi.fn>;
   let controller: CopilotController;
+  let app: FastifyInstance;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     respondStream = vi.fn();
     controller = new CopilotController(
       { respondStream } as unknown as CopilotService,
       { submit: vi.fn() } as unknown as CopilotFeedbackService,
     );
+    // Fastify de verdade: a resposta crua (cabeçalhos, corpo em stream) é a
+    // parte que importa desta rota.
+    app = Fastify();
+    app.post('/stream', (request, reply) =>
+      controller.respondStream(req, encounterId, request.body as typeof body, reply),
+    );
+    await app.ready();
   });
 
-  /** O pipe que a rota de fato usa na query — o mesmo que o Nest aplica. */
-  function queryPipe(): PipeTransform {
+  afterEach(async () => {
+    await app.close();
+  });
+
+  /** O pipe que a rota de fato usa no corpo — o mesmo que o Nest aplica. */
+  function bodyPipe(): PipeTransform {
     const args = Reflect.getMetadata(ROUTE_ARGS_METADATA, CopilotController, 'respondStream') as
       | Record<string, { pipes?: unknown[] }>
       | undefined;
     const pipe = Object.values(args ?? {})
       .flatMap((arg) => arg.pipes ?? [])
       .find((candidate) => candidate instanceof ZodValidationPipe);
-    if (!pipe) throw new Error('respondStream sem ZodValidationPipe na query');
+    if (!pipe) throw new Error('respondStream sem ZodValidationPipe no corpo');
     return pipe as PipeTransform;
   }
 
-  function parse(query: Record<string, unknown>) {
-    return queryPipe().transform(query, { type: 'query' });
-  }
-
-  function rejection(query: Record<string, unknown>): BadRequestException {
+  function rejection(candidate: Record<string, unknown>): BadRequestException {
     try {
-      parse(query);
+      bodyPipe().transform(candidate, { type: 'body' });
     } catch (error) {
       if (error instanceof BadRequestException) return error;
       throw error;
     }
-    throw new Error('a query foi aceita');
+    throw new Error('o corpo foi aceito');
   }
 
-  describe('query', () => {
-    it('parses the JSON answers with the POST respondSchema', () => {
-      expect(parse({ interactionId, answers: JSON.stringify(answers) })).toEqual({
-        interactionId,
-        answers,
-      });
-    });
+  describe('corpo', () => {
+    it('accepts the same body as POST /respond, with no size ceiling', () => {
+      const long = { interactionId, answers: [{ questionId: 'q1', answer: 'a'.repeat(20_000) }] };
 
-    it('returns 400 for answers that are not valid JSON', () => {
-      const error = rejection({ interactionId, answers: '[{"questionId":' });
-
-      expect(error.getStatus()).toBe(400);
-      expect(error.getResponse()).toMatchObject({
-        errors: [{ field: 'answers', message: 'answers must be valid JSON' }],
-      });
+      expect(bodyPipe().transform(body, { type: 'body' })).toEqual(body);
+      expect(bodyPipe().transform(long, { type: 'body' })).toEqual(long);
     });
 
     it.each([
-      ['an empty list', { interactionId, answers: '[]' }],
-      ['an answer without questionId', { interactionId, answers: '[{"answer":"sim"}]' }],
-      ['an object instead of a list', { interactionId, answers: '{"q1":"sim"}' }],
+      ['an empty list', { interactionId, answers: [] }],
+      ['an answer without questionId', { interactionId, answers: [{ answer: 'sim' }] }],
       [
         'an answer of another type',
-        { interactionId, answers: '[{"questionId":"q1","answer":null}]' },
+        { interactionId, answers: [{ questionId: 'q1', answer: null }] },
       ],
-      [
-        'an interactionId that is not a UUID',
-        { interactionId: 'abc', answers: JSON.stringify(answers) },
-      ],
+      ['an interactionId that is not a UUID', { interactionId: 'abc', answers }],
       ['no answers at all', { interactionId }],
-    ])('returns 400 for %s, as the POST would', (_label, query) => {
-      expect(rejection(query).getStatus()).toBe(400);
-    });
-
-    it('returns 400 above the URL-length ceiling, even for valid JSON', () => {
-      const long = JSON.stringify([
-        { questionId: 'q1', answer: 'a'.repeat(MAX_RESPOND_STREAM_ANSWERS_LENGTH) },
-      ]);
-
-      expect(rejection({ interactionId, answers: long }).getStatus()).toBe(400);
+    ])('returns 400 for %s, as the POST would', (_label, candidate) => {
+      expect(rejection(candidate).getStatus()).toBe(400);
     });
   });
 
-  describe('SSE', () => {
-    it('forwards the parsed answers to the service and emits its events like the initial stream', async () => {
+  describe('resposta', () => {
+    it('forwards the body to the service and streams its events as text/event-stream', async () => {
       const understanding = understandingFixture();
       async function* events() {
         yield { type: 'understanding' as const, understanding };
         yield { type: 'delta' as const, delta: '{' };
         yield { type: 'done' as const, result: doneResult };
       }
-      respondStream.mockReturnValue(events());
-      const query = parse({ interactionId, answers: JSON.stringify(answers) });
+      respondStream.mockResolvedValue(events());
 
-      const observable = controller.respondStream(req, encounterId, query as never);
-      // Observable frio: o gerador só é criado na inscrição.
-      expect(respondStream).not.toHaveBeenCalled();
-      const emitted = await lastValueFrom(observable.pipe(toArray()));
+      const res = await app.inject({ method: 'POST', url: '/stream', payload: body });
 
-      expect(respondStream).toHaveBeenCalledWith('phys-001', encounterId, {
-        interactionId,
-        answers,
-      });
-      expect(emitted.map((event) => event.data)).toEqual([
-        { type: 'understanding', understanding },
-        { type: 'delta', delta: '{' },
-        { type: 'done', result: doneResult },
-      ]);
+      expect(respondStream).toHaveBeenCalledWith('phys-001', encounterId, body);
+      expect(res.statusCode).toBe(200);
+      expect(res.headers['content-type']).toBe('text/event-stream; charset=utf-8');
+      expect(res.headers['cache-control']).toBe('no-cache, no-transform');
+      expect(res.payload).toBe(
+        ': stream aberto\n\n' +
+          `data: ${JSON.stringify({ type: 'understanding', understanding })}\n\n` +
+          `data: ${JSON.stringify({ type: 'delta', delta: '{' })}\n\n` +
+          `data: ${JSON.stringify({ type: 'done', result: doneResult })}\n\n`,
+      );
     });
 
-    it('completes after the error event of a failed validation', async () => {
+    it('ends after the error event of a failed validation', async () => {
       async function* events() {
         yield { type: 'delta' as const, delta: 'não é JSON' };
         yield { type: 'error' as const, errors: ['Output is not valid JSON'] };
       }
-      respondStream.mockReturnValue(events());
+      respondStream.mockResolvedValue(events());
 
-      const emitted = await lastValueFrom(
-        controller.respondStream(req, encounterId, { interactionId, answers }).pipe(toArray()),
+      const res = await app.inject({ method: 'POST', url: '/stream', payload: body });
+
+      expect(res.payload.trimEnd().split('\n\n').at(-1)).toBe(
+        `data: ${JSON.stringify({ type: 'error', errors: ['Output is not valid JSON'] })}`,
       );
-
-      expect(emitted.at(-1)?.data).toEqual({ type: 'error', errors: ['Output is not valid JSON'] });
     });
 
-    it('errors the Observable when the service refuses before the first event', async () => {
-      // eslint-disable-next-line require-yield -- recusa antes de qualquer evento
-      async function* refused(): AsyncGenerator<never> {
-        throw new BadRequestException('Input contains potentially unsafe content');
+    it('turns a failure after opening into an error event, without the internal message', async () => {
+      async function* events() {
+        yield { type: 'delta' as const, delta: '{' };
+        throw new Error('connect ECONNREFUSED 10.0.0.5:5432');
       }
-      respondStream.mockReturnValue(refused());
+      respondStream.mockResolvedValue(events());
+
+      const res = await app.inject({ method: 'POST', url: '/stream', payload: body });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.payload).not.toContain('ECONNREFUSED');
+      expect(res.payload.trimEnd().split('\n\n').at(-1)).toBe(
+        `data: ${JSON.stringify({ type: 'error', errors: ['Internal server error'] })}`,
+      );
+    });
+
+    it('lets a refusal before opening reach the exception filter, before any byte', async () => {
+      const reply = { send: vi.fn(), code: vi.fn(), header: vi.fn() };
+      respondStream.mockRejectedValue(
+        new BadRequestException('Input contains potentially unsafe content'),
+      );
 
       await expect(
-        lastValueFrom(controller.respondStream(req, encounterId, { interactionId, answers })),
+        controller.respondStream(req, encounterId, body, reply as never),
       ).rejects.toThrow(BadRequestException);
+      expect(reply.send).not.toHaveBeenCalled();
+      expect(reply.code).not.toHaveBeenCalled();
     });
   });
 });

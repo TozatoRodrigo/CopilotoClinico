@@ -1286,19 +1286,31 @@ export class OrchestratorService {
    * na tela; aqui o entendimento refeito sai em segundos e os deltas mostram
    * que o plano está sendo montado.
    *
+   * Abre em duas etapas. O que recusa o pedido (interação de outro
+   * atendimento, teto de turnos, injeção) é exceção ao abrir, antes de
+   * qualquer byte da resposta: vira o mesmo 4xx do POST /respond. Aceito o
+   * pedido, os eventos; a falha de validação vira `error`.
+   *
    * Preparação e gravação são as do POST /respond (`screenFollowUp`,
    * `prepareFollowUp`, `settleAnalysis`): a interação, a auditoria e o
-   * resultado do `done` são os mesmos. Como em `analyzeStream`, o que recusa
-   * o pedido (interação de outro atendimento, teto de turnos, injeção) é
-   * exceção antes do primeiro evento; a falha de validação vira `error`.
+   * resultado do `done` são os mesmos.
    */
-  async *continueAnalysisStream(
+  async continueAnalysisStream(
     physicianId: string,
     encounterId: string,
     input: RespondInput,
-  ): AsyncGenerator<StreamEvent> {
+  ): Promise<AsyncGenerator<StreamEvent>> {
     const logLabel = ' (respond stream)';
     const screened = await this.screenFollowUp(physicianId, encounterId, input, logLabel);
+    return this.streamFollowUp(physicianId, encounterId, screened, logLabel);
+  }
+
+  private async *streamFollowUp(
+    physicianId: string,
+    encounterId: string,
+    screened: ScreenedFollowUp,
+    logLabel: string,
+  ): AsyncGenerator<StreamEvent> {
     const pipeline = this.decisionPipeline(logLabel);
     const stage = await this.understandingStage(
       screened.augmentedCaseText,

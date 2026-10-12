@@ -491,15 +491,6 @@ export interface CaseUnderstanding {
  */
 export const UNDERSTANDING_CORRECTION_QUESTION_ID = 'correcao-do-entendimento';
 
-/**
- * Teto do JSON das respostas (`answers`) na querystring de
- * GET /copilot/respond/stream. EventSource só faz GET, e URL longa estoura
- * limite de navegador e de proxy de hospital — o mesmo motivo do teto de
- * 3.000 caracteres do texto do caso no streaming da análise inicial. Acima
- * dele, o web vai direto pelo POST /copilot/respond.
- */
-export const MAX_RESPOND_STREAM_ANSWERS_LENGTH = 3000;
-
 export interface CopilotAnalysis {
   reasoning: string;
   redFlags: RedFlag[];
@@ -572,7 +563,8 @@ export type RetrievalCoverage = 'full' | 'partial' | 'none';
 
 /**
  * UX-06 — eventos do stream SSE de GET /encounters/:id/copilot/stream e,
- * na reanálise, de GET /encounters/:id/copilot/respond/stream. Espelha `StreamEvent` de orchestrator.service.ts, mas com `result`
+ * na reanálise, do corpo de POST /encounters/:id/copilot/respond/stream.
+ * Espelha `StreamEvent` de orchestrator.service.ts, mas com `result`
  * tipado como `CopilotAnalyzeResponse` (o formato de wire real que a HTTP
  * API expõe) em vez de `OrchestratorResult` (tipo interno do backend) —
  * mesma convenção de CopilotAnalyzeResponse espelhando OrchestratorResult.

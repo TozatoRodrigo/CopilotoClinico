@@ -254,7 +254,7 @@ describe('CopilotService — respondStream', () => {
     async function* events() {
       yield { type: 'delta' as const, delta: '{' };
     }
-    const continueAnalysisStream = vi.fn().mockReturnValue(events());
+    const continueAnalysisStream = vi.fn().mockResolvedValue(events());
     const service = new CopilotService(
       { continueAnalysisStream } as unknown as OrchestratorService,
       {} as InferenceQueueService,
@@ -263,7 +263,7 @@ describe('CopilotService — respondStream', () => {
     );
 
     const emitted = [];
-    for await (const event of service.respondStream('phys-001', 'enc-001', respondInput)) {
+    for await (const event of await service.respondStream('phys-001', 'enc-001', respondInput)) {
       emitted.push(event);
     }
 
