@@ -32,6 +32,7 @@ export async function buildApp(): Promise<NestFastifyApplication> {
       getProviderName: () => 'mock',
       // F0-A — a chave do cache de retrieval inclui provider e modelo de embedding.
       getEmbeddingProviderName: () => 'mock',
+      embeddingsEnabled: () => true,
       getEmbeddingModel: () => 'text-embedding-3-small',
     })
     .overrideProvider(InferenceQueueService)

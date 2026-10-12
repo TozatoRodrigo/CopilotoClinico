@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2016-disc-3",
+  "title": "Mulher de 20 anos vítima de estupro por desconhecido há 4 horas, sem contracepção e com vacinação desconhecida",
+  "tags": [
+    "pele-partes-moles",
+    "revalida",
+    "prova-cega",
+    "discursiva",
+    "violencia-sexual"
+  ],
+  "critical": true,
+  "goldSource": "revalida_discursiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Serviço hospitalar de referência para violência sexual. Fem, 20a, nuligesta, vida sexual ativa. Vítima de estupro há ~4 h por agressor desconhecido, com penetração vaginal sem preservativo. Não usa método contraceptivo; não lembra da situação vacinal. Exame geral e ginecológico sem traumatismos físicos, genitais ou extragenitais."
+  },
+  "expected": {
+    "syndrome": "atendimento inicial a vítima de violência sexual nas primeiras horas, dentro da janela das profilaxias",
+    "diagnoses": [
+      {
+        "text": "violência sexual há 4 h com exposição de risco (penetração vaginal sem preservativo, agressor desconhecido): risco de HIV, hepatite B, outras IST e gravidez, dentro da janela das profilaxias",
+        "tier": "critical"
+      }
+    ],
+    "actions": [
+      {
+        "text": "profilaxia pós-exposição ao HIV agora: terapia antirretroviral combinada (3 drogas) por 28 dias, após teste rápido de HIV sem atrasar o início [ref.: PCDT PEP 2024: tenofovir/lamivudina + dolutegravir; o padrão de 2016 citava TDF + 3TC + atazanavir/ritonavir]",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "anticoncepção de emergência: levonorgestrel 1,5 mg VO dose única (Yuzpe como segunda escolha)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "profilaxia das IST não virais: penicilina benzatina 2,4 milhões UI IM, ceftriaxona 500 mg IM e azitromicina 1 g VO, dose única; metronidazol postergado (anticoncepção de emergência e PEP)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "hepatite B com situação vacinal desconhecida: vacina (0, 1 e 6 meses) e imunoglobulina anti-hepatite B [ref.: IGHAHB 0,06 mL/kg IM, até 14 dias]",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "testagem inicial: HIV (teste rápido), sífilis, hepatites B e C; teste de gravidez",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "notificação compulsória da violência sexual (ficha de notificação de violência), imediata — em até 24 h",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "encaminhar para atendimento psicológico e à rede intersetorial de apoio e proteção",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [],
+    "outOfScope": [
+      "encorajar o registro policial (boletim de ocorrência) e informar sobre o exame de corpo de delito e conjunção carnal no IML (dimensão ético-legal) — orientação à paciente",
+      "sigilo, ética, presunção de veracidade, acolhimento e escuta qualificada — postura do atendimento"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2016, Questão 3): cinco dimensões — ético-legal (notificação compulsória, estímulo ao registro policial, sigilo), apoio psicossocial, anticoncepção de emergência (levonorgestrel; Yuzpe), profilaxia das IST virais (hepatite B com vacina e imunoglobulina; PEP do HIV com TARV combinada por 28 dias após triagem negativa) e das não virais (penicilina benzatina, ceftriaxona, azitromicina; metronidazol postergado). v2: a PEP do HIV é a conduta crítica (tempo-dependente); a ceftriaxona segue o PCDT de IST 2022 (500 mg), que resolve a divergência interna do padrão."
+  },
+  "sources": [
+    {
+      "claim": "Enunciado e comandos da questão discursiva 3.",
+      "title": "Revalida 2016 – Prova Discursiva, Questão 3",
+      "publisher": "INEP",
+      "year": 2016,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/provas/2016/prova_discursiva.pdf"
+    },
+    {
+      "claim": "Notificação compulsória (Ficha de Notificação/Investigação de Violência Doméstica, Sexual e/ou outras Violências); encorajar o registro policial e informar sobre o exame de corpo de delito (IML); sigilo, ética e presunção de veracidade.",
+      "title": "Revalida 2016 – Prova Discursiva – Padrão de Resposta definitivo, Questão 3, dimensão 1 (ético-legal)",
+      "publisher": "INEP",
+      "year": 2016,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2016/prova_discursiva_definitivo.pdf"
+    },
+    {
+      "claim": "Apoio psicossocial (abordagem intersetorial e multiprofissional, rede de apoio, acolhimento, escuta qualificada, atendimento psicológico); anticoncepção de emergência — levonorgestrel 1,5 mg (ou 2 × 0,75 mg) dose única, Yuzpe como segunda escolha (tabela transcrita de imagem).",
+      "title": "Revalida 2016 – Prova Discursiva – Padrão de Resposta definitivo, Questão 3, dimensões 2–3",
+      "publisher": "INEP",
+      "year": 2016,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2016/prova_discursiva_definitivo.pdf"
+    },
+    {
+      "claim": "Situação vacinal desconhecida: vacina anti-hepatite B (0, 1 e 6 meses) e imunoglobulina anti-hepatite B 0,06 mL/kg IM; HIV: avaliar o status sorológico e, com triagem negativa, TARV combinada (três drogas) por 28 dias (não se exigem nomes ou doses; o padrão cita TDF + 3TC + ATV/r).",
+      "title": "Revalida 2016 – Prova Discursiva – Padrão de Resposta definitivo, Questão 3, dimensão 4 (IST virais)",
+      "publisher": "INEP",
+      "year": 2016,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2016/prova_discursiva_definitivo.pdf"
+    },
+    {
+      "claim": "Penicilina G benzatina 2,4 milhões UI IM, ceftriaxona IM dose única (500 mg no texto, 250 mg na tabela), azitromicina 1 g VO dose única; metronidazol postergado pela prescrição de levonorgestrel.",
+      "title": "Revalida 2016 – Prova Discursiva – Padrão de Resposta definitivo, Questão 3, dimensão 5 (IST não virais)",
+      "publisher": "INEP",
+      "year": 2016,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2016/prova_discursiva_definitivo.pdf"
+    },
+    {
+      "claim": "Violência sexual (cap. 17): notificação imediata (em até 24 h); profilaxia das IST não virais em adultos — benzilpenicilina benzatina 2,4 milhões UI IM, ceftriaxona 500 mg IM dose única com azitromicina 1 g VO, metronidazol 2 g postergado quando há anticoncepção de emergência e PEP; hepatite B: vacinar não vacinados, IGHAHB para expostos a HBsAg reagente ou de alto risco; PEP do HIV por 28 dias, até 72 h; levonorgestrel 1,5 mg VO dose única até 5 dias.",
+      "title": "Protocolo Clínico e Diretrizes Terapêuticas para Atenção Integral às Pessoas com Infecções Sexualmente Transmissíveis (IST)",
+      "publisher": "Ministério da Saúde",
+      "year": 2022,
+      "url": "https://www.gov.br/aids/pt-br/central-de-conteudo/pcdts/2022/ist/pcdt-ist-2022_isbn-1.pdf"
+    },
+    {
+      "claim": "Esquema preferencial de PEP: tenofovir/lamivudina 300/300 mg + dolutegravir 50 mg ao dia por 28 dias, iniciado até 72 h após a exposição; a IGHAHB está indicada, entre outros, para vítimas de violência sexual (conforme o Manual dos CRIE), 0,06 mL/kg IM até 14 dias após exposição sexual.",
+      "title": "Protocolo Clínico e Diretrizes Terapêuticas para Profilaxia Pós-Exposição de Risco (PEP) à Infecção pelo HIV, IST e Hepatites Virais (Portaria SECTICS/MS nº 14/2024)",
+      "publisher": "Ministério da Saúde / Conitec",
+      "year": 2024,
+      "url": "https://www.gov.br/conitec/pt-br/midias/protocolos/PCDTPEP.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2016",
+    "item": "Discursiva caso 3",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2016/prova_discursiva_definitivo.pdf",
+    "originalCaseText": "Uma mulher com 20 anos de idade e vida sexual ativa, nuligesta, é encaminhada ao serviço de referência hospitalar por ter sido vítima de estupro há cerca de 4 horas. Relata que não conhecia o agressor e que houve penetração vaginal sem uso de preservativo. Informa também que não faz uso de métodos contraceptivos e não lembra da sua situação vacinal. O exame geral e o exame ginecológico não revelam traumatismos físicos, genitais ou extragenitais. Considerando a abordagem integral dessa paciente, elabore um plano de cuidado que contemple as dimensões que devem fazer parte do atendimento inicial, com vistas à prevenção e ao tratamento dos agravos resultantes da violência sexual. (valor: 10,0 pontos)",
+    "notes": "Prova cega (11/10/2026): caseText com todo o enunciado em estilo nota; tags[0] = pele-partes-moles por falta de estrato para violência sexual. As tabelas do padrão são imagens, lidas pela transcrição em text/2016_disc_padrao.tabelas.txt. Divergência interna do padrão (ceftriaxona 250 mg na tabela × 500 mg no texto) resolvida pela diretriz vigente: PCDT de IST 2022 (aberto e lido) — 500 mg IM com azitromicina 1 g. PEP do HIV conferida no PCDT de PEP (Portaria 14/2024, versão de 19/03/2025, aberto e lido): o esquema mudou (TDF/3TC + DTG), mas o padrão não exige nomes — o item aceita qualquer TARV tripla por 28 dias. Hepatite B: o padrão (vacina + imunoglobulina) coincide com o PCDT de PEP (IGHAHB indicada para vítimas de violência sexual); o PCDT de IST 2022 restringe a IGHAHB a agressor HBsAg reagente ou de alto risco — o item mantém o padrão e deixa a dose como referência, timing any."
+  }
+}

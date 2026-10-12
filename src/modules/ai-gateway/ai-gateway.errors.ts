@@ -65,3 +65,17 @@ export class AiCapabilityUnsupportedError extends Error {
     );
   }
 }
+
+/**
+ * `EMBEDDING_PROVIDER=none`: o serviço roda sem embeddings (a Anthropic não
+ * tem API de embedding, e a conta da OpenAI ficou sem crédito em 10/2026).
+ * Quem chama segue sem o vetor: a busca vira textual e o trecho é gravado
+ * sem embedding, para preencher depois se um provedor voltar.
+ */
+export class AiEmbeddingsDisabledError extends Error {
+  override readonly name = 'AiEmbeddingsDisabledError';
+
+  constructor() {
+    super('Embeddings desligados (EMBEDDING_PROVIDER=none)');
+  }
+}

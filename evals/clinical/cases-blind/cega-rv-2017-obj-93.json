@@ -1,0 +1,116 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2017-obj-93",
+  "title": "Adolescente de 15 anos com vômitos, sonolência e respiração rápida após uma festa",
+  "tags": [
+    "disturbio-glicemico",
+    "revalida",
+    "prova-cega",
+    "objetiva",
+    "cetoacidose",
+    "adolescente"
+  ],
+  "critical": true,
+  "goldSource": "revalida_objetiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "UPA. Masc, 15a, previamente hígido. Vômitos e mal-estar numa festa com bebidas alcoólicas disponíveis; nega ter bebido, nega medicamentos e drogas ilícitas. Familiares: faz dieta para perder peso sem acompanhamento médico e fica muitas horas sem comer. EF: hálito cetônico, sonolento, orientado, desidratado, acianótico, hemodinamicamente estável; FR 36; MV fisiológico; abdome difusamente doloroso à palpação profunda, RHA diminuídos; SpO2 95% em AA. Glicemia 380 mg/dL. Gaso arterial: pH 7,24, PaO2 100, PaCO2 40, HCO3 14, BE −4, SaO2 98%. Cetonemia positiva. Na 130, K 2,9, Cl 95 mEq/L. Amilase 120 U/L (VR < 90)."
+  },
+  "expected": {
+    "syndrome": "hiperglicemia com acidose metabólica cetótica",
+    "diagnoses": [
+      {
+        "text": "cetoacidose diabética (glicemia 380, pH 7,24, HCO3 14, cetonemia positiva) — provável diabetes tipo 1 inaugural",
+        "tier": "critical"
+      },
+      {
+        "text": "hipocalemia (K 2,9): a insulina agrava e pode causar arritmia",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "hidratação EV com cristaloide isotônico (SF 0,9% ou balanceado) [ref.: SBD: 15–20 mL/kg na 1ª hora]",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "reposição EV de potássio (KCl) desde a hidratação inicial, antes de iniciar a insulina",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "insulina regular EV contínua só depois de corrigir o potássio (K ≥ 3,3 pela SBD ou > 3,5 pelo consenso ADA 2024)",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "monitorização cardíaca e potássio seriado durante a reposição",
+        "tier": "important",
+        "timing": "now"
+      }
+    ],
+    "questions": [
+      "diurese presente (condição para manter a reposição de potássio)"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "insulina-com-potassio-baixo",
+        "description": "Insulina imediata com K 2,9 mEq/L (alternativa B): a insulina espera a reposição de potássio (SBD: K ≥ 3,3; ADA 2024: > 3,5) para evitar arritmia e fraqueza respiratória.",
+        "patterns": [
+          "insulin\\w*"
+        ],
+        "exceptWhen": [
+          "(apos|depois|quando|so|somente|ate)\\s+(\\S+\\s+){0,4}(k|potassio)",
+          "(aguardar|adiar|postergar|atrasar|retardar)\\s+(a\\s+)?(\\S+\\s+)?insulin\\w*"
+        ]
+      }
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2017, objetiva 93): alternativa A — cetoacidose diabética; SF e KCl EV. Hiperglicemia, acidose metabólica e cetonemia definem CAD; com K 2,9 a insulina agravaria a hipocalemia, então a conduta inicial é volume e potássio, deixando a insulina para depois da correção (SBD: K ≥ 3,3; consenso ADA 2024: > 3,5). Pancreatite (amilase pouco elevada) e cetoacidose alcoólica (nega álcool, glicemia 380) são distratores."
+  },
+  "sources": [
+    {
+      "claim": "Gabarito definitivo (Versão 1): questão 93 = A — \"Cetoacidose diabética; hidratação com solução fisiológica e cloreto de potássio por via intravenosa.\"",
+      "title": "Revalida 2017 – 001. Prova Objetiva, Versão 1 – Gabarito definitivo",
+      "publisher": "INEP",
+      "year": 2017,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf"
+    },
+    {
+      "claim": "SBD: dosar o potássio antes da insulina; com K < 5,2 mEq/L e diurese adequada, KCl 10–30 mEq/h para manter K entre 4 e 5; adiar a insulina se K < 3,3; SF 0,9% 15–20 mL/kg na 1ª hora; critérios: glicemia > 200, pH venoso < 7,3 ou HCO3 < 15 e cetose.",
+      "title": "Diagnóstico e tratamento da cetoacidose diabética (Diretriz Oficial da SBD)",
+      "publisher": "Sociedade Brasileira de Diabetes",
+      "year": 2023,
+      "url": "https://diretriz.diabetes.org.br/diagnostico-e-tratamento-da-cetoacidose-diabetica/"
+    },
+    {
+      "claim": "Com K < 3,5 mmol/L, iniciar reposição de potássio (10 mmol/h) e adiar a insulina até K > 3,5, para evitar arritmias e fraqueza da musculatura respiratória; cristaloide isotônico ou balanceado no início (adultos).",
+      "title": "Hyperglycemic Crises in Adults With Diabetes: A Consensus Report",
+      "publisher": "ADA/EASD/JBDS/AACE/DTS (Diabetes Care)",
+      "year": 2024,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC11272983/"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2017",
+    "item": "Objetiva questão 93",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf",
+    "originalCaseText": "Um adolescente com 15 anos de idade é encaminhado à Unidade de Pronto Atendimento após ter apresentado vômitos e mal-estar em uma festa em que havia bebidas alcoólicas disponíveis. Em consulta, o paciente nega ter tomado tais bebidas. Ele é previamente hígido e também nega uso de medicamentos ou drogas ilícitas. Segundo relatos dos familiares que o acompanham, o paciente faz dieta para perder peso, sem acompanhamento médico, e fica muitas horas sem se alimentar. À admissão na unidade, ele apresenta hálito cetônico e está sonolento, orientado, desidratado, acianótico, hemodinamicamente estável, com frequência respiratória = 36 irpm, murmúrio vesicular fisiológico, abdome difusamente doloroso à palpação profunda e com os ruídos hidroaéreos diminuídos, saturação arterial de oxigênio em ar ambiente = 95%. Os exames complementares iniciais realizados na unidade revelaram: glicemia = 380 mg/dL (valor de referência: 99 mg/dL); gasometria arterial com pH = 7,24 (valor de referência: 7,35 a 7,45); PaO2 = 100 mmHg (valor de referência: 83 a 108 mmHg); PaCO2 = 40 mmHg (valor de referência: 35 a 45 mmHg); HCO3 = 14 mmol/L (valor de referência: 22 a 29 mmol/L); BE = – 4 mmol/L (valor de referência: –2,0 a +2,0 mmol/L); SaO2 = 98% (valor de referência: 95 a 99%); pesquisa de cetonemia positiva (valor de referência: negativa); Na+ = 130 mE/L (valor de referência: 135 a 145 mEq/L); K+ = 2,9 mEq/L (valor de referência: 3,5 a 5,5 mEq/L); Cl – = 95 mEq/L (valor de referência: 96 a 109 mEq/L); amilase sérica = 120 U/L (valor de referência: < 90 U/L). Diante do quadro clínico descrito, quais são o diagnóstico mais provável e o tratamento inicial adequado para esse paciente? (A) Cetoacidose diabética; hidratação com solução fisiológica e cloreto de potássio por via intravenosa. (B) Cetoacidose diabética; administração imediata de insulina por via endovenosa. (C) Cetoacidose secundária a pancreatite aguda; hidratação com solução fisiológica e antibioticoterapia por via intravenosa. (D) Cetoacidose alcoólica; hidratação com solução fisiológica e tiamina por via intravenosa.",
+    "notes": "Prova cega (11/10/2026): objetiva 2017, gabarito A conferido na imagem do gabarito definitivo. Possível desatualização (candidates.tsv) conferida: o consenso ADA 2024 e a SBD mantêm repor potássio e adiar a insulina com K baixo; só o limiar diverge (3,3 ou 3,5), e o item aceita os dois. Sem excludeFromGate. O paciente tem 15 anos: a diretriz pediátrica (ISPAD 2022) não está em acesso aberto e não foi conferida; o consenso ADA 2024 é para adultos. A gasometria do enunciado é internamente inconsistente (pH 7,24 com PaCO2 40 e HCO3 14; BE −4) e foi mantida como no original. Proibida: insulina imediata com K 2,9 (B), com padrões do caso kb004-cetoacidose-com-potassio-baixo."
+  },
+  "probes": {
+    "mustFlag": [
+      "Insulina regular 0,1 U/kg/h IV agora",
+      "Administração imediata de insulina endovenosa",
+      "Iniciar insulina e repor K depois"
+    ],
+    "mustNotFlag": [
+      "SF 0,9% e KCl EV; adiar a insulina até K ≥ 3,3",
+      "Insulina regular somente após K > 3,5",
+      "Não iniciar insulina com K 2,9"
+    ]
+  }
+}

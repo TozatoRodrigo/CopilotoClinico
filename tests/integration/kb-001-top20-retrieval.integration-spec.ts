@@ -31,6 +31,7 @@ function buildRetrievalService(queryEmbedding: number[], prisma: PrismaClient): 
     embed: async () => ({ embeddings: [queryEmbedding] }),
     // F0-A — a chave do cache do retrieval inclui o embedding em uso.
     getEmbeddingProviderName: () => 'test',
+    embeddingsEnabled: () => true,
     getEmbeddingModel: () => 'test-embedding',
   } as unknown as AiGatewayService;
 

@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2017-obj-91",
+  "title": "Gestante de 19 semanas com febre, disúria e dor lombar no pronto-socorro",
+  "tags": [
+    "sintomas-urinarios",
+    "revalida",
+    "prova-cega",
+    "objetiva",
+    "obstetricia",
+    "pielonefrite"
+  ],
+  "critical": true,
+  "goldSource": "revalida_objetiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "PS. Fem, 20a, primigesta, IG 19 sem. Febre não medida há 24 h; disúria, polaciúria, urgência miccional, dor lombar e náuseas. EF: REG, afebril, FC 98, FR 25, PA 90x60 mmHg, desidratada ++/4+, punho-percussão lombar D dolorosa."
+  },
+  "expected": {
+    "syndrome": "infecção urinária alta na gestação",
+    "diagnoses": [
+      {
+        "text": "pielonefrite aguda na gestação (19 sem)",
+        "tier": "critical"
+      },
+      {
+        "text": "sinais de gravidade, sepse possível: PA 90x60, FR 25, FC 98, desidratação",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "internação com antibioticoterapia EV imediata [ref.: ceftriaxona 2 g/dia — MS 2022]",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "hidratação venosa",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "analgésicos, antiespasmódicos e antieméticos EV",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "urocultura com antibiograma e exames (hemograma, função renal, eletrólitos; gasometria e lactato se suspeita de sepse), sem atrasar o antibiótico",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "tratamento-ambulatorial",
+        "description": "Tratamento ambulatorial/na atenção básica com antibiótico VO (alternativas B e C): na gestante com pielonefrite a internação é obrigatória (MS 2022), e esta tem PA 90x60 e FR 25.",
+        "patterns": [
+          "(tratamento|acompanhamento|manejo|seguimento|conduta)\\s+ambulatorial",
+          "(unidade\\s+de\\s+)?atencao\\s+basica",
+          "alta\\s+(hospitalar\\s+)?(com|e|para)",
+          "(antibiotic\\w*|atb|antimicrobian\\w*)\\s+(por\\s+)?(via\\s+)?oral",
+          "(antibiotic\\w*|atb)\\s+vo"
+        ],
+        "exceptWhen": [
+          "(apos|depois\\s+d[aeo]s?)\\s+(\\S+\\s+){0,3}(melhora|afebril|sem\\s+febre|48|72|alguns\\s+dias|internacao|alta|estabiliz\\w*|resposta)",
+          "transi\\w*",
+          "complet\\w*",
+          "(trocar|troca)\\s+",
+          "descalon\\w*"
+        ]
+      },
+      {
+        "id": "aguardar-urocultura-para-antibiotico",
+        "description": "Aguardar urocultura/antibiograma para iniciar o antibiótico (alternativa A): na pielonefrite da gestante o antibiótico EV é imediato (MS 2022).",
+        "patterns": [
+          "aguard\\w*\\s+(\\S+\\s+){0,3}(urocultura|antibiograma|cultura)",
+          "(apos|depois\\s+d[ao])\\s+(o\\s+)?(resultado\\s+d[ao]\\s+)?(urocultura|antibiograma)"
+        ],
+        "exceptWhen": [
+          "ajust\\w*",
+          "escalon\\w*",
+          "descalon\\w*",
+          "guiad\\w*",
+          "(trocar|troca|mudar|modificar)\\b",
+          "enquanto"
+        ]
+      }
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2017, objetiva 91): alternativa D — internação para antibioticoterapia e hidratação EV, com analgésicos, antiespasmódicos e antieméticos. Pielonefrite na gestação exige internação, hidratação venosa e antibiótico EV imediato (ceftriaxona), com exames e atenção à evolução para sepse (MS 2022). Aguardar a urocultura para iniciar o antibiótico (A) ou tratar na atenção básica com antibiótico oral (B, C) é inadequado."
+  },
+  "sources": [
+    {
+      "claim": "Gabarito definitivo (Versão 1): questão 91 = D — \"internação hospitalar para antibioticoterapia e hidratação endovenosas; administração de analgésicos, antiespasmódicos e antieméticos.\"",
+      "title": "Revalida 2017 – 001. Prova Objetiva, Versão 1 – Gabarito definitivo",
+      "publisher": "INEP",
+      "year": 2017,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf"
+    },
+    {
+      "claim": "Pielonefrite na gestação (seção 34.5): hospitalização obrigatória, hidratação venosa, hemograma, função renal e eletrólitos; evolução para sepse é comum (ampliar com gasometria, lactato, PCR); antibiótico EV imediato, de preferência ceftriaxona 2 g/dia por 10–14 dias; casos favoráveis podem completar o tratamento ambulatorial após alguns dias de internação; o diagnóstico é subsidiado pela urocultura.",
+      "title": "Manual de Gestação de Alto Risco (1ª edição)",
+      "publisher": "Ministério da Saúde",
+      "year": 2022,
+      "url": "https://bvsms.saude.gov.br/bvs/publicacoes/manual_gestacao_alto_risco.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2017",
+    "item": "Objetiva questão 91",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf",
+    "originalCaseText": "Uma mulher com 20 anos de idade, primigesta na 19ª semana de gestação, procura o Pronto-Socorro com história de febre não medida há 24 horas e queixa de disúria, polaciúria, urgência miccional, dor lombar e náuseas. Ao exame físico, apresenta-se em regular estado geral, afebril, frequência cardíaca = 98 bpm, frequência respiratória = 25 irpm, pressão arterial = 90 x 60 mmHg, desidratada ++/4+ e com dor à punho-percussão da região lombar direita. Diante desse quadro clínico, a conduta adequada é (A) internação hospitalar para hidratação e administração de analgésicos, antiespasmódicos e antieméticos endovenosos; solicitação de urocultura e antibiograma para início de antibioticoterapia. (B) acompanhamento na Unidade de Atenção Básica; solicitação de urocultura e antibiograma para início de antibioticoterapia por via oral. (C) acompanhamento na Unidade de Atenção Básica; início do tratamento sintomático e antibioticoterapia por via oral. (D) internação hospitalar para antibioticoterapia e hidratação endovenosas; administração de analgésicos, antiespasmódicos e antieméticos.",
+    "notes": "Prova cega (11/10/2026): objetiva 2017, gabarito D conferido na imagem do gabarito definitivo. Conduta vigente (MS 2022). A urocultura entrou como importante porque o MS 2022 a usa no diagnóstico, sem atrasar o antibiótico. Proibidas: tratamento ambulatorial com antibiótico VO (B e C), com exceção para completar o tratamento após melhora, como no manual; e aguardar a urocultura para iniciar o antibiótico (A)."
+  },
+  "probes": {
+    "mustFlag": [
+      "Acompanhamento na atenção básica com cefalexina VO",
+      "Tratamento ambulatorial com antibiótico oral e retorno em 48 h",
+      "Colher urocultura e aguardar antibiograma para iniciar antibiótico",
+      "Iniciar antibiótico após resultado da urocultura"
+    ],
+    "mustNotFlag": [
+      "Internar; ceftriaxona 2 g EV agora",
+      "Completar antibiótico oral após melhora clínica e 48 h afebril",
+      "Ceftriaxona EV já, sem aguardar a urocultura",
+      "Ajustar o antibiótico após o antibiograma"
+    ]
+  }
+}

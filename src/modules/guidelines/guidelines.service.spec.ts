@@ -1,9 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import * as Sentry from '@sentry/node';
 import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
 import { GuidelinesService, type IngestGuidelineInput } from './guidelines.service';
 import { PrismaService } from '../../config/prisma.service';
 import { AiGatewayService } from '../ai-gateway/ai-gateway.service';
 import { AuditService } from '../audit/audit.service';
+
+vi.mock('@sentry/node', () => ({ captureMessage: vi.fn() }));
 
 const baseIngestInput: IngestGuidelineInput = {
   text: 'Hypertension should be treated with ACE inhibitors as first-line therapy.',
@@ -32,6 +35,7 @@ describe('GuidelinesService', () => {
     $queryRawUnsafe: ReturnType<typeof vi.fn>;
   };
   let aiGateway: {
+    embeddingsEnabled: ReturnType<typeof vi.fn>;
     embed: ReturnType<typeof vi.fn>;
   };
   let auditService: { log: ReturnType<typeof vi.fn> };
@@ -53,6 +57,7 @@ describe('GuidelinesService', () => {
     };
 
     aiGateway = {
+      embeddingsEnabled: vi.fn(() => true),
       embed: vi.fn().mockResolvedValue({ embeddings: [mockEmbedding] }),
     };
 
@@ -754,6 +759,85 @@ describe('GuidelinesService', () => {
         expect(call[0]).toContain("gc.status IN ('approved', 'official_unreviewed')");
         expect(call[0]).toContain('gc.valid_to IS NULL');
       }
+    });
+
+    // 11/10/2026: a conta da OpenAI ficou sem crédito e "Consultar
+    // diretrizes" passou a responder 500. Sem vetor, a consulta segue por
+    // palavra-chave.
+    const keywordHit = {
+      chunkId: 'off-1',
+      source: 'PCDT — Acidentes Escorpiônicos',
+      sourceVersion: '2026',
+      specialty: 'toxicologia',
+      text: 'Soro antiescorpiônico nos casos moderados e graves',
+      status: 'official_unreviewed',
+      institutionId: null,
+      metadata: { documentKey: 'pcdt:escorpionicos' },
+      similarity: null,
+    };
+
+    it('com EMBEDDING_PROVIDER=none, busca por palavra-chave sem chamar o provedor nem alertar', async () => {
+      aiGateway.embeddingsEnabled.mockReturnValue(false);
+      prisma.$queryRawUnsafe.mockResolvedValueOnce([]).mockResolvedValueOnce([keywordHit]);
+
+      const results = await service.consult(
+        'Criança de 4 anos com dor na perna após picada de escorpião',
+      );
+
+      expect(aiGateway.embed).not.toHaveBeenCalled();
+      expect(Sentry.captureMessage).not.toHaveBeenCalled();
+      const [allTerms, anyTerm] = prisma.$queryRawUnsafe.mock.calls;
+      // Primeiro todos os termos (consulta curta); depois qualquer termo (caso inteiro).
+      expect(allTerms![0]).toContain("websearch_to_tsquery('portuguese', $1)");
+      // Qualquer termo, pesado pela raridade (IDF) de cada um na base.
+      expect(anyTerm![0]).toContain('tsvector_to_array');
+      expect(anyTerm![0]).toContain('ORDER BY sum(w.idf) DESC');
+      expect(anyTerm![0]).not.toContain('::vector');
+      expect(results).toEqual([
+        expect.objectContaining({ chunkId: 'off-1', matchedBy: 'keyword', similarity: 0 }),
+      ]);
+    });
+
+    it('com o provedor fora do ar (sem crédito), alerta e segue por palavra-chave', async () => {
+      aiGateway.embed.mockRejectedValue(new Error('AI provider embed error: 429'));
+      prisma.$queryRawUnsafe.mockResolvedValueOnce([keywordHit]).mockResolvedValueOnce([]);
+
+      const results = await service.consult('escorpião');
+
+      expect(Sentry.captureMessage).toHaveBeenCalledWith(
+        expect.stringContaining('GUIDELINE_EMBEDDING_UNAVAILABLE consulta'),
+        'error',
+      );
+      expect(results.map((result) => result.chunkId)).toEqual(['off-1']);
+    });
+  });
+
+  describe('sem embedding na ingestão', () => {
+    it('grava os trechos sem vetor em vez de falhar a sugestão', async () => {
+      aiGateway.embeddingsEnabled.mockReturnValue(false);
+      prisma.guidelineChunk.create.mockResolvedValue({ id: 'chunk-uuid-1' });
+
+      const result = await service.ingest(baseIngestInput);
+
+      expect(result).toHaveLength(1);
+      expect(aiGateway.embed).not.toHaveBeenCalled();
+      expect(prisma.guidelineChunk.create).toHaveBeenCalledTimes(1);
+      // Sem o UPDATE do embedding: o trecho fica para a busca textual.
+      expect(prisma.$executeRaw).not.toHaveBeenCalled();
+    });
+
+    it('com o provedor fora do ar, alerta e grava os trechos mesmo assim', async () => {
+      aiGateway.embed.mockRejectedValue(new Error('AI provider embed error: 429'));
+      prisma.guidelineChunk.create.mockResolvedValue({ id: 'chunk-uuid-1' });
+
+      const result = await service.ingest(baseIngestInput);
+
+      expect(result).toHaveLength(1);
+      expect(prisma.$executeRaw).not.toHaveBeenCalled();
+      expect(Sentry.captureMessage).toHaveBeenCalledWith(
+        expect.stringContaining('GUIDELINE_EMBEDDING_UNAVAILABLE WHO HTN 2023 v1.0'),
+        'error',
+      );
     });
   });
 });

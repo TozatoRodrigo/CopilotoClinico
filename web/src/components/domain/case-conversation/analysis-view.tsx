@@ -386,6 +386,7 @@ export function AnalysisView({
           open={consultOpen}
           onOpenChange={setConsultOpen}
           caseText={turn.caseText ?? encounterQuery.data?.chiefComplaint ?? null}
+          searchTopics={analysis.understanding?.searchQueries}
           citedChunkIds={sourcedRecommendations.map((rec) => rec.citationChunkId)}
           citedSources={sourcedRecommendations.map((rec) => rec.source)}
         />

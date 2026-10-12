@@ -1,0 +1,134 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2016-disc-2",
+  "title": "Motorista de 30 anos preso ao cinto após colisão lateral contra árvore, com choque, dor torácica e ferimento sangrante na coxa",
+  "tags": [
+    "choque",
+    "revalida",
+    "prova-cega",
+    "discursiva",
+    "trauma",
+    "pre-hospitalar"
+  ],
+  "critical": true,
+  "goldSource": "revalida_discursiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Atendimento pré-hospitalar por unidade de suporte avançado (UTI móvel). Colisão de carro de passeio contra árvore. Cena: para-brisa íntegro, deformidade de ~35 cm na lateral do lado do motorista, sem vazamento de combustível ou princípio de incêndio; árvore caída junto ao carro. Homem de ~50 a em óbito ao lado da porta do passageiro. No banco do motorista, homem de ~30 a com cinto afivelado: dor torácica E moderada à inspiração, dispneia leve, dor intensa no MIE. EF: dor à palpação do gradeado costal E; ausculta pulmonar simétrica; FR 26, PAS 85, FC 130, SpO2 92% AA, Glasgow 13, pupilas isocóricas e fotorreagentes, TEC > 2 s; deformidade no braço E; ferimento de ~20 cm na coxa E com sangramento venoso significativo."
+  },
+  "expected": {
+    "syndrome": "politrauma por colisão lateral de alta energia com choque hemorrágico, no pré-hospitalar",
+    "diagnoses": [
+      {
+        "text": "choque hemorrágico (PAS 85, FC 130, TEC > 2 s) em politrauma por impacto lateral de alta energia",
+        "tier": "critical"
+      },
+      {
+        "text": "lesões esperadas pela cinemática do impacto lateral do lado do motorista: TCE, coluna cervical, tórax (fraturas de costela, contusão, hemo/pneumotórax, tórax instável), aorta, baço/fígado, pelve/quadril, fêmur e MS",
+        "tier": "important"
+      },
+      {
+        "text": "trauma grave pelos critérios de triagem: fisiológico (PAS < 90), anatômico (fratura proximal de osso longo) e de mecanismo (deformidade ≥ 30 cm, óbito no mesmo veículo)",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "controle imediato da hemorragia externa da coxa por compressão direta (torniquete se não controlar)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "transporte rápido, com o mínimo de tempo na cena, para hospital terciário/centro de trauma, informando a regulação",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "garantir a segurança da cena antes da abordagem (avaliar a cena, como pode evoluir e como controlá-la)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "A: via aérea pérvia (fala), O2 por máscara com reservatório [ref.: 10–12 L/min] e colar cervical/restrição de movimento da coluna",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "C: dois acessos venosos periféricos calibrosos e cristaloide em volume limitado (hipotensão permissiva) [ref.: padrão: 1–2 L]",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "E: imobilizar as fraturas do MS e do MI (checar se expostas) e prevenir hipotermia",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "ácido tranexâmico 1 g IV o quanto antes, dentro de 3 h do trauma, se disponível",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [],
+    "outOfScope": [
+      "descrever os três passos de avaliação da cena (item a: qual é a cena, para onde pode evoluir, como controlar) — a segurança da cena ficou como conduta",
+      "B e D sem medida específica no padrão (ausculta simétrica e SpO2 92%; Glasgow 13 com pupilas normais) — reavaliação verbalizada"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2016, Questão 2): segurança da cena e cinemática (impacto lateral de alta energia, deformidade de 35 cm, óbito na cena), lesões esperadas, ABCDE (O2 e colar; B sem medida; compressão do ferimento da coxa, 2 acessos calibrosos e cristaloide limitado; D sem medida; imobilizar fraturas e aquecer) e triagem (fisiológica, anatômica e de mecanismo) com encaminhamento rápido a hospital terciário. v2: choque hemorrágico é o diagnóstico crítico; controle da hemorragia e transporte rápido ao centro de trauma são as condutas críticas; ácido tranexâmico entrou pela diretriz vigente."
+  },
+  "sources": [
+    {
+      "claim": "Enunciado e comandos da questão discursiva 2.",
+      "title": "Revalida 2016 – Prova Discursiva, Questão 2",
+      "publisher": "INEP",
+      "year": 2016,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/provas/2016/prova_discursiva.pdf"
+    },
+    {
+      "claim": "Avaliar a segurança da cena antes de abordar o paciente: qual é a cena, para onde pode evoluir, como controlar; cena segura, com grande transferência de energia (impacto lateral, deformidade de 35 cm, óbito na cena) (2,5).",
+      "title": "Revalida 2016 – Prova Discursiva – Padrão de Resposta definitivo, Questão 2, item a",
+      "publisher": "INEP",
+      "year": 2016,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2016/prova_discursiva_definitivo.pdf"
+    },
+    {
+      "claim": "Lesões esperadas no impacto lateral do lado do motorista: TCE, fratura de coluna cervical, trauma torácico (fraturas, contusão, hemo/pneumotórax, tórax instável), rotura de aorta, lesão de baço ou fígado, fratura/luxação de quadril, fraturas de fêmur, tíbia/fíbula, tornozelo/pé e MMSS (2,5).",
+      "title": "Revalida 2016 – Prova Discursiva – Padrão de Resposta definitivo, Questão 2, item b",
+      "publisher": "INEP",
+      "year": 2016,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2016/prova_discursiva_definitivo.pdf"
+    },
+    {
+      "claim": "ABCDE: A — via aérea pérvia, O2 por máscara com reservatório 10–12 L/min e colar cervical; B — sem medida; C — compressão do ferimento da coxa, duas veias periféricas calibrosas e infusão limitada de cristaloide (1 a 2 L); D — sem medida; E — avaliar e imobilizar fraturas e manter aquecido (3,0).",
+      "title": "Revalida 2016 – Prova Discursiva – Padrão de Resposta definitivo, Questão 2, item c",
+      "publisher": "INEP",
+      "year": 2016,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2016/prova_discursiva_definitivo.pdf"
+    },
+    {
+      "claim": "Indicadores de gravidade fisiológicos (PAS < 90), anatômicos (lesão proximal de osso longo — fêmur) e biomecânicos (deformidade ≥ 30 cm, óbito de ocupante); atendimento rápido na cena e encaminhamento a hospital de referência terciária (2,0).",
+      "title": "Revalida 2016 – Prova Discursiva – Padrão de Resposta definitivo, Questão 2, item d",
+      "publisher": "INEP",
+      "year": 2016,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2016/prova_discursiva_definitivo.pdf"
+    },
+    {
+      "claim": "Compressão local de feridas abertas para limitar sangramento com risco de vida e torniquete como adjuvante no sangramento de extremidade (1B); reposição volêmica restrita com PAS-alvo de 80–90 mmHg até o controle do sangramento, sem lesão cerebral (1B); transporte direto a centro de trauma e menor tempo até o controle do sangramento (1B); ácido tranexâmico o quanto antes, se possível a caminho do hospital, dentro de 3 h do trauma, 1 g em 10 min (1A).",
+      "title": "The European guideline on management of major bleeding and coagulopathy following trauma: sixth edition",
+      "publisher": "Critical Care (Task Force for Advanced Bleeding Care in Trauma)",
+      "year": 2023,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9977110/"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2016",
+    "item": "Discursiva caso 2",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2016/prova_discursiva_definitivo.pdf",
+    "originalCaseText": "Uma Unidade de Atendimento Médico Móvel Avançada (UTI móvel) foi acionada para atendimento das vítimas de acidente envolvendo colisão de um veículo de passeio com uma árvore. A cena do acidente apresenta um carro de passeio com para-brisa íntegro e deformidade de cerca de 35 cm na lateral, do lado do motorista, sem sinais de vazamento de combustível ou princípio de incêndio; há, ainda, uma árvore caída junto ao carro. Ao lado da porta do passageiro, há um homem com cerca de 50 anos de idade em óbito e, no banco do motorista, encontra-se um homem com cerca de 30 anos de idade, com o cinto de segurança afivelado, que se queixa de moderada dor torácica do lado esquerdo à inspiração, dispneia leve e dor intensa no membro inferior esquerdo. Ao exame físico apresenta dor à palpação torácica do gradeado costal esquerdo; ausculta pulmonar simétrica; frequência respiratória = 26 irpm; pressão arterial sistólica = 85 mmHg; frequência cardíaca = 130 bpm; oximetria de pulso com saturação de oxigênio = 92% em ar ambiente; escore da escala de coma de Glasgow = 13; pupilas isocóricas e fotorreagentes; enchimento capilar maior que dois segundos; deformidade no braço esquerdo; e ferimento de aproximadamente 20 cm na coxa esquerda com sangramento venoso significativo. Considerando o atendimento inicial do traumatizado na cena e a sistematização desse caso clínico a ser realizada pela equipe de atendimento pré-hospitalar móvel, faça o que se pede nos itens a seguir. a) Descreva a sequência de passos a serem seguidos para a avaliação da cena e da cinemática do trauma, antes do atendimento direto aos pacientes. (valor: 2,5 pontos) b) Cite 5 potenciais lesões traumáticas esperadas para o paciente, a partir da avaliação da cinemática do trauma. (valor: 2,5 pontos) c) Descreva a sequência da avaliação primária do atendimento ao paciente (ABCDE), definindo a conduta a ser adotada em cada etapa da sistematização. (valor: 3,0 pontos) d) Considerando os critérios de triagem no atendimento pré-hospitalar, cite os indicadores de gravidade presentes nesse cenário e o nível de assistência (primária, secundária e terciária) a ser informado à Central de Regulação de Urgência. (valor: 2,0 pontos)",
+    "notes": "Prova cega (11/10/2026): caseText com todo o enunciado em estilo nota (cenário pré-hospitalar mantido). Conferido contra a diretriz europeia de sangramento no trauma (6ª ed., 2023, aberta e lida): compressão do ferimento, volume restrito com hipotensão permissiva e transporte direto ao centro de trauma seguem o padrão; o XABCDE (hemorragia exsanguinante antes da via aérea) muda só a ordem — o item de controle da hemorragia é crítico e 'agora', sem exigir a letra. A diretriz contraindica hipotensão permissiva com lesão cerebral ou medular (Glasgow 13 aqui): o item fala em volume limitado, sem alvo. Ácido tranexâmico (posterior ao gabarito) entrou como importante. Não abri PHTLS/ATLS atuais; registrado."
+  }
+}

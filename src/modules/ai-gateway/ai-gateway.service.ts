@@ -14,6 +14,10 @@ import { AnthropicProvider } from './providers/anthropic.provider';
 import { OpenAIProvider } from './providers/openai.provider';
 import { DeterministicProvider } from './providers/deterministic.provider';
 import { readFlag } from './ai-gateway.settings';
+import { AiEmbeddingsDisabledError } from './ai-gateway.errors';
+
+/** Valor de `EMBEDDING_PROVIDER` que desliga os embeddings. */
+export const EMBEDDINGS_DISABLED = 'none';
 
 function createProvider(
   name: string,
@@ -37,7 +41,8 @@ function createProvider(
 export class AiGatewayService {
   private readonly logger = new Logger(AiGatewayService.name);
   private readonly completionProvider: AIProvider;
-  private readonly embeddingProvider: AIProvider;
+  /** `null` com `EMBEDDING_PROVIDER=none`: nenhuma chamada de embedding sai do serviço. */
+  private readonly embeddingProvider: AIProvider | null;
   private readonly defaultModel: string;
   private readonly defaultEmbeddingModel: string;
   private readonly structuredOutputEnabled: boolean;
@@ -77,15 +82,13 @@ export class AiGatewayService {
       this.config.get<string>('OPENAI_API_KEY') ??
       completionApiKey;
     const embeddingBaseUrl = this.config.get<string>('EMBEDDING_BASE_URL');
-    this.embeddingProvider = createProvider(
-      embeddingProviderName,
-      config,
-      embeddingApiKey,
-      embeddingBaseUrl,
-    );
+    this.embeddingProvider =
+      embeddingProviderName === EMBEDDINGS_DISABLED
+        ? null
+        : createProvider(embeddingProviderName, config, embeddingApiKey, embeddingBaseUrl);
 
     this.logger.log(
-      `AI Gateway: completion=${this.completionProvider.name}, embedding=${this.embeddingProvider.name}`,
+      `AI Gateway: completion=${this.completionProvider.name}, embedding=${this.getEmbeddingProviderName()}`,
     );
   }
 
@@ -143,7 +146,13 @@ export class AiGatewayService {
     return result;
   }
 
+  /** `false` com `EMBEDDING_PROVIDER=none`: quem chama já segue sem vetor, sem tentar. */
+  embeddingsEnabled(): boolean {
+    return this.embeddingProvider !== null;
+  }
+
   async embed(texts: string[], model?: string): Promise<EmbeddingResponse> {
+    if (!this.embeddingProvider) throw new AiEmbeddingsDisabledError();
     const params: EmbeddingParams = {
       model: model ?? this.defaultEmbeddingModel,
       texts,
@@ -170,7 +179,7 @@ export class AiGatewayService {
   }
 
   getEmbeddingProviderName(): string {
-    return this.embeddingProvider.name;
+    return this.embeddingProvider?.name ?? EMBEDDINGS_DISABLED;
   }
 
   /** Modelo de embedding padrão — entra na chave do cache do retrieval. */

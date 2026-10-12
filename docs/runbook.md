@@ -555,10 +555,12 @@ pnpm sync:official-guidelines --only asma             # um documento
 pnpm sync:official-guidelines --kind pcdt --limit 10  # um lote
 ```
 
-Exige `AI_PROVIDER`/`EMBEDDING_PROVIDER` reais: cada documento novo é
-classificado pela LLM (agudo/crônico, população, especialidade, cenários do
-piloto) e cada chunk recebe embedding. Se a LLM falhar, a classificação cai
-para uma heurística conservadora e o documento entra mesmo assim.
+Exige `AI_PROVIDER` real: cada documento novo é classificado pela LLM
+(agudo/crônico, população, especialidade, cenários do piloto). Se a LLM falhar,
+a classificação cai para uma heurística conservadora e o documento entra mesmo
+assim. Cada chunk recebe embedding quando há provedor; com
+`EMBEDDING_PROVIDER=none` (ou o provedor fora do ar), entra sem vetor e só a
+busca textual o encontra — ver "Rodar sem embeddings".
 
 A mudança é detectada pelo **SHA-256 do PDF** — a Conitec altera anexos sem
 publicar portaria nova. Versão nova substitui a anterior numa transação só; os
@@ -853,3 +855,22 @@ Para uma auditoria regulatória do CFM, verificar:
 | Engenharia | rodrigo.tozato@strivium.com.br |
 | DPO (LGPD) | rodrigo.tozato@strivium.com.br |
 | Provider de IA (DPA) | Ver `docs/compliance/DPA_PROVIDER.md` |
+
+## Rodar sem embeddings (`EMBEDDING_PROVIDER=none`)
+
+A Anthropic não tem API de embedding, e a conta da OpenAI ficou sem crédito em
+11/10/2026. Com `EMBEDDING_PROVIDER=none` no `docker/.env.production`, o
+serviço não faz nenhuma chamada de embedding:
+
+| Funcionalidade | Sem embeddings |
+| --- | --- |
+| Análise do Copiloto (`COPILOT_KNOWLEDGE_SOURCE=model_only`) | Não usa embedding; nada muda |
+| Análise com `internal_kb` | Segue sem trechos da base (cobertura `none`), sem alerta |
+| "Consultar diretrizes" | Busca por palavra-chave: todos os termos e, para o caso inteiro, qualquer termo, ordenado por quantos casam |
+| Sugerir diretriz, ingestão do curador, sincronização oficial | Trechos gravados sem vetor, só para a busca textual |
+
+Com o provedor ligado mas fora do ar (sem crédito, 429), o comportamento é o
+mesmo, com `GUIDELINE_EMBEDDING_UNAVAILABLE` ou `RETRIEVAL_EMBEDDING_UNAVAILABLE`
+no log e no Sentry. Para ligar de novo: `EMBEDDING_PROVIDER=openai` (ou outro
+provedor) e `up -d copiloto-api`; os trechos gravados sem vetor precisam de
+backfill de embedding para entrar na busca por significado.

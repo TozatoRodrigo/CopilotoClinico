@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CopilotOutput } from '../../src/modules/copilot/guardrails/output-validator';
 import type { ClinicalCase } from './case.schema';
-import { loadCaseSet } from './cases';
+import { BLIND_CASES_DIR, loadCaseSet } from './cases';
 import { findForbiddenDefinitiveActions } from './graders/deterministic';
 
 /**
@@ -10,7 +10,8 @@ import { findForbiddenDefinitiveActions } from './graders/deterministic';
  * terapêutica definitiva, o pior caso para o médico.
  */
 
-const { cases } = loadCaseSet();
+// O conjunto principal e a prova cega: a mesma checagem lê os dois.
+const cases = [...loadCaseSet().cases, ...loadCaseSet(BLIND_CASES_DIR).cases];
 
 function definitiveRecommendation(action: string): CopilotOutput {
   return {
