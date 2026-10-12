@@ -176,8 +176,8 @@ const CHIEF_COMPLAINT_MAX_LENGTH = 140;
 /**
  * RD-E7 — resumo curto exibido como título do caso em Plantão/Casos, no
  * lugar de patientRef. Só chamado no turno 0 (analyze/analyzeStream) — não
- * em continueAnalysis() — para o "título" do caso não mudar a cada resposta
- * de pergunta esclarecedora.
+ * na reanálise (continueAnalysis/continueAnalysisStream) — para o "título"
+ * do caso não mudar a cada resposta de pergunta esclarecedora.
  *
  * KB-006 — NUNCA derivar de `differentials[0].hypothesis`. Um diferencial é,
  * pela definição do próprio system prompt, "um lembrete, não um bloqueador":
@@ -275,8 +275,8 @@ interface AttachmentForCitation {
 
 /**
  * F4 — resolve a fonte de uma citação, seja ela um chunk curado ou um anexo
- * do médico. Centralizado porque os três caminhos do orquestrador (analyze,
- * analyzeStream, continueAnalysis) montam citações da mesma forma.
+ * do médico. Centralizado porque todos os caminhos do orquestrador (análise
+ * inicial e reanálise, com ou sem streaming) montam citações da mesma forma.
  */
 interface ResolvedSource {
   source: string;
@@ -713,7 +713,8 @@ function providerFailureAttempt(error: unknown, previousCost: number): Completio
 
 /**
  * Turno 0 (analyze/analyzeStream, ou a conversa do Copiloto guiado com as
- * respostas dadas antes do plano) ou reanálise com respostas (continueAnalysis).
+ * respostas dadas antes do plano) ou reanálise com respostas
+ * (continueAnalysis/continueAnalysisStream).
  */
 type AnalysisTurn =
   | { kind: 'initial'; answeredQuestions: AnsweredQuestion[] }
@@ -750,7 +751,10 @@ interface PreparedAnalysis {
   params: InheritableParams;
   unreviewedSourcesPreliminary: boolean;
   turn: AnalysisTurn;
-  /** Sufixo dos logs: '' (analyze), ' (stream)' ou ' (respond)'. */
+  /**
+   * Sufixo dos logs: '' (analyze), ' (stream)', ' (conversa)', ' (conversa
+   * stream)', ' (respond)' ou ' (respond stream)'.
+   */
   logLabel: string;
   /** F1 — Etapa 1 deste turno; `null` com `COPILOT_REASONING=legacy`. */
   stage: UnderstandingOutcome | null;
@@ -1276,6 +1280,48 @@ export class OrchestratorService {
   }
 
   /**
+   * Reanálise por streaming (responder às perguntas, complementar o caso,
+   * corrigir o entendimento): os mesmos eventos de `analyzeStream`. Na
+   * produção, uma reanálise com `COPILOT_REASONING=stages` levou 81 s sem nada
+   * na tela; aqui o entendimento refeito sai em segundos e os deltas mostram
+   * que o plano está sendo montado.
+   *
+   * Preparação e gravação são as do POST /respond (`screenFollowUp`,
+   * `prepareFollowUp`, `settleAnalysis`): a interação, a auditoria e o
+   * resultado do `done` são os mesmos. Como em `analyzeStream`, o que recusa
+   * o pedido (interação de outro atendimento, teto de turnos, injeção) é
+   * exceção antes do primeiro evento; a falha de validação vira `error`.
+   */
+  async *continueAnalysisStream(
+    physicianId: string,
+    encounterId: string,
+    input: RespondInput,
+  ): AsyncGenerator<StreamEvent> {
+    const logLabel = ' (respond stream)';
+    const screened = await this.screenFollowUp(physicianId, encounterId, input, logLabel);
+    const pipeline = this.decisionPipeline(logLabel);
+    const stage = await this.understandingStage(
+      screened.augmentedCaseText,
+      screened.params.redFlags,
+      pipeline,
+      logLabel,
+    );
+    // F1 — o entendimento refeito sai antes da busca e do primeiro delta,
+    // como na análise inicial: o médico confere se a resposta mudou o caso.
+    if (stage?.understanding) {
+      yield { type: 'understanding', understanding: stage.understanding };
+    }
+    const prepared = await this.prepareFollowUp(
+      physicianId,
+      encounterId,
+      screened,
+      { pipeline, stage },
+      logLabel,
+    );
+    yield* this.streamDecision(prepared);
+  }
+
+  /**
    * Turno 0, comum a analyze() e analyzeStream(): redação de PII e barreira
    * de injeção, antes de qualquer chamada ao modelo — inclusive a Etapa 1.
    */
@@ -1412,7 +1458,8 @@ export class OrchestratorService {
   }
 
   /**
-   * Reanálise (continueAnalysis): interação-pai, teto de turnos, redação de PII e barreira de injeção nas
+   * Reanálise, comum a continueAnalysis() e continueAnalysisStream():
+   * interação-pai, teto de turnos, redação de PII e barreira de injeção nas
    * respostas, auditoria das respostas e o caso aumentado — tudo antes de
    * qualquer chamada ao modelo, inclusive a Etapa 1.
    */
@@ -1524,7 +1571,7 @@ export class OrchestratorService {
     };
   }
 
-  /** Reanálise (continueAnalysis): evidência e prompt. */
+  /** Reanálise, comum a continueAnalysis() e continueAnalysisStream(): evidência e prompt. */
   private async prepareFollowUp(
     physicianId: string,
     encounterId: string,
