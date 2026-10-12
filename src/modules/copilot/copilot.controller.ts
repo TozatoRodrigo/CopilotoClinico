@@ -20,6 +20,7 @@ import {
   analyzeSchema,
   streamQuerySchema,
   respondSchema,
+  respondStreamQuerySchema,
   copilotFeedbackSchema,
 } from './schemas/copilot.schemas';
 import type {
@@ -28,6 +29,7 @@ import type {
   RespondInput,
   CopilotFeedbackInput,
 } from './schemas/copilot.schemas';
+import { streamEvents } from './stream-events';
 
 @Controller('encounters/:encounterId/copilot')
 @UseGuards(JwtAuthGuard)
@@ -75,21 +77,7 @@ export class CopilotController {
       demoCase,
     };
 
-    return new Observable((subscriber) => {
-      const gen = this.copilotService.stream(req.user.physicianId, encounterId, input);
-
-      void (async () => {
-        try {
-          for await (const event of gen) {
-            subscriber.next({ data: event });
-            if (event.type === 'done' || event.type === 'error') break;
-          }
-          subscriber.complete();
-        } catch (err) {
-          subscriber.error(err);
-        }
-      })();
-    });
+    return streamEvents(() => this.copilotService.stream(req.user.physicianId, encounterId, input));
   }
 
   @Post('respond')
@@ -99,6 +87,23 @@ export class CopilotController {
     @Body(new ZodValidationPipe(respondSchema)) body: RespondInput,
   ) {
     return this.copilotService.respond(req.user.physicianId, encounterId, body);
+  }
+
+  /**
+   * Reanálise por streaming — o mesmo que POST /respond, com os eventos de
+   * GET /stream (entendimento refeito, deltas, done). As respostas vêm como
+   * JSON em `answers` e passam pelo `respondSchema` do POST (ver
+   * respondStreamQuerySchema).
+   */
+  @Sse('respond/stream')
+  respondStream(
+    @Request() req: { user: { physicianId: string } },
+    @Param('encounterId') encounterId: string,
+    @Query(new ZodValidationPipe(respondStreamQuerySchema)) query: RespondInput,
+  ): Observable<MessageEvent> {
+    return streamEvents(() =>
+      this.copilotService.respondStream(req.user.physicianId, encounterId, query),
+    );
   }
 
   /**

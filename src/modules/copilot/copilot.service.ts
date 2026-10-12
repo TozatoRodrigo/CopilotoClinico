@@ -46,6 +46,19 @@ export class CopilotService {
     return this.orchestrator.analyzeStream(physicianId, encounterId, input);
   }
 
+  /**
+   * Reanálise por streaming: espelho de `respond` com os eventos de `stream`.
+   * Como no POST, todo o resto (status do atendimento, auditoria, gravação da
+   * interação) acontece dentro do orquestrador.
+   */
+  respondStream(
+    physicianId: string,
+    encounterId: string,
+    input: RespondInput,
+  ): AsyncGenerator<StreamEvent> {
+    return this.orchestrator.continueAnalysisStream(physicianId, encounterId, input);
+  }
+
   async analyzeAsync(
     physicianId: string,
     encounterId: string,

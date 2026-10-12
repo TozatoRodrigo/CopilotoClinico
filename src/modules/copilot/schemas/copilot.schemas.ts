@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   copilotFeedbackStatusValues,
+  MAX_RESPOND_STREAM_ANSWERS_LENGTH,
   recommendationDecisionValues,
 } from '../../../shared/contracts/clinical';
 
@@ -68,6 +69,34 @@ export const respondSchema = z.object({
 });
 
 export type RespondInput = z.infer<typeof respondSchema>;
+
+/**
+ * Reanálise por streaming (GET /copilot/respond/stream). Diferente das red
+ * flags da análise inicial (UX-06), as respostas não cabem em parâmetros
+ * booleanos: são uma lista de tamanho variável, com texto livre. Vão como JSON
+ * em `answers` e passam pelo MESMO `respondSchema` do POST depois do
+ * `JSON.parse` — o streaming nunca aceita o que o POST recusaria. JSON
+ * inválido, fora do schema ou acima do teto é 400.
+ */
+export const respondStreamQuerySchema = z
+  .object({
+    interactionId: z.string(),
+    answers: z
+      .string()
+      .max(
+        MAX_RESPOND_STREAM_ANSWERS_LENGTH,
+        `answers must be at most ${MAX_RESPOND_STREAM_ANSWERS_LENGTH} characters; use POST /respond`,
+      )
+      .transform((raw, ctx): unknown => {
+        try {
+          return JSON.parse(raw);
+        } catch {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'answers must be valid JSON' });
+          return z.NEVER;
+        }
+      }),
+  })
+  .pipe(respondSchema);
 
 /**
  * F7 — Feedback estruturado do médico sobre uma análise.

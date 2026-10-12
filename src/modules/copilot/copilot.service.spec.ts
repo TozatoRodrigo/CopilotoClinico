@@ -244,3 +244,30 @@ describe('CopilotService', () => {
     });
   });
 });
+
+describe('CopilotService — respondStream', () => {
+  it('delegates to orchestrator.continueAnalysisStream with the same input as respond', async () => {
+    const respondInput = {
+      interactionId: 'interaction-001',
+      answers: [{ questionId: 'q1', answer: 'sim' }],
+    };
+    async function* events() {
+      yield { type: 'delta' as const, delta: '{' };
+    }
+    const continueAnalysisStream = vi.fn().mockReturnValue(events());
+    const service = new CopilotService(
+      { continueAnalysisStream } as unknown as OrchestratorService,
+      {} as InferenceQueueService,
+      {} as PrismaService,
+      {} as ConfigService,
+    );
+
+    const emitted = [];
+    for await (const event of service.respondStream('phys-001', 'enc-001', respondInput)) {
+      emitted.push(event);
+    }
+
+    expect(continueAnalysisStream).toHaveBeenCalledWith('phys-001', 'enc-001', respondInput);
+    expect(emitted).toEqual([{ type: 'delta', delta: '{' }]);
+  });
+});

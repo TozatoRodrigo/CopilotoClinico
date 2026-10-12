@@ -556,6 +556,27 @@ describe('Clinical Flow E2E', () => {
     expect(body).toHaveProperty('interactionId');
   });
 
+  // ── 6b. Reanálise por streaming: query fora do schema ──────────────────────
+  // EventSource só faz GET: as respostas chegam como JSON na querystring e
+  // passam pelo schema do POST /respond antes de abrir o SSE. Socket de
+  // verdade: o `inject` não tem socket, e sem ele o SseStream do Nest quebra —
+  // até um 400 de rota SSE vira 500 no teste.
+  it.each([
+    ['not valid JSON', '[{"questionId":'],
+    ['an empty list', '[]'],
+  ])('GET /copilot/respond/stream returns 400 when answers is %s', async (_label, answers) => {
+    if (!app.getHttpServer().listening) await app.listen(0, '127.0.0.1');
+    const query = new URLSearchParams({ interactionId: INTERACTION_ID, answers });
+
+    const res = await fetch(
+      `${await app.getUrl()}/v1/encounters/${ENCOUNTER_ID}/copilot/respond/stream?${query}`,
+      { headers: { cookie: `access_token=${accessToken}` } },
+    );
+
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { message: string }).message).toBe('Validation failed');
+  });
+
   // ── 7. Generate SOAP document ────────────────────────────────────────────────
   it('POST /documents generates a SOAP document', async () => {
     const res = await app.inject({
