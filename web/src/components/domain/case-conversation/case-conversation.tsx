@@ -7,9 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
 import { Disclosure } from "@/components/ui/disclosure";
-import { ProgressSteps } from "@/components/ui/progress-steps";
 import { Page } from "@/components/layout/page";
-import { UnderstandingCard } from "@/components/domain/understanding-card";
 import { useCaseConversation, type CaseConversation as Conversation } from "@/hooks/use-case-conversation";
 import { useMessages } from "@/lib/messages/use-messages";
 import type { Messages } from "@/lib/messages";
@@ -19,15 +17,13 @@ import {
   UNDERSTANDING_CORRECTION_QUESTION_ID,
 } from "@/lib/case-conversation";
 import type { DemoCasePreset } from "@/lib/demo-case-presets";
-import type { ConversationTurn, IntakeAnswerValue, IntakeView } from "@/lib/types";
+import type { CaseUnderstanding, ConversationTurn, IntakeAnswerValue, IntakeView } from "@/lib/types";
 import { AnalysisView } from "./analysis-view";
 import { CaseComposer } from "./case-composer";
 import { ConversationComposer } from "./conversation-composer";
 import { ConversationSkeleton } from "./conversation-skeleton";
 import { QuestionCard, type QuestionAnswer } from "./question-card";
 import { CopilotMessage, PhysicianMessage, TypingLine } from "./thread-message";
-
-const STEPS = ["Captura", "Análise", "Documento"];
 
 /** Respostas que não respondem a uma pergunta: o texto do médico fala por si. */
 const FREE_TEXT_IDS = new Set([COMPLEMENT_QUESTION_ID, UNDERSTANDING_CORRECTION_QUESTION_ID]);
@@ -84,7 +80,6 @@ export function CaseConversation({
   if (composing && !conversation.pendingCase) {
     return (
       <Page width="narrow" className="gap-6">
-        <ProgressSteps steps={STEPS} currentStep={0} className="-ml-1.5" />
         <CaseComposer
           encounterId={encounterId}
           demoPreset={demoPreset}
@@ -122,30 +117,30 @@ function ConversationThread({
   const { intake, turns, followUps, phase } = conversation;
   const caseText =
     conversation.pendingCase?.caseText ?? intake?.caseText ?? turns[0]?.caseText ?? null;
-  const latestTurn = turns.at(-1) ?? null;
   const answeredFollowUps = followUps.questions.filter((question) => question.id in followUps.answers);
 
   // Pergunta nova ou mensagem nova: a conversa desce até ela. Plano novo: o
-  // topo do plano, não o fim (o médico lê a hipótese e o "Fazer agora" primeiro).
+  // topo do plano, não o fim (o médico lê a hipótese e o "Fazer agora"
+  // primeiro). As perguntas de depois do plano ficam dentro dele ("Falta
+  // saber"): responder uma não leva a tela para o fim da página.
+  const showingPlan = phase === "plan" && !conversation.rebuilding;
   const scrollKey = [
     phase,
     intake?.answers.length,
     intake?.pendingQuestionId,
-    followUps.pending?.id,
     conversation.rebuilding,
     conversation.rebuildUnderstanding !== null,
   ].join("|");
   useEffect(() => {
+    if (showingPlan) return;
     bottomRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
-  }, [scrollKey]);
+  }, [scrollKey, showingPlan]);
   useEffect(() => {
     if (turns.length > 0) latestPlanRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
   }, [turns.length]);
 
   return (
     <Page width="narrow" className="gap-6">
-      <ProgressSteps steps={STEPS} currentStep={turns.length > 0 ? 1 : 0} className="-ml-1.5" />
-
       <div className="flex flex-col gap-6" aria-label={copy.title}>
         {caseText && <PhysicianMessage author={copy.you}>{caseText}</PhysicianMessage>}
 
@@ -168,9 +163,9 @@ function ConversationThread({
           <CopilotMessage author={copy.copilot}>
             <TypingLine label={copy.buildingPlan} hint={copy.buildingPlanHint} />
             {conversation.stream.status === "streaming" && (
-              <UnderstandingCard
+              <StreamingUnderstanding
                 understanding={conversation.stream.understanding}
-                footnote={messages.understanding.streamingHint}
+                label={copy.understood}
               />
             )}
           </CopilotMessage>
@@ -192,6 +187,35 @@ function ConversationThread({
 
         {turns.map((turn, index) => {
           const isLatest = index === turns.length - 1;
+          const pendingQuestions =
+            isLatest && !conversation.rebuilding && followUps.pending ? (
+              <>
+                {answeredFollowUps.map((question) => (
+                  <AnsweredQuestion
+                    key={question.id}
+                    question={question.question}
+                    answer={followUps.answers[question.id]?.label ?? ""}
+                    author={copy.you}
+                  />
+                ))}
+                <QuestionCard
+                  key={followUps.pending.id}
+                  question={followUps.pending}
+                  onAnswer={(answer) => {
+                    const { value, label } = answerValue(answer);
+                    if (!followUps.pending) return;
+                    conversation.answerFollowUp(
+                      followUps.pending.id,
+                      typeof value === "object" ? label : value,
+                      label,
+                    );
+                  }}
+                />
+                {conversation.isLastAllowedTurn && (
+                  <p className="text-[0.8125rem] text-muted-foreground">{copy.lastRound}</p>
+                )}
+              </>
+            ) : undefined;
           return (
             <div key={turn.interactionId} className="flex flex-col gap-6">
               {index > 0 && <TurnAnswers turn={turn} author={copy.you} />}
@@ -203,6 +227,7 @@ function ConversationThread({
                     maxTurns={conversation.maxTurns}
                     current
                     hasPendingQuestion={followUps.pending !== null}
+                    pendingQuestions={pendingQuestions}
                     correction={
                       conversation.canRespond
                         ? {
@@ -228,45 +253,15 @@ function ConversationThread({
           );
         })}
 
-        {latestTurn && !conversation.rebuilding && followUps.pending && (
-          <CopilotMessage author={copy.copilot} className="border-t border-border pt-6">
-            <p>{copy.followUpIntro(followUps.questions.length)}</p>
-            {answeredFollowUps.map((question) => (
-              <AnsweredQuestion
-                key={question.id}
-                question={question.question}
-                answer={followUps.answers[question.id]?.label ?? ""}
-                author={copy.you}
-              />
-            ))}
-            <QuestionCard
-              key={followUps.pending.id}
-              question={followUps.pending}
-              onAnswer={(answer) => {
-                const { value, label } = answerValue(answer);
-                if (!followUps.pending) return;
-                conversation.answerFollowUp(
-                  followUps.pending.id,
-                  typeof value === "object" ? label : value,
-                  label,
-                );
-              }}
-            />
-            {conversation.isLastAllowedTurn && (
-              <p className="text-[0.8125rem] text-muted-foreground">{copy.lastRound}</p>
-            )}
-          </CopilotMessage>
-        )}
-
         {/* A reanálise por streaming mostra o entendimento refeito assim que
             chega, como no primeiro plano; a rodada anterior fica acima até a
             nova chegar. */}
         {conversation.rebuilding && (
           <CopilotMessage author={copy.copilot}>
             <TypingLine label={copy.rebuildingPlan} hint={copy.buildingPlanHint} />
-            <UnderstandingCard
+            <StreamingUnderstanding
               understanding={conversation.rebuildUnderstanding}
-              footnote={messages.understanding.streamingHint}
+              label={copy.understood}
             />
           </CopilotMessage>
         )}
@@ -411,6 +406,27 @@ function IntakeThread({
         </CopilotMessage>
       )}
     </>
+  );
+}
+
+/**
+ * O entendimento que chega pelo streaming enquanto o plano é montado: uma
+ * frase, como o "Entendi:" das perguntas. O entendimento completo fica no
+ * plano, em "Ver raciocínio".
+ */
+function StreamingUnderstanding({
+  understanding,
+  label,
+}: {
+  understanding: CaseUnderstanding | null;
+  label: string;
+}) {
+  if (!understanding) return null;
+  return (
+    <p className="text-[0.9375rem] text-muted-foreground">
+      <strong className="font-semibold text-foreground">{label}</strong>{" "}
+      {understanding.problemRepresentation}
+    </p>
   );
 }
 

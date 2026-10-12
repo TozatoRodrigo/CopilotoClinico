@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { RecommendationItem, planGroups } from "../analysis-view";
+import { RecommendationItem, conditionText, planGroups, planHeadline } from "../analysis-view";
 import { getMessages } from "@/lib/messages";
 import type { CopilotRecommendation } from "@/lib/types";
 import type { RecommendationDecisionState } from "@/hooks/use-recommendation-decisions";
@@ -286,7 +286,7 @@ describe("RecommendationItem — F1: decisão v2", () => {
     origin: "model_knowledge",
   };
 
-  it("diz do que a conduta depende, em vez da tag genérica de preliminar", () => {
+  it("põe a condição antes da conduta, em vez da tag genérica de preliminar", () => {
     renderRec({
       ...baseRec,
       action: "Trombólise com alteplase",
@@ -297,9 +297,9 @@ describe("RecommendationItem — F1: decisão v2", () => {
       preliminaryReason: "depends_on_data",
     });
 
-    expect(
-      screen.getByText("Depende de: TC de crânio sem contraste sem sangramento"),
-    ).toBeInTheDocument();
+    const condition = screen.getByText("Se TC de crânio sem contraste sem sangramento");
+    const action = screen.getByRole("heading", { name: /Trombólise com alteplase/ });
+    expect(condition.compareDocumentPosition(action) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.queryByText(/Preliminar/)).not.toBeInTheDocument();
   });
 
@@ -316,12 +316,12 @@ describe("RecommendationItem — F1: decisão v2", () => {
     expect(screen.getByText("Depende de dado ainda não informado")).toBeInTheDocument();
   });
 
-  it("marca conhecimento geral do modelo, sem nota de rodapé nem fonte inventada", () => {
+  it("deixa o aviso de conhecimento geral do modelo para o rodapé do plano, sem fonte inventada", () => {
     renderRec(modelKnowledge, null);
 
     expect(
-      tagOf("Conhecimento geral do modelo — confirme no protocolo local"),
-    ).toHaveAttribute("data-variant", "blue");
+      screen.queryByText("Conhecimento geral do modelo — confirme no protocolo local"),
+    ).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Fonte/ })).not.toBeInTheDocument();
     expect(screen.queryByText("Conhecimento geral do modelo")).not.toBeInTheDocument();
     expect(screen.queryByText(/Preliminar/)).not.toBeInTheDocument();
@@ -378,12 +378,12 @@ describe("planGroups — F1: plano em duas camadas", () => {
     dependsOn: "TC sem sangramento",
   };
 
-  it("separa a v2 em Fazer agora e Depende de…", () => {
+  it("separa a v2 em Fazer agora e Depende do resultado", () => {
     const groups = planGroups([depends, now], messages);
 
     expect(groups.map((group) => [group.label, group.items.map(({ rec }) => rec.action)])).toEqual([
       ["Fazer agora", ["Glicemia capilar"]],
-      ["Depende de…", ["Trombólise"]],
+      ["Depende do resultado", ["Trombólise"]],
     ]);
     expect(groups[1]?.items[0]?.index).toBe(0);
   });
@@ -408,6 +408,95 @@ describe("planGroups — F1: plano em duas camadas", () => {
   it("usa o espanhol quando o médico usa a UI em espanhol", () => {
     const groups = planGroups([now, depends], getMessages("es"));
 
-    expect(groups.map((group) => group.label)).toEqual(["Hacer ahora", "Depende de…"]);
+    expect(groups.map((group) => group.label)).toEqual(["Hacer ahora", "Depende del resultado"]);
+  });
+});
+
+describe("RecommendationItem — plano em uma tela", () => {
+  it("abre a justificativa só em Por quê", async () => {
+    const user = userEvent.setup();
+    renderItem();
+
+    expect(screen.queryByText(baseRec.rationale)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Por quê/ }));
+
+    expect(screen.getByText(baseRec.rationale)).toBeInTheDocument();
+  });
+});
+
+describe("conditionText — o depende de como condição", () => {
+  it("mantém a sigla do começo", () => {
+    expect(conditionText("TC sem sangramento")).toBe("TC sem sangramento");
+  });
+
+  it("começa em minúscula e não repete o Se", () => {
+    expect(conditionText("Hemorragia na TC em uso de anticoagulante")).toBe(
+      "hemorragia na TC em uso de anticoagulante",
+    );
+    expect(conditionText("Se angio-TC com oclusão")).toBe("angio-TC com oclusão");
+  });
+});
+
+describe("planHeadline — hipótese mais provável e as que não pode perder", () => {
+  const stroke = (hypothesis: string, cannotMiss = true) => ({
+    hypothesis,
+    cannotMiss,
+    whatDistinguishes: "TC de crânio",
+  });
+
+  it("na decisão em etapas, a mais provável vem do entendimento, não do primeiro diferencial", () => {
+    // Caso real do primeiro teste no celular: os diferenciais da v3 são as
+    // graves que o plano cobre, e a tela anunciava "hemorragia" num AVC isquêmico.
+    const headline = planHeadline({
+      understanding: {
+        likely: [
+          { hypothesis: "AVC isquêmico de território da ACM esquerda", why: "déficit súbito" },
+        ],
+      } as Parameters<typeof planHeadline>[0]["understanding"],
+      differentials: [
+        stroke("Hemorragia intraparenquimatosa hipertensiva"),
+        stroke("Hipoglicemia (mimetizador)"),
+        stroke("Hematoma subdural"),
+        stroke("Dissecção arterial cervical"),
+      ] as Parameters<typeof planHeadline>[0]["differentials"],
+    });
+
+    expect(headline).toEqual({
+      mostLikely: "AVC isquêmico de território da ACM esquerda",
+      cannotMiss: [
+        "Hemorragia intraparenquimatosa hipertensiva",
+        "Hipoglicemia (mimetizador)",
+        "Hematoma subdural",
+      ],
+    });
+  });
+
+  it("não repete a mais provável entre as que não pode perder", () => {
+    const headline = planHeadline({
+      understanding: {
+        likely: [{ hypothesis: "Sepse", why: "febre e hipotensão" }],
+      } as Parameters<typeof planHeadline>[0]["understanding"],
+      differentials: [stroke("sepse"), stroke("Dengue grave")] as Parameters<
+        typeof planHeadline
+      >[0]["differentials"],
+    });
+
+    expect(headline.cannotMiss).toEqual(["Dengue grave"]);
+  });
+
+  it("sem entendimento (análise antiga), o primeiro diferencial segue como a hipótese principal", () => {
+    const headline = planHeadline({
+      understanding: undefined,
+      differentials: [
+        stroke("Síndrome coronariana aguda", false),
+        stroke("Dissecção de aorta"),
+        stroke("Pericardite", false),
+      ] as Parameters<typeof planHeadline>[0]["differentials"],
+    });
+
+    expect(headline).toEqual({
+      mostLikely: "Síndrome coronariana aguda",
+      cannotMiss: ["Dissecção de aorta"],
+    });
   });
 });

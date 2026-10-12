@@ -58,7 +58,16 @@ function structuredDataChips(
     ...data.keyFindings,
     ...data.relevantContext,
   ];
-  return chips.filter((chip): chip is string => chip !== null);
+  // O modelo repete nos achados o sinal vital que já virou chip ("PA 178x96"
+  // duas vezes no primeiro teste): o mesmo texto aparece uma vez só.
+  const seen = new Set<string>();
+  return chips.filter((chip): chip is string => {
+    if (chip === null) return false;
+    const key = chip.toLowerCase().replace(/[\s.,;:]+/g, '');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 /**

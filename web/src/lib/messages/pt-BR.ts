@@ -124,10 +124,30 @@ export interface Messages {
     /** F1 — grupos da decisão v2 (ADR-013): o que fazer agora e o que espera um dado. */
     layers: Record<'now' | 'depends', { label: string; hint: string }>;
     dependsOn: (data: string) => string;
+    /** Conduta "depende" lida como fluxograma: a condição antes da conduta. */
+    ifCondition: (condition: string) => string;
     /** Conduta "depende" sem o dado declarado (o validador pede, mas não bloqueia). */
     dependsOnMissing: string;
+    /** Abre a justificativa da conduta, recolhida para o plano caber numa tela. */
+    why: string;
     /** F1 — link para a página da fonte oficial externa (pesquisa web). */
     openSourcePage: string;
+  };
+
+  /** O plano de uma rodada da conversa: cabeçalho, pendências e rodapé. */
+  plan: {
+    mostLikely: string;
+    noHypothesis: string;
+    cannotMiss: string;
+    /** Perguntas que a decisão deixou, dentro do plano, entre o "agora" e o "depende". */
+    pendingTitle: string;
+    pendingHint: string;
+    /** Uma vez por plano, no lugar da etiqueta em cada conduta. */
+    modelKnowledgeNote: string;
+    consultGuidelines: string;
+    reasoning: string;
+    reasoningWhy: string;
+    noRecommendations: string;
   };
 
   /**
@@ -180,8 +200,6 @@ export interface Messages {
   understanding: {
     heading: string;
     description: string;
-    /** Mostrado na captura enquanto o plano ainda está sendo montado. */
-    streamingHint: string;
     syndrome: string;
     syndromes: Record<PsSyndrome, string>;
     instabilityTitle: string;
@@ -287,7 +305,6 @@ export interface Messages {
     rebuildingPlan: string;
     planFailed: string;
     retryPlan: string;
-    followUpIntro: (count: number) => string;
     keepPlan: string;
     rebuildNow: string;
     previousPlan: (round: number) => string;
@@ -482,11 +499,28 @@ export const ptBR: Messages = {
     },
     layers: {
       now: { label: 'Fazer agora', hint: 'seguro em todas as hipóteses abertas' },
-      depends: { label: 'Depende de…', hint: 'só depois do dado que decide' },
+      depends: { label: 'Depende do resultado', hint: 'só vale se a condição se confirmar' },
     },
     dependsOn: (data: string) => `Depende de: ${data}`,
+    ifCondition: (condition: string) => `Se ${condition}`,
     dependsOnMissing: 'Depende de dado ainda não informado',
+    why: 'Por quê',
     openSourcePage: 'Abrir página da fonte',
+  },
+
+  plan: {
+    mostLikely: 'Mais provável',
+    noHypothesis: 'Avaliação clínica em andamento',
+    cannotMiss: 'Não pode perder:',
+    pendingTitle: 'Falta saber',
+    pendingHint: 'Responder atualiza o plano (cerca de 1 minuto).',
+    modelKnowledgeNote:
+      'Condutas do conhecimento geral do modelo, sem fonte revisada. Confirme doses no protocolo local.',
+    consultGuidelines: 'Consultar diretrizes',
+    reasoning: 'Ver raciocínio',
+    reasoningWhy: 'Por que o copiloto chegou a este plano',
+    noRecommendations:
+      'Nenhuma conduta sugerida nesta rodada — responda o que falta saber ou consulte as diretrizes.',
   },
 
   sourceOrigin: {
@@ -543,7 +577,6 @@ export const ptBR: Messages = {
   understanding: {
     heading: 'O que eu entendi',
     description: 'Confira antes do plano. Se algo estiver errado, corrija e o copiloto reanalisa.',
-    streamingHint: 'Montando o plano a partir deste entendimento…',
     syndrome: 'Síndrome',
     syndromes: {
       'agitacao-psicomotora': 'Agitação psicomotora',
@@ -682,10 +715,6 @@ export const ptBR: Messages = {
     rebuildingPlan: 'Refazendo o plano com a sua resposta…',
     planFailed: 'Não consegui montar o plano agora.',
     retryPlan: 'Tentar de novo',
-    followUpIntro: (count: number) =>
-      count === 1
-        ? 'Para fechar o plano, 1 pergunta. Responder refaz o plano (cerca de 1 minuto).'
-        : `Para fechar o plano, ${count} perguntas. Responder refaz o plano (cerca de 1 minuto).`,
     keepPlan: 'Seguir com este plano',
     rebuildNow: 'Refazer o plano agora',
     previousPlan: (round: number) => `Plano anterior · rodada ${round}`,

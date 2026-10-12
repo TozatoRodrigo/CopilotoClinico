@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useGenerateDocument, useEncounterDetail } from '@/lib/clinical-queries';
 import { QuickConsultBanner } from '@/components/domain/quick-consult-banner';
 import {
@@ -14,7 +14,6 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Callout } from '@/components/ui/callout';
 import { Disclosure } from '@/components/ui/disclosure';
-import { PropertyList, PropertyRow } from '@/components/ui/property-list';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { PageHeader, SectionHeader } from '@/components/layout/page-header';
 import { UncertaintyBanner } from '@/components/domain/uncertainty-banner';
@@ -33,9 +32,8 @@ import { cn } from '@/lib/utils';
 import {
   ArrowRight,
   ArrowSquareOut,
-  ArrowsClockwise,
   BookOpen,
-  Books,
+  CaretDown,
   Check,
   CheckCircle,
   CircleNotch,
@@ -45,12 +43,10 @@ import {
   FileText,
   Info,
   Lightning,
-  ListChecks,
   LockSimple,
   PencilSimple,
   PhoneCall,
   SealCheck,
-  Siren,
   Sparkle,
   Warning,
   WarningCircle,
@@ -128,8 +124,67 @@ export function planGroups(recommendations: CopilotRecommendation[], messages: M
   }));
 }
 
-/** No celular a coluna de rótulos encolhe para sobrar espaço às tags. */
-const PROPERTY_ROW = 'max-sm:grid-cols-[8.5rem_1fr]';
+/** Hipóteses graves no cabeçalho: o resto fica em "Ver raciocínio". */
+const MAX_HEADLINE_CANNOT_MISS = 3;
+
+function normalizedHypothesis(hypothesis: string): string {
+  return hypothesis
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+export interface PlanHeadline {
+  mostLikely: string | null;
+  cannotMiss: string[];
+}
+
+/**
+ * O cabeçalho do plano: a hipótese mais provável e as graves que o plano não
+ * pode perder. Na decisão em etapas (ADR-013) os diferenciais são as hipóteses
+ * graves que o plano cobre, não um ranking: a mais provável vem do
+ * entendimento. Pegar o primeiro diferencial fez a tela anunciar "hemorragia
+ * intraparenquimatosa" como hipótese principal de um AVC isquêmico. Análises
+ * sem entendimento (legacy, antigas) seguem com o primeiro diferencial, que
+ * nelas era a hipótese principal.
+ */
+export function planHeadline(
+  analysis: Pick<CopilotAnalysis, 'differentials' | 'understanding'>,
+): PlanHeadline {
+  const likely = analysis.understanding?.likely[0]?.hypothesis;
+  if (likely) {
+    const graves = analysis.differentials.filter((d) => d.cannotMiss);
+    const candidates = graves.length > 0 ? graves : analysis.differentials;
+    return {
+      mostLikely: likely,
+      cannotMiss: candidates
+        .map((d) => d.hypothesis)
+        .filter((hypothesis) => normalizedHypothesis(hypothesis) !== normalizedHypothesis(likely))
+        .slice(0, MAX_HEADLINE_CANNOT_MISS),
+    };
+  }
+  const [first, ...others] = analysis.differentials;
+  return {
+    mostLikely: first?.hypothesis ?? null,
+    cannotMiss: others
+      .filter((d) => d.cannotMiss)
+      .map((d) => d.hypothesis)
+      .slice(0, MAX_HEADLINE_CANNOT_MISS),
+  };
+}
+
+/**
+ * O "depende de" como condição de fluxograma: "Se TC sem sangramento" antes
+ * de "→ trombólise", para ninguém ler a conduta antes do que a libera. Sigla
+ * no começo (TC, PA, ECG) fica como está; o resto começa em minúscula.
+ */
+export function conditionText(dependsOn: string): string {
+  const text = dependsOn.trim().replace(/^(se|caso)\s+/i, '');
+  const firstWord = text.split(/\s/, 1)[0] ?? '';
+  const isAcronym = firstWord.length > 1 && firstWord === firstWord.toUpperCase();
+  return isAcronym ? text : text.charAt(0).toLowerCase() + text.slice(1);
+}
 
 const SEVERITY_RANK: Record<RedFlagSeverity, number> = { critical: 3, high: 2, moderate: 1 };
 
@@ -200,14 +255,22 @@ interface AnalysisViewProps {
   current: boolean;
   /** Pergunta do Copiloto que muda a conduta ainda sem resposta — avisa antes do documento. */
   hasPendingQuestion: boolean;
+  /**
+   * As perguntas que a decisão deixou ("Falta saber"), dentro do plano, entre
+   * o "Fazer agora" e o "Depende do resultado": perto do que a resposta
+   * decide, não no fim da página.
+   */
+  pendingQuestions?: ReactNode;
   correction?: UnderstandingCorrection;
 }
 
 /**
- * O plano de uma rodada da conversa do caso (ADR-014): hipótese, "O que eu
- * entendi", plano por camada, raciocínio, fontes, feedback e documentos. As
- * perguntas do Copiloto não ficam aqui: a conversa as faz uma por vez,
- * abaixo do plano.
+ * O plano de uma rodada da conversa do caso (ADR-014), para caber numa tela
+ * do celular: a hipótese mais provável e as graves, o "Fazer agora", o que
+ * falta saber e o "Depende do resultado". O resto (entendimento completo,
+ * sinais de alarme, diferenciais, raciocínio) fica em "Ver raciocínio", e os
+ * documentos, recolhidos no fim. No primeiro teste no celular o "Fazer agora"
+ * só aparecia depois de 4 telas, com o entendimento repetido 3 vezes.
  */
 export function AnalysisView({
   encounterId,
@@ -215,6 +278,7 @@ export function AnalysisView({
   maxTurns,
   current,
   hasPendingQuestion,
+  pendingQuestions,
   correction,
 }: AnalysisViewProps) {
   const messages = useMessages();
@@ -268,26 +332,30 @@ export function AnalysisView({
 
   const recommendations = analysis.recommendations;
   const layered = isLayeredPlan(recommendations);
-  const definitiveCount = recommendations.filter((r) => !r.preliminary).length;
-  const preliminaryCount = recommendations.length - definitiveCount;
-  const dependsCount = recommendations.filter((r) => r.layer === 'depends').length;
   // F1 — fontes citadas: conhecimento geral do modelo não tem trecho.
   const sourcedRecommendations = recommendations.filter(
     (rec): rec is CopilotRecommendation & { citationChunkId: string } =>
       rec.citationChunkId !== null,
   );
+  // Dito uma vez no rodapé do plano, no lugar da etiqueta em cada conduta.
+  const hasModelKnowledge = recommendations.some((rec) => rec.origin === 'model_knowledge');
 
-  // Red flags da mais grave para a menos grave: a urgência real do caso é a
-  // primeira coisa lida nas propriedades (cor com significado fixo, nunca
-  // decorativa).
+  // Red flags da mais grave para a menos grave (cor com significado fixo,
+  // nunca decorativa).
   const redFlags = [...analysis.redFlags].sort(
     (a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity],
   );
-  const topHypothesis = analysis.differentials[0]?.hypothesis;
-  const otherDifferentials = analysis.differentials.slice(1);
-  const hasCannotMiss = otherDifferentials.some((d) => d.cannotMiss);
+  const headline = planHeadline(analysis);
+  // Com entendimento, todos os diferenciais são hipóteses a considerar; sem
+  // ele, o primeiro já é o título.
+  const consideredDifferentials = analysis.understanding
+    ? analysis.differentials
+    : analysis.differentials.slice(1);
 
   const groups = planGroups(recommendations, messages);
+  // "Falta saber" entra logo depois do "Fazer agora"; no plano antigo (sem
+  // camadas), depois de todos os grupos.
+  const pendingAfterKey = layered ? 'now' : groups.at(-1)?.key;
 
   // Notas de rodapé na ordem de leitura do plano; recomendações que citam o
   // mesmo trecho compartilham o número (como num artigo). F1 — conhecimento
@@ -312,72 +380,37 @@ export function AnalysisView({
     footnoteByRec.set(index, footnote.number);
   }
 
+  const pendingSection = pendingQuestions ? (
+    <section aria-label={messages.plan.pendingTitle} className="flex flex-col gap-3">
+      <h3 className="border-b border-border pb-1.5 text-sm font-semibold text-tone-orange-ink">
+        {messages.plan.pendingTitle}
+      </h3>
+      {pendingQuestions}
+      <p className="text-[0.8125rem] text-muted-foreground">{messages.plan.pendingHint}</p>
+    </section>
+  ) : null;
+
   return (
-    <article className="flex flex-col gap-8" aria-label={messages.copilot.progress.round(turnIndex + 1, maxTurns)}>
+    <article
+      className="flex flex-col gap-6"
+      aria-label={messages.copilot.progress.round(turnIndex + 1, maxTurns)}
+    >
       <PageHeader
         size="compact"
         eyebrow={
           <span className="inline-flex items-center gap-1.5">
             <Sparkle className="size-3.5 text-primary" weight="fill" aria-hidden="true" />
-            Hipótese principal do copiloto
+            {messages.plan.mostLikely}
           </span>
         }
-        title={topHypothesis ?? 'Avaliação clínica em andamento'}
-        actions={
-          current ? (
-            <Button type="button" size="sm" variant="outline" onClick={openConsult}>
-              <BookOpen weight="duotone" />
-              Consultar diretrizes
-            </Button>
+        title={headline.mostLikely ?? messages.plan.noHypothesis}
+        description={
+          headline.cannotMiss.length > 0 ? (
+            <>
+              <span className="font-medium text-tone-red-ink">{messages.plan.cannotMiss}</span>{' '}
+              {headline.cannotMiss.join(' · ')}
+            </>
           ) : undefined
-        }
-        properties={
-          <PropertyList>
-            <PropertyRow icon={Siren} label={messages.redFlags.heading} className={PROPERTY_ROW}>
-              {redFlags.length > 0 ? (
-                <ul className="flex flex-wrap gap-1.5">
-                  {redFlags.map((flag, i) => (
-                    <li key={`${flag.finding}-${i}`}>
-                      <RedFlagTag
-                        finding={flag.finding}
-                        severity={flag.severity}
-                        messages={messages}
-                      />
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <span className="text-muted-foreground">Nenhum identificado</span>
-              )}
-            </PropertyRow>
-            <PropertyRow icon={ListChecks} label="Plano" className={PROPERTY_ROW}>
-              <span>
-                {messages.copilot.result.recommendationsCount(recommendations.length)}
-                <span className="text-muted-foreground">
-                  {' · '}
-                  {layered
-                    ? messages.copilot.result.layersSummary(
-                        recommendations.length - dependsCount,
-                        dependsCount,
-                      )
-                    : messages.copilot.result.preliminarySummary(definitiveCount, preliminaryCount)}
-                </span>
-              </span>
-            </PropertyRow>
-            {footnotes.length > 0 && (
-              <PropertyRow icon={Books} label="Fontes" className={PROPERTY_ROW}>
-                <a
-                  href={`#${anchor(0)}`}
-                  className="rounded-sm underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground"
-                >
-                  {footnotes.length} {footnotes.length === 1 ? 'fonte citada' : 'fontes citadas'}
-                </a>
-              </PropertyRow>
-            )}
-            <PropertyRow icon={ArrowsClockwise} label="Análise" className={PROPERTY_ROW}>
-              {messages.copilot.progress.round(turnIndex + 1, maxTurns)}
-            </PropertyRow>
-          </PropertyList>
         }
       />
 
@@ -392,21 +425,10 @@ export function AnalysisView({
         />
       )}
 
-      {/* F1 — "O que eu entendi" (ADR-013): antes do plano, para o médico
-          conferir o entendimento do caso e corrigi-lo. Some no legacy e nas
-          análises antigas, que não têm entendimento. */}
-      <UnderstandingCard understanding={analysis.understanding} correction={correction} />
-
-      {/* O que fazer: plano em camadas, cada recomendação como uma linha de
-          decisão (adotar / rejeitar / anotar). Os avisos de cobertura e
-          incerteza qualificam o plano — ficam logo acima dele. */}
-      <section className="flex flex-col gap-4">
-        <SectionHeader
-          title="Plano sugerido"
-          count={recommendations.length}
-          description="Decida cada conduta — adotar, rejeitar ou anotar. O número sobrescrito leva à fonte."
-        />
-
+      {/* O que fazer: plano em camadas, cada conduta numa linha com adotar,
+          rejeitar e anotar. Os avisos de cobertura e incerteza qualificam o
+          plano — ficam logo acima dele. */}
+      <section className="flex flex-col gap-5">
         <DecisionsSyncNote status={syncStatus} onRetry={retryPending} />
 
         <CoverageBanner coverage={retrievalCoverage} onSearchGuidelines={openConsult} />
@@ -416,95 +438,134 @@ export function AnalysisView({
         )}
 
         {recommendations.length === 0 ? (
-          <p className="border-y border-border py-6 text-center text-sm text-muted-foreground">
-            Nenhuma conduta sugerida nesta rodada — responda as perguntas abaixo ou consulte as
-            diretrizes.
-          </p>
+          <>
+            <p className="border-y border-border py-6 text-center text-sm text-muted-foreground">
+              {messages.plan.noRecommendations}
+            </p>
+            {pendingSection}
+          </>
         ) : (
           groups.map((group) => {
-            if (group.items.length === 0) return null;
+            const pendingHere = group.key === pendingAfterKey ? pendingSection : null;
+            if (group.items.length === 0) return pendingHere && <div key={group.key}>{pendingHere}</div>;
             const GroupIcon = group.icon;
             return (
-              <div key={group.key} className="flex flex-col">
-                <h3 className="flex flex-wrap items-baseline gap-x-2 border-b border-border pb-1.5 text-sm font-semibold text-foreground">
-                  <span className="inline-flex items-center gap-1.5 self-center">
-                    <GroupIcon className="size-4 text-muted-foreground" aria-hidden="true" />
-                    {group.label}
-                  </span>
-                  <span className="text-[0.8125rem] font-normal text-muted-foreground">
-                    {group.hint}
-                  </span>
-                </h3>
-                <ul className="divide-y divide-border">
-                  {group.items.map(({ rec, index }) => {
-                    const recId = String(index);
-                    const footnote = rec.citationChunkId === null ? null : footnoteByRec.get(index);
-                    return (
-                      <li key={recId}>
-                        <RecommendationItem
-                          rec={rec}
-                          index={index}
-                          footnote={footnote}
-                          footnoteHref={footnote ? `#${anchor(footnote)}` : undefined}
-                          decision={decisions[recId]}
-                          onAdopt={() => setDecision(recId, 'adopted')}
-                          onReject={() => setDecision(recId, 'rejected')}
-                          onNote={(note) => setNote(recId, note)}
-                        />
-                      </li>
-                    );
-                  })}
-                </ul>
+              <div key={group.key} className="flex flex-col gap-5">
+                <div className="flex flex-col">
+                  <h3 className="flex flex-wrap items-baseline gap-x-2 border-b border-border pb-1.5 text-sm font-semibold text-foreground">
+                    <span className="inline-flex items-center gap-1.5 self-center">
+                      <GroupIcon className="size-4 text-muted-foreground" aria-hidden="true" />
+                      {group.label}
+                    </span>
+                    <span className="text-[0.8125rem] font-normal text-muted-foreground">
+                      {group.hint}
+                    </span>
+                  </h3>
+                  <ul className="divide-y divide-border">
+                    {group.items.map(({ rec, index }, position) => {
+                      const recId = String(index);
+                      const footnote =
+                        rec.citationChunkId === null ? null : footnoteByRec.get(index);
+                      return (
+                        <li key={recId}>
+                          <RecommendationItem
+                            rec={rec}
+                            index={index}
+                            position={position + 1}
+                            footnote={footnote}
+                            footnoteHref={footnote ? `#${anchor(footnote)}` : undefined}
+                            decision={decisions[recId]}
+                            onAdopt={() => setDecision(recId, 'adopted')}
+                            onReject={() => setDecision(recId, 'rejected')}
+                            onNote={(note) => setNote(recId, note)}
+                          />
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+                {pendingHere}
               </div>
             );
           })
         )}
-      </section>
 
-      {/* Evidência: raciocínio e diferenciais em toggles, fontes como notas
-          de rodapé numeradas (os sobrescritos do plano apontam aqui). */}
-      <section className="flex flex-col gap-1">
-        <SectionHeader title="Raciocínio" className="mb-1" />
-        <Disclosure title="Por que o copiloto chegou a esta hipótese">
-          <p className="text-[0.9375rem] leading-relaxed text-pretty text-foreground">
-            {analysis.reasoning}
-          </p>
-        </Disclosure>
-        {otherDifferentials.length > 0 && (
-          <Disclosure
-            title={messages.copilot.differentials.heading}
-            meta={`${otherDifferentials.length} ${otherDifferentials.length === 1 ? 'hipótese' : 'hipóteses'}`}
-            defaultOpen={hasCannotMiss}
-          >
-            <ul className="flex flex-col gap-3 pt-1">
-              {otherDifferentials.map((d, i) => (
-                <li key={i} className="flex flex-col gap-0.5">
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <p className="text-sm font-semibold text-foreground">{d.hypothesis}</p>
-                    {/* PI-03 — "não pode perder": mesmo critério de um red
-                        flag crítico, por isso a tag vermelha. */}
-                    {d.cannotMiss && (
-                      <Badge variant="destructive">
-                        <WarningOctagon weight="fill" aria-hidden="true" />
-                        {messages.copilot.differentials.cannotMiss}
-                        {d.timeToHarm ? ` · dano em ${d.timeToHarm}` : ''}
-                      </Badge>
-                    )}
-                  </div>
-                  {d.whatDistinguishes && (
-                    <p className="text-[0.8125rem] leading-relaxed text-muted-foreground">
-                      <span className="text-foreground">
-                        {messages.copilot.differentials.whatDistinguishes}
-                      </span>{' '}
-                      {d.whatDistinguishes}
-                    </p>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </Disclosure>
+        {(hasModelKnowledge || current) && (
+          <div className="flex flex-col items-start gap-1 text-[0.8125rem] text-muted-foreground">
+            {hasModelKnowledge && <p className="text-pretty">{messages.plan.modelKnowledgeNote}</p>}
+            {current && (
+              <Button type="button" size="sm" variant="link" onClick={openConsult}>
+                <BookOpen weight="duotone" />
+                {messages.plan.consultGuidelines}
+              </Button>
+            )}
+          </div>
         )}
       </section>
+
+      {/* O raciocínio inteiro, recolhido: entendimento (com a correção),
+          sinais de alarme, hipóteses consideradas e o porquê do plano. */}
+      <Disclosure title={messages.plan.reasoning} className="border-t border-border pt-3">
+        <div className="flex flex-col gap-5 pt-2">
+          <div className="flex flex-col gap-1">
+            <p className="text-sm font-semibold text-foreground">{messages.plan.reasoningWhy}</p>
+            <p className="text-[0.9375rem] leading-relaxed text-pretty text-foreground">
+              {analysis.reasoning}
+            </p>
+          </div>
+
+          {redFlags.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <p className="text-sm font-semibold text-foreground">{messages.redFlags.heading}</p>
+              <ul className="flex flex-wrap gap-1.5">
+                {redFlags.map((flag, i) => (
+                  <li key={`${flag.finding}-${i}`}>
+                    <RedFlagTag finding={flag.finding} severity={flag.severity} messages={messages} />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {consideredDifferentials.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <p className="text-sm font-semibold text-foreground">
+                {messages.copilot.differentials.heading}
+              </p>
+              <ul className="flex flex-col gap-3">
+                {consideredDifferentials.map((d, i) => (
+                  <li key={i} className="flex flex-col gap-0.5">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <p className="text-sm font-semibold text-foreground">{d.hypothesis}</p>
+                      {/* PI-03 — "não pode perder": mesmo critério de um red
+                          flag crítico, por isso a tag vermelha. */}
+                      {d.cannotMiss && (
+                        <Badge variant="destructive">
+                          <WarningOctagon weight="fill" aria-hidden="true" />
+                          {messages.copilot.differentials.cannotMiss}
+                          {d.timeToHarm ? ` · dano em ${d.timeToHarm}` : ''}
+                        </Badge>
+                      )}
+                    </div>
+                    {d.whatDistinguishes && (
+                      <p className="text-[0.8125rem] leading-relaxed text-muted-foreground">
+                        <span className="text-foreground">
+                          {messages.copilot.differentials.whatDistinguishes}
+                        </span>{' '}
+                        {d.whatDistinguishes}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* F1 — "O que eu entendi" (ADR-013), com a correção do
+              entendimento. Some no legacy e nas análises antigas. */}
+          <UnderstandingCard understanding={analysis.understanding} correction={correction} />
+        </div>
+      </Disclosure>
 
       {footnotes.length > 0 && (
         <section id={anchor(0)} className="flex scroll-mt-16 flex-col gap-3">
@@ -543,89 +604,91 @@ export function AnalysisView({
             className="border-t border-border pt-4"
           />
 
-          {/* Próximo passo: documento. */}
-          <section className="flex flex-col gap-3">
-            <SectionHeader
-              title={messages.documents.generateHeading}
-              description="Abre em nova aba para você revisar, editar e assinar."
-            />
-            {hasPendingQuestion && (
-              <Callout tone="orange" icon={<WarningCircle weight="fill" />}>
-                Há uma pergunta que muda a conduta ainda sem resposta — o documento gerado agora
-                não vai refletir essa informação.
-              </Callout>
-            )}
-            {/* S25-QC-02 — gerar documento formal exige paciente
-                identificado; o backend (documents.service.ts) já recusa isto
-                de qualquer forma — desabilitar aqui evita o médico clicar
-                para só então descobrir pelo erro. */}
-            {isQuickConsult && (
-              <QuickConsultBanner
-                encounterId={encounterId}
-                description="Identifique o paciente para gerar SOAP, SBAR, prescrição, atestado ou alta."
-                successMessage="Paciente identificado — já pode gerar os documentos deste caso."
-              />
-            )}
-            <div className="flex flex-wrap gap-2">
-              {DOCUMENT_TYPES.map((dt) => {
-                const isThisGenerating = generatingDoc === dt.type;
-                // Com pergunta que muda a conduta em aberto, o SOAP deixa de
-                // ser a ação azul: o plano ainda pode mudar.
-                const isPrimary = dt.primary && !hasPendingQuestion && !isThisGenerating;
-                return (
-                  <Button
-                    key={dt.type}
-                    onClick={() => handleGenerateDocument(dt.type)}
-                    disabled={isThisGenerating || isQuickConsult}
-                    variant={isPrimary ? 'default' : 'outline'}
-                  >
-                    {isThisGenerating ? <CircleNotch className="animate-spin" /> : <FileText />}
-                    {isThisGenerating ? messages.documents.generating : dt.label}
-                  </Button>
-                );
-              })}
-            </div>
-            {docError && (
-              <Alert variant="destructive">
-                <WarningCircle weight="fill" />
-                <AlertTitle>{messages.documents.errorTitle}</AlertTitle>
-                <AlertDescription>{docError}</AlertDescription>
-              </Alert>
-            )}
-
-            {/* S25-QC-02 — segunda opinião pressupõe um caso rastreável para o
-                handoff; sem identificação o bloco some. */}
-            {!isQuickConsult && (
-              <div className="mt-2 flex flex-col gap-3 rounded-md bg-tone-gray-bg px-4 py-3 sm:flex-row sm:items-center">
-                <div className="flex min-w-0 flex-1 gap-3">
-                  <PhoneCall
-                    className="mt-0.5 size-[18px] shrink-0 text-muted-foreground"
-                    aria-hidden="true"
-                  />
-                  <div className="min-w-0 space-y-0.5 text-sm">
-                    <p className="font-semibold text-foreground">Quer segunda opinião?</p>
-                    <p className="text-pretty text-muted-foreground">
-                      Manda o resumo SBAR pronto para o plantonista sênior ou para a hemodinâmica.
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="shrink-0 max-sm:ml-[30px] max-sm:h-10 max-sm:self-start"
-                  onClick={() => handleGenerateDocument('sbar')}
-                  disabled={generatingDoc === 'sbar'}
-                >
-                  {generatingDoc === 'sbar' ? (
-                    <CircleNotch className="animate-spin" />
-                  ) : (
-                    <FileText />
-                  )}
-                  Gerar SBAR
-                </Button>
+          {/* Próximo passo: documento, recolhido — no plantão o plano vem
+              primeiro. */}
+          <Disclosure title={messages.documents.generateHeading} className="border-t border-border pt-3">
+            <section className="flex flex-col gap-3 pt-2">
+              <p className="text-[0.8125rem] text-muted-foreground">
+                Abre em nova aba para você revisar, editar e assinar.
+              </p>
+              {hasPendingQuestion && (
+                <Callout tone="orange" icon={<WarningCircle weight="fill" />}>
+                  Há uma pergunta que muda a conduta ainda sem resposta — o documento gerado agora
+                  não vai refletir essa informação.
+                </Callout>
+              )}
+              {/* S25-QC-02 — gerar documento formal exige paciente
+                  identificado; o backend (documents.service.ts) já recusa isto
+                  de qualquer forma — desabilitar aqui evita o médico clicar
+                  para só então descobrir pelo erro. */}
+              {isQuickConsult && (
+                <QuickConsultBanner
+                  encounterId={encounterId}
+                  description="Identifique o paciente para gerar SOAP, SBAR, prescrição, atestado ou alta."
+                  successMessage="Paciente identificado — já pode gerar os documentos deste caso."
+                />
+              )}
+              <div className="flex flex-wrap gap-2">
+                {DOCUMENT_TYPES.map((dt) => {
+                  const isThisGenerating = generatingDoc === dt.type;
+                  // Com pergunta que muda a conduta em aberto, o SOAP deixa de
+                  // ser a ação azul: o plano ainda pode mudar.
+                  const isPrimary = dt.primary && !hasPendingQuestion && !isThisGenerating;
+                  return (
+                    <Button
+                      key={dt.type}
+                      onClick={() => handleGenerateDocument(dt.type)}
+                      disabled={isThisGenerating || isQuickConsult}
+                      variant={isPrimary ? 'default' : 'outline'}
+                    >
+                      {isThisGenerating ? <CircleNotch className="animate-spin" /> : <FileText />}
+                      {isThisGenerating ? messages.documents.generating : dt.label}
+                    </Button>
+                  );
+                })}
               </div>
-            )}
-          </section>
+              {docError && (
+                <Alert variant="destructive">
+                  <WarningCircle weight="fill" />
+                  <AlertTitle>{messages.documents.errorTitle}</AlertTitle>
+                  <AlertDescription>{docError}</AlertDescription>
+                </Alert>
+              )}
+
+              {/* S25-QC-02 — segunda opinião pressupõe um caso rastreável para o
+                  handoff; sem identificação o bloco some. */}
+              {!isQuickConsult && (
+                <div className="mt-2 flex flex-col gap-3 rounded-md bg-tone-gray-bg px-4 py-3 sm:flex-row sm:items-center">
+                  <div className="flex min-w-0 flex-1 gap-3">
+                    <PhoneCall
+                      className="mt-0.5 size-[18px] shrink-0 text-muted-foreground"
+                      aria-hidden="true"
+                    />
+                    <div className="min-w-0 space-y-0.5 text-sm">
+                      <p className="font-semibold text-foreground">Quer segunda opinião?</p>
+                      <p className="text-pretty text-muted-foreground">
+                        Manda o resumo SBAR pronto para o plantonista sênior ou para a hemodinâmica.
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 max-sm:ml-[30px] max-sm:h-10 max-sm:self-start"
+                    onClick={() => handleGenerateDocument('sbar')}
+                    disabled={generatingDoc === 'sbar'}
+                  >
+                    {generatingDoc === 'sbar' ? (
+                      <CircleNotch className="animate-spin" />
+                    ) : (
+                      <FileText />
+                    )}
+                    Gerar SBAR
+                  </Button>
+                </div>
+              )}
+            </section>
+          </Disclosure>
         </>
       )}
     </article>
@@ -700,13 +763,15 @@ function RedFlagTag({
  * item precisa do seu próprio estado local de "nota está expandida" — não
  * dá para usar useState dentro de um .map() do componente pai.
  *
- * Visual: linha de to-do do Notion — marcador de estado à esquerda, ação em
- * destaque com a nota de rodapé sobrescrita, justificativa em cinza e os
- * controles de decisão discretos embaixo.
+ * Visual: linha de to-do do Notion, compacta para o plano caber numa tela —
+ * na conduta que espera um dado, a condição vem antes ("Se TC sem
+ * sangramento", "→ trombólise"); a justificativa abre em "Por quê"; adotar,
+ * rejeitar e anotar são ícones na mesma linha.
  */
 export function RecommendationItem({
   rec,
   index,
+  position,
   footnote = index + 1,
   footnoteHref = footnote === null ? undefined : `#fonte-${footnote}`,
   decision,
@@ -716,6 +781,11 @@ export function RecommendationItem({
 }: {
   rec: CopilotRecommendation;
   index: number;
+  /**
+   * Ordem no grupo, mostrada no "Fazer agora" para o médico acompanhar a
+   * lista ("já fiz a 3"). A conduta que espera um dado não tem ordem.
+   */
+  position?: number;
   /**
    * Número da nota de rodapé da fonte (compartilhado entre recomendações da
    * mesma fonte). `null`: conhecimento geral do modelo, sem fonte (F1).
@@ -729,6 +799,7 @@ export function RecommendationItem({
   onNote: (note: string) => void;
 }) {
   const messages = useMessages();
+  const [showWhy, setShowWhy] = useState(false);
   const [showNote, setShowNote] = useState(false);
   // F0-D — `modified` é adoção com ajuste (Adotar + nota): mesma aparência de
   // adotada, com o rótulo dizendo que houve ajuste.
@@ -736,12 +807,15 @@ export function RecommendationItem({
   const isAdopted = decision?.decision === 'adopted' || isModified;
   const isRejected = decision?.decision === 'rejected';
   const preliminaryReason = preliminaryReasonOf(rec);
-  // F1 — "Depende de: <dado>" diz mais que a tag "Preliminar · depende de
-  // dado"; a tag fica para os outros motivos.
+  // F1 — a condição ("Se <dado>") diz mais que a tag "Preliminar · depende
+  // de dado"; a tag fica para os outros motivos.
   const waitsForData = rec.layer === 'depends';
-  const showPreliminaryBadge =
-    preliminaryReason !== null && !(waitsForData && preliminaryReason === 'depends_on_data');
+  const conditionCoversPreliminary = waitsForData && preliminaryReason === 'depends_on_data';
+  const showPreliminaryBadge = preliminaryReason !== null && !conditionCoversPreliminary;
+  // O cadeado diz "preliminar"; na conduta que espera um dado, o "Se…" já diz.
+  const markerReason = conditionCoversPreliminary ? null : preliminaryReason;
   const isModelKnowledge = rec.origin === 'model_knowledge';
+  const noteLabel = decision?.note ? 'Editar nota' : 'Anotar';
 
   return (
     <div className="flex gap-3 py-3">
@@ -750,23 +824,41 @@ export function RecommendationItem({
           <CheckCircle className="size-[18px] text-tone-green" weight="fill" />
         ) : isRejected ? (
           <XCircle className="size-[18px] text-muted-foreground" weight="fill" />
-        ) : preliminaryReason ? (
+        ) : markerReason ? (
           <LockSimple
-            className={cn('size-4', PRELIMINARY_TONE[preliminaryReason].markerClassName)}
+            className={cn('size-4', PRELIMINARY_TONE[markerReason].markerClassName)}
             weight="fill"
           />
+        ) : position !== undefined && !waitsForData ? (
+          <span className="font-mono text-[0.8125rem] text-muted-foreground tabular-nums">
+            {position}
+          </span>
         ) : (
           <span className="size-1.5 rounded-full bg-foreground/45" />
         )}
       </span>
 
       <div className={cn('min-w-0 flex-1', isRejected && 'opacity-70')}>
+        {waitsForData && (
+          <p className="text-[0.8125rem] leading-snug font-medium text-tone-orange-ink">
+            {rec.dependsOn
+              ? messages.recommendation.ifCondition(conditionText(rec.dependsOn))
+              : messages.recommendation.dependsOnMissing}
+          </p>
+        )}
+
         <h4
           className={cn(
             'text-[0.9375rem] leading-6 font-medium text-pretty text-foreground',
+            waitsForData && 'mt-0.5',
             isRejected && 'text-muted-foreground line-through',
           )}
         >
+          {waitsForData && (
+            <span aria-hidden="true" className="text-muted-foreground">
+              →{' '}
+            </span>
+          )}
           {rec.action}
           {footnote !== null && (
             <sup className="ml-0.5">
@@ -781,52 +873,42 @@ export function RecommendationItem({
           )}
         </h4>
 
-        <p className="mt-0.5 text-sm leading-relaxed text-pretty text-muted-foreground">
-          {rec.rationale}
-        </p>
-
-        {waitsForData && (
-          <p className="mt-1.5 flex items-start gap-1.5 text-[0.8125rem] font-medium text-tone-orange-ink">
-            <Hourglass className="mt-0.5 size-3.5 shrink-0 text-tone-orange" weight="fill" aria-hidden="true" />
-            {rec.dependsOn
-              ? messages.recommendation.dependsOn(rec.dependsOn)
-              : messages.recommendation.dependsOnMissing}
-          </p>
+        {(showPreliminaryBadge || isAdopted || isRejected || !isModelKnowledge) && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+            {showPreliminaryBadge && preliminaryReason && (
+              <Badge
+                variant={PRELIMINARY_TONE[preliminaryReason].variant}
+                className="h-auto min-h-5 max-w-full py-0.5 whitespace-normal text-left leading-snug"
+              >
+                <LockSimple weight="fill" aria-hidden="true" />
+                {preliminaryLabel(preliminaryReason, messages)}
+              </Badge>
+            )}
+            {isAdopted && (
+              <Badge variant="success">
+                <SealCheck weight="fill" aria-hidden="true" />
+                {isModified ? 'Adotada com ajuste' : 'Adotada'}
+              </Badge>
+            )}
+            {isRejected && (
+              <Badge variant="secondary">
+                <XCircle weight="fill" aria-hidden="true" />
+                Rejeitada
+              </Badge>
+            )}
+            {!isModelKnowledge && (
+              <span className="inline-flex min-w-0 items-center gap-1">
+                <BookOpen className="size-3.5 shrink-0" aria-hidden="true" />
+                <span className="truncate">{rec.source}</span>
+              </span>
+            )}
+          </div>
         )}
 
-        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-          {showPreliminaryBadge && preliminaryReason && (
-            <Badge
-              variant={PRELIMINARY_TONE[preliminaryReason].variant}
-              className="h-auto min-h-5 max-w-full py-0.5 whitespace-normal text-left leading-snug"
-            >
-              <LockSimple weight="fill" aria-hidden="true" />
-              {preliminaryLabel(preliminaryReason, messages)}
-            </Badge>
-          )}
-          {isAdopted && (
-            <Badge variant="success">
-              <SealCheck weight="fill" aria-hidden="true" />
-              {isModified ? 'Adotada com ajuste' : 'Adotada'}
-            </Badge>
-          )}
-          {isRejected && (
-            <Badge variant="secondary">
-              <XCircle weight="fill" aria-hidden="true" />
-              Rejeitada
-            </Badge>
-          )}
-          {!isModelKnowledge && (
-            <span className="inline-flex min-w-0 items-center gap-1">
-              <BookOpen className="size-3.5 shrink-0" aria-hidden="true" />
-              <span className="truncate">{rec.source}</span>
-            </span>
-          )}
-        </div>
-
         {/* F4 / ADR-010 / ADR-012 — fonte que nenhum médico assinou: diz de
-            onde veio e, no caso da base oficial, leva ao PDF do Ministério. */}
-        {isUnreviewedOrigin(rec.origin) && (
+            onde veio e, no caso da base oficial, leva ao PDF do Ministério.
+            Conhecimento geral do modelo é dito uma vez, no rodapé do plano. */}
+        {isUnreviewedOrigin(rec.origin) && !isModelKnowledge && (
           <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
             <SourceOriginBadge
               origin={rec.origin}
@@ -862,41 +944,64 @@ export function RecommendationItem({
           </div>
         )}
 
-        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-          <Button
-            size="sm"
-            variant="outline"
-            aria-pressed={isAdopted}
-            onClick={onAdopt}
-            className={cn(
-              'max-sm:h-10',
-              isAdopted && 'border-transparent bg-tone-green-tag text-tone-green-ink hover:bg-tone-green-tag',
-            )}
+        <div className="mt-1 flex items-center justify-between gap-2">
+          <button
+            type="button"
+            aria-expanded={showWhy}
+            onClick={() => setShowWhy((open) => !open)}
+            className="-ml-1 inline-flex items-center gap-1 rounded-sm px-1 py-1 text-[0.8125rem] text-muted-foreground hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-none"
           >
-            <Check weight="bold" />
-            Adotar
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            aria-pressed={isRejected}
-            onClick={onReject}
-            className={cn('max-sm:h-10', isRejected && 'border-transparent bg-active hover:bg-active')}
-          >
-            <X weight="bold" />
-            Rejeitar
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="text-muted-foreground max-sm:h-10"
-            aria-expanded={showNote}
-            onClick={() => setShowNote((s) => !s)}
-          >
-            <PencilSimple />
-            {decision?.note ? 'Editar nota' : 'Anotar'}
-          </Button>
+            {messages.recommendation.why}
+            <CaretDown
+              aria-hidden="true"
+              className={cn('size-3 transition-transform duration-150', showWhy && 'rotate-180')}
+            />
+          </button>
+          <div className="flex shrink-0 items-center gap-1">
+            <Button
+              size="icon"
+              variant="outline"
+              aria-label="Adotar"
+              title="Adotar"
+              aria-pressed={isAdopted}
+              onClick={onAdopt}
+              className={cn(
+                isAdopted &&
+                  'border-transparent bg-tone-green-tag text-tone-green-ink hover:bg-tone-green-tag',
+              )}
+            >
+              <Check weight="bold" />
+            </Button>
+            <Button
+              size="icon"
+              variant="outline"
+              aria-label="Rejeitar"
+              title="Rejeitar"
+              aria-pressed={isRejected}
+              onClick={onReject}
+              className={cn(isRejected && 'border-transparent bg-active hover:bg-active')}
+            >
+              <X weight="bold" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              aria-label={noteLabel}
+              title={noteLabel}
+              aria-expanded={showNote}
+              onClick={() => setShowNote((open) => !open)}
+              className="text-muted-foreground"
+            >
+              <PencilSimple />
+            </Button>
+          </div>
         </div>
+
+        {showWhy && (
+          <p className="mt-0.5 text-sm leading-relaxed text-pretty text-muted-foreground">
+            {rec.rationale}
+          </p>
+        )}
 
         {showNote && (
           <Textarea
@@ -917,4 +1022,3 @@ export function RecommendationItem({
     </div>
   );
 }
-
