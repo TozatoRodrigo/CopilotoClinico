@@ -140,11 +140,28 @@ export const es: Messages = {
     },
     layers: {
       now: { label: 'Hacer ahora', hint: 'seguro en todas las hipótesis abiertas' },
-      depends: { label: 'Depende de…', hint: 'solo después del dato que decide' },
+      depends: { label: 'Depende del resultado', hint: 'solo vale si la condición se confirma' },
     },
     dependsOn: (data: string) => `Depende de: ${data}`,
+    ifCondition: (condition: string) => `Si ${condition}`,
     dependsOnMissing: 'Depende de un dato aún no informado',
+    why: 'Por qué',
     openSourcePage: 'Abrir la página de la fuente',
+  },
+
+  plan: {
+    mostLikely: 'Más probable',
+    noHypothesis: 'Evaluación clínica en curso',
+    cannotMiss: 'No se puede pasar por alto:',
+    pendingTitle: 'Falta saber',
+    pendingHint: 'Responder actualiza el plan (cerca de 1 minuto).',
+    modelKnowledgeNote:
+      'Conductas del conocimiento general del modelo, sin fuente revisada. Confirme las dosis en el protocolo local.',
+    consultGuidelines: 'Consultar guías',
+    reasoning: 'Ver razonamiento',
+    reasoningWhy: 'Por qué el copiloto llegó a este plan',
+    noRecommendations:
+      'Ninguna conducta sugerida en esta ronda — responda lo que falta saber o consulte las guías.',
   },
 
   sourceOrigin: {
@@ -201,7 +218,6 @@ export const es: Messages = {
   understanding: {
     heading: 'Lo que entendí',
     description: 'Revíselo antes del plan. Si algo está mal, corríjalo y el copiloto reanaliza.',
-    streamingHint: 'Armando el plan a partir de este entendimiento…',
     syndrome: 'Síndrome',
     syndromes: {
       'agitacao-psicomotora': 'Agitación psicomotora',
@@ -338,10 +354,6 @@ export const es: Messages = {
     rebuildingPlan: 'Rehaciendo el plan con su respuesta…',
     planFailed: 'No pude armar el plan ahora.',
     retryPlan: 'Intentar de nuevo',
-    followUpIntro: (count: number) =>
-      count === 1
-        ? 'Para cerrar el plan, 1 pregunta. Responder rehace el plan (cerca de 1 minuto).'
-        : `Para cerrar el plan, ${count} preguntas. Responder rehace el plan (cerca de 1 minuto).`,
     keepPlan: 'Seguir con este plan',
     rebuildNow: 'Rehacer el plan ahora',
     previousPlan: (round: number) => `Plan anterior · ronda ${round}`,

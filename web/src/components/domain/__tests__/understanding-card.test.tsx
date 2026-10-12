@@ -82,6 +82,19 @@ describe('UnderstandingCard', () => {
     expect(within(card()).getByText('Déficit neurológico focal')).toBeInTheDocument();
   });
 
+  it('mostra uma vez o dado que o modelo repetiu nos achados', () => {
+    const base = understanding();
+    render(
+      <UnderstandingCard
+        understanding={understanding({
+          structuredData: { ...base.structuredData, keyFindings: ['PA 182x104', 'afasia'] },
+        })}
+      />,
+    );
+
+    expect(within(card()).getAllByText('PA 182x104')).toHaveLength(1);
+  });
+
   it("mostra a descrição quando a síndrome é 'outro'", () => {
     render(
       <UnderstandingCard
