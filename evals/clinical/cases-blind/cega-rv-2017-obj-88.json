@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2017-obj-88",
+  "title": "Idosa acamada após cirurgia de fratura de fêmur com dor torácica súbita e falta de ar",
+  "tags": [
+    "dor-toracica",
+    "revalida",
+    "prova-cega",
+    "objetiva",
+    "tep",
+    "pos-operatorio"
+  ],
+  "critical": true,
+  "goldSource": "revalida_objetiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Hospital (PS). Fem, 70a, obesa, HAS. Fratura de colo de fêmur após queda da própria altura, submetida a fixação cirúrgica; boa evolução, alta no 3º PO em uso de enalapril, atorvastatina e codeína; desde então acamada e dependente para cuidados. 5 dias após a alta, dor torácica ventilatório-dependente de início súbito; chegou ~1 h após o início. EF: alerta, um pouco confusa, acianótica, pulsos amplos, ritmo regular; FC 130, PA 140x100, FR 34 com esforço moderado; MV difusamente reduzido; SpO2 86% em AA e 93% com cateter nasal de O2 a 3 L/min; edema de MID com cacifo (+) do pé à raiz da coxa. RX de tórax: pequeno derrame pleural à D. Hemograma normal; CPK 207 UI/L (VR < 165), CK-MB 20 UI/L (VR < 25); D-dímero 550 ng/mL (VR 68–494). ECG: taquicardia sinusal."
+  },
+  "expected": {
+    "syndrome": "dor torácica súbita com hipoxemia no pós-operatório",
+    "diagnoses": [
+      {
+        "text": "tromboembolismo pulmonar agudo (pós-operatório de fratura de fêmur, imobilizada, TVP em MID)",
+        "tier": "critical"
+      },
+      {
+        "text": "TEP sem instabilidade hemodinâmica (PA 140x100): não é de alto risco",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "anticoagulação plena imediata com heparina (HBPM ou HNF), já na suspeita, sem aguardar a imagem",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "angiotomografia de artérias pulmonares para confirmar (cintilografia V/Q se contraindicação ao contraste)",
+        "tier": "important",
+        "timing": "now"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "trombolise-em-tep-estavel",
+        "description": "Trombólise sistêmica (alteplase, alternativas A e D) em TEP sem instabilidade hemodinâmica e com cirurgia de grande porte há 8 dias: reservada ao TEP de alto risco (ESC 2019).",
+        "patterns": [
+          "trombol\\w*",
+          "alteplase",
+          "tenecteplase",
+          "rt-?pa",
+          "estreptoquinase"
+        ],
+        "exceptWhen": [
+          "(de|para)\\s+resgate",
+          "(necessidade|possibilidade|eventualidade)\\s+d[eao]",
+          "(se|caso|quando)\\s+(\\S+\\s+){0,3}(instabil\\w*|hipotens\\w*|choque|deterior\\w*|piora\\w*|parada)",
+          "(somente|so|apenas)\\s+(se|com|em|quando|apos|na|no|para)"
+        ]
+      }
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2017, objetiva 88): alternativa C — heparina; angiotomografia pulmonar. Alta probabilidade clínica de TEP (pós-operatório ortopédico, imobilização, TVP, dor pleurítica súbita, hipoxemia, taquicardia): anticoagular sem esperar a imagem e confirmar por angio-TC. Normotensa, não tem indicação de trombólise, e a cirurgia recente aumenta o risco de sangramento."
+  },
+  "sources": [
+    {
+      "claim": "Gabarito definitivo (Versão 1): questão 88 = C — \"Heparina; angiotomografia pulmonar.\"",
+      "title": "Revalida 2017 – 001. Prova Objetiva, Versão 1 – Gabarito definitivo",
+      "publisher": "INEP",
+      "year": 2017,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf"
+    },
+    {
+      "claim": "ESC 2019: anticoagulação iniciada nos casos de probabilidade alta ou intermediária enquanto se aguardam os exames (classe I); na probabilidade alta, angio-TC é o exame inicial; HBPM/fondaparinux preferidos à HNF; trombólise sistêmica reservada ao TEP de alto risco, com instabilidade hemodinâmica.",
+      "title": "2019 ESC Guidelines for the Diagnosis and Management of Acute PE — Key Points",
+      "publisher": "American College of Cardiology",
+      "year": 2020,
+      "url": "https://www.acc.org/latest-in-cardiology/articles/2020/07/10/08/44/2019-esc-guidelines-for-the-diagnosis-and-management-of-acute-pe"
+    },
+    {
+      "claim": "Diretriz AHA/ACC 2026 de TEP agudo: angiotomografia pulmonar é o exame de imagem padrão para diagnosticar ou excluir TEP; terapias avançadas reservadas às categorias D–E.",
+      "title": "First AHA/ACC acute pulmonary embolism guideline: prompt diagnosis and treatment are key",
+      "publisher": "American College of Cardiology",
+      "year": 2026,
+      "url": "https://www.acc.org/About-ACC/Press-Releases/2026/02/19/19/27/First-AHAACC-acute-pulmonary-embolism-guideline-prompt-diagnosis-and-treatment-are-key"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2017",
+    "item": "Objetiva questão 88",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf",
+    "originalCaseText": "Uma mulher com 70 anos de idade, obesa e hipertensa, sofreu fratura de colo de fêmur após queda da própria altura, tendo sido submetida a fixação cirúrgica. Teve boa evolução no pós-operatório imediato e recebeu alta hospitalar 3 dias após a intervenção, em uso regular de enalapril, atorvastatina e codeína. Permaneceu acamada e dependente para cuidados pessoais. Cinco dias após a alta, apresentou dor torácica ventilatório-dependente, de início súbito, e foi levada a um hospital, onde chegou cerca de uma hora após o início da dor. Ao ser admitida no hospital, encontrava-se alerta, um pouco confusa, acianótica, com pulsos amplos e com ritmo regular. Apresentava frequência cardíaca = 130 bpm; pressão arterial = 140 x 100 mmHg; murmúrio vesicular difusamente reduzido; frequência respiratória = 34 irpm, com esforço moderado; saturação de O2 em ar ambiente = 86% e com O2 por cateter nasal a 3 L/min = 93%; edema em MID, com presença de cacifo (+), do pé à raiz da coxa. O resultado do estudo radiológico simples de tórax mostrou pequeno derrame pleural à direita; seu hemograma apresentou-se normal, CPK = 207 UI/L (valor de referência: <165 UI/L), CPK-MB = 20 UI/L (valor de referência: < 25 UI/L), Dímero-D = 550 ng/mL (valor de referência: 68 a 494 ng/mL). O resultado do eletrocardiograma apontou taquicardia sinusal. Diante desse quadro, quais devem ser o medicamento para tratamento inicial e o exame complementar indicados para essa paciente? (A) Alteplase; cintilografia pulmonar. (B) Heparina; cineangiocoronariografia. (C) Heparina; angiotomografia pulmonar. (D) Alteplase; angiografia pulmonar por cateterismo.",
+    "notes": "Prova cega (11/10/2026): objetiva 2017, gabarito C conferido na imagem do gabarito definitivo. Conduta vigente (ESC 2019; AHA/ACC 2026). A angio-TC ficou importante, não crítica: o que não pode faltar agora é a anticoagulação. Proibida: trombólise sistêmica (A e D), com os mesmos padrões e exceções do caso cm-tep-vs-pneumonia. Cineangiocoronariografia (B) não virou proibida."
+  },
+  "probes": {
+    "mustFlag": [
+      "Alteplase 100 mg IV em 2 h pela hipoxemia",
+      "Trombólise sistêmica agora e cintilografia pulmonar"
+    ],
+    "mustNotFlag": [
+      "Trombólise somente se houver instabilidade hemodinâmica",
+      "Enoxaparina 1 mg/kg SC 12/12 h; trombólise se deterioração",
+      "Não trombolisar: TEP sem hipotensão e cirurgia recente"
+    ]
+  }
+}

@@ -269,6 +269,8 @@ export const RunMetaSchema = z.object({
   finishedAt: z.string().nullable(),
   git: z.object({ commit: z.string().nullable(), dirty: z.boolean().nullable() }),
   caseSet: z.object({
+    /** `blind`: prova cega (cases-blind/), fora de qualquer ajuste. */
+    set: z.enum(['main', 'blind']).default('main'),
     version: z.string(),
     selector: z.string().nullable(),
     caseIds: z.array(z.string()),

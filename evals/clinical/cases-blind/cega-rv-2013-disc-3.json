@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2013-disc-3",
+  "title": "Recém-nascido de 20 horas com icterícia até o umbigo, mãe O positivo e RN A positivo, bilirrubina total 12,4",
+  "tags": [
+    "pele-partes-moles",
+    "revalida",
+    "prova-cega",
+    "discursiva",
+    "neonatologia",
+    "ictericia-neonatal"
+  ],
+  "critical": true,
+  "goldSource": "revalida_discursiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Alojamento conjunto de maternidade. RN com 20 h de vida, de primigesta 27a; parto vaginal a termo, sem intercorrências; peso adequado para a IG. Sugando bem, já eliminou mecônio. Icterícia até a cicatriz umbilical. Tipagem: mãe O positivo, RN A positivo. BT 12,4 mg/dL (VR para < 24 h: até 6,0), BI 11,4, BD 1,0."
+  },
+  "expected": {
+    "syndrome": "icterícia neonatal precoce (nas primeiras 24 h) com hiperbilirrubinemia indireta por incompatibilidade ABO",
+    "diagnoses": [
+      {
+        "text": "icterícia precoce (< 24 h), patológica, por doença hemolítica ABO (hiperbilirrubinemia indireta)",
+        "tier": "critical"
+      },
+      {
+        "text": "risco de encefalopatia bilirrubínica (kernicterus) e de anemia hemolítica",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "fototerapia agora (intensiva) [ref.: SBP 2021, RN ≥ 38 semanas com 24 h: fototerapia com BT ≥ 10 mg/dL, ou ≥ 8 na doença hemolítica]",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "BT seriada e hemograma (Hb/Ht), reticulócitos e Coombs direto, para acompanhar a hemólise e a anemia",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [],
+    "outOfScope": [
+      "explicar o mecanismo fisiopatológico da doença hemolítica ABO (item b, 4,0 pontos): sensibilização materna prévia por antígenos diversos, IgG anti-A/anti-B, passagem transplacentária, hemólise e aumento da bilirrubina indireta — conhecimento de prova"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2013, Questão 3): doença hemolítica pelo sistema ABO / icterícia precoce patológica, mecanismo por anticorpos IgG maternos, conduta inicial com fototerapia (só observação não pontua) e complicações (anemia e kernicterus). v2: o diagnóstico e a fototerapia imediata são críticos; complicações viraram diagnóstico importante; a fisiopatologia ficou fora do escopo."
+  },
+  "sources": [
+    {
+      "claim": "Enunciado e comandos da questão discursiva 3.",
+      "title": "Revalida 2013 – Prova Discursiva, Questão 3",
+      "publisher": "INEP",
+      "year": 2013,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/provas/2013/po_revalida_2013.pdf"
+    },
+    {
+      "claim": "Doença hemolítica pelo sistema ABO ou icterícia/hiperbilirrubinemia indireta por incompatibilidade ABO (2,0); icterícia neonatal precoce ou patológica (0,5).",
+      "title": "Revalida 2013 – Prova Discursiva – Padrão de Resposta definitivo, Questão 3, item a",
+      "publisher": "INEP",
+      "year": 2013,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2013/po_padrao_respostas_definitivo_revalida_2013.pdf"
+    },
+    {
+      "claim": "Mecanismo: sensibilização materna prévia por antígenos diversos (IgG), mãe O e RN A ou B, passagem transplacentária dos anticorpos com hemólise e hiperbilirrubinemia indireta (4,0).",
+      "title": "Revalida 2013 – Prova Discursiva – Padrão de Resposta definitivo, Questão 3, item b",
+      "publisher": "INEP",
+      "year": 2013,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2013/po_padrao_respostas_definitivo_revalida_2013.pdf"
+    },
+    {
+      "claim": "Conduta inicial: colocar o RN em fototerapia — referir apenas observação não pontua (2,0). Complicações: anemia (1,0) e kernicterus/encefalopatia bilirrubínica (1,0).",
+      "title": "Revalida 2013 – Prova Discursiva – Padrão de Resposta definitivo, Questão 3, itens c–d",
+      "publisher": "INEP",
+      "year": 2013,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2013/po_padrao_respostas_definitivo_revalida_2013.pdf"
+    },
+    {
+      "claim": "Icterícia nas primeiras 24–36 h alerta para doença hemolítica; a incompatibilidade ABO é hoje a doença hemolítica mais frequente, com icterícia nas primeiras 24–36 h e risco de encefalopatia bilirrubínica; investigação com tipagem, Coombs direto, hemograma e reticulócitos; tabela para RN ≥ 38 semanas: fototerapia com BT ≥ 10 mg/dL às 24 h, diminuindo 2 mg/dL o nível de indicação na doença hemolítica (Rh, ABO).",
+      "title": "Hiperbilirrubinemia indireta no período neonatal (Manual de Orientação do Departamento Científico de Neonatologia)",
+      "publisher": "Sociedade Brasileira de Pediatria",
+      "year": 2021,
+      "url": "https://www.sbp.com.br/fileadmin/user_upload/23176c-MO_Hiperbilirrubinemia_indireta_periodo_neo.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2013",
+    "item": "Discursiva caso 3",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2013/po_padrao_respostas_definitivo_revalida_2013.pdf",
+    "originalCaseText": "Primigesta com 27 anos de idade, teve parto vaginal, a termo, com recém-nascido de peso adequado para a idade gestacional, sem intercorrências. Está com o filho em alojamento conjunto. Vinte horas após o parto, ao examinar o recém-nascido (RN), o médico observou que ele está sugando bem, já eliminou mecônio e está apresentando icterícia até a cicatriz umbilical. Exames realizados indicam tipagem sanguínea da mãe (O positivo) e RN (A positivo), bilirrubinas total e frações para o RN: bilirrubina total = 12,4 mg/dL (valores de referência para RN com menos de 24 horas: até 6,0 mg/dL); bilirrubina indireta = 11,4mg/dL e bilirrubina direta = 1,0 mg/dL. Com base no relato acima, responda: a) Qual a hipótese diagnóstica? (valor: 2,0 pontos) b) Qual o mecanismo fisiopatológico da icterícia deste recém-nascido (valor: 4,0 pontos) c) Qual a conduta inicial para o recém-nascido? (valor: 2,0 pontos) d) Cite duas complicações possíveis de ocorrer.(valor: 2,0 pontos)",
+    "notes": "Prova cega (11/10/2026): caso limítrofe (alojamento conjunto, não PS), mantido porque a fototerapia é tempo-dependente e evita dano irreversível. tags[0] = pele-partes-moles por falta de estrato para icterícia neonatal (achado de pele). Conferido contra o manual da SBP de 2021 (aberto e lido): BT 12,4 com 20 h está acima do limiar de fototerapia mesmo sem descontar a doença hemolítica; abaixo do limiar de exsanguineotransfusão. Exames de acompanhamento (BT seriada, Hb, reticulócitos, Coombs) entraram como importantes pela SBP (o padrão só cita anemia como complicação)."
+  }
+}

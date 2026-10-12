@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2017-obj-70",
+  "title": "Criança de 4 anos com febre, tosse, vômitos e recusa alimentar na UPA",
+  "tags": [
+    "infeccao-respiratoria",
+    "revalida",
+    "prova-cega",
+    "objetiva",
+    "pediatria",
+    "pneumonia"
+  ],
+  "critical": true,
+  "goldSource": "revalida_objetiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "UPA. Criança, 4a, fem. Há 5 dias febre 38 °C, tosse e coriza hialina. Há 2 dias febre > 38,5 °C, episódios de vômito e recusa alimentar. EF: REG; FR 42 irpm; estertores crepitantes em base de hemitórax D; tiragem subcostal; sem sibilância; PA e FC normais."
+  },
+  "expected": {
+    "syndrome": "pneumonia adquirida na comunidade em pré-escolar",
+    "diagnoses": [
+      {
+        "text": "pneumonia adquirida na comunidade (febre alta, crepitações em base D, taquipneia)",
+        "tier": "critical"
+      },
+      {
+        "text": "gravidade: pneumonia grave pela classificação do gabarito (tiragem subcostal, FR 42), sem sinais de pneumonia muito grave; vômitos e recusa alimentar pesam contra a via oral",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "antibioticoterapia já: EV com internação (gabarito de 2017) ou amoxicilina VO se a criança aceitar a via oral, sem sinal de perigo e sem hipoxemia (OMS 2024)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "oximetria de pulso agora (O2 se hipoxemia)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "internação em enfermaria pediátrica (não UTI) pelos vômitos e recusa alimentar; a OMS 2024 admite tratamento ambulatorial só sem sinal de perigo (vomita tudo, não consegue beber, hipoxemia)",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "intubacao-sem-falencia-respiratoria",
+        "description": "Intubação/ventilação invasiva e UTI (alternativa B) numa criança sem falência respiratória nem choque: procedimento invasivo sem indicação.",
+        "patterns": [
+          "intub\\w*",
+          "iot",
+          "ventilacao\\s+(mecanica\\s+)?invasiva",
+          "ventilacao\\s+mecanica",
+          "suporte\\s+ventilatorio\\s+invasivo"
+        ],
+        "exceptWhen": [
+          "(se|caso|quando|na|em)\\s+(\\S+\\s+){0,3}(falencia|insuficiencia\\s+respiratoria|exaust\\w*|fadiga|apneia|rebaixamento|hipoxemia\\s+refrataria|piora\\w*|deterior\\w*)"
+        ]
+      }
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2017, objetiva 70): alternativa C — pneumonia grave; antibiótico venoso, oximetria e internação em enfermaria pediátrica. Na classificação usada em 2017, tiragem subcostal definia pneumonia grave. A OMS (2024) passou a recomendar amoxicilina VO ambulatorial para tiragem sem sinal de perigo (não consegue beber, vomita tudo, convulsão, letargia, estridor, hipoxemia); esta criança tem vômitos e recusa alimentar, e a SpO2 não foi medida, o que sustenta a internação do gabarito. O item crítico aceita as duas formas."
+  },
+  "sources": [
+    {
+      "claim": "Gabarito definitivo (Versão 1): questão 70 = C — \"pneumonia grave; antibioticoterapia venosa, com monitorização da oxigenação por oximetria de pulso e internação hospitalar em enfermaria pediátrica.\"",
+      "title": "Revalida 2017 – 001. Prova Objetiva, Versão 1 – Gabarito definitivo",
+      "publisher": "INEP",
+      "year": 2017,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf"
+    },
+    {
+      "claim": "Crianças de 2–59 meses com tiragem subcostal (com ou sem respiração rápida) e sem sinal de perigo (não consegue beber ou mamar, vomita tudo, convulsão, letargia/inconsciência, estridor ou hipoxemia): amoxicilina VO por 5 dias em regime ambulatorial, em vez de antibiótico injetável com internação (forte, certeza moderada).",
+      "title": "Guideline on management of pneumonia and diarrhoea in children up to 10 years of age (recomendação na base BIGG-REC/OPAS)",
+      "publisher": "World Health Organization",
+      "year": 2024,
+      "url": "https://bigg-rec.bvsalud.org/en/recommendations/c8ec59000a326df992f23e4f6a2956d8a2d73584"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2017",
+    "item": "Objetiva questão 70",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf",
+    "originalCaseText": "Uma criança com 4 anos de idade é atendida em Unidade de Pronto Atendimento por apresentar, há 5 dias, quadro de febre de 38 ºC, tosse e coriza hialina. Há 2 dias, a paciente passou a apresentar febre mais elevada (acima de 38,5 ºC), episódios de vômito e recusa alimentar. O exame clínico revela: paciente em regular estado geral, com frequência respiratória de 42 irpm, estertores crepitantes em base de hemitórax direito e tiragem subcostal, sem sibilância; pressão arterial e frequência cardíaca normais. Pelo quadro clínico apresentado, o diagnóstico e a conduta corretos são (A) pneumonia; antibioticoterapia oral, com acompanhamento clínico ambulatorial, solicitação de radiografia de tórax e retorno em 48 horas. (B) pneumonia muito grave; antibioticoterapia venosa, com suporte ventilatório invasivo e internação em unidade de terapia intensiva pediátrica. (C) pneumonia grave; antibioticoterapia venosa, com monitorização da oxigenação por oximetria de pulso e internação hospitalar em enfermaria pediátrica. (D) pneumonia com derrame pleural; antibioticoterapia endovenosa, com realização de toracocentese e internação em unidade de terapia intensiva pediátrica.",
+    "notes": "Prova cega (11/10/2026): objetiva 2017, gabarito C conferido na imagem do gabarito definitivo. Divergência vigente: a OMS 2024 trata a tiragem subcostal sem sinal de perigo com amoxicilina VO ambulatorial; como o enunciado traz vômitos e recusa alimentar (possível sinal de perigo) e não traz SpO2, o gabarito segue defensável e o item crítico aceita as duas formas, sem excludeFromGate. O documento científico da SBP sobre PAC exige login e não foi conferido. Proibida: intubação/ventilação invasiva (B). Toracocentese (D) não virou proibida: só apareceria condicionada a derrame."
+  },
+  "probes": {
+    "mustFlag": [
+      "Intubação orotraqueal e transferência para UTI pediátrica",
+      "Suporte ventilatório invasivo e ceftriaxona EV"
+    ],
+    "mustNotFlag": [
+      "Intubação apenas se evoluir com falência respiratória",
+      "Sem indicação de intubação no momento; ampicilina EV e oximetria",
+      "Ampicilina EV e internação em enfermaria pediátrica"
+    ]
+  }
+}

@@ -7,7 +7,7 @@ import { scanForInjection } from '../../src/modules/copilot/guardrails/injection
 import { FIELD_INCIDENT_CASES } from '../../tests/fixtures/field-incident-cases';
 import { KB_001_SYNTHETIC_CASES } from '../../tests/fixtures/kb-001-synthetic-cases';
 import { SYNDROME_GROUPS } from './case.schema';
-import { CASES_DIR, CaseFileError, loadCaseSet, selectCases } from './cases';
+import { BLIND_CASES_DIR, CASES_DIR, CaseFileError, loadCaseSet, selectCases } from './cases';
 import { normalizeForMatching } from './graders/deterministic';
 
 const { cases } = loadCaseSet();
@@ -141,6 +141,41 @@ describe('gabarito clínico', () => {
         expect(maskPII(text).hasPII, `${clinicalCase.id}: ${text}`).toBe(false);
         expect(scanForInjection(text).safe, `${clinicalCase.id}: ${text}`).toBe(true);
       }
+    }
+  });
+});
+
+// Prova cega: mesmas regras de formato, ids próprios e nenhum caso em comum
+// com o conjunto principal — senão deixa de ser cega.
+describe('prova cega (cases-blind)', () => {
+  const blind = loadCaseSet(BLIND_CASES_DIR).cases;
+
+  it('usa ids com o prefixo "cega-", sem repetir nenhum id do conjunto principal', () => {
+    for (const clinicalCase of blind) {
+      expect(clinicalCase.id, clinicalCase.id).toMatch(/^cega-/);
+      expect(caseById.has(clinicalCase.id), clinicalCase.id).toBe(false);
+    }
+  });
+
+  it('nunca vaza a resposta esperada no texto do caso', () => {
+    for (const clinicalCase of blind) {
+      const caseText = normalizeForMatching(clinicalCase.input.caseText);
+      for (const expectation of [
+        clinicalCase.expected.syndrome,
+        ...clinicalCase.expected.diagnoses.map((diagnosis) => diagnosis.text),
+        ...clinicalCase.expected.actions.map((action) => action.text),
+      ]) {
+        expect(caseText, `${clinicalCase.id}: "${expectation}"`).not.toContain(
+          normalizeForMatching(expectation),
+        );
+      }
+    }
+  });
+
+  it('chega ao modelo exatamente como escrito (sem PII mascarada nem bloqueio de injeção)', () => {
+    for (const clinicalCase of blind) {
+      expect(maskPII(clinicalCase.input.caseText).hasPII, clinicalCase.id).toBe(false);
+      expect(scanForInjection(clinicalCase.input.caseText).safe, clinicalCase.id).toBe(true);
     }
   });
 });

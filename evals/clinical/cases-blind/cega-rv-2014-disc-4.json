@@ -1,0 +1,134 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2014-disc-4",
+  "title": "Puérpera grande multípara e hipertensa crônica com sangramento persistente após o útero contrair com ocitocina e massagem",
+  "tags": [
+    "choque",
+    "revalida",
+    "prova-cega",
+    "discursiva",
+    "obstetricia",
+    "hemorragia-pos-parto"
+  ],
+  "critical": true,
+  "goldSource": "revalida_discursiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Maternidade, sala de parto. Fem, 38a, G8P7 (7 partos normais), 39ª semana, hipertensa crônica. Internada às 15h em trabalho de parto: AU 40 cm, BCF 144, DU 4 contrações de 30 s em 10 min, colo fino, 3 cm, bolsa íntegra. Parto vaginal às 16h35; RN 4.120 g. Aos 30 min pós-parto: útero hipotônico acima da cicatriz umbilical, sangramento vaginal moderado, PA 150x100, pulso 120. Após ocitocina IV e massagem uterina, útero contraído, mas o sangramento persiste de forma significativa."
+  },
+  "expected": {
+    "syndrome": "hemorragia pós-parto persistente apesar da correção do tônus uterino, em grande multípara hipertensa",
+    "diagnoses": [
+      {
+        "text": "hemorragia pós-parto persistente com útero já contraído: lacerações do canal de parto (colo, vagina, períneo), retenção de restos placentários/membranas ou coagulopatia",
+        "tier": "critical"
+      },
+      {
+        "text": "taquicardia (FC 120) com PA possivelmente mascarada pela HAS crônica: risco de choque hemorrágico [ref.: índice de choque ≈ 0,8]",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "revisão do canal de parto (colo, vagina e períneo), com sutura das lacerações e drenagem de hematomas",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "revisão da cavidade uterina com remoção de restos placentários/membranas (curagem; curetagem aceita pelo padrão) e revisão da placenta",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "ácido tranexâmico 1 g IV agora, dentro de 3 h do parto [ref.: repetir se sangramento persistir após 30 min]",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "ressuscitação: 2 acessos venosos calibrosos, cristaloide aquecido, tipagem e prova cruzada, hemoderivados conforme a perda; manter ocitocina em infusão",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "exames: hemograma, coagulograma e fibrinogênio",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "metilergometrina-em-hipertensa",
+        "description": "Metilergometrina/ergometrina em puérpera hipertensa crônica com PA 150x100 (OPAS 2018: não utilizar em hipertensas); o tônus já foi corrigido.",
+        "patterns": [
+          "metilergometrin\\w*",
+          "ergometrin\\w*",
+          "methergin\\w*",
+          "ergonovin\\w*"
+        ]
+      }
+    ],
+    "outOfScope": [
+      "citar quatro fatores de risco para HPP extraídos do caso (item c): idade materna avançada, sobredistensão uterina (AU 40 cm), multiparidade, hipertensão, parto taquitócico, macrossomia — lista de prova"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2014, Questão 4): com o útero contraído, as causas prováveis são restos placentários, lacerações de partes moles ou coagulopatia; as medidas imediatas são curagem/curetagem e revisão do canal de parto. v2: as duas medidas são críticas. Pela diretriz vigente (OPAS 2018), ácido tranexâmico precoce e ressuscitação entraram como importantes, e metilergometrina na hipertensa virou conduta proibida."
+  },
+  "sources": [
+    {
+      "claim": "Enunciado e comandos da questão discursiva 4.",
+      "title": "Revalida 2014 – Prova Discursiva, Questão 4",
+      "publisher": "INEP",
+      "year": 2014,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/provas/2014/po_revalida_discursiva_2014.pdf"
+    },
+    {
+      "claim": "Duas causas prováveis: restos placentários/ovulares ou de membranas; lacerações de partes moles (perineais, de colo); coagulopatia (3,0).",
+      "title": "Revalida 2014 – Prova Discursiva – Padrão de Resposta definitivo, Questão 4, item a",
+      "publisher": "INEP",
+      "year": 2014,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2014/padrao_resposta_prova_discursiva_20072014.pdf"
+    },
+    {
+      "claim": "Duas medidas imediatas: curagem ou curetagem uterina; revisão do canal de parto (perineal, de colo uterino) (3,0).",
+      "title": "Revalida 2014 – Prova Discursiva – Padrão de Resposta definitivo, Questão 4, item b",
+      "publisher": "INEP",
+      "year": 2014,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2014/padrao_resposta_prova_discursiva_20072014.pdf"
+    },
+    {
+      "claim": "Fatores de risco do caso: idade materna avançada, sobredistensão uterina (AU 40 cm), multiparidade, HAS, parto taquitócico, macrossomia (4,0).",
+      "title": "Revalida 2014 – Prova Discursiva – Padrão de Resposta definitivo, Questão 4, item c",
+      "publisher": "INEP",
+      "year": 2014,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2014/padrao_resposta_prova_discursiva_20072014.pdf"
+    },
+    {
+      "claim": "Ácido tranexâmico 1 g IV em 10 min assim que se diagnosticar a HPP (nas primeiras 3 h), repetido se o sangramento persistir após 30 min; metilergometrina: não utilizar em pacientes hipertensas; trauma — revisar o canal de parto, suturar lacerações e drenar hematomas; tecido — revisão cuidadosa da cavidade uterina e evacuação de restos; abordagem das coagulopatias; índice de choque para estimar a gravidade.",
+      "title": "Recomendações assistenciais para prevenção, diagnóstico e tratamento da hemorragia obstétrica",
+      "publisher": "Organização Pan-Americana da Saúde (OPAS/OMS)",
+      "year": 2018,
+      "url": "https://portaldeboaspraticas.iff.fiocruz.br/wp-content/uploads/2018/09/9788579671241-por.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2014",
+    "item": "Discursiva caso 4",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2014/padrao_resposta_prova_discursiva_20072014.pdf",
+    "originalCaseText": "Uma mulher com 38 anos de idade apresenta o seguinte histórico: Gesta = 8, Para = 7 (partos normais). A paciente encontra-se na 39a semana de gestação. É hipertensa crônica e foi internada para assistência ao trabalho de parto às 15h. Ao exame físico na admissão, apresentou: altura uterina = 40 cm, batimentos cardiofetais = 144 bpm, dinâmica uterina de 4 contrações de 30 segundos em 10 minutos, colo uterino fino com 3 cm de dilatação e bolsa íntegra. Ocorreu parto vaginal às 16h35. O recém-nascido pesa 4.120 g. Na avaliação de 30 minutos pós-parto, observou-se: útero hipotônico acima da cicatriz umbilical e sangramento vaginal em moderada quantidade, pressão arterial = 150 × 100 mmHg, pulso = 120 bpm. Após administração de ocitocina endovenosa e massagem uterina, o útero encontra-se contraído, mas o sangramento ainda persiste de forma significativa. Com base no caso clínico exposto: a) Cite duas causas prováveis para o sangramento dessa paciente. (Valor: 3,0 pontos) b) Cite duas medidas imediatas a serem tomadas, com vistas à resolução do sangramento. ( Valor: 3,0 pontos) c) Cite quatro fatores de risco para o quadro hemorrágico puerperal, extraídos do caso clínico exposto. (Valor: 4,0 pontos)",
+    "notes": "Prova cega (11/10/2026): caseText com todo o enunciado em estilo nota. tags[0] = choque (hemorragia ativa com FC 120), por falta de estrato para hemorragia. Conferido contra as recomendações da OPAS de 2018 sobre hemorragia obstétrica (abertas e lidas): revisão do canal e da cavidade seguem o padrão. Acrescentados pela diretriz vigente, fora do padrão: ácido tranexâmico (posterior ao gabarito; WOMAN 2017) e ressuscitação como importantes, e a proibição de metilergometrina/ergometrina (paciente hipertensa). Não consegui abrir as diretrizes OMS 2023/2025 de HPP; registrado."
+  },
+  "probes": {
+    "mustFlag": [
+      "Metilergometrina 0,2 mg IM agora",
+      "Associar ergometrina IM ao esquema de uterotônicos"
+    ],
+    "mustNotFlag": [
+      "Metilergometrina contraindicada (hipertensa crônica)",
+      "Evitar metilergometrina pela HAS; revisar o canal de parto e a cavidade uterina",
+      "Ácido tranexâmico 1 g IV e revisão do canal de parto"
+    ]
+  }
+}

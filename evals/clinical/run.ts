@@ -29,7 +29,7 @@ import {
   readWebResearchMaxSearches,
 } from '../../src/modules/copilot/research/web-research.settings';
 import type { ClinicalCase } from './case.schema';
-import { loadCaseSet, selectCases } from './cases';
+import { CASE_SETS, loadCaseSet, selectCases } from './cases';
 import { assertSafeDatabase, formatDatabaseTarget } from './db-safety';
 import { EvalModule } from './eval.module';
 import { JUDGE_PROVIDERS, type JudgeClient } from './graders/judge';
@@ -72,6 +72,7 @@ const USAGE = `Uso: pnpm eval:clinical --variant <nome> [opções]
   --variant <nome>        Variante do arquivo de variantes (repita para várias). Obrigatório.
   --variants-file <path>  Padrão: evals/clinical/variants.json, ou o variants.example.json.
   --cases <seletor>       critical | glob no id (kb001-*) | tag:<tag> | id. Vírgula = união. Padrão: todos.
+  --set <conjunto>        main (padrão) | blind — a prova cega, que nunca entra no ajuste de regras.
   --mode <modo>           complete (caso completo, padrão) | funnel (abertura + médico simulado;
                           só casos com input.funnel; modelo em SIMULATOR_MODEL, padrão claude-haiku-5-5).
   --reps <n>              Repetições por caso (padrão 1).
@@ -91,6 +92,7 @@ const CliSchema = z.object({
   variants: z.array(z.string()),
   variantsFile: z.string(),
   cases: z.string().optional(),
+  set: z.enum(['main', 'blind']),
   mode: z.enum(EVAL_MODES),
   reps: z.coerce.number().int().min(1).max(20),
   concurrency: z.coerce.number().int().min(1).max(16),
@@ -113,6 +115,7 @@ function parseCli(argv: string[]): CliOptions {
       variant: { type: 'string', multiple: true },
       'variants-file': { type: 'string' },
       cases: { type: 'string' },
+      set: { type: 'string', default: 'main' },
       mode: { type: 'string', default: 'complete' },
       reps: { type: 'string', default: '1' },
       concurrency: { type: 'string', default: '2' },
@@ -131,6 +134,7 @@ function parseCli(argv: string[]): CliOptions {
     variants: values.variant ?? [],
     variantsFile: values['variants-file'] ?? defaultVariantsFile(),
     cases: values.cases,
+    set: values.set,
     mode: values.mode,
     reps: values.reps,
     concurrency: values.concurrency,
@@ -272,6 +276,7 @@ async function executeVariant(context: VariantRunContext): Promise<string> {
       finishedAt: null,
       git: gitInfo(),
       caseSet: {
+        set: options.set,
         version: context.caseSetVersion,
         selector: options.cases ?? null,
         caseIds: cases.map((clinicalCase) => clinicalCase.id),
@@ -410,7 +415,9 @@ async function main(): Promise<number> {
   }
 
   const loadedEnvFiles = loadDotEnvFiles();
-  const caseSet = loadCaseSet();
+  // A regravação usa o conjunto em que a execução rodou, não o da linha de comando.
+  const setName = options.regrade ? readRunMeta(resolve(options.regrade)).caseSet.set : options.set;
+  const caseSet = loadCaseSet(CASE_SETS[setName]);
   const casesById = new Map(caseSet.cases.map((clinicalCase) => [clinicalCase.id, clinicalCase]));
   const judgeClient = options.judge === 'none' ? null : createJudgeClient(options.judge);
 

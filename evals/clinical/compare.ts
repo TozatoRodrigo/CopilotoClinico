@@ -2,7 +2,7 @@ import { writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import type { ClinicalCase } from './case.schema';
-import { loadCaseSet } from './cases';
+import { CASE_SETS, loadCaseSet } from './cases';
 import {
   formatMs,
   formatRate,
@@ -229,12 +229,16 @@ function main(): void {
     return;
   }
 
-  const { cases } = loadCaseSet();
+  const runs = positionals.map((dir) => loadRun(resolve(dir)));
+  const sets = new Set(runs.map((run) => run.meta.caseSet.set));
+  if (sets.size > 1) {
+    console.error('Não compare execuções da prova cega com execuções do conjunto principal.');
+    process.exitCode = 1;
+    return;
+  }
+  const { cases } = loadCaseSet(CASE_SETS[runs[0]?.meta.caseSet.set ?? 'main']);
   const casesById = new Map(cases.map((clinicalCase) => [clinicalCase.id, clinicalCase]));
-  const markdown = renderComparison(
-    positionals.map((dir) => loadRun(resolve(dir))),
-    casesById,
-  );
+  const markdown = renderComparison(runs, casesById);
   if (values.out) {
     writeFileSync(values.out, markdown);
     console.log(`Comparação gravada em ${values.out}`);

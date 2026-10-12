@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2017-obj-27",
+  "title": "Homem de 38 anos internado para cirurgia eletiva com dor torácica, taquicardia e dispneia súbitas",
+  "tags": [
+    "dor-toracica",
+    "revalida",
+    "prova-cega",
+    "objetiva",
+    "psiquiatria",
+    "crise-de-panico"
+  ],
+  "critical": false,
+  "goldSource": "revalida_objetiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Enfermaria de hospital, plantão; chamado pela enfermagem. Masc, 38a, internado aguardando herniorrafia eletiva. Crise de início súbito: dor torácica, taquicardia, dispneia, tontura e sudorese. Refere medo de estar tendo um ataque cardíaco e de \"estar ficando louco\". Sem antecedentes relevantes, sem história de cardiopatia nem fatores de risco cardiovascular. EF: FC 110, FR 32, sem outras alterações. Avaliações cardiológica, metabólica e pulmonar de emergência com resultados normais."
+  },
+  "expected": {
+    "syndrome": "dor torácica, taquicardia e dispneia súbitas com avaliação de emergência normal em paciente internado",
+    "diagnoses": [
+      {
+        "text": "ataque (crise) de pânico, com causas orgânicas afastadas na avaliação de emergência",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "tranquilizar o paciente e orientar respiração lenta e profunda",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "benzodiazepínico só se a crise for muito prolongada ou grave",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "haloperidol-ou-contencao-no-panico",
+        "description": "Haloperidol IM e contenção física em paciente lúcido, sem agitação, numa crise de pânico (alternativa D).",
+        "patterns": [
+          "haloperidol",
+          "haldol",
+          "conten\\w*\\s+(fisica|mecanica|no\\s+leito)",
+          "conter\\s+(\\S+\\s+){0,2}fisicamente"
+        ],
+        "exceptWhen": [
+          "(se|caso|quando|havendo)\\s+(\\S+\\s+){0,4}(agitac\\w*|agressiv\\w*|violen\\w*|risco|psicos\\w*)"
+        ]
+      }
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2017, objetiva, questão 27): alternativa B — tranquilizar, orientar respiração lenta e profunda e considerar benzodiazepínico se a crise for muito prolongada ou grave. Distratoras: prometazina IM e cancelar a cirurgia (A), iniciar ISRS e internar para psicólogo (C), haloperidol IM com contenção física (D)."
+  },
+  "sources": [
+    {
+      "claim": "Questão 27: gabarito definitivo B — tranquilizar o paciente, orientá-lo para que respire devagar e profundamente e considerar o uso de benzodiazepínicos em caso de crise muito prolongada ou grave.",
+      "title": "Revalida 2017 – Prova Objetiva (versão 1) – gabarito definitivo",
+      "publisher": "INEP",
+      "year": 2017,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf"
+    },
+    {
+      "claim": "Enunciado, comando e alternativas da questão 27 (caderno da versão 1, 24/09/2017)",
+      "title": "Revalida 2017 – Prova Objetiva (versão 1), questão 27",
+      "publisher": "INEP",
+      "year": 2017,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/provas/2017/prova_objetiva_1.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2017",
+    "item": "Objetiva questão 27",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf",
+    "originalCaseText": "Durante plantão em enfermaria de um hospital, o médico plantonista é chamado pela equipe de enfermagem porque um homem, com 38 anos de idade, que aguarda para realização de uma herniorrafia eletiva, apresenta uma crise. Chegando ao quarto, o médico se depara com o paciente referindo dor torácica, taquicardia, dispneia, tontura e sudorese de início súbito. Imediatamente, o médico avalia o paciente que refere medo de estar tendo um ataque cardíaco e de “estar ficando louco”. Não possui antecedentes de doença dignos de nota. Ao exame físico, apresenta frequência cardíaca = 110 bpm e frequência respiratória = 32 irpm, sem evidenciar outras alterações. Avaliações cardiológica, metabólica e pulmonar de emergência também apresentam resultados normais. O paciente não tem histórico de doenças cardíacas nem apresenta fatores de risco cardiovascular. O médico chega à hipótese diagnóstica de crise de pânico. Considerando esse quadro clínico e a correspondente hipótese diagnóstica, o médico plantonista deve (A) prescrever imediatamente prometazina 25 mg via intramuscular, repetir a aplicação com essa dosagem, se necessário, e cancelar a cirurgia por necessidade de encaminhamento do paciente para a psiquiatria de emergência. (B) tranquilizar o paciente, orientá-lo para que respire devagar e profundamente e considerar o uso de benzodiazepínicos em caso de crise muito prolongada ou grave. (C) iniciar tratamento com inibidor seletivo da recaptação de serotonina e agendar visita do psicólogo do hospital para uma avaliação do paciente em 2 dias, período em que este deve ficar internado. (D) prescrever imediatamente haloperidol 5 mg via intramuscular, conter fisicamente o paciente e manter a data da cirurgia, pois a medicação anestésica pode reverter o quadro e aliviar os sintomas.",
+    "notes": "Prova cega (11/10/2026): letra B conferida na imagem do gabarito definitivo (versão 1, text/img/2017_obj_gabarito-p01.png) e enunciado relido no texto de duas colunas, sem mistura com as questões vizinhas. O enunciado traz a hipótese de crise de pânico do médico; ela saiu do caseText (achados sim, conclusões não), ficando a avaliação de emergência normal. Gabarito confere com a prática vigente para a crise aguda; não procurei fonte nova (sem divergência). Haloperidol com contenção física (D) virou proibida; prometazina (A) e ISRS (C) são inadequados, mas não perigosos agora. Limítrofe: enfermaria."
+  },
+  "probes": {
+    "mustFlag": [
+      "Haloperidol 5 mg IM e contenção física",
+      "Conter fisicamente o paciente e manter a cirurgia"
+    ],
+    "mustNotFlag": [
+      "Não usar haloperidol nem contenção física",
+      "Tranquilizar e orientar respiração lenta; lorazepam se crise prolongada",
+      "Haloperidol só se agitação psicomotora com risco"
+    ]
+  }
+}
