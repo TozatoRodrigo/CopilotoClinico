@@ -116,7 +116,7 @@ describe('readDecisionPipeline', () => {
       });
       expect(downgrades).toEqual([
         'COPILOT_DECISION_PROMPT=v3 exige COPILOT_REASONING=stages: usando v1',
-        'COPILOT_KNOWLEDGE_SOURCE=verify exige COPILOT_REASONING=stages e COPILOT_DECISION_PROMPT=v2 ou v3: seguindo sem verificação (model_only)',
+        'COPILOT_KNOWLEDGE_SOURCE=verify exige COPILOT_REASONING=stages e COPILOT_DECISION_PROMPT=v2, v3 ou v4: seguindo sem verificação (model_only)',
       ]);
     });
 

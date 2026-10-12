@@ -169,6 +169,22 @@
       }
     },
     {
+      "name": "claude-opus-5-5-v4-modelo",
+      "description": "Decisão v4 (v3 com quatro regras novas: suporte ventilatório indicado é tempo-crítico, checagem rápida de segurança fica em \"agora\", \"depende\" só com dado que decide, sem alta antes do dado e transferência para recurso que falta já) só com o conhecimento do Opus 5.5.",
+      "env": {
+        "AI_PROVIDER": "anthropic",
+        "AI_MODEL": "claude-opus-5-5",
+        "AI_BASE_URL": "https://api.anthropic.com",
+        "AI_API_KEY": "${ANTHROPIC_API_KEY}",
+        "AI_MAX_OUTPUT_TOKENS": "32000",
+        "AI_EFFORT": "high",
+        "COPILOT_REASONING": "stages",
+        "AI_UNDERSTANDING_EFFORT": "low",
+        "COPILOT_DECISION_PROMPT": "v4",
+        "COPILOT_KNOWLEDGE_SOURCE": "model_only"
+      }
+    },
+    {
       "name": "claude-opus-5-5-v3-verifica",
       "description": "Regras v3 com verificação com fonte DEPOIS da decisão (COPILOT_KNOWLEDGE_SOURCE=verify): o plano sai do conhecimento do Opus 5.5; a pesquisa (Sonnet 5.5, effort low, até 5 buscas, domínios oficiais) confere as condutas e o vínculo (Sonnet 5.5) anexa fonte e dose literal ou aponta divergência.",
       "env": {

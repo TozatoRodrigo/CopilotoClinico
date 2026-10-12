@@ -34,7 +34,9 @@ export function readDecisionPromptVersion(config: ConfigService): DecisionPrompt
  * v2 e v3 decidem a partir do entendimento do caso (Etapa 1) e sabem citar
  * página web e rotular a origem; a v1 não faz nenhuma das duas coisas.
  */
-export function isStagedDecisionPrompt(version: DecisionPromptVersion): boolean {
+export function isStagedDecisionPrompt(
+  version: DecisionPromptVersion,
+): version is Exclude<DecisionPromptVersion, 'v1'> {
   return version !== 'v1';
 }
 
@@ -86,7 +88,7 @@ export function readDecisionPipeline(config: ConfigService): DecisionPipelineRea
     (stagesOff || !isStagedDecisionPrompt(decisionPrompt));
   if (researchUnavailable) {
     downgrades.push(
-      `COPILOT_KNOWLEDGE_SOURCE=${requestedSource} exige COPILOT_REASONING=stages e COPILOT_DECISION_PROMPT=v2 ou v3: ${RESEARCH_SOURCE_FALLBACK[requestedSource]}`,
+      `COPILOT_KNOWLEDGE_SOURCE=${requestedSource} exige COPILOT_REASONING=stages e COPILOT_DECISION_PROMPT=v2, v3 ou v4: ${RESEARCH_SOURCE_FALLBACK[requestedSource]}`,
     );
   }
 

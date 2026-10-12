@@ -394,7 +394,7 @@ export type KnowledgeSource = (typeof KNOWLEDGE_SOURCES)[number];
  * 11/10/2026 ao ADR-013) mantém o contrato de saída da v2 e muda as regras:
  * até 2 perguntas, tetos por camada e destino do paciente.
  */
-export const DECISION_PROMPT_VERSIONS = ['v1', 'v2', 'v3'] as const;
+export const DECISION_PROMPT_VERSIONS = ['v1', 'v2', 'v3', 'v4'] as const;
 export type DecisionPromptVersion = (typeof DECISION_PROMPT_VERSIONS)[number];
 
 export interface Citation {
