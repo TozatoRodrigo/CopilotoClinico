@@ -7,15 +7,18 @@ import type {
   CaseUnderstanding,
   ConversationTurn,
 } from "@/lib/types";
+import { sseResponse, type SseResponse } from "@/test/sse-response";
 
 /**
  * Reanálise por streaming na conversa do caso, com o useCopilotStream de
- * verdade e um EventSource controlável — use-case-conversation.test.tsx
- * cobre o resto da conversa com o stream simulado.
+ * verdade e um fetch controlável (POST /copilot/respond/stream, resposta
+ * text/event-stream) — use-case-conversation.test.tsx cobre o resto da
+ * conversa com o stream simulado.
  */
 
 const apiGetMock = vi.fn();
 const apiPostMock = vi.fn();
+const fetchMock = vi.fn();
 const addToQueueMock = vi.fn();
 let online = true;
 
@@ -44,39 +47,6 @@ vi.mock("@/components/domain/install-prompt-banner", () => ({
 vi.mock("sonner", () => ({ toast: { info: vi.fn(), error: vi.fn(), success: vi.fn() } }));
 
 const { useCaseConversation } = await import("../use-case-conversation");
-const { MAX_RESPOND_STREAM_ANSWERS_LENGTH } = await import("@/lib/copilot-stream");
-
-class MockEventSource {
-  static instances: MockEventSource[] = [];
-  url: string;
-  withCredentials: boolean;
-  onopen: (() => void) | null = null;
-  onmessage: ((event: { data: string }) => void) | null = null;
-  onerror: (() => void) | null = null;
-  closed = false;
-
-  constructor(url: string, init?: { withCredentials?: boolean }) {
-    this.url = url;
-    this.withCredentials = init?.withCredentials ?? false;
-    MockEventSource.instances.push(this);
-  }
-
-  close() {
-    this.closed = true;
-  }
-
-  emitOpen() {
-    this.onopen?.();
-  }
-
-  emitMessage(data: unknown) {
-    this.onmessage?.({ data: JSON.stringify(data) });
-  }
-
-  emitError() {
-    this.onerror?.();
-  }
-}
 
 const ENCOUNTER_ID = "enc-guiado-stream";
 
@@ -164,20 +134,24 @@ function renderConversation() {
   return renderHook(() => useCaseConversation(ENCOUNTER_ID), { wrapper });
 }
 
-/** Plano na tela, complemento enviado: devolve o EventSource da reanálise. */
+/** Plano na tela, complemento enviado: espera o POST do stream sair. */
 async function startRebuild(result: { current: ReturnType<typeof useCaseConversation> }) {
   await waitFor(() => expect(result.current.phase).toBe("plan"));
   act(() => result.current.complementCase(complement));
-  await waitFor(() => expect(MockEventSource.instances).toHaveLength(1));
-  return MockEventSource.instances[0]!;
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+}
+
+function streamRespondsWith(stream: SseResponse) {
+  fetchMock.mockResolvedValue(stream.response);
+  return stream;
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
+  fetchMock.mockReset();
   sessionStorage.clear();
   online = true;
-  MockEventSource.instances = [];
-  vi.stubGlobal("EventSource", MockEventSource);
+  vi.stubGlobal("fetch", fetchMock);
   apiGetMock.mockResolvedValue(conversation([turn()]));
 });
 
@@ -187,28 +161,32 @@ afterEach(() => {
 
 describe("useCaseConversation — reanálise por streaming", () => {
   it("streams the rebuild: the new understanding first, then the new round from the server", async () => {
+    const stream = streamRespondsWith(sseResponse());
     const { result } = renderConversation();
-    const es = await startRebuild(result);
+    await startRebuild(result);
 
-    const url = new URL(es.url);
-    expect(url.pathname).toMatch(new RegExp(`/encounters/${ENCOUNTER_ID}/copilot/respond/stream$`));
-    expect(url.searchParams.get("interactionId")).toBe("interaction-1");
-    expect(JSON.parse(url.searchParams.get("answers") ?? "null")).toEqual(complementAnswers);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toMatch(new RegExp(`/encounters/${ENCOUNTER_ID}/copilot/respond/stream$`));
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(String(init.body))).toEqual({
+      interactionId: "interaction-1",
+      answers: complementAnswers,
+    });
     expect(result.current.rebuilding).toBe(true);
     expect(result.current.rebuildUnderstanding).toBeNull();
 
     act(() => {
-      es.emitOpen();
-      es.emitMessage({ type: "understanding", understanding: newUnderstanding });
+      stream.raw(": stream aberto\n\n");
+      stream.event({ type: "understanding", understanding: newUnderstanding });
     });
-    expect(result.current.rebuildUnderstanding).toEqual(newUnderstanding);
+    await waitFor(() => expect(result.current.rebuildUnderstanding).toEqual(newUnderstanding));
     // A rodada anterior fica na tela até a nova chegar.
     expect(result.current.turns.map((item) => item.interactionId)).toEqual(["interaction-1"]);
 
     apiGetMock.mockResolvedValue(conversation([turn(), rebuiltTurn]));
     act(() => {
-      es.emitMessage({ type: "delta", delta: '{"reasoning":' });
-      es.emitMessage({ type: "done", result: { interactionId: "interaction-2" } });
+      stream.event({ type: "delta", delta: '{"reasoning":' });
+      stream.event({ type: "done", result: { interactionId: "interaction-2" } });
     });
 
     await waitFor(() => expect(result.current.rebuilding).toBe(false));
@@ -219,94 +197,96 @@ describe("useCaseConversation — reanálise por streaming", () => {
     expect(result.current.rebuildUnderstanding).toBeNull();
     expect(result.current.respondError).toBeNull();
     expect(apiPostMock).not.toHaveBeenCalled();
-    expect(es.closed).toBe(true);
   });
 
-  it("falls back to the POST once when the connection never opened", async () => {
+  it.each([
+    ["the network fails", () => fetchMock.mockRejectedValue(new TypeError("Failed to fetch"))],
+    ["the session expired (401)", () => streamRespondsWith(sseResponse(401))],
+    ["the server refuses (500)", () => streamRespondsWith(sseResponse(500))],
+  ])("falls back to the POST once when %s before the stream opens", async (_label, arrange) => {
+    arrange();
     apiPostMock.mockResolvedValue({ interactionId: "interaction-2" });
+    apiGetMock.mockResolvedValue(conversation([turn()]));
     const { result } = renderConversation();
-    const es = await startRebuild(result);
-
+    await waitFor(() => expect(result.current.phase).toBe("plan"));
     apiGetMock.mockResolvedValue(conversation([turn(), rebuiltTurn]));
-    act(() => es.emitError());
 
-    await waitFor(() => expect(result.current.rebuilding).toBe(false));
+    act(() => result.current.complementCase(complement));
+
+    await waitFor(() => expect(result.current.turns).toHaveLength(2));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(apiPostMock).toHaveBeenCalledTimes(1);
     expect(apiPostMock).toHaveBeenCalledWith(`/encounters/${ENCOUNTER_ID}/copilot/respond`, {
       interactionId: "interaction-1",
       answers: complementAnswers,
     });
-    expect(MockEventSource.instances).toHaveLength(1);
-    expect(result.current.turns).toHaveLength(2);
   });
 
   it("shows the POST error when the fallback fails too, without trying a third time", async () => {
+    fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
     apiPostMock.mockRejectedValue(new Error("Input contains potentially unsafe content"));
     const { result } = renderConversation();
-    const es = await startRebuild(result);
-
-    act(() => es.emitError());
+    await startRebuild(result);
 
     await waitFor(() =>
       expect(result.current.respondError).toBe("Input contains potentially unsafe content"),
     );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(apiPostMock).toHaveBeenCalledTimes(1);
-    expect(MockEventSource.instances).toHaveLength(1);
   });
 
-  // A conexão abriu: o servidor já está na Etapa 1 (~20 s sem frame). Se a
-  // rede cai aí, refazer pelo POST gravaria uma segunda análise.
+  // Os cabeçalhos 2xx chegaram: o servidor já está na Etapa 1 (~20 s sem
+  // evento). Se a rede cai aí, refazer pelo POST gravaria uma segunda análise.
   it.each([
-    ["the connection opened", (es: MockEventSource) => es.emitOpen()],
+    ["the 2xx headers arrived", () => {}],
     [
       "the understanding arrived",
-      (es: MockEventSource) => es.emitMessage({ type: "understanding", understanding: newUnderstanding }),
+      (stream: SseResponse) => stream.event({ type: "understanding", understanding: newUnderstanding }),
     ],
-    ["a delta arrived", (es: MockEventSource) => es.emitMessage({ type: "delta", delta: "{" })],
+    ["a delta arrived", (stream: SseResponse) => stream.event({ type: "delta", delta: "{" })],
   ])("never resends once %s: the dropped connection shows the error", async (_label, first) => {
+    const stream = streamRespondsWith(sseResponse());
     const { result } = renderConversation();
-    const es = await startRebuild(result);
+    await startRebuild(result);
 
     act(() => {
-      first(es);
-      es.emitError();
+      first(stream);
+      stream.drop();
     });
 
     await waitFor(() => expect(result.current.respondError).toBe("Conexão de streaming perdida."));
     expect(apiPostMock).not.toHaveBeenCalled();
-    expect(MockEventSource.instances).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(result.current.rebuilding).toBe(false);
     expect(result.current.turns.map((item) => item.interactionId)).toEqual(["interaction-1"]);
   });
 
   it("never resends when the server reports a failed analysis (the failure is already recorded)", async () => {
+    const stream = streamRespondsWith(sseResponse());
     const { result } = renderConversation();
-    const es = await startRebuild(result);
+    await startRebuild(result);
 
-    act(() => {
-      es.emitOpen();
-      es.emitMessage({ type: "error", errors: ["Output is not valid JSON"] });
-    });
+    act(() => stream.event({ type: "error", errors: ["Output is not valid JSON"] }));
 
     await waitFor(() => expect(result.current.respondError).toBe("Output is not valid JSON"));
     expect(apiPostMock).not.toHaveBeenCalled();
   });
 
-  it("sends answers above the URL ceiling straight through the POST", async () => {
+  it("goes straight to the POST when fetch cannot stream a body", async () => {
+    vi.stubGlobal("ReadableStream", undefined);
     apiPostMock.mockResolvedValue({ interactionId: "interaction-2" });
     const { result } = renderConversation();
     await waitFor(() => expect(result.current.phase).toBe("plan"));
-    const longText = "a".repeat(MAX_RESPOND_STREAM_ANSWERS_LENGTH);
 
-    act(() => result.current.complementCase(longText));
+    act(() => result.current.complementCase(complement));
 
     await waitFor(() =>
       expect(apiPostMock).toHaveBeenCalledWith(`/encounters/${ENCOUNTER_ID}/copilot/respond`, {
         interactionId: "interaction-1",
-        answers: [{ questionId: "Informações adicionais fornecidas pelo médico", answer: longText }],
+        answers: complementAnswers,
       }),
     );
-    expect(MockEventSource.instances).toHaveLength(0);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("still queues the answers when there is no connection", async () => {
@@ -324,7 +304,7 @@ describe("useCaseConversation — reanálise por streaming", () => {
         answers: complementAnswers,
       }),
     );
-    expect(MockEventSource.instances).toHaveLength(0);
+    expect(fetchMock).not.toHaveBeenCalled();
     expect(apiPostMock).not.toHaveBeenCalled();
   });
 });

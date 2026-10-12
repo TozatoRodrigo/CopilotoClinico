@@ -10,7 +10,7 @@ import { syncOfflineQueue } from "@/lib/copilot-queue";
 import { useOnlineStatus } from "@/components/providers/offline-provider";
 import { markFirstAnalysisDone } from "@/components/domain/install-prompt-banner";
 import { useCopilotStream } from "@/hooks/use-copilot-stream";
-import { CopilotStreamError, isRespondStreamEligible } from "@/lib/copilot-stream";
+import { canStreamFetch, CopilotStreamError } from "@/lib/copilot-stream";
 import { useMessages } from "@/lib/messages/use-messages";
 import {
   COMPLEMENT_QUESTION_ID,
@@ -111,9 +111,10 @@ function errorMessage(error: unknown, fallback: string): string {
 
 /**
  * A reanálise por streaming só cai no POST quando o servidor não começou
- * nada: a conexão nunca abriu, ou o EventSource nem chegou a ser criado.
- * Com a conexão aberta a reanálise já roda no servidor (os ~20 s da Etapa 1
- * passam sem frame nenhum), e o POST gravaria uma segunda interação.
+ * nada: a conexão nunca abriu (erro de rede, status diferente de 2xx; um 401
+ * segue pelo tratamento do apiClient), ou o stream nem chegou a ser pedido.
+ * Com os cabeçalhos 2xx a reanálise já roda no servidor (os ~20 s da Etapa 1
+ * passam sem evento nenhum), e o POST gravaria uma segunda interação.
  */
 function canRetryWithPost(error: unknown): boolean {
   return !(error instanceof CopilotStreamError) || error.neverOpened;
@@ -346,13 +347,13 @@ export function useCaseConversation(encounterId: string) {
 
   // Na produção, uma reanálise levou 81 s sem nada na tela. Por streaming, o
   // entendimento refeito aparece em segundos; o `done` traz o mesmo resultado
-  // do POST e a conversa recarrega do servidor como sempre. Sem EventSource,
-  // com respostas longas demais para a URL ou com conexão que nunca abriu, o
-  // POST de sempre — uma vez só (ver canRetryWithPost).
+  // do POST e a conversa recarrega do servidor como sempre. Sem fetch com
+  // stream ou com conexão que nunca abriu, o POST de sempre — uma vez só (ver
+  // canRetryWithPost).
   const startRespondStream = respondStream.startRespond;
   const requestReanalysis = useCallback(
     async (variables: { interactionId: string; answers: ClarifyingAnswer[] }) => {
-      if (typeof EventSource !== "undefined" && isRespondStreamEligible(variables.answers)) {
+      if (canStreamFetch()) {
         try {
           return await startRespondStream(variables.interactionId, variables.answers);
         } catch (error) {
