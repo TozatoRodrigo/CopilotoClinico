@@ -26,3 +26,14 @@ O Copiloto Clínico é single-tenant por hospital. O modelo de ameaça é: admin
 ## Trade-offs aceitos
 
 Um superuser comprometido com acesso DDL pode ainda corromper dados (ALTER TABLE). Mitigação: auditoria de acesso privilegiado ao banco via logs do PostgreSQL, separação de roles entre app e DBA.
+
+## Emenda — 12/10/2026: hash canônico (ADR-015)
+
+A fórmula `JSON(dados_N)` acima vale para os registros legados
+(`hash_version` NULL) e não reproduzia: o `jsonb` não guarda a ordem das
+chaves e o Prisma reescreve parte dos números não inteiros ao gravar, então
+o verificador falhava já no primeiro registro com payload de 2+ chaves. Os
+registros novos usam JSON canônico (RFC 8785), com a versão dentro do texto
+hasheado e o payload gravado como esse texto (`::jsonb`). O verificador
+reconstrói os legados sem reescrever nenhum hash. Detalhes, alternativas e
+limites na ADR-015.
