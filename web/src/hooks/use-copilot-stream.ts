@@ -3,8 +3,9 @@
 /**
  * UX-06 — consome o SSE do plano (ADR-014: GET
  * /encounters/:id/copilot/intake/:intakeId/stream, só com o id da conversa
- * na URL — o caso nunca vai na querystring) para a análise começar a
- * dar sinal de vida em segundos, em vez do médico encarar um spinner pelo
+ * na URL — o caso nunca vai na querystring) e o da reanálise (GET
+ * /encounters/:id/copilot/respond/stream, ver `startRespond`) para a análise
+ * começar a dar sinal de vida em segundos, em vez do médico encarar um spinner pelo
  * tempo inteiro da inferência (reclamação direta do Dr. Gustavo comparando
  * com o concorrente: "achei que é lento... enquanto aqui, se eu responder
  * rapidão, ele já me responde").
@@ -24,8 +25,10 @@
  * porquê desse validador ser a última linha de defesa que não se abre mão.
  */
 import { useCallback, useRef, useState } from "react";
+import { CopilotStreamError } from "@/lib/copilot-stream";
 import type {
   CaseUnderstanding,
+  ClarifyingAnswer,
   CopilotAnalyzeResponse,
   CopilotStreamEvent,
 } from "@/lib/types";
@@ -46,6 +49,9 @@ export function useCopilotStream(encounterId: string) {
   // fechou a conexão normalmente depois do done" — EventSource dispara
   // onerror nos dois casos, sem diferenciação nativa.
   const gotTerminalEventRef = useRef(false);
+  // Conexão aberta ou qualquer frame (até um malformado): o servidor já está
+  // processando, e daí em diante cair no POST duplicaria a análise.
+  const openedRef = useRef(false);
 
   const stop = useCallback(() => {
     eventSourceRef.current?.close();
@@ -56,6 +62,7 @@ export function useCopilotStream(encounterId: string) {
     (url: string): Promise<CopilotAnalyzeResponse> => {
       return new Promise((resolve, reject) => {
         gotTerminalEventRef.current = false;
+        openedRef.current = false;
         setPartialText("");
         setUnderstanding(null);
         setStatus("streaming");
@@ -67,7 +74,12 @@ export function useCopilotStream(encounterId: string) {
         const eventSource = new EventSource(url, { withCredentials: true });
         eventSourceRef.current = eventSource;
 
+        eventSource.onopen = () => {
+          openedRef.current = true;
+        };
+
         eventSource.onmessage = (event) => {
+          openedRef.current = true;
           let parsed: CopilotStreamEvent;
           try {
             parsed = JSON.parse(event.data) as CopilotStreamEvent;
@@ -99,7 +111,12 @@ export function useCopilotStream(encounterId: string) {
           gotTerminalEventRef.current = true;
           setStatus("error");
           stop();
-          reject(new Error(parsed.errors.join("; ") || "Falha na análise em streaming."));
+          reject(
+            new CopilotStreamError(
+              parsed.errors.join("; ") || "Falha na análise em streaming.",
+              false,
+            ),
+          );
         };
 
         eventSource.onerror = () => {
@@ -108,10 +125,10 @@ export function useCopilotStream(encounterId: string) {
           // há protocolo de resumo (Last-Event-ID) implementado no
           // backend, e deixar o EventSource reconectar sozinho geraria uma
           // segunda inferência sem o médico saber. Fecha explicitamente e
-          // deixa o chamador cair para o POST /analyze não-streaming.
+          // deixa o chamador decidir se cai no POST não-streaming.
           setStatus("error");
           stop();
-          reject(new Error("Conexão de streaming perdida."));
+          reject(new CopilotStreamError("Conexão de streaming perdida.", !openedRef.current));
         };
       });
     },
@@ -128,5 +145,20 @@ export function useCopilotStream(encounterId: string) {
     [encounterId, open],
   );
 
-  return { startFromIntake, stop, status, partialText, understanding };
+  /**
+   * Reanálise depois do plano (responder às perguntas, complementar o caso,
+   * corrigir o entendimento). Diferente do plano, as respostas não estão no
+   * servidor antes do pedido: vão em `answers`, como JSON, e passam no
+   * servidor pelo mesmo schema do POST /respond. Quem chama confere o teto
+   * antes (isRespondStreamEligible).
+   */
+  const startRespond = useCallback(
+    (interactionId: string, answers: ClarifyingAnswer[]): Promise<CopilotAnalyzeResponse> => {
+      const params = new URLSearchParams({ interactionId, answers: JSON.stringify(answers) });
+      return open(`${BASE_URL}/encounters/${encounterId}/copilot/respond/stream?${params.toString()}`);
+    },
+    [encounterId, open],
+  );
+
+  return { startFromIntake, startRespond, stop, status, partialText, understanding };
 }
