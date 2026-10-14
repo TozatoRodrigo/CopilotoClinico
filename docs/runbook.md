@@ -759,6 +759,46 @@ novo passa `temperature` ao gateway e deixa o provider decidir — nunca monta a
 requisição à mão. Pelo mesmo motivo, `budget_tokens` e `thinking: disabled`
 não existem no gateway: o Opus 5.5 recusa os dois; a profundidade é `AI_EFFORT`.
 
+#### Um provedor por etapa (perfis)
+
+Além do `AI_PROVIDER`, o gateway fala com os provedores listados em
+`AI_PROVIDER_PROFILES`. Cada etapa escolhe o seu pela referência do modelo,
+`perfil:modelo`; sem prefixo de perfil, a referência é um modelo do
+`AI_PROVIDER`. Exemplo com a Groq na leitura do caso e o Opus na decisão:
+
+```bash
+# docker/.env.production
+AI_PROVIDER=anthropic
+AI_MODEL=claude-opus-5-5
+AI_PROVIDER_PROFILES=groq
+AI_PROVIDER_GROQ_KIND=openai
+AI_PROVIDER_GROQ_API_KEY=...
+AI_PROVIDER_GROQ_BASE_URL=https://api.groq.com/openai/v1
+AI_PROVIDER_GROQ_STRUCTURED_OUTPUT=json_schema
+AI_INTAKE_MODEL=groq:openai/gpt-oss-120b
+```
+
+| Variável do perfil `<NOME>` | Valores | Padrão |
+|---|---|---|
+| `AI_PROVIDER_<NOME>_KIND` | `anthropic`, `openai` | obrigatória |
+| `AI_PROVIDER_<NOME>_API_KEY` | chave do host | obrigatória |
+| `AI_PROVIDER_<NOME>_BASE_URL` | URL com a versão (`.../v1`) | API oficial do tipo |
+| `AI_PROVIDER_<NOME>_STRUCTURED_OUTPUT` | `json_schema`, `json_object`, `off` | `off` |
+| `AI_PROVIDER_<NOME>_MAX_TOKENS_PARAM` | `max_completion_tokens`, `max_tokens` | `max_completion_tokens` |
+| `AI_PROVIDER_<NOME>_EXTRA_BODY` | objeto JSON somado ao corpo | — |
+
+Perfil listado sem `KIND` ou `API_KEY` derruba a API na subida, de propósito:
+a análise iria para o lugar errado. O gpt-oss é tratado como modelo de
+raciocínio (`reasoning_effort` vem do esforço da etapa, até `high`), e um
+bloco `<think>` no começo da resposta é descartado. Nos provedores compatíveis
+com a OpenAI, `AI_REQUEST_TIMEOUT_MS` (padrão 180 s), `AI_STREAM_IDLE_TIMEOUT_MS`
+(60 s) e `AI_REQUEST_MAX_RETRIES` (2, em 429, 5xx e falha de rede) evitam que um
+host travado segure a análise. O log de erro do host traz só tipo, código e o
+começo da mensagem (`AI_PROVIDER_ERROR`), nunca o corpo inteiro, que pode
+repetir o caso. A pesquisa web continua só na Anthropic: aponte
+`AI_RESEARCH_MODEL` para um modelo Claude (com perfil, se o `AI_PROVIDER` não
+for a Anthropic).
+
 O raciocínio conta para o teto de saída (`AI_MAX_OUTPUT_TOKENS`, padrão 16000).
 Rollback sem redeploy: `AI_STRUCTURED_OUTPUT=false` desliga o JSON Schema em
 todos os providers; `AI_REFUSAL_FALLBACK=off` desliga o fallback (obrigatório
@@ -773,6 +813,8 @@ Logs para acompanhar depois da troca:
 | `AI_OUTPUT_TRUNCATED` | Saída bateu no teto (`AiTruncatedError`) | Subir `AI_MAX_OUTPUT_TOKENS` ou baixar `AI_EFFORT` |
 | `AI_REFUSAL category=...` | Classificador de segurança recusou (`AiRefusalError`) | Ver o caso; categoria `bio`/`cyber` em caso clínico legítimo é falso positivo |
 | `AI_REFUSAL_FALLBACK servedBy=...` | Outro modelo respondeu no lugar | Esperado e raro; o custo usa o modelo que serviu |
+| `AI_PROVIDER_RETRY operation=... status=...` | Host compatível com OpenAI respondeu 429/5xx, estourou o prazo ou caiu a rede; nova tentativa | Esporádico: esperado. Contínuo: limite do plano no host ou instabilidade |
+| `AI_PROVIDER_ERROR operation=... status=...` | Falha definitiva do host compatível com OpenAI | 400: parâmetro ou schema rejeitado pelo modelo; 401: chave do perfil |
 
 #### Pesquisa web (`COPILOT_KNOWLEDGE_SOURCE=web`)
 
@@ -922,6 +964,32 @@ variável). Antes de ligar, confirme região e retenção do projeto no Sentry
 cabeçalhos de credencial (`scrubSentryEvent`): o corpo da requisição é o caso
 clínico. Os logs de acesso com erro registram só os nomes dos campos do corpo
 (`bodyFields=`).
+
+### Rastro das chamadas de IA (`ai_calls`)
+
+Cada chamada ao modelo grava uma linha em `ai_calls` e uma linha `AI_CALL` no
+log: etapa (`intake_reading`, `understanding`, `decision`, `research`,
+`verify_attach`, `guideline_classification`), perfil, provedor, modelo pedido
+e servido, esforço, hash do system prompt (a versão do prompt), tokens, custo,
+latência e desfecho (`ok`, `refusal`, `truncated`, `error`, `aborted`). Nenhum
+texto do caso, do prompt ou da resposta. A resposta HTTP devolve
+`x-request-id`; o mesmo id está em `ai_calls.request_id` e em
+`ai_interactions.request_id`. Falha ao gravar vira `AI_CALL_LOG_FAILED` (WARN)
+e nunca para a análise.
+
+```sql
+-- Custo, chamadas e latência por etapa e modelo nos últimos 7 dias
+SELECT stage, coalesce(served_model, requested_model) AS model, count(*) AS calls,
+       round(sum(cost_usd)::numeric, 4) AS usd,
+       percentile_cont(0.5) WITHIN GROUP (ORDER BY latency_ms) AS p50_ms,
+       count(*) FILTER (WHERE outcome <> 'ok') AS failures
+FROM ai_calls WHERE created_at > now() - interval '7 days'
+GROUP BY 1, 2 ORDER BY usd DESC NULLS LAST;
+
+-- Tudo o que uma requisição chamou (o médico ou o suporte citam o x-request-id)
+SELECT created_at, stage, served_model, outcome, latency_ms, cost_usd, left(prompt_sha256, 12)
+FROM ai_calls WHERE request_id = '<x-request-id>' ORDER BY created_at;
+```
 
 ### Logs de nível ERROR que exigem atenção imediata
 

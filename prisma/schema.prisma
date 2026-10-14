@@ -278,6 +278,8 @@ model AiInteraction {
   turnIndex           Int      @default(0) @map("turn_index")
   parentInteractionId String?  @map("parent_interaction_id") @db.Uuid
   answeredQuestions   Json?    @map("answered_questions")
+  /// Requisição que gerou a interação; liga às chamadas de IA em ai_calls.
+  requestId           String?  @map("request_id") @db.VarChar(64)
   createdAt           DateTime @default(now()) @map("created_at")
 
   encounter         Encounter       @relation(fields: [encounterId], references: [id], onDelete: Cascade)
@@ -290,7 +292,42 @@ model AiInteraction {
 
   @@index([encounterId])
   @@index([parentInteractionId])
+  @@index([requestId])
   @@map("ai_interactions")
+}
+
+/// Rastro de cada chamada de IA (fase 0 do plano de 13/10/2026): etapa,
+/// provedor, modelo, versão do prompt (hash do system prompt), tokens, custo,
+/// latência e desfecho. Só metadados: nenhum texto do caso, do prompt ou da
+/// resposta. Sem FK de propósito: a gravação não pode falhar a análise, e
+/// apagar o atendimento não apaga o custo agregado.
+model AiCall {
+  id               String   @id @default(uuid()) @db.Uuid
+  requestId        String?  @map("request_id") @db.VarChar(64)
+  physicianId      String?  @map("physician_id") @db.Uuid
+  encounterId      String?  @map("encounter_id") @db.Uuid
+  stage            String   @db.VarChar(32)
+  profile          String   @db.VarChar(32)
+  provider         String   @db.VarChar(16)
+  requestedModel   String   @map("requested_model") @db.VarChar(128)
+  servedModel      String?  @map("served_model") @db.VarChar(128)
+  effort           String?  @db.VarChar(8)
+  promptSha256     String   @map("prompt_sha256") @db.Char(64)
+  responseSchema   String?  @map("response_schema") @db.VarChar(64)
+  promptTokens     Int?     @map("prompt_tokens")
+  completionTokens Int?     @map("completion_tokens")
+  cacheReadTokens  Int?     @map("cache_read_tokens")
+  cacheWriteTokens Int?     @map("cache_write_tokens")
+  costUsd          Float?   @map("cost_usd")
+  latencyMs        Int      @map("latency_ms")
+  outcome          String   @db.VarChar(16)
+  errorType        String?  @map("error_type") @db.VarChar(64)
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([requestId])
+  @@index([encounterId, createdAt])
+  @@index([createdAt])
+  @@map("ai_calls")
 }
 
 /// ADR-014 — Copiloto guiado: para onde a leitura do caso mandou a conversa.
