@@ -167,6 +167,7 @@ export class SourceVerificationService {
     const completion = await this.aiGateway.complete({
       model: readVerifyAttachModel(this.config),
       effort: VERIFY_ATTACH_EFFORT,
+      stage: 'verify_attach',
       messages: [
         { role: 'system', content: SOURCE_ATTACH_SYSTEM_PROMPT },
         { role: 'user', content: buildSourceAttachPrompt(actions, evidence) },

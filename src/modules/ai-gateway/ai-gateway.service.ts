@@ -1,4 +1,4 @@
-import { Injectable, Inject, Logger } from '@nestjs/common';
+import { Injectable, Inject, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   AIProvider,
@@ -16,6 +16,8 @@ import { OpenAIProvider } from './providers/openai.provider';
 import { DeterministicProvider } from './providers/deterministic.provider';
 import { readFlag } from './ai-gateway.settings';
 import { AiEmbeddingsDisabledError } from './ai-gateway.errors';
+import { AI_CALL_SINK, type AiCallSink } from './ai-call-trace';
+import { TracingAiProvider } from './tracing-provider';
 import { DEFAULT_PROFILE, parseModelRef, readProviderProfiles } from './provider-profiles';
 
 /** Valor de `EMBEDDING_PROVIDER` que desliga os embeddings. */
@@ -56,7 +58,10 @@ export class AiGatewayService {
   private readonly defaultEmbeddingModel: string;
   private readonly structuredOutputEnabled: boolean;
 
-  constructor(@Inject(ConfigService) private readonly config: ConfigService) {
+  constructor(
+    @Inject(ConfigService) private readonly config: ConfigService,
+    @Optional() @Inject(AI_CALL_SINK) callSink?: AiCallSink,
+  ) {
     this.defaultModel = this.config.getOrThrow<string>('AI_MODEL');
     this.defaultEmbeddingModel = this.config.getOrThrow<string>('AI_EMBEDDING_MODEL');
     // Chave geral de structured outputs: com false, nenhum provider recebe o
@@ -88,6 +93,13 @@ export class AiGatewayService {
       ]),
     ]);
     this.profileNames = new Set(profiles.map(({ name }) => name));
+    // Rastro de cada chamada (ai_calls) quando há quem o guarde; o gabarito
+    // e os testes constroem o gateway sem ele.
+    if (callSink) {
+      for (const [profile, provider] of this.completionProviders) {
+        this.completionProviders.set(profile, new TracingAiProvider(provider, profile, callSink));
+      }
+    }
 
     // Embedding provider — defaults to openai when completion is anthropic
     // (Anthropic has no embeddings API). Em modo "test" (determinístico/offline,
