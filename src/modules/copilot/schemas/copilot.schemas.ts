@@ -4,8 +4,20 @@ import {
   recommendationDecisionValues,
 } from '../../../shared/contracts/clinical';
 
+/**
+ * Teto do relato do caso. Um ditado de 5 minutos dá uns 5 mil caracteres; o
+ * teto é o mesmo do texto de anexo. Acima disso não é relato de plantão, e o
+ * custo e o tempo da análise crescem com o tamanho.
+ */
+export const MAX_CASE_TEXT_CHARS = 20_000;
+/** Teto de uma resposta a pergunta do Copiloto, o mesmo da conversa guiada. */
+const MAX_ANSWER_CHARS = 2_000;
+
 export const analyzeSchema = z.object({
-  caseText: z.string().min(10, 'Case text must be at least 10 characters'),
+  caseText: z
+    .string()
+    .min(10, 'Case text must be at least 10 characters')
+    .max(MAX_CASE_TEXT_CHARS, `Case text must be at most ${MAX_CASE_TEXT_CHARS} characters`),
   context: z
     .object({
       hasCT: z.boolean().default(false),
@@ -61,7 +73,7 @@ export const respondSchema = z.object({
     .array(
       z.object({
         questionId: z.string().min(1),
-        answer: z.union([z.string(), z.number(), z.boolean()]),
+        answer: z.union([z.string().max(MAX_ANSWER_CHARS), z.number(), z.boolean()]),
       }),
     )
     .min(1, 'At least one answer is required'),

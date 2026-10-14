@@ -8,7 +8,7 @@
  * Referência: https://app.clickup.com/t/86aj45q3z
  */
 import { describe, it, expect } from 'vitest';
-import { analyzeSchema, streamQuerySchema } from './copilot.schemas';
+import { analyzeSchema, MAX_CASE_TEXT_CHARS, respondSchema, streamQuerySchema } from './copilot.schemas';
 
 const validBase = {
   caseText: 'Paciente com síndrome gripal há 3 dias.',
@@ -186,5 +186,27 @@ describe('UX-06 — streamQuerySchema (paridade de red flags com analyzeSchema)'
 
     const tooLong = streamQuerySchema.safeParse({ ...validQuery, demoCase: 'x'.repeat(65) });
     expect(tooLong.success).toBe(false);
+  });
+});
+
+describe('tetos de tamanho do texto livre', () => {
+  it('rejects a case text above MAX_CASE_TEXT_CHARS and accepts one at the limit', () => {
+    const context = { hasCT: false, isSus: false, hasLab: false, hasICU: false };
+    expect(
+      analyzeSchema.safeParse({ caseText: 'a'.repeat(MAX_CASE_TEXT_CHARS), context }).success,
+    ).toBe(true);
+    expect(
+      analyzeSchema.safeParse({ caseText: 'a'.repeat(MAX_CASE_TEXT_CHARS + 1), context }).success,
+    ).toBe(false);
+  });
+
+  it('rejects an answer above 2000 characters', () => {
+    const answer = (text: string) =>
+      respondSchema.safeParse({
+        interactionId: '11111111-1111-4111-8111-111111111111',
+        answers: [{ questionId: 'q1', answer: text }],
+      }).success;
+    expect(answer('a'.repeat(2000))).toBe(true);
+    expect(answer('a'.repeat(2001))).toBe(false);
   });
 });
