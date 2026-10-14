@@ -1551,6 +1551,7 @@ describe('OrchestratorService', () => {
           officialChunksRetrieved: 0,
           knowledgeSource: 'internal_kb',
           decisionPrompt: 'v1',
+          decisionRoute: 'critical',
         });
       });
 
@@ -1577,6 +1578,7 @@ describe('OrchestratorService', () => {
                 officialChunksRetrieved: 0,
                 knowledgeSource: 'internal_kb',
                 decisionPrompt: 'v1',
+                decisionRoute: 'critical',
               },
             }),
           }),

@@ -73,8 +73,10 @@ import { buildDecisionV2Prompt, type DecisionV2PromptInput } from './decision-pr
 import { buildDecisionV3Prompt } from './decision-prompt-v3';
 import { buildDecisionV4Prompt } from './decision-prompt-v4';
 import {
+  chooseDecisionModel,
   isStagedDecisionPrompt,
   readDecisionPipeline,
+  type DecisionModelChoice,
   type DecisionPipeline,
 } from './decision.settings';
 
@@ -758,6 +760,8 @@ interface PreparedAnalysis {
   logLabel: string;
   /** F1 — Etapa 1 deste turno; `null` com `COPILOT_REASONING=legacy`. */
   stage: UnderstandingOutcome | null;
+  /** Modelo da decisão deste turno, pela gravidade do caso (`chooseDecisionModel`). */
+  decisionModel: DecisionModelChoice;
   /**
    * F1 — pesquisa web deste turno; `null` fora de `COPILOT_KNOWLEDGE_SOURCE=web`.
    * Em `verify`, é `null` até a decisão e passa a ser a verificação depois
@@ -911,6 +915,14 @@ export class OrchestratorService {
    * F1 — flags do turno (raciocínio, prompt da decisão, fonte de
    * conhecimento), lidas uma vez por turno e sem redeploy para voltar.
    */
+  private decisionModel(stage: UnderstandingOutcome | null, logLabel: string): DecisionModelChoice {
+    const choice = chooseDecisionModel(this.config, stage?.understanding ?? null);
+    this.logger.log(
+      `DECISION_MODEL${logLabel} route=${choice.route} model=${choice.model ?? 'AI_MODEL'}`,
+    );
+    return choice;
+  }
+
   private decisionPipeline(logLabel: string): DecisionPipeline {
     const { pipeline, downgrades } = readDecisionPipeline(this.config);
     for (const downgrade of downgrades) {
@@ -1167,6 +1179,7 @@ export class OrchestratorService {
     // modelo, usage) é o que dá o custo real da análise, e `for await` o
     // descartaria.
     const stream: AsyncIterator<string, StreamCompletionResult> = this.aiGateway.completeStream({
+      model: prepared.decisionModel.model,
       messages: promptMessages(prepared.prompt),
       responseSchema: responseSchemaOf(prepared.pipeline),
     });
@@ -1465,6 +1478,7 @@ export class OrchestratorService {
       turn: { kind: 'initial', answeredQuestions: screened.answeredQuestions },
       logLabel,
       stage,
+      decisionModel: this.decisionModel(stage, logLabel),
       research: evidence.research,
     };
   }
@@ -1639,6 +1653,7 @@ export class OrchestratorService {
       turn: screened.turn,
       logLabel,
       stage,
+      decisionModel: this.decisionModel(stage, logLabel),
       research: evidence.research,
     };
   }
@@ -1685,6 +1700,7 @@ export class OrchestratorService {
   ): Promise<CompletionAttempt> {
     try {
       const completion = await this.aiGateway.complete({
+        model: prepared.decisionModel.model,
         messages,
         responseSchema: responseSchemaOf(prepared.pipeline),
       });
@@ -1906,6 +1922,7 @@ export class OrchestratorService {
         // web fez (modelo, buscas, custo, motivo do fallback).
         knowledgeSource: prepared.pipeline.knowledgeSource,
         decisionPrompt: prepared.pipeline.decisionPrompt,
+        decisionRoute: prepared.decisionModel.route,
         ...(prepared.research ? { research: researchTrace(prepared.research) } : {}),
       },
       latencyMs: Date.now() - prepared.startedAt,

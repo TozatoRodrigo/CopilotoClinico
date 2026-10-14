@@ -11,7 +11,7 @@ import type {
 } from '../../src/modules/copilot/orchestrator/orchestrator.service';
 import type { EncountersService } from '../../src/modules/encounters/encounters.service';
 import type { CaseUnderstanding, WebEvidenceItem } from '../../src/shared/contracts/clinical';
-import { CaseUnderstandingSchema } from '../../src/modules/copilot/understanding/case-understanding.schema';
+import { StoredCaseUnderstandingSchema } from '../../src/modules/copilot/understanding/case-understanding.schema';
 import type { ClinicalCase } from './case.schema';
 import type { RunStatus } from './graders/deterministic';
 import { costUsd, isSameModel } from './pricing';
@@ -250,7 +250,7 @@ function understandingOf(rawOutput: unknown): CaseUnderstanding | null {
   if (typeof rawOutput !== 'object' || rawOutput === null || !('understanding' in rawOutput)) {
     return null;
   }
-  const parsed = CaseUnderstandingSchema.safeParse(rawOutput.understanding);
+  const parsed = StoredCaseUnderstandingSchema.safeParse(rawOutput.understanding);
   return parsed.success ? parsed.data : null;
 }
 

@@ -160,7 +160,32 @@ export interface RunSummary {
       latencyP50: number | null;
     };
   };
+  /**
+   * ADR-016 — dos casos críticos do gabarito com entendimento, quantos a
+   * Etapa 1 marcou como graves (instável ou tempo-crítico). Os demais iriam
+   * para o modelo do caso comum. `null` sem entendimento (legacy).
+   */
+  severityRouting: { criticalCasesSevere: Rate; criticalCaseIdsStandard: string[] } | null;
   perCase: CaseSummary[];
+}
+
+function summarizeSeverityRouting(
+  results: ResultRow[],
+  casesById: Map<string, ClinicalCase>,
+): RunSummary['severityRouting'] {
+  const criticalRows = results.filter(
+    (row) => row.understanding !== null && casesById.get(row.caseId)?.critical === true,
+  );
+  if (criticalRows.length === 0) return null;
+  const isSevere = (row: ResultRow) =>
+    row.understanding !== null &&
+    (row.understanding.timeCritical || row.understanding.instability.present);
+  return {
+    criticalCasesSevere: rateOf(criticalRows.map(isSevere)),
+    criticalCaseIdsStandard: [
+      ...new Set(criticalRows.filter((row) => !isSevere(row)).map((row) => row.caseId)),
+    ].sort(),
+  };
 }
 
 function judgedVerdict(grade: GradeRow) {
@@ -488,6 +513,7 @@ export function summarizeRun(run: LoadedRun, casesById: Map<string, ClinicalCase
       errors: judgeOutcomes.filter((judge) => judge.status === 'error').length,
     },
     evidence: summarizeEvidence(results),
+    severityRouting: summarizeSeverityRouting(results, casesById),
     perCase,
   };
 }
@@ -585,6 +611,10 @@ export function renderSummaryMarkdown(run: LoadedRun, summary: RunSummary): stri
         [
           'Decisão',
           `raciocínio ${meta.pipeline.reasoning} · prompt ${meta.pipeline.decisionPrompt} · fonte de conhecimento ${meta.pipeline.knowledgeSource}${
+            meta.pipeline.decisionModel || meta.pipeline.decisionCriticalModel
+              ? ` · modelo da decisão ${meta.pipeline.decisionModel ?? meta.pipeline.requestedModel} (caso grave: ${meta.pipeline.decisionCriticalModel ?? meta.pipeline.decisionModel ?? meta.pipeline.requestedModel})`
+              : ''
+          }${
             meta.pipeline.research
               ? ` · pesquisa ${meta.pipeline.research.model} (effort ${meta.pipeline.research.effort}, até ${meta.pipeline.research.maxSearches} buscas, ${meta.pipeline.research.allowedDomains.length} domínios)`
               : ''
@@ -702,6 +732,17 @@ export function renderSummaryMarkdown(run: LoadedRun, summary: RunSummary): stri
     `Formato da resposta (médias por análise): ${summary.shape.questionsMean?.toFixed(2) ?? '—'} pergunta(s) · ${summary.shape.recommendationsMean?.toFixed(1) ?? '—'} conduta(s) · ${summary.shape.nowMean?.toFixed(1) ?? '—'} para agora`,
     '',
   );
+  if (summary.severityRouting) {
+    const { criticalCasesSevere, criticalCaseIdsStandard } = summary.severityRouting;
+    lines.push(
+      `Gravidade pela Etapa 1 (ADR-016): ${formatRate(criticalCasesSevere)} das execuções de casos críticos marcadas como graves (instável ou tempo-crítico).${
+        criticalCaseIdsStandard.length > 0
+          ? ` Iriam para o modelo do caso comum: ${criticalCaseIdsStandard.join(', ')}.`
+          : ''
+      }`,
+      '',
+    );
+  }
   if (summary.funnel) {
     lines.push('## Afunilamento', '');
     lines.push(

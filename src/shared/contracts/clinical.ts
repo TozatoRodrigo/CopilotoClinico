@@ -484,6 +484,12 @@ export interface CaseUnderstanding {
   missingDiscriminators: Array<{ data: string; separates: string[]; whyItChangesConduct: string }>;
   /** Consultas da busca dirigida, de 1 a 4. */
   searchQueries: string[];
+  /**
+   * Alguma hipótese plausível pede tratamento em minutos a uma hora (AVC na
+   * janela, IAM com supra, sepse, anafilaxia...). Com a instabilidade, decide
+   * o modelo da decisão (AI_DECISION_CRITICAL_MODEL).
+   */
+  timeCritical: boolean;
 }
 
 /**
