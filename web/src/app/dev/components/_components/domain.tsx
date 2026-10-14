@@ -157,6 +157,7 @@ const STROKE_UNDERSTANDING: CaseUnderstanding = {
     },
   ],
   searchQueries: ['manejo inicial do AVC agudo'],
+  timeCritical: true,
 };
 
 const UNSTABLE_UNDERSTANDING: CaseUnderstanding = {

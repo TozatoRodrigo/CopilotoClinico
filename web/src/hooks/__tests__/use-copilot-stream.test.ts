@@ -142,6 +142,7 @@ describe("useCopilotStream (UX-06)", () => {
       likely: [],
       missingDiscriminators: [],
       searchQueries: ["manejo inicial do AVC"],
+      timeCritical: true,
     };
 
     act(() => {

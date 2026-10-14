@@ -21,7 +21,10 @@ import {
   readUnderstandingModel,
 } from '../../src/modules/copilot/understanding/understanding.settings';
 import { EncountersService } from '../../src/modules/encounters/encounters.service';
-import { readDecisionPipeline } from '../../src/modules/copilot/orchestrator/decision.settings';
+import {
+  readDecisionModels,
+  readDecisionPipeline,
+} from '../../src/modules/copilot/orchestrator/decision.settings';
 import {
   readResearchEffort,
   readResearchModel,
@@ -216,11 +219,17 @@ function stagesSettings(
 /** F1 — prompt da decisão, fonte de conhecimento e pesquisa, lidos como o pipeline os lê. */
 function decisionSettings(
   config: ConfigService,
-): Pick<RunMeta['pipeline'], 'decisionPrompt' | 'knowledgeSource' | 'research'> {
+): Pick<
+  RunMeta['pipeline'],
+  'decisionPrompt' | 'knowledgeSource' | 'decisionModel' | 'decisionCriticalModel' | 'research'
+> {
   const { pipeline } = readDecisionPipeline(config);
+  const decisionModels = readDecisionModels(config);
   return {
     decisionPrompt: pipeline.decisionPrompt,
     knowledgeSource: pipeline.knowledgeSource,
+    decisionModel: decisionModels.standard ?? null,
+    decisionCriticalModel: decisionModels.critical ?? null,
     // A verificação depois da decisão usa a mesma pesquisa (modelo, buscas, domínios).
     research:
       pipeline.knowledgeSource === 'web' || pipeline.knowledgeSource === 'verify'

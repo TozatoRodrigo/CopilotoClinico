@@ -76,6 +76,7 @@ function understandingOf(problemRepresentation: string): CaseUnderstanding {
     likely: [],
     missingDiscriminators: [],
     searchQueries: ["cefaleia com febre"],
+    timeCritical: true,
   };
 }
 
