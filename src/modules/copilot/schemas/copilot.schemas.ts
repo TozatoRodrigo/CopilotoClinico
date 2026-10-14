@@ -10,8 +10,6 @@ import {
  * custo e o tempo da análise crescem com o tamanho.
  */
 export const MAX_CASE_TEXT_CHARS = 20_000;
-/** Teto de uma resposta a pergunta do Copiloto, o mesmo da conversa guiada. */
-const MAX_ANSWER_CHARS = 2_000;
 
 export const analyzeSchema = z.object({
   caseText: z
@@ -73,7 +71,9 @@ export const respondSchema = z.object({
     .array(
       z.object({
         questionId: z.string().min(1),
-        answer: z.union([z.string().max(MAX_ANSWER_CHARS), z.number(), z.boolean()]),
+        // O mesmo teto do relato: a resposta pode ser um complemento ditado
+        // no compositor da conversa, não só "sim" ou um número.
+        answer: z.union([z.string().max(MAX_CASE_TEXT_CHARS), z.number(), z.boolean()]),
       }),
     )
     .min(1, 'At least one answer is required'),

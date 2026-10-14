@@ -200,13 +200,13 @@ describe('tetos de tamanho do texto livre', () => {
     ).toBe(false);
   });
 
-  it('rejects an answer above 2000 characters', () => {
+  it('rejects an answer above the case text ceiling', () => {
     const answer = (text: string) =>
       respondSchema.safeParse({
         interactionId: '11111111-1111-4111-8111-111111111111',
         answers: [{ questionId: 'q1', answer: text }],
       }).success;
-    expect(answer('a'.repeat(2000))).toBe(true);
-    expect(answer('a'.repeat(2001))).toBe(false);
+    expect(answer('a'.repeat(MAX_CASE_TEXT_CHARS))).toBe(true);
+    expect(answer('a'.repeat(MAX_CASE_TEXT_CHARS + 1))).toBe(false);
   });
 });
