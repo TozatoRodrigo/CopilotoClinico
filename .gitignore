@@ -39,4 +39,5 @@ coverage/
 
 # Gabarito clínico (F0-A) — saídas de execução e variantes locais
 evals/clinical/runs/
+evals/deid/out/
 evals/clinical/variants.json
