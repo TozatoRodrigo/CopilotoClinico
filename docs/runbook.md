@@ -914,6 +914,32 @@ Prisma não suporta rollback automático. Para reverter:
 
 ## Monitoramento
 
+### Rastro das chamadas de IA (`ai_calls`)
+
+Cada chamada ao modelo grava uma linha em `ai_calls` e uma linha `AI_CALL` no
+log: etapa (`intake_reading`, `understanding`, `decision`, `research`,
+`verify_attach`, `guideline_classification`), perfil, provedor, modelo pedido
+e servido, esforço, hash do system prompt (a versão do prompt), tokens, custo,
+latência e desfecho (`ok`, `refusal`, `truncated`, `error`, `aborted`). Nenhum
+texto do caso, do prompt ou da resposta. A resposta HTTP devolve
+`x-request-id`; o mesmo id está em `ai_calls.request_id` e em
+`ai_interactions.request_id`. Falha ao gravar vira `AI_CALL_LOG_FAILED` (WARN)
+e nunca para a análise.
+
+```sql
+-- Custo, chamadas e latência por etapa e modelo nos últimos 7 dias
+SELECT stage, coalesce(served_model, requested_model) AS model, count(*) AS calls,
+       round(sum(cost_usd)::numeric, 4) AS usd,
+       percentile_cont(0.5) WITHIN GROUP (ORDER BY latency_ms) AS p50_ms,
+       count(*) FILTER (WHERE outcome <> 'ok') AS failures
+FROM ai_calls WHERE created_at > now() - interval '7 days'
+GROUP BY 1, 2 ORDER BY usd DESC NULLS LAST;
+
+-- Tudo o que uma requisição chamou (o médico ou o suporte citam o x-request-id)
+SELECT created_at, stage, served_model, outcome, latency_ms, cost_usd, left(prompt_sha256, 12)
+FROM ai_calls WHERE request_id = '<x-request-id>' ORDER BY created_at;
+```
+
 ### Logs de nível ERROR que exigem atenção imediata
 
 | Log | Causa | Ação |

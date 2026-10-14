@@ -193,6 +193,7 @@ describe('OrchestratorService', () => {
       expect(encountersMock.findById).toHaveBeenCalledWith(physicianId, encounterId);
       expect(retrievalMock.search).toHaveBeenCalled();
       expect(aiGatewayMock.complete).toHaveBeenCalledWith({
+        stage: 'decision',
         messages: [
           { role: 'system', content: expect.any(String) },
           { role: 'user', content: expect.any(String) },

@@ -1,4 +1,4 @@
-import { Injectable, Inject, Logger } from '@nestjs/common';
+import { Injectable, Inject, Logger, Optional } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   AIProvider,
@@ -15,6 +15,8 @@ import { OpenAIProvider } from './providers/openai.provider';
 import { DeterministicProvider } from './providers/deterministic.provider';
 import { readFlag } from './ai-gateway.settings';
 import { AiEmbeddingsDisabledError } from './ai-gateway.errors';
+import { AI_CALL_SINK, type AiCallSink } from './ai-call-trace';
+import { TracingAiProvider } from './tracing-provider';
 
 /** Valor de `EMBEDDING_PROVIDER` que desliga os embeddings. */
 export const EMBEDDINGS_DISABLED = 'none';
@@ -47,7 +49,10 @@ export class AiGatewayService {
   private readonly defaultEmbeddingModel: string;
   private readonly structuredOutputEnabled: boolean;
 
-  constructor(@Inject(ConfigService) private readonly config: ConfigService) {
+  constructor(
+    @Inject(ConfigService) private readonly config: ConfigService,
+    @Optional() @Inject(AI_CALL_SINK) callSink?: AiCallSink,
+  ) {
     this.defaultModel = this.config.getOrThrow<string>('AI_MODEL');
     this.defaultEmbeddingModel = this.config.getOrThrow<string>('AI_EMBEDDING_MODEL');
     // Chave geral de structured outputs: com false, nenhum provider recebe o
@@ -58,12 +63,17 @@ export class AiGatewayService {
     const completionProviderName = this.config.get<string>('AI_PROVIDER', 'anthropic');
     const completionApiKey = this.config.getOrThrow<string>('AI_API_KEY');
     const completionBaseUrl = this.config.get<string>('AI_BASE_URL');
-    this.completionProvider = createProvider(
+    const completionProvider = createProvider(
       completionProviderName,
       config,
       completionApiKey,
       completionBaseUrl,
     );
+    // Rastro de cada chamada (ai_calls) quando há quem o guarde; o gabarito
+    // e os testes constroem o gateway sem ele.
+    this.completionProvider = callSink
+      ? new TracingAiProvider(completionProvider, 'default', callSink)
+      : completionProvider;
 
     // Embedding provider — defaults to openai when completion is anthropic
     // (Anthropic has no embeddings API). Em modo "test" (determinístico/offline,
