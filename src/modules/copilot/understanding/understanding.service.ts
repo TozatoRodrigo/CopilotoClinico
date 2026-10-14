@@ -210,6 +210,7 @@ export class UnderstandingService {
         model: spec.model,
         effort: readUnderstandingEffort(this.config),
         responseSchema: spec.responseSchema,
+        stage: spec.tag === 'INTAKE_READING' ? 'intake_reading' : 'understanding',
       });
       this.account(outcome, completion.model, completion.usage);
       const validation = spec.validate(completion.content);

@@ -90,6 +90,19 @@ const MODEL_PRICES: Record<string, ModelPrice> = {
     outputPerMillionTokens: 1.2,
     cacheReadPerMillionTokens: 0.02,
   },
+  // Groq (console.groq.com/docs/models, 13/10/2026), com o id que a Groq
+  // devolve. Cache com 50% de desconto nos gpt-oss.
+  'openai/gpt-oss-120b': {
+    inputPerMillionTokens: 0.15,
+    outputPerMillionTokens: 0.6,
+    cacheReadPerMillionTokens: 0.075,
+  },
+  'openai/gpt-oss-20b': {
+    inputPerMillionTokens: 0.075,
+    outputPerMillionTokens: 0.3,
+    cacheReadPerMillionTokens: 0.0375,
+  },
+  'qwen/qwen3.8-27b': { inputPerMillionTokens: 0.8, outputPerMillionTokens: 4 },
 };
 
 /** A OpenAI devolve o snapshot datado (`gpt-4o-2024-08-06`); o preço é o do alias. */

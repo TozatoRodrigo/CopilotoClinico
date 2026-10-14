@@ -259,9 +259,10 @@ async function executeVariant(context: VariantRunContext): Promise<string> {
     const config = app.get(ConfigService);
     const gateway = app.get(AiGatewayService);
     const requestedModel = config.getOrThrow<string>('AI_MODEL');
+    // Sem o prefixo do perfil (`groq:...`): o fallback de recusa olha o id do modelo.
     const refusalFallback = isRefusalFallbackActive(
       gateway.getProviderName(),
-      requestedModel,
+      gateway.route().model,
       config,
     );
     const services = {

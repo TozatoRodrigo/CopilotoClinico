@@ -5,6 +5,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../config/prisma.service';
 import { readBooleanFlag } from '../../../config/feature-flag';
 import { AiGatewayService } from '../../ai-gateway/ai-gateway.service';
+import { currentRequestContext } from '../../../shared/request-context/request-context';
 import { AiRefusalError, AiTruncatedError } from '../../ai-gateway/ai-gateway.errors';
 import type {
   CompletionUsage,
@@ -1180,6 +1181,7 @@ export class OrchestratorService {
     // descartaria.
     const stream: AsyncIterator<string, StreamCompletionResult> = this.aiGateway.completeStream({
       model: prepared.decisionModel.model,
+      stage: 'decision',
       messages: promptMessages(prepared.prompt),
       responseSchema: responseSchemaOf(prepared.pipeline),
     });
@@ -1701,6 +1703,7 @@ export class OrchestratorService {
     try {
       const completion = await this.aiGateway.complete({
         model: prepared.decisionModel.model,
+        stage: 'decision',
         messages,
         responseSchema: responseSchemaOf(prepared.pipeline),
       });
@@ -1904,6 +1907,8 @@ export class OrchestratorService {
       inputRedacted: prepared.inputRedacted,
       retrievedChunkIds: prepared.prompt.retrievedChunkIds,
       model: attempt.model,
+      // Liga a interação às chamadas de IA da mesma requisição (ai_calls).
+      requestId: currentRequestContext()?.requestId ?? null,
       // S20-CLIN-01 — red flags marcadas pelo médico, para rastreabilidade
       // CFM (qualquer auditoria futura reconstrói quais bandeiras o médico
       // confirmou, independentemente do texto do caso); CC-05 — herdadas

@@ -220,6 +220,28 @@
         "COPILOT_DECISION_PROMPT": "v3",
         "COPILOT_KNOWLEDGE_SOURCE": "model_only"
       }
+    },
+    {
+      "name": "gpt-oss-120b-groq-v3-modelo",
+      "description": "Regras v3 com o gpt-oss-120b (pesos abertos) servido pela Groq no entendimento e na decisão, só com o conhecimento do modelo. O provedor padrão continua a Anthropic; o perfil groq atende as duas etapas (AI_PROVIDER_PROFILES).",
+      "env": {
+        "AI_PROVIDER": "anthropic",
+        "AI_BASE_URL": "https://api.anthropic.com",
+        "AI_API_KEY": "${ANTHROPIC_API_KEY}",
+        "AI_PROVIDER_PROFILES": "groq",
+        "AI_PROVIDER_GROQ_KIND": "openai",
+        "AI_PROVIDER_GROQ_API_KEY": "${GROQ_API_KEY}",
+        "AI_PROVIDER_GROQ_BASE_URL": "https://api.groq.com/openai/v1",
+        "AI_PROVIDER_GROQ_STRUCTURED_OUTPUT": "json_schema",
+        "AI_MODEL": "groq:openai/gpt-oss-120b",
+        "AI_UNDERSTANDING_MODEL": "groq:openai/gpt-oss-120b",
+        "AI_MAX_OUTPUT_TOKENS": "32000",
+        "AI_REASONING_EFFORT": "high",
+        "COPILOT_REASONING": "stages",
+        "AI_UNDERSTANDING_EFFORT": "low",
+        "COPILOT_DECISION_PROMPT": "v3",
+        "COPILOT_KNOWLEDGE_SOURCE": "model_only"
+      }
     }
   ]
 }
