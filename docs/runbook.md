@@ -914,6 +914,15 @@ Prisma não suporta rollback automático. Para reverter:
 
 ## Monitoramento
 
+### Sentry
+
+O Sentry só liga com `SENTRY_DSN` no `.env.production` (o compose repassa a
+variável). Antes de ligar, confirme região e retenção do projeto no Sentry
+(`docs/compliance/DPA_PROVIDER.md`). O evento vai sem corpo, query, cookies e
+cabeçalhos de credencial (`scrubSentryEvent`): o corpo da requisição é o caso
+clínico. Os logs de acesso com erro registram só os nomes dos campos do corpo
+(`bodyFields=`).
+
 ### Logs de nível ERROR que exigem atenção imediata
 
 | Log | Causa | Ação |
