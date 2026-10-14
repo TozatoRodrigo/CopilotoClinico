@@ -161,6 +161,167 @@ describe('OpenAIProvider', () => {
     });
   });
 
+  describe('open-weight models and host options', () => {
+    function createHostProvider(overrides: Record<string, unknown> = {}, env = {}) {
+      return new OpenAIProvider(new ConfigService({ AI_API_KEY: 'test-key', ...env }), {
+        apiKey: 'groq-key',
+        baseUrl: 'https://api.groq.com/openai/v1',
+        ...overrides,
+      });
+    }
+
+    it('treats gpt-oss as a reasoning model and maps the stage effort to its scale', async () => {
+      const fetchMock = mockJson(chatCompletion());
+
+      await createHostProvider().complete(
+        params({ model: 'openai/gpt-oss-120b', effort: 'xhigh' }),
+      );
+
+      const body = sentBody(fetchMock);
+      expect(body.reasoning_effort).toBe('high');
+      expect(body).not.toHaveProperty('temperature');
+    });
+
+    it('lets the stage effort win over AI_REASONING_EFFORT', async () => {
+      const fetchMock = mockJson(chatCompletion());
+
+      await createProvider({ AI_REASONING_EFFORT: 'high' }).complete(
+        params({ model: 'gpt-5.1', effort: 'low' }),
+      );
+
+      expect(sentBody(fetchMock).reasoning_effort).toBe('low');
+    });
+
+    it('sends max_tokens when the host asks for it', async () => {
+      const fetchMock = mockJson(chatCompletion());
+
+      await createHostProvider({ maxTokensParam: 'max_tokens' }).complete(params());
+
+      const body = sentBody(fetchMock);
+      expect(body.max_tokens).toBe(16000);
+      expect(body).not.toHaveProperty('max_completion_tokens');
+    });
+
+    it('asks for a JSON object without schema in json_object mode', async () => {
+      const fetchMock = mockJson(chatCompletion());
+
+      await createHostProvider({ structuredOutput: 'json_object' }).complete(
+        params({ responseSchema: RESPONSE_SCHEMA }),
+      );
+
+      expect(sentBody(fetchMock).response_format).toEqual({ type: 'json_object' });
+    });
+
+    it('adds the host extra body last, so a repeated field replaces ours', async () => {
+      const fetchMock = mockJson(chatCompletion());
+
+      await createHostProvider({
+        extraBody: { reasoning_format: 'hidden', temperature: 0.6 },
+      }).complete(params());
+
+      expect(sentBody(fetchMock)).toMatchObject({ reasoning_format: 'hidden', temperature: 0.6 });
+    });
+
+    it('drops a leading <think> block from the answer', async () => {
+      const payload = chatCompletion();
+      payload.choices[0]!.message.content = '<think>raciocínio\nlongo</think>\n{"answer":"ok"}';
+      mockJson(payload);
+
+      const result = await createHostProvider().complete(params());
+
+      expect(result.content).toBe('{"answer":"ok"}');
+    });
+  });
+
+  describe('timeouts and retries', () => {
+    function sequence(responses: Array<() => Promise<Response>>) {
+      const fetchMock = vi.spyOn(globalThis, 'fetch');
+      for (const response of responses) fetchMock.mockImplementationOnce(response);
+      return fetchMock;
+    }
+
+    const ok = () => Promise.resolve(new Response(JSON.stringify(chatCompletion())));
+    const status =
+      (code: number, headers: Record<string, string> = {}) =>
+      () =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({
+              error: { message: 'Paciente Maria da Silva, caso completo', type: 'x', code: code },
+            }),
+            { status: code, headers },
+          ),
+        );
+
+    it('retries a 429 after the Retry-After delay and returns the answer', async () => {
+      vi.useFakeTimers();
+      try {
+        const fetchMock = sequence([status(429, { 'retry-after': '2' }), ok]);
+
+        const pending = createProvider().complete(params());
+        await vi.advanceTimersByTimeAsync(2000);
+        const result = await pending;
+
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+        expect(result.content).toBe('{"answer":"ok"}');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('gives up after AI_REQUEST_MAX_RETRIES and logs no body beyond a short message', async () => {
+      const fetchMock = sequence([status(503), status(503)]);
+      const provider = createProvider({ AI_REQUEST_MAX_RETRIES: '1' });
+      const logged: string[] = [];
+      const logger = (provider as unknown as { logger: Record<string, (m: string) => void> })
+        .logger;
+      logger.warn = (message: string) => logged.push(message);
+      logger.error = (message: string) => logged.push(message);
+      vi.useFakeTimers();
+      try {
+        const pending = provider.complete(params()).catch((caught: unknown) => caught);
+        await vi.advanceTimersByTimeAsync(1000);
+        const error = await pending;
+
+        expect(error).toEqual(new Error('AI provider error: 503'));
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+        expect(logged.at(-1)).toMatch(/^AI_PROVIDER_ERROR operation=API status=503 type=x/);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('does not retry a 400', async () => {
+      const fetchMock = sequence([status(400)]);
+
+      await expect(createProvider().complete(params())).rejects.toThrow('AI provider error: 400');
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('aborts a request that passes AI_REQUEST_TIMEOUT_MS', async () => {
+      vi.spyOn(globalThis, 'fetch').mockImplementation(
+        (_url, init) =>
+          new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+          }),
+      );
+      vi.useFakeTimers();
+      try {
+        const pending = createProvider({
+          AI_REQUEST_TIMEOUT_MS: '500',
+          AI_REQUEST_MAX_RETRIES: '0',
+        })
+          .complete(params())
+          .catch((caught: unknown) => caught);
+        await vi.advanceTimersByTimeAsync(500);
+
+        expect(await pending).toEqual(new Error('AI provider API timeout after 500ms'));
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
   describe('complete', () => {
     it('maps cached prompt tokens into the usage', async () => {
       mockJson(chatCompletion());

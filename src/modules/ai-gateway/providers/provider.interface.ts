@@ -1,3 +1,5 @@
+import type { MaxTokensParam, StructuredOutputMode } from '../provider-profiles';
+
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
@@ -121,6 +123,10 @@ export interface ResearchResponse {
 export interface ProviderOverrides {
   apiKey?: string;
   baseUrl?: string;
+  /** Só o provedor compatível com a OpenAI usa os campos abaixo (ver provider-profiles.ts). */
+  structuredOutput?: StructuredOutputMode;
+  maxTokensParam?: MaxTokensParam;
+  extraBody?: Record<string, unknown>;
 }
 
 export interface AIProvider {
