@@ -4,6 +4,13 @@ import { validateOutput } from '../../copilot/guardrails/output-validator';
 import { INTAKE_READING_JSON_SCHEMA } from '../../copilot/intake/intake-reading.json-schema';
 import { validateIntakeReading } from '../../copilot/intake/intake-reading.schema';
 import { decideIntake } from '../../copilot/intake/intake-gate';
+import {
+  buildCardDraftPrompt,
+  CARD_DRAFT_JSON_SCHEMA,
+  parseCardDraftResponse,
+} from '../../knowledge-cards/drafting/card-draft-prompt';
+import { checkCardCitations } from '../../knowledge-cards/domain/citation-check';
+import { TREATMENT_TEXT } from '../../../../tests/fixtures/knowledge-cards';
 
 describe('DeterministicProvider', () => {
   const provider = new DeterministicProvider();
@@ -118,6 +125,39 @@ describe('DeterministicProvider', () => {
 
     it('reads an unstable patient for [instavel]', async () => {
       expect(decideIntake(await readingFor('Rebaixado [instavel]')).path).toBe('unstable');
+    });
+  });
+
+  describe('knowledge card draft (CC-403)', () => {
+    async function draftFor(sourceText: string) {
+      const result = await provider.complete({
+        ...userWith(
+          buildCardDraftPrompt({
+            topic: 'Meningite bacteriana',
+            syndrome: 'febre',
+            sources: [
+              { key: 'S1', title: 'PCDT', sourceVersion: '1', section: null, text: sourceText },
+            ],
+          }),
+        ),
+        responseSchema: CARD_DRAFT_JSON_SCHEMA,
+      });
+      const parsed = parseCardDraftResponse(result.content);
+      if (!parsed.success) throw new Error(parsed.reason);
+      return parsed.cards;
+    }
+
+    it('drafts one card that passes the citation check against the excerpt', async () => {
+      const [card, ...rest] = await draftFor(TREATMENT_TEXT);
+
+      expect(rest).toEqual([]);
+      expect(card).toBeDefined();
+      if (!card) return;
+      expect(checkCardCitations(card, new Map([['S1', TREATMENT_TEXT]]))).toEqual([]);
+    });
+
+    it('drafts no card when the excerpt has no line long enough to quote', async () => {
+      expect(await draftFor('[PCDT · curto]\nCurto.')).toEqual([]);
     });
   });
 });

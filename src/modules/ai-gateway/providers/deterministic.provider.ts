@@ -1,5 +1,6 @@
 import { AiCapabilityUnsupportedError } from '../ai-gateway.errors';
 import { INTAKE_READING_JSON_SCHEMA } from '../../copilot/intake/intake-reading.json-schema';
+import { CARD_DRAFT_JSON_SCHEMA } from '../../knowledge-cards/drafting/card-draft-prompt';
 import type {
   AIProvider,
   CompletionParams,
@@ -27,6 +28,10 @@ import type {
  * is steered the same way: `[instavel]` → unstable patient (no questions),
  * `[incompleto]` → two questions (yes/no with an urgent "Sim", and the
  * missing vital signs), anything else → complete case (no questions).
+ *
+ * CC-403 — the knowledge card draft (`knowledge_card_draft`) returns one card
+ * quoting the first excerpt literally, without a dose, so it passes the
+ * citation check and the review flow (CC-404) runs offline.
  *
  * Embeddings return a fixed 1536-dim unit vector (matches `vector(1536)`).
  */
@@ -87,6 +92,9 @@ export class DeterministicProvider implements AIProvider {
     const userText = params.messages.find((m) => m.role === 'user')?.content ?? '';
     if (params.responseSchema?.name === INTAKE_READING_JSON_SCHEMA.name) {
       return DeterministicProvider.buildIntakeReading(userText);
+    }
+    if (params.responseSchema?.name === CARD_DRAFT_JSON_SCHEMA.name) {
+      return DeterministicProvider.buildCardDraft(userText);
     }
     return DeterministicProvider.buildOutput(userText);
   }
@@ -151,6 +159,30 @@ export class DeterministicProvider implements AIProvider {
             },
           ]
         : [],
+    });
+  }
+
+  /** First line of the `[S1]` excerpt with enough text, quoted literally (no header, no dose in the answer). */
+  private static buildCardDraft(userText: string): string {
+    const excerpt = /\[S1\][^\n]*\n([\s\S]*?)(?:\n\n---\n\n|\n<\/source_excerpts>)/
+      .exec(userText)?.[1]
+      ?.replace(/&lt;/g, '<');
+    const quote = excerpt
+      ?.split('\n')
+      .map((line) => line.trim())
+      .find((line) => line.length >= 30 && !line.startsWith('['))
+      ?.slice(0, 120);
+    if (!quote) return JSON.stringify({ cards: [] });
+    return JSON.stringify({
+      cards: [
+        {
+          question: 'O que o trecho de diretriz orienta? (determinístico)',
+          population: null,
+          answer: 'Resposta de teste: ver o trecho citado da fonte (determinístico).',
+          answerCitations: [{ sourceKey: 'S1', quote }],
+          claims: [],
+        },
+      ],
     });
   }
 

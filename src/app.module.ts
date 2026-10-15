@@ -15,6 +15,7 @@ import { CopilotModule } from './modules/copilot/copilot.module';
 import { LgpdModule } from './modules/lgpd/lgpd.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { GuidelinesModule } from './modules/guidelines/guidelines.module';
+import { KnowledgeCardsModule } from './modules/knowledge-cards/knowledge-cards.module';
 import { ProtocolsModule } from './modules/protocols/protocols.module';
 import { InstitutionsModule } from './modules/institutions/institutions.module';
 import { PhysiciansModule } from './modules/physicians/physicians.module';
@@ -43,6 +44,7 @@ import { RequestContextInterceptor } from './shared/request-context/request-cont
     DocumentsModule,
     CopilotModule,
     GuidelinesModule,
+    KnowledgeCardsModule,
     ProtocolsModule,
     InstitutionsModule,
     AuditModule,
