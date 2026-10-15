@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { LgpdService } from './lgpd.service';
 import { PrismaService } from '../../config/prisma.service';
+import type { PhysicianErasureCheck } from '../auth/physician-erasure-check.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 const physicianId = '550e8400-e29b-41d4-a716-446655440000';
@@ -51,6 +52,7 @@ describe('LgpdService', () => {
   let auditService: {
     log: ReturnType<typeof vi.fn>;
   };
+  let erasureCheck: { markErased: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -98,8 +100,13 @@ describe('LgpdService', () => {
     auditService = {
       log: vi.fn(),
     };
+    erasureCheck = { markErased: vi.fn() };
 
-    service = new LgpdService(prisma as unknown as PrismaService, auditService as never);
+    service = new LgpdService(
+      prisma as unknown as PrismaService,
+      auditService as never,
+      erasureCheck as unknown as PhysicianErasureCheck,
+    );
   });
 
   describe('grantConsent', () => {
@@ -515,8 +522,11 @@ describe('LgpdService', () => {
           name: 'ERASED',
           email: `erased-${physicianId}@erased.com`,
           passwordHash: `erased:${physicianId}`,
+          erasedAt: expect.any(Date),
         },
       });
+      // CC-018 — a sessão cai na hora nesta instância, sem esperar o cache.
+      expect(erasureCheck.markErased).toHaveBeenCalledWith(physicianId);
       expect(auditService.log).toHaveBeenCalledWith({
         actorId: physicianId,
         action: 'DATA_ERASURE',
@@ -539,6 +549,16 @@ describe('LgpdService', () => {
       prisma.physician.findUnique.mockResolvedValue(null);
 
       await expect(service.requestErasure(physicianId)).rejects.toThrow(NotFoundException);
+    });
+
+    // CC-018 — marcar antes do commit trancaria o médico fora de uma conta
+    // que continua dele quando a transação falha.
+    it('does not mark the physician as erased when the transaction fails', async () => {
+      prisma.physician.findUnique.mockResolvedValue({ id: physicianId });
+      prisma.$transaction.mockRejectedValue(new Error('deadlock'));
+
+      await expect(service.requestErasure(physicianId)).rejects.toThrow('deadlock');
+      expect(erasureCheck.markErased).not.toHaveBeenCalled();
     });
   });
 });
