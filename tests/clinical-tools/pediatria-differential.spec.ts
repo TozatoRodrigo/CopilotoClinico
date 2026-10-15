@@ -284,7 +284,7 @@ describe('fita de Broselow × PedGuide v4', () => {
       cases.push({
         label: entry.name,
         state: { selectedBroselow: entry },
-        inputs: { weight: '', broselow: color?.key ?? null, age: '' },
+        inputs: { weight: '', broselow: color?.key ?? null, length: '', age: '' },
       });
     }
     const random = seededRandom(SEED);
@@ -293,7 +293,7 @@ describe('fita de Broselow × PedGuide v4', () => {
       cases.push({
         label: `${kg} kg`,
         state: { pesoRaw: kg },
-        inputs: { weight: kg, broselow: null, age: '' },
+        inputs: { weight: kg, broselow: null, length: '', age: '' },
       });
     }
     for (const { label, state, inputs } of cases) {
@@ -334,16 +334,21 @@ describe('fita de Broselow × PedGuide v4', () => {
     const gray = internals.BROSELOW_DATA[0];
     const byColor = fullText(renderPedGuide(reference, { selectedBroselow: gray, view: 'home' }));
     expect(byColor).toContain('ESTIMADO');
-    expect(resolvePediatricPatient({ weight: '', broselow: 'gray', age: '' }).weight).toMatchObject(
-      {
-        estimated: true,
-        source: 'broselow',
-      },
-    );
+    expect(
+      resolvePediatricPatient({ weight: '', broselow: 'gray', length: '', age: '' }).weight,
+    ).toMatchObject({
+      estimated: true,
+      source: 'broselow',
+    });
 
     for (const kg of [0.5, 1, 2.9, 3, 3.1, 10]) {
       const text = fullText(renderPedGuide(reference, { pesoRaw: String(kg), view: 'home' }));
-      const patient = resolvePediatricPatient({ weight: String(kg), broselow: null, age: '' });
+      const patient = resolvePediatricPatient({
+        weight: String(kg),
+        broselow: null,
+        length: '',
+        age: '',
+      });
       const neonatal = patient.weight.status === 'pronto' && patient.weight.neonatal;
       expect(text.includes('Neonato'), `${kg} kg`).toBe(neonatal);
     }
@@ -354,7 +359,7 @@ describe('fita de Broselow × PedGuide v4', () => {
       const text = fullText(renderPedGuide(reference, { pesoRaw: raw, view: 'pcr' }));
       expect(text, raw).toContain('Informe o peso para calcular');
       expect(
-        resolvePediatricPatient({ weight: raw, broselow: null, age: '' }).weight.status,
+        resolvePediatricPatient({ weight: raw, broselow: null, length: '', age: '' }).weight.status,
         raw,
       ).toBe('invalido');
     }

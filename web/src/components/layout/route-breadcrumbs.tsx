@@ -20,6 +20,7 @@ import {
 } from '@phosphor-icons/react';
 import { CALCULATOR_CATALOG } from '@clinical-tools/calculator-catalog';
 import { calculatorName, TOOLS } from '@clinical-tools/catalog';
+import { getPediatricScenario } from '@clinical-tools/pediatrics/scenarios';
 import { useEncounterDetail } from '@/lib/clinical-queries';
 import { Breadcrumb, type BreadcrumbItem } from '@/components/ui/breadcrumb';
 
@@ -84,6 +85,15 @@ const TOOL_SUBPAGES: Record<string, Record<string, string>> = {
   acls: { ovace: 'OVACE', historico: 'Atendimentos salvos' },
 };
 
+/** CC-320 — Pediatria › Cenários › nome do cenário. */
+function pediatricScenarioCrumbs(scenarioId: string | undefined): BreadcrumbItem[] {
+  const scenario = scenarioId ? getPediatricScenario(scenarioId) : undefined;
+  return [
+    { label: 'Cenários', href: '/ferramentas/pediatria#cenarios' },
+    ...(scenario ? [{ label: scenario.title }] : []),
+  ];
+}
+
 /**
  * ADR-017 — Ferramentas › Calculadoras › nome da calculadora, ou
  * Ferramentas › nome do roteiro (ACLS) › subpágina.
@@ -97,6 +107,9 @@ function ferramentasCrumbs(segments: string[]): BreadcrumbItem[] {
     const tool = TOOLS.find((entry) => entry.id === section && entry.status === 'disponivel');
     if (!tool) return items;
     items.push({ label: tool.name, href: id ? `/ferramentas/${tool.id}` : undefined });
+    if (tool.id === 'pediatria' && id === 'cenarios') {
+      return [...items, ...pediatricScenarioCrumbs(segments[3])];
+    }
     const subpage = id ? TOOL_SUBPAGES[tool.id]?.[id] : undefined;
     if (subpage) items.push({ label: subpage });
     return items;

@@ -21,6 +21,19 @@ export const PEDIATRIC_DOSES_PROVENANCE: ContentProvenance = {
   review: { status: 'pendente' },
 };
 
+/**
+ * Peso pela idade e pelo comprimento e acessos e drenos (CC-320): não existem
+ * no PedGuide v4, só no HETRIN Ped (e o comprimento também no Ped Guide legado).
+ */
+export const HETRIN_PED_SOURCE = 'ANY App v4 · HETRIN Ped v1.1.7, hetrinped/index.html (95c8fba)';
+
+export const PEDIATRIC_ESTIMATES_PROVENANCE: ContentProvenance = {
+  source: HETRIN_PED_SOURCE,
+  version: '1.0.0',
+  updatedAt: '2026-10-15',
+  review: { status: 'pendente' },
+};
+
 export const CANONICAL_SOURCE_NOTICE = 'Doses aguardando assinatura da fonte única (CC-321).';
 
 /**

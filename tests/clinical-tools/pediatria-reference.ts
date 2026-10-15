@@ -291,3 +291,67 @@ export function rateInputValue(tree: HeadlessNode): string {
   if (!input) throw new Error('InfusionCard sem o campo de vazão');
   return String(input.props.value);
 }
+
+/** Textos dos filhos de um bloco cujo primeiro filho tem exatamente o rótulo. */
+export function childTexts(tree: HeadlessNode, label: string): string[] {
+  const block = findAll(tree, (element) => {
+    const children = element.children.filter(isElement);
+    return children.length >= 2 && textOf(children[0]).trim() === label;
+  })[0];
+  return block ? block.children.filter(isElement).map((child) => textOf(child).trim()) : [];
+}
+
+const HETRIN_REFERENCE = join(process.cwd(), 'tests/any-reference/hetrinped-v1.1.7.html');
+
+export interface HetrinInternals {
+  ALTURA_PESO: [number, number, number, boolean][];
+  pesoPorAltura: (cm: number) => number | null;
+  estimatePesoByAge: (ageY: number | null) => number | null;
+  extraEquipment: (
+    w: number,
+    ageY: number | null,
+  ) => { cvc: string; dreno: string; jelcoTorax: string; jelcoPa: string; svd: string } | null;
+}
+
+/** Elemento de mentira: aceita qualquer leitura e escrita que o `init()` do HETRIN faz. */
+function stubElement(): unknown {
+  const element: unknown = new Proxy(function stub() {}, {
+    get(_target, key) {
+      if (key === 'classList') return { add() {}, remove() {}, toggle() {}, contains: () => false };
+      if (key === 'style') return {};
+      return element;
+    },
+    set: () => true,
+    apply: () => element,
+  });
+  return element;
+}
+
+/**
+ * Executa o `<script>` do HETRIN Ped v1.1.7 congelado (HTML único) sem
+ * navegador e devolve as funções puras de estimativa de peso e de acessos e
+ * drenos (CC-320). O DOM é de mentira: o script desenha a tela ao carregar,
+ * mas o teste só usa as funções.
+ */
+export function loadHetrin(): HetrinInternals {
+  const content = readFileSync(HETRIN_REFERENCE, 'utf-8');
+  const original = content.split(MARKER)[1];
+  if (original === undefined) throw new Error('hetrinped-v1.1.7.html sem o marcador da referência');
+  const start = original.indexOf('<script>');
+  const end = original.lastIndexOf('</script>');
+  if (start < 0 || end < 0) throw new Error('HETRIN sem <script>');
+  const script = original.slice(start + '<script>'.length, end);
+  const document = {
+    querySelector: stubElement,
+    getElementById: stubElement,
+    querySelectorAll: () => [],
+    addEventListener() {},
+  };
+  // eslint-disable-next-line @typescript-eslint/no-implied-eval -- só teste, sobre arquivo congelado
+  return new Function(
+    'document',
+    'navigator',
+    'window',
+    `${script}\nreturn { ALTURA_PESO, pesoPorAltura, estimatePesoByAge, extraEquipment };`,
+  )(document, {}, { scrollTo() {} }) as HetrinInternals;
+}

@@ -5,8 +5,10 @@ import { formatCompact } from '@clinical-tools/numbers';
 import { describeBroselowAge } from '@clinical-tools/pediatrics/broselow';
 import {
   AGE_RANGE,
+  LENGTH_RANGE,
   WEIGHT_SOURCE_LABEL,
   type PediatricPatient,
+  type WeightField as WeightFieldId,
 } from '@clinical-tools/pediatrics/weight';
 import { NumericField } from '@/components/domain/clinical-tools/numeric-field';
 import {
@@ -19,17 +21,25 @@ import { Button } from '@/components/ui/button';
 import { Callout } from '@/components/ui/callout';
 import { usePediatricSession } from './pediatric-session';
 
+const INVALID_FIELD: Record<WeightFieldId, string> = {
+  peso: 'Peso',
+  comprimento: 'Comprimento',
+  idade: 'Idade',
+};
+
 function WeightSummary({ patient }: { patient: PediatricPatient }) {
   const { weight } = patient;
   if (weight.status === 'vazio') {
     return (
-      <span className="text-muted-foreground">Informe o peso ou escolha a cor de Broselow.</span>
+      <span className="text-muted-foreground">
+        Informe o peso, a cor de Broselow, o comprimento ou a idade.
+      </span>
     );
   }
   if (weight.status === 'invalido') {
     return (
       <span className="font-medium text-destructive">
-        Peso fora da faixa aceita: nenhuma dose é calculada.
+        {INVALID_FIELD[weight.field]} fora da faixa aceita: nenhuma dose é calculada.
       </span>
     );
   }
@@ -67,35 +77,49 @@ function AgeSummary({ patient }: { patient: PediatricPatient }) {
 }
 
 /**
- * Entrada da criança (CC-319): peso aferido, cor de Broselow e idade. O
- * resumo diz de onde veio o peso em uso e marca o que é estimativa; neonato
- * ganha o alerta do ANY, em forma de sugestão.
+ * Entrada da criança (CC-319, CC-320): peso aferido, cor de Broselow,
+ * comprimento e idade. Sem balança, o comprimento (29 faixas) ou a idade
+ * (APLS) estimam o peso. O resumo diz de onde veio o peso em uso e marca o
+ * que é estimativa; neonato ganha o alerta do ANY, em forma de sugestão.
  */
 export function PatientPanel() {
-  const { inputs, patient, setWeight, setBroselow, setAge, reset } = usePediatricSession();
+  const { inputs, patient, setWeight, setBroselow, setLength, setAge, reset } =
+    usePediatricSession();
   const { weight } = patient;
-  const hasInput = inputs.weight !== '' || inputs.broselow !== null || inputs.age !== '';
+  const hasInput =
+    inputs.weight !== '' || inputs.broselow !== null || inputs.length !== '' || inputs.age !== '';
 
   return (
     <section aria-label="Peso e idade da criança" className="flex flex-col gap-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-4">
           <WeightField population="pediatrico" value={inputs.weight} onValueChange={setWeight} />
-          <NumericField
-            label="Idade"
-            unit="anos"
-            range={AGE_RANGE}
-            value={inputs.age}
-            onValueChange={setAge}
-            placeholder="4"
-            hint="Para as drogas por idade. Use fração para meses: 0,5 = 6 meses."
-          />
+          <div className="grid grid-cols-2 gap-3">
+            <NumericField
+              label="Comprimento"
+              unit="cm"
+              range={LENGTH_RANGE}
+              value={inputs.length}
+              onValueChange={setLength}
+              placeholder="90"
+              hint="Sem balança: estima o peso."
+            />
+            <NumericField
+              label="Idade"
+              unit="anos"
+              range={AGE_RANGE}
+              value={inputs.age}
+              onValueChange={setAge}
+              placeholder="4"
+              hint="0,5 = 6 meses."
+            />
+          </div>
         </div>
         <BroselowPicker
           value={inputs.broselow}
           onChange={setBroselow}
           suggested={
-            weight.status === 'pronto' && weight.source === 'medido' ? weight.color.key : null
+            weight.status === 'pronto' && weight.source !== 'broselow' ? weight.color.key : null
           }
         />
       </div>

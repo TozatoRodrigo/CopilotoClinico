@@ -47,7 +47,9 @@ describe('/ferramentas/pediatria (CC-319)', () => {
     expect(
       screen.getByText('Doses aguardando assinatura da fonte única (CC-321).'),
     ).toBeInTheDocument();
-    expect(screen.getByText(/revisão clínica pendente/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/PedGuide\.tsx \(95c8fba\).*revisão clínica pendente/),
+    ).toBeInTheDocument();
   });
 
   it('sem peso não calcula e pede o peso ou a cor', async () => {
@@ -180,5 +182,88 @@ describe('/ferramentas/pediatria (CC-319)', () => {
       '3,4',
     );
     expect(screen.getByText('10,1')).toBeInTheDocument();
+  });
+});
+
+function weightStatus(): HTMLElement | null {
+  return screen.getByText(/Peso em uso/).closest('p');
+}
+
+describe('/ferramentas/pediatria — estimativa de peso e apoio (CC-320)', () => {
+  beforeEach(() => window.localStorage.clear());
+
+  it('sem balança, o comprimento estima o peso e marca como estimado', async () => {
+    renderScreen();
+    await userEvent.type(screen.getByRole('textbox', { name: /Comprimento/ }), '100');
+    expect(weightStatus()).toHaveTextContent('16 kg');
+    expect(weightStatus()).toHaveTextContent('Estimado');
+    expect(weightStatus()).toHaveTextContent('estimado pelo comprimento');
+  });
+
+  it('só com a idade, estima o peso pelo APLS e mostra acessos e drenos', async () => {
+    renderScreen();
+    await userEvent.type(screen.getByRole('textbox', { name: /Idade/ }), '3');
+    expect(weightStatus()).toHaveTextContent('14 kg');
+    expect(weightStatus()).toHaveTextContent('estimado pela idade (APLS)');
+    expect(screen.getByText('Cateter venoso central').nextSibling).toHaveTextContent('5 Fr/20G');
+  });
+
+  it('o peso aferido manda sobre a estimativa', async () => {
+    renderScreen();
+    await userEvent.type(screen.getByRole('textbox', { name: /Idade/ }), '3');
+    await typeWeight('11');
+    expect(weightStatus()).toHaveTextContent('11 kg');
+    expect(weightStatus()).toHaveTextContent('Aferido');
+  });
+
+  it('comprimento fora de 40 a 160 cm é erro e não calcula', async () => {
+    renderScreen();
+    await userEvent.type(screen.getByRole('textbox', { name: /Comprimento/ }), '170');
+    expect(
+      screen.getByText('Comprimento fora da faixa aceita: nenhuma dose é calculada.'),
+    ).toBeInTheDocument();
+  });
+
+  it('lista os sete cenários com link para a tela de cada um', () => {
+    renderScreen();
+    const scenarios = screen.getByRole('region', { name: /Cenários/ });
+    expect(within(scenarios).getAllByRole('link')).toHaveLength(7);
+    expect(within(scenarios).getByRole('link', { name: /Anafilaxia/ })).toHaveAttribute(
+      'href',
+      '/ferramentas/pediatria/cenarios/anafilaxia',
+    );
+  });
+
+  it('PCR, fluidos, transfusão e PAS mínima pelo peso e pela idade', async () => {
+    renderScreen();
+    await typeWeight('12');
+    await userEvent.type(screen.getByRole('textbox', { name: /Idade/ }), '4');
+
+    const cpr = screen.getByRole('region', { name: /PCR pediátrica/ });
+    expect(within(cpr).getByText('1ª desfibrilação (2 J/kg)').nextSibling).toHaveTextContent('24');
+    expect(within(cpr).getByText('Profundidade').nextSibling).toHaveTextContent('1/3 AP (~5cm)');
+    expect(within(cpr).getByText('Refratária: 2 J/kg (24 J)')).toBeInTheDocument();
+
+    const fluids = screen.getByRole('region', { name: /Fluidos e transfusão/ });
+    expect(
+      within(fluids).getByText('Bolus de cristaloide (20 mL/kg)').nextSibling,
+    ).toHaveTextContent('240');
+    expect(within(fluids).getByText('Manutenção (Holliday-Segar)').nextSibling).toHaveTextContent(
+      '44',
+    );
+    expect(within(fluids).getByText(/Considere ativar com perda/)).toBeInTheDocument();
+
+    expect(screen.getByText(/PAS mínima estimada/)).toHaveTextContent('78 mmHg');
+  });
+
+  it('checklist de intubação mostra o material da cor e marca os itens', async () => {
+    renderScreen();
+    await typeWeight('12');
+    const checklist = screen.getByRole('region', { name: /Checklist de intubação/ });
+    expect(within(checklist).getByText('Lâmina 2')).toBeInTheDocument();
+    expect(within(checklist).getByText('4 e 3,5')).toBeInTheDocument();
+    const item = within(checklist).getByRole('checkbox', { name: /Acesso venoso pérvio/ });
+    await userEvent.click(item);
+    expect(item).toBeChecked();
   });
 });

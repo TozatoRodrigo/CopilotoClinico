@@ -52,6 +52,8 @@ describe('referência congelada do ANY', () => {
         'formatters.ts',
         // CC-319 — pediatria
         'PedGuide.tsx',
+        // CC-320 — peso por idade e comprimento, acessos e drenos
+        'hetrinped-v1.1.7.html',
       ]),
     );
   });

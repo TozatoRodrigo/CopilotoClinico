@@ -3,6 +3,7 @@
 import { useDeferredValue, useMemo, useState } from 'react';
 import { normalizeSearchText } from '@clinical-tools/catalog';
 import { airwayEquipment } from '@clinical-tools/pediatrics/broselow';
+import { accessEquipment } from '@clinical-tools/pediatrics/support';
 import { BOLUS_GROUPS, type BolusGroup } from '@clinical-tools/pediatrics/bolus-drugs';
 import type { BolusDrug } from '@clinical-tools/pediatrics/bolus';
 import {
@@ -114,7 +115,56 @@ export function AirwaySection() {
           Informe o peso ou a cor para ver o material.
         </p>
       )}
+      {equipment ? <AccessFigures /> : null}
     </section>
+  );
+}
+
+/**
+ * Acessos e drenos por peso e idade (CC-320). Vêm do HETRIN Ped, não do
+ * PedGuide v4: a origem fica escrita embaixo, e sem idade não há sugestão.
+ */
+function AccessFigures() {
+  const { kg, ageYears } = useDoseContext();
+  const access = kg === null ? null : accessEquipment(kg, ageYears);
+  const items = access
+    ? [
+        { label: 'Cateter venoso central', value: access.centralVenousCatheter, unit: '' },
+        { label: 'Dreno de tórax', value: access.chestDrain, unit: 'French' },
+        { label: 'Jelco de descompressão', value: access.needleDecompression, unit: 'Gauge' },
+        { label: 'Jelco de PA invasiva', value: access.arterialLine, unit: 'Gauge' },
+        { label: 'Sonda vesical', value: access.urinaryCatheter, unit: 'French' },
+      ]
+    : [];
+  return (
+    <div className="flex flex-col gap-2">
+      <h3 className="text-sm font-semibold text-foreground">Acessos e drenos</h3>
+      {access ? (
+        <>
+          <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {items.map((item) => (
+              <div
+                key={item.label}
+                className="flex flex-col gap-0.5 rounded-md bg-surface-subtle px-3 py-2"
+              >
+                <dt className="text-xs text-muted-foreground">{item.label}</dt>
+                <dd className="text-base font-semibold text-foreground tabular-nums">
+                  {item.value}{' '}
+                  {item.unit ? (
+                    <span className="text-xs font-normal text-muted-foreground">{item.unit}</span>
+                  ) : null}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <p className="text-xs text-muted-foreground">
+            Do HETRIN Ped (não existe no PedGuide v4); revisão clínica pendente.
+          </p>
+        </>
+      ) : (
+        <p className="text-sm text-muted-foreground">Informe a idade para ver acessos e drenos.</p>
+      )}
+    </div>
   );
 }
 

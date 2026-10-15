@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { airwayEquipment, broselowColorForWeight, findBroselowColor } from './broselow';
-import { resolvePediatricPatient, type PediatricInputs } from './weight';
+import {
+  estimateWeightFromAge,
+  estimateWeightFromLength,
+  LENGTH_WEIGHT_BANDS,
+  resolvePediatricPatient,
+  type PediatricInputs,
+} from './weight';
 
 function resolve(partial: Partial<PediatricInputs>) {
-  return resolvePediatricPatient({ weight: '', broselow: null, age: '', ...partial });
+  return resolvePediatricPatient({ weight: '', broselow: null, length: '', age: '', ...partial });
 }
 
 describe('peso da criança (CC-319)', () => {
@@ -50,6 +56,58 @@ describe('peso da criança (CC-319)', () => {
     expect(resolve({ weight: '2,9' }).weight).toMatchObject({ neonatal: true });
     expect(resolve({ weight: '3' }).weight).toMatchObject({ neonatal: false });
     expect(resolve({ broselow: 'gray' }).weight).toMatchObject({ kg: 3, neonatal: false });
+  });
+});
+
+describe('peso estimado pelo comprimento e pela idade (CC-320)', () => {
+  it('a tabela de comprimento tem 29 faixas e cobre 40 a 160 cm sem buraco', () => {
+    expect(LENGTH_WEIGHT_BANDS).toHaveLength(29);
+    for (let cm = 40; cm <= 160; cm += 1) {
+      expect(estimateWeightFromLength(cm), `${cm} cm`).not.toBeNull();
+    }
+    expect(estimateWeightFromLength(47.6)).toBe(4);
+    expect(estimateWeightFromLength(100)).toBe(16);
+    expect(estimateWeightFromLength(160)).toBe(50);
+  });
+
+  it('APLS por idade: abaixo de 1 ano, de 1 a 5 e acima de 5, limitado a 50 kg', () => {
+    expect(estimateWeightFromAge(0)).toBe(4);
+    expect(estimateWeightFromAge(0.5)).toBe(7);
+    expect(estimateWeightFromAge(1)).toBe(10);
+    expect(estimateWeightFromAge(5)).toBe(18);
+    expect(estimateWeightFromAge(5.5)).toBe(24);
+    expect(estimateWeightFromAge(10)).toBe(37);
+    expect(estimateWeightFromAge(15)).toBe(50);
+  });
+
+  it('comprimento e idade dão peso marcado como estimado, e a cor vem do peso', () => {
+    expect(resolve({ length: '100' }).weight).toMatchObject({
+      status: 'pronto',
+      kg: 16,
+      source: 'comprimento',
+      estimated: true,
+    });
+    const byAge = resolve({ age: '3' }).weight;
+    expect(byAge).toMatchObject({ kg: 14, source: 'idade', estimated: true });
+    expect(byAge.status === 'pronto' && byAge.color.key).toBe('white');
+  });
+
+  it('vale a melhor fonte: aferido, cor, comprimento, idade', () => {
+    expect(resolve({ weight: '9', length: '100', age: '3' }).weight).toMatchObject({
+      source: 'medido',
+    });
+    expect(resolve({ broselow: 'red', length: '100' }).weight).toMatchObject({
+      source: 'broselow',
+    });
+    expect(resolve({ length: '100', age: '3' }).weight).toMatchObject({ source: 'comprimento' });
+  });
+
+  it('a fonte preenchida fora da faixa é erro, e não cai para a próxima', () => {
+    expect(resolve({ length: '30', age: '3' }).weight).toMatchObject({
+      status: 'invalido',
+      field: 'comprimento',
+    });
+    expect(resolve({ age: '19' }).weight).toMatchObject({ status: 'invalido', field: 'idade' });
   });
 });
 
