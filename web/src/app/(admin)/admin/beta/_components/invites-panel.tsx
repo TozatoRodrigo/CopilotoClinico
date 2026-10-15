@@ -28,7 +28,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/domain/empty-state';
 import { SectionHeader } from '@/components/layout/page-header';
-import { copyText } from '../../_lib/gold-case';
+import { copyText } from '@/lib/clipboard';
 import { INVITE_STATUS_TAG, StatusTag, formatShortDate } from './beta-labels';
 
 interface BatchForm {
