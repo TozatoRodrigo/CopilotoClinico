@@ -84,6 +84,8 @@ describe('referência congelada do ANY', () => {
         'PedGuide.tsx',
         // CC-320 — peso por idade e comprimento, acessos e drenos
         'hetrinped-v1.1.7.html',
+        // CC-325 — dengue (a hidratação mora em calculations.ts; o resto, na página)
+        'DenguePath.tsx',
       ]),
     );
   });
