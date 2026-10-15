@@ -7,6 +7,7 @@ import {
   Database,
   Gear,
   House,
+  Scales,
   ShieldCheck,
   ShieldWarning,
   SquaresFour,
@@ -80,6 +81,8 @@ const ADMIN_ITEMS: AdminNavItem[] = [
     icon: ShieldCheck,
     roles: ['compliance', 'admin'],
   },
+  // CC-905 — versões dos termos e da política e o % de aceite (publicar é só do ADMIN).
+  { href: '/admin/termos', label: 'Termos', icon: Scales, roles: ['compliance', 'admin'] },
   { href: '/admin/diretrizes', label: 'Diretrizes', icon: Database, roles: ['compliance', 'admin'] },
   // F0-D — fila de triagem do feedback dos médicos (curadoria).
   {

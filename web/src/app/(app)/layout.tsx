@@ -5,10 +5,13 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-store";
 import { AppShell } from "@/components/layout/app-shell";
 import { LogoMark } from "@/components/brand/logo";
+import { useLegalTermsGate } from "@/components/layout/legal-terms-gate";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
+  // CC-905 — termos e política novos: tela de aceite antes do app.
+  useLegalTermsGate(!isLoading && isAuthenticated);
 
   useEffect(() => {
     // Só redireciona DEPOIS que o estado de auth terminou de carregar
