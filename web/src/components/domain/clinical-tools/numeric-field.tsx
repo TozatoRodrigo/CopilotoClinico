@@ -47,6 +47,8 @@ export interface NumericFieldProps {
   placeholder?: string;
   id?: string;
   className?: string;
+  /** Classes extras do campo (ex.: valor maior no resultado de uma infusão). */
+  inputClassName?: string;
 }
 
 /**
@@ -65,6 +67,7 @@ export function NumericField({
   placeholder,
   id,
   className,
+  inputClassName,
 }: NumericFieldProps) {
   const generatedId = useId();
   const inputId = id ?? `numeric-${generatedId}`;
@@ -105,9 +108,12 @@ export function NumericField({
           onBlur={() => setLeft(true)}
           aria-invalid={error ? true : undefined}
           aria-describedby={describedBy || undefined}
+          // Espaço à direita do tamanho da unidade: "mcg/kg/min" não pode cobrir o número.
+          style={unit ? { paddingRight: `calc(${unit.length}ch + 1.25rem)` } : undefined}
           className={cn(
             'h-11 pl-3 text-base font-medium tabular-nums placeholder:font-normal max-sm:h-11 md:text-base',
-            unit ? 'pr-16' : 'pr-3',
+            unit ? null : 'pr-3',
+            inputClassName,
           )}
         />
         {unit ? (

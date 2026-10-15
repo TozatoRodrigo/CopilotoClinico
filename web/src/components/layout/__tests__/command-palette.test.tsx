@@ -38,6 +38,18 @@ describe('CommandPalette — Ferramentas (ADR-017)', () => {
     expect(push).toHaveBeenCalledWith('/ferramentas/calculadoras/curb65');
   });
 
+  it('com a flag ligada, abre a droga de Infusões direto pelo nome ou sinônimo (CC-311)', async () => {
+    vi.stubEnv('NEXT_PUBLIC_FERRAMENTAS', 'on');
+    render(<CommandPalette open onOpenChange={vi.fn()} />);
+
+    await userEvent.type(screen.getByRole('combobox'), 'nora');
+
+    const group = await screen.findByRole('group', { name: 'Ferramentas' });
+    expect(within(group).getByRole('option', { name: /^Infusões contínuas/ })).toBeInTheDocument();
+    await userEvent.click(within(group).getByRole('option', { name: /^Noradrenalina/ }));
+    expect(push).toHaveBeenCalledWith('/ferramentas/infusoes?droga=noradrenalina');
+  });
+
   it('com a flag ligada, a página Ferramentas aparece em Páginas', async () => {
     vi.stubEnv('NEXT_PUBLIC_FERRAMENTAS', 'on');
     render(<CommandPalette open onOpenChange={vi.fn()} />);
