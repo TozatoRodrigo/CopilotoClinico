@@ -78,7 +78,7 @@ function displayStatusWhere(
 }
 
 /**
- * CC-402 (ADR-017) — ciclo de vida do cartão revisado: listar, ver, corrigir
+ * CC-402 (ADR-019) — ciclo de vida do cartão revisado: listar, ver, corrigir
  * (versão nova), enviar para revisão, aprovar, rejeitar e arquivar. Cada
  * transição grava um evento na trilha de auditoria, com a versão e o hash do
  * conteúdo, e nunca texto livre.

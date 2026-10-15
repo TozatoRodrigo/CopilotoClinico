@@ -4,7 +4,7 @@ import type {
 } from '../../../shared/contracts/knowledge-cards';
 
 /**
- * CC-402 — ciclo de vida do cartão (ADR-017):
+ * CC-402 — ciclo de vida do cartão (ADR-019):
  *
  *   rascunho ──enviar──▶ em revisão ──aprovar──▶ publicado ──arquivar──▶ arquivado
  *                         │  ▲                      │

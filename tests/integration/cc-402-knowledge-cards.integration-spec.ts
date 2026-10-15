@@ -1,5 +1,5 @@
 /**
- * Testes de integração — CC-402/CC-403/CC-412 (ADR-017): cartões revisados.
+ * Testes de integração — CC-402/CC-403/CC-412 (ADR-019): cartões revisados.
  *
  * Requisito: banco PostgreSQL acessível via DATABASE_URL com as migrations
  * aplicadas (20261014120000_cc_402_knowledge_cards) e a role `copiloto_app`

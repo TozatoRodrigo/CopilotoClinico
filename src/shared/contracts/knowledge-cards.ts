@@ -1,7 +1,7 @@
 import type { PsSyndrome } from './clinical';
 
 /**
- * CC-402 / CC-403 (ADR-017) — cartões revisados: uma situação clínica, com
+ * CC-402 / CC-403 (ADR-019) — cartões revisados: uma situação clínica, com
  * pergunta e resposta curta, em que cada afirmação e cada dose citam um
  * trecho literal de uma diretriz já ingerida. A IA rascunha; um médico com
  * CRM verificado revisa e assina.

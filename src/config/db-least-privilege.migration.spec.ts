@@ -65,7 +65,7 @@ describe.each(F0D_MIGRATIONS)('F0-D migration $dir', ({ dir, table }) => {
 });
 
 /**
- * CC-402 (ADR-017) — cartões revisados: nada se apaga (o cartão sai de uso por
+ * CC-402 (ADR-019) — cartões revisados: nada se apaga (o cartão sai de uso por
  * `archived`), o rascunho da IA é escrito uma vez, e o que o revisor assinou
  * não muda (trigger).
  */

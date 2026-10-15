@@ -569,7 +569,7 @@ model OfficialGuidelineDocument {
   @@map("official_guideline_documents")
 }
 
-/// CC-402 (ADR-017) — ciclo de vida do cartão revisado. "Revisar" (validade
+/// CC-402 (ADR-019) — ciclo de vida do cartão revisado. "Revisar" (validade
 /// vencida) não é status gravado: é derivado na leitura (card-lifecycle.ts).
 enum KnowledgeCardStatus {
   draft
@@ -598,7 +598,7 @@ enum KnowledgeCardDraftStatus {
   failed
 }
 
-/// CC-403 (ADR-017) — um pedido de rascunho de cartões à IA: tema, trechos de
+/// CC-403 (ADR-019) — um pedido de rascunho de cartões à IA: tema, trechos de
 /// fonte entregues, modelo, versão do prompt e o que passou na checagem de
 /// citação. Gravado de uma vez, depois da resposta — inclusive quando falha,
 /// porque o custo já foi gasto.
@@ -640,7 +640,7 @@ model KnowledgeCardDraft {
   @@map("knowledge_card_drafts")
 }
 
-/// CC-402 (ADR-017) — cartão revisado: uma situação clínica, pergunta e
+/// CC-402 (ADR-019) — cartão revisado: uma situação clínica, pergunta e
 /// resposta curta com fonte, assinado por médico com CRM verificado.
 ///
 /// O cartão é a identidade estável; o conteúdo vive nas versões. Editar cria

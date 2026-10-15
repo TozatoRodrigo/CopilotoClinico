@@ -194,7 +194,7 @@ Todo incidente reportado em campo vira caso: copie um arquivo parecido, troque o
 
 ### Gabarito e cartões (CC-412)
 
-Nenhum caso do gabarito nasce dos cartões revisados (ADR-017): um caso escrito a partir de um cartão mede o Copiloto contra ele mesmo — o problema do gabarito v1. Três regras:
+Nenhum caso do gabarito nasce dos cartões revisados (ADR-019): um caso escrito a partir de um cartão mede o Copiloto contra ele mesmo — o problema do gabarito v1. Três regras:
 
 - `goldSource` registra a fonte real (prova oficial, médico, incidente…). `card` e `knowledge_card` são recusados pelo schema, com a mensagem do CC-412.
 - Caso escrito a partir de um rascunho de IA de cartão registra `draftOrigin` (`draftId` e `sourceContentSha256` do rascunho). `pnpm cards:check-circularity` e o runner do gabarito recusam caso e cartão com o mesmo `draftId` ou o mesmo `sourceContentSha256` (os mesmos trechos de fonte entregues ao modelo, em outro pedido).

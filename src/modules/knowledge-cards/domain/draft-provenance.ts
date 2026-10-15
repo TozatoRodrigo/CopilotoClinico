@@ -2,7 +2,7 @@ import { sha256Hex } from '../../audit/audit-hash';
 import { normalizeForCitation } from './citation-check';
 
 /**
- * CC-412 (ADR-017) — anti-circularidade: um caso do gabarito e um cartão não
+ * CC-412 (ADR-019) — anti-circularidade: um caso do gabarito e um cartão não
  * podem nascer do mesmo rascunho. Se nascerem, o gabarito mede o Copiloto
  * contra ele mesmo — o problema do gabarito v1, em que casos e base saíram da
  * mesma fonte e a nota subiu sem o Copiloto melhorar.

@@ -1,4 +1,4 @@
-/** Eventos da trilha de auditoria (ADR-002/015) nas transições do cartão (ADR-017). */
+/** Eventos da trilha de auditoria (ADR-002/015) nas transições do cartão (ADR-019). */
 export const KNOWLEDGE_CARD_AUDIT_ACTIONS = {
   drafted: 'CARD_DRAFTED',
   versionCreated: 'CARD_VERSION_CREATED',

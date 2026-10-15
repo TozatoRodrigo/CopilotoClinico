@@ -1,4 +1,4 @@
-# ADR-017: Cartões revisados — modelo, rascunho com citação literal e anti-circularidade
+# ADR-019: Cartões revisados — modelo, rascunho com citação literal e anti-circularidade
 
 **Status:** Proposto — base implementada (CC-402, CC-403, CC-412), aguardando revisão clínica
 **Data:** 2026-10-14

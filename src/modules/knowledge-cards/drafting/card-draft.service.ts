@@ -144,7 +144,7 @@ function toContentInput(card: DraftedCard, sources: readonly DraftSource[]) {
 }
 
 /**
- * CC-403 (ADR-017) — rascunho de cartões por IA com citação obrigatória.
+ * CC-403 (ADR-019) — rascunho de cartões por IA com citação obrigatória.
  *
  * Dado um tema e trechos de diretriz já ingeridos, pede ao modelo cartões em
  * JSON (etapa `card_draft` no rastro) e passa cada um pela checagem

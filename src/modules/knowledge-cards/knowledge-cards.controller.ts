@@ -48,7 +48,7 @@ interface AuthenticatedRequest {
 }
 
 /**
- * CC-402/CC-403 (ADR-017) — cartões revisados no console admin, e a API da
+ * CC-402/CC-403 (ADR-019) — cartões revisados no console admin, e a API da
  * tela de revisão no celular (CC-404).
  *
  * Mesma barreira da curadoria de diretrizes e da triagem de feedback:

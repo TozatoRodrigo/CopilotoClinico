@@ -1,4 +1,4 @@
--- CC-402 / CC-403 / CC-412 (ADR-017) — cartões revisados.
+-- CC-402 / CC-403 / CC-412 (ADR-019) — cartões revisados.
 --
 -- Um cartão é uma situação clínica com pergunta e resposta curta, cada
 -- afirmação e cada dose citando um trecho literal de uma diretriz já ingerida
