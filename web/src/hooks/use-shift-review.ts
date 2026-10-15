@@ -10,12 +10,16 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
 import type {
   AnswerShiftReviewQuestionRequest,
+  ShiftReviewMapState,
   ShiftReviewQuestionView,
   ShiftReviewState,
   ShiftReviewView,
 } from '@contracts/shift-review';
 
 export const shiftReviewQueryKey = ['shift-review', 'current'] as const;
+
+/** CC-802 — "Seu mapa". */
+export const shiftReviewMapQueryKey = ['shift-review', 'map'] as const;
 
 /** Intervalo da consulta enquanto as perguntas são geradas. */
 export const SHIFT_REVIEW_POLL_MS = 2_000;
@@ -46,7 +50,19 @@ export function useAnswerShiftReviewQuestion() {
       ...body
     }: AnswerShiftReviewQuestionRequest & { questionId: string }) =>
       apiClient.post<ShiftReviewState>(`/shift-review/questions/${questionId}/answer`, body),
-    onSuccess: (state) => queryClient.setQueryData(shiftReviewQueryKey, state),
+    onSuccess: (state) => {
+      queryClient.setQueryData(shiftReviewQueryKey, state);
+      // Cada resposta muda o mapa: a aba "Seu mapa" não pode mostrar o de antes.
+      void queryClient.invalidateQueries({ queryKey: shiftReviewMapQueryKey });
+    },
+  });
+}
+
+/** CC-802 — mapa de calibração do médico: acerto × o quanto sabia, por tema. */
+export function useShiftReviewMap() {
+  return useQuery({
+    queryKey: shiftReviewMapQueryKey,
+    queryFn: () => apiClient.get<ShiftReviewMapState>('/shift-review/map'),
   });
 }
 

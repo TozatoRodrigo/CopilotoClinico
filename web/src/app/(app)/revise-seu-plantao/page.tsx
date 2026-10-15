@@ -6,6 +6,7 @@ import { GraduationCap } from '@phosphor-icons/react';
 import { EmptyState } from '@/components/domain/empty-state';
 import { ReviewQuestionCard } from '@/components/domain/shift-review/review-question-card';
 import { ReviewSummary } from '@/components/domain/shift-review/review-summary';
+import { ShiftReviewNav } from '@/components/domain/shift-review/shift-review-nav';
 import { Page } from '@/components/layout/page';
 import { PageHeader } from '@/components/layout/page-header';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -46,13 +47,16 @@ export default function ShiftReviewPage() {
 
   return (
     <Page width="narrow">
-      <PageHeader
-        size="compact"
-        icon={GraduationCap}
-        iconTone="blue"
-        title={copy.title}
-        description={copy.page.description}
-      />
+      <div className="flex flex-col gap-4">
+        <PageHeader
+          size="compact"
+          icon={GraduationCap}
+          iconTone="blue"
+          title={copy.title}
+          description={copy.page.description}
+        />
+        <ShiftReviewNav current="review" />
+      </div>
 
       {stateQuery.isPending ? (
         <ReviewSkeleton />
