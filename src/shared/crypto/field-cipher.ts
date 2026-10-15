@@ -7,7 +7,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'crypt
  * - legado, `iv:authTag:ciphertext` em hex — segredo do MFA e áudio
  *   (CryptoService.encrypt/decrypt);
  * - versionada, `enc:v1:<id da chave>:<base64(iv ‖ authTag ‖ ciphertext)>` —
- *   texto clínico (CC-207, ADR-020). O prefixo separa valor cifrado de texto
+ *   texto clínico (CC-207, ADR-021). O prefixo separa valor cifrado de texto
  *   em claro na leitura dupla, e o id da chave diz qual chave abre o valor
  *   durante uma rotação.
  */

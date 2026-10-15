@@ -1,7 +1,7 @@
 import { Prisma } from '@prisma/client';
 
 /**
- * CC-207 / ADR-020 — inventário das colunas com texto clínico, cifradas em
+ * CC-207 / ADR-021 — inventário das colunas com texto clínico, cifradas em
  * repouso. Fonte única para a extensão do Prisma (cifra na gravação, leitura
  * dupla), para o script de migração em lote e para o `--verify`.
  *

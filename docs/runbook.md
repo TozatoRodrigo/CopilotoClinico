@@ -352,10 +352,10 @@ deve continuar usando `DATABASE_URL` com o usuário LOGIN membro de
 
 ⚠️ **ATENÇÃO — audit_log:** Qualquer migration que altere a tabela `audit_log` (ex: adicionar coluna) precisa de revisão manual. O trigger `audit_log_no_update_delete` bloqueia `UPDATE`/`DELETE` mas **não bloqueia DDL**. Verificar que a migration não remove dados existentes. Desde a ADR-015 o `audit_log` é gravado por SQL em `AuditService.writeAuditLogEntry`, não pelo Prisma Client: coluna nova precisa entrar nesse `INSERT`.
 
-### Texto clínico cifrado em repouso (CC-207, ADR-020)
+### Texto clínico cifrado em repouso (CC-207, ADR-021)
 
 O texto clínico (caso, saída da IA, conversa, anexos, transcrições,
-documentos, notas — inventário completo na ADR-020) é cifrado pela extensão
+documentos, notas — inventário completo na ADR-021) é cifrado pela extensão
 do Prisma com `FIELD_ENCRYPTION_KEY` quando `CLINICAL_TEXT_ENCRYPTION=on`. A
 leitura abre texto em claro e cifrado sempre, com a flag ligada ou não.
 
@@ -1018,7 +1018,7 @@ apenas na resposta. Acesso a um protocolo de outra instituição retorna `404`
 | `20260924180000_f9_guideline_chunks_text_tsv_generated` | `guideline_chunks.text_tsv` vira coluna gerada + índice GIN — liga a busca lexical (ver "Busca lexical (`text_tsv`) — F9") |
 | `20260924220000_ivfflat_probes_exact` | `ivfflat.probes = 100` no banco: busca vetorial exata (incidente de 24/09/2026) |
 | `20261012180000_aud_007_audit_log_hash_version` | `audit_log.hash_version` (NULL = hash legado, 2 = JSON canônico) — ADR-015; só adiciona coluna nula |
-| `20261015180000_cc207_chief_complaint_text` | `encounters.chief_complaint` de `VARCHAR(140)` para `TEXT`, para caber o valor cifrado — CC-207/ADR-020; sem reescrever a tabela |
+| `20261015180000_cc207_chief_complaint_text` | `encounters.chief_complaint` de `VARCHAR(140)` para `TEXT`, para caber o valor cifrado — CC-207/ADR-021; sem reescrever a tabela |
 
 ### Rollback de Migration
 
@@ -1040,7 +1040,7 @@ Prisma não suporta rollback automático. Para reverter:
 | `DATABASE_URL` | Sistema completamente indisponível ou rodando com privilégios excessivos |
 | `MIGRATION_DATABASE_URL` | Migrations indisponíveis ou executadas com usuário incorreto |
 | `FIELD_ENCRYPTION_KEY` | API não sobe (segredo do MFA). Trocada sem `FIELD_ENCRYPTION_KEY_PREVIOUS`: MFA, áudio e texto clínico cifrado deixam de abrir (`SealedValueError`). Perdida: o texto clínico cifrado não volta |
-| `CLINICAL_TEXT_ENCRYPTION` | `on` grava o texto clínico cifrado (CC-207/ADR-020); `off` (padrão) grava em claro. A leitura abre os dois sempre: desligar é o rollback. Ausente ou irreconhecível = `off`. Ver "Texto clínico cifrado em repouso" |
+| `CLINICAL_TEXT_ENCRYPTION` | `on` grava o texto clínico cifrado (CC-207/ADR-021); `off` (padrão) grava em claro. A leitura abre os dois sempre: desligar é o rollback. Ausente ou irreconhecível = `off`. Ver "Texto clínico cifrado em repouso" |
 | `FIELD_ENCRYPTION_KEY_PREVIOUS` | Só durante uma rotação: a chave anterior, para decifrar. Vazia = sem rotação |
 | `OFFICIAL_GUIDELINES_ENABLED` | `false` tira PCDT/DDT/DB/PU do retrieval (válvula de escape da ADR-010); ausente = ligada. Os limiares `OFFICIAL_*` estão em `.env.example` |
 | `UNREVIEWED_SOURCES_PRELIMINARY` | `false` desliga a contenção da ADR-012: PCDT e chunk curado sem assinatura voltam a embasar conduta definitiva. Ausente ou irreconhecível = ligada |

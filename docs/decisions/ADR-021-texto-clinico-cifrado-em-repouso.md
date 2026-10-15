@@ -1,4 +1,4 @@
-# ADR-020: Texto clínico cifrado em repouso — extensão do Prisma e leitura dupla
+# ADR-021: Texto clínico cifrado em repouso — extensão do Prisma e leitura dupla
 
 **Status:** Proposto
 **Data:** 2026-10-15

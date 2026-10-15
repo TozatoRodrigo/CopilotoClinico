@@ -21,7 +21,7 @@ function isFreeTextCandidate(field: (typeof models)[number]['fields'][number]): 
 }
 
 describe('CC-207 — inventário do texto clínico cifrado', () => {
-  it('lists exactly the clinical-text columns (change here = change the PR/ADR-020 inventory)', () => {
+  it('lists exactly the clinical-text columns (change here = change the PR/ADR-021 inventory)', () => {
     expect(SEALED_COLUMNS.map((column) => `${column.table}.${column.column}`)).toEqual([
       'ai_interactions.input_redacted',
       'ai_interactions.uncertainty_reason',

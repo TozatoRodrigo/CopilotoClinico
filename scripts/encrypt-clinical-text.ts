@@ -1,5 +1,5 @@
 /**
- * CC-207 / ADR-020 — cifra em lote o texto clínico gravado em claro (antes de
+ * CC-207 / ADR-021 — cifra em lote o texto clínico gravado em claro (antes de
  * CLINICAL_TEXT_ENCRYPTION=on) e confere que nada ficou em claro.
  *
  * Uso:

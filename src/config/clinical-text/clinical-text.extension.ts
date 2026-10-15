@@ -20,7 +20,7 @@ import {
 } from './clinical-text-fields';
 
 /**
- * CC-207 / ADR-020 — texto clínico cifrado em repouso, transparente para os
+ * CC-207 / ADR-021 — texto clínico cifrado em repouso, transparente para os
  * serviços.
  *
  * - Leitura dupla, sempre: valor `enc:v1:` é decifrado ao sair do Prisma —
