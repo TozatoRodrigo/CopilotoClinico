@@ -99,6 +99,16 @@ describe('/ferramentas — hub (CC-304)', () => {
     expect(within(results).getByRole('link', { name: /Infusões contínuas/ })).toBeInTheDocument();
   });
 
+  it('abre a Emergência pediátrica a partir do grupo Pediatria (CC-319)', () => {
+    render(<FerramentasPage />);
+    const pediatrics = screen.getByRole('region', { name: 'Pediatria' });
+
+    expect(within(pediatrics).getByRole('link', { name: /Emergência pediátrica/ })).toHaveAttribute(
+      'href',
+      '/ferramentas/pediatria',
+    );
+  });
+
   it("lista a ferramenta não portada como 'em breve', sem link nem favorito", () => {
     render(<FerramentasPage />);
     const airway = screen.getByRole('region', { name: 'Via aérea' });

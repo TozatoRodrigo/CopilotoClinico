@@ -170,6 +170,11 @@ desenha. Vitrine em `/dev/components#ferramentas`.
 | `DecisionSupportNotice` | Aviso fixo "Apoio à decisão; não substitui o julgamento clínico." |
 | `CalculatorView` | Tudo acima montado a partir de uma `CalculatorDefinition`, com os campos que o ANY abria preenchidos (FiO₂ 21%) e o aviso de versão aproximada (GRACE, APACHE II) acima dos campos. |
 | `InlineCalculator` | Calculadora dentro de um roteiro (Wells e D-dímero no TEP): campos, itens e resultado ao vivo, sem aviso, referência nem "copiar". `onComplete` faz o roteiro andar quando a conta fecha; `action` põe um botão abaixo do resultado ("Prosseguir como categoria B"). |
+| `pediatrics/BroselowPicker` | As nove cores da fita de Broselow como grupo de rádio (toque de 44 px), com nome e peso; a amostra usa os tokens de tom e vai sempre com o nome. |
+| `pediatrics/PediatricDrugCard` | Droga em bolus: dose, volume (ou vazão da infusão), teto e "teto atingido", selo e aviso de "não rotineiro", preparo. |
+| `pediatrics/PediatricInfusionCard` | Infusão pediátrica: preparo da faixa de peso, dose → mL/h ao vivo e a conta inversa. |
+| `pediatrics/ToolCollapsible` | Bloco que abre e fecha com alvo de 44 px e título em cabeçalho (o `Disclosure` tem 28 px). |
+| `pediatrics/CanonicalSourceNotice` | Aviso laranja "Doses aguardando assinatura da fonte única (CC-321)"; some quando a revisão do dado passa a `revisado`. |
 
 ## Receitas de página
 

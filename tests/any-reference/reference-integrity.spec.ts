@@ -20,7 +20,8 @@ const IMPORTS_REFERENCE = /(from\s+|import\s*\(\s*|require\s*\(\s*)['"][^'"]*any
 
 /**
  * Arquivos copiados: `.ts` de dado e conta, `.tsx` quando a conta mora no
- * componente e `.html` das ferramentas legadas (tools/), lidas só como texto.
+ * componente e `.html` quando a ferramenta do ANY é um HTML único (Tox Path
+ * legado, HETRIN), lido só como texto.
  */
 function referenceFiles(): string[] {
   return readdirSync(REFERENCE_DIR).filter(
@@ -79,6 +80,10 @@ describe('referência congelada do ANY', () => {
         'KetoConsulta.tsx',
         'KetoPlanilha.tsx',
         'KetoPath.tsx',
+        // CC-319 — pediatria
+        'PedGuide.tsx',
+        // CC-320 — peso por idade e comprimento, acessos e drenos
+        'hetrinped-v1.1.7.html',
       ]),
     );
   });
