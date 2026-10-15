@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation';
 import {
   BookOpen,
+  Calculator,
   ChartBar,
   ChatCircleText,
   ClipboardText,
@@ -13,9 +14,12 @@ import {
   IdentificationCard,
   ShieldCheck,
   SquaresFour,
+  Toolbox,
   UserCircle,
   Users,
 } from '@phosphor-icons/react';
+import { CALCULATOR_CATALOG } from '@clinical-tools/calculator-catalog';
+import { calculatorName } from '@clinical-tools/catalog';
 import { useEncounterDetail } from '@/lib/clinical-queries';
 import { Breadcrumb, type BreadcrumbItem } from '@/components/ui/breadcrumb';
 
@@ -75,6 +79,23 @@ function EncounterCrumbs({ segments }: { segments: string[] }) {
   return <Breadcrumb items={items} />;
 }
 
+/** ADR-017 — Ferramentas › Calculadoras › nome da calculadora. */
+function ferramentasCrumbs(segments: string[]): BreadcrumbItem[] {
+  const [, section, id] = segments;
+  const items: BreadcrumbItem[] = [
+    { label: 'Ferramentas', icon: Toolbox, href: section ? '/ferramentas' : undefined },
+  ];
+  if (section !== 'calculadoras') return items;
+  items.push({
+    label: 'Calculadoras',
+    icon: Calculator,
+    href: id ? '/ferramentas/calculadoras' : undefined,
+  });
+  const entry = id ? CALCULATOR_CATALOG.find((calculator) => calculator.id === id) : undefined;
+  if (entry) items.push({ label: calculatorName(entry) });
+  return items;
+}
+
 export function RouteBreadcrumbs() {
   const pathname = usePathname();
   const segments = pathname.split('/').filter(Boolean);
@@ -85,6 +106,8 @@ export function RouteBreadcrumbs() {
   if (first === 'encounters' && second && second !== 'new') {
     return <EncounterCrumbs segments={segments} />;
   }
+
+  if (first === 'ferramentas') return <Breadcrumb items={ferramentasCrumbs(segments)} />;
 
   const root = STATIC[first];
   if (!root) return null;

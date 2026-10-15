@@ -431,6 +431,32 @@ importa na triagem:
 | `kind=wrong_scenario` com `coverage=partial`/`none` | A base não cobre o cenário — problema de curadoria, vira pacote KB novo |
 | `kind=helpful` | Contraste positivo, necessário para calibrar o piso de relevância |
 
+### Ferramentas de beira-leito (ADR-017)
+
+A área `/ferramentas` (calculadoras e roteiros do ANY App) fica atrás de
+`NEXT_PUBLIC_FERRAMENTAS`, variável de **build** do web: o Next embute o valor
+no bundle, então ligar ou desligar exige uma imagem nova. Desligada (padrão),
+nada muda para o médico e `/ferramentas` mostra a página 404.
+
+Pré-requisitos para ligar em produção: cessão do ANY assinada pelos três
+sócios (CC-301) e revisão clínica das ferramentas publicadas (CC-310). Cada
+calculadora mostra no rodapé a origem, a versão e o estado da revisão.
+
+```bash
+# deploy só do web, com a área ligada (mesmo roteiro de tag para rollback)
+docker build -f docker/Dockerfile.web --build-arg NEXT_PUBLIC_FERRAMENTAS=on \
+  -t docker-copiloto-web:<nome> .
+```
+
+Desde o ADR-017 a imagem do web também copia `src/shared/clinical-tools` (o
+motor das ferramentas, TypeScript puro, sem dependência) e o servidor fica em
+`web/server.js` dentro da imagem. Mudança no motor exige rebuild do web, não
+só da API. Rollback por tag continua igual: cada imagem traz o próprio `CMD`.
+
+Nada das ferramentas vai para log ou servidor: a conta roda no aparelho, os
+favoritos ficam no `localStorage` e o texto copiado para o prontuário não tem
+dado de paciente.
+
 ### Triar sugestões de diretriz enviadas por médicos (F4)
 
 Qualquer médico autenticado pode enviar material pela tela de Diretrizes
@@ -952,6 +978,7 @@ Prisma não suporta rollback automático. Para reverter:
 | `COPILOT_INTAKE` | `on` liga o Copiloto guiado da ADR-014: antes do plano, a leitura do caso decide se pergunta (no máximo 3 perguntas, uma por vez). `off` (padrão) vai direto ao plano. Ausente ou irreconhecível = `off`. Modelo da leitura em `AI_INTAKE_MODEL` (vazio = o da Etapa 1). No log: `INTAKE_READING` (tempo e perguntas), `INTAKE_STARTED` (caminho: `ask`, `unstable`, `complete`, `reading_failed`, `disabled`), `INTAKE_CLOSED` (motivo) e `INTAKE_READING_TIMEOUT` (leitura passou de 20 s e o caso seguiu direto ao plano). Exige a migration `20261012120000_adr_014_case_intakes` |
 | `AI_DECISION_MODEL` / `AI_DECISION_CRITICAL_MODEL` | ADR-016: modelo da decisão no caso comum e no caso grave (instável ou tempo-crítico pela Etapa 1, ou sem entendimento). Vazios = `AI_MODEL` nas duas rotas. Crítico vazio = o comum nas duas. Aceitam `perfil:modelo`. No log: `DECISION_MODEL route=critical\|standard model=...`; a interação grava `params.decisionRoute` |
 | `COPILOT_KNOWLEDGE_SOURCE` | `internal_kb` (padrão) é a busca de sempre (embedding na OpenAI); `model_only` não busca nada; `web` pesquisa em fontes oficiais (`AI_RESEARCH_MODEL`, padrão `claude-sonnet-5-5`; `AI_RESEARCH_EFFORT`, padrão `low`; `WEB_RESEARCH_MAX_SEARCHES`, padrão 5; `WEB_RESEARCH_ALLOWED_DOMAINS`, vazio = 32 fontes padrão). `model_only` e `web` nunca chamam o provedor de embedding. `web` exige `stages` e `COPILOT_DECISION_PROMPT=v2` (sem eles vira `model_only`, com `DECISION_PIPELINE_DOWNGRADE` no log) e Anthropic como `AI_PROVIDER`; pesquisa que falha aparece como `WEB_RESEARCH_FALLBACK` e a análise segue só com o conhecimento do modelo |
+| `NEXT_PUBLIC_FERRAMENTAS` | Web, variável de build. `on` liga a área Ferramentas do ADR-017 (sidebar, barra inferior no lugar de Buscar, ⌘K e as rotas `/ferramentas`). Ausente ou qualquer outro valor = desligada, `/ferramentas` mostra 404. Ligar exige a cessão do ANY (CC-301) e a revisão clínica (CC-310); na imagem, `--build-arg NEXT_PUBLIC_FERRAMENTAS=on` |
 
 ---
 

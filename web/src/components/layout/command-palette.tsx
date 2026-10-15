@@ -4,6 +4,7 @@ import { useDeferredValue, useEffect, useMemo, useRef, useState, type ElementTyp
 import { useRouter } from 'next/navigation';
 import {
   ArrowElbowDownLeft,
+  Calculator,
   ClipboardText,
   Gear,
   MagnifyingGlass,
@@ -17,7 +18,9 @@ import { useAuth } from '@/lib/auth-store';
 import { useTheme } from '@/components/providers/theme-provider';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Kbd } from '@/components/ui/kbd';
-import { APP_SECTIONS_BY_ROLE, HOME_ITEM } from '@/components/layout/nav-config';
+import { HOME_ITEM, appSectionsFor } from '@/components/layout/nav-config';
+import { calculatorName, searchTools } from '@clinical-tools/catalog';
+import { isFerramentasEnabled } from '@/lib/feature-flags';
 import { cn } from '@/lib/utils';
 
 /**
@@ -32,7 +35,7 @@ interface Command {
   label: string;
   hint?: string;
   icon: ElementType;
-  group: 'Ações' | 'Páginas' | 'Casos';
+  group: 'Ações' | 'Páginas' | 'Ferramentas' | 'Casos';
   keywords?: string;
   run: () => void;
 }
@@ -50,6 +53,32 @@ const STATUS_LABEL: Record<string, string> = {
   finalized: 'Assinado',
   cancelled: 'Cancelado',
 };
+
+/**
+ * ADR-017 — calculadoras já portadas entram na busca do ⌘K pelo nome e pelos
+ * sinônimos (a mesma busca do hub). Só com texto digitado, para não encher a
+ * lista inicial; as "em breve" não aparecem porque não abrem.
+ */
+const MAX_TOOL_COMMANDS = 5;
+
+function toolCommands(query: string, go: (href: string) => void): Command[] {
+  if (!isFerramentasEnabled() || query.length < 2) return [];
+  const commands: Command[] = [];
+  for (const result of searchTools(query)) {
+    if (result.kind !== 'calculator' || result.status !== 'disponivel') continue;
+    const { id } = result.calculator;
+    commands.push({
+      id: `calc-${id}`,
+      label: calculatorName(result.calculator),
+      hint: 'Calculadora',
+      icon: Calculator,
+      group: 'Ferramentas',
+      run: () => go(`/ferramentas/calculadoras/${id}`),
+    });
+    if (commands.length === MAX_TOOL_COMMANDS) break;
+  }
+  return commands;
+}
 
 function PaletteBody({ onClose }: { onClose: () => void }) {
   const router = useRouter();
@@ -71,7 +100,7 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
   };
 
   const staticCommands = useMemo<Command[]>(() => {
-    const pages = [HOME_ITEM, ...APP_SECTIONS_BY_ROLE[role].flatMap((s) => s.items)];
+    const pages = [HOME_ITEM, ...appSectionsFor(role).flatMap((s) => s.items)];
     return [
       {
         id: 'new-case',
@@ -136,7 +165,7 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
       group: 'Casos',
       run: () => go(`/encounters/${enc.id}`),
     }));
-    return [...filtered, ...cases];
+    return [...filtered, ...toolCommands(deferredQuery, go), ...cases];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deferredQuery, staticCommands, casesQuery.data]);
 
@@ -159,7 +188,7 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
     }
   }
 
-  const groups = (['Ações', 'Páginas', 'Casos'] as const)
+  const groups = (['Ações', 'Páginas', 'Ferramentas', 'Casos'] as const)
     .map((group) => ({
       group,
       items: commands
