@@ -64,6 +64,15 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       JWT_ACCESS_EXPIRY: 15m
       JWT_REFRESH_EXPIRY: 7d
+      # CC-334 — Entrar com Google/Microsoft. Vazios = só e-mail e senha, como
+      # antes. Com ID e segredo de um provedor, o botão dele aparece no login.
+      # Ver docs/runbook.md, "Login com Google e Microsoft".
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL:-https://copiloto.servidortozato.cloud}
+      OAUTH_REDIRECT_BASE_URL: ${OAUTH_REDIRECT_BASE_URL:-}
+      OAUTH_GOOGLE_CLIENT_ID: ${OAUTH_GOOGLE_CLIENT_ID:-}
+      OAUTH_GOOGLE_CLIENT_SECRET: ${OAUTH_GOOGLE_CLIENT_SECRET:-}
+      OAUTH_MICROSOFT_CLIENT_ID: ${OAUTH_MICROSOFT_CLIENT_ID:-}
+      OAUTH_MICROSOFT_CLIENT_SECRET: ${OAUTH_MICROSOFT_CLIENT_SECRET:-}
       # AI keys — placeholders; substituir quando tiver chaves reais
       AI_PROVIDER: ${AI_PROVIDER:-anthropic}
       AI_API_KEY: ${AI_API_KEY:-placeholder}

@@ -25,6 +25,12 @@
 - ID, CRM (UF + número), email, nome, status de verificação CRM
 - Tokens de refresh (hash SHA-256 — não o token original)
 - Consentimentos LGPD
+- Contas Google/Microsoft vinculadas (`external_identities`, CC-334): provedor,
+  identificador da conta no provedor (`sub`), e-mail no momento do vínculo e
+  datas. Entram na portabilidade (`GET /lgpd/data`) e são **apagadas** na
+  eliminação — a conta externa deixa de entrar. Conta criada pelo login social
+  não tem senha (`password_hash` nulo). Na trilha, os eventos de login social e
+  vínculo levam só o provedor e o motivo da falha, nunca e-mail nem `sub`.
 
 ### Dados de Atendimento (Encounter)
 - `patientRef`: **identificador opaco** fornecido pelo HIS/EMR do hospital (LGPD-001)
