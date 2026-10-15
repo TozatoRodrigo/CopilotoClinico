@@ -20,6 +20,7 @@ import {
 } from '@phosphor-icons/react';
 import { CALCULATOR_CATALOG } from '@clinical-tools/calculator-catalog';
 import { calculatorName, TOOLS } from '@clinical-tools/catalog';
+import { TOX_MODULES } from '@clinical-tools/toxicology/modules';
 import { useEncounterDetail } from '@/lib/clinical-queries';
 import { Breadcrumb, type BreadcrumbItem } from '@/components/ui/breadcrumb';
 
@@ -79,14 +80,15 @@ function EncounterCrumbs({ segments }: { segments: string[] }) {
   return <Breadcrumb items={items} />;
 }
 
-/** Subpáginas de um roteiro (ACLS › OVACE, ACLS › Atendimentos salvos). */
+/** Subpáginas de um roteiro (ACLS › OVACE, Toxicologia › Guia de antídotos). */
 const TOOL_SUBPAGES: Record<string, Record<string, string>> = {
   acls: { ovace: 'OVACE', historico: 'Atendimentos salvos' },
+  toxicologia: Object.fromEntries(TOX_MODULES.map(({ id, title }) => [id, title])),
 };
 
 /**
  * ADR-017 — Ferramentas › Calculadoras › nome da calculadora, ou
- * Ferramentas › nome do roteiro (ACLS) › subpágina.
+ * Ferramentas › nome do roteiro › subpágina.
  */
 function ferramentasCrumbs(segments: string[]): BreadcrumbItem[] {
   const [, section, id] = segments;

@@ -2,6 +2,9 @@ import type { CalculatorDefinition } from './calculator';
 import { CALCULATOR_CATALOG, type CalculatorCatalogEntry } from './calculator-catalog';
 import { INFUSION_DRUGS } from './infusions/drugs';
 import { getCalculator } from './registry';
+import { ANTIDOTES } from './toxicology/antidotes';
+import { TOXIC_DOSES } from './toxicology/toxic-doses';
+import { TOXIDROME_IDS, TOXIDROMES } from './toxicology/toxidromes';
 
 /**
  * Catálogo da área Ferramentas (ADR-017): os grupos do hub, as ferramentas
@@ -205,14 +208,30 @@ export const TOOLS: readonly ToolEntry[] = [
     synonyms: ['ped', 'criança', 'broselow', 'doses pediátricas', 'pals', 'lactente'],
     status: 'em-breve',
   },
-  // CC-323 e CC-324
+  // CC-323 e CC-324. Antídotos, toxíndromes e os 242 medicamentos da tabela de
+  // doses tóxicas (nome e sinônimo) também acham o roteiro.
   {
     id: 'toxicologia',
     name: 'Intoxicações e antídotos',
     description: 'Toxíndromes, descontaminação, antídotos e doses tóxicas.',
     group: 'toxicologia',
-    synonyms: ['tox', 'intoxicação', 'envenenamento', 'antídoto', 'overdose', 'toxíndrome'],
-    status: 'em-breve',
+    synonyms: [
+      'tox',
+      'intoxicação',
+      'envenenamento',
+      'antídoto',
+      'overdose',
+      'toxíndrome',
+      'ciatox',
+      'disque-intoxicação',
+      'carvão ativado',
+      'descontaminação',
+      ...ANTIDOTES.map(({ name }) => name),
+      ...TOXIDROME_IDS.map((id) => TOXIDROMES[id].name),
+      'dose tóxica',
+      ...TOXIC_DOSES.flatMap(({ name, aliases }) => [name, ...aliases]),
+    ],
+    status: 'disponivel',
   },
   // CC-326
   {

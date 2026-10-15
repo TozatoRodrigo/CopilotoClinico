@@ -212,10 +212,18 @@ describe('/ferramentas/calculadoras/[id]', () => {
     expect(screen.getByText(title)).toBeInTheDocument();
   });
 
-  it('CIWA-Ar não mostra "Abrir no roteiro" enquanto o roteiro de Toxicologia está em breve (CC-306)', () => {
+  it('CIWA-Ar abre no roteiro de Toxicologia, que já está no ar (CC-306, CC-323)', () => {
     render(<CalculatorScreen id="ciwa-ar" />);
 
     expect(screen.getByRole('heading', { level: 1, name: 'CIWA-Ar' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Abrir no roteiro: Intoxicações e antídotos' }),
+    ).toHaveAttribute('href', '/ferramentas/toxicologia');
+  });
+
+  it('VTI não mostra "Abrir no roteiro" enquanto o roteiro de choque está em breve (CC-306)', () => {
+    render(<CalculatorScreen id="vti-classificacao" />);
+
     expect(screen.queryByRole('link', { name: /Abrir no roteiro/ })).not.toBeInTheDocument();
   });
 

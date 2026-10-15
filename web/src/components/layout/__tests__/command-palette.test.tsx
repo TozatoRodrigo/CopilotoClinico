@@ -76,6 +76,17 @@ describe('CommandPalette — Ferramentas (ADR-017)', () => {
     expect(push).toHaveBeenCalledWith('/ferramentas/via-aerea');
   });
 
+  it('com a flag ligada, acha o roteiro de Toxicologia pelo antídoto (CC-323)', async () => {
+    vi.stubEnv('NEXT_PUBLIC_FERRAMENTAS', 'on');
+    render(<CommandPalette open onOpenChange={vi.fn()} />);
+
+    await userEvent.type(screen.getByRole('combobox'), 'naloxona');
+
+    const group = await screen.findByRole('group', { name: 'Ferramentas' });
+    await userEvent.click(within(group).getByRole('option', { name: /Intoxicações e antídotos/ }));
+    expect(push).toHaveBeenCalledWith('/ferramentas/toxicologia');
+  });
+
   it('com a flag ligada, a página Ferramentas aparece em Páginas', async () => {
     vi.stubEnv('NEXT_PUBLIC_FERRAMENTAS', 'on');
     render(<CommandPalette open onOpenChange={vi.fn()} />);
