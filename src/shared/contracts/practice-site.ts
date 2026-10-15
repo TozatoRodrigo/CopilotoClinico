@@ -5,6 +5,10 @@
  *
  * Listas fechadas de propósito: o que vai para o prompt sai daqui, nunca de
  * texto livre (o nome do local só aparece na tela).
+ *
+ * A imagem do web não tem ../src: os valores que ele usa em runtime vivem
+ * espelhados em web/src/lib/practice-site-contract.ts
+ * (tests/web-mirrors/practice-site.spec.ts confere). Mudou aqui, mude lá.
  */
 
 /** Porte do serviço (UPA 24h: Portaria GM/MS nº 10/2017). */

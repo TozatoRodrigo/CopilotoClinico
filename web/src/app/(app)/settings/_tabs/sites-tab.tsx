@@ -9,7 +9,7 @@ import {
   PRACTICE_SITE_LIMITS,
   SITE_SPECIALISTS,
   SITE_SPECIALIST_LABELS,
-} from '@contracts/practice-site';
+} from '@/lib/practice-site-contract';
 import { ApiError } from '@/lib/api-client';
 import {
   describeSite,

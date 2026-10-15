@@ -2,7 +2,7 @@ import {
   FACILITY_TYPE_LABELS,
   PRACTICE_SITE_LIMITS,
   SITE_SPECIALIST_LABELS,
-} from '@contracts/practice-site';
+} from '@/lib/practice-site-contract';
 import type {
   EncounterContext,
   FacilityType,
