@@ -169,6 +169,7 @@ desenha. Vitrine em `/dev/components#ferramentas`.
 | `CopyToChartButton` | Texto para o prontuário, com o texto selecionável se a área de transferência falhar. |
 | `DecisionSupportNotice` | Aviso fixo "Apoio à decisão; não substitui o julgamento clínico." |
 | `CalculatorView` | Tudo acima montado a partir de uma `CalculatorDefinition`, com os campos que o ANY abria preenchidos (FiO₂ 21%) e o aviso de versão aproximada (GRACE, APACHE II) acima dos campos. |
+| `InlineCalculator` | Calculadora dentro de um roteiro (Wells e D-dímero no TEP): campos, itens e resultado ao vivo, sem aviso, referência nem "copiar". `onComplete` faz o roteiro andar quando a conta fecha; `action` põe um botão abaixo do resultado ("Prosseguir como categoria B"). |
 
 ## Receitas de página
 

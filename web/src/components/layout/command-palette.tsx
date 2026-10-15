@@ -59,10 +59,10 @@ const STATUS_LABEL: Record<string, string> = {
 
 /**
  * ADR-017 — ferramentas e calculadoras já portadas entram na busca do ⌘K pelo
- * nome e pelos sinônimos (a mesma busca do hub), e as drogas de Infusões abrem
- * direto na calculadora delas ("nora" → Noradrenalina). Só com texto
- * digitado, para não encher a lista inicial; as "em breve" não aparecem
- * porque não abrem.
+ * nome e pelos sinônimos (a mesma busca do hub: "pcr" acha o ACLS, "wells" o
+ * TEP), e as drogas de Infusões abrem direto na calculadora delas ("nora" →
+ * Noradrenalina). Só com texto digitado, para não encher a lista inicial; as
+ * "em breve" não aparecem porque não abrem.
  */
 const MAX_TOOL_COMMANDS = 5;
 

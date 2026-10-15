@@ -1,17 +1,16 @@
 import { notFound } from 'next/navigation';
 import { TOOLS } from '@clinical-tools/catalog';
-import { ToolComingSoonScreen } from '../_components/tool-coming-soon-screen';
+import { ToolComingSoon } from '../_components/tool-coming-soon';
 
 /**
- * Ferramenta do catálogo que ainda não tem tela (ex.: Infusões nesta versão):
- * o endereço existe e mostra "em breve", em vez de 404, para os atalhos de
- * outras ferramentas (o "Calcular noradrenalina" do Choque) não quebrarem.
- * Ferramenta portada tem pasta própria, que o Next serve antes desta rota.
+ * /ferramentas/<id> das ferramentas ainda "em breve" (CC-318): um roteiro já
+ * portado pode ligar para elas (o TEP liga para `/ferramentas/infusoes?droga=
+ * heparina`) e o link não quebra. Ferramenta com tela tem rota própria
+ * (`tep/`, `calculadoras/`), que vence esta; id desconhecido vira 404 aqui,
+ * pelo mesmo motivo de calculadoras/[id] (sem `dynamicParams = false`).
  */
-const COMING_SOON = TOOLS.filter((tool) => tool.status === 'em-breve');
-
 export function generateStaticParams() {
-  return COMING_SOON.map(({ id }) => ({ ferramenta: id }));
+  return TOOLS.filter((tool) => tool.status === 'em-breve').map(({ id }) => ({ ferramenta: id }));
 }
 
 export default async function ToolComingSoonPage({
@@ -20,7 +19,7 @@ export default async function ToolComingSoonPage({
   params: Promise<{ ferramenta: string }>;
 }) {
   const { ferramenta } = await params;
-  const tool = COMING_SOON.find(({ id }) => id === ferramenta);
+  const tool = TOOLS.find((entry) => entry.id === ferramenta && entry.status === 'em-breve');
   if (!tool) notFound();
-  return <ToolComingSoonScreen name={tool.name} description={tool.description} />;
+  return <ToolComingSoon tool={tool} />;
 }

@@ -61,6 +61,8 @@ describe('referência congelada do ANY', () => {
         'AirwayGuide.tsx',
         // CC-316 e CC-317 — choque
         'ShockPath.tsx',
+        // CC-318 — TEP (usa também o `fmt` e o `classifyWells` de calculations.ts)
+        'TepGuide.tsx',
       ]),
     );
   });
