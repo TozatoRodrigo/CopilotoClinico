@@ -54,6 +54,9 @@ describe('referência congelada do ANY', () => {
         // CC-312 — heparina e insulina
         'HeparinCalculator.tsx',
         'InsulinCalculator.tsx',
+        // CC-313 e CC-314 — ACLS
+        'AclsGuide.tsx',
+        'MetronomeContext.tsx',
       ]),
     );
   });

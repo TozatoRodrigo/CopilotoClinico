@@ -34,6 +34,8 @@ import {
   type NavItem,
 } from '@/components/layout/nav-config';
 import { isFerramentasEnabled } from '@/lib/feature-flags';
+import { AclsBanner } from '@/components/domain/clinical-tools/acls/acls-banner';
+import { AclsSessionProvider } from '@/components/domain/clinical-tools/acls/acls-session-provider';
 import { LogoMark } from '@/components/brand/logo';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
@@ -217,7 +219,7 @@ export function AppShell({ children, variant }: AppShellProps) {
   // inferior e a busca sobe para uma lupa no topo (o ⌘K e o sidebar seguem).
   const ferramentas = isFerramentasEnabled();
 
-  return (
+  const shell = (
     <div className="flex min-h-dvh w-full">
       <a
         href="#main-content"
@@ -307,6 +309,9 @@ export function AppShell({ children, variant }: AppShellProps) {
           </div>
         </header>
 
+        {/* CC-313 — parada em curso continua visível em qualquer tela. */}
+        {ferramentas ? <AclsBanner /> : null}
+
         <main
           id="main-content"
           aria-label="Conteúdo principal"
@@ -366,4 +371,8 @@ export function AppShell({ children, variant }: AppShellProps) {
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
     </div>
   );
+
+  // A parada (ACLS) mora acima das rotas: ir para outra ferramenta e voltar
+  // não perde o ciclo, os registros nem o metrônomo.
+  return ferramentas ? <AclsSessionProvider>{shell}</AclsSessionProvider> : shell;
 }

@@ -112,6 +112,11 @@ Proibido: rótulos em caixa-alta com tracking largo (`uppercase tracking-…`),
   esconder conteúdo atrás da barra. Com `NEXT_PUBLIC_FERRAMENTAS=on`
   (ADR-017), Ferramentas ocupa o lugar de Buscar e a busca vira uma lupa na
   barra superior.
+- **Faixa de parada** (`AclsBanner`, CC-313): com uma parada (ACLS) em curso,
+  uma faixa vermelha fica logo abaixo da barra superior (`sticky top-11`) em
+  toda tela, menos na do próprio ACLS: tempo, ciclo, "Checar ritmo",
+  epinefrina vencida, metrônomo e o botão de volta. É o único elemento fixo
+  do shell que não é navegação; vermelho porque é risco crítico em curso.
 - O `main` já aplica padding lateral responsivo (`px-4 → xl:px-24`) e topo.
 
 ### Página
