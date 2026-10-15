@@ -76,6 +76,18 @@ describe('searchTools', () => {
     expect(names(searchTools('intubacao'))).toContain('Intubação e via aérea difícil');
   });
 
+  it('acha o roteiro de paliativos pelo que ele tem dentro (CC-329)', () => {
+    for (const query of ['hipodermoclise', 'ppi', 'equianalgesia', 'spict', 'mas noticias']) {
+      expect(searchTools(query), query).toContainEqual(
+        expect.objectContaining({
+          kind: 'tool',
+          status: 'disponivel',
+          tool: expect.objectContaining({ id: 'paliativos' }),
+        }),
+      );
+    }
+  });
+
   it('acha pelo grupo do hub', () => {
     expect(names(searchTools('ressuscitação parada'))).toEqual([
       'Parada cardiorrespiratória (ACLS)',

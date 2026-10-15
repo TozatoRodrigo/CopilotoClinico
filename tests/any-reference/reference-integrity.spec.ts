@@ -18,9 +18,10 @@ const CODE_FILE = /\.(ts|tsx|js|mjs)$/;
 /** `from '…any-reference…'`, `import('…any-reference…')` ou `require('…any-reference…')`. */
 const IMPORTS_REFERENCE = /(from\s+|import\s*\(\s*|require\s*\(\s*)['"][^'"]*any-reference/;
 
+/** Arquivos copiados: `.ts` de dado e conta e, quando a conta mora na tela, o `.tsx`. */
 function referenceFiles(): string[] {
   return readdirSync(REFERENCE_DIR).filter(
-    (file) => file.endsWith('.ts') && !file.endsWith('.spec.ts'),
+    (file) => /\.tsx?$/.test(file) && !file.endsWith('.spec.ts'),
   );
 }
 
@@ -40,8 +41,18 @@ function codeFiles(dir: string): string[] {
 }
 
 describe('referência congelada do ANY', () => {
-  it('tem os três arquivos copiados', () => {
-    expect(referenceFiles().sort()).toEqual(['calculatorData.ts', 'clinical.ts', 'formatters.ts']);
+  it('tem os arquivos copiados de cada ferramenta portada', () => {
+    expect(referenceFiles()).toEqual(
+      expect.arrayContaining([
+        'calculatorData.ts',
+        'clinical.ts',
+        'formatters.ts',
+        // CC-329 — cuidados paliativos: o dado no paliaData e a conta do
+        // conversor, a soma do PPI e boa parte do texto na própria tela.
+        'paliaData.ts',
+        'PaliaPath.tsx',
+      ]),
+    );
   });
 
   it.each(referenceFiles())('%s não foi editado depois de copiado', (file) => {
