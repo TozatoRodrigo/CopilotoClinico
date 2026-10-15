@@ -199,15 +199,26 @@ function removeAt<T>(list: readonly T[], index: number): T[] {
 export function CardEditor({
   content,
   version,
+  nextVersion,
   issues,
   saving,
+  title = `Corrigir a versão ${version}`,
+  submitLabel = 'Salvar correção',
+  children,
   onCancel,
   onSubmit,
 }: {
   content: KnowledgeCardContent;
+  /** Versão que o médico está corrigindo. */
   version: number;
+  /** Número que a correção vai receber. */
+  nextVersion: number;
   issues: Issues;
   saving: boolean;
+  title?: string;
+  submitLabel?: string;
+  /** Campos a mais antes do conteúdo (o motivo da divergência, na revisão cruzada). */
+  children?: ReactNode;
   onCancel: () => void;
   onSubmit: (content: KnowledgeCardContentInput) => void;
 }) {
@@ -242,10 +253,10 @@ export function CardEditor({
     >
       <div className="flex flex-col gap-1">
         <h2 id="card-editor-title" className="text-xl font-semibold text-foreground">
-          Corrigir a versão {version}
+          {title}
         </h2>
         <p className="text-sm text-muted-foreground">
-          A correção vira a versão {version + 1}. Todo trecho citado precisa estar, literal, no
+          A correção vira a versão {nextVersion}. Todo trecho citado precisa estar, literal, no
           texto da fonte; toda dose, no trecho que a cita.
         </p>
       </div>
@@ -264,6 +275,8 @@ export function CardEditor({
           </AlertDescription>
         </Alert>
       )}
+
+      {children}
 
       <Field path="question" label="Pergunta" issues={issues}>
         {(props) => (
@@ -407,13 +420,13 @@ export function CardEditor({
         );
       })}
 
-      <div className="sticky bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-10 -mx-4 flex gap-2 border-t border-border bg-background px-4 py-3 sm:mx-0 sm:px-0 md:bottom-0">
+      <div className="sticky bottom-[calc(3.25rem+env(safe-area-inset-bottom))] z-10 -mx-4 flex gap-2 border-t border-border bg-background px-4 py-3 sm:mx-0 sm:px-0 md:bottom-0">
         <Button type="button" variant="ghost" className="flex-1 sm:flex-none" onClick={onCancel}>
           Cancelar
         </Button>
         <Button type="submit" className="flex-1 sm:flex-none" loading={saving}>
           <FloppyDisk aria-hidden="true" />
-          Salvar correção
+          {submitLabel}
         </Button>
       </div>
     </form>

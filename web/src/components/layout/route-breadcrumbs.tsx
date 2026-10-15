@@ -93,6 +93,7 @@ export function RouteBreadcrumbs() {
 
   const items: BreadcrumbItem[] = [{ ...root, href: segments.length > 1 ? `/${first}` : undefined }];
   if (first === 'encounters' && second === 'new') items.push({ label: 'Novo caso' });
+  if (first === 'revisao' && second === 'concordancia') items.push({ label: 'Concordância' });
   if (first === 'admin' && second) {
     const child = ADMIN_CHILDREN[second];
     if (child) items.push({ ...child, href: undefined });

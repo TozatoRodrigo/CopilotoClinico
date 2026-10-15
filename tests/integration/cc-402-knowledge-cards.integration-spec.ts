@@ -42,6 +42,11 @@ describe('CC-402 — cartões revisados (integration)', () => {
   let chunkIds: string[];
 
   async function cleanUp(): Promise<void> {
+    // CC-411 — a aprovação sorteada (10%) ganha revisão cruzada, que aponta a versão.
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM knowledge_card_cross_reviews
+        WHERE card_id IN (SELECT id FROM knowledge_cards WHERE topic LIKE 'CC-402 %')`,
+    );
     // FKs com RESTRICT nos dois sentidos: solta a versão publicada antes de apagar.
     await prisma.$executeRawUnsafe(
       `UPDATE knowledge_cards SET status = 'archived', archived_at = now(), published_version_id = NULL

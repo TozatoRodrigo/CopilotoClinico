@@ -4,6 +4,7 @@ import type { PrismaService } from '../../../config/prisma.service';
 import type {
   KnowledgeCardContent,
   KnowledgeCardDetail,
+  KnowledgeCardPhysicianRef,
 } from '../../../shared/contracts/knowledge-cards';
 import {
   DIAGNOSIS_CHUNK_ID,
@@ -18,8 +19,16 @@ import { CardReviewService } from './card-review.service';
 
 const CARD_ID = '88888888-8888-4888-8888-888888888888';
 const REVIEWER_ID = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+const FIRST_REVIEWER_ID = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
 const INSTITUTION_ID = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+const CROSS_REVIEW_ID = 'abababab-abab-4bab-8bab-abababababab';
 const NOW = '2026-10-15T12:00:00.000Z';
+const APPROVED_AT = new Date('2026-10-10T12:00:00.000Z');
+const VALID_UNTIL = new Date('2027-10-10T12:00:00.000Z');
+
+function physician(id: string, name: string): KnowledgeCardPhysicianRef {
+  return { id, name, crmUf: 'SP', crmNumber: '123456', crmVerified: true };
+}
 
 function content(): KnowledgeCardContent {
   const prepared = prepareCardContent(validCardInput(), sourceChunks(), { institutionId: null });
@@ -27,7 +36,7 @@ function content(): KnowledgeCardContent {
   return prepared.content;
 }
 
-function detail(version = 1): KnowledgeCardDetail {
+function detail(version = 1, overrides: Partial<KnowledgeCardDetail> = {}): KnowledgeCardDetail {
   return {
     id: CARD_ID,
     institutionId: null,
@@ -54,15 +63,35 @@ function detail(version = 1): KnowledgeCardDetail {
         createdAt: NOW,
       },
     ],
+    ...overrides,
+  };
+}
+
+/** Revisão cruzada pendente, como o `findFirst` da fila devolve. */
+function crossReviewTask() {
+  return {
+    id: CROSS_REVIEW_ID,
+    cardId: CARD_ID,
+    version: { version: 1, reviewedAt: APPROVED_AT, validUntil: VALID_UNTIL },
+    firstReviewer: physician(FIRST_REVIEWER_ID, 'Dr. Primeiro'),
   };
 }
 
 function createDeps() {
   const chunks = sourceChunks();
+  let pendingTask: ReturnType<typeof crossReviewTask> | null = null;
+  let diverged: Record<string, unknown> | null = null;
   const prisma = {
     knowledgeCard: {
       count: vi.fn().mockResolvedValue(3),
       findFirst: vi.fn().mockResolvedValue({ id: CARD_ID, status: 'in_review' }),
+    },
+    knowledgeCardCrossReview: {
+      count: vi.fn().mockResolvedValue(0),
+      // A fila pergunta pela pendente; a vista do cartão, pela divergência.
+      findFirst: vi.fn(async ({ where }: { where: { status?: string } }) =>
+        where.status === 'diverged' ? diverged : pendingTask,
+      ),
     },
     physicianInstitution: { findMany: vi.fn().mockResolvedValue([]) },
     guidelineChunk: {
@@ -84,7 +113,18 @@ function createDeps() {
     prisma as unknown as PrismaService,
     cards as unknown as KnowledgeCardsService,
   );
-  return { prisma, cards, service, chunks };
+  return {
+    prisma,
+    cards,
+    service,
+    chunks,
+    setPendingCrossReview: (task: ReturnType<typeof crossReviewTask> | null) => {
+      pendingTask = task;
+    },
+    setDiverged: (row: Record<string, unknown> | null) => {
+      diverged = row;
+    },
+  };
 }
 
 describe('CardReviewService', () => {
@@ -110,8 +150,13 @@ describe('CardReviewService', () => {
         orderBy: [{ updatedAt: 'asc' }, { id: 'asc' }],
         select: { id: true },
       });
-      expect(queue.pending).toBe(3);
-      expect(queue.item).toMatchObject({ kind: 'review', version: 1, card: { id: CARD_ID } });
+      expect(queue.pending).toEqual({ review: 3, crossReview: 0 });
+      expect(queue.item).toMatchObject({
+        kind: 'review',
+        version: 1,
+        card: { id: CARD_ID },
+        divergence: null,
+      });
     });
 
     it('sem vínculo com instituição, só cartões globais', async () => {
@@ -140,7 +185,7 @@ describe('CardReviewService', () => {
 
       await expect(deps.service.next(REVIEWER_ID, { skip: [] })).resolves.toEqual({
         item: null,
-        pending: 0,
+        pending: { review: 0, crossReview: 0 },
       });
       expect(deps.cards.get).not.toHaveBeenCalled();
     });
@@ -181,6 +226,71 @@ describe('CardReviewService', () => {
         text: null,
         matchesCitedText: false,
         highlights: [],
+      });
+    });
+  });
+
+  describe('next — revisão cruzada (CC-411)', () => {
+    it('vem antes da revisão comum: é cartão no ar', async () => {
+      deps.setPendingCrossReview(crossReviewTask());
+      deps.prisma.knowledgeCardCrossReview.count.mockResolvedValue(2);
+      deps.cards.get.mockResolvedValue(detail(1, { status: 'published' }));
+
+      const queue = await deps.service.next(REVIEWER_ID, { skip: [] });
+
+      expect(queue.pending).toEqual({ review: 3, crossReview: 2 });
+      expect(queue.item).toMatchObject({
+        kind: 'cross_review',
+        version: 1,
+        crossReview: {
+          id: CROSS_REVIEW_ID,
+          firstReviewer: { name: 'Dr. Primeiro' },
+          approvedAt: APPROVED_AT.toISOString(),
+          validUntil: VALID_UNTIL.toISOString(),
+        },
+      });
+      expect(queue.item?.sourceTexts).toHaveLength(2);
+      expect(deps.prisma.knowledgeCard.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('só oferece ao segundo médico: nem quem aprovou nem quem escreveu, e com a versão no ar', async () => {
+      await deps.service.next(REVIEWER_ID, { skip: [] });
+
+      expect(deps.prisma.knowledgeCardCrossReview.findFirst).toHaveBeenCalledWith({
+        where: {
+          status: 'pending',
+          firstReviewerId: { not: REVIEWER_ID },
+          OR: [{ versionAuthorId: null }, { versionAuthorId: { not: REVIEWER_ID } }],
+          card: { AND: [{ institutionId: null }, { status: 'published' }] },
+          version: { publishedOf: { isNot: null } },
+        },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        select: expect.any(Object),
+      });
+    });
+
+    it('cartão que voltou à fila por divergência mostra de quem e por quê', async () => {
+      deps.setDiverged({
+        id: CROSS_REVIEW_ID,
+        comment: 'A dose máxima é por dia, não por tomada',
+        reviewedAt: APPROVED_AT,
+        version: { version: 1 },
+        firstReviewer: physician(FIRST_REVIEWER_ID, 'Dr. Primeiro'),
+        reviewer: physician(REVIEWER_ID, 'Dra. Segunda'),
+      });
+      deps.cards.get.mockResolvedValue(detail(2));
+
+      const queue = await deps.service.next(REVIEWER_ID, { skip: [] });
+
+      expect(queue.item).toMatchObject({
+        kind: 'review',
+        divergence: {
+          crossReviewId: CROSS_REVIEW_ID,
+          disputedVersion: 1,
+          firstReviewer: { name: 'Dr. Primeiro' },
+          crossReviewer: { name: 'Dra. Segunda' },
+          reason: 'A dose máxima é por dia, não por tomada',
+        },
       });
     });
   });

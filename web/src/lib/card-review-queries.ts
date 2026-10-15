@@ -7,17 +7,24 @@ import type {
   KnowledgeCardDetail,
 } from '@contracts/knowledge-cards';
 import type {
-  KnowledgeCardReviewItem,
+  AgreeCrossReviewRequest,
+  DivergeCrossReviewRequest,
+  KnowledgeCardCrossReviewSummary,
   KnowledgeCardReviewQueue,
+  KnowledgeCardReviewTaskItem,
   ReviewApproveKnowledgeCardRequest,
   ReviewRejectKnowledgeCardRequest,
 } from '@contracts/knowledge-card-review';
 
-/** CC-404 — fila de revisão de cartões (`/v1/review/knowledge-cards`). */
+/**
+ * CC-404 — fila de revisão de cartões (`/v1/review/knowledge-cards`); CC-411
+ * — revisão cruzada e o painel da taxa de concordância.
+ */
 
 export const cardReviewQueryKeys = {
   all: ['card-review'] as const,
   next: (skip: readonly string[]) => ['card-review', 'next', [...skip]] as const,
+  crossReviewSummary: ['card-review', 'cross-review-summary'] as const,
 };
 
 export function useCardReviewQueue(skip: readonly string[]) {
@@ -42,7 +49,10 @@ export function useCardReviewQueue(skip: readonly string[]) {
 export function useCorrectCard(cardId: string) {
   return useMutation({
     mutationFn: (body: CreateKnowledgeCardVersionRequest) =>
-      apiClient.post<KnowledgeCardReviewItem>(`/review/knowledge-cards/${cardId}/versions`, body),
+      apiClient.post<KnowledgeCardReviewTaskItem>(
+        `/review/knowledge-cards/${cardId}/versions`,
+        body,
+      ),
   });
 }
 
@@ -57,5 +67,37 @@ export function useRejectCard(cardId: string) {
   return useMutation({
     mutationFn: (body: ReviewRejectKnowledgeCardRequest) =>
       apiClient.post<KnowledgeCardDetail>(`/review/knowledge-cards/${cardId}/reject`, body),
+  });
+}
+
+export function useAgreeCrossReview(crossReviewId: string) {
+  return useMutation({
+    mutationFn: (body: AgreeCrossReviewRequest) =>
+      apiClient.post<KnowledgeCardDetail>(
+        `/review/knowledge-cards/cross-reviews/${crossReviewId}/agree`,
+        body,
+      ),
+  });
+}
+
+export function useDivergeCrossReview(crossReviewId: string) {
+  return useMutation({
+    mutationFn: (body: DivergeCrossReviewRequest) =>
+      apiClient.post<KnowledgeCardDetail>(
+        `/review/knowledge-cards/cross-reviews/${crossReviewId}/diverge`,
+        body,
+      ),
+  });
+}
+
+export function useCrossReviewSummary() {
+  return useQuery({
+    queryKey: cardReviewQueryKeys.crossReviewSummary,
+    queryFn: () =>
+      apiClient.get<KnowledgeCardCrossReviewSummary>(
+        '/review/knowledge-cards/cross-reviews/summary',
+      ),
+    retry: (failureCount, error) =>
+      !(error instanceof ApiError && error.status < 500) && failureCount < 1,
   });
 }

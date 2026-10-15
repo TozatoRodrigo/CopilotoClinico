@@ -3,10 +3,10 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowClockwise, Cards } from '@phosphor-icons/react';
+import { ArrowClockwise, Cards, Scales } from '@phosphor-icons/react';
 import type {
-  KnowledgeCardReviewItem,
   KnowledgeCardReviewQueue,
+  KnowledgeCardReviewTaskItem,
 } from '@contracts/knowledge-card-review';
 import { ApiError } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-store';
@@ -17,6 +17,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/domain/empty-state';
 import { Page } from '@/components/layout/page';
 import { PageHeader } from '@/components/layout/page-header';
+import { CrossReviewSession } from './_components/cross-review-session';
 import { ReviewSession } from './_components/review-session';
 
 function SessionSkeleton() {
@@ -35,12 +36,23 @@ function SessionSkeleton() {
   );
 }
 
+function pendingLabel(pending: KnowledgeCardReviewQueue['pending']): string {
+  const cards = pending.review === 1 ? '1 cartão na fila' : `${pending.review} cartões na fila`;
+  if (pending.crossReview === 0) return cards;
+  const cross =
+    pending.crossReview === 1 ? '1 revisão cruzada' : `${pending.crossReview} revisões cruzadas`;
+  return `${cards} · ${cross}`;
+}
+
 /**
  * CC-404 — revisão de cartões no celular. O médico revisor abre a fila entre
  * um paciente e outro e vê um cartão por vez: pergunta, resposta, dose
  * estruturada e as fontes com o trecho citado marcado. Decide aprovar (com
  * validade), corrigir (versão nova, mesma checagem de citação) ou descartar
  * com motivo; o tempo de cada revisão vai junto com a decisão.
+ *
+ * CC-411 — as revisões cruzadas (10% das aprovações, para um segundo médico)
+ * entram na mesma fila, antes dos cartões em revisão.
  */
 export default function CardReviewPage() {
   const queryClient = useQueryClient();
@@ -65,7 +77,7 @@ export default function CardReviewPage() {
     void queryClient.invalidateQueries({ queryKey: cardReviewQueryKeys.all });
   }
 
-  function corrected(next: KnowledgeCardReviewItem) {
+  function corrected(next: KnowledgeCardReviewTaskItem) {
     queryClient.setQueryData<KnowledgeCardReviewQueue>(cardReviewQueryKeys.next(skipped), (old) =>
       old ? { ...old, item: next } : old,
     );
@@ -73,6 +85,7 @@ export default function CardReviewPage() {
 
   const pending = queue.data?.pending;
   const item = queue.data?.item ?? null;
+  const pendingTotal = pending ? pending.review + pending.crossReview : 0;
 
   return (
     <Page width="narrow">
@@ -81,11 +94,19 @@ export default function CardReviewPage() {
         title="Revisão de cartões"
         description="Um cartão por vez: confira a resposta e a dose no texto da fonte e decida."
         actions={
-          pending !== undefined ? (
-            <span className="text-sm text-muted-foreground tabular-nums" aria-live="polite">
-              {pending === 1 ? '1 cartão na fila' : `${pending} cartões na fila`}
-            </span>
-          ) : null
+          <>
+            {pending && (
+              <span className="text-sm text-muted-foreground tabular-nums" aria-live="polite">
+                {pendingLabel(pending)}
+              </span>
+            )}
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/revisao/concordancia">
+                <Scales aria-hidden="true" />
+                Concordância
+              </Link>
+            </Button>
+          </>
         }
       />
 
@@ -114,9 +135,18 @@ export default function CardReviewPage() {
             )}
           </AlertDescription>
         </Alert>
+      ) : item?.kind === 'cross_review' ? (
+        <CrossReviewSession
+          key={`cross-${item.crossReview.id}`}
+          item={item}
+          autoFocus={advanced}
+          onSkip={() => skip(item.card.id)}
+          onDecided={advance}
+          onStale={advance}
+        />
       ) : item ? (
         <ReviewSession
-          key={item.card.id}
+          key={`review-${item.card.id}`}
           item={item}
           autoFocus={advanced}
           onSkip={() => skip(item.card.id)}
@@ -124,7 +154,7 @@ export default function CardReviewPage() {
           onCorrected={corrected}
           onStale={advance}
         />
-      ) : skipped.length > 0 && (pending ?? 0) > 0 ? (
+      ) : skipped.length > 0 && pendingTotal > 0 ? (
         <div className="border-y border-border">
           <EmptyState
             icon={<Cards weight="duotone" />}

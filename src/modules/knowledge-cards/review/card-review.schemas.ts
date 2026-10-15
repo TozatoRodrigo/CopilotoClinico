@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import type {
+  AgreeCrossReviewRequest,
+  DivergeCrossReviewRequest,
   KnowledgeCardReviewQueueQuery,
   ReviewApproveKnowledgeCardRequest,
   ReviewRejectKnowledgeCardRequest,
@@ -8,6 +10,7 @@ import {
   approveKnowledgeCardSchema,
   MAX_REVIEW_DURATION_MS,
   rejectKnowledgeCardSchema,
+  REVIEW_TEXT_MAX_CHARS,
 } from '../schemas/knowledge-cards.schemas';
 
 /**
@@ -40,3 +43,31 @@ export const reviewRejectSchema = rejectKnowledgeCardSchema.extend({
   reviewDurationMs,
 }) satisfies z.ZodType<ReviewRejectKnowledgeCardRequest, z.ZodTypeDef, unknown>;
 export type ReviewRejectInput = z.infer<typeof reviewRejectSchema>;
+
+/** CC-411 — concordar com a versão sorteada; o comentário é opcional. */
+export const agreeCrossReviewSchema = z
+  .object({
+    reviewDurationMs,
+    comment: z.string().max(REVIEW_TEXT_MAX_CHARS).optional(),
+  })
+  .strict() satisfies z.ZodType<AgreeCrossReviewRequest, z.ZodTypeDef, unknown>;
+export type AgreeCrossReviewInput = z.infer<typeof agreeCrossReviewSchema>;
+
+/**
+ * CC-411 — divergir é corrigir: motivo obrigatório e o conteúdo inteiro da
+ * versão nova, que o serviço valida como a correção do console (formato e
+ * checagem de citação, 422 com os problemas).
+ */
+export const divergeCrossReviewSchema = z
+  .object({
+    reason: z.string().trim().min(3).max(REVIEW_TEXT_MAX_CHARS),
+    reviewDurationMs,
+    basedOnVersion: z.number().int().min(1),
+    content: z.unknown(),
+  })
+  .strict() satisfies z.ZodType<
+  Omit<DivergeCrossReviewRequest, 'content'> & { content?: unknown },
+  z.ZodTypeDef,
+  unknown
+>;
+export type DivergeCrossReviewInput = z.infer<typeof divergeCrossReviewSchema>;

@@ -20,7 +20,7 @@ import { MAX_VALIDITY_MONTHS } from '../domain/card-lifecycle';
  */
 
 /** Mesmo teto do comentário de feedback e da nota de triagem: nota clínica, não prontuário. */
-const REVIEW_TEXT_MAX_CHARS = 2000;
+export const REVIEW_TEXT_MAX_CHARS = 2000;
 /** Uma hora: acima disso a tela ficou aberta, não é tempo de revisão. */
 export const MAX_REVIEW_DURATION_MS = 60 * 60 * 1000;
 

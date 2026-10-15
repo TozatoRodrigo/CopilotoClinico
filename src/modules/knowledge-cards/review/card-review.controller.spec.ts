@@ -10,10 +10,12 @@ import { KnowledgeCardsService } from '../knowledge-cards.service';
 import { KnowledgeCardDraftService } from '../drafting/card-draft.service';
 import { CardReviewController } from './card-review.controller';
 import { CardReviewService } from './card-review.service';
+import { CrossReviewService } from './cross-review.service';
 
 const reviewerId = '44444444-4444-4444-8444-444444444444';
 const cardId = '55555555-5555-4555-8555-555555555555';
 const skippedId = '66666666-6666-4666-8666-666666666666';
+const crossReviewId = '77777777-7777-4777-8777-777777777777';
 
 /** JwtAuthGuard simulado pelo header `x-test-user`; os guards de papel são os REAIS. */
 class FakeJwtGuard implements CanActivate {
@@ -36,6 +38,7 @@ const REVIEWER = { isCardReviewer: true, crmVerified: true, isCurator: false };
 describe('CardReviewController (HTTP)', () => {
   let app: NestFastifyApplication;
   const review = { next: vi.fn(), correct: vi.fn(), approve: vi.fn(), reject: vi.fn() };
+  const crossReview = { agree: vi.fn(), diverge: vi.fn(), summary: vi.fn() };
   const cards = {
     list: vi.fn(),
     get: vi.fn(),
@@ -53,6 +56,7 @@ describe('CardReviewController (HTTP)', () => {
       controllers: [CardReviewController, KnowledgeCardsController],
       providers: [
         { provide: CardReviewService, useValue: review },
+        { provide: CrossReviewService, useValue: crossReview },
         { provide: KnowledgeCardsService, useValue: cards },
         { provide: KnowledgeCardDraftService, useValue: drafts },
         { provide: PrismaService, useValue: prisma },
@@ -74,6 +78,7 @@ describe('CardReviewController (HTTP)', () => {
   beforeEach(() => {
     for (const mock of [
       ...Object.values(review),
+      ...Object.values(crossReview),
       ...Object.values(cards),
       ...Object.values(drafts),
     ]) {
@@ -214,5 +219,60 @@ describe('CardReviewController (HTTP)', () => {
 
     expect(res.statusCode).toBe(201);
     expect(review.correct).toHaveBeenCalledWith(reviewerId, cardId, payload);
+  });
+
+  describe('revisão cruzada (CC-411)', () => {
+    it('concordar envia o tempo de revisão', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: `/review/knowledge-cards/cross-reviews/${crossReviewId}/agree`,
+        headers: asUser(),
+        payload: { reviewDurationMs: 42_000 },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(crossReview.agree).toHaveBeenCalledWith(reviewerId, crossReviewId, {
+        reviewDurationMs: 42_000,
+      });
+    });
+
+    it('divergir exige motivo e a correção', async () => {
+      const payload = {
+        reason: 'Dose máxima por tomada, não por dia',
+        reviewDurationMs: 300_000,
+        basedOnVersion: 1,
+        content: { question: 'Qual a dose?' },
+      };
+
+      const ok = await app.inject({
+        method: 'POST',
+        url: `/review/knowledge-cards/cross-reviews/${crossReviewId}/diverge`,
+        headers: asUser(),
+        payload,
+      });
+      const withoutReason = await app.inject({
+        method: 'POST',
+        url: `/review/knowledge-cards/cross-reviews/${crossReviewId}/diverge`,
+        headers: asUser(),
+        payload: { ...payload, reason: ' ' },
+      });
+
+      expect(ok.statusCode).toBe(200);
+      expect(crossReview.diverge).toHaveBeenCalledWith(reviewerId, crossReviewId, payload);
+      expect(withoutReason.statusCode).toBe(400);
+    });
+
+    it('o painel fica na mesma barreira do revisor', async () => {
+      prisma.physician.findUnique.mockResolvedValue({ ...REVIEWER, isCardReviewer: false });
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/review/knowledge-cards/cross-reviews/summary',
+        headers: asUser('ADMIN'),
+      });
+
+      expect(res.statusCode).toBe(403);
+      expect(crossReview.summary).not.toHaveBeenCalled();
+    });
   });
 });

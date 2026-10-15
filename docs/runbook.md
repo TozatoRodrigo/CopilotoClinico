@@ -721,6 +721,39 @@ decidiu, 409 (a tela avisa e passa ao próximo). No log, cada decisão sai como
 `KNOWLEDGE_CARD_REVIEW decision=approved|rejected|corrected card=<id>
 version=<n> durationMs=<ms>`, sem texto do cartão.
 
+**Revisão cruzada (CC-411)** — 10% das aprovações são lidas de novo por um
+segundo médico (nem quem aprovou, nem quem escreveu a versão; o banco recusa
+por CHECK). O sorteio é pelo SHA-256 de `cc-411:<id da versão aprovada>`
+(4 primeiros bytes, módulo 100; entra quem fica abaixo de 10) e acontece na
+transação da aprovação, que já cria a linha `pending` em
+`knowledge_card_cross_reviews` (log `KNOWLEDGE_CARD_CROSS_REVIEW_SAMPLED`,
+`crossReviewSampled` no `CARD_APPROVED`). Na fila do celular a revisão
+cruzada vem antes dos cartões em revisão: é cartão no ar.
+
+- **Concordar** mantém o cartão no ar (`CARD_CROSS_REVIEW_AGREED`).
+- **Divergir é corrigir**: motivo obrigatório e a correção (mesma checagem de
+  citação). A correção vira versão nova, o cartão **sai do ar**
+  (`published_version_id` nulo, status `in_review`) e volta para a fila com o
+  contexto da divergência, até outro médico aprovar ou descartar
+  (`CARD_CROSS_REVIEW_DIVERGED`, motivo só como hash).
+- Revisão cruzada de versão que saiu do ar antes (outra aprovação,
+  arquivamento) fica `pending` e não aparece mais na fila; o painel a conta
+  como "saíram do ar antes da revisão".
+
+| Endpoint (papel de revisor) | O que faz |
+|---|---|
+| `POST /v1/review/knowledge-cards/cross-reviews/:id/agree` | `{ reviewDurationMs, comment? }` |
+| `POST /v1/review/knowledge-cards/cross-reviews/:id/diverge` | `{ reason, reviewDurationMs, basedOnVersion, content }`; 422 com os problemas da correção |
+| `GET /v1/review/knowledge-cards/cross-reviews/summary` | Painel (`/revisao/concordancia` no web): concordância, divergência contra a meta de 5%, pendentes, tempo mediano de revisão e as divergências recentes |
+
+```sql
+-- Conferir o sorteio de uma aprovação (mesmo balde do código)
+SELECT id, ('x' || lpad(left(encode(sha256(convert_to('cc-411:' || id::text, 'UTF8')), 'hex'), 8), 16, '0'))::bit(64)::bigint % 100 AS bucket
+FROM knowledge_card_versions WHERE review_decision = 'approved';
+-- Taxa de divergência (métrica do CC-411: abaixo de 5%)
+SELECT status, count(*) FROM knowledge_card_cross_reviews GROUP BY 1;
+```
+
 ```sql
 -- Tempo de revisão por decisão (meta do CC-404: até 6 minutos por cartão)
 SELECT review_decision, count(*) AS decisoes,
@@ -1037,6 +1070,7 @@ apenas na resposta. Acesso a um protocolo de outra instituição retorna `404`
 | `20261012180000_aud_007_audit_log_hash_version` | `audit_log.hash_version` (NULL = hash legado, 2 = JSON canônico) — ADR-015; só adiciona coluna nula |
 | `20261014120000_cc_402_knowledge_cards` | Cartões revisados (ADR-019): `knowledge_card_drafts`, `knowledge_cards`, `knowledge_card_versions`, trigger que congela o conteúdo assinado e GRANT sem DELETE; só cria tabelas |
 | `20261015120000_cc_404_card_reviewer` | `physicians.is_card_reviewer` (padrão `false`): acesso só à fila de revisão de cartões (CC-404); só adiciona coluna |
+| `20261015120100_cc_411_card_cross_reviews` | Revisão cruzada (CC-411): `knowledge_card_cross_reviews`, CHECK de segundo médico, trigger que congela sorteio e decisão, GRANT sem DELETE; só cria tabela |
 
 ### Rollback de Migration
 

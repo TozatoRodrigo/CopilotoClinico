@@ -4,7 +4,9 @@ import type {
   KnowledgeCardVersionView,
 } from '@contracts/knowledge-cards';
 import type {
-  KnowledgeCardReviewItem,
+  KnowledgeCardCrossReviewItem,
+  KnowledgeCardDivergence,
+  KnowledgeCardReviewTaskItem,
   KnowledgeCardSourceText,
 } from '@contracts/knowledge-card-review';
 
@@ -166,17 +168,75 @@ export function cardDetail(overrides: Partial<KnowledgeCardDetail> = {}): Knowle
   };
 }
 
-export function reviewItem(card: KnowledgeCardDetail = cardDetail()): KnowledgeCardReviewItem {
+export function reviewItem(
+  card: KnowledgeCardDetail = cardDetail(),
+  divergence: KnowledgeCardDivergence | null = null,
+): KnowledgeCardReviewTaskItem {
   return {
     kind: 'review',
     card,
     version: card.versions[0]?.version ?? 1,
     sourceTexts: sourceTexts(),
+    divergence,
   };
 }
 
+export const CROSS_REVIEW_ID = '66666666-6666-4666-8666-666666666666';
+
+const FIRST_REVIEWER = {
+  id: '55555555-5555-4555-8555-555555555555',
+  name: 'Dra. Ana',
+  crmUf: 'RJ',
+  crmNumber: '654321',
+  crmVerified: true,
+};
+
+/** CC-411 — a versão 1 publicada, sorteada para a revisão cruzada. */
+export function crossReviewItem(): KnowledgeCardCrossReviewItem {
+  const card = cardDetail({
+    status: 'published',
+    displayStatus: 'published',
+    published: {
+      version: 1,
+      reviewer: FIRST_REVIEWER,
+      reviewedAt: '2026-10-10T12:00:00.000Z',
+      validUntil: '2027-10-10T12:00:00.000Z',
+    },
+  });
+  return {
+    kind: 'cross_review',
+    card,
+    version: 1,
+    sourceTexts: sourceTexts(),
+    crossReview: {
+      id: CROSS_REVIEW_ID,
+      firstReviewer: FIRST_REVIEWER,
+      approvedAt: '2026-10-10T12:00:00.000Z',
+      validUntil: '2027-10-10T12:00:00.000Z',
+    },
+  };
+}
+
+/** CC-411 — a correção de quem divergiu, de volta à fila sem versão publicada. */
+export function divergedItem(): KnowledgeCardReviewTaskItem {
+  const item = correctedItem('Ceftriaxona 2 g IV a cada 12 horas, sem passar de 4 g por dia.');
+  item.divergence = {
+    crossReviewId: CROSS_REVIEW_ID,
+    disputedVersion: 1,
+    firstReviewer: FIRST_REVIEWER,
+    crossReviewer: {
+      ...FIRST_REVIEWER,
+      id: '44444444-4444-4444-8444-444444444444',
+      name: 'Dr. Luiz',
+    },
+    reason: 'A dose máxima não aparecia na resposta',
+    reviewedAt: '2026-10-14T12:00:00.000Z',
+  };
+  return item;
+}
+
 /** Correção do médico (versão 2) sobre o rascunho da IA (versão 1). */
-export function correctedItem(answer: string): KnowledgeCardReviewItem {
+export function correctedItem(answer: string): KnowledgeCardReviewTaskItem {
   const corrected = reviewContent();
   corrected.answer = answer;
   return reviewItem(

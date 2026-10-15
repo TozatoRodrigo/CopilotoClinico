@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
-import { Check, SealCheck, XCircle } from '@phosphor-icons/react';
+import { Check, Handshake, SealCheck, XCircle } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
@@ -253,6 +253,75 @@ export function RejectSheet({
             <Button type="submit" variant="destructive" className="flex-1" loading={pending}>
               <XCircle weight="bold" aria-hidden="true" />
               Descartar
+            </Button>
+          </SheetFooter>
+        </form>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+/**
+ * CC-411 — concordar com a versão sorteada: o cartão segue no ar e a
+ * concordância entra na taxa. Comentário opcional.
+ */
+export function AgreeSheet({
+  open,
+  onOpenChange,
+  version,
+  firstReviewer,
+  pending,
+  onConfirm,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  version: number;
+  firstReviewer: string;
+  pending: boolean;
+  onConfirm: (comment?: string) => void;
+}) {
+  const [comment, setComment] = useState('');
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onConfirm(comment.trim() || undefined);
+  }
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="bottom"
+        className="mx-auto max-h-[90dvh] w-full max-w-xl gap-0 overflow-y-auto rounded-t-xl p-0"
+      >
+        <form onSubmit={handleSubmit}>
+          <SheetHeader className="pr-12">
+            <SheetTitle>Concordar com a versão {version}</SheetTitle>
+            <SheetDescription>
+              Você confirma a aprovação de {firstReviewer}. O cartão continua no ar.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="flex flex-col gap-1.5 px-4 pb-2">
+            <Label htmlFor="agree-comment">Comentário (opcional)</Label>
+            <Textarea
+              id="agree-comment"
+              value={comment}
+              rows={2}
+              maxLength={REVIEW_TEXT_MAX_CHARS}
+              onChange={(event) => setComment(event.target.value)}
+            />
+          </div>
+          <SheetFooter className="flex-row gap-2 border-t border-border">
+            <Button
+              type="button"
+              variant="ghost"
+              className="flex-1"
+              onClick={() => onOpenChange(false)}
+            >
+              Voltar ao cartão
+            </Button>
+            <Button type="submit" className="flex-1" loading={pending}>
+              <Handshake weight="bold" aria-hidden="true" />
+              Concordo
             </Button>
           </SheetFooter>
         </form>

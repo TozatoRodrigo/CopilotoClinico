@@ -10,6 +10,9 @@ import {
   CARD_ID,
   cardDetail,
   correctedItem,
+  CROSS_REVIEW_ID,
+  crossReviewItem,
+  divergedItem,
   DOSE_QUOTE,
   NEXT_CARD_ID,
   reviewItem,
@@ -58,8 +61,14 @@ const { ApiError } = await import('@/lib/api-client');
 const QUESTION = 'Qual o antibiótico empírico na suspeita de meningite bacteriana no adulto?';
 const NEXT_QUESTION = 'Quando adiar a punção lombar na suspeita de meningite?';
 
-function queue(item = reviewItem(), pending = 2): KnowledgeCardReviewQueue {
-  return { item, pending };
+function queue(
+  item: KnowledgeCardReviewQueue['item'] = reviewItem(),
+  pending: number | KnowledgeCardReviewQueue['pending'] = 2,
+): KnowledgeCardReviewQueue {
+  return {
+    item,
+    pending: typeof pending === 'number' ? { review: pending, crossReview: 0 } : pending,
+  };
 }
 
 function nextCardQueue(): KnowledgeCardReviewQueue {
@@ -333,7 +342,7 @@ describe('Revisão de cartões (CC-404)', () => {
   });
 
   it('fila vazia', async () => {
-    apiGetMock.mockResolvedValue({ item: null, pending: 0 });
+    apiGetMock.mockResolvedValue(queue(null, 0));
     renderPage();
 
     expect(await screen.findByText('Fila zerada')).toBeInTheDocument();
@@ -349,5 +358,98 @@ describe('Revisão de cartões (CC-404)', () => {
     expect(alert).toHaveTextContent('Sem acesso à fila de revisão');
     expect(alert).toHaveTextContent('Apenas revisores de cartões podem acessar esta fila');
     expect(screen.queryByRole('group', { name: 'Decisão sobre o cartão' })).toBeNull();
+  });
+});
+
+describe('Revisão cruzada (CC-411)', () => {
+  async function crossDecisionButton(name: RegExp) {
+    const group = await screen.findByRole('group', { name: 'Decisão da revisão cruzada' });
+    return within(group).getByRole('button', { name });
+  }
+
+  beforeEach(() => {
+    apiGetMock
+      .mockReset()
+      .mockResolvedValueOnce(queue(crossReviewItem(), { review: 2, crossReview: 1 }))
+      .mockResolvedValueOnce(nextCardQueue());
+  });
+
+  it('mostra a aprovação sorteada antes da fila, com quem aprovou', async () => {
+    renderPage();
+
+    expect(await screen.findByRole('heading', { level: 2, name: QUESTION })).toBeInTheDocument();
+    expect(screen.getByText('2 cartões na fila · 1 revisão cruzada')).toBeInTheDocument();
+    expect(screen.getByText('Revisão cruzada')).toBeInTheDocument();
+    expect(screen.getByText(/Aprovado por Dra\. Ana em 10\/10\/2026/)).toBeInTheDocument();
+    expect(await crossDecisionButton(/Concordo/)).toBeEnabled();
+    expect(await crossDecisionButton(/Divergir/)).toBeEnabled();
+    expect(screen.queryByRole('group', { name: 'Decisão sobre o cartão' })).toBeNull();
+  });
+
+  it('concordar registra o tempo de revisão e passa ao próximo', async () => {
+    const user = userEvent.setup();
+    apiPostMock.mockResolvedValue(cardDetail({ status: 'published' }));
+    renderPage();
+    await screen.findByRole('heading', { level: 2, name: QUESTION });
+    clock = 75_000;
+
+    await user.click(await crossDecisionButton(/Concordo/));
+    const dialog = await screen.findByRole('dialog', { name: 'Concordar com a versão 1' });
+    await user.click(within(dialog).getByRole('button', { name: /^Concordo$/ }));
+
+    await waitFor(() =>
+      expect(apiPostMock).toHaveBeenCalledWith(
+        `/review/knowledge-cards/cross-reviews/${CROSS_REVIEW_ID}/agree`,
+        { reviewDurationMs: 75_000 },
+      ),
+    );
+    expect(
+      await screen.findByRole('heading', { level: 2, name: NEXT_QUESTION }),
+    ).toBeInTheDocument();
+  });
+
+  it('divergir exige o motivo e manda a correção', async () => {
+    const user = userEvent.setup();
+    apiPostMock.mockResolvedValue(cardDetail());
+    renderPage();
+    await screen.findByRole('heading', { level: 2, name: QUESTION });
+    clock = 130_000;
+
+    await user.click(await crossDecisionButton(/Divergir/));
+    expect(screen.getByRole('heading', { name: 'Divergir da versão 1' })).toBeInTheDocument();
+    const maxDose = screen.getByLabelText('Dose máxima (opcional)');
+    await user.clear(maxDose);
+    await user.click(screen.getByRole('button', { name: /Divergir e tirar do ar/ }));
+
+    const reason = screen.getByLabelText('O que está errado');
+    expect(reason).toHaveAttribute('aria-invalid', 'true');
+    expect(reason).toHaveFocus();
+    expect(apiPostMock).not.toHaveBeenCalled();
+
+    await user.type(reason, 'A dose máxima não vale para esta população');
+    await user.click(screen.getByRole('button', { name: /Divergir e tirar do ar/ }));
+
+    await waitFor(() => expect(apiPostMock).toHaveBeenCalledTimes(1));
+    const [path, body] = apiPostMock.mock.calls[0]!;
+    expect(path).toBe(`/review/knowledge-cards/cross-reviews/${CROSS_REVIEW_ID}/diverge`);
+    expect(body).toMatchObject({
+      reason: 'A dose máxima não vale para esta população',
+      reviewDurationMs: 130_000,
+      basedOnVersion: 1,
+    });
+    expect(body.content.claims[0].dose.maxDose).toBeNull();
+    expect(toastSuccessMock).toHaveBeenCalledWith(
+      'Divergência registrada. O cartão saiu do ar e voltou para a fila com a sua correção.',
+    );
+  });
+
+  it('cartão que voltou por divergência mostra de quem e por quê', async () => {
+    apiGetMock.mockReset().mockResolvedValue(queue(divergedItem(), 1));
+    renderPage();
+
+    expect(await screen.findByText('Voltou à fila pela revisão cruzada')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Dr\. Luiz divergiu da versão 1, aprovada por Dra\. Ana/),
+    ).toHaveTextContent('A dose máxima não aparecia na resposta');
   });
 });
