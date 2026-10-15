@@ -135,7 +135,8 @@ export function checkReviewQuestions(
     const source = material.sources.get(draft.sourceKey.trim().toUpperCase());
     if (!source) {
       questionErrors.push(
-        `${path}.sourceKey: "${draft.sourceKey}" is not one of the listed sources; cite only a key from <sources>`,
+        // Sem ecoar o valor: a mensagem vai para o log e o modelo já vê o que escreveu.
+        `${path}.sourceKey: not one of the listed sources; cite only a key from <sources>`,
       );
     }
     questionErrors.push(...optionErrors(draft, path));

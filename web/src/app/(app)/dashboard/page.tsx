@@ -16,6 +16,7 @@ import { useDashboardStats, useEncounterList } from '@/lib/clinical-queries';
 import { useAuth } from '@/lib/auth-store';
 import { StatCard, StatStrip } from '@/components/ui/stat-card';
 import { PlantaoQueue } from '@/components/domain/plantao-queue';
+import { ShiftReviewEntry } from '@/components/domain/shift-review/shift-review-entry';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -169,6 +170,9 @@ export default function DashboardPage() {
           substitui seu julgamento.
         </p>
       </div>
+
+      {/* CC-801: revisão da semana — só aparece com a flag ligada e algo para revisar */}
+      <ShiftReviewEntry />
 
       {/* Resolvidos hoje */}
       {!loading && (

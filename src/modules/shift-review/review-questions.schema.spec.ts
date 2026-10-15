@@ -96,7 +96,7 @@ describe('checkReviewQuestions', () => {
 
     expect(accepted).toHaveLength(2);
     expect(errors).toEqual([
-      'questions.0.sourceKey: "F9" is not one of the listed sources; cite only a key from <sources>',
+      'questions.0.sourceKey: not one of the listed sources; cite only a key from <sources>',
     ]);
   });
 

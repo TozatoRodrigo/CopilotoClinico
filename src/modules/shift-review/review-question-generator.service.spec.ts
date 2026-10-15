@@ -113,7 +113,7 @@ describe('ReviewQuestionGenerator', () => {
 
     expect(complete).toHaveBeenCalledTimes(2);
     const retry = sentMessages(1);
-    expect(retry.at(-1)?.content).toContain('"F7" is not one of the listed sources');
+    expect(retry.at(-1)?.content).toContain('questions.0.sourceKey: not one of the listed sources');
     expect(outcome.kind === 'generated' && outcome.questions).toHaveLength(3);
     expect(outcome.cost).toBe(0.014);
   });
