@@ -973,6 +973,36 @@ Prisma não suporta rollback automático. Para reverter:
 
 ---
 
+## Containers de produção (CC-013)
+
+`docker/docker-compose.prod.yml` sobe `copiloto-db`, `copiloto-redis`,
+`copiloto-api` (`docker/Dockerfile.api`) e `copiloto-web`
+(`docker/Dockerfile.web`). Não há container de worker:
+
+- **Worker da fila e crons rodam dentro da API.** `InferenceWorkerService`
+  (BullMQ, fila `inference`) sobe no `onModuleInit` do `QueueModule`, e os
+  crons de `src/workers/` (cadeia de auditoria, saúde do banco, abandono do
+  funil) vêm do `ScheduleModule`, no mesmo processo. Concorrência e ritmo:
+  `INFERENCE_QUEUE_CONCURRENCY` e `INFERENCE_QUEUE_RATE_PER_SEC`.
+- **`docker/worker.Dockerfile` foi removido.** Ele rodava `dist/workers/main.js`,
+  que nunca existiu, e copiava de uma imagem `copiloto-api:latest` que nenhum
+  compose gera. Separar o worker exige um entrypoint próprio que suba só a
+  fila, sem HTTP e sem os crons (senão os crons rodam duas vezes); só vale a
+  pena se a análise pela fila competir com a API por CPU.
+
+**Object storage (MinIO/S3): desligado em produção, de propósito.** O
+compose não repassa `MINIO_*`, então `StorageService.isAvailable()` é falso:
+o PDF do documento confirmado é montado na hora do download
+(`DocumentsService`, "PDF sob demanda") e nada fica gravado fora do banco.
+Ligar exige subir um MinIO (ou usar S3) com backup e retenção próprios e
+resolver o PDF que fica órfão na eliminação da conta (em PR aberto, #142).
+Até lá, nenhum ganho justifica guardar mais uma cópia do documento clínico.
+
+**Sentry:** o `SENTRY_DSN` no compose e o evento sem corpo nem cabeçalhos de
+credencial vêm do PR #168 (seção "Sentry" em Monitoramento).
+
+---
+
 ## Variáveis de Ambiente Críticas
 
 | Variável | Risco se ausente/errada |
