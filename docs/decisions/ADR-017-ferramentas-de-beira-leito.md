@@ -123,10 +123,35 @@ faixa numérica e dose por peso ficam no motor das Ferramentas.
 
 ### 6. Offline primeiro
 
-ACLS, Pediatria, Infusões e Calculadoras precisam abrir e calcular sem sinal
-(implementação no CC-322). Por isso o motor não chama rede, as páginas de
-calculadora são pré-renderizadas (`generateStaticParams`) e o service worker
-vai pré-carregar `/ferramentas` e os chunks do motor.
+ACLS, Pediatria, Infusões e Calculadoras precisam abrir e calcular sem sinal.
+Por isso o motor não chama rede e as páginas de calculadora são
+pré-renderizadas (`generateStaticParams`); o que depende do endereço
+(`?droga=`, `?de=`) é lido no cliente, atrás de `Suspense`.
+
+Implementação (CC-322):
+
+- `pnpm build` do web roda `scripts/generate-offline-manifest.mjs` depois do
+  `next build`: lê as rotas pré-renderizadas de `/ferramentas/**` e os arquivos
+  de `/_next/static` que o HTML e o payload RSC delas citam (os chunks do motor
+  entre eles) e grava `public/ferramentas-offline.json` (gerado, ignorado no
+  repositório) com a versão = hash do conteúdo. Hoje: 126 páginas, ~80
+  arquivos, ~8 MB. Com a flag desligada o arquivo não existe e nada é
+  pré-carregado.
+- `public/sw.js` baixa a lista na primeira abertura com sinal, em qualquer tela,
+  num cache por versão (`copiloto-ferramentas-<versão>`); a versão nova só
+  substitui a anterior depois de baixada inteira, e sessão vencida (redirect
+  para /login) não entra no cache. Página de ferramenta vem do cache completo
+  na hora (com sinal ruim não espera a rede); a troca de tela por RSC espera a
+  rede no máximo 4 s e, sem resposta, o Next recarrega a página, que vem do
+  cache.
+- A página pede a sincronização ao abrir e no evento `online`; o rodapé das
+  Ferramentas mostra "Disponível sem conexão · versão do conteúdo …" e oferece
+  recarregar quando chega versão nova. Sem sinal, o aviso do topo nas
+  Ferramentas é "Sem conexão: ferramentas funcionam, análise do caso fica na
+  fila".
+- Teste: `e2e/ferramentas-offline.spec.ts` (Playwright, só o web, sem API:
+  `pnpm exec playwright test -c playwright.ferramentas.config.ts` depois de um
+  build com a flag ligada).
 
 ### 7. Navegação
 

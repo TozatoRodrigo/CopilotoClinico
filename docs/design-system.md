@@ -165,6 +165,7 @@ desenha. Vitrine em `/dev/components#ferramentas`.
 | `ScoreItemList` | Itens de escore como rádio nativo, pontos à direita (classificação e parâmetro de fórmula não mostram ponto). |
 | `ChoiceGroup` | O único seletor de opção das Ferramentas (modo da droga, fase do protocolo, "responsivo a fluidos?", momento do HACOR): rádio nativo, alvo de 44px, descrição opcional na opção, desmarcar ao tocar de novo (`onClear`) e colunas no celular. Roteiro não cria o seu. |
 | `ToolReturnLink` | "Voltar para …" no topo da ferramenta aberta por outra (`?de=`, CC-331), no layout de `/ferramentas`. |
+| `ToolsOfflineFooter` | Rodapé das Ferramentas (CC-322): "Disponível sem conexão · versão do conteúdo …" e "recarregar" quando chega versão nova. |
 | `CalculatorResult` | Resultado ao vivo (`role="status"`): valor, faixa, resultados secundários e ação sugerida. Tom: baixo risco cinza, intermediário laranja, alto vermelho. Quando a faixa é o resultado (CAM-ICU), o nome dela ocupa o lugar do número. |
 | `ReferenceSection` / `ContentProvenanceNote` | Por que usar, quando usar, pérolas, citação; origem, versão e revisão do conteúdo. |
 | `CopyToChartButton` | Texto para o prontuário, com o texto selecionável se a área de transferência falhar. |

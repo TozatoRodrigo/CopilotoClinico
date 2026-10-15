@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# CC-322 — pré-cache das Ferramentas, gerado no build (scripts/generate-offline-manifest.mjs)
+/public/ferramentas-offline.json

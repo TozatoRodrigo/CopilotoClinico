@@ -457,6 +457,17 @@ Nada das ferramentas vai para log ou servidor: a conta roda no aparelho, os
 favoritos ficam no `localStorage` e o texto copiado para o prontuário não tem
 dado de paciente.
 
+**Offline (CC-322).** O `pnpm build` do web gera `public/ferramentas-offline.json`
+(páginas de `/ferramentas/**` e os chunks que elas usam, com a versão do
+conteúdo); o service worker baixa essa lista na primeira abertura com sinal e
+atualiza quando o sinal volta. Para conferir depois de um deploy: abrir uma
+ferramenta, ver no rodapé "Disponível sem conexão · versão do conteúdo <hash>",
+e o mesmo hash em `curl -s https://<host>/ferramentas-offline.json | jq .version`.
+Se o rodapé não sair de "Guardando…", a sessão do médico pode ter vencido (o
+pré-cache não guarda o redirect para /login): entrar de novo resolve. Teste
+local, sem API: build com a flag ligada e
+`pnpm exec playwright test -c playwright.ferramentas.config.ts`.
+
 ### Triar sugestões de diretriz enviadas por médicos (F4)
 
 Qualquer médico autenticado pode enviar material pela tela de Diretrizes
