@@ -474,8 +474,12 @@ describe('MentoringService', () => {
       const queue = await service.queue(mentorId, { scope: 'open' });
 
       const scope = {
-        requesterId: { not: mentorId },
-        OR: [{ institutionId: null }, { institutionId: { in: [institutionId] } }],
+        AND: [
+          { requesterId: { not: mentorId } },
+          { OR: [{ institutionId: null }, { institutionId: { in: [institutionId] } }] },
+          // Resposta de um colega é do médico que pediu: só aberto ou tratado por mim.
+          { OR: [{ status: { in: ['pending', 'claimed'] } }, { mentorId }] },
+        ],
       };
       expect(prisma.mentoringRequest.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -502,7 +506,7 @@ describe('MentoringService', () => {
       });
     });
 
-    it('hides a request from another institution (404)', async () => {
+    it('hides a request outside the scope — other institution or a colleague answer (404)', async () => {
       prisma.mentoringRequest.findFirst.mockResolvedValue(null);
       await expect(service.detailForMentor(mentorId, requestId)).rejects.toBeInstanceOf(
         NotFoundException,

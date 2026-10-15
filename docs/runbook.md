@@ -459,7 +459,8 @@ docker compose -f docker-compose.prod.yml exec copiloto-db \
 O mentor vê "Mentoria" no menu do Plantão. Ele só enxerga pedidos de casos sem
 instituição ou de uma instituição a que está vinculado (ADR-009): para atender
 um hospital cliente, vincule o mentor à instituição (seção "Multi-tenancy
-institucional"). Pedido sem mentor elegível fica no painel e gera
+institucional"). Pedido já respondido só fica visível para quem pediu e para o
+mentor que respondeu. Pedido sem mentor elegível fica no painel e gera
 `MENTORING_NO_ELIGIBLE_MENTOR` (WARN) no log.
 
 **Aviso por e-mail ainda não existe.** O projeto não tem provedor de e-mail;

@@ -557,17 +557,28 @@ export class MentoringService {
     return current;
   }
 
-  /** ADR-009 — sem instituição ou de uma instituição do mentor; nunca o próprio pedido. */
+  /**
+   * O que um mentor enxerga:
+   * - ADR-009: pedido sem instituição ou de uma instituição do mentor;
+   * - nunca o próprio pedido;
+   * - pedido em aberto, ou já tratado por ele. A resposta de um colega é do
+   *   médico que pediu: outro mentor não a lê.
+   */
   private async mentorScope(mentorId: string): Promise<Prisma.MentoringRequestWhereInput> {
     const links = await this.prisma.physicianInstitution.findMany({
       where: { physicianId: mentorId },
       select: { institutionId: true },
     });
     return {
-      requesterId: { not: mentorId },
-      OR: [
-        { institutionId: null },
-        { institutionId: { in: links.map((link) => link.institutionId) } },
+      AND: [
+        { requesterId: { not: mentorId } },
+        {
+          OR: [
+            { institutionId: null },
+            { institutionId: { in: links.map((link) => link.institutionId) } },
+          ],
+        },
+        { OR: [{ status: { in: ['pending', 'claimed'] } }, { mentorId }] },
       ],
     };
   }
