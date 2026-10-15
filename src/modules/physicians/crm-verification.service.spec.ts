@@ -101,8 +101,13 @@ describe('CrmVerificationService.requestVerification', () => {
     await service.requestVerification(PHYSICIAN_ID);
 
     expect(audit.log).toHaveBeenCalledWith(
-      expect.objectContaining({ action: 'CRM_VERIFICATION_REQUESTED' }),
+      expect.objectContaining({
+        action: 'CRM_VERIFICATION_REQUESTED',
+        entityId: REQUEST_ID,
+        payload: { crmUf: 'SP' },
+      }),
     );
+    expect(JSON.stringify(vi.mocked(audit.log).mock.calls)).not.toContain(mockPhysician.crmNumber);
   });
 });
 

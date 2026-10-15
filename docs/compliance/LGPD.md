@@ -49,9 +49,10 @@
 - Por isso o payload leva só IDs, enums, contagens, hashes e rótulos de
   catálogo (nome de protocolo, fonte de diretriz, nome e CNES de instituição).
   Nunca texto livre digitado por usuário nem dado pessoal:
-  - **Nome de arquivo e email ficam de fora.** São curtos e previsíveis — o
-    hash se reverte por dicionário. O `entityId` já identifica o anexo ou o
-    médico.
+  - **Nome de arquivo, email e número do CRM ficam de fora.** São curtos e
+    previsíveis — o hash se reverte por dicionário ou força bruta. O
+    `entityId` já identifica o anexo, o médico ou a solicitação de
+    verificação.
   - **Comentário, nota e motivo vão como SHA-256** (`freeTextHash`, em
     `src/modules/audit/audit-payload.ts`). O texto fica na tabela do domínio;
     o hash prova que ele não foi trocado depois.
@@ -69,6 +70,7 @@ dado pessoal no payload:
 | `PROTOCOL_RUN_ABANDONED` | `reason` | motivo digitado pelo médico |
 | `GUIDELINE_REJECTED` | `reason` | motivo do curador ao rejeitar um trecho de diretriz (as telas de curadoria mandam um texto fixo; a API aceita texto livre) |
 | `AUTH_REGISTER` | `email` | email do médico |
+| `CRM_VERIFICATION_REQUESTED` | `crmNumber` | número do CRM do médico (com a UF, identifica o médico no cadastro público do CFM) |
 
 Essas linhas ficam como estão. Corrigi-las exigiria desligar o trigger por
 DDL, e reescrever um payload quebra a cadeia de hashes (AUD-003) dali em
@@ -88,6 +90,7 @@ WHERE actor_id = '<physician-id>'
     OR (action = 'PROTOCOL_RUN_ABANDONED' AND payload ? 'reason')
     OR (action = 'GUIDELINE_REJECTED' AND payload ? 'reason')
     OR (action = 'AUTH_REGISTER' AND payload ? 'email')
+    OR (action = 'CRM_VERIFICATION_REQUESTED' AND payload ? 'crmNumber')
   );
 ```
 
