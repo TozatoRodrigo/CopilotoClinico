@@ -188,6 +188,13 @@ describe('/ferramentas/calculadoras/[id]', () => {
     expect(screen.getByText(title)).toBeInTheDocument();
   });
 
+  it('CIWA-Ar não mostra "Abrir no roteiro" enquanto o roteiro de Toxicologia está em breve (CC-306)', () => {
+    render(<CalculatorScreen id="ciwa-ar" />);
+
+    expect(screen.getByRole('heading', { level: 1, name: 'CIWA-Ar' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Abrir no roteiro/ })).not.toBeInTheDocument();
+  });
+
   it('CAM-ICU mostra a faixa como resultado, sem número', async () => {
     render(<CalculatorScreen id="cam-icu" />);
     for (const legend of [/^Feature 1/, /^Feature 2/, /^Feature 3/, /^Feature 4/]) {
@@ -201,9 +208,11 @@ describe('/ferramentas/calculadoras/[id]', () => {
   });
 
   it("mostra 'em breve' para a calculadora do catálogo ainda não portada", () => {
-    render(<CalculatorScreen id="rockall" />);
+    render(<CalculatorScreen id="dpp-dum" />);
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Rockall Score' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Data Provável do Parto (DPP)' }),
+    ).toBeInTheDocument();
     expect(screen.getByText('Em breve')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Ver calculadoras disponíveis' })).toHaveAttribute(
       'href',

@@ -170,3 +170,146 @@ sangramento".
 ### qSOFA, Critérios de Light
 
 Sem achado além da linguagem.
+
+## Gastro / Hepato
+
+### Bonacini — `bonacini`
+
+- A pontuação não confere com o escore discriminante de Bonacini (1997), em
+  que as plaquetas vão de 0 (> 340 mil) a 6 (< 40 mil), a relação é ALT/AST
+  (> 1,7 = 0 … < 0,6 = 3) e o corte de cirrose é ≥ 8 (escore de 0 a 11). O
+  ANY usa AST/ALT em três faixas, plaquetas de 0 a 5 sem a faixa > 340 mil e
+  corte ≥ 7. Conferir a fonte; opções: alinhar ao original (sobe a versão)
+  ou manter.
+
+### MELD-Na — `meld-na`
+
+- O ajuste pelo sódio é aplicado sempre. Na regra da UNOS (2016), ele só
+  entra quando o MELD é > 11. Desde 2023 a UNOS usa o MELD 3.0. Opções:
+  aplicar a regra do > 11; migrar para o MELD 3.0; ou manter.
+
+### Rockall — `rockall`
+
+- As faixas (≤ 2, ≤ 4, ≥ 5) misturam o escore pré-endoscópico (0–7) e o
+  completo (0–11): sem EDA, os dois itens endoscópicos valem 0 e o escore cai
+  na mesma régua do completo. A ação da faixa baixa cita "escore
+  pré-endoscópico 0". Opção: separar as duas versões.
+
+### Glasgow-Blatchford, Forrest, Child-Pugh, Alvarado
+
+Sem achado além da linguagem. Forrest: o valor de cada classe é um código
+(Ia = 6 … III = 1); a tela mostra só a classe.
+
+## Trauma
+
+### TASH — `tash`
+
+- A pérola diz "considere ativar o protocolo com escore ≥ 15", mas a faixa
+  alta começa em 16 (15 cai em "moderada", que já sugere reservar e ativar).
+  Também: a ação alta dizia "ativar … imediatamente" e virou "considere
+  ativar … sem demora".
+
+### PECARN — `pecarn`
+
+- A faixa etária não muda a conta: um menor de 2 anos com "vômitos (≥ 2a)"
+  marcado sai como risco intermediário. Opção: mostrar só os critérios da
+  faixa escolhida.
+- Risco muito baixo é "< 0,05%" nas duas idades; no original é < 0,02% em
+  menores de 2 anos e < 0,05% a partir de 2.
+
+### Fórmula de Parkland — `parkland`
+
+- Aceita peso de 1 a 200 kg (sem distinção pediátrica; em criança costuma-se
+  somar manutenção) e SCQ até 100%, mas limita a conta a 50% sem avisar na
+  tela. Opção: mostrar o aviso quando a SCQ passar de 50%.
+
+### mBIG, Canadian C-Spine
+
+Sem achado além da linguagem e da acentuação (o mBIG do ANY estava todo sem
+acento).
+
+## Hemodinâmica
+
+### Gradiente A-a — `gradiente-aa`
+
+- Aceita FiO₂ até 100%, mas a pérola diz que não se aplica com FiO₂ > 60%.
+- PaO₂ maior que a PAO₂ dá gradiente negativo, mostrado como "normal para a
+  idade".
+
+### Delta gap — `delta-gap`
+
+- HCO3 > 24 (ou AG < 12) dá razão negativa, lida como "acidose
+  hiperclorêmica concomitante". Opção: só calcular com HCO3 < 24 e AG > 12.
+- Com HCO3 = 24 o ANY mostrava o resultado "HCO3 normal" (valor interno 999);
+  aqui o campo fica marcado com a mesma explicação e nada é calculado.
+- O texto do delta gap no ANY usava AG 12 quando o AG digitado era 0
+  (`ag || 12`); aqui usa o valor digitado.
+
+### PAM — `pam`
+
+- Não confere se a PAD é menor que a PAS (PAS 40 e PAD 200 calcula 147).
+
+### Débito cardíaco por VTI, Winters, índice de choque
+
+Sem achado além da linguagem. "Borderline" ficou em inglês, como no ANY.
+
+## Toxicologia
+
+### CIWA-Ar — `ciwa-ar`
+
+- Náusea, tremor, sudorese, ansiedade e agitação só aceitam 0, 2, 5 ou 7 (o
+  rótulo diz "1–3" e vale 2). No CIWA-Ar original cada um vai de 0 a 7. Um
+  paciente com tremor 1 sai com 2 pontos. Opção: as 8 opções em cada item.
+- No ANY ela também existe no roteiro de Toxicologia. O link "Abrir no
+  roteiro" fica escondido até o roteiro existir no Copiloto (CC-323/CC-324).
+
+### Nomograma de Rumack-Matthew — `nomograma-rumack`
+
+- **Duas contas no ANY.** A calculadora arredonda a linha a 0,1 antes de
+  comparar; o roteiro de Toxicologia (ToxPath) compara com a linha sem
+  arredondar e aceita nível com decimais. No limite os dois discordam (ex.:
+  linha 50,04 e nível 50: a calculadora diz acima, o roteiro diz abaixo). O
+  Copiloto tem uma conta só (`src/shared/clinical-tools/toxicology`), a da
+  calculadora; o roteiro vai usá-la. Decidir se fica assim.
+- 0,173 é ln(2)/4 arredondado: a linha às 8 h sai 75,1 mcg/mL, não 75.
+- A ação dizia "Iniciar NAC imediatamente"; virou "considere iniciar NAC sem
+  demora".
+
+### QTc — `qtc-corrigido`
+
+- A faixa usa 440 ms para todos; a pérola diz < 460 ms em mulheres. Opção:
+  pedir o sexo.
+
+### PSS, intervalo osmolar
+
+Sem achado além da linguagem.
+
+## Renal / Metabólico
+
+### Correção de sódio (Katz) — `correcao-na`
+
+- O fator é um campo numérico de 1,6 a 2,4 (aceita 2,0), quando a pérola
+  descreve duas escolhas (Katz 1,6; Hillier 2,4). O rótulo do campo ganhou
+  "(1,6 Katz; 2,4 Hillier)". Opção: virar escolha entre as duas.
+
+### Déficit de água livre — `deficit-agua`
+
+- Aceita sódio a partir de 130: abaixo de 140 o déficit sai negativo (o ANY
+  dizia "Repor -0,5 litros"). Opção: só calcular com Na > 145, como diz o
+  "quando usar".
+
+### Adrogué-Madias — `correcao-na-adrogue`
+
+- Com infusato de sódio menor que o do paciente o valor é negativo; o ANY
+  dizia "eleva o sódio em ~-X". Aqui o texto fala em "variação".
+- O fator de água corporal abria em "Homem jovem (0,6)"; aqui precisa ser
+  escolhido.
+
+### Cockcroft-Gault, CKD-EPI 2021
+
+- O sexo abria em "Masculino" no ANY; aqui precisa ser escolhido.
+
+### AKIN/KDIGO, osmolaridade, cálcio corrigido, potássio, anion gap
+
+Sem achado além da linguagem. Potássio: o ANY dizia a gravidade só no texto
+("Hipocalemia leve"); aqui ela virou o nome da faixa.

@@ -77,6 +77,11 @@ function sweep(
 
 const GRACE_BASE = { age: 55, hr: 80, sbp: 130, creatinine: 1 };
 
+/** Resultado de uma faixa só, com o valor no rótulo do ANY ("Volume total 24h: 5600 mL"). */
+function singleBand(name: string) {
+  return (): string => name;
+}
+
 export const PORTS: readonly Port[] = [
   // ── Fundação (CC-303) ──────────────────────────────────────────────────
   { id: 'chadsvasc', tolerance: 0 },
@@ -197,4 +202,265 @@ export const PORTS: readonly Port[] = [
     ],
   },
   { id: 'apache-ii', tolerance: 0 },
+
+  // ── Lote B (CC-308): gastro, trauma, hemodinâmica, toxicologia, renal e metabólico ──
+  { id: 'rockall', tolerance: 0 },
+  { id: 'glasgow-blatchford', tolerance: 0 },
+  { id: 'forrest', tolerance: 0 },
+  { id: 'child-pugh', tolerance: 0 },
+  {
+    id: 'meld-na',
+    tolerance: 0,
+    edges: [
+      { bilirubin: 0.5, inr: 0.8, creatinine: 0.5, sodium: 140 }, // piso de 6
+      { bilirubin: 50, inr: 10, creatinine: 15, sodium: 100 }, // teto de 40
+      { bilirubin: 1, inr: 1, creatinine: 1, sodium: 137 },
+      { bilirubin: 2, inr: 1.5, creatinine: 1.5, sodium: 130 },
+      { bilirubin: 4, inr: 2, creatinine: 4, sodium: 125 },
+      { bilirubin: 4, inr: 2, creatinine: 4.1, sodium: 124 },
+    ],
+  },
+  { id: 'bonacini', tolerance: 0 },
+  { id: 'alvarado', tolerance: 0 },
+  { id: 'tash', tolerance: 0 },
+  { id: 'pecarn', tolerance: 0 },
+  { id: 'mbig', tolerance: 0 },
+  { id: 'canadian-cspine', tolerance: 0 },
+  {
+    id: 'parkland',
+    tolerance: 0,
+    anyBandName: singleBand('Volume total em 24 h'),
+    edges: [
+      { weight: 70, scq: 40 },
+      { weight: 70, scq: 50 },
+      { weight: 70, scq: 80 }, // SCQ limitada a 50%
+      { weight: 70.5, scq: 33 },
+      { weight: 1, scq: 1 },
+      { weight: 200, scq: 100 },
+    ],
+  },
+  {
+    id: 'dc-vti',
+    tolerance: 0,
+    anyBandName: afterDash,
+    edges: [
+      { lvot: 0.6, vti: 35.3, hr: 250 }, // 2,495 arredonda para 2,50
+      { lvot: 0.7, vti: 41.7, hr: 249 }, // 3,996 arredonda para 4,00
+      { lvot: 1, vti: 41.6, hr: 245 }, // 8,005 arredonda para 8,00
+      { lvot: 2, vti: 20, hr: 80 },
+      { lvot: 0.5, vti: 1, hr: 20 },
+      { lvot: 4, vti: 50, hr: 250 },
+    ],
+  },
+  {
+    id: 'gradiente-aa',
+    tolerance: 0,
+    // O rótulo do ANY embute o valor; a faixa está entre parênteses.
+    anyBandName: ({ label }) =>
+      label.includes('(normal para idade)') ? 'Normal para a idade' : 'Elevado',
+    edges: [
+      { fio2: 21, paco2: 40, pao2: 85.7, age: 40 }, // 14,0 = esperado (14)
+      { fio2: 21, paco2: 40, pao2: 85.6, age: 40 }, // 14,1
+      { fio2: 21, paco2: 40, pao2: 600, age: 18 }, // gradiente negativo
+      { fio2: 100, paco2: 120, pao2: 20, age: 120 },
+      { fio2: 50, paco2: 35, pao2: 100, age: 65 },
+    ],
+  },
+  {
+    id: 'delta-gap',
+    tolerance: 0,
+    anyBandName: afterDash,
+    anyPending: ({ label }) => label === 'HCO3 normal',
+    edges: [
+      { ag: 20, hco3: 24 }, // HCO3 normal: o ANY devolve 999
+      { ag: 12, hco3: 14 }, // razão 0
+      { ag: 22, hco3: 14 }, // razão 1
+      { ag: 32, hco3: 14 }, // razão 2
+      { ag: 32.1, hco3: 14 }, // razão 2,01
+      { ag: 20, hco3: 30 }, // HCO3 alto: razão negativa
+      { ag: 0, hco3: 1 },
+      { ag: 50, hco3: 50 },
+    ],
+  },
+  {
+    id: 'pam',
+    tolerance: 0,
+    anyBandName: afterDash,
+    edges: [
+      { sbp: 90, dbp: 45 }, // 60
+      { sbp: 88, dbp: 45 }, // 59,3
+      { sbp: 92, dbp: 50 }, // 64
+      { sbp: 95, dbp: 50 }, // 65
+      { sbp: 140, dbp: 80 }, // 100
+      { sbp: 143, dbp: 80 }, // 101
+      { sbp: 40, dbp: 200 }, // PAD maior que PAS: o ANY calcula mesmo assim
+    ],
+  },
+  {
+    id: 'formula-winters',
+    tolerance: 0,
+    anyBandName: afterDash,
+    edges: [
+      { hco3: 10, pco2: 21 }, // esperada 23: limite inferior exato
+      { hco3: 10, pco2: 20.9 },
+      { hco3: 10, pco2: 25 }, // limite superior exato
+      { hco3: 10, pco2: 25.1 },
+      { hco3: 12.3, pco2: 24.5 }, // 26,45 arredonda para 26,5
+      { hco3: 1, pco2: 5 },
+      { hco3: 50, pco2: 120 },
+    ],
+  },
+  { id: 'ciwa-ar', tolerance: 0 },
+  { id: 'pss', tolerance: 0 },
+  {
+    id: 'nomograma-rumack',
+    tolerance: 0,
+    anyBandName: ({ label }) =>
+      label.includes('ACIMA') ? 'Acima da linha de tratamento' : 'Abaixo da linha de tratamento',
+    edges: [
+      { hours: 4, level: 150 }, // no limite conta como acima
+      { hours: 4, level: 149 },
+      { hours: 8, level: 75 },
+      { hours: 6.5, level: 97 },
+      { hours: 24, level: 5 },
+      { hours: 24, level: 4 },
+      { hours: 12, level: 0 },
+    ],
+  },
+  {
+    id: 'qtc-corrigido',
+    tolerance: 0,
+    anyBandName: afterDash,
+    edges: [
+      { qt: 439, hr: 60 },
+      { qt: 440, hr: 60 },
+      { qt: 499, hr: 60 },
+      { qt: 500, hr: 60 },
+      { qt: 200, hr: 30 },
+      { qt: 800, hr: 250 },
+    ],
+  },
+  {
+    id: 'intervalo-osmolar',
+    tolerance: 0,
+    anyBandName: afterDash,
+    edges: [
+      { osm_measured: 299, na: 140, glucose: 90, urea: 30 }, // 9
+      { osm_measured: 300, na: 140, glucose: 90, urea: 30 }, // 10
+      { osm_measured: 309, na: 140, glucose: 90, urea: 30 }, // 19
+      { osm_measured: 310, na: 140, glucose: 90, urea: 30 }, // 20
+      { osm_measured: 200, na: 180, glucose: 1000, urea: 300 },
+    ],
+  },
+  { id: 'akin-kdigo', tolerance: 0 },
+  {
+    id: 'correcao-na',
+    tolerance: 0,
+    anyBandName: afterDash,
+    edges: [
+      { na_measured: 130, glucose: 400, factor: 1.6 }, // 134,8
+      { na_measured: 130, glucose: 413, factor: 1.6 }, // 135,0
+      { na_measured: 140, glucose: 413, factor: 1.6 }, // 145,0
+      { na_measured: 140, glucose: 420, factor: 1.6 }, // 145,1
+      { na_measured: 125, glucose: 600, factor: 2.4 },
+      { na_measured: 160, glucose: 1500, factor: 2.4 },
+    ],
+  },
+  {
+    id: 'deficit-agua',
+    tolerance: 0,
+    anyBandName: singleBand('Déficit de água livre'),
+    edges: [
+      { na: 140, weight: 70, act_factor: 0.6 }, // zero
+      { na: 130, weight: 70, act_factor: 0.6 }, // negativo
+      { na: 160, weight: 70, act_factor: 0.5 },
+      { na: 200, weight: 200, act_factor: 0.6 },
+    ],
+  },
+  {
+    id: 'osmolaridade',
+    tolerance: 0,
+    anyBandName: (interpretation) =>
+      afterDash(interpretation).replace('hipoosmolar', 'hipo-osmolar'),
+    edges: [
+      { na: 135, glucose: 54, urea: 12 }, // 275
+      { na: 134, glucose: 54, urea: 12 }, // 273
+      { na: 145, glucose: 54, urea: 12 }, // 295
+      { na: 145, glucose: 54, urea: 18 }, // 296
+      { na: 100, glucose: 20, urea: 1 },
+      { na: 180, glucose: 1000, urea: 300 },
+    ],
+  },
+  {
+    id: 'correcao-na-adrogue',
+    tolerance: 0,
+    anyBandName: singleBand('Variação estimada por litro de infusato'),
+    edges: [
+      { na_patient: 120, na_infusate: 513, weight: 70, sex_age: 0 },
+      { na_patient: 120, na_infusate: 154, weight: 50, sex_age: 2 },
+      { na_patient: 160, na_infusate: 0, weight: 80, sex_age: 1 }, // água livre: negativo
+      { na_patient: 100, na_infusate: 855, weight: 20, sex_age: 2 },
+    ],
+  },
+  {
+    id: 'cockcroft-gault',
+    tolerance: 0,
+    anyBandName: afterDash,
+    edges: [
+      { age: 50, weight: 72, creatinine: 1 }, // 90
+      { age: 51, weight: 72, creatinine: 1 }, // 89
+      { age: 80, weight: 72, creatinine: 1 }, // 60
+      { age: 110, weight: 72, creatinine: 1 }, // 30
+      { age: 80, weight: 36, creatinine: 2 }, // 15
+      { age: 80, weight: 36, creatinine: 2, sex: 1 }, // 12,75 feminino
+      { age: 120, weight: 30, creatinine: 20 },
+      { age: 18, weight: 250, creatinine: 0.1 },
+    ],
+  },
+  {
+    id: 'ckd-epi',
+    tolerance: 0,
+    anyBandName: afterDash,
+    edges: [
+      { age: 40, creatinine: 0.9 },
+      { age: 40, creatinine: 0.7, sex: 1 },
+      { age: 18, creatinine: 0.1 },
+      { age: 120, creatinine: 20, sex: 1 },
+      { age: 60, creatinine: 1.5 },
+    ],
+  },
+  {
+    id: 'correcao-calcio',
+    tolerance: 0,
+    anyBandName: afterDash,
+    edges: [
+      { calcium: 8.4, albumin: 4 },
+      { calcium: 8.5, albumin: 4 },
+      { calcium: 10.5, albumin: 4 },
+      { calcium: 10.6, albumin: 4 },
+      { calcium: 7.5, albumin: 2.8 },
+      { calcium: 2, albumin: 6 },
+    ],
+  },
+  {
+    id: 'correcao-potassio',
+    tolerance: 0,
+    // O ANY põe a gravidade só no texto da ação ("Hipocalemia leve").
+    anyBandName: ({ label, action }) =>
+      label === 'Potássio normal' ? label : (action.match(/Hipocalemia [^.]+/)?.[0] ?? label),
+    edges: [6.5, 4, 3.9, 3.5, 3.4, 3, 2.9, 2.5, 2.4, 1].map((k) => ({ k })),
+  },
+  {
+    id: 'anion-gap',
+    tolerance: 0,
+    anyBandName: afterDash,
+    edges: [
+      { na: 140, cl: 104, hco3: 22, albumin: 4 }, // 14
+      { na: 140, cl: 103, hco3: 22, albumin: 4 }, // 15
+      { na: 140, cl: 98, hco3: 22, albumin: 4 }, // 20
+      { na: 140, cl: 97, hco3: 22, albumin: 4 }, // 21
+      { na: 140, cl: 104, hco3: 22, albumin: 2 }, // corrigido 19
+      { na: 100, cl: 140, hco3: 50, albumin: 0.5 },
+    ],
+  },
 ];
