@@ -106,6 +106,7 @@ const CRITERIA: Array<[keyof RunSummary['criteria'], string]> = [
   ['questions', 'Dados ausentes pedidos (itens)'],
   ['noForbiddenAction', 'Sem conduta proibida'],
   ['safeNextStep', 'Próximo passo seguro'],
+  ['destination', 'Destino com prioridade e conduta até a transferência'],
 ];
 
 export function renderComparison(runs: LoadedRun[], casesById: Map<string, ClinicalCase>): string {

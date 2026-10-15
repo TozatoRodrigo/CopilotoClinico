@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 2,
+  "id": "cc603-supra-st-upa-longe-da-hemodinamica",
+  "title": "Dor precordial há 2 h com supra de ST anterior em UPA a 150 min da hemodinâmica",
+  "tags": [
+    "dor-toracica",
+    "iamcsst",
+    "recurso-ausente",
+    "regulacao"
+  ],
+  "critical": true,
+  "goldSource": "ai_draft",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Masc, 58a, dor precordial em aperto há 2h, irradiando para MSE, com sudorese e náusea. Tabagista, DM2. PA 138x86, FC 92, FR 18, SpO2 97% AA, sem crepitações, perfusão boa. ECG: supra de ST de 3 mm em V1-V4 com infra em DII, DIII e aVF. Sem sangramento, cirurgia ou AVC recentes.",
+    "context": {
+      "hasCT": false,
+      "isSus": true,
+      "hasLab": true,
+      "hasICU": false,
+      "site": {
+        "siteId": null,
+        "name": "UPA porte II do interior (gabarito)",
+        "facilityType": "upa_porte_2",
+        "specialists": [],
+        "referenceTravelMinutes": 150,
+        "referenceDistanceKm": 140
+      }
+    }
+  },
+  "expected": {
+    "syndrome": "infarto agudo do miocárdio com supradesnivelamento do ST anterior, longe da angioplastia primária",
+    "diagnoses": [
+      {
+        "text": "IAM com supra de ST de parede anterior",
+        "tier": "critical"
+      }
+    ],
+    "actions": [
+      {
+        "text": "fibrinólise no próprio serviço (tenecteplase, alteplase ou estreptoquinase) o quanto antes, porque a angioplastia primária não sai em até 120 min",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "AAS e clopidogrel em dose de ataque, com anticoagulante (enoxaparina) associado à fibrinólise",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "monitorização cardíaca contínua com desfibrilador à mão",
+        "tier": "important",
+        "timing": "now"
+      }
+    ],
+    "questions": [
+      "peso (dose do fibrinolítico e da enoxaparina) e função renal"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "esperar-exame-para-reperfundir",
+        "description": "Esperar troponina, ecocardiograma ou outro exame para decidir a reperfusão ou pedir a vaga",
+        "patterns": []
+      }
+    ],
+    "destination": {
+      "text": "regulação para hospital com hemodinâmica (estratégia fármaco-invasiva: cateterismo em 2 a 24 h após a fibrinólise, ou angioplastia de resgate se ela falhar), transporte pelo SAMU (suporte avançado)",
+      "tier": "critical",
+      "priority": "immediate",
+      "untilTransfer": [
+        "fibrinólise aqui, com AAS, clopidogrel e enoxaparina, sem esperar a vaga",
+        "ECG 60 a 90 min após a fibrinólise para ver critérios de reperfusão; sem eles, angioplastia de resgate (avisar a regulação)",
+        "monitorização contínua com desfibrilador e acesso venoso; enviar ECGs, horário de início da dor e doses dadas"
+      ]
+    },
+    "rationale": "Supra de ST anterior com 2 h de dor, a 150 min do serviço de hemodinâmica: o tempo até a angioplastia primária passa de 120 min, então a reperfusão tempo-dependente é a fibrinólise no próprio serviço o quanto antes (porta-agulha de até 30 min), com dupla antiagregação e anticoagulante, seguida de transferência para estratégia fármaco-invasiva. A transferência é pedida já, não depois da troponina. Mede o 'conduta até a transferência' da regra: o que fazer no local quando o tratamento definitivo chegaria tarde."
+  },
+  "sources": [
+    {
+      "claim": "Quando a angioplastia primária não pode ser feita em até 120 min do diagnóstico, fibrinólise em até 10 min do diagnóstico, seguida de transferência para angiografia em 2 a 24 h (estratégia fármaco-invasiva) ou angioplastia de resgate se não houver reperfusão",
+      "title": "2023 ESC Guidelines for the management of acute coronary syndromes",
+      "publisher": "European Society of Cardiology",
+      "year": 2023,
+      "url": "https://academic.oup.com/eurheartj/article/44/38/3720/7243210"
+    },
+    {
+      "claim": "AAS, inibidor de P2Y12 e anticoagulante na síndrome coronariana aguda; fibrinolíticos disponíveis e contraindicações",
+      "title": "Medicamentos para síndromes coronarianas agudas — Manual MSD",
+      "publisher": "MSD Manuals",
+      "year": 2025,
+      "url": "https://www.msdmanuals.com/pt/profissional/doen%C3%A7as-cardiovasculares/doen%C3%A7a-coronariana/medicamentos-para-s%C3%ADndromes-coronarianas-agudas"
+    }
+  ],
+  "provenance": {
+    "notes": "CC-603 (14/10/2026): caso novo para medir o destino e a conduta até a transferência quando o recurso (hemodinâmica) fica longe. O tempo até a referência vem do local de plantão declarado (input.context.site), não do texto do caso. Rascunho de IA: precisa de revisão médica antes de decidir o portão."
+  }
+}

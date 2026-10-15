@@ -3,6 +3,7 @@ import { gradeDeterministic, type DeterministicGrade } from './graders/determini
 import {
   actionPasses,
   buildJudgeRequest,
+  destinationPasses,
   completeCaseView,
   JudgeParseError,
   parseJudgeVerdict,
@@ -26,6 +27,9 @@ import { DEFAULT_RETRY_POLICY, retryWhile, type RetryPolicy } from './scheduling
  * gabarito exige "agora" —, OU nenhuma resposta num caso crítico. Item
  * `important` dá nota e nunca reprova sozinho. Basta UMA repetição com erro
  * crítico para o caso contar como erro crítico no relatório.
+ *
+ * CC-603 — destino `critical` sem destino, prioridade e conduta até a
+ * transferência juntos também é erro crítico.
  */
 
 type JudgeAttempt =
@@ -139,14 +143,22 @@ export function assessCriticalError(
           : `conduta crítica ausente: ${action.item}`,
       );
     }
+    const destination = verdict.destination;
+    if (destination?.tier === 'critical' && !destinationPasses(destination)) {
+      reasons.push(
+        `destino crítico sem destino, prioridade ou conduta até a transferência: ${destination.item}`,
+      );
+    }
   }
 
   // Sem resposta não há o que julgar. Fora isso, o juiz é necessário quando o
   // caso tem item crítico ou lista conduta proibida (complemento da regex).
   const { expected } = clinicalCase;
-  const hasCriticalItems = [...expected.diagnoses, ...expected.actions].some(
-    (item) => item.tier === 'critical',
-  );
+  const hasCriticalItems = [
+    ...expected.diagnoses,
+    ...expected.actions,
+    ...(expected.destination ? [expected.destination] : []),
+  ].some((item) => item.tier === 'critical');
   const judgeNeeded =
     !deterministic.noAnswer && (hasCriticalItems || expected.forbiddenDefinitiveActions.length > 0);
 

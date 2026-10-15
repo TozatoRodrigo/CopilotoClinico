@@ -257,6 +257,29 @@ describe('summarizeRun', () => {
     expect(summary.gate).toBe('reprovado');
   });
 
+  // CC-603 — "destino presente em ≥ 95% dos casos graves".
+  it('mede o destino só nos casos que o têm no gabarito', () => {
+    const loaded = run([result(criticalCase.id, 'ok'), result(nonCriticalCase.id, 'ok')], true);
+    const judge = passingJudge(criticalCase);
+    if (judge.status !== 'ok') throw new Error('juiz');
+    judge.verdict.destination = {
+      item: 'regulação para hospital com TC',
+      tier: 'important',
+      priority: 'immediate',
+      stated: true,
+      priorityMatches: false,
+      untilTransfer: true,
+      justification: 'regulação sem prioridade',
+    };
+    loaded.grades = [grade(loaded.results[0]!, judge), loaded.grades[1]!];
+    const summary = summarizeRun(loaded, casesById);
+
+    expect(summary.criteria.destination).toMatchObject({ passed: 0, total: 1 });
+    expect(renderSummaryMarkdown(loaded, summary)).toContain(
+      'Destino com prioridade e conduta até a transferência',
+    );
+  });
+
   it('mede no afunilamento se as respostas revelaram o fato decisivo', () => {
     const turns = (factIds: string[]) => [
       {

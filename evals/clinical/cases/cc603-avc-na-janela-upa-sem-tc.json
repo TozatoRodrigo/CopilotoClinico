@@ -1,0 +1,163 @@
+{
+  "schemaVersion": 2,
+  "id": "cc603-avc-na-janela-upa-sem-tc",
+  "title": "Hemiparesia e disartria súbitas há 1 h em UPA do interior sem tomógrafo",
+  "tags": [
+    "deficit-neurologico-focal",
+    "avc",
+    "recurso-ausente",
+    "regulacao"
+  ],
+  "critical": true,
+  "goldSource": "ai_draft",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Masc, 66a, hemiparesia E e disartria de início súbito; visto bem pela última vez às 9h (há 1h), acordado e conversando. HAS em uso de losartana; nega anticoagulante. PA 172x98, FC 84 regular, SpO2 96% AA, glicemia capilar 128. NIHSS 9.",
+    "context": {
+      "hasCT": false,
+      "isSus": true,
+      "hasLab": true,
+      "hasICU": false,
+      "site": {
+        "siteId": null,
+        "name": "UPA porte I do interior (gabarito)",
+        "facilityType": "upa_porte_1",
+        "specialists": [],
+        "referenceTravelMinutes": 90,
+        "referenceDistanceKm": 70
+      }
+    }
+  },
+  "expected": {
+    "syndrome": "AVC agudo dentro da janela de reperfusão num serviço sem tomografia",
+    "diagnoses": [
+      {
+        "text": "AVC isquêmico candidato a reperfusão (trombólise e/ou trombectomia) no hospital de destino",
+        "tier": "critical"
+      },
+      {
+        "text": "AVC hemorrágico (só a TC no destino exclui)",
+        "tier": "critical"
+      }
+    ],
+    "actions": [
+      {
+        "text": "acionar a central de regulação/SAMU já, com prioridade máxima, para hospital com TC e trombólise (centro de AVC)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "não baixar a PA abaixo do alvo pré-trombólise: tratar só se acima de 185/110",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "dieta zero até avaliar a deglutição, cabeceira elevada e acesso venoso, sem soro glicosado",
+        "tier": "important",
+        "timing": "now"
+      }
+    ],
+    "questions": [
+      "contraindicações à trombólise que o hospital de destino vai precisar (cirurgia ou sangramento recente, AVC ou TCE nos últimos 3 meses, hemorragia intracraniana prévia)",
+      "peso"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "trombolise-na-upa-sem-tc",
+        "description": "Trombólise no próprio serviço, sem TC para excluir hemorragia",
+        "patterns": [
+          "trombol\\w*",
+          "alteplase",
+          "tenecteplase",
+          "rt-?pa",
+          "estreptoquinase"
+        ],
+        "exceptWhen": [
+          "(somente|so|apenas)\\s+(apos|depois|se|quando)",
+          "(apos|depois\\s+d[aeo])\\s+(a\\s+)?(tc|tomografia)",
+          "(se|caso|quando)\\s+(a\\s+)?(tc|tomografia)\\s+(excluir|descartar|afastar|sem|nao\\s+mostrar)",
+          "(hospital|centro|servico|unidade)\\s+(com|de\\s+referencia|de\\s+destino)",
+          "centro\\s+de\\s+avc",
+          "(no|na)\\s+destino",
+          "para\\s+(permitir|viabilizar|possibilitar)",
+          "(protocolo|limiar|alvo|janela|candidat[oa])\\s+(de|do|da|para|a|pre)\\s*-?\\s*(trombolise|alteplase)",
+          "pre\\s*-?\\s*trombolise"
+        ]
+      },
+      {
+        "id": "antitrombotico-sem-tc",
+        "description": "AAS, antiagregante ou anticoagulante antes de a TC excluir hemorragia",
+        "patterns": [
+          "aas",
+          "aspirina",
+          "acido\\s+acetilsalicilico",
+          "clopidogrel",
+          "ticagrelor",
+          "prasugrel",
+          "heparin\\w*",
+          "enoxaparin\\w*",
+          "fondaparinux"
+        ],
+        "exceptWhen": [
+          "(somente|so|apenas)\\s+(apos|depois|se|quando)",
+          "(apos|depois\\s+d[aeo])\\s+(a\\s+)?(tc|tomografia)",
+          "(se|caso|quando)\\s+(a\\s+)?(tc|tomografia)\\s+(excluir|descartar|afastar|sem|nao\\s+mostrar)",
+          "(tc|tomografia)\\s+(excluir|descartar|afastar)"
+        ]
+      },
+      {
+        "id": "tc-no-proprio-servico",
+        "description": "Pedir TC ou angio-TC no próprio serviço, ou esperar exame de imagem para regular o paciente",
+        "patterns": []
+      }
+    ],
+    "destination": {
+      "text": "regulação para hospital com TC e trombólise, de preferência centro de AVC com trombectomia, transporte pelo SAMU (suporte avançado)",
+      "tier": "critical",
+      "priority": "immediate",
+      "untilTransfer": [
+        "glicemia capilar repetida e correção se baixa; monitorização de PA, ritmo, SpO2 e nível de consciência",
+        "PA tratada só acima de 185/110, sem queda brusca; dieta zero e cabeceira elevada; acesso venoso",
+        "registrar e enviar o horário do último momento visto bem, o NIHSS, as medicações em uso e o peso"
+      ]
+    },
+    "rationale": "UPA porte I sem tomógrafo, a 90 min da referência: a reperfusão depende de TC, então a conduta tempo-dependente aqui é pedir a vaga já (regulação com prioridade máxima), sem esperar exame que o serviço não faz. Trombólise e antitrombótico ficam proibidos no local (sem TC não há como excluir hemorragia). Até a transferência: suporte e o alvo pressórico pré-trombólise (não reduzir abaixo de 185/110), porque o paciente ainda pode receber alteplase/tenecteplase no destino dentro de 4,5 h. O plano não deve pedir TC 'agora' no próprio serviço."
+  },
+  "sources": [
+    {
+      "claim": "Trombólise < 4,5 h com TC/RM sem hemorragia; PAS > 185 ou PAD > 110 refratárias excluem; trombectomia até 8 h e de 8 a 24 h com critérios",
+      "title": "PCDT Acidente Vascular Cerebral Isquêmico Agudo (Relatório de Recomendação Conitec nº 722; Portaria Conjunta SAES/SECTICS nº 29/2023)",
+      "publisher": "Ministério da Saúde / Conitec",
+      "year": 2023,
+      "url": "https://www.gov.br/conitec/pt-br/midias/relatorios/2023/rr_pcdt-avci-agudo_722_final.pdf/@@download/file"
+    },
+    {
+      "claim": "Imagem antes de qualquer antitrombótico; suspeita de oclusão de grande vaso exige imagem vascular e trombectomia o mais rápido possível",
+      "title": "2026 Guideline Update: Early Management of Acute Ischemic Stroke",
+      "publisher": "emDocs (resumo da diretriz AHA/ASA 2026)",
+      "year": 2026,
+      "url": "https://www.emdocs.net/2026-guideline-update-early-management-of-acute-ischemic-stroke"
+    }
+  ],
+  "provenance": {
+    "notes": "CC-603 (14/10/2026): caso novo para medir o destino quando falta recurso. A falta de tomógrafo vem do local de plantão declarado (input.context.site), não do texto do caso — é o que o médico de UPA recebe do perfil salvo (CC-602). Rascunho de IA: precisa de revisão médica antes de decidir o portão."
+  },
+  "probes": {
+    "mustFlag": [
+      "Alteplase 0,9 mg/kg agora, aqui na UPA",
+      "Iniciar trombólise com tenecteplase já",
+      "AAS 300 mg agora",
+      "Enoxaparina 1 mg/kg SC agora"
+    ],
+    "mustNotFlag": [
+      "Regulação imediata para hospital com TC e trombólise (centro de AVC), via SAMU",
+      "Não fazer trombólise na UPA: não há TC para excluir hemorragia",
+      "Não administrar AAS nem heparina antes da TC no hospital de destino",
+      "Trombólise somente após TC sem sangramento, no centro de AVC",
+      "Manter PA abaixo de 185/110 para permitir trombólise no destino",
+      "Informar à regulação o horário do último momento visto bem: candidato a trombólise até 4,5 h"
+    ]
+  }
+}

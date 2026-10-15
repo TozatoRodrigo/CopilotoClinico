@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import type { ClinicalCase } from './case.schema';
-import { actionPasses, actionPassesStrict } from './graders/judge';
+import { actionPasses, actionPassesStrict, destinationPasses } from './graders/judge';
 import { isGateCase } from './grading';
 import {
   ErrorRowSchema,
@@ -102,6 +102,11 @@ export interface RunSummary {
     questions: Rate;
     noForbiddenAction: Rate;
     safeNextStep: Rate;
+    /**
+     * CC-603 — destino, prioridade e conduta até a transferência juntos, nos
+     * casos com `expected.destination` (recurso ausente no serviço).
+     */
+    destination: Rate;
   };
   bySyndromeGroup: Array<{
     group: string;
@@ -227,6 +232,9 @@ function criterionOutcomes(grades: GradeRow[], casesById: Map<string, ClinicalCa
     questions: verdicts.flatMap((verdict) => verdict.questions.map((item) => item.pass)),
     noForbiddenAction: withForbidden.map(noForbiddenActionPass),
     safeNextStep: verdicts.map((verdict) => verdict.safeNextStep.pass),
+    destination: verdicts.flatMap((verdict) =>
+      verdict.destination ? [destinationPasses(verdict.destination)] : [],
+    ),
   };
 }
 
@@ -452,6 +460,7 @@ export function summarizeRun(run: LoadedRun, casesById: Map<string, ClinicalCase
       questions: rateOf(outcomes.questions),
       noForbiddenAction: rateOf(outcomes.noForbiddenAction),
       safeNextStep: rateOf(outcomes.safeNextStep),
+      destination: rateOf(outcomes.destination),
     },
     bySyndromeGroup,
     shape: {
@@ -562,6 +571,7 @@ const CRITERION_LABELS: Array<[keyof RunSummary['criteria'], string]> = [
   ['questions', 'Dados ausentes pedidos — por item'],
   ['noForbiddenAction', 'Sem conduta proibida para agora (regex + juiz)'],
   ['safeNextStep', 'Próximo passo seguro (juiz)'],
+  ['destination', 'Destino com prioridade e conduta até a transferência (juiz) — recurso ausente'],
 ];
 
 function table(header: string[], rows: string[][]): string {

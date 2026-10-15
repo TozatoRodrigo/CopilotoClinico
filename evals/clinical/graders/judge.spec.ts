@@ -9,6 +9,7 @@ import {
   actionPasses,
   buildJudgeRequest,
   buildJudgeSchema,
+  destinationPasses,
   JUDGE_SYSTEM_PROMPT,
   JudgeParseError,
   parseJudgeVerdict,
@@ -550,5 +551,152 @@ describe('clientes do juiz', () => {
   it('exige JUDGE_MODEL e chave para o juiz OpenAI', () => {
     expect(() => createJudgeClient('openai', {})).toThrow(/JUDGE_MODEL/);
     expect(() => createJudgeClient('openai', { JUDGE_MODEL: 'gpt-x' })).toThrow(/OPENAI_API_KEY/);
+  });
+});
+
+// CC-603 — destino, prioridade e conduta até a transferência quando falta
+// recurso no serviço.
+describe('destino com recurso ausente (CC-603)', () => {
+  const upaCase = strokeCaseFixture({
+    input: {
+      caseText: 'M 66a, hemiparesia E súbita há 1 h. PA 172x98, glicemia 128.',
+      context: {
+        hasCT: false,
+        isSus: true,
+        hasLab: true,
+        hasICU: false,
+        site: {
+          siteId: null,
+          name: 'UPA do gabarito',
+          facilityType: 'upa_porte_1',
+          specialists: [],
+          referenceTravelMinutes: 90,
+          referenceDistanceKm: 70,
+        },
+      },
+    },
+    expected: {
+      ...strokeCase.expected,
+      destination: {
+        text: 'regulação para hospital com TC e trombólise, pelo SAMU',
+        tier: 'critical',
+        priority: 'immediate',
+        untilTransfer: [
+          'glicemia e PA monitorizadas',
+          'enviar o horário do último momento visto bem',
+        ],
+      },
+    },
+  });
+
+  const wireDestination = (overrides: Record<string, unknown> = {}) => ({
+    justification: 'rec 1: regulação imediata para centro de AVC',
+    stated: true,
+    priority_matches: true,
+    until_transfer: true,
+    ...overrides,
+  });
+
+  it('keeps the judge request of always for a case without destination', () => {
+    const request = buildJudgeRequest(strokeCase, output());
+
+    expect(request.system).toBe(JUDGE_SYSTEM_PROMPT);
+    expect(request.user).not.toContain('Destino esperado');
+    expect(request.user).not.toContain('Local declarado');
+    expect(buildJudgeSchema(strokeCase).required).not.toContain('destination');
+  });
+
+  it('asks for destination, priority and conduct until the transfer', () => {
+    const request = buildJudgeRequest(upaCase, output());
+
+    expect(request.system.startsWith(JUDGE_SYSTEM_PROMPT)).toBe(true);
+    expect(request.system).toContain('- destination');
+    expect(request.user).toContain(
+      'Destino esperado (destination): [crítico] regulação para hospital com TC e trombólise, pelo SAMU',
+    );
+    expect(request.user).toContain('prioridade esperada: imediata');
+    expect(request.user).toContain('item_2: enviar o horário do último momento visto bem');
+    expect(buildJudgeSchema(upaCase).required).toContain('destination');
+  });
+
+  it('tells the judge what the declared facility lacks, never its name', () => {
+    const { user } = buildJudgeRequest(upaCase, output());
+
+    expect(user).toContain(
+      'Local declarado: UPA 24h porte I; não tem tomografia, UTI; referência a cerca de 90 min.',
+    );
+    expect(user).toContain('Recursos: paciente SUS, laboratório disponível.');
+    expect(user).not.toContain('UPA do gabarito');
+  });
+
+  it('parses the destination verdict with the tier and the expected priority', () => {
+    const verdict = parseJudgeVerdict(
+      upaCase,
+      JSON.stringify(
+        wireVerdict(true, { destination: wireDestination({ until_transfer: false }) }),
+      ),
+    );
+
+    expect(verdict.destination).toEqual({
+      item: 'regulação para hospital com TC e trombólise, pelo SAMU',
+      tier: 'critical',
+      priority: 'immediate',
+      stated: true,
+      priorityMatches: true,
+      untilTransfer: false,
+      justification: 'rec 1: regulação imediata para centro de AVC',
+    });
+    expect(destinationPasses(verdict.destination!)).toBe(false);
+  });
+
+  it('refuses an answer that skipped the destination', () => {
+    expect(() => parseJudgeVerdict(upaCase, JSON.stringify(wireVerdict(true)))).toThrow(
+      JudgeParseError,
+    );
+  });
+
+  it('leaves the destination null for a case without it', () => {
+    expect(parseJudgeVerdict(strokeCase, JSON.stringify(wireVerdict(true))).destination).toBeNull();
+  });
+
+  it('needs destination, priority and conduct together', () => {
+    const all = { stated: true, priorityMatches: true, untilTransfer: true };
+    expect(destinationPasses(all)).toBe(true);
+    expect(destinationPasses({ ...all, stated: false })).toBe(false);
+    expect(destinationPasses({ ...all, priorityMatches: false })).toBe(false);
+    expect(destinationPasses({ ...all, untilTransfer: false })).toBe(false);
+  });
+
+  it('counts a missing critical destination as a critical error', async () => {
+    const grade = await gradeResult(
+      resultRow(output()),
+      upaCase,
+      fakeJudge([
+        response(wireVerdict(true, { destination: wireDestination({ priority_matches: false }) })),
+      ]),
+      noRetry,
+    );
+
+    expect(grade.criticalError.reasons).toEqual([
+      'destino crítico sem destino, prioridade ou conduta até a transferência: regulação para hospital com TC e trombólise, pelo SAMU',
+    ]);
+  });
+
+  it('does not fail the gate on an important destination', async () => {
+    const importantDestination = strokeCaseFixture({
+      ...upaCase,
+      expected: {
+        ...upaCase.expected,
+        destination: { ...upaCase.expected.destination!, tier: 'important' },
+      },
+    });
+    const grade = await gradeResult(
+      resultRow(output()),
+      importantDestination,
+      fakeJudge([response(wireVerdict(true, { destination: wireDestination({ stated: false }) }))]),
+      noRetry,
+    );
+
+    expect(grade.criticalError).toEqual({ value: false, complete: true, reasons: [] });
   });
 });

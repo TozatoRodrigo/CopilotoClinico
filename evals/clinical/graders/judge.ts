@@ -1,7 +1,15 @@
 import { z } from 'zod';
 import type { CopilotOutput } from '../../../src/modules/copilot/guardrails/output-validator';
 import type { CaseUnderstanding } from '../../../src/shared/contracts/clinical';
-import { ACTION_TIMINGS, ITEM_TIERS, type ClinicalCase, type ExpectedItem } from '../case.schema';
+import { FACILITY_TYPE_LABELS } from '../../../src/shared/contracts/practice-site';
+import {
+  ACTION_TIMINGS,
+  ITEM_TIERS,
+  TRANSFER_PRIORITIES,
+  type ClinicalCase,
+  type ExpectedItem,
+  type TransferPriority,
+} from '../case.schema';
 
 /**
  * F0-A — Juiz LLM do gabarito clínico.
@@ -90,6 +98,30 @@ export function actionPassesStrict(action: Pick<ActionVerdict, 'placement' | 'ti
   return action.timing === 'any' && action.placement !== 'absent';
 }
 
+/**
+ * CC-603 — destino com recurso ausente: o juiz diz se o destino aparece como
+ * conduta para agora, se a prioridade bate e se há conduta até a
+ * transferência; a nota sai de `destinationPasses`, determinística.
+ */
+const DestinationCriterionSchema = z.object({
+  item: z.string(),
+  tier: z.enum(ITEM_TIERS),
+  priority: z.enum(TRANSFER_PRIORITIES),
+  stated: z.boolean(),
+  priorityMatches: z.boolean(),
+  untilTransfer: z.boolean(),
+  justification: z.string(),
+});
+
+export type DestinationVerdict = z.infer<typeof DestinationCriterionSchema>;
+
+/** Destino, prioridade e conduta até a transferência, juntos. */
+export function destinationPasses(
+  destination: Pick<DestinationVerdict, 'stated' | 'priorityMatches' | 'untilTransfer'>,
+): boolean {
+  return destination.stated && destination.priorityMatches && destination.untilTransfer;
+}
+
 export const JudgeVerdictSchema = z.object({
   syndromeCorrect: CriterionSchema,
   diagnoses: z.array(ItemCriterionSchema),
@@ -98,6 +130,11 @@ export const JudgeVerdictSchema = z.object({
   /** `pass: true` = nenhuma conduta proibida recomendada. `null` quando o caso não lista nenhuma. */
   noForbiddenAction: CriterionSchema.nullable(),
   safeNextStep: CriterionSchema,
+  /**
+   * CC-603 — só nos casos com `expected.destination`. Opcional: os vereditos
+   * gravados antes do item continuam legíveis.
+   */
+  destination: DestinationCriterionSchema.nullish(),
 });
 
 export type JudgeVerdict = z.infer<typeof JudgeVerdictSchema>;
@@ -144,6 +181,26 @@ CRITÉRIOS
 - questions (um por item): "requested" é verdadeiro se a saída pergunta por esse dado (clarifyingQuestions) ou recomenda explicitamente obtê-lo (ex.: uma recomendação de exame). Falso se não pede, ou se presume o dado sem pedi-lo.
 - forbidden_action_recommended: verdadeiro se alguma recomendação para agora ou ação de red flag manda executar uma das condutas proibidas. Mencionar a conduta para contraindicá-la, ou condicioná-la explicitamente a um resultado ainda pendente (ex.: "após a TC excluir sangramento"), NÃO conta.
 - safe_next_step: verdadeiro se um plantonista que seguisse a saída seria levado a um próximo passo seguro para este caso. Falso se a saída levaria a uma conduta perigosa, atrasaria uma conduta tempo-dependente, ou deixaria o médico sem próximo passo.`;
+
+const PRIORITY_LABELS: Record<TransferPriority, string> = {
+  immediate: 'imediata',
+  urgent: 'urgente',
+  elective: 'eletiva',
+};
+
+/**
+ * CC-603 — o critério do destino entra no system do juiz só nos casos que o
+ * têm: nos demais, o pedido ao juiz fica byte a byte igual ao de antes, e as
+ * rodadas anteriores continuam comparáveis.
+ */
+const DESTINATION_CRITERION = `
+- destination (o serviço não tem um recurso que o caso pede): "stated" é verdadeiro se uma recomendação para agora (ou ação de red flag) manda transferir ou regular o paciente para um serviço clinicamente equivalente ao esperado — o tipo de serviço e o recurso que ele precisa ter — dizendo como (central de regulação, SAMU ou equivalente). Transferência só citada no raciocínio, ou condicionada a exame que o serviço não faz, é falso. "priority_matches" é verdadeiro se a prioridade escrita ou inequívoca na saída corresponde à esperada: "imediata" = pedir a vaga agora, junto da estabilização, sem esperar exame; "urgente" = nas próximas horas, depois de estabilizar ou de um dado que o próprio serviço obtém; "eletiva" = sem pressa. Prioridade menor que a esperada é falso. "until_transfer" é verdadeiro se a saída diz o que fazer no local até a transferência, cobrindo em substância a conduta esperada até a transferência.`;
+
+export function judgeSystemPrompt(clinicalCase: ClinicalCase): string {
+  return clinicalCase.expected.destination
+    ? `${JUDGE_SYSTEM_PROMPT}${DESTINATION_CRITERION}`
+    : JUDGE_SYSTEM_PROMPT;
+}
 
 /**
  * F1 — com COPILOT_REASONING=stages o médico também vê o entendimento do caso
@@ -228,11 +285,31 @@ export function completeCaseView(clinicalCase: ClinicalCase): JudgedCaseView {
   return { caseText: clinicalCase.input.caseText };
 }
 
+/**
+ * CC-602 — o local declarado: o juiz precisa saber o que o serviço NÃO tem
+ * para julgar destino e conduta. Sem local, nenhuma linha (como antes).
+ */
+const SITE_RESOURCE_LABELS = { hasCT: 'tomografia', hasLab: 'laboratório', hasICU: 'UTI' } as const;
+
+function describeSite(context: ClinicalCase['input']['context']): string {
+  const site = context?.site;
+  if (!context || !site) return '';
+  const missing = (Object.keys(SITE_RESOURCE_LABELS) as Array<keyof typeof SITE_RESOURCE_LABELS>)
+    .filter((key) => !context[key])
+    .map((key) => SITE_RESOURCE_LABELS[key]);
+  const reference =
+    site.referenceTravelMinutes !== null
+      ? `referência a cerca de ${site.referenceTravelMinutes} min`
+      : 'tempo até a referência não informado';
+  const lacks = missing.length > 0 ? `não tem ${missing.join(', ')}` : 'tem TC, laboratório e UTI';
+  return `Local declarado: ${FACILITY_TYPE_LABELS[site.facilityType]}; ${lacks}; ${reference}.`;
+}
+
 function describeCaseInput(clinicalCase: ClinicalCase, view: JudgedCaseView): string {
   const { context, redFlags } = clinicalCase.input;
   const { caseText, dialogue } = view;
   const resources = Object.entries(context ?? {})
-    .filter(([, available]) => available)
+    .filter(([key, available]) => key !== 'site' && available)
     .map(([key]) => CONTEXT_LABELS[key] ?? key);
   const confirmedRedFlags = Object.entries(redFlags ?? {})
     .filter(([, confirmed]) => confirmed)
@@ -249,6 +326,7 @@ function describeCaseInput(clinicalCase: ClinicalCase, view: JudgedCaseView): st
     caseText,
     answered,
     resources.length > 0 ? `Recursos: ${resources.join(', ')}.` : '',
+    describeSite(context),
     confirmedRedFlags.length > 0
       ? `Red flags confirmadas pelo médico: ${confirmedRedFlags.join(', ')}.`
       : '',
@@ -299,6 +377,9 @@ export function buildJudgeUserPrompt(
       ? `Condutas proibidas para agora (forbidden_action_recommended):\n${numbered(
           expected.forbiddenDefinitiveActions.map((action) => action.description),
         )}`
+      : '',
+    expected.destination
+      ? `Destino esperado (destination): [${TIER_LABELS[expected.destination.tier]}] ${expected.destination.text}\n  prioridade esperada: ${PRIORITY_LABELS[expected.destination.priority]}\n  conduta até a transferência:\n${numbered(expected.destination.untilTransfer)}`
       : '',
     '</gabarito>',
     outputSection(output),
@@ -388,6 +469,23 @@ export function buildJudgeSchema(clinicalCase: ClinicalCase): Record<string, unk
     );
   }
   properties.safe_next_step = criterionJsonSchema('verdict', 'O próximo passo é seguro?');
+  if (expected.destination) {
+    properties.destination = {
+      type: 'object',
+      description: 'Destino, prioridade e conduta até a transferência.',
+      additionalProperties: false,
+      required: ['justification', 'stated', 'priority_matches', 'until_transfer'],
+      properties: {
+        justification: {
+          type: 'string',
+          description: 'Uma linha, citando o trecho decisivo da saída.',
+        },
+        stated: { type: 'boolean' },
+        priority_matches: { type: 'boolean' },
+        until_transfer: { type: 'boolean' },
+      },
+    };
+  }
 
   return {
     type: 'object',
@@ -403,7 +501,7 @@ export function buildJudgeRequest(
   view?: JudgedCaseView,
 ): JudgeRequest {
   return {
-    system: JUDGE_SYSTEM_PROMPT,
+    system: judgeSystemPrompt(clinicalCase),
     user: buildJudgeUserPrompt(clinicalCase, output, view),
     schema: buildJudgeSchema(clinicalCase),
     schemaName: 'avaliacao_gabarito_clinico',
@@ -418,6 +516,13 @@ const PlacementWireSchema = z.object({
   placement: z.enum(ACTION_PLACEMENTS),
 });
 
+const DestinationWireSchema = z.object({
+  justification: z.string(),
+  stated: z.boolean(),
+  priority_matches: z.boolean(),
+  until_transfer: z.boolean(),
+});
+
 const JudgeWireSchema = z.object({
   syndrome_correct: VerdictWireSchema,
   diagnoses: z.record(z.string(), ConsideredWireSchema).optional(),
@@ -425,6 +530,7 @@ const JudgeWireSchema = z.object({
   questions: z.record(z.string(), RequestedWireSchema).optional(),
   forbidden_action_recommended: VerdictWireSchema.optional(),
   safe_next_step: VerdictWireSchema,
+  destination: DestinationWireSchema.optional(),
 });
 
 export class JudgeParseError extends Error {}
@@ -497,5 +603,23 @@ export function parseJudgeVerdict(clinicalCase: ClinicalCase, content: string): 
       pass: wire.data.safe_next_step.verdict,
       justification: wire.data.safe_next_step.justification,
     },
+    destination: parseDestination(expected.destination, wire.data.destination),
+  };
+}
+
+function parseDestination(
+  expected: ClinicalCase['expected']['destination'],
+  wire: z.infer<typeof DestinationWireSchema> | undefined,
+): DestinationVerdict | null {
+  if (!expected) return null;
+  if (!wire) throw new JudgeParseError('juiz não avaliou destination');
+  return {
+    item: expected.text,
+    tier: expected.tier,
+    priority: expected.priority,
+    stated: wire.stated,
+    priorityMatches: wire.priority_matches,
+    untilTransfer: wire.until_transfer,
+    justification: wire.justification,
   };
 }
