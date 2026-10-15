@@ -59,6 +59,8 @@ describe('referência congelada do ANY', () => {
         'MetronomeContext.tsx',
         // CC-315 — via aérea (a conta e o roteiro moram na própria página)
         'AirwayGuide.tsx',
+        // CC-316 e CC-317 — choque
+        'ShockPath.tsx',
       ]),
     );
   });
