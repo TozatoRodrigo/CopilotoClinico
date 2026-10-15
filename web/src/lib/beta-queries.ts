@@ -19,7 +19,8 @@ import {
   type CreateBetaInvitesRequest,
   type CreateBetaInvitesResponse,
 } from '@contracts/beta';
-import { apiClient } from '@/lib/api-client';
+import type { BetaWeeklyReport } from '@contracts/beta-weekly';
+import { apiClient, type ApiError } from '@/lib/api-client';
 
 /**
  * CC-702 — consultas do beta por convite: cadastro (público), onboarding do
@@ -32,6 +33,7 @@ export const betaKeys = {
   waitlist: (status: BetaWaitlistStatus | 'all') => ['admin', 'beta', 'waitlist', status] as const,
   waitlistAll: ['admin', 'beta', 'waitlist'] as const,
   activation: (days: number) => ['admin', 'beta', 'activation', days] as const,
+  weekly: (week: string | null) => ['admin', 'beta', 'weekly', week ?? 'current'] as const,
 };
 
 /** Link que o admin copia e envia (não há envio de e-mail no projeto). */
@@ -150,5 +152,18 @@ export function useBetaActivation(days: number) {
     queryKey: betaKeys.activation(days),
     queryFn: () =>
       apiClient.get<BetaActivationReport>('/admin/beta/activation', { days: String(days) }),
+  });
+}
+
+/**
+ * CC-705 — painel semanal. `week = null` pede a semana corrente (o servidor
+ * resolve pelo horário de Brasília); qualquer data vale pela semana que a
+ * contém.
+ */
+export function useBetaWeekly(week: string | null) {
+  return useQuery<BetaWeeklyReport, ApiError>({
+    queryKey: betaKeys.weekly(week),
+    queryFn: () =>
+      apiClient.get<BetaWeeklyReport>('/admin/beta/weekly', week ? { week } : undefined),
   });
 }
