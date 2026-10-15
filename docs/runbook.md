@@ -972,7 +972,8 @@ lacuna e a conta acompanha. Quem tratou o grupo fica só na trilha
 (`KNOWLEDGE_GAP_DRAFT_REQUESTED`, `KNOWLEDGE_GAP_DISMISSED` com o hash do
 motivo, `KNOWLEDGE_GAP_REOPENED`, `KNOWLEDGE_GAP_COVERED`).
 
-**Retenção e varredura.** Lacuna fica 180 dias (`KNOWLEDGE_GAP_RETENTION_DAYS`).
+**Retenção e varredura.** Lacuna fica 180 dias (constante
+`KNOWLEDGE_GAP_RETENTION_DAYS` no código, não é variável de ambiente).
 A varredura diária (04:30 UTC) apaga o que passou disso, agrupa lacunas sem
 grupo (gravadas antes desta migration) e apaga grupo aberto que ficou vazio;
 grupo fechado fica como histórico.
