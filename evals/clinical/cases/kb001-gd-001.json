@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 2,
+  "id": "kb001-gd-001",
+  "title": "Diarreia aguda sem dados de sangue, diurese ou tolerância oral",
+  "tags": [
+    "diarreia-vomitos",
+    "gastroenterite",
+    "kb-001"
+  ],
+  "critical": false,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "H 52a, diarreia 6x/dia há 2 d, cólica e náusea."
+  },
+  "expected": {
+    "syndrome": "gastroenterite aguda — grau de desidratação a avaliar",
+    "diagnoses": [
+      {
+        "text": "desidratação grave / choque hipovolêmico",
+        "tier": "important"
+      }
+    ],
+    "actions": [],
+    "questions": [
+      "sangue nas fezes",
+      "diurese",
+      "tolerância à via oral",
+      "sinais vitais",
+      "febre"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "Graduar a desidratação (sinais vitais, diurese, tolerância oral) e reconhecer a diarreia inflamatória: febre, sangue ou muco, cólica intensa ou sepse indicam pesquisa etiológica, e febre ou sangue contraindicam loperamida (IDSA 2017). Opcionais, não exigidos: diarreia invasiva (Shigella, STEC com risco de SHU) e C. difficile como hipóteses; idade, comorbidades, imunossupressão, antibiótico ou internação recentes e viagem como dados."
+  },
+  "sources": [
+    {
+      "claim": "Pesquisa nas fezes (Salmonella, Shigella, Campylobacter, Yersinia, C. difficile, STEC) indicada se houver febre, sangue ou muco, cólica intensa ou sepse; avaliar a desidratação em todos.",
+      "title": "Infectious Diarrhea: IDSA Updates Guidelines for Diagnosis and Management (resumo AFP)",
+      "publisher": "AAFP / IDSA",
+      "year": 2018,
+      "url": "https://www.aafp.org/pubs/afp/issues/2018/0515/p676.html"
+    },
+    {
+      "claim": "Recomendação 47: evitar loperamida na diarreia inflamatória ou febril (risco de megacólon tóxico). Recomendação 41: fluido isotônico IV na desidratação grave, choque ou falha da TRO.",
+      "title": "2017 IDSA Clinical Practice Guidelines for the Diagnosis and Management of Infectious Diarrhea",
+      "publisher": "IDSA (Clin Infect Dis)",
+      "year": 2017,
+      "url": "https://academic.oup.com/cid/article/65/12/e45/4557073"
+    }
+  ],
+  "provenance": {
+    "originalCaseText": "Diarreia aguda sem informação sobre sangue nas fezes, diurese ou tolerância oral.",
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: texto reescrito como nota de beira de leito (o original anunciava sangue, diurese e tolerância oral como ausentes); sem \"aquosa\", que responderia o sangue nas fezes. Acrescentada febre ao mustRequest (a duração já está no texto). Hipóteses invasivas/C. difficile e os dados de exposição ficaram no rationale (opcionais)."
+  }
+}

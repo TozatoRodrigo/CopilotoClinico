@@ -177,4 +177,14 @@ describe('UX-06 — streamQuerySchema (paridade de red flags com analyzeSchema)'
     const result = streamQuerySchema.safeParse({ ...validQuery, caseText: 'curto' });
     expect(result.success).toBe(false);
   });
+
+  // F0-C — mesma tag de funil de analyzeSchema, para o streaming gravar os
+  // mesmos `params`.
+  it('aceita demoCase opcional com o mesmo limite de analyzeSchema', () => {
+    const withTag = streamQuerySchema.safeParse({ ...validQuery, demoCase: ' sindrome-gripal ' });
+    expect(withTag.success && withTag.data.demoCase).toBe('sindrome-gripal');
+
+    const tooLong = streamQuerySchema.safeParse({ ...validQuery, demoCase: 'x'.repeat(65) });
+    expect(tooLong.success).toBe(false);
+  });
 });

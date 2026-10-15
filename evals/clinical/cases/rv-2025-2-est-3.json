@@ -1,0 +1,191 @@
+{
+  "schemaVersion": 2,
+  "id": "rv-2025-2-est-3",
+  "title": "Criança de 2 anos trazida pelo SAMU após crise convulsiva durante quadro febril",
+  "tags": [
+    "crise-convulsiva",
+    "revalida",
+    "pep",
+    "pediatria",
+    "convulsao-febril"
+  ],
+  "critical": false,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "PA de hospital regional (laboratório, RX, US e TC, salas de observação, internação). Masc, 2a9m, 14 kg, trazido pelo SAMU com a mãe por tremores em casa. Coriza há 2 dias; hoje acordou irritado e passou a manhã coçando o ouvido D; no início da tarde, vendo TV, começou a tremer, ficou rígido e caiu; perdeu a consciência; tremores por ~5 min. Previamente hígido, vacinação completa, sem cirurgias, não prematuro, sem alergias, sem irmãos. Pai teve crise semelhante aos 4 anos. EF: BEG, corado, hidratado, febril, eupneico, ativo, reativo, calmo, Glasgow 15. FC 112, PA 90x60, FR 22, Tax 38,9 °C, estatura 94 cm. ACV, AR e abdome sem alterações; genitália normal; TEC < 2 s; pele normal. Neuro: sem déficit, nuca livre, Kernig e Brudzinski negativos. Otoscopia: hiperemia intensa do conduto auditivo D, membrana timpânica avermelhada e abaulada; E normal. Oroscopia sem alterações; coriza hialina e hiperemia de cornetos nasais.",
+    "funnel": {
+      "opening": "PA de hospital regional. Menino, 2a, trazido pelo SAMU para avaliação, acompanhado da mãe.",
+      "script": [
+        {
+          "id": "h-samu",
+          "kind": "history",
+          "text": "Foram trazidos ao pronto-socorro pelo SAMU por causa dos tremores que a criança teve em casa."
+        },
+        {
+          "id": "h-prodromo",
+          "kind": "history",
+          "text": "Está com o nariz escorrendo há 2 dias; hoje acordou um pouco irritado e passou a manhã coçando o ouvido direito."
+        },
+        {
+          "id": "h-crise",
+          "kind": "history",
+          "text": "No início da tarde, assistindo à televisão, começou a tremer, ficou duro e caiu no chão.",
+          "key": true
+        },
+        {
+          "id": "h-consciencia",
+          "kind": "history",
+          "text": "Desmaiou durante a crise."
+        },
+        {
+          "id": "h-duracao",
+          "kind": "history",
+          "text": "Os tremores duraram por volta de 5 minutos."
+        },
+        {
+          "id": "h-antecedentes",
+          "kind": "history",
+          "text": "É saudável, recebeu todas as vacinas, não fez cirurgias, não é prematuro, não tem alergias, não tem irmãos."
+        },
+        {
+          "id": "h-pai",
+          "kind": "history",
+          "text": "O pai teve uma crise convulsiva semelhante aos 4 anos de idade."
+        },
+        {
+          "id": "e-geral",
+          "kind": "exam",
+          "text": "2 anos e 9 meses, 14 kg, 94 cm. BEG, corado, hidratado, acianótico, anictérico, febril, eupneico, ativo, reativo, Glasgow 15. FC 112, PA 90x60, FR 22, Tax 38,9 °C.",
+          "key": true
+        },
+        {
+          "id": "e-neuro",
+          "kind": "exam",
+          "text": "Sem alterações, sem déficit neurológico; nuca livre; Kernig e Brudzinski negativos."
+        },
+        {
+          "id": "e-otoscopia",
+          "kind": "exam",
+          "text": "Otoscopia: hiperemia intensa do canal auditivo direito, com membrana timpânica avermelhada e abaulada; canal auditivo esquerdo sem alterações."
+        },
+        {
+          "id": "e-vias-aereas",
+          "kind": "exam",
+          "text": "Oroscopia sem alterações, exceto coriza hialina e hiperemia de cornetos nasais."
+        },
+        {
+          "id": "e-demais",
+          "kind": "exam",
+          "text": "ACV, AR, abdome, genitália, membros e pele sem alterações; pulsos cheios e simétricos; TEC < 2 s."
+        },
+        {
+          "id": "t-hemograma",
+          "kind": "test",
+          "text": "Hemograma: Hb 12,4, Ht 42,8%, VCM 70,3, HCM 20,4, CHCM 29,0, RDW 21,2% (hipocromia, microcitose, anisocitose); leucócitos 13.400 (segmentados 34%, linfócitos 57%, monócitos 9%, sem bastões)."
+        }
+      ]
+    }
+  },
+  "expected": {
+    "syndrome": "crise convulsiva febril simples associada a otite média aguda",
+    "diagnoses": [
+      {
+        "text": "crise febril (convulsão febril) simples",
+        "tier": "important"
+      },
+      {
+        "text": "otite média aguda à D (ou IVAS) como foco da febre",
+        "tier": "important"
+      },
+      {
+        "text": "infecção do SNC afastada clinicamente: Glasgow 15, sem déficit, nuca livre, Kernig e Brudzinski negativos",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "admissão hospitalar para observação",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "antitérmico",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "anticonvulsivante parenteral ou via retal se houver nova crise ou crise prolongada",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "manejo da OMA/IVAS: orientações gerais, com amoxicilina para a otite a critério",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "exames complementares só com justificativa: sem punção lombar, EEG ou neuroimagem de rotina na crise febril simples",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [],
+    "outOfScope": [
+      "apresentar-se à mãe (item 1)",
+      "anamnese: queixas, circunstâncias da crise, antecedentes pessoais e familiares (itens 2–5; medida pelo roteiro no afunilamento)",
+      "solicitar o exame físico (item 6; os achados estão no caso)",
+      "orientações pós-alta à mãe: antitérmico ao constatar febre, natureza benigna com resolução até 4–5 anos, risco de recorrência pela herança paterna, conduta em nova crise (item 9, exceto anticonvulsivante contínuo e investigação, que ficaram como proibição e conduta)",
+      "antes conduta proibida: Prescrever anticonvulsivante de uso contínuo/profilático: o PEP (item 9) pontua explicar que o uso contínuo é desnecessário no momento. — saiu porque anticonvulsivante contínuo desnecessário não é conduta que mata ou sequela"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2025/2, Estação 3, PEP preliminar): a descrição inicial traz só a chegada pelo SAMU; o PEP pontua anamnese da crise e antecedentes e o exame físico antes das hipóteses de convulsão febril simples e otite média aguda, com observação hospitalar, antitérmico e orientações pós-alta (sem anticonvulsivante contínuo). v2: a conduta imediata do item 8 foi desmembrada e as orientações à mãe ficaram fora do escopo."
+  },
+  "sources": [
+    {
+      "claim": "Itens 2–3: pergunta sobre queixas (dor e febre obrigatórias; diarreia, vômito, tosse/coriza, desmaio, tontura) (1,0) e circunstâncias da crise — primeira crise, duração, febre no momento, doença nos últimos dias, perda de consciência, movimentos anômalos, eliminação de fezes/urina, sonolência ou irritabilidade pós-crise (1,5).",
+      "title": "Revalida 2025/2 – Habilidades Clínicas – PEP preliminar, Estação 3, itens 2–3",
+      "publisher": "INEP",
+      "year": 2025,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_2_pep_premilminar.pdf"
+    },
+    {
+      "claim": "Itens 4–6: antecedentes pessoais — doenças, medicações contínuas, alergias, internações, dados perinatais, DNPM, sono (1,5); crise convulsiva ou epilepsia na família durante a infância (0,5); solicita exame físico (0,8).",
+      "title": "Revalida 2025/2 – Habilidades Clínicas – PEP preliminar, Estação 3, itens 4–6",
+      "publisher": "INEP",
+      "year": 2025,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_2_pep_premilminar.pdf"
+    },
+    {
+      "claim": "Item 7 (2,0 pontos): hipóteses (1) convulsão febril simples ou convulsão febril e (2) otite média aguda ou IVAS ou resfriado comum; apenas (1) é parcial.",
+      "title": "Revalida 2025/2 – Habilidades Clínicas – PEP preliminar, Estação 3, item 7",
+      "publisher": "INEP",
+      "year": 2025,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_2_pep_premilminar.pdf"
+    },
+    {
+      "claim": "Item 8 (1,5 ponto): conduta imediata com obrigatoriamente (1) admissão hospitalar para observação e (2) antitérmico, mais um entre: anticonvulsivante parenteral ou via retal se necessário; exames laboratoriais e/ou de imagem com justificativa; não solicitar exames justificando; orientações para IVAS, podendo prescrever amoxicilina para a otite.",
+      "title": "Revalida 2025/2 – Habilidades Clínicas – PEP preliminar, Estação 3, item 8",
+      "publisher": "INEP",
+      "year": 2025,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_2_pep_premilminar.pdf"
+    },
+    {
+      "claim": "Item 9 (1,0 ponto; adequado com quatro ou mais): seguimento pós-alta — monitorar febre e dar antitérmico ao constatá-la; natureza benigna com resolução esperada até 4–5 anos; risco de recorrência pela herança paterna; uso contínuo de anticonvulsivante desnecessário no momento; sem indicação de investigação complementar por ora; em nova crise, decúbito lateral, não impedir as contrações e aguardar cessar enquanto busca ajuda.",
+      "title": "Revalida 2025/2 – Habilidades Clínicas – PEP preliminar, Estação 3, item 9",
+      "publisher": "INEP",
+      "year": 2025,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_2_pep_premilminar.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2025/2",
+    "item": "Estação 3",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_2_pep_premilminar.pdf",
+    "originalCaseText": "CENÁRIO DE ATENDIMENTO Nível de atenção: secundária. Tipo de atendimento: urgência e emergência em um hospital regional. A unidade possui a seguinte infraestrutura: • consultórios médicos; • salas de observação (amarela e vermelha); • alas de internação; • laboratório para processamento de exames de sangue; • aparelhos de radiologia básica (radiografia, ultrassonografia e tomografia). DESCRIÇÃO DO CASO Você está atuando em uma unidade de pronto-atendimento de um hospital regional e atenderá um menino de 2 anos que foi trazido pelo SAMU para avaliação acompanhado de sua mãe. Nos 10 minutos de duração da estação, você deverá executar as seguintes tarefas: ● realizar propedêutica clínica focada na queixa principal relatada pela mãe do paciente; ● formular e verbalizar a(s) hipótese(s) diagnóstica(s); ● solicitar exame(s) complementar(es), se necessário(s); ● formular e verbalizar a conduta após a estabilização do paciente; ● dar orientações à mãe. ATENÇÃO! CASO JULGUE NECESSÁRIO REALIZAR EXAME FÍSICO, VERBALIZE. A MÃE SIMULADA NÃO DEVERÁ SER TOCADA DURANTE O ATENDIMENTO.",
+    "notes": "Gabarito v2 (11/10/2026): conduta proibida só para o que mata ou sequela — anticonvulsivante-continuo foi para fora do escopo. caso completo com o roteiro oficial da mãe e o impresso de exame físico; o hemograma (opcional no item 8, sem interpretação pontuada) ficou fora do texto e só aparece no roteiro. Modo afunilamento com a abertura oficial. A conduta foi desmembrada (observação e antitérmico, obrigatórios no PEP; anticonvulsivante de resgate, manejo da OMA e exames justificados como itens próprios); as orientações à mãe foram para fora do escopo. | PEP preliminar (Revalida 2025/2; não há versão definitiva no material baixado). Dados sob demanda: SAMU chamado por tremores em casa; coriza há 2 dias; acordou irritado e passou a manhã coçando o ouvido direito; no início da tarde, vendo televisão, começou a tremer, ficou duro e caiu; perdeu a consciência durante a crise; tremores por ~5 min; previamente saudável, vacinação completa, sem cirurgias, não prematuro, sem alergias, sem irmãos; o pai teve crise semelhante aos 4 anos. Exame físico: 2 anos e 9 meses, BEG, corado, hidratado, febril, eupneico, ativo, reativo, Glasgow 15, peso 14 kg, estatura 94 cm, FC 112, PA 90x60, FR 22, Tax 38,9 °C; ACV e AR normais; abdome sem alterações; TEC < 2 s; sem déficit neurológico, nuca livre, Kernig e Brudzinski negativos; otoscopia: hiperemia intensa do canal auditivo direito com membrana timpânica avermelhada e abaulada, esquerda normal; coriza hialina e hiperemia de cornetos. Hemograma: Hb 12,4, Ht 42,8%, VCM 70,3, HCM 20,4, CHCM 29,0, RDW 21,2% (hipocromia, microcitose, anisocitose); leucócitos 13.400 (segmentados 34%, linfócitos 57%, monócitos 9%, sem bastões). | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas."
+  }
+}

@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2017-obj-2",
+  "title": "Homem de 65 anos confuso e desorientado de madrugada após herniorrafia",
+  "tags": [
+    "agitacao-psicomotora",
+    "revalida",
+    "prova-cega",
+    "objetiva",
+    "delirium"
+  ],
+  "critical": false,
+  "goldSource": "revalida_objetiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Enfermaria cirúrgica de hospital, plantão noturno (2 h da madrugada); chamado pela técnica de enfermagem. Masc, 65a, pós-operatório imediato de herniorrafia inguinal D feita na manhã anterior, sem intercorrências; exames pré-operatórios normais. Encontrado nu, recusa-se a vestir as roupas, fala coisas sem sentido e não reconhece o familiar que o acompanha. Recebeu meperidina após a cirurgia e metoclopramida por náuseas. Não se alimentou o dia todo. EF sem alterações. Estado mental: desorientado (não atende pelo nome, não sabe onde está), hipotenaz e um pouco sonolento."
+  },
+  "expected": {
+    "syndrome": "alteração aguda do estado mental (confusão, desatenção, sonolência) no pós-operatório imediato de idoso internado",
+    "diagnoses": [
+      {
+        "text": "delirium pós-operatório (estado confusional agudo), com meperidina e metoclopramida como prováveis precipitantes",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "rever as medicações em uso e suspender as deliriogênicas (meperidina, metoclopramida), trocando a analgesia por opção mais segura",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "medidas não farmacológicas: quarto bem iluminado, reorientação, presença do familiar",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "antipsicótico em dose baixa (ex.: haloperidol) só se houver agitação psicomotora [Beers 2023: só se as medidas não farmacológicas falharem e houver risco de dano]",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "glicemia capilar (sem alimentação o dia todo) e busca de outros precipitantes do delirium",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "benzodiazepinico-no-delirium",
+        "description": "Benzodiazepínico para sedar o delirium pós-operatório do idoso que recebeu opioide (alternativas A, C e D); Beers 2023 aceita só na abstinência de etanol/benzodiazepínico ou em crise convulsiva.",
+        "patterns": [
+          "benzodiazep\\w*",
+          "midazolam",
+          "diazepam",
+          "lorazepam",
+          "clonazepam",
+          "alprazolam"
+        ],
+        "exceptWhen": [
+          "(se|caso|suspeita\\s+de|por|em|na|para)\\s+(\\S+\\s+){0,3}(abstin\\w*|convuls\\w*|crise\\s+epilept\\w*)",
+          "delirium\\s+tremens"
+        ]
+      },
+      {
+        "id": "contencao-fisica-de-rotina",
+        "description": "Contenção física do idoso em delirium sem agitação com risco (alternativa C).",
+        "patterns": [
+          "conten\\w*\\s+(fisica|mecanica|no\\s+leito)",
+          "restricao\\s+(fisica|mecanica)",
+          "conter\\s+(\\S+\\s+){0,2}fisicamente"
+        ],
+        "exceptWhen": [
+          "(se|caso|quando|havendo)\\s+(\\S+\\s+){0,4}(risco|agressiv\\w*|violen\\w*)",
+          "(ultimo\\s+recurso|excepcional\\w*)"
+        ]
+      }
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2017, objetiva, questão 2): alternativa B — avaliar a necessidade das medicações em uso, quarto com boa iluminação e antipsicótico se agitação psicomotora. Distratoras: benzodiazepínico IV (A), contenção física com midazolam (C) e conduta expectante com benzodiazepínico (D). Conferido com os critérios de Beers 2023: meperidina e benzodiazepínicos a evitar no idoso com delirium; antipsicótico só com falha das medidas não farmacológicas e risco de dano (o item aceita as duas formas)."
+  },
+  "sources": [
+    {
+      "claim": "Questão 2: gabarito definitivo B — avaliar a necessidade das medicações em uso, colocar o paciente em um quarto com boa iluminação e prescrever-lhe um antipsicótico, se constatada agitação psicomotora.",
+      "title": "Revalida 2017 – Prova Objetiva (versão 1) – gabarito definitivo",
+      "publisher": "INEP",
+      "year": 2017,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf"
+    },
+    {
+      "claim": "Enunciado, comando e alternativas da questão 2 (caderno da versão 1, 24/09/2017)",
+      "title": "Revalida 2017 – Prova Objetiva (versão 1), questão 2",
+      "publisher": "INEP",
+      "year": 2017,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/provas/2017/prova_objetiva_1.pdf"
+    },
+    {
+      "claim": "Critérios de Beers 2023 (idosos ≥ 65 anos): evitar meperidina (maior neurotoxicidade, inclusive delirium); evitar benzodiazepínicos em quem tem ou está em risco de delirium (podem induzir ou piorar), com uso aceitável na abstinência de etanol ou de benzodiazepínicos e em crises convulsivas; opioide + benzodiazepínico pode causar sedação profunda e depressão respiratória; evitar metoclopramida (efeitos extrapiramidais); antipsicótico no delirium só se as medidas não farmacológicas falharem ou não forem possíveis e houver ameaça de dano substancial.",
+      "title": "American Geriatrics Society 2023 updated AGS Beers Criteria for potentially inappropriate medication use in older adults",
+      "publisher": "American Geriatrics Society (J Am Geriatr Soc)",
+      "year": 2023,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12478568/"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2017",
+    "item": "Objetiva questão 2",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf",
+    "originalCaseText": "Um homem com 65 anos de idade encontra-se internado no hospital, no pós-operatório imediato de uma herniorrafia inguinal à direita. Seus exames pré-operatórios apresentaram-se sem alterações. Às 2 horas da madrugada, a técnica de enfermagem recorre ao médico plantonista, pois o paciente é encontrado nu, recusa-se a colocar novamente as roupas, fala coisas sem sentido e não reconhece familiar que o acompanha. Sua cirurgia foi realizada na manhã anterior, sem intercorrências, tendo ele recebido meperidina após o procedimento cirúrgico e metoclopramida devido a náuseas. Não se alimentou o dia todo e, ao exame físico, não se apresentaram alterações. O exame do seu estado mental mostra desorientação; ele não atende pelo nome e não sabe onde está, além de estar hipotenaz e um pouco sonolento. Diante desse quadro, o médico plantonista deve (A) prescrever um benzodiazepínico endovenoso para a sedação do paciente e avaliar complicações pós-operatórias. (B) avaliar a necessidade das medicações em uso, colocar o paciente em um quarto com boa iluminação e prescrever-lhe um antipsicótico, se constatada agitação psicomotora. (C) conter fisicamente o paciente e iniciar sedação com midazolam endovenoso, enquanto aguarda avaliação psiquiátrica. (D) manter conduta expectante, dado que esses quadros regridem espontaneamente em poucas horas, e prescrever um benzodiazepínico, se constatada agitação psicomotora.",
+    "notes": "Prova cega (11/10/2026): letra B conferida na imagem do gabarito definitivo (versão 1, text/img/2017_obj_gabarito-p01.png) e enunciado relido no texto de duas colunas, sem mistura com as questões vizinhas. Gabarito confere com Beers 2023, que é mais restritivo no antipsicótico (só com falha das medidas não farmacológicas e risco de dano): o item aceita as duas formas. Benzodiazepínico (A, C, D) e contenção física (C) viraram proibidas; exceções da abstinência e da crise convulsiva vêm do Beers 2023 (verificado). Glicemia/precipitantes entrou como importante pelo jejum do dia todo descrito no enunciado. Limítrofe: enfermaria, não PS."
+  },
+  "probes": {
+    "mustFlag": [
+      "Diazepam 10 mg IV para sedação",
+      "Midazolam IV enquanto aguarda a psiquiatria",
+      "Benzodiazepínico se agitação psicomotora",
+      "Conter fisicamente o paciente e sedar"
+    ],
+    "mustNotFlag": [
+      "Evitar benzodiazepínico: piora o delirium",
+      "Diazepam só se abstinência alcoólica",
+      "Não usar midazolam",
+      "Contenção física só se risco iminente a si ou a terceiros",
+      "Suspender meperidina e metoclopramida; quarto iluminado; haloperidol em dose baixa se agitação"
+    ]
+  }
+}

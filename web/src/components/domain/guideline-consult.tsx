@@ -211,7 +211,8 @@ export function GuidelineConsultResults({
         <WarningCircle aria-hidden="true" />
         <AlertTitle>Não foi possível buscar agora.</AlertTitle>
         <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
-          <span>Verifique a conexão e tente de novo.</span>
+          {/* Erro do servidor, não da rede do médico: não mandar checar a conexão. */}
+          <span>A busca falhou do nosso lado. Tente de novo em instantes.</span>
           <Button type="button" size="sm" variant="outline" onClick={() => void refetch()}>
             Tentar de novo
           </Button>
@@ -293,14 +294,27 @@ export function GuidelineConsultSheet({
 }
 
 interface ConsultBodyProps {
-  /** Texto que o médico descreveu — a busca padrão. */
+  /** Texto que o médico descreveu — a busca padrão quando não há entendimento. */
   caseText: string | null | undefined;
+  /**
+   * Consultas de busca do entendimento do caso (ADR-013, Etapa 1): curtas, no
+   * vocabulário das diretrizes ("manejo inicial AVC isquêmico trombólise").
+   * Quando existem, são a busca padrão — acham o documento certo mesmo sem
+   * busca por significado (sem embeddings desde 11/10/2026), o que o texto
+   * livre do caso nem sempre consegue.
+   */
+  searchTopics?: string[];
   citedChunkIds?: string[];
   /** Fontes citadas na análise, oferecidas como atalho de busca. */
   citedSources?: string[];
 }
 
-function ConsultBody({ caseText, citedChunkIds, citedSources = [] }: ConsultBodyProps) {
+function ConsultBody({
+  caseText,
+  searchTopics = [],
+  citedChunkIds,
+  citedSources = [],
+}: ConsultBodyProps) {
   const [refineInput, setRefineInput] = useState('');
   const [refine, setRefine] = useState('');
 
@@ -309,7 +323,8 @@ function ConsultBody({ caseText, citedChunkIds, citedSources = [] }: ConsultBody
     return () => clearTimeout(timer);
   }, [refineInput]);
 
-  const baseQuery = caseText?.trim() ?? '';
+  const topics = searchTopics.map((topic) => topic.trim()).filter(Boolean);
+  const baseQuery = topics.length > 0 ? topics.join('; ') : (caseText?.trim() ?? '');
   const query = refine.trim() || baseQuery;
   const searchingByCase = !refine.trim() && baseQuery.length > 0;
   const casePreview =
@@ -358,10 +373,33 @@ function ConsultBody({ caseText, citedChunkIds, citedSources = [] }: ConsultBody
           )}
         </div>
 
-        {searchingByCase && (
+        {searchingByCase && topics.length === 0 && (
           <p className="line-clamp-2 text-xs text-muted-foreground">
             Buscando pelo caso: <span className="italic">“{casePreview}”</span>
           </p>
+        )}
+
+        {topics.length > 0 && (
+          <div className="flex flex-col gap-1.5">
+            {searchingByCase && (
+              <p className="text-xs text-muted-foreground">
+                Buscando pelo que o Copiloto entendeu do caso:
+              </p>
+            )}
+            <div className="flex flex-wrap gap-1.5" aria-label="Buscas do entendimento do caso">
+              {topics.map((topic) => (
+                <button
+                  key={topic}
+                  type="button"
+                  onClick={() => setRefineInput(topic)}
+                  className="inline-flex h-7 max-w-full items-center gap-1.5 rounded-md border border-border px-2 text-xs text-muted-foreground transition-colors hover:bg-hover hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-none max-sm:h-9"
+                >
+                  <MagnifyingGlass className="size-3.5 shrink-0" aria-hidden="true" />
+                  <span className="truncate">{topic}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         )}
 
         {shortcuts.length > 0 && (

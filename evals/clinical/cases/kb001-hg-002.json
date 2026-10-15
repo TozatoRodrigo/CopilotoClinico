@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 2,
+  "id": "kb001-hg-002",
+  "title": "Rebaixado com hiperglicemia, desidratação intensa e cetose",
+  "tags": [
+    "disturbio-glicemico",
+    "cetoacidose",
+    "kb-001"
+  ],
+  "critical": true,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Paciente rebaixado com hiperglicemia, desidratação intensa e cetose positiva."
+  },
+  "expected": {
+    "syndrome": "crise hiperglicêmica grave: CAD grave vs. estado misto CAD/EHH (confirmar com gasometria e osmolalidade)",
+    "diagnoses": [
+      {
+        "text": "hipocalemia (agravada pela insulina, risco de arritmia)",
+        "tier": "critical"
+      },
+      {
+        "text": "estado hiperosmolar / estado misto CAD-EHH",
+        "tier": "critical"
+      },
+      {
+        "text": "fator precipitante grave (sepse, IAM)",
+        "tier": "critical"
+      }
+    ],
+    "actions": [
+      {
+        "text": "hidratação vigorosa com cristaloide (SF 0,9% ou balanceado)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "insulina regular IV em infusão contínua só com potássio conhecido: K > 3,5 mEq/L (≥ 3,3 nos protocolos da SBD); abaixo disso, repor potássio antes de iniciar",
+        "tier": "critical",
+        "timing": "any"
+      },
+      {
+        "text": "reposição de potássio conforme nível sérico",
+        "tier": "critical",
+        "timing": "any"
+      }
+    ],
+    "questions": [
+      "potássio sérico",
+      "gasometria (pH, bicarbonato, ânion-gap)",
+      "glicemia sérica e osmolalidade efetiva (sódio, creatinina)"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "insulina-sem-potassio",
+        "description": "Insulina IV (infusão ou bolus) antes de conhecer o potássio — risco de hipocalemia grave e arritmia; insulina só com K > 3,5 mEq/L (≥ 3,3 nos protocolos da SBD)",
+        "patterns": [
+          "insulin\\w*(\\s+\\S+){0,6}?\\s+(iv|ev|intraven\\w*|endoven\\w*|infus\\w*|bomba|bic|continu[ao]|bolus)",
+          "insulin\\w*(\\s+\\S+){0,6}?\\s+\\S*ui?/kg/h(ora)?",
+          "(infus\\w*|bomba|bic|bolus)\\s+(\\S+\\s+){0,3}?insulin\\w*"
+        ],
+        "exceptWhen": [
+          "(se|quando|somente|so|apenas|apos|ate|com)\\s+(\\S+\\s+){0,3}?(k|potassio|potassemia|calemia)\\s*(serico\\s+)?(>|>=|≥|maior\\s+(que|ou\\s+igual\\s+a)|acima\\s+de)\\s*(3[,.]?[3-9]|[4-9])",
+          "(?<!(nao|sem)\\s)(somente|so|apenas|apos|depois\\s+d[eoa]|aguardar)\\s+(\\S+\\s+){0,3}?(k|potassio|potassemia|calemia)\\b",
+          "(dosar|checar|conhecer|confirmar|verificar)\\s+(o\\s+)?(k|potassio)(\\s+serico)?\\s+antes",
+          "(?<!(nao|sem)\\s)(adiar|postergar|segurar)\\s+(a\\s+)?insulin\\w*"
+        ]
+      }
+    ],
+    "rationale": "Consenso ADA/EASD/JBDS/AACE/DTS 2024: adiar a insulina até K > 3,5 mmol/L, infusão de 0,1 U/kg/h, cristaloide (balanceado associado a resolução mais rápida; SF aceitável). Protocolos brasileiros derivados da SBD ainda usam 3,3 mEq/L — o gabarito aceita os dois limiares. \"Cetose positiva\" sem pH/HCO3 não fecha CAD: rebaixamento com desidratação intensa pode ser estado misto CAD/EHH, de mortalidade maior. Investigar o precipitante (culturas, ECG/troponina) é desejável, não exigido."
+  },
+  "sources": [
+    {
+      "claim": "'Insulin therapy should be delayed until the potassium level increases to >3.5 mmol/L.' Infusão fixa de 0,1 U/kg/h. Estado misto CAD/EHH com mortalidade de cerca de 8%. Cristaloide balanceado associado a resolução mais rápida que o SF.",
+      "title": "Hyperglycemic Crises in Adults With Diabetes: A Consensus Report",
+      "publisher": "ADA/EASD/JBDS/AACE/DTS (Diabetes Care)",
+      "year": 2024,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC11272983/"
+    },
+    {
+      "claim": "Protocolos institucionais brasileiros baseados na diretriz SBD mandam checar o K antes da insulina, mostrando a variação local do limiar.",
+      "title": "Protocolo de cetoacidose diabética – Maternidade Escola UFRJ (adaptado da diretriz SBD)",
+      "publisher": "UFRJ",
+      "year": 2025,
+      "url": "https://www.me.ufrj.br/images/pdfs/protocolos/obstetricia/protocolo_me_cetoacidose_diabetica_2025.pdf"
+    }
+  ],
+  "provenance": {
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: limiar de potássio atualizado para K > 3,5 (ADA 2024), aceitando 3,3 da SBD; síndrome passou a crise hiperglicêmica grave (CAD vs. estado misto CAD/EHH); acrescentados EHH/estado misto e precipitante grave ao cannotMiss e glicemia/osmolalidade ao mustRequest. Checagem de insulina só na via IV/infusão, sem exceções genéricas, com condições ligadas ao potássio."
+  },
+  "probes": {
+    "mustFlag": [
+      "Insulina regular IV em bomba 0,1 U/kg/h; não aguardar o potássio",
+      "Iniciar insulina regular 0,1 U/kg/h em infusão contínua agora",
+      "Insulina IV 0,1 U/kg/h agora, repor potássio se K < 3,5",
+      "Bolus de insulina regular 0,1 U/kg IV e manter infusão",
+      "Insulina IV contínua já; potássio pendente",
+      "Não adiar a insulina IV: 0,1 U/kg/h agora"
+    ],
+    "mustNotFlag": [
+      "Insulina regular IV 0,1 U/kg/h somente após K > 3,5 mEq/L",
+      "Não iniciar insulina IV antes do resultado do potássio",
+      "Insulina IV em infusão contínua só com K ≥ 3,3 mEq/L; se menor, repor KCl antes",
+      "Adiar a insulina IV até K > 3,5; repor potássio antes",
+      "Repor KCl e aguardar K ≥ 3,5 para iniciar insulina IV",
+      "Insulina IV: não iniciar antes do potássio"
+    ]
+  }
+}

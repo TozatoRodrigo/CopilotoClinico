@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2015-disc-4",
+  "title": "Menina de 5 anos vítima de abuso sexual pelo padrasto, levada ao pronto-socorro por uma vizinha",
+  "tags": [
+    "pele-partes-moles",
+    "revalida",
+    "prova-cega",
+    "discursiva",
+    "violencia-sexual",
+    "pediatria"
+  ],
+  "critical": false,
+  "goldSource": "revalida_discursiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Pronto-socorro, atendimento por equipe multiprofissional. Fem, 5a, filha de mãe usuária de crack. Uma vizinha identificou que ela vinha sofrendo abuso sexual pelo padrasto, que era seu cuidador, e a trouxe ao PS. Já feitos: atendimento emergencial, indicação das medicações para IST e identificação de risco de recidiva da vitimização; decidido o encaminhamento da criança a uma instituição governamental."
+  },
+  "expected": {
+    "syndrome": "violência sexual intrafamiliar contra criança atendida no pronto-socorro",
+    "diagnoses": [
+      {
+        "text": "violência sexual contra criança (abuso intrafamiliar pelo cuidador), com risco de revitimização",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "comunicar obrigatoriamente o Conselho Tutelar; na falta dele, a Vara da Infância e da Juventude",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "notificação compulsória imediata (até 24 h) da violência sexual (ficha de notificação de violência interpessoal)",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "exames: USG pélvico e de abdome total (afastar sangramento intracavitário), hemograma, sorologias para HIV, sífilis e hepatites B e C, urina I; função hepática e renal se usar antirretrovirais",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "garantir o seguimento: atenção integral por equipe multiprofissional, com acompanhamento médico ambulatorial (sorologias e profilaxias), psicológico e social, e pelos órgãos de proteção",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [
+      "tempo desde a última exposição e tipo de contato (a PEP do HIV só se indica até 72 h)"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "outOfScope": [
+      "conceituar violência sexual contra criança e adolescente e seus tipos (item a) — conceito de prova",
+      "avaliar a possibilidade de restabelecimento do vínculo familiar (item c) — papel dos órgãos de proteção",
+      "boletim de ocorrência: já citado no enunciado como feito"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2015, Questão 4): conceito e tipos de violência sexual; comunicação obrigatória ao Conselho Tutelar (na falta, à Vara da Infância e da Juventude); seguimento com atenção integral multiprofissional, apoio psicológico e social, acompanhamento ambulatorial e pelos órgãos de proteção, com exames (USG pélvico e de abdome, hemograma, sorologias para HIV, sífilis e hepatites, urina I, provas hepáticas e renais se ARV). v2: caso não crítico (as profilaxias já foram indicadas); comunicação, notificação, exames e seguimento viraram itens importantes."
+  },
+  "sources": [
+    {
+      "claim": "Enunciado e comandos da questão discursiva 4.",
+      "title": "Revalida 2015 – Prova Discursiva, Questão 4",
+      "publisher": "INEP",
+      "year": 2015,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/provas/2015/prova_discursiva.pdf"
+    },
+    {
+      "claim": "Violência sexual contra criança e adolescente: ato ou jogo sexual imposto por agressor em estágio de desenvolvimento psicossexual mais adiantado, baseado em relação de poder (de carícias a ato sexual com ou sem penetração); presumida em menores de 14 anos (2,0).",
+      "title": "Revalida 2015 – Prova Discursiva – Padrão de Resposta definitivo, Questão 4, item a",
+      "publisher": "INEP",
+      "year": 2015,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2015/padrao_de_respostas_definitivo_da_prova_discursiva_REVALIDA2015.pdf"
+    },
+    {
+      "claim": "Em menores de 18 anos, a suspeita ou confirmação de abuso sexual deve obrigatoriamente ser comunicada ao Conselho Tutelar; na falta deste, à Vara da Infância e da Juventude (4,0).",
+      "title": "Revalida 2015 – Prova Discursiva – Padrão de Resposta definitivo, Questão 4, item b",
+      "publisher": "INEP",
+      "year": 2015,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2015/padrao_de_respostas_definitivo_da_prova_discursiva_REVALIDA2015.pdf"
+    },
+    {
+      "claim": "Atenção integral por equipe multidisciplinar: atendimento psicológico e social à criança e à família, acompanhamento médico ambulatorial, seguimento pelos órgãos de proteção, avaliação do vínculo familiar; exames: USG pélvico e de abdome total, hemograma, sorologias (HIV, sífilis, hepatites B e C), urina I e, com antirretrovirais, provas de função hepática e renal (4,0).",
+      "title": "Revalida 2015 – Prova Discursiva – Padrão de Resposta definitivo, Questão 4, item c",
+      "publisher": "INEP",
+      "year": 2015,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2015/padrao_de_respostas_definitivo_da_prova_discursiva_REVALIDA2015.pdf"
+    },
+    {
+      "claim": "Violência sexual: notificação imediata (em até 24 h) na esfera municipal (Portaria MS/GM nº 204/2016), com base também na Lei 8.069/1990 para crianças e adolescentes; nos casos de violência contra criança, os órgãos de proteção (conselho tutelar, vara da infância) devem ser comunicados imediatamente — não se exige boletim de ocorrência para o atendimento; testagem para sífilis, HIV, hepatites B e C; PEP do HIV até 72 h da exposição.",
+      "title": "Protocolo Clínico e Diretrizes Terapêuticas para Atenção Integral às Pessoas com Infecções Sexualmente Transmissíveis (IST)",
+      "publisher": "Ministério da Saúde",
+      "year": 2022,
+      "url": "https://www.gov.br/aids/pt-br/central-de-conteudo/pcdts/2022/ist/pcdt-ist-2022_isbn-1.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2015",
+    "item": "Discursiva caso 4",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2015/padrao_de_respostas_definitivo_da_prova_discursiva_REVALIDA2015.pdf",
+    "originalCaseText": "Uma criança de 5 anos de idade, do sexo feminino, é filha de mãe usuária de crack. Uma vizinha identificou que ela vinha sofrendo abuso sexual pelo padrasto, que era seu cuidador. A vizinha socorreu a criança e levou-a ao Pronto Socorro, onde foi atendida por equipe multiprofissional. Após o atendimento, a indicação das medicações para as Doenças Sexualmente Transmissíveis e a identificação de risco de recidiva de vitimização, foi determinado que a criança seria encaminhada para uma instituição governamental. Diante desse quadro, faça o que se pede nos itens a seguir. a) Conceitue violência sexual em relação à criança e ao adolescente e quais são os tipos em que ocorrem. (valor: 2,0 pontos) b) Além de realizar o atendimento emergencial da vítima e realizar o boletim de ocorrência, qual(is) outro(s) órgão(s) deverão ser comunicados? Na falta desse(s) órgão(s), qual seria o procedimento adequado? (valor: 4,0 pontos) c) Após a criança ser vítima de abuso sexual, há aumento da probabilidade para outras comorbidades. Diante do ocorrido, como deverá ser garantido o seguimento dessa criança? (valor: 4,0 pontos)",
+    "notes": "Prova cega (11/10/2026): caso limítrofe (itens majoritariamente legais e de seguimento), não crítico como na triagem. tags[0] = pele-partes-moles por falta de estrato para violência sexual (como no gabarito v2 do Revalida 2021). Conferido contra o PCDT de IST (MS, 2022, aberto e lido): Conselho Tutelar (ou outro órgão na ausência) segue; a notificação compulsória imediata, que o padrão não pontua, entrou como importante pelo PCDT. O tempo desde a última exposição não consta do enunciado e decide a PEP do HIV: virou pergunta."
+  }
+}

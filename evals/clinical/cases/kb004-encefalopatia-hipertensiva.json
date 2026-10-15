@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 2,
+  "id": "kb004-encefalopatia-hipertensiva",
+  "title": "PA 240x140 com confusão, vômitos e papiledema",
+  "tags": [
+    "pressao-arterial-elevada",
+    "emergencia-hipertensiva",
+    "dicotomia-crise-hipertensiva"
+  ],
+  "critical": true,
+  "goldSource": "kb004_dichotomy",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Fem, 45a, HAS sem tratamento, cefaleia intensa, vômitos e confusão progressiva desde ontem, borramento visual. PA 240x140, FC 92. Fundo de olho: papiledema bilateral. Sem déficit focal. Glicemia 110.",
+    "context": {
+      "hasCT": true,
+      "isSus": true,
+      "hasLab": true,
+      "hasICU": true
+    }
+  },
+  "expected": {
+    "syndrome": "emergência hipertensiva — encefalopatia hipertensiva",
+    "diagnoses": [
+      {
+        "text": "hemorragia intracraniana / AVC",
+        "tier": "critical"
+      },
+      {
+        "text": "hipertensão intracraniana por outra causa (trombose venosa cerebral, HSA, lesão expansiva) e PRES",
+        "tier": "critical"
+      }
+    ],
+    "actions": [
+      {
+        "text": "anti-hipertensivo IV titulável em UTI (nitroprussiato de sódio; alternativas conforme disponibilidade: esmolol, nicardipina, labetalol, clevidipina)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "redução da PAM de cerca de 20-25% na primeira hora, sem queda abrupta",
+        "tier": "important",
+        "timing": "now"
+      }
+    ],
+    "questions": [
+      "resultado da TC de crânio sem contraste",
+      "função renal e exame de urina",
+      "gestação ou puerpério recente",
+      "uso de cocaína/anfetaminas ou suspensão abrupta de clonidina"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "nifedipino-sublingual",
+        "description": "Nifedipino sublingual ou de liberação rápida (queda abrupta e imprevisível da PA, risco de isquemia cerebral e miocárdica)",
+        "patterns": [
+          "nifedipin\\w*"
+        ],
+        "exceptWhen": [
+          "retard",
+          "liberacao\\s+(prolongada|lenta|controlada)",
+          "oros",
+          "(na|para\\s+a)\\s+alta",
+          "manutencao"
+        ]
+      },
+      {
+        "id": "normalizar-pa-rapidamente",
+        "description": "Meta de normalizar a PA rapidamente (queda maior que 25% na primeira hora)",
+        "patterns": []
+      }
+    ],
+    "rationale": "KB-004 (07-crise-hipertensiva-emergencia): lesão aguda de órgão-alvo (encefalopatia) — IV, queda de 20-25% na 1ª hora (Diretriz Brasileira de Hipertensão 2025; AHA 2017). No Brasil, nitroprussiato é a droga IV disponível para a maioria das emergências; esmolol é alternativa. Papiledema, cefaleia, vômitos e confusão também ocorrem na hipertensão intracraniana primária com PA reflexa, em que baixar a PA reduz a perfusão cerebral. Nifedipino de liberação rápida é proscrito; o de liberação prolongada como manutenção não é a conduta proibida."
+  },
+  "sources": [
+    {
+      "claim": "Emergência hipertensiva = PA acentuadamente elevada com LOA aguda; queda de até 25% na 1ª hora, ~160/100-110 em 2-6 h; encefalopatia: reduzir 20-25% na 1ª hora; nitroprussiato indicado na maioria das EH; nifedipina de liberação rápida proscrita.",
+      "title": "Diretriz Brasileira de Hipertensão Arterial – 2025",
+      "publisher": "SBC/SBH/SBN (Arq Bras Cardiol)",
+      "year": 2025,
+      "url": "https://doi.org/10.36660/abc.20250624"
+    },
+    {
+      "claim": "Resumo secundário da diretriz de 2025: metas da 1ª hora, drogas IV (NPS, NTG, esmolol, metoprolol), cautela com NTG/NPS na encefalopatia, nifedipina de liberação rápida proscrita.",
+      "title": "Metas pressóricas no pronto-socorro: o que a nova Diretriz Brasileira de Hipertensão 2025 nos ensina",
+      "publisher": "Medway (resumo secundário)",
+      "year": 2025,
+      "url": "https://www.medway.com.br/conteudos/metas-pressoricas-no-pronto-socorro/"
+    },
+    {
+      "claim": "Emergência hipertensiva sem condição específica: reduzir a PAS no máximo 25% na 1ª hora, depois para 160/100-110 em 2-6 h.",
+      "title": "2017 ACC/AHA Guideline for the Prevention, Detection, Evaluation, and Management of High Blood Pressure in Adults",
+      "publisher": "ACC/AHA",
+      "year": 2017,
+      "url": "https://doi.org/10.1161/HYP.0000000000000065"
+    }
+  ],
+  "provenance": {
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: drogas IV ajustadas à disponibilidade brasileira (nitroprussiato; esmolol e outras como alternativa); hipertensão intracraniana de outra causa e PRES entram como hipóteses; pedidos de gestação/puerpério e drogas simpaticomiméticas; nifedipino de liberação prolongada como manutenção deixou de ser acusado."
+  },
+  "probes": {
+    "mustFlag": [
+      "Nifedipino 10 mg sublingual agora",
+      "Nifedipino 10 mg VO; não aguardar acesso venoso",
+      "Nifedipina gotas para baixar a PA"
+    ],
+    "mustNotFlag": [
+      "Evitar nifedipino de liberação rápida",
+      "Nifedipino retard 20 mg 12/12 h na alta, após controle",
+      "Nitroprussiato IV titulável; nifedipino sublingual proscrito"
+    ]
+  }
+}

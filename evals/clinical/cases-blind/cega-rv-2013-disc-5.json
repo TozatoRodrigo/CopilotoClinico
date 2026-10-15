@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2013-disc-5",
+  "title": "Adolescente mordido no rosto pelo Rottweiler da família há 2 horas, com lacerações extensas e vacinação desconhecida",
+  "tags": [
+    "pele-partes-moles",
+    "revalida",
+    "prova-cega",
+    "discursiva",
+    "mordedura",
+    "raiva"
+  ],
+  "critical": true,
+  "goldSource": "revalida_discursiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "PS. Masc, 15a, estudante. Mordedura de cão há 2 h: Rottweiler do pai, do convívio familiar, sem alteração de comportamento. Admissão: múltiplas e extensas lacerações em face (regiões frontal, glabelar, nasal e periorbitária E), com descolamento parcial da orelha E, e lesões menos perfurantes em MMSS. Restante do exame normal. Sem antecedentes patológicos; desconhece a situação vacinal."
+  },
+  "expected": {
+    "syndrome": "mordedura de cão com lacerações extensas de face: cuidado da ferida e profilaxias de raiva, tétano e infecção",
+    "diagnoses": [
+      {
+        "text": "mordedura de cão com exposição grave para raiva (face, lesões múltiplas e extensas) por cão sadio e passível de observação",
+        "tier": "critical"
+      },
+      {
+        "text": "ferida de alto risco para tétano com situação vacinal desconhecida e alto risco de infecção (face, lesões extensas)",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "profilaxia da raiva: observar o cão por 10 dias — sem iniciar a profilaxia pós-exposição enquanto o cão estiver sadio (Nota Técnica 8/2022 do MS) ou iniciando vacina nos dias 0 e 3 durante a observação (padrão, norma de 2011); se o cão morrer, desaparecer ou ficar raivoso: vacina imediatamente (hoje 4 doses: dias 0, 3, 7 e 14; o padrão previa 5) e soro ou imunoglobulina antirrábica infiltrados nas lesões",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "limpeza cuidadosa e abundante da ferida com água e sabão ou soro, sem agravar a lesão, seguida de antisséptico (PVPI, clorexidina ou álcool iodado)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "profilaxia do tétano: vacina dT e imunização passiva (soro antitetânico ou imunoglobulina antitetânica 250 UI), completando o esquema na UBS",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "antibiótico profilático: amoxicilina-clavulanato (ou ampicilina-sulbactam) por 3 a 5 dias",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "fechamento da ferida: o padrão não recomenda sutura (só aproximar as bordas com pontos isolados se absolutamente necessário, infiltrando antes o soro antirrábico se indicado); a IDSA 2014 aceita fechamento primário de feridas da face após irrigação abundante e desbridamento cuidadoso",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "Gabarito oficial do INEP (Revalida 2013, Questão 5): limpeza da ferida, antisséptico, não suturar (aproximar se necessário, soro infiltrado 1 h antes), profilaxia do tétano com imunoglobulina e dT, antibiótico (amoxicilina-clavulanato ou ampicilina-sulbactam por 5 dias) e profilaxia da raiva pela norma de 2011 (observar o cão 10 dias com vacina nos dias 0 e 3; soro e esquema completo se o cão morrer, desaparecer ou ficar raivoso). v2: a decisão sobre a raiva é a conduta crítica e aceita a norma do padrão e a Nota Técnica 8/2022; as demais condutas são importantes."
+  },
+  "sources": [
+    {
+      "claim": "Enunciado e comandos da questão discursiva 5.",
+      "title": "Revalida 2013 – Prova Discursiva, Questão 5",
+      "publisher": "INEP",
+      "year": 2013,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/provas/2013/po_revalida_2013.pdf"
+    },
+    {
+      "claim": "Ferida: limpeza cuidadosa sem agravar o ferimento (0,5); antisséptico que inative o vírus da raiva — povidine, clorexidina ou álcool iodado, uma única vez (0,5); não se recomenda sutura, e quando absolutamente necessário aproximar as bordas com pontos isolados (1,0); havendo aproximação, o soro antirrábico, se indicado, deve ser infiltrado 1 h antes (1,0).",
+      "title": "Revalida 2013 – Prova Discursiva – Padrão de Resposta definitivo, Questão 5, item a",
+      "publisher": "INEP",
+      "year": 2013,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2013/po_padrao_respostas_definitivo_revalida_2013.pdf"
+    },
+    {
+      "claim": "Tétano: sim, sem história clara de imunização completa (1,0); imunoglobulina 250 unidades IM e vacina dT 0,5 mL IM (0,5); encaminhar ao posto para as demais doses (0,5).",
+      "title": "Revalida 2013 – Prova Discursiva – Padrão de Resposta definitivo, Questão 5, item b",
+      "publisher": "INEP",
+      "year": 2013,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2013/po_padrao_respostas_definitivo_revalida_2013.pdf"
+    },
+    {
+      "claim": "Antibiótico profilático nas mordeduras de cão em mãos, face, pescoço, lesões extensas/profundas (1,0): amoxicilina-clavulanato ou ampicilina-sulbactam por cinco dias (1,0).",
+      "title": "Revalida 2013 – Prova Discursiva – Padrão de Resposta definitivo, Questão 5, item c",
+      "publisher": "INEP",
+      "year": 2013,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2013/po_padrao_respostas_definitivo_revalida_2013.pdf"
+    },
+    {
+      "claim": "Raiva: observar o animal 10 dias e iniciar esquema com duas doses (dias 0 e 3); se o animal permanecer sadio, encerrar (1,0); se morrer, desaparecer ou ficar raivoso, administrar o soro e completar até cinco doses (dose entre o 7º e o 10º dia, dias 14 e 28) (2,0) — Normas técnicas de profilaxia da raiva humana, MS, 2011.",
+      "title": "Revalida 2013 – Prova Discursiva – Padrão de Resposta definitivo, Questão 5, item d",
+      "publisher": "INEP",
+      "year": 2013,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2013/po_padrao_respostas_definitivo_revalida_2013.pdf"
+    },
+    {
+      "claim": "Agressão grave por cão ou gato sem sinais sugestivos de raiva: observar o animal por 10 dias e não iniciar a profilaxia pós-exposição; se desaparecer, apresentar sinais de raiva ou morrer, iniciar a profilaxia imediatamente; profilaxia pós-exposição com 4 doses de vacina nos dias 0, 3, 7 e 14 (IM ou ID); SAR/IGHAR infiltrados na lesão, até 7 dias após a 1ª dose de vacina; revoga a Nota Informativa nº 26/2017.",
+      "title": "Nota Técnica nº 8/2022-CGZV/DEIDT/SVS/MS — atualizações no Protocolo de Profilaxia pré, pós e reexposição da raiva humana no Brasil",
+      "publisher": "Ministério da Saúde",
+      "year": 2022,
+      "url": "https://www.gov.br/saude/pt-br/assuntos/saude-de-a-a-z/r/raiva-1/imagens/nota-tecnica-n-8_2022-cgzv_deidt_svs_ms.pdf"
+    },
+    {
+      "claim": "Mordedura animal: antimicrobiano preemptivo por 3 a 5 dias nas lesões moderadas a graves, especialmente de mão ou face; amoxicilina-clavulanato cobre aeróbios e anaeróbios; fechamento primário não é recomendado, exceto nas feridas da face, manejadas com irrigação abundante, desbridamento cuidadoso e antibiótico preemptivo.",
+      "title": "Practice Guidelines for the Diagnosis and Management of Skin and Soft Tissue Infections: 2014 Update by the Infectious Diseases Society of America",
+      "publisher": "IDSA (Clin Infect Dis)",
+      "year": 2014,
+      "url": "https://academic.oup.com/cid/article/59/2/e10/2895845"
+    },
+    {
+      "claim": "A partir de 7 anos, vacina dT para compor o esquema primário sem comprovação vacinal; o soro antitetânico (SAT) é o imunobiológico preconizado para prevenção, e a imunoglobulina humana antitetânica (IGHAT, 250 UI IM na profilaxia) o substitui em situações especiais (hipersensibilidade a soro heterólogo, imunodeprimidos, alguns recém-nascidos).",
+      "title": "Nota Técnica nº 5/2025/SES/GI — Orientações técnicas sobre a prevenção do tétano e dispensação e uso da IGHAT (cita o Guia de Vigilância em Saúde, 6ª ed., 2024)",
+      "publisher": "Secretaria de Estado da Saúde de Goiás",
+      "year": 2025,
+      "url": "https://goias.gov.br/saude/wp-content/uploads/sites/34/vigilancia-em-saude/notas-tecnicas/2025/Nota%20T%C3%A9cnica%20n%C2%BA5%20Orienta%C3%A7%C3%B5es%20T%C3%A9cnicvas%20sobre%20a%20Preven%C3%A7%C3%A3o%20do%20T%C3%A9tano%20e%20Dispensa%C3%A7%C3%A3o%20e%20Uso%20de%20Imunoglobulina%20Humana%20Antitet%C3%A2nica%20%28IGHAT%29.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2013",
+    "item": "Discursiva caso 5",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2013/po_padrao_respostas_definitivo_revalida_2013.pdf",
+    "originalCaseText": "Adolescente com 15 anos de idade, do sexo masculino, estudante, sofreu ataque por mordedura de cão há duas horas. O cão é da raça Rottweiler, faz parte do meio familiar (pertencente ao pai do garoto) e não apresenta sinais de alteração no comportamento. O paciente apresentava, à admissão, múltiplas e extensas lacerações em face (região frontal, glabelar, nasal e periorbitária esquerda) com descolamento parcial da orelha esquerda, acompanhadas de lesões menos perfurantes em membros superiores. Os demais aspectos do exame físico eram normais. O paciente não tem antecedentes patológicos e desconhece a sua situação vacinal. Sobre o caso, responda as seguintes questões: a) Qual deve ser a abordagem inicial da ferida? (valor: 3,0 pontos) b) O paciente necessita de profilaxia para o tétano? Em caso afirmativo, o que deve ser prescrito? (valor: 2,0 pontos) c) O paciente necessita de antibióticoterapia? Em caso afirmativo, como deve ser a prescrição? (valor: 2,0 pontos) d) O paciente necessita de profilaxia para raiva? Em caso afirmativo, como deve ser a prescrição? (valor: 3,0 pontos)",
+    "notes": "Prova cega (11/10/2026): caseText com todo o enunciado em estilo nota. Gabarito de 2013 com norma de raiva de 2011, conferido contra a Nota Técnica 8/2022-CGZV/DEIDT/SVS/MS (gov.br, aberta e lida): para cão sadio e observável, mesmo em agressão grave, hoje se observa 10 dias SEM iniciar a profilaxia, e o esquema pós-exposição tem 4 doses (0, 3, 7, 14), não 5 — o item crítico aceita a conduta do padrão e a vigente, e o caso fica no portão. Sutura: o padrão desaconselha e a IDSA 2014 (aberta e lida) aceita fechamento primário na face — item importante aceita as duas. Tétano: o padrão cita imunoglobulina 250 UI; a nota de Goiás de 2025 (que cita o Guia de Vigilância 2024) mantém o SAT como padrão e a IGHAT em situações especiais — o item aceita os dois. Antibiótico por 5 dias do padrão cabe nos 3–5 dias da IDSA."
+  }
+}

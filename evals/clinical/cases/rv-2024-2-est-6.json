@@ -1,0 +1,146 @@
+{
+  "schemaVersion": 2,
+  "id": "rv-2024-2-est-6",
+  "title": "Homem de 58 anos com hemiplegia esquerda e cefaleia iniciadas há 1 hora",
+  "tags": [
+    "deficit-neurologico-focal",
+    "revalida",
+    "pep",
+    "avc"
+  ],
+  "critical": true,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Urgência/emergência de atenção secundária (sala de estabilização, laboratório, RX e TC, enfermaria e UTI). Masc, 58a, motorista de ônibus; DM, arritmia cardíaca e dislipidemia. Hemiplegia E e cefaleia iniciadas há pouco mais de 1 h. Respiração espontânea, via aérea pérvia, boa SpO2 em AA, parâmetros hemodinâmicos adequados. Exame neurológico: alerta; responde corretamente o mês e a idade; abre e fecha os olhos e a mão D sob comando; olhar horizontal e campos visuais normais; sorri e fecha os olhos com força normalmente; não move a mão, o braço e a perna E; sustenta o braço D a 90° por 10 s e a perna D a 30° por 5 s; não reage ao toque nem ao beliscão nos membros E, sensibilidade normal à D; identifica objetos, lê as frases e descreve o desenho corretamente; fala adequada.",
+    "funnel": {
+      "opening": "Urgência/emergência de atenção secundária (TC, UTI). Masc, 58a, com arritmia cardíaca, DM e dislipidemia, com hemiplegia E e cefaleia iniciadas há cerca de 1 h. Respiração espontânea, via aérea pérvia, boa SpO2 em AA, parâmetros hemodinâmicos adequados.",
+      "script": [
+        {
+          "id": "h-identificacao",
+          "kind": "history",
+          "text": "58 anos, motorista de ônibus."
+        },
+        {
+          "id": "h-comorbidades",
+          "kind": "history",
+          "text": "Tem diabetes, arritmia e colesterol alto."
+        },
+        {
+          "id": "h-inicio",
+          "kind": "history",
+          "text": "Os sintomas começaram há pouco mais de 1 hora."
+        },
+        {
+          "id": "e-consciencia",
+          "kind": "exam",
+          "text": "Alerta; responde corretamente o mês (dezembro) e a idade; abre e fecha os olhos e a mão direita sob comando."
+        },
+        {
+          "id": "e-olhar-campos-face",
+          "kind": "exam",
+          "text": "Olhar horizontal para os dois lados e campos visuais normais; mostra os dentes e fecha os olhos com força normalmente."
+        },
+        {
+          "id": "e-motor",
+          "kind": "exam",
+          "text": "Não move a mão, o braço e a perna esquerdos; sustenta o braço direito a 90° por 10 s e a perna direita a 30° por 5 s.",
+          "key": true
+        },
+        {
+          "id": "e-sensibilidade",
+          "kind": "exam",
+          "text": "Inerte ao toque e ao beliscão nos membros esquerdos; sensibilidade e dor preservadas à direita."
+        },
+        {
+          "id": "e-linguagem",
+          "kind": "exam",
+          "text": "Identifica a quantidade de dedos e os objetos, lê as frases e descreve o desenho corretamente; fala adequada."
+        }
+      ]
+    }
+  },
+  "expected": {
+    "syndrome": "déficit neurológico focal agudo (hemiplegia E) há ~1 h — suspeita de AVC",
+    "diagnoses": [
+      {
+        "text": "AVC agudo (isquêmico ou hemorrágico, a definir pela neuroimagem)",
+        "tier": "critical"
+      },
+      {
+        "text": "NIHSS 10 (motor de braço E 4, motor de perna E 4, sensibilidade 2)",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "TC de crânio sem contraste imediata (ou RM sem contraste)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "glicemia capilar imediata",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "exames iniciais (ao menos cinco): ECG, hemograma, coagulograma (TP/RNI e TTPA), sódio e potássio, ureia e creatinina, troponina",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "trombólise EV se a imagem não mostrar hemorragia e o AVC for isquêmico, dentro de 4,5 h do início e sem contraindicações",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [
+      "uso de anticoagulante (tem arritmia): RNI > 1,7 ou heparina recente com TTPA alterado contraindicam a trombólise"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "trombolise-antes-da-imagem",
+        "description": "Trombólise EV antes da TC/RM de crânio que afaste hemorragia — o paciente tem cefaleia, e o PCDT exige imagem sem sinais de hemorragia antes do trombolítico.",
+        "patterns": []
+      }
+    ],
+    "outOfScope": [
+      "apresentar-se e perguntar o nome do paciente (item 1)",
+      "aplicar em voz alta cada item da NIHSS (itens 2–13; os achados estão no caso e o total ficou como item)"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2024/2, Estação 6): o PEP pontua apenas a aplicação item a item da NIHSS com total de 10, a TC/RM de crânio sem contraste e ao menos cinco exames iniciais (ECG, glicemia capilar, hemograma, coagulograma, eletrólitos, função renal, troponina); não pontua conduta. v2: a TC sem contraste é a conduta crítica; trombólise condicionada à imagem, pergunta sobre anticoagulante e proibição de trombolisar antes da imagem vieram do PCDT do MS (2012)."
+  },
+  "sources": [
+    {
+      "claim": "Itens 2–13: aplica a NIHSS — 1a nível de consciência; 1b pergunta idade e mês; 1c abrir/fechar olhos e mão; 2 olhar horizontal para os dois lados; 3 campos visuais nos quatro quadrantes; 4 sorrir/mostrar os dentes e fechar os olhos com força; 5 braços a 90° com palmas para baixo; 6 pernas a 30° em extensão; 7 index-nariz ou calcanhar-joelho; 8 sensibilidade; 9 descrever a imagem; 10 ler ou repetir a lista de palavras (0,5 a 1,0 cada).",
+      "title": "Revalida 2024/2 – Habilidades Clínicas – PEP, Estação 6, itens 2–13",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2024_2_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Itens 14–16: totaliza corretamente a NIHSS em 10 pontos (1,0); solicita TC ou RM de crânio SEM contraste — com contraste vale parcial (1,0); solicita ao menos cinco entre ECG, glicemia capilar, hemograma, coagulograma (TAP/INR e TTPA), potássio e sódio, ureia e creatinina, troponina (1,0).",
+      "title": "Revalida 2024/2 – Habilidades Clínicas – PEP, Estação 6, itens 14–16",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2024_2_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Na suspeita de AVC: ECG, glicemia capilar, hemograma, TP/RNI, TTPA, potássio, sódio, ureia e creatinina; alteplase EV no AVC isquêmico com início há menos de 4,5 h e TC ou RM sem sinais de hemorragia; exclusão por RNI > 1,7, heparina nas últimas 48 h com TTPA alterado, PAS > 185 ou PAD > 110 mmHg após tratamento e glicemia < 50 ou > 400 mg/dL.",
+      "title": "Protocolo Clínico e Diretrizes Terapêuticas – Trombólise no acidente vascular cerebral isquêmico agudo (Portaria GM/MS nº 664/2012)",
+      "publisher": "Ministério da Saúde (reprodução da Secretaria da Saúde do RS)",
+      "year": 2012,
+      "url": "https://admin.saude.rs.gov.br/upload/arquivos/202303/15160958-tromb-lise-no-acidente-vascular-cerebral-isqu-mico-agudo.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2024/2",
+    "item": "Estação 6",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2024_2_pep_definitivo.pdf",
+    "originalCaseText": "CENÁRIO DE ATENDIMENTO Nível de atenção: atenção secundária à saúde. Tipo de atendimento: urgência e emergência. A unidade possui a seguinte infraestrutura: ● consultórios; ● sala de estabilização; ● laboratório de análises clínicas; ● serviço de radiologia com aparelho de radiografia e tomografia computadorizada; ● leitos de internação – enfermaria e terapia intensiva. DESCRIÇÃO DO CASO Você atenderá um paciente com 58 anos de idade, histórico de arritmia cardíaca, diabetes melito e dislipidemia, com suspeita de acidente vascular cerebral por apresentar déficit neurológico (hemiplegia E) e cefaleia, iniciados há cerca de 1 hora. Paciente encontra-se com respiração espontânea, via aérea pérvia, boa saturação de O2 em ar ambiente e parâmetros hemodinâmicos adequados. Nos 10 minutos de duração da Estação, você deverá executar as seguintes tarefas: ● Aplicar a escala NIHSS ao paciente. ● Totalizar a pontuação da escala NIHSS e VERBALIZAR. ● Solicitar exames complementares necessários à avaliação inicial do caso. CASO JULGUE NECESSÁRIO TOCAR O PACIENTE SIMULADO, O TOQUE É PERMITIDO APENAS NA PERNA, ABAIXO DOS JOELHOS, E NO BRAÇO, ABAIXO DOS COTOVELOS.",
+    "notes": "Gabarito v2 (11/10/2026): caso completo com o roteiro oficial do ator (respostas à NIHSS transformadas em achados de exame), sem o 'suspeita de AVC' da descrição oficial no texto nem na abertura; modo afunilamento. TC/RM sem contraste é a conduta crítica (tempo-dependente); o total da NIHSS ficou como item importante. O PEP não pontua tratamento: acrescentei, como importante e condicionada à imagem, a trombólise do PCDT do MS (Portaria 664/2012, verificado na reprodução da SES-RS), a pergunta sobre anticoagulante (critério de exclusão) e a proibição, só para o juiz, de trombolisar antes da imagem. Exames sem impresso de resultado ('considerar já solicitado') não entram no texto. | O PEP não pontua conduta terapêutica (reperfusão, controle pressórico etc.), só a aplicação e o total da NIHSS e os exames iniciais; por isso requiredActions fica vazio. Conferido contra a lista de diretrizes do spec (AHA/ASA 2026): os itens pontuados (NIHSS, TC/RM sem contraste, glicemia e exames iniciais) não foram sinalizados como desatualizados; o caso não cobre reperfusão. Dados sob demanda: Anderson, 58a, motorista de ônibus, diabetes, arritmia e colesterol alto, sintomas há pouco mais de 1 h; na NIHSS responde corretamente o mês (dezembro) e a idade, abre e fecha os olhos e a mão D, olhar horizontal e campos visuais normais, sorri e fecha os olhos, não move mão, braço e perna E, sustenta o braço D a 90° por 10 s e a perna D a 30° por 5 s, sem resposta ao toque/beliscão nos membros E, nomeação, leitura e descrição do desenho corretas; total esperado 10. Exames pedidos de forma específica são 'considerados solicitados' (sem impressos de resultado)."
+  }
+}

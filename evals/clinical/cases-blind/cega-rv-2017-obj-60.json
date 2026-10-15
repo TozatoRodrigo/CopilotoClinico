@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2017-obj-60",
+  "title": "Lactente de 8 meses com diarreia, vômitos e letargia no pronto-socorro",
+  "tags": [
+    "diarreia-vomitos",
+    "revalida",
+    "prova-cega",
+    "objetiva",
+    "pediatria",
+    "desidratacao"
+  ],
+  "critical": true,
+  "goldSource": "revalida_objetiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "PS público, encaminhado pela UBS. Lactente, 8 m, previamente hígido. Há 8 dias evacuações líquidas, explosivas, sem muco e sem sangue, ~10 episódios/24 h, com hiperemia perianal. Aceita mal a alimentação e o soro caseiro; vômitos. Na UBS não aceitou o SRO: 6 vômitos em 1 h mesmo com oferta fracionada. EF: Tax 36 °C, letárgico, olhos muito encovados, fontanela deprimida, prega cutânea desfaz-se em > 2 s, mucosas secas."
+  },
+  "expected": {
+    "syndrome": "diarreia aguda com desidratação em lactente",
+    "diagnoses": [
+      {
+        "text": "diarreia aguda (8 dias, < 14 dias) com desidratação grave: letargia, olhos muito encovados, fontanela deprimida, prega > 2 s, mucosas secas, sem aceitar a via oral",
+        "tier": "critical"
+      }
+    ],
+    "actions": [
+      {
+        "text": "reidratação venosa imediata com cristaloide isotônico — Plano C, fase de expansão [ref.: gabarito de 2017: SF 0,9% 20 mL/kg em 30 min, repetindo até hidratar; MS 2023 para < 1 ano: SF 0,9% ou Ringer lactato 30 mL/kg em 1 h e depois 70 mL/kg em 5 h]",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "reavaliação contínua da hidratação; SRO assim que conseguir beber e fase de manutenção/reposição EV, permanecendo na unidade até hidratado",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [
+      "peso atual (o volume da expansão é calculado em mL/kg)"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "antidiarreico-no-lactente",
+        "description": "Antidiarreico (loperamida e afins) no lactente com diarreia aguda (alternativa B): o MS (cartaz de manejo da diarreia, 2023) diz que antidiarreicos não devem ser usados.",
+        "patterns": [
+          "antidiarreic\\w*",
+          "loperamid\\w*",
+          "imosec",
+          "difenoxilato"
+        ]
+      },
+      {
+        "id": "gastroclise-na-desidratacao-grave",
+        "description": "Reidratação por gastróclise/SRO como conduta na desidratação grave com letargia (alternativa A): a gastróclise é recurso do Plano B; desidratação grave pede o Plano C, venoso (MS 2023).",
+        "patterns": [
+          "gastrocl\\w*"
+        ],
+        "exceptWhen": [
+          "(se|caso|quando)\\s+(\\S+\\s+){0,3}(nao|sem|impossivel|falh\\w*|indisponivel)\\s+(\\S+\\s+){0,2}acesso",
+          "(na\\s+falta|na\\s+impossibilidade|na\\s+ausencia)\\s+de\\s+acesso"
+        ]
+      }
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2017, objetiva 60): alternativa C — diarreia aguda com desidratação grave; hidratação venosa com SF 0,9% 20 mL/kg em 30 min. Diarreia há 8 dias é aguda (< 14 dias); letargia, olhos muito fundos, prega muito lenta e recusa da via oral definem desidratação grave e Plano C. O cartaz vigente do MS (2023) mudou a fase de expansão para < 1 ano (30 mL/kg em 1 h + 70 mL/kg em 5 h, SF ou Ringer lactato); o item aceita as duas formas."
+  },
+  "sources": [
+    {
+      "claim": "Gabarito definitivo (Versão 1): questão 60 = C — \"diarreia aguda com desidratação grave; iniciar hidratação venosa com solução fisiológica 0,9%, 20 mL/kg de peso, em 30 minutos.\"",
+      "title": "Revalida 2017 – 001. Prova Objetiva, Versão 1 – Gabarito definitivo",
+      "publisher": "INEP",
+      "year": 2017,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf"
+    },
+    {
+      "claim": "Desidratação grave: dois ou mais sinais, ao menos um com asterisco (letárgico/inconsciente, não é capaz de beber, pulso fraco); Plano C por via endovenosa. Fase de expansão < 1 ano: SF 0,9% ou Ringer lactato 30 mL/kg em 1 h, depois 70 mL/kg em 5 h (a partir de 1 ano: 30 mL/kg em 30 min e 70 mL/kg em 2 h 30 min). Gastróclise é recurso do Plano B. Antidiarreicos não devem ser usados; antiemético (ondansetrona) só com vômitos persistentes no Plano B.",
+      "title": "Manejo do paciente com diarreia (cartaz) — avaliação do estado de hidratação e Planos A, B e C",
+      "publisher": "Ministério da Saúde (SVSA), com SBP e SBI — cópia no Portal de Boas Práticas IFF/Fiocruz",
+      "year": 2023,
+      "url": "https://portaldeboaspraticas.iff.fiocruz.br/wp-content/uploads/2026/07/manejo-do-paciente-com-diarreia-avaliacao-do-estado-do-paciente.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2017",
+    "item": "Objetiva questão 60",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf",
+    "originalCaseText": "Um lactente com 8 meses de vida é levado pela mãe à Unidade Básica de Saúde (UBS), que relata que a criança, anteriormente hígida, vem apresentando, há 8 dias, evacuações líquidas, sem muco e sem sangue, com hiperemia perianal e fezes explosivas, chegando a apresentar cerca de dez episódios em 24 horas. O lactente não está aceitando bem a alimentação, nem o soro caseiro, apresentando vômitos. O médico da UBS encaminha o paciente a um Pronto-Socorro público para avaliação, dada a não aceitação do soro de reidratação oral oferecido, com total de seis episódios de vômitos em uma hora, mesmo com fracionamento do soro. Ao exame, constatam-se os seguintes achados: temperatura axilar igual a 36 ºC, letargia, olhos muito encovados, fontanela deprimida, prega cutânea que se desfaz em mais de 2 segundos e mucosas secas. Em face do presente caso clínico, o diagnóstico e a conduta adequados são (A) diarreia aguda com desidratação; iniciar hidratação por gastróclise com soro de reidratação oral, 50 mL/kg de peso, em 2 horas. (B) diarreia persistente com desidratação; iniciar antiemético, antidiarreico e soro de reidratação oral, 50 mL/kg de peso, em 2 horas. (C) diarreia aguda com desidratação grave; iniciar hidratação venosa com solução fisiológica 0,9%, 20 mL/kg de peso, em 30 minutos. (D) diarreia persistente com desidratação grave; iniciar hidratação venosa com solução glicofisiológica 1:2, 100 mL/kg de peso, em 4 horas.",
+    "notes": "Prova cega (11/10/2026): objetiva 2017, gabarito C conferido na imagem do gabarito definitivo. O cartaz vigente do MS (arquivo de 07/2023, com SBP e SBI) mudou a fase de expansão do Plano C para < 1 ano de '20 mL/kg em 30 min' para '30 mL/kg em 1 h + 70 mL/kg em 5 h' (SF ou Ringer lactato): o item aceita as duas formas, sem excludeFromGate. Proibidas: antidiarreico (B) e gastróclise como reidratação da desidratação grave (A). Antiemético (alternativa B) não virou proibida: o MS 2023 admite ondansetrona com vômitos persistentes. A solução glicofisiológica 1:2 (D) não virou proibida: o termo aparece em prescrição legítima de manutenção."
+  },
+  "probes": {
+    "mustFlag": [
+      "Loperamida 0,1 mg/kg VO de 8/8 h",
+      "Antidiarreico e soro de reidratação oral 50 mL/kg em 2 h",
+      "Gastróclise com SRO 50 mL/kg em 2 horas",
+      "Hidratação por gastróclise pela recusa do soro oral"
+    ],
+    "mustNotFlag": [
+      "Não usar antidiarreicos",
+      "SF 0,9% 20 mL/kg EV em 30 min; antidiarreicos contraindicados",
+      "Gastróclise somente se não houver acesso venoso",
+      "Não fazer gastróclise: desidratação grave pede Plano C venoso"
+    ]
+  }
+}

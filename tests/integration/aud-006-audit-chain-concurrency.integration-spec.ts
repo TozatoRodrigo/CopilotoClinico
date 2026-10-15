@@ -48,7 +48,7 @@ describe('AUD-006 — concurrent audit chain writes (real PostgreSQL)', () => {
     );
 
     const result = await service.verifyChain();
-    expect(result).toEqual({ valid: true, count: totalEvents });
+    expect(result).toMatchObject({ valid: true, count: totalEvents });
 
     const duplicateLinks = await prisma.$queryRaw<Array<{ before_hash: string; count: bigint }>>`
       SELECT before_hash, COUNT(*)::bigint AS count

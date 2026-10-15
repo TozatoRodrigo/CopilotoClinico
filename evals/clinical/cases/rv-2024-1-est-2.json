@@ -1,0 +1,167 @@
+{
+  "schemaVersion": 2,
+  "id": "rv-2024-1-est-2",
+  "title": "Politrauma por colisão frontal contra poste: sonolenta, taquipneica e com dor torácica anterior",
+  "tags": [
+    "dor-toracica",
+    "revalida",
+    "pep",
+    "trauma"
+  ],
+  "critical": true,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "PS de hospital de médio porte (RX convencional, laboratório, leitos, centro cirúrgico e banco de sangue; sem plantão de ortopedia nem de outras especialidades cirúrgicas). Fem, 25a, trazida pelos bombeiros: dormiu ao volante e colidiu de frente contra poste de concreto, sozinha, sem cinto, projetada sob o volante. Em prancha rígida com colar cervical. Sonolenta, gemente, desorientada no tempo e espaço, responde de forma desconexa; Glasgow 13. Não se lembra direito do acidente; sente-se tonta, com dor no lado D do peito. Hipocorada +/4+, dor em tórax anterior e abdome. Na chegada FR 27, FC 110. Sem sangramento ativo nem lesões externas aparentes. Ao exame: PA 120x90, FC 125, FR 32; turgência jugular, bulhas normofonéticas sem sopros; MV abolido à D com hipertimpanismo; pupilas isocóricas e fotorreagentes.",
+    "funnel": {
+      "opening": "PS de hospital de médio porte (RX, laboratório, centro cirúrgico e banco de sangue; sem plantão de ortopedia nem de outras especialidades cirúrgicas). Fem, 25a, colisão frontal de carro contra poste de concreto, sem cinto. Sonolenta, gemente, desorientada, Glasgow 13; hipocorada +/4+, FR 27, FC 110, dor em tórax anterior. Em prancha rígida com colar cervical.",
+      "script": [
+        {
+          "id": "h-mecanismo",
+          "kind": "history",
+          "text": "Segundo os bombeiros, dormiu ao volante, estava sozinha no carro e foi projetada sob o volante."
+        },
+        {
+          "id": "h-amnesia",
+          "kind": "history",
+          "text": "Não se recorda direito do que aconteceu após a colisão; lembra-se apenas de ver os bombeiros e de chegar ao hospital."
+        },
+        {
+          "id": "h-tontura-dor",
+          "kind": "history",
+          "text": "Sente-se um pouco tonta, com dor no lado direito do peito."
+        },
+        {
+          "id": "h-dor-abdome",
+          "kind": "history",
+          "text": "Além do tórax anterior, tem dor no abdome."
+        },
+        {
+          "id": "e-sangramento",
+          "kind": "exam",
+          "text": "Sem sangramento ativo e sem lesões externas aparentes."
+        },
+        {
+          "id": "e-sinais-vitais",
+          "kind": "exam",
+          "text": "PA 120x90 mmHg, FC 125 bpm, FR 32 irpm."
+        },
+        {
+          "id": "e-cardiovascular",
+          "kind": "exam",
+          "text": "Turgência jugular; bulhas normofonéticas, sem sopros.",
+          "key": true
+        },
+        {
+          "id": "e-respiratorio",
+          "kind": "exam",
+          "text": "Murmúrio vesicular abolido à direita, com hipertimpanismo.",
+          "key": true
+        },
+        {
+          "id": "e-neurologico",
+          "kind": "exam",
+          "text": "Glasgow 13; pupilas isocóricas e fotorreagentes."
+        }
+      ]
+    }
+  },
+  "expected": {
+    "syndrome": "politrauma com pneumotórax hipertensivo",
+    "diagnoses": [
+      {
+        "text": "pneumotórax hipertensivo à direita",
+        "tier": "critical"
+      }
+    ],
+    "actions": [
+      {
+        "text": "descompressão torácica imediata à direita, sem aguardar radiografia [ref.: PEP: punção com cateter nº 14, 16 ou 18 no 4º ou 5º EIC, na linha axilar média ou anterior a ela]",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "drenagem torácica fechada em selo d'água à direita após a descompressão [ref.: PEP: 4º ou 5º EIC, entre as linhas axilares anterior e média]",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "via aérea avaliada (pérvia); manter o colar cervical (ou retirá-lo com estabilização manual e recolocá-lo) e O2 por máscara",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "monitorização: FC, PA, oximetria, diurese/sonda vesical e ECG",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "acesso venoso periférico calibroso em membro superior com cristaloide [ref.: PEP: cateter 14, 16 ou 18; 1 a 2 L de Ringer lactato ou SF]",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "reavaliar B e C (repetir o ABCDE) após a descompressão/drenagem",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "radiografia de tórax após a punção ou a drenagem",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "exposição completa com prevenção de hipotermia",
+        "tier": "important",
+        "timing": "now"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [],
+    "outOfScope": [
+      "verbalizar a avaliação primária ABCDE com os dados do caso, na sequência correta (item 4)",
+      "verbalizar que no momento não é necessária a remoção da paciente (item 16, anulado: pontuação atribuída a todos)"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2024/1, Estação 2): o PEP pontua o ABCDE do ATLS, o diagnóstico de pneumotórax hipertensivo, a punção descompressiva seguida de drenagem torácica fechada, RX de tórax após o procedimento, monitorização, reavaliação, acesso venoso com cristaloide e exposição com prevenção de hipotermia. Gabarito v2: descompressão e drenagem são as condutas críticas para agora; calibres e locais do PEP ficaram como referência."
+  },
+  "sources": [
+    {
+      "claim": "Itens 1–4: avalia e verbaliza vias aéreas pérvias (0,4); máscara de oxigênio (0,3); mantém o colar cervical ou retira com estabilização manual e recoloca (0,3); avaliação primária ABCDE verbalizada na sequência correta — A vias aéreas e coluna cervical, B ventilação/aparelho respiratório, C PA, FC e aparelho cardiovascular, D Glasgow 13 e orientação, E exposição (0,9).",
+      "title": "Revalida 2024/1 – Habilidades Clínicas – PEP, Estação 2, itens 1–4",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2024_1_PEP_publicacao.pdf"
+    },
+    {
+      "claim": "Item 5 (1,0): verbaliza o diagnóstico de pneumotórax hipertensivo.",
+      "title": "Revalida 2024/1 – Habilidades Clínicas – PEP, Estação 2, item 5",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2024_1_PEP_publicacao.pdf"
+    },
+    {
+      "claim": "Itens 6–10: punção torácica/toracocentese de alívio com cateter (jelco/abocath) nº 14, 16 ou 18 (0,8), no 5º ou 4º espaço intercostal, na linha axilar média ou anterior a ela (1,4); drenagem torácica fechada em selo d'água após a punção (0,8), no 5º/4º EIC entre as linhas axilares anterior e média (1,4); radiografia de tórax após a punção ou a drenagem (0,5).",
+      "title": "Revalida 2024/1 – Habilidades Clínicas – PEP, Estação 2, itens 6–10",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2024_1_PEP_publicacao.pdf"
+    },
+    {
+      "claim": "Itens 11–15: monitorização com 3 ou mais entre FC, PA, oximetria, diurese/sondagem vesical e ECG (0,3); após punção/drenagem, reavalia o aparelho respiratório (B) (0,5) e o cardiovascular (C) ou repete o ABCDE (0,3); acesso venoso com cateter 14/16/18, em veia periférica de membro superior, 1 ou 2 litros de Ringer lactato/SF/cristaloide (0,3); exposição completa com prevenção de hipotermia (0,3).",
+      "title": "Revalida 2024/1 – Habilidades Clínicas – PEP, Estação 2, itens 11–15",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2024_1_PEP_publicacao.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2024/1",
+    "item": "Estação 2",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2024_1_PEP_publicacao.pdf",
+    "originalCaseText": "CENÁRIO DE ATUAÇÃO Local de atuação: urgência e emergência - pronto-socorro de hospital de médio porte. A unidade hospitalar possui a seguinte infraestrutura: • setor de radiologia convencional; • laboratório de análises clínicas; • leitos de internação; • centro cirúrgico e banco de sangue. Não há plantão de ortopedia nem de outras especialidades cirúrgicas no hospital. DESCRIÇÃO DO CASO • Você está de plantão na emergência de um hospital de médio porte e vai atender uma paciente de 25 anos de idade, vítima de trauma automobilístico do tipo colisão frontal contra um poste de concreto, sem cinto de segurança. • A paciente se apresenta sonolenta, gemente, desorientada em tempo e espaço. Escala de coma de Glasgow 13. • Ao exame físico, mostrou-se hipocorada (+/4+), taquipneica (27 irpm), taquicárdica (FC= 110 bpm), apresentando dor em tórax anterior. Nos 10 minutos de duração da estação, você deverá executar as tarefas a seguir: • realizar o atendimento da paciente vítima de politrauma, de acordo com o Protocolo de Suporte Avançado de Vida no Trauma; • identificar as alterações no exame físico; • adotar a(s) conduta(s) terapêutica(s) necessária(s) ao caso, conforme o protocolo; • verbalizar a realização de procedimentos médicos, preconizados pelo protocolo, necessários ao caso. • utilizar habilidades profissionais para comunicação do diagnóstico à paciente. ATENÇÃO! • CASO JULGUE NECESSÁRIO REALIZAR EXAME FÍSICO, VERBALIZE; • A PACIENTE SIMULADA NÃO DEVERÁ SER TOCADA DURANTE O ATENDIMENTO; • CONSIDERE QUE A PACIENTE SIMULADA ESTÁ DEITADA EM UMA PRANCHA RÍGIDA; • OS INSUMOS ILUSTRADOS REPRESENTAM ALGUNS DOS MATERIAIS DISPONÍVEIS PARA O ATENDIMENTO; • HÁ NA ESTAÇÃO TODOS OS MATERIAIS NECESSÁRIOS AO ATENDIMENTO DA PACIENTE.",
+    "notes": "Gabarito v2 (11/10/2026): caso completo com a síntese oficial, o roteiro da paciente simulada, as informações do chefe de estação e o impresso de exame físico; modo afunilamento com a abertura oficial (fatos key: MV abolido com hipertimpanismo e turgência jugular). Descompressão e drenagem são as condutas críticas para agora, com calibres e locais do PEP entre colchetes; a verbalização do ABCDE e o item anulado de remoção ficaram fora do escopo. A dor abdominal vem da síntese oficial (a descrição do caso dada ao participante cita só o tórax). | O PEP aceita 1 ou 2 L de cristaloide no acesso venoso (item 14); não foi sinalizado como desatualizado porque 1 L também pontua. Item 16 (verbalizar que no momento não é necessária a remoção da paciente) foi anulado — pontuação atribuída a todos, item 14.6 do Edital — e foi omitido. Dados sob demanda: segundo os bombeiros, dormiu ao volante, colidiu de frente contra poste, sozinha, sem cinto, projetada sob o volante; está em prancha rígida e colar cervical; a paciente não se lembra do acidente, sente-se tonta e com dor no lado direito do peito; sem sangramento ativo nem lesões externas aparentes; O2 por máscara é informado como realizado. Impresso exame físico (após ABCDE): PA 120x90, FC 125, FR 32, turgência jugular, bulhas normofonéticas sem sopros, MV abolido à direita com hipertimpanismo, Glasgow 13, pupilas isocóricas e fotorreagentes. O chefe de estação pergunta o diagnóstico e se há necessidade de transferência para centro terciário."
+  }
+}

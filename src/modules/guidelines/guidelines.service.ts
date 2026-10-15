@@ -13,6 +13,7 @@ import { AuditService } from '../audit/audit.service';
 import { freeTextHash } from '../audit/audit-payload';
 import { chunkText } from './ingestion/chunking';
 import { maskFreeText, maskPII } from '../copilot/guardrails/pii-filter';
+import { embedOrNull } from './embeddings';
 import type { GuidelineConsultResult } from '../../shared/contracts/clinical';
 import {
   DEFAULT_CONSULT_OPTIONS,
@@ -24,6 +25,28 @@ import {
   DocumentExtractionError,
   type ExtractedDocument,
 } from './ingestion/document-text';
+
+/** Colunas de um candidato da consulta; `similarity` é a expressão que a calcula. */
+function consultColumns(similarity: string): string {
+  return `gc.id AS "chunkId", gc.source, gc.source_version AS "sourceVersion",
+         gc.specialty, gc.text, gc.status::text AS status, gc.institution_id AS "institutionId",
+         COALESCE(gc.metadata, '{}'::jsonb) AS metadata,
+         ${similarity} AS similarity`;
+}
+
+const SIMILARITY_TO_VECTOR = `CASE WHEN gc.embedding IS NULL THEN NULL
+              ELSE 1 - (gc.embedding <=> $1::vector) END`;
+
+const CONSULT_ELIGIBLE = `gc.status IN ('approved', 'official_unreviewed')
+         AND gc.valid_to IS NULL
+         AND gc.institution_id IS NULL`;
+
+function withNumericSimilarity(rows: ConsultCandidate[]): ConsultCandidate[] {
+  return rows.map((row) => ({
+    ...row,
+    similarity: row.similarity === null ? null : Number(row.similarity),
+  }));
+}
 
 export interface IngestGuidelineInput {
   text: string;
@@ -433,27 +456,32 @@ export class GuidelinesService {
    * O texto passa pela mesma máscara de PII do Copiloto ANTES do embedding:
    * a consulta abre pré-preenchida com o caso que o médico escreveu, e nada
    * identificável pode sair para o provedor de embedding.
+   *
+   * Sem embedding (`EMBEDDING_PROVIDER=none` ou provedor fora do ar), a
+   * consulta é só por palavra-chave: primeiro com todos os termos (consulta
+   * curta, termo exato) e, para o caso inteiro — onde todos os termos nunca
+   * casam —, com qualquer termo, pesado pela raridade de cada termo.
    */
   async consult(query: string, limit?: number): Promise<GuidelineConsultResult[]> {
     const masked = maskPII(query).redacted;
-    const { embeddings } = await this.aiGateway.embed([masked]);
-    const embedding = embeddings[0];
-    if (!embedding) throw new Error('Falha ao gerar embedding da consulta');
+    const [embedding] =
+      (await embedOrNull(this.aiGateway, [masked], {
+        logger: this.logger,
+        label: 'consulta',
+      })) ?? [];
+    const options = { ...DEFAULT_CONSULT_OPTIONS, limit: limit ?? DEFAULT_CONSULT_OPTIONS.limit };
+
+    if (!embedding) {
+      const allTerms = await this.keywordCandidates(masked, 'all');
+      const anyTerm = await this.keywordCandidates(masked, 'any');
+      return rankConsultResults([], [...allTerms, ...anyTerm], options);
+    }
 
     const vector = `[${embedding.join(',')}]`;
-    const candidateColumns = `gc.id AS "chunkId", gc.source, gc.source_version AS "sourceVersion",
-         gc.specialty, gc.text, gc.status::text AS status, gc.institution_id AS "institutionId",
-         COALESCE(gc.metadata, '{}'::jsonb) AS metadata,
-         CASE WHEN gc.embedding IS NULL THEN NULL
-              ELSE 1 - (gc.embedding <=> $1::vector) END AS similarity`;
-    const eligible = `gc.status IN ('approved', 'official_unreviewed')
-         AND gc.valid_to IS NULL
-         AND gc.institution_id IS NULL`;
-
     const semantic = await this.prisma.$queryRawUnsafe<ConsultCandidate[]>(
-      `SELECT ${candidateColumns}
+      `SELECT ${consultColumns(SIMILARITY_TO_VECTOR)}
          FROM guideline_chunks gc
-        WHERE ${eligible} AND gc.embedding IS NOT NULL
+        WHERE ${CONSULT_ELIGIBLE} AND gc.embedding IS NOT NULL
         ORDER BY gc.embedding <=> $1::vector
         LIMIT 40`,
       vector,
@@ -462,9 +490,9 @@ export class GuidelinesService {
     // ("escorpião") acha o termo exato; no caso inteiro não casa nada, e a
     // busca por significado responde sozinha.
     const keyword = await this.prisma.$queryRawUnsafe<ConsultCandidate[]>(
-      `SELECT ${candidateColumns}
+      `SELECT ${consultColumns(SIMILARITY_TO_VECTOR)}
          FROM guideline_chunks gc
-        WHERE ${eligible}
+        WHERE ${CONSULT_ELIGIBLE}
           AND gc.text_tsv @@ websearch_to_tsquery('portuguese', $2)
         ORDER BY ts_rank(gc.text_tsv, websearch_to_tsquery('portuguese', $2)) DESC
         LIMIT 20`,
@@ -472,16 +500,56 @@ export class GuidelinesService {
       masked,
     );
 
-    const toNumber = (rows: ConsultCandidate[]) =>
-      rows.map((row) => ({
-        ...row,
-        similarity: row.similarity === null ? null : Number(row.similarity),
-      }));
+    return rankConsultResults(
+      withNumericSimilarity(semantic),
+      withNumericSimilarity(keyword),
+      options,
+    );
+  }
 
-    return rankConsultResults(toNumber(semantic), toNumber(keyword), {
-      ...DEFAULT_CONSULT_OPTIONS,
-      limit: limit ?? DEFAULT_CONSULT_OPTIONS.limit,
-    });
+  /**
+   * Busca por palavra-chave da consulta sem embedding.
+   *
+   * - `all`: todos os termos (websearch_to_tsquery) — a consulta curta, termo
+   *   exato ("escorpião", "soro antibotrópico").
+   * - `any`: qualquer termo, pontuado pela raridade de cada um na base (soma
+   *   do IDF dos termos que o trecho contém). Sem o peso, "criança", "dor" e
+   *   "anos" valem tanto quanto "escorpião" e o topo vira ruído — no teste
+   *   com a cópia da base de produção (11/10/2026), o PCDT de acidentes
+   *   escorpiônicos saiu do 1º lugar só com o peso.
+   */
+  private async keywordCandidates(
+    masked: string,
+    terms: 'all' | 'any',
+  ): Promise<ConsultCandidate[]> {
+    const sql =
+      terms === 'all'
+        ? `SELECT ${consultColumns('NULL::float8')}
+             FROM guideline_chunks gc
+            WHERE ${CONSULT_ELIGIBLE}
+              AND gc.text_tsv @@ websearch_to_tsquery('portuguese', $1)
+            ORDER BY ts_rank(gc.text_tsv, websearch_to_tsquery('portuguese', $1)) DESC
+            LIMIT 20`
+        : `WITH terms AS (
+             SELECT DISTINCT lexeme, to_tsquery('simple', quote_literal(lexeme)) AS tq
+               FROM unnest(tsvector_to_array(to_tsvector('portuguese', $1))) AS lexeme
+           ), weights AS (
+             SELECT t.lexeme, t.tq,
+                    ln((SELECT count(*) FROM guideline_chunks gc WHERE ${CONSULT_ELIGIBLE})::float8
+                       / (1 + count(gc.id))) AS idf
+               FROM terms t
+               LEFT JOIN guideline_chunks gc ON ${CONSULT_ELIGIBLE} AND gc.text_tsv @@ t.tq
+              GROUP BY t.lexeme, t.tq
+           )
+           SELECT ${consultColumns('NULL::float8')}
+             FROM guideline_chunks gc
+             JOIN weights w ON w.idf > 0 AND gc.text_tsv @@ w.tq
+            WHERE ${CONSULT_ELIGIBLE}
+            GROUP BY gc.id
+            ORDER BY sum(w.idf) DESC
+            LIMIT 20`;
+    const rows = await this.prisma.$queryRawUnsafe<ConsultCandidate[]>(sql, masked);
+    return withNumericSimilarity(rows);
   }
 
   async listSources(): Promise<
@@ -579,14 +647,16 @@ export class GuidelinesService {
       return [];
     }
 
-    const texts = chunks.map((c) => c.text);
-    const embeddingResponse = await this.aiGateway.embed(texts);
+    // Sem vetor, o trecho é gravado mesmo assim: a busca textual já o acha.
+    const embeddings = await embedOrNull(
+      this.aiGateway,
+      chunks.map((c) => c.text),
+      { logger: this.logger, label: `${input.source} v${input.sourceVersion}` },
+    );
 
     const created: IngestedChunk[] = [];
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i]!;
-      const embedding = embeddingResponse.embeddings[i]!;
-      const embeddingStr = `[${embedding.join(',')}]`;
 
       const record = await this.prisma.guidelineChunk.create({
         data: {
@@ -613,8 +683,12 @@ export class GuidelinesService {
         },
       });
 
-      await this.prisma
-        .$executeRaw`UPDATE "guideline_chunks" SET embedding = ${embeddingStr}::vector WHERE id = ${record.id}::uuid`;
+      const embedding = embeddings?.[i];
+      if (embedding) {
+        const embeddingStr = `[${embedding.join(',')}]`;
+        await this.prisma
+          .$executeRaw`UPDATE "guideline_chunks" SET embedding = ${embeddingStr}::vector WHERE id = ${record.id}::uuid`;
+      }
 
       created.push({
         id: record.id,
@@ -622,7 +696,9 @@ export class GuidelinesService {
       });
     }
 
-    this.logger.log(`Ingested ${created.length} chunks successfully`);
+    this.logger.log(
+      `Ingested ${created.length} chunks successfully${embeddings ? '' : ' (sem embedding: só busca textual)'}`,
+    );
     return created;
   }
 

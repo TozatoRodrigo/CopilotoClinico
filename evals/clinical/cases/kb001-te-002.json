@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 2,
+  "id": "kb001-te-002",
+  "title": "Síncope, hipoxemia e hipotensão com suspeita de TEP",
+  "tags": [
+    "choque",
+    "tep-alto-risco",
+    "kb-001"
+  ],
+  "critical": true,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Síncope, hipoxemia e hipotensão em contexto de suspeita de TEP."
+  },
+  "expected": {
+    "syndrome": "TEP de alto risco (maciço) com instabilidade hemodinâmica",
+    "diagnoses": [
+      {
+        "text": "TEP de alto risco (maciço)",
+        "tier": "critical"
+      }
+    ],
+    "actions": [
+      {
+        "text": "estabilização: oxigênio, volume cauteloso e vasopressor (noradrenalina) se necessário",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "ecocardiograma/POCUS à beira do leito (VD) ou angio-TC se viável sem atraso",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "anticoagulação parenteral imediata (HNF preferível se a reperfusão for iminente; HBPM aceitável), salvo contraindicação",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "reperfusão de urgência se TEP de alto risco confirmado ou altamente provável: trombólise sistêmica, ou terapia por cateter/embolectomia cirúrgica se houver contraindicação, falha ou disponibilidade",
+        "tier": "critical",
+        "timing": "any"
+      }
+    ],
+    "questions": [
+      "contraindicações à trombólise (sangramento ativo, AVC ou cirurgia recentes)"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "volume-agressivo-em-choque-obstrutivo",
+        "description": "Expansão volêmica agressiva em choque obstrutivo por TEP — piora a sobrecarga e a função do VD (ESC 2019: no máximo 500 mL em 15–30 min)",
+        "patterns": []
+      }
+    ],
+    "rationale": "ESC 2019: no instável, disfunção de VD ao eco justifica reperfusão de emergência se a angio-TC não for viável; volume no máximo 500 mL; noradrenalina; HNF no instável; trombólise como primeira linha, cateter ou cirurgia se contraindicação ou falha. AHA/ACC 2026: HBPM preferida à HNF e trombólise sistêmica, por cateter e trombectomia no mesmo nível (2a) na categoria E. O gabarito aceita as duas diretrizes. Acionar equipe de resposta a TEP (PERT) é desejável, não exigido."
+  },
+  "sources": [
+    {
+      "claim": "Tabela 9: volume cauteloso, no máximo 500 mL em 15–30 min; a seção 6.1.2 diz que a expansão volêmica agressiva não traz benefício e pode piorar a função do VD; noradrenalina como vasopressor. Fig. 4/seção 4.9: no paciente instável, a disfunção de VD no ecocardiograma justifica reperfusão de emergência se a angio-TC não for viável. HNF restrita, hoje, ao paciente instável.",
+      "title": "2019 ESC Guidelines for the diagnosis and management of acute pulmonary embolism",
+      "publisher": "ESC/ERS (Eur Heart J)",
+      "year": 2019,
+      "url": "https://academic.oup.com/eurheartj/article/41/4/543/5556136"
+    },
+    {
+      "claim": "Categoria E (falência cardiopulmonar): classe 2a para trombólise sistêmica, trombólise por cateter e trombectomia mecânica, sem primazia da trombólise. HBPM preferida à HNF (classe 1) nas categorias C a E1. PERT classe 1 nas categorias C a E.",
+      "title": "The 2026 AHA/ACC Guideline for the Management of Acute Pulmonary Embolism (revisão)",
+      "publisher": "Endovascular Today",
+      "year": 2026,
+      "url": "https://evtoday.com/articles/2026-july-supplement/the-2026-ahaacc-guideline-for-the-management-of-acute-pulmonary-embolism"
+    },
+    {
+      "claim": "Primeira diretriz AHA/ACC de TEP agudo (19/fev/2026), com categorias clínicas A a E.",
+      "title": "First AHA/ACC acute pulmonary embolism guideline: prompt diagnosis and treatment are key",
+      "publisher": "American College of Cardiology",
+      "year": 2026,
+      "url": "https://www.acc.org/About-ACC/Press-Releases/2026/02/19/19/27/First-AHAACC-acute-pulmonary-embolism-guideline-prompt-diagnosis-and-treatment-are-key"
+    },
+    {
+      "claim": "HBPM recomendada sobre HNF como terapia parenteral inicial.",
+      "title": "Feb 2026 AHA/ACC Acute Pulmonary Embolism Guideline Spotlight",
+      "publisher": "Guideline Central",
+      "year": 2026,
+      "url": "https://www.guidelinecentral.com/insights/feb-2026-ahaacc-acutepulmonaryembolism-guideline-spotlight/"
+    }
+  ],
+  "provenance": {
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: anticoagulação passou a aceitar HNF ou HBPM e a reperfusão, trombólise sistêmica, terapia por cateter ou embolectomia (AHA/ACC 2026 vs. ESC 2019); acrescentado eco/POCUS à beira do leito (ou angio-TC sem atraso). PERT ficou no rationale (opcional)."
+  }
+}
