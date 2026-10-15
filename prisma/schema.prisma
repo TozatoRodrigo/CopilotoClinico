@@ -149,6 +149,9 @@ model Physician {
  * PhysicianInstitution. institutionId em GuidelineChunk/Encounter/Protocol é
  * nullable — NULL representa conteúdo/atendimento global, visível a todas as
  * instituições.
+ * CC-021: por isso essas três FKs são `onDelete: Restrict`. Com SetNull, apagar
+ * a instituição tornava global o protocolo e a diretriz internos dela. Para
+ * tirar uma instituição de uso, desative (`status = inactive`); ver ADR-009.
  */
 model Institution {
   id        String            @id @default(uuid()) @db.Uuid
@@ -218,7 +221,7 @@ model Encounter {
   updatedAt      DateTime        @updatedAt @map("updated_at")
 
   physician      Physician             @relation(fields: [physicianId], references: [id], onDelete: Cascade)
-  institution    Institution?          @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  institution    Institution?          @relation(fields: [institutionId], references: [id], onDelete: Restrict)
   aiInteractions AiInteraction[]
   documents      Document[]
   audioCaptures  AudioCapture[]
@@ -510,7 +513,7 @@ model GuidelineChunk {
   /// ADR-010 — versão do documento oficial de onde o chunk saiu.
   documentId String? @map("document_id") @db.Uuid
 
-  institution Institution?               @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  institution Institution?               @relation(fields: [institutionId], references: [id], onDelete: Restrict)
   document    OfficialGuidelineDocument? @relation(fields: [documentId], references: [id], onDelete: Restrict)
 
   @@index([source, sourceVersion])
@@ -670,7 +673,7 @@ model Protocol {
   createdAt     DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
 
-  institution Institution?   @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  institution Institution?   @relation(fields: [institutionId], references: [id], onDelete: Restrict)
   nodes       ProtocolNode[]
   runs        ProtocolRun[]
 
