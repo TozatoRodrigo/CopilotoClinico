@@ -18,6 +18,7 @@ import {
   UserCircle,
   Users,
 } from '@phosphor-icons/react';
+import { blockPageTitle } from '@clinical-tools/blocks/sections';
 import { CALCULATOR_CATALOG } from '@clinical-tools/calculator-catalog';
 import { calculatorName, TOOLS } from '@clinical-tools/catalog';
 import { TOX_MODULES } from '@clinical-tools/toxicology/modules';
@@ -81,10 +82,16 @@ function EncounterCrumbs({ segments }: { segments: string[] }) {
   return <Breadcrumb items={items} />;
 }
 
-/** Subpáginas de um roteiro (ACLS › OVACE, Toxicologia › Guia de antídotos). */
-const TOOL_SUBPAGES: Record<string, Record<string, string>> = {
-  acls: { ovace: 'OVACE', historico: 'Atendimentos salvos' },
-  toxicologia: Object.fromEntries(TOX_MODULES.map(({ id, title }) => [id, title])),
+const ACLS_SUBPAGES: Record<string, string> = { ovace: 'OVACE', historico: 'Atendimentos salvos' };
+
+/**
+ * Título da subpágina de um roteiro pelo segmento (ACLS › OVACE,
+ * Toxicologia › Guia de antídotos, Bloqueios › Dose máxima).
+ */
+const TOOL_SUBPAGE_TITLE: Record<string, (segment: string) => string | undefined> = {
+  acls: (segment) => ACLS_SUBPAGES[segment],
+  toxicologia: (segment) => TOX_MODULES.find(({ id }) => id === segment)?.title,
+  bloqueios: blockPageTitle,
 };
 
 /** CC-320 — Pediatria › Cenários › nome do cenário. */
@@ -112,7 +119,7 @@ function ferramentasCrumbs(segments: string[]): BreadcrumbItem[] {
     if (tool.id === 'pediatria' && id === 'cenarios') {
       return [...items, ...pediatricScenarioCrumbs(segments[3])];
     }
-    const subpage = id ? TOOL_SUBPAGES[tool.id]?.[id] : undefined;
+    const subpage = id ? TOOL_SUBPAGE_TITLE[tool.id]?.(id) : undefined;
     if (subpage) items.push({ label: subpage });
     return items;
   }

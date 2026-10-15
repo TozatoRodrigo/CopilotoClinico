@@ -96,6 +96,8 @@ describe('referência congelada do ANY', () => {
         // conversor, a soma do PPI e boa parte do texto na própria tela.
         'paliaData.ts',
         'PaliaPath.tsx',
+        // CC-330 — bloqueios regionais (dado, dose e nota moram na própria página)
+        'BlockPath.tsx',
       ]),
     );
   });
