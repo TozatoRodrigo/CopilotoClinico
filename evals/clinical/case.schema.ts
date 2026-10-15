@@ -10,7 +10,7 @@ import { PS_SYNDROMES } from '../../src/shared/contracts/clinical';
  * o caso passaria a medir menos do que o revisor acredita.
  *
  * Gabarito v1 acrescentou, todos opcionais: `sources`, `provenance`, `probes`
- * e `excludeFromGate`.
+ * e `excludeFromGate`. CC-412 acrescentou `draftOrigin`, também opcional.
  *
  * Gabarito v2 ("plantão simulado", 11/10/2026) mudou o que se mede, a partir
  * do experimento só-Anthropic: os 7 "erros críticos" do Opus eram do formato
@@ -79,6 +79,43 @@ export const GOLD_SOURCES = [
   /** Expectativas ancoradas em diretriz citada em `sources`, sem caso real de origem. */
   'guideline_anchored',
 ] as const;
+
+/**
+ * CC-412 — o gabarito nunca nasce de cartão: o caso escrito a partir de um
+ * cartão mede o Copiloto contra ele mesmo (o problema do gabarito v1). Estes
+ * valores são recusados com mensagem própria, não como "valor fora da lista".
+ */
+export const CIRCULAR_GOLD_SOURCES: ReadonlySet<string> = new Set([
+  'card',
+  'cards',
+  'knowledge_card',
+  'knowledge_cards',
+]);
+
+const GoldSourceSchema = z
+  .string()
+  .refine((source) => !CIRCULAR_GOLD_SOURCES.has(source), {
+    message:
+      'caso do gabarito não pode nascer de cartão (CC-412): registre a fonte real ' +
+      '(exame oficial, médico, incidente) — ver GOLD_SOURCES',
+  })
+  .pipe(z.enum(GOLD_SOURCES));
+
+const SHA256_HEX = /^[0-9a-f]{64}$/;
+
+/**
+ * CC-412 — rascunho de IA de onde o caso saiu: o id do pedido de rascunho e o
+ * hash dos trechos de fonte entregues ao modelo (os mesmos campos de
+ * `knowledge_card_drafts`). Ausente = caso escrito sem rascunho de IA (médico,
+ * prova oficial, incidente). `pnpm cards:check-circularity` e o runner do
+ * gabarito recusam caso e cartão com a mesma origem.
+ */
+const DraftOriginSchema = z
+  .object({
+    draftId: z.string().uuid(),
+    sourceContentSha256: z.string().regex(SHA256_HEX, 'SHA-256 em hexadecimal minúsculo'),
+  })
+  .strict();
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -357,13 +394,14 @@ export const ClinicalCaseSchema = z
     tags: z.tuple([SyndromeGroupSchema]).rest(kebabId),
     /** "Não pode errar": cenário tempo-dependente em que errar mata ou sequela. */
     critical: z.boolean(),
-    goldSource: z.enum(GOLD_SOURCES),
+    goldSource: GoldSourceSchema,
     review: ReviewSchema,
     input: CaseInputSchema,
     expected: CaseExpectationsSchema,
     /** O que sustenta as expectativas. */
     sources: z.array(SourceSchema).optional(),
     provenance: ProvenanceSchema.optional(),
+    draftOrigin: DraftOriginSchema.optional(),
     probes: ProbesSchema.optional(),
     excludeFromGate: GateExclusionSchema.optional(),
   })

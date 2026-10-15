@@ -19,6 +19,16 @@ describe('gabarito clínico', () => {
     expect(new Set(cases.map((clinicalCase) => clinicalCase.id)).size).toBe(cases.length);
   });
 
+  // CC-412: `draftOrigin` é opcional (ausente = escrito sem rascunho de IA) e
+  // nenhum caso registra cartão como fonte — os dois conjuntos carregam.
+  it('carrega os casos atuais e a prova cega sem exigir rascunho de origem', () => {
+    const blind = loadCaseSet(BLIND_CASES_DIR).cases;
+    expect(blind.length).toBeGreaterThan(0);
+    for (const clinicalCase of [...cases, ...blind]) {
+      expect(clinicalCase.goldSource, clinicalCase.id).not.toMatch(/card/);
+    }
+  });
+
   it('começa as tags de todo caso pela síndrome de PS', () => {
     for (const clinicalCase of cases) {
       expect(SYNDROME_GROUPS, clinicalCase.id).toContain(clinicalCase.tags[0]);
@@ -330,6 +340,42 @@ describe('loadCaseSet', () => {
       excludeFromGate: { reason: 'Gabarito oficial anterior à diretriz vigente.' },
     });
     expect(loadCaseSet(dir).cases[0]?.excludeFromGate?.reason).toMatch(/diretriz/);
+  });
+
+  describe('anti-circularidade (CC-412)', () => {
+    const draftOrigin = {
+      draftId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      sourceContentSha256: 'a'.repeat(64),
+    };
+
+    it.each(['card', 'knowledge_card'])('recusa caso com fonte "%s"', (goldSource) => {
+      writeCase('fi-001-dengue-como-sepse.json', { ...validCase, goldSource });
+      expect(() => loadCaseSet(dir)).toThrow(/não pode nascer de cartão \(CC-412\)/);
+    });
+
+    it('continua recusando fonte desconhecida com a mensagem da lista', () => {
+      writeCase('fi-001-dengue-como-sepse.json', { ...validCase, goldSource: 'chatgpt' });
+      expect(() => loadCaseSet(dir)).toThrow(/goldSource: Invalid enum value/);
+    });
+
+    it('aceita o rascunho de origem de um caso escrito a partir de rascunho de IA', () => {
+      writeCase('fi-001-dengue-como-sepse.json', {
+        ...validCase,
+        goldSource: 'ai_draft',
+        draftOrigin,
+      });
+      expect(loadCaseSet(dir).cases[0]?.draftOrigin).toEqual(draftOrigin);
+    });
+
+    it('recusa rascunho de origem sem id válido ou com hash fora do formato', () => {
+      writeCase('fi-001-dengue-como-sepse.json', {
+        ...validCase,
+        draftOrigin: { draftId: 'rascunho-1', sourceContentSha256: 'A'.repeat(64) },
+      });
+      expect(() => loadCaseSet(dir)).toThrow(
+        /draftOrigin\.draftId[\s\S]*draftOrigin\.sourceContentSha256/,
+      );
+    });
   });
 
   it('recusa sonda sem frase que deve ser acusada', () => {
