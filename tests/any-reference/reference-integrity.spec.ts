@@ -18,10 +18,13 @@ const CODE_FILE = /\.(ts|tsx|js|mjs)$/;
 /** `from '…any-reference…'`, `import('…any-reference…')` ou `require('…any-reference…')`. */
 const IMPORTS_REFERENCE = /(from\s+|import\s*\(\s*|require\s*\(\s*)['"][^'"]*any-reference/;
 
-/** Arquivos copiados: `.ts` de dado e conta, e `.tsx` quando a conta mora no componente. */
+/**
+ * Arquivos copiados: `.ts` de dado e conta, `.tsx` quando a conta mora no
+ * componente e `.html` das ferramentas legadas (tools/), lidas só como texto.
+ */
 function referenceFiles(): string[] {
   return readdirSync(REFERENCE_DIR).filter(
-    (file) => /\.tsx?$/.test(file) && !file.endsWith('.spec.ts'),
+    (file) => /\.(tsx?|html)$/.test(file) && !file.endsWith('.spec.ts'),
   );
 }
 
@@ -50,6 +53,8 @@ describe('referência congelada do ANY', () => {
         // CC-323 — roteiro de Toxicologia
         'toxData.ts',
         'ToxPath.tsx',
+        // CC-324 — doses tóxicas do Tox Path legado
+        'tox-path-legacy.html',
       ]),
     );
   });

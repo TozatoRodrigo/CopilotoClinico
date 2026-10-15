@@ -9,6 +9,7 @@ import DestinoPage from '../destino/page';
 import AntidotosPage from '../antidotos/page';
 import ChecklistPage from '../checklist/page';
 import TabelasPage from '../tabelas/page';
+import DosesToxicasPage from '../doses-toxicas/page';
 import { RouteBreadcrumbs } from '@/components/layout/route-breadcrumbs';
 
 let pathname = '/ferramentas/toxicologia';
@@ -52,7 +53,7 @@ describe('/ferramentas/toxicologia', () => {
     );
   });
 
-  it('lista as seis seções e as calculadoras de toxicologia', () => {
+  it('lista as sete seções e as calculadoras de toxicologia', () => {
     render(<ToxicologiaPage />);
     const sections = screen.getByRole('region', { name: 'Seções' });
 
@@ -67,6 +68,7 @@ describe('/ferramentas/toxicologia', () => {
       '/ferramentas/toxicologia/antidotos',
       '/ferramentas/toxicologia/checklist',
       '/ferramentas/toxicologia/tabelas',
+      '/ferramentas/toxicologia/doses-toxicas',
     ]);
     const calculators = screen.getByRole('region', { name: /Calculadoras de toxicologia/ });
     expect(within(calculators).getByRole('link', { name: /CIWA-Ar/ })).toHaveAttribute(
@@ -257,6 +259,50 @@ describe('tabelas de consulta', () => {
       'true',
     );
     expect(screen.getByRole('cell', { name: 'Paraquat' })).toBeInTheDocument();
+  });
+});
+
+describe('doses tóxicas (CC-324)', () => {
+  it('busca pelo nome comercial, sem acento, e mostra dose tóxica e meia-vida', async () => {
+    render(<DosesToxicasPage />);
+    expect(screen.getByText(/Base com 242 medicamentos/)).toBeInTheDocument();
+
+    const search = screen.getByRole('searchbox', {
+      name: 'Buscar medicamento por nome ou sinônimo',
+    });
+    await userEvent.type(search, 'depakene');
+    await userEvent.click(screen.getByRole('button', { name: /Ácido Valpróico/ }));
+
+    const card = screen.getByRole('article', { name: 'Ácido Valpróico' });
+    expect(within(card).getByText('200 mg/kg')).toBeInTheDocument();
+    expect(within(card).getByText('20 hs')).toBeInTheDocument();
+    expect(within(card).getByText(/revisão clínica pendente/)).toBeInTheDocument();
+  });
+
+  it('mg/kg ingerido ÷ dose tóxica: paracetamol 70 kg com 7.000 mg', async () => {
+    render(<DosesToxicasPage />);
+    await userEvent.type(
+      screen.getByRole('searchbox', { name: 'Buscar medicamento por nome ou sinônimo' }),
+      'paracetamol',
+    );
+    await userEvent.click(screen.getByRole('button', { name: /^Paracetamol/ }));
+
+    await userEvent.type(screen.getByRole('textbox', { name: /Peso do paciente/ }), '70');
+    await userEvent.type(screen.getByRole('textbox', { name: /Quantidade ingerida/ }), '7000');
+    const result = screen
+      .getAllByRole('status')
+      .find((element) => element.textContent?.includes('Dose ingerida'));
+    expect(result).toHaveTextContent('100,00 mg/kg');
+    expect(result).toHaveTextContent('Acima da dose tóxica (1,3x)');
+    expect(result).toHaveTextContent('133% da dose tóxica');
+  });
+
+  it('a tela de tabelas aponta para as doses tóxicas', () => {
+    render(<TabelasPage />);
+    expect(screen.getByRole('link', { name: /doses tóxicas de 242 medicamentos/ })).toHaveAttribute(
+      'href',
+      '/ferramentas/toxicologia/doses-toxicas',
+    );
   });
 });
 

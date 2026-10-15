@@ -130,7 +130,7 @@ describe('roteiro no catálogo', () => {
     expect(getCalculator('ciwa-ar')?.pathway).toEqual({ toolId: 'toxicologia' });
   });
 
-  it('as seções da tela inicial são as 6 do ANY', () => {
+  it('as seções da tela inicial são as 6 do ANY mais as doses tóxicas (CC-324)', () => {
     expect(TOX_MODULES.map(({ id }) => id)).toEqual([
       'toxindromes',
       'descontaminacao',
@@ -138,7 +138,13 @@ describe('roteiro no catálogo', () => {
       'antidotos',
       'checklist',
       'tabelas',
+      'doses-toxicas',
     ]);
+  });
+
+  it('Toxicologia é achada pelo medicamento da tabela de doses tóxicas e pelo sinônimo', () => {
+    const tox = TOOLS.find(({ id }) => id === 'toxicologia');
+    expect(tox?.synonyms).toEqual(expect.arrayContaining(['Bisoprolol', 'rivotril']));
   });
 });
 

@@ -322,15 +322,18 @@ describe('conteúdo × toxData.ts do ANY', () => {
     );
   });
 
-  it('as abas de tabela e as seções da tela inicial (doses tóxicas fica no CC-324)', () => {
+  it('as abas de tabela e as seções da tela inicial (doses tóxicas virou seção, CC-324)', () => {
     expect(TABLE_TABS.map(({ id, label }) => [id, norm(label)])).toEqual(
       anyTox.tabelaTabs
         .filter(({ id }) => id !== 'doses')
         .map(({ id, label }) => [id, fromAny(label)]),
     );
-    expect(TOX_MODULES.map(({ title, subtitle }) => [norm(title), norm(subtitle)])).toEqual(
-      anyTox.homeModules.map(({ title, subtitle }) => [fromAny(title), fromAny(subtitle)]),
-    );
+    expect(
+      TOX_MODULES.filter(({ id }) => id !== 'doses-toxicas').map(({ title, subtitle }) => [
+        norm(title),
+        norm(subtitle),
+      ]),
+    ).toEqual(anyTox.homeModules.map(({ title, subtitle }) => [fromAny(title), fromAny(subtitle)]));
   });
 });
 

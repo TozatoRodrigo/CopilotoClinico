@@ -1,6 +1,7 @@
 /**
  * Seções do roteiro de Toxicologia, na ordem da tela inicial do ToxPath do
- * ANY. O id é também o trecho do endereço (/ferramentas/toxicologia/<id>).
+ * ANY, mais as doses tóxicas (CC-324). O id é também o trecho do endereço
+ * (/ferramentas/toxicologia/<id>).
  */
 export const TOX_MODULES = [
   {
@@ -29,6 +30,12 @@ export const TOX_MODULES = [
     id: 'tabelas',
     title: 'Tabelas de consulta',
     subtitle: 'Toxíndromes, odores, ECG, achados',
+  },
+  {
+    // CC-324: no ANY era a aba "Doses tóxicas" das tabelas.
+    id: 'doses-toxicas',
+    title: 'Doses tóxicas',
+    subtitle: 'Dose ingerida × dose tóxica e meia-vida de 242 medicamentos',
   },
 ] as const;
 

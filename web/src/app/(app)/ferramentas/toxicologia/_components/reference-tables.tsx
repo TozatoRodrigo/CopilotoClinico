@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { Info, WarningCircle } from '@phosphor-icons/react';
 import {
   isTableTabId,
@@ -9,6 +10,8 @@ import {
   type TableRowHighlight,
   type TableTabId,
 } from '@clinical-tools/toxicology/tables';
+import { toxModuleHref } from '@clinical-tools/toxicology/modules';
+import { TOXIC_DOSES } from '@clinical-tools/toxicology/toxic-doses';
 import { Callout } from '@/components/ui/callout';
 import { Disclosure } from '@/components/ui/disclosure';
 import {
@@ -104,7 +107,8 @@ function Block({ block }: { block: TableBlock }) {
 /**
  * Tabelas de consulta (CC-323): toxíndromes lado a lado, ECG, odores,
  * pupilas e bombas-relógio, como as abas do ANY. `#bombas` no endereço abre a
- * aba das bombas-relógio (link dos critérios de destino).
+ * aba das bombas-relógio (link dos critérios de destino). As doses tóxicas,
+ * outra aba no ANY, têm seção própria (CC-324).
  */
 export function ReferenceTables() {
   const hash = useLocationHash();
@@ -112,26 +116,38 @@ export function ReferenceTables() {
   const active: TableTabId = chosen ?? (isTableTabId(hash) ? hash : 'toxindromes');
 
   return (
-    <Tabs
-      value={active}
-      onValueChange={(value) => {
-        if (isTableTabId(value)) setChosen(value);
-      }}
-    >
-      <TabsList aria-label="Tabelas de consulta">
-        {TABLE_TABS.map((tab) => (
-          <TabsTrigger key={tab.id} value={tab.id} className="max-sm:min-h-10">
-            {tab.label}
-          </TabsTrigger>
-        ))}
-      </TabsList>
-      {TABLE_TABS.map((tab) => (
-        <TabsContent key={tab.id} value={tab.id} className="flex flex-col gap-4 pt-2">
-          {tab.blocks.map((block, index) => (
-            <Block key={index} block={block} />
+    <div className="flex flex-col gap-4">
+      <p className="text-sm text-muted-foreground">
+        A aba de doses tóxicas do ANY virou seção própria:{' '}
+        <Link
+          href={toxModuleHref('doses-toxicas')}
+          className="text-link underline-offset-4 hover:underline"
+        >
+          doses tóxicas de {TOXIC_DOSES.length} medicamentos
+        </Link>
+        .
+      </p>
+      <Tabs
+        value={active}
+        onValueChange={(value) => {
+          if (isTableTabId(value)) setChosen(value);
+        }}
+      >
+        <TabsList aria-label="Tabelas de consulta">
+          {TABLE_TABS.map((tab) => (
+            <TabsTrigger key={tab.id} value={tab.id} className="max-sm:min-h-10">
+              {tab.label}
+            </TabsTrigger>
           ))}
-        </TabsContent>
-      ))}
-    </Tabs>
+        </TabsList>
+        {TABLE_TABS.map((tab) => (
+          <TabsContent key={tab.id} value={tab.id} className="flex flex-col gap-4 pt-2">
+            {tab.blocks.map((block, index) => (
+              <Block key={index} block={block} />
+            ))}
+          </TabsContent>
+        ))}
+      </Tabs>
+    </div>
   );
 }
