@@ -525,6 +525,57 @@ SELECT batch_label, count(*) AS codigos, sum(uses_count) AS usos
 FROM beta_invites GROUP BY batch_label ORDER BY usos DESC;
 ```
 
+### Painel semanal do beta e reunião de sexta (CC-705, CC-706)
+
+Console → Beta → **Semana** (a aba abre por padrão; Admin e Compliance), ou
+`GET /v1/admin/beta/weekly?week=AAAA-MM-DD` (qualquer dia vale pela semana que
+o contém; sem `week`, a semana corrente; semana futura dá 400). A semana vai de
+segunda 00:00 a domingo 23:59 **no horário de Brasília** (fuso
+`America/Sao_Paulo`, não -03:00 fixo). Na semana em andamento, os números vão
+até agora e a semana anterior é cortada no mesmo dia e hora: sexta 13h contra
+sexta 13h, não meia semana contra uma inteira.
+
+| Número | Definição | Fonte |
+|---|---|---|
+| Médicos ativos | Papel `PHYSICIAN` com análise concluída ou pergunta do Copiloto respondida em caso real | `ai_interactions` (sem as falhas de validação), `case_intakes.answers[].answeredAt` e `ai_interactions.answered_questions` |
+| Análises por médico | Análises concluídas de caso real ÷ médicos ativos (média, mediana e faixas) | `ai_interactions` |
+| Feedback negativo / 100 análises | "Cenário errado", "faltou cobertura" e "conduta incorreta" de médicos em caso real | `copilot_feedback` |
+| Custo e latência por análise | Requisição com etapa `decision`; latência = soma das chamadas; p50/p95 entre análises | `ai_calls` (serviço da CC-004) |
+| Lacunas | "Não encontrei o que precisava", por síndrome de PS (top 5) | `knowledge_gaps` (CC-703) |
+| Ativação em 24 h | Coorte cadastrada na semana, por lote (mesma regra da CC-702) | `physicians`, `beta_invites` |
+
+Caso de exemplo do onboarding e contas de admin ficam fora de uso e feedback
+(o caso de exemplo aparece à parte). Custo e latência incluem tudo o que passou
+pela decisão, como o painel de `ai_calls`. Médico só aparece agregado: a API
+não devolve id, nome nem ranking, e nada do caso (nota e consultas da lacuna
+ficam no banco).
+
+**O que o painel ainda não tem ("sem dado").** Cada um tem a constante de
+extensão em `src/modules/beta/beta-weekly.service.ts`; a tela e a ata já
+mostram o número quando o serviço passar a devolvê-lo:
+
+- **% de análises com cartão aplicado**: a análise não registra cartão
+  aplicado até a CC-408 (cartões na decisão, sobre `knowledge_cards` da
+  CC-402). Ao entregar, gravar na análise quais cartões foram aplicados e
+  contar aqui.
+- **Uso de ferramentas**: a área Ferramentas (CC-304) não existe. Os eventos
+  `ferramenta_aberta` e `calculo_feito` da CC-704 vão para o Umami, não para
+  o banco; para entrar no painel (e na definição de médico ativo), o uso
+  precisa ser gravado no servidor ou lido da API do Umami.
+- **Pedidos de mentoria**: entram com a CC-707.
+
+Também ficam só no Umami: cartão aberto, pergunta rápida e a duração da
+montagem do plano. Para esses, abrir o Umami.
+
+**Ritual de sexta 13h (CC-706).** 15 min de números (esta aba), 30 min de
+decisões, 15 min de próximos passos. "Copiar resumo para a ata" copia o
+markdown da semana com as três seções (decisões e próximos passos em branco
+para preencher na reunião); colar na ata do **Meeting Tracker** do ClickUp.
+O mesmo texto vem em `markdown` na resposta da API.
+
+No log: `BETA_WEEKLY_REPORT week=... inProgress=... activePhysicians=...
+analyses=... durationMs=...` (só contagens).
+
 ### Calibrar o piso de relevância (KB-005/KB-006)
 
 O piso (`RETRIEVAL_MIN_SEMANTIC_SCORE`, default `0.3`) é o que permite ao
