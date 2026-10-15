@@ -31,7 +31,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EmptyState } from '@/components/domain/empty-state';
-import { copyText } from '../../_lib/gold-case';
+import { copyText } from '@/lib/clipboard';
 import {
   INVITE_STATUS_TAG,
   StatusTag,
