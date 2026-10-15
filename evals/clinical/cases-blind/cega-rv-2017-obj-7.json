@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2017-obj-7",
+  "title": "Mulher de 72 anos com dor em fossa ilíaca esquerda há 24 horas na sala de emergência",
+  "tags": [
+    "dor-abdominal",
+    "revalida",
+    "prova-cega",
+    "objetiva",
+    "cirurgia",
+    "diverticulite"
+  ],
+  "critical": false,
+  "goldSource": "revalida_objetiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Sala de emergência de hospital com TC. Fem, 72a. Dor abdominal há 24 h. EF: BEG, afebril, FC 88, PA 150x95; abdome doloroso à palpação em FIE, sem sinais de irritação peritoneal. TC de abdome: diverticulite aguda com imagem sugestiva de abscesso de 1,5 cm de diâmetro junto à parede do sigmoide; sem pneumoperitônio."
+  },
+  "expected": {
+    "syndrome": "dor em fossa ilíaca esquerda em idosa estável, sem peritonite",
+    "diagnoses": [
+      {
+        "text": "diverticulite aguda complicada com abscesso pericólico pequeno (1,5 cm), sem peritonite nem perfuração livre (Hinchey I)",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "tratamento clínico não operatório: antibioticoterapia, jejum (repouso intestinal) e hidratação venosa",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "internação com reavaliação clínica seriada (cirurgia só se peritonite, piora ou falha do tratamento clínico)",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "colonoscopia-na-fase-aguda",
+        "description": "Colonoscopia (com biópsia) na fase aguda da diverticulite com abscesso (alternativa D); a avaliação colônica é eletiva, 4–6 semanas depois (WSES 2020).",
+        "patterns": [
+          "colonoscop\\w*",
+          "retossigmoidoscop\\w*"
+        ],
+        "exceptWhen": [
+          "\\d+\\s*semanas",
+          "(quatro|seis|oito)\\s+semanas",
+          "(apos|depois\\s+d[aeo]s?)\\s+(\\S+\\s+){0,3}(resolu\\w*|recupera\\w*|melhora|alta|fase\\s+aguda|quadro\\s+agudo|tratamento)",
+          "(ambulatorial|eletiva|tardia|posterior|seguimento)"
+        ]
+      },
+      {
+        "id": "cirurgia-de-urgencia",
+        "description": "Exploração cirúrgica/colectomia de urgência na diverticulite com abscesso de 1,5 cm, sem peritonite, em paciente estável (alternativa A).",
+        "patterns": [
+          "exploracao\\s+cirurgica",
+          "laparotomia\\w*",
+          "laparoscopia\\s+exploradora",
+          "cirurgia\\s+(de\\s+)?(urgencia|emergencia|imediata)",
+          "(sigmoidectomia|colectomia|hartmann)\\w*"
+        ],
+        "exceptWhen": [
+          "(se|caso|quando|havendo)\\s+(\\S+\\s+){0,4}(peritonite|perfurac\\w*|pneumoperitonio|falha|piora|instabil\\w*|sepse|choque|nao\\s+melhor\\w*|deterior\\w*|refrat\\w*)",
+          "(eletiv\\w*|tardia|programad\\w*)",
+          "(so|somente|apenas)\\s+(se|em\\s+caso|quando|apos)",
+          "(apos|depois\\s+d[aeo]s?)\\s+(\\S+\\s+){0,3}(falha|piora|resolu\\w*|semanas|recorr\\w*)"
+        ]
+      }
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2017, objetiva, questão 7): alternativa B — jejum, hidratação e antibioticoterapia para diverticulite com abscesso de 1,5 cm, sem irritação peritoneal nem pneumoperitônio. Distratoras: exploração cirúrgica (A), drenagem percutânea de abscesso pequeno (C) e colonoscopia com biópsia na fase aguda (D). Conferido com a WSES 2020: abscesso pequeno, antibiótico isolado; drenagem para abscessos maiores; colonoscopia 4–6 semanas depois."
+  },
+  "sources": [
+    {
+      "claim": "Questão 7: gabarito definitivo B — jejum, hidratação e antibioticoterapia.",
+      "title": "Revalida 2017 – Prova Objetiva (versão 1) – gabarito definitivo",
+      "publisher": "INEP",
+      "year": 2017,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf"
+    },
+    {
+      "claim": "Enunciado, comando e alternativas da questão 7 (caderno da versão 1, 24/09/2017)",
+      "title": "Revalida 2017 – Prova Objetiva (versão 1), questão 7",
+      "publisher": "INEP",
+      "year": 2017,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/provas/2017/prova_objetiva_1.pdf"
+    },
+    {
+      "claim": "Diverticulite com abscesso pequeno (< 4–5 cm): tentativa inicial de tratamento não operatório só com antibiótico; drenagem percutânea para abscessos maiores; cirurgia de urgência na peritonite difusa; avaliação colônica precoce (4–6 semanas) após abscesso tratado clinicamente.",
+      "title": "2020 update of the WSES guidelines for the management of acute colonic diverticulitis in the emergency setting",
+      "publisher": "World Society of Emergency Surgery (World J Emerg Surg)",
+      "year": 2020,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7206757/"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2017",
+    "item": "Objetiva questão 7",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf",
+    "originalCaseText": "Uma mulher com 72 anos de idade foi atendida na sala de emergência de um hospital por apresentar quadro de dor abdominal com 24 horas de evolução. Ao exame físico, a paciente estava em bom estado geral, afebril, com frequência cardíaca = 88 bpm e pressão arterial = 150 x 95 mmHg; e seu abdome apresentava-se doloroso à palpação em fossa ilíaca esquerda, sem sinais de irritação peritonial. Foi realizada uma tomografia de abdome que evidenciou quadro de diverticulite aguda com imagem sugestiva de abscesso de 1,5 cm de diâmetro junto à parede do sigmoide e ausência de pneumoperitônio. Diante desse quadro, a conduta adequada é (A) exploração cirúrgica e antibioticoterapia. (B) jejum, hidratação e antibioticoterapia. (C) drenagem percutânea do abscesso. (D) jejum, colonoscopia e biópsia.",
+    "notes": "Prova cega (11/10/2026): letra B conferida na imagem do gabarito definitivo (versão 1, text/img/2017_obj_gabarito-p01.png) e enunciado relido no texto de duas colunas, sem mistura com as questões vizinhas. Gabarito confere com a WSES 2020 (verificada): abscesso < 4–5 cm, tentativa de tratamento só com antibiótico. Colonoscopia na fase aguda (D) e exploração cirúrgica (A) viraram proibidas, com exceções para a colonoscopia eletiva em semanas e para a cirurgia condicionada a peritonite ou falha. Drenagem percutânea de abscesso de 1,5 cm (C) é inútil, mas não perigosa: não virou proibida. A WSES não trata de jejum x dieta líquida."
+  },
+  "probes": {
+    "mustFlag": [
+      "Jejum, colonoscopia e biópsia",
+      "Colonoscopia na internação para biópsia",
+      "Exploração cirúrgica e antibioticoterapia",
+      "Laparotomia exploradora hoje"
+    ],
+    "mustNotFlag": [
+      "Colonoscopia ambulatorial após 6 a 8 semanas",
+      "Não fazer colonoscopia na fase aguda",
+      "Cirurgia de urgência só se peritonite difusa ou falha do tratamento clínico",
+      "Não há indicação de laparotomia",
+      "Sigmoidectomia eletiva a discutir após resolução"
+    ]
+  }
+}

@@ -67,7 +67,11 @@ describe('OfficialGuidelinesSyncService', () => {
     $transaction: ReturnType<typeof vi.fn>;
     $executeRaw: ReturnType<typeof vi.fn>;
   };
-  let aiGateway: { complete: ReturnType<typeof vi.fn>; embed: ReturnType<typeof vi.fn> };
+  let aiGateway: {
+    complete: ReturnType<typeof vi.fn>;
+    embeddingsEnabled: ReturnType<typeof vi.fn>;
+    embed: ReturnType<typeof vi.fn>;
+  };
   let audit: { log: ReturnType<typeof vi.fn> };
   let fetcher: { fetchText: ReturnType<typeof vi.fn>; fetchPdf: ReturnType<typeof vi.fn> };
   let service: OfficialGuidelinesSyncService;
@@ -108,6 +112,7 @@ describe('OfficialGuidelinesSyncService', () => {
     };
     aiGateway = {
       complete: vi.fn().mockResolvedValue({ content: CLASSIFICATION, model: 'model-x' }),
+      embeddingsEnabled: vi.fn(() => true),
       embed: vi.fn(async (texts: string[]) => ({ embeddings: texts.map(() => [0.1, 0.2]) })),
     };
     audit = { log: vi.fn().mockResolvedValue(undefined) };
@@ -170,6 +175,32 @@ describe('OfficialGuidelinesSyncService', () => {
     expect(audit.log).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'OFFICIAL_GUIDELINE_SYNCED' }),
     );
+  });
+
+  // 11/10/2026: sem crédito na OpenAI, o embed derrubava cada documento
+  // depois de já pagar a classificação. Sem vetor, o trecho entra para a
+  // busca textual.
+  it('sem embedding, ingere o documento com os trechos sem vetor', async () => {
+    aiGateway.embeddingsEnabled.mockReturnValue(false);
+
+    const report = await syncStomach();
+
+    expect(report.documents).toEqual([
+      expect.objectContaining({ documentKey: STOMACH_KEY, outcome: 'new', chunks: 2 }),
+    ]);
+    expect(aiGateway.embed).not.toHaveBeenCalled();
+    const inserted = tx.$executeRaw.mock.calls.map((call) => call.slice(1));
+    expect(inserted).toHaveLength(2);
+    // O último valor do INSERT é o embedding: NULL::vector.
+    expect(inserted.map((values) => values.at(-1))).toEqual([null, null]);
+  });
+
+  it('com o provedor fora do ar, ingere o documento mesmo assim', async () => {
+    aiGateway.embed.mockRejectedValue(new Error('AI provider embed error: 429'));
+
+    const report = await syncStomach();
+
+    expect(report.documents).toEqual([expect.objectContaining({ outcome: 'new', chunks: 2 })]);
   });
 
   it('não faz nada quando o SHA-256 do PDF é o mesmo da versão ativa', async () => {

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { RECOMMENDATION_BASES, RECOMMENDATION_LAYERS } from '../../../shared/contracts/clinical';
 import { isAttachmentCitation } from '../orchestrator/prompt-builder';
 
 export const RecommendationCategorySchema = z.enum([
@@ -10,13 +11,26 @@ export const RecommendationCategorySchema = z.enum([
 
 export const RedFlagSeveritySchema = z.enum(['critical', 'high', 'moderate']);
 
+/**
+ * Campo opcional que o modelo pode devolver como `null`. O structured output
+ * estrito da OpenAI exige todo campo em `required`, então opcionais viram
+ * anuláveis no JSON Schema (schemas/copilot-output.json-schema.ts); `null` é
+ * lido como ausente para o resto do pipeline não mudar.
+ */
+export function optionalFromModel<T extends z.ZodTypeAny>(schema: T) {
+  return schema.nullish().transform((value) => value ?? undefined);
+}
+
 export const RedFlagSchema = z.object({
   finding: z.string().min(1),
   severity: RedFlagSeveritySchema,
   action: z.string().min(1),
 });
 
-const RecommendationSchema = z.object({
+export const RecommendationLayerSchema = z.enum(RECOMMENDATION_LAYERS);
+export const RecommendationBasisSchema = z.enum(RECOMMENDATION_BASES);
+
+export const RecommendationSchema = z.object({
   action: z.string().min(1),
   rationale: z.string().min(1),
   citationChunkId: z.string().min(1),
@@ -25,20 +39,20 @@ const RecommendationSchema = z.object({
   category: RecommendationCategorySchema.default('therapeutic'),
 });
 
-const ClarifyingQuestionSchema = z.object({
+export const ClarifyingQuestionSchema = z.object({
   id: z.string().min(1),
   question: z.string().min(1),
   why: z.string().min(1),
   criticality: z.enum(['blocker', 'important', 'optional']),
   expectedAnswerType: z.enum(['boolean', 'choice', 'number', 'text']),
-  choices: z.array(z.string()).optional(),
+  choices: optionalFromModel(z.array(z.string())),
   // UX-01 — finalidade clínica para agrupar na UI (ex: "Estabilidade
   // hemodinâmica"). Opcional: modelos mais fracos ou turnos antigos podem
   // não preencher — o front degrada para lista simples nesse caso.
-  purpose: z.string().optional(),
+  purpose: optionalFromModel(z.string()),
 });
 
-const DifferentialSchema = z.object({
+export const DifferentialSchema = z.object({
   hypothesis: z.string().min(1),
   whyConsider: z.string().min(1),
   whatDistinguishes: z.string().min(1),
@@ -48,30 +62,39 @@ const DifferentialSchema = z.object({
   cannotMiss: z.boolean().default(false),
   // Só faz sentido junto de cannotMiss=true; janela qualitativa, nunca
   // número ou percentual — ver PROBABILITY_LANGUAGE_PATTERN abaixo.
-  timeToHarm: z.enum(['minutos', 'horas', 'dias']).optional(),
+  timeToHarm: optionalFromModel(z.enum(['minutos', 'horas', 'dias'])),
 });
 
-export const CopilotOutputSchema = z
-  .object({
-    reasoning: z.string().min(1),
-    redFlags: z.array(RedFlagSchema).default([]),
-    recommendations: z.array(RecommendationSchema).min(0),
-    uncertainty: z.boolean(),
-    uncertaintyReason: z.string().nullable(),
-    differentials: z.array(DifferentialSchema).max(3).default([]),
-    clarifyingQuestions: z
-      .array(ClarifyingQuestionSchema)
-      .max(3, 'clarifyingQuestions must contain at most 3 items per turn')
-      .default([]),
-  })
-  .refine(
-    (data) =>
-      !data.uncertainty || (data.uncertaintyReason !== null && data.uncertaintyReason.length > 0),
-    {
-      message: 'uncertaintyReason is required and must be non-empty when uncertainty is true',
-      path: ['uncertaintyReason'],
-    },
-  )
+/**
+ * Campos de topo comuns às duas versões do prompt de decisão; cada versão
+ * troca `recommendations` e `clarifyingQuestions` pelos seus.
+ */
+export const CopilotOutputBaseSchema = z.object({
+  reasoning: z.string().min(1),
+  redFlags: z.array(RedFlagSchema).default([]),
+  recommendations: z.array(RecommendationSchema).min(0),
+  uncertainty: z.boolean(),
+  uncertaintyReason: z.string().nullable(),
+  differentials: z.array(DifferentialSchema).max(3).default([]),
+  clarifyingQuestions: z
+    .array(ClarifyingQuestionSchema)
+    .max(3, 'clarifyingQuestions must contain at most 3 items per turn')
+    .default([]),
+});
+
+export const UNCERTAINTY_REASON_REQUIRED = {
+  check: (data: { uncertainty: boolean; uncertaintyReason: string | null }) =>
+    !data.uncertainty || (data.uncertaintyReason !== null && data.uncertaintyReason.length > 0),
+  message: 'uncertaintyReason is required and must be non-empty when uncertainty is true',
+} as const;
+
+export const CopilotOutputSchema = CopilotOutputBaseSchema.refine(
+  UNCERTAINTY_REASON_REQUIRED.check,
+  {
+    message: UNCERTAINTY_REASON_REQUIRED.message,
+    path: ['uncertaintyReason'],
+  },
+)
   .refine(
     (data) => {
       const hasBlocker = data.clarifyingQuestions.some((q) => q.criticality === 'blocker');
@@ -101,13 +124,49 @@ export const CopilotOutputSchema = z
     },
   );
 
-export type CopilotOutput = z.infer<typeof CopilotOutputSchema>;
+/**
+ * F1 — saída de qualquer versão do prompt de decisão: v1 (o schema acima),
+ * v2 (output-validator-v2.ts) e interações gravadas antes da Fase 1. Os
+ * campos da v2 são opcionais e `citationChunkId` aceita `null` (só a v2, com
+ * `basis: 'model_knowledge'`, o devolve).
+ */
+export const StoredRecommendationSchema = RecommendationSchema.extend({
+  citationChunkId: z.string().min(1).nullable(),
+  layer: RecommendationLayerSchema.optional(),
+  dependsOn: z.string().nullable().optional(),
+  basis: RecommendationBasisSchema.optional(),
+});
+
+export const StoredClarifyingQuestionSchema = ClarifyingQuestionSchema.extend({
+  separates: z.array(z.string()).optional(),
+});
+
+export const StoredCopilotOutputSchema = CopilotOutputBaseSchema.extend({
+  recommendations: z.array(StoredRecommendationSchema),
+  clarifyingQuestions: z.array(StoredClarifyingQuestionSchema).default([]),
+});
+
+export type CopilotOutput = z.infer<typeof StoredCopilotOutputSchema>;
+
+/** Saída do prompt v1: toda recomendação cita um id. */
+type CopilotOutputV1 = z.infer<typeof CopilotOutputSchema>;
 
 export interface ValidationResult {
   valid: boolean;
   output: CopilotOutput | null;
   errors: string[];
   unfoundedRecommendations: number[];
+  /**
+   * Achados que NÃO bloqueiam a resposta. Hoje: ambiguidade de subtipo
+   * (S21-CLIN-01), que vira rótulo preliminar na contenção do orquestrador.
+   */
+  warnings?: string[];
+  /**
+   * F1 — regras da decisão v2 que valem UM retry com feedback e nunca
+   * bloqueiam: o que sobra depois do retry vira aviso (emenda de 10/10/2026
+   * ao ADR-012). Ausente na v1.
+   */
+  correctable?: string[];
 }
 
 /**
@@ -129,34 +188,10 @@ export function validateOutput(
 ): ValidationResult {
   const errors: string[] = [];
 
-  let parsed: unknown;
-  try {
-    const cleaned = rawOutput
-      .replace(/```json\n?/g, '')
-      .replace(/```\n?/g, '')
-      .trim();
-    parsed = JSON.parse(cleaned);
-  } catch {
-    return {
-      valid: false,
-      output: null,
-      errors: ['Output is not valid JSON'],
-      unfoundedRecommendations: [],
-    };
-  }
+  const parsed = parseModelOutput(rawOutput, CopilotOutputSchema);
+  if (!parsed.success) return parsed.failure;
 
-  const schemaResult = CopilotOutputSchema.safeParse(parsed);
-  if (!schemaResult.success) {
-    const fieldErrors = schemaResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`);
-    return {
-      valid: false,
-      output: null,
-      errors: ['Schema validation failed', ...fieldErrors],
-      unfoundedRecommendations: [],
-    };
-  }
-
-  const output = schemaResult.data;
+  const output = parsed.output;
   const chunkIdSet = new Set(validChunkIds);
   const unfoundedRecommendations: number[] = [];
 
@@ -196,14 +231,8 @@ export function validateOutput(
   //    literalmente no retry de correção (orchestrator.service.ts), então
   //    precisa dizer ao modelo o que fazer, não só o que está errado — é
   //    isto que inverte o gradiente do retry a favor de perguntar.
-  if (output.recommendations.length === 0 && output.clarifyingQuestions.length === 0) {
-    errors.push(
-      'DEAD END: output must contain at least one recommendation or at least one ' +
-        'clarifying question. Declaring uncertainty alone leaves the physician with ' +
-        'no next step. If evidence is insufficient, ask the triage questions needed ' +
-        'to narrow the case instead of stopping.',
-    );
-  }
+  const deadEnd = deadEndError(output);
+  if (deadEnd) errors.push(deadEnd);
 
   // F4 — Uma recomendação que cita um anexo do médico está apoiada em fonte
   // NÃO CURADA. A decisão de produto foi permitir a citação (senão anexar a
@@ -238,16 +267,33 @@ export function validateOutput(
   // sem evidenciar que pesou a alternativa — mesmo padrão do guardrail
   // DEAD END acima (checagem estrutural, não NLP pesada), pareado com a
   // SUBTYPE / MUTUALLY-EXCLUSIVE CLASSIFICATION RULE em prompt-builder.ts.
+  //
+  // Fase 0 — NÃO bloqueia mais a resposta (decisão de produto de 10/10/2026).
+  // O gabarito clínico mostrou o custo do bloqueio: numa anafilaxia
+  // inequívoca (hipotensão, hipoxemia, rouquidão), a busca trouxe trechos de
+  // "anafilaxia" e de "alergia simples"; os três modelos testados recomendaram
+  // a conduta certa sem citar "alergia simples" (não havia por quê), o
+  // validador rejeitou duas vezes e o médico ficou SEM RESPOSTA numa
+  // emergência de minutos. Trocar "conduta talvez do subtipo errado" por
+  // "nenhuma conduta" é pior que o risco coberto. A proteção agora é o rótulo:
+  // a contenção do orquestrador marca preliminar (`subtype_ambiguity`) a
+  // conduta de subtipo — exceto estabilização, segura em qualquer subtipo — e
+  // o achado vai em `warnings` para observabilidade.
+  const warnings: string[] = [];
   const subtypeOffense = findUnresolvedSubtypeAmbiguity(output, retrievedChunks);
   if (subtypeOffense) {
-    errors.push(
+    const missing = subtypeOffense.missingSubtypes.map(
+      (subtype) => `"${humanizeSubtype(subtype)}"`,
+    );
+    warnings.push(
       `UNRESOLVED SUBTYPE AMBIGUITY: evidence retrieved for cenario "${subtypeOffense.cenario}" ` +
         `covers mutually exclusive subtypes (${subtypeOffense.subtypes.join(', ')}) with opposite ` +
-        `management, and a recommendation cited "${subtypeOffense.citedSubtype}" without the output ` +
-        'showing the other subtype was considered. Either add a differential covering the other ' +
-        'subtype (cannotMiss when appropriate), or explicitly name the discriminating clinical ' +
-        'feature that rules it out in "reasoning" — never cite a subtype-specific recommendation ' +
-        'silently when the retrieved evidence itself is ambiguous.',
+        `management, and a recommendation cited "${subtypeOffense.citedSubtype}" without naming the ` +
+        `alternative subtype ${missing.join(', ')} anywhere in the output. Name it explicitly — in a ` +
+        'differential ("hypothesis", "whyConsider" or "whatDistinguishes"; cannotMiss when ' +
+        'appropriate) or in "reasoning" together with the discriminating clinical feature that ' +
+        'rules it out. A differential about something else does not count — never cite a ' +
+        'subtype-specific recommendation silently when the retrieved evidence itself is ambiguous.',
     );
   }
 
@@ -258,16 +304,8 @@ export function validateOutput(
   // barra isso estruturalmente, mas os campos de texto livre (hypothesis,
   // whyConsider, whatDistinguishes) ainda podem escapar. Rejeitar aqui
   // aciona o mesmo retry-com-feedback dos outros guard rails.
-  const probabilityOffenses = findProbabilityLanguageInDifferentials(output.differentials);
-  if (probabilityOffenses.length > 0) {
-    errors.push(
-      'PROBABILITY LANGUAGE NOT ALLOWED in differentials: found ' +
-        probabilityOffenses.join('; ') +
-        '. Differentials must use "cannotMiss" (boolean) and "timeToHarm" ' +
-        '("minutos" | "horas" | "dias") only — never a percentage, score, or ' +
-        'likelihood statement in any field.',
-    );
-  }
+  const probabilityLanguage = probabilityLanguageError(output);
+  if (probabilityLanguage) errors.push(probabilityLanguage);
 
   // UX-07 — bug relatado ao vivo pelo médico piloto: o modelo pedia "quais
   // são os valores de PA, FC, FR, SpO2..." mas marcava a pergunta como
@@ -277,30 +315,116 @@ export function validateOutput(
   // é isto que o médico percebeu como "loop". Ver ANSWER TYPE MATCHING
   // RULE em prompt-builder.ts para a instrução que evita isto na origem;
   // esta é a barreira em runtime para quando a instrução não for seguida.
-  const answerTypeOffenses = findAnswerTypeMismatches(output.clarifyingQuestions);
-  if (answerTypeOffenses.length > 0) {
-    errors.push(
-      'ANSWER TYPE MISMATCH in clarifyingQuestions: ' +
-        answerTypeOffenses.join('; ') +
-        '. A question whose text asks "quais/qual/quando/quantos/quem/onde" ' +
-        'requests a VALUE, not a yes/no fact — it cannot have ' +
-        '"expectedAnswerType": "boolean" (the physician cannot answer ' +
-        '"Sim/Não/Não sei" to a request for numbers or a list). Use "text" ' +
-        '(or "number" for a single isolated value) instead.',
-    );
-  }
+  const answerType = answerTypeMismatchError(output);
+  if (answerType) errors.push(answerType);
 
   return {
     valid: errors.length === 0,
     output,
     errors,
     unfoundedRecommendations,
+    warnings,
   };
 }
 
-function allRecommendationsUnfounded(output: CopilotOutput, validChunkIds: string[]): boolean {
+function allRecommendationsUnfounded(output: CopilotOutputV1, validChunkIds: string[]): boolean {
   if (validChunkIds.length === 0) return false;
   return output.recommendations.every((rec) => !new Set(validChunkIds).has(rec.citationChunkId));
+}
+
+type ParsedModelOutput<T> =
+  | { success: true; output: T }
+  | { success: false; failure: ValidationResult };
+
+/**
+ * JSON do modelo validado pelo schema da versão do prompt. Modelo sem
+ * structured output às vezes embrulha o JSON em bloco de código.
+ */
+export function parseModelOutput<T>(
+  rawOutput: string,
+  schema: z.ZodType<T, z.ZodTypeDef, unknown>,
+): ParsedModelOutput<T> {
+  let parsed: unknown;
+  try {
+    const cleaned = rawOutput
+      .replace(/```json\n?/g, '')
+      .replace(/```\n?/g, '')
+      .trim();
+    parsed = JSON.parse(cleaned);
+  } catch {
+    return {
+      success: false,
+      failure: {
+        valid: false,
+        output: null,
+        errors: ['Output is not valid JSON'],
+        unfoundedRecommendations: [],
+      },
+    };
+  }
+
+  const schemaResult = schema.safeParse(parsed);
+  if (!schemaResult.success) {
+    const fieldErrors = schemaResult.error.errors.map((e) => `${e.path.join('.')}: ${e.message}`);
+    return {
+      success: false,
+      failure: {
+        valid: false,
+        output: null,
+        errors: ['Schema validation failed', ...fieldErrors],
+        unfoundedRecommendations: [],
+      },
+    };
+  }
+  return { success: true, output: schemaResult.data };
+}
+
+type OutputShape = Pick<CopilotOutput, 'recommendations' | 'clarifyingQuestions' | 'differentials'>;
+
+/** CC-02 — ver a regra dura em `validateOutput`. Vale para as duas versões. */
+export function deadEndError(output: OutputShape): string | null {
+  if (output.recommendations.length > 0 || output.clarifyingQuestions.length > 0) return null;
+  return (
+    'DEAD END: output must contain at least one recommendation or at least one ' +
+    'clarifying question. Declaring uncertainty alone leaves the physician with ' +
+    'no next step. If evidence is insufficient, ask the triage questions needed ' +
+    'to narrow the case instead of stopping.'
+  );
+}
+
+/** PI-03 — ver `validateOutput`. Vale para as duas versões. */
+export function probabilityLanguageError(output: OutputShape): string | null {
+  const offenses = findProbabilityLanguageInDifferentials(output.differentials);
+  if (offenses.length === 0) return null;
+  return (
+    'PROBABILITY LANGUAGE NOT ALLOWED in differentials: found ' +
+    offenses.join('; ') +
+    '. Differentials must use "cannotMiss" (boolean) and "timeToHarm" ' +
+    '("minutos" | "horas" | "dias") only — never a percentage, score, or ' +
+    'likelihood statement in any field.'
+  );
+}
+
+/**
+ * UX-07 — ver `validateOutput`. Vale para todas as versões. `skip`: perguntas
+ * que a v3 já removeu da saída (dado já informado), pelos índices da resposta
+ * do modelo.
+ */
+export function answerTypeMismatchError(
+  output: OutputShape,
+  skip: ReadonlySet<number> = new Set(),
+): string | null {
+  const offenses = findAnswerTypeMismatches(output.clarifyingQuestions, skip);
+  if (offenses.length === 0) return null;
+  return (
+    'ANSWER TYPE MISMATCH in clarifyingQuestions: ' +
+    offenses.join('; ') +
+    '. A question whose text asks "quais/qual/quando/quantos/quem/onde" ' +
+    'requests a VALUE, not a yes/no fact — it cannot have ' +
+    '"expectedAnswerType": "boolean" (the physician cannot answer ' +
+    '"Sim/Não/Não sei" to a request for numbers or a list). Use "text" ' +
+    '(or "number" for a single isolated value) instead.'
+  );
 }
 
 // PI-03 — percentuais ("70%"), termos de probabilidade em pt/en, e razões
@@ -321,9 +445,11 @@ const OPEN_VALUE_REQUEST_PATTERN = /\b(qual|quais|quando|quantos?|quantas?|quem|
 
 function findAnswerTypeMismatches(
   clarifyingQuestions: CopilotOutput['clarifyingQuestions'],
+  skip: ReadonlySet<number>,
 ): string[] {
   const offenses: string[] = [];
   clarifyingQuestions.forEach((q, index) => {
+    if (skip.has(index)) return;
     if (q.expectedAnswerType === 'boolean' && OPEN_VALUE_REQUEST_PATTERN.test(q.question)) {
       offenses.push(`clarifyingQuestions[${index}] ("${q.question}")`);
     }
@@ -335,54 +461,121 @@ interface SubtypeOffense {
   cenario: string;
   subtypes: string[];
   citedSubtype: string;
+  /** Subtipos alternativos que o output não nomeou em lugar nenhum. */
+  missingSubtypes: string[];
 }
 
-function normalize(value: string): string {
+/** cenario -> subtipo -> ids dos chunks daquele subtipo. */
+type SubtypeGroups = Map<string, Map<string, Set<string>>>;
+
+/**
+ * Comparação textual tolerante: sem acento, sem caixa e com `_`/`-` virando
+ * espaço — a metadata usa `alergia_simples`, o modelo escreve "alergia
+ * simples"; a metadata usa `isquemico`, o modelo escreve "Isquêmico".
+ */
+export function normalize(value: string): string {
   return value
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '') // remove acentos (marcas diacríticas combinantes)
-    .toLowerCase();
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function humanizeSubtype(subtype: string): string {
+  return subtype.replace(/[_-]+/g, ' ');
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**
- * S21-CLIN-01 — Detecta quando (a) os chunks recuperados para o mesmo
- * `cenario` cobrem ≥2 valores distintos de `subtipo` (ex.: "isquemico" e
- * "hemorragico" dentro de `avc_agudo` — ver metadata dos chunks seedados em
- * prisma/seeds/guidelines-seed.ts), e (b) uma recomendação citou um chunk de
- * um desses subtipos. Nesse caso, exige evidência estrutural de que a
- * alternativa foi considerada: OU `differentials` não está vazio, OU
- * `reasoning` menciona textualmente outro subtipo em conflito. Não tenta
- * verificar SE a justificativa é clinicamente correta — isso é trabalho do
- * médico revisando o output, não do validador. O validador só barra o caso
- * em que a ambiguidade é citada em silêncio, sem nenhum dos dois sinais.
+ * Palavra inteira, não substring: "NSTEMI" não pode contar como ter nomeado
+ * "STEMI".
+ */
+function namesSubtype(normalizedText: string, subtype: string): boolean {
+  return new RegExp(`\\b${escapeRegExp(normalize(subtype))}\\b`).test(normalizedText);
+}
+
+/**
+ * S21-CLIN-01 / F0-C — agrupa por `cenario` os chunks recuperados que têm
+ * `subtipo` e devolve só os cenários em que a evidência cobre ≥2 subtipos
+ * distintos (ex.: "isquemico" e "hemorragico" em `avc_agudo` — ver a metadata
+ * seedada em prisma/seeds/guidelines-seed.ts).
  *
  * Deliberadamente genérico: não depende de nenhuma string de domínio clínico
- * ("AVC", "hemorrágico" etc.) — funciona para qualquer par `cenario`/`subtipo`
- * presente na metadata dos chunks, então cobre futuras curadorias com o
- * mesmo formato de metadata sem precisar de mudança de código.
+ * — vale para qualquer par `cenario`/`subtipo` de futuras curadorias com o
+ * mesmo formato de metadata.
  */
-function findUnresolvedSubtypeAmbiguity(
-  output: CopilotOutput,
-  retrievedChunks: ChunkForCoherenceCheck[],
-): SubtypeOffense | null {
-  if (retrievedChunks.length === 0 || output.recommendations.length === 0) return null;
-
-  const byCenario = new Map<string, Map<string, Set<string>>>(); // cenario -> subtipo -> chunkIds
+function ambiguousSubtypeGroups(retrievedChunks: ChunkForCoherenceCheck[]): SubtypeGroups {
+  const byCenario: SubtypeGroups = new Map();
   for (const chunk of retrievedChunks) {
     const cenario = chunk.metadata?.['cenario'];
     const subtipo = chunk.metadata?.['subtipo'];
     if (typeof cenario !== 'string' || typeof subtipo !== 'string' || !cenario || !subtipo)
       continue;
 
-    if (!byCenario.has(cenario)) byCenario.set(cenario, new Map());
-    const subtypeMap = byCenario.get(cenario)!;
-    if (!subtypeMap.has(subtipo)) subtypeMap.set(subtipo, new Set());
-    subtypeMap.get(subtipo)!.add(chunk.id);
+    const subtypeMap = byCenario.get(cenario) ?? new Map<string, Set<string>>();
+    const chunkIds = subtypeMap.get(subtipo) ?? new Set<string>();
+    chunkIds.add(chunk.id);
+    subtypeMap.set(subtipo, chunkIds);
+    byCenario.set(cenario, subtypeMap);
   }
 
   for (const [cenario, subtypeMap] of byCenario) {
-    if (subtypeMap.size < 2) continue; // só um subtipo retornado — nada ambíguo
+    if (subtypeMap.size < 2) byCenario.delete(cenario);
+  }
+  return byCenario;
+}
 
+/**
+ * F0-C — ids dos chunks específicos de um subtipo, nos cenários em que a
+ * evidência recuperada cobre ≥2 subtipos. O orquestrador marca como
+ * preliminar (`subtype_ambiguity`) toda recomendação que cita um deles — ver
+ * orchestrator/preliminary-containment.ts.
+ */
+export function ambiguousSubtypeChunkIds(retrievedChunks: ChunkForCoherenceCheck[]): Set<string> {
+  const ids = new Set<string>();
+  for (const subtypeMap of ambiguousSubtypeGroups(retrievedChunks).values()) {
+    for (const chunkIds of subtypeMap.values()) {
+      for (const id of chunkIds) ids.add(id);
+    }
+  }
+  return ids;
+}
+
+/**
+ * S21-CLIN-01 — quando a evidência recuperada cobre ≥2 subtipos do mesmo
+ * cenário e uma recomendação cita um deles, exige que o output NOMEIE cada
+ * subtipo alternativo — num diferencial (`hypothesis`, `whyConsider`,
+ * `whatDistinguishes`) ou no `reasoning`.
+ *
+ * F0-C — antes, qualquer diferencial satisfazia a regra: um diferencial de
+ * "TEP" liberava a citação silenciosa de AVC hemorrágico. Agora o subtipo
+ * alternativo precisa aparecer pelo nome. Continua sendo checagem estrutural:
+ * não verifica SE a justificativa é clinicamente correta — isso é trabalho do
+ * médico revisando o output —, só barra a ambiguidade citada em silêncio.
+ */
+function findUnresolvedSubtypeAmbiguity(
+  output: CopilotOutputV1,
+  retrievedChunks: ChunkForCoherenceCheck[],
+): SubtypeOffense | null {
+  if (retrievedChunks.length === 0 || output.recommendations.length === 0) return null;
+
+  const namedText = normalize(
+    [
+      output.reasoning,
+      ...output.differentials.flatMap((differential) => [
+        differential.hypothesis,
+        differential.whyConsider,
+        differential.whatDistinguishes,
+      ]),
+    ].join('\n'),
+  );
+
+  for (const [cenario, subtypeMap] of ambiguousSubtypeGroups(retrievedChunks)) {
     const citedSubtype = output.recommendations
       .map((rec) => {
         for (const [subtipo, chunkIds] of subtypeMap) {
@@ -390,20 +583,16 @@ function findUnresolvedSubtypeAmbiguity(
         }
         return null;
       })
-      .find((s): s is string => s !== null);
+      .find((subtipo): subtipo is string => subtipo !== null);
 
     if (!citedSubtype) continue; // recomendações citaram chunks fora deste grupo ambíguo
 
-    const otherSubtypes = [...subtypeMap.keys()].filter((s) => s !== citedSubtype);
-
-    const hasDifferential = output.differentials.length > 0;
-    const reasoningNormalized = normalize(output.reasoning);
-    const reasoningMentionsAlternative = otherSubtypes.some((s) =>
-      reasoningNormalized.includes(normalize(s)),
+    const missingSubtypes = [...subtypeMap.keys()].filter(
+      (subtipo) => subtipo !== citedSubtype && !namesSubtype(namedText, subtipo),
     );
 
-    if (!hasDifferential && !reasoningMentionsAlternative) {
-      return { cenario, subtypes: [...subtypeMap.keys()], citedSubtype };
+    if (missingSubtypes.length > 0) {
+      return { cenario, subtypes: [...subtypeMap.keys()], citedSubtype, missingSubtypes };
     }
   }
 

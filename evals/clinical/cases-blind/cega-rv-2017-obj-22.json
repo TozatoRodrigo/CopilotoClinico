@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2017-obj-22",
+  "title": "Idosa de 75 anos com dor intensa no quadril direito e dificuldade para andar na UBS",
+  "tags": [
+    "pele-partes-moles",
+    "revalida",
+    "prova-cega",
+    "objetiva",
+    "ortopedia",
+    "fratura-de-colo-de-femur"
+  ],
+  "critical": false,
+  "goldSource": "revalida_objetiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "UBS. Fem, 75a, previamente hígida e ativa, acompanhada de familiares. Há 2 dias dor intensa em região coxofemoral D, irradiada para a face medial da coxa e o joelho, com grande dificuldade para deambular. Nega queda (familiares confirmam). Tontura esporádica ao levantar-se da cama; nega outros sintomas, comorbidades ou medicação contínua. Joelhos valgos. EF: PA 150x100; ausculta cardiorrespiratória e restante do exame normais. Exames de imagem: fratura de colo de fêmur estágio II de Garden (sem desvio)."
+  },
+  "expected": {
+    "syndrome": "dor no quadril com incapacidade de deambular em idosa, com fratura de colo de fêmur sem desvio na imagem",
+    "diagnoses": [],
+    "actions": [
+      {
+        "text": "encaminhar para tratamento cirúrgico ortopédico precoce (em 24–48 h): redução fechada com osteossíntese (fixação interna) ou hemiartroplastia",
+        "tier": "important",
+        "timing": "now"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [],
+    "outOfScope": [
+      "escolha entre redução aberta e fechada e entre fixação e artroplastia (distratoras A e C): detalhe da técnica operatória, decisão do ortopedista"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2017, objetiva, questão 22): alternativa B — redução fechada com osteossíntese da fratura de colo de fêmur Garden II (sem desvio). Distratoras: redução aberta (A), artroplastia total (C) e tratamento não operatório (D). v2: a AAOS 2021 considera hemiartroplastia, fixação interna ou tratamento não operatório na fratura estável (opção limitada) e cirurgia em 24–48 h; o item aceita osteossíntese ou hemiartroplastia."
+  },
+  "sources": [
+    {
+      "claim": "Questão 22: gabarito definitivo B — Redução fechada com realização de osteossíntese.",
+      "title": "Revalida 2017 – Prova Objetiva (versão 1) – gabarito definitivo",
+      "publisher": "INEP",
+      "year": 2017,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf"
+    },
+    {
+      "claim": "Enunciado, comando e alternativas da questão 22 (caderno da versão 1, 24/09/2017)",
+      "title": "Revalida 2017 – Prova Objetiva (versão 1), questão 22",
+      "publisher": "INEP",
+      "year": 2017,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/provas/2017/prova_objetiva_1.pdf"
+    },
+    {
+      "claim": "Fratura do colo do fêmur estável (impactada/sem desvio) no idoso: hemiartroplastia, fixação interna ou tratamento não operatório podem ser considerados (opção limitada); cirurgia em 24–48 h da admissão associada a melhores desfechos; fratura com desvio: artroplastia em vez de fixação.",
+      "title": "Management of Hip Fractures in Older Adults – Evidence-Based Clinical Practice Guideline",
+      "publisher": "American Academy of Orthopaedic Surgeons",
+      "year": 2021,
+      "url": "https://www.aaos.org/globalassets/quality-and-practice-resources/hip-fractures-in-the-elderly/hipfxcpg.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2017",
+    "item": "Objetiva questão 22",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf",
+    "originalCaseText": "Uma mulher com 75 anos de idade, previamente hígida e ativa, ao ser atendida em uma Unidade Básica de Saúde, refere que há 2 dias está com dor intensa na região coxo-femoral direita, que irradia para a região medial da coxa e joelho, o que lhe causa grande dificuldade para deambular. Quando questionada sobre queda, a paciente nega a ocorrência, assim como os familiares que a acompanham. Ela refere, ainda, tontura esporádica ao levantar-se da cama e nega outros sintomas, outras comorbidades ou uso contínuo de medicação. Tem joelhos valgos. Ao exame físico, apresenta pressão arterial = 150 x 100 mmHg e tanto a ausculta cardiorrespiratória quanto o restante do exame físico são normais. Os exames de imagem mostram uma fratura de colo de fêmur estágio II da Classificação de Garden (fraturas sem desvio). Qual deve ser a conduta terapêutica adequada nesse caso? (A) Redução aberta com realização de osteossíntese. (B) Redução fechada com realização de osteossíntese. (C) Artroplastia total do quadril devido à boa saúde prévia da paciente. (D) Tratamento não operatório devido à boa evolução e consolidação da fratura.",
+    "notes": "Prova cega (11/10/2026): letra B conferida na imagem do gabarito definitivo (versão 1, text/img/2017_obj_gabarito-p01.png) e enunciado relido no texto de duas colunas, sem mistura com as questões vizinhas. Gabarito ainda aceitável, mas não exclusivo: a AAOS 2021 (verificada) lista hemiartroplastia, fixação interna ou tratamento não operatório como opções na fratura sem desvio (força limitada); o item aceita osteossíntese ou hemiartroplastia. O não operatório (D) NÃO virou proibida, porque a diretriz o admite como opção. Caso sem item crítico nem proibida: dá nota, não decide o portão. A imagem não diz o lado; a dor é à D."
+  }
+}

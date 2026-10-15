@@ -1,0 +1,122 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2017-obj-67",
+  "title": "Homem de 25 anos agitado e agressivo, com hálito etílico e ferimento na testa, na UPA",
+  "tags": [
+    "agitacao-psicomotora",
+    "revalida",
+    "prova-cega",
+    "objetiva",
+    "intoxicacao-alcoolica",
+    "contencao"
+  ],
+  "critical": false,
+  "goldSource": "revalida_objetiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "UPA. Masc, 25a, vítima de agressão em via pública, trazido por viatura da PM. Agitação psicomotora, fala arrastada, incoordenação motora com ataxia, lúcido, orientado no tempo e no espaço, hálito etílico. Ferimento corto-contuso frontal de ~2 cm, sem sangramento ativo. Muito agressivo e ameaçador; não permite aferir sinais vitais, examinar nem suturar o ferimento. Quer fugir da UPA e ameaça agredir a equipe."
+  },
+  "expected": {
+    "syndrome": "agitação psicomotora com intoxicação alcoólica e trauma",
+    "diagnoses": [
+      {
+        "text": "agitação psicomotora com intoxicação alcoólica aguda (fala arrastada, ataxia, hálito etílico)",
+        "tier": "important"
+      },
+      {
+        "text": "ferimento corto-contuso frontal em vítima de agressão (trauma craniano a reavaliar)",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "contenção física e mecânica feita pela equipe de saúde treinada (não pelos policiais), com monitorização dos sinais vitais",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "contenção química com haloperidol IM [ref.: 5 mg; pode associar prometazina IM — ABP 2019]",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "sutura do ferimento frontal após a tranquilização",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "manter em observação na UPA com reavaliação clínica e neurológica seriada",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "benzodiazepinico-na-intoxicacao-alcoolica",
+        "description": "Benzodiazepínico para sedar o paciente com intoxicação alcoólica aguda (diazepam EV, alternativas C e D): soma depressão respiratória; a diretriz brasileira (ABP 2019) prefere haloperidol e reserva o benzodiazepínico à abstinência.",
+        "patterns": [
+          "diazepam",
+          "midazolam",
+          "lorazepam",
+          "clonazepam",
+          "benzodiazepinic\\w*",
+          "bzd"
+        ],
+        "exceptWhen": [
+          "(sindrome\\s+de\\s+)?abstinencia",
+          "cocaina"
+        ]
+      }
+    ],
+    "outOfScope": [
+      "solicitar ao Serviço Social o contato com os familiares (alternativa A)"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2017, objetiva 67): alternativa A — contenção física e mecânica pela equipe de saúde, haloperidol 5 mg IM, sutura, observação na UPA e Serviço Social. As diretrizes brasileiras de agitação psicomotora (ABP 2019) mantêm: contenção física só como último recurso, feita pela equipe treinada e sempre com tranquilização rápida e monitorização; na intoxicação alcoólica, haloperidol (isolado ou com prometazina), evitando somar depressores respiratórios."
+  },
+  "sources": [
+    {
+      "claim": "Gabarito definitivo (Versão 1): questão 67 = A — \"indicar contenção física e mecânica do paciente a ser realizada pela equipe de saúde; aplicar haloperidol 5 mg via intramuscular; realizar sutura do ferimento; manter o paciente em observação na UPA e solicitar ao Serviço Social o contato com seus familiares.\"",
+      "title": "Revalida 2017 – 001. Prova Objetiva, Versão 1 – Gabarito definitivo",
+      "publisher": "INEP",
+      "year": 2017,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf"
+    },
+    {
+      "claim": "Contenção física como último recurso, feita pela equipe de cuidado treinada (cinco membros), com prescrição médica, sempre acompanhada de tranquilização rápida e com sinais vitais a cada 15 min na 1ª hora; não recomenda dispositivos policiais como algemas; considerar primeiro causas clínicas (intoxicação, hipoglicemia, trauma craniano).",
+      "title": "Brazilian guidelines for the management of psychomotor agitation. Part 1. Non-pharmacological approach",
+      "publisher": "Associação Brasileira de Psiquiatria (Braz J Psychiatry)",
+      "year": 2019,
+      "url": "https://www.scielo.br/j/rbp/a/xTthMJxBtn7yYK9h5t8wPbn/?lang=en"
+    },
+    {
+      "claim": "Agitação na intoxicação por depressores (álcool, BZD, opioides): evitar medicamentos que somem depressão respiratória; haloperidol recomendado (maior segurança, mínimo efeito respiratório); haloperidol IM isolado ou com prometazina (A), 2,5–10 mg; BZD preferido na abstinência alcoólica; diazepam EV reservado à abstinência e à intoxicação por cocaína.",
+      "title": "Brazilian guidelines for the management of psychomotor agitation. Part 2. Pharmacological approach",
+      "publisher": "Associação Brasileira de Psiquiatria (Braz J Psychiatry)",
+      "year": 2019,
+      "url": "https://www.scielo.br/j/rbp/a/gPdMyS9d6hrLnmympCmSXFS/?lang=en"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2017",
+    "item": "Objetiva questão 67",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf",
+    "originalCaseText": "Um homem com 25 anos de idade, vítima de agressão em via pública, é levado pela viatura da Polícia Militar até a Unidade de Pronto Atendimento (UPA). Apresenta-se com agitação psicomotora, fala arrastada, incoordenação motora com ataxia, lúcido, orientado no tempo e espaço e hálito etílico. Apresenta ferimento corto-contuso na região frontal, de aproximadamente 2 cm, sem sangramento ativo. Mostra-se bastante agressivo, ameaçador e não permite ser submetido à avaliação dos sinais vitais, ao exame físico e à sutura do ferimento. Demonstra intenção de fugir da UPA e ameaça agredir os membros da equipe de saúde. Nessa situação, a conduta médica deve incluir as seguintes ações: (A) indicar contenção física e mecânica do paciente a ser realizada pela equipe de saúde; aplicar haloperidol 5 mg via intramuscular; realizar sutura do ferimento; manter o paciente em observação na UPA e solicitar ao Serviço Social o contato com seus familiares. (B) indicar contenção física e mecânica do paciente a ser realizada pela equipe de saúde; aplicar prometazina 25 mg via intramuscular; realizar sutura do ferimento e transferir o paciente para hospital geral de referência. (C) indicar contenção física e mecânica do paciente a ser realizada pelos policiais; aplicar diazepam 10 mg via endovenosa; realizar sutura do ferimento e transferir o paciente para unidade de referência psiquiátrica. (D) indicar contenção física e mecânica do paciente a ser realizada pelos policiais; administrar glicose a 50% (60 a 100 mL, diluída a 50%) via endovenosa em bolus e diazepam 10 mg via endovenosa; realizar sutura do ferimento; manter o paciente em observação na UPA e solicitar ao Serviço Social o contato com seus familiares.",
+    "notes": "Prova cega (11/10/2026): objetiva 2017, gabarito A conferido na imagem do gabarito definitivo. Caso não crítico (como em candidates.tsv). A alternativa A segue vigente nas diretrizes da ABP (2019); a parte 2 admite haloperidol associado à prometazina, aceito no item. Proibida: benzodiazepínico na intoxicação alcoólica (C e D), com exceção para abstinência e cocaína, como na diretriz. Contenção pelos policiais (C e D) ficou no texto do item da contenção, não como proibida (sem termo checável). Serviço Social foi para outOfScope. Glicose a 50% (D) não virou proibida."
+  },
+  "probes": {
+    "mustFlag": [
+      "Diazepam 10 mg EV para sedação",
+      "Contenção pelos policiais, glicose 50% e diazepam EV",
+      "Midazolam 15 mg IM"
+    ],
+    "mustNotFlag": [
+      "Haloperidol 5 mg IM; evitar benzodiazepínicos na intoxicação alcoólica",
+      "Diazepam somente se sinais de abstinência alcoólica",
+      "Não usar diazepam: risco de depressão respiratória com álcool"
+    ]
+  }
+}

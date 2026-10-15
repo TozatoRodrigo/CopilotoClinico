@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 2,
+  "id": "kb001-dd-002",
+  "title": "DPOC sonolento, SpO2 86% e musculatura acessória",
+  "tags": [
+    "dispneia",
+    "dpoc",
+    "insuficiencia-respiratoria",
+    "kb-001"
+  ],
+  "critical": true,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Paciente com DPOC, sonolento, SpO2 86% e uso de musculatura acessória."
+  },
+  "expected": {
+    "syndrome": "exacerbação de DPOC com insuficiência respiratória aguda (provável hipercapnia)",
+    "diagnoses": [
+      {
+        "text": "acidose respiratória hipercápnica / narcose por CO2",
+        "tier": "critical"
+      },
+      {
+        "text": "desencadeante ou mimetizador: pneumonia, pneumotórax, TEP ou IC aguda",
+        "tier": "critical"
+      }
+    ],
+    "actions": [
+      {
+        "text": "oxigênio controlado (alvo SpO2 88-92%)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "suporte ventilatório: VNI se protege via aérea, intubação se rebaixamento importante",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "broncodilatadores e corticoide sistêmico",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "antibiótico (ex.: amoxicilina-clavulanato ou conforme resistência local) pela necessidade de suporte ventilatório",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [
+      "gasometria arterial"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "sedativo-em-hipercapnico",
+        "description": "Sedativo ou benzodiazepínico em paciente hipercápnico sonolento sem via aérea protegida",
+        "patterns": [
+          "midazolam",
+          "diazepam",
+          "lorazepam",
+          "benzodiazep\\w*",
+          "haloperidol"
+        ],
+        "exceptWhen": [
+          "(para|na|durante|apos|pos-?)\\s*(a\\s+)?(intubacao|iot|isr|sequencia\\s+rapida)",
+          "(intubacao|iot|isr|sequencia\\s+rapida)(\\s+\\S+){0,2}\\s+com"
+        ]
+      },
+      {
+        "id": "oxigenio-alto-fluxo-sem-alvo",
+        "description": "Oxigênio em alto fluxo sem alvo de SpO2 (risco de piora da hipercapnia)",
+        "patterns": []
+      }
+    ],
+    "rationale": "GOLD 2026: VNI é o modo inicial na insuficiência respiratória da exacerbação e antibiótico é indicado a quem precisa de ventilação (invasiva ou não); mimetizadores/desencadeantes mudam a conduta. ERS/ATS 2017: VNI com acidose respiratória, tentativa com vigilância em quem se cogita intubar — VNI ou intubação são aceitas conforme o rebaixamento. BTS 2017: alvo 88–92%; O2 em alta concentração aumenta a mortalidade. Sedativo só para intubar."
+  },
+  "sources": [
+    {
+      "claim": "GOLD 2026: antibióticos devem ser dados a quem precisa de ventilação mecânica (invasiva ou não invasiva); VNI é o modo inicial na insuficiência respiratória da exacerbação; mimetizadores: pneumonia, TEP, IC aguda, pneumotórax.",
+      "title": "Global Strategy for Prevention, Diagnosis and Management of COPD — GOLD 2026 Report (v1.3), Cap. 4",
+      "publisher": "Global Initiative for Chronic Obstructive Lung Disease",
+      "year": 2026,
+      "url": "https://goldcopd.org/wp-content/uploads/2026/01/GOLD-REPORT-2026-v1.3-8Dec2025_WMV2.pdf"
+    },
+    {
+      "claim": "ERS/ATS 2017: VNI bilevel na exacerbação com acidose respiratória (pH ≤7,35); tentativa de VNI em quem se considera intubar, com vigilância.",
+      "title": "Official ERS/ATS clinical practice guidelines: noninvasive ventilation for acute respiratory failure",
+      "publisher": "ERS / ATS — Eur Respir J",
+      "year": 2017,
+      "url": "https://erj.ersjournals.com/content/50/2/1602426"
+    },
+    {
+      "claim": "BTS 2017: alvo 88–92% em risco de hipercapnia; oxigênio em alta concentração na exacerbação grave associa-se a mais mortes.",
+      "title": "BTS Guideline for oxygen use in adults in healthcare and emergency settings — Summary for hospital use",
+      "publisher": "British Thoracic Society",
+      "year": 2017,
+      "url": "https://www.brit-thoracic.org.uk/document-library/guidelines/emergency-oxygen/web-appendix-3-summary-of-guideline-for-hospital-use"
+    }
+  ],
+  "provenance": {
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: antibiótico obrigatório (precisa de suporte ventilatório); desencadeantes/mimetizadores como hipótese; O2 sem alvo proibido (só juiz, como no dd-001); exceção do sedativo restrita a \"para/na intubação\" — antes qualquer menção a intubação anulava a checagem."
+  },
+  "probes": {
+    "mustFlag": [
+      "Midazolam 1–2 mg IV para tolerar a VNI; se falha, intubação",
+      "Haloperidol 5 mg IM pela agitação",
+      "Diazepam 5 mg IV lento para acalmar"
+    ],
+    "mustNotFlag": [
+      "Evitar benzodiazepínico e outros sedativos sem via aérea protegida",
+      "Midazolam e fentanil para intubação em sequência rápida se o rebaixamento progredir",
+      "Não sedar: midazolam contraindicado sem via aérea protegida"
+    ]
+  }
+}

@@ -3,7 +3,11 @@ import { RetrievalService } from './retrieval.service';
 import { PrismaService } from '../../../config/prisma.service';
 import { AiGatewayService } from '../../ai-gateway/ai-gateway.service';
 import { ConfigService } from '@nestjs/config';
+import { Logger } from '@nestjs/common';
 import { RedisService } from '../../redis/redis.service';
+import * as Sentry from '@sentry/node';
+
+vi.mock('@sentry/node', () => ({ captureMessage: vi.fn() }));
 
 describe('RetrievalService', () => {
   let service: RetrievalService;
@@ -12,9 +16,15 @@ describe('RetrievalService', () => {
     guidelineChunk: {
       findMany: ReturnType<typeof vi.fn>;
     };
+    physician: {
+      findMany: ReturnType<typeof vi.fn>;
+    };
   };
   let aiGatewayMock: {
     embed: ReturnType<typeof vi.fn>;
+    getEmbeddingProviderName: () => string;
+    embeddingsEnabled: () => boolean;
+    getEmbeddingModel: () => string;
   };
   let env: Record<string, string | undefined>;
 
@@ -26,10 +36,16 @@ describe('RetrievalService', () => {
       guidelineChunk: {
         findMany: vi.fn(),
       },
+      physician: {
+        findMany: vi.fn().mockResolvedValue([]),
+      },
     };
 
     aiGatewayMock = {
       embed: vi.fn(),
+      getEmbeddingProviderName: () => 'openai',
+      embeddingsEnabled: () => true,
+      getEmbeddingModel: () => 'text-embedding-3-small',
     };
 
     const redisMock = {
@@ -259,7 +275,84 @@ describe('RetrievalService', () => {
           evidenceLevel: true,
           institutionId: true,
           metadata: true,
+          status: true,
+          reviewedBy: true,
         },
+      });
+    });
+
+    // F0-C / ADR-012 — "assinado" = `approved` + revisor médico com CRM
+    // verificado. Seed e pacotes KB-003/KB-004 entraram aprovados sem revisor.
+    describe('assinatura clínica do chunk', () => {
+      const VERIFIED_REVIEWER = '11111111-1111-1111-1111-111111111111';
+      const UNVERIFIED_REVIEWER = '22222222-2222-2222-2222-222222222222';
+
+      function chunkRow(id: string, overrides: Record<string, unknown> = {}) {
+        return {
+          id,
+          text: `texto ${id}`,
+          source: 'diretriz',
+          sourceVersion: '1.0',
+          specialty: 'emergencia',
+          evidenceLevel: null,
+          institutionId: null,
+          metadata: null,
+          status: 'approved',
+          reviewedBy: null,
+          ...overrides,
+        };
+      }
+
+      beforeEach(() => {
+        aiGatewayMock.embed.mockResolvedValue({ embeddings: [[0.1]] });
+        prismaMock.$queryRaw
+          .mockResolvedValueOnce([
+            { id: 'signed', similarity: 0.9, institution_id: null },
+            { id: 'unverified', similarity: 0.85, institution_id: null },
+            { id: 'seed', similarity: 0.8, institution_id: null },
+          ])
+          .mockResolvedValueOnce([]);
+        prismaMock.physician.findMany.mockResolvedValue([{ id: VERIFIED_REVIEWER }]);
+      });
+
+      it('só conta como assinado o chunk revisado por médico com CRM verificado', async () => {
+        prismaMock.guidelineChunk.findMany.mockResolvedValue([
+          chunkRow('signed', { reviewedBy: VERIFIED_REVIEWER }),
+          chunkRow('unverified', { reviewedBy: UNVERIFIED_REVIEWER }),
+          chunkRow('seed'),
+        ]);
+
+        const result = await service.search('dor torácica', 5);
+
+        const signing = Object.fromEntries(result.chunks.map((c) => [c.id, c.clinicallySigned]));
+        expect(signing).toEqual({ signed: true, unverified: false, seed: false });
+        expect(prismaMock.physician.findMany).toHaveBeenCalledWith({
+          where: { id: { in: [VERIFIED_REVIEWER, UNVERIFIED_REVIEWER] }, crmVerified: true },
+          select: { id: true },
+        });
+      });
+
+      it('não consulta médicos quando nenhum chunk tem revisor', async () => {
+        prismaMock.guidelineChunk.findMany.mockResolvedValue([
+          chunkRow('signed'),
+          chunkRow('unverified'),
+          chunkRow('seed'),
+        ]);
+
+        const result = await service.search('dor torácica', 5);
+
+        expect(result.chunks.every((c) => !c.clinicallySigned)).toBe(true);
+        expect(prismaMock.physician.findMany).not.toHaveBeenCalled();
+      });
+
+      it('nunca conta como assinado um chunk fora de approved', async () => {
+        prismaMock.guidelineChunk.findMany.mockResolvedValue([
+          chunkRow('signed', { reviewedBy: VERIFIED_REVIEWER, status: 'official_unreviewed' }),
+        ]);
+
+        const result = await service.search('dor torácica', 5);
+
+        expect(result.chunks[0]!.clinicallySigned).toBe(false);
       });
     });
 
@@ -467,8 +560,11 @@ describe('RetrievalService', () => {
 });
 
 describe('RetrievalService — chave do cache', () => {
-  function build(env: Record<string, string | undefined> = {}) {
-    const store = new Map<string, string>();
+  function build(
+    env: Record<string, string | undefined> = {},
+    store = new Map<string, string>(),
+    embeddingModel = 'text-embedding-3-small',
+  ) {
     const redis = {
       get: vi.fn(async (key: string) => store.get(key) ?? null),
       set: vi.fn(async (key: string, value: string) => {
@@ -478,8 +574,14 @@ describe('RetrievalService — chave do cache', () => {
     const prisma = {
       $queryRaw: vi.fn().mockResolvedValue([]),
       guidelineChunk: { findMany: vi.fn().mockResolvedValue([]) },
+      physician: { findMany: vi.fn().mockResolvedValue([]) },
     };
-    const ai = { embed: vi.fn().mockResolvedValue({ embeddings: [[0.1, 0.2]] }) };
+    const ai = {
+      embed: vi.fn().mockResolvedValue({ embeddings: [[0.1, 0.2]] }),
+      getEmbeddingProviderName: () => 'openai',
+      embeddingsEnabled: () => true,
+      getEmbeddingModel: () => embeddingModel,
+    };
     const config = { get: vi.fn((key: string) => env[key]) };
     const service = new RetrievalService(
       prisma as unknown as PrismaService,
@@ -524,5 +626,345 @@ describe('RetrievalService — chave do cache', () => {
 
     const keys = redis.set.mock.calls.map((call) => call[0]);
     expect(keys[0]).not.toBe(keys[1]);
+  });
+
+  // F0-A — o vetor da consulta depende do modelo de embedding: duas
+  // configurações diferentes no mesmo Redis não podem trocar resultados.
+  it('outro modelo de embedding não reaproveita a busca feita com o anterior', async () => {
+    const sharedRedis = new Map<string, string>();
+    const before = build({}, sharedRedis, 'text-embedding-3-small');
+    const after = build({}, sharedRedis, 'text-embedding-3-large');
+
+    await before.service.search(`${prefix}dor torácica.`, 5);
+    await after.service.search(`${prefix}dor torácica.`, 5);
+
+    expect(after.ai.embed).toHaveBeenCalledTimes(1);
+    expect(sharedRedis.size).toBe(2);
+  });
+});
+
+// F1 — Etapa 2 do raciocínio em etapas (ADR-013): busca pelas consultas do
+// entendimento do caso, não pelo texto inteiro.
+describe('RetrievalService — busca dirigida (searchMany)', () => {
+  type Row = Record<string, unknown>;
+  interface QueryTables {
+    semantic?: Row[];
+    keyword?: Row[];
+    official?: Row[];
+  }
+
+  const semanticRow = (id: string, similarity: number) => ({
+    id,
+    similarity,
+    institution_id: null,
+  });
+  const officialRow = (id: string, similarity: number, documentId: string) => ({
+    id,
+    similarity,
+    document_id: documentId,
+    care_setting: 'agudo',
+  });
+
+  function chunkRow(id: string) {
+    return {
+      id,
+      text: `Trecho ${id}`,
+      source: id.startsWith('off') ? 'PCDT — AVC' : 'Diretriz AVC',
+      sourceVersion: '1.0',
+      specialty: 'neurologia',
+      evidenceLevel: null,
+      institutionId: null,
+      metadata: id.startsWith('off') ? { origin: 'official_unreviewed' } : {},
+      status: id.startsWith('off') ? 'official_unreviewed' : 'approved',
+      reviewedBy: null,
+    };
+  }
+
+  /**
+   * A consulta i ganha o vetor `[i+1,0]`; o mock responde cada SQL pela
+   * tabela do vetor que ela recebeu, então a ordem das chamadas paralelas não
+   * importa.
+   */
+  function build(
+    tablesByQuery: QueryTables[],
+    env: Record<string, string | undefined> = {},
+    store = new Map<string, string>(),
+  ) {
+    const redis = {
+      get: vi.fn(async (key: string) => store.get(key) ?? null),
+      set: vi.fn(async (key: string, value: string) => {
+        store.set(key, value);
+      }),
+    };
+    const prisma = {
+      $queryRaw: vi.fn(async (strings: TemplateStringsArray, ...values: unknown[]) => {
+        const sql = strings.join('?');
+        const vector = values.find(
+          (value): value is string => typeof value === 'string' && value.startsWith('['),
+        );
+        const queryIndex = vector ? Number(vector.slice(1, vector.indexOf(','))) - 1 : -1;
+        const tables = tablesByQuery[queryIndex] ?? {};
+        if (sql.includes("status = 'official_unreviewed'")) return tables.official ?? [];
+        if (sql.includes('ts_rank')) return tables.keyword ?? [];
+        return tables.semantic ?? [];
+      }),
+      guidelineChunk: {
+        findMany: vi.fn(async ({ where }: { where: { id: { in: string[] } } }) =>
+          where.id.in.map(chunkRow),
+        ),
+      },
+      physician: { findMany: vi.fn().mockResolvedValue([]) },
+    };
+    const ai = {
+      embed: vi.fn(async (texts: string[]) => ({
+        embeddings: texts.map((_text, index) => [index + 1, 0]),
+      })),
+      getEmbeddingProviderName: () => 'openai',
+      embeddingsEnabled: () => true,
+      getEmbeddingModel: () => 'text-embedding-3-small',
+    };
+    const config = {
+      get: vi.fn((key: string) =>
+        key in env ? env[key] : key === 'OFFICIAL_GUIDELINES_ENABLED' ? 'false' : undefined,
+      ),
+    };
+    const service = new RetrievalService(
+      prisma as unknown as PrismaService,
+      ai as unknown as AiGatewayService,
+      redis as unknown as RedisService,
+      config as unknown as ConfigService,
+    );
+    return { service, prisma, ai, redis };
+  }
+
+  it('embeds every query in a single call', async () => {
+    const { service, ai } = build([{}, {}]);
+
+    await service.searchMany(['manejo inicial do AVC', 'hemorragia intracerebral'], 5);
+
+    expect(ai.embed).toHaveBeenCalledTimes(1);
+    expect(ai.embed).toHaveBeenCalledWith(['manejo inicial do AVC', 'hemorragia intracerebral']);
+  });
+
+  it('merges the queries by the best score of each chunk, the first query breaking ties', async () => {
+    const { service } = build([
+      { semantic: [semanticRow('avc-1', 0.62), semanticRow('shared', 0.5)] },
+      { semantic: [semanticRow('hic-1', 0.7), semanticRow('shared', 0.55)] },
+    ]);
+
+    const result = await service.searchMany(['manejo do AVC', 'hemorragia intracerebral'], 5);
+
+    expect(result.chunks.map((chunk) => chunk.id)).toEqual(['avc-1', 'hic-1', 'shared']);
+    expect(result.totalRetrieved).toBe(3);
+    expect(result.coverage).toBe('full');
+    expect(result.bestSemanticScore).toBe(0.7);
+  });
+
+  it('applies the relevance floor to the merged candidates', async () => {
+    const { service } = build([
+      { semantic: [semanticRow('sepse-1', 0.2)] },
+      { semantic: [semanticRow('dengue-1', 0.36)] },
+    ]);
+
+    const result = await service.searchMany(['manejo da febre', 'dengue com sinais de alarme'], 5);
+
+    expect(result.chunks.map((chunk) => chunk.id)).toEqual(['dengue-1']);
+    expect(result.coverage).toBe('partial');
+    expect(result.discardedByFloor).toBe(1);
+  });
+
+  it('reports no coverage when no query finds a relevant chunk', async () => {
+    const { service, prisma } = build([
+      { semantic: [semanticRow('a', 0.1)] },
+      { semantic: [semanticRow('b', 0.2)] },
+    ]);
+
+    const result = await service.searchMany(['consulta 1', 'consulta 2'], 5);
+
+    expect(result).toMatchObject({ chunks: [], totalRetrieved: 0, coverage: 'none' });
+    expect(prisma.guidelineChunk.findMany).not.toHaveBeenCalled();
+  });
+
+  it('cuts to topK only after merging', async () => {
+    const { service } = build([
+      { semantic: [semanticRow('a-1', 0.6), semanticRow('a-2', 0.59)] },
+      { semantic: [semanticRow('b-1', 0.6), semanticRow('b-2', 0.59)] },
+      { semantic: [semanticRow('c-1', 0.6), semanticRow('c-2', 0.59)] },
+    ]);
+
+    const result = await service.searchMany(['a', 'b', 'c'], 2);
+
+    expect(result.chunks.map((chunk) => chunk.id)).toEqual(['a-1', 'b-1']);
+  });
+
+  it('drops empty and repeated queries before searching', async () => {
+    const { service, ai } = build([{}]);
+
+    await service.searchMany(['AVC agudo', ' avc agudo ', ''], 5);
+
+    expect(ai.embed).toHaveBeenCalledWith(['AVC agudo']);
+  });
+
+  it('refuses an empty query set', async () => {
+    const { service } = build([]);
+
+    await expect(service.searchMany(['  '], 5)).rejects.toThrow('at least one non-empty query');
+  });
+
+  it('logs which query found each selected chunk', async () => {
+    const log = vi.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+    const { service } = build([
+      { semantic: [semanticRow('avc-1', 0.62), semanticRow('shared', 0.5)] },
+      { semantic: [semanticRow('shared', 0.55)] },
+    ]);
+
+    await service.searchMany(['manejo do AVC', 'hemorragia intracerebral'], 5);
+
+    const directed = log.mock.calls
+      .map(([message]) => String(message))
+      .find((message) => message.startsWith('RETRIEVAL_DIRECTED'));
+    expect(directed).toContain('queries=2');
+    expect(directed).toContain('kept=2 coverage=full');
+    expect(directed).toContain('provenance=[avc-1:q0,shared:q0+q1]');
+    log.mockRestore();
+  });
+
+  describe('base oficial', () => {
+    it('joins the candidates of every query and applies the caps once', async () => {
+      const { service } = build(
+        [
+          { official: [officialRow('off-avc-1', 0.6, 'pcdt-avc')] },
+          {
+            official: [
+              officialRow('off-avc-1', 0.66, 'pcdt-avc'),
+              officialRow('off-avc-2', 0.6, 'pcdt-avc'),
+              officialRow('off-avc-3', 0.59, 'pcdt-avc'),
+              officialRow('off-hic-1', 0.58, 'pcdt-hic'),
+            ],
+          },
+        ],
+        { OFFICIAL_GUIDELINES_ENABLED: 'true' },
+      );
+
+      const result = await service.searchMany(['manejo do AVC', 'hemorragia intracerebral'], 5);
+
+      expect(result.official.chunks.map((chunk) => [chunk.id, chunk.score])).toEqual([
+        ['off-avc-1', 0.66],
+        ['off-avc-2', 0.6],
+        ['off-hic-1', 0.58],
+      ]);
+      expect(result.official.bestSemanticScore).toBe(0.66);
+    });
+  });
+
+  describe('chave do cache', () => {
+    it('reuses the cache for the same query set', async () => {
+      const { service, ai } = build([{}, {}]);
+
+      await service.searchMany(['manejo do AVC', 'hemorragia intracerebral'], 5);
+      await service.searchMany(['manejo do AVC', 'hemorragia intracerebral'], 5);
+
+      expect(ai.embed).toHaveBeenCalledTimes(1);
+    });
+
+    it('treats a different set or order of queries as another search', async () => {
+      const { service, redis } = build([{}, {}]);
+
+      await service.searchMany(['manejo do AVC', 'hemorragia intracerebral'], 5);
+      await service.searchMany(['manejo do AVC', 'hipoglicemia'], 5);
+      await service.searchMany(['hemorragia intracerebral', 'manejo do AVC'], 5);
+
+      const keys = redis.set.mock.calls.map((call) => call[0]);
+      expect(new Set(keys).size).toBe(3);
+    });
+
+    it('never shares a key with the legacy search of the same text', async () => {
+      const { service, redis } = build([{}]);
+
+      await service.search('manejo do AVC', 5);
+      await service.searchMany(['manejo do AVC'], 5);
+
+      const keys = redis.set.mock.calls.map((call) => call[0]);
+      expect(new Set(keys).size).toBe(2);
+    });
+  });
+});
+
+describe('RetrievalService — embedding indisponível', () => {
+  const redisMock = { get: vi.fn(), set: vi.fn() };
+  const queryRaw = vi.fn();
+  let service: RetrievalService;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    redisMock.get.mockResolvedValue(null);
+    service = new RetrievalService(
+      {
+        $queryRaw: queryRaw,
+        guidelineChunk: { findMany: vi.fn() },
+        physician: { findMany: vi.fn().mockResolvedValue([]) },
+      } as unknown as PrismaService,
+      {
+        embed: vi.fn().mockRejectedValue(new Error('AI provider embed error: 429')),
+        getEmbeddingProviderName: () => 'openai',
+        embeddingsEnabled: () => true,
+        getEmbeddingModel: () => 'text-embedding-3-small',
+      } as unknown as AiGatewayService,
+      redisMock as unknown as RedisService,
+      { get: vi.fn(() => undefined) } as unknown as ConfigService,
+    );
+  });
+
+  it('segue sem evidência em vez de derrubar a análise (search)', async () => {
+    const result = await service.search('déficit focal súbito', 5, null);
+
+    expect(result).toMatchObject({ chunks: [], totalRetrieved: 0, coverage: 'none' });
+    expect(result.official.chunks).toEqual([]);
+    expect(queryRaw).not.toHaveBeenCalled();
+  });
+
+  it('segue sem evidência na busca dirigida (searchMany)', async () => {
+    const result = await service.searchMany(
+      ['avc isquêmico manejo inicial', 'hemorragia intracraniana'],
+      5,
+      null,
+    );
+
+    expect(result).toMatchObject({ chunks: [], coverage: 'none' });
+  });
+
+  it('não grava o resultado degradado no cache e avisa o Sentry', async () => {
+    await service.search('dor torácica', 5, null);
+
+    expect(redisMock.set).not.toHaveBeenCalled();
+    expect(Sentry.captureMessage).toHaveBeenCalledWith(
+      expect.stringContaining('RETRIEVAL_EMBEDDING_UNAVAILABLE'),
+      'error',
+    );
+  });
+
+  it('com EMBEDDING_PROVIDER=none, segue sem evidência sem chamar o provedor nem alertar', async () => {
+    const embed = vi.fn();
+    const disabled = new RetrievalService(
+      {
+        $queryRaw: queryRaw,
+        guidelineChunk: { findMany: vi.fn() },
+        physician: { findMany: vi.fn().mockResolvedValue([]) },
+      } as unknown as PrismaService,
+      {
+        embed,
+        getEmbeddingProviderName: () => 'none',
+        embeddingsEnabled: () => false,
+        getEmbeddingModel: () => 'text-embedding-3-small',
+      } as unknown as AiGatewayService,
+      redisMock as unknown as RedisService,
+      { get: vi.fn(() => undefined) } as unknown as ConfigService,
+    );
+
+    const result = await disabled.search('dor torácica', 5, null);
+
+    expect(result).toMatchObject({ chunks: [], coverage: 'none' });
+    expect(embed).not.toHaveBeenCalled();
+    expect(Sentry.captureMessage).not.toHaveBeenCalled();
   });
 });

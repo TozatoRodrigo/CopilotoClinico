@@ -8,6 +8,13 @@ export interface RetrievedChunk {
   institutionId: string | null;
   score: number;
   metadata: Record<string, unknown>;
+  /**
+   * F0-C / ADR-012 — chunk `approved` cujo `reviewedBy` é um médico com CRM
+   * verificado. `false` para seed, pacotes KB-003/KB-004, ingestão interna e
+   * para toda a base oficial (`official_unreviewed`). Quem consome trata
+   * ausência (cache gravado antes do campo) como não assinado.
+   */
+  clinicallySigned: boolean;
 }
 
 export interface SearchHit {
@@ -224,4 +231,63 @@ export function applyRelevanceFloor(
     bestSemanticScore,
     discardedCount: rankedChunkIds.length - keptChunkIds.length,
   };
+}
+
+/**
+ * F1 — ranking de UMA consulta da busca dirigida (ADR-013, Etapa 2), já com
+ * RRF e boost institucional, e os escores que o piso de relevância usa.
+ */
+export interface QueryRanking {
+  scores: Map<string, number>;
+  semanticScores: Map<string, number>;
+  keywordScores: Map<string, number>;
+}
+
+export interface MergedRanking {
+  /** Do maior para o menor escore; empate fica com quem apareceu primeiro. */
+  rankedIds: string[];
+  /** Melhor escore de cada trecho entre as consultas. */
+  scores: Map<string, number>;
+  semanticScores: Map<string, number>;
+  keywordScores: Map<string, number>;
+  /** Índices das consultas que acharam cada trecho — vai para o log. */
+  provenance: Map<string, number[]>;
+}
+
+function keepBest(target: Map<string, number>, source: Map<string, number>): void {
+  for (const [chunkId, score] of source) {
+    target.set(chunkId, Math.max(target.get(chunkId) ?? Number.NEGATIVE_INFINITY, score));
+  }
+}
+
+/**
+ * F1 — junta as consultas da busca dirigida pela MELHOR pontuação de cada
+ * trecho. Somar premiaria o trecho genérico que aparece em toda consulta;
+ * o máximo deixa cada hipótese trazer o seu melhor trecho. Como o RRF pontua
+ * por posição, o resultado intercala naturalmente o 1º de cada consulta
+ * antes do 2º de qualquer uma — e a primeira consulta (manejo inicial da
+ * síndrome) desempata.
+ */
+export function mergeQueryRankings(rankings: QueryRanking[]): MergedRanking {
+  const scores = new Map<string, number>();
+  const semanticScores = new Map<string, number>();
+  const keywordScores = new Map<string, number>();
+  const provenance = new Map<string, number[]>();
+
+  rankings.forEach((ranking, queryIndex) => {
+    keepBest(scores, ranking.scores);
+    keepBest(semanticScores, ranking.semanticScores);
+    keepBest(keywordScores, ranking.keywordScores);
+    for (const chunkId of ranking.scores.keys()) {
+      provenance.set(chunkId, [...(provenance.get(chunkId) ?? []), queryIndex]);
+    }
+  });
+
+  // Array.prototype.sort é estável: no empate, vale a ordem de inserção, que
+  // é a ordem das consultas.
+  const rankedIds = [...scores.entries()]
+    .sort(([, left], [, right]) => right - left)
+    .map(([chunkId]) => chunkId);
+
+  return { rankedIds, scores, semanticScores, keywordScores, provenance };
 }

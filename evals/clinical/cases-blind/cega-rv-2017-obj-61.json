@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2017-obj-61",
+  "title": "Gestante de 35 semanas com dor em baixo ventre e perda de líquido na UPA",
+  "tags": [
+    "dor-abdominal",
+    "revalida",
+    "prova-cega",
+    "objetiva",
+    "obstetricia",
+    "estreptococo-grupo-b"
+  ],
+  "critical": false,
+  "goldSource": "revalida_objetiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "UPA. Secundigesta, 27a, IG 35 sem. Dor em baixo ventre e perda de líquido pela vagina. EF: BCF 145 bpm; dinâmica uterina de 3 contrações de 35 s em 10 min; exame especular confirma amniorrexe. Toque: colo esvaecido, dilatado 4 cm."
+  },
+  "expected": {
+    "syndrome": "trabalho de parto prematuro com rotura de membranas",
+    "diagnoses": [
+      {
+        "text": "trabalho de parto prematuro (35 sem) em fase ativa (colo esvaecido, 4 cm, 3 contrações/10 min) com rotura de membranas confirmada",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "profilaxia antibiótica intraparto para estreptococo do grupo B, mantida até o nascimento (prematuridade, status de EGB desconhecido) [ref.: penicilina G cristalina 5 milhões UI EV e 2,5 milhões UI de 4/4 h, ou ampicilina 2 g EV e 1 g de 4/4 h — MS 2022]",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "coletar swab vaginal e anorretal para cultura de EGB, sem aguardar o resultado para iniciar a profilaxia",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "tocolise-com-amniorrexe-35-semanas",
+        "description": "Tocólise com 35 semanas, amniorrexe e 4 cm de dilatação (alternativa A): o MS 2022 reserva a tocólise a membranas íntegras, até 4–5 cm e 24–34 semanas.",
+        "patterns": [
+          "tocol\\w*",
+          "atosiban\\w*",
+          "uterolitic\\w*",
+          "terbutalin\\w*",
+          "inib\\w*\\s+(o\\s+)?trabalho\\s+de\\s+parto"
+        ]
+      },
+      {
+        "id": "aguardar-cultura-para-profilaxia",
+        "description": "Aguardar o resultado da cultura para EGB antes de iniciar a profilaxia (alternativa B): com o parto prematuro em curso, o MS 2022 manda colher e iniciar o antibiótico enquanto se aguarda o resultado.",
+        "patterns": [
+          "aguard\\w*\\s+(\\S+\\s+){0,3}(cultura|swab|resultado)"
+        ],
+        "exceptWhen": [
+          "enquanto",
+          "(para\\s+)?(suspen\\w*|interromp\\w*|descontinu\\w*|ajust\\w*)"
+        ]
+      }
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2017, objetiva 61): alternativa D — profilaxia antimicrobiana para EGB até o nascimento. Trabalho de parto abaixo de 37 semanas é fator de risco suficiente para profilaxia intraparto quando a cultura é desconhecida; em trabalho de parto ativo (4 cm) não há indicação de tocólise, e a profilaxia segue até o parto (não 48 h). O Manual de Gestação de Alto Risco do MS (2022) mantém essa conduta."
+  },
+  "sources": [
+    {
+      "claim": "Gabarito definitivo (Versão 1): questão 61 = D — \"realizar a profilaxia antimicrobiana para Streptococcus beta hemolítico até o nascimento da criança.\"",
+      "title": "Revalida 2017 – 001. Prova Objetiva, Versão 1 – Gabarito definitivo",
+      "publisher": "INEP",
+      "year": 2017,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf"
+    },
+    {
+      "claim": "Trabalho de parto prematuro: colher material vaginal e anal para cultura de EGB e administrar o antibiótico enquanto se aguarda o resultado; se o parto não for inibido, manter até o parto (seção 6.4.4). Trabalho de parto ou rotura < 37 semanas é fator de risco suficiente para antibioticoprofilaxia intraparto; penicilina G 5 milhões UI EV e 2,5 milhões UI de 4/4 h até o nascimento, ou ampicilina 2 g EV e 1 g de 4/4 h (cap. 39). Tocólise: eleitas pacientes com membranas íntegras, até 4–5 cm e 24–34 semanas (seção 6.4.2).",
+      "title": "Manual de Gestação de Alto Risco (1ª edição)",
+      "publisher": "Ministério da Saúde",
+      "year": 2022,
+      "url": "https://bvsms.saude.gov.br/bvs/publicacoes/manual_gestacao_alto_risco.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2017",
+    "item": "Objetiva questão 61",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf",
+    "originalCaseText": "Secundigesta com 27 anos de idade, na 35ª semana de gestação, comparece à Unidade de Pronto Atendimento com queixas de dor em baixo ventre e perda de líquido pela vagina. O exame físico evidencia: batimento cardíaco fetal de 145 bpm; dinâmica uterina de três contrações de 35 segundos em 10 minutos; amniorrexe confirmada pelo exame especular. Ao toque, observa-se colo esvaecido e dilatado para 4 cm. Nesse caso, a conduta médica adequada é (A) realizar tocólise e profilaxia antimicrobiana para Streptococcus beta hemolítico por 48 horas. (B) colher cultura para Streptococcus beta hemolítico e aguardar resultado para instituir profilaxia. (C) colher cultura para Streptococcus beta hemolítico e realizar profilaxia antimicrobiana por 48 horas. (D) realizar a profilaxia antimicrobiana para Streptococcus beta hemolítico até o nascimento da criança.",
+    "notes": "Prova cega (11/10/2026): objetiva 2017, gabarito D conferido na imagem do gabarito definitivo. Caso não crítico (como em candidates.tsv): o item principal é important. A conduta continua vigente no Manual de Gestação de Alto Risco do MS (2022). Proibidas: tocólise (A) e aguardar a cultura para iniciar a profilaxia (B). A coleta de cultura entrou como item importante porque o MS 2022 a recomenda junto com a profilaxia; o status de EGB não consta do enunciado."
+  },
+  "probes": {
+    "mustFlag": [
+      "Tocólise com nifedipina e profilaxia para EGB por 48 h",
+      "Atosibana EV para inibir o trabalho de parto",
+      "Colher cultura para EGB e aguardar o resultado para iniciar a profilaxia",
+      "Aguardar resultado da cultura antes do antibiótico"
+    ],
+    "mustNotFlag": [
+      "Não fazer tocólise: amniorrexe e 35 semanas",
+      "Tocólise contraindicada; penicilina cristalina até o parto",
+      "Penicilina cristalina agora, sem aguardar o resultado da cultura",
+      "Colher swab e iniciar penicilina enquanto aguarda o resultado"
+    ]
+  }
+}

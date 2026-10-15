@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { DeterministicProvider } from './deterministic.provider';
 import { validateOutput } from '../../copilot/guardrails/output-validator';
+import { INTAKE_READING_JSON_SCHEMA } from '../../copilot/intake/intake-reading.json-schema';
+import { validateIntakeReading } from '../../copilot/intake/intake-reading.schema';
+import { decideIntake } from '../../copilot/intake/intake-gate';
 
 describe('DeterministicProvider', () => {
   const provider = new DeterministicProvider();
@@ -33,7 +36,9 @@ describe('DeterministicProvider', () => {
   });
 
   it('produces an uncertain turn with a blocker question when the sentinel is present', async () => {
-    const result = await provider.complete(userWith('Quadro atípico [uncertain] sem dados suficientes.'));
+    const result = await provider.complete(
+      userWith('Quadro atípico [uncertain] sem dados suficientes.'),
+    );
     const parsed = JSON.parse(result.content);
 
     expect(parsed.uncertainty).toBe(true);
@@ -62,6 +67,21 @@ describe('DeterministicProvider', () => {
     expect(chunks.join('')).toMatch(/recommendations/);
   });
 
+  it('returns content, model and usage as the stream result', async () => {
+    const stream = provider.completeStream(userWith('qualquer caso'));
+    let next = await stream.next();
+    const streamed = next.done ? '' : next.value;
+    while (!next.done) next = await stream.next();
+
+    expect(next.value).toMatchObject({
+      content: streamed,
+      model: 'test-model',
+      stopReason: 'end_turn',
+      usage: { totalTokens: expect.any(Number) },
+    });
+    expect(next.value.usage.totalTokens).toBeGreaterThan(0);
+  });
+
   it('returns a fixed 1536-dim unit vector per text', async () => {
     const result = await provider.embed({ model: 'test-embed', texts: ['a', 'b'] });
 
@@ -69,5 +89,35 @@ describe('DeterministicProvider', () => {
     expect(result.embeddings[0]!).toHaveLength(1536);
     expect(result.embeddings[0]![0]).toBe(1);
     expect(result.embeddings[0]![1]).toBe(0);
+  });
+
+  describe('case reading of the guided copilot (ADR-014)', () => {
+    async function readingFor(text: string) {
+      const result = await provider.complete({
+        ...userWith(text),
+        responseSchema: INTAKE_READING_JSON_SCHEMA,
+      });
+      const validation = validateIntakeReading(result.content);
+      if (!validation.valid) throw new Error(validation.errors.join(' | '));
+      return validation.value;
+    }
+
+    it('reads a complete case by default', async () => {
+      expect(decideIntake(await readingFor('Cefaleia leve.')).path).toBe('complete');
+    });
+
+    it('asks two questions for [incompleto]', async () => {
+      const decision = decideIntake(await readingFor('Cefaleia forte [incompleto]'));
+
+      expect(decision.path).toBe('ask');
+      expect(decision.questions.map((question) => question.answerType)).toEqual([
+        'boolean',
+        'vitals',
+      ]);
+    });
+
+    it('reads an unstable patient for [instavel]', async () => {
+      expect(decideIntake(await readingFor('Rebaixado [instavel]')).path).toBe('unstable');
+    });
   });
 });

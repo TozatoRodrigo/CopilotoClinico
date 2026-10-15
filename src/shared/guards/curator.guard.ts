@@ -12,8 +12,9 @@ import { PrismaService } from '../../config/prisma.service';
  * Guard de curadoria (KB-002).
  *
  * Solução provisória até existir RBAC completo: restringe endpoints de
- * revisão de diretrizes a médicos com a flag `is_curator` ativa. Deve ser
- * usado em conjunto com `JwtAuthGuard` (depende de `request.user.physicianId`).
+ * curadoria clínica (revisão de diretrizes; F0-D: triagem do feedback dos
+ * médicos) a quem tem a flag `is_curator` ativa. Deve ser usado em conjunto
+ * com `JwtAuthGuard` (depende de `request.user.physicianId`).
  */
 @Injectable()
 export class CuratorGuard implements CanActivate {
@@ -32,7 +33,7 @@ export class CuratorGuard implements CanActivate {
     });
 
     if (!physician?.isCurator) {
-      throw new ForbiddenException('Apenas curadores podem revisar diretrizes');
+      throw new ForbiddenException('Apenas curadores clínicos podem acessar esta área');
     }
 
     return true;

@@ -3,7 +3,7 @@ import type { Prisma } from '@prisma/client';
 
 /**
  * Selo de integridade dos documentos (`contentHash` + `contentHashVersion`).
- * Decisão e migração dos documentos já confirmados: ADR-012.
+ * Decisão e migração dos documentos já confirmados: ADR-018.
  */
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
@@ -15,7 +15,7 @@ function sha256Hex(text: string): string {
 }
 
 /**
- * v1 — algoritmo do CLIN-003 (#5) até o ADR-012. CONGELADO: existe só para
+ * v1 — algoritmo do CLIN-003 (#5) até o ADR-018. CONGELADO: existe só para
  * verificar documentos selados com ele; nunca usar para selar.
  *
  * O replacer em array filtra as chaves em TODOS os níveis, então objetos

@@ -9,6 +9,7 @@ describe('ProductFunnelService', () => {
     document: { findMany: ReturnType<typeof vi.fn> };
     physician: { count: ReturnType<typeof vi.fn> };
     encounter: { findMany: ReturnType<typeof vi.fn> };
+    recommendationDecision: { groupBy: ReturnType<typeof vi.fn> };
   };
 
   beforeEach(() => {
@@ -18,6 +19,7 @@ describe('ProductFunnelService', () => {
       document: { findMany: vi.fn().mockResolvedValue([]) },
       physician: { count: vi.fn().mockResolvedValue(0) },
       encounter: { findMany: vi.fn().mockResolvedValue([]) },
+      recommendationDecision: { groupBy: vi.fn().mockResolvedValue([]) },
     };
     service = new ProductFunnelService(prisma as unknown as PrismaService);
   });
@@ -85,6 +87,44 @@ describe('ProductFunnelService', () => {
       expect(result.uncertaintyRate).toBe(round3(1 / 3));
     });
 
+    // F0-D — o que os médicos fizeram com as condutas sugeridas, por atendimento da janela.
+    it('counts adopted, modified and rejected recommendation decisions of the window encounters', async () => {
+      prisma.aiInteraction.findMany
+        .mockResolvedValueOnce([{ encounterId: 'e1' }, { encounterId: 'e2' }])
+        .mockResolvedValueOnce([]);
+      prisma.recommendationDecision.groupBy.mockResolvedValue([
+        { decision: 'adopted', _count: { _all: 5 } },
+        { decision: 'modified', _count: { _all: 2 } },
+        { decision: 'rejected', _count: { _all: 1 } },
+      ]);
+
+      const result = await service.getDecisionLoopFunnel(new Date(), null);
+
+      expect(prisma.recommendationDecision.groupBy).toHaveBeenCalledWith({
+        by: ['decision'],
+        where: { encounterId: { in: ['e1', 'e2'] } },
+        _count: { _all: true },
+      });
+      expect(result.decisionsAdopted).toBe(5);
+      expect(result.decisionsModified).toBe(2);
+      expect(result.decisionsRejected).toBe(1);
+    });
+
+    it('reports zero for decision kinds nobody used', async () => {
+      prisma.aiInteraction.findMany
+        .mockResolvedValueOnce([{ encounterId: 'e1' }])
+        .mockResolvedValueOnce([]);
+      prisma.recommendationDecision.groupBy.mockResolvedValue([
+        { decision: 'rejected', _count: { _all: 3 } },
+      ]);
+
+      const result = await service.getDecisionLoopFunnel(new Date(), null);
+
+      expect(result.decisionsAdopted).toBe(0);
+      expect(result.decisionsModified).toBe(0);
+      expect(result.decisionsRejected).toBe(3);
+    });
+
     it('threads the demoCase segment into the roots query (caso-norte)', async () => {
       prisma.aiInteraction.findMany.mockResolvedValue([]);
 
@@ -140,6 +180,9 @@ describe('ProductFunnelService', () => {
         'abandonmentRate',
         'confirmedDocuments',
         'uncertaintyRate',
+        'decisionsAdopted',
+        'decisionsModified',
+        'decisionsRejected',
       ]) {
         expect(result).toHaveProperty(key);
       }

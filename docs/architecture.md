@@ -89,7 +89,7 @@ Médico revisa documento e clica "Confirmar"
 [documents/service]
   1. Verifica: documento existe + não confirmado (409 se já confirmado)
   2. Sela via sealContent(physicianEdits ?? content)
-     → JSON canônico RFC 8785 → SHA-256 → contentHash v2 (ADR-012)
+     → JSON canônico RFC 8785 → SHA-256 → contentHash v2 (ADR-018)
   3. Atualiza: confirmedBy, confirmedAt, contentHash, contentHashVersion
   4. Finaliza encounter (status = 'finalized')
   5. Busca uncertainty da última aiInteraction do encounter

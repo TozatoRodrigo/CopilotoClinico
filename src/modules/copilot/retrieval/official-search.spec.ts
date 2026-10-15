@@ -4,6 +4,7 @@ import {
   DEFAULT_OFFICIAL_MAX_PER_DOCUMENT,
   DEFAULT_OFFICIAL_MIN_SEMANTIC_SCORE,
   DEFAULT_OFFICIAL_TOP_K,
+  bestOfficialHitPerChunk,
   selectOfficialChunks,
   type OfficialHit,
 } from './official-search';
@@ -138,5 +139,42 @@ describe('selectOfficialChunks — regras', () => {
     });
 
     expect(ids(result.selected)).toEqual(['a']);
+  });
+});
+
+// F1 — busca dirigida (ADR-013): candidatos de todas as consultas, tetos
+// aplicados uma vez sobre a união.
+describe('bestOfficialHitPerChunk + selectOfficialChunks — várias consultas', () => {
+  it('keeps the best similarity of a chunk found by more than one query', () => {
+    const merged = bestOfficialHitPerChunk([
+      [hit('pcdt-avc-1', 0.55, 'pcdt-avc')],
+      [hit('pcdt-avc-1', 0.61, 'pcdt-avc')],
+    ]);
+
+    expect(merged).toEqual([hit('pcdt-avc-1', 0.61, 'pcdt-avc')]);
+  });
+
+  it('applies the per-document and per-analysis caps to the whole analysis', () => {
+    const merged = bestOfficialHitPerChunk([
+      [hit('avc-1', 0.62, 'pcdt-avc'), hit('avc-2', 0.6, 'pcdt-avc')],
+      [hit('avc-3', 0.59, 'pcdt-avc'), hit('trombolise-1', 0.58, 'pcdt-trombolise')],
+      [hit('hic-1', 0.57, 'pcdt-hic')],
+    ]);
+
+    const selection = selectOfficialChunks(merged, options);
+
+    expect(ids(selection.selected)).toEqual(['avc-1', 'avc-2', 'trombolise-1']);
+  });
+
+  it('still drops below-floor candidates from every query', () => {
+    const merged = bestOfficialHitPerChunk([
+      [hit('chagas-1', 0.5, 'pcdt-chagas')],
+      [hit('falciforme-1', 0.49, 'pcdt-falciforme')],
+    ]);
+
+    const selection = selectOfficialChunks(merged, options);
+
+    expect(selection.selected).toEqual([]);
+    expect(selection.discardedByFloor).toBe(2);
   });
 });

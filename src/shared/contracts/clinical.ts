@@ -16,6 +16,13 @@ export const documentTypeValues = ['soap', 'sbar', 'prescricao', 'alta', 'atesta
 
 export type DocumentType = (typeof documentTypeValues)[number];
 
+/**
+ * F0-D — campo do conteúdo de SOAP, SBAR e Alta que guarda o registro de uso
+ * de IA (Res. CFM 2.454/2026). Não editável pelo médico; o texto vive em
+ * src/modules/documents/ai-use-record.ts.
+ */
+export const AI_USE_RECORD_FIELD = 'aiUseRecord';
+
 export interface EncounterContext {
   hasCT: boolean;
   isSus: boolean;
@@ -157,7 +164,7 @@ export interface Document {
   confirmedBy: string | null;
   confirmedAt: string | null;
   contentHash: string | null;
-  // ADR-012 — algoritmo do contentHash: 1 = legado, 2 = JSON canônico.
+  // ADR-018 — algoritmo do contentHash: 1 = legado, 2 = JSON canônico.
   contentHashVersion: number | null;
   createdAt: string;
   updatedAt: string;
@@ -179,6 +186,8 @@ export interface AuditEntry {
   entityId: string;
   beforeHash: string | null;
   afterHash: string | null;
+  /** ADR-015: null = hash legado; 2 = JSON canônico. */
+  hashVersion: number | null;
   payload: Record<string, unknown> | null;
   ip: string | null;
   createdAt: string;
@@ -199,12 +208,71 @@ export interface RedFlag {
   action: string;
 }
 
+/**
+ * F0-C — por que uma recomendação saiu preliminar.
+ *
+ * - `pending_questions`: marcada pelo modelo (perguntas em aberto, red flag
+ *   crítica, anexo do médico). É o significado histórico de `preliminary`.
+ * - `unreviewed_source`: cita fonte que nenhum médico com CRM verificado
+ *   assinou — base oficial do MS ou chunk curado sem assinatura (ADR-012).
+ * - `subtype_ambiguity`: a evidência recuperada cobre ≥2 subtipos do mesmo
+ *   cenário com conduta oposta e a recomendação cita um deles.
+ * - `depends_on_data` (F1, decisão v2): conduta da camada "depende" — só
+ *   depois do dado em `dependsOn`.
+ * - `unverified_dose` (F1, decisão v2): conhecimento geral do modelo que
+ *   ainda traz dose depois do retry. Rótulo de proveniência, como
+ *   `unreviewed_source`: a conduta continua recomendada.
+ * - `source_conflict` (verificação com fonte, `COPILOT_KNOWLEDGE_SOURCE=verify`):
+ *   a fonte oficial achada depois da decisão diverge da conduta (outro
+ *   fármaco, via, momento ou contraindicação). O `rationale` diz no quê.
+ */
+export const PRELIMINARY_REASONS = [
+  'pending_questions',
+  'unreviewed_source',
+  'subtype_ambiguity',
+  'depends_on_data',
+  'unverified_dose',
+  'source_conflict',
+] as const;
+
+export type PreliminaryReason = (typeof PRELIMINARY_REASONS)[number];
+
+/**
+ * F1 — camada da conduta na decisão v2 (ADR-013, Etapa 3): `now` é segura e
+ * útil em toda hipótese ainda aberta; `depends` só depois do dado em
+ * `dependsOn`.
+ */
+export const RECOMMENDATION_LAYERS = ['now', 'depends'] as const;
+export type RecommendationLayer = (typeof RECOMMENDATION_LAYERS)[number];
+
+/**
+ * F1 — de onde vem a recomendação na decisão v2: trecho de evidência citado
+ * (`source`) ou conhecimento geral do modelo, sem trecho e sem dose
+ * (`model_knowledge`).
+ */
+export const RECOMMENDATION_BASES = ['source', 'model_knowledge'] as const;
+export type RecommendationBasis = (typeof RECOMMENDATION_BASES)[number];
+
 export interface CopilotRecommendation {
   action: string;
   rationale: string;
-  citationChunkId: string;
+  /**
+   * `null` só na decisão v2, com `basis: 'model_knowledge'`: não há trecho
+   * citado. Análises v1 e antigas sempre trazem um id.
+   */
+  citationChunkId: string | null;
+  /**
+   * Autodeclarada pelo modelo. Fica no contrato (ordenação, SBAR, auditoria),
+   * mas a UI não mostra: decisão clínica de não exibir probabilidade (F0-C).
+   */
   confidence: number;
   preliminary: boolean;
+  /**
+   * F0-C — presente quando `preliminary` é true. Opcional: interações
+   * gravadas antes do campo não o têm, e a UI as trata como
+   * `pending_questions` (o texto de sempre).
+   */
+  preliminaryReason?: PreliminaryReason;
   category?: RecommendationCategory;
   source: string;
   sourceVersion: string;
@@ -216,6 +284,12 @@ export interface CopilotRecommendation {
    * registrada.
    */
   origin?: Citation['origin'];
+  /** F1 — decisão v2. Ausente na v1 e em análises antigas: a UI renderiza como sempre. */
+  layer?: RecommendationLayer;
+  /** F1 — decisão v2: o dado que decide uma conduta `depends`. */
+  dependsOn?: string | null;
+  /** F1 — decisão v2. */
+  basis?: RecommendationBasis;
 }
 
 export interface ClarifyingQuestion {
@@ -233,6 +307,11 @@ export interface ClarifyingQuestion {
    * o front degrada graciosamente para lista simples sem agrupamento.
    */
   purpose?: string;
+  /**
+   * F1 — decisão v2: hipóteses abertas que a resposta separa ("Separa: A ×
+   * B"). Ausente na v1 e em análises antigas.
+   */
+  separates?: string[];
 }
 
 export interface DifferentialHypothesis {
@@ -268,26 +347,167 @@ export interface EvidenceTable {
   rows: string[][];
 }
 
+/**
+ * F4 — `physician_attachment` é uma referência que o médico anexou a ESTE
+ * atendimento e que ninguém curou. A UI precisa marcar visualmente: a
+ * garantia do produto passou a ser "toda recomendação cita uma fonte, e a
+ * interface sempre diz se ela é curada", não "toda fonte é curada".
+ *
+ * ADR-010 — `official_unreviewed` é documento oficial do Ministério da Saúde
+ * (PCDT/DDT/Diretrizes/Protocolos de Uso) ainda não revisado pela equipe
+ * clínica. Também precisa de marca visual própria.
+ *
+ * ADR-012 — `curated_unsigned` é chunk da base curada (`approved`) que nenhum
+ * médico com CRM verificado assinou: seed, pacotes KB-003/KB-004 e ingestão
+ * interna. `institutional`/`public` passam a significar "curado E assinado".
+ *
+ * F1 (decisão v2) — `model_knowledge` é conhecimento geral do modelo, sem
+ * trecho citado; `web_official` é página de fonte oficial da lista de domínios
+ * confiáveis, achada pela pesquisa web.
+ */
+export const CITATION_ORIGINS = [
+  'institutional',
+  'public',
+  'physician_attachment',
+  'official_unreviewed',
+  'curated_unsigned',
+  'model_knowledge',
+  'web_official',
+] as const;
+
+export type CitationOrigin = (typeof CITATION_ORIGINS)[number];
+
+/**
+ * F1 — trecho de página oficial achado pela pesquisa web, montado das
+ * citações da resposta (nunca do resumo escrito pelo modelo). Citável pela
+ * decisão v2 pelo `id` (`web:1`, `web:2`…) e gravado na interação para
+ * auditoria.
+ */
+export interface WebEvidenceItem {
+  id: string;
+  url: string;
+  title: string | null;
+  /** Host da página, sem `www.` — o que o médico lê no rótulo de origem. */
+  domain: string;
+  /** Trechos citados da página, na ordem em que apareceram. */
+  citedText: string;
+}
+
+/**
+ * F1 — de onde vem a evidência da análise (`COPILOT_KNOWLEDGE_SOURCE`).
+ * `verify` (emenda de 11/10/2026 ao ADR-013): a decisão roda como em
+ * `model_only` e só depois a pesquisa em fontes oficiais confere as condutas.
+ */
+export const KNOWLEDGE_SOURCES = ['internal_kb', 'model_only', 'web', 'verify'] as const;
+export type KnowledgeSource = (typeof KNOWLEDGE_SOURCES)[number];
+
+/**
+ * F1 — prompt da decisão (`COPILOT_DECISION_PROMPT`). `v3` (emenda de
+ * 11/10/2026 ao ADR-013) mantém o contrato de saída da v2 e muda as regras:
+ * até 2 perguntas, tetos por camada e destino do paciente.
+ */
+export const DECISION_PROMPT_VERSIONS = ['v1', 'v2', 'v3', 'v4'] as const;
+export type DecisionPromptVersion = (typeof DECISION_PROMPT_VERSIONS)[number];
+
 export interface Citation {
   source: string;
   sourceVersion: string;
   chunkId: string;
   text: string;
   institutionId?: string | null;
-  /**
-   * F4 — `physician_attachment` é uma referência que o médico anexou a ESTE
-   * atendimento e que ninguém curou. A UI precisa marcar visualmente: a
-   * garantia do produto passou a ser "toda recomendação cita uma fonte, e a
-   * interface sempre diz se ela é curada", não "toda fonte é curada".
-   *
-   * ADR-010 — `official_unreviewed` é documento oficial do Ministério da Saúde
-   * (PCDT/DDT/Diretrizes/Protocolos de Uso) ainda não revisado pela equipe
-   * clínica. Também precisa de marca visual própria.
-   */
-  origin?: 'institutional' | 'public' | 'physician_attachment' | 'official_unreviewed';
+  origin?: CitationOrigin;
   evidenceFigure?: EvidenceFigure | null;
   evidenceTable?: EvidenceTable | null;
 }
+
+/**
+ * F1 — síndromes de pronto-socorro: como o paciente se APRESENTA, não o
+ * diagnóstico final. Fonte única da lista fechada: o entendimento do caso
+ * (ADR-013, Etapa 1) escolhe uma delas e o gabarito clínico estratifica os
+ * casos por elas (evals/clinical/case.schema.ts). Lista fechada para os
+ * estratos não se fragmentarem por sinônimo; `outro` existe só para o
+ * entendimento, com a descrição em `syndromeNote`.
+ */
+export const PS_SYNDROMES = [
+  'agitacao-psicomotora',
+  'cefaleia',
+  'choque',
+  'crise-convulsiva',
+  'deficit-neurologico-focal',
+  'diarreia-vomitos',
+  'disturbio-glicemico',
+  'dispneia',
+  'dor-abdominal',
+  'dor-lombar-flanco',
+  'dor-toracica',
+  'febre',
+  'febre-hipotensao',
+  'infeccao-respiratoria',
+  'intoxicacao',
+  'pele-partes-moles',
+  'pressao-arterial-elevada',
+  'reacao-alergica',
+  'rebaixamento-consciencia',
+  'sintomas-urinarios',
+  'vertigem',
+  'outro',
+] as const;
+
+export type PsSyndrome = (typeof PS_SYNDROMES)[number];
+
+/**
+ * F1 — Etapa 1 do raciocínio em etapas (ADR-013): o que o Copiloto entendeu
+ * do caso ANTES de buscar evidência ou recomendar. Vai para a tela ("O que eu
+ * entendi") para o médico conferir e corrigir.
+ */
+export interface CaseUnderstanding {
+  /** Uma linha com os qualificadores que mudam a conduta. */
+  problemRepresentation: string;
+  /** Só o que o texto do caso informa; dado não informado é `null`, nunca inferido. */
+  structuredData: {
+    age: number | null;
+    sex: 'F' | 'M' | null;
+    vitals: {
+      systolicBp: number | null;
+      diastolicBp: number | null;
+      heartRate: number | null;
+      respiratoryRate: number | null;
+      spo2: number | null;
+      temperature: number | null;
+      glucose: number | null;
+    };
+    /** Início / tempo de evolução, como o texto disse. */
+    onset: string | null;
+    keyFindings: string[];
+    /** Anticoagulante, gestação, imunossupressão, alergias… só se informado. */
+    relevantContext: string[];
+  };
+  instability: { present: boolean; findings: string[] };
+  syndrome: PsSyndrome;
+  /** Preenchida quando `syndrome` é `outro`. */
+  syndromeNote: string | null;
+  /** Do pior para o menos grave, no máximo 5. */
+  cannotMiss: Array<{ hypothesis: string; whyPlausible: string; confirmOrRuleOut: string }>;
+  /** No máximo 3. */
+  likely: Array<{ hypothesis: string; why: string }>;
+  /** Dados ausentes que separam hipóteses de conduta diferente, no máximo 4. */
+  missingDiscriminators: Array<{ data: string; separates: string[]; whyItChangesConduct: string }>;
+  /** Consultas da busca dirigida, de 1 a 4. */
+  searchQueries: string[];
+  /**
+   * Alguma hipótese plausível pede tratamento em minutos a uma hora (AVC na
+   * janela, IAM com supra, sepse, anafilaxia...). Com a instabilidade, decide
+   * o modelo da decisão (AI_DECISION_CRITICAL_MODEL).
+   */
+  timeCritical: boolean;
+}
+
+/**
+ * F1 — `questionId` reservado de POST /copilot/respond para o médico corrigir
+ * o entendimento. O backend o mostra no bloco de perguntas e respostas como
+ * "Correção do médico ao entendimento".
+ */
+export const UNDERSTANDING_CORRECTION_QUESTION_ID = 'correcao-do-entendimento';
 
 export interface CopilotAnalysis {
   reasoning: string;
@@ -298,6 +518,19 @@ export interface CopilotAnalysis {
   uncertaintyReason: string | null;
   differentials: DifferentialHypothesis[];
   clarifyingQuestions: ClarifyingQuestion[];
+  /**
+   * F1 — Etapa 1 (ADR-013). Ausente com `COPILOT_REASONING=legacy` e em
+   * interações gravadas antes da Fase 1; `null` quando a etapa falhou e a
+   * análise seguiu pelo caminho de sempre. A UI só mostra o card com valor.
+   */
+  understanding?: CaseUnderstanding | null;
+  /**
+   * F1 — trechos da pesquisa web entregues à decisão
+   * (`COPILOT_KNOWLEDGE_SOURCE=web`) ou achados pela verificação depois dela
+   * (`verify`). Ausente nos outros modos; vazio quando a pesquisa falhou e a
+   * análise seguiu só com o conhecimento do modelo.
+   */
+  webEvidence?: WebEvidenceItem[];
 }
 
 export interface CopilotAnalyzeResponse {
@@ -316,8 +549,12 @@ export interface CopilotAnalyzeResponse {
      * cenário vizinho, declarou a lacuna e perguntou. A UI mostra isso ao
      * médico para que a ausência de recomendação seja lida como "a base não
      * cobre este cenário", não como indecisão do modelo.
+     *
+     * F1 — `null` quando a base não foi consultada
+     * (`COPILOT_KNOWLEDGE_SOURCE=model_only|web`): nunca afirmar cobertura que
+     * não foi medida.
      */
-    retrievalCoverage: RetrievalCoverage;
+    retrievalCoverage: RetrievalCoverage | null;
     /**
      * ADR-010 — trechos da base oficial do MS entregues ao modelo. Opcional:
      * respostas anteriores à base oficial não têm o campo.
@@ -329,6 +566,13 @@ export interface CopilotAnalyzeResponse {
     /** UX-03 — turno desta interação (0 = análise inicial) e teto de turnos. */
     turnIndex: number;
     maxTurns: number;
+    /** F1 — duração da Etapa 1 (entendimento). Só com `COPILOT_REASONING=stages`. */
+    understandingLatencyMs?: number;
+    /** F1 — fonte de conhecimento e prompt da decisão efetivos neste turno. */
+    knowledgeSource?: KnowledgeSource;
+    decisionPrompt?: DecisionPromptVersion;
+    /** F1 — duração da pesquisa web (ou da verificação, em `verify`). Só quando ela rodou. */
+    researchLatencyMs?: number;
   };
 }
 
@@ -336,13 +580,16 @@ export interface CopilotAnalyzeResponse {
 export type RetrievalCoverage = 'full' | 'partial' | 'none';
 
 /**
- * UX-06 — eventos do stream SSE de GET /encounters/:id/copilot/stream.
+ * UX-06 — eventos do stream SSE de GET /encounters/:id/copilot/stream e,
+ * na reanálise, do corpo de POST /encounters/:id/copilot/respond/stream.
  * Espelha `StreamEvent` de orchestrator.service.ts, mas com `result`
  * tipado como `CopilotAnalyzeResponse` (o formato de wire real que a HTTP
  * API expõe) em vez de `OrchestratorResult` (tipo interno do backend) —
  * mesma convenção de CopilotAnalyzeResponse espelhando OrchestratorResult.
  */
 export type CopilotStreamEvent =
+  /** F1 — Etapa 1 pronta, antes do primeiro delta (só com `COPILOT_REASONING=stages`). */
+  | { type: 'understanding'; understanding: CaseUnderstanding }
   | { type: 'delta'; delta: string }
   | { type: 'done'; result: CopilotAnalyzeResponse }
   | { type: 'error'; errors: string[] };
@@ -373,6 +620,132 @@ export interface LatestInteractionResponse {
 }
 
 /**
+ * ADR-014 — Copiloto guiado: antes do primeiro plano, a leitura do caso
+ * decide se pergunta (no máximo 3 perguntas, uma por vez) ou vai direto ao
+ * plano (paciente instável, caso completo).
+ */
+export const INTAKE_ANSWER_TYPES = ['boolean', 'choice', 'number', 'text', 'vitals'] as const;
+export type IntakeAnswerType = (typeof INTAKE_ANSWER_TYPES)[number];
+
+/** Sinais vitais que uma pergunta do tipo `vitals` pode pedir, na ordem da tela. */
+export const VITAL_SIGNS = [
+  'bloodPressure',
+  'heartRate',
+  'respiratoryRate',
+  'spo2',
+  'temperature',
+  'glucose',
+] as const;
+export type VitalSign = (typeof VITAL_SIGNS)[number];
+
+/** Opções de toque de toda pergunta `boolean`: "Não sei" é resposta válida. */
+export const BOOLEAN_ANSWER_CHOICES = ['Sim', 'Não', 'Não sei'] as const;
+
+export interface IntakeQuestion {
+  id: string;
+  question: string;
+  answerType: IntakeAnswerType;
+  /** Opções de toque: em `boolean`, sempre `BOOLEAN_ANSWER_CHOICES`; vazio em número, texto e sinais vitais. */
+  choices: string[];
+  /** Unidade de uma pergunta `number` (ex.: "mg/dL"). */
+  unit: string | null;
+  /** Só em `vitals`: os sinais que o caso ainda não deu. */
+  vitalSigns: VitalSign[];
+  /** Hipóteses que a resposta separa ("Separa: A × B"). */
+  separates: string[];
+  /** Por que a resposta muda a conduta ("Por que pergunto?"). */
+  why: string;
+}
+
+/** Mesmo formato de `CaseUnderstanding.structuredData.vitals`; `null` = não informado. */
+export interface VitalsAnswer {
+  systolicBp: number | null;
+  diastolicBp: number | null;
+  heartRate: number | null;
+  respiratoryRate: number | null;
+  spo2: number | null;
+  temperature: number | null;
+  glucose: number | null;
+}
+
+export type IntakeAnswerValue = string | number | VitalsAnswer;
+
+/** Como o médico respondeu — mede o atrito (toque × digitação × voz). */
+export const INTAKE_ANSWER_CHANNELS = ['tap', 'text', 'voice'] as const;
+export type IntakeAnswerChannel = (typeof INTAKE_ANSWER_CHANNELS)[number];
+
+export interface IntakeAnswer {
+  questionId: string;
+  question: string;
+  /** Resposta já em texto e redigida (PII + patientRef), como entra na análise. */
+  answer: string;
+  channel: IntakeAnswerChannel;
+  answeredAt: string;
+}
+
+/**
+ * Para onde a leitura do caso mandou a conversa:
+ * - `ask`: faltam dados que mudam a conduta e o médico tem à mão;
+ * - `unstable`: paciente instável, plano direto;
+ * - `complete`: nada que falte muda a conduta agora;
+ * - `reading_failed`: a leitura falhou ou demorou; plano direto;
+ * - `disabled`: `COPILOT_INTAKE=off`; plano direto, sem leitura.
+ */
+export const INTAKE_PATHS = ['ask', 'unstable', 'complete', 'reading_failed', 'disabled'] as const;
+export type IntakePath = (typeof INTAKE_PATHS)[number];
+
+export const INTAKE_STATUSES = ['asking', 'closed'] as const;
+export type IntakeStatus = (typeof INTAKE_STATUSES)[number];
+
+export const INTAKE_CLOSE_REASONS = [
+  'all_answered',
+  'skipped',
+  'urgent_answer',
+  'not_needed',
+] as const;
+export type IntakeCloseReason = (typeof INTAKE_CLOSE_REASONS)[number];
+
+export interface IntakeView {
+  intakeId: string;
+  path: IntakePath;
+  status: IntakeStatus;
+  closeReason: IntakeCloseReason | null;
+  /** Texto do caso como o médico mandou, já redigido. */
+  caseText: string;
+  /** "Entendi: …" — a representação do problema; `null` sem leitura. */
+  summary: string | null;
+  /** Achados de instabilidade, quando `path` é `unstable`. */
+  instabilityFindings: string[];
+  questions: IntakeQuestion[];
+  answers: IntakeAnswer[];
+  /** A pergunta da vez; `null` fora de `asking`. */
+  pendingQuestionId: string | null;
+  /** A análise que nasceu desta conversa; `null` até o plano sair. */
+  analysisInteractionId: string | null;
+  /** O plano está sendo montado agora (começou há pouco e ainda não saiu). */
+  analysisInProgress: boolean;
+  createdAt: string;
+}
+
+/** Uma rodada do plano na conversa do caso. */
+export interface ConversationTurn extends Omit<
+  LatestInteractionResponse,
+  'maxTurns' | 'createdAt'
+> {
+  createdAt: string;
+  /** Respostas à rodada anterior que geraram esta; vazio na primeira. */
+  answeredQuestions: Array<{ questionId: string; question: string; answer: string }>;
+}
+
+/** GET /encounters/:id/copilot/conversation — a conversa inteira do caso. */
+export interface CaseConversationResponse {
+  intake: IntakeView | null;
+  /** Rodadas do plano em ordem; só as que saíram válidas. */
+  turns: ConversationTurn[];
+  maxTurns: number;
+}
+
+/**
  * F7 — feedback estruturado do médico sobre uma análise.
  *
  * `wrong_scenario` é o caso dos dois incidentes de campo: o Copiloto conduziu
@@ -394,6 +767,103 @@ export interface CopilotFeedbackRequest {
 
 export interface CopilotFeedbackResponse {
   recorded: true;
+}
+
+/**
+ * F0-D — fila de triagem do feedback (console admin, curadoria).
+ * `converted_to_eval_case` = virou caso do gabarito de avaliação.
+ */
+export const copilotFeedbackStatusValues = [
+  'new',
+  'triaged',
+  'converted_to_eval_case',
+  'dismissed',
+] as const;
+
+export type CopilotFeedbackStatus = (typeof copilotFeedbackStatusValues)[number];
+
+/** Visão compacta da saída da análise — o que a curadoria precisa para triar. */
+export interface CopilotFeedbackOutputSummary {
+  mainHypothesis: string | null;
+  recommendations: Array<{ action: string; preliminary: boolean; citationChunkId: string | null }>;
+  questions: Array<{ question: string; criticality: string }>;
+  uncertainty: boolean;
+}
+
+export interface CopilotFeedbackTriageItem {
+  id: string;
+  kind: CopilotFeedbackKind;
+  /** Comentário do médico, já mascarado de PII. */
+  comment: string | null;
+  status: CopilotFeedbackStatus;
+  triageNote: string | null;
+  triagedBy: string | null;
+  triagedAt: string | null;
+  createdAt: string;
+  encounterId: string;
+  physicianId: string;
+  interaction: {
+    id: string;
+    model: string;
+    turnIndex: number;
+    /** Texto do caso como foi analisado (PII mascarada). */
+    inputRedacted: string | null;
+    retrievalCoverage: RetrievalCoverage | null;
+    retrievedChunkIds: string[];
+    citedChunkIds: string[];
+    output: CopilotFeedbackOutputSummary;
+    createdAt: string;
+  };
+}
+
+export interface CopilotFeedbackTriagePage {
+  items: CopilotFeedbackTriageItem[];
+  /** Total do filtro atual (para paginação). */
+  total: number;
+  /** Total por status, independente do filtro (contadores das abas). */
+  countsByStatus: Record<CopilotFeedbackStatus, number>;
+}
+
+export interface UpdateCopilotFeedbackTriageRequest {
+  status: CopilotFeedbackStatus;
+  /** Texto livre da curadoria; o servidor mascara PII. `null` apaga. */
+  triageNote?: string | null;
+}
+
+/**
+ * F0-D — o que o médico fez com uma recomendação, persistido no servidor
+ * (antes vivia só no sessionStorage). `modified` = adotou com ajuste (Adotar
+ * + nota); a regra completa de mapeamento dos botões está em
+ * web/src/hooks/use-recommendation-decisions.ts.
+ */
+export const recommendationDecisionValues = ['adopted', 'rejected', 'modified'] as const;
+
+export type RecommendationDecisionValue = (typeof recommendationDecisionValues)[number];
+
+/**
+ * O cliente manda o ÍNDICE da recomendação, não a chave: o servidor calcula
+ * `recommendationKey` a partir do rawOutput gravado, para que uma chave
+ * forjada nunca aponte para uma recomendação que não existe.
+ */
+export interface UpsertRecommendationDecisionRequest {
+  interactionId: string;
+  recommendationIndex: number;
+  decision: RecommendationDecisionValue;
+  /** Texto livre; o servidor mascara PII antes de gravar. `null` apaga a nota. */
+  note?: string | null;
+}
+
+export interface RecommendationDecisionRecord {
+  id: string;
+  interactionId: string;
+  recommendationIndex: number;
+  /** `<índice>-<12 hex do sha256 da ação>`. */
+  recommendationKey: string;
+  decision: RecommendationDecisionValue;
+  /** Nota já mascarada de PII. */
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**

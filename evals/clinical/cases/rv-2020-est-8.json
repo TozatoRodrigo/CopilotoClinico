@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 2,
+  "id": "rv-2020-est-8",
+  "title": "Escolar com anemia falciforme e dor intensa na perna sem melhora com analgésicos em casa",
+  "tags": [
+    "pele-partes-moles",
+    "revalida",
+    "pep",
+    "pediatria",
+    "doenca-falciforme"
+  ],
+  "critical": false,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "PS, leito de observação. Masc, 7a, anemia falciforme, trazido no colo pela mãe por dor na perna. Na noite anterior a dor piorou, apesar de 2 remédios para dor e compressas mornas na perna. Receita domiciliar (se dor): dipirona 25 gotas VO 4/4 h e diclofenaco 25 mg VO 8/8 h; uso contínuo: ácido fólico 5 mg/dia. Não para de chorar e pede remédio para dor; dor 6–7 na escala analógica na triagem. EF: REG, fácies de dor, hipocorado 2+/4+, hidratado, enchimento capilar normal. FC 110, FR 24, PA 100x60, SatO2 96% AA. ACV: bulhas rítmicas, normofonéticas, sem sopro. AR: eupneico, MV fisiológico, sem ruídos adventícios. Abdome plano, normotenso, sem visceromegalias, indolor, sem irritação peritoneal, RHA normais."
+  },
+  "expected": {
+    "syndrome": "crise álgica (vaso-oclusiva) da anemia falciforme refratária ao tratamento domiciliar",
+    "diagnoses": [
+      {
+        "text": "crise álgica (vaso-oclusiva) da anemia falciforme, refratária ao tratamento domiciliar",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "internação, porque a dor não melhorou com o tratamento domiciliar",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "hidratação oral ou venosa",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "analgesia parenteral escalonada: dipirona e AINE (diclofenaco) parenterais associados a opioide (codeína VO ou morfina EV)",
+        "tier": "important",
+        "timing": "now"
+      }
+    ],
+    "questions": [
+      "febre e esplenectomia prévia: mudam a conduta na doença falciforme (risco de infecção grave)",
+      "alergia a medicamentos, antes de prescrever a analgesia",
+      "hemoglobina basal e transfusões prévias, para comparar com o quadro atual"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "outOfScope": [
+      "identificar-se e cumprimentar a mãe (item 1.1)",
+      "anamnese da crise e da doença: início da dor e o que foi feito, outros sintomas, tempo de diagnóstico, acompanhamento com hematologista, crises prévias, frequência e idas à emergência (itens 1.2 e 1.4–1.9; respostas da mãe não publicadas)",
+      "perguntar se a mãe tem dúvidas (item 3.4)"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2020, Estação 8): o PEP pontua a anamnese dirigida da doença falciforme e da crise, o diagnóstico de crise álgica e o plano com internação, hidratação e analgesia parenteral escalonada com opioide. Gabarito v2: diagnóstico e plano viraram itens importantes (caso não crítico); febre, alergia, Hb basal, transfusões e esplenectomia, sem resposta publicada, ficaram como perguntas."
+  },
+  "sources": [
+    {
+      "claim": "Anamnese: início da dor e o que foi feito para melhorar (1.2); febre (1.3); outros sintomas (1.4); tempo de diagnóstico de anemia falciforme (1.5); acompanhamento com hematologista (1.6); outras crises, frequência e atendimentos de emergência (1.7–1.9); alergia a medicamentos (1.10, 1,0 ponto); hemoglobina basal (1.11); hemotransfusão prévia (1.12); esplenectomia (1.13).",
+      "title": "Revalida 2020 – Habilidades Clínicas – PEP, Estação 8, itens 1.2–1.13",
+      "publisher": "INEP",
+      "year": 2020,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2020/padrao_esperado_procedimentos_habilidades_clinicas.pdf"
+    },
+    {
+      "claim": "Diagnóstico: crise álgica ou de dor devida à anemia falciforme (2.1, 1,0 ponto).",
+      "title": "Revalida 2020 – Habilidades Clínicas – PEP, Estação 8, item 2.1",
+      "publisher": "INEP",
+      "year": 2020,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2020/padrao_esperado_procedimentos_habilidades_clinicas.pdf"
+    },
+    {
+      "claim": "Plano: internação e motivo — não melhorou ou não vai melhorar com o tratamento domiciliar (3.1); hidratação oral ou venosa (3.2); dipirona e diclofenaco parenterais associados a codeína VO ou morfina EV (3.3, 1,0 ponto).",
+      "title": "Revalida 2020 – Habilidades Clínicas – PEP, Estação 8, itens 3.1–3.3",
+      "publisher": "INEP",
+      "year": 2020,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2020/padrao_esperado_procedimentos_habilidades_clinicas.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2020",
+    "item": "Estação 8",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2020/padrao_esperado_procedimentos_habilidades_clinicas.pdf",
+    "originalCaseText": "ESTAÇÃO 8 – Área: Pediatria. INSTRUÇÕES PARA O(A) PARTICIPANTE. Cenário de atuação: Você está em um pronto-socorro e realizará o atendimento junto à mãe de um escolar com 7 anos de idade. O menino foi trazido no colo de sua mãe, pois estava com dor na perna, e no momento, encontra-se no leito de observação. A mãe refere que seu filho tem anemia falciforme. Na noite anterior, a dor piorou, apesar de o menino estar em uso de 2 remédios para dor e estar aplicando compressas mornas na perna. A criança não para de chorar e pede remédio para dor. Na triagem, a dor foi graduada entre 6 e 7, pela Escala Analógica de Dor. Nos próximos 10 minutos, deverão ser realizadas as seguintes tarefas: realizar anamnese dirigida para a queixa relatada pela mãe; explicar para a mãe o diagnóstico do evento agudo; orientar a mãe sobre o plano de cuidados do paciente.",
+    "notes": "Gabarito v2 (11/10/2026): caso completo com o cenário oficial, o receituário domiciliar (impresso 1) e o exame físico (impresso 2); sem funnel, porque o PEP de 2020 (conferido nas imagens das páginas da Estação 8) não publica roteiro da mãe simulada. Febre, alergia, Hb basal, transfusões e esplenectomia ficaram como perguntas; o resto da anamnese do PEP foi para fora do escopo. Caso não crítico: todos os itens são importantes. | tags[0] = pele-partes-moles por falta de estrato para dor em membro. Dados sob demanda: Impresso 1 (receituário domiciliar) — em caso de dor: dipirona gotas 25 gotas VO 4/4 h e diclofenaco 25 mg 1 cp VO 8/8 h; uso contínuo: ácido fólico 5 mg/dia. Impresso 2 — REG, fácies de dor, hipocorada 2+/4+, hidratada, enchimento capilar normal; FC 110, FR 24, PA 100x60, SatO2 96% em AA; ACV, AR e abdome sem alterações. Respostas da mãe às perguntas do PEP (febre, crises prévias, hemoglobina basal, transfusões, esplenectomia, alergias) não são publicadas."
+  }
+}

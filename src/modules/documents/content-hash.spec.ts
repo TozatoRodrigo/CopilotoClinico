@@ -85,7 +85,7 @@ describe('sealContent', () => {
     });
   });
 
-  // Regressão do ADR-012: o v1 serializava os medicamentos como `{}`.
+  // Regressão do ADR-018: o v1 serializava os medicamentos como `{}`.
   it('muda o hash quando um campo de medicamento da prescrição é editado', () => {
     const edited = sealContent(withDosage('500 mg'));
 
@@ -144,7 +144,7 @@ describe('verifyContentSeal', () => {
       );
     });
 
-    // Limitação conhecida e documentada no ADR-012 — não é corrigível sem
+    // Limitação conhecida e documentada no ADR-018 — não é corrigível sem
     // re-selar, o que validaria alterações feitas depois da confirmação.
     it('não detecta alteração dentro dos itens de medicamento', () => {
       expect(verifyContentSeal(withDosage('500 mg'), legacySeal)).toBe(true);

@@ -102,7 +102,11 @@ describe('AUD-003 — verifyChain() integration (real PostgreSQL)', () => {
 
     const result = await service.verifyChain();
 
-    expect(result).toEqual({ valid: true, count: 0 });
+    expect(result).toEqual({
+      valid: true,
+      count: 0,
+      legacy: { verified: 0, unverifiable: 0, unverifiableSample: [] },
+    });
   });
 
   // ─────────────────────────────────────────────────────────────────

@@ -6,6 +6,7 @@ import { StorageService } from '../storage/storage.service';
 import { InstitutionsService } from '../institutions/institutions.service';
 import { NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
 import { sealContent } from './content-hash';
+import { AI_USE_RECORD_TEXT } from './ai-use-record';
 
 const physicianId = '550e8400-e29b-41d4-a716-446655440000';
 const otherPhysicianId = '660e8400-e29b-41d4-a716-446655440001';
@@ -50,6 +51,11 @@ const baseDocument = {
   contentHash: 'abc123hash',
   createdAt: new Date('2025-01-01'),
 };
+
+/** Hash do selo atual, o mesmo que documents.service.ts grava. */
+function canonicalHashOf(content: Record<string, unknown>): string {
+  return sealContent(content as Parameters<typeof sealContent>[0]).contentHash;
+}
 
 describe('DocumentsService', () => {
   let service: DocumentsService;
@@ -192,6 +198,52 @@ describe('DocumentsService', () => {
         }),
       );
       expect(result.type).toBe('sbar');
+    });
+
+    /**
+     * F0-D — Res. CFM 2.454/2026. Mudança DELIBERADA no hash de geração: o
+     * registro de uso de IA é parte do conteúdo, então o mesmo caso gera um
+     * hash diferente do que gerava antes — e quem conferir o documento
+     * assinado consegue provar que o registro estava lá.
+     */
+    describe('F0-D: registro de uso de IA', () => {
+      function mockGenerationFor() {
+        prisma.encounter.findUnique.mockResolvedValue({ physicianId, patientRef: 'PAT-001' });
+        prisma.aiInteraction.findUnique.mockResolvedValue({ rawOutput: copilotRawOutput });
+        prisma.document.create.mockImplementation(({ data }) => Promise.resolve({ id: documentId, ...data }));
+      }
+
+      function createdData(): { content: Record<string, unknown>; contentHash: string } {
+        return (prisma.document.create.mock.calls[0]![0] as {
+          data: { content: Record<string, unknown>; contentHash: string };
+        }).data;
+      }
+
+      it.each(['soap', 'sbar', 'alta'] as const)(
+        'grava o registro no conteúdo do %s e o hash de geração o cobre',
+        async (type) => {
+          mockGenerationFor();
+
+          await service.generate(physicianId, encounterId, { type, aiInteractionId });
+
+          const { content, contentHash } = createdData();
+          expect(content.aiUseRecord).toBe(AI_USE_RECORD_TEXT);
+          expect(contentHash).toBe(canonicalHashOf(content));
+          const { aiUseRecord: _record, ...withoutRecord } = content;
+          expect(contentHash).not.toBe(canonicalHashOf(withoutRecord));
+        },
+      );
+
+      it.each(['prescricao', 'atestado'] as const)(
+        'não grava o registro na %s (decisão jurídica pendente)',
+        async (type) => {
+          mockGenerationFor();
+
+          await service.generate(physicianId, encounterId, { type, aiInteractionId });
+
+          expect(createdData().content).not.toHaveProperty('aiUseRecord');
+        },
+      );
     });
 
     it('throws NotFoundException for missing encounter', async () => {
@@ -378,6 +430,59 @@ describe('DocumentsService', () => {
         select: expect.any(Object),
       });
       expect(result.physicianEdits).toEqual({ subjective: 'Edited text' });
+    });
+
+    // F0-D — o registro de uso de IA não é editável pelo médico.
+    describe('F0-D: registro de uso de IA', () => {
+      const generatedContent = { ...baseDocument.content, aiUseRecord: 'texto da geração' };
+
+      function savedEdits(): Record<string, unknown> {
+        return (prisma.document.update.mock.calls[0]![0] as {
+          data: { physicianEdits: Record<string, unknown> };
+        }).data.physicianEdits;
+      }
+
+      beforeEach(() => {
+        prisma.document.findUnique.mockResolvedValue({
+          physicianId,
+          confirmedBy: null,
+          content: generatedContent,
+        });
+        prisma.document.update.mockResolvedValue(baseDocument);
+      });
+
+      it('mantém o registro quando a edição o omite', async () => {
+        await service.edit(physicianId, documentId, {
+          physicianEdits: { subjective: 'Edited text' },
+        });
+
+        expect(savedEdits()).toEqual({
+          subjective: 'Edited text',
+          aiUseRecord: 'texto da geração',
+        });
+      });
+
+      it('restaura o texto da geração quando a edição tenta alterá-lo', async () => {
+        await service.edit(physicianId, documentId, {
+          physicianEdits: { subjective: 'Edited text', aiUseRecord: 'Sem uso de IA' },
+        });
+
+        expect(savedEdits().aiUseRecord).toBe('texto da geração');
+      });
+
+      it('não acrescenta registro a documento gerado antes dele existir', async () => {
+        prisma.document.findUnique.mockResolvedValue({
+          physicianId,
+          confirmedBy: null,
+          content: baseDocument.content,
+        });
+
+        await service.edit(physicianId, documentId, {
+          physicianEdits: { subjective: 'Edited text' },
+        });
+
+        expect(savedEdits()).toEqual({ subjective: 'Edited text' });
+      });
     });
 
     it('throws NotFoundException for missing document', async () => {
@@ -571,13 +676,33 @@ describe('DocumentsService', () => {
       expect(confirmedHash).not.toBe('abc123hash');
     });
 
+    // F0-D — o gate de confirmação sela o registro de uso de IA junto.
+    it('sela o registro de uso de IA no hash de confirmação', async () => {
+      const edits = { subjective: 'Edited by physician', aiUseRecord: AI_USE_RECORD_TEXT };
+      prisma.document.findUnique.mockResolvedValue({ ...docBase, physicianEdits: edits });
+      prisma.document.update.mockResolvedValue({
+        ...baseDocument,
+        physicianEdits: edits,
+        confirmedBy: physicianId,
+        confirmedAt: new Date(),
+      });
+      prisma.encounter.update.mockResolvedValue({});
+
+      await service.confirm(physicianId, documentId);
+
+      const updateCall = prisma.document.update.mock.calls[0] as [
+        { data: { contentHash: string } },
+      ];
+      expect(updateCall[0].data.contentHash).toBe(canonicalHashOf(edits));
+    });
+
     it('throws NotFoundException para documento inexistente', async () => {
       prisma.document.findUnique.mockResolvedValue(null);
 
       await expect(service.confirm(physicianId, documentId)).rejects.toThrow(NotFoundException);
     });
 
-    // ADR-012 — AuditService.log() descarta `afterHash` e recalcula o seu;
+    // ADR-018 — AuditService.log() descarta `afterHash` e recalcula o seu;
     // só o payload entra no hash encadeado.
     it('ancora o selo confirmado no payload do DOCUMENT_CONFIRMED', async () => {
       prisma.document.findUnique.mockResolvedValue(docBase);
@@ -594,7 +719,7 @@ describe('DocumentsService', () => {
       );
     });
 
-    // ADR-012 — regressão: o hash v1 serializava cada medicamento como `{}`.
+    // ADR-018 — regressão: o hash v1 serializava cada medicamento como `{}`.
     it('sela os campos de cada medicamento da prescrição', async () => {
       const medication = { medicamento: 'AAS', dosagem: '100 mg', via: 'oral' };
       const prescription = { paciente: 'PAT-001', medicamentos: [medication] };
@@ -665,7 +790,7 @@ describe('DocumentsService', () => {
     });
   });
 
-  describe('verifyIntegrity — ADR-012', () => {
+  describe('verifyIntegrity — ADR-018', () => {
     const prescription = {
       paciente: 'PAC-001',
       medicamentos: [{ medicamento: 'AAS', dosagem: '100 mg', via: 'oral' }],

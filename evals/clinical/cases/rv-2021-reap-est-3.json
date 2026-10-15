@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 2,
+  "id": "rv-2021-reap-est-3",
+  "title": "Lactente de 1 ano com irritabilidade e choro forte há 48 horas na UPA",
+  "tags": [
+    "dor-abdominal",
+    "revalida",
+    "pep",
+    "pediatria",
+    "invaginacao-intestinal"
+  ],
+  "critical": true,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "UPA, plantão de pediatria. Fem, 1a, branca, eutrófica, 10 kg, Tax 36,7 °C. Irritabilidade e choro forte há ~48 h. EF: REG, nutrida, hidratada, afebril. Aparente dor à palpação abdominal, sem distensão; pequena massa palpável, móvel e indolor em flanco D. Durante o exame evacua fezes misturadas com sangue. Toque retal: pequena quantidade de fezes com sangue, aspecto de 'geleia de morango', na ponta da luva."
+  },
+  "expected": {
+    "syndrome": "invaginação intestinal (intussuscepção ileocecocólica) em lactente",
+    "diagnoses": [
+      {
+        "text": "invaginação intestinal (intussuscepção)",
+        "tier": "critical"
+      }
+    ],
+    "actions": [
+      {
+        "text": "ultrassonografia abdominal para confirmar o diagnóstico",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "após a confirmação, redução não cirúrgica por enema sob imagem (hidrostática por via retal sob radioscopia, como no gabarito, ou pneumática/guiada por US) e tratamento cirúrgico se a redução não for possível",
+        "tier": "critical",
+        "timing": "any"
+      },
+      {
+        "text": "internação ou encaminhamento a serviço com radiologia e cirurgia pediátrica para o tratamento",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [],
+    "outOfScope": [
+      "apresentar-se e perguntar o nome da mãe e da criança (item 1)",
+      "queixa principal, história da doença atual, antecedentes gestacionais e do parto, amamentação, doenças prévias, vacinas e padrão de urina e fezes (itens 2–6) — anamnese; a síntese da atriz não é publicada",
+      "pedir o exame físico e o toque retal (itens 7–8) — achados no caseText",
+      "explicar a doença à mãe (item 9, parte 2) e o porquê da ultrassonografia (item 10, parte 2)"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2021 reaplicação, Estações 3 e 8): o PEP pontua anamnese dirigida, exame com toque retal, hipótese de invaginação intestinal confirmada por US e redução hidrostática sob radioscopia, com cirurgia se falhar. Gabarito v2: o item de redução aceita também a redução pneumática ou guiada por US, prática corrente que não contradiz o gabarito."
+  },
+  "sources": [
+    {
+      "claim": "Anamnese e exame: queixa principal (2) e história da doença atual (3); antecedentes gestacionais e parto (4); amamentação, doenças prévias e vacinas (5); padrão de urina e fezes (6); exame físico (7); toque retal (8, 1,5 ponto).",
+      "title": "Revalida 2021 (reaplicação) – Habilidades Clínicas – PEP, Estações 3 e 8, itens 2–8",
+      "publisher": "INEP",
+      "year": 2021,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2021_PEP_reaplicacao.pdf"
+    },
+    {
+      "claim": "Hipótese de invaginação intestinal explicada à mãe (9, 2,0 pontos); ultrassonografia para confirmação, explicando o porquê — inadequado se não solicita ou solicita outro exame (10, 2,0 pontos).",
+      "title": "Revalida 2021 (reaplicação) – Habilidades Clínicas – PEP, Estações 3 e 8, itens 9–10",
+      "publisher": "INEP",
+      "year": 2021,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2021_PEP_reaplicacao.pdf"
+    },
+    {
+      "claim": "Conduta após confirmação: tentativa de redução hidrostática por via retal sob radioscopia e, se não for possível, tratamento cirúrgico (11, 2,0 pontos).",
+      "title": "Revalida 2021 (reaplicação) – Habilidades Clínicas – PEP, Estações 3 e 8, item 11",
+      "publisher": "INEP",
+      "year": 2021,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2021_PEP_reaplicacao.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2021 (reaplicação)",
+    "item": "Estação 3 e 8",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2021_PEP_reaplicacao.pdf",
+    "originalCaseText": "ESTAÇÕES 3 e 8 – Área: Pediatria. INSTRUÇÕES PARA O(A) PARTICIPANTE. CENÁRIO DE ATUAÇÃO: Você está de plantão na pediatria de uma Unidade de Pronto Atendimento de sua cidade. A mãe, com quem você irá fazer a consulta agora, está preocupada porque a filha Beatriz, uma lactente com 1 ano de idade, bem nutrida, começou a apresentar irritabilidade e choro forte há cerca de 48 horas. Nos próximos 10 minutos, deverão ser realizadas as seguintes tarefas: fazer a anamnese dirigida à mãe; ler os dados e sinais vitais da criança (ao final dessa página); comentar o exame físico (não será necessário examinar diretamente a criança simulada); solicitar todos os exames complementares que julgar necessários (se indicados); formular a hipótese diagnóstica e responder aos questionamentos da mãe da criança simulada; propor conduta terapêutica e explicar à mãe (se for o caso). DADOS E SINAIS VITAIS: Paciente: Beatriz, feminina, branca; Idade: 1 ano; Peso: 10 kg; Eutrófica: temperatura axilar 36,7 °C.",
+    "notes": "Gabarito v2 (11/10/2026): caseText com os dados da estação e os impressos de exame físico e toque retal; o laudo da US ficou fora (o PEP cobra só solicitá-la e o laudo traz o diagnóstico), e a US virou item importante 'agora'. Sem funnel: o PEP da reaplicação 2021 não publica o roteiro da atriz. A redução por enema com cirurgia se falhar é o item crítico ('any', depende da confirmação); o texto aceita também enema pneumático ou guiado por US, sem fonte nova verificada — registrar na revisão. O encaminhamento a serviço com radiologia e cirurgia pediátrica (cenário de UPA) foi acrescentado como importante. | Dados sob demanda: Impresso 1 — REG, nutrida, hidratada, afebril; aparente dor à palpação abdominal sem distensão, pequena massa palpável, móvel e indolor em flanco direito; durante o exame evacua fezes misturadas com sangue. Impresso 2 — toque retal: pequena quantidade de fezes com sangue em 'geleia de morango'. Impresso 3 — US: sinal do alvo e do pseudorrim, invaginação ileocecocólica em flanco direito com sinal de Dance. A síntese do ator não é publicada no PEP."
+  }
+}

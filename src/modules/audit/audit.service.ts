@@ -1,22 +1,38 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
-import { createHash } from 'crypto';
+import { randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../config/prisma.service';
 import type { AuditLog } from '@prisma/client';
 import type { AuditQueryInput } from './schemas/audit.schemas';
+import {
+  CANONICAL_AUDIT_HASH_VERSION,
+  LegacyKeyOrderHints,
+  canonicalEventText,
+  canonicalJson,
+  chainHashes,
+  matchLegacyEvent,
+  toJsonValue,
+} from './audit-hash';
+import type { AuditEventFields, JsonValue, LegacyUnverifiableReason } from './audit-hash';
 
 const VERIFY_CHAIN_PAGE_SIZE = 1000;
 const AUDIT_CHAIN_ADVISORY_LOCK_ID = 7_314_061;
 const AUDIT_CHAIN_TRANSACTION_MAX_ATTEMPTS = 5;
+/** Quantos "legado não verificável" o resultado lista por id (o total vem à parte). */
+const LEGACY_UNVERIFIABLE_SAMPLE_SIZE = 20;
 
 interface LogParams {
   actorId: string;
   action: string;
   entity: string;
   entityId: string;
-  beforeHash?: string;
   payload?: Record<string, unknown>;
   ip?: string;
+}
+
+export interface LegacyUnverifiableRecord {
+  id: string;
+  reason: LegacyUnverifiableReason;
 }
 
 export interface ChainVerificationResult {
@@ -24,6 +40,28 @@ export interface ChainVerificationResult {
   count: number;
   brokenAt?: string;
   message?: string;
+  /** Registros com hash legado (`hash_version` NULL) — ver ADR-015. */
+  legacy: {
+    /** Texto original reconstruído e conferido. */
+    verified: number;
+    /** "Legado não verificável": o hash não se refaz a partir do jsonb. */
+    unverifiable: number;
+    unverifiableSample: LegacyUnverifiableRecord[];
+  };
+}
+
+/** Linha lida para verificação; o payload vem como o texto que o banco guarda. */
+interface ChainRow {
+  id: string;
+  actorId: string;
+  action: string;
+  entity: string;
+  entityId: string;
+  payloadText: string | null;
+  createdAt: Date;
+  afterHash: string | null;
+  beforeHash: string | null;
+  hashVersion: number | null;
 }
 
 @Injectable()
@@ -66,38 +104,49 @@ export class AuditService {
           timestamp = new Date(lastEntry.createdAt.getTime() + 1);
         }
 
-        const afterData = {
-          actorId: params.actorId,
-          action: params.action,
-          entity: params.entity,
-          entityId: params.entityId,
-          payload: params.payload ?? null,
-          timestamp: timestamp.toISOString(),
-        };
-        const afterHash = createHash('sha256').update(JSON.stringify(afterData)).digest('hex');
-
-        let beforeHash = params.beforeHash;
-        if (!beforeHash && lastEntry?.afterHash) {
-          beforeHash = createHash('sha256')
-            .update(lastEntry.afterHash + JSON.stringify(afterData))
-            .digest('hex');
-        }
-
-        return tx.auditLog.create({
-          data: {
+        const payload = params.payload ? toJsonValue(params.payload) : null;
+        const { afterHash, beforeHash } = chainHashes(
+          canonicalEventText({
             actorId: params.actorId,
             action: params.action,
             entity: params.entity,
             entityId: params.entityId,
-            beforeHash,
-            afterHash,
-            payload: params.payload
-              ? (params.payload as unknown as Prisma.InputJsonValue)
-              : undefined,
-            ip: params.ip,
-            createdAt: timestamp,
-          },
-        });
+            payload,
+            timestamp: timestamp.toISOString(),
+          }),
+          lastEntry?.afterHash ?? null,
+        );
+        const entry: AuditLog = {
+          id: randomUUID(),
+          actorId: params.actorId,
+          action: params.action,
+          entity: params.entity,
+          entityId: params.entityId,
+          beforeHash,
+          afterHash,
+          hashVersion: CANONICAL_AUDIT_HASH_VERSION,
+          payload,
+          ip: params.ip ?? null,
+          createdAt: timestamp,
+        };
+
+        // SQL e não auditLog.create: o Prisma reescreve parte dos números não
+        // inteiros de um Json ao gravar (até 4 ULPs) e o hash deixaria de
+        // bater com o banco. O texto canônico vai direto para o ::jsonb, que
+        // guarda o número exato. Data em UTC explícito, como o Prisma grava.
+        await tx.$executeRaw`
+          INSERT INTO audit_log (
+            id, actor_id, action, entity, entity_id, before_hash, after_hash,
+            hash_version, payload, ip, created_at
+          ) VALUES (
+            ${entry.id}::uuid, ${entry.actorId}, ${entry.action}, ${entry.entity},
+            ${entry.entityId}, ${entry.beforeHash}, ${entry.afterHash},
+            ${CANONICAL_AUDIT_HASH_VERSION}::smallint,
+            ${payload === null ? null : canonicalJson(payload)}::jsonb, ${entry.ip},
+            ${timestamp.toISOString()}::timestamptz AT TIME ZONE 'UTC'
+          )`;
+
+        return entry;
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
     );
@@ -161,6 +210,7 @@ export class AuditService {
       'ip',
       'beforeHash',
       'afterHash',
+      'hashVersion',
       'payload',
     ];
 
@@ -186,6 +236,7 @@ export class AuditService {
         item.ip ?? '',
         item.beforeHash ?? '',
         item.afterHash ?? '',
+        item.hashVersion ?? '',
         item.payload,
       ]
         .map(escapeCsv)
@@ -196,111 +247,130 @@ export class AuditService {
   }
 
   /**
-   * Verifica a integridade da cadeia de hash do audit_log.
+   * Verifica a integridade da cadeia de hash do audit_log (ADR-015).
    *
-   * Itera todos os registros em ordem cronológica (paginado em lotes de
-   * VERIFY_CHAIN_PAGE_SIZE para não sobrecarregar a memória) e recomputa
-   * o afterHash de cada registro a partir dos dados armazenados, comparando
-   * com o valor salvo. Também verifica que o beforeHash de cada registro N
-   * foi derivado corretamente do afterHash do registro N-1.
+   * Percorre os registros em ordem cronológica, em páginas de
+   * VERIFY_CHAIN_PAGE_SIZE, refaz o texto hasheado de cada um a partir do
+   * banco e confere o afterHash e o elo beforeHash com o registro anterior.
    *
-   * Complexidade: O(n) — percorre cada registro uma vez.
+   * - `hash_version` 2: JSON canônico; qualquer diferença é falha.
+   * - `hash_version` NULL (legado): reconstrói o texto original testando as
+   *   ordens de chave do payload e os vizinhos de cada número. Sem candidato
+   *   que bata, é falha; se a busca não é conclusiva, o registro conta como
+   *   "legado não verificável" e o elo dele com o próximo continua conferido
+   *   (o beforeHash do próximo usa o afterHash gravado aqui).
+   * - Registro legado depois do primeiro canônico é falha: desde a versão 2
+   *   a aplicação só grava canônico, e rebaixar a versão não pode esconder
+   *   adulteração.
    *
-   * @returns ChainVerificationResult com valid, count, e brokenAt em caso de falha.
+   * Para na primeira falha.
    */
   async verifyChain(): Promise<ChainVerificationResult> {
+    const hints = new LegacyKeyOrderHints();
+    const legacy: ChainVerificationResult['legacy'] = {
+      verified: 0,
+      unverifiable: 0,
+      unverifiableSample: [],
+    };
     let count = 0;
-    let cursor: string | undefined;
-    let prevAfterHash: string | null = null;
+    let previousAfterHash: string | null = null;
+    let canonicalStarted = false;
 
-    while (true) {
-      const page: Pick<
-        AuditLog,
-        | 'id'
-        | 'actorId'
-        | 'action'
-        | 'entity'
-        | 'entityId'
-        | 'payload'
-        | 'createdAt'
-        | 'afterHash'
-        | 'beforeHash'
-      >[] = await this.prisma.auditLog.findMany({
-        orderBy: { createdAt: 'asc' },
-        take: VERIFY_CHAIN_PAGE_SIZE,
-        ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
-        select: {
-          id: true,
-          actorId: true,
-          action: true,
-          entity: true,
-          entityId: true,
-          payload: true,
-          createdAt: true,
-          afterHash: true,
-          beforeHash: true,
-        },
-      });
+    const broken = (record: ChainRow, message: string): ChainVerificationResult => {
+      this.logger.error(`Chain broken at record ${record.id}: ${message}`);
+      return { valid: false, count, brokenAt: record.id, message, legacy };
+    };
 
-      if (page.length === 0) break;
+    for await (const record of this.chainRecords()) {
+      count++;
+      const event = eventFieldsOf(record);
+      // Texto hasheado; null quando é legado não verificável.
+      let eventText: string | null;
 
-      for (const record of page) {
-        count++;
-
-        // Recomputa o afterHash esperado com os mesmos dados usados no log()
-        const afterData = {
-          actorId: record.actorId,
-          action: record.action,
-          entity: record.entity,
-          entityId: record.entityId,
-          payload: (record.payload as Record<string, unknown> | null) ?? null,
-          timestamp: record.createdAt.toISOString(),
-        };
-        const expectedAfterHash = createHash('sha256')
-          .update(JSON.stringify(afterData))
-          .digest('hex');
-
-        if (record.afterHash !== expectedAfterHash) {
-          this.logger.error(
-            `Chain broken at record ${record.id}: afterHash mismatch. ` +
-              `Expected ${expectedAfterHash}, got ${record.afterHash ?? 'null'}`,
-          );
-          return {
-            valid: false,
-            count,
-            brokenAt: record.id,
-            message: `afterHash mismatch at record ${record.id}`,
-          };
+      if (record.hashVersion === CANONICAL_AUDIT_HASH_VERSION) {
+        eventText = canonicalEventText(event);
+        if (chainHashes(eventText, null).afterHash !== record.afterHash) {
+          return broken(record, `afterHash mismatch at record ${record.id}`);
         }
-
-        // Para registros não-âncora, verifica o beforeHash
-        if (prevAfterHash !== null) {
-          const expectedBeforeHash = createHash('sha256')
-            .update(prevAfterHash + JSON.stringify(afterData))
-            .digest('hex');
-
-          if (record.beforeHash !== expectedBeforeHash) {
-            this.logger.error(
-              `Chain broken at record ${record.id}: beforeHash mismatch. ` +
-                `Expected ${expectedBeforeHash}, got ${record.beforeHash ?? 'null'}`,
-            );
-            return {
-              valid: false,
-              count,
-              brokenAt: record.id,
-              message: `beforeHash mismatch at record ${record.id} — chain link severed`,
-            };
+        canonicalStarted = true;
+      } else if (record.hashVersion !== null) {
+        return broken(record, `unknown hash_version ${record.hashVersion} at record ${record.id}`);
+      } else if (canonicalStarted) {
+        return broken(
+          record,
+          `legacy hash after the canonical chain started at record ${record.id}`,
+        );
+      } else {
+        const match = matchLegacyEvent(event, record.afterHash, hints);
+        if (match.kind === 'mismatch') {
+          return broken(record, `afterHash mismatch at record ${record.id} (legacy hash)`);
+        }
+        if (match.kind === 'unverifiable') {
+          legacy.unverifiable++;
+          if (legacy.unverifiableSample.length < LEGACY_UNVERIFIABLE_SAMPLE_SIZE) {
+            legacy.unverifiableSample.push({ id: record.id, reason: match.reason });
           }
+          eventText = null;
+        } else {
+          legacy.verified++;
+          eventText = match.eventText;
         }
-
-        prevAfterHash = record.afterHash ?? null;
-        cursor = record.id;
       }
 
-      if (page.length < VERIFY_CHAIN_PAGE_SIZE) break;
+      if (previousAfterHash !== null && eventText !== null) {
+        if (chainHashes(eventText, previousAfterHash).beforeHash !== record.beforeHash) {
+          return broken(record, `beforeHash mismatch at record ${record.id} — chain link severed`);
+        }
+      }
+
+      previousAfterHash = record.afterHash;
     }
 
-    this.logger.log(`Chain verification completed: ${count} records verified, chain intact`);
-    return { valid: true, count };
+    this.logger.log(
+      `Chain verification completed: ${count} records verified, chain intact ` +
+        `(legacy: ${legacy.verified} verified, ${legacy.unverifiable} unverifiable)`,
+    );
+    return { valid: true, count, legacy };
   }
+
+  /**
+   * Registros em ordem de cadeia. SQL e não findMany para ler o payload como
+   * o texto que o banco guarda (`payload::text`), sem depender de como o
+   * Prisma converte números de um Json.
+   */
+  private async *chainRecords(): AsyncGenerator<ChainRow> {
+    let cursor: string | null = null;
+
+    while (true) {
+      const after: Prisma.Sql = cursor
+        ? Prisma.sql`WHERE (created_at, id) > (SELECT created_at, id FROM audit_log WHERE id = ${cursor}::uuid)`
+        : Prisma.empty;
+      const page: ChainRow[] = await this.prisma.$queryRaw<ChainRow[]>`
+        SELECT id, actor_id AS "actorId", action, entity, entity_id AS "entityId",
+               payload::text AS "payloadText", created_at AS "createdAt",
+               after_hash AS "afterHash", before_hash AS "beforeHash",
+               hash_version AS "hashVersion"
+        FROM audit_log
+        ${after}
+        ORDER BY created_at ASC, id ASC
+        LIMIT ${VERIFY_CHAIN_PAGE_SIZE}`;
+
+      yield* page;
+
+      const last = page.at(-1);
+      if (!last || page.length < VERIFY_CHAIN_PAGE_SIZE) return;
+      cursor = last.id;
+    }
+  }
+}
+
+function eventFieldsOf(record: ChainRow): AuditEventFields {
+  return {
+    actorId: record.actorId,
+    action: record.action,
+    entity: record.entity,
+    entityId: record.entityId,
+    payload: record.payloadText === null ? null : (JSON.parse(record.payloadText) as JsonValue),
+    timestamp: record.createdAt.toISOString(),
+  };
 }

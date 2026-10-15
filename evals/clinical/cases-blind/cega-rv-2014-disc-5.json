@@ -1,0 +1,129 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2014-disc-5",
+  "title": "Motociclista de 20 anos com hipotensão e bradicardia, sem sensibilidade abaixo dos mamilos e esfíncter anal hipotônico",
+  "tags": [
+    "choque",
+    "revalida",
+    "prova-cega",
+    "discursiva",
+    "trauma",
+    "trauma-raquimedular"
+  ],
+  "critical": true,
+  "goldSource": "revalida_discursiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "PS de hospital terciário de referência. Masc, 20a, queda de motocicleta com capacete; trazido por unidade de suporte avançado, imobilizado em prancha longa e colar cervical. Glasgow 13, PA 90x50, FR 26, FC 62. Ausculta pulmonar simétrica; sem trauma de face. Esfíncter retal hipotônico, reflexo bulbocavernoso ausente, sem priapismo. Sem melhora hemodinâmica após 1 L de RL aquecido. Refere discreta dispneia; nega dor abdominal. Não move os MMII e não tem sensibilidade abaixo dos mamilos. MMSS: encolhe os ombros e mantém flexão incompleta dos antebraços, sem conseguir estendê-los."
+  },
+  "expected": {
+    "syndrome": "trauma com hipotensão e bradicardia relativa e déficit neurológico cervical (trauma raquimedular com choque neurogênico, hemorragia a excluir)",
+    "diagnoses": [
+      {
+        "text": "trauma raquimedular cervical (nível C5–C6) com lesão medular e choque neurogênico (hipotensão com bradicardia relativa)",
+        "tier": "critical"
+      },
+      {
+        "text": "choque hemorrágico oculto a excluir antes de atribuir a hipotensão ao choque neurogênico",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "afastar choque hemorrágico: FAST e RX de tórax e de pelve, antes de atribuir a hipotensão ao choque neurogênico",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "vasopressor (amina vasoativa, ex.: noradrenalina) se a hipotensão persistir após volume e afastada a hemorragia, sem hiper-hidratar; acesso venoso central [padrão: punção venosa central precoce para guiar a reposição]",
+        "tier": "critical",
+        "timing": "any"
+      },
+      {
+        "text": "manter a restrição de movimento da coluna (colar cervical até a definição por imagem) e retirar a prancha longa o quanto antes (em menos de 2 h)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "A/B: O2 por máscara com reservatório e oximetria, mantendo o colar; vigiar a ventilação (lesão cervical alta com dispneia)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "C: dois acessos venosos periféricos calibrosos; sonda nasogástrica e vesical",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "E: exposição com prevenção de hipotermia",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "imagem da coluna: TC de coluna cervical (o padrão cita também RX em perfil e transoral) e RM pelo déficit neurológico",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [],
+    "outOfScope": [
+      "calcular o Glasgow, checar tamanho e reflexo das pupilas e fazer a inspeção estática e dinâmica do tórax (itens B e D da avaliação primária) — exame verbalizado"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2014, Questão 5): avaliação primária (O2 com máscara e colar; inspeção do tórax e oximetria; 2 acessos calibrosos, SNG e SVD, RX de tórax/pelve e FAST pela hipotensão persistente; Glasgow e pupilas; exposição e prevenção de hipotermia), manter o colar até a definição por imagem e tirar a prancha longa em menos de 2 h, lesão em C5/C6 com RX perfil e transoral, TC e RM, e choque: excluir causas hemorrágicas, choque neurogênico por exclusão, acesso central e aminas se o volume não bastar. v2: o diagnóstico de TRM com choque neurogênico, a exclusão da hemorragia e o vasopressor são críticos."
+  },
+  "sources": [
+    {
+      "claim": "Enunciado e comandos da questão discursiva 5.",
+      "title": "Revalida 2014 – Prova Discursiva, Questão 5",
+      "publisher": "INEP",
+      "year": 2014,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/provas/2014/po_revalida_discursiva_2014.pdf"
+    },
+    {
+      "claim": "Avaliação primária: A — O2 por máscara com reservatório e manter o colar; B — inspeção estática e dinâmica do tórax e oxímetro; C — dois acessos periféricos calibrosos, SNG e sonda vesical, RX de tórax/pelve e FAST pela hipotensão mantida após volume; D — Glasgow e pupilas; E — ectoscopia e proteção contra hipotermia (4,0).",
+      "title": "Revalida 2014 – Prova Discursiva – Padrão de Resposta definitivo, Questão 5, item a",
+      "publisher": "INEP",
+      "year": 2014,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2014/padrao_resposta_prova_discursiva_20072014.pdf"
+    },
+    {
+      "claim": "Manter o colar até a definição diagnóstica do trauma raquimedular por imagem; retirar a prancha longa o mais rápido possível (antes de 2 h) (1,0).",
+      "title": "Revalida 2014 – Prova Discursiva – Padrão de Resposta definitivo, Questão 5, item b",
+      "publisher": "INEP",
+      "year": 2014,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2014/padrao_resposta_prova_discursiva_20072014.pdf"
+    },
+    {
+      "claim": "Suspeita de lesão cervical em C5/C6; abordagem diagnóstica completa com RX simples em perfil e transoral, TC e RM (3,0).",
+      "title": "Revalida 2014 – Prova Discursiva – Padrão de Resposta definitivo, Questão 5, item c",
+      "publisher": "INEP",
+      "year": 2014,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2014/padrao_resposta_prova_discursiva_20072014.pdf"
+    },
+    {
+      "claim": "Choque: excluir causas hemorrágicas e não hemorrágicas e confirmar por exclusão o choque neurogênico; punção venosa central precoce para guiar a reposição e aminas vasoativas se o volume não for suficiente (2,0).",
+      "title": "Revalida 2014 – Prova Discursiva – Padrão de Resposta definitivo, Questão 5, item d",
+      "publisher": "INEP",
+      "year": 2014,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2014/padrao_resposta_prova_discursiva_20072014.pdf"
+    },
+    {
+      "claim": "Trauma cervical com indicação de imagem por NEXUS ou regra canadense: TC de coluna cervical sem contraste é 'usualmente apropriada' e a radiografia 'usualmente não apropriada'; RM sem contraste é apropriada na suspeita de lesão medular, ligamentar ou radicular.",
+      "title": "ACR Appropriateness Criteria: Acute Spinal Trauma",
+      "publisher": "American College of Radiology",
+      "year": 2024,
+      "url": "https://acsearch.acr.org/docs/69359/Narrative/"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2014",
+    "item": "Discursiva caso 5",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2014/padrao_resposta_prova_discursiva_20072014.pdf",
+    "originalCaseText": "Um paciente com 20 anos de idade chega ao Pronto-Socorro de um hospital de referência terciária, trazido pela unidade de suporte avançado, imobilizado com prancha longa e colar cervical, após queda da motocicleta em uso de capacete. Apresenta-se com escore de coma de Glasgow = 13, pressão arterial = 90 × 50 mmHg, frequência respiratória = 26 irpm e frequência cardíaca = 62 bpm. A ausculta pulmonar está simétrica e o paciente não apresenta trauma de face; apresenta hipotonia do esfíncter retal com reflexo bulbocarvenoso ausente e sem priapismo. Não houve melhora nos parâmetros hemodinâmicos após a infusão de um litro de Ringer lactato aquecido. O paciente refere discreta dispneia e nega dor abdominal. Não movimenta os membros inferiores e não tem sensibilidade abaixo dos mamilos. Nos membros superiores, encolhe os ombros e mantém flexão incompleta dos antebraços sem conseguir estendê-los. Sobre o plano diagnóstico e terapêutico deste caso, responda as questões abaixo: a) Quais as medidas que devem ser realizadas em cada passo da avaliação primária (a,b,c,d,e) desse paciente? (Valor: 4,0 pontos) b) Como deve ser orientada a imobilização do paciente sobre o momento da retirada do colar cervical e prancha longa? (Valor: 1,0 ponto) c) Qual o nível suspeito de lesão raquimedular e como deve ser a abordagem diagnóstica? ( Valor: 3,0 pontos) d) Como deve ser feita a abordagem do choque circulatório? ( Valor: 2,0 pontos)",
+    "notes": "Prova cega (11/10/2026): caseText com todo o enunciado em estilo nota. Conferido contra o ACR Appropriateness Criteria de trauma espinhal agudo (2024, aberto e lido): a TC substituiu o RX como exame inicial — o item de imagem aceita a TC e cita o RX do padrão sem exigi-lo. A retirada precoce da prancha e a manutenção do colar até a imagem seguem a prática atual de restrição de movimento da coluna (sem fonte nova aberta; não há divergência). Não abri o ATLS 11ª ed. nem diretriz de alvo de PAM no TRM; o vasopressor ficou sem meta numérica."
+  }
+}

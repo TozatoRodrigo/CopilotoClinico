@@ -1,0 +1,167 @@
+{
+  "schemaVersion": 2,
+  "id": "rv-2024-1-est-4",
+  "title": "Gestante de 32 semanas com hipertensão crônica atendida na emergência da maternidade",
+  "tags": [
+    "pressao-arterial-elevada",
+    "revalida",
+    "pep",
+    "obstetricia",
+    "pre-eclampsia"
+  ],
+  "critical": true,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Emergência de maternidade (centro obstétrico, laboratório). G1, 30a, IG 32s5d; pré-natal de alto risco por HAS crônica, em uso de metildopa 2 g/d, sulfato ferroso, carbonato de cálcio 1 g/d e AAS 100 mg/d; PA no pré-natal entre 120–140 x 70–80. Procura a emergência por cefaleia intensa; náuseas desde ontem, 1 vômito hoje cedo e, desde então, dor intensa e constante no estômago; turvação visual e fotopsia há 1 h. Usou ondansetrona, paracetamol e omeprazol, sem efeito. Casada, trabalha em escritório. EF: PA 180x120 (2 medidas com 30 min de intervalo), consciente, orientada, corada, afebril; IMC 35; BCF 128; dinâmica uterina ausente; toque não realizado. Lab: Hb 9,0, Ht 27%, plaquetas 98.000; BT 0,8 (BD 0,6, BI 0,2); DHL 780 (VR 135–735); ácido úrico 6,8; TGO 172, TGP 158 (VR 10–37); creatinina 1,2. Proteinúria de fita 3+/4+ (proteinúria de 24 h com 12 sem: 95 mg).",
+    "funnel": {
+      "opening": "Emergência de maternidade. Gestante de 30a, primigesta, IG 32s5d, em pré-natal de alto risco por hipertensão arterial prévia, com bons níveis pressóricos até a última consulta.",
+      "script": [
+        {
+          "id": "h-motivo",
+          "kind": "history",
+          "text": "Procura a emergência por cefaleia intensa, náuseas, vômitos e epigastralgia intensa."
+        },
+        {
+          "id": "h-social",
+          "kind": "history",
+          "text": "É casada e trabalha em um escritório."
+        },
+        {
+          "id": "h-medicacoes",
+          "kind": "history",
+          "text": "Usa desde o início da gestação metildopa 2 g/dia, sulfato ferroso, carbonato de cálcio 1 g/dia e AAS 100 mg/dia."
+        },
+        {
+          "id": "h-nauseas",
+          "kind": "history",
+          "text": "Está nauseada desde o dia anterior e vomitou uma vez hoje pela manhã."
+        },
+        {
+          "id": "h-epigastralgia-visual",
+          "kind": "history",
+          "text": "Sente dor intensa e constante no estômago desde o vômito e está com turvação visual e fotopsia há uma hora."
+        },
+        {
+          "id": "h-sintomaticos",
+          "kind": "history",
+          "text": "Usou ondansetrona, paracetamol e omeprazol para aliviar os sintomas, sem efeito."
+        },
+        {
+          "id": "e-exame",
+          "kind": "exam",
+          "text": "PA 180x120 mmHg (2 medidas com intervalo de 30 min); BCF 128 bpm; IMC 35; consciente, orientada, corada, afebril; dinâmica uterina ausente; toque não realizado.",
+          "key": true
+        },
+        {
+          "id": "t-cartao-pre-natal",
+          "kind": "test",
+          "text": "Cartão de pré-natal: G1P0, antecedente de HAS; PA nas consultas entre 120 e 140 x 70 e 80 mmHg; em uso de metildopa 2 g, sulfato ferroso, AAS 100 mg e carbonato de cálcio 1 g."
+        },
+        {
+          "id": "t-laboratorio",
+          "kind": "test",
+          "text": "Hb 9,0, Ht 27%, plaquetas 98.000; BT 0,8 (BD 0,6, BI 0,2); DHL 780; ácido úrico 6,8; TGO 172, TGP 158; creatinina 1,2; proteinúria de fita 3+/4+; proteinúria de 24 h com 12 semanas: 95 mg.",
+          "key": true
+        }
+      ]
+    }
+  },
+  "expected": {
+    "syndrome": "pré-eclâmpsia sobreposta à hipertensão crônica com síndrome HELLP",
+    "diagnoses": [
+      {
+        "text": "síndrome HELLP (pré-eclâmpsia sobreposta à hipertensão crônica, com sinais de gravidade)",
+        "tier": "critical"
+      },
+      {
+        "text": "iminência de eclâmpsia: cefaleia, sintomas visuais e epigastralgia com PA 180x120",
+        "tier": "important"
+      },
+      {
+        "text": "laboratório: anemia, plaquetas < 100.000, DHL elevada, transaminases > 2,5x o VR, hiperuricemia, proteinúria e creatinina ≥ 1,2",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "sulfato de magnésio (prevenção de eclâmpsia/neuroproteção materna)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "anti-hipertensivo de ação rápida para a PA grave: nifedipino, hidralazina ou labetalol",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "internação imediata, mantida até o pós-parto",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "corticoide para maturação pulmonar fetal (betametasona ou dexametasona)",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "planejar a interrupção da gestação após estabilização materna (indicada na HELLP independentemente da idade gestacional)",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "avaliação da vitalidade fetal (cardiotocografia, perfil biofísico ou Doppler)",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [],
+    "outOfScope": [
+      "cumprimentar a paciente e perguntar o motivo da consulta (item 1)",
+      "anamnese de sintomas de gravidade e de medicações (itens 2 a 4), medida pelo roteiro",
+      "citar os fatores de risco da paciente: HAS crônica, obesidade, primigesta (item 9)"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2024/1, Estação 4): o PEP pontua a anamnese de sintomas de gravidade e medicações, hemograma + marcador de hemólise + transaminases, o diagnóstico de síndrome HELLP, internação imediata até o pós-parto e prescrição de anti-hipertensivo, sulfato de magnésio e corticoide antenatal. No v2, o caso completo traz o roteiro, o exame e o laboratório; sulfato de magnésio e anti-hipertensivo são os itens críticos, e a interrupção planejada e a avaliação fetal entraram pelo manual do MS."
+  },
+  "sources": [
+    {
+      "claim": "Itens 2–4: pergunta sobre epigastralgia, sintomas visuais (turvação, fotopsia, escotomas), náuseas/vômitos, dor torácica, dispneia — dois ou mais (1,2); medicações de uso contínuo na gestação (0,6); medicações usadas para aliviar os sintomas atuais (0,6).",
+      "title": "Revalida 2024/1 – Habilidades Clínicas – PEP, Estação 4, itens 2–4",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2024_1_PEP_publicacao.pdf"
+    },
+    {
+      "claim": "Itens 5–8: solicita hemograma (ou Hb + Ht + plaquetas), DHL ou bilirrubina indireta ou haptoglobina, e TGO/TGP (1,0); hipótese de síndrome HELLP — pré-eclâmpsia sobreposta/pré-eclâmpsia com sinais de gravidade/iminência de eclâmpsia vale parcial (1,2); associa aumento súbito da PA após 20 semanas em hipertensa bem controlada, cefaleia, epigastralgia e sintomas visuais (1,0); associa Hb baixa, plaquetas < 100.000, DHL > 600–700, TGO/TGP > 2,5x o VR, hiperuricemia, proteinúria de fita > 1+/4+ e creatinina ≥ 1,2 (1,0).",
+      "title": "Revalida 2024/1 – Habilidades Clínicas – PEP, Estação 4, itens 5–8",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2024_1_PEP_publicacao.pdf"
+    },
+    {
+      "claim": "Itens 10–11: internação imediata, mantida até o pós-parto (1,0); nifedipino ou hidralazina ou labetalol para controle pressórico, sulfato de magnésio para neuroproteção/prevenção de convulsão e corticoterapia para maturação pulmonar fetal com betametasona ou dexametasona (1,4).",
+      "title": "Revalida 2024/1 – Habilidades Clínicas – PEP, Estação 4, itens 10–11",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2024_1_PEP_publicacao.pdf"
+    },
+    {
+      "claim": "Síndrome HELLP é emergência obstétrica: interrupção da gestação indicada independentemente da idade gestacional, salvo condições excepcionais (acima de 34 semanas, sempre); sulfato de magnésio sempre; controle da PA com hipotensores de ação rápida (PAS < 150 e PAD < 100 mmHg); corticoide entre 24 e 34 semanas; avaliar as condições fetais (perfil biofísico e Doppler).",
+      "title": "Manual de Gestação de Alto Risco (11.6.3 Conduta na síndrome HELLP)",
+      "publisher": "Ministério da Saúde",
+      "year": 2022,
+      "url": "https://bvsms.saude.gov.br/bvs/publicacoes/manual_gestacao_alto_risco.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2024/1",
+    "item": "Estação 4",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2024_1_PEP_publicacao.pdf",
+    "originalCaseText": "CENÁRIO DE ATUAÇÃO Local de atuação: urgência e emergência - maternidade. A unidade possui a seguinte infraestrutura: • consultório ginecológico; • laboratório de análises clínicas. • centro obstétrico; DESCRIÇÃO DO CASO • Você está de plantão na emergência da maternidade e deverá atender a uma paciente chamada Paula, de 30 anos de idade, primigesta com idade gestacional de 32 semanas e 5 dias. • Ela faz pré-natal de alto risco por hipertensão arterial prévia, mantendo bons níveis pressóricos no pré-natal, até a última consulta. Nos 10 minutos de duração da estação, você deverá executar as tarefas a seguir, obedecendo à sequência proposta: • atender à paciente realizando anamnese obstétrica durante a consulta; • indicar investigação diagnóstica adequada; • citar, de forma completa, a hipótese diagnóstica; • correlacionar os critérios laboratoriais e clínicos encontrando as hipóteses diagnósticas; • citar dois fatores de risco da paciente que podem tê-la levado a desenvolver o quadro clínico; • indicar a conduta, farmacológica e não farmacológica, adequada levando em consideração a situação clínica da paciente no momento da consulta. ATENÇÃO! CASO JULGUE NECESSÁRIO REALIZAR EXAME FÍSICO, VERBALIZE! A PACIENTE SIMULADA NÃO DEVERÁ SER TOCADA DURANTE O ATENDIMENTO.",
+    "notes": "Gabarito v2 (11/10/2026): caso completo com o roteiro (a cefaleia vem da síntese), o exame, o cartão de pré-natal e o laboratório; no afunilamento, a PA e o laboratório são key. Sulfato de magnésio e anti-hipertensivo são críticos; internação e corticoide, importantes. A interrupção planejada da gestação e a avaliação fetal, que o PEP não pontua, entraram como importantes pelo Manual de Gestação de Alto Risco do MS (2022, conferido). | Item 9 (citar fatores de risco: hipertensão crônica, obesidade, primigesta) é raciocínio e não foi convertido em expectativa. Itens 7–8 (associar quadro clínico e laboratorial à hipótese) dependem dos dados sob demanda abaixo. Dados sob demanda: a síntese diz que ela procura a emergência por cefaleia intensa, náuseas, vômitos e intensa epigastralgia; se perguntada, informa uso regular de metildopa 2 g/dia, sulfato ferroso, carbonato de cálcio 1 g/dia e AAS 100 mg/dia; náuseas desde o dia anterior e 1 vômito hoje; dor intensa e constante no estômago desde o vômito; turvação visual e fotopsia há 1 h; usou ondansetrona, paracetamol e omeprazol sem efeito. Exame físico: PA 180x120 mmHg (2 medidas com 30 min de intervalo), BCF 128, IMC 35, consciente, orientada, corada, afebril, dinâmica uterina ausente, toque não realizado. Cartão de pré-natal (parcialmente ilegível na extração): antecedente de HAS; a síntese informa PA no pré-natal entre 130–140 x 70–80 mmHg. Laboratório: Hb 9,0, Ht 27%, plaquetas 98.000, BT 0,8 (BD 0,6; BI 0,2), DHL 780, ácido úrico 6,8, TGO 172, TGP 158, creatinina 1,2; proteinúria de fita 3+/4+ (proteinúria de 24 h com 12 semanas: 95 mg)."
+  }
+}
