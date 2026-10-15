@@ -5,6 +5,7 @@ import {
   type AnswerLine,
   type CalculatorAnswers,
   type CalculatorEvaluation,
+  type Interpretation,
   type ResultBand,
   type ScoreCalculator,
 } from '../calculator';
@@ -27,7 +28,8 @@ const REFERENCE =
 /** Score a partir do qual o ANY classifica alto risco de falha. */
 export const HACOR_HIGH_RISK_FROM = 5;
 
-export const HACOR: ScoreCalculator = {
+/** Faixas por limite (não por regra): `hacorBand` lê a faixa direto pelo score. */
+export const HACOR: ScoreCalculator & { interpretation: Interpretation } = {
   kind: 'score',
   id: 'hacor',
   name: 'HACOR score (falha de VNI)',
