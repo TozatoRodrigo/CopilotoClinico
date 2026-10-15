@@ -71,7 +71,7 @@ const POST_QUALIFIER_WINDOW = 5;
 const EXCEPTION_WINDOW = 6;
 
 const NEGATOR =
-  /^(?:nao|nunca|jamais|nem|sem|evit(?:ar|e|em|ando)|suspend(?:er|a|am)|suspensao|interromp(?:er|a)|descontinu(?:ar|e)|contra-?indica(?:r)?|contra-?indicad[oa]s?|proscrit[oa]s?|antes)$/;
+  /^(?:nao|nunca|jamais|nem|sem|evit(?:ar|e|em|ando)|suspend(?:er|a|am)|suspensao|interromp(?:er|a)|descontinu(?:ar|e)|contra-?indica(?:r)?|contra-?indicad[oa]s?|proscrit[oa]s?|proib(?:ir|a|am|e|em|indo)|proibicao|antes)$/;
 
 /** Entre a negação e o termo, desfaz a negação: "não aguardar", "sem demora", "sem contraindicação". */
 const DEFERRAL =

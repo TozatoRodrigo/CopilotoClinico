@@ -3,6 +3,7 @@ import { readChoiceFlag } from '../../../config/feature-flag';
 import {
   DECISION_PROMPT_VERSIONS,
   KNOWLEDGE_SOURCES,
+  type CaseUnderstanding,
   type DecisionPromptVersion,
   type KnowledgeSource,
 } from '../../../shared/contracts/clinical';
@@ -100,4 +101,49 @@ export function readDecisionPipeline(config: ConfigService): DecisionPipelineRea
     },
     downgrades,
   };
+}
+
+/** Caso grave (instável ou tempo-crítico) ou caso comum. */
+export type DecisionRoute = 'critical' | 'standard';
+
+export interface DecisionModelChoice {
+  route: DecisionRoute;
+  /** Referência do modelo (`perfil:modelo` ou `modelo`); `undefined` = `AI_MODEL`. */
+  model: string | undefined;
+}
+
+function readOptionalModel(config: ConfigService, key: string): string | undefined {
+  const configured = config.get<string | undefined>(key)?.trim();
+  return configured ? configured : undefined;
+}
+
+/** `AI_DECISION_MODEL` e `AI_DECISION_CRITICAL_MODEL`; vazio = `undefined`. */
+export function readDecisionModels(config: ConfigService): {
+  standard: string | undefined;
+  critical: string | undefined;
+} {
+  return {
+    standard: readOptionalModel(config, 'AI_DECISION_MODEL'),
+    critical: readOptionalModel(config, 'AI_DECISION_CRITICAL_MODEL'),
+  };
+}
+
+/**
+ * Plano de 13/10/2026, fase 0 — a decisão do caso grave pode ir para um
+ * modelo mais forte que a do caso comum. `AI_DECISION_MODEL` vazio = o
+ * `AI_MODEL`; `AI_DECISION_CRITICAL_MODEL` vazio = o mesmo modelo nas duas
+ * rotas, como antes. Grave é instável ou tempo-crítico pela Etapa 1. Sem
+ * entendimento (`legacy`, ou a Etapa 1 falhou), o caso conta como grave: na
+ * dúvida, o modelo forte.
+ */
+export function chooseDecisionModel(
+  config: ConfigService,
+  understanding: CaseUnderstanding | null,
+): DecisionModelChoice {
+  const models = readDecisionModels(config);
+  const critical =
+    !understanding || understanding.instability.present || understanding.timeCritical;
+  return critical
+    ? { route: 'critical', model: models.critical ?? models.standard }
+    : { route: 'standard', model: models.standard };
 }

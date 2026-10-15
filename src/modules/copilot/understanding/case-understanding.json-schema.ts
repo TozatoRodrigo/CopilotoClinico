@@ -53,6 +53,7 @@ export const CASE_UNDERSTANDING_PROPERTIES = {
     strictObject({ data: STRING, separates: arrayOf(STRING), whyItChangesConduct: STRING }),
   ),
   searchQueries: arrayOf(STRING),
+  timeCritical: BOOLEAN,
 };
 
 export const CASE_UNDERSTANDING_JSON_SCHEMA = {

@@ -11,7 +11,7 @@ import {
   KNOWLEDGE_SOURCES,
   PRELIMINARY_REASONS,
 } from '../../src/shared/contracts/clinical';
-import { CaseUnderstandingSchema } from '../../src/modules/copilot/understanding/case-understanding.schema';
+import { StoredCaseUnderstandingSchema } from '../../src/modules/copilot/understanding/case-understanding.schema';
 import { REASONING_MODES } from '../../src/modules/copilot/understanding/understanding.settings';
 import { DeterministicGradeSchema, RUN_STATUSES } from './graders/deterministic';
 import { JudgeOutcomeSchema } from './graders/judge';
@@ -181,7 +181,7 @@ export const ResultRowSchema = RowKeySchema.extend({
    * modelo não a conhece. `null` no legacy, quando a etapa falhou e em
    * execuções anteriores à Fase 1.
    */
-  understanding: CaseUnderstandingSchema.nullable().default(null),
+  understanding: StoredCaseUnderstandingSchema.nullable().default(null),
   /**
    * F1 — evidência da pesquisa web entregue à decisão. `null` quando a
    * pesquisa não rodou (fora de COPILOT_KNOWLEDGE_SOURCE=web); vazia quando
@@ -297,6 +297,12 @@ export const RunMetaSchema = z.object({
     /** F1 — prompt da decisão e fonte de conhecimento efetivos; antes da Fase 1, v1 + internal_kb. */
     decisionPrompt: z.enum(DECISION_PROMPT_VERSIONS).default('v1'),
     knowledgeSource: z.enum(KNOWLEDGE_SOURCES).default('internal_kb'),
+    /**
+     * Modelo da decisão por gravidade (AI_DECISION_MODEL e
+     * AI_DECISION_CRITICAL_MODEL); `null` = o AI_MODEL, como antes da rota.
+     */
+    decisionModel: z.string().nullable().default(null),
+    decisionCriticalModel: z.string().nullable().default(null),
     /** F1 — configuração da pesquisa web; `null` fora de COPILOT_KNOWLEDGE_SOURCE=web. */
     research: z
       .object({

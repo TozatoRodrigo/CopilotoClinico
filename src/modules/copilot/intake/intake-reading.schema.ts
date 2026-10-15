@@ -58,7 +58,6 @@ const ReadingVitalsSchema = z
   );
 
 const IntakeReadingFields = CaseUnderstandingFields.extend({
-  timeCritical: z.boolean(),
   intakeQuestions: z
     .array(IntakeQuestionCandidateSchema)
     .max(
@@ -99,5 +98,6 @@ export function understandingOf(reading: IntakeReading): CaseUnderstanding {
     likely: reading.likely,
     missingDiscriminators: reading.missingDiscriminators,
     searchQueries: reading.searchQueries,
+    timeCritical: reading.timeCritical,
   };
 }

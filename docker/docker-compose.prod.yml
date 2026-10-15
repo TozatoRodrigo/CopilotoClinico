@@ -138,6 +138,10 @@ services:
       # Etapa 1.
       COPILOT_INTAKE: ${COPILOT_INTAKE:-off}
       AI_INTAKE_MODEL: ${AI_INTAKE_MODEL:-}
+      # ADR-016 — modelo da decisão por gravidade. Vazio = AI_MODEL nas duas
+      # rotas, como antes. Mesmo motivo das linhas acima.
+      AI_DECISION_MODEL: ${AI_DECISION_MODEL:-}
+      AI_DECISION_CRITICAL_MODEL: ${AI_DECISION_CRITICAL_MODEL:-}
       # F1 / ADR-013 PR 2 — decisão v2 e fonte de conhecimento (padrões = o
       # pipeline de hoje). Mesmo motivo das linhas acima. Domínios vazios =
       # lista padrão do código.

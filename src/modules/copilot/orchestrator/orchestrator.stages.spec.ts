@@ -211,6 +211,56 @@ describe('OrchestratorService — raciocínio em etapas (F1)', () => {
     });
   });
 
+  describe('modelo da decisão por gravidade', () => {
+    beforeEach(() => {
+      env = {
+        ...env,
+        AI_DECISION_MODEL: 'groq:openai/gpt-oss-120b',
+        AI_DECISION_CRITICAL_MODEL: 'claude-opus-5-5',
+      };
+    });
+
+    function decisionModel(call = 0): unknown {
+      return (gateway.complete.mock.calls[call]?.[0] as { model?: string }).model;
+    }
+
+    it('decides a stable, non time-critical case with AI_DECISION_MODEL', async () => {
+      await service.analyze(physicianId, encounterId, input);
+
+      expect(decisionModel()).toBe('groq:openai/gpt-oss-120b');
+      expect(persisted().data.params).toMatchObject({ decisionRoute: 'standard' });
+    });
+
+    it('decides a time-critical case with AI_DECISION_CRITICAL_MODEL', async () => {
+      understand.mockResolvedValue(
+        stageOutcome({ understanding: understandingFixture({ timeCritical: true }) }),
+      );
+
+      await service.analyze(physicianId, encounterId, input);
+
+      expect(decisionModel()).toBe('claude-opus-5-5');
+      expect(persisted().data.params).toMatchObject({ decisionRoute: 'critical' });
+    });
+
+    it('decides with the critical model when the understanding failed', async () => {
+      understand.mockResolvedValue(stageOutcome({ understanding: null }));
+
+      await service.analyze(physicianId, encounterId, input);
+
+      expect(decisionModel()).toBe('claude-opus-5-5');
+    });
+
+    it('keeps the same model in the validation retry', async () => {
+      gateway.complete
+        .mockResolvedValueOnce({ ...analysisCompletion, content: 'not json' })
+        .mockResolvedValueOnce(analysisCompletion);
+
+      await service.analyze(physicianId, encounterId, input);
+
+      expect(decisionModel(1)).toBe('groq:openai/gpt-oss-120b');
+    });
+  });
+
   describe('analyze', () => {
     it('understands the redacted case, then searches by its queries', async () => {
       await service.analyze(physicianId, encounterId, {
