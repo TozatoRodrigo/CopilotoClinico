@@ -26,6 +26,12 @@
 - Tokens de refresh (hash SHA-256 — não o token original)
 - Consentimentos LGPD
 
+### Aceite dos termos e da política (CC-905)
+- `legal_acceptances`: só o vínculo (médico, versão do documento) e a data — sem IP nem navegador
+- `legal_documents`: cada versão publicada dos Termos de Uso e da Política de Privacidade, com hash do texto e a marca de texto provisório; imutável
+- Entra na exportação (`legalAcceptances`) e sai na eliminação; o evento continua na trilha (`LEGAL_DOCUMENT_ACCEPTED`)
+- Com `LEGAL_TERMS_V2` ligada, quem não aceitou a versão vigente continua podendo exportar, eliminar, revogar consentimento e sair
+
 ### Dados de Atendimento (Encounter)
 - `patientRef`: **identificador opaco** fornecido pelo HIS/EMR do hospital (LGPD-001)
   - Não pode ser CPF, nome ou outro dado pessoal direto
