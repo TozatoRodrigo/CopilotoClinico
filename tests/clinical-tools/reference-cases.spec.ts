@@ -253,3 +253,91 @@ describe('lote B (CC-308)', () => {
     ).toMatchObject({ value: 89.7, band: { label: 'G2' } });
   });
 });
+
+describe('lote C (CC-309)', () => {
+  const today = new Date(2026, 9, 14, 10, 30);
+  const dum = (day: string, month: string, year: string) => ({
+    inputs: { dum_day: day, dum_month: month, dum_year: year },
+  });
+
+  it('DPP: DUM 07/01/2026 dá DPP 14/10/2026 (Naegele, + 280 dias) e 40 semanas hoje', () => {
+    const result = complete(evaluate('dpp-dum', dum('7', '1', '2026'), today));
+    expect(shown('dpp-dum', result.value)).toBe('14/10/2026');
+    expect(result.details).toEqual([
+      { label: 'Idade gestacional hoje', value: '40 semanas e 0 dias' },
+    ]);
+  });
+
+  it('idade gestacional: 12 semanas e 3 dias, primeiro trimestre', () => {
+    const result = complete(evaluate('idade-gestacional', dum('19', '7', '2026'), today));
+    expect(result.value).toBe(87);
+    expect(shown('idade-gestacional', 87)).toBe('12 semanas e 3 dias');
+    expect(result.details).toEqual([{ label: 'Trimestre', value: 'primeiro trimestre' }]);
+  });
+
+  it('data que não existe e DUM no futuro não calculam', () => {
+    for (const id of ['dpp-dum', 'idade-gestacional']) {
+      expect(evaluate(id, dum('31', '2', '2026'), today), id).toMatchObject({
+        status: 'pending',
+        errors: {
+          dum_day: {
+            kind: 'inconsistent',
+            message: 'A data 31/02/2026 não existe. Confira o dia e o mês.',
+          },
+        },
+      });
+      expect(evaluate(id, dum('15', '10', '2026'), today), id).toMatchObject({
+        status: 'pending',
+        errors: { dum_day: { message: 'A DUM está no futuro. Verifique a data informada.' } },
+      });
+    }
+  });
+
+  it('HELLP: plaquetopenia sem LDH nem TGO é incompleta; com LDH, Classe 1', () => {
+    const band = (platelets: string, ldh: string, tgo: string) =>
+      complete(evaluate('hellp', { items: { platelets, ldh, tgo } })).band.label;
+    expect(band('lte50', 'nao', 'nao')).toBe('HELLP incompleta');
+    expect(band('lte50', 'sim', 'nao')).toBe('HELLP — Mississippi Classe 1 (mais grave)');
+    expect(band('gte150', 'sim', 'sim')).toBe('Sem critério de HELLP (plaquetas normais)');
+  });
+
+  it('sulfato de magnésio: as doses do Zuspan ficam no texto, sem mudança', () => {
+    const result = complete(evaluate('mgso4-dose', { items: { regimen: 'zuspan' } }));
+    expect(result.band.action).toContain('MgSO4 4 g IV em 20 min');
+    expect(result.band.action).toContain('1–2 g/h IV');
+    expect(shown('mgso4-dose', 1)).toBeNull();
+  });
+
+  it('RASS mostra o sinal: +3 é agitação grave, -3 sedação moderada', () => {
+    expect(complete(evaluate('rass', { items: { level: '+3' } })).band.label).toBe(
+      'Agitação grave',
+    );
+    expect(shown('rass', 3)).toBe('+3');
+    expect(complete(evaluate('rass', { items: { level: '-3' } })).band.label).toBe(
+      'Sedação moderada',
+    );
+    expect(shown('rass', -3)).toBe('-3');
+  });
+
+  it('corticoide: hidrocortisona 20 mg = prednisona 5 mg, com as demais no detalhe', () => {
+    const result = complete(
+      evaluate('corticoide-equiv', { inputs: { dose: '20' }, items: { from: 'hidrocortisona' } }),
+    );
+    expect(shown('corticoide-equiv', result.value)).toBe('5 mg');
+    expect(result.details).toEqual([
+      { label: 'Hidrocortisona', value: '20 mg' },
+      { label: 'Metilprednisolona', value: '4 mg' },
+      { label: 'Dexametasona', value: '0,75 mg' },
+    ]);
+  });
+
+  it('VTI < 16 cm: baixo débito; a calculadora aponta para o roteiro de choque', () => {
+    expect(complete(evaluate('vti-classificacao', { items: { vti_range: 'lt16' } }))).toMatchObject(
+      { band: { label: 'VTI < 16 cm — baixo débito', tone: 'critical' } },
+    );
+    expect(getCalculator('vti-classificacao')?.pathway).toEqual({
+      toolId: 'choque-indiferenciado',
+    });
+    expect(getCalculator('ciwa-ar')?.pathway).toEqual({ toolId: 'toxicologia' });
+  });
+});

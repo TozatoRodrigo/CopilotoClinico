@@ -32,6 +32,15 @@ Quando a decisão mudar conteúdo clínico, a versão da calculadora sobe
 - **Faixas de entrada.** Mantidas as do ANY, mesmo as estranhas (apontadas em
   cada calculadora). Fora da faixa, o Copiloto não calcula; no ANY a faixa não
   barrava nada.
+- **Número fora do texto.** Onde o ANY escrevia o resultado dentro do rótulo
+  ou da ação ("IC: 1.22 — choque provável", "Repor 2,1 litros…"), o número
+  passou a ser o valor do resultado ou um detalhe, e o texto ficou sem ele.
+  Em Parkland, déficit de água, Adrogué-Madias e equivalência de corticoides a
+  ação do ANY era só o número; o texto da ação no Copiloto foi escrito a
+  partir das pérolas de cada uma. Revisar esses quatro textos.
+- **Valor que é código.** Em Forrest, posição do CVC, MgSO4, VTI, HELLP,
+  PECARN, mBIG, Canadian C-Spine, CAM-ICU e HINTS o "valor" do ANY é um código
+  interno (Forrest Ia = 6, mBIG 3 = 100); a tela mostra só a faixa.
 
 ## Cardiologia / SCA
 
@@ -313,3 +322,69 @@ Sem achado além da linguagem.
 
 Sem achado além da linguagem. Potássio: o ANY dizia a gravidade só no texto
 ("Hipocalemia leve"); aqui ela virou o nome da faixa.
+
+## Obstetrícia
+
+### DPP e idade gestacional por DUM — `dpp-dum`, `idade-gestacional`
+
+- **Data que não existe.** O ANY aceitava 31/02 e rolava para 03/03 sem
+  avisar. Aqui não calcula e pede para conferir o dia e o mês.
+- **DUM no futuro.** O ANY mostrava "DUM no futuro" como resultado; aqui o
+  campo fica marcado com a mesma mensagem e nada é calculado.
+- **Sem limite superior de idade gestacional.** DUM de 2020 dá mais de 300
+  semanas. Opção: recusar DUM com mais de ~44 semanas.
+- **Ano da DUM de 2020 a 2030**, como no ANY: a calculadora para de aceitar
+  DUM a partir de 2031 e aceita anos futuros até 2030 (barrados como "no
+  futuro"). Opção: faixa relativa ao ano corrente.
+- A conta passou a ser por dia de calendário; o ANY somava milissegundos no
+  fuso local, o que só difere em fuso com horário de verão (não no Brasil
+  desde 2019).
+
+### HELLP (Mississippi) — `hellp`
+
+- Usa TGO > 70 U/L para as três classes. Na classificação de Mississippi
+  (Martin 1999), as classes 1 e 2 pedem AST ≥ 70 e a classe 3, AST ≥ 40.
+- "HELLP incompleta" no ANY é plaquetopenia sem LDH nem TGO; em Martin, HELLP
+  parcial é ter 1 ou 2 dos 3 critérios. Conferir as definições.
+
+### Bishop — `bishop`
+
+- Colo desfavorável (< 6) sai em vermelho (crítico), como no ANY. Não é risco
+  ao paciente, é indicação de preparo cervical. Opção: atenção.
+
+### Sulfato de magnésio — `mgso4-dose`
+
+- Doses do Zuspan e do Pritchard mantidas sem mudança. Só "MANUTENÇÃO" e
+  "ATAQUE" em caixa alta viraram caixa normal.
+
+## Via aérea, sedação e dor, infecção
+
+### EVA/NRS — `eva-nrs`
+
+- A ação da dor intensa dizia "Analgesia imediata"; virou "considere
+  analgesia sem demora".
+
+### Cormack-Lehane, Mallampati, RASS, BPS, Centor/McIsaac
+
+Sem achado além da linguagem. RASS mostra o valor com sinal ("+3", "-2").
+
+## Farmacologia, procedimentos e POCUS
+
+### Equivalência de corticoides — `corticoide-equiv`
+
+- Converte só para prednisona (valor) e mostra hidrocortisona,
+  metilprednisolona e dexametasona como detalhe, com os fatores do ANY (× 4,
+  × 0,8, × 0,15). Não há como escolher o corticoide de destino (cortisona,
+  prednisolona, triancinolona). O texto da ação foi escrito a partir das
+  pérolas (ver "Número fora do texto").
+
+### Classificação hemodinâmica por VTI — `vti-classificacao`
+
+- No ANY ela também existe no roteiro de choque (ShockPath). O link "Abrir no
+  roteiro" fica escondido até o roteiro de choque indiferenciado existir no
+  Copiloto (CC-317).
+
+### Posicionamento de CVC — `posicao-cvc`
+
+- O ANY mostrava "Profundidade estimada" para todos os sítios; aqui o rótulo
+  da faixa é o sítio com a profundidade.

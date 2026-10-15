@@ -95,4 +95,10 @@ describe('registro', () => {
   it('devolve undefined para id fora do catálogo', () => {
     expect(getCalculator('nao-existe')).toBeUndefined();
   });
+
+  it('tem as 75 calculadoras do catálogo do ANY no ar (CC-309)', () => {
+    expect(CALCULATORS).toHaveLength(75);
+    const missing = CALCULATOR_CATALOG.filter(({ id }) => !getCalculator(id)).map(({ id }) => id);
+    expect(missing).toEqual([]);
+  });
 });

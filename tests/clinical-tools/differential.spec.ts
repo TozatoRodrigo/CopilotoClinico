@@ -20,7 +20,7 @@ import {
 import { WEIGHT_RANGES } from '../../src/shared/clinical-tools/ranges';
 import { CALCULATORS, getCalculator } from '../../src/shared/clinical-tools/registry';
 import type { ResultTone } from '../../src/shared/clinical-tools/tone';
-import { PORTS, type AnyInterpretation, type Port } from './ports';
+import { FIXED_NOW, PORTS, type AnyInterpretation, type Port } from './ports';
 import { DIFFERENTIAL_CASES, seededRandom } from './seeded-random';
 
 /**
@@ -51,8 +51,6 @@ const ANY_COLOR_TONE: Record<string, ResultTone> = {
 
 const SEED = 20261014;
 const EXHAUSTIVE_LIMIT = 10_000;
-/** Data fixa para as contas que dependem do dia (idade gestacional, DPP). */
-const FIXED_NOW = new Date(2026, 9, 14, 10, 30);
 
 /**
  * Nome da faixa sem o que muda entre os dois lados por acentuação e

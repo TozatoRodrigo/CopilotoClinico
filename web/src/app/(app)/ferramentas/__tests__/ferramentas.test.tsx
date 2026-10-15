@@ -207,17 +207,22 @@ describe('/ferramentas/calculadoras/[id]', () => {
     expect(result).not.toHaveTextContent('pontos');
   });
 
-  it("mostra 'em breve' para a calculadora do catálogo ainda não portada", () => {
+  it('DPP: data que não existe marca o campo e não calcula; data válida mostra a DPP', async () => {
     render(<CalculatorScreen id="dpp-dum" />);
+    const day = screen.getByRole('textbox', { name: 'Dia da DUM' });
+    await userEvent.type(day, '31');
+    await userEvent.type(screen.getByRole('textbox', { name: 'Mês da DUM' }), '2');
+    await userEvent.type(screen.getByRole('textbox', { name: 'Ano da DUM' }), '2026');
 
-    expect(
-      screen.getByRole('heading', { level: 1, name: 'Data Provável do Parto (DPP)' }),
-    ).toBeInTheDocument();
-    expect(screen.getByText('Em breve')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Ver calculadoras disponíveis' })).toHaveAttribute(
-      'href',
-      '/ferramentas/calculadoras',
-    );
-    expect(screen.getByRole('note')).toBeInTheDocument();
+    const result = screen.getByRole('status');
+    expect(result).toHaveTextContent('A data 31/02/2026 não existe. Confira o dia e o mês.');
+    expect(day).toBeInvalid();
+
+    await userEvent.clear(day);
+    await userEvent.type(day, '7');
+    await userEvent.clear(screen.getByRole('textbox', { name: 'Mês da DUM' }));
+    await userEvent.type(screen.getByRole('textbox', { name: 'Mês da DUM' }), '1');
+    expect(result).toHaveTextContent('14/10/2026');
+    expect(result).toHaveTextContent('Data provável do parto (Naegele)');
   });
 });

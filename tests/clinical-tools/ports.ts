@@ -55,6 +55,55 @@ export interface Port {
   edges?: readonly Readonly<Record<string, number>>[];
 }
 
+/** Data fixa para as contas que dependem do dia (idade gestacional, DPP): 14/10/2026, 10h30. */
+export const FIXED_NOW = new Date(2026, 9, 14, 10, 30);
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * DUM aleatória entre 40 dias no futuro e ~6,5 anos atrás (sem passar de
+ * 2020, o mínimo do campo), sempre uma data que existe.
+ */
+function randomDum(random: SeededRandom): Record<string, number> {
+  const offset = random.integer(-40, 2400);
+  const date = new Date(
+    FIXED_NOW.getFullYear(),
+    FIXED_NOW.getMonth(),
+    FIXED_NOW.getDate() - offset,
+  );
+  if (date.getFullYear() < 2020) {
+    return { dum_day: random.integer(1, 28), dum_month: 1, dum_year: 2020 };
+  }
+  return { dum_day: date.getDate(), dum_month: date.getMonth() + 1, dum_year: date.getFullYear() };
+}
+
+const DUM_EDGES = [
+  { dum_day: 14, dum_month: 10, dum_year: 2026 }, // hoje: 0 dias
+  { dum_day: 13, dum_month: 10, dum_year: 2026 },
+  { dum_day: 15, dum_month: 10, dum_year: 2026 }, // amanhã: DUM no futuro
+  { dum_day: 7, dum_month: 1, dum_year: 2026 }, // 40 semanas
+  { dum_day: 29, dum_month: 2, dum_year: 2024 }, // ano bissexto
+  { dum_day: 31, dum_month: 12, dum_year: 2025 },
+  { dum_day: 1, dum_month: 1, dum_year: 2020 },
+];
+
+/** "DUM no futuro" do ANY: aqui o campo fica marcado e nada é calculado. */
+function futureDum({ label }: AnyInterpretation): boolean {
+  return label === 'DUM no futuro';
+}
+
+/** "IG: 12s3d | DPP: 01/02/2027" → a DPP em dias desde 01/01/1970, a escala do porte. */
+function dueDateFromLabel(
+  _value: number,
+  _values: Readonly<Record<string, number>>,
+  { label }: AnyInterpretation,
+): number | null {
+  const match = label.match(/DPP: (\d{2})\/(\d{2})\/(\d{4})/);
+  if (!match) return null;
+  const [, day, month, year] = match;
+  return Math.round(Date.UTC(Number(year), Number(month) - 1, Number(day)) / DAY_MS);
+}
+
 /** "IC: 1.22 — choque provável" → "choque provável". */
 export function afterDash(interpretation: AnyInterpretation): string {
   return interpretation.label.split(' — ')[1] ?? interpretation.label;
@@ -74,6 +123,14 @@ function sweep(
 ): Record<string, number>[] {
   return values.map((value) => ({ ...base, [id]: value }));
 }
+
+const CVC_SITES: Readonly<Record<string, string>> = {
+  JID: 'Jugular interna direita: 12–15 cm',
+  JIE: 'Jugular interna esquerda: 15–18 cm',
+  SCD: 'Subclávia direita: 13–15 cm',
+  SCE: 'Subclávia esquerda: 15–18 cm',
+  Femoral: 'Femoral: 20–25 cm',
+};
 
 const GRACE_BASE = { age: 55, hr: 80, sbp: 130, creatinine: 1 };
 
@@ -463,4 +520,54 @@ export const PORTS: readonly Port[] = [
       { na: 100, cl: 140, hco3: 50, albumin: 0.5 },
     ],
   },
+
+  // ── Lote C (CC-309): obstetrícia, via aérea, sedação e dor, infecção, farmacologia,
+  // procedimentos e POCUS ──
+  {
+    id: 'dpp-dum',
+    tolerance: 0,
+    anyBandName: singleBand('Data provável do parto (Naegele)'),
+    anyValue: dueDateFromLabel,
+    anyPending: futureDum,
+    randomInputs: randomDum,
+    edges: DUM_EDGES,
+  },
+  { id: 'bishop', tolerance: 0 },
+  {
+    id: 'idade-gestacional',
+    tolerance: 0,
+    anyBandName: singleBand('Idade gestacional'),
+    anyPending: futureDum,
+    randomInputs: randomDum,
+    edges: DUM_EDGES,
+  },
+  { id: 'hellp', tolerance: 0 },
+  { id: 'mgso4-dose', tolerance: 0 },
+  { id: 'cormack-lehane', tolerance: 0 },
+  { id: 'mallampati', tolerance: 0 },
+  { id: 'rass', tolerance: 0, anyBandName: afterDash },
+  { id: 'bps', tolerance: 0, anyBandName: afterDash },
+  { id: 'eva-nrs', tolerance: 0 },
+  { id: 'centor-mcisaac', tolerance: 0 },
+  {
+    id: 'corticoide-equiv',
+    tolerance: 0,
+    anyBandName: singleBand('Equivalência em prednisona'),
+    edges: [
+      { dose: 20, from: 0 }, // hidrocortisona 20 = prednisona 5
+      { dose: 25, from: 1 },
+      { dose: 5, from: 2 },
+      { dose: 4, from: 4 },
+      { dose: 0.75, from: 6 },
+      { dose: 0.1, from: 6 },
+      { dose: 2000, from: 1 },
+    ],
+  },
+  {
+    id: 'posicao-cvc',
+    tolerance: 0,
+    // O ANY usa o mesmo rótulo para todos os sítios; o sítio está no começo da ação.
+    anyBandName: ({ action }) => CVC_SITES[action.split(':')[0] ?? ''] ?? action,
+  },
+  { id: 'vti-classificacao', tolerance: 0 },
 ];
