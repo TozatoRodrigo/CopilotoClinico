@@ -619,6 +619,79 @@ banco:
 UPDATE physicians SET is_curator = true WHERE email = 'curador@exemplo.com';
 ```
 
+### Cartões revisados (CC-402/CC-403/CC-412, ADR-017)
+
+Um cartão é uma situação clínica com pergunta e resposta curta, em que cada
+afirmação e cada dose citam um trecho literal de uma diretriz já ingerida
+(base curada `approved` ou base oficial `official_unreviewed`). A IA rascunha;
+um médico com **CRM verificado** aprova. Por ora os cartões só existem no
+console: a decisão do Copiloto ainda não os usa (CC-408).
+
+**Rascunho por IA** — desligado por padrão (`KNOWLEDGE_CARDS_DRAFT_ENABLED`):
+cada pedido é uma chamada ao modelo (estimativa do CC-403: US$ 0,20–0,30 por
+cartão), no mesmo workspace da produção.
+
+```bash
+# Um tema; sem --chunks, a consulta de diretrizes escolhe até 8 trechos pelo tema
+KNOWLEDGE_CARDS_DRAFT_ENABLED=true pnpm cards:draft --topic "Meningite bacteriana: antibiótico empírico no adulto" --syndrome febre
+# A lista priorizada: [{ "topic": "...", "syndrome": "...", "chunkIds": ["..."] }]
+KNOWLEDGE_CARDS_DRAFT_ENABLED=true pnpm cards:draft --topics-file temas.json
+# Fiação sem custo: AI_PROVIDER=test devolve um cartão que cita o 1º trecho
+```
+
+O mesmo serviço atende `POST /v1/admin/knowledge-cards/drafts`
+(`{ topic, syndrome?, chunkIds?, institutionId?, submitForReview? }`). Cada
+cartão do modelo passa pela checagem determinística de citação (acento,
+caixa, espaço e tipografia não contam): trecho que não está no texto da fonte,
+trecho com menos de 20 letras, dose da resposta ou da afirmação que não está
+no trecho citado, ou campo da dose estruturada fora do trecho da dose — o
+cartão é **rejeitado antes da revisão** e o motivo fica em
+`knowledge_card_drafts.rejections`. Os aceitos entram `in_review`.
+
+No log: `KNOWLEDGE_CARD_DRAFT` (aceitos, rejeitados, modelo, custo) e
+`KNOWLEDGE_CARD_DRAFT_FAILED` (modelo recusou, truncou, saiu do schema ou
+erro de provedor — este também no Sentry). Nada do tema ou dos trechos no log.
+No rastro, a etapa é `card_draft` em `ai_calls`.
+
+```sql
+-- Taxa de aceite da checagem de citação por modelo (métrica do CC-403)
+SELECT coalesce(served_model, requested_model) AS model, count(*) AS drafts,
+       sum(cards_accepted) AS accepted, sum(cards_rejected) AS rejected,
+       round(sum(cost_usd)::numeric, 4) AS usd
+FROM knowledge_card_drafts GROUP BY 1 ORDER BY drafts DESC;
+```
+
+**Revisão** — `admin/knowledge-cards`, com a mesma barreira da curadoria
+(papel COMPLIANCE/ADMIN + `is_curator`). Toda decisão leva a `version` que a
+pessoa viu; se outra versão entrou no meio, 409.
+
+| Endpoint | O que faz |
+|---|---|
+| `GET /v1/admin/knowledge-cards?displayStatus=&syndrome=&institutionId=` | Fila, com contagem por status de tela |
+| `GET /v1/admin/knowledge-cards/:id` | Cartão e todas as versões, com fontes, autor (IA: modelo, hash do prompt, origem) e revisão |
+| `POST /v1/admin/knowledge-cards/:id/versions` | "Corrigir": versão nova do médico (`{ basedOnVersion, content }`); mesma checagem de citação, 422 com os problemas |
+| `POST /v1/admin/knowledge-cards/:id/submit` | Rascunho → em revisão |
+| `POST /v1/admin/knowledge-cards/:id/approve` | **Exige CRM verificado (403 sem ele).** Grava revisor, data, validade (`validityMonths`, padrão 12), comentário e `reviewDurationMs`; a versão vira a publicada |
+| `POST /v1/admin/knowledge-cards/:id/reject` | "Descartar" com `reason`: arquiva; numa correção de cartão publicado, só a correção cai |
+| `POST /v1/admin/knowledge-cards/:id/archive` | Tira de uso (final) |
+| `GET /v1/admin/knowledge-cards/drafts` | Registro dos pedidos de rascunho, com as rejeições |
+
+Corrigir um cartão publicado não o tira do ar: a versão assinada segue
+valendo até a nova ser aprovada. Publicado com a validade vencida aparece como
+`needs_review` ("revisar"). Cada transição grava `CARD_DRAFTED`,
+`CARD_VERSION_CREATED`, `CARD_SUBMITTED`, `CARD_APPROVED`, `CARD_REJECTED` ou
+`CARD_ARCHIVED` na trilha, com versão e `contentSha256` — comentário e motivo
+só como hash. No banco, um trigger impede mudar o conteúdo de uma versão ou
+regravar a decisão do revisor, e a role da API não apaga cartão nem versão.
+
+**Anti-circularidade (CC-412)** — nenhum caso do gabarito pode ter a mesma
+origem de rascunho de um cartão (mesmo `draftId` ou mesmo
+`sourceContentSha256`). O runner do gabarito confere antes de medir; à mão:
+
+```bash
+pnpm cards:check-circularity   # só leitura; código 1 se houver caso circular
+```
+
 ### Sincronizar a base oficial da Conitec (ADR-010)
 
 PCDT, DDT, Diretrizes Brasileiras e Protocolos de Uso (~190 documentos) entram
@@ -925,6 +998,7 @@ apenas na resposta. Acesso a um protocolo de outra instituição retorna `404`
 | `20260924180000_f9_guideline_chunks_text_tsv_generated` | `guideline_chunks.text_tsv` vira coluna gerada + índice GIN — liga a busca lexical (ver "Busca lexical (`text_tsv`) — F9") |
 | `20260924220000_ivfflat_probes_exact` | `ivfflat.probes = 100` no banco: busca vetorial exata (incidente de 24/09/2026) |
 | `20261012180000_aud_007_audit_log_hash_version` | `audit_log.hash_version` (NULL = hash legado, 2 = JSON canônico) — ADR-015; só adiciona coluna nula |
+| `20261014120000_cc_402_knowledge_cards` | Cartões revisados (ADR-017): `knowledge_card_drafts`, `knowledge_cards`, `knowledge_card_versions`, trigger que congela o conteúdo assinado e GRANT sem DELETE; só cria tabelas |
 
 ### Rollback de Migration
 
@@ -946,6 +1020,7 @@ Prisma não suporta rollback automático. Para reverter:
 | `DATABASE_URL` | Sistema completamente indisponível ou rodando com privilégios excessivos |
 | `MIGRATION_DATABASE_URL` | Migrations indisponíveis ou executadas com usuário incorreto |
 | `OFFICIAL_GUIDELINES_ENABLED` | `false` tira PCDT/DDT/DB/PU do retrieval (válvula de escape da ADR-010); ausente = ligada. Os limiares `OFFICIAL_*` estão em `.env.example` |
+| `KNOWLEDGE_CARDS_DRAFT_ENABLED` | `true` liga o rascunho de cartões por IA (CC-403: `pnpm cards:draft` e `POST /v1/admin/knowledge-cards/drafts`). Ausente ou irreconhecível = desligado (503). Modelo em `AI_CARD_DRAFT_MODEL` (vazio = `AI_MODEL`; aceita `perfil:modelo`). Não muda a análise do Copiloto |
 | `UNREVIEWED_SOURCES_PRELIMINARY` | `false` desliga a contenção da ADR-012: PCDT e chunk curado sem assinatura voltam a embasar conduta definitiva. Ausente ou irreconhecível = ligada |
 | `COPILOT_REASONING` | `stages` liga o raciocínio em etapas da ADR-013 (entendimento do caso antes da busca, busca dirigida, card "O que eu entendi"); `legacy` (padrão) volta ao pipeline de sempre. Ausente ou irreconhecível = `legacy`. Etapa 1 com `AI_UNDERSTANDING_MODEL` (vazio = `AI_MODEL`) e `AI_UNDERSTANDING_EFFORT` (padrão `low`). Falha da Etapa 1 aparece como `UNDERSTANDING_FAILED`/`UNDERSTANDING_FALLBACK` no log e a análise segue pela busca de sempre |
 | `COPILOT_DECISION_PROMPT` | `v2` liga a decisão em duas camadas da ADR-013 ("Fazer agora" × "Depende de…", perguntas que separam hipóteses, conhecimento geral do modelo rotulado e sem dose); `v1` (padrão) é o prompt de sempre. Exige `COPILOT_REASONING=stages`: sem ele fica `v1` e o log mostra `DECISION_PIPELINE_DOWNGRADE`. Regra da v2 que sobra depois do retry vira `OUTPUT_VALIDATION_WARNING`, nunca bloqueio |
@@ -961,7 +1036,7 @@ Prisma não suporta rollback automático. Para reverter:
 
 Cada chamada ao modelo grava uma linha em `ai_calls` e uma linha `AI_CALL` no
 log: etapa (`intake_reading`, `understanding`, `decision`, `research`,
-`verify_attach`, `guideline_classification`), perfil, provedor, modelo pedido
+`verify_attach`, `guideline_classification`, `card_draft`), perfil, provedor, modelo pedido
 e servido, esforço, hash do system prompt (a versão do prompt), tokens, custo,
 latência e desfecho (`ok`, `refusal`, `truncated`, `error`, `aborted`). Nenhum
 texto do caso, do prompt ou da resposta. A resposta HTTP devolve
