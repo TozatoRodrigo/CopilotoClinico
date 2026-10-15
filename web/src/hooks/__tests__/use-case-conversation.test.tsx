@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -47,6 +47,7 @@ vi.mock("sonner", () => ({ toast: { info: vi.fn(), error: vi.fn(), success: vi.f
 
 const { useCaseConversation } = await import("../use-case-conversation");
 const { ApiError } = await import("@/lib/api-client");
+const { attachToCase, readCaseAttachments } = await import("@/lib/case-tool-link");
 
 const ENCOUNTER_ID = "enc-guiado-1";
 const INTAKE_ID = "00000000-0000-4000-8000-000000000001";
@@ -411,6 +412,113 @@ describe("useCaseConversation", () => {
           ],
         }),
       );
+    });
+
+    describe("resultados de ferramenta anexados ao caso (CC-332)", () => {
+      const nihss = "NIHSS: 9 — AVC moderado.";
+
+      beforeEach(() => vi.stubEnv("NEXT_PUBLIC_FERRAMENTAS", "on"));
+      afterEach(() => vi.unstubAllEnvs());
+
+      it("with the tools off in the web, the reanalysis goes as before", async () => {
+        vi.stubEnv("NEXT_PUBLIC_FERRAMENTAS", "");
+        attachToCase(ENCOUNTER_ID, { toolName: "NIHSS", text: nihss });
+        apiGetMock.mockResolvedValue(conversation({ turns: [turn()] }));
+        apiPostMock.mockResolvedValue({ interactionId: "interaction-2" });
+        const { result } = renderConversation();
+        await waitFor(() => expect(result.current.phase).toBe("plan"));
+        expect(result.current.toolResults.items).toEqual([]);
+
+        act(() => result.current.complementCase("TC sem sangramento"));
+
+        await waitFor(() =>
+          expect(apiPostMock).toHaveBeenCalledWith(`/encounters/${ENCOUNTER_ID}/copilot/respond`, {
+            interactionId: "interaction-1",
+            answers: [
+              { questionId: "Informações adicionais fornecidas pelo médico", answer: "TC sem sangramento" },
+            ],
+          }),
+        );
+      });
+
+      it("go with the next reanalysis, after the physician's own answer", async () => {
+        attachToCase(ENCOUNTER_ID, { toolName: "NIHSS", text: nihss });
+        apiGetMock.mockResolvedValue(conversation({ turns: [turn()] }));
+        apiPostMock.mockResolvedValue({ interactionId: "interaction-2" });
+        const { result } = renderConversation();
+        await waitFor(() => expect(result.current.phase).toBe("plan"));
+        expect(result.current.toolResults.items.map(({ text }) => text)).toEqual([nihss]);
+
+        act(() => result.current.complementCase("TC de crânio sem sangramento"));
+
+        await waitFor(() =>
+          expect(apiPostMock).toHaveBeenCalledWith(`/encounters/${ENCOUNTER_ID}/copilot/respond`, {
+            interactionId: "interaction-1",
+            answers: [
+              {
+                questionId: "Informações adicionais fornecidas pelo médico",
+                answer: "TC de crânio sem sangramento",
+              },
+              { questionId: "resultado-de-ferramenta", answer: nihss },
+            ],
+          }),
+        );
+        // Entraram nesta reanálise: saem da espera.
+        await waitFor(() => expect(result.current.toolResults.items).toEqual([]));
+        expect(readCaseAttachments(ENCOUNTER_ID)).toEqual([]);
+      });
+
+      it("rebuild the plan on their own, from the attachments block", async () => {
+        attachToCase(ENCOUNTER_ID, { toolName: "Choque séptico", text: "Perfil: TEC alterado." });
+        apiGetMock.mockResolvedValue(conversation({ turns: [turn()] }));
+        apiPostMock.mockResolvedValue({ interactionId: "interaction-2" });
+        const { result } = renderConversation();
+        await waitFor(() => expect(result.current.phase).toBe("plan"));
+
+        act(() => result.current.toolResults.send());
+
+        await waitFor(() =>
+          expect(apiPostMock).toHaveBeenCalledWith(`/encounters/${ENCOUNTER_ID}/copilot/respond`, {
+            interactionId: "interaction-1",
+            answers: [
+              { questionId: "resultado-de-ferramenta", answer: "Choque séptico\nPerfil: TEC alterado." },
+            ],
+          }),
+        );
+      });
+
+      it("stay attached when the reanalysis fails, and the retry still carries them", async () => {
+        attachToCase(ENCOUNTER_ID, { toolName: "NIHSS", text: nihss });
+        apiGetMock.mockResolvedValue(conversation({ turns: [turn()] }));
+        apiPostMock.mockRejectedValueOnce(new Error("timeout"));
+        const { result } = renderConversation();
+        await waitFor(() => expect(result.current.phase).toBe("plan"));
+
+        act(() => result.current.toolResults.send());
+        await waitFor(() => expect(result.current.respondError).not.toBeNull());
+        expect(result.current.toolResults.items).toHaveLength(1);
+
+        apiPostMock.mockResolvedValue({ interactionId: "interaction-2" });
+        act(() => result.current.retryRespond());
+        await waitFor(() => expect(result.current.toolResults.items).toEqual([]));
+        expect(apiPostMock).toHaveBeenLastCalledWith(`/encounters/${ENCOUNTER_ID}/copilot/respond`, {
+          interactionId: "interaction-1",
+          answers: [{ questionId: "resultado-de-ferramenta", answer: nihss }],
+        });
+      });
+
+      it("removing one keeps it out of the reanalysis", async () => {
+        const [first] = attachToCase(ENCOUNTER_ID, { toolName: "NIHSS", text: nihss });
+        apiGetMock.mockResolvedValue(conversation({ turns: [turn()] }));
+        const { result } = renderConversation();
+        await waitFor(() => expect(result.current.phase).toBe("plan"));
+
+        act(() => result.current.toolResults.remove(first!.id));
+
+        expect(result.current.toolResults.items).toEqual([]);
+        act(() => result.current.toolResults.send());
+        expect(apiPostMock).not.toHaveBeenCalled();
+      });
     });
 
     it("stops offering new rounds at the turn limit", async () => {

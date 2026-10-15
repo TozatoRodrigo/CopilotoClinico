@@ -37,16 +37,39 @@ export const HACOR_SESSION_TTL_MS = 4 * 60 * 60 * 1000;
 /** Peso adulto comum às ferramentas, como o contexto de peso do ANY. */
 export const ADULT_WEIGHT_KEY = 'peso-adulto';
 
+/**
+ * CC-332 — ida do plano do Copiloto para uma ferramenta. O aviso de "acabei
+ * de abrir pelo caso" vive 2 minutos: só serve à tela que abre em seguida.
+ * O elo token → caso (voltar, anexar, marca "vindo do caso") vale como as
+ * respostas, 30 minutos. O resultado anexado espera a próxima reanálise do
+ * caso por até 6 horas, como os roteiros.
+ */
+export const CASE_PENDING_TTL_MS = 2 * 60 * 1000;
+export const CASE_PENDING_KEY = 'caso-aberto';
+export const CASE_LINK_KEY_PREFIX = 'caso:';
+export const CASE_ATTACHMENTS_KEY_PREFIX = 'caso-anexos:';
+
 /** Validade por chave; o que não está aqui vale `TOOL_SESSION_TTL_MS`. */
 const TTL_BY_KEY: Readonly<Record<string, number>> = {
   'choque-septico': ROTEIRO_SESSION_TTL_MS,
   'choque-indiferenciado': ROTEIRO_SESSION_TTL_MS,
   'cad-ehh': ROTEIRO_SESSION_TTL_MS,
   'vm-hacor': HACOR_SESSION_TTL_MS,
+  [CASE_PENDING_KEY]: CASE_PENDING_TTL_MS,
 };
 
+/** Validade por prefixo, para as chaves com id (`caso:<token>`). */
+const TTL_BY_PREFIX: readonly (readonly [prefix: string, ttl: number])[] = [
+  [CASE_ATTACHMENTS_KEY_PREFIX, ROTEIRO_SESSION_TTL_MS],
+  [CASE_LINK_KEY_PREFIX, TOOL_SESSION_TTL_MS],
+];
+
 export function toolSessionTtl(key: string): number {
-  return TTL_BY_KEY[key] ?? TOOL_SESSION_TTL_MS;
+  return (
+    TTL_BY_KEY[key] ??
+    TTL_BY_PREFIX.find(([prefix]) => key.startsWith(prefix))?.[1] ??
+    TOOL_SESSION_TTL_MS
+  );
 }
 
 export interface ToolSessionEntry<T> {
@@ -95,6 +118,14 @@ export function writeToolSession(key: string, value: unknown, now = Date.now()):
     window.sessionStorage.setItem(PREFIX + key, JSON.stringify({ savedAt: now, value }));
   } catch {
     /* aba privada ou cota cheia: o estado vale só enquanto a tela está aberta */
+  }
+}
+
+export function removeToolSession(key: string): void {
+  try {
+    window.sessionStorage.removeItem(PREFIX + key);
+  } catch {
+    /* aba privada: não havia o que remover */
   }
 }
 

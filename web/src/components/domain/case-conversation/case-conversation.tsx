@@ -20,6 +20,7 @@ import type { DemoCasePreset } from "@/lib/demo-case-presets";
 import type { CaseUnderstanding, ConversationTurn, IntakeAnswerValue, IntakeView } from "@/lib/types";
 import { AnalysisView } from "./analysis-view";
 import { CaseComposer } from "./case-composer";
+import { CaseToolAttachments, CaseToolSuggestionsSection } from "./case-tools";
 import { ConversationComposer } from "./conversation-composer";
 import { ConversationSkeleton } from "./conversation-skeleton";
 import { QuestionCard, type QuestionAnswer } from "./question-card";
@@ -236,6 +237,13 @@ function ConversationThread({
                           }
                         : undefined
                     }
+                    tools={
+                      <CaseToolSuggestionsSection
+                        encounterId={encounterId}
+                        interactionId={turn.interactionId}
+                        toolSuggestions={turn.toolSuggestions}
+                      />
+                    }
                   />
                 </div>
               ) : (
@@ -252,6 +260,16 @@ function ConversationThread({
             </div>
           );
         })}
+
+        {phase === "plan" && !conversation.rebuilding && (
+          <CaseToolAttachments
+            items={conversation.toolResults.items}
+            canRespond={conversation.canRespond}
+            busy={conversation.rebuilding}
+            onRemove={conversation.toolResults.remove}
+            onReanalyze={conversation.toolResults.send}
+          />
+        )}
 
         {/* A reanálise por streaming mostra o entendimento refeito assim que
             chega, como no primeiro plano; a rodada anterior fica acima até a
@@ -462,8 +480,9 @@ function TurnAnswers({ turn, author }: { turn: ConversationTurn; author: string 
   return (
     <PhysicianMessage author={author}>
       <span className="flex flex-col gap-2">
-        {turn.answeredQuestions.map((answer) => (
-          <span key={answer.questionId} className="flex flex-col">
+        {/* Resultados de ferramenta repetem o questionId: a chave é a posição. */}
+        {turn.answeredQuestions.map((answer, index) => (
+          <span key={`${answer.questionId}-${index}`} className="flex flex-col">
             {!FREE_TEXT_IDS.has(answer.questionId) && (
               <span className="text-[0.8125rem] text-muted-foreground">{answer.question}</span>
             )}

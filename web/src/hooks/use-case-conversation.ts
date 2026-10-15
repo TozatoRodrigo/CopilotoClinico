@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { apiClient, ApiError } from "@/lib/api-client";
@@ -10,6 +10,8 @@ import { syncOfflineQueue } from "@/lib/copilot-queue";
 import { useOnlineStatus } from "@/components/providers/offline-provider";
 import { markFirstAnalysisDone } from "@/components/domain/install-prompt-banner";
 import { useCopilotStream } from "@/hooks/use-copilot-stream";
+import { useCaseToolAttachments } from "@/hooks/use-case-tool-attachments";
+import { attachmentAnswer } from "@/lib/case-tool-link";
 import { canStreamFetch, CopilotStreamError } from "@/lib/copilot-stream";
 import { useMessages } from "@/lib/messages/use-messages";
 import {
@@ -149,6 +151,10 @@ export function useCaseConversation(encounterId: string) {
   );
   // A conversa cujo plano esta tela já pediu: pedir de novo só pelo botão.
   const [plannedFor, setPlannedFor] = useState<string | null>(null);
+  // CC-332 — resultados de ferramenta anexados: entram na próxima reanálise,
+  // seja ela qual for (respostas, complemento, correção ou o botão próprio).
+  const toolResults = useCaseToolAttachments(encounterId);
+  const sentToolResultIds = useRef<string[]>([]);
 
   const fetchConversation = useCallback(
     () =>
@@ -378,6 +384,11 @@ export function useCaseConversation(encounterId: string) {
       return { queued: false };
     },
     onSuccess: async ({ queued }) => {
+      // Na fila ou enviados, os anexos já estão nesta reanálise.
+      if (sentToolResultIds.current.length > 0) {
+        toolResults.remove(sentToolResultIds.current);
+        sentToolResultIds.current = [];
+      }
       if (queued) {
         toast.info("Sem conexão. Resposta será enviada quando voltar online.");
         return;
@@ -413,12 +424,23 @@ export function useCaseConversation(encounterId: string) {
     [encounterId],
   );
 
+  /** As respostas do médico e, junto, os resultados de ferramenta anexados ao caso. */
+  const withToolResults = useCallback(
+    (answers: ClarifyingAnswer[]): ClarifyingAnswer[] => {
+      sentToolResultIds.current = toolResults.items.map((item) => item.id);
+      return [...answers, ...toolResults.items.map(attachmentAnswer)];
+    },
+    [toolResults.items],
+  );
+
   const respondWith = useCallback(
     (answers: ClarifyingAnswer[]) => {
-      if (!latestTurn || answers.length === 0) return;
-      respondMutation.mutate({ interactionId: latestTurn.interactionId, answers });
+      if (!latestTurn) return;
+      const all = withToolResults(answers);
+      if (all.length === 0) return;
+      respondMutation.mutate({ interactionId: latestTurn.interactionId, answers: all });
     },
-    [latestTurn, respondMutation],
+    [latestTurn, respondMutation, withToolResults],
   );
 
   /** Responde a pergunta da vez; a última refaz o plano com todas as respostas. */
@@ -459,14 +481,16 @@ export function useCaseConversation(encounterId: string) {
       try {
         await respondMutation.mutateAsync({
           interactionId: latestTurn.interactionId,
-          answers: [{ questionId: UNDERSTANDING_CORRECTION_QUESTION_ID, answer: correction.trim() }],
+          answers: withToolResults([
+            { questionId: UNDERSTANDING_CORRECTION_QUESTION_ID, answer: correction.trim() },
+          ]),
         });
         return true;
       } catch {
         return false;
       }
     },
-    [latestTurn, respondMutation],
+    [latestTurn, respondMutation, withToolResults],
   );
 
   const retryRespond = useCallback(() => {
@@ -578,6 +602,12 @@ export function useCaseConversation(encounterId: string) {
     retryRespond,
     canRespond,
     isLastAllowedTurn: latestTurn !== null && latestTurn.turnIndex === maxTurns - 2,
+    toolResults: {
+      items: toolResults.items,
+      remove: (id: string) => toolResults.remove([id]),
+      /** Reanalisa só com os resultados anexados. */
+      send: () => respondWith([]),
+    },
   };
 }
 

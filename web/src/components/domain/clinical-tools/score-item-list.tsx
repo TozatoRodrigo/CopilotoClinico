@@ -4,6 +4,7 @@ import { useId } from 'react';
 import { formatCompact } from '@clinical-tools/numbers';
 import type { ScoreItem } from '@clinical-tools/calculator';
 import { cn } from '@/lib/utils';
+import { FromCaseBadge } from './case-link';
 
 /** Opções curtas (Não/Sim, faixas de idade) ficam lado a lado no celular. */
 function isCompact(item: ScoreItem): boolean {
@@ -25,6 +26,8 @@ export interface ScoreItemListProps {
    * (`itemShowsPoints`): classificação e parâmetro de fórmula não mostram.
    */
   showsPoints?: (item: ScoreItem) => boolean;
+  /** A resposta do item veio do caso, pelo plano do Copiloto (CC-332). */
+  fromCase?: (itemId: string) => boolean;
   className?: string;
 }
 
@@ -39,6 +42,7 @@ export function ScoreItemList({
   answers,
   onAnswer,
   showsPoints = defaultShowsPoints,
+  fromCase,
   className,
 }: ScoreItemListProps) {
   const groupId = useId();
@@ -49,7 +53,13 @@ export function ScoreItemList({
         const points = showsPoints(item);
         return (
           <fieldset key={item.id} className="flex min-w-0 flex-col gap-1.5">
-            <legend className="mb-1.5 text-sm font-medium text-foreground">{item.label}</legend>
+            {/* A marca fica dentro da legenda: o leitor de tela anuncia o item já "vindo do caso". */}
+            <legend className="mb-1.5 w-full text-sm font-medium text-foreground">
+              <span className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                <span>{item.label}</span>
+                {fromCase?.(item.id) ? <FromCaseBadge /> : null}
+              </span>
+            </legend>
             <div
               className={cn(
                 compact

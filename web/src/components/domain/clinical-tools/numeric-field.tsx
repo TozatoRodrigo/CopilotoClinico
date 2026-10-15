@@ -9,6 +9,7 @@ import {
 } from '@clinical-tools/ranges';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { FromCaseBadge } from './case-link';
 
 const UNBOUNDED = { min: Number.NEGATIVE_INFINITY, max: Number.POSITIVE_INFINITY };
 
@@ -49,6 +50,8 @@ export interface NumericFieldProps {
   className?: string;
   /** Classes extras do campo (ex.: valor maior no resultado de uma infusão). */
   inputClassName?: string;
+  /** O valor veio do caso, pelo plano do Copiloto (CC-332): mostra "vindo do caso". */
+  fromCase?: boolean;
 }
 
 /**
@@ -68,11 +71,13 @@ export function NumericField({
   id,
   className,
   inputClassName,
+  fromCase = false,
 }: NumericFieldProps) {
   const generatedId = useId();
   const inputId = id ?? `numeric-${generatedId}`;
   const hintId = `${inputId}-hint`;
   const errorId = `${inputId}-error`;
+  const fromCaseId = `${inputId}-from-case`;
   const [left, setLeft] = useState(false);
 
   const fullRange: NumericRange = { ...(range ?? UNBOUNDED), unit };
@@ -81,20 +86,29 @@ export function NumericField({
   const hintText = hint ?? (range ? `Faixa aceita: ${describeRange(fullRange)}.` : null);
   // O erro substitui a dica: as mensagens de faixa já repetem a faixa.
   const showHint = Boolean(hintText) && !error;
-  const describedBy = [showHint ? hintId : null, error ? errorId : null].filter(Boolean).join(' ');
+  const describedBy = [
+    fromCase ? fromCaseId : null,
+    showHint ? hintId : null,
+    error ? errorId : null,
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
     <div data-slot="numeric-field" className={cn('flex flex-col gap-1.5', className)}>
-      <label htmlFor={inputId} className="text-[0.8125rem] font-medium text-muted-foreground">
-        {label}
-        {/* A unidade visível fica dentro do campo; aqui ela entra no nome acessível. */}
-        {unit ? (
-          <>
-            {' '}
-            <span className="sr-only">({unit})</span>
-          </>
-        ) : null}
-      </label>
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+        <label htmlFor={inputId} className="text-[0.8125rem] font-medium text-muted-foreground">
+          {label}
+          {/* A unidade visível fica dentro do campo; aqui ela entra no nome acessível. */}
+          {unit ? (
+            <>
+              {' '}
+              <span className="sr-only">({unit})</span>
+            </>
+          ) : null}
+        </label>
+        {fromCase ? <FromCaseBadge id={fromCaseId} /> : null}
+      </div>
       <div className="relative">
         <Input
           id={inputId}

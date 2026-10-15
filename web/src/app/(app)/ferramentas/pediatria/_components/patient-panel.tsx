@@ -1,6 +1,7 @@
 'use client';
 
 import { ArrowCounterClockwise, Baby } from '@phosphor-icons/react';
+import { caseAgeText, sameAsCase } from '@clinical-tools/case-prefill';
 import { formatCompact } from '@clinical-tools/numbers';
 import { describeBroselowAge } from '@clinical-tools/pediatrics/broselow';
 import {
@@ -10,6 +11,7 @@ import {
   type PediatricPatient,
   type WeightField as WeightFieldId,
 } from '@clinical-tools/pediatrics/weight';
+import { useCaseLink } from '@/components/domain/clinical-tools/case-link';
 import { NumericField } from '@/components/domain/clinical-tools/numeric-field';
 import {
   BroselowPicker,
@@ -86,6 +88,7 @@ export function PatientPanel() {
   const { inputs, patient, setWeight, setBroselow, setLength, setAge, reset } =
     usePediatricSession();
   const { weight } = patient;
+  const link = useCaseLink();
   const hasInput =
     inputs.weight !== '' || inputs.broselow !== null || inputs.length !== '' || inputs.age !== '';
 
@@ -112,6 +115,7 @@ export function PatientPanel() {
               onValueChange={setAge}
               placeholder="4"
               hint="0,5 = 6 meses."
+              fromCase={link ? sameAsCase(inputs.age, caseAgeText(link.facts)) : false}
             />
           </div>
         </div>

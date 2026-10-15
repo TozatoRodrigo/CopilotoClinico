@@ -7,9 +7,11 @@ import {
   type CalculatorDefinition,
   type CalculatorEvaluation,
 } from '@clinical-tools/calculator';
+import { calculatorCasePrefill, sameAsCase } from '@clinical-tools/case-prefill';
 import { formatCompact } from '@clinical-tools/numbers';
 import { cn } from '@/lib/utils';
 import { CalculatorResult } from './calculator-result';
+import { useCaseLink } from './case-link';
 import { NumericField } from './numeric-field';
 import { ScoreItemList } from './score-item-list';
 
@@ -43,7 +45,10 @@ export interface InlineCalculatorProps {
 /**
  * Calculadora dentro de um roteiro (CC-318): campos, itens e resultado ao
  * vivo, sem o aviso, a referência e o "copiar" da tela inteira — o roteiro já
- * tem os dele. Toda a conta é do motor (`evaluateCalculator`).
+ * tem os dele. Toda a conta é do motor (`evaluateCalculator`). No roteiro
+ * aberto pelo plano do Copiloto, abre com o que o caso responde (o Wells e o
+ * PERC do TEP), marcado "vindo do caso" (CC-332). O preenchimento não avança
+ * o roteiro: só o toque do médico avança.
  */
 export function InlineCalculator({
   definition,
@@ -52,8 +57,16 @@ export function InlineCalculator({
   action,
   className,
 }: InlineCalculatorProps) {
-  const [items, setItems] = useState<Answers>({});
-  const [inputs, setInputs] = useState<Answers>(() => initialInputs(definition));
+  const link = useCaseLink();
+  const casePrefill = useMemo(
+    () => (link ? calculatorCasePrefill(definition, link.facts) : null),
+    [definition, link],
+  );
+  const [items, setItems] = useState<Answers>(() => ({ ...casePrefill?.items }));
+  const [inputs, setInputs] = useState<Answers>(() => ({
+    ...initialInputs(definition),
+    ...casePrefill?.inputs,
+  }));
   const evaluation = useMemo(
     () => evaluateCalculator(definition, { items, inputs }),
     [definition, items, inputs],
@@ -87,6 +100,7 @@ export function InlineCalculator({
               value={inputs[input.id] ?? ''}
               issue={issueFor(input.id)}
               onValueChange={(raw) => update(items, { ...inputs, [input.id]: raw })}
+              fromCase={sameAsCase(inputs[input.id], casePrefill?.inputs[input.id])}
             />
           ))}
         </div>
@@ -97,6 +111,7 @@ export function InlineCalculator({
           answers={items}
           showsPoints={(item) => itemShowsPoints(definition, item)}
           onAnswer={(itemId, optionId) => update({ ...items, [itemId]: optionId }, inputs)}
+          fromCase={(itemId) => sameAsCase(items[itemId], casePrefill?.items[itemId])}
         />
       ) : null}
       <CalculatorResult definition={definition} evaluation={evaluation} />

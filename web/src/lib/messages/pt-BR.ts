@@ -151,6 +151,22 @@ export interface Messages {
   };
 
   /**
+   * CC-332 — ferramentas que o plano sugere, já preenchidas com o caso, e o
+   * resultado que o médico anexa de volta à conversa.
+   */
+  caseTools: {
+    title: string;
+    open: (name: string) => string;
+    prefilled: (count: number) => string;
+    mappingNote: (version: string) => string;
+    attachedTitle: string;
+    attachedHint: string;
+    remove: (name: string) => string;
+    reanalyze: string;
+    limitReached: string;
+  };
+
+  /**
    * Rótulo de origem da fonte citada, por valor de `Citation.origin` (F4,
    * ADR-010, ADR-012). A interface sempre diz se a fonte passou por médico.
    */
@@ -521,6 +537,23 @@ export const ptBR: Messages = {
     reasoningWhy: 'Por que o copiloto chegou a este plano',
     noRecommendations:
       'Nenhuma conduta sugerida nesta rodada — responda o que falta saber ou consulte as diretrizes.',
+  },
+
+  caseTools: {
+    title: 'Ferramentas para este caso',
+    open: (name) => `Abrir ${name}`,
+    prefilled: (count) =>
+      count === 1
+        ? '1 campo já preenchido com o caso'
+        : `${count} campos já preenchidos com o caso`,
+    mappingNote: (version) =>
+      `Sugeridas por regra fixa (mapeamento v${version}), não pela IA. Confira os campos antes de usar.`,
+    attachedTitle: 'Resultados anexados',
+    attachedHint: 'Entram na próxima reanálise do caso.',
+    remove: (name) => `Remover ${name}`,
+    reanalyze: 'Reanalisar com os resultados',
+    limitReached:
+      'Limite de rodadas atingido: estes resultados não entram mais na análise. Copie-os para o prontuário.',
   },
 
   sourceOrigin: {

@@ -235,6 +235,57 @@ ignorado e o estado se perdia.
 - Um teste varre o código e falha se algum `?droga=` apontar para droga que
   não está nas Infusões, ou algum link para ferramenta fora do catálogo.
 
+### 11. Ferramenta certa no plano do Copiloto (CC-332)
+
+O plano leva o médico à ferramenta que o caso pede, já preenchida.
+
+- **Mapeamento no motor, por regra fixa.** `case-suggestions.ts` decide a
+  partir do entendimento do caso (síndrome, sinais vitais, idade, achados,
+  hipóteses; ADR-013/014) e das condutas do plano. Nada de IA: a mesma
+  entrada dá sempre a mesma sugestão. Há regras de dado, que valem em
+  qualquer síndrome (parada → ACLS, criança → Pediatria, IOT → Via aérea,
+  sepse com hipotensão → Choque séptico, TEP nas hipóteses → TEP, droga
+  vasoativa no plano → Infusões na droga, CAD/EHH, dengue), e uma decisão por
+  síndrome de PS: `SYNDROME_DECISIONS` é `Record<PsSyndrome, …>`, então
+  síndrome nova no catálogo não compila sem dizer "ferramenta" ou "nenhuma, e
+  por quê". Roteiro adulto não aparece para criança e vice-versa. No máximo 3
+  sugestões. O mapeamento é conteúdo clínico, versionado em
+  `CASE_TOOL_MAPPING_PROVENANCE` com revisão pendente do Dr. Ripardo
+  (`docs/ferramentas/revisao-clinica/ferramentas-no-plano.md`).
+- **Flag na API, não no web.** `COPILOT_TOOL_SUGGESTIONS` (padrão `off`) é
+  lida a cada chamada em `GET /copilot/conversation`, porque o caso inteiro
+  está na API: o entendimento de cada rodada e, sem ele, a leitura do
+  Copiloto guiado, que o web não recebe. Liga e desliga sem redeploy, como as
+  outras flags clínicas. Desligada, a resposta fica idêntica (nem o campo
+  `toolSuggestions` aparece). A tela ainda exige `NEXT_PUBLIC_FERRAMENTAS=on`.
+- **Preenchimento.** A API devolve os números do caso (`CaseToolFacts`: idade,
+  sexo, peso dito no texto, PA, FC, FR, SpO₂, temperatura, glicemia; nada
+  estimado). `case-prefill.ts` diz o que cada calculadora recebe: campo direto
+  ou item pelo mesmo limiar do rótulo. Quando o número não decide o item, ele
+  fica vazio: o "SpO₂ < 95% em ar ambiente" do PERC só vira Sim, porque o Não
+  exigiria saber que a medida foi em ar ambiente e um PERC negativo afasta TEP.
+  O preenchimento nunca fecha um escore nem avança um roteiro sozinho. Todo
+  campo preenchido aparece "vindo do caso" até o médico trocar o valor.
+- **Nada de dado clínico no endereço.** "Abrir <ferramenta>" grava na sessão
+  da aba (`tool-session.ts`) o elo `caso:<token>` (caso, ferramenta, números;
+  30 min), o aviso `caso-aberto` (2 min, só para a tela que abre em seguida
+  montar já com o caso) e o que as telas leem ao montar (peso adulto,
+  respostas da calculadora). Abrir pelo caso troca o peso adulto da aba pelo
+  do caso, ou o apaga: o peso do paciente anterior nunca entra numa conta
+  deste. O endereço leva só a ferramenta, o lugar dentro dela (`?droga=`) e
+  `?caso=<token>`, 16 letras sorteadas, sem dígito.
+- **Resultado de volta ao caso.** Na ferramenta aberta pelo plano, "Anexar ao
+  caso" fica ao lado de "Copiar para o prontuário" e guarda o mesmo texto
+  (sem dado de identificação) em `caso-anexos:<atendimento>` (6 h). A conversa
+  mostra os anexos e os leva na próxima reanálise, seja ela qual for, como
+  respostas com o `questionId` reservado `resultado-de-ferramenta`, rotulado
+  no prompt como "Resultado de ferramenta calculado pelo médico". Sem o token
+  no endereço não há "Anexar ao caso".
+- **Caminho para o CC-333.** A API já importa o motor e já extrai do caso as
+  entradas das calculadoras (`caseToolFacts`, `calculatorCasePrefill`). Para
+  o Copiloto calcular o escore citado no plano, a decisão chama o motor com
+  essas entradas (tool use) e, faltando dado, pede o dado em vez de estimar.
+
 ## Consequências
 
 - Toda ferramenta nova traz definição com procedência, teste diferencial e,

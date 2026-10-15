@@ -4,6 +4,7 @@ import { useId, useState } from 'react';
 import { Copy } from '@phosphor-icons/react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { AttachToCaseButton } from './case-link';
 
 export interface CopyToChartButtonProps {
   /** Texto pronto para o prontuário; `null` enquanto não há resultado. */
@@ -14,7 +15,8 @@ export interface CopyToChartButtonProps {
 /**
  * Botão "Copiar para o prontuário" (CC-305). Se o navegador negar a área de
  * transferência (permissão, iframe, http), mostra o texto selecionável no
- * lugar: o médico nunca fica sem o que colar.
+ * lugar: o médico nunca fica sem o que colar. Na ferramenta aberta pelo plano
+ * do Copiloto, o mesmo texto também pode ser anexado ao caso (CC-332).
  */
 export function CopyToChartButton({ text, className }: CopyToChartButtonProps) {
   const fallbackId = useId();
@@ -33,10 +35,13 @@ export function CopyToChartButton({ text, className }: CopyToChartButtonProps) {
 
   return (
     <div className={className}>
-      <Button type="button" variant="outline" onClick={copy} disabled={!text}>
-        <Copy aria-hidden="true" />
-        Copiar para o prontuário
-      </Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="button" variant="outline" onClick={copy} disabled={!text}>
+          <Copy aria-hidden="true" />
+          Copiar para o prontuário
+        </Button>
+        <AttachToCaseButton text={text} />
+      </div>
       {fallback ? (
         <div className="mt-2 flex flex-col gap-1">
           <label htmlFor={fallbackId} className="text-xs text-muted-foreground">

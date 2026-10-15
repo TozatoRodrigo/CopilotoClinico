@@ -262,6 +262,11 @@ interface AnalysisViewProps {
    */
   pendingQuestions?: ReactNode;
   correction?: UnderstandingCorrection;
+  /**
+   * CC-332 — "Ferramentas para este caso": logo depois do plano, antes do
+   * raciocínio, perto das condutas que a ferramenta ajuda a executar.
+   */
+  tools?: ReactNode;
 }
 
 /**
@@ -280,6 +285,7 @@ export function AnalysisView({
   hasPendingQuestion,
   pendingQuestions,
   correction,
+  tools,
 }: AnalysisViewProps) {
   const messages = useMessages();
   const analysis: CopilotAnalysis = {
@@ -502,6 +508,8 @@ export function AnalysisView({
           </div>
         )}
       </section>
+
+      {tools}
 
       {/* O raciocínio inteiro, recolhido: entendimento (com a correção),
           sinais de alarme, hipóteses consideradas e o porquê do plano. */}

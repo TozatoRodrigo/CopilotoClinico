@@ -164,6 +164,23 @@ export const es: Messages = {
       'Ninguna conducta sugerida en esta ronda — responda lo que falta saber o consulte las guías.',
   },
 
+  caseTools: {
+    title: 'Herramientas para este caso',
+    open: (name) => `Abrir ${name}`,
+    prefilled: (count) =>
+      count === 1
+        ? '1 campo ya completado con el caso'
+        : `${count} campos ya completados con el caso`,
+    mappingNote: (version) =>
+      `Sugeridas por regla fija (mapeo v${version}), no por la IA. Verifique los campos antes de usarlos.`,
+    attachedTitle: 'Resultados adjuntos',
+    attachedHint: 'Entran en el próximo reanálisis del caso.',
+    remove: (name) => `Quitar ${name}`,
+    reanalyze: 'Reanalizar con los resultados',
+    limitReached:
+      'Límite de rondas alcanzado: estos resultados ya no entran en el análisis. Cópielos a la historia clínica.',
+  },
+
   sourceOrigin: {
     institutional: 'Protocolo institucional',
     public: 'Guía pública',
