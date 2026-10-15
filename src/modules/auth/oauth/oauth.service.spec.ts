@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { createHash } from 'crypto';
@@ -537,7 +537,18 @@ describe('OAuthService (CC-334)', () => {
     it('refuses to finish a signup without the pending cookie', async () => {
       await expect(
         oauth.completeSignup(undefined, { crmUf: 'RJ', crmNumber: '52123' }),
-      ).rejects.toThrow(UnauthorizedException);
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('refuses to use a link step to finish a signup', async () => {
+      await seedPhysician();
+      const outcome = await signInWith('google');
+      expect(outcome.status).toBe('link');
+
+      await expect(
+        oauth.completeSignup(pendingToken(outcome), { crmUf: 'RJ', crmNumber: '52123' }),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.physician.create).not.toHaveBeenCalled();
     });
 
     it('refuses an email the provider did not verify', async () => {

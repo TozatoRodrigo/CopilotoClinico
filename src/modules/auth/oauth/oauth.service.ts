@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { createHash, createHmac, randomBytes } from 'crypto';
@@ -76,6 +76,12 @@ type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K>
 type PendingStep = DistributiveOmit<PendingClaims, 'scope'>;
 
 const tokenResponseSchema = z.object({ id_token: z.string().min(1) });
+
+/**
+ * 400, não 401: o web distingue "o passo expirou" de "senha errada" (401) e
+ * mostra esta mensagem como veio.
+ */
+const PENDING_EXPIRED_MESSAGE = 'O login com o provedor expirou. Entre de novo.';
 
 export type OAuthCallbackOutcome =
   | { status: 'ok'; accessToken: string; refreshToken: string }
@@ -312,7 +318,7 @@ export class OAuthService {
   ): Promise<SignInResult & { mfaRequired: false }> {
     const pending = await this.readPendingClaims(pendingToken);
     if (pending?.kind !== 'signup') {
-      throw new UnauthorizedException('O login com o provedor expirou. Entre de novo.');
+      throw new BadRequestException(PENDING_EXPIRED_MESSAGE);
     }
     return this.authService.registerWithExternalIdentity(
       {
@@ -335,7 +341,7 @@ export class OAuthService {
   ): Promise<SignInResult> {
     const pending = await this.readPendingClaims(pendingToken);
     if (pending?.kind !== 'link') {
-      throw new UnauthorizedException('O login com o provedor expirou. Entre de novo.');
+      throw new BadRequestException(PENDING_EXPIRED_MESSAGE);
     }
     return this.authService.linkExternalIdentityWithPassword(
       pending.physicianId,
