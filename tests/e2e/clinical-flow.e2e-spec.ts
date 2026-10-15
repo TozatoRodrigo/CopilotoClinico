@@ -226,6 +226,10 @@ function buildPrismaMock() {
     caseIntake: {
       findMany: vi.fn().mockResolvedValue([]),
     },
+    // CC-334 — contas Google/Microsoft vinculadas também entram no export LGPD.
+    externalIdentity: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
 
     physicianInstitution: {
       findMany: vi.fn().mockResolvedValue([]),
