@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ConfigService } from '@nestjs/config';
-import { WhisperService } from './whisper.service';
+import { WhisperApiError, WhisperService } from './whisper.service';
 import { InternalServerErrorException } from '@nestjs/common';
 
 function makeConfig(overrides: Record<string, string> = {}) {
@@ -44,6 +44,60 @@ describe('WhisperService', () => {
     await expect(service.transcribe(Buffer.from('audio'), 'audio/mpeg')).rejects.toThrow(
       InternalServerErrorException,
     );
+  });
+
+  it('keeps the provider status on the error, so a usage limit can be told apart', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: false,
+      status: 429,
+      text: vi.fn().mockResolvedValue('rate limit'),
+    } as unknown as Response);
+
+    const error = await service.transcribe(Buffer.from('audio'), 'audio/mpeg').catch((e) => e);
+
+    expect(error).toBeInstanceOf(WhisperApiError);
+    expect((error as WhisperApiError).upstreamStatus).toBe(429);
+    expect((error as WhisperApiError).getStatus()).toBe(500);
+  });
+
+  describe('model (CC-205)', () => {
+    function sentModel(): FormDataEntryValue | null {
+      const init = vi.mocked(fetch).mock.calls[0]?.[1];
+      return (init?.body as FormData).get('model');
+    }
+
+    beforeEach(() => {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+        ok: true,
+        text: vi.fn().mockResolvedValue('ok'),
+      } as unknown as Response);
+    });
+
+    it('sends whisper-large-v3 when WHISPER_MODEL is unset', async () => {
+      await service.transcribe(Buffer.from('a'), 'audio/webm');
+      expect(sentModel()).toBe('whisper-large-v3');
+    });
+
+    it('sends the model in WHISPER_MODEL', async () => {
+      const turbo = new WhisperService(makeConfig({ WHISPER_MODEL: 'whisper-large-v3-turbo' }));
+      turbo.onModuleInit();
+
+      await turbo.transcribe(Buffer.from('a'), 'audio/webm');
+      expect(sentModel()).toBe('whisper-large-v3-turbo');
+    });
+
+    it('falls back to whisper-large-v3 on an unknown WHISPER_MODEL', async () => {
+      const typo = new WhisperService(makeConfig({ WHISPER_MODEL: 'whisper-turbo' }));
+      typo.onModuleInit();
+
+      await typo.transcribe(Buffer.from('a'), 'audio/webm');
+      expect(sentModel()).toBe('whisper-large-v3');
+    });
+
+    it('lets the caller pick the model', async () => {
+      await service.transcribe(Buffer.from('a'), 'audio/webm', { model: 'whisper-large-v3-turbo' });
+      expect(sentModel()).toBe('whisper-large-v3-turbo');
+    });
   });
 
   it('uses custom base url when configured', async () => {
