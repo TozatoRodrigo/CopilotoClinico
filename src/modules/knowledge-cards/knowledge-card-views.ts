@@ -6,6 +6,7 @@ import type {
   KnowledgeCardDraftRejection,
   KnowledgeCardDraftRun,
   KnowledgeCardPhysicianRef,
+  KnowledgeCardReviewFlag,
   KnowledgeCardSummary,
   KnowledgeCardVersionView,
 } from '../../shared/contracts/knowledge-cards';
@@ -38,8 +39,10 @@ export const CARD_SUMMARY_SELECT = {
   syndrome: true,
   status: true,
   currentVersion: true,
+  sourceKey: true,
   createdAt: true,
   updatedAt: true,
+  assignedReviewer: { select: PHYSICIAN_REF_SELECT },
   publishedVersion: PUBLISHED_VERSION_SELECT,
   versions: { orderBy: { version: 'desc' }, take: 1, select: { content: true } },
 } as const satisfies Prisma.KnowledgeCardSelect;
@@ -68,6 +71,8 @@ const VERSION_SELECT = {
       createdAt: true,
     },
   },
+  reviewFlags: true,
+  import: { select: { id: true, toolId: true, createdAt: true } },
 } as const satisfies Prisma.KnowledgeCardVersionSelect;
 
 export const CARD_DETAIL_SELECT = {
@@ -77,9 +82,11 @@ export const CARD_DETAIL_SELECT = {
   syndrome: true,
   status: true,
   currentVersion: true,
+  sourceKey: true,
   archivedAt: true,
   createdAt: true,
   updatedAt: true,
+  assignedReviewer: { select: PHYSICIAN_REF_SELECT },
   publishedVersion: PUBLISHED_VERSION_SELECT,
   versions: { orderBy: { version: 'desc' }, select: VERSION_SELECT },
 } as const satisfies Prisma.KnowledgeCardSelect;
@@ -114,6 +121,10 @@ function parseStoredContent(content: Prisma.JsonValue, versionId: string) {
   return parsed.data;
 }
 
+const ReviewFlagsSchema = z
+  .array(z.object({ ref: z.string(), title: z.string(), detail: z.string() }))
+  .catch([]) satisfies z.ZodType<KnowledgeCardReviewFlag[], z.ZodTypeDef, unknown>;
+
 function questionOf(content: Prisma.JsonValue | undefined): string {
   const parsed = z.object({ question: z.string() }).safeParse(content);
   return parsed.success ? parsed.data.question : '';
@@ -147,6 +158,8 @@ function summaryFields(
     ),
     currentVersion: row.currentVersion,
     question,
+    sourceKey: row.sourceKey,
+    assignedReviewer: row.assignedReviewer ? toPhysicianRef(row.assignedReviewer) : null,
     published: toPublication(row.publishedVersion),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -186,6 +199,14 @@ function toVersionView(row: VersionRow): KnowledgeCardVersionView {
           createdAt: row.draft.createdAt.toISOString(),
         }
       : null,
+    importOrigin: row.import
+      ? {
+          importId: row.import.id,
+          toolId: row.import.toolId,
+          createdAt: row.import.createdAt.toISOString(),
+        }
+      : null,
+    reviewFlags: ReviewFlagsSchema.parse(row.reviewFlags),
     review,
     createdAt: row.createdAt.toISOString(),
   };

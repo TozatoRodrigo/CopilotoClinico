@@ -17,6 +17,7 @@ import { CuratorGuard } from '../../shared/guards/curator.guard';
 import { Roles } from '../../shared/decorators/roles.decorator';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import type {
+  KnowledgeCardBatchSignResult,
   KnowledgeCardDetail,
   KnowledgeCardDraftPage,
   KnowledgeCardDraftResult,
@@ -32,6 +33,7 @@ import {
   listKnowledgeCardDraftsQuerySchema,
   listKnowledgeCardsQuerySchema,
   rejectKnowledgeCardSchema,
+  signKnowledgeCardBatchSchema,
   submitKnowledgeCardSchema,
   type ApproveKnowledgeCardInput,
   type ArchiveKnowledgeCardInput,
@@ -40,6 +42,7 @@ import {
   type ListKnowledgeCardDraftsQueryInput,
   type ListKnowledgeCardsQueryInput,
   type RejectKnowledgeCardInput,
+  type SignKnowledgeCardBatchInput,
   type SubmitKnowledgeCardInput,
 } from './schemas/knowledge-cards.schemas';
 
@@ -96,6 +99,19 @@ export class KnowledgeCardsController {
       requestedBy: req.user.physicianId,
       submitForReview: body.submitForReview,
     });
+  }
+
+  /**
+   * CC-405 — "assinar lote": o revisor indicado aprova os cartões importados
+   * de uma ferramenta do ANY. CRM verificado e indicação conferidos no serviço.
+   */
+  @Post('import-batches/sign')
+  @HttpCode(200)
+  signImportBatch(
+    @Request() req: AuthenticatedRequest,
+    @Body(new ZodValidationPipe(signKnowledgeCardBatchSchema)) body: SignKnowledgeCardBatchInput,
+  ): Promise<KnowledgeCardBatchSignResult> {
+    return this.cards.approveImportBatch(req.user.physicianId, body);
   }
 
   @Get(':id')

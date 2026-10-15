@@ -57,14 +57,24 @@ const ClaimSchema = z
   })
   .strict();
 
-const SourceRefSchema = z
-  .object({
-    key: z.string().regex(SOURCE_KEY, 'chave de fonte no formato "S1"'),
-    chunkId: z.string().uuid(),
-  })
+const SourceKeySchema = z.string().regex(SOURCE_KEY, 'chave de fonte no formato "S1"');
+
+/** "infusoes/noradrenalina" — ferramenta e item do motor (CC-405). */
+const TOOL_ITEM_ID = /^[a-z0-9-]+\/[a-z0-9-]+(?:\/[a-z0-9-]+)*$/;
+const ToolItemIdSchema = z.string().max(160).regex(TOOL_ITEM_ID, 'item do motor inválido');
+
+const GuidelineSourceRefSchema = z
+  .object({ key: SourceKeySchema, chunkId: z.string().uuid() })
   .strict();
 
-const SourceSchema = SourceRefSchema.extend({
+/** CC-405 — item do motor clínico das Ferramentas como fonte. */
+const ToolSourceRefSchema = z
+  .object({ key: SourceKeySchema, kind: z.literal('clinical_tool'), toolItemId: ToolItemIdSchema })
+  .strict();
+
+const SourceRefSchema = z.union([GuidelineSourceRefSchema, ToolSourceRefSchema]);
+
+const GuidelineSourceSchema = GuidelineSourceRefSchema.extend({
   documentId: z.string().uuid().nullable(),
   title: text(1, 500),
   sourceVersion: text(1, 100),
@@ -72,6 +82,22 @@ const SourceSchema = SourceRefSchema.extend({
   url: z.string().url().nullable(),
   chunkSha256: z.string().regex(SHA256_HEX),
 }).strict();
+
+const ToolSourceSchema = ToolSourceRefSchema.extend({
+  title: text(1, 500),
+  section: optionalText(300),
+  sourceVersion: text(1, 100),
+  url: z.string().url().nullable(),
+  reference: optionalText(1000),
+  origin: text(1, 300),
+  contentVersion: text(1, 40),
+  contentUpdatedAt: text(1, 40),
+  anyVersion: optionalText(20),
+  anyCommit: optionalText(40),
+  textSha256: z.string().regex(SHA256_HEX),
+}).strict();
+
+const SourceSchema = z.union([GuidelineSourceSchema, ToolSourceSchema]);
 
 const contentFields = {
   question: text(10, 300),
@@ -81,14 +107,19 @@ const contentFields = {
   claims: z.array(ClaimSchema).max(MAX_CLAIMS),
 };
 
+/** O que identifica a fonte: o trecho de diretriz ou o item do motor. */
+export function sourceIdentity(source: { chunkId: string } | { toolItemId: string }): string {
+  return 'chunkId' in source ? `chunk:${source.chunkId}` : `tool:${source.toolItemId}`;
+}
+
 function uniqueSources(
-  sources: ReadonlyArray<{ key: string; chunkId: string }>,
+  sources: ReadonlyArray<{ key: string } & ({ chunkId: string } | { toolItemId: string })>,
   ctx: z.RefinementCtx,
 ): void {
   if (new Set(sources.map((source) => source.key)).size !== sources.length) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['sources'], message: 'chave repetida' });
   }
-  if (new Set(sources.map((source) => source.chunkId)).size !== sources.length) {
+  if (new Set(sources.map(sourceIdentity)).size !== sources.length) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['sources'], message: 'trecho repetido' });
   }
 }

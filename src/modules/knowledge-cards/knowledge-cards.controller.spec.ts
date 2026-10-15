@@ -38,6 +38,7 @@ describe('KnowledgeCardsController (HTTP)', () => {
     approve: vi.fn(),
     reject: vi.fn(),
     archive: vi.fn(),
+    approveImportBatch: vi.fn(),
   };
   const drafts = { draft: vi.fn(), listDrafts: vi.fn() };
   const prisma = { physician: { findUnique: vi.fn() } };
@@ -238,6 +239,48 @@ describe('KnowledgeCardsController (HTTP)', () => {
     expect(cards.createVersion).toHaveBeenCalledWith(curatorId, cardId, {
       basedOnVersion: 1,
       content,
+    });
+  });
+
+  // CC-405 — o lote não é confundido com um id de cartão e leva o curador autenticado.
+  it('assina lote do ANY em nome do curador, com o corpo validado', async () => {
+    const payload = { toolId: 'acls', items: [{ cardId, version: 1 }] };
+    const res = await app.inject({
+      method: 'POST',
+      url: '/admin/knowledge-cards/import-batches/sign',
+      headers: asUser('ADMIN'),
+      payload,
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(cards.approveImportBatch).toHaveBeenCalledWith(curatorId, payload);
+  });
+
+  it('recusa lote de ferramenta desconhecida sem chamar o serviço', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/admin/knowledge-cards/import-batches/sign',
+      headers: asUser('ADMIN'),
+      payload: { toolId: 'tep', items: [{ cardId, version: 1 }] },
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(cards.approveImportBatch).not.toHaveBeenCalled();
+  });
+
+  it('filtra a lista pelos cartões importados de uma ferramenta', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/admin/knowledge-cards?importTool=pediatria&displayStatus=in_review',
+      headers: asUser('ADMIN'),
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(cards.list).toHaveBeenCalledWith({
+      importTool: 'pediatria',
+      displayStatus: 'in_review',
+      limit: 20,
+      offset: 0,
     });
   });
 

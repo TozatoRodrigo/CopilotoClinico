@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import {
   ConflictException,
   ForbiddenException,
@@ -14,6 +15,7 @@ import { sha256Hex, toJsonValue } from '../audit/audit-hash';
 import { maskFreeText } from '../copilot/guardrails/pii-filter';
 import {
   KNOWLEDGE_CARD_DISPLAY_STATUSES,
+  type KnowledgeCardBatchSignResult,
   type KnowledgeCardDetail,
   type KnowledgeCardDisplayStatus,
   type KnowledgeCardListPage,
@@ -25,6 +27,7 @@ import {
   toReviewedCard,
 } from './card-retrieval/reviewed-card-view';
 import { KnowledgeCardContentSchema } from './domain/card-content';
+import { anyToolKeyPrefix } from './any-import/any-card-draft';
 import {
   DEFAULT_VALIDITY_MONTHS,
   transition,
@@ -46,6 +49,7 @@ import type {
   CreateKnowledgeCardVersionInput,
   ListKnowledgeCardsQueryInput,
   RejectKnowledgeCardInput,
+  SignKnowledgeCardBatchInput,
   SubmitKnowledgeCardInput,
 } from './schemas/knowledge-cards.schemas';
 
@@ -64,6 +68,18 @@ const CARD_STATE_SELECT = {
 } as const satisfies Prisma.KnowledgeCardSelect;
 
 type CardState = Prisma.KnowledgeCardGetPayload<{ select: typeof CARD_STATE_SELECT }>;
+
+/** CC-405 — o lote precisa saber, além do estado, de onde o cartão veio e quem foi indicado. */
+const BATCH_CARD_SELECT = {
+  ...CARD_STATE_SELECT,
+  sourceKey: true,
+  assignedReviewerId: true,
+} as const satisfies Prisma.KnowledgeCardSelect;
+
+type BatchCard = Prisma.KnowledgeCardGetPayload<{ select: typeof BATCH_CARD_SELECT }>;
+
+/** Uma ferramenta do ANY importa até ~90 cartões (Pediatria): o lote cabe numa transação. */
+const BATCH_TRANSACTION_TIMEOUT_MS = 60_000;
 
 /** Texto livre vai mascarado para o banco e só como hash para a trilha (sem texto livre no payload). */
 function textSha256(text: string | null): string | null {
@@ -112,6 +128,9 @@ export class KnowledgeCardsService {
     const scope: Prisma.KnowledgeCardWhereInput = {
       ...(query.syndrome ? { syndrome: query.syndrome } : {}),
       ...(query.institutionId ? { institutionId: query.institutionId } : {}),
+      ...(query.importTool
+        ? { sourceKey: { startsWith: anyToolKeyPrefix(query.importTool) } }
+        : {}),
     };
     const where: Prisma.KnowledgeCardWhereInput = query.displayStatus
       ? { AND: [scope, displayStatusWhere(query.displayStatus, now)] }
@@ -202,7 +221,9 @@ export class KnowledgeCardsService {
 
     const previous = KnowledgeCardContentSchema.safeParse(latest.content);
     const alreadyCited = new Set(
-      previous.success ? previous.data.sources.map((source) => source.chunkId) : [],
+      previous.success
+        ? previous.data.sources.flatMap((source) => ('chunkId' in source ? [source.chunkId] : []))
+        : [],
     );
     const chunks = await loadSourceChunks(this.prisma, requestedChunkIds(input.content));
     const prepared = prepareCardContent(input.content, chunks, {
@@ -312,6 +333,125 @@ export class KnowledgeCardsService {
     });
     await this.cardIndex.syncCard(cardId);
     return this.get(cardId);
+  }
+
+  /**
+   * CC-405, critério 2 — "assinar lote": o revisor indicado na importação
+   * aprova de uma vez os cartões importados de uma ferramenta do ANY. As
+   * mesmas regras do aprovar um a um, para cada cartão: CRM verificado (403),
+   * a versão que o revisor viu (409) e um CARD_APPROVED na trilha com versão
+   * e hash. Além disso, só cartão importado daquela ferramenta e indicado a
+   * quem assina (403): o lote é o atalho de quem escreveu o conteúdo, não de
+   * qualquer revisor. Tudo ou nada: um cartão fora da regra recusa o lote
+   * inteiro, com a lista do que impediu.
+   */
+  async approveImportBatch(
+    reviewerId: string,
+    input: SignKnowledgeCardBatchInput,
+  ): Promise<KnowledgeCardBatchSignResult> {
+    await this.assertVerifiedReviewer(reviewerId);
+    const rows = await this.prisma.knowledgeCard.findMany({
+      where: { id: { in: input.items.map((item) => item.cardId) } },
+      select: BATCH_CARD_SELECT,
+    });
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    const prefix = anyToolKeyPrefix(input.toolId);
+
+    const notAssigned: string[] = [];
+    const problems: Array<{ cardId: string; reason: string }> = [];
+    const approvals: Array<{ card: BatchCard; latest: BatchCard['versions'][number] }> = [];
+    for (const item of input.items) {
+      const card = byId.get(item.cardId);
+      if (!card?.sourceKey?.startsWith(prefix)) {
+        problems.push({ cardId: item.cardId, reason: `não é cartão importado de ${input.toolId}` });
+        continue;
+      }
+      if (card.assignedReviewerId !== reviewerId) {
+        notAssigned.push(item.cardId);
+        continue;
+      }
+      const moved = transition(
+        { status: card.status, hasPublishedVersion: card.publishedVersionId !== null },
+        'approve',
+      );
+      const latest = card.versions[0];
+      if (!moved.ok) {
+        problems.push({ cardId: item.cardId, reason: moved.reason });
+      } else if (
+        !latest ||
+        latest.version !== card.currentVersion ||
+        item.version !== card.currentVersion
+      ) {
+        problems.push({
+          cardId: item.cardId,
+          reason: `o cartão está na versão ${card.currentVersion}; recarregue antes de assinar`,
+        });
+      } else {
+        approvals.push({ card, latest });
+      }
+    }
+    if (notAssigned.length > 0) {
+      throw new ForbiddenException({
+        message: 'Só o revisor indicado na importação assina o lote',
+        cardIds: notAssigned,
+      });
+    }
+    if (problems.length > 0) {
+      throw new ConflictException({ message: 'O lote não pode ser assinado', problems });
+    }
+
+    const batchId = randomUUID();
+    const reviewedAt = new Date();
+    const validUntil = validUntilFrom(reviewedAt, input.validityMonths ?? DEFAULT_VALIDITY_MONTHS);
+    const comment = maskFreeText(input.comment);
+    await this.prisma.$transaction(
+      async (tx) => {
+        for (const { card, latest } of approvals) {
+          const reviewed = await tx.knowledgeCardVersion.updateMany({
+            where: { id: latest.id, reviewDecision: null },
+            data: {
+              reviewDecision: 'approved',
+              reviewerId,
+              reviewedAt,
+              reviewComment: comment,
+              validUntil,
+            },
+          });
+          const published = await tx.knowledgeCard.updateMany({
+            where: { id: card.id, status: card.status, currentVersion: latest.version },
+            data: { status: 'published', publishedVersionId: latest.id },
+          });
+          if (reviewed.count !== 1 || published.count !== 1) throw this.concurrentChange();
+        }
+      },
+      { timeout: BATCH_TRANSACTION_TIMEOUT_MS, maxWait: BATCH_TRANSACTION_TIMEOUT_MS },
+    );
+
+    // Um CARD_APPROVED por cartão, como no aprovar um a um, com o lote de que fez parte.
+    for (const { card, latest } of approvals) {
+      await this.audit(reviewerId, KNOWLEDGE_CARD_AUDIT_ACTIONS.approved, card.id, {
+        version: latest.version,
+        contentSha256: latest.contentSha256,
+        previousPublishedVersionId: card.publishedVersionId,
+        validUntil: validUntil.toISOString(),
+        reviewDurationMs: null,
+        commentSha256: textSha256(comment),
+        batch: { batchId, toolId: input.toolId, size: approvals.length },
+      });
+    }
+    for (const { card } of approvals) await this.cardIndex.syncCard(card.id);
+    this.logger.log(
+      `KNOWLEDGE_CARD_BATCH_APPROVED batch=${batchId} tool=${input.toolId} cards=${approvals.length}`,
+    );
+    return {
+      batchId,
+      toolId: input.toolId,
+      approved: approvals.map(({ card, latest }) => ({
+        cardId: card.id,
+        version: latest.version,
+        contentSha256: latest.contentSha256,
+      })),
+    };
   }
 
   /**

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { sourceChunks, validCardInput } from '../../../../tests/fixtures/knowledge-cards';
+import {
+  sourceChunks,
+  TREATMENT_CHUNK_ID,
+  validCardInput,
+} from '../../../../tests/fixtures/knowledge-cards';
 import type { KnowledgeCardContent } from '../../../shared/contracts/knowledge-cards';
 import { prepareCardContent } from '../card-sources';
 import {
@@ -56,7 +60,7 @@ describe('KnowledgeCardContentInputSchema', () => {
     const result = KnowledgeCardContentInputSchema.safeParse({
       ...input,
       extra: true,
-      sources: [{ key: 'fonte-1', chunkId: input.sources[0]!.chunkId }],
+      sources: [{ key: 'fonte-1', chunkId: TREATMENT_CHUNK_ID }],
       claims: [{ ...input.claims[1]!, citations: [] }],
     });
 

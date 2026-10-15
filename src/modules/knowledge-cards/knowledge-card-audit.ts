@@ -6,6 +6,8 @@ export const KNOWLEDGE_CARD_AUDIT_ACTIONS = {
   approved: 'CARD_APPROVED',
   rejected: 'CARD_REJECTED',
   archived: 'CARD_ARCHIVED',
+  /** CC-405 — versão criada pela importação do conteúdo do ANY. */
+  imported: 'CARD_IMPORTED',
 } as const;
 
 export const KNOWLEDGE_CARD_AUDIT_ENTITY = 'KnowledgeCard';

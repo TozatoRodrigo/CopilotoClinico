@@ -13,6 +13,7 @@ import {
 } from './domain/card-content';
 import { checkCardCitations } from './domain/citation-check';
 import { chunkTextSha256 } from './domain/draft-provenance';
+import { resolveToolSource, type ResolvedToolSource } from './any-import/any-card-catalog';
 
 /**
  * Fontes de um cartão: trechos de diretriz já ingeridos (`guideline_chunks`).
@@ -107,6 +108,12 @@ export function toCardSource(key: string, chunk: SourceChunk): KnowledgeCardSour
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/**
+ * CC-405 — item do motor das Ferramentas como fonte: resolvido pelo código no
+ * ar, nunca pelo que o cliente manda. Item que saiu do motor não é fonte.
+ */
+export type ToolSourceResolver = (toolItemId: string) => ResolvedToolSource | undefined;
+
 /** Ids de chunk do conteúdo enviado, antes de validar o formato (o zod valida em seguida). */
 export function requestedChunkIds(content: unknown): string[] {
   if (typeof content !== 'object' || content === null) return [];
@@ -130,17 +137,35 @@ export type PreparedContent =
 export function prepareCardContent(
   input: unknown,
   chunks: ReadonlyMap<string, SourceChunk>,
-  options: { institutionId: string | null; alreadyCitedChunkIds?: ReadonlySet<string> },
+  options: {
+    institutionId: string | null;
+    alreadyCitedChunkIds?: ReadonlySet<string>;
+    resolveTool?: ToolSourceResolver;
+  },
 ): PreparedContent {
   const parsed = KnowledgeCardContentInputSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, issues: zodIssuesToContentIssues(parsed.error.issues) };
   }
 
+  const resolveTool = options.resolveTool ?? resolveToolSource;
   const issues: KnowledgeCardContentIssue[] = [];
   const sources: KnowledgeCardSource[] = [];
   const sourceTexts = new Map<string, string>();
   parsed.data.sources.forEach((ref, index) => {
+    if ('toolItemId' in ref) {
+      const tool = resolveTool(ref.toolItemId);
+      if (!tool) {
+        issues.push({
+          path: `sources[${index}].toolItemId`,
+          message: 'item do motor das Ferramentas não encontrado',
+        });
+        return;
+      }
+      sources.push({ ...tool.meta, key: ref.key });
+      sourceTexts.set(ref.key, tool.text);
+      return;
+    }
     const chunk = chunks.get(ref.chunkId);
     const problem = sourceChunkProblem(chunk, {
       institutionId: options.institutionId,

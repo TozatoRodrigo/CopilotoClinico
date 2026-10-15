@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { PS_SYNDROMES } from '../../../shared/contracts/clinical';
 import {
+  ANY_CARD_TOOL_IDS,
   KNOWLEDGE_CARD_DISPLAY_STATUSES,
   type ApproveKnowledgeCardRequest,
   type ArchiveKnowledgeCardRequest,
@@ -8,6 +9,7 @@ import {
   type CreateKnowledgeCardVersionRequest,
   type ListKnowledgeCardsQuery,
   type RejectKnowledgeCardRequest,
+  type SignKnowledgeCardBatchRequest,
   type SubmitKnowledgeCardRequest,
 } from '../../../shared/contracts/knowledge-cards';
 import { MAX_SOURCES } from '../domain/card-content';
@@ -32,6 +34,7 @@ export const listKnowledgeCardsQuerySchema = z.object({
   displayStatus: z.enum(KNOWLEDGE_CARD_DISPLAY_STATUSES).optional(),
   syndrome: syndrome.optional(),
   institutionId: z.string().uuid().optional(),
+  importTool: z.enum(ANY_CARD_TOOL_IDS).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   offset: z.coerce.number().int().min(0).default(0),
 }) satisfies z.ZodType<ListKnowledgeCardsQuery, z.ZodTypeDef, unknown>;
@@ -102,3 +105,24 @@ export const archiveKnowledgeCardSchema = z
   .object({ reason: z.string().trim().min(3).max(REVIEW_TEXT_MAX_CHARS) })
   .strict() satisfies z.ZodType<ArchiveKnowledgeCardRequest, z.ZodTypeDef, unknown>;
 export type ArchiveKnowledgeCardInput = z.infer<typeof archiveKnowledgeCardSchema>;
+
+/** Uma ferramenta importa até ~90 cartões; o teto só barra pedido absurdo. */
+export const MAX_BATCH_ITEMS = 300;
+
+/** CC-405 — "assinar lote": cada cartão na versão que o revisor viu, sem repetir. */
+export const signKnowledgeCardBatchSchema = z
+  .object({
+    toolId: z.enum(ANY_CARD_TOOL_IDS),
+    items: z
+      .array(z.object({ cardId: z.string().uuid(), version }).strict())
+      .min(1)
+      .max(MAX_BATCH_ITEMS)
+      .refine(
+        (items) => new Set(items.map((item) => item.cardId)).size === items.length,
+        'cartão repetido no lote',
+      ),
+    comment: z.string().max(REVIEW_TEXT_MAX_CHARS).optional(),
+    validityMonths: z.number().int().min(1).max(MAX_VALIDITY_MONTHS).optional(),
+  })
+  .strict() satisfies z.ZodType<SignKnowledgeCardBatchRequest, z.ZodTypeDef, unknown>;
+export type SignKnowledgeCardBatchInput = z.infer<typeof signKnowledgeCardBatchSchema>;

@@ -145,3 +145,48 @@ describe('CC-406 migration 20261015120000_cc_406_knowledge_card_index', () => {
     expect(sql).toContain('knowledge_card_index_embedding_model_check');
   });
 });
+
+/**
+ * CC-405 — importação do ANY: o valor novo do enum vem numa migration sozinha
+ * (só pode ser usado depois de confirmado), a importação é escrita uma vez, e
+ * a origem e os achados da versão ficam congelados pelo trigger.
+ */
+describe('CC-405 migrations', () => {
+  const read = (dir: string) =>
+    readFileSync(join(process.cwd(), `prisma/migrations/${dir}/migration.sql`), 'utf8');
+  const enumSql = read('20261016120000_cc_405_author_kind_import');
+  const sql = read('20261016120100_cc_405_any_card_import');
+
+  it('adiciona a autoria import numa migration sem mais nada', () => {
+    expect(enumSql).toContain(`ALTER TYPE "KnowledgeCardAuthorKind" ADD VALUE 'import';`);
+    expect(
+      enumSql
+        .replace(/--.*$/gm, '')
+        .trim()
+        .split(';')
+        .filter((part) => part.trim()),
+    ).toHaveLength(1);
+  });
+
+  it('grava a importação uma vez só e nunca apaga nada assinado', () => {
+    expect(sql).toContain('GRANT SELECT, INSERT ON TABLE "knowledge_card_imports" TO copiloto_app');
+    expect(sql).toContain(
+      'REVOKE UPDATE, DELETE, TRUNCATE ON TABLE "knowledge_card_imports" FROM copiloto_app',
+    );
+    expect(sql).toContain(
+      "has_table_privilege('copiloto_app', 'knowledge_card_imports', privilege)",
+    );
+    expect(sql).not.toMatch(/ON DELETE CASCADE/);
+    expect(sql).not.toMatch(/GRANT[^;]*(DELETE|TRUNCATE)/i);
+  });
+
+  it('chave do item única, autoria import ligada à importação e trigger com origem e achados', () => {
+    expect(sql).toContain('CREATE UNIQUE INDEX "knowledge_cards_source_key_key"');
+    expect(sql).toContain(
+      `("author_kind" = 'import' AND "import_id" IS NOT NULL AND "draft_id" IS NULL AND "author_physician_id" IS NULL)`,
+    );
+    expect(sql).toContain('NEW.import_id IS DISTINCT FROM OLD.import_id');
+    expect(sql).toContain('NEW.review_flags IS DISTINCT FROM OLD.review_flags');
+    expect(sql).toContain('OLD.review_decision IS NOT NULL');
+  });
+});

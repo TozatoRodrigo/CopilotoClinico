@@ -114,10 +114,9 @@ describe('prepareCardContent', () => {
 
     expect(prepared.ok).toBe(true);
     if (!prepared.ok) return;
-    expect(prepared.content.sources.map((source) => source.chunkId)).toEqual([
-      TREATMENT_CHUNK_ID,
-      DIAGNOSIS_CHUNK_ID,
-    ]);
+    expect(
+      prepared.content.sources.map((source) => ('chunkId' in source ? source.chunkId : null)),
+    ).toEqual([TREATMENT_CHUNK_ID, DIAGNOSIS_CHUNK_ID]);
     expect(prepared.content.sources[1]?.section).toBe('6. DIAGNÓSTICO');
     expect(prepared.contentSha256).toBe(hashCardContent(prepared.content));
   });
@@ -162,6 +161,73 @@ describe('prepareCardContent', () => {
           message: 'trecho de diretriz pending_review não pode ser fonte nova',
         },
       ],
+    });
+  });
+
+  // CC-405 — item do motor das Ferramentas como fonte, resolvido pelo servidor.
+  describe('fonte do motor das Ferramentas (clinical_tool)', () => {
+    const toolContent = () => ({
+      question: 'Qual a dose de epinefrina na parada?',
+      population: null,
+      answer: 'ACLS — Epinefrina 1 mg IV/IO: A cada 3-5 min.',
+      answerCitations: [
+        { sourceKey: 'S1', quote: 'ACLS — Epinefrina 1 mg IV/IO: A cada 3-5 min.' },
+      ],
+      claims: [
+        {
+          kind: 'conduct' as const,
+          text: 'Epinefrina 1 mg IV/IO a cada 3-5 min.',
+          dose: {
+            drug: 'Epinefrina',
+            amount: '1 mg',
+            route: 'IV/IO',
+            frequency: 'A cada 3-5 min',
+            maxDose: null,
+            citation: { sourceKey: 'S1', quote: 'ACLS — Epinefrina 1 mg IV/IO: A cada 3-5 min.' },
+          },
+          citations: [{ sourceKey: 'S1', quote: 'ACLS — Epinefrina 1 mg IV/IO: A cada 3-5 min.' }],
+        },
+      ],
+      sources: [{ key: 'S1', kind: 'clinical_tool' as const, toolItemId: 'acls/epinefrina' }],
+    });
+
+    it('resolve a fonte pelo código do motor e confere a citação no texto dela', () => {
+      const prepared = prepareCardContent(toolContent(), new Map(), { institutionId: null });
+
+      expect(prepared.ok).toBe(true);
+      if (!prepared.ok) return;
+      expect(prepared.content.sources[0]).toMatchObject({
+        kind: 'clinical_tool',
+        toolItemId: 'acls/epinefrina',
+        anyCommit: '95c8fba',
+      });
+    });
+
+    it('recusa item que não existe no motor e citação fora do texto do item', () => {
+      const missing = toolContent();
+      missing.sources = [{ key: 'S1', kind: 'clinical_tool', toolItemId: 'acls/nao-existe' }];
+      expect(prepareCardContent(missing, new Map(), { institutionId: null })).toEqual({
+        ok: false,
+        issues: [
+          {
+            path: 'sources[0].toolItemId',
+            message: 'item do motor das Ferramentas não encontrado',
+          },
+        ],
+      });
+
+      const invented = toolContent();
+      invented.claims[0]!.dose!.amount = '2 mg';
+      const prepared = prepareCardContent(invented, new Map(), { institutionId: null });
+      expect(prepared.ok).toBe(false);
+    });
+
+    it('o cliente não escolhe os metadados da fonte: só a chave e o item', () => {
+      const forged = toolContent() as unknown as { sources: Array<Record<string, unknown>> };
+      forged.sources = [
+        { key: 'S1', kind: 'clinical_tool', toolItemId: 'acls/epinefrina', reference: 'inventada' },
+      ];
+      expect(prepareCardContent(forged, new Map(), { institutionId: null }).ok).toBe(false);
     });
   });
 

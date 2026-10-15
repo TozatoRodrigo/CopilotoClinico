@@ -141,6 +141,8 @@ model Physician {
   copilotFeedback         CopilotFeedback[]
   knowledgeCardVersions   KnowledgeCardVersion[]   @relation("KnowledgeCardVersionAuthor")
   knowledgeCardReviews    KnowledgeCardVersion[]   @relation("KnowledgeCardVersionReviewer")
+  knowledgeCardsAssigned  KnowledgeCard[]          @relation("KnowledgeCardAssignedReviewer")
+  knowledgeCardImports    KnowledgeCardImport[]    @relation("KnowledgeCardImportReviewer")
 
   @@map("physicians")
 }
@@ -579,9 +581,11 @@ enum KnowledgeCardStatus {
 }
 
 /// CC-402 — quem escreveu uma versão: a IA (rascunho) ou um médico (correção).
+/// CC-405 — `import`: mapeamento determinístico do conteúdo tipado do ANY.
 enum KnowledgeCardAuthorKind {
   ai
   physician
+  import
 }
 
 /// CC-402 — decisão do médico revisor sobre UMA versão.
@@ -640,6 +644,35 @@ model KnowledgeCardDraft {
   @@map("knowledge_card_drafts")
 }
 
+/// CC-405 (ADR-019) — uma execução de `pnpm cards:import-any`: o conteúdo
+/// tipado das ferramentas do ANY (src/shared/clinical-tools) vira cartão por
+/// mapeamento determinístico, sem IA. Gravada de uma vez, como o rascunho; a
+/// API só insere e lê.
+model KnowledgeCardImport {
+  id                 String   @id @default(uuid()) @db.Uuid
+  /// Ferramenta pedida (`--tool`); null = todas.
+  toolId             String?  @map("tool_id") @db.VarChar(40)
+  /// Revisor indicado para os cartões criados ou atualizados.
+  assignedReviewerId String?  @map("assigned_reviewer_id") @db.Uuid
+  /// Commits do ANY de onde veio o conteúdo importado ("95c8fba").
+  anyCommits         String[] @map("any_commits")
+  itemsTotal         Int      @map("items_total")
+  cardsCreated       Int      @default(0) @map("cards_created")
+  cardsUpdated       Int      @default(0) @map("cards_updated")
+  cardsUnchanged     Int      @default(0) @map("cards_unchanged")
+  /// Cartões arquivados: a importação não os ressuscita.
+  cardsSkipped       Int      @default(0) @map("cards_skipped")
+  /// `{ itemId, issues[] }[]` dos itens que não passaram na checagem de citação.
+  rejections         Json     @default("[]")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  assignedReviewer Physician?             @relation("KnowledgeCardImportReviewer", fields: [assignedReviewerId], references: [id], onDelete: Restrict)
+  versions         KnowledgeCardVersion[]
+
+  @@index([createdAt])
+  @@map("knowledge_card_imports")
+}
+
 /// CC-402 (ADR-019) — cartão revisado: uma situação clínica, pergunta e
 /// resposta curta com fonte, assinado por médico com CRM verificado.
 ///
@@ -661,10 +694,16 @@ model KnowledgeCard {
   archivedAt         DateTime?           @map("archived_at")
   /// Motivo do arquivamento, já mascarado de PII (a trilha guarda só o hash).
   archivedReason     String?             @map("archived_reason") @db.Text
+  /// CC-405 — chave do item importado ("any:infusoes/noradrenalina"): reimportar
+  /// acha o mesmo cartão em vez de duplicar. Null fora da importação.
+  sourceKey          String?             @unique @map("source_key") @db.VarChar(200)
+  /// CC-405 — revisor indicado na importação; o lote de uma ferramenta só ele assina.
+  assignedReviewerId String?             @map("assigned_reviewer_id") @db.Uuid
   createdAt          DateTime            @default(now()) @map("created_at")
   updatedAt          DateTime            @updatedAt @map("updated_at")
 
   institution      Institution?             @relation(fields: [institutionId], references: [id], onDelete: Restrict)
+  assignedReviewer Physician?               @relation("KnowledgeCardAssignedReviewer", fields: [assignedReviewerId], references: [id], onDelete: Restrict)
   publishedVersion KnowledgeCardVersion?    @relation("KnowledgeCardPublishedVersion", fields: [publishedVersionId], references: [id], onDelete: Restrict)
   versions         KnowledgeCardVersion[]   @relation("KnowledgeCardVersions")
   indexEntry       KnowledgeCardIndexEntry?
@@ -672,6 +711,7 @@ model KnowledgeCard {
   @@index([status, updatedAt])
   @@index([institutionId])
   @@index([syndrome])
+  @@index([assignedReviewerId])
   @@map("knowledge_cards")
 }
 
@@ -691,6 +731,11 @@ model KnowledgeCardVersion {
   authorPhysicianId String?                      @map("author_physician_id") @db.Uuid
   /// CC-403/CC-412 — rascunho de IA de onde a versão saiu; null na correção do médico.
   draftId           String?                      @map("draft_id") @db.Uuid
+  /// CC-405 — importação do ANY de onde a versão saiu (`author_kind = import`).
+  importId          String?                      @map("import_id") @db.Uuid
+  /// CC-405 — achados da revisão clínica (`KnowledgeCardReviewFlag[]`) para o
+  /// revisor ver antes de assinar. Fora do conteúdo assinado; não muda depois.
+  reviewFlags       Json                         @default("[]") @map("review_flags")
   reviewDecision    KnowledgeCardReviewDecision? @map("review_decision")
   reviewerId        String?                      @map("reviewer_id") @db.Uuid
   reviewedAt        DateTime?                    @map("reviewed_at")
@@ -705,12 +750,14 @@ model KnowledgeCardVersion {
   card            KnowledgeCard            @relation("KnowledgeCardVersions", fields: [cardId], references: [id], onDelete: Restrict)
   publishedOf     KnowledgeCard?           @relation("KnowledgeCardPublishedVersion")
   draft           KnowledgeCardDraft?      @relation(fields: [draftId], references: [id], onDelete: Restrict)
+  import          KnowledgeCardImport?     @relation(fields: [importId], references: [id], onDelete: Restrict)
   authorPhysician Physician?               @relation("KnowledgeCardVersionAuthor", fields: [authorPhysicianId], references: [id], onDelete: Restrict)
   reviewer        Physician?               @relation("KnowledgeCardVersionReviewer", fields: [reviewerId], references: [id], onDelete: Restrict)
   indexEntry      KnowledgeCardIndexEntry?
 
   @@unique([cardId, version])
   @@index([draftId])
+  @@index([importId])
   @@index([reviewerId])
   @@map("knowledge_card_versions")
 }
