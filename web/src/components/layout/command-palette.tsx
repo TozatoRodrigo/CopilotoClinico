@@ -11,6 +11,7 @@ import {
   Microphone,
   MoonStars,
   Sun,
+  Toolbox,
   UserCircle,
 } from '@phosphor-icons/react';
 import { useEncounterList } from '@/lib/clinical-queries';
@@ -41,10 +42,7 @@ interface Command {
 }
 
 function normalize(value: string): string {
-  return value
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase();
+  return value.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -55,9 +53,10 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 /**
- * ADR-017 — calculadoras já portadas entram na busca do ⌘K pelo nome e pelos
- * sinônimos (a mesma busca do hub). Só com texto digitado, para não encher a
- * lista inicial; as "em breve" não aparecem porque não abrem.
+ * ADR-017 — roteiros e calculadoras já portados entram na busca do ⌘K pelo
+ * nome e pelos sinônimos (a mesma busca do hub): "cetoacidose" acha CAD e
+ * EHH. Só com texto digitado, para não encher a lista inicial; as "em breve"
+ * não aparecem porque não abrem.
  */
 const MAX_TOOL_COMMANDS = 5;
 
@@ -65,7 +64,21 @@ function toolCommands(query: string, go: (href: string) => void): Command[] {
   if (!isFerramentasEnabled() || query.length < 2) return [];
   const commands: Command[] = [];
   for (const result of searchTools(query)) {
-    if (result.kind !== 'calculator' || result.status !== 'disponivel') continue;
+    if (result.status !== 'disponivel') continue;
+    if (result.kind === 'tool') {
+      const { tool } = result;
+      commands.push({
+        id: `tool-${tool.id}`,
+        label: tool.name,
+        hint: 'Ferramenta',
+        icon: Toolbox,
+        group: 'Ferramentas',
+        run: () =>
+          go(tool.id === 'calculadoras' ? '/ferramentas/calculadoras' : `/ferramentas/${tool.id}`),
+      });
+      if (commands.length === MAX_TOOL_COMMANDS) break;
+      continue;
+    }
     const { id } = result.calculator;
     commands.push({
       id: `calc-${id}`,
@@ -181,7 +194,9 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
       setActiveIndex((i) => (commands.length === 0 ? 0 : (i + 1) % commands.length));
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
-      setActiveIndex((i) => (commands.length === 0 ? 0 : (i - 1 + commands.length) % commands.length));
+      setActiveIndex((i) =>
+        commands.length === 0 ? 0 : (i - 1 + commands.length) % commands.length,
+      );
     } else if (event.key === 'Enter') {
       event.preventDefault();
       commands[activeIndex]?.run();
@@ -202,7 +217,10 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
   return (
     <>
       <div className="flex items-center gap-2.5 border-b border-border px-4">
-        <MagnifyingGlass className="size-[18px] shrink-0 text-muted-foreground" aria-hidden="true" />
+        <MagnifyingGlass
+          className="size-[18px] shrink-0 text-muted-foreground"
+          aria-hidden="true"
+        />
         <input
           autoFocus
           value={query}
@@ -259,7 +277,10 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
                       active ? 'bg-hover text-foreground' : 'text-foreground',
                     )}
                   >
-                    <Icon className="size-[18px] shrink-0 text-muted-foreground" aria-hidden="true" />
+                    <Icon
+                      className="size-[18px] shrink-0 text-muted-foreground"
+                      aria-hidden="true"
+                    />
                     <span className="min-w-0 truncate">{command.label}</span>
                     {command.hint && (
                       <span className="min-w-0 truncate text-xs text-muted-foreground">
@@ -268,7 +289,10 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
                     )}
                     <span className="flex-1" />
                     {active && (
-                      <ArrowElbowDownLeft className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                      <ArrowElbowDownLeft
+                        className="size-3.5 shrink-0 text-muted-foreground"
+                        aria-hidden="true"
+                      />
                     )}
                   </div>
                 );

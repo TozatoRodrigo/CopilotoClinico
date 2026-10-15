@@ -38,8 +38,8 @@ export interface ToolEntry {
 }
 
 /**
- * Roteiros e calculadoras de dose do ANY. Só a lista de calculadoras já tem
- * tela; cada roteiro ganha a sua na história indicada no comentário.
+ * Roteiros e calculadoras de dose do ANY. A ferramenta `disponivel` já tem
+ * tela; as outras ganham a sua na história indicada no comentário.
  */
 export const TOOLS: readonly ToolEntry[] = [
   {
@@ -145,8 +145,27 @@ export const TOOLS: readonly ToolEntry[] = [
     name: 'CAD e EHH',
     description: 'Cetoacidose e estado hiperosmolar, da primeira hora à insulina subcutânea.',
     group: 'metabolico',
-    synonyms: ['cetoacidose', 'cad', 'ehh', 'hiperosmolar', 'diabetes', 'insulina'],
-    status: 'em-breve',
+    synonyms: [
+      'cetoacidose',
+      'cetoacidose diabética',
+      'cad',
+      'dka',
+      'ehh',
+      'hhs',
+      'estado hiperosmolar',
+      'hiperosmolar',
+      'crise hiperglicêmica',
+      'hiperglicemia',
+      'diabetes',
+      'insulina',
+      'bomba de insulina',
+      'potássio',
+      'kcl',
+      'sódio corrigido',
+      'ânion gap',
+      'cetonúria',
+    ],
+    status: 'disponivel',
   },
   // CC-327
   {
