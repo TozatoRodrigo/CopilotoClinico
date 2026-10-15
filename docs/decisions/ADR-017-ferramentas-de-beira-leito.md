@@ -286,6 +286,81 @@ O plano leva o médico à ferramenta que o caso pede, já preenchida.
   o Copiloto calcular o escore citado no plano, a decisão chama o motor com
   essas entradas (tool use) e, faltando dado, pede o dado em vez de estimar.
 
+#### Adendo (CC-333, 2026-10-15): escore do plano pelo motor, sem tool use
+
+O escore citado no plano vem do motor, não do modelo, em duas camadas atrás
+de `COPILOT_DETERMINISTIC_SCORES` (padrão `off`; desligada, prompt e saída
+ficam byte a byte iguais, conferido por impressão digital em
+`orchestrator.deterministic-scores.spec.ts`):
+
+1. **Pré-cálculo, antes da decisão.** As calculadoras que o mapeamento acima
+   sugere para o caso (as diretas e as de dentro de um roteiro, como Wells e
+   PERC no TEP) são calculadas pelo motor quando o caso traz todas as
+   entradas, e vão ao fim da mensagem do usuário como fato: "CURB-65 = 5
+   pontos, calculado pelo sistema com: estado mental: confusão; ureia 64
+   mg/dL; FR 32 irpm; PA 85x50 mmHg; idade 72 anos". As que não fecham vão
+   com o que falta. Uma regra fixa diz ao modelo para nunca calcular escore e,
+   sem o valor, escrever "Falta saber: <dado> para calcular <escore>". O
+   system prompt não muda (continua cacheável).
+2. **Conferência, depois da decisão.** Todo escore de uma lista fechada
+   (`SCORE_CITATIONS`, 25 escores) citado com número em qualquer campo da
+   saída é recalculado com os dados do caso. Divergiu: o número vira o do
+   motor, marcado "[corrigido pelo sistema]", e o log registra
+   `SCORE_CORRECTED` (id, campo e referência, sem texto clínico). Sem dado
+   para calcular: o número sai, fica "CURB-65 [falta saber: ureia para
+   calcular]" e o log registra `SCORE_INPUTS_MISSING`. Quando o motor calcula,
+   as entradas usadas vão ao fim da justificativa da conduta (ou do
+   raciocínio). Quando o motor não calcula mas o próprio caso informa o valor
+   (Glasgow dito pelo médico, resultado de ferramenta anexado), esse valor é a
+   referência. É correção determinística, como a da pergunta sobre dado já
+   informado na v3: roda na saída já validada e nunca pede retry. Cada
+   conferência (número que o modelo escreveu, campo, referência e resultado)
+   e os escores calculados ficam em `rawOutput.deterministicScores`.
+
+As entradas vêm do caso por regra fixa (`case-scores.ts`): sinais vitais e
+idade do entendimento; ureia, estado mental, O₂ e Glasgow do texto. Item que o
+dado não decide fica sem resposta e o escore não sai: um escore com item
+chutado viria com a autoridade do sistema. Hoje fecham CURB-65, qSOFA, NEWS2 e
+índice de choque; PERC, Wells, HEART, Ottawa e Alvarado só recebem idade, FC e
+temperatura e, citados com número, viram pedido do dado. A leitura é conteúdo
+clínico versionado (`CASE_SCORES_PROVENANCE`), com revisão pendente do Dr.
+Ripardo (`docs/ferramentas/revisao-clinica/escores-pelo-motor.md`).
+
+**Por que não tool use.** O critério da história fala em "tool use"; o que ele
+pede é que o número venha do código, com as entradas listadas, e que sem dado
+o plano peça o dado. Pré-cálculo e conferência entregam isso com menos
+latência e menos risco do que o modelo chamar a calculadora pela API da
+Anthropic que o projeto usa (Messages API, saída estruturada em
+`output_config.format`, raciocínio adaptativo, streaming):
+
+- **Não garante o critério sozinho.** No Opus 5.5, o modelo da decisão,
+  `tool_choice` forçado (`any`/`tool`) devolve 400; só existe `auto`, e o
+  modelo pode citar o escore sem chamar a ferramenta. A conferência depois da
+  decisão seria necessária de qualquer jeito.
+- **Pelo menos uma ida e volta a mais.** A chamada para em `tool_use`, o
+  código calcula, e a decisão continua numa segunda inferência com o prompt
+  inteiro reenviado (o cache barateia a entrada, não o tempo de geração) e os
+  blocos de raciocínio devolvidos sem alteração. A decisão já leva dezenas de
+  segundos no plantão; a conferência custa milissegundos.
+- **As entradas seriam do modelo.** Na chamada, quem escolhe "ureia = 64" é
+  o modelo; ele pode passar um valor estimado. Aqui as entradas saem do caso
+  por regra fixa, a mesma do preenchimento acima.
+- **Um laço por provedor e por caminho.** O gateway tem um provedor por etapa
+  (Anthropic e perfis compatíveis com OpenAI, como a Groq), streaming com
+  deltas, retry com o feedback do validador, fallback de recusa e rastro por
+  chamada (`ai_calls`). Tool use exigiria o laço em cada provedor e no
+  streaming; pré-cálculo e conferência não dependem do provedor.
+
+Tool use volta a valer para escores cujas entradas são história em texto
+livre, que regra fixa não lê (CHA₂DS₂-VASc, a história do HEART): aí o modelo
+extrairia as entradas, o motor calcularia e a tela mostraria as entradas para
+o médico confirmar.
+
+**Medida.** A variante `claude-opus-5-5-v3-modelo-escores` do gabarito é a v3
+só com o conhecimento do modelo mais a flag; o relatório ganha "Escore citado
+≠ motor" (o que o modelo escreveu, antes da correção) e o mesmo número no
+texto entregue ao médico, que com a flag tem de ser zero.
+
 ## Consequências
 
 - Toda ferramenta nova traz definição com procedência, teste diferencial e,

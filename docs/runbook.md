@@ -470,6 +470,22 @@ diferente de `-` (uma por abertura da conversa); resultado anexado aparece na
 trilha de auditoria como `COPILOT_QUESTION_ANSWERED` com
 `questionIds` contendo `resultado-de-ferramenta`.
 
+**Escores do plano pelo motor (CC-333).** Com `COPILOT_DETERMINISTIC_SCORES=on`
+na API, o escore que o plano cita vem do motor das Ferramentas (ADR-017, adendo
+ao item 11). Antes da decisão, as calculadoras sugeridas para o caso com todas
+as entradas (CURB-65, por exemplo) vão ao prompt calculadas; depois dela, todo
+escore citado com número é conferido: divergente vira o valor do motor com
+"[corrigido pelo sistema]", e sem dado para calcular vira "[falta saber: …
+para calcular]". Nada disso chama IA nem faz retry. No log, sem texto clínico:
+`SCORE_PRECOMPUTED computed=… incomplete=…` (um por turno),
+`SCORE_CORRECTED calculator=… field=… reference=engine|case` e
+`SCORE_INPUTS_MISSING calculator=… field=… missing=<n>`. Para medir quanto o
+modelo erra o escore, conte `SCORE_CORRECTED` por turno; o detalhe de cada
+conferência fica em `ai_interactions.raw_output -> 'deterministicScores'`.
+Para desligar, `COPILOT_DETERMINISTIC_SCORES=off` (sem redeploy). A leitura do
+caso para os escores tem revisão clínica pendente
+(`docs/ferramentas/revisao-clinica/escores-pelo-motor.md`).
+
 **Offline (CC-322).** O `pnpm build` do web gera `public/ferramentas-offline.json`
 (páginas de `/ferramentas/**` e os chunks que elas usam, com a versão do
 conteúdo); o service worker baixa essa lista na primeira abertura com sinal e
@@ -1003,6 +1019,7 @@ Prisma não suporta rollback automático. Para reverter:
 | `AI_DECISION_MODEL` / `AI_DECISION_CRITICAL_MODEL` | ADR-016: modelo da decisão no caso comum e no caso grave (instável ou tempo-crítico pela Etapa 1, ou sem entendimento). Vazios = `AI_MODEL` nas duas rotas. Crítico vazio = o comum nas duas. Aceitam `perfil:modelo`. No log: `DECISION_MODEL route=critical\|standard model=...`; a interação grava `params.decisionRoute` |
 | `COPILOT_KNOWLEDGE_SOURCE` | `internal_kb` (padrão) é a busca de sempre (embedding na OpenAI); `model_only` não busca nada; `web` pesquisa em fontes oficiais (`AI_RESEARCH_MODEL`, padrão `claude-sonnet-5-5`; `AI_RESEARCH_EFFORT`, padrão `low`; `WEB_RESEARCH_MAX_SEARCHES`, padrão 5; `WEB_RESEARCH_ALLOWED_DOMAINS`, vazio = 32 fontes padrão). `model_only` e `web` nunca chamam o provedor de embedding. `web` exige `stages` e `COPILOT_DECISION_PROMPT=v2` (sem eles vira `model_only`, com `DECISION_PIPELINE_DOWNGRADE` no log) e Anthropic como `AI_PROVIDER`; pesquisa que falha aparece como `WEB_RESEARCH_FALLBACK` e a análise segue só com o conhecimento do modelo |
 | `COPILOT_TOOL_SUGGESTIONS` | API. `on` liga a ferramenta certa no plano (CC-332, ADR-017 item 11): cada rodada de `GET /copilot/conversation` leva `toolSuggestions` (até 3 ferramentas por regra fixa do motor, com os números do caso que as preenchem). `off` (padrão) deixa a resposta igual à de antes. Ausente ou irreconhecível = `off`. A tela também exige `NEXT_PUBLIC_FERRAMENTAS=on`; sem entendimento do caso (`COPILOT_REASONING=legacy` e `COPILOT_INTAKE=off`) não há sugestão. No log: `TOOL_SUGGESTIONS interactionId=… mappingVersion=… rules=…` (ids das regras, sem texto clínico) |
+| `COPILOT_DETERMINISTIC_SCORES` | API. `on` liga os escores do plano pelo motor (CC-333, adendo ao item 11 do ADR-017): pré-cálculo das calculadoras sugeridas com entradas completas no fim do prompt da decisão e conferência de todo escore citado com número depois dela (corrige para o valor do motor ou troca o número pelo pedido do dado; nunca faz retry). `off` (padrão) deixa prompt e saída iguais aos de antes. Ausente ou irreconhecível = `off`. Sinais vitais e idade vêm do entendimento do caso: com `COPILOT_REASONING=legacy` não há pré-cálculo e a conferência só tem o que o texto traz. No log: `SCORE_PRECOMPUTED`, `SCORE_CORRECTED` e `SCORE_INPUTS_MISSING` (ids, campo e contagem, sem texto clínico); detalhe em `raw_output.deterministicScores` |
 | `NEXT_PUBLIC_FERRAMENTAS` | Web, variável de build. `on` liga a área Ferramentas do ADR-017 (sidebar, barra inferior no lugar de Buscar, ⌘K e as rotas `/ferramentas`). Ausente ou qualquer outro valor = desligada, `/ferramentas` mostra 404. Ligar exige a cessão do ANY (CC-301) e a revisão clínica (CC-310); na imagem, `--build-arg NEXT_PUBLIC_FERRAMENTAS=on` |
 
 ---

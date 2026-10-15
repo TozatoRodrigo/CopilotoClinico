@@ -529,6 +529,12 @@ export interface CopilotAnalysis {
    * análise seguiu só com o conhecimento do modelo.
    */
   webEvidence?: WebEvidenceItem[];
+  /**
+   * CC-333 — escores que o sistema calculou com o motor das Ferramentas e a
+   * conferência de cada escore citado no plano. Só com
+   * `COPILOT_DETERMINISTIC_SCORES=on`; ausente com a flag desligada.
+   */
+  deterministicScores?: DeterministicScores;
 }
 
 export interface CopilotAnalyzeResponse {
@@ -785,6 +791,52 @@ export interface CaseToolSuggestions {
   mappingVersion: string;
   facts: CaseToolFacts;
   suggestions: CaseToolSuggestion[];
+}
+
+/** CC-333 — escore calculado pelo motor das Ferramentas com os dados do caso. */
+export interface SystemScore {
+  calculatorId: string;
+  /** Nome curto ("CURB-65"). */
+  name: string;
+  value: number;
+  /** Valor como a tela das Ferramentas escreve ("5 pontos", "1,39"). */
+  valueText: string;
+  /** Rótulo da faixa ("Alta gravidade"). */
+  band: string;
+  /** Entradas usadas, como o médico lê ("ureia 64 mg/dL", "FR 32 irpm"). */
+  inputs: string[];
+}
+
+export const SCORE_CHECK_OUTCOMES = ['match', 'corrected', 'missing_inputs'] as const;
+export type ScoreCheckOutcome = (typeof SCORE_CHECK_OUTCOMES)[number];
+
+/**
+ * CC-333 — um escore citado com número na saída da decisão, conferido depois
+ * dela: igual à referência, corrigido para ela ou, sem dado para calcular,
+ * trocado pelo pedido do dado.
+ */
+export interface ScoreCitationCheck {
+  calculatorId: string;
+  /** Campo da saída ("recommendations[0].action"). */
+  field: string;
+  /** Número que a análise escreveu. */
+  cited: number;
+  outcome: ScoreCheckOutcome;
+  /**
+   * Contra o que foi conferido: o motor (`engine`) ou o valor que o próprio
+   * caso informa (`case`, ex.: Glasgow dito pelo médico). `null` sem nenhum.
+   */
+  reference: { source: 'engine' | 'case'; value: number } | null;
+  /** Dados que faltam para o motor calcular; vazio fora de `missing_inputs`. */
+  missing: string[];
+}
+
+export interface DeterministicScores {
+  /** Versão do mapeamento caso → entradas dos escores (CASE_SCORES_PROVENANCE). */
+  version: string;
+  /** Escores que o motor calculou: os pré-calculados para a decisão e os citados por ela. */
+  computed: SystemScore[];
+  checks: ScoreCitationCheck[];
 }
 
 /** GET /encounters/:id/copilot/conversation — a conversa inteira do caso. */

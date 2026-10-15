@@ -138,6 +138,10 @@ services:
       # como antes. Mesmo motivo das linhas acima. A tela também exige o web
       # construído com NEXT_PUBLIC_FERRAMENTAS=on.
       COPILOT_TOOL_SUGGESTIONS: ${COPILOT_TOOL_SUGGESTIONS:-off}
+      # CC-333 — escores do plano pelo motor (pré-cálculo e conferência, sem
+      # IA a mais). off = prompt e plano como antes. Mesmo motivo das linhas
+      # acima.
+      COPILOT_DETERMINISTIC_SCORES: ${COPILOT_DETERMINISTIC_SCORES:-off}
       # ADR-016 — modelo da decisão por gravidade. Vazio = AI_MODEL nas duas
       # rotas, como antes. Mesmo motivo das linhas acima.
       AI_DECISION_MODEL: ${AI_DECISION_MODEL:-}

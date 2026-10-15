@@ -56,6 +56,7 @@ import {
   type CaseUnderstanding,
   type CitationOrigin,
   type DecisionPromptVersion,
+  type DeterministicScores,
   type KnowledgeSource,
   type PreliminaryReason,
   type WebEvidenceItem,
@@ -81,6 +82,15 @@ import {
   type DecisionModelChoice,
   type DecisionPipeline,
 } from './decision.settings';
+import {
+  caseScoreContext,
+  describePrecomputed,
+  describeScoreChecks,
+  deterministicScoresEnabled,
+  scoreInstructions,
+  verifyScoreCitations,
+  type CaseScoreContext,
+} from './deterministic-scores';
 
 const DEFAULT_MAX_TURNS = 5;
 
@@ -175,6 +185,13 @@ export type EnrichedCopilotOutput = Omit<CopilotOutput, 'recommendations'> & {
    * conhecimento do modelo.
    */
   webEvidence?: WebEvidenceItem[];
+  /**
+   * CC-333 — escores do motor e a conferência de cada escore citado, gravados
+   * em `rawOutput`: o texto original do modelo não fica em outro lugar, então
+   * é aqui que a trilha mostra o que o sistema corrigiu. Só com
+   * `COPILOT_DETERMINISTIC_SCORES=on`.
+   */
+  deterministicScores?: DeterministicScores;
 };
 
 const CHIEF_COMPLAINT_MAX_LENGTH = 140;
@@ -773,6 +790,12 @@ interface PreparedAnalysis {
    * os mesmos do modo web.
    */
   research: ResearchOutcome | null;
+  /**
+   * CC-333 — dados do caso para os escores: o pré-cálculo que foi ao prompt e
+   * a referência da conferência depois da decisão. `null` com
+   * `COPILOT_DETERMINISTIC_SCORES` desligada (lida uma vez por turno).
+   */
+  scores: CaseScoreContext | null;
 }
 
 /** F1 — evidência de um turno: busca na base interna e/ou pesquisa web. */
@@ -916,6 +939,22 @@ export class OrchestratorService {
   }
 
   /**
+   * CC-333 — com `COPILOT_DETERMINISTIC_SCORES=on`, os dados do caso que o
+   * pré-cálculo leva ao prompt e que a conferência usa depois da decisão.
+   * Desligada, `null`: o turno sai como antes.
+   */
+  private caseScores(
+    stage: UnderstandingOutcome | null,
+    caseText: string,
+    logLabel: string,
+  ): CaseScoreContext | null {
+    if (!deterministicScoresEnabled(this.config)) return null;
+    const context = caseScoreContext(stage?.understanding ?? null, caseText);
+    this.logger.log(describePrecomputed(context, logLabel));
+    return context;
+  }
+
+  /**
    * F1 — flags do turno (raciocínio, prompt da decisão, fonte de
    * conhecimento), lidas uma vez por turno e sem redeploy para voltar.
    */
@@ -1022,11 +1061,16 @@ export class OrchestratorService {
       unreviewedSourcesPreliminary: boolean;
       stage: UnderstandingOutcome | null;
       finalTurn: boolean;
+      scores: CaseScoreContext | null;
     },
   ): BuiltPrompt {
-    const additionalInstructions = input.finalTurn
-      ? FINAL_TURN_INSTRUCTIONS[pipeline.decisionPrompt]
-      : undefined;
+    // CC-333 — o bloco dos escores vai no fim da mensagem, junto da instrução
+    // de último turno; desligado, nada muda (nem um caractere).
+    const instructions = [
+      input.finalTurn ? FINAL_TURN_INSTRUCTIONS[pipeline.decisionPrompt] : undefined,
+      input.scores ? scoreInstructions(input.scores) : undefined,
+    ].filter((text): text is string => text !== undefined);
+    const additionalInstructions = instructions.length > 0 ? instructions.join('\n\n') : undefined;
     const understanding = input.stage?.understanding ?? undefined;
     const evidence = promptEvidence(input.evidence.retrievalResult, input.attachments);
 
@@ -1448,6 +1492,7 @@ export class OrchestratorService {
     };
     const locale = await this.getPhysicianLocale(physicianId);
     const unreviewedSourcesPreliminary = this.unreviewedSourcesPreliminary();
+    const scores = this.caseScores(stage, caseText, logLabel);
 
     const prompt = this.buildDecisionPrompt(pipeline, {
       caseText,
@@ -1465,6 +1510,7 @@ export class OrchestratorService {
       unreviewedSourcesPreliminary,
       stage,
       finalTurn: false,
+      scores,
     });
 
     return {
@@ -1485,6 +1531,7 @@ export class OrchestratorService {
       stage,
       decisionModel: this.decisionModel(stage, logLabel),
       research: evidence.research,
+      scores,
     };
   }
 
@@ -1622,6 +1669,7 @@ export class OrchestratorService {
 
     const locale = await this.getPhysicianLocale(physicianId);
     const unreviewedSourcesPreliminary = this.unreviewedSourcesPreliminary();
+    const scores = this.caseScores(stage, screened.augmentedCaseText, logLabel);
 
     // CC-03 — no turno final, clarifyingQuestions É obrigatoriamente vazio
     // (não há próximo turno para respondê-las), então "recommendations" NUNCA
@@ -1638,6 +1686,7 @@ export class OrchestratorService {
       unreviewedSourcesPreliminary,
       stage,
       finalTurn: screened.finalTurn,
+      scores,
     });
 
     return {
@@ -1660,6 +1709,7 @@ export class OrchestratorService {
       stage,
       decisionModel: this.decisionModel(stage, logLabel),
       research: evidence.research,
+      scores,
     };
   }
 
@@ -1814,18 +1864,31 @@ export class OrchestratorService {
       );
     }
 
+    // CC-333 — escore citado conferido com o motor antes da verificação com
+    // fonte e da gravação: o plano gravado e o devolvido são o conferido.
+    const scored = prepared.scores
+      ? verifyScoreCitations(validation.output, prepared.scores)
+      : null;
+    for (const line of scored ? describeScoreChecks(scored.scores, prepared.logLabel) : []) {
+      this.logger.warn(line);
+    }
+    const decided = scored?.output ?? validation.output;
+
     // Verificação com fonte (`verify`): depois de uma decisão válida e antes
     // de gravar — no streaming, depois dos deltas e antes do `done`. Daqui em
     // diante, `research` é a verificação: rastro, custo, tempo e evidência
     // saem como no modo web.
-    const verification = await this.verifySources(prepared, validation.output);
+    const verification = await this.verifySources(prepared, decided);
     const settled: PreparedAnalysis = verification
       ? { ...prepared, research: verification }
       : prepared;
 
-    const output = isStagedDecisionPrompt(settled.pipeline.decisionPrompt)
-      ? this.enrichOutputV2(settled, validation.output, verification?.links)
-      : this.enrichOutput(settled, validation.output);
+    const enriched = isStagedDecisionPrompt(settled.pipeline.decisionPrompt)
+      ? this.enrichOutputV2(settled, decided, verification?.links)
+      : this.enrichOutput(settled, decided);
+    const output: EnrichedCopilotOutput = scored
+      ? { ...enriched, deterministicScores: scored.scores }
+      : enriched;
     const citations = this.buildCitations(settled, output);
     const interaction = await this.prisma.aiInteraction.create({
       data: {
