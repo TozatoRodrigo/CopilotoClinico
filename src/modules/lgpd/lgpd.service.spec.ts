@@ -515,6 +515,7 @@ describe('LgpdService', () => {
           name: 'ERASED',
           email: `erased-${physicianId}@erased.com`,
           passwordHash: `erased:${physicianId}`,
+          specialty: null,
         },
       });
       expect(auditService.log).toHaveBeenCalledWith({

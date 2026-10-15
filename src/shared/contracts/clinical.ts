@@ -48,7 +48,32 @@ export interface Physician {
   // web/src/lib/messages/use-messages.ts é quem valida contra os locales
   // suportados antes de resolver o dicionário.
   locale?: string;
+  // CC-014 — escolhida no onboarding ou no perfil; null até o médico escolher.
+  specialty?: PhysicianSpecialty | null;
 }
+
+/**
+ * CC-014 — especialidades que o onboarding e o perfil oferecem. Lista fechada
+ * e validada no PATCH /auth/me. Os slugs são os da base de diretrizes
+ * (`SPECIALTIES` em clinical-vocabulary.ts) quando existem lá, para a
+ * especialidade do médico poder priorizar diretrizes sem tabela de tradução.
+ */
+export const physicianSpecialtyValues = [
+  'medicina_de_emergencia',
+  'clinica_medica',
+  'cardiologia',
+  'pneumologia',
+  'pediatria',
+  'neurologia',
+  'cirurgia_geral',
+  'ortopedia',
+  'ginecologia_obstetricia',
+  'psiquiatria',
+  'anestesiologia',
+  'outra',
+] as const;
+
+export type PhysicianSpecialty = (typeof physicianSpecialtyValues)[number];
 
 export interface AuthResponse {
   physician: Physician;

@@ -129,6 +129,9 @@ model Physician {
   // precisam seguir com ele. 'pt-BR' | 'es' — validado na aplicação, não
   // como enum do banco, para não exigir migração a cada novo idioma.
   locale    String  @default("pt-BR")
+  // CC-014 — slug de physicianSpecialtyValues (src/shared/contracts/clinical.ts),
+  // validado na aplicação pelo mesmo motivo do locale. Nulo até o médico escolher.
+  specialty String? @db.VarChar(64)
 
   encounters              Encounter[]
   documents               Document[]

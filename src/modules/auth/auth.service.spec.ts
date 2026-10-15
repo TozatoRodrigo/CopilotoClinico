@@ -42,6 +42,7 @@ describe('AuthService', () => {
     physician: {
       findUnique: ReturnType<typeof vi.fn>;
       create: ReturnType<typeof vi.fn>;
+      update: ReturnType<typeof vi.fn>;
     };
     refreshToken: {
       findFirst: ReturnType<typeof vi.fn>;
@@ -64,6 +65,7 @@ describe('AuthService', () => {
       physician: {
         findUnique: vi.fn(),
         create: vi.fn(),
+        update: vi.fn(),
       },
       refreshToken: {
         findFirst: vi.fn(),
@@ -543,6 +545,57 @@ describe('AuthService', () => {
       await expect(authService.verifyMfaLogin(forgedMfaToken, '123456')).rejects.toThrow(
         UnauthorizedException,
       );
+    });
+  });
+
+  // CC-014 — o onboarding manda a especialidade no PATCH /auth/me; antes ela
+  // era descartada sem erro e GET /auth/me nunca a devolvia.
+  describe('profile specialty', () => {
+    it('saves the specialty and answers with the same profile as GET /auth/me', async () => {
+      prisma.physician.update.mockResolvedValue({ id: mockPhysician.id });
+      prisma.physician.findUnique.mockResolvedValue({
+        id: mockPhysician.id,
+        email: mockPhysician.email,
+        crmUf: mockPhysician.crmUf,
+        crmNumber: mockPhysician.crmNumber,
+        name: mockPhysician.name,
+        specialty: 'medicina_de_emergencia',
+        crmVerified: false,
+        role: 'ADMIN',
+        mfaEnabled: true,
+        subscriptionStatus: 'trial',
+        locale: 'pt-BR',
+        createdAt: mockPhysician.createdAt,
+      });
+
+      const updated = await service.updateProfile(mockPhysician.id, {
+        name: 'Dra. Ana',
+        specialty: 'medicina_de_emergencia',
+      });
+
+      expect(prisma.physician.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: mockPhysician.id },
+          data: { name: 'Dra. Ana', locale: undefined, specialty: 'medicina_de_emergencia' },
+        }),
+      );
+      // A aba Perfil troca o médico da sessão por esta resposta: sem `role`,
+      // o administrador virava médico na tela até o próximo login.
+      expect(updated).toMatchObject({ specialty: 'medicina_de_emergencia', role: 'ADMIN' });
+    });
+
+    it('returns the specialty on GET /auth/me', async () => {
+      prisma.physician.findUnique.mockResolvedValue({
+        id: mockPhysician.id,
+        specialty: 'pediatria',
+      });
+
+      const me = await service.getMe(mockPhysician.id);
+
+      expect(prisma.physician.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ select: expect.objectContaining({ specialty: true }) }),
+      );
+      expect(me).toMatchObject({ specialty: 'pediatria' });
     });
   });
 });

@@ -150,6 +150,7 @@ export class LgpdService {
         isCurator: true,
         subscriptionStatus: true,
         locale: true,
+        specialty: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -245,6 +246,7 @@ export class LgpdService {
           name: 'ERASED',
           email: `erased-${physicianId}@erased.com`,
           passwordHash: `erased:${physicianId}`,
+          specialty: null,
         },
       });
 
