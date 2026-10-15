@@ -13,6 +13,7 @@ import {
 } from './catalog';
 import { CALCULATOR_CATALOG } from './calculator-catalog';
 import { CURB65 } from './calculators/curb65';
+import { CALCULATORS } from './registry';
 
 function names(results: ToolSearchResult[]): string[] {
   return results.map((result) =>
@@ -52,9 +53,7 @@ describe('grupos e ferramentas', () => {
     const available = CALCULATOR_CATALOG.filter(
       (entry) => calculatorStatus(entry) === 'disponivel',
     );
-    expect(available.map(({ id }) => id).sort()).toEqual(
-      ['chadsvasc', 'curb65', 'has-bled', 'qsofa', 'shock-index'].sort(),
-    );
+    expect(available.map(({ id }) => id).sort()).toEqual(CALCULATORS.map(({ id }) => id).sort());
   });
 
   it('lista as 16 categorias de calculadora do ANY', () => {
@@ -99,9 +98,9 @@ describe('searchTools', () => {
     expect(statuses.lastIndexOf('disponivel')).toBeLessThan(statuses.indexOf('em-breve'));
   });
 
-  it('traz calculadora ainda não portada como "em breve"', () => {
-    const [nihss] = searchTools('nihss');
-    expect(nihss).toMatchObject({ kind: 'calculator', status: 'em-breve' });
+  it('traz ferramenta ainda não portada como "em breve"', () => {
+    const [acls] = searchTools('acls');
+    expect(acls).toMatchObject({ kind: 'tool', status: 'em-breve' });
   });
 });
 

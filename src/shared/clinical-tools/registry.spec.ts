@@ -92,7 +92,7 @@ describe('registro', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('devolve undefined para calculadora não portada', () => {
-    expect(getCalculator('nihss')).toBeUndefined();
+  it('devolve undefined para id fora do catálogo', () => {
+    expect(getCalculator('nao-existe')).toBeUndefined();
   });
 });

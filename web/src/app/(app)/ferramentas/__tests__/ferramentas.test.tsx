@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { CALCULATORS } from '@clinical-tools/registry';
 import FerramentasPage from '../page';
 import CalculadorasPage from '../calculadoras/page';
 import FerramentasLayout from '../layout';
@@ -165,8 +166,8 @@ describe('/ferramentas/calculadoras', () => {
     render(<CalculadorasPage />);
 
     expect(screen.getAllByRole('region')).toHaveLength(16);
-    expect(screen.getAllByRole('link')).toHaveLength(5);
-    expect(screen.getAllByText('Em breve')).toHaveLength(70);
+    expect(screen.getAllByRole('link')).toHaveLength(CALCULATORS.length);
+    expect(screen.queryAllByText('Em breve')).toHaveLength(75 - CALCULATORS.length);
   });
 });
 
@@ -178,10 +179,31 @@ describe('/ferramentas/calculadoras/[id]', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Faltam 3 respostas');
   });
 
-  it("mostra 'em breve' para a calculadora do catálogo ainda não portada", () => {
-    render(<CalculatorScreen id="nihss" />);
+  it.each([
+    ['grace-score', 'Versão aproximada'],
+    ['apache-ii', 'Versão simplificada'],
+  ])('%s mostra o aviso de versão acima dos campos (CC-307)', (id, title) => {
+    render(<CalculatorScreen id={id} />);
 
-    expect(screen.getByRole('heading', { level: 1, name: 'NIHSS' })).toBeInTheDocument();
+    expect(screen.getByText(title)).toBeInTheDocument();
+  });
+
+  it('CAM-ICU mostra a faixa como resultado, sem número', async () => {
+    render(<CalculatorScreen id="cam-icu" />);
+    for (const legend of [/^Feature 1/, /^Feature 2/, /^Feature 3/, /^Feature 4/]) {
+      const group = screen.getByRole('group', { name: legend });
+      await userEvent.click(within(group).getByRole('radio', { name: /^Presente/ }));
+    }
+
+    const result = screen.getByRole('status');
+    expect(result).toHaveTextContent('CAM-ICU positivo — delirium presente');
+    expect(result).not.toHaveTextContent('pontos');
+  });
+
+  it("mostra 'em breve' para a calculadora do catálogo ainda não portada", () => {
+    render(<CalculatorScreen id="rockall" />);
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Rockall Score' })).toBeInTheDocument();
     expect(screen.getByText('Em breve')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Ver calculadoras disponíveis' })).toHaveAttribute(
       'href',
