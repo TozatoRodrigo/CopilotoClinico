@@ -226,6 +226,10 @@ function buildPrismaMock() {
     caseIntake: {
       findMany: vi.fn().mockResolvedValue([]),
     },
+    // CC-602 — os locais de plantão do médico também.
+    practiceSite: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
 
     physicianInstitution: {
       findMany: vi.fn().mockResolvedValue([]),
