@@ -158,11 +158,13 @@ desenha. Vitrine em `/dev/components#ferramentas`.
 | `NumericField` | Valor com unidade dentro do campo, vírgula ou ponto, faixa aceita como dica. Erro acima do máximo na hora; abaixo do mínimo ao sair do campo. |
 | `WeightField` | Peso adulto (40–200 kg) ou pediátrico (0,5–50 kg). |
 | `ScoreItemList` | Itens de escore como rádio nativo, pontos à direita (classificação e parâmetro de fórmula não mostram ponto). |
+| `ChoiceGroup` | Escolha única curta (modo da droga, diluição, fase do protocolo) como rádio nativo, alvo de 44px. |
 | `CalculatorResult` | Resultado ao vivo (`role="status"`): valor, faixa, resultados secundários e ação sugerida. Tom: baixo risco cinza, intermediário laranja, alto vermelho. Quando a faixa é o resultado (CAM-ICU), o nome dela ocupa o lugar do número. |
 | `ReferenceSection` / `ContentProvenanceNote` | Por que usar, quando usar, pérolas, citação; origem, versão e revisão do conteúdo. |
 | `CopyToChartButton` | Texto para o prontuário, com o texto selecionável se a área de transferência falhar. |
 | `DecisionSupportNotice` | Aviso fixo "Apoio à decisão; não substitui o julgamento clínico." |
 | `CalculatorView` | Tudo acima montado a partir de uma `CalculatorDefinition`, com os campos que o ANY abria preenchidos (FiO₂ 21%) e o aviso de versão aproximada (GRACE, APACHE II) acima dos campos. |
+| `InlineCalculator` | Calculadora dentro de um roteiro (Wells e D-dímero no TEP): campos, itens e resultado ao vivo, sem aviso, referência nem "copiar". `onComplete` faz o roteiro andar quando a conta fecha; `action` põe um botão abaixo do resultado ("Prosseguir como categoria B"). |
 
 ## Receitas de página
 
