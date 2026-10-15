@@ -1,4 +1,4 @@
-import { physicianSpecialtyValues } from '@contracts/clinical';
+import { physicianSpecialtyValues } from '@/lib/clinical-contract';
 import type { PhysicianSpecialty } from '@/lib/types';
 
 /**

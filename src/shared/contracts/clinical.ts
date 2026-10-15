@@ -57,6 +57,8 @@ export interface Physician {
  * e validada no PATCH /auth/me. Os slugs são os da base de diretrizes
  * (`SPECIALTIES` em clinical-vocabulary.ts) quando existem lá, para a
  * especialidade do médico poder priorizar diretrizes sem tabela de tradução.
+ * Espelhado em web/src/lib/clinical-contract.ts (a imagem do web não tem
+ * ../src); tests/web-mirrors/clinical.spec.ts confere.
  */
 export const physicianSpecialtyValues = [
   'medicina_de_emergencia',
