@@ -166,7 +166,49 @@ export interface RunSummary {
    * para o modelo do caso comum. `null` sem entendimento (legacy).
    */
   severityRouting: { criticalCasesSevere: Rate; criticalCaseIdsStandard: string[] } | null;
+  /**
+   * CC-333 — escores citados com número nas respostas, conferidos com o motor
+   * das Ferramentas. `null` quando nenhuma nota traz a observação (execuções
+   * notadas antes da métrica).
+   */
+  scoreCitations: {
+    rows: number;
+    /** Respostas conferidas pelo sistema (COPILOT_DETERMINISTIC_SCORES=on). */
+    verifiedRows: number;
+    /** Como o modelo escreveu, antes de qualquer correção. */
+    cited: number;
+    /** "Escore citado ≠ motor": entre os que o motor ou o valor do caso confere. */
+    divergent: Rate;
+    /** Sem dado para o motor nem valor no caso: estimados pelo modelo. */
+    withoutInputs: number;
+    /** No texto entregue ao médico: com a flag, zero e zero. */
+    deliveredDivergent: number;
+    deliveredWithoutInputs: number;
+  } | null;
   perCase: CaseSummary[];
+}
+
+function summarizeScoreCitations(grades: GradeRow[]): RunSummary['scoreCitations'] {
+  const observed = grades.flatMap((grade) =>
+    grade.deterministic.scoreCitations ? [grade.deterministic.scoreCitations] : [],
+  );
+  if (observed.length === 0) return null;
+  const sum = (count: (observation: (typeof observed)[number]) => number) =>
+    observed.reduce((total, observation) => total + count(observation), 0);
+  return {
+    rows: observed.length,
+    verifiedRows: observed.filter((observation) => observation.verified).length,
+    cited: sum((observation) => observation.cited),
+    divergent: rateOf(
+      observed.flatMap((observation) => [
+        ...Array<boolean>(observation.divergent).fill(true),
+        ...Array<boolean>(observation.matching).fill(false),
+      ]),
+    ),
+    withoutInputs: sum((observation) => observation.withoutInputs),
+    deliveredDivergent: sum((observation) => observation.deliveredDivergent),
+    deliveredWithoutInputs: sum((observation) => observation.deliveredWithoutInputs),
+  };
 }
 
 function summarizeSeverityRouting(
@@ -514,6 +556,7 @@ export function summarizeRun(run: LoadedRun, casesById: Map<string, ClinicalCase
     },
     evidence: summarizeEvidence(results),
     severityRouting: summarizeSeverityRouting(results, casesById),
+    scoreCitations: summarizeScoreCitations(grades),
     perCase,
   };
 }
@@ -804,6 +847,38 @@ export function renderSummaryMarkdown(run: LoadedRun, summary: RunSummary): stri
           ],
         ],
       ),
+      '',
+    );
+  }
+
+  const scores = summary.scoreCitations;
+  if (scores && (scores.cited > 0 || scores.verifiedRows > 0)) {
+    lines.push('## Escores citados × motor (CC-333)', '');
+    lines.push(
+      table(
+        ['Métrica', 'Valor'],
+        [
+          [
+            'Respostas conferidas pelo sistema (COPILOT_DETERMINISTIC_SCORES=on)',
+            `${scores.verifiedRows}/${scores.rows}`,
+          ],
+          ['Escores citados com número, como o modelo escreveu', String(scores.cited)],
+          [
+            'Escore citado ≠ motor (entre os que o motor ou o valor do caso confere)',
+            formatRate(scores.divergent),
+          ],
+          [
+            'Escores citados sem dado para o motor (estimados pelo modelo)',
+            String(scores.withoutInputs),
+          ],
+          [
+            'No texto entregue ao médico: ≠ motor / sem dado',
+            `${scores.deliveredDivergent} / ${scores.deliveredWithoutInputs}`,
+          ],
+        ],
+      ),
+      '',
+      'Com a flag ligada, a conferência depois da decisão deixa o texto entregue em 0 / 0; as linhas de cima medem o que o modelo escreveu antes dela. Sem a flag, as duas medidas são a mesma resposta.',
       '',
     );
   }

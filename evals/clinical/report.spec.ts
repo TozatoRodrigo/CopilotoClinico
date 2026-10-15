@@ -4,7 +4,7 @@ import type { ClinicalCase } from './case.schema';
 import { understandingFixture } from '../../tests/fixtures/case-understanding';
 import { resultRowFixture, strokeCaseFixture } from './case-fixture';
 import { findFlips } from './compare';
-import { gradeDeterministic } from './graders/deterministic';
+import { gradeDeterministic, type ScoreCitationsObservation } from './graders/deterministic';
 import type { JudgeOutcome } from './graders/judge';
 import { assessCriticalError } from './grading';
 import type { ErrorRow, GradeRow, ResultRow, RunMeta } from './records';
@@ -414,6 +414,74 @@ describe('summarizeRun — gravidade pela Etapa 1 (ADR-016)', () => {
     expect(
       summarizeRun(run([result(criticalCase.id, 'ok')], true), casesById).severityRouting,
     ).toBeNull();
+  });
+});
+
+describe('summarizeRun — escores citados × motor (CC-333)', () => {
+  const observation = (overrides: Partial<ScoreCitationsObservation>) => ({
+    verified: false,
+    cited: 0,
+    matching: 0,
+    divergent: 0,
+    withoutInputs: 0,
+    deliveredDivergent: 0,
+    deliveredWithoutInputs: 0,
+    ...overrides,
+  });
+
+  function withScores(observations: Array<ScoreCitationsObservation | null>): LoadedRun {
+    const rows = observations.map((_, rep) => ({ ...result(criticalCase.id, 'ok'), rep }));
+    const loaded = run(rows, true);
+    return {
+      ...loaded,
+      grades: loaded.grades.map((graded, index) => ({
+        ...graded,
+        deterministic: { ...graded.deterministic, scoreCitations: observations[index] ?? null },
+      })),
+    };
+  }
+
+  it('soma as citações e mede o escore citado ≠ motor', () => {
+    const loaded = withScores([
+      observation({
+        verified: true,
+        cited: 3,
+        matching: 1,
+        divergent: 1,
+        withoutInputs: 1,
+      }),
+      observation({ cited: 2, matching: 1, divergent: 1, deliveredDivergent: 1 }),
+      null,
+    ]);
+    const summary = summarizeRun(loaded, casesById);
+
+    expect(summary.scoreCitations).toEqual({
+      rows: 2,
+      verifiedRows: 1,
+      cited: 5,
+      divergent: expect.objectContaining({ passed: 2, total: 4 }),
+      withoutInputs: 1,
+      deliveredDivergent: 1,
+      deliveredWithoutInputs: 0,
+    });
+    const markdown = renderSummaryMarkdown(loaded, summary);
+    expect(markdown).toContain('## Escores citados × motor (CC-333)');
+    expect(markdown).toContain(
+      '| Escore citado ≠ motor (entre os que o motor ou o valor do caso confere) | 50% (2/4;',
+    );
+    expect(markdown).toContain('| No texto entregue ao médico: ≠ motor / sem dado | 1 / 0 |');
+  });
+
+  it('sem escore citado e sem a flag, não mostra a seção', () => {
+    const loaded = withScores([observation({})]);
+    const summary = summarizeRun(loaded, casesById);
+
+    expect(summary.scoreCitations?.cited).toBe(0);
+    expect(renderSummaryMarkdown(loaded, summary)).not.toContain('Escores citados × motor');
+  });
+
+  it('é nulo em notas gravadas antes da métrica', () => {
+    expect(summarizeRun(withScores([null]), casesById).scoreCitations).toBeNull();
   });
 });
 

@@ -32,7 +32,7 @@ function grade(caseId: string, critical: boolean): GradeRow {
     rep: 0,
     status: 'ok',
     critical: true,
-    deterministic: { noAnswer: false, shape: null, forbiddenMatches: [] },
+    deterministic: { noAnswer: false, shape: null, forbiddenMatches: [], scoreCitations: null },
     judge: null,
     criticalError: { value: critical, complete: true, reasons: critical ? ['motivo'] : [] },
   };

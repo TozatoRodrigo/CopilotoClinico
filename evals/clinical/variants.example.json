@@ -169,6 +169,23 @@
       }
     },
     {
+      "name": "claude-opus-5-5-v3-modelo-escores",
+      "description": "CC-333: igual a claude-opus-5-5-v3-modelo, com os escores pelo motor (COPILOT_DETERMINISTIC_SCORES=on): o CURB-65 e as demais calculadoras sugeridas com entradas completas vão ao prompt calculadas pelo motor, e todo escore citado é conferido depois da decisão. Compare a métrica \"escore citado ≠ motor\" com a variante sem a flag.",
+      "env": {
+        "AI_PROVIDER": "anthropic",
+        "AI_MODEL": "claude-opus-5-5",
+        "AI_BASE_URL": "https://api.anthropic.com",
+        "AI_API_KEY": "${ANTHROPIC_API_KEY}",
+        "AI_MAX_OUTPUT_TOKENS": "32000",
+        "AI_EFFORT": "high",
+        "COPILOT_REASONING": "stages",
+        "AI_UNDERSTANDING_EFFORT": "low",
+        "COPILOT_DECISION_PROMPT": "v3",
+        "COPILOT_KNOWLEDGE_SOURCE": "model_only",
+        "COPILOT_DETERMINISTIC_SCORES": "on"
+      }
+    },
+    {
       "name": "claude-opus-5-5-v4-modelo",
       "description": "Decisão v4 (v3 com quatro regras novas: suporte ventilatório indicado é tempo-crítico, checagem rápida de segurança fica em \"agora\", \"depende\" só com dado que decide, sem alta antes do dado e transferência para recurso que falta já) só com o conhecimento do Opus 5.5.",
       "env": {

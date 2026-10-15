@@ -169,6 +169,17 @@ export function renderComparison(runs: LoadedRun[], casesById: Map<string, Clini
       summary.funnel ? formatRate(summary.funnel.allKeyFactsRevealed) : '—',
     );
   }
+  // CC-333 — a métrica que a variante dos escores pelo motor mexe.
+  if (summaries.some((summary) => (summary.scoreCitations?.cited ?? 0) > 0)) {
+    row('Escore citado ≠ motor (como o modelo escreveu)', (summary) =>
+      summary.scoreCitations ? formatRate(summary.scoreCitations.divergent) : '—',
+    );
+    row('Escores sem dado para o motor / entregues ≠ motor ou sem dado', (summary) =>
+      summary.scoreCitations
+        ? `${summary.scoreCitations.withoutInputs} / ${summary.scoreCitations.deliveredDivergent + summary.scoreCitations.deliveredWithoutInputs}`
+        : '—',
+    );
+  }
   row(
     'Latência p50 / p90',
     (summary) => `${formatMs(summary.latency.p50)} / ${formatMs(summary.latency.p90)}`,

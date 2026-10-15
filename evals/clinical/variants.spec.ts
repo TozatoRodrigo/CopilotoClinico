@@ -99,6 +99,17 @@ describe('variantes versionadas', () => {
       }
     }
   });
+
+  // CC-333 — o par mede só os escores pelo motor: mesma decisão v3, a flag a mais.
+  it('trazem a variante dos escores pelo motor, igual à v3 só com o conhecimento do modelo mais a flag', () => {
+    const variants = loadVariants(VERSIONED_VARIANTS_FILE);
+    const byName = (name: string) => variants.find((variant) => variant.name === name)?.env;
+
+    expect(byName('claude-opus-5-5-v3-modelo-escores')).toEqual({
+      ...byName('claude-opus-5-5-v3-modelo'),
+      COPILOT_DETERMINISTIC_SCORES: 'on',
+    });
+  });
 });
 
 describe('resolveVariantEnv', () => {

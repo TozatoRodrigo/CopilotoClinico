@@ -12,6 +12,7 @@ import {
   PRELIMINARY_REASONS,
 } from '../../src/shared/contracts/clinical';
 import { StoredCaseUnderstandingSchema } from '../../src/modules/copilot/understanding/case-understanding.schema';
+import { DeterministicScoresSchema } from '../../src/modules/copilot/orchestrator/deterministic-scores';
 import { REASONING_MODES } from '../../src/modules/copilot/understanding/understanding.settings';
 import { DeterministicGradeSchema, RUN_STATUSES } from './graders/deterministic';
 import { JudgeOutcomeSchema } from './graders/judge';
@@ -68,6 +69,12 @@ const ResultRecommendationSchema = StoredRecommendationSchema.extend({
 
 export const ResultOutputSchema = StoredCopilotOutputSchema.extend({
   recommendations: z.array(ResultRecommendationSchema),
+  /**
+   * CC-333 — conferência dos escores citados (só com
+   * COPILOT_DETERMINISTIC_SCORES=on): sem ela no schema, a releitura perderia
+   * o que o modelo escreveu antes da correção, que é o que a métrica mede.
+   */
+  deterministicScores: DeterministicScoresSchema.optional(),
 });
 
 /** F1 — página oficial achada pela pesquisa web (contrato `WebEvidenceItem`). */

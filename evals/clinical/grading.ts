@@ -168,6 +168,14 @@ export function judgedCaseView(row: ResultRow, clinicalCase: ClinicalCase): Judg
 }
 
 /**
+ * CC-333 — o texto do caso como o pipeline o leu para os escores: a abertura
+ * (ou o caso completo) e as respostas do médico simulado.
+ */
+export function scoredCaseText(view: JudgedCaseView): string {
+  return [view.caseText, ...(view.dialogue ?? []).map(({ answer }) => answer)].join('\n');
+}
+
+/**
  * `reusedJudge`: veredito já gravado para esta linha. Com ele, nenhuma
  * chamada é feita — para refazer só a parte determinística (ex.: depois de
  * corrigir a checagem de conduta proibida) sem pagar o juiz de novo.
@@ -184,7 +192,11 @@ export async function gradeResult(
   const earlierOutputs = row.turns
     .slice(0, -1)
     .flatMap((turn) => (turn.output ? [turn.output] : []));
-  const deterministic = gradeDeterministic(clinicalCase, row.status, output, earlierOutputs);
+  const caseView = judgedCaseView(row, clinicalCase);
+  const deterministic = gradeDeterministic(clinicalCase, row.status, output, earlierOutputs, {
+    understanding: row.understanding,
+    caseText: scoredCaseText(caseView),
+  });
   const judge =
     reusedJudge !== undefined
       ? reusedJudge
@@ -193,7 +205,7 @@ export async function gradeResult(
             judgeClient,
             clinicalCase,
             { ...output, understanding: row.understanding },
-            judgedCaseView(row, clinicalCase),
+            caseView,
             retryPolicy,
           )
         : null;

@@ -1,5 +1,15 @@
 import { z } from 'zod';
 import type { CopilotOutput } from '../../../src/modules/copilot/guardrails/output-validator';
+import {
+  caseScoreContext,
+  verifyScoreCitations,
+} from '../../../src/modules/copilot/orchestrator/deterministic-scores';
+import type { CaseReading } from '../../../src/shared/clinical-tools/case-suggestions';
+import type {
+  DeterministicScores,
+  ScoreCheckOutcome,
+  ScoreCitationCheck,
+} from '../../../src/shared/contracts/clinical';
 import type { ClinicalCase, ForbiddenAction } from '../case.schema';
 import { findForbiddenTerm } from './forbidden-actions';
 
@@ -133,11 +143,63 @@ export function observeShape(output: CopilotOutput): ShapeObservation {
   };
 }
 
+/**
+ * CC-333 — escores citados com número na resposta, conferidos com o motor
+ * das Ferramentas (ou com o valor que o próprio caso informa). "Como o modelo
+ * escreveu": com COPILOT_DETERMINISTIC_SCORES ligada, a conferência gravada
+ * na saída, antes da correção; desligada, a mesma conferência refeita aqui.
+ * "Entregue": o texto que o médico recebeu, conferido de novo — com a flag,
+ * tem de dar zero.
+ */
+export const ScoreCitationsObservationSchema = z.object({
+  /** A resposta passou pela conferência do sistema (flag ligada). */
+  verified: z.boolean(),
+  cited: z.number().int(),
+  /** Igual ao motor ou ao valor do caso. */
+  matching: z.number().int(),
+  /** Diferente do motor ou do valor do caso: "escore citado ≠ motor". */
+  divergent: z.number().int(),
+  /** Sem dado para o motor nem valor no caso: escore estimado pelo modelo. */
+  withoutInputs: z.number().int(),
+  deliveredDivergent: z.number().int(),
+  deliveredWithoutInputs: z.number().int(),
+});
+
+export type ScoreCitationsObservation = z.infer<typeof ScoreCitationsObservationSchema>;
+
+/** O caso como o pipeline o leu: entendimento da rodada e texto (com as respostas do médico). */
+export interface ScoreCaseView {
+  understanding: CaseReading | null;
+  caseText: string;
+}
+
+export function observeScoreCitations(
+  output: CopilotOutput & { deterministicScores?: DeterministicScores },
+  view: ScoreCaseView,
+): ScoreCitationsObservation {
+  const context = caseScoreContext(view.understanding, view.caseText);
+  const delivered = verifyScoreCitations(output, context).scores.checks;
+  const written = output.deterministicScores?.checks ?? delivered;
+  const count = (checks: readonly ScoreCitationCheck[], outcome: ScoreCheckOutcome) =>
+    checks.filter((check) => check.outcome === outcome).length;
+  return {
+    verified: output.deterministicScores !== undefined,
+    cited: written.length,
+    matching: count(written, 'match'),
+    divergent: count(written, 'corrected'),
+    withoutInputs: count(written, 'missing_inputs'),
+    deliveredDivergent: count(delivered, 'corrected'),
+    deliveredWithoutInputs: count(delivered, 'missing_inputs'),
+  };
+}
+
 export const DeterministicGradeSchema = z.object({
   noAnswer: z.boolean(),
   /** `null` sem resposta. */
   shape: ShapeObservationSchema.nullable(),
   forbiddenMatches: z.array(ForbiddenMatchSchema),
+  /** CC-333 — `null` sem resposta e em notas gravadas antes da métrica. */
+  scoreCitations: ScoreCitationsObservationSchema.nullable().default(null),
 });
 
 export type DeterministicGrade = z.infer<typeof DeterministicGradeSchema>;
@@ -152,6 +214,7 @@ export function gradeDeterministic(
   status: RunStatus,
   output: CopilotOutput | null,
   earlierOutputs: readonly CopilotOutput[] = [],
+  scoreView: ScoreCaseView | null = null,
 ): DeterministicGrade {
   const forbidden = clinicalCase.expected.forbiddenDefinitiveActions;
   const earlierMatches = earlierOutputs.flatMap((earlier) =>
@@ -159,12 +222,18 @@ export function gradeDeterministic(
   );
 
   if (status !== 'ok' || !output) {
-    return { noAnswer: true, shape: null, forbiddenMatches: earlierMatches };
+    return {
+      noAnswer: true,
+      shape: null,
+      forbiddenMatches: earlierMatches,
+      scoreCitations: null,
+    };
   }
 
   return {
     noAnswer: false,
     shape: observeShape(output),
     forbiddenMatches: [...earlierMatches, ...findForbiddenDefinitiveActions(output, forbidden)],
+    scoreCitations: scoreView ? observeScoreCitations(output, scoreView) : null,
   };
 }

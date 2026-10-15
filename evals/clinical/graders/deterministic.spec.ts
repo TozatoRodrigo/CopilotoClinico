@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import type { CopilotOutput } from '../../../src/modules/copilot/guardrails/output-validator';
 import { loadCaseSet } from '../cases';
-import { findForbiddenDefinitiveActions, gradeDeterministic, observeShape } from './deterministic';
+import {
+  caseScoreContext,
+  verifyScoreCitations,
+} from '../../../src/modules/copilot/orchestrator/deterministic-scores';
+import { understandingFixture } from '../../../tests/fixtures/case-understanding';
+import {
+  findForbiddenDefinitiveActions,
+  gradeDeterministic,
+  observeScoreCitations,
+  observeShape,
+} from './deterministic';
 
 const { cases } = loadCaseSet();
 
@@ -349,5 +359,77 @@ describe('gradeDeterministic', () => {
     expect(grade.forbiddenMatches.map((match) => match.forbiddenId)).toEqual([
       'conduta-de-avc-hemorragico',
     ]);
+  });
+});
+
+describe('observeScoreCitations (CC-333)', () => {
+  // Pneumonia com tudo o que o CURB-65 pede: o motor dá 5.
+  const view = {
+    understanding: understandingFixture({
+      syndrome: 'infeccao-respiratoria',
+      structuredData: {
+        age: 72,
+        sex: 'F',
+        vitals: {
+          systolicBp: 85,
+          diastolicBp: 50,
+          heartRate: 118,
+          respiratoryRate: 32,
+          spo2: 89,
+          temperature: 38.9,
+          glucose: null,
+        },
+        onset: null,
+        keyFindings: [],
+        relevantContext: [],
+      },
+    }),
+    caseText: 'Mulher, 72 anos, confusa e desorientada. Ureia 64 mg/dL.',
+  };
+  const written = output({
+    recommendations: [recommendation({ action: 'Internação em UTI (CURB-65 de 3)' })],
+    reasoning: 'CHA2DS2-VASc 4 e CURB-65 de 5.',
+  });
+
+  it('sem a flag, confere a resposta como o modelo escreveu', () => {
+    expect(observeScoreCitations(written, view)).toEqual({
+      verified: false,
+      cited: 3,
+      matching: 1,
+      divergent: 1,
+      withoutInputs: 1,
+      deliveredDivergent: 1,
+      deliveredWithoutInputs: 1,
+    });
+  });
+
+  it('com a flag, mede o que o modelo escreveu pela conferência gravada e zera o entregue', () => {
+    const verified = verifyScoreCitations(
+      written,
+      caseScoreContext(view.understanding, view.caseText),
+    );
+
+    expect(
+      observeScoreCitations({ ...verified.output, deterministicScores: verified.scores }, view),
+    ).toEqual({
+      verified: true,
+      cited: 3,
+      matching: 1,
+      divergent: 1,
+      withoutInputs: 1,
+      deliveredDivergent: 0,
+      deliveredWithoutInputs: 0,
+    });
+  });
+
+  it('entra na nota determinística só com resposta e com o caso', () => {
+    const clinicalCase = cases[0];
+    if (!clinicalCase) throw new Error('gabarito vazio');
+
+    expect(gradeDeterministic(clinicalCase, 'ok', written).scoreCitations).toBeNull();
+    expect(gradeDeterministic(clinicalCase, 'ok', written, [], view).scoreCitations?.cited).toBe(3);
+    expect(
+      gradeDeterministic(clinicalCase, 'invalid_output', null, [], view).scoreCitations,
+    ).toBeNull();
   });
 });
