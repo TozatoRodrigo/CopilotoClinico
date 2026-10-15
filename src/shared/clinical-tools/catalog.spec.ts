@@ -90,17 +90,23 @@ describe('searchTools', () => {
     expect(results).not.toContain('Choque séptico');
   });
 
+  // Com todas as ferramentas do ANY no ar, o "em breve" só existe num catálogo
+  // de teste: o choque séptico volta a ser "em breve" e a ordem continua valendo.
+  const withShockPending = TOOLS.map((tool): ToolEntry =>
+    tool.id === 'choque-septico' ? { ...tool, status: 'em-breve' } : tool,
+  );
+
   it('põe o que já abre antes do "em breve" quando o encaixe é igual', () => {
     // "sepse" só aparece em sinônimos: todos os resultados têm o mesmo encaixe.
-    const statuses = searchTools('sepse').map((result) => result.status);
+    const statuses = searchTools('sepse', withShockPending).map((result) => result.status);
     expect(statuses).toContain('disponivel');
     expect(statuses).toContain('em-breve');
     expect(statuses.lastIndexOf('disponivel')).toBeLessThan(statuses.indexOf('em-breve'));
   });
 
   it('traz ferramenta ainda não portada como "em breve"', () => {
-    const [acls] = searchTools('acls');
-    expect(acls).toMatchObject({ kind: 'tool', status: 'em-breve' });
+    const [shock] = searchTools('choque septico', withShockPending);
+    expect(shock).toMatchObject({ kind: 'tool', status: 'em-breve' });
   });
 });
 

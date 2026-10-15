@@ -258,15 +258,19 @@ function rank(
  * Busca por nome e sinônimo em ferramentas e calculadoras (também pelo grupo
  * e pela categoria: "pediatria" acha o que está em Pediatria). Todas as
  * palavras da busca precisam aparecer; nome que começa com a busca vem
- * primeiro, e o que já abre vem antes do "em breve".
+ * primeiro, e o que já abre vem antes do "em breve". `tools` só muda em teste,
+ * para conferir a ordem do "em breve" depois que todas as ferramentas abrirem.
  */
-export function searchTools(query: string): ToolSearchResult[] {
+export function searchTools(
+  query: string,
+  tools: readonly ToolEntry[] = TOOLS,
+): ToolSearchResult[] {
   const normalized = normalizeSearchText(query);
   if (normalized === '') return [];
   const tokens = normalized.split(/\s+/);
 
   const scored: { result: ToolSearchResult; score: number; name: string }[] = [];
-  for (const tool of TOOLS) {
+  for (const tool of tools) {
     const group = GROUP_LABEL.get(tool.group) ?? '';
     const score = rank(tool.name, [...tool.synonyms, tool.description, group], tokens, normalized);
     if (score > 0) {
