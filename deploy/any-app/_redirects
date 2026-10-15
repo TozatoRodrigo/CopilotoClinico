@@ -1,0 +1,43 @@
+# CC-336 — ANY App → Copiloto Clínico (https://copiloto.servidortozato.cloud). _redirects gerado por
+# `pnpm any:redirects` a partir de src/shared/any-migration/any-redirects.ts
+# (versão 1) do repositório do Copiloto. Não edite à mão: mude o mapa e gere de novo.
+# Primeira regra que casa vence; a query string segue para o destino.
+
+# Hub
+/              https://copiloto.servidortozato.cloud/ferramentas  301!
+# Login — sem sessão, o Copiloto leva ao próprio login
+/login         https://copiloto.servidortozato.cloud/ferramentas  301!
+# Calculadora de infusões — o ?drug= dos links do ANY segue na query e a tela de Infusões o aceita
+/infusion      https://copiloto.servidortozato.cloud/ferramentas/infusoes  301!
+# Airway Guide
+/airway        https://copiloto.servidortozato.cloud/ferramentas/via-aerea  301!
+# VM Guide
+/vm            https://copiloto.servidortozato.cloud/ferramentas/ventilacao-mecanica  301!
+# TEP Guide
+/tep           https://copiloto.servidortozato.cloud/ferramentas/tep  301!
+# Seda Path
+/seda          https://copiloto.servidortozato.cloud/ferramentas/sedacao  301!
+# Tox Path
+/tox           https://copiloto.servidortozato.cloud/ferramentas/toxicologia  301!
+# Ped Guide
+/ped           https://copiloto.servidortozato.cloud/ferramentas/pediatria  301!
+# Palia Path
+/palia         https://copiloto.servidortozato.cloud/ferramentas/paliativos  301!
+# Block Path
+/block         https://copiloto.servidortozato.cloud/ferramentas/bloqueios  301!
+# ACLS Guide
+/acls          https://copiloto.servidortozato.cloud/ferramentas/acls  301!
+# Dengue Path
+/dengue        https://copiloto.servidortozato.cloud/ferramentas/dengue  301!
+# Shock Path — a tela inicial do Shock Path era o choque séptico; VNERi e gap CO2 estão no choque indiferenciado
+/shock         https://copiloto.servidortozato.cloud/ferramentas/choque-septico  301!
+# KetoPath
+/keto          https://copiloto.servidortozato.cloud/ferramentas/cad-ehh  301!
+# Calculadoras
+/calculadoras  https://copiloto.servidortozato.cloud/ferramentas/calculadoras  301!
+# HETRIN Ped — sem login e offline, como a equipe do hospital usa; a CC-337 decide o destino definitivo [provisório: decisão CC-337]
+/hetrinped     https://hetrinped.netlify.app/  301!
+# HETRIN Ped (arquivos) [provisório: decisão CC-337]
+/hetrinped/*   https://hetrinped.netlify.app/:splat  301!
+# Qualquer outro endereço — como o * do ANY, que levava ao hub
+/*             https://copiloto.servidortozato.cloud/ferramentas  301!

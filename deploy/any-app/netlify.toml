@@ -1,0 +1,137 @@
+# CC-336 — ANY App → Copiloto Clínico (https://copiloto.servidortozato.cloud). netlify.toml gerado por
+# `pnpm any:redirects` a partir de src/shared/any-migration/any-redirects.ts
+# (versão 1) do repositório do Copiloto. Não edite à mão: mude o mapa e gere de novo.
+# Primeira regra que casa vence; a query string segue para o destino.
+
+# Hub
+[[redirects]]
+  from = "/"
+  to = "https://copiloto.servidortozato.cloud/ferramentas"
+  status = 301
+  force = true
+
+# Login — sem sessão, o Copiloto leva ao próprio login
+[[redirects]]
+  from = "/login"
+  to = "https://copiloto.servidortozato.cloud/ferramentas"
+  status = 301
+  force = true
+
+# Calculadora de infusões — o ?drug= dos links do ANY segue na query e a tela de Infusões o aceita
+[[redirects]]
+  from = "/infusion"
+  to = "https://copiloto.servidortozato.cloud/ferramentas/infusoes"
+  status = 301
+  force = true
+
+# Airway Guide
+[[redirects]]
+  from = "/airway"
+  to = "https://copiloto.servidortozato.cloud/ferramentas/via-aerea"
+  status = 301
+  force = true
+
+# VM Guide
+[[redirects]]
+  from = "/vm"
+  to = "https://copiloto.servidortozato.cloud/ferramentas/ventilacao-mecanica"
+  status = 301
+  force = true
+
+# TEP Guide
+[[redirects]]
+  from = "/tep"
+  to = "https://copiloto.servidortozato.cloud/ferramentas/tep"
+  status = 301
+  force = true
+
+# Seda Path
+[[redirects]]
+  from = "/seda"
+  to = "https://copiloto.servidortozato.cloud/ferramentas/sedacao"
+  status = 301
+  force = true
+
+# Tox Path
+[[redirects]]
+  from = "/tox"
+  to = "https://copiloto.servidortozato.cloud/ferramentas/toxicologia"
+  status = 301
+  force = true
+
+# Ped Guide
+[[redirects]]
+  from = "/ped"
+  to = "https://copiloto.servidortozato.cloud/ferramentas/pediatria"
+  status = 301
+  force = true
+
+# Palia Path
+[[redirects]]
+  from = "/palia"
+  to = "https://copiloto.servidortozato.cloud/ferramentas/paliativos"
+  status = 301
+  force = true
+
+# Block Path
+[[redirects]]
+  from = "/block"
+  to = "https://copiloto.servidortozato.cloud/ferramentas/bloqueios"
+  status = 301
+  force = true
+
+# ACLS Guide
+[[redirects]]
+  from = "/acls"
+  to = "https://copiloto.servidortozato.cloud/ferramentas/acls"
+  status = 301
+  force = true
+
+# Dengue Path
+[[redirects]]
+  from = "/dengue"
+  to = "https://copiloto.servidortozato.cloud/ferramentas/dengue"
+  status = 301
+  force = true
+
+# Shock Path — a tela inicial do Shock Path era o choque séptico; VNERi e gap CO2 estão no choque indiferenciado
+[[redirects]]
+  from = "/shock"
+  to = "https://copiloto.servidortozato.cloud/ferramentas/choque-septico"
+  status = 301
+  force = true
+
+# KetoPath
+[[redirects]]
+  from = "/keto"
+  to = "https://copiloto.servidortozato.cloud/ferramentas/cad-ehh"
+  status = 301
+  force = true
+
+# Calculadoras
+[[redirects]]
+  from = "/calculadoras"
+  to = "https://copiloto.servidortozato.cloud/ferramentas/calculadoras"
+  status = 301
+  force = true
+
+# HETRIN Ped — sem login e offline, como a equipe do hospital usa; a CC-337 decide o destino definitivo [provisório: decisão CC-337]
+[[redirects]]
+  from = "/hetrinped"
+  to = "https://hetrinped.netlify.app/"
+  status = 301
+  force = true
+
+# HETRIN Ped (arquivos) [provisório: decisão CC-337]
+[[redirects]]
+  from = "/hetrinped/*"
+  to = "https://hetrinped.netlify.app/:splat"
+  status = 301
+  force = true
+
+# Qualquer outro endereço — como o * do ANY, que levava ao hub
+[[redirects]]
+  from = "/*"
+  to = "https://copiloto.servidortozato.cloud/ferramentas"
+  status = 301
+  force = true

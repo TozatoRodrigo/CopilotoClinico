@@ -30,6 +30,9 @@
     "sync:official-guidelines": "tsx scripts/sync-official-guidelines.ts",
     "backfill:copilot-feedback": "tsx scripts/backfill-copilot-feedback.ts",
     "verify:audit-chain": "tsx scripts/verify-audit-chain.ts",
+    "any:import-users": "tsx scripts/any-import-users.ts",
+    "any:redirects": "tsx scripts/any-redirects.ts",
+    "any:decommission-log": "tsx scripts/any-decommission-log.ts",
     "eval:clinical": "tsx evals/clinical/run.ts",
     "eval:clinical:compare": "tsx evals/clinical/compare.ts",
     "eval:deid": "tsx evals/deid/run.ts"
