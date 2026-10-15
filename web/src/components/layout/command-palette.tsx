@@ -11,6 +11,7 @@ import {
   Microphone,
   MoonStars,
   Sun,
+  Toolbox,
   UserCircle,
 } from '@phosphor-icons/react';
 import { useEncounterList } from '@/lib/clinical-queries';
@@ -55,9 +56,10 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 /**
- * ADR-017 — calculadoras já portadas entram na busca do ⌘K pelo nome e pelos
- * sinônimos (a mesma busca do hub). Só com texto digitado, para não encher a
- * lista inicial; as "em breve" não aparecem porque não abrem.
+ * ADR-017 — ferramentas e calculadoras já portadas entram na busca do ⌘K pelo
+ * nome e pelos sinônimos (a mesma busca do hub: "rox" acha a Ventilação
+ * mecânica). Só com texto digitado, para não encher a lista inicial; as "em
+ * breve" não aparecem porque não abrem.
  */
 const MAX_TOOL_COMMANDS = 5;
 
@@ -65,7 +67,21 @@ function toolCommands(query: string, go: (href: string) => void): Command[] {
   if (!isFerramentasEnabled() || query.length < 2) return [];
   const commands: Command[] = [];
   for (const result of searchTools(query)) {
-    if (result.kind !== 'calculator' || result.status !== 'disponivel') continue;
+    if (result.status !== 'disponivel') continue;
+    if (result.kind === 'tool') {
+      const { tool } = result;
+      commands.push({
+        id: `tool-${tool.id}`,
+        label: tool.name,
+        hint: 'Ferramenta',
+        icon: Toolbox,
+        group: 'Ferramentas',
+        run: () =>
+          go(tool.id === 'calculadoras' ? '/ferramentas/calculadoras' : `/ferramentas/${tool.id}`),
+      });
+      if (commands.length === MAX_TOOL_COMMANDS) break;
+      continue;
+    }
     const { id } = result.calculator;
     commands.push({
       id: `calc-${id}`,
