@@ -679,7 +679,8 @@ export interface IntakeAnswer {
  * - `unstable`: paciente instável, plano direto;
  * - `complete`: nada que falte muda a conduta agora;
  * - `reading_failed`: a leitura falhou ou demorou; plano direto;
- * - `disabled`: `COPILOT_INTAKE=off`; plano direto, sem leitura.
+ * - `disabled`: sem leitura, plano direto — `COPILOT_INTAKE=off` ou análise
+ *   pela fila (`POST .../analyze/async`, áudio gravado; CC-011).
  */
 export const INTAKE_PATHS = ['ask', 'unstable', 'complete', 'reading_failed', 'disabled'] as const;
 export type IntakePath = (typeof INTAKE_PATHS)[number];

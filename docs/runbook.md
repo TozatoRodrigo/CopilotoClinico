@@ -867,6 +867,23 @@ ORDER BY physician_id, granted_at DESC;
 -- bloqueados = linhas com revoked_at preenchido
 ```
 
+### Fila de análise assíncrona (CC-011)
+
+`POST .../copilot/analyze/async` e o áudio gravado (`POST
+/encounters/:id/audio`) gravam o caso já redigido numa conversa sem leitura
+(`case_intakes`, `path = disabled`) e enfileiram só ids: `{ physicianId,
+encounterId, intakeId }`. O worker analisa pela conversa, como o plano sem
+streaming da tela. O resultado no Redis também são só ids (`intakeId`,
+`interactionId`); o plano sai por `GET .../copilot/conversation` ou
+`.../latest`. Retenção da fila: concluído 24 h, falho 7 dias.
+
+Deploy: job enfileirado antes da versão nova ainda leva o caso sem redação. O
+worker tira o texto do Redis antes de tudo (`INFERENCE_LEGACY_JOB jobId=...`,
+WARN), abre a conversa e segue como um job novo; se a conversa for recusada
+(injeção, caso encerrado), o job falha sem o texto. Esse caminho pode sair
+depois de 7 dias da versão no ar. Recusa 4xx (consentimento, posse, injeção,
+plano já feito) falha sem retry.
+
 ---
 
 ## Multi-tenancy institucional (PROT-004)

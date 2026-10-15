@@ -46,6 +46,7 @@ import { ConversationService } from './intake/conversation.service';
     IntakeService,
     ConversationService,
   ],
-  exports: [CopilotService, OrchestratorService],
+  // CC-011 — o worker da fila abre e analisa a conversa como a tela faz.
+  exports: [CopilotService, OrchestratorService, IntakeService, ConversationService],
 })
 export class CopilotModule {}

@@ -5,6 +5,7 @@ import { CopilotService } from './copilot.service';
 import { OrchestratorService } from './orchestrator/orchestrator.service';
 import { InferenceQueueService } from '../queue/inference-queue.service';
 import { PrismaService } from '../../config/prisma.service';
+import type { IntakeService } from './intake/intake.service';
 
 describe('CopilotService', () => {
   let service: CopilotService;
@@ -64,6 +65,7 @@ describe('CopilotService', () => {
     aiInteraction: { findFirst: ReturnType<typeof vi.fn> };
   };
   let configMock: { get: ReturnType<typeof vi.fn> };
+  let intakesMock: { openForQueue: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -77,11 +79,13 @@ describe('CopilotService', () => {
       aiInteraction: { findFirst: vi.fn() },
     };
     configMock = { get: vi.fn((_key: string, defaultValue?: unknown) => defaultValue) };
+    intakesMock = { openForQueue: vi.fn().mockResolvedValue({ id: 'intake-001' }) };
     service = new CopilotService(
       orchestratorMock as unknown as OrchestratorService,
       queueMock as unknown as InferenceQueueService,
       prismaMock as unknown as PrismaService,
       configMock as unknown as ConfigService,
+      intakesMock as unknown as IntakeService,
     );
   });
 
@@ -154,10 +158,26 @@ describe('CopilotService', () => {
   });
 
   describe('RT-002: analyzeAsync', () => {
-    it('enqueues analyze job and returns jobId', async () => {
+    // CC-011 — o caso fica na conversa (banco, já redigido); o job, só ids.
+    it('opens a queued conversation and enqueues only its id', async () => {
       const result = await service.analyzeAsync(physicianId, encounterId, input);
-      expect(result).toEqual({ jobId: 'job-123' });
-      expect(queueMock.enqueueAnalyze).toHaveBeenCalledWith({ physicianId, encounterId, input });
+
+      expect(result).toEqual({ jobId: 'job-123', intakeId: 'intake-001' });
+      expect(intakesMock.openForQueue).toHaveBeenCalledWith(physicianId, encounterId, input);
+      expect(queueMock.enqueueAnalyze).toHaveBeenCalledWith({
+        physicianId,
+        encounterId,
+        intakeId: 'intake-001',
+      });
+    });
+
+    it('does not enqueue when the conversation is refused (injection, closed case)', async () => {
+      intakesMock.openForQueue.mockRejectedValue(new NotFoundException('Encounter not found'));
+
+      await expect(service.analyzeAsync(physicianId, encounterId, input)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(queueMock.enqueueAnalyze).not.toHaveBeenCalled();
     });
   });
 
@@ -260,6 +280,7 @@ describe('CopilotService — respondStream', () => {
       {} as InferenceQueueService,
       {} as PrismaService,
       {} as ConfigService,
+      {} as IntakeService,
     );
 
     const emitted = [];
