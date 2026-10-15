@@ -3,7 +3,8 @@
 import { CheckCircle, XCircle } from "@phosphor-icons/react";
 import { Callout } from "@/components/ui/callout";
 import { useMessages } from "@/lib/messages/use-messages";
-import { SHIFT_REVIEW_CONFIDENCES, type ShiftReviewView } from "@contracts/shift-review";
+import { SHIFT_REVIEW_CONFIDENCES } from "@/lib/shift-review-contract";
+import type { ShiftReviewView } from "@contracts/shift-review";
 
 /**
  * CC-801 — fim da revisão: acertos × o quanto o médico sabia. "Errou

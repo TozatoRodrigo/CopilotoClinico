@@ -6,7 +6,11 @@ import type { CitationOrigin, PsSyndrome } from './clinical';
  * explicação com a fonte que a análise citou.
  */
 
-/** "Sei", "tenho dúvida", "chutei" — o grau de certeza do método do Dr. Luiz. */
+/**
+ * "Sei", "tenho dúvida", "chutei" — o grau de certeza do método do Dr. Luiz.
+ * Espelhado em web/src/lib/shift-review-contract.ts (a imagem do web não tem
+ * ../src); tests/web-mirrors/shift-review.spec.ts confere.
+ */
 export const SHIFT_REVIEW_CONFIDENCES = ['know', 'unsure', 'guessed'] as const;
 export type ShiftReviewConfidence = (typeof SHIFT_REVIEW_CONFIDENCES)[number];
 

@@ -8,11 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useMessages } from "@/lib/messages/use-messages";
 import { cn } from "@/lib/utils";
-import {
-  SHIFT_REVIEW_CONFIDENCES,
-  type ShiftReviewConfidence,
-  type ShiftReviewQuestionView,
-} from "@contracts/shift-review";
+import { SHIFT_REVIEW_CONFIDENCES } from "@/lib/shift-review-contract";
+import type { ShiftReviewConfidence, ShiftReviewQuestionView } from "@contracts/shift-review";
 
 interface ReviewQuestionCardProps {
   question: ShiftReviewQuestionView;
