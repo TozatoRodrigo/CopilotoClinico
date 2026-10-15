@@ -36,7 +36,7 @@ import { Button } from '@/components/ui/button';
 import { useToolFavorites } from '@/lib/tool-favorites';
 import { cn } from '@/lib/utils';
 import { FavoriteButton } from '../../_components/tool-entries';
-import { AIRWAY_SESSION_KEY, useAdultWeight, useSessionState } from './airway-session';
+import { useToolSession, useToolWeight } from '@/lib/tool-session';
 import { ChecklistSection } from './checklist-section';
 import { Medications } from './medications';
 import type { StepProps } from './step-props';
@@ -279,12 +279,12 @@ function BackToHome({ onClick }: { onClick: () => void }) {
  */
 export function AirwayScreen() {
   const favorites = useToolFavorites();
-  const [state, setState] = useSessionState<AirwayState>(
-    AIRWAY_SESSION_KEY,
+  const [state, setState] = useToolSession<AirwayState>(
+    'via-aerea',
     parseAirwayState,
     () => INITIAL_AIRWAY_STATE,
   );
-  const [weight, setWeight] = useAdultWeight();
+  const [weight, setWeight] = useToolWeight();
   const dispatch = useCallback(
     (action: AirwayAction) => setState((current) => airwayReducer(current, action)),
     [setState],

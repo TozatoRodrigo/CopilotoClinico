@@ -85,7 +85,7 @@ import {
   TouchTitle,
   type BlockContext,
 } from './content-blocks';
-import { useAdultWeight, useSessionValue, DENGUE_SESSION_KEY } from './dengue-session';
+import { useToolSession, useToolWeight } from '@/lib/tool-session';
 import { PatientMessagePanel } from './patient-message-panel';
 
 const TOOL_NAME = 'Dengue';
@@ -749,12 +749,12 @@ function ScreenBody(props: ScreenProps) {
  */
 export function DengueScreen() {
   const favorites = useToolFavorites();
-  const [state, setState] = useSessionValue<DengueState>(
-    DENGUE_SESSION_KEY,
+  const [state, setState] = useToolSession<DengueState>(
+    'dengue',
     parseDengueState,
     () => INITIAL_DENGUE_STATE,
   );
-  const [weight, setWeight] = useAdultWeight();
+  const [weight, setWeight] = useToolWeight();
   const dispatch = useCallback<Dispatch>(
     (action) => setState((current) => dengueReducer(current, action)),
     [setState],

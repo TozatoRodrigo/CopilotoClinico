@@ -19,7 +19,7 @@ import { CopyToChartButton } from '@/components/domain/clinical-tools/copy-to-ch
 import { NumericField } from '@/components/domain/clinical-tools/numeric-field';
 import { Button } from '@/components/ui/button';
 import { SectionHeader } from '@/components/layout/page-header';
-import { useSessionValue } from './block-session';
+import { useToolSession } from '@/lib/tool-session';
 import { BlocksPage, CheckboxRow, ChoiceGroup, SelectField, TextField } from './blocks-ui';
 import {
   draftToForm,
@@ -40,7 +40,7 @@ const asOptions = <T extends string>(values: readonly T[]) =>
  * minutos, para dar para conferir a dose máxima no meio e voltar.
  */
 export function EvolutionScreen() {
-  const [draft, setDraft] = useSessionValue<EvolutionDraft>(
+  const [draft, setDraft] = useToolSession<EvolutionDraft>(
     EVOLUTION_DRAFT_KEY,
     parseEvolutionDraft,
     () => EMPTY_EVOLUTION_DRAFT,

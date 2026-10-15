@@ -22,7 +22,7 @@ import { useToolFavorites } from '@/lib/tool-favorites';
 import { FavoriteButton } from '../../_components/tool-entries';
 import { SedationBlockView, type BlockContext } from './sedation-blocks';
 import { Trail } from './sedation-parts';
-import { SEDATION_SESSION_KEY, useAdultWeight, useSessionValue } from './sedation-session';
+import { useToolSession, useToolWeight } from '@/lib/tool-session';
 
 const TOOL_NAME = 'Sedação procedimental e agitação';
 
@@ -37,12 +37,12 @@ const NAVIGATION = new Set<SedationAction['type']>(['choose', 'advance', 'back',
  */
 export function SedationScreen() {
   const favorites = useToolFavorites();
-  const [state, setState] = useSessionValue<SedationState>(
-    SEDATION_SESSION_KEY,
+  const [state, setState] = useToolSession<SedationState>(
+    'sedacao',
     parseSedationState,
     () => INITIAL_SEDATION_STATE,
   );
-  const [weight, setWeight] = useAdultWeight();
+  const [weight, setWeight] = useToolWeight();
   const view = useMemo(() => deriveSedation(state, weight), [state, weight]);
   const note = useMemo(() => buildSedationChartNote(state, weight), [state, weight]);
 

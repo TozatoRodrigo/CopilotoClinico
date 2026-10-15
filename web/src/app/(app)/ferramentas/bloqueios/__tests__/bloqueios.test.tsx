@@ -5,7 +5,7 @@ import { RouteBreadcrumbs } from '@/components/layout/route-breadcrumbs';
 import BloqueioPage, { generateStaticParams } from '../[id]/page';
 import { BlockDetailScreen } from '../_components/block-detail';
 import { BlockListScreen, TopographyScreen } from '../_components/block-lists';
-import { readSessionValue, SESSION_TTL_MS, writeSessionValue } from '../_components/block-session';
+import { readToolSession, TOOL_SESSION_TTL_MS, writeToolSession } from '@/lib/tool-session';
 import { BlocksHome } from '../_components/blocks-home';
 import { LastScreen, MaxDoseScreen } from '../_components/dose-screens';
 import {
@@ -174,7 +174,7 @@ describe('dose máxima (CC-330)', () => {
   });
 
   it('peso salvo há mais de 30 minutos não volta', () => {
-    storeWeight('80', Date.now() - SESSION_TTL_MS - 1000);
+    storeWeight('80', Date.now() - TOOL_SESSION_TTL_MS - 1000);
     render(<MaxDoseScreen />);
 
     expect(screen.getByRole('textbox', { name: /Peso/ })).toHaveValue('');
@@ -266,16 +266,16 @@ describe('nota de evolução (CC-330)', () => {
 describe('peso adulto compartilhado', () => {
   it('lê só o formato { savedAt, value } dentro da validade', () => {
     const now = 1_000_000_000;
-    writeSessionValue('peso-adulto', '72,5', now);
+    writeToolSession('peso-adulto', '72,5', now);
     const asText = (value: unknown) => (typeof value === 'string' ? value : null);
-    expect(readSessionValue('peso-adulto', asText, now + 1000)).toBe('72,5');
-    expect(readSessionValue('peso-adulto', asText, now + SESSION_TTL_MS + 1)).toBeNull();
-    expect(readSessionValue('peso-adulto', asText, now - 1)).toBeNull();
+    expect(readToolSession('peso-adulto', asText, now + 1000)).toBe('72,5');
+    expect(readToolSession('peso-adulto', asText, now + TOOL_SESSION_TTL_MS + 1)).toBeNull();
+    expect(readToolSession('peso-adulto', asText, now - 1)).toBeNull();
 
     window.sessionStorage.setItem(WEIGHT_KEY, '{quebrado');
-    expect(readSessionValue('peso-adulto', asText)).toBeNull();
+    expect(readToolSession('peso-adulto', asText)).toBeNull();
     window.sessionStorage.setItem(WEIGHT_KEY, JSON.stringify({ value: '70' }));
-    expect(readSessionValue('peso-adulto', asText)).toBeNull();
+    expect(readToolSession('peso-adulto', asText)).toBeNull();
   });
 });
 

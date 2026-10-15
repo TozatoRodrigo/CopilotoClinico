@@ -1,24 +1,17 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
 import type { HacorEntry, HacorPhase } from '@clinical-tools/ventilation/hacor';
+import { readToolSession, useToolSession } from '@/lib/tool-session';
 
 /**
- * Estado do HACOR na aba (sessionStorage): o T0 e as reavaliações precisam
- * sobreviver a sair da tela por 1–2 h e voltar. No ANY ficava só na memória
- * da página e se perdia ao navegar.
- *
- * Vale só na aba e expira depois de `HACOR_SESSION_TTL_MS` sem uso, para o
- * histórico de um paciente não aparecer no próximo. Nada sai do aparelho e
- * não há dado de identificação: só respostas e scores.
- *
- * Mínimo local de propósito: ao juntar com o `tool-session` das outras
- * ferramentas (CC-311/CC-318), este passa a usar aquele, que precisa aceitar
- * um prazo por chave (lá são 30 min; a reavaliação do HACOR vai a 2 h).
+ * Estado do HACOR na aba (tool-session.ts): o T0 e as reavaliações precisam
+ * sobreviver a sair da tela por 1–2 h e voltar, por isso a chave `vm-hacor`
+ * vale 4 h (as outras ferramentas, 30 min). No ANY ficava só na memória da
+ * página e se perdia ao navegar. Nada sai do aparelho e não há dado de
+ * identificação: só respostas e scores.
  */
 
-export const HACOR_SESSION_TTL_MS = 4 * 60 * 60 * 1000;
-export const HACOR_SESSION_KEY = 'copiloto:ferramentas:sessao:vm-hacor';
+export const HACOR_SESSION_KEY = 'vm-hacor';
 
 export interface HacorSession {
   /** `null` enquanto o médico não escolheu iniciar ou reavaliar. */
@@ -70,47 +63,13 @@ export function parseHacorSession(value: unknown): HacorSession | null {
 }
 
 export function readHacorSession(now = Date.now()): HacorSession | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = window.sessionStorage.getItem(HACOR_SESSION_KEY);
-    if (!raw) return null;
-    const stored: unknown = JSON.parse(raw);
-    if (!isRecord(stored) || typeof stored.savedAt !== 'number') return null;
-    if (now - stored.savedAt > HACOR_SESSION_TTL_MS || stored.savedAt > now) return null;
-    return parseHacorSession(stored.value);
-  } catch {
-    return null;
-  }
+  return readToolSession(HACOR_SESSION_KEY, parseHacorSession, now);
 }
 
-function writeHacorSession(value: HacorSession, now = Date.now()): void {
-  try {
-    window.sessionStorage.setItem(HACOR_SESSION_KEY, JSON.stringify({ savedAt: now, value }));
-  } catch {
-    /* armazenamento indisponível (aba privada): vale enquanto a tela estiver aberta */
-  }
-}
-
-/**
- * Estado do HACOR que sobrevive a ir e voltar na mesma aba. As páginas de
- * (app) só montam no cliente, depois do login: ler o storage no
- * inicializador é seguro (mesmo padrão dos favoritos).
- */
+/** Estado do HACOR que sobrevive a ir e voltar na mesma aba. */
 export function useHacorSession(): [
   HacorSession,
   (update: (current: HacorSession) => HacorSession) => void,
 ] {
-  const [session, setSession] = useState<HacorSession>(
-    () => readHacorSession() ?? EMPTY_HACOR_SESSION,
-  );
-
-  useEffect(() => {
-    writeHacorSession(session);
-  }, [session]);
-
-  const update = useCallback(
-    (next: (current: HacorSession) => HacorSession) => setSession(next),
-    [],
-  );
-  return [session, update];
+  return useToolSession(HACOR_SESSION_KEY, parseHacorSession, () => EMPTY_HACOR_SESSION);
 }

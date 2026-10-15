@@ -18,11 +18,7 @@ import { Button } from '@/components/ui/button';
 import { Callout } from '@/components/ui/callout';
 import { ProgressSteps } from '@/components/ui/progress-steps';
 import { useToolFavorites } from '@/lib/tool-favorites';
-import {
-  ROTEIRO_SESSION_TTL_MS,
-  useSessionReducer,
-  useSharedAdultWeight,
-} from '../../_components/roteiro-session';
+import { useToolSessionReducer, useToolWeight } from '@/lib/tool-session';
 import { formatClock } from '../../_components/shock/format-time';
 import { ShockReferences } from '../../_components/shock/shock-references';
 import { FavoriteButton } from '../../_components/tool-entries';
@@ -45,14 +41,13 @@ const STEP_LABELS = SEPTIC_STEPS.map((step) => SEPTIC_STEP_CONTENT[step].short);
  */
 export function SepticShockScreen({ now = Date.now }: { now?: () => number }) {
   const favorites = useToolFavorites();
-  const { state, dispatch, restoredAt, dismissRestored } = useSessionReducer(
+  const { state, dispatch, restoredAt, dismissRestored } = useToolSessionReducer(
     SEPTIC_SESSION_KEY,
     septicShockReducer,
     parseSepticShockState,
     INITIAL_SEPTIC_STATE,
-    ROTEIRO_SESSION_TTL_MS,
   );
-  const [weight, setWeight] = useSharedAdultWeight();
+  const [weight, setWeight] = useToolWeight();
   const values = useMemo(() => readSepticValues(state), [state]);
   const content = SEPTIC_STEP_CONTENT[state.step];
 

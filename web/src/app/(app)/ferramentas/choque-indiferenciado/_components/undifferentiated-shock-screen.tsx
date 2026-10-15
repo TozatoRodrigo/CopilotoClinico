@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Callout } from '@/components/ui/callout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToolFavorites } from '@/lib/tool-favorites';
-import { ROTEIRO_SESSION_TTL_MS, useSessionReducer } from '../../_components/roteiro-session';
+import { useToolSessionReducer } from '@/lib/tool-session';
 import { formatClock } from '../../_components/shock/format-time';
 import { ShockReferences } from '../../_components/shock/shock-references';
 import { FavoriteButton } from '../../_components/tool-entries';
@@ -49,12 +49,11 @@ function isPristine(state: UndifferentiatedShockState): boolean {
  */
 export function UndifferentiatedShockScreen() {
   const favorites = useToolFavorites();
-  const { state, dispatch, restoredAt, dismissRestored } = useSessionReducer(
+  const { state, dispatch, restoredAt, dismissRestored } = useToolSessionReducer(
     UNDIFFERENTIATED_SESSION_KEY,
     undifferentiatedShockReducer,
     parseUndifferentiatedShockState,
     INITIAL_UNDIFFERENTIATED_STATE,
-    ROTEIRO_SESSION_TTL_MS,
   );
 
   function restart() {

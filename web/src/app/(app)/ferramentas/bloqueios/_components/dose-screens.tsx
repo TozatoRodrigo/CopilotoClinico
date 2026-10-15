@@ -37,7 +37,7 @@ import {
 } from '@/components/ui/table';
 import { SectionHeader } from '@/components/layout/page-header';
 import { cn } from '@/lib/utils';
-import { useAdultWeight } from './block-session';
+import { useToolWeight } from '@/lib/tool-session';
 import { BlocksPage } from './blocks-ui';
 
 /**
@@ -124,7 +124,7 @@ function AnestheticCard({ row }: { row: MaxDoseRow }) {
 
 /** /ferramentas/bloqueios/dose-maxima — dose máxima de anestésico local pelo peso. */
 export function MaxDoseScreen() {
-  const [weight, setWeight] = useAdultWeight();
+  const [weight, setWeight] = useToolWeight();
   const evaluation = evaluateMaxDoses(weight);
   return (
     <BlocksPage
@@ -156,7 +156,7 @@ export function MaxDoseScreen() {
 
 /** /ferramentas/bloqueios/last — protocolo de LAST e dose de emulsão lipídica 20%. */
 export function LastScreen() {
-  const [weight, setWeight] = useAdultWeight();
+  const [weight, setWeight] = useToolWeight();
   const evaluation = evaluateLipidEmulsion(weight);
   return (
     <BlocksPage

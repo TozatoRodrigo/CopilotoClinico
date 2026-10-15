@@ -24,7 +24,7 @@ import { ScoreItemList } from '@/components/domain/clinical-tools/score-item-lis
 import { Button } from '@/components/ui/button';
 import { toneBg, toneInk, toneTag, toneText } from '@/lib/tone';
 import { cn } from '@/lib/utils';
-import { EMPTY_HACOR_SESSION, useHacorSession } from './hacor-session';
+import { EMPTY_HACOR_SESSION, useHacorSession } from './hacor-state';
 
 const PHASES: readonly { id: HacorPhase; title: string; description: string }[] = [
   { id: 'inicio', title: 'Iniciar VNI', description: 'Avaliar risco antes de iniciar' },
@@ -180,7 +180,7 @@ function Timeline({ history }: { history: readonly HacorEntry[] }) {
  * HACOR com reavaliação (CC-327), como no VM Guide do ANY: avaliar antes de
  * iniciar a VNI e registrar o T0; depois reavaliar, comparar com a avaliação
  * anterior e ver a tendência. A soma e a faixa são do motor; o histórico fica
- * na aba (hacor-session).
+ * na aba (hacor-state).
  */
 export function HacorPanel() {
   const [session, update] = useHacorSession();

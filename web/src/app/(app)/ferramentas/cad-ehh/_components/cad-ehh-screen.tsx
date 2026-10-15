@@ -42,11 +42,7 @@ import { Button } from '@/components/ui/button';
 import { Callout } from '@/components/ui/callout';
 import { useToolFavorites } from '@/lib/tool-favorites';
 import { cn } from '@/lib/utils';
-import {
-  ROTEIRO_SESSION_TTL_MS,
-  useSessionReducer,
-  useSharedAdultWeight,
-} from '../../_components/roteiro-session';
+import { useToolSessionReducer, useToolWeight } from '@/lib/tool-session';
 import { FavoriteButton } from '../../_components/tool-entries';
 import {
   CalculatorsScreen,
@@ -257,14 +253,13 @@ function screenHeading(screen: CadEhhScreen): {
  */
 export function CadEhhScreen({ now = Date.now }: { now?: () => number }) {
   const favorites = useToolFavorites();
-  const { state, dispatch, restoredAt, dismissRestored } = useSessionReducer(
+  const { state, dispatch, restoredAt, dismissRestored } = useToolSessionReducer(
     CAD_EHH_SESSION_KEY,
     cadEhhReducer,
     parseCadEhhState,
     INITIAL_CAD_EHH_STATE,
-    ROTEIRO_SESSION_TTL_MS,
   );
-  const [weightRaw, setWeightRaw] = useSharedAdultWeight();
+  const [weightRaw, setWeightRaw] = useToolWeight();
   const checkedWeight = validateWeight(weightRaw, 'adulto');
   const weight = checkedWeight.ok ? checkedWeight.value : null;
   const panel = useMemo(() => readPanel(state.panel), [state.panel]);

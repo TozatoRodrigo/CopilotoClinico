@@ -2,11 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import VentilacaoMecanicaPage from '../page';
-import {
-  HACOR_SESSION_KEY,
-  HACOR_SESSION_TTL_MS,
-  readHacorSession,
-} from '../_components/hacor-session';
+import { HACOR_SESSION_TTL_MS } from '@/lib/tool-session';
+import { readHacorSession } from '../_components/hacor-state';
+
+const HACOR_STORAGE_KEY = 'copiloto:ferramentas:sessao:vm-hacor';
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), info: vi.fn() } }));
 
@@ -263,19 +262,19 @@ describe('/ferramentas/ventilacao-mecanica — HACOR com reavaliação (CC-327)'
     const now = Date.now();
     const valid = { phase: 'reavaliacao', start: {}, reassessment: {}, history: [] };
     window.sessionStorage.setItem(
-      HACOR_SESSION_KEY,
+      HACOR_STORAGE_KEY,
       JSON.stringify({ savedAt: now - HACOR_SESSION_TTL_MS - 1, value: valid }),
     );
     expect(readHacorSession(now)).toBeNull();
 
     window.sessionStorage.setItem(
-      HACOR_SESSION_KEY,
+      HACOR_STORAGE_KEY,
       JSON.stringify({ savedAt: now, value: { ...valid, history: [{ label: 'T0' }] } }),
     );
     expect(readHacorSession(now)).toBeNull();
 
     window.sessionStorage.setItem(
-      HACOR_SESSION_KEY,
+      HACOR_STORAGE_KEY,
       JSON.stringify({ savedAt: now, value: valid }),
     );
     expect(readHacorSession(now)).toEqual(valid);
