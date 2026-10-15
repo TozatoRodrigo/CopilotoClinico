@@ -5,12 +5,14 @@ import {
 } from '@clinical-tools/infusions/custom-dilution';
 import { doseInputRange, doseSettings } from '@clinical-tools/infusions/dose';
 import { getInfusionDrug, type InfusionDrug } from '@clinical-tools/infusions/drugs';
+import type { HeparinIndication } from '@clinical-tools/infusions/heparin';
 import { findInfusionItem } from '@clinical-tools/infusions/items';
 
 /**
  * Estado da tela de Infusões que sobrevive a ir e voltar (sessionStorage, ver
- * tool-session.ts): por droga, modo, dose e diluição; o item aberto fica numa
- * chave à parte. Só números e ids — nada que identifique paciente.
+ * tool-session.ts): por droga, modo, dose e diluição; nos protocolos, a fase e
+ * os valores digitados. O item aberto fica numa chave à parte. Só números e
+ * ids — nada que identifique paciente.
  */
 
 /** De onde vem a concentração em uso. */
@@ -29,12 +31,52 @@ export interface DrugScreenState {
   dilution: DilutionChoice;
 }
 
+export type ProtocolPhase = 'inicio' | 'ajuste';
+
+/** Heparina (CC-312): fase, indicação e o texto digitado em cada campo. */
+export interface HeparinScreenState {
+  phase: ProtocolPhase;
+  indication: HeparinIndication;
+  ratio: string;
+  currentDose: string;
+}
+
+/** Insulina (CC-312): fase e o texto digitado em cada campo. */
+export interface InsulinScreenState {
+  phase: ProtocolPhase;
+  initial: string;
+  current: string;
+  previous: string;
+  currentInfusion: string;
+}
+
 export interface InfusionScreenState {
   /** Modo, dose e diluição por droga. */
   drugs: Readonly<Record<string, DrugScreenState>>;
+  heparin: HeparinScreenState;
+  insulin: InsulinScreenState;
 }
 
-export const EMPTY_INFUSION_STATE: InfusionScreenState = { drugs: {} };
+export const EMPTY_HEPARIN_STATE: HeparinScreenState = {
+  phase: 'inicio',
+  indication: 'sca',
+  ratio: '',
+  currentDose: '',
+};
+
+export const EMPTY_INSULIN_STATE: InsulinScreenState = {
+  phase: 'inicio',
+  initial: '',
+  current: '',
+  previous: '',
+  currentInfusion: '',
+};
+
+export const EMPTY_INFUSION_STATE: InfusionScreenState = {
+  drugs: {},
+  heparin: EMPTY_HEPARIN_STATE,
+  insulin: EMPTY_INSULIN_STATE,
+};
 
 /** Id de item salvo na sessão; o que não for item conhecido vira "nenhum". */
 export function parseOpenItem(value: unknown): string | null {
@@ -158,6 +200,36 @@ function parseDrugState(drug: InfusionDrug, value: unknown): DrugScreenState | n
   return { modeId, dose: value.dose, dilution };
 }
 
+/** Texto curto digitado num campo (o campo valida; aqui só se barra lixo). */
+function field(value: unknown): string {
+  return typeof value === 'string' && value.length <= 20 ? value : '';
+}
+
+function phase(value: unknown): ProtocolPhase {
+  return value === 'ajuste' ? 'ajuste' : 'inicio';
+}
+
+function parseHeparin(value: unknown): HeparinScreenState {
+  if (!isRecord(value)) return EMPTY_HEPARIN_STATE;
+  return {
+    phase: phase(value.phase),
+    indication: value.indication === 'tep' ? 'tep' : 'sca',
+    ratio: field(value.ratio),
+    currentDose: field(value.currentDose),
+  };
+}
+
+function parseInsulin(value: unknown): InsulinScreenState {
+  if (!isRecord(value)) return EMPTY_INSULIN_STATE;
+  return {
+    phase: phase(value.phase),
+    initial: field(value.initial),
+    current: field(value.current),
+    previous: field(value.previous),
+    currentInfusion: field(value.currentInfusion),
+  };
+}
+
 /** Lê o estado salvo; o que não for reconhecido some sem quebrar a tela. */
 export function parseInfusionScreenState(value: unknown): InfusionScreenState | null {
   if (!isRecord(value)) return null;
@@ -169,5 +241,5 @@ export function parseInfusionScreenState(value: unknown): InfusionScreenState | 
       if (parsed) drugs[id] = parsed;
     }
   }
-  return { drugs };
+  return { drugs, heparin: parseHeparin(value.heparin), insulin: parseInsulin(value.insulin) };
 }

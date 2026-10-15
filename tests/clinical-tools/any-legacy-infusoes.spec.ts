@@ -9,18 +9,20 @@ import {
   INFUSION_CATEGORIES,
   INFUSION_DRUGS,
 } from '../../src/shared/clinical-tools/infusions/drugs';
+import { heparinStart } from '../../src/shared/clinical-tools/infusions/heparin';
 
 /**
- * CC-311 — testes do branch antigo do ANY (claude/update-test-database-M10pD,
- * revisão 649d2ae) que cobrem as infusões, com os nomes novos. Cada
- * `describe` cita o arquivo de origem. Os de heparina entram no CC-312.
+ * Testes do branch antigo do ANY (claude/update-test-database-M10pD, revisão
+ * 649d2ae) que cobrem as infusões (CC-311) e a heparina (CC-312), com os
+ * nomes novos. Cada `describe` cita o arquivo de origem.
  *
- * Duas adaptações deliberadas:
+ * Adaptações deliberadas:
  * - `getDoseStatus(dose, min, max, critical)` do branch antigo virou
  *   `doseStatus(dose, faixa)`. A semântica antiga ("acima do máximo até o
  *   crítico = atenção") é a do v4 com o limiar de atenção no teto da faixa,
  *   que é o que `faixa()` monta;
- * - `calculateDose` virou `doseToMlh` + `doseStatus` (o motor não junta os dois).
+ * - `calculateDose` virou `doseToMlh` + `doseStatus` (o motor não junta os dois);
+ * - `calcHeparina` virou `heparinStart`, com os campos em inglês.
  */
 
 /** Faixa só com os números, como os argumentos do `getDoseStatus` antigo. */
@@ -188,5 +190,33 @@ describe('calculateDose → doseToMlh + doseStatus (calculations.test.ts)', () =
 
   it('marca critical para dose acima do range', () => {
     expect(doseStatus(5, faixa(0.01, 3.0))).toBe('critical');
+  });
+});
+
+describe('calcHeparina → heparinStart (calculations.test.ts)', () => {
+  it('calcula bolus SCA com cap 4000 UI', () => {
+    const result = heparinStart(80, 'sca');
+    // 80 * 60 = 4800, cap 4000
+    expect(result.bolusUnits).toBe(4000);
+    expect(result.bolusVolumeMl).toBe(40); // 4000/100
+  });
+
+  it('calcula infusao SCA com cap 1000 UI/h', () => {
+    const result = heparinStart(100, 'sca');
+    // 100 * 12 = 1200, cap 1000
+    expect(result.unitsPerHour).toBe(1000);
+    expect(result.mlh).toBe(10); // 1000/100
+  });
+
+  it('calcula bolus TEP sem cap', () => {
+    // 80 * 80 = 6400
+    expect(heparinStart(80, 'tep').bolusUnits).toBe(6400);
+  });
+
+  it('calcula infusao TEP sem cap', () => {
+    const result = heparinStart(70, 'tep');
+    // 70 * 18 = 1260
+    expect(result.unitsPerHour).toBe(1260);
+    expect(result.mlh).toBe(12.6);
   });
 });

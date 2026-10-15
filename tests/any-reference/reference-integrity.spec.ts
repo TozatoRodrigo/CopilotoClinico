@@ -51,6 +51,9 @@ describe('referência congelada do ANY', () => {
         'calculations.ts',
         'drugConfigs.ts',
         'DoseCalculator.tsx',
+        // CC-312 — heparina e insulina
+        'HeparinCalculator.tsx',
+        'InsulinCalculator.tsx',
       ]),
     );
   });

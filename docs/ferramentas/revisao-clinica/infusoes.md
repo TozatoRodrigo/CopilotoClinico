@@ -1,17 +1,20 @@
-# Revisão clínica — Infusões contínuas (CC-311)
+# Revisão clínica — Infusões contínuas (CC-311 e CC-312)
 
-Achados do porte do InfusionGuide e do DoseCalculator do ANY App (v4, revisão
-`95c8fba`) para a revisão clínica do CC-310, a cargo do Dr. Gustavo Moreira.
+Achados do porte do InfusionGuide, do DoseCalculator e dos protocolos de
+heparina e insulina do ANY App (v4, revisão `95c8fba`) para a revisão clínica
+do CC-310, a cargo do Dr. Gustavo Moreira. As seções 1 a 4 são das 16 drogas
+(CC-311); a seção 5, de heparina e insulina (CC-312).
 
 **Regra do porte (ADR-017):** doses, faixas, limiares e textos clínicos ficaram
 **iguais ao ANY**. O teste diferencial confere campo a campo e em milhares de
-entradas (`tests/clinical-tools/infusions-differential.spec.ts`). Nada abaixo
-foi corrigido no código: cada item espera uma decisão. A coluna "Opções" sugere
-caminhos; a escolha é clínica.
+entradas (`tests/clinical-tools/infusions-differential.spec.ts` e
+`protocols-differential.spec.ts`, que rodam os próprios componentes do ANY).
+Nada abaixo foi corrigido no código: cada item espera uma decisão. A coluna
+"Opções" sugere caminhos; a escolha é clínica.
 
-Toda mudança decidida aqui sobe a versão do conteúdo em
-`src/shared/clinical-tools/infusions/drugs.ts` (`provenance.version`) e
-atualiza o teste diferencial, que passa a registrar a diferença de propósito.
+Toda mudança decidida aqui sobe a versão do conteúdo (`provenance.version` em
+`src/shared/clinical-tools/infusions/drugs.ts`, `heparin.ts` ou `insulin.ts`)
+e atualiza o teste diferencial, que passa a registrar a diferença de propósito.
 
 ## 1. Conteúdo clínico (decisão do revisor)
 
@@ -72,3 +75,41 @@ pontos.
   minutos é aceitável.**
 - A "minha diluição" fica no aparelho (`localStorage`), por droga, sem prazo,
   como no ANY.
+- Heparina e insulina guardam na mesma sessão a fase, a indicação e os valores
+  digitados (TTPa, glicemias, infusão atual), com o mesmo prazo de 30 minutos.
+
+## 5. Heparina e insulina (CC-312)
+
+### 5.1 Conteúdo clínico (decisão do revisor)
+
+| #      | Onde                              | O que o ANY diz                                                                                                                                                                                            | Por que parece problema                                                                                                                                            | Opções                                                                                                                           |
+| ------ | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| 5.1.1  | Heparina, ajuste na SCA           | O teto da SCA (1.000 UI/h) vale só no início. No ajuste, a nova dose é a dose por kg × peso, sem teto; e, sem "dose atual" digitada, o ajuste parte de 12 UI/kg/h sem teto (100 kg → 1.200 UI/h + ajuste). | Um paciente de 100 kg que começou em 1.000 UI/h (teto) é ajustado como se estivesse em 1.200 UI/h.                                                                 | (a) aplicar o teto também no ajuste; (b) partir da dose inicial real (com teto) quando a dose atual não é informada; (c) manter. |
+| 5.1.2  | Heparina, TEP/TEV                 | Bolus 80 UI/kg e infusão 18 UI/kg/h sem teto.                                                                                                                                                              | Vários protocolos limitam (ex.: bolus 10.000 UI, infusão 2.000 UI/h no início). Com 150 kg, o ANY sugere bolus de 12.000 UI.                                       | Definir tetos ou confirmar sem teto.                                                                                             |
+| 5.1.3  | Heparina, volume do bolus         | No início o bolus aparece só em UI. No ajuste, o bolus adicional aparece em UI **e em mL a 100 UI/mL**, isto é, tirado da bolsa (80 UI/kg × 80 kg = 6.400 UI = 64 mL).                                     | Inconsistente entre as fases; e 64 mL de bolus pela bolsa é diferente de 1,3 mL do frasco de 5.000 UI/mL.                                                          | (a) mostrar o volume nas duas fases, dizendo de onde sai; (b) só UI nas duas; (c) manter.                                        |
+| 5.1.4  | Heparina, nomograma               | "TTPa/R" sem dizer se é relação paciente/controle ou TTPa em segundos; limites < 1,2 / 1,2–1,5 / 1,5–2,5 / 2,5–3,0 / > 3,0.                                                                                | O porte trata como relação (campo de 0,2 a 10, ver 5.2) e avisa "não o tempo em segundos". Confirmar o nomograma e se o alvo 1,5–2,5 vale para as duas indicações. | Confirmar.                                                                                                                       |
+| 5.1.5  | Insulina, tabela de ajuste        | Glicemia acima de 180 segue a infusão **da tabela**, sem olhar a infusão atual: quem está a 4 UI/h com glicemia de 190 recebe a sugestão de 2 UI/h.                                                        | Pode reduzir a infusão com a glicemia acima do alvo e sem queda.                                                                                                   | (a) usar a tabela como ponto de partida e não reduzir sem queda; (b) manter (protocolo de "reinício pela tabela").               |
+| 5.1.6  | Insulina, faixa 141–180 no ajuste | "Manter" a infusão atual. No ANY, sem infusão atual digitada, a sugestão saía "0".                                                                                                                         | O porte exige a infusão atual no ajuste (0 se não está correndo), então o "0" só aparece se o médico digitar 0. A conta é a mesma.                                 | Confirmar.                                                                                                                       |
+| 5.1.7  | Insulina, limite de 140           | A tabela põe 140 em "70–140, não iniciar", mas a cor trata 140 como alvo (neutro); e no início, com 140, o bolus sai "0 UI" e a infusão "Não iniciar".                                                     | Borda inconsistente entre tabela e cor.                                                                                                                            | Definir se 140 é "não iniciar" ou alvo.                                                                                          |
+| 5.1.8  | Insulina, diluição                | "100 UI (1 frasco 10mL — 100UI/mL) + SF 0,9% 100 mL" e 1 UI/mL.                                                                                                                                            | 100 UI são 1 mL do frasco de 10 mL (1.000 UI). Com 100 mL de SF o volume final é 101 mL (0,99 UI/mL). O texto pode ser lido como "1 frasco inteiro".               | Reescrever: "100 UI (1 mL do frasco de 100 UI/mL) + SF 0,9% 99 mL = 100 mL", ou confirmar.                                       |
+| 5.1.9  | Insulina, hipoglicemia no ajuste  | "PARAR" e "G50% 40mL".                                                                                                                                                                                     | Confirmar a dose de glicose (40 mL de G50% = 20 g) e se vale para qualquer glicemia < 70.                                                                          | Confirmar.                                                                                                                       |
+| 5.1.10 | Insulina, sem peso                | Tabela fixa por glicemia (1–4 UI/h), sem peso.                                                                                                                                                             | Diferente do protocolo de CAD (0,1 UI/kg/h, CC-326). Confirmar que este protocolo é para hiperglicemia fora da CAD e dizer isso na tela.                           | Texto de indicação na tela.                                                                                                      |
+| 5.1.11 | Heparina e insulina               | Sem referência bibliográfica.                                                                                                                                                                              | Como nas drogas (1.9).                                                                                                                                             | Indicar a referência.                                                                                                            |
+
+### 5.2 Faixas de entrada definidas no porte (o ANY não tinha)
+
+| Campo                     | Faixa no porte                     | Observação                                                                                             |
+| ------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| TTPa atual (relação R)    | 0,2 a 10                           | Barra o TTPa digitado em segundos (ex.: 75) no lugar da relação; no ANY, 75 virava "> 3,0: parar 1 h". |
+| Dose atual de heparina    | 0 a 40 UI/kg/h, opcional           | Vazio: parte da dose inicial da indicação, como no ANY.                                                |
+| Glicemias                 | 10 a 2.000 mg/dL                   | A anterior (1 h antes) é opcional, como no ANY.                                                        |
+| Infusão atual de insulina | 0 a 50 UI/h, obrigatória no ajuste | No ANY era opcional e vazio valia 0 (ver 5.1.6).                                                       |
+
+### 5.3 Defeitos do ANY que não foram portados
+
+| #     | Onde                        | Defeito no ANY                                                                                                                 | No Copiloto                                                                             |
+| ----- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| 5.3.1 | Heparina, fase Início       | A cor do resultado do início seguia o TTPa digitado antes na fase Ajuste.                                                      | O início não tem cor de TTPa (o resultado fica neutro, com o rótulo "Infusão inicial"). |
+| 5.3.2 | Insulina, resultado         | Unidades fixas embaixo de qualquer texto: "PARAR" com "UI" e "G50% 40mL" com "UI/h = mL/h"; infusão com ponto decimal ("2.5"). | Texto por extenso com a unidade quando há número ("2,5 UI/h").                          |
+| 5.3.3 | Linha da tabela em destaque | Só pela cor.                                                                                                                   | Cor e selo "Atual", e a linha marcada para leitor de tela.                              |
+| 5.3.4 | Peso na insulina            | A tela inteira esperava o peso.                                                                                                | A insulina não pede peso.                                                               |

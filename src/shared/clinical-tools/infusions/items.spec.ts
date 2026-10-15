@@ -57,6 +57,12 @@ describe('searchInfusionItems', () => {
     expect(searchInfusionItems('precedex').map(({ id }) => id)).toEqual(['dexmedetomidina']);
   });
 
+  it('acha os protocolos de heparina e insulina (CC-312)', () => {
+    expect(searchInfusionItems('ttpa').map(({ id }) => id)).toEqual(['heparina']);
+    expect(searchInfusionItems('glicemia').map(({ id }) => id)).toEqual(['insulina']);
+    expect(readInfusionParam(params('drug=heparina')).item?.kind).toBe('heparina');
+  });
+
   it('busca vazia não filtra nada', () => {
     expect(searchInfusionItems('  ')).toEqual([]);
   });

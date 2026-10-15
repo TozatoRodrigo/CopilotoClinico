@@ -303,3 +303,106 @@ describe('/ferramentas/infusoes — ir e voltar', () => {
     expect(screen.getByRole('button', { name: 'Copiar para o prontuário' })).toBeEnabled();
   });
 });
+
+function protocolResult() {
+  const element = document.querySelector('[data-slot="protocol-result"]');
+  if (!element) throw new Error('sem resultado');
+  return element as HTMLElement;
+}
+
+describe('/ferramentas/infusoes — heparina (CC-312)', () => {
+  it('abre pelo ?drug=heparina do TEP do ANY e calcula o início da SCA', async () => {
+    openAt('drug=heparina');
+    expect(screen.getByRole('heading', { level: 1, name: 'Heparina' })).toBeInTheDocument();
+    expect(screen.getByText('Informe o peso do paciente para calcular.')).toBeInTheDocument();
+
+    await typeWeight('70');
+    const bolus = screen.getByText('Bolus inicial (SCA)').closest('[data-slot="callout"]');
+    // 60 UI/kg × 70 = 4.200, teto de 4.000
+    expect(bolus).toHaveTextContent('Este paciente4000 UI');
+    // 12 UI/kg/h × 70 = 840 UI/h ÷ 100 UI/mL
+    expect(protocolResult()).toHaveTextContent('Velocidade8,4mL/h');
+    expect(protocolResult()).toHaveTextContent('Dose840UI/h');
+
+    await userEvent.click(screen.getByRole('radio', { name: 'TEP/TEV' }));
+    expect(
+      screen.getByText('Bolus inicial (TEP/TEV)').closest('[data-slot="callout"]'),
+    ).toHaveTextContent('Este paciente5600 UI');
+    expect(protocolResult()).toHaveTextContent('Velocidade12,6mL/h');
+  });
+
+  it('ajusta pelo nomograma de TTPa, com a linha atual marcada e a cor da faixa', async () => {
+    openAt('droga=heparina');
+    await typeWeight('70');
+    await userEvent.click(screen.getByRole('radio', { name: 'Ajuste (TTPa)' }));
+    await userEvent.type(screen.getByLabelText(/^TTPa atual/), '1,3');
+
+    expect(screen.getByRole('row', { current: true })).toHaveTextContent('1,2 - 1,5');
+    const adjustment = screen.getByText('Bolus adicional').closest('[data-slot="callout"]');
+    expect(adjustment).toHaveTextContent('Bolus adicional2800 UI (28,0 mL)');
+    expect(adjustment).toHaveTextContent('Nova dose14,0 UI/kg/h');
+    expect(protocolResult()).toHaveAttribute('data-tone', 'orange');
+    expect(within(protocolResult()).getByText('TTPa abaixo do alvo')).toBeInTheDocument();
+
+    await userEvent.clear(screen.getByLabelText(/^TTPa atual/));
+    await userEvent.type(screen.getByLabelText(/^TTPa atual/), '3,5');
+    expect(screen.getByText('Considere parar a infusão por 1 hora')).toBeInTheDocument();
+    expect(protocolResult()).toHaveAttribute('data-tone', 'red');
+  });
+
+  it('recusa TTPa em segundos no lugar da relação', async () => {
+    openAt('droga=heparina');
+    await typeWeight('70');
+    await userEvent.click(screen.getByRole('radio', { name: 'Ajuste (TTPa)' }));
+    await userEvent.type(screen.getByLabelText(/^TTPa atual/), '75');
+    expect(screen.getByText(/Fora da faixa aceita: 0,2 a 10/)).toBeInTheDocument();
+    expect(screen.queryByText('Nova dose')).not.toBeInTheDocument();
+  });
+
+  it('mantém fase e TTPa ao ir e voltar', async () => {
+    const view = openAt('droga=heparina');
+    await userEvent.click(screen.getByRole('radio', { name: 'Ajuste (TTPa)' }));
+    await userEvent.type(screen.getByLabelText(/^TTPa atual/), '2');
+    view.unmount();
+    openAt('droga=heparina');
+    expect(screen.getByLabelText(/^TTPa atual/)).toHaveValue('2');
+  });
+});
+
+describe('/ferramentas/infusoes — insulina (CC-312)', () => {
+  it('início: bolus e infusão pela tabela, sem pedir peso', async () => {
+    openAt('droga=insulina');
+    expect(screen.queryByLabelText(/^Peso/)).not.toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText(/^Glicemia inicial/), '260');
+    expect(protocolResult()).toHaveTextContent('Bolus6 UI');
+    expect(protocolResult()).toHaveTextContent('Infusão3 UI/h');
+    expect(protocolResult()).toHaveAttribute('data-tone', 'orange');
+    expect(screen.getByRole('row', { current: true })).toHaveTextContent('251 - 300');
+  });
+
+  it('ajuste: corrige pela queda da última hora', async () => {
+    openAt('droga=insulina');
+    await userEvent.click(screen.getByRole('radio', { name: 'Ajuste (glicemia)' }));
+    await userEvent.type(screen.getByLabelText(/^Glicemia atual/), '190');
+    await userEvent.type(screen.getByLabelText(/^Glicemia 1 h antes/), '250');
+    expect(
+      screen.getByText('Informe a glicemia atual e a infusão atual para ver o ajuste.'),
+    ).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText(/^Infusão atual/), '4');
+
+    expect(screen.getByText('↓ 60 mg/dL/h')).toBeInTheDocument();
+    expect(screen.getByText('Queda moderada → ↓ 1 UI/h')).toBeInTheDocument();
+    expect(protocolResult()).toHaveTextContent('Infusão3 UI/h (↓ 1)');
+  });
+
+  it('ajuste: hipoglicemia pede parar e glicose 50%, em vermelho', async () => {
+    openAt('droga=insulina');
+    await userEvent.click(screen.getByRole('radio', { name: 'Ajuste (glicemia)' }));
+    await userEvent.type(screen.getByLabelText(/^Glicemia atual/), '60');
+    await userEvent.type(screen.getByLabelText(/^Infusão atual/), '3');
+    expect(protocolResult()).toHaveTextContent('BolusParar a infusão');
+    expect(protocolResult()).toHaveTextContent('InfusãoGlicose 50% 40 mL');
+    expect(protocolResult()).toHaveAttribute('data-tone', 'red');
+    expect(within(protocolResult()).getByText('Hipoglicemia')).toBeInTheDocument();
+  });
+});

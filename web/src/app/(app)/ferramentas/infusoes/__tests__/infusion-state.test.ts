@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { getInfusionDrug, type InfusionDrug } from '@clinical-tools/infusions/drugs';
 import {
+  EMPTY_HEPARIN_STATE,
+  EMPTY_INSULIN_STATE,
   initialDrugState,
   parseInfusionScreenState,
   parseOpenItem,
@@ -76,8 +78,20 @@ describe('parseInfusionScreenState', () => {
         midazolam: { modeId: 'status', dose: 0.5, dilution: { kind: 'minha' } },
         vasopressina: { modeId: null, dose: 0.03, dilution: { kind: 'lista', concentration: 0.4 } },
       },
+      heparin: { phase: 'ajuste', indication: 'tep', ratio: '1,3', currentDose: '' },
+      insulin: { phase: 'inicio', initial: '250', current: '', previous: '', currentInfusion: '' },
     };
     expect(parseInfusionScreenState(state)).toEqual(state);
+  });
+
+  it('volta os protocolos ao início quando o salvo é estranho', () => {
+    expect(
+      parseInfusionScreenState({
+        drugs: {},
+        heparin: { phase: 'x', indication: 'y', ratio: 'z'.repeat(50) },
+        insulin: 'texto',
+      }),
+    ).toEqual({ drugs: {}, heparin: EMPTY_HEPARIN_STATE, insulin: EMPTY_INSULIN_STATE });
   });
 
   it('descarta item desconhecido, modo inválido, dose fora da faixa e diluição estranha', () => {
@@ -90,7 +104,7 @@ describe('parseInfusionScreenState', () => {
           dobutamina: { modeId: null, dose: 5, dilution: { kind: 'qualquer' } },
         },
       }),
-    ).toEqual({ drugs: {} });
+    ).toMatchObject({ drugs: {} });
     expect(parseInfusionScreenState('texto')).toBeNull();
   });
 });

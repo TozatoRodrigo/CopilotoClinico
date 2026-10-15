@@ -2,12 +2,16 @@ import { normalizeSearchText } from '../catalog';
 import { INFUSION_CATEGORIES, INFUSION_DRUGS } from './drugs';
 
 /**
- * O que a tela de Infusões lista e abre pelo endereço: as drogas e, no
- * CC-312, os protocolos de heparina e insulina. Serve à busca da própria tela,
- * ao ⌘K e ao `?droga=` que as outras ferramentas usam para linkar para cá.
+ * O que a tela de Infusões lista e abre pelo endereço: as 16 drogas (CC-311)
+ * e os protocolos de heparina e insulina (CC-312). Serve à busca da própria
+ * tela, ao ⌘K e ao `?droga=` que as outras ferramentas usam para linkar para
+ * cá (o TEP do ANY já linkava `?drug=heparina`).
  */
 
-export const INFUSION_GROUPS = [...INFUSION_CATEGORIES] as const;
+export const INFUSION_GROUPS = [
+  ...INFUSION_CATEGORIES,
+  { id: 'protocols', label: 'Protocolos' },
+] as const;
 
 export type InfusionGroupId = (typeof INFUSION_GROUPS)[number]['id'];
 
@@ -16,11 +20,35 @@ export interface InfusionItem {
   name: string;
   aliases: readonly string[];
   group: InfusionGroupId;
+  /** Droga com dose ↔ mL/h, ou protocolo com tela própria. */
+  kind: 'droga' | 'heparina' | 'insulina';
 }
 
-export const INFUSION_ITEMS: readonly InfusionItem[] = INFUSION_DRUGS.map(
-  ({ id, name, aliases, category }) => ({ id, name, aliases, group: category }),
-);
+export const INFUSION_ITEMS: readonly InfusionItem[] = [
+  ...INFUSION_DRUGS.map(
+    ({ id, name, aliases, category }): InfusionItem => ({
+      id,
+      name,
+      aliases,
+      group: category,
+      kind: 'droga',
+    }),
+  ),
+  {
+    id: 'heparina',
+    name: 'Heparina',
+    aliases: ['hnf', 'heparina não fracionada', 'ttpa', 'anticoagulação', 'tep', 'sca'],
+    group: 'protocols',
+    kind: 'heparina',
+  },
+  {
+    id: 'insulina',
+    name: 'Insulina regular',
+    aliases: ['insulina', 'glicemia', 'hiperglicemia', 'insulina regular'],
+    group: 'protocols',
+    kind: 'insulina',
+  },
+];
 
 const BY_ID = new Map(INFUSION_ITEMS.map((item) => [item.id, item]));
 

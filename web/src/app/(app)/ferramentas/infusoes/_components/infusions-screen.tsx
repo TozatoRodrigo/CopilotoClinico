@@ -5,7 +5,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Drop, Info } from '@phosphor-icons/react';
 import { formatConcentration } from '@clinical-tools/infusions/dose';
 import { getInfusionDrug } from '@clinical-tools/infusions/drugs';
+import { HEPARIN_PROTOCOL } from '@clinical-tools/infusions/heparin';
+import { INSULIN_PROTOCOL } from '@clinical-tools/infusions/insulin';
 import {
+  findInfusionItem,
   infusionHref,
   readInfusionParam,
   type InfusionItem,
@@ -27,6 +30,8 @@ import {
 } from '@/lib/tool-session';
 import { FavoriteButton, ToolSearchField } from '../../_components/tool-entries';
 import { DrugPanel } from './drug-panel';
+import { HeparinPanel } from './heparin-panel';
+import { InsulinPanel } from './insulin-panel';
 import { InfusionList } from './infusion-list';
 import {
   EMPTY_INFUSION_STATE,
@@ -40,15 +45,23 @@ import {
 const OPEN_ITEM_KEY = 'infusoes:aberta';
 
 function describeItem(item: InfusionItem): string {
-  const drug = getInfusionDrug(item.id);
-  return drug
-    ? `${drug.doseUnit} · ${formatConcentration(drug.concentration)} ${drug.concentrationUnit}`
-    : '';
+  switch (item.kind) {
+    case 'heparina':
+      return `Início por peso e ajuste por TTPa · ${HEPARIN_PROTOCOL.concentration} UI/mL`;
+    case 'insulina':
+      return `Tabela por glicemia · ${INSULIN_PROTOCOL.concentration} UI/mL`;
+    case 'droga': {
+      const drug = getInfusionDrug(item.id);
+      return drug
+        ? `${drug.doseUnit} · ${formatConcentration(drug.concentration)} ${drug.concentrationUnit}`
+        : '';
+    }
+  }
 }
 
 /**
- * /ferramentas/infusoes (CC-311): peso, lista das 16 drogas e a calculadora
- * da droga aberta. A droga aberta mora no endereço (`?droga=`, e o `?drug=`
+ * /ferramentas/infusoes (CC-311 e CC-312): peso, lista das 16 drogas e dos
+ * protocolos de heparina e insulina, e a calculadora do item aberto. A droga aberta mora no endereço (`?droga=`, e o `?drug=`
  * dos links antigos do ANY), para Choque, TEP e Via aérea linkarem direto;
  * peso, dose e diluição ficam na sessão da aba e sobrevivem a ir e voltar.
  */
@@ -77,8 +90,10 @@ export function InfusionsScreen() {
   const [pending, setPending] = useState<{ id: string | null; urlKey: string } | null>(null);
   const fromUrl = selection.item?.id ?? (selection.requested === null ? restoreId : null);
   const selectedId = pending && pending.urlKey === urlKey ? pending.id : fromUrl;
-  const drug = selectedId ? getInfusionDrug(selectedId) : undefined;
+  const item = findInfusionItem(selectedId);
+  const drug = item?.kind === 'droga' ? getInfusionDrug(item.id) : undefined;
 
+  const needsWeight = !item || item.kind === 'heparina' || (drug?.usesWeight ?? false);
   const weight = validateWeight(weightRaw, 'adulto');
   const weightKg = weight.ok ? weight.value : null;
 
@@ -128,13 +143,13 @@ export function InfusionsScreen() {
         icon={Drop}
         iconTone="blue"
         size="compact"
-        title={drug ? drug.name : 'Infusões contínuas'}
-        // Com a droga aberta, o título já diz tudo: no celular, o resultado sobe.
-        eyebrow={drug ? 'Infusões contínuas' : undefined}
+        title={item ? item.name : 'Infusões contínuas'}
+        // Com um item aberto, o título já diz tudo: no celular, o resultado sobe.
+        eyebrow={item ? 'Infusões contínuas' : undefined}
         description={
-          drug
+          item
             ? undefined
-            : 'Drogas vasoativas, sedação e bloqueio: dose ↔ mL/h nos dois sentidos, pelo peso e pela diluição.'
+            : 'Drogas vasoativas, sedação, bloqueio, heparina e insulina: dose ↔ mL/h pelo peso e pela diluição.'
         }
         actions={
           <FavoriteButton
@@ -147,24 +162,40 @@ export function InfusionsScreen() {
 
       <div className="flex flex-col gap-3">
         <DecisionSupportNotice />
-        {weightField}
+        {/* Insulina, vasopressina e morfina não usam peso: o campo some para não confundir. */}
+        {needsWeight ? weightField : null}
       </div>
 
-      {drug ? (
-        <section aria-label={`Calculadora de ${drug.name}`} className="flex flex-col gap-4">
+      {item ? (
+        <section aria-label={`Calculadora de ${item.name}`} className="flex flex-col gap-4">
           <div>
             <Button type="button" variant="ghost" size="sm" onClick={() => select(null)}>
               <ArrowLeft aria-hidden="true" />
               Todas as drogas
             </Button>
           </div>
-          <DrugPanel
-            key={drug.id}
-            drug={drug}
-            state={screen.drugs[drug.id] ?? initialDrugState(drug, readCustomDilution(drug))}
-            onChange={(next) => updateDrug(drug.id, next)}
-            weightKg={weightKg}
-          />
+          {drug ? (
+            <DrugPanel
+              key={drug.id}
+              drug={drug}
+              state={screen.drugs[drug.id] ?? initialDrugState(drug, readCustomDilution(drug))}
+              onChange={(next) => updateDrug(drug.id, next)}
+              weightKg={weightKg}
+            />
+          ) : null}
+          {item.kind === 'heparina' ? (
+            <HeparinPanel
+              state={screen.heparin}
+              onChange={(heparin) => setScreen((current) => ({ ...current, heparin }))}
+              weightKg={weightKg}
+            />
+          ) : null}
+          {item.kind === 'insulina' ? (
+            <InsulinPanel
+              state={screen.insulin}
+              onChange={(insulin) => setScreen((current) => ({ ...current, insulin }))}
+            />
+          ) : null}
         </section>
       ) : (
         <>
