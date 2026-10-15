@@ -14,6 +14,11 @@ import type {
   CopilotFeedback,
   KnowledgeGap,
 } from '@prisma/client';
+import type { BetaParticipant, BetaWaitlistEntry } from '@prisma/client';
+
+type BetaParticipantExport = Omit<BetaParticipant, 'id' | 'inviteId'> & {
+  invite: { batchLabel: string };
+};
 
 export interface PhysicianDataExport {
   exportVersion: 'lgpd-portability-v1';
@@ -24,6 +29,14 @@ export interface PhysicianDataExport {
   };
   data: {
     physician: Omit<Physician, 'passwordHash' | 'mfaSecret' | 'mfaEnabled'>;
+    /**
+     * CC-702 — o beta: de qual lote de convite a conta veio, o aceite do termo
+     * e o perfil; e a entrada da lista de espera com o mesmo e-mail.
+     */
+    beta: {
+      participant: BetaParticipantExport | null;
+      waitlist: BetaWaitlistEntry[];
+    };
     encounters: Encounter[];
     documents: DocumentRecord[];
     aiInteractions: AiInteraction[];
@@ -166,6 +179,28 @@ export class LgpdService {
       throw new NotFoundException('Physician not found');
     }
 
+    // CC-702 — a lista de espera não tem vínculo com a conta: entra pelo e-mail.
+    const [betaParticipant, betaWaitlist] = await Promise.all([
+      this.prisma.betaParticipant.findUnique({
+        where: { physicianId },
+        select: {
+          physicianId: true,
+          joinedAt: true,
+          termsVersion: true,
+          termsAcceptedAt: true,
+          training: true,
+          facilityType: true,
+          uf: true,
+          cityType: true,
+          profileUpdatedAt: true,
+          invite: { select: { batchLabel: true } },
+        },
+      }),
+      this.prisma.betaWaitlistEntry.findMany({
+        where: { email: { equals: physician.email, mode: 'insensitive' } },
+      }),
+    ]);
+
     const encounters = await this.prisma.encounter.findMany({
       where: { physicianId },
     });
@@ -208,6 +243,7 @@ export class LgpdService {
       },
       data: {
         physician,
+        beta: { participant: betaParticipant, waitlist: betaWaitlist },
         encounters,
         documents,
         aiInteractions,
@@ -225,6 +261,8 @@ export class LgpdService {
     status: string;
     estimatedCompletion: Date;
     erased: {
+      betaWaitlistEntries: number;
+      betaParticipantProfile: number;
       recommendationDecisions: number;
       copilotFeedback: number;
       encounters: number;
@@ -241,6 +279,25 @@ export class LgpdService {
     }
 
     const erased = await this.prisma.$transaction(async (tx) => {
+      // CC-702 — a lista de espera com o e-mail da conta sai (antes da
+      // anonimização, que troca o e-mail). Do participante do beta saem o
+      // termo e o perfil; ficam só os ids, para a contagem do lote.
+      const betaWaitlistEntries = await tx.betaWaitlistEntry.deleteMany({
+        where: { email: { equals: physician.email, mode: 'insensitive' } },
+      });
+      const betaParticipantProfile = await tx.betaParticipant.updateMany({
+        where: { physicianId },
+        data: {
+          termsVersion: null,
+          termsAcceptedAt: null,
+          training: null,
+          facilityType: null,
+          uf: null,
+          cityType: null,
+          profileUpdatedAt: null,
+        },
+      });
+
       // F0-D — o CASCADE de encounters já levaria decisões e feedback junto;
       // apagar explicitamente deixa a contagem no relatório de eliminação.
       const recommendationDecisions = await tx.recommendationDecision.deleteMany({
@@ -261,6 +318,8 @@ export class LgpdService {
       });
 
       return {
+        betaWaitlistEntries: betaWaitlistEntries.count,
+        betaParticipantProfile: betaParticipantProfile.count,
         recommendationDecisions: recommendationDecisions.count,
         copilotFeedback: copilotFeedback.count,
         encounters: encounters.count,

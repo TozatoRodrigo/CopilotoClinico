@@ -5,6 +5,7 @@ import {
   ChatCircleText,
   ClipboardText,
   Database,
+  EnvelopeSimple,
   Gear,
   House,
   ShieldCheck,
@@ -90,6 +91,8 @@ const ADMIN_ITEMS: AdminNavItem[] = [
   },
   { href: '/audit', label: 'Auditoria', icon: ShieldWarning, roles: ['compliance', 'admin'] },
   { href: '/admin/analytics', label: 'Analytics', icon: ChartBar, roles: ['compliance', 'admin'] },
+  // CC-702 — convites, lista de espera e ativação do beta (Compliance só vê a ativação).
+  { href: '/admin/beta', label: 'Beta', icon: EnvelopeSimple, roles: ['compliance', 'admin'] },
   { href: '/admin/users', label: 'Usuários', icon: House, roles: ['admin'], enabled: false },
   { href: '/admin/sistema', label: 'Sistema', icon: Gear, roles: ['admin'], enabled: false },
 ];

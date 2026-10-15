@@ -19,6 +19,7 @@ import {
   SignOut,
   Sparkle,
   ThumbsUp,
+  Ticket,
   Trash,
   UserCircle,
   type Icon,
@@ -105,6 +106,15 @@ const ACTION_META: Record<string, ActionMeta> = {
   PROTOCOL_RUN_ABANDONED: { label: 'Protocolo abandonado', icon: FlowArrow, tone: 'gray' },
   INSTITUTION_CREATED: { label: 'Instituição criada', icon: Buildings, tone: 'gray' },
   PHYSICIAN_LINKED_TO_INSTITUTION: { label: 'Médico vinculado à instituição', icon: Buildings, tone: 'gray' },
+  // CC-702 — beta por convite (payload: ids, lote e versão do termo; sem e-mail nem código).
+  BETA_INVITES_CREATED: { label: 'Convites do beta gerados', icon: Ticket, tone: 'gray' },
+  BETA_INVITE_REVOKED: { label: 'Convite do beta revogado', icon: Ticket, tone: 'gray' },
+  BETA_INVITE_REDEEMED: { label: 'Cadastro por convite do beta', icon: Ticket, tone: 'gray' },
+  BETA_TERMS_ACCEPTED: { label: 'Termo do beta aceito', icon: Handshake, tone: 'gray' },
+  BETA_PROFILE_UPDATED: { label: 'Perfil do beta atualizado', icon: UserCircle, tone: 'gray' },
+  BETA_WAITLIST_JOINED: { label: 'Entrada na lista de espera do beta', icon: Ticket, tone: 'gray' },
+  BETA_WAITLIST_APPROVED: { label: 'Lista de espera: convite gerado', icon: Ticket, tone: 'gray' },
+  BETA_WAITLIST_DELETED: { label: 'Lista de espera: apagado a pedido', icon: Trash, tone: 'gray' },
 };
 
 function humanize(code: string): string {
@@ -143,6 +153,9 @@ export const ENTITY_OPTIONS: EntityOption[] = [
   { value: 'Institution', label: 'Instituição', tone: 'gray' },
   { value: 'PhysicianInstitution', label: 'Vínculo institucional', tone: 'gray' },
   { value: 'RefreshToken', label: 'Sessão', tone: 'gray' },
+  { value: 'BetaInvite', label: 'Convite do beta', tone: 'gray' },
+  { value: 'BetaParticipant', label: 'Participante do beta', tone: 'gray' },
+  { value: 'BetaWaitlistEntry', label: 'Lista de espera do beta', tone: 'gray' },
 ];
 
 /** "AiInteraction", "ai_interaction" e "aiinteraction" são a mesma entidade. */

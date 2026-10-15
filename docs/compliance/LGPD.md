@@ -46,6 +46,22 @@
 - Todas as ações do sistema (login, geração, confirmação, etc.)
 - Payload nunca contém PII de pacientes — contém apenas IDs de entidades
 
+### Beta por convite (CC-702)
+- **Lista de espera** (`beta_waitlist_entries`): e-mail, perfil opcional
+  (formação, local de plantão e porte, UF, capital/interior) e a data do
+  consentimento explícito para contato — sem ele nada é gravado. Apagada a
+  pedido no console admin; a eliminação da conta com o mesmo e-mail também a
+  apaga, e a portabilidade a inclui. Quem já tem conta não entra na lista.
+- **Participante** (`beta_participants`): de qual convite a conta veio, versão
+  e data do aceite do termo do beta e o mesmo perfil. Na eliminação, termo e
+  perfil são apagados; ficam só os ids, para a contagem do lote.
+- **Convites** (`beta_invites`): código aleatório, sem dado pessoal.
+- Na trilha, os eventos do beta (`BETA_INVITE_REDEEMED`, `BETA_WAITLIST_*`,
+  `BETA_TERMS_ACCEPTED`, `BETA_PROFILE_UPDATED`) levam ids, o lote, a versão do
+  termo e os nomes dos campos — nunca e-mail, código ou os valores do perfil.
+- Pendente: prazo de retenção da lista de espera e menção na Política de
+  Privacidade (revisão jurídica, junto com o texto final do termo do beta).
+
 ## Direitos do Titular (Médico)
 
 | Direito (Art. 18) | Endpoint |

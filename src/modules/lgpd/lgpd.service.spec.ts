@@ -45,6 +45,14 @@ describe('LgpdService', () => {
       findMany: ReturnType<typeof vi.fn>;
       deleteMany: ReturnType<typeof vi.fn>;
     };
+    betaParticipant: {
+      findUnique: ReturnType<typeof vi.fn>;
+      updateMany: ReturnType<typeof vi.fn>;
+    };
+    betaWaitlistEntry: {
+      findMany: ReturnType<typeof vi.fn>;
+      deleteMany: ReturnType<typeof vi.fn>;
+    };
     caseIntake: { findMany: ReturnType<typeof vi.fn> };
     knowledgeGap: { findMany: ReturnType<typeof vi.fn> };
     $transaction: ReturnType<typeof vi.fn>;
@@ -90,6 +98,14 @@ describe('LgpdService', () => {
         deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
       copilotFeedback: {
+        findMany: vi.fn().mockResolvedValue([]),
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
+      betaParticipant: {
+        findUnique: vi.fn().mockResolvedValue(null),
+        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
+      betaWaitlistEntry: {
         findMany: vi.fn().mockResolvedValue([]),
         deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
@@ -377,6 +393,7 @@ describe('LgpdService', () => {
         },
         data: {
           physician,
+          beta: { participant: null, waitlist: [] },
           encounters,
           documents,
           aiInteractions,
@@ -456,6 +473,46 @@ describe('LgpdService', () => {
 
       await expect(service.exportPhysicianData(physicianId)).rejects.toThrow(NotFoundException);
     });
+
+    // CC-702 — o beta é dado do médico: lote de origem, termo, perfil e a
+    // lista de espera do mesmo e-mail (que não tem vínculo com a conta).
+    it('exports the beta participant and the waitlist entry with the same email', async () => {
+      prisma.physician.findUnique.mockResolvedValue({
+        id: physicianId,
+        email: 'Dra.Ana@Example.com',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      prisma.encounter.findMany.mockResolvedValue([]);
+      prisma.document.findMany.mockResolvedValue([]);
+      prisma.consent.findMany.mockResolvedValue([]);
+      prisma.auditLog.findMany.mockResolvedValue([]);
+      const participant = {
+        physicianId,
+        joinedAt: new Date('2026-10-15T10:00:00Z'),
+        termsVersion: '2026-10-15-provisorio',
+        termsAcceptedAt: new Date('2026-10-15T10:01:00Z'),
+        training: 'recem_formado',
+        facilityType: 'upa_porte_1',
+        uf: 'MG',
+        cityType: 'interior',
+        profileUpdatedAt: new Date('2026-10-15T10:02:00Z'),
+        invite: { batchLabel: 'rede Ripardo' },
+      };
+      const waitlistEntry = { id: 'wl-1', email: 'dra.ana@example.com', status: 'registered' };
+      prisma.betaParticipant.findUnique.mockResolvedValue(participant);
+      prisma.betaWaitlistEntry.findMany.mockResolvedValue([waitlistEntry]);
+
+      const result = await service.exportPhysicianData(physicianId);
+
+      expect(result.data.beta).toEqual({ participant, waitlist: [waitlistEntry] });
+      expect(prisma.betaWaitlistEntry.findMany).toHaveBeenCalledWith({
+        where: { email: { equals: 'Dra.Ana@Example.com', mode: 'insensitive' } },
+      });
+      expect(prisma.betaParticipant.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { physicianId } }),
+      );
+    });
   });
 
   describe('requestErasure', () => {
@@ -509,6 +566,8 @@ describe('LgpdService', () => {
       expect(result.status).toBe('completed');
       expect(result.estimatedCompletion).toBeInstanceOf(Date);
       expect(result.erased).toEqual({
+        betaWaitlistEntries: 0,
+        betaParticipantProfile: 0,
         recommendationDecisions: 4,
         copilotFeedback: 3,
         encounters: 2,
@@ -544,6 +603,8 @@ describe('LgpdService', () => {
         payload: {
           reason: 'LGPD Art. 18, VI - Data erasure request',
           erased: {
+            betaWaitlistEntries: 0,
+            betaParticipantProfile: 0,
             recommendationDecisions: 4,
             copilotFeedback: 3,
             encounters: 2,
@@ -558,6 +619,46 @@ describe('LgpdService', () => {
       prisma.physician.findUnique.mockResolvedValue(null);
 
       await expect(service.requestErasure(physicianId)).rejects.toThrow(NotFoundException);
+    });
+
+    // CC-702 — a lista de espera sai pelo e-mail ANTES da anonimização (que o
+    // troca); do participante saem termo e perfil, ficam os ids do lote.
+    it('erases the beta waitlist entry by email and clears the beta profile', async () => {
+      prisma.physician.findUnique.mockResolvedValue({
+        id: physicianId,
+        email: 'Dra.Ana@Example.com',
+      });
+      prisma.$transaction.mockImplementation(async (cb: (tx: typeof prisma) => Promise<void>) =>
+        cb(prisma),
+      );
+      prisma.encounter.deleteMany.mockResolvedValue({ count: 0 });
+      prisma.consent.deleteMany.mockResolvedValue({ count: 0 });
+      prisma.refreshToken.deleteMany.mockResolvedValue({ count: 0 });
+      prisma.betaWaitlistEntry.deleteMany.mockResolvedValue({ count: 1 });
+      prisma.betaParticipant.updateMany.mockResolvedValue({ count: 1 });
+      auditService.log.mockResolvedValue({});
+
+      const result = await service.requestErasure(physicianId);
+
+      expect(result.erased).toMatchObject({ betaWaitlistEntries: 1, betaParticipantProfile: 1 });
+      expect(prisma.betaWaitlistEntry.deleteMany).toHaveBeenCalledWith({
+        where: { email: { equals: 'Dra.Ana@Example.com', mode: 'insensitive' } },
+      });
+      expect(prisma.betaWaitlistEntry.deleteMany.mock.invocationCallOrder[0]).toBeLessThan(
+        prisma.physician.update.mock.invocationCallOrder[0]!,
+      );
+      expect(prisma.betaParticipant.updateMany).toHaveBeenCalledWith({
+        where: { physicianId },
+        data: {
+          termsVersion: null,
+          termsAcceptedAt: null,
+          training: null,
+          facilityType: null,
+          uf: null,
+          cityType: null,
+          profileUpdatedAt: null,
+        },
+      });
     });
   });
 });

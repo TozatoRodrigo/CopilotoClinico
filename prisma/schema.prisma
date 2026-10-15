@@ -133,6 +133,7 @@ model Physician {
   encounters              Encounter[]
   documents               Document[]
   consents                Consent[]
+  betaParticipant         BetaParticipant?
   refreshTokens           RefreshToken[]
   mfaBackupCodes          MfaBackupCode[]
   crmVerificationRequests CrmVerificationRequest[]
@@ -792,4 +793,88 @@ model CrmVerificationRequest {
   @@index([physicianId])
   @@index([status])
   @@map("crm_verification_requests")
+}
+
+/// CC-702 — situação de quem pediu para entrar no beta sem convite.
+enum BetaWaitlistStatus {
+  waiting
+  invited
+  registered
+}
+
+/// CC-702 — convite do beta. O código é aleatório (nada de nome, e-mail ou
+/// CRM) e fica em claro: não dá acesso a dado nenhum, só deixa criar uma
+/// conta, e o admin precisa copiá-lo de novo para enviar. `batchLabel` é o
+/// lote ou a origem ("rede Ripardo", "base ANY"). Uso único = `maxUses` 1.
+/// `usesCount <= maxUses` também é CHECK no banco (só na migration).
+model BetaInvite {
+  id              String    @id @default(uuid()) @db.Uuid
+  /// Normalizado: maiúsculas, sem hífen (src/shared/contracts/beta.ts).
+  code            String    @unique @db.VarChar(16)
+  batchLabel      String    @map("batch_label") @db.VarChar(60)
+  maxUses         Int       @default(1) @map("max_uses")
+  usesCount       Int       @default(0) @map("uses_count")
+  expiresAt       DateTime  @map("expires_at")
+  revokedAt       DateTime? @map("revoked_at")
+  /// Admin que gerou (sem FK, como `triagedBy`).
+  createdById     String    @map("created_by_id") @db.Uuid
+  /// Convite gerado ao aprovar alguém da lista de espera.
+  waitlistEntryId String?   @map("waitlist_entry_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  waitlistEntry BetaWaitlistEntry? @relation(fields: [waitlistEntryId], references: [id], onDelete: SetNull)
+  participants  BetaParticipant[]
+
+  @@index([batchLabel])
+  @@index([waitlistEntryId])
+  @@index([createdAt])
+  @@map("beta_invites")
+}
+
+/// CC-702 — médico que entrou no beta por convite: de qual convite, o aceite
+/// do termo do beta (versão e data) e o perfil mínimo que a CC-701 registra
+/// (formação, local e porte, UF e capital/interior). Criada na mesma
+/// transação do cadastro. A eliminação LGPD apaga termo e perfil e mantém o
+/// vínculo com o convite (só ids), para a contagem do lote.
+model BetaParticipant {
+  id               String    @id @default(uuid()) @db.Uuid
+  physicianId      String    @unique @map("physician_id") @db.Uuid
+  inviteId         String    @map("invite_id") @db.Uuid
+  joinedAt         DateTime  @default(now()) @map("joined_at")
+  termsVersion     String?   @map("terms_version") @db.VarChar(40)
+  termsAcceptedAt  DateTime? @map("terms_accepted_at")
+  /// Valores de src/shared/contracts/beta.ts, validados na aplicação.
+  training         String?   @db.VarChar(32)
+  facilityType     String?   @map("facility_type") @db.VarChar(32)
+  uf               String?   @db.Char(2)
+  cityType         String?   @map("city_type") @db.VarChar(32)
+  profileUpdatedAt DateTime? @map("profile_updated_at")
+
+  physician Physician  @relation(fields: [physicianId], references: [id], onDelete: Cascade)
+  invite    BetaInvite @relation(fields: [inviteId], references: [id], onDelete: Restrict)
+
+  @@index([inviteId])
+  @@map("beta_participants")
+}
+
+/// CC-702 — quem tentou se cadastrar no beta sem convite: e-mail (minúsculo,
+/// único), perfil mínimo opcional e o consentimento explícito para contato.
+/// Apagável a pedido (console admin); a eliminação e a exportação LGPD da
+/// conta com o mesmo e-mail também a alcançam.
+model BetaWaitlistEntry {
+  id               String             @id @default(uuid()) @db.Uuid
+  email            String             @unique @db.VarChar(255)
+  training         String?            @db.VarChar(32)
+  facilityType     String?            @map("facility_type") @db.VarChar(32)
+  uf               String?            @db.Char(2)
+  cityType         String?            @map("city_type") @db.VarChar(32)
+  contactConsentAt DateTime           @map("contact_consent_at")
+  status           BetaWaitlistStatus @default(waiting)
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+
+  invites BetaInvite[]
+
+  @@index([status, createdAt])
+  @@map("beta_waitlist_entries")
 }

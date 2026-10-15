@@ -215,6 +215,14 @@ function buildPrismaMock() {
       findMany: vi.fn().mockResolvedValue([]),
     },
 
+    // CC-702 — o beta (participante e lista de espera) entra no export LGPD.
+    betaParticipant: {
+      findUnique: vi.fn().mockResolvedValue(null),
+    },
+    betaWaitlistEntry: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
+
     // F0-D — decisões por recomendação e feedback entram no export LGPD.
     recommendationDecision: {
       findMany: vi.fn().mockResolvedValue([]),
