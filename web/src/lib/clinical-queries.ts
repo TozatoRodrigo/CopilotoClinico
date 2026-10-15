@@ -38,6 +38,13 @@ import type {
   EvalCaseDraft,
   KnowledgeGapReportRequest,
   KnowledgeGapReportResponse,
+  DismissKnowledgeGapRequest,
+  DraftFromKnowledgeGapRequest,
+  DraftFromKnowledgeGapResponse,
+  KnowledgeGapQueueItem,
+  KnowledgeGapQueuePage,
+  KnowledgeGapStatus,
+  KnowledgeGapWeeklyReport,
   CreateAttachmentRequest,
   CreateAttachmentResponse,
   EncounterAttachment,
@@ -59,6 +66,12 @@ export interface AuditFilters {
 export interface CopilotFeedbackQueueFilters {
   status?: CopilotFeedbackStatus;
   kind?: CopilotFeedbackKind;
+  offset: number;
+  limit: number;
+}
+
+export interface KnowledgeGapQueueFilters {
+  status?: KnowledgeGapStatus;
   offset: number;
   limit: number;
 }
@@ -85,6 +98,9 @@ export const clinicalQueryKeys = {
     ['recommendation-decisions', encounterId, interactionId] as const,
   copilotFeedbackQueue: (filters: CopilotFeedbackQueueFilters) =>
     ['copilot-feedback-queue', filters] as const,
+  knowledgeGapQueue: (filters: KnowledgeGapQueueFilters) =>
+    ['knowledge-gap-queue', filters] as const,
+  knowledgeGapWeeklyReport: ['knowledge-gap-weekly-report'] as const,
   crmVerifications: (status: CrmVerificationStatus) => ['crm-verifications', status] as const,
   guidelineSources: ['guideline-sources'] as const,
   guidelinePending: ['guideline-pending'] as const,
@@ -359,6 +375,66 @@ export function useEvalCaseDraft() {
   return useMutation({
     mutationFn: (feedbackId: string) =>
       apiClient.get<EvalCaseDraft>(`/admin/copilot-feedback/${feedbackId}/eval-case-draft`),
+  });
+}
+
+// ── Admin: lacunas e fila de cartões (CC-409) ─────────────────────────────
+
+export function useKnowledgeGapQueue(filters: KnowledgeGapQueueFilters) {
+  return useQuery({
+    queryKey: clinicalQueryKeys.knowledgeGapQueue(filters),
+    queryFn: () => {
+      const params: Record<string, string> = {
+        limit: String(filters.limit),
+        offset: String(filters.offset),
+      };
+      if (filters.status) params.status = filters.status;
+      return apiClient.get<KnowledgeGapQueuePage>('/admin/knowledge-gaps', params);
+    },
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useKnowledgeGapWeeklyReport() {
+  return useQuery({
+    queryKey: clinicalQueryKeys.knowledgeGapWeeklyReport,
+    queryFn: () => apiClient.get<KnowledgeGapWeeklyReport>('/admin/knowledge-gaps/weekly-report'),
+  });
+}
+
+/** Toda ação muda a fila e o topo da semana (status do grupo). */
+async function invalidateKnowledgeGaps(queryClient: QueryClient): Promise<void> {
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: ['knowledge-gap-queue'] }),
+    queryClient.invalidateQueries({ queryKey: clinicalQueryKeys.knowledgeGapWeeklyReport }),
+  ]);
+}
+
+/** "Gerar rascunho de cartão": chama a IA (CC-403) — demora alguns segundos. */
+export function useDraftFromKnowledgeGap() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: DraftFromKnowledgeGapRequest }) =>
+      apiClient.post<DraftFromKnowledgeGapResponse>(`/admin/knowledge-gaps/${id}/draft`, body),
+    onSuccess: () => invalidateKnowledgeGaps(queryClient),
+  });
+}
+
+export function useDismissKnowledgeGap() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: DismissKnowledgeGapRequest }) =>
+      apiClient.post<KnowledgeGapQueueItem>(`/admin/knowledge-gaps/${id}/dismiss`, body),
+    onSuccess: () => invalidateKnowledgeGaps(queryClient),
+  });
+}
+
+export function useReopenKnowledgeGap() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiClient.post<KnowledgeGapQueueItem>(`/admin/knowledge-gaps/${id}/reopen`, {}),
+    onSuccess: () => invalidateKnowledgeGaps(queryClient),
   });
 }
 

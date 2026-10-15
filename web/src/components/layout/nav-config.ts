@@ -7,6 +7,7 @@ import {
   Database,
   Gear,
   House,
+  SealQuestion,
   ShieldCheck,
   ShieldWarning,
   SquaresFour,
@@ -86,6 +87,13 @@ const ADMIN_ITEMS: AdminNavItem[] = [
     href: '/admin/feedback',
     label: 'Feedback',
     icon: ChatCircleText,
+    roles: ['compliance', 'admin'],
+  },
+  // CC-409 — fila de criação de cartões: o que os médicos procuraram e não tinha cartão.
+  {
+    href: '/admin/lacunas',
+    label: 'Lacunas',
+    icon: SealQuestion,
     roles: ['compliance', 'admin'],
   },
   { href: '/audit', label: 'Auditoria', icon: ShieldWarning, roles: ['compliance', 'admin'] },

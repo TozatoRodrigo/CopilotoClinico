@@ -91,6 +91,19 @@ export type {
 } from '@contracts/knowledge-cards';
 
 export type {
+  DismissKnowledgeGapRequest,
+  DraftFromKnowledgeGapRequest,
+  DraftFromKnowledgeGapResponse,
+  KnowledgeGapQueueItem,
+  KnowledgeGapQueuePage,
+  KnowledgeGapSeverity,
+  KnowledgeGapSource,
+  KnowledgeGapStatus,
+  KnowledgeGapWeeklyItem,
+  KnowledgeGapWeeklyReport,
+} from '@contracts/knowledge-gaps';
+
+export type {
   AskQuickQuestionRequest,
   QuickQuestionAvailability,
   QuickQuestionCardAnswer,
