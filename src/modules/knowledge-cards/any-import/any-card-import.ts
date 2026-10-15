@@ -21,6 +21,14 @@ import { reviewFlagsFor, type ReviewFindingsIndex } from './review-findings';
  * checagem de citação). O `--dry-run` para aqui.
  */
 
+/** O revisor indicado do conteúdo do ANY (CC-405): o autor clínico do ANY. */
+export const ANY_CONTENT_REVIEWER_NAME = 'Gustavo Moreira';
+
+export interface ReviewerCrm {
+  uf: string;
+  number: string;
+}
+
 export interface PreparedAnyCard {
   draft: AnyCardDraft;
   /** "any:infusoes/noradrenalina" — a chave que torna a importação idempotente. */

@@ -1,8 +1,6 @@
 import { parseArgs } from 'node:util';
 import { ANY_CARD_TOOL_IDS, type AnyCardToolId } from '../../../shared/contracts/knowledge-cards';
-
-/** O revisor indicado do conteúdo do ANY (CC-405): o autor clínico do ANY. */
-export const ANY_CONTENT_REVIEWER_NAME = 'Gustavo Moreira';
+import { ANY_CONTENT_REVIEWER_NAME, type ReviewerCrm } from './any-card-import';
 
 /**
  * CC-405 — argumentos de `pnpm cards:import-any` (scripts/cards/import-any.ts).
@@ -18,11 +16,6 @@ export const IMPORT_CLI_USAGE = `Uso:
 
 Sem IA: o conteúdo sai do motor das Ferramentas (src/shared/clinical-tools). Reimportar
 não duplica: cartão com o mesmo conteúdo fica como está, conteúdo novo vira versão nova.`;
-
-export interface ReviewerCrm {
-  uf: string;
-  number: string;
-}
 
 export type ImportCliResult =
   | { kind: 'help' }

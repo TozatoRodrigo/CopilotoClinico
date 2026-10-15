@@ -8,9 +8,14 @@ import { toJsonValue } from '../../audit/audit-hash';
 import type { AnyCardToolId } from '../../../shared/contracts/knowledge-cards';
 import { transition } from '../domain/card-lifecycle';
 import { KNOWLEDGE_CARD_AUDIT_ACTIONS, KNOWLEDGE_CARD_AUDIT_ENTITY } from '../knowledge-card-audit';
-import { prepareAnyCards, type AnyCardRejection, type PreparedAnyCard } from './any-card-import';
+import {
+  ANY_CONTENT_REVIEWER_NAME,
+  prepareAnyCards,
+  type AnyCardRejection,
+  type PreparedAnyCard,
+  type ReviewerCrm,
+} from './any-card-import';
 import type { ReviewFindingsIndex } from './review-findings';
-import { ANY_CONTENT_REVIEWER_NAME, type ReviewerCrm } from './import-cli';
 
 /**
  * CC-405 (ADR-019) — importa o conteúdo das ferramentas do ANY como cartões

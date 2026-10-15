@@ -741,7 +741,11 @@ pnpm cards:import-any --tool pediatria --reviewer-crm SP-123456   # uma ferramen
 ```
 
 Roda da raiz do repositório (lê `docs/ferramentas/revisao-clinica/`) e
-aponta para o banco do `DATABASE_URL`. Sem `--reviewer-crm`, o revisor indicado
+aponta para o banco do `DATABASE_URL`. Em produção, como a ingestão: **não**
+dentro do `copiloto-api` (a imagem não tem `docs/` nem `scripts/`), e sim no
+estágio `builder` do `Dockerfile.api`, com o `DATABASE_URL` da role da
+aplicação (`copiloto_app` tem INSERT em `knowledge_card_imports`) — ver
+"Passo 3 — Ingestão dos pacotes". Sem `--reviewer-crm`, o revisor indicado
 é o único médico cadastrado com o nome "Gustavo Moreira"; nenhum ou mais de um
 é erro. O CRM dele precisa estar verificado só para assinar, não para
 importar. Código 1 quando algum item não passa na checagem (a lista sai no
