@@ -103,3 +103,84 @@ export interface AnswerShiftReviewQuestionRequest {
   chosenOption: number;
   confidence: ShiftReviewConfidence;
 }
+
+/**
+ * CC-802 — mapa de calibração: por tema, acerto × o quanto o médico sabia,
+ * nos quadrantes do método do Dr. Luiz (avaliação por grau de certeza, à
+ * maneira do Dunning-Kruger). "Tenho dúvida" e "Chutei" contam como "não
+ * sabia": o médico não afirmou saber.
+ *
+ * - `knew_right`: sabe e sabe que sabe ("Sei" e acertou).
+ * - `guessed_right`: acerta chutando (dúvida ou chute, e acertou).
+ * - `knew_wrong`: erra com certeza ("Sei" e errou) — o perigoso.
+ * - `guessed_wrong`: erra e sabe que não sabe.
+ *
+ * Calibração = respostas em que a certeza previu o acerto (`knew_right` +
+ * `guessed_wrong`). Espelhado em web/src/lib/shift-review-contract.ts, nesta
+ * ordem (linha a linha do quadro 2 × 2: acertou, errou).
+ */
+export const SHIFT_REVIEW_QUADRANTS = [
+  'knew_right',
+  'guessed_right',
+  'knew_wrong',
+  'guessed_wrong',
+] as const;
+export type ShiftReviewQuadrant = (typeof SHIFT_REVIEW_QUADRANTS)[number];
+
+export type ShiftReviewQuadrantTally = Record<ShiftReviewQuadrant, number>;
+
+/**
+ * O que estudar num tema em que o médico errou marcando "Sei". Hoje são as
+ * fontes que as próprias perguntas citaram; com os cartões revisados
+ * (CC-402) entra `knowledge_card` (ver study-suggestions.ts na API).
+ */
+export type ShiftReviewStudySuggestion =
+  | ({ kind: 'cited_source' } & ShiftReviewSource)
+  | { kind: 'knowledge_card'; cardId: string; title: string; excerpt: string };
+
+interface ShiftReviewMapThemeBase {
+  /** `syndrome:<síndrome>` ou `topic:<tema normalizado>`. */
+  key: string;
+  /** Síndrome de PS do tema; `null` quando o tema é o texto da pergunta. */
+  syndrome: PsSyndrome | null;
+  /** Temas das perguntas, o mais frequente primeiro (é o rótulo sem síndrome). */
+  topics: string[];
+  answered: number;
+}
+
+/**
+ * Um tema do mapa. Abaixo do mínimo de respostas o tema aparece só com a
+ * contagem (`few_answers`): com 1–2 respostas não há conclusão a tirar.
+ */
+export type ShiftReviewMapTheme =
+  | (ShiftReviewMapThemeBase & {
+      status: 'mapped';
+      correct: number;
+      calibrated: number;
+      quadrants: ShiftReviewQuadrantTally;
+      /** Só nos temas com `knew_wrong` > 0. */
+      studySuggestions: ShiftReviewStudySuggestion[];
+    })
+  | (ShiftReviewMapThemeBase & { status: 'few_answers' });
+
+export interface ShiftReviewCalibrationMap {
+  /** Respostas lidas (as mais recentes, até o teto da API). */
+  answered: number;
+  correct: number;
+  calibrated: number;
+  quadrants: ShiftReviewQuadrantTally;
+  /** Respostas por tema para o tema sair do "poucos dados". */
+  minThemeAnswers: number;
+  /** Temas com erro marcando "Sei" primeiro; os de poucos dados por último. */
+  themes: ShiftReviewMapTheme[];
+}
+
+/**
+ * - `disabled`: `COPILOT_SHIFT_REVIEW` desligada.
+ * - `insufficient`: menos respostas que o mínimo do mapa.
+ * - `ready`: o mapa, só com as respostas do próprio médico.
+ */
+export type ShiftReviewMapState =
+  | { status: 'disabled' }
+  | { status: 'insufficient'; answered: number; required: number }
+  | { status: 'ready'; map: ShiftReviewCalibrationMap };

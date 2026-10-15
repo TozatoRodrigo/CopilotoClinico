@@ -906,6 +906,49 @@ FROM shift_review_questions WHERE answered_at IS NOT NULL
 GROUP BY 1;
 ```
 
+#### Seu mapa (CC-802)
+
+Aba "Seu mapa" (`/revise-seu-plantao/seu-mapa`, API `GET /v1/shift-review/map`),
+atrás da mesma `COPILOT_SHIFT_REVIEW`. Mostra, por tema, acerto × o quanto o
+médico sabia (método de avaliação por grau de certeza do Dr. Luiz) e sugere o
+que estudar onde ele errou marcando "Sei". Só lê o que a CC-801 já grava: sem
+migration, sem chamada de IA.
+
+- **Quadrantes**: "Sei" e acertou = sabe e sabe que sabe; "Tenho dúvida" ou
+  "Chutei" e acertou = acerta chutando; "Sei" e errou = erra achando que sabe
+  (o perigoso, em vermelho, primeiro na lista); dúvida ou chute e errou = erra
+  e sabe que não sabe. Calibração = % de respostas na diagonal (sabia e
+  acertou, não sabia e errou).
+- **Tema**: a síndrome de PS da análise (lista fechada); sem síndrome, ou com
+  "outro", o tema escrito na pergunta, normalizado (acento, caixa, pontuação).
+- **Mínimos** (`shift-review.settings.ts`): o mapa sai com 20 respostas
+  (`CALIBRATION_MAP_MIN_ANSWERS`, critério da história); antes disso a tela
+  mostra quanto falta. Tema com menos de 3 respostas
+  (`CALIBRATION_THEME_MIN_ANSWERS`) aparece só como "poucos dados", sem
+  quadrantes. Lê as 200 respostas mais recentes (`CALIBRATION_MAP_MAX_ANSWERS`).
+- **Isolamento**: só as respostas do médico do token; não há agregado entre
+  médicos nem rota que receba outro médico.
+- **O que estudar**: `StudySuggestionSource` (study-suggestions.ts). Hoje
+  `CitedSourceSuggestions` devolve as fontes que as próprias perguntas do tema
+  citaram (as das respostas erradas com "Sei" primeiro, até 3, sem repetir
+  documento). Quando os cartões revisados (CC-402, PR #179) entrarem, um
+  provedor que busca os cartões publicados da síndrome/tema substitui o
+  padrão em `shift-review.module.ts` (`SHIFT_REVIEW_STUDY_SUGGESTIONS`),
+  devolvendo `knowledge_card`; contrato e tela já aceitam.
+- **Log**: `SHIFT_REVIEW_MAP answered=… calibrated=… themes=… mapped=… toStudy=…`
+  (só contagens). Falha do provedor de sugestões não derruba o mapa:
+  `SHIFT_REVIEW_MAP_SUGGESTIONS_ERROR error=<classe>` no log e no Sentry, e os
+  temas saem sem sugestão.
+
+```sql
+-- Métrica da CC-802 (uso recorrente): médicos com 20+ respostas, que já têm mapa
+SELECT count(*) AS medicos_com_mapa
+FROM (
+  SELECT physician_id FROM shift_review_questions
+  WHERE answered_at IS NOT NULL GROUP BY 1 HAVING count(*) >= 20
+) m;
+```
+
 ---
 
 ## Multi-tenancy institucional (PROT-004)
@@ -1012,7 +1055,7 @@ Prisma não suporta rollback automático. Para reverter:
 | `COPILOT_DECISION_PROMPT` | `v2` liga a decisão em duas camadas da ADR-013 ("Fazer agora" × "Depende de…", perguntas que separam hipóteses, conhecimento geral do modelo rotulado e sem dose); `v1` (padrão) é o prompt de sempre. Exige `COPILOT_REASONING=stages`: sem ele fica `v1` e o log mostra `DECISION_PIPELINE_DOWNGRADE`. Regra da v2 que sobra depois do retry vira `OUTPUT_VALIDATION_WARNING`, nunca bloqueio |
 | `COPILOT_INTAKE` | `on` liga o Copiloto guiado da ADR-014: antes do plano, a leitura do caso decide se pergunta (no máximo 3 perguntas, uma por vez). `off` (padrão) vai direto ao plano. Ausente ou irreconhecível = `off`. Modelo da leitura em `AI_INTAKE_MODEL` (vazio = o da Etapa 1). No log: `INTAKE_READING` (tempo e perguntas), `INTAKE_STARTED` (caminho: `ask`, `unstable`, `complete`, `reading_failed`, `disabled`), `INTAKE_CLOSED` (motivo) e `INTAKE_READING_TIMEOUT` (leitura passou de 20 s e o caso seguiu direto ao plano). Exige a migration `20261012120000_adr_014_case_intakes` |
 | `AI_DECISION_MODEL` / `AI_DECISION_CRITICAL_MODEL` | ADR-016: modelo da decisão no caso comum e no caso grave (instável ou tempo-crítico pela Etapa 1, ou sem entendimento). Vazios = `AI_MODEL` nas duas rotas. Crítico vazio = o comum nas duas. Aceitam `perfil:modelo`. No log: `DECISION_MODEL route=critical\|standard model=...`; a interação grava `params.decisionRoute` |
-| `COPILOT_SHIFT_REVIEW` | CC-801: `true` liga "Revise seu plantão" (perguntas sobre os próprios casos com grau de certeza). `false` (padrão) esconde a entrada e a API responde `disabled`; o job semanal não roda. Ausente ou irreconhecível = `false`. Modelo em `AI_SHIFT_REVIEW_MODEL` (vazio = `AI_MODEL`, aceita `perfil:modelo`) e esforço em `AI_SHIFT_REVIEW_EFFORT` (padrão `low`). No log: `SHIFT_REVIEW_READY`, `SHIFT_REVIEW_FAILED reason=...`, `SHIFT_REVIEW_ANSWERED`, `SHIFT_REVIEW_WEEKLY`, `REVIEW_QUESTIONS_RETRY`. Exige a migration `20261015130000_cc_801_shift_reviews`. Ver "Revise seu plantão (CC-801)" |
+| `COPILOT_SHIFT_REVIEW` | CC-801: `true` liga "Revise seu plantão" (perguntas sobre os próprios casos com grau de certeza). `false` (padrão) esconde a entrada e a API responde `disabled`; o job semanal não roda. Ausente ou irreconhecível = `false`. Modelo em `AI_SHIFT_REVIEW_MODEL` (vazio = `AI_MODEL`, aceita `perfil:modelo`) e esforço em `AI_SHIFT_REVIEW_EFFORT` (padrão `low`). No log: `SHIFT_REVIEW_READY`, `SHIFT_REVIEW_FAILED reason=...`, `SHIFT_REVIEW_ANSWERED`, `SHIFT_REVIEW_WEEKLY`, `REVIEW_QUESTIONS_RETRY`. Exige a migration `20261015130000_cc_801_shift_reviews`. Ver "Revise seu plantão (CC-801)". CC-802: a mesma flag liga a aba "Seu mapa" (mapa de calibração por tema, `GET /v1/shift-review/map`; desligada responde `disabled`); no log `SHIFT_REVIEW_MAP` e `SHIFT_REVIEW_MAP_SUGGESTIONS_ERROR`. Ver "Seu mapa (CC-802)" |
 | `COPILOT_KNOWLEDGE_SOURCE` | `internal_kb` (padrão) é a busca de sempre (embedding na OpenAI); `model_only` não busca nada; `web` pesquisa em fontes oficiais (`AI_RESEARCH_MODEL`, padrão `claude-sonnet-5-5`; `AI_RESEARCH_EFFORT`, padrão `low`; `WEB_RESEARCH_MAX_SEARCHES`, padrão 5; `WEB_RESEARCH_ALLOWED_DOMAINS`, vazio = 32 fontes padrão). `model_only` e `web` nunca chamam o provedor de embedding. `web` exige `stages` e `COPILOT_DECISION_PROMPT=v2` (sem eles vira `model_only`, com `DECISION_PIPELINE_DOWNGRADE` no log) e Anthropic como `AI_PROVIDER`; pesquisa que falha aparece como `WEB_RESEARCH_FALLBACK` e a análise segue só com o conhecimento do modelo |
 
 ---
