@@ -46,11 +46,9 @@ import {
   ChangePasswordInput,
 } from './schemas/auth.schemas';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
+import { ClientIpRequest, clientIpForAudit } from '../../shared/http/client-ip';
 
-interface RequestWithIp {
-  ip?: string;
-  ips?: string[];
-}
+type RequestWithIp = ClientIpRequest;
 
 const COOKIE_BASE = {
   httpOnly: true,
@@ -59,8 +57,10 @@ const COOKIE_BASE = {
   secure: true,
 };
 
+// CC-026 — o IP da trilha é o mesmo do limite por IP (CC-025). `req.ips` só
+// vem preenchido com trustProxy, que a API não liga: gravava o IP do Traefik.
 function extractIp(req: RequestWithIp): string | undefined {
-  return (req.ips?.[0] ?? req.ip) || undefined;
+  return clientIpForAudit(req);
 }
 
 /**
@@ -165,10 +165,8 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   async logout(
     @Request()
-    req: {
+    req: RequestWithIp & {
       user: { physicianId: string };
-      ip?: string;
-      ips?: string[];
       cookies?: Record<string, string>;
     },
     @Body(new ZodValidationPipe(logoutSchema)) body: LogoutInput,

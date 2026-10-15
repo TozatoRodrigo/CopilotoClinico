@@ -1,5 +1,11 @@
-import { describe, it, expect } from 'vitest';
-import { pathForLog, sanitizeForLog } from './pii-log-sanitizer.interceptor';
+import { afterEach, describe, it, expect, vi } from 'vitest';
+import { CallHandler, ExecutionContext, Logger } from '@nestjs/common';
+import { lastValueFrom, of, throwError } from 'rxjs';
+import {
+  PiiLogSanitizerInterceptor,
+  pathForLog,
+  sanitizeForLog,
+} from './pii-log-sanitizer.interceptor';
 
 describe('sanitizeForLog', () => {
   it('redacts password field', () => {
@@ -90,5 +96,52 @@ describe('pathForLog', () => {
     expect(pathForLog('/v1/encounters/enc-1/copilot/respond')).toBe(
       '/v1/encounters/enc-1/copilot/respond',
     );
+  });
+});
+
+// CC-026 — o IP do médico é dado pessoal: a linha de acesso não o grava, nem o
+// do socket nem o do X-Forwarded-For.
+describe('PiiLogSanitizerInterceptor', () => {
+  const CLIENT_IP = '203.0.113.7';
+  const SOCKET_IP = '172.18.0.5';
+
+  function context(): ExecutionContext {
+    const req = {
+      method: 'POST',
+      url: '/v1/auth/login',
+      body: {},
+      ip: SOCKET_IP,
+      headers: { 'x-forwarded-for': CLIENT_IP },
+    };
+    return { switchToHttp: () => ({ getRequest: () => req }) } as unknown as ExecutionContext;
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('linha de sucesso e de erro sem IP', async () => {
+    const debug = vi.spyOn(Logger.prototype, 'debug').mockImplementation(() => undefined);
+    const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const interceptor = new PiiLogSanitizerInterceptor();
+
+    await lastValueFrom(
+      interceptor.intercept(context(), { handle: () => of('ok') } as CallHandler),
+    );
+    await expect(
+      lastValueFrom(
+        interceptor.intercept(context(), {
+          handle: () => throwError(() => new Error('Invalid credentials')),
+        } as CallHandler),
+      ),
+    ).rejects.toThrow('Invalid credentials');
+
+    const lines = [...debug.mock.calls, ...warn.mock.calls].map(([message]) => String(message));
+    expect(lines).toHaveLength(2);
+    for (const line of lines) {
+      expect(line).toContain('POST /v1/auth/login');
+      expect(line).not.toContain(CLIENT_IP);
+      expect(line).not.toContain(SOCKET_IP);
+    }
   });
 });

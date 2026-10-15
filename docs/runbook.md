@@ -322,6 +322,12 @@ Duas camadas, independentes:
   MFA, gerar novos códigos de backup) e senha atual na troca de senha. Login
   bloqueado responde 401, igual a senha errada; MFA e troca de senha
   respondem 429 "Muitas tentativas".
+- Os três contadores **reservam a tentativa antes** de conferir o segredo,
+  num `UPDATE` condicional: tentativas em paralelo não passam de 5. O login
+  passou a fazer isso no CC-026; antes lia o contador e gravava depois, e 50
+  logins simultâneos conferiam 50 senhas.
+- **Código de backup do MFA** (CC-026): gasto num `UPDATE … WHERE used_at IS
+  NULL`. Dois pedidos simultâneos com o mesmo código: só um entra.
 
 #### `TRUSTED_PROXY_HOPS` e o Traefik
 
@@ -349,6 +355,11 @@ internet e a API:
   dividem os mesmos 5 logins por minuto.
 - Valor inválido na env: a API usa 1 e loga `TRUSTED_PROXY_HOPS inválido`
   na subida.
+- **O IP gravado na trilha de auditoria** (`audit_log.ip`, CC-026) sai da
+  mesma regra. Antes do CC-026 os registros com IP (cadastro, login,
+  refresh, logout, MFA, pedido de verificação de CRM) gravavam o IP do
+  Traefik; os antigos continuam assim. O log de acesso HTTP (`HttpAccess`)
+  não grava IP.
 
 Conferir na VPS (a configuração estática do Traefik não está neste repo):
 
@@ -381,7 +392,7 @@ done
 | `AUTH_RATE_LIMITED reason=ip route=AuthController.<rota> limit=… ttlMs=… blockedForS=…` | Um IP passou do limite numa rota de `/auth`. Uma linha por bloqueio, não por requisição recusada; sem o IP |
 | `RATE_LIMITED reason=ip route=…` | O mesmo fora de `/auth` |
 | `AUTH_RATE_LIMITED reason=account scope=login\|mfa\|password_change subject=<hash>` | Tentativa recusada porque a conta está bloqueada |
-| `AUTH_ACCOUNT_LOCKED scope=mfa\|password_change subject=<hash> durationMs=…` | Começo de um bloqueio por conta |
+| `AUTH_ACCOUNT_LOCKED scope=login\|mfa\|password_change subject=<hash> durationMs=…` | Começo de um bloqueio por conta |
 
 `subject` são os 12 primeiros hex do sha256 do id do médico (`unknown` no
 login de e-mail sem cadastro). Bloqueios seguidos de `scope=mfa` para o mesmo
@@ -1034,7 +1045,7 @@ Prisma não suporta rollback automático. Para reverter:
 |---|---|
 | `JWT_ACCESS_SECRET` | Todos os tokens são inválidos ou forjáveis |
 | `JWT_REFRESH_SECRET` | Refresh tokens inválidos |
-| `TRUSTED_PROXY_HOPS` | Proxies confiáveis à frente da API (padrão 1 = Traefik). Alto demais (2 sem Cloudflare) deixa o cliente escolher o IP do limite de tentativas; baixo demais (1 com Cloudflare) junta médicos no mesmo limite. Ver "Limite de tentativas" |
+| `TRUSTED_PROXY_HOPS` | Proxies confiáveis à frente da API (padrão 1 = Traefik). Define o IP do limite de tentativas e o gravado na trilha de auditoria. Alto demais (2 sem Cloudflare) deixa o cliente escolher esse IP; baixo demais (1 com Cloudflare) junta médicos no mesmo limite e grava o IP da Cloudflare. Ver "Limite de tentativas" |
 | `INTERNAL_SERVICE_TOKEN` | Endpoint `/audit/verify-chain` inacessível |
 | `AI_API_KEY` | Análise clínica indisponível |
 | `DATABASE_URL` | Sistema completamente indisponível ou rodando com privilégios excessivos |
