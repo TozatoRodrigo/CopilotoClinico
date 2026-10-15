@@ -925,6 +925,7 @@ apenas na resposta. Acesso a um protocolo de outra instituição retorna `404`
 | `20260924180000_f9_guideline_chunks_text_tsv_generated` | `guideline_chunks.text_tsv` vira coluna gerada + índice GIN — liga a busca lexical (ver "Busca lexical (`text_tsv`) — F9") |
 | `20260924220000_ivfflat_probes_exact` | `ivfflat.probes = 100` no banco: busca vetorial exata (incidente de 24/09/2026) |
 | `20261012180000_aud_007_audit_log_hash_version` | `audit_log.hash_version` (NULL = hash legado, 2 = JSON canônico) — ADR-015; só adiciona coluna nula |
+| `20261015180000_cc_012_lgpd_erasure_privileges` | CC-012: `copiloto_app` ganha `UPDATE` só em `ai_calls.physician_id`/`encounter_id`/`request_id` e `DELETE` explícito em `mfa_backup_codes`, `crm_verification_requests`, `physician_institutions` e `login_security_states`. Só GRANT; sem ela, `POST /lgpd/erasure` falha com `permission denied for table ai_calls` e nada é apagado |
 
 ### Rollback de Migration
 
@@ -967,7 +968,9 @@ latência e desfecho (`ok`, `refusal`, `truncated`, `error`, `aborted`). Nenhum
 texto do caso, do prompt ou da resposta. A resposta HTTP devolve
 `x-request-id`; o mesmo id está em `ai_calls.request_id` e em
 `ai_interactions.request_id`. Falha ao gravar vira `AI_CALL_LOG_FAILED` (WARN)
-e nunca para a análise.
+e nunca para a análise. A eliminação LGPD (CC-012) mantém as linhas no custo
+agregado, mas zera `physician_id`, `encounter_id` e `request_id`: depois dela
+o `x-request-id` daquele médico não acha mais nada.
 
 ```sql
 -- Custo, chamadas e latência por etapa e modelo nos últimos 7 dias

@@ -79,9 +79,40 @@ Os anexos vão com o texto redigido inline: é todo o conteúdo que guardamos.
    ser repetido.
 2. Numa transação: apaga decisões por recomendação, reportes do copiloto,
    anexos, capturas de áudio, atendimentos (e, em cascata, documentos,
-   interações IA e execuções de protocolo), consentimentos e refresh tokens;
-   anonimiza o cadastro do médico.
-3. Registra `DATA_ERASURE` na trilha com as contagens apagadas.
+   interações IA, conversas guiadas e execuções de protocolo),
+   consentimentos, refresh tokens, códigos de backup do MFA, pedidos de
+   verificação de CRM, vínculos institucionais e estado do bloqueio de login;
+   tira das chamadas de IA o vínculo com o médico; anonimiza o cadastro.
+3. Registra `DATA_ERASURE` na trilha com as contagens e os nomes das colunas
+   anonimizadas — nenhum valor do cadastro.
+
+#### Decisão por tabela (CC-012)
+
+A fonte é `src/modules/lgpd/erasure-policy.ts`, com o porquê de cada linha.
+O que precisa ficar para a trilha ou para obrigação legal fica anonimizado;
+o resto é apagado.
+
+| Dado | Decisão | Por quê |
+|---|---|---|
+| Cadastro (`physicians`) | anonimizado | Fica como referente do `actor_id` da trilha. Nome, e-mail, senha, CRM (UF, número, verificação), MFA (segredo e flag) e idioma são substituídos; ficam id, papel, curador, assinatura e datas. |
+| Códigos de backup do MFA | apagados | Credencial, sem valor de auditoria. |
+| Pedidos de verificação de CRM | apagados | Fila do admin, com nota em texto livre. Quem pediu, quem decidiu e quando já estão na trilha (`CRM_VERIFICATION_*`). |
+| Vínculos institucionais | apagados | Onde o médico trabalha; o vínculo fica na trilha (`PHYSICIAN_LINKED_TO_INSTITUTION`). A instituição fica. |
+| Estado do bloqueio de login | apagado | Vale minutos. A chave é o SHA-256 sem sal do e-mail, reidentificável: sai também a linha sem `physician_id` achada pelo hash do e-mail. |
+| Chamadas de IA (`ai_calls`) | anonimizadas | Custo e latência agregados ficam; `physician_id`, `encounter_id` e `request_id` viram NULL. A API só pode alterar essas três colunas (migration `20261015180000_cc_012_lgpd_erasure_privileges`). |
+| Consentimentos | apagados | A prova do consentimento (Art. 8º, § 2º) fica na trilha. |
+
+Colunas de autoria em registros que não são do médico (`reviewed_by` da
+curadoria, `triaged_by`, `created_by` de protocolo, `resolved_by` de
+verificação) continuam com o id, agora de um cadastro anonimizado.
+
+**Tabela nova com dado do médico.** O teste
+`src/modules/lgpd/erasure-policy.spec.ts` lê o schema e falha se aparecer
+coluna `physician_id`, `user_id` ou FK para `physicians` fora da política e
+da lista de exceções justificadas. Coluna nova no cadastro do médico não
+compila até entrar em `anonymizedPhysician` ou em `PHYSICIAN_KEPT_COLUMNS`. O
+teste de integração `cc-012-lgpd-erasure-complete` semeia cada tabela da
+política e roda a eliminação com a role de runtime (`copiloto_app`).
 
 A trilha de auditoria **não** é apagada (append-only, AUD-001): é registro de
 obrigação legal (Art. 16, I). Pendência conhecida: as entradas de anexo

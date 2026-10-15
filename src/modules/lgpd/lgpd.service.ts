@@ -9,7 +9,9 @@ import {
 import { PrismaService } from '../../config/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { StorageService } from '../storage/storage.service';
+import { loginIdentifierHash } from '../auth/login-identifier';
 import { consentScopes, type ConsentScope } from './schemas/lgpd.schemas';
+import { anonymizedPhysician } from './erasure-policy';
 import type {
   Physician,
   Consent,
@@ -74,8 +76,22 @@ export interface ErasureResult {
     audioCaptures: number;
     consents: number;
     refreshTokens: number;
+    /** CC-012 — códigos de recuperação do MFA. */
+    mfaBackupCodes: number;
+    crmVerificationRequests: number;
+    /** CC-012 — vínculos com instituições. */
+    physicianInstitutions: number;
+    /** CC-012 — estado do bloqueio por tentativas de login. */
+    loginSecurityStates: number;
     /** PDFs de documentos confirmados apagados do MinIO. */
     storageObjects: number;
+  };
+  /** CC-012 — o que fica, sem dado pessoal (ver erasure-policy.ts). */
+  anonymized: {
+    /** Chamadas de IA que ficam no custo agregado, sem vínculo com o médico. */
+    aiCalls: number;
+    /** Colunas do cadastro substituídas — os nomes, nunca os valores. */
+    physicianColumns: string[];
   };
 }
 
@@ -282,7 +298,20 @@ export class LgpdService {
     // inversa, uma falha deixaria PDFs órfãos sem referência para achá-los.
     const storageObjects = await this.eraseDocumentPdfs(physicianId);
 
-    const erasedRows = await this.prisma.$transaction(async (tx) => {
+    const physicianData = anonymizedPhysician(physicianId);
+
+    const { aiCalls, ...erasedRows } = await this.prisma.$transaction(async (tx) => {
+      // CC-012 — ai_calls fica no custo agregado, sem vínculo com o médico. Vai
+      // antes dos atendimentos porque a chamada gravada sem médico no contexto
+      // só tem o encounter_id para ser achada.
+      const encounterIds = (
+        await tx.encounter.findMany({ where: { physicianId }, select: { id: true } })
+      ).map(({ id }) => id);
+      const aiCalls = await tx.aiCall.updateMany({
+        where: { OR: [{ physicianId }, { encounterId: { in: encounterIds } }] },
+        data: { physicianId: null, encounterId: null, requestId: null },
+      });
+
       // F0-D — o CASCADE de encounters já levaria decisões e feedback junto;
       // apagar explicitamente deixa a contagem no relatório de eliminação.
       const recommendationDecisions = await tx.recommendationDecision.deleteMany({
@@ -302,17 +331,27 @@ export class LgpdService {
       const encounters = await tx.encounter.deleteMany({ where: { physicianId } });
       const consents = await tx.consent.deleteMany({ where: { physicianId } });
       const refreshTokens = await tx.refreshToken.deleteMany({ where: { physicianId } });
-
-      await tx.physician.update({
-        where: { id: physicianId },
-        data: {
-          name: 'ERASED',
-          email: `erased-${physicianId}@erased.com`,
-          passwordHash: `erased:${physicianId}`,
+      // CC-012 — credenciais, CRM e vínculos, que ficavam para trás. O porquê
+      // de cada tabela está em erasure-policy.ts.
+      const mfaBackupCodes = await tx.mfaBackupCode.deleteMany({ where: { physicianId } });
+      const crmVerificationRequests = await tx.crmVerificationRequest.deleteMany({
+        where: { physicianId },
+      });
+      const physicianInstitutions = await tx.physicianInstitution.deleteMany({
+        where: { physicianId },
+      });
+      // A tentativa com o e-mail digitado de outro jeito grava a linha sem
+      // physician_id; só o hash do e-mail (lido antes da anonimização) a acha.
+      const loginSecurityStates = await tx.loginSecurityState.deleteMany({
+        where: {
+          OR: [{ physicianId }, { identifierHash: loginIdentifierHash(physician.email) }],
         },
       });
 
+      await tx.physician.update({ where: { id: physicianId }, data: physicianData });
+
       return {
+        aiCalls: aiCalls.count,
         recommendationDecisions: recommendationDecisions.count,
         copilotFeedback: copilotFeedback.count,
         encounters: encounters.count,
@@ -320,13 +359,18 @@ export class LgpdService {
         audioCaptures: audioCaptures.count,
         consents: consents.count,
         refreshTokens: refreshTokens.count,
+        mfaBackupCodes: mfaBackupCodes.count,
+        crmVerificationRequests: crmVerificationRequests.count,
+        physicianInstitutions: physicianInstitutions.count,
+        loginSecurityStates: loginSecurityStates.count,
       };
     });
 
     const erased = { ...erasedRows, storageObjects };
+    const anonymized = { aiCalls, physicianColumns: Object.keys(physicianData).sort() };
 
     // A trilha de auditoria é append-only (AUD-001) e não é apagada: só ganha
-    // esta entrada.
+    // esta entrada. Só contagens e nomes de coluna — nenhum valor do cadastro.
     await this.auditService.log({
       actorId: physicianId,
       action: 'DATA_ERASURE',
@@ -335,10 +379,11 @@ export class LgpdService {
       payload: {
         reason: 'LGPD Art. 18, VI - Data erasure request',
         erased,
+        anonymized,
       },
     });
 
-    return { status: 'completed', estimatedCompletion: new Date(), erased };
+    return { status: 'completed', estimatedCompletion: new Date(), erased, anonymized };
   }
 
   /**

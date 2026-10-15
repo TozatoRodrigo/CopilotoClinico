@@ -15,6 +15,7 @@ import { PrismaService } from '../../config/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { RegisterInput, LoginInput, RefreshInput } from './schemas/auth.schemas';
 import { MfaService } from './mfa.service';
+import { loginIdentifierHash } from './login-identifier';
 import { CrmVerificationService } from '../physicians/crm-verification.service';
 import { CrmCheckerService } from '../physicians/crm-checker.service';
 
@@ -134,8 +135,7 @@ export class AuthService {
   }
 
   async login(input: LoginInput, ip?: string) {
-    const normalizedEmail = input.email.trim().toLowerCase();
-    const identifierHash = this.hashLoginIdentifier(normalizedEmail);
+    const identifierHash = loginIdentifierHash(input.email);
     const securityState = await this.prisma.loginSecurityState.findUnique({
       where: { identifierHash },
     });
@@ -443,10 +443,6 @@ export class AuthService {
 
   private hashToken(token: string): string {
     return createHash('sha256').update(token).digest('hex');
-  }
-
-  private hashLoginIdentifier(identifier: string): string {
-    return createHash('sha256').update(identifier).digest('hex');
   }
 
   private async recordFailedLogin(
