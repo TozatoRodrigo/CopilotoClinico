@@ -507,7 +507,9 @@ export class AuthService {
     if (!physician) throw new UnauthorizedException('Physician not found');
 
     const valid = await bcrypt.compare(currentPassword, physician.passwordHash);
-    if (!valid) throw new UnauthorizedException('Current password is incorrect');
+    // CC-014 — 400, não 401: o web trata todo 401 como sessão expirada e leva
+    // ao login, então errar a senha atual tirava o médico da tela.
+    if (!valid) throw new BadRequestException('Senha atual incorreta');
 
     const newHash = await bcrypt.hash(newPassword, 12);
     await this.prisma.physician.update({

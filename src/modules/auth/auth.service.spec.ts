@@ -7,7 +7,7 @@ import { CrmVerificationService } from '../physicians/crm-verification.service';
 import { CrmCheckerService } from '../physicians/crm-checker.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 
 vi.mock('bcryptjs', () => ({
@@ -596,6 +596,41 @@ describe('AuthService', () => {
         expect.objectContaining({ select: expect.objectContaining({ specialty: true }) }),
       );
       expect(me).toMatchObject({ specialty: 'pediatria' });
+    });
+  });
+
+  // CC-014 — a tela de segurança passou a alcançar a troca de senha (chamava
+  // POST, a rota é PATCH). Senha atual errada não pode ser 401: o web trata
+  // 401 como sessão expirada e manda o médico para o login.
+  describe('changePassword', () => {
+    it('answers a wrong current password with 400, not 401', async () => {
+      prisma.physician.findUnique.mockResolvedValue({
+        id: mockPhysician.id,
+        passwordHash: 'hashed-password',
+      });
+      vi.mocked(bcrypt.compare).mockResolvedValue(false as never);
+
+      const attempt = service.changePassword(mockPhysician.id, 'errada', 'NovaSenha@1');
+
+      await expect(attempt).rejects.toThrow(BadRequestException);
+      await expect(attempt).rejects.not.toThrow(UnauthorizedException);
+      expect(prisma.physician.update).not.toHaveBeenCalled();
+    });
+
+    it('stores the new hash when the current password matches', async () => {
+      prisma.physician.findUnique.mockResolvedValue({
+        id: mockPhysician.id,
+        passwordHash: 'hashed-password',
+      });
+      vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
+      vi.mocked(bcrypt.hash).mockResolvedValue('new-hash' as never);
+
+      await service.changePassword(mockPhysician.id, 'Atual@123', 'NovaSenha@1');
+
+      expect(prisma.physician.update).toHaveBeenCalledWith({
+        where: { id: mockPhysician.id },
+        data: { passwordHash: 'new-hash' },
+      });
     });
   });
 });
