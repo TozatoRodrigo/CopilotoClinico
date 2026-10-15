@@ -90,6 +90,8 @@ describe('referência congelada do ANY', () => {
         // formatação na própria página, o `calcHACOR` no calculations)
         'vmData.ts',
         'VmGuide.tsx',
+        // CC-328 — sedação (o `fmt` que a página importa; a conta e o roteiro moram na página)
+        'SedaPath.tsx',
       ]),
     );
   });
