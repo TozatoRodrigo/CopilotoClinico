@@ -222,6 +222,10 @@ function buildPrismaMock() {
     copilotFeedback: {
       findMany: vi.fn().mockResolvedValue([]),
     },
+    // CC-801 — as revisões do plantão (com as perguntas) também.
+    shiftReview: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
     // ADR-014 — a conversa antes do plano também entra no export LGPD.
     caseIntake: {
       findMany: vi.fn().mockResolvedValue([]),
