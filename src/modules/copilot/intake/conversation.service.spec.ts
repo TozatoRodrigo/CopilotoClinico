@@ -9,6 +9,8 @@ import type {
   ScreenedAnalysisInput,
   StreamEvent,
 } from '../orchestrator/orchestrator.service';
+import { understandingFixture } from '../../../../tests/fixtures/case-understanding';
+import { intakeReadingFixture } from '../../../../tests/fixtures/intake-reading';
 import { ConversationService } from './conversation.service';
 import type { IntakeService } from './intake.service';
 
@@ -95,6 +97,7 @@ describe('ConversationService', () => {
   };
   let interactions: ReturnType<typeof interaction>[];
   let encounterFound: boolean;
+  let env: Record<string, string>;
   let service: ConversationService;
 
   beforeEach(() => {
@@ -110,6 +113,7 @@ describe('ConversationService', () => {
     };
     interactions = [];
     encounterFound = true;
+    env = {};
 
     const prisma = {
       encounter: { findFirst: vi.fn(async () => (encounterFound ? { id: encounterId } : null)) },
@@ -119,7 +123,9 @@ describe('ConversationService', () => {
       prisma as unknown as PrismaService,
       intake as unknown as IntakeService,
       orchestrator as unknown as OrchestratorService,
-      { get: vi.fn((_key: string, fallback: unknown) => fallback) } as unknown as ConfigService,
+      {
+        get: vi.fn((key: string, fallback: unknown) => env[key] ?? fallback),
+      } as unknown as ConfigService,
     );
   });
 
@@ -300,6 +306,80 @@ describe('ConversationService', () => {
       const conversation = await service.get(physicianId, encounterId);
 
       expect(conversation.turns[0]?.citations).toEqual([source]);
+    });
+
+    describe('ferramentas no plano (CC-332)', () => {
+      const strokePlan = {
+        reasoning: 'plano',
+        recommendations: [{ action: 'Angio-TC para oclusão de grande vaso' }],
+        clarifyingQuestions: [],
+        understanding: understandingFixture(),
+      };
+
+      it('with the flag off the response is the same as before: no field at all', async () => {
+        interactions = [interaction('root', { rawOutput: strokePlan })];
+
+        const conversation = await service.get(physicianId, encounterId);
+
+        expect(conversation.turns[0]).not.toHaveProperty('toolSuggestions');
+      });
+
+      it('suggests the tool from the round understanding, with the case data', async () => {
+        env = { COPILOT_TOOL_SUGGESTIONS: 'on' };
+        interactions = [
+          interaction('root', {
+            rawOutput: strokePlan,
+            answeredQuestions: [
+              { questionId: 'q1', question: 'Peso?', answer: 'Peso 80 kg', turnIndex: -1 },
+            ],
+          }),
+        ];
+
+        const conversation = await service.get(physicianId, encounterId);
+
+        const suggestions = conversation.turns[0]?.toolSuggestions;
+        expect(suggestions?.suggestions).toEqual([
+          {
+            ruleId: 'deficit-focal-nihss',
+            target: { kind: 'calculator', calculatorId: 'nihss' },
+            name: 'NIHSS',
+            reason: 'Déficit neurológico focal: gravidade do AVC',
+          },
+        ]);
+        expect(suggestions?.facts).toMatchObject({
+          ageYears: 68,
+          sex: 'M',
+          weightKg: 80,
+          systolicBp: 182,
+          heartRate: 88,
+        });
+      });
+
+      it('falls back to the guided-copilot case reading when the round has no understanding', async () => {
+        env = { COPILOT_TOOL_SUGGESTIONS: 'on' };
+        intake.latest.mockResolvedValue(
+          intakeRow({
+            analysisInteractionId: 'root',
+            reading: intakeReadingFixture({ syndrome: 'intoxicacao' }) as never,
+          }),
+        );
+        interactions = [interaction('root')];
+
+        const conversation = await service.get(physicianId, encounterId);
+
+        expect(conversation.turns[0]?.toolSuggestions?.suggestions.map(({ name }) => name)).toEqual(
+          ['Intoxicações e antídotos'],
+        );
+      });
+
+      it('leaves the round as before when there is nothing to read the case from', async () => {
+        env = { COPILOT_TOOL_SUGGESTIONS: 'on' };
+        interactions = [interaction('root')];
+
+        const conversation = await service.get(physicianId, encounterId);
+
+        expect(conversation.turns[0]).not.toHaveProperty('toolSuggestions');
+      });
     });
 
     it('refuses a case that belongs to another physician', async () => {

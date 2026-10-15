@@ -17,7 +17,10 @@ import type {
   UnderstandingService,
 } from '../understanding/understanding.service';
 import type { WebResearchService } from '../research/web-research.service';
-import { UNDERSTANDING_CORRECTION_QUESTION_ID } from '../../../shared/contracts/clinical';
+import {
+  TOOL_RESULT_QUESTION_ID,
+  UNDERSTANDING_CORRECTION_QUESTION_ID,
+} from '../../../shared/contracts/clinical';
 import { understandingFixture } from '../../../../tests/fixtures/case-understanding';
 
 /**
@@ -514,6 +517,34 @@ describe('OrchestratorService — raciocínio em etapas (F1)', () => {
         expect.objectContaining({
           questionId: UNDERSTANDING_CORRECTION_QUESTION_ID,
           question: 'Correção do médico ao entendimento',
+        }),
+      ]);
+    });
+
+    it('labels the tool results attached from the plan (CC-332), one per answer', async () => {
+      await service.continueAnalysis(physicianId, encounterId, {
+        interactionId: parentInteraction.id,
+        answers: [
+          { questionId: TOOL_RESULT_QUESTION_ID, answer: 'NIHSS: 9 — AVC moderado.' },
+          { questionId: TOOL_RESULT_QUESTION_ID, answer: 'HEART: 3 — Baixo risco.' },
+        ],
+      });
+
+      const request = understand.mock.calls[0]![0] as { caseText: string };
+      expect(request.caseText).toContain(
+        'P: Resultado de ferramenta calculado pelo médico\nR: NIHSS: 9 — AVC moderado.',
+      );
+      expect(request.caseText).toContain(
+        'P: Resultado de ferramenta calculado pelo médico\nR: HEART: 3 — Baixo risco.',
+      );
+      expect(persisted().data.answeredQuestions).toEqual([
+        expect.objectContaining({
+          questionId: TOOL_RESULT_QUESTION_ID,
+          answer: 'NIHSS: 9 — AVC moderado.',
+        }),
+        expect.objectContaining({
+          questionId: TOOL_RESULT_QUESTION_ID,
+          answer: 'HEART: 3 — Baixo risco.',
         }),
       ]);
     });

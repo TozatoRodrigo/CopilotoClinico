@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
@@ -15,6 +15,12 @@ import {
   type OrchestratorResult,
   type StreamEvent,
 } from '../orchestrator/orchestrator.service';
+import {
+  describeToolSuggestions,
+  storedIntakeReading,
+  toolSuggestionsEnabled,
+  turnToolSuggestions,
+} from './case-tool-suggestions';
 import { IntakeService, toIntakeView } from './intake.service';
 
 /** Mesmo default de orchestrator.service.ts (DEFAULT_MAX_TURNS). */
@@ -182,6 +188,8 @@ function threadFrom(rows: TurnRow[], rootId: string | null, maxTurns: number): T
  */
 @Injectable()
 export class ConversationService {
+  private readonly logger = new Logger(ConversationService.name);
+
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(IntakeService) private readonly intake: IntakeService,
@@ -253,8 +261,29 @@ export class ConversationService {
 
     return {
       intake: intake ? toIntakeView(intake) : null,
-      turns: turns.map(toTurn),
+      turns: this.withToolSuggestions(turns, intake?.reading ?? null),
       maxTurns,
     };
+  }
+
+  /**
+   * CC-332 — com `COPILOT_TOOL_SUGGESTIONS=on`, cada rodada leva as
+   * ferramentas que o plano sugere. Desligada, a resposta fica igual à de
+   * antes (nem o campo aparece).
+   */
+  private withToolSuggestions(
+    rows: TurnRow[],
+    intakeReading: Prisma.JsonValue | null,
+  ): ConversationTurn[] {
+    if (!toolSuggestionsEnabled(this.config)) return rows.map(toTurn);
+    const fallback = storedIntakeReading(intakeReading);
+    return rows.map((row, index) => {
+      const toolSuggestions = turnToolSuggestions(row, fallback);
+      if (!toolSuggestions) return toTurn(row);
+      if (index === rows.length - 1) {
+        this.logger.log(describeToolSuggestions(row.id, toolSuggestions));
+      }
+      return { ...toTurn(row), toolSuggestions };
+    });
   }
 }

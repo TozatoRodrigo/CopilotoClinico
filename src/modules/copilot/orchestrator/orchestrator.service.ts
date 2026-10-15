@@ -51,6 +51,7 @@ import {
   type ContainmentContext,
 } from './preliminary-containment';
 import {
+  TOOL_RESULT_QUESTION_ID,
   UNDERSTANDING_CORRECTION_QUESTION_ID,
   type CaseUnderstanding,
   type CitationOrigin,
@@ -89,6 +90,8 @@ const DEFAULT_MAX_TURNS = 5;
  */
 const RESERVED_QUESTION_LABELS: Readonly<Record<string, string>> = {
   [UNDERSTANDING_CORRECTION_QUESTION_ID]: 'Correção do médico ao entendimento',
+  // CC-332 — resultado anexado de uma ferramenta aberta pelo plano.
+  [TOOL_RESULT_QUESTION_ID]: 'Resultado de ferramenta calculado pelo médico',
 };
 const RECOMMENDATION_CATEGORY_ORDER = {
   stabilization: 0,

@@ -457,6 +457,19 @@ Nada das ferramentas vai para log ou servidor: a conta roda no aparelho, os
 favoritos ficam no `localStorage` e o texto copiado para o prontuário não tem
 dado de paciente.
 
+**Ferramenta no plano (CC-332).** Com `COPILOT_TOOL_SUGGESTIONS=on` na API e a
+área ligada no web, o plano mostra "Ferramentas para este caso": o botão "Abrir
+<ferramenta>" grava o caso na sessão da aba e abre `/ferramentas/<id>?caso=<token>`
+(o endereço nunca leva dado clínico). Na ferramenta, os campos que vieram do
+caso aparecem marcados "vindo do caso", "Voltar ao caso" leva de volta, e
+"Anexar ao caso" guarda o texto de prontuário da ferramenta, que entra na
+próxima reanálise como "Resultado de ferramenta calculado pelo médico". Para
+desligar, `COPILOT_TOOL_SUGGESTIONS=off` (sem redeploy). Para medir quantas
+análises tiveram sugestão, conte as linhas `TOOL_SUGGESTIONS` com `rules`
+diferente de `-` (uma por abertura da conversa); resultado anexado aparece na
+trilha de auditoria como `COPILOT_QUESTION_ANSWERED` com
+`questionIds` contendo `resultado-de-ferramenta`.
+
 **Offline (CC-322).** O `pnpm build` do web gera `public/ferramentas-offline.json`
 (páginas de `/ferramentas/**` e os chunks que elas usam, com a versão do
 conteúdo); o service worker baixa essa lista na primeira abertura com sinal e
@@ -989,6 +1002,7 @@ Prisma não suporta rollback automático. Para reverter:
 | `COPILOT_INTAKE` | `on` liga o Copiloto guiado da ADR-014: antes do plano, a leitura do caso decide se pergunta (no máximo 3 perguntas, uma por vez). `off` (padrão) vai direto ao plano. Ausente ou irreconhecível = `off`. Modelo da leitura em `AI_INTAKE_MODEL` (vazio = o da Etapa 1). No log: `INTAKE_READING` (tempo e perguntas), `INTAKE_STARTED` (caminho: `ask`, `unstable`, `complete`, `reading_failed`, `disabled`), `INTAKE_CLOSED` (motivo) e `INTAKE_READING_TIMEOUT` (leitura passou de 20 s e o caso seguiu direto ao plano). Exige a migration `20261012120000_adr_014_case_intakes` |
 | `AI_DECISION_MODEL` / `AI_DECISION_CRITICAL_MODEL` | ADR-016: modelo da decisão no caso comum e no caso grave (instável ou tempo-crítico pela Etapa 1, ou sem entendimento). Vazios = `AI_MODEL` nas duas rotas. Crítico vazio = o comum nas duas. Aceitam `perfil:modelo`. No log: `DECISION_MODEL route=critical\|standard model=...`; a interação grava `params.decisionRoute` |
 | `COPILOT_KNOWLEDGE_SOURCE` | `internal_kb` (padrão) é a busca de sempre (embedding na OpenAI); `model_only` não busca nada; `web` pesquisa em fontes oficiais (`AI_RESEARCH_MODEL`, padrão `claude-sonnet-5-5`; `AI_RESEARCH_EFFORT`, padrão `low`; `WEB_RESEARCH_MAX_SEARCHES`, padrão 5; `WEB_RESEARCH_ALLOWED_DOMAINS`, vazio = 32 fontes padrão). `model_only` e `web` nunca chamam o provedor de embedding. `web` exige `stages` e `COPILOT_DECISION_PROMPT=v2` (sem eles vira `model_only`, com `DECISION_PIPELINE_DOWNGRADE` no log) e Anthropic como `AI_PROVIDER`; pesquisa que falha aparece como `WEB_RESEARCH_FALLBACK` e a análise segue só com o conhecimento do modelo |
+| `COPILOT_TOOL_SUGGESTIONS` | API. `on` liga a ferramenta certa no plano (CC-332, ADR-017 item 11): cada rodada de `GET /copilot/conversation` leva `toolSuggestions` (até 3 ferramentas por regra fixa do motor, com os números do caso que as preenchem). `off` (padrão) deixa a resposta igual à de antes. Ausente ou irreconhecível = `off`. A tela também exige `NEXT_PUBLIC_FERRAMENTAS=on`; sem entendimento do caso (`COPILOT_REASONING=legacy` e `COPILOT_INTAKE=off`) não há sugestão. No log: `TOOL_SUGGESTIONS interactionId=… mappingVersion=… rules=…` (ids das regras, sem texto clínico) |
 | `NEXT_PUBLIC_FERRAMENTAS` | Web, variável de build. `on` liga a área Ferramentas do ADR-017 (sidebar, barra inferior no lugar de Buscar, ⌘K e as rotas `/ferramentas`). Ausente ou qualquer outro valor = desligada, `/ferramentas` mostra 404. Ligar exige a cessão do ANY (CC-301) e a revisão clínica (CC-310); na imagem, `--build-arg NEXT_PUBLIC_FERRAMENTAS=on` |
 
 ---
