@@ -96,6 +96,19 @@ export interface AiCallReport {
   disclaimer: string;
 }
 
+/**
+ * CC-705 — análises completas de uma janela fechada (a semana do painel do
+ * beta), com a mesma definição de `AiCallReport.analyses`. A latência é a
+ * soma das latências das chamadas de cada análise (as etapas rodam em
+ * sequência), em percentis entre as análises.
+ */
+export interface AiCallAnalysisSummary {
+  count: number;
+  totalCostUsd: number;
+  avgCostUsd: number | null;
+  latency: AiCallLatency;
+}
+
 /** Uma chamada da requisição buscada, em ordem de início. */
 export interface AiCallTraceRow {
   id: string;
