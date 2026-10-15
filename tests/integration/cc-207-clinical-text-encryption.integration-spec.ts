@@ -385,6 +385,24 @@ describe('CC-207 — texto clínico cifrado em repouso (integration)', () => {
     // símbolo de inspect): compare os campos, não o objeto inteiro.
     expect(latest?.id).toBe(analysis.id);
     expect(latest?.uncertaintyReason).toBe(COPILOT_OUTPUT.uncertaintyReason);
+
+    // A migração em lote também deixa o marcador em claro e fora da contagem.
+    const reasonColumn = SEALED_COLUMNS.find((c) => c.column === 'uncertainty_reason')!;
+    const store = new PrismaClinicalTextStore(raw);
+    await encryptClinicalText(store, keyring, {
+      batchSize: 10,
+      dryRun: false,
+      columns: [reasonColumn],
+    });
+    const afterMigration = await raw.$queryRaw<Array<{ reason: string }>>`
+      SELECT uncertainty_reason AS reason FROM ai_interactions
+      WHERE encounter_id = ${encounter.id}::uuid ORDER BY created_at`;
+    expect(afterMigration[1]!.reason).toBe('Output validation failed');
+    const verify = await verifyClinicalText(store, keyring, {
+      batchSize: 10,
+      columns: [reasonColumn],
+    });
+    expect(verify.columns[0]!.plaintext).toBe(0);
   });
 
   describe('migração em lote (pnpm crypto:encrypt-clinical-text)', () => {
