@@ -20,6 +20,8 @@ import {
 import { understandingFixture } from '../../../../tests/fixtures/case-understanding';
 import { UNDERSTANDING_CORRECTION_QUESTION_ID } from '../../../shared/contracts/clinical';
 import { IntakeService } from './intake.service';
+import { REGEX_ONLY_DEIDENTIFIER, type Deidentifier } from '../../deid/deidentification.service';
+import { modelDeidentifier } from '../../../../tests/helpers/fake-deid';
 import { INTAKE_ANALYSIS_STALE_MS, INTAKE_READING_TIMEOUT_MS } from './intake.settings';
 
 const physicianId = 'phys-001';
@@ -128,6 +130,7 @@ describe('IntakeService', () => {
   let encounterUpdate: ReturnType<typeof vi.fn>;
   let caseIntakes: ReturnType<typeof fakeCaseIntakes>;
   let service: IntakeService;
+  let serviceWith: (deid: Deidentifier) => IntakeService;
 
   beforeEach(() => {
     env = { COPILOT_INTAKE: 'on' };
@@ -146,12 +149,15 @@ describe('IntakeService', () => {
     };
     const config = { get: vi.fn((key: string) => env[key]) };
 
-    service = new IntakeService(
-      prisma as unknown as PrismaService,
-      { readForIntake } as unknown as UnderstandingService,
-      { log: auditLog } as unknown as AuditService,
-      config as unknown as ConfigService,
-    );
+    serviceWith = (deid) =>
+      new IntakeService(
+        prisma as unknown as PrismaService,
+        { readForIntake } as unknown as UnderstandingService,
+        { log: auditLog } as unknown as AuditService,
+        config as unknown as ConfigService,
+        deid,
+      );
+    service = serviceWith(REGEX_ONLY_DEIDENTIFIER);
   });
 
   function auditActions(): string[] {
@@ -629,6 +635,39 @@ describe('IntakeService', () => {
       );
       const latest = await service.latest(encounterId);
       expect(latest?.analysisInteractionId).toBe('interaction-001');
+    });
+  });
+
+  // CC-203 — o caso e a resposta passam pela de-identificação com o modelo
+  // local: o nome sem tratamento (que a regex não pega) não chega à leitura
+  // do caso nem ao banco.
+  describe('de-identificação com o modelo local (CC-203)', () => {
+    it('mascara o nome no caso lido e gravado', async () => {
+      const deid = modelDeidentifier(['Maria da Silva']);
+      const view = await serviceWith(deid).start(physicianId, encounterId, {
+        ...startInput,
+        caseText: `Maria da Silva, ${caseText}`,
+      });
+
+      const request = readForIntake.mock.calls[0]![0] as { caseText: string };
+      expect(request.caseText).not.toContain('Maria');
+      expect(view.caseText).toMatch(/^\[NOME\], Mulher/);
+      expect(caseIntakes.create.mock.calls[0]![0].data.caseTextRedacted).not.toContain('Maria');
+      expect(deid.model.received).toHaveLength(1);
+    });
+
+    it('mascara o nome na resposta', async () => {
+      const deid = modelDeidentifier(['Maria da Silva']);
+      const intake = serviceWith(deid);
+      const { intakeId } = await intake.start(physicianId, encounterId, startInput);
+
+      const view = await intake.answer(physicianId, encounterId, intakeId, {
+        questionId: 'intake-1',
+        answer: 'Não, segundo a filha Maria da Silva',
+        channel: 'text',
+      });
+
+      expect(view.answers[0]?.answer).toBe('Não, segundo a filha [NOME]');
     });
   });
 });

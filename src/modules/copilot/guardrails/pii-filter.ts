@@ -12,7 +12,10 @@ export type PIIType =
   | 'cep'
   | 'date'
   | 'rg'
-  | 'name';
+  | 'name'
+  // CC-203 — só o modelo local acha (ver model-entities.ts).
+  | 'address'
+  | 'document';
 
 export interface PIIDetection {
   type: PIIType;

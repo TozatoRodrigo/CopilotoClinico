@@ -89,6 +89,24 @@ jobs:
         run: pnpm test:e2e
 
   # ──────────────────────────────────────────────────────────
+  # CC-203 / ADR-020: regras do serviço de de-identificação
+  # (services/deid/spans.py). Só biblioteca padrão: sem o modelo.
+  # ──────────────────────────────────────────────────────────
+  deid-service:
+    name: De-identification Service
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Unit Tests
+        working-directory: services/deid
+        run: python -m unittest -v test_spans
+
+  # ──────────────────────────────────────────────────────────
   # Job 2: Frontend Quality Gates
   # Typecheck + lint + build do Next.js
   # ──────────────────────────────────────────────────────────

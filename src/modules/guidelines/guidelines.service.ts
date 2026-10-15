@@ -11,7 +11,11 @@ import { PrismaService } from '../../config/prisma.service';
 import { AiGatewayService } from '../ai-gateway/ai-gateway.service';
 import { AuditService } from '../audit/audit.service';
 import { chunkText } from './ingestion/chunking';
-import { maskPII } from '../copilot/guardrails/pii-filter';
+import {
+  DeidentificationService,
+  REGEX_ONLY_DEIDENTIFIER,
+  type Deidentifier,
+} from '../deid/deidentification.service';
 import { embedOrNull } from './embeddings';
 import type { GuidelineConsultResult } from '../../shared/contracts/clinical';
 import {
@@ -119,6 +123,8 @@ export class GuidelinesService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(AiGatewayService) private readonly aiGateway: AiGatewayService,
     @Inject(AuditService) private readonly auditService: AuditService,
+    // CC-203 — obrigatório no Nest; o padrão (só regex) é para quem constrói à mão.
+    @Inject(DeidentificationService) private readonly deid: Deidentifier = REGEX_ONLY_DEIDENTIFIER,
   ) {}
 
   /**
@@ -446,7 +452,7 @@ export class GuidelinesService {
   /**
    * Consulta de diretrizes dentro do caso — ver `consult/consult-ranking.ts`.
    *
-   * O texto passa pela mesma máscara de PII do Copiloto ANTES do embedding:
+   * O texto passa pela mesma de-identificação do Copiloto ANTES do embedding:
    * a consulta abre pré-preenchida com o caso que o médico escreveu, e nada
    * identificável pode sair para o provedor de embedding.
    *
@@ -456,7 +462,7 @@ export class GuidelinesService {
    * casam —, com qualquer termo, pesado pela raridade de cada termo.
    */
   async consult(query: string, limit?: number): Promise<GuidelineConsultResult[]> {
-    const masked = maskPII(query).redacted;
+    const masked = (await this.deid.deidentify(query, 'consult')).redacted;
     const [embedding] =
       (await embedOrNull(this.aiGateway, [masked], {
         logger: this.logger,

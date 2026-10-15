@@ -16,7 +16,11 @@ import type { RetrievalCoverage, RetrievedChunk } from '../retrieval/hybrid-sear
 import { EncountersService } from '../../encounters/encounters.service';
 import { AttachmentsService } from '../../encounters/attachments/attachments.service';
 import { AuditService } from '../../audit/audit.service';
-import { countDetectionsByType, maskPII } from '../guardrails/pii-filter';
+import {
+  DeidentificationService,
+  REGEX_ONLY_DEIDENTIFIER,
+  type Deidentifier,
+} from '../../deid/deidentification.service';
 import { scanForInjection, type InjectionScanResult } from '../guardrails/injection-defense';
 import {
   redactPatientRef,
@@ -866,6 +870,8 @@ export class OrchestratorService {
     @Inject(ConfigService) private readonly config: ConfigService,
     @Inject(UnderstandingService) private readonly understanding: UnderstandingService,
     @Inject(WebResearchService) private readonly webResearch: WebResearchService,
+    // CC-203 — obrigatório no Nest; o padrão (só regex) é para quem constrói à mão.
+    @Inject(DeidentificationService) private readonly deid: Deidentifier = REGEX_ONLY_DEIDENTIFIER,
   ) {
     this.sourceVerification = new SourceVerificationService(aiGateway, config);
   }
@@ -1366,12 +1372,13 @@ export class OrchestratorService {
     // Buscar encounter para obter patientRef — necessário para redação explícita (LGPD-005)
     const encounter = await this.encounters.findById(physicianId, encounterId);
 
-    // Camada 1: filtro geral de PII (CPF, CNPJ, telefone, email, CEP, datas, RG,
-    // prontuário e nome depois de tratamento/apelido — CC-201/CC-206)
-    const piiResult = maskPII(input.caseText);
+    // Camada 1: de-identificação — regex (CPF, telefone, prontuário, nome
+    // depois de tratamento; CC-201/CC-206) e, com DEID_MODE=model, o modelo
+    // local para nome solto, parente e endereço (CC-203).
+    const piiResult = await this.deid.deidentify(input.caseText, 'case');
     // Só a contagem por tipo: mostra regra disparando demais sem gravar o trecho.
     this.logger.debug(
-      `PII detection${logLabel}: ${piiResult.hasPII ? 'FOUND' : 'NONE'} (${piiResult.detections.length} items) ${JSON.stringify(countDetectionsByType(piiResult.detections))}`,
+      `PII detection${logLabel}: ${piiResult.hasPII ? 'FOUND' : 'NONE'} mode=${piiResult.mode} ${JSON.stringify(piiResult.counts)}`,
     );
 
     // Camada 2: redação explícita do patientRef (LGPD-005 defense-in-depth)
@@ -1525,8 +1532,10 @@ export class OrchestratorService {
     const parentOutput = parentInteraction.rawOutput as unknown as EnrichedCopilotOutput;
     const clarifyingQuestions = parentOutput.clarifyingQuestions ?? [];
 
-    // Camada 1+2: PII mask + redação patientRef nas respostas do médico (LGPD-005)
-    const piiResults = input.answers.map((a) => maskPII(String(a.answer)));
+    // Camada 1+2: de-identificação + redação patientRef nas respostas do médico (LGPD-005)
+    const piiResults = await Promise.all(
+      input.answers.map((a) => this.deid.deidentify(String(a.answer), 'answer')),
+    );
     const piiDetected = piiResults.some((r) => r.hasPII);
     const redactedAnswers = piiResults.map((r) =>
       redactPatientRef(r.redacted, encounter.patientRef),

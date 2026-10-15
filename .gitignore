@@ -41,3 +41,7 @@ coverage/
 evals/clinical/runs/
 evals/deid/out/
 evals/clinical/variants.json
+
+# Python (services/deid)
+__pycache__/
+*.pyc

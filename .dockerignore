@@ -13,3 +13,4 @@ tests
 .DS_Store
 .claude
 .opencode.json
+__pycache__

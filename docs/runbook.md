@@ -727,6 +727,94 @@ FROM official_guideline_documents WHERE status = 'active'
 GROUP BY 1, 2 ORDER BY 1, 2;
 ```
 
+### De-identificação com o modelo local (CC-203, ADR-020)
+
+`DEID_MODE=model` soma à regex o serviço `copiloto-deid` (OpenMed PII 44M em
+ONNX, CPU): nome solto, parente e endereço saem do caso, das respostas, do
+anexo, da transcrição e da consulta de diretrizes antes da IA e do banco. O
+padrão é `regex`. Serviço fora do ar ou lento: o texto segue só com a regex e a
+API loga `DEID_FALLBACK stage=<etapa> reason=<timeout|unavailable|bad_status|bad_response>`
+(nunca o texto). A análise não falha por causa dele.
+
+**1. Construir a imagem fora da VPS.** O estágio que exporta o modelo passa de
+3 GB de RAM: na VPS compartilhada isso derruba os outros apps. Na máquina de
+desenvolvimento (Docker com ≥ 4 GB e ~3 GB de disco livres):
+
+```bash
+TAG=$(date +%Y%m%d)
+docker buildx build --platform linux/amd64 -f docker/Dockerfile.deid \
+  -t copiloto-deid:$TAG --load .
+docker save copiloto-deid:$TAG | gzip | ssh rodrigo@76.13.173.181 'gunzip | docker load'
+docker builder prune -f
+```
+
+O build confere o sha256 dos pesos baixados do Hugging Face (revisão fixa em
+`services/deid/export_onnx.py`) e para se o ONNX não concordar com o modelo
+original. Para medir em casa sem a imagem: `docker compose --profile deid up -d deid`
+(`docker/docker-compose.yml`, porta 8099).
+
+**2. Subir na VPS (ainda sem ligar).**
+
+```bash
+cd ~/apps/copiloto-clinico/docker
+TAG=<a mesma do passo 1>
+docker tag copiloto-deid:$TAG copiloto-deid:latest
+docker compose --env-file .env.production -f docker-compose.prod.yml --profile deid up -d copiloto-deid
+docker logs copiloto-deid 2>&1 | grep DEID_READY     # revisão do modelo e tempo de carga
+```
+
+O serviço só existe na rede `copiloto-net` (sem Traefik, sem porta no host),
+com `mem_limit: 400m` e `cpus: 2`. `--profile deid` é obrigatório: o `up -d`
+de sempre não o toca, nem o reconstrói.
+
+**3. Medir na VPS antes de ligar** (critério 3 da CC-203: p95 ≤ 300 ms e
+memória ≤ 400 MB). O corpus é sintético (`pnpm eval:deid` gera
+`evals/deid/out/corpus.jsonl` na máquina de desenvolvimento):
+
+```bash
+scp evals/deid/out/corpus.jsonl rodrigo@76.13.173.181:/tmp/deid-corpus.jsonl
+# na VPS
+docker cp /tmp/deid-corpus.jsonl copiloto-deid:/tmp/corpus.jsonl
+docker exec copiloto-deid python bench.py --url http://127.0.0.1:8000 --corpus /tmp/corpus.jsonl --count 100
+docker exec copiloto-deid python bench.py --url http://127.0.0.1:8000 --corpus /tmp/corpus.jsonl --count 100 --join 6
+docker stats --no-stream copiloto-deid
+```
+
+A segunda linha junta 6 relatos (~1.000 caracteres, um caso de plantão). Na
+máquina de desenvolvimento deu p95 de 25 ms e 180 ms com 2 CPUs, ~340 MB.
+Qualidade, com o mesmo modelo da VPS (a quantização muda com a CPU):
+
+```bash
+IP=$(ssh rodrigo@76.13.173.181 "docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' copiloto-deid")
+ssh -N -L 8099:$IP:8000 rodrigo@76.13.173.181 &
+pnpm eval:deid --deid-url http://127.0.0.1:8099
+```
+
+Meta: nomes ≥ 95% e termos clínicos 100% (ADR-020 tem a medição de referência).
+
+**4. Ligar e acompanhar.**
+
+```bash
+# docker/.env.production
+DEID_MODE=model
+DEID_TIMEOUT_MS=1000      # a cada 2.000 caracteres; anexo de 20 mil espera até 10 s
+
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d copiloto-api
+docker logs --since 1h copiloto-api 2>&1 | grep -cE "DEID stage="      # textos com o modelo
+docker logs --since 1h copiloto-api 2>&1 | grep -E "DEID_FALLBACK"     # quedas para a regex
+docker logs --since 1h copiloto-deid 2>&1 | grep -E "DEID_BUSY"        # fila cheia
+```
+
+`DEID stage=case ... latencyMs=… entities=… masked=…` diz quanto o modelo
+marcou e quanto sobrou depois dos epônimos protegidos. `DEID_FALLBACK
+reason=timeout` frequente: subir `DEID_TIMEOUT_MS` ou `DEID_THREADS` (serviço,
+padrão 2). `reason=unavailable`: o container caiu (`docker ps`, `docker inspect
+copiloto-deid --format '{{.State.OOMKilled}}'`).
+
+**Rollback:** `DEID_MODE=regex` e `up -d copiloto-api` (a regex é a de
+sempre). Para liberar a memória: `docker compose --env-file .env.production -f
+docker-compose.prod.yml --profile deid stop copiloto-deid`.
+
 ### Trocar o provider ou o modelo de IA
 
 A troca é só de env, sem rebuild. O gateway (`src/modules/ai-gateway`) fala
@@ -951,6 +1039,7 @@ Prisma não suporta rollback automático. Para reverter:
 | `COPILOT_DECISION_PROMPT` | `v2` liga a decisão em duas camadas da ADR-013 ("Fazer agora" × "Depende de…", perguntas que separam hipóteses, conhecimento geral do modelo rotulado e sem dose); `v1` (padrão) é o prompt de sempre. Exige `COPILOT_REASONING=stages`: sem ele fica `v1` e o log mostra `DECISION_PIPELINE_DOWNGRADE`. Regra da v2 que sobra depois do retry vira `OUTPUT_VALIDATION_WARNING`, nunca bloqueio |
 | `COPILOT_INTAKE` | `on` liga o Copiloto guiado da ADR-014: antes do plano, a leitura do caso decide se pergunta (no máximo 3 perguntas, uma por vez). `off` (padrão) vai direto ao plano. Ausente ou irreconhecível = `off`. Modelo da leitura em `AI_INTAKE_MODEL` (vazio = o da Etapa 1). No log: `INTAKE_READING` (tempo e perguntas), `INTAKE_STARTED` (caminho: `ask`, `unstable`, `complete`, `reading_failed`, `disabled`), `INTAKE_CLOSED` (motivo) e `INTAKE_READING_TIMEOUT` (leitura passou de 20 s e o caso seguiu direto ao plano). Exige a migration `20261012120000_adr_014_case_intakes` |
 | `DEID_CONTEXT_RULES` | CC-201/CC-202/CC-206: `on` (padrão) faz a máscara de PII tirar também o número de prontuário pelo rótulo ("prontuário", "RH", "registro", "matrícula", "BE", "nº de atendimento" → `[REDACTED_RECORD]`) e o nome depois de tratamento ou apelido ("Seu Zé", "Dona Cida", "Sr. João", "Tião" → `[NOME]`), sem tocar a lista de epônimos protegidos (`src/modules/copilot/guardrails/protected-clinical-terms.list.ts`, revisão médica pendente). `off` volta à regex anterior, sem redeploy, se aparecer máscara indevida em texto clínico. Ausente ou irreconhecível = `on`. Vale para o caso, as respostas do afunilamento, áudio, anexos, busca de diretrizes e notas livres. No log (debug): `PII detection ... {"record":1,"name":2}`, só a contagem por tipo |
+| `DEID_MODE` / `DEID_TIMEOUT_MS` / `DEID_SERVICE_URL` | CC-203 / ADR-020: `model` soma à regex o modelo local (`copiloto-deid`, sobe com `--profile deid`) para nome solto, parente e endereço no caso, respostas, anexo, transcrição e consulta de diretrizes; `regex` (padrão) é só a regex. Ausente ou irreconhecível = `regex`. Serviço fora do ar ou mais lento que `DEID_TIMEOUT_MS` (padrão 1000, a cada 2.000 caracteres): segue só com a regex e loga `DEID_FALLBACK`. Ver "De-identificação com o modelo local" |
 | `AI_DECISION_MODEL` / `AI_DECISION_CRITICAL_MODEL` | ADR-016: modelo da decisão no caso comum e no caso grave (instável ou tempo-crítico pela Etapa 1, ou sem entendimento). Vazios = `AI_MODEL` nas duas rotas. Crítico vazio = o comum nas duas. Aceitam `perfil:modelo`. No log: `DECISION_MODEL route=critical\|standard model=...`; a interação grava `params.decisionRoute` |
 | `COPILOT_KNOWLEDGE_SOURCE` | `internal_kb` (padrão) é a busca de sempre (embedding na OpenAI); `model_only` não busca nada; `web` pesquisa em fontes oficiais (`AI_RESEARCH_MODEL`, padrão `claude-sonnet-5-5`; `AI_RESEARCH_EFFORT`, padrão `low`; `WEB_RESEARCH_MAX_SEARCHES`, padrão 5; `WEB_RESEARCH_ALLOWED_DOMAINS`, vazio = 32 fontes padrão). `model_only` e `web` nunca chamam o provedor de embedding. `web` exige `stages` e `COPILOT_DECISION_PROMPT=v2` (sem eles vira `model_only`, com `DECISION_PIPELINE_DOWNGRADE` no log) e Anthropic como `AI_PROVIDER`; pesquisa que falha aparece como `WEB_RESEARCH_FALLBACK` e a análise segue só com o conhecimento do modelo |
 
@@ -993,6 +1082,7 @@ FROM ai_calls WHERE request_id = '<x-request-id>' ORDER BY created_at;
 | `Output validation failed` | IA retornou resposta inválida | Verificar provider, possível mudança de modelo |
 | `Anthropic API error: status=...` | Falha na API da Anthropic | 4xx: ver "Trocar o provider ou o modelo de IA"; 429/5xx: o SDK já retentou 2x, checar status.anthropic.com |
 | `Injection detected` | Possível tentativa de prompt injection | Revisar logs de acesso, bloquear IP se necessário |
+| `DEID_FALLBACK` (WARN, frequente) | Com `DEID_MODE=model`, o serviço `copiloto-deid` caiu, está lento ou respondeu fora do contrato; o texto seguiu só com a regex (nome solto passa) | Ver `reason=` e a seção "De-identificação com o modelo local"; se persistir, `DEID_MODE=regex` |
 
 ---
 
