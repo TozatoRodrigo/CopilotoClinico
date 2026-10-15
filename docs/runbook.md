@@ -704,7 +704,7 @@ pessoa viu; se outra versão entrou no meio, 409.
 
 | Endpoint | O que faz |
 |---|---|
-| `GET /v1/admin/knowledge-cards?displayStatus=&syndrome=&institutionId=` | Fila, com contagem por status de tela |
+| `GET /v1/admin/knowledge-cards?displayStatus=&syndrome=&institutionId=&importTool=` | Fila, com contagem por status de tela; `importTool` = só os importados de uma ferramenta do ANY |
 | `GET /v1/admin/knowledge-cards/:id` | Cartão e todas as versões, com fontes, autor (IA: modelo, hash do prompt, origem) e revisão |
 | `POST /v1/admin/knowledge-cards/:id/versions` | "Corrigir": versão nova do médico (`{ basedOnVersion, content }`); mesma checagem de citação, 422 com os problemas |
 | `POST /v1/admin/knowledge-cards/:id/submit` | Rascunho → em revisão |
@@ -712,14 +712,78 @@ pessoa viu; se outra versão entrou no meio, 409.
 | `POST /v1/admin/knowledge-cards/:id/reject` | "Descartar" com `reason`: arquiva; numa correção de cartão publicado, só a correção cai |
 | `POST /v1/admin/knowledge-cards/:id/archive` | Tira de uso (final) |
 | `GET /v1/admin/knowledge-cards/drafts` | Registro dos pedidos de rascunho, com as rejeições |
+| `POST /v1/admin/knowledge-cards/import-batches/sign` | CC-405: o revisor indicado assina o lote importado de uma ferramenta do ANY (abaixo) |
 
 Corrigir um cartão publicado não o tira do ar: a versão assinada segue
 valendo até a nova ser aprovada. Publicado com a validade vencida aparece como
 `needs_review` ("revisar"). Cada transição grava `CARD_DRAFTED`,
-`CARD_VERSION_CREATED`, `CARD_SUBMITTED`, `CARD_APPROVED`, `CARD_REJECTED` ou
-`CARD_ARCHIVED` na trilha, com versão e `contentSha256` — comentário e motivo
+`CARD_VERSION_CREATED`, `CARD_SUBMITTED`, `CARD_APPROVED`, `CARD_REJECTED`,
+`CARD_ARCHIVED` ou `CARD_IMPORTED` na trilha, com versão e `contentSha256` — comentário e motivo
 só como hash. No banco, um trigger impede mudar o conteúdo de uma versão ou
 regravar a decisão do revisor, e a role da API não apaga cartão nem versão.
+
+**Importar o conteúdo do ANY (CC-405, emenda de 16/10/2026 à ADR-019)** —
+sem IA e sem custo de modelo: cada dose ou protocolo do motor das Ferramentas
+(`src/shared/clinical-tools`) vira um cartão "em revisão" por mapeamento
+determinístico, com a referência do ANY e a procedência (versão do conteúdo e
+commit do ANY) como fonte `clinical_tool`. O cartão passa pela mesma checagem
+de citação de todo cartão: a resposta, as afirmações e a dose estruturada
+citam linhas do texto do item no motor. Ferramentas: infusões (com heparina e
+insulina), pediatria (bolus e infusões), via aérea, sedação, antídotos,
+bloqueios (dose máxima e LAST), paliativos (conversor, hipodermóclise e
+sintomas), ACLS, dengue e CAD/EHH — hoje 175 cartões.
+
+```bash
+pnpm cards:import-any --dry-run                  # sem banco: quantos cartões, doses e achados por ferramenta
+pnpm cards:import-any --dry-run --tool acls --print   # cada cartão: pergunta, doses e achados
+pnpm cards:import-any                            # grava; revisor indicado = o médico "Gustavo Moreira"
+pnpm cards:import-any --tool pediatria --reviewer-crm SP-123456   # uma ferramenta, revisor pelo CRM
+```
+
+Roda da raiz do repositório (lê `docs/ferramentas/revisao-clinica/`) e
+aponta para o banco do `DATABASE_URL`. Sem `--reviewer-crm`, o revisor indicado
+é o único médico cadastrado com o nome "Gustavo Moreira"; nenhum ou mais de um
+é erro. O CRM dele precisa estar verificado só para assinar, não para
+importar. Código 1 quando algum item não passa na checagem (a lista sai no
+terminal e em `knowledge_card_imports.rejections`).
+
+Reimportar não duplica (chave `knowledge_cards.source_key`, ex.
+`any:infusoes/noradrenalina`): mesmo conteúdo fica como está; conteúdo novo
+(o dado do motor mudou, ex. depois de uma decisão da revisão clínica) vira
+versão nova, de volta a "em revisão" — a versão publicada segue valendo até a
+nova ser assinada; cartão arquivado fica arquivado. Cada versão importada
+leva em `review_flags` os achados da revisão clínica do CC-310 que citam o
+item (e, na pediatria, a divergência do id na fonte única do CC-321), para o
+revisor ver antes de assinar; aparecem em `versions[].reviewFlags` no detalhe
+do cartão. Não existe status "aguardando assinatura": o importado entra
+`in_review`. Na trilha, `CARD_IMPORTED` por cartão criado ou atualizado; no
+log, `KNOWLEDGE_CARD_ANY_IMPORT` só com contagens.
+
+**Assinar o lote de uma ferramenta** — o revisor indicado, com CRM
+verificado, publica de uma vez os cartões importados de uma ferramenta:
+
+```http
+GET  /v1/admin/knowledge-cards?importTool=acls&displayStatus=in_review&limit=100
+POST /v1/admin/knowledge-cards/import-batches/sign
+     { "toolId": "acls", "items": [{ "cardId": "…", "version": 1 }, …], "comment"?: "…", "validityMonths"?: 12 }
+```
+
+Cada item leva a versão que o revisor viu. Tudo ou nada: CRM não verificado ou
+cartão indicado a outro revisor dá 403; cartão de outra ferramenta, fora de
+"em revisão" ou com versão nova no meio dá 409 com a lista — nada é gravado.
+Assinado, cada cartão grava `CARD_APPROVED` na trilha (versão, hash e o
+`batch` de que fez parte), vira publicado e entra no índice (CC-406). O
+revisor pode tirar do lote o que não aprova e rejeitar um a um.
+
+```sql
+-- Importações: o que entrou, mudou ou ficou de fora
+SELECT created_at, tool_id, any_commits, items_total, cards_created, cards_updated,
+       cards_unchanged, cards_skipped, jsonb_array_length(rejections) AS recusados
+FROM knowledge_card_imports ORDER BY created_at DESC LIMIT 10;
+-- Cartões do ANY por ferramenta e status
+SELECT split_part(substr(source_key, 5), '/', 1) AS ferramenta, status, count(*)
+FROM knowledge_cards WHERE source_key LIKE 'any:%' GROUP BY 1, 2 ORDER BY 1, 2;
+```
 
 **Anti-circularidade (CC-412)** — nenhum caso do gabarito pode ter a mesma
 origem de rascunho de um cartão (mesmo `draftId` ou mesmo
@@ -849,6 +913,10 @@ pnpm eval:clinical:compare evals/clinical/runs/<v3-modelo> evals/clinical/runs/<
 O relatório ganha "… citando cartão revisado (com a dose do cartão)" na
 seção "Base das condutas". O workspace da Anthropic é o da produção:
 confirme o limite antes de rodar.
+
+**Teste da tese (CC-413)** — modelo barato com cartões contra o Opus sem
+cartões. Comandos e pré-requisitos em `docs/evals/gabarito-clinico.md`
+("Teste da tese"); a comparação é `pnpm eval:clinical:compare --tese`.
 
 ### Sincronizar a base oficial da Conitec (ADR-010)
 
@@ -1157,6 +1225,8 @@ apenas na resposta. Acesso a um protocolo de outra instituição retorna `404`
 | `20260924220000_ivfflat_probes_exact` | `ivfflat.probes = 100` no banco: busca vetorial exata (incidente de 24/09/2026) |
 | `20261012180000_aud_007_audit_log_hash_version` | `audit_log.hash_version` (NULL = hash legado, 2 = JSON canônico) — ADR-015; só adiciona coluna nula |
 | `20261014120000_cc_402_knowledge_cards` | Cartões revisados (ADR-019): `knowledge_card_drafts`, `knowledge_cards`, `knowledge_card_versions`, trigger que congela o conteúdo assinado e GRANT sem DELETE; só cria tabelas |
+| `20261016120000_cc_405_author_kind_import` | Autoria `import` no enum das versões de cartão (CC-405); sozinha porque o valor novo só pode ser usado depois de confirmado |
+| `20261016120100_cc_405_any_card_import` | Importação do ANY (CC-405): `knowledge_card_imports`, `knowledge_cards.source_key` (única) e `assigned_reviewer_id`, `knowledge_card_versions.import_id` e `review_flags`, CHECK de autoria e trigger refeitos; só acrescenta colunas nulas ou com padrão — depois do deploy, `pnpm cards:import-any` |
 | `20261015120000_cc_406_knowledge_card_index` | Índice semântico dos cartões (CC-406): `knowledge_card_index`, derivado (CASCADE a partir do cartão, GRANT com DELETE), `embedding vector` sem dimensão fixa; só cria tabela — depois do deploy, `pnpm cards:reindex` |
 
 ### Rollback de Migration

@@ -202,6 +202,71 @@ Nenhum caso do gabarito nasce dos cartões revisados (ADR-019): um caso escrito 
 
 **Medir os cartões na decisão (CC-408).** A variante `claude-opus-5-5-v3-modelo-cartoes` é a `claude-opus-5-5-v3-modelo` com `COPILOT_REVIEWED_CARDS=on` e o embedding da busca nos cartões (`EMBEDDING_BASE_URL`, `EMBEDDING_API_KEY` e `AI_EMBEDDING_MODEL` vêm do ambiente — o provedor escolhido na CC-406). O banco local precisa dos cartões publicados e do índice (`pnpm cards:reindex`). Rode as duas variantes nos mesmos casos e compare caso a caso: o critério para ligar a flag é nenhum erro crítico novo. O relatório mostra quantas condutas citaram cartão e quantas trouxeram a dose dele. Comandos no runbook ("Cartões na decisão").
 
+### Teste da tese: modelo barato com cartões × Opus sem cartões (CC-413)
+
+A tese do Luiz ("o cérebro é trocável"): com os cartões revisados na decisão,
+um modelo barato erra tão pouco quanto o Opus sem cartões. A métrica da
+história: **erros críticos do barato com cartões ≤ os do Opus**, nos 92 casos
+críticos e na prova cega.
+
+Variantes (`evals/clinical/variants.example.json`), todas com a decisão v3 só
+com o conhecimento do modelo e a decisão fixa no modelo da variante nas duas
+rotas do ADR-016 (`AI_DECISION_MODEL` e `AI_DECISION_CRITICAL_MODEL`) — sem
+isso, um `.env` com o Opus na rota grave levaria os casos graves do modelo
+barato para o Opus em silêncio:
+
+| Variante | Papel |
+|---|---|
+| `claude-opus-5-5-v3-modelo` | Referência: Opus sem cartões |
+| `claude-haiku-5-5-v3-modelo-cartoes` | Haiku com cartões (`COPILOT_REVIEWED_CARDS=on`) |
+| `claude-sonnet-5-5-v3-modelo-cartoes` | Sonnet com cartões |
+| `claude-haiku-5-5-v3-modelo`, `claude-sonnet-5-5-v3-modelo` | Os pares sem cartões, para separar o efeito dos cartões do efeito do modelo (opcionais) |
+
+**Pré-requisitos — sem eles a rodada não mede a tese:**
+
+1. **Cartões publicados no banco do gabarito** (CC-410: 200–300 cartões; os
+   do ANY entram com `pnpm cards:import-any` e o lote assinado — CC-405). Com
+   poucos cartões, quase nenhum caso recebe cartão e a comparação mede só o
+   modelo.
+2. **Índice com vetor**: provedor de embedding ligado (o escolhido na CC-406)
+   e `pnpm cards:reindex` saindo com código 0.
+3. **Limite na Anthropic**: o workspace é o mesmo da produção e já estourou
+   com o gabarito (11/10 e 14/10). Confirme o limite restante antes; as três
+   variantes principais × 92 casos críticos, com juiz, são ~280 análises e
+   ~280 avaliações, mais a prova cega.
+4. Nenhum caso do gabarito escrito a partir de cartão (`pnpm
+   cards:check-circularity` e a revisão do caso).
+
+```bash
+pnpm cards:reindex
+export EMBEDDING_BASE_URL=https://api.openai.com/v1 AI_EMBEDDING_MODEL=text-embedding-3-small \
+  EMBEDDING_API_KEY=$OPENAI_API_KEY   # ou o provedor escolhido na CC-406
+# Conjunto principal: os casos críticos
+pnpm eval:clinical --variant claude-opus-5-5-v3-modelo \
+  --variant claude-haiku-5-5-v3-modelo-cartoes --variant claude-sonnet-5-5-v3-modelo-cartoes \
+  --cases critical --judge anthropic
+# A prova cega, separada (o compare recusa misturar os conjuntos)
+pnpm eval:clinical --set blind --variant claude-opus-5-5-v3-modelo \
+  --variant claude-haiku-5-5-v3-modelo-cartoes --variant claude-sonnet-5-5-v3-modelo-cartoes \
+  --judge anthropic
+# Relatório: A = Opus sem cartões; cada outra execução recebe o veredito
+pnpm eval:clinical:compare --tese evals/clinical/runs/<opus> evals/clinical/runs/<haiku-cartoes> \
+  evals/clinical/runs/<sonnet-cartoes> --out tese-principal.md
+pnpm eval:clinical:compare --tese evals/clinical/runs/<opus-cega> evals/clinical/runs/<haiku-cega> \
+  evals/clinical/runs/<sonnet-cega> --out tese-prova-cega.md
+```
+
+A seção "Teste da tese (CC-413)" do relatório traz, por variante: erros
+críticos (portão / todos os casos), os casos com erro crítico que a
+referência não tinha (para revisar caso a caso), itens importantes
+(diagnósticos e condutas importantes), custo por execução e latência p50 (com
+a razão contra o Opus) e quantas condutas citaram cartão (com a dose dele). O
+veredito é **sustenta** (erros críticos ≤ os do Opus no portão e no total),
+**não sustenta** ou **inconclusiva** — nenhuma conduta citou cartão (cartões
+ou índice faltando), a decisão passou por outro modelo (rota do ADR-016) ou
+houve resposta sem avaliação de erro crítico. O resto da comparação (lado a
+lado e casos que viraram) segue igual.
+
 ---
 
 ## Para devs: rodar

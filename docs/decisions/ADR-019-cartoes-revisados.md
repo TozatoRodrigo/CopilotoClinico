@@ -1,6 +1,6 @@
 # ADR-019: Cartões revisados — modelo, rascunho com citação literal e anti-circularidade
 
-**Status:** Proposto — base implementada (CC-402, CC-403, CC-412), índice (CC-406) e cartões na decisão atrás de flag (CC-408), aguardando revisão clínica
+**Status:** Proposto — base implementada (CC-402, CC-403, CC-412), índice (CC-406), cartões na decisão atrás de flag (CC-408) e importação do ANY com assinatura em lote (CC-405), aguardando revisão clínica
 **Data:** 2026-10-14
 **Relaciona:** ADR-002/ADR-015 (trilha de auditoria), ADR-009 (multi-tenancy),
 ADR-010/ADR-012 (fontes não revisadas)
@@ -222,3 +222,68 @@ e a mesma síndrome não garante o mesmo cenário (dor torácica: SCA ×
 dissecção) — por isso a camada `depends` e a nota do prompt ("só quando
 trata desta apresentação") continuam valendo, e a CC-407 calibra o portão
 com pares rotulados pelos médicos.
+
+## Emenda — 16/10/2026: conteúdo do ANY como cartões (CC-405)
+
+**Contexto.** O ANY já tem doses e protocolos com a autoria do Dr. Gustavo
+Moreira, portados como dado tipado no motor das Ferramentas (ADR-017,
+`src/shared/clinical-tools`). Escrever esses cartões do zero, ou pedir à IA
+que os reescreva a partir das diretrizes, gasta revisão e modelo no que já
+existe. A meta da CC-405 é chegar a 100+ cartões sem começar do zero.
+
+**Decisão.**
+
+1. **Fonte `clinical_tool`.** A fonte do cartão passa a ser uma união: o
+   trecho de diretriz de sempre (sem `kind`, para o conteúdo e o hash das
+   versões gravadas não mudarem) ou um item do motor (`kind:
+   'clinical_tool'`, `toolItemId` = "infusoes/noradrenalina"). O servidor
+   resolve o item pelo código no ar (`any-card-catalog.ts`): título (a
+   referência do ANY, ou "sem referência bibliográfica"), procedência
+   (`ContentProvenance.source`), versão do conteúdo, versão e commit do ANY e
+   o hash do texto do item. O cliente manda só a chave e o id, como faz com o
+   chunk. Item que saiu do motor não é fonte.
+2. **Mapeamento determinístico, sem IA.** Um mapeador por ferramenta escreve
+   o dado tipado em linhas ("Noradrenalina: faixa de dose em infusão contínua
+   0,01 - 3 mcg/kg/min."). Cada linha é ao mesmo tempo texto da fonte e texto
+   do cartão: a resposta e as afirmações citam a linha inteira e a dose
+   estruturada sai dela — por campo estruturado do motor (faixa, teto da
+   conta, via) ou, no texto corrido (antídotos, CAD, dengue), por regra
+   explícita, sempre como pedaço literal da linha. A checagem de citação do
+   CC-403 confere tudo; o que não passa fica fora e é listado. Linha de
+   limite ("Máximo: …"), de diluição ou ambígua fica sem dose estruturada: a
+   dose não é liberada na decisão (CC-408), que é o lado seguro.
+3. **Idempotência.** `knowledge_cards.source_key` ("any:<item>"), única.
+   Mesmo hash de conteúdo, nada muda; hash novo, versão nova (`author_kind
+   import`, `import_id`), de volta a `in_review` sem derrubar a publicada;
+   arquivado não volta. Cada execução fica em `knowledge_card_imports`.
+4. **Achados para o revisor.** O conteúdo do motor está todo com `review:
+   pendente` (CC-310). A versão importada leva `review_flags`: o aviso da
+   revisão pendente, os achados dos documentos de revisão
+   (`docs/ferramentas/revisao-clinica/`) cujo "Onde" cita o item (ou a
+   ferramenta inteira) e, na pediatria, a divergência do id na fonte única
+   (CC-321). Ficam fora do conteúdo assinado — são nota para o revisor, não
+   texto para o médico — e o trigger os congela com a versão.
+5. **Status.** O ciclo do CC-402 não tem "aguardando assinatura": o
+   importado entra `in_review` com `assigned_reviewer_id` = o revisor
+   indicado.
+6. **Assinar lote.** `POST /admin/knowledge-cards/import-batches/sign`: o
+   revisor indicado, com CRM verificado, aprova de uma vez os cartões
+   importados de uma ferramenta, cada um na versão que viu. Tudo ou nada.
+   Por cartão, as mesmas gravações do aprovar um a um (revisor, data,
+   validade, `CARD_APPROVED` com versão e hash, índice), mais o `batch` na
+   trilha. Só o revisor indicado: o lote é o atalho de quem escreveu o
+   conteúdo, não de qualquer curador com CRM — os outros aprovam um a um.
+
+**Consequências.** 175 cartões hoje (pediatria 81, paliativos 25, infusões
+23, antídotos 15, ACLS 6, CAD 6, via aérea 6, sedação 5, bloqueios 4, dengue
+4), 258 doses estruturadas. A tela do cartão publicado mostra a fonte do ANY
+com os mesmos campos da diretriz (título, seção, versão). A anti-
+circularidade (CC-412) não cobre o cartão importado: ele não sai de rascunho
+de IA; caso do gabarito escrito a partir do conteúdo do ANY precisa ser
+recusado na revisão do caso. Mudou o motor (decisão da revisão clínica, novo
+porte do ANY), reimportar gera a versão nova para assinar.
+
+**Riscos.** A ligação achado → item é por texto ("Onde" cita o nome ou o id):
+achado com nome diferente do item cai só no aviso geral da ferramenta. A
+assinatura em lote é rápida de propósito; o tempo de revisão por cartão não é
+medido nela (`review_duration_ms` nulo).

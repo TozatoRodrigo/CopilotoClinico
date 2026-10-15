@@ -112,6 +112,48 @@ describe('variantes versionadas', () => {
     );
   });
 
+  // CC-413 — teste da tese: Haiku e Sonnet com cartões contra o Opus sem
+  // cartões. Cada variante com cartões é o par sem cartões do mesmo modelo
+  // mais a flag e o embedding da busca, e a decisão fica no modelo da variante
+  // nas duas rotas do ADR-016 — um .env com AI_DECISION_CRITICAL_MODEL não
+  // pode levar os casos graves do modelo barato para o Opus em silêncio.
+  it('trazem o teste da tese: cada modelo com e sem cartões, decisão fixa no modelo', () => {
+    const variants = loadVariants(VERSIONED_VARIANTS_FILE);
+    const byName = (name: string) => variants.find((variant) => variant.name === name);
+    for (const model of ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5']) {
+      const base = byName(`${model}-v3-modelo`);
+      const cards = byName(`${model}-v3-modelo-cartoes`);
+      expect(base?.env, model).toMatchObject({
+        AI_MODEL: model,
+        COPILOT_DECISION_PROMPT: 'v3',
+        COPILOT_KNOWLEDGE_SOURCE: 'model_only',
+        AI_DECISION_MODEL: model,
+        AI_DECISION_CRITICAL_MODEL: model,
+      });
+      expect(base?.env.COPILOT_REVIEWED_CARDS).toBeUndefined();
+      expect(cards?.env, model).toEqual({
+        ...base?.env,
+        COPILOT_REVIEWED_CARDS: 'on',
+        EMBEDDING_PROVIDER: 'openai',
+        EMBEDDING_BASE_URL: '${EMBEDDING_BASE_URL}',
+        EMBEDDING_API_KEY: '${EMBEDDING_API_KEY}',
+        AI_EMBEDDING_MODEL: '${AI_EMBEDDING_MODEL}',
+      });
+      expect(() =>
+        resolveVariantEnv(cards!, {
+          ANTHROPIC_API_KEY: 'sk-ant-x',
+          EMBEDDING_BASE_URL: 'https://embeddings.example',
+          EMBEDDING_API_KEY: 'x',
+          AI_EMBEDDING_MODEL: 'modelo',
+        }),
+      ).not.toThrow();
+    }
+    // O modelo barato decide sozinho: nem o entendimento vai para outro modelo.
+    for (const model of ['claude-sonnet-5-5', 'claude-haiku-5-5']) {
+      expect(byName(`${model}-v3-modelo-cartoes`)?.env.AI_UNDERSTANDING_MODEL).toBe(model);
+    }
+  });
+
   it('não guardam nenhuma chave literal', () => {
     for (const variant of loadVariants(VERSIONED_VARIANTS_FILE)) {
       for (const [key, value] of Object.entries(variant.env)) {

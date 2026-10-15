@@ -14,6 +14,7 @@ import {
   type RunSummary,
 } from './report';
 import type { Rate } from './stats';
+import { renderThesis, thesisRows, thesisRunOf } from './thesis';
 
 /**
  * F0-A — Compara execuções lado a lado (ex.: baseline × Sonnet 5.5 × Opus
@@ -21,7 +22,11 @@ import type { Rate } from './stats';
  * casos que viraram. A primeira execução é a referência.
  */
 
-const USAGE = `Uso: pnpm eval:clinical:compare <runDir> <runDir> [...] [--out comparacao.md]`;
+const USAGE = `Uso: pnpm eval:clinical:compare <runDir> <runDir> [...] [--out comparacao.md] [--tese]
+
+  --tese  CC-413: a primeira execução é o Opus sem cartões; cada outra (modelo barato com
+          cartões) é julgada pela métrica da tese — erros críticos ≤ os da referência —
+          com itens importantes, custo e latência ao lado.`;
 
 type Flag = boolean | null;
 
@@ -108,7 +113,11 @@ const CRITERIA: Array<[keyof RunSummary['criteria'], string]> = [
   ['safeNextStep', 'Próximo passo seguro'],
 ];
 
-export function renderComparison(runs: LoadedRun[], casesById: Map<string, ClinicalCase>): string {
+export function renderComparison(
+  runs: LoadedRun[],
+  casesById: Map<string, ClinicalCase>,
+  options: { thesis?: boolean } = {},
+): string {
   const summaries = runs.map((run) => summarizeRun(run, casesById));
   const [reference] = summaries;
   const [referenceRun] = runs;
@@ -142,6 +151,14 @@ export function renderComparison(runs: LoadedRun[], casesById: Map<string, Clini
   });
   if (warnings.length > 0)
     lines.push('## Atenção', '', ...warnings.map((warning) => `- ${warning}`), '');
+
+  if (options.thesis) {
+    lines.push(
+      renderThesis(
+        thesisRows(runs.map((run, index) => thesisRunOf(run, summaries[index] ?? reference))),
+      ),
+    );
+  }
 
   lines.push('## Lado a lado', '', header, `| --- | ${summaries.map(() => '---').join(' | ')} |`);
   const row = (label: string, render: (summary: RunSummary) => string) =>
@@ -221,7 +238,11 @@ function main(): void {
   const { values, positionals } = parseArgs({
     args: process.argv.slice(2),
     allowPositionals: true,
-    options: { out: { type: 'string' }, help: { type: 'boolean', short: 'h', default: false } },
+    options: {
+      out: { type: 'string' },
+      tese: { type: 'boolean', default: false },
+      help: { type: 'boolean', short: 'h', default: false },
+    },
   });
   if (values.help || positionals.length < 2) {
     console.log(USAGE);
@@ -238,7 +259,7 @@ function main(): void {
   }
   const { cases } = loadCaseSet(CASE_SETS[runs[0]?.meta.caseSet.set ?? 'main']);
   const casesById = new Map(cases.map((clinicalCase) => [clinicalCase.id, clinicalCase]));
-  const markdown = renderComparison(runs, casesById);
+  const markdown = renderComparison(runs, casesById, { thesis: values.tese });
   if (values.out) {
     writeFileSync(values.out, markdown);
     console.log(`Comparação gravada em ${values.out}`);

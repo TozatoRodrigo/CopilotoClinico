@@ -154,7 +154,7 @@
     },
     {
       "name": "claude-opus-5-5-v3-modelo",
-      "description": "Regras v3 (emenda de 11/10/2026 ao ADR-013): Claude Opus 5.5, decisão v3 (0 a 2 perguntas, até 6 condutas para agora, destino e notificação, correções determinísticas no lugar de retry), só com o conhecimento do modelo. Sem embedding nem chave da OpenAI.",
+      "description": "Regras v3 (emenda de 11/10/2026 ao ADR-013): Claude Opus 5.5, decisão v3 (0 a 2 perguntas, até 6 condutas para agora, destino e notificação, correções determinísticas no lugar de retry), só com o conhecimento do modelo. Sem embedding nem chave da OpenAI. Decisão fixa no mesmo modelo nas duas rotas do ADR-016 (AI_DECISION_MODEL e AI_DECISION_CRITICAL_MODEL), como antes da rota: é a referência do teste da tese (CC-413).",
       "env": {
         "AI_PROVIDER": "anthropic",
         "AI_MODEL": "claude-opus-5-5",
@@ -165,7 +165,9 @@
         "COPILOT_REASONING": "stages",
         "AI_UNDERSTANDING_EFFORT": "low",
         "COPILOT_DECISION_PROMPT": "v3",
-        "COPILOT_KNOWLEDGE_SOURCE": "model_only"
+        "COPILOT_KNOWLEDGE_SOURCE": "model_only",
+        "AI_DECISION_MODEL": "claude-opus-5-5",
+        "AI_DECISION_CRITICAL_MODEL": "claude-opus-5-5"
       }
     },
     {
@@ -186,7 +188,9 @@
         "EMBEDDING_PROVIDER": "openai",
         "EMBEDDING_BASE_URL": "${EMBEDDING_BASE_URL}",
         "EMBEDDING_API_KEY": "${EMBEDDING_API_KEY}",
-        "AI_EMBEDDING_MODEL": "${AI_EMBEDDING_MODEL}"
+        "AI_EMBEDDING_MODEL": "${AI_EMBEDDING_MODEL}",
+        "AI_DECISION_MODEL": "claude-opus-5-5",
+        "AI_DECISION_CRITICAL_MODEL": "claude-opus-5-5"
       }
     },
     {
@@ -227,7 +231,7 @@
     },
     {
       "name": "claude-haiku-5-5-v3-modelo",
-      "description": "Regras v3 com Claude Haiku 5.5 no entendimento e na decisão, só com o conhecimento do modelo — mede se o modelo barato e rápido segura o gabarito v2.",
+      "description": "Regras v3 com Claude Haiku 5.5 no entendimento e na decisão, só com o conhecimento do modelo — mede se o modelo barato e rápido segura o gabarito v2. Decisão fixa no mesmo modelo nas duas rotas do ADR-016 (AI_DECISION_MODEL e AI_DECISION_CRITICAL_MODEL), como antes da rota: é a referência do teste da tese (CC-413).",
       "env": {
         "AI_PROVIDER": "anthropic",
         "AI_MODEL": "claude-haiku-5-5",
@@ -239,7 +243,76 @@
         "AI_UNDERSTANDING_EFFORT": "low",
         "AI_UNDERSTANDING_MODEL": "claude-haiku-5-5",
         "COPILOT_DECISION_PROMPT": "v3",
-        "COPILOT_KNOWLEDGE_SOURCE": "model_only"
+        "COPILOT_KNOWLEDGE_SOURCE": "model_only",
+        "AI_DECISION_MODEL": "claude-haiku-5-5",
+        "AI_DECISION_CRITICAL_MODEL": "claude-haiku-5-5"
+      }
+    },
+    {
+      "name": "claude-haiku-5-5-v3-modelo-cartoes",
+      "description": "CC-413 (teste da tese): claude-haiku-5-5-v3-modelo com os cartões revisados na decisão (COPILOT_REVIEWED_CARDS=on) e o embedding da busca nos cartões (EMBEDDING_BASE_URL, EMBEDDING_API_KEY e AI_EMBEDDING_MODEL do ambiente). Compare com claude-opus-5-5-v3-modelo (Opus sem cartões): a tese se sustenta se os erros críticos não passam os do Opus (pnpm eval:clinical:compare --tese).",
+      "env": {
+        "AI_PROVIDER": "anthropic",
+        "AI_MODEL": "claude-haiku-5-5",
+        "AI_BASE_URL": "https://api.anthropic.com",
+        "AI_API_KEY": "${ANTHROPIC_API_KEY}",
+        "AI_MAX_OUTPUT_TOKENS": "32000",
+        "AI_EFFORT": "high",
+        "COPILOT_REASONING": "stages",
+        "AI_UNDERSTANDING_EFFORT": "low",
+        "AI_UNDERSTANDING_MODEL": "claude-haiku-5-5",
+        "COPILOT_DECISION_PROMPT": "v3",
+        "COPILOT_KNOWLEDGE_SOURCE": "model_only",
+        "AI_DECISION_MODEL": "claude-haiku-5-5",
+        "AI_DECISION_CRITICAL_MODEL": "claude-haiku-5-5",
+        "COPILOT_REVIEWED_CARDS": "on",
+        "EMBEDDING_PROVIDER": "openai",
+        "EMBEDDING_BASE_URL": "${EMBEDDING_BASE_URL}",
+        "EMBEDDING_API_KEY": "${EMBEDDING_API_KEY}",
+        "AI_EMBEDDING_MODEL": "${AI_EMBEDDING_MODEL}"
+      }
+    },
+    {
+      "name": "claude-sonnet-5-5-v3-modelo",
+      "description": "CC-413: regras v3 com Claude Sonnet 5.5 no entendimento e na decisão (as duas rotas do ADR-016), só com o conhecimento do modelo — o par sem cartões da claude-sonnet-5-5-v3-modelo-cartoes, para separar o efeito dos cartões do efeito do modelo.",
+      "env": {
+        "AI_PROVIDER": "anthropic",
+        "AI_MODEL": "claude-sonnet-5-5",
+        "AI_BASE_URL": "https://api.anthropic.com",
+        "AI_API_KEY": "${ANTHROPIC_API_KEY}",
+        "AI_MAX_OUTPUT_TOKENS": "32000",
+        "AI_EFFORT": "high",
+        "COPILOT_REASONING": "stages",
+        "AI_UNDERSTANDING_EFFORT": "low",
+        "AI_UNDERSTANDING_MODEL": "claude-sonnet-5-5",
+        "COPILOT_DECISION_PROMPT": "v3",
+        "COPILOT_KNOWLEDGE_SOURCE": "model_only",
+        "AI_DECISION_MODEL": "claude-sonnet-5-5",
+        "AI_DECISION_CRITICAL_MODEL": "claude-sonnet-5-5"
+      }
+    },
+    {
+      "name": "claude-sonnet-5-5-v3-modelo-cartoes",
+      "description": "CC-413 (teste da tese): claude-sonnet-5-5-v3-modelo com os cartões revisados na decisão (COPILOT_REVIEWED_CARDS=on) e o embedding da busca nos cartões (EMBEDDING_BASE_URL, EMBEDDING_API_KEY e AI_EMBEDDING_MODEL do ambiente). Compare com claude-opus-5-5-v3-modelo (Opus sem cartões) pela métrica da tese (pnpm eval:clinical:compare --tese).",
+      "env": {
+        "AI_PROVIDER": "anthropic",
+        "AI_MODEL": "claude-sonnet-5-5",
+        "AI_BASE_URL": "https://api.anthropic.com",
+        "AI_API_KEY": "${ANTHROPIC_API_KEY}",
+        "AI_MAX_OUTPUT_TOKENS": "32000",
+        "AI_EFFORT": "high",
+        "COPILOT_REASONING": "stages",
+        "AI_UNDERSTANDING_EFFORT": "low",
+        "AI_UNDERSTANDING_MODEL": "claude-sonnet-5-5",
+        "COPILOT_DECISION_PROMPT": "v3",
+        "COPILOT_KNOWLEDGE_SOURCE": "model_only",
+        "AI_DECISION_MODEL": "claude-sonnet-5-5",
+        "AI_DECISION_CRITICAL_MODEL": "claude-sonnet-5-5",
+        "COPILOT_REVIEWED_CARDS": "on",
+        "EMBEDDING_PROVIDER": "openai",
+        "EMBEDDING_BASE_URL": "${EMBEDDING_BASE_URL}",
+        "EMBEDDING_API_KEY": "${EMBEDDING_API_KEY}",
+        "AI_EMBEDDING_MODEL": "${AI_EMBEDDING_MODEL}"
       }
     },
     {
