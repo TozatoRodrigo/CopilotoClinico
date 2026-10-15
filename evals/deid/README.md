@@ -28,3 +28,18 @@ pelo menos 95% dos nomes mascarados e nenhum termo clínico perdido.
 O corpus gerado por templates é o ponto de partida. Antes de decidir, vale
 acrescentar relatos escritos por médicos (sem dado real), porque o modelo pode
 ir bem no template e mal no texto de plantão.
+
+## Regras de contexto da regex (CC-201, CC-202, CC-206)
+
+A regex mascara também o prontuário pelo rótulo ("prontuário 4587213") e o
+nome depois de tratamento ou apelido ("Seu Zé", "Dona Cida", "Tião"), sem
+tocar os epônimos da lista protegida. O corpus traz 22 relatos escritos à mão
+(`deid-m01`...) com essas formas e as armadilhas clínicas ("BE -5,2", "leito
+12", "dona de casa", "Seu Holter"). Para medir sem as regras novas:
+
+```bash
+DEID_CONTEXT_RULES=off pnpm eval:deid
+```
+
+Arquivo de predições gerado antes dos relatos à mão não tem os ids `deid-m*`:
+rode o script do modelo de novo sobre o `corpus.jsonl` atual.

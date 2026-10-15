@@ -130,6 +130,8 @@ describe('gabarito clínico', () => {
   // dispare qualquer um dos dois mediria o filtro, não o modelo.
   // Vale também para a abertura e o roteiro do afunilamento: as respostas do
   // médico simulado passam pelos mesmos filtros na reanálise.
+  // Com as regras de contexto ligadas (CC-201/CC-206): nenhum caso real tem
+  // prontuário nem nome, então qualquer máscara aqui é falso positivo clínico.
   it('chega ao modelo exatamente como escrito (sem PII mascarada nem bloqueio de injeção)', () => {
     for (const clinicalCase of cases) {
       const funnel = clinicalCase.input.funnel;
@@ -138,7 +140,9 @@ describe('gabarito clínico', () => {
         ...(funnel ? [funnel.opening, ...funnel.script.map((fact) => fact.text)] : []),
       ];
       for (const text of texts) {
-        expect(maskPII(text).hasPII, `${clinicalCase.id}: ${text}`).toBe(false);
+        expect(maskPII(text, { contextRules: true }).hasPII, `${clinicalCase.id}: ${text}`).toBe(
+          false,
+        );
         expect(scanForInjection(text).safe, `${clinicalCase.id}: ${text}`).toBe(true);
       }
     }
@@ -174,7 +178,10 @@ describe('prova cega (cases-blind)', () => {
 
   it('chega ao modelo exatamente como escrito (sem PII mascarada nem bloqueio de injeção)', () => {
     for (const clinicalCase of blind) {
-      expect(maskPII(clinicalCase.input.caseText).hasPII, clinicalCase.id).toBe(false);
+      expect(
+        maskPII(clinicalCase.input.caseText, { contextRules: true }).hasPII,
+        clinicalCase.id,
+      ).toBe(false);
       expect(scanForInjection(clinicalCase.input.caseText).safe, clinicalCase.id).toBe(true);
     }
   });
