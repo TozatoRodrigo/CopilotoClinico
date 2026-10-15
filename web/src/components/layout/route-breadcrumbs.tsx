@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation';
 import {
   BookOpen,
+  Cards,
   ChartBar,
   ChatCircleText,
   ClipboardText,
@@ -34,6 +35,7 @@ const STATIC: Record<string, BreadcrumbItem> = {
   profile: { label: 'Perfil', icon: UserCircle },
   'verificacao-crm': { label: 'Verificação de CRM', icon: IdentificationCard },
   admin: { label: 'Console', icon: SquaresFour },
+  revisao: { label: 'Revisão de cartões', icon: Cards },
 };
 
 const ADMIN_CHILDREN: Record<string, BreadcrumbItem> = {

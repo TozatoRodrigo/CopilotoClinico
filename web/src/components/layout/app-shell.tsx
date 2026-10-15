@@ -27,7 +27,7 @@ import {
   WorkspaceSidebar,
 } from '@/components/layout/workspace-sidebar';
 import {
-  APP_SECTIONS_BY_ROLE,
+  appSectionsFor,
   HOME_ITEM,
   isNavItemActive,
   type NavItem,
@@ -45,11 +45,12 @@ const NEW_CASE_ITEM: NavItem = {
   exact: true,
 };
 
-/** Rotas de foco (captura, análise, edição): sidebar começa recolhida. */
+/** Rotas de foco (captura, análise, edição, revisão de cartão): sidebar começa recolhida. */
 function isFocusPath(pathname: string): boolean {
   return (
     /\/encounters\/[^/]+\/(capture|result|conversation)/.test(pathname) ||
-    /\/encounters\/[^/]+\/documents\/[^/]+\/edit/.test(pathname)
+    /\/encounters\/[^/]+\/documents\/[^/]+\/edit/.test(pathname) ||
+    /^\/revisao\/?$/.test(pathname)
   );
 }
 
@@ -92,7 +93,9 @@ function SidebarContents({
   // telas nesta sessão.
   const stats = useDashboardStats();
   const cases = useEncounterList({ limit: 1 });
-  const sections = APP_SECTIONS_BY_ROLE[role].map((section) => ({
+  const sections = appSectionsFor(role, {
+    isCardReviewer: physician?.isCardReviewer,
+  }).map((section) => ({
     ...section,
     items: section.items.map((item) =>
       item.href === '/encounters' ? { ...item, count: cases.data?.meta?.total } : item,

@@ -79,6 +79,7 @@ class ApiClient {
       throw new ApiError(
         response.status,
         (errorBody as { message?: string }).message ?? messages.errors.httpError(response.status),
+        errorBody,
       );
     }
 
@@ -112,11 +113,18 @@ class ApiClient {
 
 export class ApiError extends Error {
   status: number;
+  /**
+   * Corpo JSON da resposta de erro, para quem precisa de mais que a mensagem
+   * (ex.: os `issues` do 422 da correção de um cartão — CC-404). Não tipado:
+   * quem lê valida a forma.
+   */
+  body: unknown;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, body?: unknown) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.body = body;
   }
 }
 

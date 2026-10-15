@@ -692,6 +692,43 @@ origem de rascunho de um cartão (mesmo `draftId` ou mesmo
 pnpm cards:check-circularity   # só leitura; código 1 se houver caso circular
 ```
 
+**Revisão no celular (CC-404)** — os médicos revisores usam `/revisao` no web:
+um cartão por vez, com o texto integral das fontes e o trecho citado marcado,
+e três decisões (Aprovar com validade, Corrigir, Descartar com motivo). A tela
+cronometra cada cartão (só o tempo com a tela visível) e manda
+`reviewDurationMs` junto com a decisão.
+
+O acesso **não** é o do console: o revisor costuma ter papel `PHYSICIAN`, e a
+fila exige a flag `is_card_reviewer` **e** CRM verificado. A flag não dá
+acesso a `admin/knowledge-cards` (rascunho por IA, arquivar, lista completa).
+
+```sql
+-- Conceder (o médico sai e entra de novo para ver "Revisão de cartões" no menu)
+UPDATE physicians SET is_card_reviewer = true WHERE email = 'revisor@exemplo.com';
+-- Conferir quem pode revisar (sem CRM verificado a fila responde 403)
+SELECT email, role, crm_verified, is_card_reviewer FROM physicians WHERE is_card_reviewer;
+```
+
+| Endpoint (papel de revisor) | O que faz |
+|---|---|
+| `GET /v1/review/knowledge-cards/next?skip=<id>,<id>` | Próximo cartão `in_review` (o que espera há mais tempo), só globais e da instituição do revisor, com o texto das fontes e os trechos citados; `skip` = pulados na sessão |
+| `POST /v1/review/knowledge-cards/:id/versions` | Corrigir (mesma checagem de citação; 422 com os problemas por campo) |
+| `POST /v1/review/knowledge-cards/:id/approve` | Aprovar; `reviewDurationMs` obrigatório |
+| `POST /v1/review/knowledge-cards/:id/reject` | Descartar com `reason`; `reviewDurationMs` obrigatório |
+
+Cartão fora do escopo do revisor responde 404; cartão que outro revisor já
+decidiu, 409 (a tela avisa e passa ao próximo). No log, cada decisão sai como
+`KNOWLEDGE_CARD_REVIEW decision=approved|rejected|corrected card=<id>
+version=<n> durationMs=<ms>`, sem texto do cartão.
+
+```sql
+-- Tempo de revisão por decisão (meta do CC-404: até 6 minutos por cartão)
+SELECT review_decision, count(*) AS decisoes,
+       round(percentile_cont(0.5) WITHIN GROUP (ORDER BY review_duration_ms) / 1000) AS mediana_s,
+       round(percentile_cont(0.9) WITHIN GROUP (ORDER BY review_duration_ms) / 1000) AS p90_s
+FROM knowledge_card_versions WHERE review_duration_ms IS NOT NULL GROUP BY 1;
+```
+
 ### Sincronizar a base oficial da Conitec (ADR-010)
 
 PCDT, DDT, Diretrizes Brasileiras e Protocolos de Uso (~190 documentos) entram
@@ -999,6 +1036,7 @@ apenas na resposta. Acesso a um protocolo de outra instituição retorna `404`
 | `20260924220000_ivfflat_probes_exact` | `ivfflat.probes = 100` no banco: busca vetorial exata (incidente de 24/09/2026) |
 | `20261012180000_aud_007_audit_log_hash_version` | `audit_log.hash_version` (NULL = hash legado, 2 = JSON canônico) — ADR-015; só adiciona coluna nula |
 | `20261014120000_cc_402_knowledge_cards` | Cartões revisados (ADR-019): `knowledge_card_drafts`, `knowledge_cards`, `knowledge_card_versions`, trigger que congela o conteúdo assinado e GRANT sem DELETE; só cria tabelas |
+| `20261015120000_cc_404_card_reviewer` | `physicians.is_card_reviewer` (padrão `false`): acesso só à fila de revisão de cartões (CC-404); só adiciona coluna |
 
 ### Rollback de Migration
 

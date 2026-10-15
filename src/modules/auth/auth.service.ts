@@ -227,6 +227,8 @@ export class AuthService {
         crmVerified: physician.crmVerified,
         role: physician.role,
         locale: physician.locale,
+        // CC-404 — o web mostra a fila de revisão de cartões só ao revisor.
+        isCardReviewer: physician.isCardReviewer,
       },
       ...tokens,
     };
@@ -276,6 +278,7 @@ export class AuthService {
         crmVerified: true,
         role: true,
         locale: true,
+        isCardReviewer: true,
       },
     });
 
@@ -393,6 +396,7 @@ export class AuthService {
         mfaEnabled: true,
         subscriptionStatus: true,
         locale: true,
+        isCardReviewer: true,
         createdAt: true,
       },
     });

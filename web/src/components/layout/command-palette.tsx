@@ -17,7 +17,7 @@ import { useAuth } from '@/lib/auth-store';
 import { useTheme } from '@/components/providers/theme-provider';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Kbd } from '@/components/ui/kbd';
-import { APP_SECTIONS_BY_ROLE, HOME_ITEM } from '@/components/layout/nav-config';
+import { appSectionsFor, HOME_ITEM } from '@/components/layout/nav-config';
 import { cn } from '@/lib/utils';
 
 /**
@@ -53,7 +53,8 @@ const STATUS_LABEL: Record<string, string> = {
 
 function PaletteBody({ onClose }: { onClose: () => void }) {
   const router = useRouter();
-  const { role } = useAuth();
+  const { role, physician } = useAuth();
+  const isCardReviewer = physician?.isCardReviewer ?? false;
   const { resolvedTheme, setTheme } = useTheme();
   const [query, setQuery] = useState('');
   const deferredQuery = useDeferredValue(query.trim());
@@ -71,7 +72,10 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
   };
 
   const staticCommands = useMemo<Command[]>(() => {
-    const pages = [HOME_ITEM, ...APP_SECTIONS_BY_ROLE[role].flatMap((s) => s.items)];
+    const pages = [
+      HOME_ITEM,
+      ...appSectionsFor(role, { isCardReviewer }).flatMap((s) => s.items),
+    ];
     return [
       {
         id: 'new-case',
@@ -119,7 +123,7 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
     ];
     // `go` só depende de router/onClose, estáveis durante a vida do dialog.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [role, resolvedTheme, setTheme]);
+  }, [role, isCardReviewer, resolvedTheme, setTheme]);
 
   const commands = useMemo<Command[]>(() => {
     const q = normalize(deferredQuery);

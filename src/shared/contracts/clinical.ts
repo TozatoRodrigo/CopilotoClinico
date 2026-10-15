@@ -48,6 +48,12 @@ export interface Physician {
   // web/src/lib/messages/use-messages.ts é quem valida contra os locales
   // suportados antes de resolver o dicionário.
   locale?: string;
+  /**
+   * CC-404 — revisor de cartões: vê a fila de revisão (/revisao). Opcional
+   * porque a sessão gravada antes do campo não o tem — some até o próximo
+   * login, e a API é quem decide o acesso.
+   */
+  isCardReviewer?: boolean;
 }
 
 export interface AuthResponse {

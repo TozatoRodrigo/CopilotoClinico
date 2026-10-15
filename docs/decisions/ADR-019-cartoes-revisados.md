@@ -98,3 +98,29 @@ recusado pelo schema.
 - A checagem anti-circularidade só vale para casos que registram
   `draftOrigin`: caso escrito a partir de um cartão sem declarar a origem não
   é detectável por código. A revisão do caso continua sendo a defesa.
+
+## Adendo — revisão no celular e papel de revisor (CC-404, 15/10/2026)
+
+**Decisão:** a tela de revisão (`/revisao`) não usa a barreira do console. Os
+revisores do piloto (Luiz, Ripardo, Gustavo Moreira) são médicos de papel
+`PHYSICIAN`; dar a eles COMPLIANCE/ADMIN + `is_curator` abriria diretrizes,
+feedback, verificação de CRM e o pedido de rascunho à IA, que não são deles.
+
+- Flag nova `physicians.is_card_reviewer` (mesmo modelo provisório do
+  `is_curator`, KB-002), concedida à mão pelo runbook.
+- Controller próprio, `review/knowledge-cards`, com `CardReviewerGuard`: exige
+  a flag **e** CRM verificado já na entrada — o revisor existe para assinar.
+  A flag não abre nada de `admin/knowledge-cards`; o papel de admin não abre a
+  fila (quem administra e revisa recebe as duas coisas).
+- O revisor só vê e decide cartões `in_review` globais ou da instituição a que
+  está vinculado (ADR-009): fora do escopo, 404; já decidido, 409.
+- As decisões são as mesmas do console (`KnowledgeCardsService`): versão
+  vista, CRM para aprovar, trilha `CARD_*`. Na fila, `reviewDurationMs` é
+  obrigatório; a tela conta só o tempo com a página visível.
+- A vista do revisor traz o texto integral de cada fonte e as faixas do
+  trecho citado, calculadas no servidor com a mesma normalização da checagem
+  de citação; se o texto da fonte mudou depois da citação (`chunkSha256`), a
+  tela avisa.
+
+**Consequência:** dois caminhos de decisão sobre o mesmo serviço. O console
+continua para quem cura a base; a fila é o caminho do médico revisor.
