@@ -1,4 +1,5 @@
 import { CALCULATOR_CATALOG, type CalculatorCatalogEntry } from './calculator-catalog';
+import { INFUSION_DRUGS } from './infusions/drugs';
 import { getCalculator } from './registry';
 
 /**
@@ -37,8 +38,8 @@ export interface ToolEntry {
 }
 
 /**
- * Roteiros e calculadoras de dose do ANY. Só a lista de calculadoras já tem
- * tela; cada roteiro ganha a sua na história indicada no comentário.
+ * Roteiros e calculadoras de dose do ANY. Os que já têm tela estão como
+ * "disponivel"; cada roteiro ganha a sua na história indicada no comentário.
  */
 export const TOOLS: readonly ToolEntry[] = [
   {
@@ -49,7 +50,7 @@ export const TOOLS: readonly ToolEntry[] = [
     synonyms: ['escores', 'scores', 'mdcalc', 'fórmulas'],
     status: 'disponivel',
   },
-  // CC-311 e CC-312
+  // CC-311 e CC-312. Os nomes e sinônimos das 16 drogas também acham a tela.
   {
     id: 'infusoes',
     name: 'Infusões contínuas',
@@ -59,12 +60,14 @@ export const TOOLS: readonly ToolEntry[] = [
       'bomba de infusão',
       'drogas vasoativas',
       'dva',
-      'noradrenalina',
       'ml/h',
+      'vasopressor',
+      'sedação contínua',
       'heparina',
       'insulina',
+      ...INFUSION_DRUGS.flatMap(({ name, aliases }) => [name, ...aliases]),
     ],
-    status: 'em-breve',
+    status: 'disponivel',
   },
   // CC-313 e CC-314
   {

@@ -85,6 +85,19 @@ describe('/ferramentas — hub (CC-304)', () => {
     ).toHaveAttribute('href', '/ferramentas/calculadoras');
   });
 
+  it('abre Infusões contínuas a partir do hub e da busca por droga (CC-311)', async () => {
+    render(<FerramentasPage />);
+    const calculators = screen.getByRole('region', { name: 'Calculadoras' });
+    expect(within(calculators).getByRole('link', { name: /Infusões contínuas/ })).toHaveAttribute(
+      'href',
+      '/ferramentas/infusoes',
+    );
+
+    await userEvent.type(screen.getByRole('searchbox'), 'precedex');
+    const results = screen.getByRole('region', { name: 'Resultados da busca' });
+    expect(within(results).getByRole('link', { name: /Infusões contínuas/ })).toBeInTheDocument();
+  });
+
   it("lista a ferramenta não portada como 'em breve', sem link nem favorito", () => {
     render(<FerramentasPage />);
     const resuscitation = screen.getByRole('region', { name: 'Ressuscitação' });

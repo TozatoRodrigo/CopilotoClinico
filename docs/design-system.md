@@ -158,6 +158,7 @@ desenha. Vitrine em `/dev/components#ferramentas`.
 | `NumericField` | Valor com unidade dentro do campo, vírgula ou ponto, faixa aceita como dica. Erro acima do máximo na hora; abaixo do mínimo ao sair do campo. |
 | `WeightField` | Peso adulto (40–200 kg) ou pediátrico (0,5–50 kg). |
 | `ScoreItemList` | Itens de escore como rádio nativo, pontos à direita. |
+| `ChoiceGroup` | Escolha única curta (modo da droga, diluição, fase do protocolo) como rádio nativo, alvo de 44px. |
 | `CalculatorResult` | Resultado ao vivo (`role="status"`): valor, faixa e ação sugerida. Tom: baixo risco cinza, intermediário laranja, alto vermelho. |
 | `ReferenceSection` / `ContentProvenanceNote` | Por que usar, quando usar, pérolas, citação; origem, versão e revisão do conteúdo. |
 | `CopyToChartButton` | Texto para o prontuário, com o texto selecionável se a área de transferência falhar. |
