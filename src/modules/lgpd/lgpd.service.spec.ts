@@ -33,6 +33,10 @@ describe('LgpdService', () => {
     auditLog: {
       findMany: ReturnType<typeof vi.fn>;
     };
+    legalAcceptance: {
+      findMany: ReturnType<typeof vi.fn>;
+      deleteMany: ReturnType<typeof vi.fn>;
+    };
     refreshToken: {
       findMany: ReturnType<typeof vi.fn>;
       deleteMany: ReturnType<typeof vi.fn>;
@@ -46,10 +50,6 @@ describe('LgpdService', () => {
       deleteMany: ReturnType<typeof vi.fn>;
     };
     caseIntake: { findMany: ReturnType<typeof vi.fn> };
-    legalAcceptance: {
-      findMany: ReturnType<typeof vi.fn>;
-      deleteMany: ReturnType<typeof vi.fn>;
-    };
     $transaction: ReturnType<typeof vi.fn>;
   };
   let auditService: {
@@ -84,6 +84,10 @@ describe('LgpdService', () => {
       auditLog: {
         findMany: vi.fn(),
       },
+      legalAcceptance: {
+        findMany: vi.fn().mockResolvedValue([]),
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
       refreshToken: {
         findMany: vi.fn(),
         deleteMany: vi.fn(),
@@ -97,10 +101,6 @@ describe('LgpdService', () => {
         deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
       caseIntake: { findMany: vi.fn().mockResolvedValue([]) },
-      legalAcceptance: {
-        findMany: vi.fn().mockResolvedValue([]),
-        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
-      },
       $transaction: vi.fn(),
     };
     auditService = {
