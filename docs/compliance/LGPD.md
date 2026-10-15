@@ -77,9 +77,10 @@ Os anexos vão com o texto redigido inline: é todo o conteúdo que guardamos.
 1. Apaga do MinIO os PDFs dos documentos dos atendimentos do médico. Se o
    storage falhar, nada é apagado no banco e a resposta é 503 — o pedido pode
    ser repetido.
-2. Numa transação: apaga anexos, capturas de áudio, atendimentos (e, em
-   cascata, documentos, interações IA e execuções de protocolo),
-   consentimentos e refresh tokens; anonimiza o cadastro do médico.
+2. Numa transação: apaga decisões por recomendação, reportes do copiloto,
+   anexos, capturas de áudio, atendimentos (e, em cascata, documentos,
+   interações IA e execuções de protocolo), consentimentos e refresh tokens;
+   anonimiza o cadastro do médico.
 3. Registra `DATA_ERASURE` na trilha com as contagens apagadas.
 
 A trilha de auditoria **não** é apagada (append-only, AUD-001): é registro de

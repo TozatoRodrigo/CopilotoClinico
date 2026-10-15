@@ -39,6 +39,8 @@ interface ErasureResponse {
   status: string;
   estimatedCompletion: string;
   erased: {
+    recommendationDecisions: number;
+    copilotFeedback: number;
     encounters: number;
     encounterAttachments: number;
     audioCaptures: number;
