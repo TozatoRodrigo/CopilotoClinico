@@ -57,6 +57,8 @@ describe('referência congelada do ANY', () => {
         // CC-313 e CC-314 — ACLS
         'AclsGuide.tsx',
         'MetronomeContext.tsx',
+        // CC-315 — via aérea (a conta e o roteiro moram na própria página)
+        'AirwayGuide.tsx',
       ]),
     );
   });

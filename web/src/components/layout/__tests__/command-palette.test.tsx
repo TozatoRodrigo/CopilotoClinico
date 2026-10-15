@@ -63,6 +63,19 @@ describe('CommandPalette — Ferramentas (ADR-017)', () => {
     expect(push).toHaveBeenCalledWith('/ferramentas/acls');
   });
 
+  it('com a flag ligada, acha a via aérea pelo sinônimo e abre o roteiro', async () => {
+    vi.stubEnv('NEXT_PUBLIC_FERRAMENTAS', 'on');
+    render(<CommandPalette open onOpenChange={vi.fn()} />);
+
+    await userEvent.type(screen.getByRole('combobox'), 'iot');
+
+    const group = await screen.findByRole('group', { name: 'Ferramentas' });
+    await userEvent.click(
+      within(group).getByRole('option', { name: /Intubação e via aérea difícil/ }),
+    );
+    expect(push).toHaveBeenCalledWith('/ferramentas/via-aerea');
+  });
+
   it('com a flag ligada, a página Ferramentas aparece em Páginas', async () => {
     vi.stubEnv('NEXT_PUBLIC_FERRAMENTAS', 'on');
     render(<CommandPalette open onOpenChange={vi.fn()} />);
