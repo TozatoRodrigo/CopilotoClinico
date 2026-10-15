@@ -333,3 +333,53 @@ e a retenção do lado deles não está na documentação pública: exige termos
 privacidade (DPA) antes de ligar. A chamada do Jev ainda não entra em `ai_calls` (sem preço na tabela
 nem etapa própria): o log `JEV_SCOPE` traz modelo, escolha, confiança, tokens
 de entrada e latência.
+
+## Emenda — 15/10/2026: portão de relevância, Jev × reranker (CC-407)
+
+**Contexto.** O portão provisório da CC-408 (similaridade e tema) erra para
+os dois lados — a mesma síndrome não garante o mesmo cenário (dengue × sepse)
+e o radical de palavra perde sinônimos. A CC-407 pede comparar o Jev
+(TypeSafe) com um reranker em 100 pares rotulados pelos médicos e ligar o
+vencedor com o limiar calibrado.
+
+**Decisão.**
+
+1. **Três portões atrás de flag.** `CARD_RELEVANCE_GATE=threshold|jev|reranker`
+   (padrão `threshold`, o de hoje), lida a cada análise pela
+   `ConfiguredRelevanceGate` (token `CARD_RELEVANCE_GATE`). Sem chave/serviço,
+   ou com o provedor fora do ar, decide o `threshold` (`CARD_GATE_FALLBACK` no
+   log; a falha também no Sentry) — nunca "nenhum portão". O portão devolve
+   quem decidiu e o motivo do fallback, que vão para `params.reviewedCards`.
+2. **Jev.** Uma pergunta Noul (sim/não, probabilidade de "sim") por
+   candidato, com `state` = a situação (síndrome, hipóteses e o entendimento,
+   mascarados de novo) e o cartão (tema, pergunta, população, resposta e o
+   texto das afirmações — sem revisor, fontes nem dose estruturada). Entra
+   com probabilidade ≥ `CARD_GATE_JEV_MIN_PROBABILITY` (0,8, alto de
+   propósito: falso positivo libera dose do cenário errado). O cliente da
+   CC-503 passou a `src/modules/jev`, compartilhado.
+3. **Reranker.** Interface `CardReranker`, com uma implementação: o
+   cross-encoder `BAAI/bge-reranker-v2-m3` servido pelo
+   text-embeddings-inference (TEI) num contêiner na VPS
+   (`CARD_RERANKER_URL`). Escolhido sobre Voyage `rerank-2.5` e Cohere
+   `rerank` porque não exige contrato nem DPA novo — nada sai da VPS —, não
+   cobra por token e o mesmo servidor serve o embedding local que a CC-406
+   mede (`bge-m3`). Custo: um contêiner a mais (~2–3 GB de RAM). A Voyage
+   entra como outra implementação se a CC-406 escolher a Voyage (mesmo
+   contrato). Escore 0–1 (sigmoide), não calibrado; limiar
+   `CARD_GATE_RERANKER_MIN_SCORE` (0,5).
+4. **Bake-off.** `pnpm eval:card-gate` lê os pares
+   (`evals/cards/gate-pairs.json`), roda os portões com freio de gasto
+   (`--max-usd`, parada em 429/402 e em falhas seguidas) e grava um relatório
+   com precisão, revocação e F1 (com IC de Wilson) no limiar atual e no
+   sugerido — o que maximiza F1 com precisão ≥ 90% —, Brier, curva de
+   calibração, latência p50/p95 e custo. Ver docs/evals/portao-de-relevancia.md.
+
+**Pendente.** Os 100 pares rotulados pelos médicos (há só a semente
+sintética de 20 pares), o DPA da TypeSafe (critério 3), a chave e o contrato
+do Jev conferidos na API real, o contêiner do TEI na VPS e a rodada do
+bake-off. Até lá, `threshold`.
+
+**Riscos.** Com 100 pares o intervalo de confiança da precisão é largo
+(±6–10 pontos): o limiar sugerido é o ponto de partida, não verdade. O Jev
+manda o entendimento e o cartão aos EUA. Os limiares padrão do Jev e do
+reranker não foram medidos.

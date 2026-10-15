@@ -763,7 +763,9 @@ v4) e em qualquer `COPILOT_KNOWLEDGE_SOURCE`:
 2. o portão de relevância aceita o cartão com similaridade ≥
    `REVIEWED_CARDS_MIN_SIMILARITY` (padrão 0,50) e do mesmo tema (mesma
    síndrome, ou o tema do cartão nas hipóteses do caso); até
-   `REVIEWED_CARDS_MAX` cartões (padrão 3, até 5);
+   `REVIEWED_CARDS_MAX` cartões (padrão 3, até 5). Esse é o portão
+   `threshold`; o Jev e o reranker entram por `CARD_RELEVANCE_GATE` (CC-407,
+   abaixo);
 3. o cartão entra no prompt com "Revisado por Dr(a). X, CRM Y/UF, em data";
    a conduta que o cita pode trazer **só a dose estruturada do cartão**, do
    mesmo fármaco — outra dose vale um retry (`CARD DOSE NOT IN CARD`) e, se
@@ -778,7 +780,7 @@ e índice com vetor (`pnpm cards:reindex` sai com código 0), e o gabarito com
 a variante de cartões sem aumento de erro crítico (abaixo). Sem embedding, a
 flag ligada não quebra nada: a busca não roda e a análise segue sem cartões.
 
-No log: `REVIEWED_CARDS` (status, portão, síndrome, candidatos, aceitos,
+No log: `REVIEWED_CARDS` (status, portão que decidiu, fallback, síndrome, candidatos, aceitos,
 rejeitados por motivo, `cardId:versão:similaridade`), `REVIEWED_CARDS_GAP`
 (nenhum cartão aplicável — a lacuna da CC-409), `REVIEWED_CARDS_SKIPPED`
 (decisão v1 ou sem entendimento), `REVIEWED_CARDS_FAILED` e
@@ -882,6 +884,49 @@ SELECT date_trunc('week', created_at) AS semana,
        count(*) FILTER (WHERE payload->>'outcome' = 'refused') AS recusadas
 FROM audit_log WHERE action = 'QUICK_QUESTION_ASKED' GROUP BY 1 ORDER BY 1 DESC;
 ```
+
+**Portão de relevância dos cartões (CC-407, `CARD_RELEVANCE_GATE`)** — decide,
+na decisão (CC-408) e na pergunta rápida (CC-501), se cada cartão achado pela
+busca se aplica à situação. Lido a cada análise:
+
+- `threshold` (padrão; valor irreconhecível também): similaridade e tema, como
+  acima. Não chama ninguém.
+- `jev`: uma pergunta Noul ao Jev da TypeSafe por candidato ("este cartão se
+  aplica a esta situação?"), com o entendimento mascarado e o cartão (tema,
+  pergunta, população, resposta, afirmações — sem revisor nem fontes); entra
+  com probabilidade ≥ `CARD_GATE_JEV_MIN_PROBABILITY`. Usa `JEV_API_KEY` e a
+  conexão `JEV_*` da guarda de escopo. Ligar só com o DPA da TypeSafe e o
+  contrato conferido na API de verdade.
+- `reranker`: o cross-encoder `BAAI/bge-reranker-v2-m3` servido pelo
+  text-embeddings-inference (TEI) num contêiner na VPS — nada sai da VPS, sem
+  custo por token; entra com escore ≥ `CARD_GATE_RERANKER_MIN_SCORE`. Subir
+  o serviço (exemplo; conferir a tag de CPU atual do TEI):
+  `docker run -p 8081:80 ghcr.io/huggingface/text-embeddings-inference:cpu-1.7 --model-id BAAI/bge-reranker-v2-m3`
+  e apontar `CARD_RERANKER_URL=http://reranker:80` (rede interna do compose).
+  ~2–3 GB de RAM.
+
+Sem chave/serviço, ou com o Jev/reranker fora do ar, decide o `threshold` —
+a análise nunca fica sem portão por causa de um provedor.
+
+| Variável | Padrão | O que faz |
+|---|---|---|
+| `CARD_RELEVANCE_GATE` | `threshold` | `threshold`, `jev` ou `reranker` |
+| `CARD_GATE_JEV_MIN_PROBABILITY` | `0.8` | probabilidade mínima do Jev (provisória até o bake-off) |
+| `CARD_RERANKER_URL` | — | base do serviço (`POST /rerank`); sem ela o reranker não roda |
+| `CARD_RERANKER_API_KEY` | — | Bearer opcional do serviço |
+| `CARD_RERANKER_MODEL` | `BAAI/bge-reranker-v2-m3` | rótulo do modelo no log |
+| `CARD_RERANKER_TIMEOUT_MS` | `2000` | teto da chamada (100–10000) |
+| `CARD_GATE_RERANKER_MIN_SCORE` | `0.5` | escore mínimo do reranker (provisório até o bake-off) |
+
+No log: `CARD_GATE_JEV` e `CARD_GATE_RERANKER` (modelo, candidatos, aceitos,
+limiar, tokens, latência — sem texto); `CARD_GATE_FALLBACK gate=… reason=unconfigured`
+(aviso) e `reason=failed error=…` (erro, também no Sentry; só status e classe
+do erro). `REVIEWED_CARDS` traz o portão que decidiu e o `fallback`
+(`jev_unconfigured`, `jev_failed`, `reranker_unconfigured`,
+`reranker_failed`), que também vão para `params.reviewedCards` na interação.
+
+Escolher o portão e o limiar: `pnpm eval:card-gate` com os pares rotulados
+pelos médicos — ver [docs/evals/portao-de-relevancia.md](evals/portao-de-relevancia.md).
 
 ### Sincronizar a base oficial da Conitec (ADR-010)
 
@@ -1214,6 +1259,7 @@ Prisma não suporta rollback automático. Para reverter:
 | `OFFICIAL_GUIDELINES_ENABLED` | `false` tira PCDT/DDT/DB/PU do retrieval (válvula de escape da ADR-010); ausente = ligada. Os limiares `OFFICIAL_*` estão em `.env.example` |
 | `KNOWLEDGE_CARDS_DRAFT_ENABLED` | `true` liga o rascunho de cartões por IA (CC-403: `pnpm cards:draft` e `POST /v1/admin/knowledge-cards/drafts`). Ausente ou irreconhecível = desligado (503). Modelo em `AI_CARD_DRAFT_MODEL` (vazio = `AI_MODEL`; aceita `perfil:modelo`). Não muda a análise do Copiloto |
 | `COPILOT_REVIEWED_CARDS` | CC-408: `on` põe os cartões revisados publicados na decisão em etapas (v2/v3/v4), com "Revisado por" e a dose estruturada do cartão liberada. Ausente ou irreconhecível = desligada: nenhuma busca de cartão, prompt e saída iguais. Ligada, uma chamada de embedding a mais por análise; sem embedding, segue sem cartões. Limiares em `REVIEWED_CARDS_MIN_SIMILARITY` (padrão 0,5) e `REVIEWED_CARDS_MAX` (padrão 3). Ver "Cartões na decisão" |
+| `CARD_RELEVANCE_GATE` | CC-407: portão que decide se um cartão se aplica — `threshold` (padrão: similaridade e tema), `jev` (TypeSafe; exige `JEV_API_KEY` e DPA) ou `reranker` (cross-encoder local em `CARD_RERANKER_URL`). Sem chave/serviço ou com o provedor fora, decide o `threshold` e o log mostra `CARD_GATE_FALLBACK`. Limiares em `CARD_GATE_JEV_MIN_PROBABILITY` (0,8) e `CARD_GATE_RERANKER_MIN_SCORE` (0,5), provisórios até o bake-off (`pnpm eval:card-gate`). Ver "Portão de relevância dos cartões" |
 | `UNREVIEWED_SOURCES_PRELIMINARY` | `false` desliga a contenção da ADR-012: PCDT e chunk curado sem assinatura voltam a embasar conduta definitiva. Ausente ou irreconhecível = ligada |
 | `COPILOT_REASONING` | `stages` liga o raciocínio em etapas da ADR-013 (entendimento do caso antes da busca, busca dirigida, card "O que eu entendi"); `legacy` (padrão) volta ao pipeline de sempre. Ausente ou irreconhecível = `legacy`. Etapa 1 com `AI_UNDERSTANDING_MODEL` (vazio = `AI_MODEL`) e `AI_UNDERSTANDING_EFFORT` (padrão `low`). Falha da Etapa 1 aparece como `UNDERSTANDING_FAILED`/`UNDERSTANDING_FALLBACK` no log e a análise segue pela busca de sempre |
 | `COPILOT_DECISION_PROMPT` | `v2` liga a decisão em duas camadas da ADR-013 ("Fazer agora" × "Depende de…", perguntas que separam hipóteses, conhecimento geral do modelo rotulado e sem dose); `v1` (padrão) é o prompt de sempre. Exige `COPILOT_REASONING=stages`: sem ele fica `v1` e o log mostra `DECISION_PIPELINE_DOWNGRADE`. Regra da v2 que sobra depois do retry vira `OUTPUT_VALIDATION_WARNING`, nunca bloqueio |
