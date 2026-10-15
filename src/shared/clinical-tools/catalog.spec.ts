@@ -123,7 +123,10 @@ describe('calculatorPathway (CC-306)', () => {
 
   it('não aponta roteiro enquanto ele estiver "em breve"', () => {
     expect(calculatorPathway(withPathway, [tox('em-breve')])).toBeNull();
-    expect(calculatorPathway(withPathway)).toBeNull();
+  });
+
+  it('com o catálogo atual, aponta Toxicologia, que já abre (CC-323)', () => {
+    expect(calculatorPathway(withPathway)?.id).toBe('toxicologia');
   });
 
   it('aponta o roteiro quando ele já abre', () => {

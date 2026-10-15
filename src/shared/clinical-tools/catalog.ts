@@ -1,6 +1,8 @@
 import type { CalculatorDefinition } from './calculator';
 import { CALCULATOR_CATALOG, type CalculatorCatalogEntry } from './calculator-catalog';
 import { getCalculator } from './registry';
+import { ANTIDOTES } from './toxicology/antidotes';
+import { TOXIDROME_IDS, TOXIDROMES } from './toxicology/toxidromes';
 
 /**
  * Catálogo da área Ferramentas (ADR-017): os grupos do hub, as ferramentas
@@ -38,7 +40,7 @@ export interface ToolEntry {
 }
 
 /**
- * Roteiros e calculadoras de dose do ANY. Só a lista de calculadoras já tem
+ * Roteiros e calculadoras de dose do ANY. Os marcados `disponivel` já têm
  * tela; cada roteiro ganha a sua na história indicada no comentário.
  */
 export const TOOLS: readonly ToolEntry[] = [
@@ -130,14 +132,27 @@ export const TOOLS: readonly ToolEntry[] = [
     synonyms: ['ped', 'criança', 'broselow', 'doses pediátricas', 'pals', 'lactente'],
     status: 'em-breve',
   },
-  // CC-323 e CC-324
+  // CC-323 e CC-324. Os antídotos e as toxíndromes também acham o roteiro.
   {
     id: 'toxicologia',
     name: 'Intoxicações e antídotos',
     description: 'Toxíndromes, descontaminação, antídotos e doses tóxicas.',
     group: 'toxicologia',
-    synonyms: ['tox', 'intoxicação', 'envenenamento', 'antídoto', 'overdose', 'toxíndrome'],
-    status: 'em-breve',
+    synonyms: [
+      'tox',
+      'intoxicação',
+      'envenenamento',
+      'antídoto',
+      'overdose',
+      'toxíndrome',
+      'ciatox',
+      'disque-intoxicação',
+      'carvão ativado',
+      'descontaminação',
+      ...ANTIDOTES.map(({ name }) => name),
+      ...TOXIDROME_IDS.map((id) => TOXIDROMES[id].name),
+    ],
+    status: 'disponivel',
   },
   // CC-326
   {

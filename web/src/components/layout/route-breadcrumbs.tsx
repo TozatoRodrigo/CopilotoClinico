@@ -19,7 +19,8 @@ import {
   Users,
 } from '@phosphor-icons/react';
 import { CALCULATOR_CATALOG } from '@clinical-tools/calculator-catalog';
-import { calculatorName } from '@clinical-tools/catalog';
+import { calculatorName, TOOLS } from '@clinical-tools/catalog';
+import { TOX_MODULES } from '@clinical-tools/toxicology/modules';
 import { useEncounterDetail } from '@/lib/clinical-queries';
 import { Breadcrumb, type BreadcrumbItem } from '@/components/ui/breadcrumb';
 
@@ -79,13 +80,28 @@ function EncounterCrumbs({ segments }: { segments: string[] }) {
   return <Breadcrumb items={items} />;
 }
 
-/** ADR-017 — Ferramentas › Calculadoras › nome da calculadora. */
+/** Subpáginas de um roteiro (Toxicologia › Guia de antídotos). */
+const TOOL_SUBPAGES: Record<string, Record<string, string>> = {
+  toxicologia: Object.fromEntries(TOX_MODULES.map(({ id, title }) => [id, title])),
+};
+
+/**
+ * ADR-017 — Ferramentas › Calculadoras › nome da calculadora, ou
+ * Ferramentas › nome do roteiro › subpágina.
+ */
 function ferramentasCrumbs(segments: string[]): BreadcrumbItem[] {
   const [, section, id] = segments;
   const items: BreadcrumbItem[] = [
     { label: 'Ferramentas', icon: Toolbox, href: section ? '/ferramentas' : undefined },
   ];
-  if (section !== 'calculadoras') return items;
+  if (section !== 'calculadoras') {
+    const tool = TOOLS.find((entry) => entry.id === section && entry.status === 'disponivel');
+    if (!tool) return items;
+    items.push({ label: tool.name, href: id ? `/ferramentas/${tool.id}` : undefined });
+    const subpage = id ? TOOL_SUBPAGES[tool.id]?.[id] : undefined;
+    if (subpage) items.push({ label: subpage });
+    return items;
+  }
   items.push({
     label: 'Calculadoras',
     icon: Calculator,
