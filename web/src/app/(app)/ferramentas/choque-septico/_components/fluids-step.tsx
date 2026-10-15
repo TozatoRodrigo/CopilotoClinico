@@ -13,7 +13,7 @@ import {
 import { NumericField } from '@/components/domain/clinical-tools/numeric-field';
 import { Button } from '@/components/ui/button';
 import { Callout } from '@/components/ui/callout';
-import { ChoiceQuestion } from '../../_components/shock/choice-question';
+import { ChoiceGroup, choicesFromIds } from '@/components/domain/clinical-tools/choice-group';
 import {
   ActionQuestion,
   BlockHint,
@@ -43,10 +43,9 @@ export function FluidsStep({ state, values, dispatch, now }: SepticStepProps) {
       <section aria-labelledby="pp-titulo" className="flex flex-col gap-3">
         <BlockTitle id="pp-titulo">{PULSE_PRESSURE.title}</BlockTitle>
         <BlockHint>{PULSE_PRESSURE.explanation}</BlockHint>
-        <ChoiceQuestion
-          id="pp-modo"
+        <ChoiceGroup
           label="Como informar a PP"
-          options={PULSE_PRESSURE.modes}
+          options={choicesFromIds(PULSE_PRESSURE.modes)}
           value={state.pulsePressureMode}
           onChange={(mode) => dispatch({ type: 'modo-da-pressao-de-pulso', mode })}
         />
@@ -96,10 +95,9 @@ export function FluidsStep({ state, values, dispatch, now }: SepticStepProps) {
 
       {pp !== null && pp < PULSE_PRESSURE.lowerThan ? (
         <section aria-label="Fluidorresponsividade" className="flex flex-col gap-4">
-          <ChoiceQuestion
-            id="metodo-fluidos"
+          <ChoiceGroup
             label={FLUIDS.methodsTitle}
-            options={FLUID_RESPONSIVENESS_METHODS}
+            options={choicesFromIds(FLUID_RESPONSIVENESS_METHODS)}
             value={state.fluidMethod}
             onChange={(id) => dispatch({ type: 'metodo-de-fluidorresponsividade', method: id })}
           />
@@ -108,10 +106,9 @@ export function FluidsStep({ state, values, dispatch, now }: SepticStepProps) {
               {method.text}
             </Callout>
           ) : null}
-          <ChoiceQuestion
-            id="responsivo-fluidos"
+          <ChoiceGroup
             label={FLUIDS.responsiveQuestion}
-            options={YES_NO_OPTIONS}
+            options={choicesFromIds(YES_NO_OPTIONS)}
             value={state.fluidResponsive}
             onChange={(answer) => dispatch({ type: 'responsivo-a-fluidos', answer })}
           />

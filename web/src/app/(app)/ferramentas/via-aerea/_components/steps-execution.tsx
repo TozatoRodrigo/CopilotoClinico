@@ -20,7 +20,8 @@ import { NumericField } from '@/components/domain/clinical-tools/numeric-field';
 import { Button } from '@/components/ui/button';
 import { Disclosure } from '@/components/ui/disclosure';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Block, NoticeCallout, OptionGroup } from './airway-parts';
+import { Block, NoticeCallout } from './airway-parts';
+import { ChoiceGroup } from '@/components/domain/clinical-tools/choice-group';
 import { ChecklistSection } from './checklist-section';
 import { infusionsHref } from './infusions-link';
 import type { StepProps } from './step-props';
@@ -70,9 +71,9 @@ export function ProcedureStep({ state, view, dispatch }: StepProps) {
           <span className="text-muted-foreground">Tubo: </span>
           {view.tube ?? '-- (informe o sexo no passo 4)'}
         </p>
-        <OptionGroup
-          legend="Cormack-Lehane"
-          options={CORMACK_GRADES.map((grade) => ({ id: grade, label: grade }))}
+        <ChoiceGroup
+          label="Cormack-Lehane"
+          options={CORMACK_GRADES.map((grade) => ({ value: grade, label: grade }))}
           value={state.cormack}
           onChange={(grade) => dispatch({ type: 'set-cormack', grade })}
           columns={4}

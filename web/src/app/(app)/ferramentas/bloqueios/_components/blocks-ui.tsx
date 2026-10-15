@@ -190,63 +190,6 @@ export function TextField({
   );
 }
 
-/**
- * Escolha única em botões lado a lado (lateralidade, técnica, epinefrina):
- * rádio nativo por baixo, então setas do teclado e leitor de tela funcionam.
- * Tocar de novo na escolhida desmarca, como deixar o campo em branco.
- */
-export function ChoiceGroup<T extends string>({
-  legend,
-  value,
-  options,
-  onValueChange,
-  allowEmpty = true,
-}: {
-  legend: string;
-  value: T | '';
-  options: readonly { value: T; label: string }[];
-  onValueChange: (value: T | '') => void;
-  allowEmpty?: boolean;
-}) {
-  const name = useId();
-  return (
-    <fieldset className="flex min-w-0 flex-col gap-1.5">
-      <legend className="mb-1.5 text-[0.8125rem] font-medium text-muted-foreground">
-        {legend}
-      </legend>
-      <div className={cn('grid gap-1.5', options.length === 2 ? 'grid-cols-2' : 'grid-cols-3')}>
-        {options.map((option) => {
-          const checked = value === option.value;
-          return (
-            <label
-              key={option.value}
-              className={cn(
-                'flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md border px-3 py-2 text-center text-sm transition-colors duration-100 has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring/40',
-                checked
-                  ? 'border-primary bg-tone-blue-bg font-medium text-tone-blue-ink'
-                  : 'border-border bg-background text-foreground hover:bg-hover',
-              )}
-            >
-              <input
-                type="radio"
-                name={name}
-                value={option.value}
-                checked={checked}
-                onChange={() => onValueChange(option.value)}
-                onClick={() => {
-                  if (checked && allowEmpty) onValueChange('');
-                }}
-                className="sr-only"
-              />
-              {option.label}
-            </label>
-          );
-        })}
-      </div>
-    </fieldset>
-  );
-}
-
 export function CheckboxRow({
   label,
   checked,

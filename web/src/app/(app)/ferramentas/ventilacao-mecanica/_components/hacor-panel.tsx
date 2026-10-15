@@ -17,6 +17,7 @@ import {
   type HacorEntry,
   type HacorPhase,
 } from '@clinical-tools/ventilation/hacor';
+import { ChoiceGroup, type ChoiceOption } from '@/components/domain/clinical-tools/choice-group';
 import { CopyToChartButton } from '@/components/domain/clinical-tools/copy-to-chart-button';
 import { ReferenceSection } from '@/components/domain/clinical-tools/reference-section';
 import { RESULT_TONE } from '@/components/domain/clinical-tools/result-tone';
@@ -26,51 +27,14 @@ import { toneBg, toneInk, toneTag, toneText } from '@/lib/tone';
 import { cn } from '@/lib/utils';
 import { EMPTY_HACOR_SESSION, useHacorSession } from './hacor-state';
 
-const PHASES: readonly { id: HacorPhase; title: string; description: string }[] = [
-  { id: 'inicio', title: 'Iniciar VNI', description: 'Avaliar risco antes de iniciar' },
+const PHASES: readonly ChoiceOption<HacorPhase>[] = [
+  { value: 'inicio', label: 'Iniciar VNI', description: 'Avaliar risco antes de iniciar' },
   {
-    id: 'reavaliacao',
-    title: 'Reavaliar VNI',
+    value: 'reavaliacao',
+    label: 'Reavaliar VNI',
     description: 'Paciente já em VNI: verificar resposta',
   },
 ];
-
-function PhaseSelector({
-  phase,
-  onSelect,
-}: {
-  phase: HacorPhase | null;
-  onSelect: (phase: HacorPhase) => void;
-}) {
-  return (
-    <div role="group" aria-label="Momento da avaliação" className="grid gap-2 sm:grid-cols-2">
-      {PHASES.map((option) => {
-        const selected = option.id === phase;
-        return (
-          <button
-            key={option.id}
-            type="button"
-            aria-pressed={selected}
-            onClick={() => onSelect(option.id)}
-            className={cn(
-              'flex min-h-14 flex-col items-start justify-center gap-0.5 rounded-md border px-3 py-2 text-left transition-colors duration-100 focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-none',
-              selected
-                ? 'border-primary bg-tone-blue-bg text-tone-blue-ink'
-                : 'border-border bg-background text-foreground hover:bg-hover',
-            )}
-          >
-            <span className="text-sm font-semibold">{option.title}</span>
-            <span
-              className={cn('text-xs', selected ? 'text-tone-blue-ink' : 'text-muted-foreground')}
-            >
-              {option.description}
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
 
 /** "T0 (10:05): HACOR 7 — alto risco", no tom da faixa. */
 function EntryTag({ entry }: { entry: HacorEntry }) {
@@ -231,9 +195,12 @@ export function HacorPanel() {
   return (
     <div className="flex flex-col gap-5">
       <p className="text-[0.9375rem] text-pretty text-muted-foreground">{HACOR.reference.why}</p>
-      <PhaseSelector
-        phase={phase}
-        onSelect={(next) => update((current) => ({ ...current, phase: next }))}
+      <ChoiceGroup
+        label="Momento da avaliação"
+        hideLabel
+        options={PHASES}
+        value={phase}
+        onChange={(next) => update((current) => ({ ...current, phase: next }))}
       />
 
       {phase ? (

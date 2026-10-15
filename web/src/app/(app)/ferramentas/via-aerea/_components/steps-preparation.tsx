@@ -10,7 +10,8 @@ import {
 import { AIRWAY_RANGES } from '@clinical-tools/airway/vitals';
 import { NumericField } from '@/components/domain/clinical-tools/numeric-field';
 import { Disclosure } from '@/components/ui/disclosure';
-import { NoticeCallout, OptionGroup } from './airway-parts';
+import { NoticeCallout } from './airway-parts';
+import { ChoiceGroup, choicesFromIds } from '@/components/domain/clinical-tools/choice-group';
 import { ChecklistSection } from './checklist-section';
 import { infusionsHref } from './infusions-link';
 import type { StepProps } from './step-props';
@@ -44,9 +45,9 @@ export function TripleSetupStep(props: StepProps) {
       </ChecklistSection>
 
       <ChecklistSection checklist="planoC" {...props}>
-        <OptionGroup
-          legend="Membrana cricotireóidea identificada?"
-          options={MEMBRANE_METHODS}
+        <ChoiceGroup
+          label="Membrana cricotireóidea identificada?"
+          options={choicesFromIds(MEMBRANE_METHODS)}
           value={state.membrane}
           onChange={(method) => dispatch({ type: 'set-membrane', method })}
           columns={3}

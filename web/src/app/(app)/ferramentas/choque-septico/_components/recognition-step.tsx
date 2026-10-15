@@ -12,7 +12,7 @@ import {
 import { NumericField } from '@/components/domain/clinical-tools/numeric-field';
 import { WeightField } from '@/components/domain/clinical-tools/weight-field';
 import { Button } from '@/components/ui/button';
-import { ChoiceQuestion } from '../../_components/shock/choice-question';
+import { ChoiceGroup, choicesFromIds } from '@/components/domain/clinical-tools/choice-group';
 import { formatClock } from '../../_components/shock/format-time';
 import { BlockHint, BlockTitle, CheckItem } from '../../_components/shock/roteiro-parts';
 import { ToneResult } from '../../_components/shock/tone-result';
@@ -72,10 +72,9 @@ export function RecognitionStep({
             }
             placeholder={state.lactateUnit === 'mmol/L' ? '2,0' : '18'}
           />
-          <ChoiceQuestion
-            id="unidade-lactato"
+          <ChoiceGroup
             label="Unidade do lactato"
-            options={UNIT_OPTIONS}
+            options={choicesFromIds(UNIT_OPTIONS)}
             value={state.lactateUnit}
             onChange={(unit) => dispatch({ type: 'unidade-do-lactato', unit })}
           />
@@ -85,10 +84,9 @@ export function RecognitionStep({
       <section aria-labelledby="tec-titulo" className="flex flex-col gap-3">
         <BlockTitle id="tec-titulo">{CAPILLARY_REFILL.title}</BlockTitle>
         <BlockHint>{CAPILLARY_REFILL.technique}</BlockHint>
-        <ChoiceQuestion
-          id="tec-faixa"
+        <ChoiceGroup
           label="TEC por faixa"
-          options={CAPILLARY_REFILL.modes}
+          options={choicesFromIds(CAPILLARY_REFILL.modes)}
           value={state.tecMode}
           onChange={(mode) => dispatch({ type: 'tec-por-faixa', mode })}
         />

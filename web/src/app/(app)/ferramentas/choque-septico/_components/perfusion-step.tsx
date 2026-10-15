@@ -11,7 +11,7 @@ import {
 import { NumericField } from '@/components/domain/clinical-tools/numeric-field';
 import { Callout } from '@/components/ui/callout';
 import { Disclosure } from '@/components/ui/disclosure';
-import { ChoiceQuestion } from '../../_components/shock/choice-question';
+import { ChoiceGroup, choicesFromIds } from '@/components/domain/clinical-tools/choice-group';
 import { InfusionLinks } from '../../_components/shock/infusion-links';
 import { PerfusionResult } from '../../_components/shock/perfusion-quadrant';
 import {
@@ -85,10 +85,9 @@ export function PerfusionStep({ state, values, dispatch, now }: SepticStepProps)
         defaultOpen={state.chronicHypertension !== null || state.dobutamineTest !== null}
       >
         <div className="flex flex-col gap-4">
-          <ChoiceQuestion
-            id="hipertensao-cronica"
+          <ChoiceGroup
             label={PERFUSION_STEP.chronicHypertensionQuestion}
-            options={YES_NO_OPTIONS}
+            options={choicesFromIds(YES_NO_OPTIONS)}
             value={state.chronicHypertension}
             onChange={(answer) => dispatch({ type: 'hipertensao-cronica', answer })}
           />
@@ -97,10 +96,9 @@ export function PerfusionStep({ state, values, dispatch, now }: SepticStepProps)
               <Callout tone="gray" title={PERFUSION_STEP.mapTest.title}>
                 {PERFUSION_STEP.mapTest.text}
               </Callout>
-              <ChoiceQuestion
-                id="teste-pam"
+              <ChoiceGroup
                 label={PERFUSION_STEP.mapTestQuestion}
-                options={YES_NO_OPTIONS}
+                options={choicesFromIds(YES_NO_OPTIONS)}
                 value={state.mapTest}
                 onChange={(answer) => dispatch({ type: 'teste-pam', answer, at: now() })}
               />
@@ -109,10 +107,9 @@ export function PerfusionStep({ state, values, dispatch, now }: SepticStepProps)
           <Callout tone="gray" title={PERFUSION_STEP.dobutamineTest.title}>
             {PERFUSION_STEP.dobutamineTest.text}
           </Callout>
-          <ChoiceQuestion
-            id="teste-dobutamina"
+          <ChoiceGroup
             label={PERFUSION_STEP.dobutamineTestQuestion}
-            options={YES_NO_OPTIONS}
+            options={choicesFromIds(YES_NO_OPTIONS)}
             value={state.dobutamineTest}
             onChange={(answer) => dispatch({ type: 'teste-dobutamina', answer, at: now() })}
           />

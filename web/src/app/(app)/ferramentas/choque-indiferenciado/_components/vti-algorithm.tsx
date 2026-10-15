@@ -37,7 +37,7 @@ import { Callout } from '@/components/ui/callout';
 import { Disclosure } from '@/components/ui/disclosure';
 import { toneTag } from '@/lib/tone';
 import { cn } from '@/lib/utils';
-import { ChoiceQuestion } from '../../_components/shock/choice-question';
+import { ChoiceGroup, choicesFromIds } from '@/components/domain/clinical-tools/choice-group';
 import { InfusionLinks } from '../../_components/shock/infusion-links';
 import { BlockHint, BlockTitle, DataChips } from '../../_components/shock/roteiro-parts';
 import { ToneResult } from '../../_components/shock/tone-result';
@@ -183,10 +183,9 @@ function LowOutputScreen({ state, dispatch }: VtiProps) {
         if (!question) return null;
         return (
           <div key={id} className="flex flex-col gap-1">
-            <ChoiceQuestion
-              id={`vti-${id}`}
+            <ChoiceGroup
               label={question.label}
-              options={YES_NO_OPTIONS}
+              options={choicesFromIds(YES_NO_OPTIONS)}
               value={answers[id]}
               onChange={(answer) => dispatch({ type: 'responder', question: id, answer })}
             />
@@ -209,10 +208,9 @@ function LowOutputScreen({ state, dispatch }: VtiProps) {
         <section aria-labelledby="vti-fluidos" className="flex flex-col gap-3">
           <BlockTitle id="vti-fluidos">{LOW_OUTPUT_FLUIDS.title}</BlockTitle>
           <BlockHint>{LOW_OUTPUT_FLUIDS.hint}</BlockHint>
-          <ChoiceQuestion
-            id="vti-ventilacao"
+          <ChoiceGroup
             label="Modo ventilatório"
-            options={LOW_OUTPUT_FLUIDS.modes}
+            options={choicesFromIds(LOW_OUTPUT_FLUIDS.modes)}
             value={answers.ventilation}
             onChange={(mode) => dispatch({ type: 'modo-ventilatorio', mode })}
           />
@@ -227,10 +225,9 @@ function LowOutputScreen({ state, dispatch }: VtiProps) {
             </Callout>
           ) : null}
           {evaluation.fluidQuestion ? (
-            <ChoiceQuestion
-              id="vti-responsivo"
+            <ChoiceGroup
               label={LOW_OUTPUT_FLUIDS.question}
-              options={YES_NO_OPTIONS}
+              options={choicesFromIds(YES_NO_OPTIONS)}
               value={answers.fluidResponsive}
               onChange={(answer) =>
                 dispatch({ type: 'responder', question: 'fluidResponsive', answer })
@@ -285,10 +282,9 @@ function GreyZoneScreen({ state, dispatch }: VtiProps) {
           placeholder="6"
         />
       </div>
-      <ChoiceQuestion
-        id="vti-lactato"
+      <ChoiceGroup
         label={GREY_ZONE.lactateTrend.label}
-        options={GREY_ZONE.lactateTrend.options}
+        options={choicesFromIds(GREY_ZONE.lactateTrend.options)}
         value={state.greyZone.lactateTrend}
         onChange={(trend) => dispatch({ type: 'tendencia-do-lactato', trend })}
       />

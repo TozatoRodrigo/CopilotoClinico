@@ -15,12 +15,13 @@ import {
   EVOLUTION_TRANSDUCERS,
   EVOLUTION_VOLUME_RANGE,
 } from '@clinical-tools/blocks/evolution';
+import { ChoiceGroup } from '@/components/domain/clinical-tools/choice-group';
 import { CopyToChartButton } from '@/components/domain/clinical-tools/copy-to-chart-button';
 import { NumericField } from '@/components/domain/clinical-tools/numeric-field';
 import { Button } from '@/components/ui/button';
 import { SectionHeader } from '@/components/layout/page-header';
 import { useToolSession } from '@/lib/tool-session';
-import { BlocksPage, CheckboxRow, ChoiceGroup, SelectField, TextField } from './blocks-ui';
+import { BlocksPage, CheckboxRow, SelectField, TextField } from './blocks-ui';
 import {
   draftToForm,
   EMPTY_EVOLUTION_DRAFT,
@@ -84,10 +85,11 @@ export function EvolutionScreen() {
           onValueChange={set('blockType')}
         />
         <ChoiceGroup
-          legend="Lateralidade"
-          value={draft.side}
+          label="Lateralidade"
+          value={draft.side || null}
           options={EVOLUTION_SIDES}
-          onValueChange={set('side')}
+          onChange={set('side')}
+          onClear={() => set('side')('')}
         />
         <SelectField
           label="Transdutor"
@@ -102,10 +104,11 @@ export function EvolutionScreen() {
           onValueChange={(value) => set('needle')(value as EvolutionDraft['needle'])}
         />
         <ChoiceGroup
-          legend="Técnica de inserção"
-          value={draft.insertion}
+          label="Técnica de inserção"
+          value={draft.insertion || null}
           options={asOptions(EVOLUTION_INSERTIONS)}
-          onValueChange={set('insertion')}
+          onChange={set('insertion')}
+          onClear={() => set('insertion')('')}
         />
       </section>
 
@@ -139,10 +142,11 @@ export function EvolutionScreen() {
           />
         </div>
         <ChoiceGroup
-          legend="Epinefrina"
-          value={draft.epinephrine}
+          label="Epinefrina"
+          value={draft.epinephrine || null}
           options={asOptions(EVOLUTION_EPINEPHRINE)}
-          onValueChange={set('epinephrine')}
+          onChange={set('epinephrine')}
+          onClear={() => set('epinephrine')('')}
         />
       </section>
 
@@ -170,11 +174,10 @@ export function EvolutionScreen() {
           />
         </div>
         <ChoiceGroup
-          legend="Intercorrências"
-          value={draft.complication}
+          label="Intercorrências"
+          value={draft.complication || null}
           options={asOptions(EVOLUTION_COMPLICATIONS)}
-          onValueChange={(value) => set('complication')(value || 'Nenhuma')}
-          allowEmpty={false}
+          onChange={set('complication')}
         />
         {draft.complication === 'Sim' ? (
           <TextField

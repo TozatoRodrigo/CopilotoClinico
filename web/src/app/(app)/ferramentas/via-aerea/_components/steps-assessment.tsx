@@ -23,7 +23,8 @@ import { WeightField } from '@/components/domain/clinical-tools/weight-field';
 import { Button } from '@/components/ui/button';
 import { toneBg, toneInk, toneTag } from '@/lib/tone';
 import { cn } from '@/lib/utils';
-import { Block, CheckList, CheckRow, Mnemonic, NoticeCallout, OptionGroup } from './airway-parts';
+import { Block, CheckList, CheckRow, Mnemonic, NoticeCallout } from './airway-parts';
+import { ChoiceGroup, choicesFromIds } from '@/components/domain/clinical-tools/choice-group';
 import type { StepProps } from './step-props';
 
 /** Passo 1 — indicação de IOT. */
@@ -261,15 +262,15 @@ export function PatientStep({ state, view, dispatch, weight, onWeightChange }: S
           placeholder="170"
         />
       </div>
-      <OptionGroup
-        legend="Sexo biológico"
-        options={SEXES}
+      <ChoiceGroup
+        label="Sexo biológico"
+        options={choicesFromIds(SEXES)}
         value={state.sex}
         onChange={(sex) => dispatch({ type: 'set-sex', sex })}
       />
-      <OptionGroup
-        legend="População"
-        options={POPULATIONS}
+      <ChoiceGroup
+        label="População"
+        options={choicesFromIds(POPULATIONS)}
         value={state.population}
         onChange={(population) => dispatch({ type: 'set-population', population })}
         columns={4}

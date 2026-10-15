@@ -203,7 +203,7 @@ describe('/ferramentas/ventilacao-mecanica — HACOR com reavaliação (CC-327)'
   it('avalia antes da VNI, registra o T0 e compara na reavaliação', async () => {
     renderPage();
     const hacor = screen.getByRole('region', { name: 'HACOR (falha de VNI)' });
-    await userEvent.click(within(hacor).getByRole('button', { name: /Iniciar VNI/ }));
+    await userEvent.click(within(hacor).getByRole('radio', { name: /Iniciar VNI/ }));
     await answerHacor(HIGH_RISK);
 
     const result = within(hacor).getByRole('status');
@@ -215,10 +215,7 @@ describe('/ferramentas/ventilacao-mecanica — HACOR com reavaliação (CC-327)'
     await userEvent.click(
       within(hacor).getByRole('button', { name: 'Iniciar VNI e registrar T0' }),
     );
-    expect(within(hacor).getByRole('button', { name: /Reavaliar VNI/ })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
+    expect(within(hacor).getByRole('radio', { name: /Reavaliar VNI/ })).toBeChecked();
     expect(within(hacor).getAllByText('HACOR 9 — alto risco').length).toBeGreaterThan(0);
 
     await answerHacor(LOW_RISK);
@@ -243,7 +240,7 @@ describe('/ferramentas/ventilacao-mecanica — HACOR com reavaliação (CC-327)'
   it('guarda o histórico na aba ao sair e voltar', async () => {
     const first = renderPage();
     const hacor = screen.getByRole('region', { name: 'HACOR (falha de VNI)' });
-    await userEvent.click(within(hacor).getByRole('button', { name: /Iniciar VNI/ }));
+    await userEvent.click(within(hacor).getByRole('radio', { name: /Iniciar VNI/ }));
     await answerHacor(HIGH_RISK);
     await userEvent.click(
       within(hacor).getByRole('button', { name: 'Iniciar VNI e registrar T0' }),

@@ -138,67 +138,6 @@ export function CheckList({ label, children }: { label?: string; children: React
   );
 }
 
-export interface OptionGroupProps<Id extends string> {
-  legend: ReactNode;
-  options: readonly { id: Id; label: string }[];
-  value: Id | null;
-  onChange: (id: Id) => void;
-  /** Colunas no celular; no desktop as opções ficam lado a lado. */
-  columns?: 2 | 3 | 4;
-  className?: string;
-}
-
-const COLUMNS: Record<2 | 3 | 4, string> = {
-  2: 'grid-cols-2',
-  3: 'grid-cols-3',
-  4: 'grid-cols-2 sm:grid-cols-4',
-};
-
-/** Escolha única como rádio nativo (setas do teclado, "1 de 4" no leitor de tela). */
-export function OptionGroup<Id extends string>({
-  legend,
-  options,
-  value,
-  onChange,
-  columns = 2,
-  className,
-}: OptionGroupProps<Id>) {
-  const name = useId();
-  return (
-    <fieldset className={cn('flex min-w-0 flex-col gap-1.5', className)}>
-      <legend className="mb-1.5 text-[0.8125rem] font-medium text-muted-foreground">
-        {legend}
-      </legend>
-      <div className={cn('grid gap-1.5', COLUMNS[columns])}>
-        {options.map((option) => {
-          const checked = value === option.id;
-          return (
-            <label
-              key={option.id}
-              className={cn(
-                'flex min-h-11 cursor-pointer items-center gap-2.5 rounded-md border px-3 py-2 text-sm transition-colors duration-100 has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring/40',
-                checked
-                  ? 'border-primary bg-tone-blue-bg font-medium text-tone-blue-ink'
-                  : 'border-border bg-background text-foreground hover:bg-hover',
-              )}
-            >
-              <input
-                type="radio"
-                name={name}
-                value={option.id}
-                checked={checked}
-                onChange={() => onChange(option.id)}
-                className="size-4 shrink-0 accent-primary"
-              />
-              <span className="min-w-0 flex-1">{option.label}</span>
-            </label>
-          );
-        })}
-      </div>
-    </fieldset>
-  );
-}
-
 /**
  * Letras do mnemônico (CRASH, LEMON, ROMAN) com a contagem. As letras são
  * decorativas para quem enxerga; o leitor de tela recebe a frase.
