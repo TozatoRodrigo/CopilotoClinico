@@ -10,6 +10,10 @@
  *
  * Nada aqui carrega dado de paciente. O código de convite é aleatório: não
  * deriva de nome, e-mail nem CRM.
+ *
+ * A imagem do web não tem ../src: os valores que ele usa em runtime vivem
+ * espelhados em web/src/lib/beta-contract.ts (tests/web-mirrors/beta.spec.ts
+ * confere). Mudou um valor aqui, mude lá.
  */
 
 // ── Código de convite ───────────────────────────────────────────────────────

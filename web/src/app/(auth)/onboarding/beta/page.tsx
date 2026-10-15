@@ -10,7 +10,7 @@ import {
   IdentificationCard,
   WarningCircle,
 } from '@phosphor-icons/react';
-import { BETA_TERMS } from '@contracts/beta';
+import { BETA_TERMS } from '@/lib/beta-contract';
 import { useAuth } from '@/lib/auth-store';
 import { apiClient, ApiError } from '@/lib/api-client';
 import { useAcceptBetaTerms, useBetaMe, useSaveBetaProfile } from '@/lib/beta-queries';

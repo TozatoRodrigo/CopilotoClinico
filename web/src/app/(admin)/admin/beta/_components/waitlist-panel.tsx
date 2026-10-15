@@ -3,12 +3,8 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { ArrowClockwise, Copy, Trash, UserPlus, UsersThree } from '@phosphor-icons/react';
-import {
-  BETA_INVITE_LIMITS,
-  type BetaInviteView,
-  type BetaWaitlistEntryView,
-  type BetaWaitlistStatus,
-} from '@contracts/beta';
+import type { BetaInviteView, BetaWaitlistEntryView, BetaWaitlistStatus } from '@contracts/beta';
+import { BETA_INVITE_LIMITS } from '@/lib/beta-contract';
 import { ApiError } from '@/lib/api-client';
 import {
   inviteLink,

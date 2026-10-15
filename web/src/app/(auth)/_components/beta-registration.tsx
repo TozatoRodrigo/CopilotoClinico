@@ -24,7 +24,7 @@ import {
   BETA_INVITE_REQUIRED,
   formatInviteCode,
   normalizeInviteCode,
-} from '@contracts/beta';
+} from '@/lib/beta-contract';
 import { ApiError } from '@/lib/api-client';
 import { useBetaRegistrationStatus, useJoinBetaWaitlist } from '@/lib/beta-queries';
 import { Alert, AlertDescription } from '@/components/ui/alert';
