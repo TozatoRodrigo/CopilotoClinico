@@ -36,7 +36,7 @@ import {
   type CopilotOutput,
   type ValidationResult,
 } from '../guardrails/output-validator';
-import { validateOutputV2 } from '../guardrails/output-validator-v2';
+import { recommendationText, validateOutputV2 } from '../guardrails/output-validator-v2';
 import { validateOutputV3 } from '../guardrails/output-validator-v3';
 import { findDoseMentions } from '../guardrails/dose-detector';
 import type { AnalyzeInput, RespondInput } from '../schemas/copilot.schemas';
@@ -44,6 +44,7 @@ import { calculateInferenceCost } from './model-pricing';
 import {
   COPILOT_OUTPUT_JSON_SCHEMA,
   COPILOT_OUTPUT_V2_JSON_SCHEMA,
+  COPILOT_OUTPUT_V2_WHY_JSON_SCHEMA,
 } from '../schemas/copilot-output.json-schema';
 import {
   preliminaryReasonFor,
@@ -73,10 +74,12 @@ import { applySourceLinkText, type SourceLink } from '../research/source-links';
 import { buildDecisionV2Prompt, type DecisionV2PromptInput } from './decision-prompt-v2';
 import { buildDecisionV3Prompt } from './decision-prompt-v3';
 import { buildDecisionV4Prompt } from './decision-prompt-v4';
+import { buildDecisionWhyLinePrompt } from './decision-why-line';
 import {
   chooseDecisionModel,
   isStagedDecisionPrompt,
   readDecisionPipeline,
+  supportsWhyLine,
   type DecisionModelChoice,
   type DecisionPipeline,
 } from './decision.settings';
@@ -595,11 +598,13 @@ function hasCorrectable(validation: ValidationResult): boolean {
   return (validation.correctable?.length ?? 0) > 0;
 }
 
-/** F1 — JSON Schema da saída na versão do prompt de decisão (v2 e v3 têm o mesmo contrato). */
+/**
+ * F1 — JSON Schema da saída na versão do prompt de decisão (v2, v3 e v4 têm o
+ * mesmo contrato). CC-601 — com a linha de "por quê", o contrato ganha `why`.
+ */
 function responseSchemaOf(pipeline: DecisionPipeline) {
-  return isStagedDecisionPrompt(pipeline.decisionPrompt)
-    ? COPILOT_OUTPUT_V2_JSON_SCHEMA
-    : COPILOT_OUTPUT_JSON_SCHEMA;
+  if (!isStagedDecisionPrompt(pipeline.decisionPrompt)) return COPILOT_OUTPUT_JSON_SCHEMA;
+  return pipeline.whyLine ? COPILOT_OUTPUT_V2_WHY_JSON_SCHEMA : COPILOT_OUTPUT_V2_JSON_SCHEMA;
 }
 
 /**
@@ -1029,8 +1034,7 @@ export class OrchestratorService {
 
     if (isStagedDecisionPrompt(pipeline.decisionPrompt)) {
       // v2, v3 e v4: a mesma mensagem do usuário; só o system prompt muda.
-      const buildStaged = STAGED_PROMPT_BUILDERS[pipeline.decisionPrompt];
-      return buildStaged({
+      const stagedInput: DecisionV2PromptInput = {
         caseText: input.caseText,
         understanding,
         redFlags: input.redFlags,
@@ -1042,7 +1046,12 @@ export class OrchestratorService {
         physicianAttachments: input.attachments,
         webEvidence: input.evidence.research?.evidence ?? [],
         additionalInstructions,
-      });
+      };
+      // CC-601 — a v3 ou a v4 pedindo a linha de "por quê"; sem a flag, o de sempre.
+      if (pipeline.whyLine && supportsWhyLine(pipeline.decisionPrompt)) {
+        return buildDecisionWhyLinePrompt(pipeline.decisionPrompt, stagedInput);
+      }
+      return STAGED_PROMPT_BUILDERS[pipeline.decisionPrompt](stagedInput);
     }
 
     return buildPrompt({
@@ -1678,7 +1687,10 @@ export class OrchestratorService {
     const decisionContext = { understanding: prepared.stage?.understanding ?? null };
     // A v4 muda as regras do prompt, não o contrato: valida como a v3.
     if (prepared.pipeline.decisionPrompt === 'v3' || prepared.pipeline.decisionPrompt === 'v4') {
-      return validateOutputV3(content, prepared.prompt.retrievedChunkIds, decisionContext);
+      return validateOutputV3(content, prepared.prompt.retrievedChunkIds, {
+        ...decisionContext,
+        whyLine: prepared.pipeline.whyLine,
+      });
     }
     if (prepared.pipeline.decisionPrompt === 'v2') {
       return validateOutputV2(content, prepared.prompt.retrievedChunkIds, decisionContext);
@@ -1927,6 +1939,8 @@ export class OrchestratorService {
         // web fez (modelo, buscas, custo, motivo do fallback).
         knowledgeSource: prepared.pipeline.knowledgeSource,
         decisionPrompt: prepared.pipeline.decisionPrompt,
+        // CC-601 — só quando ligada: sem a flag, `params` fica como antes.
+        ...(prepared.pipeline.whyLine ? { whyLine: true } : {}),
         decisionRoute: prepared.decisionModel.route,
         ...(prepared.research ? { research: researchTrace(prepared.research) } : {}),
       },
@@ -2021,7 +2035,7 @@ export class OrchestratorService {
         // seguro é esperar o dado.
         layer: rec.layer ?? 'depends',
         origin: resolved.origin,
-        carriesDose: findDoseMentions(`${rec.action} ${rec.rationale}`).length > 0,
+        carriesDose: findDoseMentions(recommendationText(rec)).length > 0,
         sourceConflict: Boolean(link?.conflict),
       });
       const enriched: EnrichedRecommendation = {

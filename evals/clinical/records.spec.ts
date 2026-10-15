@@ -185,6 +185,7 @@ describe('RunMetaSchema', () => {
       understandingEffort: null,
       decisionPrompt: 'v1',
       knowledgeSource: 'internal_kb',
+      whyLine: false,
       research: null,
     });
   });

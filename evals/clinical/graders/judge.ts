@@ -190,6 +190,9 @@ function judgedView(output: JudgedOutput) {
       ...(recommendation.layer
         ? { layer: recommendation.layer, dependsOn: recommendation.dependsOn ?? null }
         : {}),
+      // CC-601 — a linha de "por quê" também é conteúdo clínico que o médico
+      // lê: o juiz a vê para pegar uma justificativa errada. Sem a flag, nada muda.
+      ...(recommendation.why ? { why: recommendation.why } : {}),
     })),
     uncertainty: output.uncertainty,
     uncertaintyReason: output.uncertaintyReason,

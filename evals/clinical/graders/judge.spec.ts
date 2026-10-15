@@ -343,6 +343,29 @@ describe('decisão em camadas na saída julgada', () => {
       '"depends" é conduta condicionada ao dado em "dependsOn"',
     );
   });
+
+  // CC-601 — a linha de "por quê" é lida pelo médico; o juiz também a lê.
+  it('shows the why line only when the conduct has one', () => {
+    const now = {
+      action: 'Glicemia capilar agora',
+      rationale: 'Hipoglicemia mimetiza AVC',
+      citationChunkId: null,
+      confidence: 0.95,
+      preliminary: false,
+      category: 'diagnostic' as const,
+      layer: 'now' as const,
+      dependsOn: null,
+      basis: 'model_knowledge' as const,
+    };
+    const why = 'Hipoglicemia imita AVC e se corrige em minutos, à beira do leito';
+
+    expect(
+      buildJudgeRequest(strokeCase, output({ recommendations: [{ ...now, why }] })).user,
+    ).toContain(`"why": "${why}"`);
+    expect(buildJudgeRequest(strokeCase, output({ recommendations: [now] })).user).not.toContain(
+      '"why": "Hipoglicemia',
+    );
+  });
 });
 
 describe('gradeResult com juiz simulado (oráculo e negativos conhecidos)', () => {

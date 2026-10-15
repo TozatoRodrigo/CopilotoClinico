@@ -280,7 +280,18 @@ export interface CopilotRecommendation {
   dependsOn?: string | null;
   /** F1 — decisão v2. */
   basis?: RecommendationBasis;
+  /**
+   * CC-601 — linha de "por quê" de uma conduta "agora", em linguagem simples,
+   * para o médico sem residência (`COPILOT_WHY_LINE`, decisão v3 ou v4). Até
+   * `RECOMMENDATION_WHY_MAX_LENGTH` caracteres. Ausente sem a flag, na camada
+   * "depende" e quando o modelo não a escreveu dentro do limite: a UI mostra
+   * o `rationale`, como antes.
+   */
+  why?: string | null;
 }
+
+/** CC-601 — teto da linha de "por quê" (`CopilotRecommendation.why`). */
+export const RECOMMENDATION_WHY_MAX_LENGTH = 120;
 
 export interface ClarifyingQuestion {
   id: string;
