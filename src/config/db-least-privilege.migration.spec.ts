@@ -63,3 +63,26 @@ describe.each(F0D_MIGRATIONS)('F0-D migration $dir', ({ dir, table }) => {
     );
   });
 });
+
+describe('CC-334 migration external_identities', () => {
+  const sql = readFileSync(
+    join(process.cwd(), 'prisma/migrations/20261014150000_cc334_external_identities/migration.sql'),
+    'utf8',
+  );
+
+  it('grants only DML on the new table and smoke-checks it', () => {
+    expect(sql).toContain(
+      'GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "external_identities" TO copiloto_app',
+    );
+    expect(sql).not.toMatch(/GRANT\s+ALL/i);
+    expect(sql).not.toMatch(/GRANT[^;]*TRUNCATE/i);
+    expect(sql).toContain("has_table_privilege('copiloto_app', 'external_identities', privilege)");
+    expect(sql).toContain("has_table_privilege('copiloto_app', 'external_identities', 'TRUNCATE')");
+  });
+
+  it('cascades physician deletion', () => {
+    expect(sql).toContain(
+      'FOREIGN KEY ("physician_id") REFERENCES "physicians"("id") ON DELETE CASCADE',
+    );
+  });
+});

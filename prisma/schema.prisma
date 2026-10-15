@@ -113,7 +113,9 @@ model Physician {
   crmUf              String             @map("crm_uf") @db.Char(2)
   crmNumber          String             @map("crm_number")
   email              String             @unique @db.VarChar(255)
-  passwordHash       String             @map("password_hash")
+  // CC-334 — nulo em conta criada pelo login com Google/Microsoft: ela não
+  // tem senha (login() recusa como senha errada; changePassword() explica).
+  passwordHash       String?            @map("password_hash")
   name               String?            @db.VarChar(255)
   crmVerified        Boolean            @default(false) @map("crm_verified")
   mfaEnabled         Boolean            @default(false) @map("mfa_enabled")
@@ -139,8 +141,38 @@ model Physician {
   institutions            PhysicianInstitution[]
   recommendationDecisions RecommendationDecision[]
   copilotFeedback         CopilotFeedback[]
+  externalIdentities      ExternalIdentity[]
 
   @@map("physicians")
+}
+
+enum ExternalIdentityProvider {
+  google
+  microsoft
+}
+
+/**
+ * CC-334 — conta Google ou Microsoft vinculada a um médico (login social).
+ * A chave é (provider, subject): o `sub` do id_token é estável, o e-mail não
+ * (o usuário troca, o administrador do tenant troca). `emailAtLink` guarda o
+ * e-mail que o provedor garantiu no momento do vínculo, só para suporte.
+ * Nunca se vincula só porque o e-mail bate: o vínculo com conta existente
+ * exige a senha (e o 2º fator, se ligado) — ver OAuthService.
+ */
+model ExternalIdentity {
+  id          String                   @id @default(uuid()) @db.Uuid
+  physicianId String                   @map("physician_id") @db.Uuid
+  provider    ExternalIdentityProvider
+  subject     String                   @db.VarChar(255)
+  emailAtLink String                   @map("email_at_link") @db.VarChar(255)
+  createdAt   DateTime                 @default(now()) @map("created_at")
+  lastLoginAt DateTime?                @map("last_login_at")
+
+  physician Physician @relation(fields: [physicianId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, subject])
+  @@index([physicianId])
+  @@map("external_identities")
 }
 
 /**

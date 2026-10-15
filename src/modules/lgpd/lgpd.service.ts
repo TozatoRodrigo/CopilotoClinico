@@ -12,6 +12,7 @@ import type {
   AuditLog,
   RecommendationDecision,
   CopilotFeedback,
+  ExternalIdentity,
 } from '@prisma/client';
 
 export interface PhysicianDataExport {
@@ -32,6 +33,11 @@ export interface PhysicianDataExport {
     recommendationDecisions: RecommendationDecision[];
     /** F0-D — reportes do médico sobre análises (comentário já mascarado). */
     copilotFeedback: CopilotFeedback[];
+    /** CC-334 — contas Google/Microsoft vinculadas (e-mail no momento do vínculo). */
+    externalIdentities: Pick<
+      ExternalIdentity,
+      'provider' | 'subject' | 'emailAtLink' | 'createdAt' | 'lastLoginAt'
+    >[];
     consents: Consent[];
     auditLog: AuditLog[];
   };
@@ -173,6 +179,7 @@ export class LgpdService {
       recommendationDecisions,
       copilotFeedback,
       caseIntakes,
+      externalIdentities,
     ] = await Promise.all([
       this.prisma.document.findMany({ where: { physicianId } }),
       this.prisma.consent.findMany({ where: { physicianId } }),
@@ -186,6 +193,16 @@ export class LgpdService {
       this.prisma.copilotFeedback.findMany({ where: { physicianId } }),
       // ADR-014 — a conversa antes do plano (caso e respostas já redigidos).
       this.prisma.caseIntake.findMany({ where: { physicianId } }),
+      this.prisma.externalIdentity.findMany({
+        where: { physicianId },
+        select: {
+          provider: true,
+          subject: true,
+          emailAtLink: true,
+          createdAt: true,
+          lastLoginAt: true,
+        },
+      }),
     ]);
 
     return {
@@ -203,6 +220,7 @@ export class LgpdService {
         caseIntakes,
         recommendationDecisions,
         copilotFeedback,
+        externalIdentities,
         consents,
         auditLog,
       },
@@ -218,6 +236,7 @@ export class LgpdService {
       encounters: number;
       consents: number;
       refreshTokens: number;
+      externalIdentities: number;
     };
   }> {
     const physician = await this.prisma.physician.findUnique({
@@ -238,6 +257,9 @@ export class LgpdService {
       const encounters = await tx.encounter.deleteMany({ where: { physicianId } });
       const consents = await tx.consent.deleteMany({ where: { physicianId } });
       const refreshTokens = await tx.refreshToken.deleteMany({ where: { physicianId } });
+      // CC-334 — o médico é anonimizado, não apagado: sem isto a conta
+      // Google/Microsoft continuaria entrando na conta anonimizada.
+      const externalIdentities = await tx.externalIdentity.deleteMany({ where: { physicianId } });
 
       await tx.physician.update({
         where: { id: physicianId },
@@ -254,6 +276,7 @@ export class LgpdService {
         encounters: encounters.count,
         consents: consents.count,
         refreshTokens: refreshTokens.count,
+        externalIdentities: externalIdentities.count,
       };
     });
 

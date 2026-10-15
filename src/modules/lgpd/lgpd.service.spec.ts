@@ -46,6 +46,10 @@ describe('LgpdService', () => {
       deleteMany: ReturnType<typeof vi.fn>;
     };
     caseIntake: { findMany: ReturnType<typeof vi.fn> };
+    externalIdentity: {
+      findMany: ReturnType<typeof vi.fn>;
+      deleteMany: ReturnType<typeof vi.fn>;
+    };
     $transaction: ReturnType<typeof vi.fn>;
   };
   let auditService: {
@@ -93,6 +97,10 @@ describe('LgpdService', () => {
         deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
       caseIntake: { findMany: vi.fn().mockResolvedValue([]) },
+      externalIdentity: {
+        findMany: vi.fn().mockResolvedValue([]),
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
       $transaction: vi.fn(),
     };
     auditService = {
@@ -351,6 +359,16 @@ describe('LgpdService', () => {
       prisma.auditLog.findMany.mockResolvedValue(auditLog);
       prisma.refreshToken.findMany.mockResolvedValue(refreshTokens);
       prisma.aiInteraction.findMany.mockResolvedValue(aiInteractions);
+      const externalIdentities = [
+        {
+          provider: 'google',
+          subject: 'google-sub-1',
+          emailAtLink: 'test@test.com',
+          createdAt: new Date(),
+          lastLoginAt: null,
+        },
+      ];
+      prisma.externalIdentity.findMany.mockResolvedValue(externalIdentities);
 
       const result = await service.exportPhysicianData(physicianId);
 
@@ -369,10 +387,15 @@ describe('LgpdService', () => {
           caseIntakes: [],
           recommendationDecisions,
           copilotFeedback,
+          externalIdentities,
           consents,
           auditLog,
         },
       });
+      // CC-334 — contas externas vinculadas entram na portabilidade.
+      expect(prisma.externalIdentity.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { physicianId } }),
+      );
       expect(prisma.caseIntake.findMany).toHaveBeenCalledWith({ where: { physicianId } });
       expect(prisma.copilotFeedback.findMany).toHaveBeenCalledWith({ where: { physicianId } });
       // F0-D — decisões por recomendação são dado do médico: entram na portabilidade.
@@ -466,6 +489,7 @@ describe('LgpdService', () => {
       prisma.encounter.deleteMany.mockResolvedValue({ count: 2 });
       prisma.consent.deleteMany.mockResolvedValue({ count: 1 });
       prisma.refreshToken.deleteMany.mockResolvedValue({ count: 1 });
+      prisma.externalIdentity.deleteMany.mockResolvedValue({ count: 2 });
       prisma.physician.update.mockResolvedValue({
         ...physician,
         name: 'ERASED',
@@ -495,6 +519,11 @@ describe('LgpdService', () => {
         encounters: 2,
         consents: 1,
         refreshTokens: 1,
+        externalIdentities: 2,
+      });
+      // CC-334 — sem o vínculo, a conta Google/Microsoft não entra mais.
+      expect(prisma.externalIdentity.deleteMany).toHaveBeenCalledWith({
+        where: { physicianId },
       });
       expect(prisma.recommendationDecision.deleteMany).toHaveBeenCalledWith({
         where: { physicianId },
@@ -530,6 +559,7 @@ describe('LgpdService', () => {
             encounters: 2,
             consents: 1,
             refreshTokens: 1,
+            externalIdentities: 2,
           },
         },
       });
