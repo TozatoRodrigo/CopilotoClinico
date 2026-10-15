@@ -71,7 +71,9 @@ export function ContentProvenanceNote({
   const review =
     provenance.review.status === 'revisado'
       ? `revisado por ${provenance.review.reviewer} (CRM ${provenance.review.crm}) em ${provenance.review.reviewedAt}`
-      : 'revisão clínica pendente';
+      : provenance.review.assignedTo
+        ? `revisão clínica pendente (${provenance.review.assignedTo})`
+        : 'revisão clínica pendente';
   return (
     <p className={cn('text-xs text-muted-foreground', className)}>
       Conteúdo: {provenance.source} · versão {provenance.version} · {review}

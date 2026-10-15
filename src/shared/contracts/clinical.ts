@@ -499,6 +499,14 @@ export interface CaseUnderstanding {
  */
 export const UNDERSTANDING_CORRECTION_QUESTION_ID = 'correcao-do-entendimento';
 
+/**
+ * CC-332 — `questionId` reservado de POST /copilot/respond para o resultado
+ * que o médico calculou numa ferramenta aberta pelo plano e anexou ao caso
+ * (o texto de prontuário da ferramenta). O backend o mostra no bloco de
+ * perguntas e respostas como "Resultado de ferramenta calculado pelo médico".
+ */
+export const TOOL_RESULT_QUESTION_ID = 'resultado-de-ferramenta';
+
 export interface CopilotAnalysis {
   reasoning: string;
   redFlags: RedFlag[];
@@ -725,6 +733,58 @@ export interface ConversationTurn extends Omit<
   createdAt: string;
   /** Respostas à rodada anterior que geraram esta; vazio na primeira. */
   answeredQuestions: Array<{ questionId: string; question: string; answer: string }>;
+  /**
+   * CC-332 — ferramentas que o plano sugere para este caso, com o dado do caso
+   * que as abre preenchidas. Só com `COPILOT_TOOL_SUGGESTIONS=on` e com
+   * entendimento do caso; ausente com a flag desligada (a resposta fica igual
+   * à de antes).
+   */
+  toolSuggestions?: CaseToolSuggestions;
+}
+
+/**
+ * CC-332 — o que o caso já informa e que uma ferramenta usa como entrada.
+ * `null` = o caso não informou (nunca estimado). A tela marca cada campo
+ * preenchido com isto como "vindo do caso".
+ */
+export interface CaseToolFacts {
+  ageYears: number | null;
+  sex: 'F' | 'M' | null;
+  /** Só quando o texto diz o peso ("peso 70 kg") e cabe na faixa da população. */
+  weightKg: number | null;
+  systolicBp: number | null;
+  diastolicBp: number | null;
+  heartRate: number | null;
+  respiratoryRate: number | null;
+  spo2: number | null;
+  temperature: number | null;
+  glucose: number | null;
+}
+
+/**
+ * Onde a sugestão abre: um roteiro do catálogo das Ferramentas (com o lugar
+ * dentro dele, como `{ droga: 'noradrenalina' }`) ou uma calculadora. Nunca
+ * dado do paciente: o endereço só leva isto.
+ */
+export type CaseToolTarget =
+  | { kind: 'tool'; toolId: string; query?: Record<string, string> }
+  | { kind: 'calculator'; calculatorId: string };
+
+export interface CaseToolSuggestion {
+  /** Regra do mapeamento que sugeriu: mede e audita sem texto clínico. */
+  ruleId: string;
+  target: CaseToolTarget;
+  /** Nome da ferramenta na tela ("NIHSS"). */
+  name: string;
+  /** Por que esta ferramenta, numa linha ("Déficit neurológico focal"). */
+  reason: string;
+}
+
+export interface CaseToolSuggestions {
+  /** Versão do mapeamento síndrome → ferramenta (motor das Ferramentas). */
+  mappingVersion: string;
+  facts: CaseToolFacts;
+  suggestions: CaseToolSuggestion[];
 }
 
 /** GET /encounters/:id/copilot/conversation — a conversa inteira do caso. */

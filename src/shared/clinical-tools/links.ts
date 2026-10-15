@@ -17,6 +17,13 @@ import { calculatorName, calculatorStatus, TOOLS, type ToolEntry } from './catal
 /** Parâmetro com a origem: id da ferramenta ou `calculadoras/<id>`. */
 export const ORIGIN_PARAM = 'de';
 
+/**
+ * Parâmetro da ferramenta aberta pelo plano do Copiloto (CC-332): um token
+ * opaco que aponta para a sessão da aba, onde estão o caso e os dados que
+ * preencheram a ferramenta. O dado nunca vai no endereço.
+ */
+export const CASE_LINK_PARAM = 'caso';
+
 /** De onde o médico saiu: um roteiro ou uma calculadora. */
 export type ToolOrigin = { tool: string } | { calculator: string };
 

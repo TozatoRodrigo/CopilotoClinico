@@ -4,7 +4,11 @@
  * roteiro carrega isso; a tela mostra no rodapé da ferramenta.
  */
 export type ClinicalReview =
-  | { status: 'pendente' }
+  | {
+      status: 'pendente';
+      /** Médico designado para revisar, quando já há um ("Dr. Ripardo"). */
+      assignedTo?: string;
+    }
   | {
       status: 'revisado';
       /** Nome do médico revisor. */
