@@ -129,7 +129,9 @@ export function RouteBreadcrumbs() {
   const root = STATIC[first];
   if (!root) return null;
 
-  const items: BreadcrumbItem[] = [{ ...root, href: segments.length > 1 ? `/${first}` : undefined }];
+  const items: BreadcrumbItem[] = [
+    { ...root, href: segments.length > 1 ? `/${first}` : undefined },
+  ];
   if (first === 'encounters' && second === 'new') items.push({ label: 'Novo caso' });
   if (first === 'admin' && second) {
     const child = ADMIN_CHILDREN[second];

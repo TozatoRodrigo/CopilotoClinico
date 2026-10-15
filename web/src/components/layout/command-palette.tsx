@@ -44,10 +44,7 @@ interface Command {
 }
 
 function normalize(value: string): string {
-  return value
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase();
+  return value.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -205,7 +202,9 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
       setActiveIndex((i) => (commands.length === 0 ? 0 : (i + 1) % commands.length));
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
-      setActiveIndex((i) => (commands.length === 0 ? 0 : (i - 1 + commands.length) % commands.length));
+      setActiveIndex((i) =>
+        commands.length === 0 ? 0 : (i - 1 + commands.length) % commands.length,
+      );
     } else if (event.key === 'Enter') {
       event.preventDefault();
       commands[activeIndex]?.run();
@@ -226,7 +225,10 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
   return (
     <>
       <div className="flex items-center gap-2.5 border-b border-border px-4">
-        <MagnifyingGlass className="size-[18px] shrink-0 text-muted-foreground" aria-hidden="true" />
+        <MagnifyingGlass
+          className="size-[18px] shrink-0 text-muted-foreground"
+          aria-hidden="true"
+        />
         <input
           autoFocus
           value={query}
@@ -283,7 +285,10 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
                       active ? 'bg-hover text-foreground' : 'text-foreground',
                     )}
                   >
-                    <Icon className="size-[18px] shrink-0 text-muted-foreground" aria-hidden="true" />
+                    <Icon
+                      className="size-[18px] shrink-0 text-muted-foreground"
+                      aria-hidden="true"
+                    />
                     <span className="min-w-0 truncate">{command.label}</span>
                     {command.hint && (
                       <span className="min-w-0 truncate text-xs text-muted-foreground">
@@ -292,7 +297,10 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
                     )}
                     <span className="flex-1" />
                     {active && (
-                      <ArrowElbowDownLeft className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                      <ArrowElbowDownLeft
+                        className="size-3.5 shrink-0 text-muted-foreground"
+                        aria-hidden="true"
+                      />
                     )}
                   </div>
                 );

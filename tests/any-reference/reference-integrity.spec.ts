@@ -71,6 +71,14 @@ describe('referência congelada do ANY', () => {
         'ToxPath.tsx',
         // CC-324 — doses tóxicas do Tox Path legado
         'tox-path-legacy.html',
+        // CC-326 — CAD e EHH
+        'ketoCalc.ts',
+        'ketoData.ts',
+        'KetoManejo.tsx',
+        'KetoCiclo.tsx',
+        'KetoConsulta.tsx',
+        'KetoPlanilha.tsx',
+        'KetoPath.tsx',
       ]),
     );
   });

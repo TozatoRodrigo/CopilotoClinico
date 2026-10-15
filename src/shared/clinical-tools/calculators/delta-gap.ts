@@ -3,6 +3,16 @@ import { formatDecimal } from '../numbers';
 import { ANY_V4_CALCULATOR_SOURCE } from '../provenance';
 
 /**
+ * Razão ΔAG/ΔHCO3 (AG normal 12, HCO3 normal 24), 2 casas. Também é a conta
+ * do delta/delta no ciclo de reavaliação da CAD (CC-326).
+ */
+export function deltaRatio(anionGap: number, bicarbonate: number): number {
+  const deltaAg = anionGap - 12;
+  const deltaHco3 = 24 - bicarbonate;
+  return Math.round((deltaAg / deltaHco3) * 100) / 100;
+}
+
+/**
  * Porte do `deltaGap` do ANY. Mesma razão ΔAG/ΔHCO3 (2 casas) e mesmas
  * faixas; o delta gap sai como detalhe. Com HCO3 = 24 a razão não existe: o
  * ANY devolvia 999 e mostrava "HCO3 normal"; aqui o campo fica marcado e a
@@ -55,11 +65,7 @@ export const DELTA_GAP: FormulaCalculator = {
             'Bicarbonato normal (24 mEq/L): a razão delta/delta só se calcula com HCO3 reduzido.',
         }
       : null,
-  compute: (values) => {
-    const deltaAg = requireValue(values, 'ag') - 12;
-    const deltaHco3 = 24 - requireValue(values, 'hco3');
-    return Math.round((deltaAg / deltaHco3) * 100) / 100;
-  },
+  compute: (values) => deltaRatio(requireValue(values, 'ag'), requireValue(values, 'hco3')),
   details: (_value, values) => {
     const deltaGap = requireValue(values, 'ag') - 12 - (24 - requireValue(values, 'hco3'));
     return [{ label: 'Delta gap', value: formatDecimal(deltaGap, 1) }];

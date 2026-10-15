@@ -3,6 +3,14 @@ import { formatDecimal } from '../numbers';
 import { ANY_V4_CALCULATOR_SOURCE } from '../provenance';
 
 /**
+ * AG bruto, Na - (Cl + HCO3), sem arredondar e sem albumina. O roteiro de CAD e
+ * EHH (CC-326) usa a mesma conta, arredondada para inteiro.
+ */
+export function rawAnionGap(sodium: number, chloride: number, bicarbonate: number): number {
+  return sodium - (chloride + bicarbonate);
+}
+
+/**
  * Porte do `anionGap` do ANY. O valor é o AG corrigido pela albumina (uma
  * casa); o AG bruto sai como detalhe. A albumina é opcional como lá: vazia,
  * a conta usa 4,0. Ações como sugestão.
@@ -51,14 +59,20 @@ export const ANION_GAP: FormulaCalculator = {
   decimals: 1,
   unit: 'mEq/L',
   compute: (values) => {
-    const ag =
-      requireValue(values, 'na') - (requireValue(values, 'cl') + requireValue(values, 'hco3'));
+    const ag = rawAnionGap(
+      requireValue(values, 'na'),
+      requireValue(values, 'cl'),
+      requireValue(values, 'hco3'),
+    );
     const corrected = ag + 2.5 * (4.0 - requireValue(values, 'albumin'));
     return Math.round(corrected * 10) / 10;
   },
   details: (_value, values) => {
-    const raw =
-      requireValue(values, 'na') - (requireValue(values, 'cl') + requireValue(values, 'hco3'));
+    const raw = rawAnionGap(
+      requireValue(values, 'na'),
+      requireValue(values, 'cl'),
+      requireValue(values, 'hco3'),
+    );
     return [{ label: 'AG bruto', value: `${formatDecimal(raw, 1)} mEq/L` }];
   },
   interpretation: {
