@@ -104,7 +104,32 @@ export interface QuickQuestionCardAnswer {
   validUntil: string;
 }
 
-export const QUICK_QUESTION_OUTCOMES = ['answered', 'no_card', 'search_unavailable'] as const;
+/**
+ * CC-503 — classes da guarda de escopo, as mesmas do Jev Choice da história:
+ * só `clinical` segue para a busca.
+ */
+export const QUICK_QUESTION_SCOPES = ['clinical', 'administrative', 'out_of_scope'] as const;
+export type QuickQuestionScope = (typeof QUICK_QUESTION_SCOPES)[number];
+
+/** Por que a pergunta foi recusada — a tela escolhe a recusa educada por motivo. */
+export const QUICK_QUESTION_REFUSAL_REASONS = [
+  /** Relato de caso inteiro ou pedido de diagnóstico de um paciente: é o fluxo do caso. */
+  'whole_case',
+  /** Escala, senha, faturamento, uso do sistema. */
+  'administrative',
+  /** Assunto que não é clínico. */
+  'not_clinical',
+  /** Tentativa de dar instruções ao sistema, mudar o papel dele ou extrair o prompt. */
+  'injection',
+] as const;
+export type QuickQuestionRefusalReason = (typeof QUICK_QUESTION_REFUSAL_REASONS)[number];
+
+export const QUICK_QUESTION_OUTCOMES = [
+  'answered',
+  'no_card',
+  'search_unavailable',
+  'refused',
+] as const;
 export type QuickQuestionOutcome = (typeof QUICK_QUESTION_OUTCOMES)[number];
 
 /**
@@ -116,4 +141,6 @@ export type QuickQuestionResponse =
   /** Busca feita, nenhum cartão serve: a lacuna é registrada (CC-409). */
   | { outcome: 'no_card'; questionId: string; gapRecorded: boolean }
   /** Sem busca (embedding desligado ou fora do ar, portão falhou): não dá para dizer que falta cartão. */
-  | { outcome: 'search_unavailable'; questionId: string };
+  | { outcome: 'search_unavailable'; questionId: string }
+  /** CC-503 — fora do escopo: recusa educada, sem busca, sem embedding e sem lacuna. */
+  | { outcome: 'refused'; questionId: string; reason: QuickQuestionRefusalReason };

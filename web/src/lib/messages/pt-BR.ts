@@ -20,7 +20,10 @@
 
 import type { CitationOrigin, PreliminaryReason, PsSyndrome } from '@contracts/clinical';
 import type { KnowledgeCardClaimKind } from '@contracts/knowledge-cards';
-import type { WeightDoseNotComputedReason } from '@contracts/quick-question';
+import type {
+  QuickQuestionRefusalReason,
+  WeightDoseNotComputedReason,
+} from '@contracts/quick-question';
 
 export interface Messages {
   common: {
@@ -184,6 +187,8 @@ export interface Messages {
     openCard: string;
     noCard: { title: string; gapRecorded: string; body: string };
     searchUnavailable: { title: string; body: string };
+    /** CC-503 — recusa educada, por motivo da guarda de escopo. */
+    refused: Record<QuickQuestionRefusalReason, { title: string; body: string }>;
     openCase: string;
   };
 
@@ -631,6 +636,24 @@ export const ptBR: Messages = {
     searchUnavailable: {
       title: 'A busca de cartões revisados está indisponível agora.',
       body: 'Para o Copiloto analisar com o relato, abra um caso.',
+    },
+    refused: {
+      whole_case: {
+        title: 'Isso parece um caso inteiro.',
+        body: 'A pergunta rápida responde dúvidas pontuais. Para o Copiloto analisar o relato completo, abra um caso.',
+      },
+      administrative: {
+        title: 'Essa dúvida não é clínica.',
+        body: 'A pergunta rápida responde dúvidas clínicas do pronto-socorro. Conta, senha e preferências ficam em Configurações.',
+      },
+      not_clinical: {
+        title: 'Por aqui, só dúvidas clínicas.',
+        body: 'Pergunte sobre dose, conduta, critério, escore ou antídoto no pronto-socorro.',
+      },
+      injection: {
+        title: 'Não foi possível responder a esta pergunta.',
+        body: 'Escreva só a dúvida clínica, sem instruções para o sistema.',
+      },
     },
     openCase: 'Abrir um caso',
   },

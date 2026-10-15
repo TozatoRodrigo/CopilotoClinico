@@ -11,22 +11,51 @@ import {
 } from '../knowledge-cards/card-retrieval/reviewed-card-retrieval.service';
 import type {
   QuickQuestionAvailability,
+  QuickQuestionRefusalReason,
   QuickQuestionResponse,
+  QuickQuestionScope,
 } from '../../shared/contracts/quick-question';
 import { toQuickQuestionCardAnswer } from './card-answer';
 import { KNOWLEDGE_GAP_RECORDER, type KnowledgeGapRecorder } from './knowledge-gap-recorder';
 import type { AskQuickQuestionInput } from './quick-question.schemas';
 import { isQuickQuestionEnabled } from './quick-question.settings';
+import {
+  QUICK_QUESTION_SCOPE_GUARD,
+  accept,
+  type QuickQuestionScopeGuard,
+  type QuickQuestionScopeVerdict,
+} from './scope-guard/quick-question-scope-guard';
 import { readWeightKg } from './weight-dose';
 
-/** O que a trilha de auditoria guarda de cada pergunta: desfecho e cartões, nunca o texto. */
+type SearchStatus = ApplicableCardsResult['trace']['status'] | 'failed' | 'skipped';
+
+/** O que a trilha de auditoria guarda de cada pergunta: desfecho, guarda e cartões — nunca o texto. */
 interface QuickQuestionAuditPayload {
   outcome: QuickQuestionResponse['outcome'];
+  refusalReason: QuickQuestionRefusalReason | null;
+  scope: QuickQuestionScope;
+  scopeGuard: string;
+  scopeConfidence: number | null;
+  /** Nomes de regra ou motivos da guarda, sem texto. */
+  scopeSignals: string[];
   cards: Array<{ cardId: string; version: number; contentSha256: string }>;
-  searchStatus: ApplicableCardsResult['trace']['status'] | 'failed';
+  searchStatus: SearchStatus;
   gate: string | null;
   questionLength: number;
   piiDetected: boolean;
+}
+
+/** Uma pergunta em andamento, para a trilha e o log. */
+interface QuestionRun {
+  physicianId: string;
+  questionId: string;
+  startedAt: number;
+  questionLength: number;
+  piiDetected: boolean;
+  scope: QuickQuestionScopeVerdict;
+  /** `null` quando a busca não rodou (recusa) ou lançou. */
+  search: ApplicableCardsResult | null;
+  searchStatus: SearchStatus;
 }
 
 /**
@@ -34,15 +63,19 @@ interface QuickQuestionAuditPayload {
  * só por cartões revisados publicados.
  *
  * 1. A pergunta passa pela máscara (`maskPII`) antes de qualquer outra
- *    coisa: o texto bruto não vai para embedding, log, auditoria nem banco.
- * 2. A mesma busca e o mesmo portão da decisão (CC-406/CC-408): a pergunta
+ *    coisa: o texto bruto não vai para a guarda, embedding, log, auditoria
+ *    nem banco.
+ * 2. CC-503 — a guarda de escopo (`QUICK_QUESTION_SCOPE_GUARD`) recusa com
+ *    educação o que não é dúvida clínica de PS, antes de qualquer busca: sem
+ *    embedding e sem lacuna.
+ * 3. A mesma busca e o mesmo portão da decisão (CC-406/CC-408): a pergunta
  *    mascarada é a consulta e a hipótese, sem síndrome.
- * 3. Cartão aplicável: a resposta é o cartão, sem reescrita. Nenhum: "ainda
+ * 4. Cartão aplicável: a resposta é o cartão, sem reescrita. Nenhum: "ainda
  *    não temos um cartão revisado", a lacuna é registrada e a tela oferece
  *    abrir um caso. Sem busca: diz que a busca está fora, sem lacuna.
  *
  * Nada de texto gerado por IA neste fluxo: o único provedor chamado é o de
- * embedding, pela busca dos cartões.
+ * embedding, pela busca dos cartões (e o Jev, se for a guarda escolhida).
  */
 @Injectable()
 export class QuickQuestionService {
@@ -55,6 +88,7 @@ export class QuickQuestionService {
     @Inject(InstitutionsService) private readonly institutions: InstitutionsService,
     @Inject(AuditService) private readonly audit: AuditService,
     @Inject(KNOWLEDGE_GAP_RECORDER) private readonly gaps: KnowledgeGapRecorder,
+    @Inject(QUICK_QUESTION_SCOPE_GUARD) private readonly scopeGuard: QuickQuestionScopeGuard,
   ) {}
 
   availability(): QuickQuestionAvailability {
@@ -69,8 +103,26 @@ export class QuickQuestionService {
     const questionId = randomUUID();
     const masked = maskPII(input.question);
     const question = masked.redacted;
-    const institutionId = await this.institutionFor(physicianId);
+    const run = {
+      physicianId,
+      questionId,
+      startedAt,
+      questionLength: question.length,
+      piiDetected: masked.hasPII,
+    };
 
+    const scope = await this.judgeScope(questionId, question);
+    if (!scope.inScope) {
+      const refused: QuickQuestionResponse = {
+        outcome: 'refused',
+        questionId,
+        reason: scope.reason,
+      };
+      await this.finish(refused, { ...run, scope, search: null, searchStatus: 'skipped' });
+      return refused;
+    }
+
+    const institutionId = await this.institutionFor(physicianId);
     let search: ApplicableCardsResult | null;
     try {
       search = await this.retrieval.findApplicable({
@@ -88,26 +140,60 @@ export class QuickQuestionService {
     }
 
     const response = await this.respond(questionId, question, institutionId, search);
-    const cards = search?.cards ?? [];
-    await this.record(physicianId, questionId, {
+    await this.finish(response, {
+      ...run,
+      scope,
+      search,
+      searchStatus: search?.trace.status ?? 'failed',
+    });
+    return response;
+  }
+
+  /**
+   * A guarda que lança não barra o médico: a pergunta segue para a busca,
+   * que só responde com cartão. O erro vai para o Sentry.
+   */
+  private async judgeScope(
+    questionId: string,
+    question: string,
+  ): Promise<QuickQuestionScopeVerdict> {
+    try {
+      return await this.scopeGuard.classify(question);
+    } catch (error) {
+      const reason = error instanceof Error ? error.name : 'unknown';
+      this.logger.error(`QUICK_QUESTION_SCOPE_FAILED questionId=${questionId}: ${reason}`);
+      Sentry.captureMessage(`QUICK_QUESTION_SCOPE_FAILED: ${reason}`, 'error');
+      return accept(this.scopeGuard.name, ['guard_failed']);
+    }
+  }
+
+  /** Trilha e log da pergunta, sem texto. */
+  private async finish(response: QuickQuestionResponse, run: QuestionRun): Promise<void> {
+    const cards = run.search?.cards ?? [];
+    await this.record(run.physicianId, run.questionId, {
       outcome: response.outcome,
+      refusalReason: response.outcome === 'refused' ? response.reason : null,
+      scope: run.scope.scope,
+      scopeGuard: run.scope.guard,
+      scopeConfidence: run.scope.confidence,
+      scopeSignals: run.scope.signals,
       cards: cards.map(({ card }) => ({
         cardId: card.cardId,
         version: card.version,
         contentSha256: card.contentSha256,
       })),
-      searchStatus: search?.trace.status ?? 'failed',
-      gate: search?.trace.gate ?? null,
-      questionLength: question.length,
-      piiDetected: masked.hasPII,
+      searchStatus: run.searchStatus,
+      gate: run.search?.trace.gate ?? null,
+      questionLength: run.questionLength,
+      piiDetected: run.piiDetected,
     });
     this.logger.log(
-      `QUICK_QUESTION questionId=${questionId} outcome=${response.outcome} ` +
-        `search=${search?.trace.status ?? 'failed'} candidates=${search?.trace.candidates ?? 0} ` +
+      `QUICK_QUESTION questionId=${run.questionId} outcome=${response.outcome} ` +
+        `scope=${run.scope.scope} guard=${run.scope.guard} signals=${run.scope.signals.join(',') || '-'} ` +
+        `search=${run.searchStatus} candidates=${run.search?.trace.candidates ?? 0} ` +
         `cards=[${cards.map(({ card, similarity }) => `${card.cardId}:v${card.version}:${similarity.toFixed(3)}`).join(',')}] ` +
-        `pii=${masked.hasPII} latencyMs=${Date.now() - startedAt}`,
+        `pii=${run.piiDetected} latencyMs=${Date.now() - run.startedAt}`,
     );
-    return response;
   }
 
   private async respond(

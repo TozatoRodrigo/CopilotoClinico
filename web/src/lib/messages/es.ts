@@ -220,6 +220,24 @@ export const es: Messages = {
       title: 'La búsqueda de tarjetas revisadas no está disponible ahora.',
       body: 'Para que el Copiloto analice con el relato, abra un caso.',
     },
+    refused: {
+      whole_case: {
+        title: 'Esto parece un caso completo.',
+        body: 'La pregunta rápida responde dudas puntuales. Para que el Copiloto analice el relato completo, abra un caso.',
+      },
+      administrative: {
+        title: 'Esta duda no es clínica.',
+        body: 'La pregunta rápida responde dudas clínicas de urgencias. Cuenta, contraseña y preferencias están en Configuración.',
+      },
+      not_clinical: {
+        title: 'Aquí, solo dudas clínicas.',
+        body: 'Pregunte sobre dosis, conducta, criterio, escala o antídoto en urgencias.',
+      },
+      injection: {
+        title: 'No fue posible responder a esta pregunta.',
+        body: 'Escriba solo la duda clínica, sin instrucciones para el sistema.',
+      },
+    },
     openCase: 'Abrir un caso',
   },
 

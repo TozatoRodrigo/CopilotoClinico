@@ -844,13 +844,42 @@ PR #185 passa a gravar a pergunta mascarada), `QUICK_QUESTION_SEARCH_FAILED`,
 `QUICK_QUESTION_GAP_FAILED` e `QUICK_QUESTION_AUDIT_FAILED` (os três também
 no Sentry). Na trilha, `QUICK_QUESTION_ASKED` por pergunta, sem texto.
 
+**Guarda de escopo da pergunta rápida (CC-503, `QUICK_QUESTION_SCOPE_GUARD`)**
+— antes da busca, a pergunta mascarada passa por uma guarda que recusa com
+educação o caso inteiro, o assunto administrativo ou não clínico e a
+tentativa de dar instruções ao sistema (`outcome: refused`, sem busca, sem
+embedding, sem lacuna). `heuristic` (padrão; valor irreconhecível também) é
+determinística: a barreira de injeção do Copiloto e regras de texto. `jev`
+pergunta ao Jev da TypeSafe (classificação calibrada) e exige `JEV_API_KEY`;
+sem a chave, ou com o Jev fora, decide a heurística. Ligar `jev` só com o
+acesso antecipado confirmado, o contrato conferido na API de verdade e o DPA
+da TypeSafe (a pergunta mascarada vai para os EUA).
+
+| Variável | Padrão | O que faz |
+|---|---|---|
+| `QUICK_QUESTION_SCOPE_GUARD` | `heuristic` | `heuristic` ou `jev` |
+| `JEV_API_KEY` | — | chave da TypeSafe; sem ela o Jev não roda |
+| `JEV_BASE_URL` | `https://api.typesafe.ai` | base da API (`/v1/systemone`) |
+| `JEV_MODEL` | `jev-latest` | modelo pedido |
+| `JEV_TIMEOUT_MS` | `2000` | teto da chamada (100–10000) |
+| `JEV_SCOPE_MIN_CONFIDENCE` | `0.6` | confiança mínima para o Jev recusar; abaixo, a pergunta segue |
+
+No log: `QUICK_QUESTION` ganha `scope`, `guard` e `signals` (nomes de regra,
+sem texto); `JEV_SCOPE` (modelo, escolha, confiança, tokens de entrada,
+latência); `QUICK_QUESTION_SCOPE_JEV_UNCONFIGURED`,
+`QUICK_QUESTION_SCOPE_JEV_FAILED` (também no Sentry, só status e classe do
+erro) e `QUICK_QUESTION_SCOPE_FAILED`. Na trilha, `QUICK_QUESTION_ASKED`
+guarda `scope`, `refusalReason`, `scopeGuard`, `scopeConfidence` e
+`scopeSignals`.
+
 ```sql
 -- Uso semanal (métrica da CC-501: ≥ 30% dos médicos ativos) e desfechos
 SELECT date_trunc('week', created_at) AS semana,
        count(DISTINCT actor_id) AS medicos,
        count(*) FILTER (WHERE payload->>'outcome' = 'answered') AS respondidas,
        count(*) FILTER (WHERE payload->>'outcome' = 'no_card') AS sem_cartao,
-       count(*) FILTER (WHERE payload->>'outcome' = 'search_unavailable') AS sem_busca
+       count(*) FILTER (WHERE payload->>'outcome' = 'search_unavailable') AS sem_busca,
+       count(*) FILTER (WHERE payload->>'outcome' = 'refused') AS recusadas
 FROM audit_log WHERE action = 'QUICK_QUESTION_ASKED' GROUP BY 1 ORDER BY 1 DESC;
 ```
 

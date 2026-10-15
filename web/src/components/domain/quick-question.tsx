@@ -231,6 +231,23 @@ function QuickQuestionResult({
           {copy.searchUnavailable.body}
         </Callout>
       );
+    case 'refused': {
+      // CC-503 — recusa educada: o caso inteiro tem caminho (abrir um caso);
+      // o resto só explica o que a pergunta rápida responde.
+      const refusal = copy.refused[response.reason];
+      return (
+        <Callout
+          tone="gray"
+          icon={<Info />}
+          title={refusal.title}
+          action={
+            response.reason === 'whole_case' ? <OpenCaseButton label={copy.openCase} /> : undefined
+          }
+        >
+          {refusal.body}
+        </Callout>
+      );
+    }
   }
 }
 

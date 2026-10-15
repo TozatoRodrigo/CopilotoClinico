@@ -1,6 +1,6 @@
 # ADR-019: Cartões revisados — modelo, rascunho com citação literal e anti-circularidade
 
-**Status:** Proposto — base implementada (CC-402, CC-403, CC-412), índice (CC-406), cartões na decisão (CC-408) e pergunta rápida (CC-501) atrás de flag, aguardando revisão clínica
+**Status:** Proposto — base implementada (CC-402, CC-403, CC-412), índice (CC-406), cartões na decisão (CC-408) e pergunta rápida com guarda de escopo (CC-501, CC-503) atrás de flag, aguardando revisão clínica
 **Data:** 2026-10-14
 **Relaciona:** ADR-002/ADR-015 (trilha de auditoria), ADR-009 (multi-tenancy),
 ADR-010/ADR-012 (fontes não revisadas)
@@ -286,3 +286,50 @@ fora (vira lacuna, não erro). A conta por peso é código novo sobre dose
 assinada — precisa da revisão clínica antes de ligar a flag. Até o PR #168
 entrar, a linha de erro do acesso HTTP leva o corpo da requisição: um 400 ou
 404 da pergunta rápida gravaria a pergunta no log. Ligar depois do #168.
+
+## Emenda — 15/10/2026: guarda de escopo da pergunta rápida (CC-503)
+
+**Contexto.** O campo aberto convida a pergunta que não é do produto: o caso
+inteiro colado ali, assunto administrativo ou não clínico e tentativa de dar
+instruções ao sistema. Sem modelo de linguagem no fluxo (emenda anterior), o
+custo de uma pergunta fora do escopo é uma chamada de embedding e uma lacuna
+falsa na fila de cartões — e o caso inteiro precisa ir para o fluxo do caso,
+onde a análise lê o relato todo.
+
+**Decisão.** Uma guarda antes da busca, pela interface
+`QuickQuestionScopeGuard` (`QUICK_QUESTION_SCOPE_GUARD`), com as classes da
+CC-503 — clínica, administrativa, fora de escopo — e o motivo da recusa
+(`whole_case`, `administrative`, `not_clinical`, `injection`). Recusa = 200
+com `outcome: refused` e texto educado por motivo na tela; nada de busca,
+embedding ou lacuna. A guarda recebe a pergunta já mascarada.
+
+1. **Determinística (padrão).** A barreira de injeção do Copiloto
+   (`scanForInjection`, inglês e português — os padrões em português são os
+   do PR #170, idênticos, para o merge dos dois não conflitar), pedido
+   explícito sobre um paciente ("o que ele tem", "analise este caso"), três
+   ou mais marcas de relato (idade, sinais vitais com valor, narrativa de
+   admissão, jargão de evolução, texto longo), vocabulário clínico (aceita),
+   termos administrativos e não clínicos. Sem sinal nenhum, aceita: recusar
+   uma dúvida clínica custa mais que uma busca.
+2. **Jev (TypeSafe), atrás de `QUICK_QUESTION_SCOPE_GUARD=jev`.** Uma
+   pergunta Choice com cinco opções (dúvida clínica, caso inteiro,
+   administrativo, não clínico, instrução ao sistema) sobre a pergunta
+   mascarada; recusa só com confiança ≥ `JEV_SCOPE_MIN_CONFIDENCE` (0,6,
+   provisório). A injeção óbvia é barrada antes, sem sair da VPS. Sem
+   `JEV_API_KEY`, com a API fora ou resposta fora do contrato, decide a
+   heurística (sinal `jev_unconfigured`/`jev_failed` no log e na trilha). O
+   cliente segue a documentação pública (`POST /v1/systemone`, Bearer,
+   `{ state, model, questions }`); o acesso antecipado não está confirmado e
+   o contrato precisa ser conferido na API de verdade antes de ligar.
+3. **Trilha.** `QUICK_QUESTION_ASKED` ganha a classe, o motivo, a guarda que
+   decidiu, a confiança e os sinais (nomes de regra) — sem texto.
+
+**Riscos.** A heurística por palavra erra: sinônimo fora da lista passa
+(custa uma busca e uma lacuna), e um termo administrativo numa dúvida sem
+nenhum termo clínico da lista recusa. As listas ficam no código, com testes
+de frases clínicas que não podem ser barradas. Com o Jev, a pergunta
+mascarada vai para a TypeSafe (EUA) — o Jev classifica, não escreve resposta,
+e a retenção do lado deles não está na documentação pública: exige termos de
+privacidade (DPA) antes de ligar. A chamada do Jev ainda não entra em `ai_calls` (sem preço na tabela
+nem etapa própria): o log `JEV_SCOPE` traz modelo, escolha, confiança, tokens
+de entrada e latência.

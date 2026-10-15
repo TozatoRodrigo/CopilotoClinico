@@ -159,4 +159,30 @@ describe('QuickQuestion', () => {
 
     expect(screen.getByText(/Não foi possível perguntar agora/i)).toBeInTheDocument();
   });
+
+  describe('fora do escopo (CC-503)', () => {
+    it('caso inteiro: recusa educada e o caminho para abrir um caso', () => {
+      mutation.data = { outcome: 'refused', questionId: 'q1', reason: 'whole_case' };
+      render(<QuickQuestion />);
+
+      expect(screen.getByText('Isso parece um caso inteiro.')).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /Abrir um caso/i })).toHaveAttribute(
+        'href',
+        '/encounters/new',
+      );
+    });
+
+    it.each([
+      ['not_clinical', 'Por aqui, só dúvidas clínicas.'],
+      ['administrative', 'Essa dúvida não é clínica.'],
+      ['injection', 'Não foi possível responder a esta pergunta.'],
+    ] as const)('%s: explica o que a pergunta rápida responde', (reason, title) => {
+      mutation.data = { outcome: 'refused', questionId: 'q1', reason };
+      render(<QuickQuestion />);
+
+      expect(screen.getByText(title)).toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: /Abrir um caso/i })).not.toBeInTheDocument();
+      expect(screen.queryByText('Cartão revisado por médico')).not.toBeInTheDocument();
+    });
+  });
 });
