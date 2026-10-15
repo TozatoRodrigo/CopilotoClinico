@@ -25,7 +25,9 @@ const params: CompletionParams = {
 function provider(overrides: Partial<AIProvider> = {}): AIProvider {
   return {
     name: 'anthropic',
-    complete: vi.fn().mockResolvedValue({ content: '{}', model: 'claude-opus-5-5', usage, latencyMs: 5 }),
+    complete: vi
+      .fn()
+      .mockResolvedValue({ content: '{}', model: 'claude-opus-5-5', usage, latencyMs: 5 }),
     completeStream: vi.fn(),
     embed: vi.fn(),
     research: vi.fn(),
@@ -35,7 +37,10 @@ function provider(overrides: Partial<AIProvider> = {}): AIProvider {
 
 function traced(inner: AIProvider) {
   const traces: AiCallTrace[] = [];
-  return { traces, tracing: new TracingAiProvider(inner, 'default', { record: (t) => traces.push(t) }) };
+  return {
+    traces,
+    tracing: new TracingAiProvider(inner, 'default', { record: (t) => traces.push(t) }),
+  };
 }
 
 describe('TracingAiProvider', () => {
@@ -76,7 +81,12 @@ describe('TracingAiProvider', () => {
   });
 
   it('records a refusal with its usage and rethrows', async () => {
-    const refusal = new AiRefusalError({ model: 'claude-opus-5-5', category: 'bio', explanation: null, usage });
+    const refusal = new AiRefusalError({
+      model: 'claude-opus-5-5',
+      category: 'bio',
+      explanation: null,
+      usage,
+    });
     const { traces, tracing } = traced(provider({ complete: vi.fn().mockRejectedValue(refusal) }));
 
     await expect(tracing.complete(params)).rejects.toBe(refusal);
@@ -93,9 +103,41 @@ describe('TracingAiProvider', () => {
 
     await expect(tracing.complete(params)).rejects.toBe(error);
 
-    expect(traces[0]).toMatchObject({ outcome: 'error', errorType: 'RateLimitError:429', usage: null });
+    expect(traces[0]).toMatchObject({
+      outcome: 'error',
+      errorType: 'RateLimitError:429',
+      usage: null,
+    });
     expect(JSON.stringify(traces)).not.toContain('Maria');
   });
+
+  it.each([
+    [
+      'BadRequestError',
+      400,
+      'You have reached your specified workspace API usage limits. You will regain access on 2026-11-01 at 00:00 UTC.',
+    ],
+    ['BadRequestError', 400, 'Your credit balance is too low to access the Anthropic API.'],
+    [
+      'RateLimitError',
+      429,
+      'You exceeded your current quota, please check your plan and billing details.',
+    ],
+  ])(
+    'marks %s:%i as usage_limit when the provider ran out of quota',
+    async (name, status, message) => {
+      const error = Object.assign(new Error(message), { name, status });
+      const { traces, tracing } = traced(provider({ complete: vi.fn().mockRejectedValue(error) }));
+
+      await expect(tracing.complete(params)).rejects.toBe(error);
+
+      expect(traces[0]).toMatchObject({
+        outcome: 'error',
+        errorType: `${name}:${status}:usage_limit`,
+      });
+      expect(JSON.stringify(traces)).not.toContain('regain access');
+    },
+  );
 
   it('records a stream when it finishes and when the consumer leaves early', async () => {
     async function* stream(): AsyncGenerator<string, StreamCompletionResult> {

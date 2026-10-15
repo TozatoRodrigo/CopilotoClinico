@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { AiRefusalError, AiTruncatedError } from './ai-gateway.errors';
+import { USAGE_LIMIT_ERROR_SUFFIX, isUsageLimitMessage } from './ai-call-trace';
 import type { AiCallOutcome, AiCallSink, AiCallStage, AiCallTrace } from './ai-call-trace';
 import type {
   AIProvider,
@@ -28,7 +29,9 @@ function systemPromptOf(messages: ChatMessage[]): string {
 function errorTypeOf(error: unknown): string {
   if (!(error instanceof Error)) return 'unknown';
   const status = (error as { status?: unknown }).status;
-  return typeof status === 'number' ? `${error.name}:${status}` : error.name;
+  const type = typeof status === 'number' ? `${error.name}:${status}` : error.name;
+  // A mensagem do provedor só é lida para classificar; não vai para o rastro.
+  return isUsageLimitMessage(error.message) ? `${type}${USAGE_LIMIT_ERROR_SUFFIX}` : type;
 }
 
 interface Failure {
