@@ -30,7 +30,7 @@ describe("ShiftReviewEntry", () => {
     renderEntry();
 
     expect(await screen.findByText("Revise seu plantão")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Revisar" })).toHaveAttribute("href", "/revisao");
+    expect(screen.getByRole("link", { name: "Revisar" })).toHaveAttribute("href", "/revise-seu-plantao");
     expect(apiGetMock).toHaveBeenCalledWith("/shift-review/current");
   });
 

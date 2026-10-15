@@ -855,6 +855,10 @@ seus casos dos últimos 7 dias, marca "sei", "tenho dúvida" ou "chutei" e vê a
 explicação com a fonte que a análise citou. Desligado por padrão
 (`COPILOT_SHIFT_REVIEW=false`).
 
+- **Onde**: entrada "Revise seu plantão" no Plantão e tela `/revise-seu-plantao`
+  no web (`/revisao` é da revisão de cartões, CC-404); API em
+  `/v1/shift-review/*`.
+
 - **Material**: só as análises do próprio médico (última análise válida de
   cada caso não cancelado, até 6 casos), com entendimento, sinais de alarme,
   condutas e os trechos das fontes citadas. O texto do caso não vai. Tudo

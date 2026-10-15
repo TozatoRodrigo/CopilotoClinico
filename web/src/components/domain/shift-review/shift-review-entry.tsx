@@ -11,7 +11,7 @@ import {
 } from "@/hooks/use-shift-review";
 import { useMessages } from "@/lib/messages/use-messages";
 
-export const SHIFT_REVIEW_HREF = "/revisao";
+export const SHIFT_REVIEW_HREF = "/revise-seu-plantao";
 
 /**
  * CC-801 — entrada "Revise seu plantão" no Plantão. Só aparece com a flag

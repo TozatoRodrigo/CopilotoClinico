@@ -34,7 +34,7 @@ const STATIC: Record<string, BreadcrumbItem> = {
   settings: { label: 'Configurações', icon: Gear },
   profile: { label: 'Perfil', icon: UserCircle },
   'verificacao-crm': { label: 'Verificação de CRM', icon: IdentificationCard },
-  revisao: { label: 'Revisão do plantão', icon: GraduationCap },
+  'revise-seu-plantao': { label: 'Revisão do plantão', icon: GraduationCap },
   admin: { label: 'Console', icon: SquaresFour },
 };
 
