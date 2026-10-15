@@ -126,8 +126,19 @@ export const TOOLS: readonly ToolEntry[] = [
     name: 'Emergência pediátrica',
     description: 'Broselow, doses e infusões por peso e cenários pediátricos.',
     group: 'pediatria',
-    synonyms: ['ped', 'criança', 'broselow', 'doses pediátricas', 'pals', 'lactente'],
-    status: 'em-breve',
+    synonyms: [
+      'ped',
+      'criança',
+      'broselow',
+      'fita de broselow',
+      'doses pediátricas',
+      'dose por peso',
+      'infusão pediátrica',
+      'pals',
+      'lactente',
+      'neonato',
+    ],
+    status: 'disponivel',
   },
   // CC-323 e CC-324
   {

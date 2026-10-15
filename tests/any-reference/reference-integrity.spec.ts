@@ -18,9 +18,13 @@ const CODE_FILE = /\.(ts|tsx|js|mjs)$/;
 /** `from '…any-reference…'`, `import('…any-reference…')` ou `require('…any-reference…')`. */
 const IMPORTS_REFERENCE = /(from\s+|import\s*\(\s*|require\s*\(\s*)['"][^'"]*any-reference/;
 
+/**
+ * Arquivos copiados: `.ts` de dado e conta, `.tsx` quando a conta mora no
+ * componente e `.html` quando a ferramenta do ANY é um HTML único (HETRIN).
+ */
 function referenceFiles(): string[] {
   return readdirSync(REFERENCE_DIR).filter(
-    (file) => file.endsWith('.ts') && !file.endsWith('.spec.ts'),
+    (file) => /\.(tsx?|html)$/.test(file) && !file.endsWith('.spec.ts'),
   );
 }
 
@@ -40,8 +44,16 @@ function codeFiles(dir: string): string[] {
 }
 
 describe('referência congelada do ANY', () => {
-  it('tem os três arquivos copiados', () => {
-    expect(referenceFiles().sort()).toEqual(['calculatorData.ts', 'clinical.ts', 'formatters.ts']);
+  it('tem os arquivos copiados de cada ferramenta portada', () => {
+    expect(referenceFiles()).toEqual(
+      expect.arrayContaining([
+        'calculatorData.ts',
+        'clinical.ts',
+        'formatters.ts',
+        // CC-319 — pediatria
+        'PedGuide.tsx',
+      ]),
+    );
   });
 
   it.each(referenceFiles())('%s não foi editado depois de copiado', (file) => {

@@ -163,6 +163,11 @@ desenha. Vitrine em `/dev/components#ferramentas`.
 | `CopyToChartButton` | Texto para o prontuário, com o texto selecionável se a área de transferência falhar. |
 | `DecisionSupportNotice` | Aviso fixo "Apoio à decisão; não substitui o julgamento clínico." |
 | `CalculatorView` | Tudo acima montado a partir de uma `CalculatorDefinition`. |
+| `pediatrics/BroselowPicker` | As nove cores da fita de Broselow como grupo de rádio (toque de 44 px), com nome e peso; a amostra usa os tokens de tom e vai sempre com o nome. |
+| `pediatrics/PediatricDrugCard` | Droga em bolus: dose, volume (ou vazão da infusão), teto e "teto atingido", selo e aviso de "não rotineiro", preparo. |
+| `pediatrics/PediatricInfusionCard` | Infusão pediátrica: preparo da faixa de peso, dose → mL/h ao vivo e a conta inversa. |
+| `pediatrics/ToolCollapsible` | Bloco que abre e fecha com alvo de 44 px e título em cabeçalho (o `Disclosure` tem 28 px). |
+| `pediatrics/CanonicalSourceNotice` | Aviso laranja "Doses aguardando assinatura da fonte única (CC-321)"; some quando a revisão do dado passa a `revisado`. |
 
 ## Receitas de página
 
