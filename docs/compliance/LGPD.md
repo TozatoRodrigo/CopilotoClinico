@@ -46,6 +46,16 @@
 - Todas as ações do sistema (login, geração, confirmação, etc.)
 - Payload nunca contém PII de pacientes — contém apenas IDs de entidades
 
+### Revisão do plantão (ShiftReview, ShiftReviewQuestion) — CC-801
+- Até 3 perguntas por semana geradas das análises do próprio médico, a
+  resposta, o grau de certeza ("sei", "tenho dúvida", "chutei") e o acerto
+- O que vai ao modelo passa pela máscara de PII e pela redação do `patientRef`;
+  o texto do caso não vai. Pergunta com dado do paciente é descartada antes de
+  gravar
+- A fonte é copiada da análise (trecho da diretriz), nunca escrita pelo modelo
+- Exportação: `data.shiftReviews` (com as perguntas). Eliminação: apagadas
+  explicitamente; as perguntas também saem em cascata com o encontro
+
 ## Direitos do Titular (Médico)
 
 | Direito (Art. 18) | Endpoint |

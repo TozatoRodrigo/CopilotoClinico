@@ -46,6 +46,11 @@ describe('LgpdService', () => {
       deleteMany: ReturnType<typeof vi.fn>;
     };
     caseIntake: { findMany: ReturnType<typeof vi.fn> };
+    shiftReview: {
+      findMany: ReturnType<typeof vi.fn>;
+      deleteMany: ReturnType<typeof vi.fn>;
+    };
+    shiftReviewQuestion: { deleteMany: ReturnType<typeof vi.fn> };
     $transaction: ReturnType<typeof vi.fn>;
   };
   let auditService: {
@@ -93,6 +98,11 @@ describe('LgpdService', () => {
         deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
       caseIntake: { findMany: vi.fn().mockResolvedValue([]) },
+      shiftReview: {
+        findMany: vi.fn().mockResolvedValue([]),
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
+      shiftReviewQuestion: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
       $transaction: vi.fn(),
     };
     auditService = {
@@ -342,9 +352,20 @@ describe('LgpdService', () => {
         },
       ];
 
+      // CC-801 — revisão do plantão: perguntas, resposta e grau de certeza.
+      const shiftReviews = [
+        {
+          id: 'review-1',
+          physicianId,
+          status: 'ready',
+          questions: [{ id: 'q-1', position: 0, confidence: 'know', correct: true }],
+        },
+      ];
+
       prisma.physician.findUnique.mockResolvedValue(physician);
       prisma.recommendationDecision.findMany.mockResolvedValue(recommendationDecisions);
       prisma.copilotFeedback.findMany.mockResolvedValue(copilotFeedback);
+      prisma.shiftReview.findMany.mockResolvedValue(shiftReviews);
       prisma.encounter.findMany.mockResolvedValue(encounters);
       prisma.document.findMany.mockResolvedValue(documents);
       prisma.consent.findMany.mockResolvedValue(consents);
@@ -369,11 +390,16 @@ describe('LgpdService', () => {
           caseIntakes: [],
           recommendationDecisions,
           copilotFeedback,
+          shiftReviews,
           consents,
           auditLog,
         },
       });
       expect(prisma.caseIntake.findMany).toHaveBeenCalledWith({ where: { physicianId } });
+      expect(prisma.shiftReview.findMany).toHaveBeenCalledWith({
+        where: { physicianId },
+        include: { questions: { orderBy: { position: 'asc' } } },
+      });
       expect(prisma.copilotFeedback.findMany).toHaveBeenCalledWith({ where: { physicianId } });
       // F0-D — decisões por recomendação são dado do médico: entram na portabilidade.
       expect(prisma.recommendationDecision.findMany).toHaveBeenCalledWith({
@@ -463,6 +489,8 @@ describe('LgpdService', () => {
 
       prisma.recommendationDecision.deleteMany.mockResolvedValue({ count: 4 });
       prisma.copilotFeedback.deleteMany.mockResolvedValue({ count: 3 });
+      prisma.shiftReviewQuestion.deleteMany.mockResolvedValue({ count: 6 });
+      prisma.shiftReview.deleteMany.mockResolvedValue({ count: 2 });
       prisma.encounter.deleteMany.mockResolvedValue({ count: 2 });
       prisma.consent.deleteMany.mockResolvedValue({ count: 1 });
       prisma.refreshToken.deleteMany.mockResolvedValue({ count: 1 });
@@ -492,6 +520,8 @@ describe('LgpdService', () => {
       expect(result.erased).toEqual({
         recommendationDecisions: 4,
         copilotFeedback: 3,
+        shiftReviewQuestions: 6,
+        shiftReviews: 2,
         encounters: 2,
         consents: 1,
         refreshTokens: 1,
@@ -500,6 +530,11 @@ describe('LgpdService', () => {
         where: { physicianId },
       });
       expect(prisma.copilotFeedback.deleteMany).toHaveBeenCalledWith({ where: { physicianId } });
+      // CC-801 — a revisão pende do médico, não do encontro: sai explicitamente.
+      expect(prisma.shiftReviewQuestion.deleteMany).toHaveBeenCalledWith({
+        where: { physicianId },
+      });
+      expect(prisma.shiftReview.deleteMany).toHaveBeenCalledWith({ where: { physicianId } });
       expect(prisma.encounter.deleteMany).toHaveBeenCalledWith({
         where: { physicianId },
       });
@@ -527,6 +562,8 @@ describe('LgpdService', () => {
           erased: {
             recommendationDecisions: 4,
             copilotFeedback: 3,
+            shiftReviewQuestions: 6,
+            shiftReviews: 2,
             encounters: 2,
             consents: 1,
             refreshTokens: 1,

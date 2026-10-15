@@ -12,6 +12,8 @@ import type {
   AuditLog,
   RecommendationDecision,
   CopilotFeedback,
+  ShiftReview,
+  ShiftReviewQuestion,
 } from '@prisma/client';
 
 export interface PhysicianDataExport {
@@ -32,6 +34,8 @@ export interface PhysicianDataExport {
     recommendationDecisions: RecommendationDecision[];
     /** F0-D — reportes do médico sobre análises (comentário já mascarado). */
     copilotFeedback: CopilotFeedback[];
+    /** CC-801 — revisões do plantão com as perguntas, respostas e grau de certeza. */
+    shiftReviews: Array<ShiftReview & { questions: ShiftReviewQuestion[] }>;
     consents: Consent[];
     auditLog: AuditLog[];
   };
@@ -173,6 +177,7 @@ export class LgpdService {
       recommendationDecisions,
       copilotFeedback,
       caseIntakes,
+      shiftReviews,
     ] = await Promise.all([
       this.prisma.document.findMany({ where: { physicianId } }),
       this.prisma.consent.findMany({ where: { physicianId } }),
@@ -186,6 +191,11 @@ export class LgpdService {
       this.prisma.copilotFeedback.findMany({ where: { physicianId } }),
       // ADR-014 — a conversa antes do plano (caso e respostas já redigidos).
       this.prisma.caseIntake.findMany({ where: { physicianId } }),
+      // CC-801 — revisões do plantão (perguntas já mascaradas, sem dado do paciente).
+      this.prisma.shiftReview.findMany({
+        where: { physicianId },
+        include: { questions: { orderBy: { position: 'asc' } } },
+      }),
     ]);
 
     return {
@@ -203,6 +213,7 @@ export class LgpdService {
         caseIntakes,
         recommendationDecisions,
         copilotFeedback,
+        shiftReviews,
         consents,
         auditLog,
       },
@@ -215,6 +226,8 @@ export class LgpdService {
     erased: {
       recommendationDecisions: number;
       copilotFeedback: number;
+      shiftReviewQuestions: number;
+      shiftReviews: number;
       encounters: number;
       consents: number;
       refreshTokens: number;
@@ -235,6 +248,12 @@ export class LgpdService {
         where: { physicianId },
       });
       const copilotFeedback = await tx.copilotFeedback.deleteMany({ where: { physicianId } });
+      // CC-801 — as revisões não pendem do encontro (só as perguntas): sem
+      // apagar explicitamente, a revisão vazia ficaria no médico anonimizado.
+      const shiftReviewQuestions = await tx.shiftReviewQuestion.deleteMany({
+        where: { physicianId },
+      });
+      const shiftReviews = await tx.shiftReview.deleteMany({ where: { physicianId } });
       const encounters = await tx.encounter.deleteMany({ where: { physicianId } });
       const consents = await tx.consent.deleteMany({ where: { physicianId } });
       const refreshTokens = await tx.refreshToken.deleteMany({ where: { physicianId } });
@@ -251,6 +270,8 @@ export class LgpdService {
       return {
         recommendationDecisions: recommendationDecisions.count,
         copilotFeedback: copilotFeedback.count,
+        shiftReviewQuestions: shiftReviewQuestions.count,
+        shiftReviews: shiftReviews.count,
         encounters: encounters.count,
         consents: consents.count,
         refreshTokens: refreshTokens.count,
