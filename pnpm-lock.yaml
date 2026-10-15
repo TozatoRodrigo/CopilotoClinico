@@ -81,6 +81,9 @@ importers:
       ioredis:
         specifier: 5.10.1
         version: 5.10.1
+      nodemailer:
+        specifier: ^10.0.16
+        version: 10.0.16
       otplib:
         specifier: ^13.4.1
         version: 13.4.1
@@ -2600,6 +2603,10 @@ packages:
   node-releases@2.0.47:
     resolution: {integrity: sha512-Uzmd6LXpouKo8EUK68IjH4+E01w/hXyV3R3g/geCJo+rXLNfh1xucB+LOzYEOQPSiUK3h/xZf0cQGcSsmyL2Og==}
     engines: {node: '>=18'}
+
+  nodemailer@10.0.16:
+    resolution: {integrity: sha512-VL9xKErxN+el77o8eBOuYKUPMyEx7F9hfnDCuiUKJRp9v3wnWMOudYgP/SWbwSHy8rUL4cylobuXtki1LpQS7A==}
+    engines: {node: '>=20.0.0'}
 
   nypm@0.6.6:
     resolution: {integrity: sha512-vRyr0r4cbBapw07Xw8xrj9Teq3o7MUD35rSaTcanDbW+aK2XHDgJFiU6ZTj2GBw7Q12ysdsyFss+Vdz4hQ0Y6Q==}
@@ -5948,6 +5955,8 @@ snapshots:
     optional: true
 
   node-releases@2.0.47: {}
+
+  nodemailer@10.0.16: {}
 
   nypm@0.6.6:
     dependencies:
