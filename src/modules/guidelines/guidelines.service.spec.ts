@@ -718,6 +718,31 @@ describe('GuidelinesService', () => {
 
       expect(prisma.$queryRawUnsafe).toHaveBeenCalledWith(expect.any(String), 'febre', 5);
     });
+
+    it('CC-502 — com instituições, só trechos globais e delas, filtrados no banco', async () => {
+      prisma.$queryRawUnsafe.mockResolvedValue([]);
+
+      await service.searchChunks('anafilaxia', 'clinica_medica', 40, ['inst-1']);
+
+      expect(prisma.$queryRawUnsafe).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'AND (gc.institution_id IS NULL OR gc.institution_id = ANY($4::uuid[]))',
+        ),
+        'anafilaxia',
+        40,
+        'clinica_medica',
+        ['inst-1'],
+      );
+    });
+
+    it('CC-502 — sem instituições, a busca de sempre não filtra por instituição', async () => {
+      prisma.$queryRawUnsafe.mockResolvedValue([]);
+
+      await service.searchChunks('anafilaxia');
+
+      const [sql] = prisma.$queryRawUnsafe.mock.calls[0]!;
+      expect(sql).not.toContain('institution_id = ANY');
+    });
   });
 
   describe('consult', () => {

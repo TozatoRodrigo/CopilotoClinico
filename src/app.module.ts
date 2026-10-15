@@ -17,6 +17,7 @@ import { AuditModule } from './modules/audit/audit.module';
 import { GuidelinesModule } from './modules/guidelines/guidelines.module';
 import { KnowledgeCardsModule } from './modules/knowledge-cards/knowledge-cards.module';
 import { ProtocolsModule } from './modules/protocols/protocols.module';
+import { UnifiedSearchModule } from './modules/search/search.module';
 import { InstitutionsModule } from './modules/institutions/institutions.module';
 import { PhysiciansModule } from './modules/physicians/physicians.module';
 import { ObservabilityModule } from './modules/observability/observability.module';
@@ -46,6 +47,7 @@ import { RequestContextInterceptor } from './shared/request-context/request-cont
     GuidelinesModule,
     KnowledgeCardsModule,
     ProtocolsModule,
+    UnifiedSearchModule,
     InstitutionsModule,
     AuditModule,
     LgpdModule,

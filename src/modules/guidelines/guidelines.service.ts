@@ -353,10 +353,16 @@ export class GuidelinesService {
    * quando preenchido (busca textual com ranking); vazio lista tudo que
    * está aprovado, mais recente primeiro dentro de cada fonte.
    */
+  /**
+   * CC-502 — com `institutionIds`, só trechos globais e das instituições do
+   * médico (ADR-009): a busca única do ⌘K filtra no banco, antes do LIMIT, para
+   * o trecho de outra instituição não ocupar a vaga nem aparecer.
+   */
   async searchChunks(
     query: string,
     specialty?: string,
     limit: number = 20,
+    institutionIds?: readonly string[],
   ): Promise<GuidelineChunkSearchRow[]> {
     const trimmed = query.trim();
 
@@ -369,6 +375,11 @@ export class GuidelinesService {
     if (specialty) {
       params.push(specialty);
       specialtyClause = `AND gc.specialty = $${params.length}`;
+    }
+    let institutionClause = '';
+    if (institutionIds) {
+      params.push([...institutionIds]);
+      institutionClause = `AND (gc.institution_id IS NULL OR gc.institution_id = ANY($${params.length}::uuid[]))`;
     }
 
     const rows = await this.prisma.$queryRawUnsafe(
@@ -385,6 +396,7 @@ export class GuidelinesService {
          AND gc.valid_to IS NULL
          AND gc.text_tsv @@ plainto_tsquery('portuguese', $1)
          ${specialtyClause}
+         ${institutionClause}
        ORDER BY rank DESC, gc.valid_from DESC
        LIMIT $2`,
       ...params,

@@ -47,6 +47,7 @@ graph TB
 | `documents` | Geração, edição e confirmação de documentos com gate auditável | Document |
 | `audit` | Trilha append-only, verificação de cadeia, endpoint interno | AuditLog |
 | `guidelines` | Ingestão e busca vetorial de diretrizes (pgvector) | GuidelineChunk |
+| `search` | Busca única do ⌘K (`GET /search`): cartões revisados, protocolos e casos do médico, com limite por grupo e busca mascarada (CC-502) | — |
 | `lgpd` | Exportação e apagamento de dados (LGPD Art. 18) | Consent |
 | `health` | Health check para load balancer | — |
 | `workers` | Cron jobs cross-cutting (AuditChainCronService) | — |
