@@ -14,9 +14,10 @@
 -- pedidos sem instituição ou de uma instituição a que pertence.
 --
 -- ON DELETE CASCADE a partir do encontro e do médico que pediu: apagar o
--- encontro (direito de eliminação, LGPD Art. 18) leva o pedido junto. Mentor,
--- instituição e análise ficam SET NULL: a resposta pertence ao caso de quem
--- pediu.
+-- encontro (direito de eliminação, LGPD Art. 18) leva o pedido junto. Mentor
+-- e análise ficam SET NULL: a resposta pertence ao caso de quem pediu. A
+-- instituição fica RESTRICT (CC-021): com SET NULL, apagar a instituição
+-- tornaria o pedido visível a todos os mentores.
 --
 -- O índice parcial garante no máximo um pedido em aberto por caso, mesmo com
 -- dois cliques simultâneos.
@@ -84,7 +85,7 @@ ALTER TABLE "mentoring_requests" ADD CONSTRAINT "mentoring_requests_requester_id
 
 ALTER TABLE "mentoring_requests" ADD CONSTRAINT "mentoring_requests_mentor_id_fkey" FOREIGN KEY ("mentor_id") REFERENCES "physicians"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
-ALTER TABLE "mentoring_requests" ADD CONSTRAINT "mentoring_requests_institution_id_fkey" FOREIGN KEY ("institution_id") REFERENCES "institutions"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "mentoring_requests" ADD CONSTRAINT "mentoring_requests_institution_id_fkey" FOREIGN KEY ("institution_id") REFERENCES "institutions"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 ALTER TABLE "mentoring_requests" ADD CONSTRAINT "mentoring_requests_interaction_id_fkey" FOREIGN KEY ("interaction_id") REFERENCES "ai_interactions"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 

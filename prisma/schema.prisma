@@ -549,7 +549,9 @@ model MentoringRequest {
   encounter   Encounter      @relation(fields: [encounterId], references: [id], onDelete: Cascade)
   requester   Physician      @relation("MentoringRequester", fields: [requesterId], references: [id], onDelete: Cascade)
   mentor      Physician?     @relation("MentoringMentor", fields: [mentorId], references: [id], onDelete: SetNull)
-  institution Institution?   @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  /// Restrict (CC-021): com SetNull, apagar a instituição tornaria o pedido
+  /// visível a todos os mentores.
+  institution Institution?   @relation(fields: [institutionId], references: [id], onDelete: Restrict)
   interaction AiInteraction? @relation(fields: [interactionId], references: [id], onDelete: SetNull)
 
   @@index([status, createdAt])
