@@ -13,6 +13,7 @@ vi.mock('@clinical-tools/registry', () => ({
 vi.mock('next/navigation', () => ({
   usePathname: () => '/ferramentas/calculadoras/nihss',
   useRouter: () => ({ push: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 describe('/ferramentas/calculadoras/[id] — calculadora ainda não portada', () => {

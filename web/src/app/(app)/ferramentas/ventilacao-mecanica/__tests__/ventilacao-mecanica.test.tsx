@@ -150,7 +150,7 @@ describe('/ferramentas/ventilacao-mecanica — contas (CC-327)', () => {
     expect(screen.getByLabelText(/^Eventos de assincronia/)).toHaveValue('3');
   });
 
-  it('não mostra o atalho para a via aérea enquanto ela estiver "em breve"', async () => {
+  it('com alto risco de falha, abre a via aérea com o caminho de volta (CC-331)', async () => {
     renderPage();
     const result = await open('Índice ROX');
 
@@ -159,7 +159,10 @@ describe('/ferramentas/ventilacao-mecanica — contas (CC-327)', () => {
     await type(/^Frequência respiratória/, '22');
 
     expect(within(result).getByRole('status')).toHaveTextContent('Alto risco de falha');
-    expect(within(result).queryByRole('link')).not.toBeInTheDocument();
+    expect(within(result).getByRole('link')).toHaveAttribute(
+      'href',
+      '/ferramentas/via-aerea?de=ventilacao-mecanica',
+    );
   });
 
   it('mostra os critérios de SDRA (Global 2024)', () => {

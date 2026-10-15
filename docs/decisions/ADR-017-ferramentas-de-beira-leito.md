@@ -186,6 +186,30 @@ dado de paciente; fica para quando houver pedido e a revisão de LGPD). Em
 aparelho compartilhado, quem abre o navegador vê o histórico: por isso ele não
 tem identificação e o apagar fica na própria tela.
 
+### 10. Ligações entre ferramentas e estado na aba (CC-331)
+
+Os roteiros se chamam: o Choque abre a noradrenalina em Infusões, o TEP a
+heparina, o ACLS a Via aérea e a Toxicologia, a Via aérea a sedação pós-IOT, a
+Sedação a Via aérea, e as calculadoras o roteiro em que também existem. No
+legado o `goToInfusion(droga)` guardava o estado; no ANY v2 o `?drug=` era
+ignorado e o estado se perdia.
+
+- **Estado:** um módulo só, `web/src/lib/tool-session.ts` (`sessionStorage`,
+  chave `copiloto:ferramentas:sessao:<chave>`, formato `{ savedAt, value }`),
+  com validade por chave: roteiros de reavaliação horária (Choque, CAD e EHH)
+  6 h, HACOR 4 h, o resto 30 min. O peso adulto é um só para as ferramentas
+  adultas. As respostas das calculadoras também ficam ali. O ACLS continua no
+  `localStorage` do item 9, porque a parada precisa sobreviver a fechar a aba.
+- **Endereço:** só o que o destino precisa para abrir no lugar certo
+  (`?droga=`, `?indicacao=tep`, `?grupo=sedation`, `?aba=vti`) e de onde o
+  médico veio (`?de=<ferramenta>` ou `?de=calculadoras/<id>`). Os montadores
+  ficam no motor (`src/shared/clinical-tools/links.ts` e `infusionHref`); nada
+  de paciente vai no endereço.
+- **Volta:** o layout de `/ferramentas` mostra "Voltar para …" quando há `?de=`
+  válido. No app instalado não existe o "voltar" do navegador.
+- Um teste varre o código e falha se algum `?droga=` apontar para droga que
+  não está nas Infusões, ou algum link para ferramenta fora do catálogo.
+
 ## Consequências
 
 - Toda ferramenta nova traz definição com procedência, teste diferencial e,

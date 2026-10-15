@@ -8,6 +8,7 @@ vi.mock('next/navigation', () => ({
   notFound: vi.fn(),
   usePathname: () => '/ferramentas/sedacao',
   useRouter: () => ({ push: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 const toastSuccess = vi.fn();

@@ -40,6 +40,7 @@ import {
   transitionDoseText,
 } from '@clinical-tools/cad-ehh/screen-text';
 import { stripSourceTags } from '@clinical-tools/cad-ehh/sources';
+import { calculatorHref } from '@clinical-tools/links';
 import { formatCompact, formatDecimal } from '@clinical-tools/numbers';
 import { WeightField } from '@/components/domain/clinical-tools/weight-field';
 import { Button } from '@/components/ui/button';
@@ -254,7 +255,10 @@ export function ReassessmentCycle({
                 ) : null}
                 <p className="text-xs">
                   Delta gap {formatDecimal(deltaDelta.deltaGap, 1)} · fórmula em{' '}
-                  <Link href="/ferramentas/calculadoras/delta-gap" className="text-link underline">
+                  <Link
+                    href={calculatorHref('delta-gap', { from: { tool: 'cad-ehh' } })}
+                    className="text-link underline"
+                  >
                     Delta Gap e Razão Delta/Delta
                   </Link>
                   .

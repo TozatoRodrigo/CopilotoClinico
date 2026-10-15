@@ -9,6 +9,7 @@ vi.mock('next/navigation', () => ({
   notFound: vi.fn(),
   usePathname: () => '/ferramentas/pediatria/cenarios/anafilaxia',
   useRouter: () => ({ push: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 function renderScenario(id: string) {

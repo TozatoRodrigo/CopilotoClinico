@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { TOOLS } from '@clinical-tools/catalog';
+import { toolHref } from '@clinical-tools/links';
 import { buildAclsReport, formatClockTime } from '@clinical-tools/acls/report';
 import {
   HS_CAUSES,
@@ -22,7 +23,11 @@ import { useAclsSession } from './acls-session-provider';
  * checklist pós-RCE, desfecho e o relatório para o prontuário.
  */
 
-/** Link do card para outra ferramenta; "em breve" enquanto ela não foi portada. */
+/**
+ * Link do card para outra ferramenta; "em breve" enquanto ela não foi portada.
+ * O destino oferece "Voltar para Parada…" e a parada segue na faixa do topo
+ * (CC-331).
+ */
 function CauseLink({ target }: { target: NonNullable<ReversibleCause['link']> }) {
   const tool = TOOLS.find(({ id }) => id === target);
   if (!tool) return null;
@@ -36,7 +41,7 @@ function CauseLink({ target }: { target: NonNullable<ReversibleCause['link']> })
   }
   return (
     <Link
-      href={`/ferramentas/${tool.id}`}
+      href={toolHref(tool.id, { from: { tool: 'acls' } })}
       className="mt-1 text-sm text-link underline-offset-4 hover:underline"
     >
       Abrir {tool.name}

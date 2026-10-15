@@ -18,6 +18,7 @@ vi.mock('next/navigation', () => ({
   notFound: vi.fn(),
   usePathname: () => pathname,
   useRouter: () => ({ push: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), info: vi.fn() } }));

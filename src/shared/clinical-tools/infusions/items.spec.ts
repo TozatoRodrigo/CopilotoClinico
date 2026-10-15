@@ -99,8 +99,16 @@ describe('readInfusionParam', () => {
       requested: 'xpto',
       item: null,
       legacy: false,
+      indication: null,
+      group: null,
     });
-    expect(readInfusionParam(params(''))).toEqual({ requested: null, item: null, legacy: false });
+    expect(readInfusionParam(params(''))).toEqual({
+      requested: null,
+      item: null,
+      legacy: false,
+      indication: null,
+      group: null,
+    });
   });
 });
 

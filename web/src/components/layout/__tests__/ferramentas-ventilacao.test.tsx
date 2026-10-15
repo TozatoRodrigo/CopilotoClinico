@@ -10,6 +10,7 @@ const pathname = vi.hoisted(() => ({ current: '/ferramentas/ventilacao-mecanica'
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push }),
   usePathname: () => pathname.current,
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock('@/lib/auth-store', () => ({

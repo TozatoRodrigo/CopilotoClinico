@@ -1148,7 +1148,9 @@ describe('TEP × ANY — roteiro: paciente instável', () => {
       UNSTABLE.anticoagulation.heparin.link,
     ].map((link) => (link.kind === 'infusao' ? link.drug : null));
     expect(ours).toEqual(anyDrugs);
-    expect(infusionDrugHref('heparina')).toBe('/ferramentas/infusoes?droga=heparina');
+    expect(infusionDrugHref('heparina')).toBe(
+      '/ferramentas/infusoes?droga=heparina&indicacao=tep&de=tep',
+    );
     expect(MANAGEMENT.heparin).toMatchObject({ kind: 'infusao', drug: 'heparina' });
   });
 });

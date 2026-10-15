@@ -8,6 +8,7 @@ vi.mock('next/navigation', () => ({
   notFound: vi.fn(),
   usePathname: () => '/ferramentas/dengue',
   useRouter: () => ({ push: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 const toastSuccess = vi.fn();

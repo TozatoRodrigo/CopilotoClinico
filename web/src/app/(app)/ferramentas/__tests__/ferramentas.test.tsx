@@ -15,6 +15,7 @@ vi.mock('next/navigation', () => ({
   notFound: () => notFound(),
   usePathname: () => '/ferramentas',
   useRouter: () => ({ push: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 const toastInfo = vi.fn();
@@ -38,7 +39,8 @@ describe('/ferramentas — flag (ADR-017)', () => {
 
   it('abre com a flag em on', () => {
     vi.stubEnv('NEXT_PUBLIC_FERRAMENTAS', 'on');
-    expect(FerramentasLayout({ children: 'conteúdo' })).toBe('conteúdo');
+    render(FerramentasLayout({ children: 'conteúdo' }));
+    expect(screen.getByText('conteúdo')).toBeInTheDocument();
     expect(notFound).not.toHaveBeenCalled();
   });
 });
@@ -109,14 +111,14 @@ describe('/ferramentas — hub (CC-304)', () => {
     );
   });
 
-  it("lista a ferramenta não portada como 'em breve', sem link nem favorito", () => {
+  it('com as ferramentas do ANY integradas, todas abrem do hub e nenhuma fica "em breve"', () => {
     render(<FerramentasPage />);
+    // O "em breve" do hub tem teste próprio, com catálogo de teste (em-breve.test.tsx).
+    expect(screen.queryByText('Em breve')).not.toBeInTheDocument();
     const airway = screen.getByRole('region', { name: 'Via aérea' });
-
-    expect(within(airway).getByText('Intubação e via aérea difícil')).toBeInTheDocument();
-    expect(within(airway).getByText('Em breve')).toBeInTheDocument();
-    expect(within(airway).queryByRole('link')).not.toBeInTheDocument();
-    expect(within(airway).queryByRole('button', { name: /Favoritar/ })).not.toBeInTheDocument();
+    expect(
+      within(airway).getByRole('link', { name: /Intubação e via aérea difícil/ }),
+    ).toHaveAttribute('href', '/ferramentas/via-aerea');
   });
 
   it('abre o ACLS em um toque a partir do hub (CC-313)', () => {
@@ -226,15 +228,21 @@ describe('/ferramentas/calculadoras/[id]', () => {
     render(<CalculatorScreen id="ciwa-ar" />);
 
     expect(screen.getByRole('heading', { level: 1, name: 'CIWA-Ar' })).toBeInTheDocument();
+    // CC-331: o roteiro oferece a volta para a calculadora (`?de=`).
     expect(
       screen.getByRole('link', { name: 'Abrir no roteiro: Intoxicações e antídotos' }),
-    ).toHaveAttribute('href', '/ferramentas/toxicologia');
+    ).toHaveAttribute('href', '/ferramentas/toxicologia?de=calculadoras/ciwa-ar');
   });
 
-  it('VTI não mostra "Abrir no roteiro" enquanto o roteiro de choque está em breve (CC-306)', () => {
+  it('VTI abre o choque indiferenciado na aba VTI (CC-306, CC-331)', () => {
     render(<CalculatorScreen id="vti-classificacao" />);
 
-    expect(screen.queryByRole('link', { name: /Abrir no roteiro/ })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Abrir no roteiro: Choque indiferenciado' }),
+    ).toHaveAttribute(
+      'href',
+      '/ferramentas/choque-indiferenciado?aba=vti&de=calculadoras/vti-classificacao',
+    );
   });
 
   it('CAM-ICU mostra a faixa como resultado, sem número', async () => {

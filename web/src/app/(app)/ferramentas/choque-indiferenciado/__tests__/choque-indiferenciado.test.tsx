@@ -6,6 +6,7 @@ import { UndifferentiatedShockScreen } from '../_components/undifferentiated-sho
 vi.mock('next/navigation', () => ({
   usePathname: () => '/ferramentas/choque-indiferenciado',
   useRouter: () => ({ push: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), info: vi.fn() } }));
@@ -47,7 +48,7 @@ describe('/ferramentas/choque-indiferenciado — VTI (CC-317)', () => {
     ).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Calcular dobutamina' })).toHaveAttribute(
       'href',
-      '/ferramentas/infusoes?droga=dobutamina',
+      '/ferramentas/infusoes?droga=dobutamina&de=choque-indiferenciado',
     );
 
     await userEvent.click(screen.getByRole('button', { name: 'Ver resumo' }));

@@ -7,6 +7,7 @@ import { SepticShockScreen } from '../_components/septic-shock-screen';
 vi.mock('next/navigation', () => ({
   usePathname: () => '/ferramentas/choque-septico',
   useRouter: () => ({ push: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), info: vi.fn() } }));
@@ -153,10 +154,13 @@ describe('/ferramentas/choque-septico — roteiro (CC-316)', () => {
     await userEvent.type(field(/^PAD/), '48');
 
     const link = screen.getByRole('link', { name: 'Calcular noradrenalina' });
-    expect(link).toHaveAttribute('href', '/ferramentas/infusoes?droga=noradrenalina');
+    expect(link).toHaveAttribute(
+      'href',
+      '/ferramentas/infusoes?droga=noradrenalina&de=choque-septico',
+    );
     expect(screen.getByRole('link', { name: 'Calcular vasopressina' })).toHaveAttribute(
       'href',
-      '/ferramentas/infusoes?droga=vasopressina',
+      '/ferramentas/infusoes?droga=vasopressina&de=choque-septico',
     );
 
     // Sair para as Infusões desmonta a tela; voltar monta de novo a partir da sessão.

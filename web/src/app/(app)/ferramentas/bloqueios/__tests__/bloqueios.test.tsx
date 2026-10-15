@@ -26,6 +26,7 @@ vi.mock('next/navigation', () => ({
   notFound: () => navigation.notFound(),
   usePathname: () => navigation.pathname,
   useRouter: () => ({ push: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock('@/lib/clinical-queries', () => ({

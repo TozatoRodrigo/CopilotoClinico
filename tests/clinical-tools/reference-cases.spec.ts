@@ -335,8 +335,10 @@ describe('lote C (CC-309)', () => {
     expect(complete(evaluate('vti-classificacao', { items: { vti_range: 'lt16' } }))).toMatchObject(
       { band: { label: 'VTI < 16 cm — baixo débito', tone: 'critical' } },
     );
+    // CC-331: abre o roteiro já na aba VTI.
     expect(getCalculator('vti-classificacao')?.pathway).toEqual({
       toolId: 'choque-indiferenciado',
+      query: { aba: 'vti' },
     });
     expect(getCalculator('ciwa-ar')?.pathway).toEqual({ toolId: 'toxicologia' });
   });

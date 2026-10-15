@@ -161,7 +161,9 @@ describe('conteúdo do roteiro', () => {
     for (const link of all) {
       if (link.kind === 'referencia') expect(TEP_REFERENCE_SECTIONS).toContain(link.section);
       if (link.kind === 'infusao') {
-        expect(infusionDrugHref(link.drug)).toMatch(/^\/ferramentas\/infusoes\?droga=[a-z]+$/);
+        expect(infusionDrugHref(link.drug)).toMatch(
+          /^\/ferramentas\/infusoes\?droga=[a-z]+(&indicacao=tep)?&de=tep$/,
+        );
       }
       if (link.kind === 'ferramenta')
         expect(linkedToolHref(link.toolId)).toMatch(/^\/ferramentas\//);
@@ -169,7 +171,9 @@ describe('conteúdo do roteiro', () => {
   });
 
   it('a heparina abre em Infusões pelo endereço que a tela de Infusões lê', () => {
-    expect(infusionDrugHref('heparina')).toBe('/ferramentas/infusoes?droga=heparina');
+    expect(infusionDrugHref('heparina')).toBe(
+      '/ferramentas/infusoes?droga=heparina&indicacao=tep&de=tep',
+    );
     expect(MANAGEMENT.heparin).toMatchObject({ kind: 'infusao', drug: 'heparina' });
     expect(UNSTABLE.anticoagulation.heparin.link).toMatchObject({
       kind: 'infusao',

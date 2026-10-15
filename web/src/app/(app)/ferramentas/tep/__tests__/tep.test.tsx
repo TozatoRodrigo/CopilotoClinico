@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import FerramentasPage from '../../page';
-import ToolComingSoonPage from '../../[ferramenta]/page';
 import TepPage from '../page';
 
 const notFound = vi.fn(() => {
@@ -13,6 +12,7 @@ vi.mock('next/navigation', () => ({
   notFound: () => notFound(),
   usePathname: () => '/ferramentas/tep',
   useRouter: () => ({ push: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), info: vi.fn() } }));
@@ -99,7 +99,7 @@ describe('/ferramentas/tep — roteiro', () => {
     expect(screen.getByText('HNF (preferível)')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Protocolo de heparina \(HNF\)/ })).toHaveAttribute(
       'href',
-      '/ferramentas/infusoes?droga=heparina',
+      '/ferramentas/infusoes?droga=heparina&indicacao=tep&de=tep',
     );
     expect(screen.getByText('Red flags de deterioração')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Copiar para o prontuário' })).toBeEnabled();
@@ -154,11 +154,11 @@ describe('/ferramentas/tep — roteiro', () => {
     ).toHaveFocus();
     expect(screen.getByRole('link', { name: /Calculadora de heparina/ })).toHaveAttribute(
       'href',
-      '/ferramentas/infusoes?droga=heparina',
+      '/ferramentas/infusoes?droga=heparina&indicacao=tep&de=tep',
     );
     expect(screen.getByRole('link', { name: /Calculadora de noradrenalina/ })).toHaveAttribute(
       'href',
-      '/ferramentas/infusoes?droga=noradrenalina',
+      '/ferramentas/infusoes?droga=noradrenalina&de=tep',
     );
 
     await choose('Não');
@@ -260,25 +260,5 @@ describe('/ferramentas/tep — calculadoras e referência', () => {
     ]) {
       expect(screen.getByRole('button', { name: title })).toHaveAttribute('aria-expanded', 'false');
     }
-  });
-});
-
-describe('/ferramentas/[ferramenta] — destino ainda "em breve"', () => {
-  it('Infusões, ainda não portada nesta base, mostra "em breve" em vez de 404', async () => {
-    render(await ToolComingSoonPage({ params: Promise.resolve({ ferramenta: 'infusoes' }) }));
-    expect(
-      screen.getByRole('heading', { level: 1, name: 'Infusões contínuas' }),
-    ).toBeInTheDocument();
-    expect(screen.getByText('Em breve')).toBeInTheDocument();
-    expect(notFound).not.toHaveBeenCalled();
-  });
-
-  it('ferramenta que já abre ou id desconhecido vira 404', async () => {
-    await expect(
-      ToolComingSoonPage({ params: Promise.resolve({ ferramenta: 'tep' }) }),
-    ).rejects.toThrow('NEXT_NOT_FOUND');
-    await expect(
-      ToolComingSoonPage({ params: Promise.resolve({ ferramenta: 'xyz' }) }),
-    ).rejects.toThrow('NEXT_NOT_FOUND');
   });
 });

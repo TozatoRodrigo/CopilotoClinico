@@ -10,6 +10,7 @@ let pathname = '/ferramentas';
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push }),
   usePathname: () => pathname,
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock('@/lib/auth-store', () => ({

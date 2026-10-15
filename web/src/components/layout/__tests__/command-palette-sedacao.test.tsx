@@ -9,6 +9,7 @@ const push = vi.fn();
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push }),
   usePathname: () => '/ferramentas/sedacao',
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock('@/lib/auth-store', () => ({

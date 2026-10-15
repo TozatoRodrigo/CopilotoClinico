@@ -1,5 +1,7 @@
 import { normalizeSearchText } from '../catalog';
+import { ORIGIN_PARAM, originValue, withQuery, type ToolOrigin } from '../links';
 import { INFUSION_CATEGORIES, INFUSION_DRUGS } from './drugs';
+import type { HeparinIndication } from './heparin';
 
 /**
  * O que a tela de Infusões lista e abre pelo endereço: as 16 drogas (CC-311)
@@ -77,6 +79,20 @@ export interface InfusionUrlSelection {
   item: InfusionItem | null;
   /** Veio pelo `?drug=` dos links antigos do ANY (Choque, TEP, Via aérea). */
   legacy: boolean;
+  /** `?indicacao=` da heparina (o TEP abre em 80/18 UI/kg); `null` se nada ou inválida. */
+  indication: HeparinIndication | null;
+  /** `?grupo=` da lista: o grupo que aparece primeiro (a sedação pós-IOT da Via aérea). */
+  group: InfusionGroupId | null;
+}
+
+const INDICATIONS: readonly HeparinIndication[] = ['sca', 'tep'];
+
+function isIndication(value: string | null): value is HeparinIndication {
+  return INDICATIONS.includes(value as HeparinIndication);
+}
+
+function isGroup(value: string | null): value is InfusionGroupId {
+  return INFUSION_GROUPS.some(({ id }) => id === value);
 }
 
 /**
@@ -98,10 +114,32 @@ export function readInfusionParam(params: {
       ) ??
       null)
     : null;
-  return { requested, item, legacy: legacyValue !== null };
+  const indication = params.get('indicacao');
+  const group = params.get('grupo');
+  return {
+    requested,
+    item,
+    legacy: legacyValue !== null,
+    indication: item?.kind === 'heparina' && isIndication(indication) ? indication : null,
+    group: isGroup(group) ? group : null,
+  };
 }
 
-/** Endereço da tela com o item aberto. */
-export function infusionHref(id?: string | null): string {
-  return id ? `/ferramentas/infusoes?droga=${encodeURIComponent(id)}` : '/ferramentas/infusoes';
+export interface InfusionLinkOptions {
+  /** Heparina: abre já na indicação. Sem isso, a tela abre na última usada (SCA, 60/12 UI/kg). */
+  indication?: HeparinIndication;
+  /** Lista sem droga aberta: o grupo que aparece primeiro. */
+  group?: InfusionGroupId;
+  /** De onde o médico veio, para a tela oferecer a volta (CC-331). */
+  from?: ToolOrigin | null;
+}
+
+/** Endereço da tela com o item aberto (ou a lista) e, se houver, a origem. */
+export function infusionHref(id?: string | null, options: InfusionLinkOptions = {}): string {
+  return withQuery('/ferramentas/infusoes', {
+    droga: id,
+    indicacao: options.indication,
+    grupo: options.group,
+    [ORIGIN_PARAM]: options.from ? originValue(options.from) : undefined,
+  });
 }

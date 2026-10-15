@@ -123,9 +123,10 @@ interface CalculatorBase {
   /**
    * Roteiro do ANY em que a calculadora também existe (`availableIn`), pelo
    * id da ferramenta no catálogo. A tela só mostra o link quando o roteiro
-   * estiver disponível no Copiloto.
+   * estiver disponível no Copiloto. `query` abre o roteiro no lugar da
+   * calculadora (a aba VTI do choque indiferenciado, CC-331).
    */
-  pathway?: { toolId: string };
+  pathway?: { toolId: string; query?: Readonly<Record<string, string>> };
   /**
    * Escrita do valor principal quando a regra do tipo não serve ("12 sem 3 d",
    * "+3"). `null` esconde o número: a faixa é o resultado (CAM-ICU, Forrest).

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { ArrowSquareOut } from '@phosphor-icons/react';
 import { TOOLS } from '@clinical-tools/catalog';
+import { toolHref } from '@clinical-tools/links';
 import {
   DURING,
   IV_PREPARATION,
@@ -61,7 +62,7 @@ function RedFlagDetail({ flag }: { flag: RedFlag }) {
       </ul>
       {flag.airwayLink && AIRWAY_TOOL ? (
         <Link
-          href={`/ferramentas/${AIRWAY_TOOL.id}`}
+          href={toolHref(AIRWAY_TOOL.id, { from: { tool: 'sedacao' } })}
           className="inline-flex min-h-10 items-center gap-1.5 self-start font-medium underline underline-offset-4 focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-none"
         >
           Abrir {AIRWAY_TOOL.name}

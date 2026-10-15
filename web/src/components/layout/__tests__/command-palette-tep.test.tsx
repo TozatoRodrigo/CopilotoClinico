@@ -7,6 +7,7 @@ const push = vi.fn();
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock('@/lib/auth-store', () => ({
@@ -20,6 +21,22 @@ vi.mock('@/components/providers/theme-provider', () => ({
 vi.mock('@/lib/clinical-queries', () => ({
   useEncounterList: () => ({ data: undefined, isFetching: false }),
 }));
+
+// Com todas as ferramentas do ANY no ar, o ACLS volta a "em breve" só aqui,
+// para conferir que o ⌘K não oferece o que não abre.
+vi.mock('@clinical-tools/catalog', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@clinical-tools/catalog')>();
+  return {
+    ...actual,
+    searchTools: (query: string) =>
+      actual.searchTools(
+        query,
+        actual.TOOLS.map((tool) =>
+          tool.id === 'acls' ? { ...tool, status: 'em-breve' as const } : tool,
+        ),
+      ),
+  };
+});
 
 describe('CommandPalette — TEP (CC-318)', () => {
   afterEach(() => {

@@ -22,7 +22,7 @@ export const VTI_CLASSIFICACAO: ClassificationCalculator = {
   category: 'POCUS / Hemodinâmica',
   description:
     'Classificação hemodinâmica rápida baseada na VTI da VSVE medida por ecocardiografia point-of-care.',
-  pathway: { toolId: 'choque-indiferenciado' },
+  pathway: { toolId: 'choque-indiferenciado', query: { aba: 'vti' } },
   reference: {
     why: 'A VTI permite avaliar rápida e não invasivamente o débito cardíaco à beira-leito, sem cálculo complexo.',
     whenToUse:

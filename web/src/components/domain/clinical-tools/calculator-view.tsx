@@ -11,6 +11,7 @@ import { buildChartNote } from '@clinical-tools/chart-note';
 import { formatCompact } from '@clinical-tools/numbers';
 import { Button } from '@/components/ui/button';
 import { Callout } from '@/components/ui/callout';
+import { useToolSession } from '@/lib/tool-session';
 import { cn } from '@/lib/utils';
 import { CalculatorResult } from './calculator-result';
 import { CopyToChartButton } from './copy-to-chart-button';
@@ -20,6 +21,28 @@ import { ContentProvenanceNote, ReferenceSection } from './reference-section';
 import { ScoreItemList } from './score-item-list';
 
 type Answers = Record<string, string | undefined>;
+
+interface CalculatorAnswersState {
+  items: Answers;
+  inputs: Answers;
+}
+
+function parseAnswers(value: unknown): Answers | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
+  const entries = Object.entries(value);
+  return entries.every(([, answer]) => typeof answer === 'string' && answer.length <= 40)
+    ? (Object.fromEntries(entries) as Answers)
+    : null;
+}
+
+/** Lê sem confiar no formato: versão antiga ou edição à mão vira `null` e a conta recomeça. */
+function parseCalculatorAnswers(value: unknown): CalculatorAnswersState | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const { items, inputs } = value as Record<string, unknown>;
+  const parsedItems = parseAnswers(items);
+  const parsedInputs = parseAnswers(inputs);
+  return parsedItems && parsedInputs ? { items: parsedItems, inputs: parsedInputs } : null;
+}
 
 /** Campos que o ANY abria preenchidos (FiO₂ 21%, albumina 4,0), já com vírgula. */
 function initialInputs(definition: CalculatorDefinition): Answers {
@@ -39,12 +62,22 @@ export interface CalculatorViewProps {
 /**
  * Corpo de uma calculadora (CC-305/CC-306): aviso, campos, itens, resultado
  * ao vivo, copiar para o prontuário e referência. Toda a conta é do motor
- * (`evaluateCalculator`); aqui só há estado de formulário.
+ * (`evaluateCalculator`); aqui só há estado de formulário, guardado na sessão
+ * da aba: quem abre o roteiro ("Abrir no roteiro") e volta encontra as
+ * respostas (CC-331).
  */
 export function CalculatorView({ definition, className }: CalculatorViewProps) {
   const defaults = useMemo(() => initialInputs(definition), [definition]);
-  const [items, setItems] = useState<Answers>({});
-  const [inputs, setInputs] = useState<Answers>(defaults);
+  const [answers, setAnswers] = useToolSession<CalculatorAnswersState>(
+    `calculadora:${definition.id}`,
+    parseCalculatorAnswers,
+    () => ({ items: {}, inputs: defaults }),
+  );
+  const { items, inputs } = answers;
+  const setItems = (update: (current: Answers) => Answers) =>
+    setAnswers((current) => ({ ...current, items: update(current.items) }));
+  const setInputs = (update: (current: Answers) => Answers) =>
+    setAnswers((current) => ({ ...current, inputs: update(current.inputs) }));
   // Trocar a chave remonta os campos: "Limpar" também zera o "já saiu do campo".
   const [formKey, setFormKey] = useState(0);
 
@@ -59,8 +92,7 @@ export function CalculatorView({ definition, className }: CalculatorViewProps) {
     Object.entries(inputs).some(([id, value]) => (value ?? '') !== (defaults[id] ?? ''));
 
   function reset() {
-    setItems({});
-    setInputs(defaults);
+    setAnswers({ items: {}, inputs: defaults });
     setFormKey((key) => key + 1);
   }
 

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { ArrowRight } from '@phosphor-icons/react';
 import { TOOLS } from '@clinical-tools/catalog';
+import { toolHref } from '@clinical-tools/links';
 import type { VentilationEvaluation } from '@clinical-tools/ventilation/evaluate';
 import type { VentilationCalculation } from '@clinical-tools/ventilation/types';
 import { RESULT_TONE } from '@/components/domain/clinical-tools/result-tone';
@@ -33,7 +34,10 @@ function relatedHref(calculation: VentilationCalculation, bandId: string | undef
   if (!related || !bandId || !related.bandIds.includes(bandId)) return null;
   const tool = TOOLS.find(({ id }) => id === related.toolId);
   if (tool?.status !== 'disponivel') return null;
-  return { href: `/ferramentas/${tool.id}`, label: related.label };
+  return {
+    href: toolHref(tool.id, { from: { tool: 'ventilacao-mecanica' } }),
+    label: related.label,
+  };
 }
 
 /**

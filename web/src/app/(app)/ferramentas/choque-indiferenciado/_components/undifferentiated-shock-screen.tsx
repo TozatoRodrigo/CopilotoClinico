@@ -1,5 +1,6 @@
 'use client';
 
+import { useCallback } from 'react';
 import { ArrowCounterClockwise, ClockCounterClockwise, Heartbeat } from '@phosphor-icons/react';
 import {
   UNDIFFERENTIATED_SHOCK_PROVENANCE,
@@ -13,6 +14,7 @@ import {
   type UndifferentiatedShockState,
   type UndifferentiatedTab,
 } from '@clinical-tools/shock/undifferentiated';
+import { AddressParam } from '@/components/domain/clinical-tools/address-param';
 import { DecisionSupportNotice } from '@/components/domain/clinical-tools/decision-support-notice';
 import { Page } from '@/components/layout/page';
 import { PageHeader } from '@/components/layout/page-header';
@@ -45,7 +47,8 @@ function isPristine(state: UndifferentiatedShockState): boolean {
 /**
  * /ferramentas/choque-indiferenciado — VTI, VNERi e gap CO2 × SvcO2 (CC-317).
  * Três abas, como os atalhos do ShockPath do ANY; o estado fica na sessão da
- * aba para sobreviver à ida às Infusões.
+ * aba para sobreviver à ida às Infusões. `?aba=vti` abre na aba pedida (a
+ * calculadora de VTI leva para cá, CC-331).
  */
 export function UndifferentiatedShockScreen() {
   const favorites = useToolFavorites();
@@ -61,8 +64,16 @@ export function UndifferentiatedShockScreen() {
     dismissRestored();
   }
 
+  const openTab = useCallback(
+    (value: string) => {
+      if (isTab(value)) dispatch({ type: 'aba', tab: value });
+    },
+    [dispatch],
+  );
+
   return (
     <Page width="narrow">
+      <AddressParam name="aba" onValue={openTab} />
       <PageHeader
         icon={Heartbeat}
         iconTone="blue"

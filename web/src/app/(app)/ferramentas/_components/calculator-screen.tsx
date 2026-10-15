@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { ArrowSquareOut, Calculator, Hourglass } from '@phosphor-icons/react';
 import { CALCULATOR_CATALOG } from '@clinical-tools/calculator-catalog';
 import { calculatorName, calculatorPathway } from '@clinical-tools/catalog';
+import { toolHref } from '@clinical-tools/links';
 import { getCalculator } from '@clinical-tools/registry';
 import { CalculatorView } from '@/components/domain/clinical-tools/calculator-view';
 import { Button } from '@/components/ui/button';
@@ -12,7 +13,7 @@ import { EmptyState } from '@/components/domain/empty-state';
 import { Page } from '@/components/layout/page';
 import { PageHeader } from '@/components/layout/page-header';
 import { useToolFavorites } from '@/lib/tool-favorites';
-import { FavoriteButton, toolHref } from './tool-entries';
+import { FavoriteButton } from './tool-entries';
 
 /**
  * Tela de uma calculadora (/ferramentas/calculadoras/[id]). As 75 do
@@ -47,7 +48,14 @@ export function CalculatorScreen({ id }: { id: string }) {
   }
 
   const pathway = calculatorPathway(definition);
-  const pathwayHref = pathway ? toolHref(pathway) : null;
+  // Abre o roteiro no lugar da calculadora e oferece a volta, com as respostas
+  // guardadas na sessão da aba (CC-331).
+  const pathwayHref = pathway
+    ? toolHref(pathway.id, {
+        from: { calculator: definition.id },
+        query: definition.pathway?.query,
+      })
+    : null;
   return (
     <Page width="narrow">
       <PageHeader
@@ -71,7 +79,7 @@ export function CalculatorScreen({ id }: { id: string }) {
           </Link>
         </Button>
       ) : null}
-      <CalculatorView definition={definition} />
+      <CalculatorView key={definition.id} definition={definition} />
     </Page>
   );
 }

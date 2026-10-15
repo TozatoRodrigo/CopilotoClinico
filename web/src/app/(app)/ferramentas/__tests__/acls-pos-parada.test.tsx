@@ -14,6 +14,7 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/ferramentas/acls',
   useRouter: () => router,
   notFound: vi.fn(),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 const toastSuccess = vi.fn();
@@ -131,7 +132,7 @@ describe('fim da parada: checklist e relatório (CC-314)', () => {
 });
 
 describe("H's e T's durante a parada (CC-314)", () => {
-  it('mostra os 10 cards e deixa Via aérea e Toxicologia como "em breve", sem link', () => {
+  it('mostra os 10 cards e abre Via aérea e Toxicologia com o caminho de volta (CC-331)', () => {
     render(withSession(<AclsScreen />));
     fireEvent.click(screen.getByRole('button', { name: 'Iniciar código' }));
     fireEvent.click(screen.getByRole('button', { name: /Não chocável/ }));
@@ -154,11 +155,15 @@ describe("H's e T's durante a parada (CC-314)", () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Hipóxia' }));
     expect(screen.getByText('FiO₂ 100%.')).toBeInTheDocument();
-    expect(screen.getByText('Intubação e via aérea difícil')).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Abrir Intubação e via aérea difícil' }),
+    ).toHaveAttribute('href', '/ferramentas/via-aerea?de=acls');
     fireEvent.click(screen.getByRole('button', { name: 'Toxinas' }));
-    expect(screen.getByText('Intoxicações e antídotos')).toBeInTheDocument();
-    expect(screen.getAllByText('Em breve')).toHaveLength(2);
-    expect(screen.queryByRole('link', { name: /via aérea|antídotos/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Abrir Intoxicações e antídotos' })).toHaveAttribute(
+      'href',
+      '/ferramentas/toxicologia?de=acls',
+    );
+    expect(screen.queryByText('Em breve')).not.toBeInTheDocument();
   });
 });
 

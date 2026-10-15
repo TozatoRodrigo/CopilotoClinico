@@ -8,6 +8,7 @@ vi.mock('next/navigation', () => ({
   notFound: vi.fn(),
   usePathname: () => '/ferramentas/via-aerea',
   useRouter: () => ({ push: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 const toastSuccess = vi.fn();
@@ -204,12 +205,15 @@ describe('/ferramentas/via-aerea (CC-315)', () => {
     expect(screen.getByLabelText(/^Peso/)).toHaveValue('');
   });
 
-  it('sem Infusões disponível, não mostra o atalho da noradrenalina', async () => {
+  it('com instabilidade, abre a noradrenalina em Infusões com o caminho de volta (CC-331)', async () => {
     await openPathway();
     await goToStep(2);
     await userEvent.click(screen.getByRole('checkbox', { name: /H — Hipotensão/ }));
     await goToStep(6);
     expect(screen.getByText('Instabilidade hemodinâmica')).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /noradrenalina/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Calculadora de noradrenalina/ })).toHaveAttribute(
+      'href',
+      '/ferramentas/infusoes?droga=noradrenalina&de=via-aerea',
+    );
   });
 });

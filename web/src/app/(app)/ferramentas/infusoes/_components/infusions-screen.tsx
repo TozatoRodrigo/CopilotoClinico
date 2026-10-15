@@ -13,6 +13,7 @@ import {
   readInfusionParam,
   type InfusionItem,
 } from '@clinical-tools/infusions/items';
+import { readOrigin } from '@clinical-tools/links';
 import { validateWeight } from '@clinical-tools/ranges';
 import { DecisionSupportNotice } from '@/components/domain/clinical-tools/decision-support-notice';
 import { WeightField } from '@/components/domain/clinical-tools/weight-field';
@@ -61,9 +62,15 @@ function describeItem(item: InfusionItem): string {
 
 /**
  * /ferramentas/infusoes (CC-311 e CC-312): peso, lista das 16 drogas e dos
- * protocolos de heparina e insulina, e a calculadora do item aberto. A droga aberta mora no endereço (`?droga=`, e o `?drug=`
- * dos links antigos do ANY), para Choque, TEP e Via aérea linkarem direto;
- * peso, dose e diluição ficam na sessão da aba e sobrevivem a ir e voltar.
+ * protocolos de heparina e insulina, e a calculadora do item aberto. A droga
+ * aberta mora no endereço (`?droga=`, e o `?drug=` dos links antigos do ANY),
+ * para Choque, TEP e Via aérea linkarem direto; peso, dose e diluição ficam
+ * na sessão da aba e sobrevivem a ir e voltar.
+ *
+ * CC-331: `?indicacao=tep` abre a heparina no esquema do TEP (80/18 UI/kg; sem
+ * isso, a última indicação usada, SCA por padrão), `?grupo=sedation` abre a
+ * lista com a sedação primeiro (a Via aérea depois da intubação) e o `?de=`
+ * segue junto ao trocar de droga, para o "Voltar para …" do topo não sumir.
  */
 export function InfusionsScreen() {
   const router = useRouter();
@@ -79,12 +86,26 @@ export function InfusionsScreen() {
   const [query, setQuery] = useState('');
 
   const selection = readInfusionParam(searchParams);
+  const from = readOrigin(searchParams);
   const urlKey = searchParams.toString();
-  // O endereço manda. Sem `?droga=` ao abrir a tela, volta ao item que estava
-  // aberto nesta aba; o endereço é atualizado logo em seguida.
+  // O endereço manda. Sem `?droga=` (nem `?grupo=`) ao abrir a tela, volta ao
+  // item que estava aberto nesta aba; o endereço é atualizado logo em seguida.
   const [restoreId, setRestoreId] = useState(() =>
-    selection.requested === null ? readToolSession(OPEN_ITEM_KEY, parseOpenItem) : null,
+    selection.requested === null && selection.group === null
+      ? readToolSession(OPEN_ITEM_KEY, parseOpenItem)
+      : null,
   );
+  // A indicação pedida no endereço vale uma vez por endereço: se o médico
+  // trocar na tela, a troca fica (ajuste de estado durante o render, sem
+  // mostrar antes o esquema errado).
+  const [indicationUrl, setIndicationUrl] = useState<string | null>(null);
+  if (selection.indication && indicationUrl !== urlKey) {
+    setIndicationUrl(urlKey);
+    const indication = selection.indication;
+    if (screen.heparin.indication !== indication) {
+      setScreen((current) => ({ ...current, heparin: { ...current.heparin, indication } }));
+    }
+  }
   // Escolha feita na tela enquanto o endereço ainda é o de antes (`replace`
   // não é síncrono); qualquer mudança de endereço passa a valer.
   const [pending, setPending] = useState<{ id: string | null; urlKey: string } | null>(null);
@@ -103,11 +124,11 @@ export function InfusionsScreen() {
   useEffect(() => {
     if (waitingUrl) return;
     if (selection.item && selection.legacy) {
-      router.replace(infusionHref(selection.item.id), { scroll: false });
+      router.replace(infusionHref(selection.item.id, { from }), { scroll: false });
     } else if (selection.requested === null && restoreId) {
-      router.replace(infusionHref(restoreId), { scroll: false });
+      router.replace(infusionHref(restoreId, { from }), { scroll: false });
     }
-  }, [router, waitingUrl, selection.item, selection.legacy, selection.requested, restoreId]);
+  }, [router, waitingUrl, selection.item, selection.legacy, selection.requested, restoreId, from]);
 
   // Sessão: guarda o que está aberto, para a próxima volta à tela.
   useEffect(() => {
@@ -118,7 +139,7 @@ export function InfusionsScreen() {
     setQuery('');
     setRestoreId(null);
     setPending({ id, urlKey });
-    router.replace(infusionHref(id));
+    router.replace(infusionHref(id, { from }));
   }
 
   function updateDrug(id: string, next: DrugScreenState) {
@@ -210,7 +231,12 @@ export function InfusionsScreen() {
             label="Buscar droga por nome ou sinônimo"
             placeholder="Buscar droga (ex.: nora, precedex)"
           />
-          <InfusionList query={query} onOpen={select} describe={describeItem} />
+          <InfusionList
+            query={query}
+            onOpen={select}
+            describe={describeItem}
+            firstGroup={selection.group}
+          />
         </>
       )}
     </Page>

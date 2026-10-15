@@ -4,6 +4,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { ArrowSquareOut } from '@phosphor-icons/react';
 import { evaluateCalculator } from '@clinical-tools/calculator';
+import { calculatorHref } from '@clinical-tools/links';
 import { getCalculator } from '@clinical-tools/registry';
 import { validateNumber } from '@clinical-tools/ranges';
 import {
@@ -65,7 +66,7 @@ function NomogramPanel() {
       <CalculatorResult definition={NOMOGRAM} evaluation={evaluation} />
       <p className="text-xs text-muted-foreground">Válido apenas para ingestões agudas únicas.</p>
       <Button asChild variant="link" className="self-start">
-        <Link href={`/ferramentas/calculadoras/${NOMOGRAM.id}`}>
+        <Link href={calculatorHref(NOMOGRAM.id, { from: { tool: 'toxicologia' } })}>
           <ArrowSquareOut aria-hidden="true" />
           Abrir a calculadora com referência
         </Link>

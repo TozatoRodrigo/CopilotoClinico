@@ -5,6 +5,7 @@ import {
   INFUSION_GROUPS,
   INFUSION_ITEMS,
   searchInfusionItems,
+  type InfusionGroupId,
   type InfusionItem,
 } from '@clinical-tools/infusions/items';
 import { SectionHeader } from '@/components/layout/page-header';
@@ -14,6 +15,8 @@ export interface InfusionListProps {
   onOpen: (id: string) => void;
   /** Linha de apoio de cada item ("mcg/kg/min · 64 mcg/mL"). */
   describe: (item: InfusionItem) => string;
+  /** Grupo que vem primeiro (`?grupo=`): a sedação, quando a Via aérea manda para cá. */
+  firstGroup?: InfusionGroupId | null;
 }
 
 function ItemRow({
@@ -46,7 +49,7 @@ function ItemRow({
  * Lista da tela de Infusões: por grupo, na ordem do ANY, ou o resultado da
  * busca. Tocar no item abre a calculadora dele.
  */
-export function InfusionList({ query, onOpen, describe }: InfusionListProps) {
+export function InfusionList({ query, onOpen, describe, firstGroup }: InfusionListProps) {
   if (query.trim() !== '') {
     const results = searchInfusionItems(query);
     return (
@@ -67,9 +70,12 @@ export function InfusionList({ query, onOpen, describe }: InfusionListProps) {
     );
   }
 
+  const groups = firstGroup
+    ? [...INFUSION_GROUPS].sort((a, b) => Number(b.id === firstGroup) - Number(a.id === firstGroup))
+    : INFUSION_GROUPS;
   return (
     <>
-      {INFUSION_GROUPS.map((group) => {
+      {groups.map((group) => {
         const items = INFUSION_ITEMS.filter((item) => item.group === group.id);
         const headingId = `infusoes-grupo-${group.id}`;
         return (
