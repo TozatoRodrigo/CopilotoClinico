@@ -58,9 +58,9 @@
 ### O que a exportação inclui
 
 `data` traz, do médico: cadastro (sem hash de senha nem segredo de MFA),
-`encounters`, `documents`, `aiInteractions`, `recommendationDecisions`,
-`copilotFeedback`, `audioCaptures`, `consents` e `auditLog`. Refresh tokens não
-entram.
+`encounters`, `documents`, `aiInteractions`, `caseIntakes`,
+`recommendationDecisions`, `copilotFeedback`, `audioCaptures`, `consents` e
+`auditLog`. Refresh tokens não entram.
 
 As capturas de áudio (`audioCaptures`) vão com metadados (id, atendimento, tipo
 MIME, tamanho, status, `retainUntil`, datas) e a transcrição já mascarada de PII.
