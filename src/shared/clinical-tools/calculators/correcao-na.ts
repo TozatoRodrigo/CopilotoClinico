@@ -2,6 +2,14 @@ import { requireValue, type FormulaCalculator } from '../calculator';
 import { ANY_V4_CALCULATOR_SOURCE } from '../provenance';
 
 /**
+ * Katz com o fator escolhido, uma casa. Também é a conta do sódio corrigido do
+ * roteiro de CAD e EHH (CC-326), que fixa o fator em 2,0.
+ */
+export function katzCorrectedSodium(sodium: number, glucose: number, factor: number): number {
+  return Math.round((sodium + factor * ((glucose - 100) / 100)) * 10) / 10;
+}
+
+/**
  * Porte do `correçãoNa` do ANY (Katz). Mesma conta (uma casa) e faixas; o
  * fator abre em 1,6, como lá, e aceita qualquer valor de 1,6 a 2,4 (achado
  * para a revisão clínica, CC-310). Ação da hipernatremia como sugestão.
@@ -56,12 +64,12 @@ export const CORRECAO_NA: FormulaCalculator = {
   ],
   decimals: 1,
   unit: 'mEq/L',
-  compute: (values) => {
-    const corrected =
-      requireValue(values, 'na_measured') +
-      requireValue(values, 'factor') * ((requireValue(values, 'glucose') - 100) / 100);
-    return Math.round(corrected * 10) / 10;
-  },
+  compute: (values) =>
+    katzCorrectedSodium(
+      requireValue(values, 'na_measured'),
+      requireValue(values, 'glucose'),
+      requireValue(values, 'factor'),
+    ),
   interpretation: {
     bands: [
       {

@@ -2,6 +2,14 @@ import { requireValue, type FormulaCalculator } from '../calculator';
 import { ANY_V4_CALCULATOR_SOURCE } from '../provenance';
 
 /**
+ * ACT × (Na/140 - 1), em litros, sem arredondar: cada ferramenta arredonda do
+ * seu jeito (aqui 2 casas; no roteiro de CAD e EHH, CC-326, uma).
+ */
+export function freeWaterDeficitLiters(totalBodyWater: number, sodium: number): number {
+  return totalBodyWater * (sodium / 140 - 1);
+}
+
+/**
  * Porte do `deficitAgua` do ANY. Mesma conta (ACT × (Na/140 - 1), em litros,
  * 2 casas); o fator de água corporal abre em 0,6, como lá. Resultado
  * informativo; a ação de lá ("Repor X litros…") virou sugestão sem repetir o
@@ -48,7 +56,7 @@ export const DEFICIT_AGUA: FormulaCalculator = {
   unit: 'L',
   compute: (values) => {
     const totalWater = requireValue(values, 'weight') * requireValue(values, 'act_factor');
-    const deficit = totalWater * (requireValue(values, 'na') / 140 - 1);
+    const deficit = freeWaterDeficitLiters(totalWater, requireValue(values, 'na'));
     return Math.round(deficit * 100) / 100;
   },
   interpretation: {
