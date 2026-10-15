@@ -1,6 +1,8 @@
 import {
   evaluateCalculator,
   findBand,
+  formatResultValue,
+  type AnswerLine,
   type CalculatorAnswers,
   type CalculatorEvaluation,
   type ResultBand,
@@ -173,7 +175,7 @@ export function startHacorHistory(score: number, time: string): HacorEntry[] {
 /**
  * "Salvar e reavaliar depois": o rótulo é `T<n>h` pela posição no histórico,
  * como no ANY (supõe reavaliação de hora em hora; sem T0, a primeira vira
- * "T0h" — achado 1.9 da revisão clínica).
+ * "T0h" — achado 1.6 da revisão clínica).
  */
 export function appendHacorReassessment(
   history: readonly HacorEntry[],
@@ -203,4 +205,26 @@ export function hacorTrend(from: number, to: number): HacorTrend {
   if (to < from) return TRENDS.melhora;
   if (to > from) return TRENDS.piora;
   return TRENDS.estavel;
+}
+
+/**
+ * Texto para o prontuário: score, faixa, respostas, a sugestão da fase e o
+ * histórico pelos rótulos (T0, T1h…). Sem a hora: o prontuário carimba.
+ */
+export function buildHacorChartNote(
+  phase: HacorPhase,
+  result: { value: number; answers: readonly AnswerLine[] },
+  history: readonly HacorEntry[],
+): string {
+  const band = hacorBand(result.value);
+  const trail = history.map(
+    ({ label, score }) => `${label} ${score} (${HACOR_SHORT_LABEL[hacorBand(score).id]})`,
+  );
+  return [
+    `${HACOR.name}: ${formatResultValue(HACOR, result.value)} — ${band.label}.`,
+    ...result.answers.map(({ label, answer }) => `- ${label}: ${answer}`),
+    `Sugestão: ${HACOR_PHASE_ACTION[phase][band.id]}`,
+    ...(trail.length > 0 ? [`Histórico: ${trail.join('; ')}`] : []),
+    `Referência: ${HACOR.reference.citation}`,
+  ].join('\n');
 }

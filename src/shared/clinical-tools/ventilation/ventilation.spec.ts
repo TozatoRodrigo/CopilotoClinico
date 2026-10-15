@@ -17,6 +17,7 @@ import {
 } from './evaluate';
 import {
   appendHacorReassessment,
+  buildHacorChartNote,
   clockTime,
   evaluateHacor,
   HACOR,
@@ -250,6 +251,29 @@ describe('HACOR', () => {
     expect(hacorTrend(7, 4).id).toBe('melhora');
     expect(hacorTrend(4, 7).id).toBe('piora');
     expect(hacorTrend(4, 4)).toMatchObject({ id: 'estavel', label: 'estável', tone: 'attention' });
+  });
+
+  it('monta o texto para o prontuário com a sugestão da fase e o histórico, sem a hora', () => {
+    const result = evaluateHacor({
+      items: { fc: 'sim', ph: '7-30-a-7-34', gcs: '13-a-14', pf: '176-a-200', fr: 'le-30' },
+    });
+    if (result.status !== 'complete') throw new Error('HACOR incompleto');
+    const note = buildHacorChartNote('reavaliacao', result, [
+      { label: 'T0', time: '10:00', score: 9 },
+      { label: 'T1h', time: '11:00', score: 7 },
+    ]);
+    expect(note.split('\n')).toEqual([
+      'HACOR score (falha de VNI): 7 pontos — Alto risco de falha.',
+      '- FC ≥ 120 bpm: Sim (+1)',
+      '- pH: 7,30-7,34 (+2)',
+      '- Glasgow (GCS): 13-14 (+2)',
+      '- PaO₂/FiO₂: 176-200 (+2)',
+      '- Frequência respiratória (irpm): ≤ 30',
+      'Sugestão: Considere intubação orotraqueal.',
+      'Histórico: T0 9 (alto risco); T1h 7 (alto risco)',
+      `Referência: ${HACOR.reference.citation}`,
+    ]);
+    expect(note).not.toMatch(/10:00|11:00/);
   });
 
   it('registra a hora como HH:MM', () => {
