@@ -90,7 +90,7 @@ jobs:
 
   # ──────────────────────────────────────────────────────────
   # Job 2: Frontend Quality Gates
-  # Typecheck + lint + build do Next.js
+  # Typecheck + lint + testes (vitest) + build do Next.js
   # ──────────────────────────────────────────────────────────
   web-quality:
     name: Frontend Quality Gates
@@ -116,6 +116,12 @@ jobs:
 
       - name: Lint
         run: pnpm exec next lint --max-warnings 0 || true
+
+      # CC-303 — os testes do web (componentes, telas e a área Ferramentas,
+      # que importa o motor clínico de ../src/shared/clinical-tools) não
+      # rodavam no CI.
+      - name: Unit Tests (vitest)
+        run: pnpm test
 
       - name: Check for Geist/Inter (A1 — identidade tipográfica Strivium)
         run: |
