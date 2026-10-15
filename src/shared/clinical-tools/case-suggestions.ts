@@ -28,8 +28,8 @@ import { getCalculator } from './registry';
  *
  * Roda na API (o caso inteiro, com a leitura do Copiloto guiado, só existe
  * lá) e devolve só o necessário à tela: as sugestões e os números do caso
- * que preenchem as ferramentas. CC-333 vai reaproveitar `caseToolFacts` para
- * a API calcular o escore citado no plano com o motor.
+ * que preenchem as ferramentas. O CC-333 reaproveita `caseToolFacts` e as
+ * sugestões para a API calcular o escore citado no plano (case-scores.ts).
  */
 
 export const CASE_TOOL_MAPPING_PROVENANCE: ContentProvenance = {
