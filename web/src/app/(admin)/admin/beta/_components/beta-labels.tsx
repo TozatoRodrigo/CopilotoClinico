@@ -9,14 +9,12 @@ import {
   EnvelopeSimple,
   type Icon,
 } from '@phosphor-icons/react';
+import type { BetaInviteStatus, BetaProfile, BetaWaitlistStatus } from '@contracts/beta';
 import {
   BETA_CITY_TYPE_LABELS,
   BETA_FACILITY_TYPE_LABELS,
   BETA_TRAINING_LABELS,
-  type BetaInviteStatus,
-  type BetaProfile,
-  type BetaWaitlistStatus,
-} from '@contracts/beta';
+} from '@/lib/beta-contract';
 import { Badge } from '@/components/ui/badge';
 
 interface TagDef {

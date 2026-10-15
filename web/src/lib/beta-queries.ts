@@ -1,25 +1,25 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  BETA_INVITE_QUERY_PARAM,
-  type AcceptBetaTermsRequest,
-  type ApproveBetaWaitlistRequest,
-  type ApproveBetaWaitlistResponse,
-  type BetaActivationReport,
-  type BetaInviteListResponse,
-  type BetaInviteView,
-  type BetaMe,
-  type BetaProfile,
-  type BetaRegistrationStatus,
-  type BetaWaitlistListResponse,
-  type BetaWaitlistRequest,
-  type BetaWaitlistResponse,
-  type BetaWaitlistStatus,
-  type CreateBetaInvitesRequest,
-  type CreateBetaInvitesResponse,
+import type {
+  AcceptBetaTermsRequest,
+  ApproveBetaWaitlistRequest,
+  ApproveBetaWaitlistResponse,
+  BetaActivationReport,
+  BetaInviteListResponse,
+  BetaInviteView,
+  BetaMe,
+  BetaProfile,
+  BetaRegistrationStatus,
+  BetaWaitlistListResponse,
+  BetaWaitlistRequest,
+  BetaWaitlistResponse,
+  BetaWaitlistStatus,
+  CreateBetaInvitesRequest,
+  CreateBetaInvitesResponse,
 } from '@contracts/beta';
 import { apiClient } from '@/lib/api-client';
+import { BETA_INVITE_QUERY_PARAM } from '@/lib/beta-contract';
 
 /**
  * CC-702 — consultas do beta por convite: cadastro (público), onboarding do

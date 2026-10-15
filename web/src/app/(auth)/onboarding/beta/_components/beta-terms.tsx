@@ -1,12 +1,12 @@
 'use client';
 
 import { WarningCircle } from '@phosphor-icons/react';
-import { BETA_TERMS } from '@contracts/beta';
+import { BETA_TERMS } from '@/lib/beta-contract';
 import { Callout } from '@/components/ui/callout';
 
 /**
- * CC-702 — texto do termo do beta, lido do contrato (a versão aceita é a
- * mesma que a API confere). Provisório até o parecer jurídico.
+ * CC-702 — texto do termo do beta, do espelho do contrato (a versão aceita é
+ * a mesma que a API confere). Provisório até o parecer jurídico.
  */
 export function BetaTermsText() {
   return (

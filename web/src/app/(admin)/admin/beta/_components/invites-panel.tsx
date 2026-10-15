@@ -3,7 +3,8 @@
 import { useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
 import { ArrowClockwise, Copy, LinkSimple, Prohibit, Ticket } from '@phosphor-icons/react';
-import { BETA_INVITE_LIMITS, type BetaInviteView } from '@contracts/beta';
+import type { BetaInviteView } from '@contracts/beta';
+import { BETA_INVITE_LIMITS } from '@/lib/beta-contract';
 import { ApiError } from '@/lib/api-client';
 import {
   inviteLink,

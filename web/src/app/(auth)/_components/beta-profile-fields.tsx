@@ -1,5 +1,6 @@
 'use client';
 
+import type { BetaProfile } from '@contracts/beta';
 import {
   BETA_CITY_TYPES,
   BETA_CITY_TYPE_LABELS,
@@ -8,8 +9,7 @@ import {
   BETA_TRAINING_LABELS,
   BETA_TRAINING_VALUES,
   BRAZIL_UFS,
-  type BetaProfile,
-} from '@contracts/beta';
+} from '@/lib/beta-contract';
 import { Label } from '@/components/ui/label';
 import {
   Select,
