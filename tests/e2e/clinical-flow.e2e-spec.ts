@@ -301,6 +301,11 @@ function buildPrismaMock() {
       update: vi.fn().mockResolvedValue({}),
     },
 
+    // CC-905 — aceites dos termos e da política entram no export LGPD.
+    legalAcceptance: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
+
     erasureRequest: {
       findFirst: vi.fn().mockResolvedValue(null),
       create: vi.fn().mockResolvedValue({ id: 'erasure-001', status: 'pending' }),
