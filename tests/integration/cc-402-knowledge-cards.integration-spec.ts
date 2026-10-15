@@ -21,6 +21,7 @@ import type { AiGatewayService } from '../../src/modules/ai-gateway/ai-gateway.s
 import type { GuidelinesService } from '../../src/modules/guidelines/guidelines.service';
 import { KnowledgeCardsService } from '../../src/modules/knowledge-cards/knowledge-cards.service';
 import { KnowledgeCardDraftService } from '../../src/modules/knowledge-cards/drafting/card-draft.service';
+import { CardIndexService } from '../../src/modules/knowledge-cards/card-index/card-index.service';
 import {
   hashCardContent,
   KnowledgeCardContentSchema,
@@ -111,7 +112,14 @@ describe('CC-402 — cartões revisados (integration)', () => {
       }),
     };
     const audit = new AuditService(prisma as unknown as PrismaService);
-    cards = new KnowledgeCardsService(prisma as unknown as PrismaService, audit);
+    // CC-406 — índice de verdade, com o embedding desligado: aprovar grava a
+    // linha sem vetor, e nenhuma chamada de IA sai daqui.
+    const cardIndex = new CardIndexService(prisma as unknown as PrismaService, {
+      enabled: () => false,
+      identity: () => ({ provider: 'none', model: 'none' }),
+      embed: () => Promise.reject(new Error('embedding desligado')),
+    });
+    cards = new KnowledgeCardsService(prisma as unknown as PrismaService, audit, cardIndex);
     drafts = new KnowledgeCardDraftService(
       prisma as unknown as PrismaService,
       gateway as unknown as AiGatewayService,

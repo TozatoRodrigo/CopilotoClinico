@@ -32,8 +32,10 @@
     "verify:audit-chain": "tsx scripts/verify-audit-chain.ts",
     "cards:draft": "tsx scripts/cards/draft.ts",
     "cards:check-circularity": "tsx scripts/cards/check-circularity.ts",
+    "cards:reindex": "tsx scripts/cards/reindex.ts",
     "eval:clinical": "tsx evals/clinical/run.ts",
     "eval:clinical:compare": "tsx evals/clinical/compare.ts",
+    "eval:card-retrieval": "tsx evals/cards/retrieval.ts",
     "eval:deid": "tsx evals/deid/run.ts"
   },
   "dependencies": {

@@ -692,6 +692,66 @@ origem de rascunho de um cartão (mesmo `draftId` ou mesmo
 pnpm cards:check-circularity   # só leitura; código 1 se houver caso circular
 ```
 
+**Índice semântico (CC-406, emenda de 15/10/2026 à ADR-019)** — tabela
+`knowledge_card_index`, uma linha por cartão publicado, aprovado, válido e
+assinado por médico com CRM verificado. Aprovar indexa (ou reindexa a versão
+nova), arquivar tira, e a varredura diária das 04:00 UTC tira o vencido e
+completa o vetor que faltou. A busca confere tudo de novo na consulta: cartão
+vencido, arquivado ou de revisor que perdeu a verificação nunca volta, mesmo
+antes da varredura.
+
+O vetor vem do provedor de embedding configurado (`EMBEDDING_PROVIDER`,
+`AI_EMBEDDING_MODEL`, `EMBEDDING_BASE_URL` — os mesmos das diretrizes). Com
+`EMBEDDING_PROVIDER=none` (produção hoje), o cartão entra sem vetor e a busca
+não roda. A coluna não fixa dimensão: trocar provedor ou modelo é reindexar.
+
+```bash
+pnpm cards:reindex   # indexa o que falta, reembute o que mudou, tira o que venceu
+                     # código 1 se algum cartão ficou sem vetor com o provedor ligado
+```
+
+No log: `CARD_INDEX_SYNC` (com vetor novo, sem mudança, sem vetor, fora do
+índice por motivo, linhas apagadas), `CARD_SEARCH` (consultas, candidatos,
+melhor similaridade), `CARD_EMBEDDING_UNAVAILABLE` (provedor falhou — também
+no Sentry), `CARD_INDEX_SYNC_FAILED` e `CARD_INDEX_SWEEP_FAILED`. Nada do
+texto do cartão ou da consulta.
+
+```sql
+-- O que está no índice, por modelo; linhas sem vetor esperam o reindex
+SELECT coalesce(embedding_model, '(sem vetor)') AS model, count(*),
+       min(valid_until) AS vence_primeiro
+FROM knowledge_card_index GROUP BY 1;
+```
+
+**Escolher o provedor dos cartões** — `pnpm eval:card-retrieval` mede o
+acerto top-1/top-3, o MRR e a latência da consulta com o provedor do
+ambiente, embutindo em memória os cartões publicados e as perguntas de
+`evals/cards/retrieval-questions.json` (formato em
+`retrieval-questions.example.json`: `id`, `question`, `expected` = tema ou id
+do cartão). Só leitura; o índice não muda. Código 1 abaixo de 85% no top-3.
+
+```bash
+# Base: o provedor atual
+pnpm eval:card-retrieval --json openai.json
+# Voyage (formato compatível com a API da OpenAI)
+EMBEDDING_PROVIDER=openai EMBEDDING_BASE_URL=https://api.voyageai.com/v1 \
+  AI_EMBEDDING_MODEL=voyage-3.5 EMBEDDING_API_KEY=$VOYAGE_API_KEY \
+  pnpm eval:card-retrieval --json voyage.json
+# Qwen3-Embedding na DeepInfra; modelo local pelo text-embeddings-inference
+EMBEDDING_PROVIDER=openai EMBEDDING_BASE_URL=https://api.deepinfra.com/v1/openai \
+  AI_EMBEDDING_MODEL=Qwen/Qwen3-Embedding-8B EMBEDDING_API_KEY=$DEEPINFRA_API_KEY \
+  pnpm eval:card-retrieval --json qwen3.json
+EMBEDDING_PROVIDER=openai EMBEDDING_BASE_URL=http://localhost:8080/v1 \
+  AI_EMBEDDING_MODEL=BAAI/bge-m3 EMBEDDING_API_KEY=local pnpm eval:card-retrieval --json local.json
+```
+
+Escolhido o provedor (critério na ADR-019), ligue-o no ambiente e rode
+`pnpm cards:reindex`. Atenção: `EMBEDDING_PROVIDER`/`AI_EMBEDDING_MODEL` são os
+mesmos das diretrizes — trocar o modelo com a base interna em uso
+(`COPILOT_KNOWLEDGE_SOURCE=internal_kb`) exige reembutir os trechos
+(`vector(1536)`) também. Se só os cartões devem mudar, a troca é um
+`CardEmbedder` próprio (`CARD_EMBEDDER` no `KnowledgeCardIndexModule`).
+
 ### Sincronizar a base oficial da Conitec (ADR-010)
 
 PCDT, DDT, Diretrizes Brasileiras e Protocolos de Uso (~190 documentos) entram
@@ -999,6 +1059,7 @@ apenas na resposta. Acesso a um protocolo de outra instituição retorna `404`
 | `20260924220000_ivfflat_probes_exact` | `ivfflat.probes = 100` no banco: busca vetorial exata (incidente de 24/09/2026) |
 | `20261012180000_aud_007_audit_log_hash_version` | `audit_log.hash_version` (NULL = hash legado, 2 = JSON canônico) — ADR-015; só adiciona coluna nula |
 | `20261014120000_cc_402_knowledge_cards` | Cartões revisados (ADR-019): `knowledge_card_drafts`, `knowledge_cards`, `knowledge_card_versions`, trigger que congela o conteúdo assinado e GRANT sem DELETE; só cria tabelas |
+| `20261015120000_cc_406_knowledge_card_index` | Índice semântico dos cartões (CC-406): `knowledge_card_index`, derivado (CASCADE a partir do cartão, GRANT com DELETE), `embedding vector` sem dimensão fixa; só cria tabela — depois do deploy, `pnpm cards:reindex` |
 
 ### Rollback de Migration
 

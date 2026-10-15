@@ -18,6 +18,7 @@ import {
 import { prepareCardContent } from './card-sources';
 import { CARD_DETAIL_SELECT } from './knowledge-card-views';
 import { KnowledgeCardsService } from './knowledge-cards.service';
+import type { CardIndexService } from './card-index/card-index.service';
 
 const CARD_ID = '88888888-8888-4888-8888-888888888888';
 const VERSION_ID = '99999999-9999-4999-8999-999999999999';
@@ -154,6 +155,7 @@ function createPrisma() {
 describe('KnowledgeCardsService', () => {
   let db: ReturnType<typeof createPrisma>;
   let audit: { log: ReturnType<typeof vi.fn> };
+  let cardIndex: { syncCard: ReturnType<typeof vi.fn> };
   let service: KnowledgeCardsService;
 
   beforeEach(() => {
@@ -161,9 +163,11 @@ describe('KnowledgeCardsService', () => {
     vi.setSystemTime(NOW);
     db = createPrisma();
     audit = { log: vi.fn().mockResolvedValue({}) };
+    cardIndex = { syncCard: vi.fn().mockResolvedValue(null) };
     service = new KnowledgeCardsService(
       db.prisma as unknown as PrismaService,
       audit as unknown as AuditService,
+      cardIndex as unknown as CardIndexService,
     );
   });
 
@@ -430,6 +434,44 @@ describe('KnowledgeCardsService', () => {
     expect(auditCall()).toMatchObject({
       action: 'CARD_ARCHIVED',
       payload: { reasonSha256: sha256Hex('PCDT revogado') },
+    });
+  });
+
+  describe('índice semântico (CC-406)', () => {
+    it('reindexa o cartão depois de aprovar e de arquivar, já com a trilha gravada', async () => {
+      await service.approve(REVIEWER_ID, CARD_ID, { version: 1 });
+      expect(cardIndex.syncCard).toHaveBeenCalledWith(CARD_ID);
+      expect(audit.log.mock.invocationCallOrder[0]).toBeLessThan(
+        cardIndex.syncCard.mock.invocationCallOrder[0]!,
+      );
+
+      cardIndex.syncCard.mockClear();
+      db.setState({ status: 'published', publishedVersionId: VERSION_ID });
+      await service.archive(REVIEWER_ID, CARD_ID, { reason: 'PCDT revogado' });
+      expect(cardIndex.syncCard).toHaveBeenCalledWith(CARD_ID);
+    });
+
+    it('não mexe no índice ao corrigir, enviar ou rejeitar: a versão publicada não muda', async () => {
+      db.setState({ status: 'published', publishedVersionId: VERSION_ID });
+      await service.createVersion(REVIEWER_ID, CARD_ID, {
+        basedOnVersion: 1,
+        content: validCardInput(),
+      });
+      db.setState({ status: 'draft' });
+      await service.submit(REVIEWER_ID, CARD_ID, { version: 1 });
+      db.setState({ currentVersion: 2, publishedVersionId: PUBLISHED_VERSION_ID });
+      await service.reject(REVIEWER_ID, CARD_ID, { version: 2, reason: 'Correção errada' });
+
+      expect(cardIndex.syncCard).not.toHaveBeenCalled();
+    });
+
+    it('não reindexa quando a transição é recusada', async () => {
+      db.prisma.physician.findUnique.mockResolvedValue({ crmVerified: false });
+
+      await expect(service.approve(REVIEWER_ID, CARD_ID, { version: 1 })).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+      expect(cardIndex.syncCard).not.toHaveBeenCalled();
     });
   });
 

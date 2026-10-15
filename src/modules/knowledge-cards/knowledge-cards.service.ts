@@ -26,6 +26,7 @@ import {
   type KnowledgeCardAction,
 } from './domain/card-lifecycle';
 import { loadSourceChunks, prepareCardContent, requestedChunkIds } from './card-sources';
+import { CardIndexService } from './card-index/card-index.service';
 import { KNOWLEDGE_CARD_AUDIT_ACTIONS, KNOWLEDGE_CARD_AUDIT_ENTITY } from './knowledge-card-audit';
 import {
   CARD_DETAIL_SELECT,
@@ -85,6 +86,10 @@ function displayStatusWhere(
  *
  * Toda transição recebe a versão que a pessoa viu: se outra versão entrou no
  * meio (ou outra pessoa decidiu antes), 409 — ninguém assina o que não leu.
+ *
+ * CC-406 — aprovar e arquivar atualizam o índice semântico, depois da trilha:
+ * são as duas transições que mudam a versão publicada ou tiram o cartão de
+ * uso. Corrigir e rejeitar não mexem na versão publicada.
  */
 @Injectable()
 export class KnowledgeCardsService {
@@ -93,6 +98,7 @@ export class KnowledgeCardsService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(CardIndexService) private readonly cardIndex: CardIndexService,
   ) {}
 
   async list(query: ListKnowledgeCardsQueryInput): Promise<KnowledgeCardListPage> {
@@ -268,6 +274,7 @@ export class KnowledgeCardsService {
       reviewDurationMs: input.reviewDurationMs ?? null,
       commentSha256: textSha256(comment),
     });
+    await this.cardIndex.syncCard(cardId);
     return this.get(cardId);
   }
 
@@ -333,6 +340,7 @@ export class KnowledgeCardsService {
       to,
       reasonSha256: textSha256(reason),
     });
+    await this.cardIndex.syncCard(cardId);
     return this.get(cardId);
   }
 

@@ -98,3 +98,65 @@ recusado pelo schema.
 - A checagem anti-circularidade só vale para casos que registram
   `draftOrigin`: caso escrito a partir de um cartão sem declarar a origem não
   é detectável por código. A revisão do caso continua sendo a defesa.
+
+## Emenda — 15/10/2026: índice semântico dos cartões (CC-406)
+
+**Contexto.** A decisão (CC-408) e a pergunta rápida (CC-501) precisam achar o
+cartão certo mesmo quando o médico usa outras palavras. A produção roda com
+`EMBEDDING_PROVIDER=none` desde 12/10 (conta da OpenAI sem crédito), e a
+coluna das diretrizes é `vector(1536)` — presa ao `text-embedding-3-small`.
+
+**Decisão.**
+
+1. **Índice próprio, derivado.** `knowledge_card_index`: uma linha por
+   cartão que pode ser usado agora — versão publicada, aprovada, dentro da
+   validade, revisor com CRM verificado, cartão não arquivado. Aprovar
+   (versão nova) reindexa; arquivar tira; a varredura diária (04:00 UTC) e
+   `pnpm cards:reindex` tiram o vencido e completam o vetor que faltou. A
+   busca confere tudo de novo na consulta (junta cartão, versão e revisor):
+   uma sincronização que falhou nunca serve cartão fora de uso. A API pode
+   apagar linhas daqui (FKs CASCADE a partir do cartão); nada assinado muda.
+2. **Vetor sem dimensão fixa, modelo por linha.** `embedding vector` e
+   `embedding_model`; a busca só compara vetores do modelo atual e da mesma
+   dimensão. Trocar o provedor dos cartões é reindexar, não migrar — e não
+   mexe no índice das diretrizes. Sem índice ANN: centenas de cartões cabem
+   numa varredura exata.
+3. **Provedor atrás de interface.** `CardEmbedder` (`CARD_EMBEDDER`), com
+   `purpose` documento/consulta para os provedores assimétricos. A
+   implementação de hoje usa o provedor e o modelo das diretrizes pelo
+   gateway (`EMBEDDING_PROVIDER`, `AI_EMBEDDING_MODEL`,
+   `EMBEDDING_BASE_URL`). Com o provedor desligado, a linha entra sem vetor e
+   a busca não roda: a análise segue como antes dos cartões.
+4. **O que vira vetor.** Tema, pergunta, população, resposta e o texto das
+   afirmações (`cardEmbeddingText`) — sem fontes nem trechos, que puxariam o
+   cartão para qualquer busca do mesmo documento.
+
+**Escolha do provedor.** Comparação pela documentação pública (preços de
+2025–2026; conferir antes de contratar). Custo não decide: 500 cartões são
+~200 mil tokens (centavos para indexar), e uma análise manda até 4 consultas
+curtas.
+
+| | OpenAI `text-embedding-3-small` (atual) | Voyage `voyage-3.5` / `-lite` | Qwen3-Embedding (0,6B/4B/8B) por provedor | Modelo local (`bge-m3`, `multilingual-e5-large`, Qwen3-0,6B) |
+| --- | --- | --- | --- | --- |
+| Custo | US$ 0,02/M tokens | US$ 0,06/M (`lite`: 0,02/M); 200 M tokens grátis por conta | centavos/M, conforme o provedor (DeepInfra e similares) | zero por token; ~2–3 GB de RAM na VPS |
+| Dimensões | 1536 | 1024 (256–2048) | até 4096 (8B), 1024 (0,6B), com Matryoshka | 1024 |
+| Qualidade em português | boa; a mais fraca das quatro em multilíngue | forte em multilíngue e domínio médico (benchmarks da Voyage) | Qwen3-Embedding-8B liderou o MTEB multilíngue em 2025 | boa (bge-m3 forte no MIRACL); abaixo dos dois anteriores |
+| Latência por consulta | rede até os EUA (~100–300 ms) | idem | depende do provedor | CPU da VPS, sem rede (dezenas a centenas de ms) |
+| Consulta × documento | não distingue | `input_type` | instrução na consulta | prefixo `query:`/`passage:` (e5) |
+| Integração hoje | pronta | formato compatível pela `EMBEDDING_BASE_URL`; `input_type` pede um `CardEmbedder` próprio | compatível com OpenAI (`EMBEDDING_BASE_URL`) | servidor compatível com OpenAI (ex.: text-embeddings-inference) |
+| Privacidade | DPA OpenAI | DPA novo (Voyage/MongoDB) | DPA com quem hospeda | nada sai da VPS |
+| Risco operacional | conta sem crédito em 11/10 | fornecedor novo | fornecedor novo | um contêiner a mais para operar |
+
+A escolha é pela medição, não pela tabela: `pnpm eval:card-retrieval` embute
+os cartões publicados e as perguntas do gabarito de busca em memória (sem
+tocar no índice) e mede acerto top-1/top-3, MRR e latência da consulta, com
+o provedor que o ambiente apontar. Critério da CC-406: o provedor com maior
+acerto top-3 nas 50 perguntas, com meta ≥ 85%; diferença menor que 5 pontos
+desempata por privacidade e operação (local > provedor com DPA). Os
+candidatos a medir são `voyage-3.5`, Qwen3-Embedding-8B, `bge-m3` local e o
+`text-embedding-3-small` como base. Voyage é a favorita em qualidade e é o
+mesmo fornecedor do `rerank-2.5`, a alternativa ao Jev no portão da CC-407.
+
+**Pendente.** As 50 perguntas (escritas pelos médicos, depois de haver
+cartões publicados), as chaves dos provedores e a rodada de medição. Até lá,
+o índice usa o provedor das diretrizes — desligado em produção.
