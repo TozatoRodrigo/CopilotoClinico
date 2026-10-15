@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 2,
+  "id": "kb001-pc-002",
+  "title": "Pneumonia com SpO2 89%, confusão e infiltrado multilobar",
+  "tags": [
+    "infeccao-respiratoria",
+    "pneumonia-grave",
+    "kb-001"
+  ],
+  "critical": true,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Pneumonia com SpO2 89%, confusão e infiltrado multilobar."
+  },
+  "expected": {
+    "syndrome": "pneumonia comunitária grave",
+    "diagnoses": [
+      {
+        "text": "sepse de foco pulmonar",
+        "tier": "critical"
+      }
+    ],
+    "actions": [
+      {
+        "text": "oxigenoterapia",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "antibiótico IV precoce (beta-lactâmico associado a macrolídeo ou quinolona respiratória)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "internação com avaliação de UTI",
+        "tier": "important",
+        "timing": "now"
+      }
+    ],
+    "questions": [
+      "pressão arterial e sinais de hipoperfusão (lactato)",
+      "fatores de risco para MRSA/Pseudomonas (isolamento respiratório prévio, internação com antibiótico IV recente)"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "PAC grave (ATS/IDSA 2019: confusão e infiltrado multilobar são 2 critérios menores, e a hipoxemia aproxima do terceiro): O2, beta-lactâmico IV com macrolídeo ou com quinolona respiratória e avaliação de UTI (SBPT 2018). Cobertura de MRSA/Pseudomonas só com fatores de risco. Hemoculturas, cultura de escarro e teste de influenza/SARS-CoV-2 são recomendados, mas não exigidos no turno 0; corticoide sistêmico na PAC grave (SBPT 2018, ATS 2025) é aceito e não penalizado."
+  },
+  "sources": [
+    {
+      "claim": "PAC grave: 1 critério maior ou 3 ou mais menores (incluem confusão, infiltrado multilobar, FR ≥ 30, PaO2/FiO2 ≤ 250). Esquema: beta-lactâmico com macrolídeo ou com quinolona respiratória. Hemoculturas e cultura de escarro na PAC grave. MRSA/Pseudomonas só com fatores de risco.",
+      "title": "Community-Acquired Pneumonia: Updated Recommendations from the ATS and IDSA (resumo AFP da diretriz 2019)",
+      "publisher": "AAFP / ATS-IDSA",
+      "year": 2020,
+      "url": "https://www.aafp.org/pubs/afp/issues/2020/0715/p121.html"
+    },
+    {
+      "claim": "Na PAC grave com indicação de UTI: combinação, de preferência beta-lactâmico com macrolídeo, IV e precoce. Corticoide adjuvante recomendado na PAC grave.",
+      "title": "Recomendações para o manejo da pneumonia adquirida na comunidade 2018",
+      "publisher": "SBPT (J Bras Pneumol)",
+      "year": 2018,
+      "url": "https://jornaldepneumologia.com.br/details/2853/en-US"
+    },
+    {
+      "claim": "A diretriz ATS de jul/2025 sugere glicocorticoide sistêmico para adultos internados com PAC grave.",
+      "title": "Do patients with severe community-acquired bacterial pneumonia benefit from systemic corticosteroids?",
+      "publisher": "Cleveland Clinic Journal of Medicine",
+      "year": 2025,
+      "url": "https://www.ccjm.org/content/92/10/600"
+    }
+  ],
+  "provenance": {
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: acrescentados fatores de risco para MRSA/Pseudomonas ao mustRequest. Culturas, teste viral e corticoide ficaram no rationale, por serem opcionais segundo a auditoria."
+  }
+}

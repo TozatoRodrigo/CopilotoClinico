@@ -571,7 +571,7 @@ export default function GuidelinesPage() {
           className="-mb-5 -ml-2.5 w-fit text-muted-foreground"
           asChild
         >
-          <Link href={`/encounters/${fromEncounterId}/result`}>
+          <Link href={`/encounters/${fromEncounterId}/conversation`}>
             <ArrowLeft /> Voltar ao caso
           </Link>
         </Button>

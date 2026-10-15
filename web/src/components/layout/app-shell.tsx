@@ -48,7 +48,7 @@ const NEW_CASE_ITEM: NavItem = {
 /** Rotas de foco (captura, análise, edição): sidebar começa recolhida. */
 function isFocusPath(pathname: string): boolean {
   return (
-    /\/encounters\/[^/]+\/(capture|result)/.test(pathname) ||
+    /\/encounters\/[^/]+\/(capture|result|conversation)/.test(pathname) ||
     /\/encounters\/[^/]+\/documents\/[^/]+\/edit/.test(pathname)
   );
 }

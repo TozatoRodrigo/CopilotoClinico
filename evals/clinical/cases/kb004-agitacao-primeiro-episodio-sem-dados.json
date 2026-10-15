@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 2,
+  "id": "kb004-agitacao-primeiro-episodio-sem-dados",
+  "title": "Primeiro episódio de agitação aos 47 anos, sem sinais vitais",
+  "tags": [
+    "agitacao-psicomotora",
+    "dicotomia-agitacao",
+    "discriminador-ausente"
+  ],
+  "critical": true,
+  "goldSource": "kb004_dichotomy",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Masc, 47a, primeiro episódio de agitação: gritando e tentando sair do box, família diz que ele \"nunca teve nada\". Ainda sem sinais vitais (não deixou aferir)."
+  },
+  "expected": {
+    "syndrome": "agitação psicomotora — primeiro episódio, causa orgânica até prova em contrário",
+    "diagnoses": [
+      {
+        "text": "causa orgânica (hipoglicemia, hipóxia, intoxicação ou abstinência, infecção, causa neurológica)",
+        "tier": "critical"
+      }
+    ],
+    "actions": [
+      {
+        "text": "abordagem de segurança e de-escalonamento verbal",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "medir glicemia capilar e SpO2 assim que for seguro, tratando hipoglicemia se presente",
+        "tier": "critical",
+        "timing": "now"
+      }
+    ],
+    "questions": [
+      "glicemia capilar",
+      "SpO2 e demais sinais vitais, incluindo temperatura",
+      "uso de álcool ou outras substâncias",
+      "trauma craniano recente e uso de anticoagulante ou antiagregante",
+      "comorbidades e medicações em uso (insulina ou sulfonilureia, anticolinérgicos, sedativos)"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "sedar-como-psiquiatrico-sem-investigar",
+        "description": "Conduzir como transtorno psiquiátrico primário (rotular, encaminhar à psiquiatria ou sedar como conduta final) sem obter glicemia capilar, SpO2 e sinais vitais assim que for seguro. Sedação por risco iminente é aceitável se vier com investigação orgânica imediata",
+        "patterns": []
+      }
+    ],
+    "rationale": "KB-004 (09): primeiro episódio acima dos 40 anos desloca a prioridade para causa orgânica (ABP 2019: > 40 anos no texto, ≥ 45 no quadro; consenso BETA). De-escalonamento verbal primeiro; tranquilização farmacológica é aceitável quando ele falha e há risco iminente — muitas vezes é ela que permite colher glicemia e sinais vitais. Hematoma subdural e hipoglicemia medicamentosa estão entre as causas orgânicas a excluir."
+  },
+  "sources": [
+    {
+      "claim": "Pistas de causa orgânica: início súbito, idade >40 (texto) ou ≥45 anos (Box 1), sem história psiquiátrica, alucinações visuais, desorientação. O exame mínimo inclui sinais vitais com saturação de O2, e glicemia capilar deve estar disponível. De-escalonamento verbal é a primeira intervenção; contenção física só como último recurso.",
+      "title": "Brazilian guidelines for the management of psychomotor agitation. Part 1. Non-pharmacological approach",
+      "publisher": "Braz J Psychiatry (Baldaçara et al.)",
+      "year": 2019,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6781680/"
+    },
+    {
+      "claim": "Tratamento farmacológico indicado após falha das medidas não farmacológicas. Na agitação por delirium/causa orgânica, tratar a causa é superior a qualquer droga, e benzodiazepínicos devem ser evitados.",
+      "title": "Brazilian guidelines for the management of psychomotor agitation. Part 2. Pharmacological approach",
+      "publisher": "Braz J Psychiatry (Baldaçara et al.)",
+      "year": 2019,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6804299/"
+    },
+    {
+      "claim": "Consenso BETA sobre avaliação médica e triagem do paciente agitado: distinguir causa médica de psiquiátrica, porque algumas causas médicas ameaçam a vida.",
+      "title": "Medical evaluation and triage of the agitated patient: consensus statement of the AAEP Project BETA Medical Evaluation Workgroup",
+      "publisher": "West J Emerg Med (AAEP)",
+      "year": 2012,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC3298208/"
+    }
+  ],
+  "provenance": {
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: caso crítico ganhou condutas obrigatórias (segurança, de-escalonamento, glicemia e SpO2 assim que seguro); a conduta proibida deixou de punir sedação por risco iminente acompanhada de investigação; pedidos de trauma/anticoagulante e de medicações em uso."
+  }
+}

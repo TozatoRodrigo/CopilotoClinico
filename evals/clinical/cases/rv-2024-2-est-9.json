@@ -1,0 +1,198 @@
+{
+  "schemaVersion": 2,
+  "id": "rv-2024-2-est-9",
+  "title": "Mulher atendida na emergência ginecológica após violência sexual",
+  "tags": [
+    "pele-partes-moles",
+    "revalida",
+    "pep",
+    "violencia-sexual",
+    "ginecologia"
+  ],
+  "critical": true,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Emergência de GO (atenção secundária; laboratório, farmácia, psicologia, segurança). Fem, 28a, camareira. Estuprada há ~30 h por homem desconhecido, hóspede do hotel onde trabalha, no local de trabalho; relação vaginal sem preservativo, com ejaculação vaginal. Foi segurada e ameaçada, sem agressão física; sem queixa ginecológica, sem lesões genitais ou no corpo, sem dor. Com medo, traumatizada, com medo de voltar ao trabalho. Não quer exame físico nem ginecológico. Nuligesta, ciclos regulares de 28 d, DUM há 10 d. Solteira, sem método contraceptivo, sem relações sexuais nos últimos 3 meses. Sem doenças, medicações, cirurgias ou alergias. Não bebe, não fuma, não usa drogas. Não registrou BO e não sabe se quer registrar. Cartão de vacinas: dT 3 doses (1996–1997), tríplice viral 3 doses, hepatite B 3 doses (1996), febre amarela (2000), COVID-19 4 doses; HPV sem registro.",
+    "funnel": {
+      "opening": "Emergência de GO (atenção secundária; laboratório, farmácia, psicologia, segurança). Mulher procura atendimento após sofrer violência sexual; está com medo e muito aflita.",
+      "script": [
+        {
+          "id": "h-violencia",
+          "kind": "history",
+          "text": "28 anos, camareira; foi estuprada por um homem desconhecido, hóspede do hotel onde trabalha, há cerca de 30 horas, no local de trabalho.",
+          "key": true
+        },
+        {
+          "id": "h-exposicao",
+          "kind": "history",
+          "text": "Não foi usado preservativo e o agressor ejaculou em sua vagina.",
+          "key": true
+        },
+        {
+          "id": "h-sem-agressao",
+          "kind": "history",
+          "text": "Ele a segurou e ameaçou, mas não bateu nela; sem queixa ginecológica, sem lesões genitais ou no corpo, sem dor."
+        },
+        {
+          "id": "h-trauma-psiquico",
+          "kind": "history",
+          "text": "Não sente nada fisicamente; está traumatizada e com medo de voltar ao trabalho."
+        },
+        {
+          "id": "h-recusa-exame",
+          "kind": "history",
+          "text": "Não quer ser submetida a exame físico nem ginecológico."
+        },
+        {
+          "id": "h-gineco",
+          "kind": "history",
+          "text": "Nunca engravidou; ciclo regular a cada 28 dias; última menstruação há 10 dias."
+        },
+        {
+          "id": "h-contracepcao",
+          "kind": "history",
+          "text": "Solteira, não usa método contraceptivo e não tinha relações sexuais havia 3 meses."
+        },
+        {
+          "id": "h-antecedentes",
+          "kind": "history",
+          "text": "Sem problemas de saúde, medicamentos, cirurgias ou alergias."
+        },
+        {
+          "id": "h-habitos",
+          "kind": "history",
+          "text": "Não bebe, não fuma e não usa drogas."
+        },
+        {
+          "id": "h-bo",
+          "kind": "history",
+          "text": "Não registrou boletim de ocorrência e não sabe se quer registrar."
+        },
+        {
+          "id": "h-cartao-vacinas",
+          "kind": "history",
+          "text": "Cartão de vacinas: dT 3 doses (1996–1997), tríplice viral 3 doses, hepatite B 3 doses (1996), febre amarela (2000), COVID-19 4 doses; HPV sem registro."
+        },
+        {
+          "id": "t-laboratorio",
+          "kind": "test",
+          "text": "Hemograma sem alterações; anti-HIV 1 e 2 não reagente; anti-T. pallidum não reagente; HBsAg não reagente; anti-HBs reagente (15,25); anti-HCV não reagente; beta-hCG < 0,2 (negativo); TGO 20, TGP 23."
+        }
+      ]
+    }
+  },
+  "expected": {
+    "syndrome": "atendimento de emergência à vítima de violência sexual com exposição de risco — profilaxias pós-exposição",
+    "diagnoses": [
+      {
+        "text": "violência sexual há ~30 h com exposição de risco (penetração vaginal sem preservativo, ejaculação): dentro da janela da profilaxia do HIV e da contracepção de emergência",
+        "tier": "critical"
+      }
+    ],
+    "actions": [
+      {
+        "text": "profilaxia pós-exposição ao HIV por 28 dias, iniciada agora (limite de 72 h) [ref.: tenofovir + lamivudina + dolutegravir]",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "contracepção de emergência [ref.: levonorgestrel 1,5 mg VO dose única (ou 2 cp de 0,75 mg); alternativas: método de Yuzpe ou DIU de cobre]",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "profilaxia das IST não virais com ceftriaxona, azitromicina e penicilina benzatina (metronidazol, se usado, só depois)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "testes para HIV, sífilis, hepatite B (HBsAg/anti-HBs) e hepatite C; teste de gravidez; hemograma e TGO/TGP",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "hepatite B: esquema vacinal completo no cartão, sem indicação de vacina nem imunoglobulina agora",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "atender sem exigir boletim de ocorrência: o registro é direito da paciente e não condiciona o atendimento",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "coleta de material vaginal para fins legais, se a paciente consentir",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "notificação compulsória ao SINAN",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "atendimento psicológico e seguimento médico ambulatorial",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [],
+    "outOfScope": [
+      "cumprimentar com empatia e identificar a paciente (item 1)",
+      "perguntar detalhes da violência e a história gineco-obstétrica e clínica (itens 2–3) — anamnese, coberta pelo roteiro",
+      "solicitar o cartão de vacinas (item 6) — o cartão está no caseText",
+      "orientar vacinação contra HPV (item 8) — item anulado pelo INEP",
+      "antes conduta proibida: Prescrever metronidazol para início imediato junto das demais profilaxias (o PEP considera inadequado; só é aceito se ficar claro que seria feito depois). — saiu porque o momento do metronidazol é item de qualidade, não conduta que mata ou sequela"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2024/2, Estação 9): o PEP pontua a anamnese da violência e gineco-obstétrica, orientação sobre BO e coleta de material, cartão de vacinas, laboratório e sorologias, contracepção de emergência, profilaxia de ISTs não virais (sem metronidazol imediato), PEP do HIV com TDF/3TC/DTG, apoio psicológico, seguimento e notificação. Gabarito v2: a PEP do HIV, tempo-dependente (até 72 h), é o item crítico; o PCDT IST 2022 confirma que o metronidazol deve ser postergado quando há contracepção de emergência e PEP."
+  },
+  "sources": [
+    {
+      "claim": "Itens 2–3: pergunta tempo desde a violência, local, se conhecia o agressor, tipo de abuso/uso de preservativo e ferimentos ou agressão física (0,5); gestações prévias, DUM, contracepção, alergias, medicações/comorbidades e tempo desde a última relação sexual — 5 ou mais (0,5).",
+      "title": "Revalida 2024/2 – Habilidades Clínicas – PEP, Estação 9, itens 2–3",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2024_2_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Itens 4–7 e 9: orienta que o BO não é necessário para o atendimento médico e que registrá-lo é direito da paciente (1,0); importância da coleta de material vaginal para fins legais (0,25); solicita cartão de vacinas (0,25); hemograma, TGO/TGP e teste de gravidez/beta-hCG (0,5); HIV, sífilis (VDRL ou teste rápido), anti-HCV e HBsAg/anti-HBs (1,0).",
+      "title": "Revalida 2024/2 – Habilidades Clínicas – PEP, Estação 9, itens 4–7 e 9",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2024_2_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Itens 10–12: contracepção de emergência — levonorgestrel 1,5 mg (ou 2 cp de 0,75 mg) VO, método Yuzpe (etinilestradiol 30 µg/levonorgestrel 150 µg, 4 cp 12/12h ou 8 cp dose única) ou DIU de cobre (1,0); profilaxia de ISTs não virais com ceftriaxona, azitromicina e penicilina benzatina — metronidazol para início imediato torna o item inadequado (1,0); profilaxia do HIV com tenofovir, lamivudina e dolutegravir (1,0).",
+      "title": "Revalida 2024/2 – Habilidades Clínicas – PEP, Estação 9, itens 10–12",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2024_2_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Itens 13–15: oferece atendimento psicológico (1,0); orienta seguimento médico (0,5); verbaliza a notificação do caso ao SINAN (0,9).",
+      "title": "Revalida 2024/2 – Habilidades Clínicas – PEP, Estação 9, itens 13–15",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2024_2_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Violência sexual (cap. 17): não há previsão legal para exigir boletim de ocorrência para o atendimento na saúde; notificação imediata (em até 24 h); PEP do HIV por 28 dias, iniciada o mais cedo possível e no limite de 72 h; anticoncepção de emergência com levonorgestrel 1,5 mg VO dose única até 5 dias; profilaxia das IST não virais (penicilina benzatina, ceftriaxona + azitromicina, metronidazol postergado quando há contracepção de emergência e PEP); hepatite B conforme a situação vacinal.",
+      "title": "Protocolo Clínico e Diretrizes Terapêuticas para Atenção Integral às Pessoas com Infecções Sexualmente Transmissíveis (IST)",
+      "publisher": "Ministério da Saúde",
+      "year": 2022,
+      "url": "https://www.gov.br/aids/pt-br/central-de-conteudo/pcdts/2022/ist/pcdt-ist-2022_isbn-1.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2024/2",
+    "item": "Estação 9",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2024_2_pep_definitivo.pdf",
+    "originalCaseText": "CENÁRIO DE ATENDIMENTO Nível de atenção: secundária. Tipo de atendimento: unidade de emergência de Ginecologia e Obstetrícia. A unidade apresenta a seguinte infraestrutura: ● laboratório de análises clínicas; ● farmácia para fornecimento de medicações; ● equipe de enfermagem e equipe médica; ● equipe de psicologia; ● equipe de segurança. ATENÇÃO! CASO JULGUE NECESSÁRIO REALIZAR EXAME FÍSICO, VERBALIZE! A PACIENTE SIMULADA NÃO DEVERÁ SER TOCADA DURANTE O ATENDIMENTO. DESCRIÇÃO DO CASO Uma mulher procura o serviço de emergência ginecológica após sofrer violência sexual. Está com medo e muito aflita com o acontecido. Nos 10 minutos de duração da Estação, você deverá executar as seguintes tarefas: ● Realizar anamnese da paciente. ● Solicitar, se necessário, exames complementares pertinentes à situação clínica (serão pontuados apenas os 10 primeiros exames complementares mencionados). ● Indicar, se necessário, medicações a serem prescritas. ● Responder às perguntas da paciente de forma completa, justificando os motivos das orientações. ● Encaminhar a paciente, se necessário, para avaliação de outros profissionais. ● Orientar e indicar condutas relativas ao caso clínico de violência sexual.",
+    "notes": "Gabarito v2 (11/10/2026): conduta proibida só para o que mata ou sequela — metronidazol-imediato foi para fora do escopo. caseText e funnel com o roteiro oficial da paciente simulada e o cartão de vacinas (impresso que é imagem, lido na página renderizada: hepatite B com 3 doses); o laboratório ficou só no funnel, porque o PEP cobra solicitá-lo. PEP do HIV é a conduta crítica 'agora'; contracepção de emergência, profilaxia de IST não virais e testes, importantes 'agora'; hepatite B sem vacina nem imunoglobulina (esquema completo; a síntese diz que não é preciso vacinar). Fonte nova: PCDT IST 2022 (Ministério da Saúde), aberto e conferido (cap. 17: BO não exigido, notificação em 24 h, PEP até 72 h, levonorgestrel, metronidazol postergado com CE e PEP). Proibição e sondas do v1 mantidas. | tags[0] 'pele-partes-moles' é aproximação (mesma escolha de rv-2021-disc-2): a lista fechada de síndromes não tem grupo para violência sexual/exposição de risco. Item 8 (orientar vacinação contra HPV) foi anulado — pontuação atribuída a todos, item 14.6 do Edital — e foi omitido; a síntese diz que, neste caso, não é necessário vacinar. Dados sob demanda: Vanessa, 28a, camareira; estuprada por hóspede desconhecido do hotel onde trabalha há ~30 h; sem preservativo, com ejaculação vaginal; foi segurada e ameaçada, sem agressão física, sem lesões genitais ou no corpo, sem dor; traumatizada e com medo de voltar ao trabalho; não quer exame físico nem ginecológico; nuligesta, ciclos regulares de 28 dias, DUM há 10 dias; solteira, sem contracepção, sem relações nos 3 meses anteriores; sem comorbidades, medicações, cirurgias ou alergias; não bebe, não fuma, não usa drogas; não registrou BO e não sabe se quer registrar. Cartão de vacinas: figura sem texto extraível. Laboratório: hemograma normal, anti-HCV não reagente (0,05), HBsAg não reagente (0,45), anti-HBs reagente (15,25), beta-hCG < 0,2 (negativo), TGO 20, TGP 23. A paciente pergunta se precisa de vacina, se o BO é obrigatório e se precisará de remédios. | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas. \"depois\"/\"após\" soltos viraram exceção presa ao adiamento do metronidazol (\"Metronidazol agora, depois ceftriaxona\" passava)."
+  }
+}

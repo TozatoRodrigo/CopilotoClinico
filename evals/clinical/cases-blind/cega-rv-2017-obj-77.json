@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2017-obj-77",
+  "title": "Jovem de 18 anos com ferimento cervical por arma branca na unidade de emergência",
+  "tags": [
+    "pele-partes-moles",
+    "revalida",
+    "prova-cega",
+    "objetiva",
+    "trauma",
+    "trauma-cervical"
+  ],
+  "critical": true,
+  "goldSource": "revalida_objetiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Unidade de emergência. Fem, 18a, ferimento cervical por arma branca. Consciente, orientada, muito assustada. SpO2 96%, PA 110x75 mmHg, FR 22 irpm, FC 112 bpm. Pescoço: ferimento lacerocontuso de 1,5 cm em zona II à D, não sangrante, sem escape de ar ou saliva."
+  },
+  "expected": {
+    "syndrome": "ferimento cervical penetrante por arma branca",
+    "diagnoses": [
+      {
+        "text": "ferimento cervical penetrante por arma branca em zona II à D, sem sinais maiores no momento — risco de lesão vascular ou aerodigestiva oculta",
+        "tier": "critical"
+      }
+    ],
+    "actions": [
+      {
+        "text": "se o ferimento ultrapassar o platisma, investigar lesão profunda: angio-TC cervical no paciente estável sem sinais maiores (abordagem 'no zone' atual) ou cervicotomia exploradora (gabarito de 2017); sinais maiores (sangramento ativo, hematoma expansivo, escape de ar, instabilidade) indicam centro cirúrgico",
+        "tier": "critical",
+        "timing": "any"
+      },
+      {
+        "text": "inspeção do ferimento sob anestesia local para definir se ultrapassa o platisma",
+        "tier": "important",
+        "timing": "now"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "suturar-sem-avaliar-profundidade",
+        "description": "Suturar o ferimento cervical sem definir se ultrapassa o platisma (alternativa D): fechar a pele pode esconder lesão vascular ou aerodigestiva.",
+        "patterns": [
+          "sutur\\w*",
+          "fechamento\\s+primario",
+          "fechar\\s+(a\\s+|o\\s+)?(pele|ferimento|lesao)"
+        ],
+        "exceptWhen": [
+          "(se|caso|quando)\\s+(\\S+\\s+){0,3}(nao\\s+)?(ultrapass\\w*|viol\\w*|penetr\\w*|atravess\\w*|romp\\w*)",
+          "(apos|depois\\s+d[aeo]s?)\\s+(\\S+\\s+){0,3}(angio\\w*|tomografia|tc|exploracao|inspecao|avaliacao|cervicotomia|exclus\\w*|descart\\w*)",
+          "platisma\\s+(integro|intacto|preservado)",
+          "superficia\\w*"
+        ]
+      }
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2017, objetiva 77): alternativa C — explorar o ferimento sob anestesia local e, se ultrapassar o platisma, cervicotomia exploradora. Ferimento que não viola o platisma não exige investigação; o que viola pedia, em 2017, exploração cirúrgica da zona II. Hoje, no paciente estável sem sinais maiores, a angio-TC cervical substituiu a exploração mandatória ('no zone'); sinais maiores ou instabilidade levam ao centro cirúrgico. O item crítico aceita as duas formas."
+  },
+  "sources": [
+    {
+      "claim": "Gabarito definitivo (Versão 1): questão 77 = C — \"explorar o ferimento sob anestesia local e, se a lesão ultrapassar o platisma, indicar cervicotomia exploradora.\"",
+      "title": "Revalida 2017 – 001. Prova Objetiva, Versão 1 – Gabarito definitivo",
+      "publisher": "INEP",
+      "year": 2017,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf"
+    },
+    {
+      "claim": "A exploração mandatória da zona II deu lugar à abordagem 'no zone': angio-TC de rastreio no paciente estável e exploração imediata no instável ou com sinais maiores (hemorragia ativa, hematoma expansivo/pulsátil, déficit neurológico, comprometimento de via aérea, enfisema subcutâneo, hematêmese); o algoritmo atual da Western Trauma Association segue esse padrão.",
+      "title": "Reading the Signs in Penetrating Cervical Vascular Injuries: Analysis of Hard/Soft Signs and Initial Management from a Nationwide Vascular Trauma Database (manuscrito, WTA 2022, J Trauma Acute Care Surg)",
+      "publisher": "American Association for the Surgery of Trauma (AAST)",
+      "year": 2022,
+      "url": "https://www.aast.org/asset/D0C75AA2%2DB8C7%2D4C90%2DA9CA085FD79D388D"
+    },
+    {
+      "claim": "Ferimento cervical penetrante: se não viola o platisma, fechar e dar alta; se viola, sinais maiores (hematoma expansivo, ar pelo ferimento, disfagia, sangue na via aérea, desconforto respiratório) levam ao centro cirúrgico; sem eles, angio-TC de pescoço; não guiar a conduta pelas zonas.",
+      "title": "UMEM Educational Pearls — Penetrating neck trauma",
+      "publisher": "University of Maryland School of Medicine, Department of Emergency Medicine",
+      "year": 2024,
+      "url": "https://www.medschool.umaryland.edu/em/cme/umem-educational-pearls/?id=4637"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2017",
+    "item": "Objetiva questão 77",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf",
+    "originalCaseText": "Uma mulher com 18 anos de idade dá entrada na Unidade de Emergência com ferimento cervical por arma branca. A paciente encontra-se consciente e orientada, porém muito assustada. À admissão, os sinais vitais da paciente são: saturação de O2 = 96%; pressão arterial = 110 x 75 mmHg; frequência respiratória = 22 irpm; frequência cardíaca = 112 bpm. O exame do pescoço evidencia um ferimento lacerocontuso de 1,5 cm, não sangrante, sem escape de ar ou saliva, localizado em zona II à direita. Nesse caso, a conduta adequada a ser adotada na Unidade de Emergência é (A) realizar endoscopia digestiva alta, laringoscopia, tomografia e arteriografia cervical. (B) realizar cervicotomia exploradora de forma mandatória devido à alta probabilidade de lesões associadas. (C) explorar o ferimento sob anestesia local e, se a lesão ultrapassar o platisma, indicar cervicotomia exploradora. (D) suturar a lesão, se o quadro clínico se mantiver estável, pois a extensão da lesão não demanda abordagem cirúrgica.",
+    "notes": "Prova cega (11/10/2026): objetiva 2017, gabarito C conferido na imagem do gabarito definitivo. Divergência vigente (sinalizada em candidates.tsv): a cervicotomia mandatória quando o platisma é violado foi substituída pela angio-TC no paciente estável sem sinais maiores ('no zone', algoritmo da WTA). A conduta de 2017 não é perigosa, só mais invasiva: o item aceita as duas formas, sem excludeFromGate. Não encontrei diretriz acessível (ATLS/EAST) para conferir a frase 'não sondar o ferimento no PS'; ela ficou fora do item. Proibida: suturar sem definir a profundidade (D). Cervicotomia mandatória (B) e investigação completa (A) não viraram proibidas."
+  },
+  "probes": {
+    "mustFlag": [
+      "Suturar o ferimento e dar alta, pois é pequeno e não sangra",
+      "Sutura simples da lesão cervical; paciente estável"
+    ],
+    "mustNotFlag": [
+      "Não suturar antes de definir se o ferimento ultrapassa o platisma",
+      "Sutura somente se o ferimento não ultrapassar o platisma",
+      "Angio-TC cervical; sutura da pele após exclusão de lesão profunda"
+    ]
+  }
+}

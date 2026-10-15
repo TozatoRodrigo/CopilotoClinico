@@ -45,3 +45,37 @@ export class AiTruncatedError extends Error {
     );
   }
 }
+
+interface AiCapabilityUnsupportedDetails {
+  provider: string;
+  capability: 'web_research';
+}
+
+/**
+ * F1 — o provider configurado não tem a capacidade pedida (ex.: pesquisa web
+ * fora da Anthropic). Quem chama degrada: a análise segue sem a etapa.
+ */
+export class AiCapabilityUnsupportedError extends Error {
+  override readonly name = 'AiCapabilityUnsupportedError';
+
+  constructor(readonly details: AiCapabilityUnsupportedDetails) {
+    super(
+      `Provider ${details.provider} does not support ${details.capability}. ` +
+        'Use AI_PROVIDER=anthropic.',
+    );
+  }
+}
+
+/**
+ * `EMBEDDING_PROVIDER=none`: o serviço roda sem embeddings (a Anthropic não
+ * tem API de embedding, e a conta da OpenAI ficou sem crédito em 10/2026).
+ * Quem chama segue sem o vetor: a busca vira textual e o trecho é gravado
+ * sem embedding, para preencher depois se um provedor voltar.
+ */
+export class AiEmbeddingsDisabledError extends Error {
+  override readonly name = 'AiEmbeddingsDisabledError';
+
+  constructor() {
+    super('Embeddings desligados (EMBEDDING_PROVIDER=none)');
+  }
+}

@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 2,
+  "id": "kb001-ve-002",
+  "title": "Vertigem contínua com incapacidade de deambular e disartria",
+  "tags": [
+    "vertigem",
+    "avc-posterior",
+    "kb-001"
+  ],
+  "critical": true,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Vertigem contínua com incapacidade de deambular e disartria."
+  },
+  "expected": {
+    "syndrome": "síndrome vestibular aguda central — AVC de circulação posterior",
+    "diagnoses": [
+      {
+        "text": "AVC de circulação posterior (cerebelo/tronco)",
+        "tier": "critical"
+      },
+      {
+        "text": "hemorragia cerebelar",
+        "tier": "critical"
+      },
+      {
+        "text": "oclusão de artéria basilar (candidato a trombectomia até 24 h)",
+        "tier": "critical"
+      }
+    ],
+    "actions": [
+      {
+        "text": "neuroimagem de urgência (TC sem contraste para excluir hemorragia; angio-TC ou RM)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "acionar protocolo de AVC / avaliação neurológica de urgência",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "glicemia capilar imediata",
+        "tier": "important",
+        "timing": "now"
+      }
+    ],
+    "questions": [
+      "horário de início dos sintomas / última vez visto bem",
+      "uso de anticoagulante"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "trombolise-antes-da-imagem",
+        "description": "Trombólise (alteplase, tenecteplase) antes de a neuroimagem excluir hemorragia — hemorragia cerebelar é diferencial; trombólise depois da imagem, dentro da janela, é correta",
+        "patterns": [
+          "trombol\\w*",
+          "alteplase",
+          "tenecteplase",
+          "rt-?pa",
+          "estreptoquinase"
+        ],
+        "exceptWhen": [
+          "(somente|so|apenas)\\s+(apos|depois\\s+d[aeo]|com)\\s+(a\\s+)?(tc|tomografia|neuroimagem|imagem|rm|ressonancia)",
+          "(apos|depois\\s+d[aeo]|quando|se|caso)\\s+(a\\s+)?(tc|tomografia|neuroimagem|imagem|rm|ressonancia)(\\s+de\\s+cranio)?\\s+(excluir|descartar|afastar|sem|nao\\s+mostrar)",
+          "avaliar\\s+(a\\s+)?(elegibilidade|indicacao|criterios)\\s+(para|de)\\s+(a\\s+)?(trombol\\w*|alteplase|tenecteplase)",
+          "(se|caso)\\s+(for\\s+)?elegivel"
+        ]
+      },
+      {
+        "id": "tratar-como-vertigem-periferica",
+        "description": "Tratar como vertigem periférica (antivertiginoso e alta) — incapacidade de deambular com disartria é sinal central",
+        "patterns": []
+      }
+    ],
+    "rationale": "AHA/ASA 2026: glicemia antes de qualquer trombólise (COR 1); tenecteplase 0,25 mg/kg ou alteplase 0,9 mg/kg até 4,5 h depois de a imagem excluir hemorragia; trombectomia na oclusão basilar até 24 h (COR 1) — a angio-TC existe para isso. GRACE-3: TC normal não exclui AVC de fossa posterior; RM com difusão se TC/angio-TC inconclusivas é desejável, não exigida. TC com angio-TC ou RM inicial conforme o serviço."
+  },
+  "sources": [
+    {
+      "claim": "Trombectomia na oclusão basilar (mRS 0–1, NIHSS ≥ 10, PC-ASPECTS ≥ 6) até 24 h: COR 1. Angio-TC não deve ser atrasada pela creatinina. Tenecteplase 0,25 mg/kg ou alteplase 0,9 mg/kg até 4,5 h.",
+      "title": "2026 Guideline Update: Early Management of Acute Ischemic Stroke (resumo da diretriz AHA/ASA)",
+      "publisher": "emDocs / AHA-ASA",
+      "year": 2026,
+      "url": "https://www.emdocs.net/2026-guideline-update-early-management-of-acute-ischemic-stroke"
+    },
+    {
+      "claim": "Determinar a glicemia antes de iniciar a trombólise, para tratar hipo ou hiperglicemia grave que mimetizam AVC (COR 1, LOE C-LD).",
+      "title": "2026 Guideline for the Early Management of Patients With Acute Ischemic Stroke",
+      "publisher": "AHA/ASA (Stroke)",
+      "year": 2026,
+      "url": "https://professional.heart.org/en/guidelines-statements/2026-guideline-for-the-early-management-of-patients-with-acute-ischemic-strokestr0000000000000513"
+    },
+    {
+      "claim": "TC de crânio não recomendada para excluir AVC na síndrome vestibular aguda; incapacidade de marcha como sinal central.",
+      "title": "GRACE-3: Acute Dizziness and Vertigo in the Emergency Department",
+      "publisher": "SAEM (Acad Emerg Med)",
+      "year": 2023,
+      "url": "https://www.saem.org/publications/grace/grace-3"
+    }
+  ],
+  "provenance": {
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: acrescentados oclusão basilar ao cannotMiss, glicemia capilar às condutas e uso de anticoagulante ao mustRequest. A checagem de trombólise trocou as exceções sem âncora (\"avaliar\", \"elegib\", \"não\"), que deixavam passar \"Alteplase 0,9 mg/kg agora; avaliar trombectomia\", por condições ancoradas na imagem e na elegibilidade. RM com difusão ficou no rationale (opcional)."
+  },
+  "probes": {
+    "mustFlag": [
+      "Alteplase 0,9 mg/kg agora; avaliar trombectomia",
+      "Paciente elegível: tenecteplase 0,25 mg/kg IV",
+      "Trombólise IV imediata; não aguardar a TC",
+      "Tenecteplase 0,25 mg/kg em bolus, sem aguardar neuroimagem",
+      "Alteplase 0,9 mg/kg IV, suspender se a TC mostrar sangramento",
+      "Trombólise com alteplase 0,9 mg/kg IV agora, avaliar elegibilidade para trombectomia"
+    ],
+    "mustNotFlag": [
+      "Trombólise somente após TC sem sangramento",
+      "Não trombolisar antes de a neuroimagem excluir hemorragia",
+      "Alteplase 0,9 mg/kg IV somente após TC excluir hemorragia, se dentro de 4,5 h",
+      "Trombólise contraindicada até a neuroimagem",
+      "Avaliar elegibilidade para trombólise após a TC",
+      "Trombólise IV se elegível, após TC sem sangramento"
+    ]
+  }
+}

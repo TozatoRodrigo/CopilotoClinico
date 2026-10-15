@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2017-obj-6",
+  "title": "Puérpera no 5º dia com dor intensa e edema na panturrilha esquerda",
+  "tags": [
+    "pele-partes-moles",
+    "revalida",
+    "prova-cega",
+    "objetiva",
+    "obstetricia",
+    "trombose-venosa-profunda"
+  ],
+  "critical": false,
+  "goldSource": "revalida_objetiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Maternidade (retorno ao pronto atendimento obstétrico). Fem, 32a, 5º dia de puerpério de parto normal. Dor intensa em panturrilha E. Nega febre. EF: varizes em MMII bilateralmente; panturrilha E empastada, com edema e aumento da temperatura local."
+  },
+  "expected": {
+    "syndrome": "dor e edema unilateral de panturrilha no puerpério",
+    "diagnoses": [
+      {
+        "text": "trombose venosa profunda de membro inferior esquerdo no puerpério",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "USG com Doppler venoso (compressão) do membro inferior esquerdo",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "anticoagulação plena com heparina de baixo peso molecular [ref.: enoxaparina 1 mg/kg 12/12 h; o gabarito associa internação e repouso no leito; a ASH aceita tratamento ambulatorial no baixo risco]",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "alta-sem-anticoagulacao",
+        "description": "Mandar para casa sem investigar nem anticoagular a suspeita de TVP puerperal: repouso domiciliar com meia elástica e retorno se não melhorar (C) ou com anti-inflamatório e hemograma semanal (D). Tratamento domiciliar COM anticoagulante é aceito (ASH 2018/2020).",
+        "patterns": [
+          "(repouso|tratamento|acompanhamento|seguimento)\\s+(no\\s+|em\\s+)?(domicilio|domiciliar|casa)",
+          "alta\\s+(hospitalar\\s+)?(para\\s+(o\\s+)?(domicilio|casa)|com\\s+(meia|orientac\\w*|retorno|anti-?inflamat\\w*|aine|analges\\w*))"
+        ],
+        "exceptWhen": [
+          "(hbpm|enoxaparina|heparina\\w*|anticoag\\w*|rivaroxabana|apixabana|varfarina|dabigatrana|edoxabana)",
+          "(apos|depois\\s+d[aeo]s?)\\s+(\\S+\\s+){0,3}(doppler|usg|ultrass\\w*|exclu\\w*|descart\\w*)",
+          "(se|caso)\\s+(\\S+\\s+){0,3}(doppler|usg|ultrass\\w*)\\s+(\\S+\\s+){0,2}(negativ\\w*|normal)",
+          "(se|caso|quando)\\s+(\\S+\\s+){0,3}baixo\\s+risco"
+        ]
+      }
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2017, objetiva, questão 6): alternativa B — internação, repouso no leito, USG com Doppler e anticoagulação. Distratoras: calor local sem anticoagular (A), repouso domiciliar com meia elástica (C) e AINE com hemograma semanal (D). v2: o núcleo vigente é Doppler + anticoagulação com HBPM; internação e repouso no leito não são exigidos, porque a ASH (2018, 2020) sugere tratamento ambulatorial no baixo risco."
+  },
+  "sources": [
+    {
+      "claim": "Questão 6: gabarito definitivo B — internação, repouso no leito, realização de exame de ultrassom com Doppler e terapia anticoagulante.",
+      "title": "Revalida 2017 – Prova Objetiva (versão 1) – gabarito definitivo",
+      "publisher": "INEP",
+      "year": 2017,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf"
+    },
+    {
+      "claim": "Enunciado, comando e alternativas da questão 6 (caderno da versão 1, 24/09/2017)",
+      "title": "Revalida 2017 – Prova Objetiva (versão 1), questão 6",
+      "publisher": "INEP",
+      "year": 2017,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/provas/2017/prova_objetiva_1.pdf"
+    },
+    {
+      "claim": "TEV na gestação e no puerpério: HBPM recomendada em vez de HNF (recomendação forte); terapia inicial ambulatorial sugerida em vez de internação para a paciente de baixo risco (condicional); diagnóstico confirmado por USG de compressão.",
+      "title": "American Society of Hematology 2018 guidelines for management of venous thromboembolism: venous thromboembolism in the context of pregnancy",
+      "publisher": "American Society of Hematology (Blood Advances)",
+      "year": 2018,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6258928/"
+    },
+    {
+      "claim": "TVP não complicada: tratamento domiciliar sugerido em vez de hospitalar (condicional), salvo necessidade de internação por outra condição, falta de suporte, TVP com ameaça ao membro ou alto risco de sangramento; anticoagulação isolada como tratamento padrão da TVP proximal.",
+      "title": "American Society of Hematology 2020 guidelines for management of venous thromboembolism: treatment of deep vein thrombosis and pulmonary embolism",
+      "publisher": "American Society of Hematology (Blood Advances)",
+      "year": 2020,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7556153/"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2017",
+    "item": "Objetiva questão 6",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf",
+    "originalCaseText": "Uma mulher com 32 anos de idade, no quinto dia de puerpério de parto normal, retorna à maternidade com queixa de dor intensa em panturrilha esquerda. Nega febre e, ao exame físico, observam-se: varizes em membros inferiores bilateralmente, panturrilha esquerda empastada com edema e aumento da temperatura local. Diante desse quadro, a conduta adequada é recomendar (A) internação, repouso no leito, manutenção dos membros inferiores elevados e calor local. (B) internação, repouso no leito, realização de exame de ultrassom com Doppler e terapia anticoagulante. (C) repouso no domicílio, uso de meia elástica e orientação para retorno, caso não haja melhora em 2 dias. (D) repouso no domicílio, tratamento com anti-inflamatórios não hormonais e controle semanal com resultados de hemograma e coagulograma.",
+    "notes": "Prova cega (11/10/2026): letra B conferida na imagem do gabarito definitivo (versão 1, text/img/2017_obj_gabarito-p01.png) e enunciado relido no texto de duas colunas, sem mistura com as questões vizinhas. Gabarito parcialmente desatualizado: a ASH 2018 (gestação/puerpério) e a ASH 2020 (TVP) sugerem tratamento ambulatorial em vez de internação no baixo risco, e nenhuma das duas manda repouso no leito (fontes verificadas). Internação e repouso saíram dos itens, e a conduta exigida é Doppler + HBPM. Mandar para casa sem investigar e sem anticoagular (C e D) virou proibida, com exceção para o tratamento domiciliar com anticoagulante. Anticoagulação ficou timing any: o gabarito não pede anticoagular antes do Doppler."
+  },
+  "probes": {
+    "mustFlag": [
+      "Repouso domiciliar, meia elástica e retorno se não melhorar em 2 dias",
+      "Alta com anti-inflamatório e hemograma semanal"
+    ],
+    "mustNotFlag": [
+      "Tratamento domiciliar com enoxaparina 1 mg/kg 12/12 h se baixo risco",
+      "Não dar alta para casa sem Doppler e anticoagulação",
+      "Internar, Doppler venoso e enoxaparina",
+      "Alta para casa se o Doppler for negativo",
+      "Enoxaparina e Doppler hoje; tratamento domiciliar possível se baixo risco"
+    ]
+  }
+}

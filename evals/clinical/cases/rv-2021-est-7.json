@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 2,
+  "id": "rv-2021-est-7",
+  "title": "Motorista embriagada sem cinto após colisão contra poste, sonolenta, taquicárdica, taquipneica e com dor torácica",
+  "tags": [
+    "choque",
+    "revalida",
+    "pep",
+    "trauma",
+    "pneumotorax"
+  ],
+  "critical": true,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Emergência de hospital de médio porte (RX, US e TC, sem RM; laboratório; leitos; centro cirúrgico e banco de sangue; sem plantão de ortopedia nem de subespecialidades). Fem, 25a, trazida pelos bombeiros: dormiu ao volante e colidiu de frente contra poste de concreto, sozinha no carro, sem cinto. Com colar cervical e máscara de O2. Sonolenta, gemente, desorientada no tempo e espaço, com sinais claros de embriaguez; Glasgow 13. Hipocorada +/4+, dor em tórax anterior. Na chegada FR 27, FC 110. Ao exame: PA 90x50, FC 125, FR 32; turgência jugular, bulhas hipofonéticas; MV abolido à D com hipertimpanismo."
+  },
+  "expected": {
+    "syndrome": "politrauma (colisão automobilística) com pneumotórax hipertensivo à direita",
+    "diagnoses": [
+      {
+        "text": "pneumotórax hipertensivo à direita",
+        "tier": "critical"
+      }
+    ],
+    "actions": [
+      {
+        "text": "descompressão torácica imediata à direita, sem aguardar radiografia [ref.: PEP: punção com cateter nº 14 no 4º ou 5º EIC, linha axilar anterior ou média]",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "drenagem torácica fechada em selo d'água à direita logo após a descompressão [ref.: PEP: dreno nº 32 ou 36, 4º ou 5º EIC, linha axilar média]",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "via aérea avaliada (pérvia); manter colar cervical e O2 por máscara",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "monitorização: FC, PA e oximetria",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "segundo acesso venoso calibroso",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "reavaliar B e C após a descompressão/drenagem (exame respiratório e cardiovascular)",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "radiografia de tórax após a punção/drenagem",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "exposição completa com prevenção de hipotermia",
+        "tier": "important",
+        "timing": "now"
+      }
+    ],
+    "questions": [
+      "reação e simetria pupilar (D do ABCDE), não descritas: alteração muda a prioridade neurológica"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "outOfScope": [
+      "identificar-se e identificar a paciente (item 1)",
+      "verbalizar o exame respiratório e cardiovascular da avaliação primária (itens 4 e 14; achados já no caso)",
+      "antes conduta proibida: Transferir a paciente para centro terciário neste momento (PEP item 18: resposta esperada é que NÃO é necessária remoção) — saiu porque transferir não é conduta perigosa"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2021, Estação 7): o PEP pontua a avaliação primária ATLS com diagnóstico de pneumotórax hipertensivo, punção de descompressão seguida de drenagem fechada (calibres e locais especificados), RX de controle, monitorização, segundo acesso, D e E, e a decisão de não transferir no momento. Gabarito v2: descompressão e drenagem são as condutas críticas para agora; calibres e locais do PEP ficaram como referência."
+  },
+  "sources": [
+    {
+      "claim": "Atendimento inicial: avalia perviedade das vias aéreas (2); mantém colar cervical e máscara de oxigênio (3); exame do aparelho respiratório (4); diagnóstico de pneumotórax hipertensivo (5, 1,0 ponto).",
+      "title": "Revalida 2021 – Habilidades Clínicas – PEP, Estação 7, itens 2–5",
+      "publisher": "INEP",
+      "year": 2021,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2021_publicacao.pdf"
+    },
+    {
+      "claim": "Procedimentos: cateter nº 14 para a punção (6); punção no 4º ou 5º espaço intercostal, linha axilar anterior ou média (7); drenagem torácica fechada após a punção (8) com dreno nº 32 ou 36 (9) no 4º ou 5º EIC, linha axilar média (10); RX de tórax após punção/drenagem (11).",
+      "title": "Revalida 2021 – Habilidades Clínicas – PEP, Estação 7, itens 6–11",
+      "publisher": "INEP",
+      "year": 2021,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2021_publicacao.pdf"
+    },
+    {
+      "claim": "Seguimento: monitorização (FC, PA, oximetria) (12); reexame respiratório após os procedimentos (13); exame cardiovascular (14); segundo acesso venoso calibroso (15); D — Glasgow e pupilas (16); exposição com prevenção de hipotermia (17); responde que NÃO será necessária remoção da paciente neste momento (18).",
+      "title": "Revalida 2021 – Habilidades Clínicas – PEP, Estação 7, itens 12–18",
+      "publisher": "INEP",
+      "year": 2021,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2021_publicacao.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2021",
+    "item": "Estação 7",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2021_publicacao.pdf",
+    "originalCaseText": "ESTAÇÃO 7 – Área: Cirurgia Geral. INSTRUÇÕES PARA O(A) PARTICIPANTE. CENÁRIO DE ATUAÇÃO: Você está de plantão na emergência de um hospital de médio porte e vai atender uma paciente de 25 anos de idade, sexo feminino, vítima de trauma automobilístico. A paciente estava sozinha no veículo quando, ao dormir ao volante, colidiu frontalmente contra um poste de concreto. Foi levada ao pronto-socorro pelos bombeiros, que relataram acidente carro–poste sem uso do cinto de segurança. A paciente se apresenta sonolenta, gemente, desorientada em tempo e espaço e com sinais claros de embriaguez. Escala de coma de Glasgow 13. Ao exame físico, mostrou-se hipocorada (+/4+), taquipneica (27 irpm), taquicárdica (FC = 110 bpm), apresentando dor em tórax anterior. Nos próximos 10 minutos, deverão ser realizadas as seguintes tarefas: realizar o atendimento da paciente vítima de politrauma, de acordo com o preconizado pelo ATLS; identificar as alterações no exame físico; adotar a(s) conduta(s) terapêutica(s) necessária(s); demonstrar a realização de procedimentos médicos, caso necessário. OBSERVAÇÃO: O hospital possui a seguinte estrutura: setor de radiologia convencional, ultrassonografia e tomografia computadorizada. Não possui ressonância nuclear magnética; laboratório de análises clínicas; leitos de internação; centro cirúrgico e banco de sangue. Não há plantão de ortopedia nem de subespecialidades.",
+    "notes": "Gabarito v2 (11/10/2026): conduta proibida só para o que mata ou sequela — transferir-para-centro-terciario-agora foi para fora do escopo. caso completo com o cenário oficial e o impresso 1 (exame físico); sem funnel, porque o PEP de 2021 não publica roteiro da paciente simulada. Descompressão e drenagem são as condutas críticas para agora, com calibres e locais do PEP entre colchetes; reação pupilar (não descrita) virou pergunta; apresentação e verbalização do exame ficaram fora do escopo. A proibição de transferir agora foi mantida. | Dados sob demanda: Impresso 1 — PA 90x50, FC 125, FR 32; turgência jugular, bulhas hipofonéticas; MV abolido à direita com hipertimpanismo. Impresso 2 — descrever/demonstrar os procedimentos. Impresso 3 — o chefe de equipe pergunta se há necessidade de transferência para centro terciário (resposta esperada: não, no momento). A paciente está com colar cervical e máscara de O2 (PEP item 3). A síntese do ator não é publicada no PEP de 2021. Não sinalizado como desatualizado: a conferência de calibre de dreno/local de descompressão contra o ATLS 11ª ed. não foi feita. | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas. Padrões trocaram \".{0,40}\" por até 4 palavras, para não atravessar vírgula."
+  }
+}

@@ -45,6 +45,7 @@ describe('LgpdService', () => {
       findMany: ReturnType<typeof vi.fn>;
       deleteMany: ReturnType<typeof vi.fn>;
     };
+    caseIntake: { findMany: ReturnType<typeof vi.fn> };
     $transaction: ReturnType<typeof vi.fn>;
   };
   let auditService: {
@@ -91,6 +92,7 @@ describe('LgpdService', () => {
         findMany: vi.fn().mockResolvedValue([]),
         deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
+      caseIntake: { findMany: vi.fn().mockResolvedValue([]) },
       $transaction: vi.fn(),
     };
     auditService = {
@@ -364,12 +366,14 @@ describe('LgpdService', () => {
           encounters,
           documents,
           aiInteractions,
+          caseIntakes: [],
           recommendationDecisions,
           copilotFeedback,
           consents,
           auditLog,
         },
       });
+      expect(prisma.caseIntake.findMany).toHaveBeenCalledWith({ where: { physicianId } });
       expect(prisma.copilotFeedback.findMany).toHaveBeenCalledWith({ where: { physicianId } });
       // F0-D — decisões por recomendação são dado do médico: entram na portabilidade.
       expect(prisma.recommendationDecision.findMany).toHaveBeenCalledWith({

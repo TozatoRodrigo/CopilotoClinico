@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2017-obj-62",
+  "title": "Homem de 39 anos, hipertenso, com sangramento nasal contínuo após colecistectomia",
+  "tags": [
+    "pressao-arterial-elevada",
+    "revalida",
+    "prova-cega",
+    "objetiva",
+    "otorrinolaringologia",
+    "epistaxe"
+  ],
+  "critical": false,
+  "goldSource": "revalida_objetiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "PS de hospital. Masc, 39a, HAS há 12 anos. Colecistectomia videolaparoscópica eletiva sem intercorrências; alta no 2º PO. No dia seguinte à alta, sangramento nasal espontâneo e contínuo; fez compressão externa com os dedos e manteve a cabeça inclinada para trás por 1 h, sem efeito. EF: PA 180x120 mmHg; epistaxe moderada em narina E; orofaringe sem sangramento visível. No PS: via aérea avaliada, compressão nasal externa por 20 min e anti-hipertensivo administrado — a epistaxe persiste."
+  },
+  "expected": {
+    "syndrome": "epistaxe com pressão arterial elevada",
+    "diagnoses": [
+      {
+        "text": "epistaxe anterior (narina E, sem sangramento na orofaringe) que persiste após compressão e anti-hipertensivo",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "tamponamento nasal anterior (aceita-se cauterização se o ponto sangrante for identificado à rinoscopia; tampão absorvível se em uso de anticoagulante ou antiagregante)",
+        "tier": "important",
+        "timing": "now"
+      }
+    ],
+    "questions": [
+      "uso de anticoagulante ou antiagregante no pós-operatório (muda a escolha do tampão)"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "Gabarito oficial do INEP (Revalida 2017, objetiva 62): alternativa C — tamponamento nasal anterior. Sangramento anterior (narina, sem sangue na orofaringe) que não para com compressão e controle pressórico pede tamponamento anterior; tamponamento posterior, ligadura e embolização ficam para sangramento posterior ou refratário ao tamponamento/cauterização. A diretriz AAO-HNS de 2020 mantém essa sequência."
+  },
+  "sources": [
+    {
+      "claim": "Gabarito definitivo (Versão 1): questão 62 = C — \"tamponamento nasal anterior.\"",
+      "title": "Revalida 2017 – 001. Prova Objetiva, Versão 1 – Gabarito definitivo",
+      "publisher": "INEP",
+      "year": 2017,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf"
+    },
+    {
+      "claim": "AAO-HNS 2020 (afirmação de valor da AAFP): compressão firme no terço inferior do nariz por 5 min ou mais; se o sangramento impede identificar o ponto apesar da compressão, tratar com tamponamento nasal; cauterização e vasoconstritor tópico quando o ponto é identificado; tampão absorvível com anticoagulante ou antiagregante; ligadura arterial ou embolização só se o sangramento persistir apesar de tamponamento ou cauterização.",
+      "title": "Nosebleed (Epistaxis) — Clinical Practice Guideline (AAO-HNS), afirmação de valor",
+      "publisher": "American Academy of Family Physicians",
+      "year": 2020,
+      "url": "https://aafp.org/family-physician/patient-care/clinical-recommendations/all-clinical-recommendations/nosebleed.html"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2017",
+    "item": "Objetiva questão 62",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf",
+    "originalCaseText": "Um homem com 39 anos de idade, hipertenso há 12 anos, submetido à colecistectomia eletiva por videolaparoscopia sem intercorrências, com alta após 2 dias da cirurgia, procura atendimento hospitalar, relatando que, no dia seguinte ao da alta hospitalar, apresentou sangramento nasal espontâneo contínuo. Informa ter feito compressão externa com os dedos e deixado a cabeça inclinada para trás por uma hora, porém sem efeito. O exame físico do paciente evidencia: pressão arterial = 180 x 120 mmHg e presença de epistaxe moderada em narina esquerda. Ao exame da orofaringe, observa-se ausência de sangramento visível. Nessa situação clínica, se, após avaliar a via aérea do paciente, o médico realizar compressão externa nasal por 20 minutos, administrar medicação anti-hipertensiva e, ainda assim, o paciente persistir com o quadro de epistaxe, a conduta médica adequada seria realizar (A) embolização arteriográfica. (B) ligadura das artérias nasais. (C) tamponamento nasal anterior. (D) tamponamento nasal posterior.",
+    "notes": "Prova cega (11/10/2026): objetiva 2017, gabarito C conferido na imagem do gabarito definitivo. Caso não crítico (como em candidates.tsv). O enunciado condiciona a pergunta a compressão de 20 min e anti-hipertensivo sem efeito; isso entrou no caseText como conduta já feita, sem a resposta. A AAO-HNS 2020 mantém o tamponamento para o sangramento ativo que persiste; o item aceita cauterização se o ponto for visto. Sem proibidas: as alternativas erradas (embolização, ligadura, tamponamento posterior) são escalonamento desnecessário, não dano imediato."
+  }
+}

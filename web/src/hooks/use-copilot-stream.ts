@@ -1,8 +1,11 @@
 "use client";
 
 /**
- * UX-06 — consome o endpoint SSE já existente no backend
- * (GET /encounters/:id/copilot/stream) para a análise inicial começar a
+ * UX-06 — consome o SSE do plano (ADR-014: GET
+ * /encounters/:id/copilot/intake/:intakeId/stream, só com o id da conversa
+ * na URL — o caso nunca vai na querystring) e o da reanálise (POST
+ * /encounters/:id/copilot/respond/stream, com as respostas no corpo — ver
+ * `startRespond`) para a análise começar a
  * dar sinal de vida em segundos, em vez do médico encarar um spinner pelo
  * tempo inteiro da inferência (reclamação direta do Dr. Gustavo comparando
  * com o concorrente: "achei que é lento... enquanto aqui, se eu responder
@@ -23,71 +26,63 @@
  * porquê desse validador ser a última linha de defesa que não se abre mão.
  */
 import { useCallback, useRef, useState } from "react";
-import type { CopilotAnalyzeResponse, CopilotStreamEvent, EncounterContext } from "@/lib/types";
+import { CopilotStreamError, readEventStream } from "@/lib/copilot-stream";
+import type {
+  CaseUnderstanding,
+  ClarifyingAnswer,
+  CopilotAnalyzeResponse,
+  CopilotStreamEvent,
+} from "@/lib/types";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/v1";
-
-/**
- * EventSource é GET puro — o texto do caso vai na querystring. URLs muito
- * longas estouram limites práticos de navegador/proxy bem antes do limite
- * teórico (proxies intermediários de hospital são um risco real aqui).
- * Acima deste limite, usar o caminho POST não-streaming diretamente é mais
- * seguro que arriscar truncar o relato clínico do médico no meio.
- */
-const MAX_STREAM_CASE_TEXT_LENGTH = 3000;
-
-export function isStreamEligible(caseText: string): boolean {
-  return caseText.length <= MAX_STREAM_CASE_TEXT_LENGTH;
-}
-
-const RED_FLAG_KEYS = [
-  "immunosuppressed",
-  "pregnant",
-  "anticoagulant",
-  "pediatric",
-  "elderly65",
-  "allergy",
-] as const;
-
-export interface StartStreamInput {
-  caseText: string;
-  context: EncounterContext;
-  redFlags?: Partial<Record<(typeof RED_FLAG_KEYS)[number], boolean>>;
-}
 
 export type CopilotStreamStatus = "idle" | "streaming" | "done" | "error";
 
 export function useCopilotStream(encounterId: string) {
   const [status, setStatus] = useState<CopilotStreamStatus>("idle");
   const [partialText, setPartialText] = useState("");
+  // F1 — Etapa 1 (ADR-013): chega antes do primeiro delta quando o backend
+  // roda com COPILOT_REASONING=stages. Diferente dos deltas, é estrutura já
+  // validada no servidor — pode ir para a tela enquanto o plano é montado.
+  const [understanding, setUnderstanding] = useState<CaseUnderstanding | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   // Distingue "onerror por falha real" de "onerror porque o servidor
   // fechou a conexão normalmente depois do done" — EventSource dispara
   // onerror nos dois casos, sem diferenciação nativa.
   const gotTerminalEventRef = useRef(false);
+  const respondAbortRef = useRef<AbortController | null>(null);
 
   const stop = useCallback(() => {
     eventSourceRef.current?.close();
     eventSourceRef.current = null;
+    respondAbortRef.current?.abort();
+    respondAbortRef.current = null;
   }, []);
 
-  const start = useCallback(
-    (input: StartStreamInput): Promise<CopilotAnalyzeResponse> => {
+  /**
+   * Um frame recebido, nos dois transportes (EventSource do plano, fetch da
+   * reanálise): entendimento e deltas vão para o estado; o evento volta para
+   * quem chamou tratar `done`/`error`. Frame malformado isolado é ignorado
+   * (`null`) em vez de derrubar o stream inteiro por um evento.
+   */
+  const handleFrame = useCallback((data: string): CopilotStreamEvent | null => {
+    let parsed: CopilotStreamEvent;
+    try {
+      parsed = JSON.parse(data) as CopilotStreamEvent;
+    } catch {
+      return null;
+    }
+    if (parsed.type === "understanding") setUnderstanding(parsed.understanding);
+    if (parsed.type === "delta") setPartialText((prev) => prev + parsed.delta);
+    return parsed;
+  }, []);
+
+  const open = useCallback(
+    (url: string): Promise<CopilotAnalyzeResponse> => {
       return new Promise((resolve, reject) => {
-        const params = new URLSearchParams();
-        params.set("caseText", input.caseText);
-        params.set("hasCT", String(input.context.hasCT));
-        params.set("isSus", String(input.context.isSus));
-        params.set("hasLab", String(input.context.hasLab));
-        params.set("hasICU", String(input.context.hasICU));
-        for (const key of RED_FLAG_KEYS) {
-          params.set(key, String(input.redFlags?.[key] ?? false));
-        }
-
-        const url = `${BASE_URL}/encounters/${encounterId}/copilot/stream?${params.toString()}`;
-
         gotTerminalEventRef.current = false;
         setPartialText("");
+        setUnderstanding(null);
         setStatus("streaming");
 
         // withCredentials: true — o access_token vive num cookie HttpOnly
@@ -98,19 +93,8 @@ export function useCopilotStream(encounterId: string) {
         eventSourceRef.current = eventSource;
 
         eventSource.onmessage = (event) => {
-          let parsed: CopilotStreamEvent;
-          try {
-            parsed = JSON.parse(event.data) as CopilotStreamEvent;
-          } catch {
-            // Frame malformado isolado — ignora e aguarda o próximo em vez
-            // de derrubar o stream inteiro por um evento.
-            return;
-          }
-
-          if (parsed.type === "delta") {
-            setPartialText((prev) => prev + parsed.delta);
-            return;
-          }
+          const parsed = handleFrame(event.data);
+          if (!parsed || parsed.type === "understanding" || parsed.type === "delta") return;
 
           if (parsed.type === "done") {
             gotTerminalEventRef.current = true;
@@ -140,8 +124,91 @@ export function useCopilotStream(encounterId: string) {
         };
       });
     },
-    [encounterId, stop],
+    [handleFrame, stop],
   );
 
-  return { start, stop, status, partialText };
+  /**
+   * ADR-014 — plano a partir da conversa do Copiloto guiado. Só o id da
+   * conversa vai na URL: o caso e as respostas já estão no servidor.
+   */
+  const startFromIntake = useCallback(
+    (intakeId: string): Promise<CopilotAnalyzeResponse> =>
+      open(`${BASE_URL}/encounters/${encounterId}/copilot/intake/${intakeId}/stream`),
+    [encounterId, open],
+  );
+
+  /**
+   * Reanálise depois do plano (responder às perguntas, complementar o caso,
+   * corrigir o entendimento). As respostas não estão no servidor antes do
+   * pedido e não podem ir na URL (ADR-014): POST com o corpo do POST /respond,
+   * lendo a resposta text/event-stream pelo fetch — EventSource só faz GET.
+   *
+   * Rejeita com CopilotStreamError: `neverOpened` só quando nada passou dos
+   * cabeçalhos (erro de rede, status diferente de 2xx). Com os cabeçalhos 2xx
+   * o servidor já está analisando, e nenhuma falha daí em diante deixa
+   * refazer pelo POST.
+   */
+  const startRespond = useCallback(
+    async (interactionId: string, answers: ClarifyingAnswer[]): Promise<CopilotAnalyzeResponse> => {
+      stop();
+      const controller = new AbortController();
+      respondAbortRef.current = controller;
+      setPartialText("");
+      setUnderstanding(null);
+      setStatus("streaming");
+
+      const fail = (message: string, neverOpened: boolean): never => {
+        setStatus("error");
+        throw new CopilotStreamError(message, neverOpened);
+      };
+
+      let response: Response;
+      try {
+        response = await fetch(`${BASE_URL}/encounters/${encounterId}/copilot/respond/stream`, {
+          method: "POST",
+          // O access_token vive num cookie HttpOnly (ver JwtStrategy).
+          credentials: "include",
+          headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+          body: JSON.stringify({ interactionId, answers }),
+          signal: controller.signal,
+        });
+      } catch {
+        return fail("Conexão de streaming perdida.", true);
+      }
+      // Recusa antes de abrir (validação, sessão, turno, injeção): o POST
+      // /respond devolve a mesma resposta, com a mensagem de sempre.
+      if (!response.ok) return fail(`Erro ${response.status}`, true);
+      // 2xx sem corpo legível: o servidor já aceitou e está analisando, então
+      // não reenvia. Quem chama confere antes se há fetch com stream
+      // (canStreamFetch), e aí o corpo sempre vem.
+      if (!response.body) return fail("Conexão de streaming perdida.", false);
+
+      const outcome: { terminal: CopilotStreamEvent | null } = { terminal: null };
+      try {
+        await readEventStream(response.body, (data) => {
+          const parsed = handleFrame(data);
+          if (parsed?.type !== "done" && parsed?.type !== "error") return false;
+          outcome.terminal = parsed;
+          return true;
+        });
+      } catch {
+        // A conexão caiu no meio: segue para a falha abaixo, sem reenviar.
+      } finally {
+        if (respondAbortRef.current === controller) respondAbortRef.current = null;
+      }
+
+      const { terminal } = outcome;
+      if (terminal?.type === "done") {
+        setStatus("done");
+        return terminal.result;
+      }
+      if (terminal?.type === "error") {
+        return fail(terminal.errors.join("; ") || "Falha na análise em streaming.", false);
+      }
+      return fail("Conexão de streaming perdida.", false);
+    },
+    [encounterId, handleFrame, stop],
+  );
+
+  return { startFromIntake, startRespond, stop, status, partialText, understanding };
 }

@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 2,
+  "id": "kb004-agitacao-psiquiatrica-conhecida",
+  "title": "Descompensação de esquizofrenia conhecida após suspender antipsicótico",
+  "tags": [
+    "agitacao-psicomotora",
+    "psiquiatria",
+    "dicotomia-agitacao"
+  ],
+  "critical": false,
+  "goldSource": "kb004_dichotomy",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Fem, 29a, esquizofrenia acompanhada no CAPS, parou risperidona há 3 sem. Trazida pela mãe: insone, fala acelerada, ouvindo vozes, ameaçando vizinhos — igual às 2 internações anteriores. Orientada, atenção preservada. PA 128x82, FC 92, T 36,7, SpO2 98%, glicemia 96. Nega álcool/drogas; mãe confirma."
+  },
+  "expected": {
+    "syndrome": "agitação por transtorno psiquiátrico primário (descompensação de esquizofrenia)",
+    "diagnoses": [
+      {
+        "text": "causa orgânica associada (intoxicação, infecção) a reavaliar se a evolução for atípica",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "de-escalonamento verbal e ambiente com menos estímulo",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "antipsicótico VO oferecido de forma colaborativa (ex.: retomar risperidona); IM (ex.: haloperidol + prometazina ou olanzapina) se recusar com risco iminente",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "avaliação psiquiátrica e decisão sobre internação (involuntária se houver risco a terceiros), articulada com o CAPS",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [
+      "ideação suicida",
+      "risco de heteroagressividade: plano, alvo específico, acesso a armas"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "olanzapina-im-com-benzodiazepinico",
+        "description": "Olanzapina IM associada a benzodiazepínico (hipotensão, bradicardia, depressão respiratória — ABP 2019)",
+        "patterns": [
+          "olanzapina[^.;:]{0,60}(midazolam|diazepam|lorazepam|clonazepam|benzodiazepinico\\w*)",
+          "(midazolam|diazepam|lorazepam|clonazepam|benzodiazepinico\\w*)[^.;:]{0,60}olanzapina"
+        ]
+      },
+      {
+        "id": "medicacao-iv-na-agitacao",
+        "description": "Tranquilização por via IV (ABP 2019 manda evitar)",
+        "patterns": [
+          "(haloperidol|midazolam|diazepam|lorazepam|olanzapina|prometazina|droperidol|clorpromazina|risperidona)\\s+((?!im\\b|intramusc)\\S+\\s+){0,3}(iv|ev|endovenos\\w*|intravenos\\w*)"
+        ]
+      },
+      {
+        "id": "contencao-fisica-como-primeira-medida",
+        "description": "Contenção física como primeira medida, antes de falharem as técnicas de de-escalonamento",
+        "patterns": [
+          "conten\\w*\\s+(fisica|mecanica)"
+        ],
+        "exceptWhen": [
+          "(ultimo|ultima)\\s+recurso",
+          "(se|caso|quando)\\s+(falh\\w*|persistir|houver\\s+risco\\s+iminente)",
+          "(somente|so|apenas)\\s+(se|com|em|quando|apos|na|no|para|como)",
+          "apos\\s+(a\\s+)?(falha|falhar)"
+        ]
+      }
+    ],
+    "rationale": "KB-004 (10-agitacao-causa-psiquiatrica): sinais vitais e glicemia normais, quadro estereotipado com história prévia. ABP 2019: avaliar risco a si e a terceiros importa mais que o diagnóstico; via oral preferível como tratamento inicial; haloperidol + prometazina IM eficaz e seguro; olanzapina IM + benzodiazepínico não recomendada; evitar via IV; contenção física só como último recurso. Qualquer antipsicótico com respaldo é aceito."
+  },
+  "sources": [
+    {
+      "claim": "Via oral preferível à IM no tratamento inicial; haloperidol + prometazina eficaz e seguro (A); evitar via IV (D); olanzapina IM + BZD não recomendada.",
+      "title": "Brazilian guidelines for the management of psychomotor agitation. Part 2. Pharmacological approach",
+      "publisher": "Braz J Psychiatry (Baldaçara et al.)",
+      "year": 2019,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6804299/"
+    },
+    {
+      "claim": "Avaliar o risco a si e a terceiros importa mais que o diagnóstico; de-escalonamento verbal primeiro; contenção física como último recurso.",
+      "title": "Brazilian guidelines for the management of psychomotor agitation. Part 1. Non-pharmacological approach",
+      "publisher": "Braz J Psychiatry (Baldaçara et al.)",
+      "year": 2019,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6781680/"
+    }
+  ],
+  "provenance": {
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: antipsicótico VO colaborativo como regra e IM só com recusa e risco; destino (avaliação psiquiátrica e internação) virou obrigatório; pedido de risco a terceiros; novas condutas proibidas: olanzapina IM com benzodiazepínico, via IV e contenção física como primeira medida."
+  },
+  "probes": {
+    "mustFlag": [
+      "Olanzapina 10 mg IM + midazolam 15 mg IM",
+      "Haloperidol 5 mg IV agora",
+      "Contenção física e haloperidol IM"
+    ],
+    "mustNotFlag": [
+      "Retomar risperidona VO; haloperidol 5 mg + prometazina 50 mg IM se recusar com risco iminente",
+      "Não associar olanzapina IM a benzodiazepínico",
+      "Contenção física só como último recurso, após falha do de-escalonamento",
+      "Não usar haloperidol IV"
+    ]
+  }
+}

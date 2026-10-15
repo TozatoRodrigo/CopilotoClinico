@@ -468,7 +468,7 @@ function DocumentWorkspace({
             ela leva o rótulo "Análise". */}
         <Button asChild variant="ghost" className="-ml-1 px-2 text-muted-foreground">
           <Link
-            href={`/encounters/${encounterId}/result`}
+            href={`/encounters/${encounterId}/conversation`}
             aria-label="Voltar para a análise"
             title="Voltar para a análise"
           >
@@ -536,7 +536,7 @@ function DocumentWorkspace({
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href={`/encounters/${encounterId}/result`}>
+              <Link href={`/encounters/${encounterId}/conversation`}>
                 <ArrowLeft />
                 Voltar para a análise
               </Link>

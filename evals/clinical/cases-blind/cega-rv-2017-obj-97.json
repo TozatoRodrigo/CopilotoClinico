@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2017-obj-97",
+  "title": "Menino de 12 anos hipotenso após colisão de carro, com dor abdominal e hipotermia",
+  "tags": [
+    "choque",
+    "revalida",
+    "prova-cega",
+    "objetiva",
+    "trauma",
+    "pediatria"
+  ],
+  "critical": true,
+  "goldSource": "revalida_objetiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "PS de hospital de referência, trazido por USA após colisão frontal de carro. Masc, 12a, usava cinto de segurança de 2 pontos. No pré-hospitalar: 2 L de Ringer lactato e O2 por máscara a 10 L/min. Dor abdominal difusa e intensa. EF: PA 80x60, FC 122, FR 26, Glasgow 13, temperatura esofágica 34,0 °C. Lab: Hb 9,0 g/dL, Ht 27%, fibrinogênio 65 mg/dL, INR 1,7; gaso arterial: pH 7,26, pO2 222, pCO2 29, HCO3 18, BE −6, SatO2 100%, lactato 3,8. TC de abdome: lacerações esplênica e hepática grau IV e grande distensão de alças de delgado. Mesmo com transfusão maciça, episódios frequentes de hipotensão."
+  },
+  "expected": {
+    "syndrome": "choque hemorrágico no trauma abdominal fechado pediátrico",
+    "diagnoses": [
+      {
+        "text": "choque hemorrágico refratário (não respondedor à transfusão maciça) por lacerações hepática e esplênica grau IV",
+        "tier": "critical"
+      },
+      {
+        "text": "tríade letal: hipotermia (34 °C), acidose (pH 7,26, lactato 3,8) e coagulopatia (INR 1,7, fibrinogênio 65)",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "laparotomia de controle de danos imediata: esplenectomia, packing (tamponamento) hepático e peritoniostomia (abdome aberto/fechamento temporário)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "manter transfusão maciça balanceada com reposição de fibrinogênio (crioprecipitado ou concentrado de fibrinogênio)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "aquecimento ativo e hemoderivados aquecidos (hipotermia 34 °C)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "reabordagem programada após ressuscitação em UTI pediátrica",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "tratamento-nao-operatorio-no-instavel",
+        "description": "Tratamento não operatório do fígado e do baço (alternativa B) em criança instável apesar de transfusão maciça: o tratamento não operatório exige estabilidade hemodinâmica (WSES 2020).",
+        "patterns": [
+          "(tratamento|manejo|conduta)\\s+(conservador|nao\\s+operatorio|nao\\s+cirurgico)",
+          "nao\\s+operatori\\w*",
+          "tno"
+        ],
+        "exceptWhen": [
+          "(se|caso|quando)\\s+(\\S+\\s+){0,2}(estabiliz\\w*|estavel)"
+        ]
+      },
+      {
+        "id": "embolizacao-no-instavel",
+        "description": "Angioembolização como conduta inicial (alternativa A) no paciente instável e não respondedor: a hemostasia é cirúrgica; a embolização é adjuvante, após o controle de danos, se persistir sangramento arterial (WSES 2020).",
+        "patterns": [
+          "(angio)?emboliz\\w*",
+          "arteriografi\\w*"
+        ],
+        "exceptWhen": [
+          "(apos|depois\\s+d[aeo]s?)\\s+(\\S+\\s+){0,3}(laparotomia|cirurgia|packing|tamponamento|controle|operacao)",
+          "pos-?operatori\\w*",
+          "adjuvante",
+          "complementar"
+        ]
+      }
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2017, objetiva 97): alternativa D — laparotomia com esplenectomia, packing hepático e peritoniostomia. Criança não respondedora à transfusão maciça, com lesões hepática e esplênica grau IV e tríade letal (hipotermia, acidose, coagulopatia): cirurgia de controle de danos, e não tratamento não operatório, embolização isolada ou reparo definitivo (WSES 2020)."
+  },
+  "sources": [
+    {
+      "claim": "Gabarito definitivo (Versão 1): questão 97 = D — \"laparotomia exploradora com esplenectomia, packing hepático e peritoniostomia.\"",
+      "title": "Revalida 2017 – 001. Prova Objetiva, Versão 1 – Gabarito definitivo",
+      "publisher": "INEP",
+      "year": 2017,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf"
+    },
+    {
+      "claim": "Pacientes hemodinamicamente instáveis e não respondedores (WSES IV), adultos e crianças, devem ir para tratamento operatório (GoR 2A); estabilidade hemodinâmica é requisito absoluto do tratamento não operatório; o packing hepático é o método menos arriscado para controle temporário; angioembolização é útil para sangramento arterial persistente após procedimentos de controle de danos; fechamento abdominal temporário se alto risco de síndrome compartimental.",
+      "title": "Liver trauma: WSES 2020 guidelines",
+      "publisher": "World Society of Emergency Surgery (World J Emerg Surg)",
+      "year": 2020,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7106618/"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2017",
+    "item": "Objetiva questão 97",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf",
+    "originalCaseText": "Um menino com 12 anos de idade é levado ao Pronto-Socorro de um hospital de referência por uma unidade de suporte avançado, após acidente de carro com colisão frontal. O paciente recebeu 2 litros de Ringer Lactato e foi mantido sob máscara de oxigênio a 10 L/min. Queixava-se de dor abdominal difusa de forte intensidade e referia que estava usando cinto de segurança de dois pontos quando se acidentou. Ao exame físico, apresentou: pressão arterial = 80 x 60 mmHg; frequência cardíaca = 122 bpm; frequência respiratória = 26 irpm; Glasgow = 13; temperatura esofágica = 34,0 ºC. Os exames laboratoriais realizados na ocasião mostraram: Hb = 9,0 g/dL (valor de referência: 12 a 14 g/dL); Ht = 27% (valor de referência: 36 a 42%); fibrinogênio = 65 mg/dL (valor de referência: 150 a 400 mg/dL); INR = 1,7 (valor de referência: < 1,3); gasometria arterial com pH = 7,26 (valor de referência: 7,35 a 7,45), pO2 = 222 mmHg (valor de referência: > 80 mmHg), pCO2 = 29 mmHg (valor de referência: 35 a 45 mmHg), HCO3 = 18 (valor de referência: 22 a 26); BE = – 6 (valor de referência: +2 a –2); saturação de O2 = 100% (valor de referência: > ou igual 94%); lactato = 3,8 (valor de referência: < 2). O resultado da tomografia de abdome do paciente mostrou lacerações esplênica e hepática grau IV, e grande distensão de alças de intestino delgado. Mesmo com transfusão maciça, o paciente evoluiu com episódios frequentes de hipotensão arterial. Nesse caso, as condutas indicadas são (A) embolização arteriográfica das lesões do baço e do fígado. (B) tratamento conservador, não operatório, do baço e do fígado. (C) laparotomia exploradora com esplenectomia e rafia da lesão hepática. (D) laparotomia exploradora com esplenectomia, packing hepático e peritoniostomia.",
+    "notes": "Prova cega (11/10/2026): objetiva 2017, gabarito D conferido na imagem do gabarito definitivo. Conduta vigente (WSES 2020, que inclui crianças). Transfusão balanceada com fibrinogênio, aquecimento e reabordagem programada entraram como importantes, por decorrerem do controle de danos e da tríade letal descrita no enunciado. Proibidas: tratamento não operatório (B) e angioembolização como conduta inicial (A), esta com exceção para uso adjuvante após o controle de danos, como na WSES. Reparo definitivo (C) não virou proibido."
+  },
+  "probes": {
+    "mustFlag": [
+      "Tratamento conservador não operatório do baço e do fígado",
+      "Manejo não operatório com observação em UTI",
+      "Embolização arteriográfica das lesões do baço e do fígado",
+      "Angioembolização hepática e esplênica de urgência"
+    ],
+    "mustNotFlag": [
+      "Laparotomia de controle de danos: esplenectomia, packing hepático e peritoniostomia",
+      "Tratamento não operatório contraindicado pela instabilidade",
+      "Angioembolização após o packing se houver sangramento arterial persistente",
+      "Não fazer embolização no paciente instável"
+    ]
+  }
+}

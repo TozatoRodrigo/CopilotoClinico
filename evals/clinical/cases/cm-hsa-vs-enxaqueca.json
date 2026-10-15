@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 2,
+  "id": "cm-hsa-vs-enxaqueca",
+  "title": "Enxaquecosa com cefaleia explosiva \"diferente\", pior da vida, ao esforço",
+  "tags": [
+    "cefaleia",
+    "hsa",
+    "cefaleia-em-trovoada"
+  ],
+  "critical": true,
+  "goldSource": "ai_draft",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Fem, 41a, enxaquecosa, diz que \"essa é diferente\": dor occipital explosiva que chegou no máximo em segundos durante a academia, há 3h, a pior da vida. Vomitou 2x. Glasgow 15, sem déficit focal, rigidez de nuca duvidosa. PA 168x96.",
+    "context": {
+      "hasCT": true,
+      "isSus": false,
+      "hasLab": true,
+      "hasICU": true
+    }
+  },
+  "expected": {
+    "syndrome": "cefaleia em trovoada — suspeita de hemorragia subaracnoide",
+    "diagnoses": [
+      {
+        "text": "hemorragia subaracnoide",
+        "tier": "critical"
+      },
+      {
+        "text": "síndrome de vasoconstrição cerebral reversível e dissecção arterial cervical (trovoada com TC e PL normais)",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "TC de crânio sem contraste imediata",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "se a TC vier negativa: angio-TC de vasos intracranianos e cervicais e/ou punção lombar, conforme o tempo desde o início",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [
+      "uso de drogas vasoativas ou serotoninérgicas (cocaína, descongestionantes, ISRS/IRSN, triptanos) e episódios de trovoada recorrentes"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "triptano-em-cefaleia-em-trovoada",
+        "description": "Triptano ou ergótico antes de excluir HSA / vasoconstrição cerebral",
+        "patterns": [
+          "\\w*triptan\\w*",
+          "\\w*ergot\\w*"
+        ]
+      },
+      {
+        "id": "alta-como-enxaqueca",
+        "description": "Tratar como crise de enxaqueca e dar alta sem neuroimagem",
+        "patterns": [
+          "(dar|receber|programar)\\s+alta",
+          "alta\\s+(hospitalar|para\\s+casa|com\\s+(analgesi\\w*|orientac\\w*|retorno))"
+        ],
+        "exceptWhen": [
+          "(somente|so|apenas)\\s+(apos|depois|se|quando)",
+          "(apos|depois\\s+d[aeo])\\s+(a\\s+)?(investigacao|tc|angio\\w*|exclusao|excluir)"
+        ]
+      }
+    ],
+    "rationale": "KB-003 (HSA): toda cefaleia em trovoada é HSA até prova em contrário — \"diferente das outras\", pico em segundos, ao esforço (regra de Ottawa positiva). ACEP 2019: TC normal em até 6 h com exame neurológico normal exclui HSA sem PL; angio-TC é alternativa razoável à PL e também investiga SVCR e dissecção, que dão trovoada com TC e PL normais. Anticoagulante/antiagregante não muda o próximo passo (TC imediata) e deixou de ser exigido."
+  },
+  "sources": [
+    {
+      "claim": "TC sem contraste normal em até 6 h com exame neurológico normal exclui HSA sem PL (nível B); angio-TC é alternativa razoável à PL; regra de Ottawa para HSA",
+      "title": "Clinical Policy: Critical Issues in the Evaluation and Management of Adult Patients Presenting to the ED With Acute Headache",
+      "publisher": "ACEP — Annals of Emergency Medicine",
+      "year": 2019,
+      "url": "https://pubmed.ncbi.nlm.nih.gov/31543134/"
+    },
+    {
+      "claim": "A SVCR causa cefaleia em trovoada desencadeada por esforço, Valsalva e drogas vasoativas; a TC pode ser normal ou mostrar HSA de convexidade",
+      "title": "Reversible cerebral vasoconstriction syndrome: literature review",
+      "publisher": "PMC",
+      "year": 2022,
+      "url": "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9833030/"
+    },
+    {
+      "claim": "A dissecção cervical pode se apresentar como cefaleia em trovoada, com TC e PL normais; investigar com angio-TC de cabeça e pescoço após HSA excluída",
+      "title": "Episode 161 — Red Flag Headaches: Cervical Artery Dissection",
+      "publisher": "Emergency Medicine Cases",
+      "year": 2021,
+      "url": "https://emergencymedicinecases.com/wp-content/uploads/2021/11/Episode-161-Red-Flag-Headaches-Cervical-Artery-Dissection.pdf"
+    }
+  ],
+  "provenance": {
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. SVCR/dissecção rebaixadas a importante: diferencial de TC e PL normais, não o centro do caso. | Auditoria 11/10/2026: SVCR e dissecção cervical entram como hipóteses obrigatórias; o passo após TC negativa aceita angio-TC de vasos e/ou PL; pedido de drogas vasoativas no lugar de anticoagulante (não muda a conduta); alta sem investigação passou a ter checagem automática."
+  },
+  "probes": {
+    "mustFlag": [
+      "Sumatriptana 6 mg SC para a crise",
+      "Dar alta com analgesia para enxaqueca",
+      "Analgesia com dipirona e alta com orientação de retorno",
+      "Di-hidroergotamina IV; não há déficit focal"
+    ],
+    "mustNotFlag": [
+      "Não usar triptano nem ergótico até excluir HSA e SVCR",
+      "Triptano contraindicado na cefaleia em trovoada",
+      "Alta somente após TC e angio-TC normais"
+    ]
+  }
+}

@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 2,
+  "id": "rv-2022-2-est-3",
+  "title": "Recém-nascido de 25 dias com febre no pronto-socorro",
+  "tags": [
+    "febre",
+    "revalida",
+    "pep",
+    "pediatria",
+    "neonatologia"
+  ],
+  "critical": true,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "excludeFromGate": {
+    "reason": "PEP considera errada a hipótese \"sepse neonatal\" num RN febril de 25 dias, diagnóstico defensável."
+  },
+  "input": {
+    "caseText": "PS de hospital secundário (radiologia convencional e US, laboratório, banco de sangue, leitos, centro cirúrgico). RN masc, 25 dias, trazido pela mãe por febre. Triagem: Tax 38,5 °C, FC 170, FR 40, SpO2 99% AA, peso 4.500 g, dor 0/10, classificação amarela. Caderneta: mãe 24a, G1P1A0, pré-natal com 8 consultas, morfológico normal, sem intercorrências, só vitaminas e sulfato ferroso, sorologias negativas. Parto vaginal, IG 38s6d, PN 3.500 g, comprimento 51 cm, PC 35,5 cm, Apgar 9/10/10, amamentado na 1ª hora. Ortolani negativo; reflexo vermelho, teste auditivo e do coraçãozinho normais; teste do pezinho em análise. Alta no 2º dia com 3.380 g. Vacinas: BCG e hepatite B 1ª dose. EF: 4,5 kg, 55 cm, PC 37 cm (Z 0). BEG, corado, hidratado, acianótico, anictérico, febril (38,5 °C), eupneico, sem desconforto respiratório, sem linfonodomegalia, ativo e reativo; mamada adequada. MV sem RA. RCR 2T, BNF, sem sopros. Abdome globoso, flácido, levemente distendido, sem visceromegalias, mínima hérnia umbilical (anel ~0,5 cm), RHA presentes. Sem edemas, boa perfusão, TEC < 3 s. Fontanelas normotensas. Testículos tópicos, fimose fisiológica. Coluna sem alterações. Mancha mongólica nas nádegas. Otoscopia e oroscopia normais."
+  },
+  "expected": {
+    "syndrome": "febre sem sinais localizatórios no recém-nascido",
+    "diagnoses": [
+      {
+        "text": "febre sem sinais localizatórios (febre sem foco) em RN de 25 dias, com alto risco de infecção bacteriana grave (bacteremia, ITU, meningite)",
+        "tier": "critical"
+      }
+    ],
+    "actions": [
+      {
+        "text": "antibioticoterapia empírica parenteral (EV ou IM) após as culturas, com cobertura para meningite [ref. gabarito: ampicilina + cefotaxima ou ampicilina + ceftriaxona]",
+        "tier": "critical",
+        "timing": "any"
+      },
+      {
+        "text": "internação do recém-nascido",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "hemocultura, exame de urina e urocultura, hemograma e PCR ou procalcitonina",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "coleta de líquor (punção lombar)",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "radiografia de tórax e pesquisa de vírus respiratórios em nasofaringe (SARS-CoV-2, influenza, VSR)",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "antibiotico-oral-rn-febril",
+        "description": "Prescrever antibioticoterapia por via oral ao recém-nascido febril: o PEP pontua como inadequado e exige esquema parenteral (ampicilina + cefotaxima ou ceftriaxona).",
+        "patterns": [
+          "antibiotic\\w*\\s+(por\\s+)?(via\\s+)?oral",
+          "antibiotic\\w*\\s+vo",
+          "amoxicilina\\w*\\s+(\\S+\\s+){0,3}(vo|oral)"
+        ],
+        "exceptWhen": [
+          "transic\\w*",
+          "(apos|depois\\s+d[aeo])\\s+(\\S+\\s+){0,3}(melhora\\w*|afebril|alta|24|48|72|tratamento\\s+parenteral)"
+        ]
+      }
+    ],
+    "outOfScope": [
+      "apresentação à mãe (item 1)",
+      "anamnese: sinais e sintomas associados, dados antenatais/perinatais ou caderneta, antecedentes familiares e situação epidemiológica (item 2) — a síntese da atriz não é publicada; os dados da caderneta estão no caseText",
+      "realizar as tarefas na ordem pedida (item 8) — formato de prova"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2022/2, Estação 3): o PEP pontua anamnese dirigida, exame físico, investigação completa (hemograma, PCR/PCT, hemocultura, urina e urocultura, RX de tórax, líquor e vírus respiratórios), o diagnóstico de febre sem sinais localizatórios, a internação e a antibioticoterapia parenteral empírica. Gabarito v2: o diagnóstico é medido pelo reconhecimento do risco de infecção bacteriana grave no RN febril, não pelo rótulo exato; os exames e o antibiótico viraram itens com nível e timing."
+  },
+  "sources": [
+    {
+      "claim": "Item 2 (3,0 pontos): anamnese com sinais e sintomas associados à queixa principal (obrigatório), dados antenatais/perinatais ou caderneta da criança, antecedentes familiares e situação epidemiológica.",
+      "title": "Revalida 2022/2 – Habilidades Clínicas – PEP, Estação 3, item 2",
+      "publisher": "INEP",
+      "year": 2022,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2022_2_.pdf"
+    },
+    {
+      "claim": "Itens 3–4 (0,5 + 2,5 pontos): interpreta o exame físico como febre sem outras alterações; solicita hemograma, PCR ou procalcitonina, hemocultura, exame de urina, urocultura, radiografia de tórax, líquor e pesquisa de vírus respiratórios em nasofaringe (SARS-CoV-2, influenza, VSR) — adequado: sete a oito itens.",
+      "title": "Revalida 2022/2 – Habilidades Clínicas – PEP, Estação 3, itens 3–4",
+      "publisher": "INEP",
+      "year": 2022,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2022_2_.pdf"
+    },
+    {
+      "claim": "Item 5 (1,0 ponto): hipótese diagnóstica de febre sem sinais localizatórios (inadequado: febre a esclarecer, sepse, sepse neonatal tardia, bacteremia oculta, ITU oculta, pneumonia oculta, entre outras).",
+      "title": "Revalida 2022/2 – Habilidades Clínicas – PEP, Estação 3, item 5",
+      "publisher": "INEP",
+      "year": 2022,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2022_2_.pdf"
+    },
+    {
+      "claim": "Itens 6–7 (1,0 + 1,0 ponto): indica internação do recém-nascido; antibioticoterapia empírica parenteral (EV ou IM) com ampicilina + cefotaxima ou ampicilina + ceftriaxona (inadequado: não indicar, via oral ou outro esquema).",
+      "title": "Revalida 2022/2 – Habilidades Clínicas – PEP, Estação 3, itens 6–7",
+      "publisher": "INEP",
+      "year": 2022,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2022_2_.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2022/2",
+    "item": "Estação 3",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2022_2_.pdf",
+    "originalCaseText": "ESTAÇÃO 3 – Área: Pediatria. INSTRUÇÕES PARA O(A) PARTICIPANTE. CENÁRIO DE ATUAÇÃO. Local de atuação: Unidade de Atenção Secundária: Ambulatorial e Hospitalar. A unidade possui a seguinte infraestrutura: • setor de radiologia convencional e ultrassonografia; • laboratório de análises clínicas e banco de sangue; • leitos de internação e centro cirúrgico. DESCRIÇÃO DO CASO • Recém-nascido, com 25 dias, foi trazido pela mãe ao Pronto-Socorro. A mãe está preocupada, porque notou que seu bebê está com febre. ATENÇÃO: MÃE E BEBÊ SIMULADOS NÃO DEVERÃO SER TOCADOS DURANTE O ATENDIMENTO. Nos próximos 10 minutos, você deverá executar as tarefas a seguir: 1. ler a ficha do recém-nascido afixada à mesa. 2. fazer a anamnese dirigida à mãe. 3. interpretar o exame físico (não será necessário examinar diretamente o bebê simulado). 4. solicitar e verbalizar exames complementares, se necessário. 5. explicar à mãe a condição do recém-nascido e o manejo inicial. ATENÇÃO: VOCÊ DEVERÁ, OBRIGATORIAMENTE, REALIZAR AS TAREFAS NA SEQUÊNCIA DESCRITA ACIMA.",
+    "notes": "Gabarito v2 (11/10/2026): caseText com a triagem, a caderneta e o exame físico (impressos 1–3); laboratório, culturas e RX ficaram fora porque o PEP só cobra solicitá-los (viraram itens importantes). Sem funnel: o PEP não publica o roteiro da atriz. Antibiótico parenteral é o item crítico, com timing 'any', para não ser mais estrito que diretrizes que individualizam o RN febril de 22 a 28 dias pelos marcadores inflamatórios e pelo líquor (não conferidas aqui); internação e punção lombar também 'any'. O item diagnóstico mede o reconhecimento do risco de infecção bacteriana grave e não penaliza o rótulo 'sepse neonatal tardia'; mesmo assim o excludeFromGate foi mantido, porque nenhuma fonte vigente foi conferida (AAP e NICE devolveram 403). | A ficha de triagem (impresso 1) é lida no início da estação (tarefa 1) e por isso entrou no caseText. O PEP (item 5) considera inadequadas, como hipótese diagnóstica, 'febre a esclarecer', 'febre de origem obscura/indeterminada', 'sepse', 'sepse neonatal tardia', 'bacteremia oculta', 'infecção do trato urinário oculta' e 'pneumonia oculta'; exige 'febre sem sinais localizatórios'. O item 7 considera inadequado antibiótico por via oral ou outro esquema, por isso há uma ação proibida. A mesma estação serviu como reaplicação da prova de HC 2022/1; o caso foi gerado só aqui. O PEP desta edição não publica a síntese da atriz. Dados sob demanda: caderneta — 8 consultas de pré-natal, morfológico normal, mãe 24a G1P1A0 sem intercorrências, sorologias negativas, parto vaginal, IG 38s6d, PN 3.500 g, Apgar 9/10/10, triagens neonatais normais (pezinho em análise), alta com 3.380 g, BCG e hepatite B 1ª dose; EF: peso 4,5 kg, comprimento 55 cm, PC 37 cm (Z 0), BEG, ativo e reativo, febril (38,5 °C), eupneico, mamada adequada, AR e ACV normais, abdome globoso, flácido, levemente distendido, mínima hérnia umbilical, TEC < 3 s, fontanelas normotensas, mancha mongólica, otoscopia/oroscopia normais; hemograma: Hb 11,2, leucócitos 16.900 sem desvio, plaquetas 366.000; PCR 16 mg/L; urina tipo 1 normal; hemocultura, urocultura, LCR e pesquisa de vírus respiratórios coletados/em andamento; RX de tórax sem alterações. | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas."
+  },
+  "probes": {
+    "mustFlag": [
+      "Amoxicilina VO e reavaliação em 24 h",
+      "Antibiótico oral e alta com retorno"
+    ],
+    "mustNotFlag": [
+      "Internar; ampicilina + cefotaxima EV, sem antibiótico oral",
+      "Ampicilina EV + ceftriaxona IM após coleta de culturas",
+      "Não usar antibiótico por via oral no recém-nascido febril"
+    ]
+  }
+}

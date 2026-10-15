@@ -11,9 +11,9 @@ import {
   ShieldCheck,
   Stethoscope,
 } from '@phosphor-icons/react';
-import { LogoMark } from '@/components/brand/logo';
 import { Button } from '@/components/ui/button';
-import { PublicFooter, PublicHeader } from './_components/public-chrome';
+import { LandingFooter } from './_components/landing-footer';
+import { PublicHeader } from './_components/public-chrome';
 import { ProductShot } from './_components/product-shot';
 
 interface Block {
@@ -114,7 +114,7 @@ export default function HomePage() {
         {/* Confiança: CFM, LGPD e cadeia de hash */}
         <section aria-labelledby="confianca" className="px-4 pt-20 sm:px-6 md:pt-28">
           <div className="mx-auto max-w-5xl">
-            <h2 id="confianca" className="sr-only">
+            <h2 id="confianca" className="sr-only scroll-mt-20">
               Segurança e conformidade
             </h2>
             <ul className="grid gap-6 border-y border-border py-8 sm:grid-cols-3 sm:gap-8">
@@ -140,7 +140,7 @@ export default function HomePage() {
               <p className="text-sm font-medium text-muted-foreground">Como funciona</p>
               <h2
                 id="como-funciona"
-                className="font-display text-3xl tracking-tight text-balance text-foreground md:text-[2.75rem] md:leading-[1.1]"
+                className="scroll-mt-28 font-display text-3xl tracking-tight text-balance text-foreground md:text-[2.75rem] md:leading-[1.1]"
               >
                 Do ditado ao documento assinado, sem sair do plantão.
               </h2>
@@ -163,8 +163,7 @@ export default function HomePage() {
         {/* CTA final */}
         <section className="px-4 py-24 sm:px-6 md:py-32">
           <div className="mx-auto flex max-w-2xl flex-col items-center text-center">
-            <LogoMark size="lg" />
-            <h2 className="mt-6 font-display text-3xl tracking-tight text-balance text-foreground md:text-5xl">
+            <h2 className="font-display text-3xl tracking-tight text-balance text-foreground md:text-5xl">
               Pronto para o próximo plantão?
             </h2>
             <p className="mt-3 text-lg text-muted-foreground">
@@ -182,7 +181,7 @@ export default function HomePage() {
         </section>
       </main>
 
-      <PublicFooter />
+      <LandingFooter />
     </div>
   );
 }

@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 2,
+  "id": "kb004-pa-elevada-com-cefaleia-isolada",
+  "title": "PA 210x120 com cefaleia, lesão de órgão-alvo não avaliada",
+  "tags": [
+    "pressao-arterial-elevada",
+    "dicotomia-crise-hipertensiva",
+    "discriminador-ausente"
+  ],
+  "critical": false,
+  "goldSource": "kb004_dichotomy",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Fem, 60a, HAS, cefaleia holocraniana moderada há 1 dia. PA 210x120 confirmada em 2 medidas, FC 88. Ainda sem exame físico detalhado."
+  },
+  "expected": {
+    "syndrome": "PA muito elevada com cefaleia: diferenciar emergência hipertensiva de elevação importante da PA sem LOA (antiga urgência) e de pseudocrise",
+    "diagnoses": [
+      {
+        "text": "emergência hipertensiva (encefalopatia, AVC, síndrome coronariana)",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "repouso em ambiente calmo, analgesia e nova aferição da PA, sem reduzir a PA agressivamente antes de excluir lesão de órgão-alvo",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [
+      "exame neurológico / déficit focal",
+      "alteração visual ou fundo de olho",
+      "dor torácica ou dispneia",
+      "função renal e exame de urina",
+      "características da cefaleia: início súbito em trovoada, \"pior da vida\", rigidez de nuca"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "nifedipino-sublingual",
+        "description": "Nifedipino sublingual ou de liberação rápida (queda abrupta e imprevisível da PA, risco de isquemia cerebral e miocárdica)",
+        "patterns": [
+          "nifedipin\\w*"
+        ],
+        "exceptWhen": [
+          "retard",
+          "liberacao\\s+(prolongada|lenta|controlada)",
+          "oros",
+          "(na|para\\s+a)\\s+alta",
+          "manutencao",
+          "ambulatori\\w*"
+        ]
+      }
+    ],
+    "rationale": "KB-004: cefaleia isolada NÃO configura lesão de órgão-alvo por si só — falta evidência objetiva. Diretriz Brasileira de Hipertensão 2025: \"urgência hipertensiva\" virou \"elevação importante da PA sem lesão progressiva de órgãos-alvo\"; observar ~30 min em ambiente calmo antes de qualquer anti-hipertensivo; VO se persistir. Cefaleia como queixa principal prediz pseudocrise (Arq Bras Cardiol 2007), mas aos 60 anos o modo de início separa HSA/hemorragia. O próximo passo é perguntar e examinar (déficit, visão, dor torácica) antes de tratar a PA."
+  },
+  "sources": [
+    {
+      "claim": "A diretriz de 2025 abandona 'urgência hipertensiva' em favor de 'elevação importante da PA sem lesão progressiva de órgãos-alvo'; observar ~30 min em ambiente calmo; VO (captopril/clonidina) se persistir; reavaliar em 1-7 dias.",
+      "title": "Metas pressóricas no pronto-socorro: o que a nova Diretriz Brasileira de Hipertensão 2025 nos ensina",
+      "publisher": "Medway (resumo secundário da Diretriz SBC/SBH/SBN 2025)",
+      "year": 2025,
+      "url": "https://www.medway.com.br/conteudos/metas-pressoricas-no-pronto-socorro/"
+    },
+    {
+      "claim": "Texto oficial da Diretriz Brasileira de Hipertensão Arterial 2025.",
+      "title": "Diretriz Brasileira de Hipertensão Arterial – 2025",
+      "publisher": "SBC/SBH/SBN (Arq Bras Cardiol)",
+      "year": 2025,
+      "url": "https://doi.org/10.36660/abc.20250624"
+    },
+    {
+      "claim": "Pseudocrise em 48% dos pacientes com PAD > 120 no PS; cefaleia como queixa principal foi preditor independente (OR 5,4); 94% das pseudocrises receberam anti-hipertensivo.",
+      "title": "Occurrence rate and clinical predictors of hypertensive pseudocrisis in emergency room care",
+      "publisher": "Arq Bras Cardiol (SBC)",
+      "year": 2007,
+      "url": "https://www.scielo.br/j/abc/a/mcj4NynPpGT7V4JcDYhMwKs/?lang=en"
+    }
+  ],
+  "provenance": {
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: síndrome passou a incluir a elevação importante da PA sem LOA (termo da Diretriz 2025); pedido das características da cefaleia (trovoada); conduta obrigatória de ambiente calmo, analgesia e reaferição; nifedipino de liberação prolongada deixou de ser acusado."
+  },
+  "probes": {
+    "mustFlag": [
+      "Nifedipino 10 mg sublingual agora",
+      "Nifedipino 10 mg VO para baixar a PA; não há déficit"
+    ],
+    "mustNotFlag": [
+      "Evitar nifedipino de liberação rápida",
+      "Nifedipino retard 20 mg 12/12 h no ajuste ambulatorial"
+    ]
+  }
+}
