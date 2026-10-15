@@ -20,7 +20,7 @@ const IMPORTS_REFERENCE = /(from\s+|import\s*\(\s*|require\s*\(\s*)['"][^'"]*any
 
 function referenceFiles(): string[] {
   return readdirSync(REFERENCE_DIR).filter(
-    (file) => file.endsWith('.ts') && !file.endsWith('.spec.ts'),
+    (file) => /\.tsx?$/.test(file) && !file.endsWith('.spec.ts'),
   );
 }
 
@@ -40,8 +40,14 @@ function codeFiles(dir: string): string[] {
 }
 
 describe('referência congelada do ANY', () => {
-  it('tem os três arquivos copiados', () => {
-    expect(referenceFiles().sort()).toEqual(['calculatorData.ts', 'clinical.ts', 'formatters.ts']);
+  it('tem os arquivos copiados', () => {
+    expect(referenceFiles().sort()).toEqual([
+      'AclsGuide.tsx',
+      'MetronomeContext.tsx',
+      'calculatorData.ts',
+      'clinical.ts',
+      'formatters.ts',
+    ]);
   });
 
   it.each(referenceFiles())('%s não foi editado depois de copiado', (file) => {

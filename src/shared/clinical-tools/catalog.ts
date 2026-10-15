@@ -37,7 +37,7 @@ export interface ToolEntry {
 }
 
 /**
- * Roteiros e calculadoras de dose do ANY. Só a lista de calculadoras já tem
+ * Roteiros e calculadoras de dose do ANY. Os marcados `disponivel` já têm
  * tela; cada roteiro ganha a sua na história indicada no comentário.
  */
 export const TOOLS: readonly ToolEntry[] = [
@@ -73,16 +73,21 @@ export const TOOLS: readonly ToolEntry[] = [
     description: 'Ciclos, adrenalina, choques, medicações e metrônomo.',
     group: 'ressuscitacao',
     synonyms: [
+      'acls',
       'pcr',
       'parada',
       'rcp',
       'reanimação',
       'metrônomo',
       'adrenalina',
+      'epinefrina',
+      'amiodarona',
       'desfibrilação',
       'ovace',
+      'engasgo',
+      'rce',
     ],
-    status: 'em-breve',
+    status: 'disponivel',
   },
   // CC-315
   {

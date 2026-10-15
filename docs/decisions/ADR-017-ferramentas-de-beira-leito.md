@@ -143,6 +143,23 @@ vai pré-carregar `/ferramentas` e os chunks do motor.
 antes e `/ferramentas` mostra a página de não encontrada. Ligar exige a cessão do ANY assinada
 (CC-301) e a revisão clínica das ferramentas publicadas (CC-310).
 
+### 9. Roteiro com relógio: o estado mora acima das rotas (ACLS)
+
+O ACLS (CC-313) tem relógio, alertas e metrônomo que não podem parar quando o
+médico abre outra ferramenta. O estado da parada é um reducer puro no motor
+(`src/shared/clinical-tools/acls/session.ts`, tempo sempre injetado) e o
+provider que o roda fica no `AppShell`, só com a flag ligada. Uma faixa
+"Parada em andamento" aparece abaixo da barra do topo em qualquer tela.
+
+A parada em curso é guardada no aparelho (`localStorage`) a cada registro,
+para sobreviver a um recarregamento da aba; some ao ser descartada e, se
+esquecida, 12 h depois do início. Só o roteiro: horários, ritmo, contadores e
+linha do tempo, sem identificação do paciente e sem ir ao servidor.
+
+O metrônomo agenda as batidas à frente no relógio do Web Audio (o ANY usava
+`setInterval`, que acumula atraso) e a tela fica acesa pela Wake Lock API,
+com aviso discreto quando o navegador não suporta.
+
 ## Consequências
 
 - Toda ferramenta nova traz definição com procedência, teste diferencial e,

@@ -87,16 +87,27 @@ describe('/ferramentas — hub (CC-304)', () => {
 
   it("lista a ferramenta não portada como 'em breve', sem link nem favorito", () => {
     render(<FerramentasPage />);
+    const airway = screen.getByRole('region', { name: 'Via aérea' });
+
+    expect(within(airway).getByText('Intubação e via aérea difícil')).toBeInTheDocument();
+    expect(within(airway).getByText('Em breve')).toBeInTheDocument();
+    expect(within(airway).queryByRole('link')).not.toBeInTheDocument();
+    expect(within(airway).queryByRole('button', { name: /Favoritar/ })).not.toBeInTheDocument();
+  });
+
+  it('abre o ACLS em um toque a partir do hub (CC-313)', () => {
+    render(<FerramentasPage />);
     const resuscitation = screen.getByRole('region', { name: 'Ressuscitação' });
 
     expect(
-      within(resuscitation).getByText('Parada cardiorrespiratória (ACLS)'),
-    ).toBeInTheDocument();
-    expect(within(resuscitation).getByText('Em breve')).toBeInTheDocument();
-    expect(within(resuscitation).queryByRole('link')).not.toBeInTheDocument();
+      within(resuscitation).getByRole('link', { name: /Parada cardiorrespiratória \(ACLS\)/ }),
+    ).toHaveAttribute('href', '/ferramentas/acls');
+    expect(within(resuscitation).queryByText('Em breve')).not.toBeInTheDocument();
     expect(
-      within(resuscitation).queryByRole('button', { name: /Favoritar/ }),
-    ).not.toBeInTheDocument();
+      within(resuscitation).getByRole('button', {
+        name: 'Favoritar Parada cardiorrespiratória (ACLS)',
+      }),
+    ).toBeInTheDocument();
   });
 
   it('busca por sinônimo e sem acento', async () => {
