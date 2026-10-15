@@ -13,6 +13,9 @@
   "review": {
     "status": "draft"
   },
+  "excludeFromGate": {
+    "reason": "Rascunho de IA do CC-603 (14/10/2026), sem revisão médica e com as fontes não reabertas na escrita: entra no portão depois da revisão."
+  },
   "input": {
     "caseText": "Masc, 58a, dor precordial em aperto há 2h, irradiando para MSE, com sudorese e náusea. Tabagista, DM2. PA 138x86, FC 92, FR 18, SpO2 97% AA, sem crepitações, perfusão boa. ECG: supra de ST de 3 mm em V1-V4 com infra em DII, DIII e aVF. Sem sangramento, cirurgia ou AVC recentes.",
     "context": {

@@ -13,6 +13,9 @@
   "review": {
     "status": "draft"
   },
+  "excludeFromGate": {
+    "reason": "Rascunho de IA do CC-603 (14/10/2026), sem revisão médica e com as fontes não reabertas na escrita: entra no portão depois da revisão."
+  },
   "input": {
     "caseText": "Masc, 66a, hemiparesia E e disartria de início súbito; visto bem pela última vez às 9h (há 1h), acordado e conversando. HAS em uso de losartana; nega anticoagulante. PA 172x98, FC 84 regular, SpO2 96% AA, glicemia capilar 128. NIHSS 9.",
     "context": {
