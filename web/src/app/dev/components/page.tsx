@@ -23,6 +23,7 @@ import {
   TagsSection,
 } from './_components/primitives';
 import { DomainSection } from './_components/domain';
+import { ClinicalToolsSection } from './_components/clinical-tools';
 
 /**
  * /dev/components — vitrine do design system "Prontuário" (o Notion da
@@ -48,6 +49,7 @@ const ANCHORS: ShowcaseAnchor[] = [
   { id: 'sobreposicoes', label: 'Dialog, menu e tooltip' },
   { id: 'vazio', label: 'Estado vazio' },
   { id: 'dominio', label: 'Componentes clínicos' },
+  { id: 'ferramentas', label: 'Ferramentas clínicas' },
 ];
 
 export default function ComponentsShowcasePage() {
@@ -92,6 +94,7 @@ export default function ComponentsShowcasePage() {
         <OverlaysSection />
         <EmptyStateSection />
         <DomainSection />
+        <ClinicalToolsSection />
       </Page>
     </main>
   );
