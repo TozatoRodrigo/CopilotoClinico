@@ -111,6 +111,15 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # CC-022: vulnerabilidade alta ou crítica no que vai para a imagem do web
+      # bloqueia o merge. As de desenvolvimento seguem no passo informativo.
+      - name: Security Audit (produção)
+        run: pnpm audit --prod --audit-level=high
+
+      - name: Security Audit (todas as dependências, informativo)
+        continue-on-error: true
+        run: pnpm audit --audit-level=moderate
+
       - name: Typecheck
         run: pnpm exec tsc --noEmit
 
