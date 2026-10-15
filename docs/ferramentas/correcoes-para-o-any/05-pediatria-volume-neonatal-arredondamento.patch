@@ -1,0 +1,130 @@
+--- a/v2/public/hetrinped/index.html
++++ b/v2/public/hetrinped/index.html
+@@ -488,7 +488,8 @@
+ // ==========================================
+ // FORMATACAO
+ // ==========================================
+-const fN = (x, n) => x.toFixed(n).replace('.', ',');
++// Abaixo de 1, ao menos 2 casas (3 abaixo de 0,01): volume e dose de neonato nao podem sumir nem dobrar no arredondamento
++const fN = (x, n) => x.toFixed(x > 0 && x < 1 ? Math.max(n, x < 0.01 ? 3 : 2) : n).replace('.', ',');
+ 
+ // ==========================================
+ // DADOS BROSELOW
+--- a/v2/src/pages/PedGuide.tsx
++++ b/v2/src/pages/PedGuide.tsx
+@@ -58,8 +58,9 @@
+   naoRotineiro?: boolean
+ }
+ 
+-/** Formatador pt-BR usado pelas entradas clinicas */
+-const fN = (x: number, n: number) => x.toFixed(n).replace('.', ',')
++/** Formatador pt-BR usado pelas entradas clinicas. Abaixo de 1, ao menos 2 casas (3 abaixo
++ *  de 0,01): volume e dose de neonato nao podem sumir nem dobrar no arredondamento. */
++const fN = (x: number, n: number) => x.toFixed(x > 0 && x < 1 ? Math.max(n, x < 0.01 ? 3 : 2) : n).replace('.', ',')
+ 
+ interface InfusionDilution {
+   drug: number
+@@ -160,7 +161,7 @@
+   {
+     id: 'amiodarona', name: 'AMIODARONA', presentation: '50 mg/mL', doseBadge: '5 mg/kg',
+     instruction: 'FV/TV sem pulso refratária. Max: 300 mg. Pode repetir até 15 mg/kg.',
+-    calc: (p) => { const d = Math.min(p * 5, 300); return { mg: d.toFixed(0), ml: (d / 50).toFixed(1), unit: 'mg' } },
++    calc: (p) => { const d = Math.min(p * 5, 300); return { mg: fN(d, 0), ml: fN(d / 50, 1), unit: 'mg' } },
+   },
+   {
+     id: 'bicarbonato', name: 'BICARBONATO DE SÓDIO 8,4%', presentation: '1 mEq/mL', doseBadge: '1 mEq/kg', naoRotineiro: true,
+@@ -201,7 +202,7 @@
+   {
+     id: 'midazolam', name: 'MIDAZOLAM', presentation: '5 mg/mL', doseBadge: '0,1-0,3 mg/kg', calcAt: '0,3 mg/kg',
+     instruction: 'Alternativa de indução; início menos previsível em choque. Max: 10 mg. Pode causar hipotensão.',
+-    calc: (p) => { const d = Math.min(p * 0.3, 10); return { mg: d.toFixed(1), ml: (d / 5).toFixed(2), unit: 'mg' } },
++    calc: (p) => { const d = Math.min(p * 0.3, 10); return { mg: fN(d, 1), ml: fN(d / 5, 2), unit: 'mg' } },
+   },
+   {
+     id: 'fentanil', name: 'FENTANIL', presentation: '50 mcg/mL', doseBadge: '1-2 mcg/kg', calcAt: '2 mcg/kg (topo da faixa)',
+@@ -214,7 +215,7 @@
+   {
+     id: 'etomidato', name: 'ETOMIDATO', presentation: '2 mg/mL', doseBadge: '0,2-0,4 mg/kg', calcAt: '0,3 mg/kg',
+     instruction: 'Indução. Estabilidade hemodinâmica. Max: 20 mg. Evitar em sepse.',
+-    calc: (p) => { const d = Math.min(p * 0.3, 20); return { mg: d.toFixed(1), ml: (d / 2).toFixed(1), unit: 'mg' } },
++    calc: (p) => { const d = Math.min(p * 0.3, 20); return { mg: fN(d, 1), ml: fN(d / 2, 1), unit: 'mg' } },
+   },
+   {
+     id: 'rocuronio', name: 'ROCURÔNIO', presentation: '10 mg/mL', doseBadge: '1,2 mg/kg',
+@@ -227,7 +228,7 @@
+   {
+     id: 'cisatracurio', name: 'CISATRACÚRIO', presentation: '2 mg/mL', doseBadge: '0,1-0,15 mg/kg', calcAt: '0,15 mg/kg (topo da faixa)',
+     instruction: 'Início mais lento; não é primeira escolha para SRI. Reservar para situações selecionadas quando rocurônio e succinilcolina forem inadequados. Metabolismo de Hofmann.',
+-    calc: (p) => ({ mg: (p * 0.15).toFixed(2), ml: (p * 0.15 / 2).toFixed(2), unit: 'mg' }),
++    calc: (p) => ({ mg: fN(p * 0.15, 2), ml: fN(p * 0.15 / 2, 2), unit: 'mg' }),
+   },
+ ]
+ 
+@@ -235,14 +236,14 @@
+   {
+     id: 'epinefrina-im', name: 'EPINEFRINA IM (Anafilaxia)', presentation: '1 mg/mL - SEM DILUIR', doseBadge: '0,01 mg/kg', highlight: true,
+     instruction: 'Via INTRAMUSCULAR - Vasto lateral da coxa. Max: 0,5 mg. Repetir a cada 5-15 min conforme resposta.',
+-    calc: (p) => { const d = Math.min(p * 0.01, 0.5); return { mg: d.toFixed(2), ml: d.toFixed(2), unit: 'mg' } },
++    calc: (p) => { const d = Math.min(p * 0.01, 0.5); return { mg: fN(d, 2), ml: fN(d, 2), unit: 'mg' } },
+   },
+   {
+     id: 'adenosina', name: 'ADENOSINA', presentation: '3 mg/mL', doseBadge: '0,1 - 0,2 mg/kg',
+     instruction: 'TSV com pulso. Bolus RÁPIDO + flush 5-10 mL SF. Max: 6/12 mg.',
+     calc: (p) => {
+       const d1 = Math.min(p * 0.1, 6), d2 = Math.min(p * 0.2, 12)
+-      return { mg: `${d1.toFixed(1)} / ${d2.toFixed(1)}`, ml: `${(d1 / 3).toFixed(2)} / ${(d2 / 3).toFixed(2)}`, unit: 'mg' }
++      return { mg: `${fN(d1, 1)} / ${fN(d2, 1)}`, ml: `${fN(d1 / 3, 2)} / ${fN(d2 / 3, 2)}`, unit: 'mg' }
+     },
+   },
+   {
+@@ -253,22 +254,22 @@
+   {
+     id: 'naloxona', name: 'NALOXONA', presentation: '0,4 mg/mL', doseBadge: '0,1 mg/kg',
+     instruction: 'Reversão de opioides. Via: IV, IO, IM, IN. Max: 2 mg.',
+-    calc: (p) => { const d = Math.min(p * 0.1, 2); return { mg: d.toFixed(2), ml: (d / 0.4).toFixed(1), unit: 'mg' } },
++    calc: (p) => { const d = Math.min(p * 0.1, 2); return { mg: fN(d, 2), ml: fN(d / 0.4, 1), unit: 'mg' } },
+   },
+   {
+     id: 'tranexamico', name: 'ÁCIDO TRANEXÂMICO', presentation: '50 mg/mL', doseBadge: '15 mg/kg',
+     instruction: 'Trauma com hemorragia. Bolus em 10 min. Max: 1000 mg.',
+-    calc: (p) => { const d = Math.min(p * 15, 1000); return { mg: d.toFixed(0), ml: (d / 50).toFixed(1), unit: 'mg' } },
++    calc: (p) => { const d = Math.min(p * 15, 1000); return { mg: fN(d, 0), ml: fN(d / 50, 1), unit: 'mg' } },
+   },
+   {
+     id: 'hidrocortisona', name: 'HIDROCORTISONA', presentation: '100 mg/2mL', doseBadge: '2-4 mg/kg', calcAt: '4 mg/kg (topo da faixa)', naoRotineiro: true,
+     instruction: 'Não usar rotineiramente na anafilaxia. Considerar em asma associada ou reação refratária, após epinefrina e ressuscitação inicial. Max: 200 mg.',
+-    calc: (p) => { const d = Math.min(p * 4, 200); return { mg: d.toFixed(0), ml: (d / 50).toFixed(1), unit: 'mg' } },
++    calc: (p) => { const d = Math.min(p * 4, 200); return { mg: fN(d, 0), ml: fN(d / 50, 1), unit: 'mg' } },
+   },
+   {
+     id: 'difenidramina', name: 'DIFENIDRAMINA', presentation: '50 mg/mL', doseBadge: '1-1,25 mg/kg', calcAt: '1,25 mg/kg (topo da faixa)', naoRotineiro: true,
+     instruction: 'Não usar rotineiramente. Se excepcionalmente indicada para sintomas cutâneos após estabilização, administrar EV lentamente ou IM. Max: 50 mg; pode causar sedação e hipotensão.',
+-    calc: (p) => { const d = Math.min(p * 1.25, 50); return { mg: d.toFixed(0), ml: (d / 50).toFixed(1), unit: 'mg' } },
++    calc: (p) => { const d = Math.min(p * 1.25, 50); return { mg: fN(d, 0), ml: fN(d / 50, 1), unit: 'mg' } },
+   },
+   { id: 'salbutamol-anaf', name:'SALBUTAMOL MDI', presentation:'100 mcg/jato', doseBadge:'4-10 jatos',
+     instruction:'Adjuvante no broncoespasmo após epinefrina; administrar com espaçador e repetir conforme resposta. Não trata choque ou edema de via aérea.',
+@@ -303,7 +304,7 @@
+   {
+     id: 'levetiracetam', name: 'LEVETIRACETAM', presentation: '100 mg/mL', doseBadge: '40-60 mg/kg', calcAt: '60 mg/kg (topo da faixa)',
+     instruction: 'Status epilepticus - Alternativa 2ª linha. Infundir em 15 min. Max: 3000 mg.',
+-    calc: (p) => { const d = Math.min(p * 60, 3000); return { mg: d.toFixed(0), ml: (d / 100).toFixed(1), unit: 'mg' } },
++    calc: (p) => { const d = Math.min(p * 60, 3000); return { mg: fN(d, 0), ml: fN(d / 100, 1), unit: 'mg' } },
+   },
+ ]
+ 
+@@ -311,12 +312,12 @@
+   {
+     id: 'manitol', name: 'MANITOL 20%', presentation: '200 mg/mL', doseBadge: '0,25-1 g/kg', calcAt: '0,5 g/kg',
+     instruction: 'Hipertensão intracraniana. Infundir em 15-30 min.',
+-    calc: (p) => ({ mg: (p * 0.5).toFixed(1), ml: (p * 0.5 * 5).toFixed(0), unit: 'g' }),
++    calc: (p) => ({ mg: fN(p * 0.5, 1), ml: fN(p * 0.5 * 5, 0), unit: 'g' }),
+   },
+   {
+     id: 'nacl', name: 'NaCl 3% (Salina Hipertônica)', presentation: '0,513 mEq Na/mL', doseBadge: '2-5 mL/kg', calcAt: '3 mL/kg',
+     instruction: 'HIC, hiponatremia grave. Infundir em 10-20 min.',
+-    calc: (p) => ({ mg: (p * 3 * 0.513).toFixed(1), ml: (p * 3).toFixed(0), unit: 'mEq' }),
++    calc: (p) => ({ mg: fN(p * 3 * 0.513, 1), ml: fN(p * 3, 0), unit: 'mEq' }),
+     prepKey: 'nacl3',
+   },
+ ]

@@ -1,0 +1,21 @@
+--- a/v2/src/pages/ToxPath.tsx
++++ b/v2/src/pages/ToxPath.tsx
+@@ -697,13 +697,15 @@
+ 
+   // NAC calculator
+   const nacResult = useMemo(() => {
+-    const p = parseFloat(nacPeso)
+-    if (!p || p < 20 || p > 250) return null
++    const peso = parseFloat(nacPeso)
++    if (!peso || peso < 20 || peso > 250) return null
++    // Peso de dose limitado a 100 kg (o mesmo teto das doses de NAC do Ped Guide e do HETRIN)
++    const p = Math.min(peso, 100)
+     return {
+       etapa1: `${(150 * p / 1000).toFixed(1)} g (${150 * p} mg) em 200 mL SF`,
+       etapa2: `${(50 * p / 1000).toFixed(1)} g (${50 * p} mg) em 500 mL SF`,
+       etapa3: `${(100 * p / 1000).toFixed(1)} g (${100 * p} mg) em 1000 mL SF`,
+-      total: `Dose total: ${(300 * p / 1000).toFixed(1)} g em 21 horas`,
++      total: `Dose total: ${(300 * p / 1000).toFixed(1)} g em 21 horas${peso > 100 ? ' (calculada para 100 kg)' : ''}`,
+     }
+   }, [nacPeso])
+ 

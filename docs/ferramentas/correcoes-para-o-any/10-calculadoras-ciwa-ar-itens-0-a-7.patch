@@ -1,0 +1,37 @@
+--- a/v2/src/data/calculatorData.ts
++++ b/v2/src/data/calculatorData.ts
+@@ -1722,24 +1722,24 @@
+   availableIn: { tool: 'Tox Path', route: '/tox' },
+   items: [
+     { id: 'náusea', label: 'Náusea e vômitos', options: [
+-      { label: 'Sem náusea ou vômitos (0)', value: 0 }, { label: 'Náusea leve sem vômitos (1-3)', value: 2 },
+-      { label: 'Náusea intermitente com ansia (4-6)', value: 5 }, { label: 'Náusea constante, ansia e vômitos (7)', value: 7 }
++      { label: 'Sem náusea ou vômitos (0)', value: 0 }, { label: 'Náusea leve sem vômitos (1)', value: 1 }, { label: '2', value: 2 }, { label: '3', value: 3 },
++      { label: 'Náusea intermitente com ansia (4)', value: 4 }, { label: '5', value: 5 }, { label: '6', value: 6 }, { label: 'Náusea constante, ansia e vômitos (7)', value: 7 }
+     ]},
+     { id: 'tremor', label: 'Tremor (braços estendidos, dedos separados)', options: [
+-      { label: 'Sem tremor (0)', value: 0 }, { label: 'Não visível, sentido nos dedos (1-3)', value: 2 },
+-      { label: 'Moderado, com braços estendidos (4-6)', value: 5 }, { label: 'Grave, mesmo sem braços estendidos (7)', value: 7 }
++      { label: 'Sem tremor (0)', value: 0 }, { label: 'Não visível, sentido nos dedos (1)', value: 1 }, { label: '2', value: 2 }, { label: '3', value: 3 },
++      { label: 'Moderado, com braços estendidos (4)', value: 4 }, { label: '5', value: 5 }, { label: '6', value: 6 }, { label: 'Grave, mesmo sem braços estendidos (7)', value: 7 }
+     ]},
+     { id: 'sweat', label: 'Sudorese paroxistica', options: [
+-      { label: 'Sem sudorese visível (0)', value: 0 }, { label: 'Sudorese leve, palmas úmidas (1-3)', value: 2 },
+-      { label: 'Sudorese visível na fronte (4-6)', value: 5 }, { label: 'Sudorese profusa (7)', value: 7 }
++      { label: 'Sem sudorese visível (0)', value: 0 }, { label: 'Sudorese leve, palmas úmidas (1)', value: 1 }, { label: '2', value: 2 }, { label: '3', value: 3 },
++      { label: 'Sudorese visível na fronte (4)', value: 4 }, { label: '5', value: 5 }, { label: '6', value: 6 }, { label: 'Sudorese profusa (7)', value: 7 }
+     ]},
+     { id: 'anxiety', label: 'Ansiedade', options: [
+-      { label: 'Sem ansiedade, tranquilo (0)', value: 0 }, { label: 'Levemente ansioso (1-3)', value: 2 },
+-      { label: 'Moderadamente ansioso ou inquieto (4-6)', value: 5 }, { label: 'Panico, ansiedade grave (7)', value: 7 }
++      { label: 'Sem ansiedade, tranquilo (0)', value: 0 }, { label: 'Levemente ansioso (1)', value: 1 }, { label: '2', value: 2 }, { label: '3', value: 3 },
++      { label: 'Moderadamente ansioso ou inquieto (4)', value: 4 }, { label: '5', value: 5 }, { label: '6', value: 6 }, { label: 'Panico, ansiedade grave (7)', value: 7 }
+     ]},
+     { id: 'agitation', label: 'Agitação', options: [
+-      { label: 'Atividade normal (0)', value: 0 }, { label: 'Atividade um pouco acima do normal (1-3)', value: 2 },
+-      { label: 'Moderadamente inquieto e agitado (4-6)', value: 5 }, { label: 'Deambula durante a entrevista ou agitação constante (7)', value: 7 }
++      { label: 'Atividade normal (0)', value: 0 }, { label: 'Atividade um pouco acima do normal (1)', value: 1 }, { label: '2', value: 2 }, { label: '3', value: 3 },
++      { label: 'Moderadamente inquieto e agitado (4)', value: 4 }, { label: '5', value: 5 }, { label: '6', value: 6 }, { label: 'Deambula durante a entrevista ou agitação constante (7)', value: 7 }
+     ]},
+     { id: 'tactile', label: 'Alterações táteis (prurido, queimação, dormência, formigamento)', options: [
+       { label: '0 — nenhuma', value: 0 }, { label: '1 — prurido/dormência muito leve', value: 1 }, { label: '2 — leve', value: 2 }, { label: '3 — moderada', value: 3 }, { label: '4 — alucinações moderadamente graves', value: 4 }, { label: '5 — alucinações graves', value: 5 }, { label: '6 — alucinações muito graves', value: 6 }, { label: '7 — alucinações contínuas', value: 7 }

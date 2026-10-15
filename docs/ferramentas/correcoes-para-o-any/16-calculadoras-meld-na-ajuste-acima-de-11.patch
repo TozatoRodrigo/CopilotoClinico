@@ -1,0 +1,12 @@
+--- a/v2/src/data/calculatorData.ts
++++ b/v2/src/data/calculatorData.ts
+@@ -1105,7 +1105,8 @@
+     const na = Math.min(137, Math.max(125, v.sodium))
+     const meld = 10 * (0.957 * Math.log(cr) + 0.378 * Math.log(bili) + 1.120 * Math.log(inr) + 0.643)
+     const meldRound = Math.round(meld)
+-    const meldNa = meldRound + 1.32 * (137 - na) - 0.033 * meldRound * (137 - na)
++    // OPTN/UNOS (2016): o ajuste pelo sódio só entra com MELD > 11
++    const meldNa = meldRound > 11 ? meldRound + 1.32 * (137 - na) - 0.033 * meldRound * (137 - na) : meldRound
+     return Math.round(Math.max(6, Math.min(40, meldNa)))
+   },
+   interpret: (score: number) => {

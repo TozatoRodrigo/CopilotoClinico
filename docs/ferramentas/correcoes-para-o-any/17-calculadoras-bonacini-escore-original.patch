@@ -1,0 +1,39 @@
+--- a/v2/src/data/calculatorData.ts
++++ b/v2/src/data/calculatorData.ts
+@@ -1127,20 +1127,20 @@
+   why: 'Alternativa não invasiva a biopsia hepática para estimar fibrose significativa.',
+   whenToUse: 'Pacientes com hepatopatia crônica quando biopsia não esta disponível ou desejavel.',
+   pearlsPitfalls: [
+-    'Score >= 7 sugere cirrose com boa especificidade.',
+-    'Usa relação AST/ALT, contagem de plaquetas e INR.',
++    'Score >= 8 (escala de 0 a 11) sugere cirrose com boa especificidade.',
++    'Usa relação ALT/AST, contagem de plaquetas e INR.',
+     'Não substitui biopsia em cenários duvidosos.',
+     'Menos validado que FIB-4 e APRI, porem útil como ferramenta complementar.'
+   ],
+   reference: 'Bonacini M et al. Utility of a discriminant score for diagnosing advanced fibrosis or cirrhosis in patients with chronic hepatitis C virus infection. Am J Gastroenterol. 1997;92(8):1302-4.',
+   items: [
+-    { id: 'ratio', label: 'Relação AST/ALT', options: [
+-      { label: '< 1,1', value: 0 }, { label: '1,1-1,4', value: 1 }, { label: '≥ 1,4', value: 2 }
++    { id: 'ratio', label: 'Relação ALT/AST', options: [
++      { label: '> 1,7', value: 0 }, { label: '1,2-1,7', value: 1 }, { label: '0,6-1,19', value: 2 }, { label: '< 0,6', value: 3 }
+     ]},
+     { id: 'platelets', label: 'Plaquetas', options: [
+-      { label: '≥ 280.000/mm3', value: 0 }, { label: '220.000-279.000', value: 1 },
+-      { label: '160.000-219.000', value: 2 }, { label: '100.000-159.000', value: 3 },
+-      { label: '40.000-99.000', value: 4 }, { label: '< 40.000', value: 5 }
++      { label: '> 340.000/mm3', value: 0 }, { label: '280.000-340.000', value: 1 }, { label: '220.000-279.000', value: 2 },
++      { label: '160.000-219.000', value: 3 }, { label: '100.000-159.000', value: 4 },
++      { label: '40.000-99.000', value: 5 }, { label: '< 40.000', value: 6 }
+     ]},
+     { id: 'inr', label: 'INR', options: [
+       { label: '< 1,1', value: 0 }, { label: '1,1-1,4', value: 1 }, { label: '> 1,4', value: 2 }
+@@ -1148,7 +1148,7 @@
+   ],
+   interpret: (score: number) => {
+     if (score <= 3) return interp('Baixa probabilidade de cirrose', '#4CAF50', 'Fibrose significativa improvável. Monitoramento e investigação conforme indicação clínica.')
+-    if (score <= 6) return interp('Probabilidade intermediária', '#FFC107', 'Considere investigação adicional (elastografia, biopsia) para confirmar grau de fibrose.')
++    if (score <= 7) return interp('Probabilidade intermediária', '#FFC107', 'Considere investigação adicional (elastografia, biopsia) para confirmar grau de fibrose.')
+     return interp('Alta probabilidade de cirrose', '#F44336', 'Fibrose avançada/cirrose provável. Rastreio de complicações (varizes, HCC).')
+   }
+ }

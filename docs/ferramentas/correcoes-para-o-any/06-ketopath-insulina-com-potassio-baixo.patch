@@ -1,0 +1,25 @@
+--- a/v2/src/components/clinical/KetoManejo.tsx
++++ b/v2/src/components/clinical/KetoManejo.tsx
+@@ -415,7 +415,8 @@
+     )
+   }
+ 
+-  const velocidade = peso ? insulinaVelocidade(peso, taxa) : null
++  // Com K < 3,5 a insulina fica bloqueada: a calculadora não mostra velocidade
++  const velocidade = peso && !bloqueioAtivo ? insulinaVelocidade(peso, taxa) : null
+ 
+   return (
+     <div>
+@@ -487,7 +488,11 @@
+           </div>
+         </div>
+       ) : (
+-        <p className="text-sm text-warning">Informe o peso para calcular a velocidade.</p>
++        <p className="text-sm text-warning">
++          {bloqueioAtivo
++            ? 'Velocidade não calculada: insulina bloqueada enquanto o potássio estiver abaixo de 3,5 mEq/L.'
++            : 'Informe o peso para calcular a velocidade.'}
++        </p>
+       )}
+ 
+       <Collapsible title="Insulina basal durante a infusão">

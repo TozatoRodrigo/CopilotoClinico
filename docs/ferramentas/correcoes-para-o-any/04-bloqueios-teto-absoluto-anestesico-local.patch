@@ -1,0 +1,57 @@
+--- a/v2/src/pages/BlockPath.tsx
++++ b/v2/src/pages/BlockPath.tsx
+@@ -619,15 +619,24 @@
+   name: string
+   noEpi: number    // mg/kg sem epinefrina
+   withEpi: number  // mg/kg com epinefrina
++  noEpiMax?: number   // teto absoluto em mg, sem epinefrina
++  withEpiMax?: number // teto absoluto em mg, com epinefrina
+   concentrations: { label: string; factor: number }[] // factor = mg/mL
+ }
+ 
+ const anesthetics: AnestheticCalc[] = [
+-  { name: 'Lidocaína', noEpi: 4.5, withEpi: 7, concentrations: [{ label: '1%', factor: 10 }, { label: '2%', factor: 20 }] },
+-  { name: 'Bupivacaína', noEpi: 2.5, withEpi: 3, concentrations: [{ label: '0,25%', factor: 2.5 }, { label: '0,5%', factor: 5 }] },
++  { name: 'Lidocaína', noEpi: 4.5, withEpi: 7, noEpiMax: 300, withEpiMax: 500, concentrations: [{ label: '1%', factor: 10 }, { label: '2%', factor: 20 }] },
++  { name: 'Bupivacaína', noEpi: 2.5, withEpi: 3, noEpiMax: 175, withEpiMax: 225, concentrations: [{ label: '0,25%', factor: 2.5 }, { label: '0,5%', factor: 5 }] },
+   { name: 'Ropivacaína', noEpi: 3, withEpi: 3.5, concentrations: [{ label: '0,2%', factor: 2 }, { label: '0,5%', factor: 5 }] },
+ ]
+ 
++/** Dose máxima em mg: mg/kg × peso, sem passar do teto absoluto quando ele existe. */
++function doseMaxima(a: AnestheticCalc, peso: number, comEpi: boolean): number {
++  const mg = peso * (comEpi ? a.withEpi : a.noEpi)
++  const teto = comEpi ? a.withEpiMax : a.noEpiMax
++  return teto !== undefined ? Math.min(mg, teto) : mg
++}
++
+ // ==========================================
+ // SCREENS
+ // ==========================================
+@@ -861,12 +870,12 @@
+                   <div className="text-sm font-semibold text-accent mb-3">{a.name}</div>
+                   <div className="grid grid-cols-2 gap-2 mb-3">
+                     <div className="bg-bg-elevated rounded-md p-3 text-center">
+-                      <div className="text-[11px] text-[#999] mb-0.5">Sem epi ({a.noEpi} mg/kg)</div>
+-                      <div className="text-base font-bold text-accent">{fmt(calcWeight * a.noEpi, 0)} mg</div>
++                      <div className="text-[11px] text-[#999] mb-0.5">Sem epi ({a.noEpi} mg/kg{a.noEpiMax ? `, máx ${a.noEpiMax} mg` : ''})</div>
++                      <div className="text-base font-bold text-accent">{fmt(doseMaxima(a, calcWeight, false), 0)} mg</div>
+                     </div>
+                     <div className="bg-bg-elevated rounded-md p-3 text-center">
+-                      <div className="text-[11px] text-[#999] mb-0.5">Com epi ({a.withEpi} mg/kg)</div>
+-                      <div className="text-base font-bold text-accent">{fmt(calcWeight * a.withEpi, 0)} mg</div>
++                      <div className="text-[11px] text-[#999] mb-0.5">Com epi ({a.withEpi} mg/kg{a.withEpiMax ? `, máx ${a.withEpiMax} mg` : ''})</div>
++                      <div className="text-base font-bold text-accent">{fmt(doseMaxima(a, calcWeight, true), 0)} mg</div>
+                     </div>
+                   </div>
+                   <table className="w-full text-[13px] mt-3">
+@@ -875,8 +884,8 @@
+                       {a.concentrations.map(c => (
+                         <tr key={c.label} className="border-b border-[#333] last:border-b-0">
+                           <td className="py-2.5 px-3 text-text-secondary">{c.label}</td>
+-                          <td className="py-2.5 px-3 text-text-primary">{fmt(calcWeight * a.noEpi / c.factor)} mL</td>
+-                          <td className="py-2.5 px-3 text-text-primary">{fmt(calcWeight * a.withEpi / c.factor)} mL</td>
++                          <td className="py-2.5 px-3 text-text-primary">{fmt(doseMaxima(a, calcWeight, false) / c.factor)} mL</td>
++                          <td className="py-2.5 px-3 text-text-primary">{fmt(doseMaxima(a, calcWeight, true) / c.factor)} mL</td>
+                         </tr>
+                       ))}
+                     </tbody>

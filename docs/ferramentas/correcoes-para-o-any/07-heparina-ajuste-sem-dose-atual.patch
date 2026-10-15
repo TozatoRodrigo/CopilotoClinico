@@ -1,0 +1,13 @@
+--- a/v2/src/components/clinical/HeparinCalculator.tsx
++++ b/v2/src/components/clinical/HeparinCalculator.tsx
+@@ -81,8 +81,9 @@
+   // --- Fase Ajuste ---
+   const linha = !isNaN(ttpa) && ttpa > 0 ? faixaDoTtpa(ttpa) : null
+   const bolusAdicional = linha && weight ? linha.bolusPorKg * weight : 0
++  // Sem dose atual digitada, parte da infusão inicial real (com o teto da SCA), não de 12 UI/kg/h
+   const novaDose = linha && weight
+-    ? Math.max(0, (!isNaN(doseAtual) ? doseAtual : modo.infusaoPorKg) + linha.ajuste)
++    ? Math.max(0, (!isNaN(doseAtual) ? doseAtual : (uiHInicial ?? 0) / weight) + linha.ajuste)
+     : null
+   const uiHAjuste = novaDose !== null && weight ? novaDose * weight : null
+ 

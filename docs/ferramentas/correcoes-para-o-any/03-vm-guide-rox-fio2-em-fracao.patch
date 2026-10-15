@@ -1,0 +1,14 @@
+--- a/v2/src/data/vmData.ts
++++ b/v2/src/data/vmData.ts
+@@ -270,8 +270,9 @@
+ 
+ /** Índice ROX */
+ export function calcROX(spo2: number, fio2: number, freq: number): number {
+-  const fio2Pct = fio2 <= 1 ? fio2 * 100 : fio2
+-  return (spo2 / fio2Pct) / freq
++  // Roca 2019: SpO₂ (%) ÷ FiO₂ em fração ÷ FR. Aceita também a FiO₂ digitada em %.
++  const fio2Frac = fio2 > 1 ? fio2 / 100 : fio2
++  return (spo2 / fio2Frac) / freq
+ }
+ 
+ export function interpretROX(rox: number): { status: 'success' | 'warning' | 'danger'; text: string } {

@@ -1,0 +1,16 @@
+--- a/v2/src/pages/AclsGuide.tsx
++++ b/v2/src/pages/AclsGuide.tsx
+@@ -539,10 +539,11 @@
+     if (!state.rhythm) return { text: 'RCP de alta qualidade', sub: '', type: 'action' }
+ 
+     if (state.rhythm === 'shockable') {
+-      if (state.shockCount >= 2 && !state.amio300Given) {
++      // AHA: amiodarona 300 mg após o 3º choque; 150 mg após o 5º
++      if (state.shockCount >= 3 && !state.amio300Given) {
+         return { text: 'Considere amiodarona 300 mg IV', sub: 'Após 3° choque sem sucesso', type: 'alert' }
+       }
+-      if (state.shockCount >= 4 && state.amio300Given && !state.amio150Given) {
++      if (state.shockCount >= 5 && state.amio300Given && !state.amio150Given) {
+         return { text: 'Considere amiodarona 150 mg IV', sub: 'Dose adicional', type: 'alert' }
+       }
+       return {

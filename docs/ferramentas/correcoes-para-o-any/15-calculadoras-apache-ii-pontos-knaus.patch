@@ -1,0 +1,63 @@
+--- a/v2/src/data/calculatorData.ts
++++ b/v2/src/data/calculatorData.ts
+@@ -3217,8 +3217,8 @@
+   reference: 'Knaus WA et al. APACHE II: a severity of disease classification system. Crit Care Med. 1985;13(10):818-29.',
+   items: [
+     { id: 'temp', label: 'Temperatura retal (graus Celsius) — pior valor 24h', options: [
+-      { label: '36-38,4', value: 0 }, { label: '38,5-38,9 ou 34-35,9', value: 1 },
+-      { label: '39-40,9 ou 32-33,9', value: 3 }, { label: '≥ 41 ou <= 31,9', value: 4 }
++      { label: '36-38,4', value: 0 }, { label: '38,5-38,9 ou 34-35,9', value: 1 }, { label: '32-33,9', value: 2 },
++      { label: '39-40,9 ou 30-31,9', value: 3 }, { label: '≥ 41 ou <= 29,9', value: 4 }
+     ]},
+     { id: 'pam_val', label: 'PAM (mmHg) — pior valor 24h', options: [
+       { label: '70-109', value: 0 }, { label: '110-129 ou 50-69', value: 2 },
+@@ -3229,8 +3229,8 @@
+       { label: '140-179 ou 40-54', value: 3 }, { label: '≥ 180 ou <= 39', value: 4 }
+     ]},
+     { id: 'rr_val', label: 'Frequência respiratoria — pior valor 24h', options: [
+-      { label: '12-24', value: 0 }, { label: '25-34 ou 10-11', value: 1 },
+-      { label: '35-49 ou 6-9', value: 3 }, { label: '≥ 50 ou <= 5', value: 4 }
++      { label: '12-24', value: 0 }, { label: '25-34 ou 10-11', value: 1 }, { label: '6-9', value: 2 },
++      { label: '35-49', value: 3 }, { label: '≥ 50 ou <= 5', value: 4 }
+     ]},
+     { id: 'oxy', label: 'Oxigenação — gradiente A-a se FiO2 >= 0,5; PaO2 se FiO2 < 0,5', options: [
+       { label: 'FiO2 < 0,5 — PaO2 > 70 mmHg', value: 0 },
+@@ -3243,16 +3243,16 @@
+       { label: 'FiO2 >= 0,5 — gradiente A-a >= 500', value: 4 }
+     ]},
+     { id: 'ph', label: 'pH arterial — pior valor 24h', options: [
+-      { label: '7,33-7,49', value: 0 }, { label: '7,50-7,59 ou 7,25-7,32', value: 1 },
++      { label: '7,33-7,49', value: 0 }, { label: '7,50-7,59', value: 1 }, { label: '7,25-7,32', value: 2 },
+       { label: '7,60-7,69 ou 7,15-7,24', value: 3 }, { label: '≥ 7,70 ou < 7,15', value: 4 }
+     ]},
+     { id: 'na_val', label: 'Sódio sérico (mEq/L) — pior valor 24h', options: [
+-      { label: '130-149', value: 0 }, { label: '150-154 ou 120-129', value: 2 },
+-      { label: '155-159 ou 111-119', value: 3 }, { label: '≥ 160 ou <= 110', value: 4 }
++      { label: '130-149', value: 0 }, { label: '150-154', value: 1 }, { label: '155-159 ou 120-129', value: 2 },
++      { label: '160-179 ou 111-119', value: 3 }, { label: '≥ 180 ou <= 110', value: 4 }
+     ]},
+     { id: 'k_val', label: 'Potassio sérico (mEq/L) — pior valor 24h', options: [
+-      { label: '3,5-5,4', value: 0 }, { label: '5,5-5,9 ou 3,0-3,4', value: 1 },
+-      { label: '6,0-6,9 ou 2,5-2,9', value: 3 }, { label: '≥ 7,0 ou < 2,5', value: 4 }
++      { label: '3,5-5,4', value: 0 }, { label: '5,5-5,9 ou 3,0-3,4', value: 1 }, { label: '2,5-2,9', value: 2 },
++      { label: '6,0-6,9', value: 3 }, { label: '≥ 7,0 ou < 2,5', value: 4 }
+     ]},
+     { id: 'cr_val', label: 'Creatinina (mg/dL) — pior valor 24h. Pontos dobram na insuficiência renal aguda', options: [
+       { label: '0,6-1,4', value: 0 },
+@@ -3264,12 +3264,12 @@
+       { label: '≥ 3,5 — com IRA', value: 8 }
+     ]},
+     { id: 'ht_val', label: 'Hematocrito (%) — pior valor 24h', options: [
+-      { label: '30-45,9', value: 0 }, { label: '46-49,9 ou 20-29,9', value: 2 },
+-      { label: '≥ 50 ou < 20', value: 4 }
++      { label: '30-45,9', value: 0 }, { label: '46-49,9', value: 1 }, { label: '50-59,9 ou 20-29,9', value: 2 },
++      { label: '≥ 60 ou < 20', value: 4 }
+     ]},
+     { id: 'wbc_val', label: 'Leucocitos (x1000/mm3) — pior valor 24h', options: [
+-      { label: '3-14,9', value: 0 }, { label: '15-19,9 ou 1-2,9', value: 2 },
+-      { label: '20-39,9', value: 3 }, { label: '≥ 40 ou < 1', value: 4 }
++      { label: '3-14,9', value: 0 }, { label: '15-19,9', value: 1 }, { label: '20-39,9 ou 1-2,9', value: 2 },
++      { label: '≥ 40 ou < 1', value: 4 }
+     ]},
+     { id: 'gcs_val', label: 'Glasgow (GCS) — pior valor 24h. Pontos = 15 menos o GCS', options: [
+       { label: 'GCS 15', value: 0 }, { label: 'GCS 14', value: 1 }, { label: 'GCS 13', value: 2 },

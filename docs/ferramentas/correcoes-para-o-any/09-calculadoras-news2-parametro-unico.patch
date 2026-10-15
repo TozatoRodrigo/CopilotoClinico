@@ -1,0 +1,19 @@
+--- a/v2/src/data/calculatorData.ts
++++ b/v2/src/data/calculatorData.ts
+@@ -2819,9 +2819,13 @@
+       { label: 'Não responsivo (U)', value: 3 }
+     ]}
+   ],
+-  interpret: (score: number) => {
+-    if (score <= 4) return interp('Baixo risco', '#4CAF50', `NEWS2: ${score}. Monitoramento de rotina (mínimo a cada 12h). Manter vigilância clínica.`)
+-    if (score <= 6) return interp('Risco médio', '#FFC107', `NEWS2: ${score}. Monitoramento a cada 4-6h. Considere revisao medica urgente.`)
++  interpret: (score: number, values?: Record<string, number>) => {
++    // RCP 2017: 3 pontos em um único parâmetro pedem resposta urgente, mesmo com soma baixa
++    const parametroUnico = Object.values(values ?? {}).some(v => v >= 3)
++    if (score === 0) return interp('Baixo risco', '#4CAF50', `NEWS2: ${score}. Monitoramento de rotina (mínimo a cada 12h). Manter vigilância clínica.`)
++    if (score <= 4 && parametroUnico) return interp('Risco baixo-médio (3 pontos em um parâmetro)', '#FFC107', `NEWS2: ${score}. Monitoramento mínimo a cada 1h. Considere revisao medica urgente.`)
++    if (score <= 4) return interp('Baixo risco', '#4CAF50', `NEWS2: ${score}. Monitoramento mínimo a cada 4-6h. Manter vigilância clínica.`)
++    if (score <= 6) return interp('Risco médio', '#FFC107', `NEWS2: ${score}. Monitoramento mínimo a cada 1h. Considere revisao medica urgente.`)
+     return interp('Alto risco', '#F44336', `NEWS2: ${score}. Emergência clínica. Revisao medica imediata. Considere transferência para UTI. Monitoramento contínuo.`)
+   }
+ }

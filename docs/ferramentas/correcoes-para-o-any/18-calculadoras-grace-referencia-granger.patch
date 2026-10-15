@@ -1,0 +1,11 @@
+--- a/v2/src/data/calculatorData.ts
++++ b/v2/src/data/calculatorData.ts
+@@ -193,7 +193,7 @@
+     'O calculador original usa um nomograma não-linear — a versão simplificada aqui e uma aproximação.',
+     'Creatinina elevada pode refletir doença renal crônica prévia, não apenas disfunção aguda.'
+   ],
+-  reference: 'Fox KA et al. Prediction of risk of death and myocardial infarction in the six months after presentation with acute coronary syndrome: prospective multinational observational study (GRACE). BMJ. 2006;333(7578):1091.',
++  reference: 'Granger CB et al. Predictors of hospital mortality in the Global Registry of Acute Coronary Events. Arch Intern Med. 2003;163(19):2345-53.',
+   inputs: [
+     { id: 'age', label: 'Idade', unit: 'anos', min: 18, max: 120, step: 1, inputMode: 'numeric' },
+     { id: 'hr', label: 'Frequência cardíaca', unit: 'bpm', min: 30, max: 250, step: 1, inputMode: 'numeric' },

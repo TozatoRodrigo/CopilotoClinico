@@ -1,0 +1,65 @@
+--- a/v2/public/hetrinped/index.html
++++ b/v2/public/hetrinped/index.html
+@@ -479,7 +479,7 @@
+ <footer>
+   <div class="ft-dev">Desenvolvido por <strong>Gustavo Moreira</strong></div>
+   <div class="ft-role">Médico&nbsp;emergencista&nbsp;· Coordenação&nbsp;do&nbsp;Departamento&nbsp;de&nbsp;Emergência</div>
+-  <div class="ft-meta">Ped Guide v1.1.7 · atualizado em setembro de 2026</div>
++  <div class="ft-meta">Ped Guide v1.1.8 · atualizado em outubro de 2026</div>
+ </footer>
+ 
+ <script>
+@@ -1861,7 +1861,12 @@
+   renderView();
+ 
+   if ('serviceWorker' in navigator) {
+-    navigator.serviceWorker.register('./sw.js').catch(() => {});
++    navigator.serviceWorker.register('./sw.js').then(reg => {
++      // App instalado volta do segundo plano sem recarregar: procura versão nova
++      document.addEventListener('visibilitychange', () => {
++        if (document.visibilityState === 'visible') reg.update().catch(() => {});
++      });
++    }).catch(() => {});
+   }
+ })();
+ </script>
+--- a/v2/public/hetrinped/sw.js
++++ b/v2/public/hetrinped/sw.js
+@@ -1,7 +1,7 @@
+ // Service worker — HETRIN Ped
+ // Cache-first: apos o primeiro acesso, a ferramenta funciona offline.
+ // Ao publicar nova versao, incrementar CACHE_NAME para invalidar o cache antigo.
+-const CACHE_NAME = 'hetrinped-v1.1.7'
++const CACHE_NAME = 'hetrinped-v1.1.8'
+ const ASSETS = [
+   './',
+   './index.html',
+@@ -11,15 +11,24 @@
+ 
+ self.addEventListener('install', e => {
+   e.waitUntil(
+-    caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting())
++    // cache: 'reload' busca na rede, sem passar pelo cache HTTP do navegador
++    caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS.map(u => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting())
+   )
+ })
+ 
+ self.addEventListener('activate', e => {
+   e.waitUntil(
+-    caches.keys().then(keys =>
+-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+-    ).then(() => self.clients.claim())
++    caches.keys().then(keys => {
++      const antigos = keys.filter(k => k !== CACHE_NAME)
++      return Promise.all(antigos.map(k => caches.delete(k))).then(() => antigos.length > 0)
++    }).then(atualizou => self.clients.claim().then(() => {
++      // Atualizacao (havia cache antigo): recarrega as janelas abertas, que
++      // ainda mostram a versao anterior. Na primeira instalacao nao recarrega.
++      if (!atualizou) return
++      return self.clients.matchAll({ type: 'window' }).then(janelas =>
++        Promise.all(janelas.map(j => Promise.resolve().then(() => j.navigate(j.url)).catch(() => {})))
++      )
++    }))
+   )
+ })
+ 

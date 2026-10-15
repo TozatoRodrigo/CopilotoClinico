@@ -1,0 +1,14 @@
+--- a/v2/src/pages/PaliaPath.tsx
++++ b/v2/src/pages/PaliaPath.tsx
+@@ -939,8 +939,9 @@
+                         <td className={`px-1 py-1.5 font-semibold sticky left-0 bg-bg-primary z-10 ${row.drug === 'Dexametasona' ? 'text-red-500' : 'text-text-primary'}`}>
+                           {row.drug}
+                         </td>
+-                        {row.compat.map((c, j) => (
+-                          <td key={j} className={`px-1 py-1.5 text-center font-bold ${c === 'C' ? 'text-emerald-500' : 'text-red-500'}`}>
++                        {/* Cada linha traz 14 valores: as outras drogas, sem a própria. A diagonal entra como "—". */}
++                        {[...row.compat.slice(0, i), '—', ...row.compat.slice(i)].map((c, j) => (
++                          <td key={j} className={`px-1 py-1.5 text-center font-bold ${c === 'C' ? 'text-emerald-500' : c === 'I' ? 'text-red-500' : 'text-text-muted'}`}>
+                             {c}
+                           </td>
+                         ))}

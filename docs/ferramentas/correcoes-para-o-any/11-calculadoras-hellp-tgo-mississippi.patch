@@ -1,0 +1,30 @@
+--- a/v2/src/data/calculatorData.ts
++++ b/v2/src/data/calculatorData.ts
+@@ -3089,7 +3089,7 @@
+     'Mississippi Classe 1 (mais grave): plaquetas <= 50.000.',
+     'Mississippi Classe 2: plaquetas 50.000-100.000.',
+     'Mississippi Classe 3: plaquetas 100.000-150.000.',
+-    'Critérios laboratoriais: plaquetas < 150.000, LDH > 600 U/L, TGO > 70 U/L.',
++    'Critérios laboratoriais: plaquetas < 150.000, LDH > 600 U/L, TGO ≥ 70 U/L (classes 1 e 2) ou ≥ 40 U/L (classe 3).',
+     'Tratamento definitivo: parto. Corticoide para maturacao fetal se < 34 semanas.'
+   ],
+   reference: 'Martin JN Jr et al. The spectrum of severe preeclampsia: comparative analysis by HELLP (hemolysis, elevated liver enzyme levels, and low platelet count) syndrome classification. Am J Obstet Gynecol. 1999;180(6 Pt 1):1373-84.',
+@@ -3105,14 +3105,16 @@
+       ]
+     },
+     { id: 'ldh', label: 'LDH > 600 U/L', options: [{ label: 'Não', value: 0 }, { label: 'Sim', value: 1 }] },
+-    { id: 'tgo', label: 'TGO > 70 U/L', options: [{ label: 'Não', value: 0 }, { label: 'Sim', value: 1 }] }
++    { id: 'tgo', label: 'TGO (AST)', options: [{ label: '< 40 U/L', value: 0 }, { label: '40-69 U/L', value: 1 }, { label: '≥ 70 U/L', value: 2 }] }
+   ],
+   interpret: (_score: number, values?: Record<string, number>) => {
+     const plat = values?.platelets || 0
+     const ldh = values?.ldh || 0
+     const tgo = values?.tgo || 0
++    // Mississippi (Martin 1999): a classe pede LDH e TGO juntos; TGO ≥ 70 nas classes 1 e 2, ≥ 40 na classe 3
++    const tgoClasse = plat === 1 ? tgo >= 1 : tgo >= 2
+     if (plat === 0) return interp('Sem critério de HELLP (plaquetas normais)', '#4CAF50', 'Plaquetas >= 150.000. Não preenche critério de HELLP. Investigar outras causas se clínica sugestiva.')
+-    if (ldh === 0 && tgo === 0) return interp('HELLP incompleta', '#FFC107', 'Plaquetopenia isolada sem elevação de LDH ou TGO. Considere HELLP incompleta. Monitorar laboratório seriado.')
++    if (ldh === 0 || !tgoClasse) return interp('HELLP incompleta', '#FFC107', 'Plaquetopenia sem todos os critérios de Mississippi (LDH e TGO da classe). Considere HELLP incompleta (parcial). Monitorar laboratório seriado.')
+     if (plat === 3) return interp('HELLP — Mississippi Classe 1 (mais grave)', '#F44336', 'Plaquetas <= 50.000. Classe mais grave. Considere parto imediato. Risco de CIVD. Suporte transfusional.')
+     if (plat === 2) return interp('HELLP — Mississippi Classe 2', '#F44336', 'Plaquetas 50.000-100.000. Considere parto. Corticoide se < 34 semanas. Monitoramento intensivo.')
+     return interp('HELLP — Mississippi Classe 3', '#FFC107', 'Plaquetas 100.000-150.000. Forma mais branda. Monitoramento laboratorial seriado. Parto conforme indicação obstetrica.')
