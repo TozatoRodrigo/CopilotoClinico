@@ -78,3 +78,12 @@ export type {
   RedFlagSeverity,
   ResolveCrmVerificationRequest,
 } from '@contracts/clinical';
+
+// CC-602 — locais de plantão do médico.
+export type {
+  EncounterSite,
+  FacilityType,
+  PracticeSite,
+  PracticeSiteInput,
+  SiteSpecialist,
+} from '@contracts/practice-site';
