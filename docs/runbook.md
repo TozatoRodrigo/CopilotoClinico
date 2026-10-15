@@ -431,6 +431,44 @@ importa na triagem:
 | `kind=wrong_scenario` com `coverage=partial`/`none` | A base não cobre o cenário — problema de curadoria, vira pacote KB novo |
 | `kind=helpful` | Contraste positivo, necessário para calibrar o piso de relevância |
 
+### Feedback que vira caso do gabarito e "não encontrei" (CC-703)
+
+Na triagem (`/admin/feedback`), "Virou caso do gabarito" marca o reporte e já
+baixa o rascunho do caso, `campo-<8 primeiros do id>.json`; "Baixar rascunho do
+caso" baixa de novo a qualquer momento. O servidor monta o rascunho
+(`GET /v1/admin/copilot-feedback/:id/eval-case-draft`, papel
+COMPLIANCE/ADMIN e curador): formato v2 do gabarito, texto que o modelo leu
+naquela rodada (caso e respostas) passado de novo pela máscara, expectativas
+vazias, `provenance.origin = feedback:<id>` e o que é do curador marcado
+`A PREENCHER`. Cada download fica na trilha como
+`COPILOT_FEEDBACK_EVAL_CASE_EXPORTED` (só o id do rascunho) e no log como
+`EVAL_CASE_DRAFT_EXPORTED`.
+
+A API não escreve no repositório. O curador salva o arquivo em
+`evals/clinical/cases/`, preenche o que está marcado (ver
+`docs/evals/gabarito-clinico.md`, "Caso novo") e abre o PR. O teste do
+gabarito recusa arquivo com `A PREENCHER` ou com a tag `a-preencher`.
+
+O botão "Não encontrei o que precisava", sob a análise, grava uma lacuna em
+`knowledge_gaps` (não entra na fila de triagem): a síndrome de PS e as consultas
+da busca dirigida que o entendimento registrou, e a frase opcional do médico
+(até 280 caracteres, mascarada). Nunca o texto do caso. Uma por análise: tocar
+de novo atualiza a nota. No log: `KNOWLEDGE_GAP_RECORDED`. É a entrada da
+fila de cartões (CC-409) e do painel do beta (CC-705).
+
+```sql
+-- Lacunas da semana por síndrome, com as consultas mais repetidas
+SELECT coalesce(g.syndrome, '(sem entendimento)') AS syndrome, count(DISTINCT g.id) AS gaps,
+       (array_agg(DISTINCT q.query))[1:5] AS sample_queries
+FROM knowledge_gaps g LEFT JOIN LATERAL unnest(g.search_queries) AS q(query) ON true
+WHERE g.created_at > now() - interval '7 days'
+GROUP BY 1 ORDER BY gaps DESC;
+
+-- O que os médicos disseram que faltou
+SELECT created_at, syndrome, note FROM knowledge_gaps
+WHERE note IS NOT NULL ORDER BY created_at DESC LIMIT 50;
+```
+
 ### Triar sugestões de diretriz enviadas por médicos (F4)
 
 Qualquer médico autenticado pode enviar material pela tela de Diretrizes
@@ -1190,6 +1228,7 @@ apenas na resposta. Acesso a um protocolo de outra instituição retorna `404`
 | `20260924220000_ivfflat_probes_exact` | `ivfflat.probes = 100` no banco: busca vetorial exata (incidente de 24/09/2026) |
 | `20261012180000_aud_007_audit_log_hash_version` | `audit_log.hash_version` (NULL = hash legado, 2 = JSON canônico) — ADR-015; só adiciona coluna nula |
 | `20261014120000_cc_402_knowledge_cards` | Cartões revisados (ADR-019): `knowledge_card_drafts`, `knowledge_cards`, `knowledge_card_versions`, trigger que congela o conteúdo assinado e GRANT sem DELETE; só cria tabelas |
+| `20261014180000_cc_703_knowledge_gaps` | Tabela `knowledge_gaps` (registro de lacunas, CC-703); só cria tabela e tipo, sem tocar nas existentes |
 | `20261015120000_cc_406_knowledge_card_index` | Índice semântico dos cartões (CC-406): `knowledge_card_index`, derivado (CASCADE a partir do cartão, GRANT com DELETE), `embedding vector` sem dimensão fixa; só cria tabela — depois do deploy, `pnpm cards:reindex` |
 
 ### Rollback de Migration
@@ -1250,6 +1289,32 @@ GROUP BY 1, 2 ORDER BY usd DESC NULLS LAST;
 SELECT created_at, stage, served_model, outcome, latency_ms, cost_usd, left(prompt_sha256, 12)
 FROM ai_calls WHERE request_id = '<x-request-id>' ORDER BY created_at;
 ```
+
+### Eventos de produto no Umami (CC-704)
+
+O web manda eventos ao Umami autoalojado (sem cookie) pelo módulo único
+`web/src/lib/analytics.ts`. A lista é fechada e nenhuma propriedade aceita
+texto livre: só valor de lista, número inteiro, sim/não ou id de ferramenta
+(kebab-case curto, nunca UUID). Evento fora da lista não sai. Sem o script do
+Umami (local, CI, e2e) nada é enviado.
+
+| Evento | Propriedades | Quando |
+|---|---|---|
+| `analise_iniciada` | `rodada`: `inicial` \| `reanalise` | Caso enviado; reanálise pedida depois do plano |
+| `analise_concluida` | `rodada`, `duracao_s` (montagem do plano) | Plano entregue nesta tela |
+| `pergunta_respondida` | `fase`: `antes_do_plano` \| `depois_do_plano`; `canal` (antes do plano): `tap` \| `text` \| `voice` | Cada resposta a uma pergunta do Copiloto (a correção do entendimento não conta) |
+| `feedback_enviado` | `tipo`: `wrong_scenario` \| `missing_coverage` \| `wrong_recommendation` \| `helpful` | Reporte sob a análise |
+| `nao_encontrei` | `com_nota`: sim/não | "Não encontrei o que precisava" (CC-703) |
+| `ferramenta_aberta` | `ferramenta` (id), `origem`: `hub` \| `busca` \| `plano` \| `link` | Pronto para a área Ferramentas |
+| `calculo_feito` | `ferramenta` (id) | Pronto para as calculadoras |
+| `cartao_aberto` | `cartao` (id), `origem`: `plano` \| `pergunta_rapida` \| `busca` | Pronto para os cartões; o id precisa ser um slug, o UUID do cartão é recusado |
+| `pergunta_rapida` | `fonte`: `cartao` \| `modelo`, `duracao_s` | Pronto para a pergunta rápida |
+
+A URL que o Umami anexa ao evento vai como rota, sem id e sem query
+(`/encounters/:id/conversation`). O pageview automático do script continua com
+a URL completa da página. Evento novo: acrescente em `PRODUCT_EVENTS` (o teste
+`web/src/lib/__tests__/analytics.test.ts` confere que nenhuma propriedade
+aceita texto livre) e nesta tabela.
 
 ### Logs de nível ERROR que exigem atenção imediata
 

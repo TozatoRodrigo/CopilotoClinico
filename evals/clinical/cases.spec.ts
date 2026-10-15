@@ -1,8 +1,9 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { maskPII } from '../../src/modules/copilot/guardrails/pii-filter';
+import { EVAL_CASE_DRAFT_PLACEHOLDER } from '../../src/shared/contracts/clinical';
 import { scanForInjection } from '../../src/modules/copilot/guardrails/injection-defense';
 import { FIELD_INCIDENT_CASES } from '../../tests/fixtures/field-incident-cases';
 import { KB_001_SYNTHETIC_CASES } from '../../tests/fixtures/kb-001-synthetic-cases';
@@ -68,6 +69,18 @@ describe('gabarito clínico', () => {
         expect(opening, `${clinicalCase.id}: ${fact.id}`).not.toContain(
           normalizeForMatching(fact.text),
         );
+      }
+    }
+  });
+
+  // CC-703 — o rascunho baixado da triagem do feedback já passa no schema,
+  // com o que é do curador marcado (texto "A PREENCHER" e, sem síndrome, a
+  // tag "a-preencher"). Commitado assim, rodaria sem nada a medir.
+  it('não aceita rascunho da triagem com campo ainda a preencher', () => {
+    const toFill = new RegExp(`${EVAL_CASE_DRAFT_PLACEHOLDER}|"a-preencher"`, 'i');
+    for (const dir of [CASES_DIR, BLIND_CASES_DIR]) {
+      for (const file of readdirSync(dir).filter((name) => name.endsWith('.json'))) {
+        expect(readFileSync(join(dir, file), 'utf-8'), file).not.toMatch(toFill);
       }
     }
   });

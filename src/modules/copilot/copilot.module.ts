@@ -14,6 +14,8 @@ import { RecommendationDecisionsController } from './decisions/recommendation-de
 import { RecommendationDecisionsService } from './decisions/recommendation-decisions.service';
 import { CopilotFeedbackService } from './feedback/copilot-feedback.service';
 import { CopilotFeedbackTriageController } from './feedback/copilot-feedback-triage.controller';
+import { KnowledgeGapController } from './gaps/knowledge-gap.controller';
+import { KnowledgeGapService } from './gaps/knowledge-gap.service';
 import { IntakeController } from './intake/intake.controller';
 import { IntakeService } from './intake/intake.service';
 import { ConversationService } from './intake/conversation.service';
@@ -33,6 +35,7 @@ import { KnowledgeCardRetrievalModule } from '../knowledge-cards/card-retrieval/
     CopilotController,
     RecommendationDecisionsController,
     CopilotFeedbackTriageController,
+    KnowledgeGapController,
     IntakeController,
   ],
   providers: [
@@ -43,6 +46,7 @@ import { KnowledgeCardRetrievalModule } from '../knowledge-cards/card-retrieval/
     WebResearchService,
     RecommendationDecisionsService,
     CopilotFeedbackService,
+    KnowledgeGapService,
     IntakeService,
     ConversationService,
   ],

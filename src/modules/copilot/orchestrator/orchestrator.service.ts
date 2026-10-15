@@ -97,6 +97,7 @@ import {
   unsupportedCardDoses,
   type ReviewedCardEvidence,
 } from '../reviewed-cards/reviewed-card-evidence';
+import { withAnsweredQuestions } from './answered-questions';
 
 const DEFAULT_MAX_TURNS = 5;
 
@@ -879,15 +880,6 @@ export interface ScreenedAnalysisInput extends InitialRequest {
    * nada: a Etapa 1 não roda de novo. Com respostas, ela refaz o entendimento.
    */
   understanding: { value: CaseUnderstanding; model: string | null } | null;
-}
-
-const ANSWERED_QUESTIONS_HEADER = '--- Informações adicionais fornecidas pelo médico ---';
-
-/** O caso com o bloco "P: … R: …" das respostas do médico, como a análise o lê. */
-function withAnsweredQuestions(caseText: string, answers: readonly AnsweredQuestion[]): string {
-  if (answers.length === 0) return caseText;
-  const qaBlock = answers.map((qa) => `P: ${qa.question}\nR: ${qa.answer}`).join('\n\n');
-  return `${caseText}\n\n${ANSWERED_QUESTIONS_HEADER}\n${qaBlock}`;
 }
 
 /**
