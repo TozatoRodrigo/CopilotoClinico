@@ -230,6 +230,10 @@ function buildPrismaMock() {
     physicianInstitution: {
       findMany: vi.fn().mockResolvedValue([]),
     },
+    // CC-707 — o export LGPD traz os pedidos de mentoria feitos e respondidos.
+    mentoringRequest: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
 
     document: {
       create: vi.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) =>
