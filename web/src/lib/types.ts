@@ -78,3 +78,15 @@ export type {
   RedFlagSeverity,
   ResolveCrmVerificationRequest,
 } from '@contracts/clinical';
+
+// CC-334 — login com Google ou Microsoft.
+export type {
+  OAuthCallbackStatus,
+  OAuthErrorReason,
+  OAuthLinkRequest,
+  OAuthLinkResponse,
+  OAuthPendingResponse,
+  OAuthProviderId,
+  OAuthProvidersResponse,
+  OAuthSignupRequest,
+} from '@contracts/oauth';

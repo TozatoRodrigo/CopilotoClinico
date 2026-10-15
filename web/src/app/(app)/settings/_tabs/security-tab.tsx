@@ -262,61 +262,72 @@ export function SecurityTab() {
         )}
       </SettingsSection>
 
-      <SettingsSection title="Alterar senha">
-        <form
-          onSubmit={handlePasswordSubmit}
-          className="flex max-w-sm flex-col gap-4 py-4"
-        >
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="current-password">Senha atual</Label>
-            <Input
-              id="current-password"
-              type="password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              disabled={changePasswordMutation.isPending}
-              autoComplete="current-password"
-            />
+      {/* CC-334 — conta criada pelo login com Google/Microsoft não tem senha. */}
+      {physician?.hasPassword === false ? (
+        <SettingsSection title="Senha">
+          <div className="py-4">
+            <Callout tone="gray">
+              Você entra com Google ou Microsoft. Esta conta não tem senha no Copiloto Clínico.
+            </Callout>
           </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="new-password">Nova senha</Label>
-            <Input
-              id="new-password"
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              disabled={changePasswordMutation.isPending}
-              autoComplete="new-password"
-              aria-describedby="new-password-hint"
-            />
-            <p id="new-password-hint" className="text-xs text-muted-foreground">
-              Mínimo de 8 caracteres, com maiúscula, minúscula, número e caractere especial.
-            </p>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="confirm-password">Confirmar nova senha</Label>
-            <Input
-              id="confirm-password"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              disabled={changePasswordMutation.isPending}
-              autoComplete="new-password"
-            />
-          </div>
-          {passwordError && (
-            <p role="alert" className="flex items-center gap-1.5 text-[0.8125rem] text-destructive">
-              <WarningCircle className="size-4 shrink-0" weight="fill" aria-hidden="true" />
-              {passwordError}
-            </p>
-          )}
-          <div>
-            <Button type="submit" disabled={changePasswordMutation.isPending}>
-              {changePasswordMutation.isPending ? 'Alterando...' : 'Alterar senha'}
-            </Button>
-          </div>
-        </form>
-      </SettingsSection>
+        </SettingsSection>
+      ) : (
+        <SettingsSection title="Alterar senha">
+          <form
+            onSubmit={handlePasswordSubmit}
+            className="flex max-w-sm flex-col gap-4 py-4"
+          >
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="current-password">Senha atual</Label>
+              <Input
+                id="current-password"
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                disabled={changePasswordMutation.isPending}
+                autoComplete="current-password"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="new-password">Nova senha</Label>
+              <Input
+                id="new-password"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                disabled={changePasswordMutation.isPending}
+                autoComplete="new-password"
+                aria-describedby="new-password-hint"
+              />
+              <p id="new-password-hint" className="text-xs text-muted-foreground">
+                Mínimo de 8 caracteres, com maiúscula, minúscula, número e caractere especial.
+              </p>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="confirm-password">Confirmar nova senha</Label>
+              <Input
+                id="confirm-password"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                disabled={changePasswordMutation.isPending}
+                autoComplete="new-password"
+              />
+            </div>
+            {passwordError && (
+              <p role="alert" className="flex items-center gap-1.5 text-[0.8125rem] text-destructive">
+                <WarningCircle className="size-4 shrink-0" weight="fill" aria-hidden="true" />
+                {passwordError}
+              </p>
+            )}
+            <div>
+              <Button type="submit" disabled={changePasswordMutation.isPending}>
+                {changePasswordMutation.isPending ? 'Alterando...' : 'Alterar senha'}
+              </Button>
+            </div>
+          </form>
+        </SettingsSection>
+      )}
 
       {/*
         S24-SET-01 — sessões ricas. Antes só mostrava "Sessão ativa" + createdAt.
