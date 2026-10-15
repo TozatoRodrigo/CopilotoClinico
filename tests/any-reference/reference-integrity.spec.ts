@@ -86,6 +86,10 @@ describe('referência congelada do ANY', () => {
         'hetrinped-v1.1.7.html',
         // CC-325 — dengue (a hidratação mora em calculations.ts; o resto, na página)
         'DenguePath.tsx',
+        // CC-327 — ventilação mecânica (as contas no vmData, os avisos e a
+        // formatação na própria página, o `calcHACOR` no calculations)
+        'vmData.ts',
+        'VmGuide.tsx',
       ]),
     );
   });
