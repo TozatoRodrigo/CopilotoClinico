@@ -325,6 +325,12 @@ docker compose --env-file .env.production -f docker-compose.prod.yml run --rm --
 docker compose --env-file .env.production -f docker-compose.prod.yml up -d --no-deps copiloto-api
 ```
 
+- A imagem `copiloto-api` sai de `docker/Dockerfile.api` (o `dockerfile` do
+  serviço em `docker-compose.prod.yml`), e a do web, de `docker/Dockerfile.web`.
+  O antigo `docker/api.Dockerfile` foi removido na CC-014: nenhum compose,
+  script, workflow ou documento o usava, e ele divergia da imagem de produção
+  (pnpm sem versão fixa, sem `pnpm-workspace.yaml` e sem `tini`). A demo
+  (`scripts/demo.sh`) usa o `Dockerfile` da raiz.
 - A imagem de runtime não tem `pnpm` (`sh: pnpm: not found`): use
   `npx --no-install prisma`, que usa o CLI já instalado em `node_modules` e
   nunca baixa nada. Corrigido em 24/09/2026, no deploy da ADR-010.
