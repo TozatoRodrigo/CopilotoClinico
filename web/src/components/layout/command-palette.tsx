@@ -63,6 +63,11 @@ const STATUS_LABEL: Record<string, string> = {
  */
 const MAX_TOOL_COMMANDS = 5;
 
+/** A lista de calculadoras tem rota própria; as demais ferramentas, /ferramentas/<id>. */
+function toolPath(id: string): string {
+  return id === 'calculadoras' ? '/ferramentas/calculadoras' : `/ferramentas/${id}`;
+}
+
 function toolCommands(query: string, go: (href: string) => void): Command[] {
   if (!isFerramentasEnabled() || query.length < 2) return [];
   const commands: Command[] = searchInfusionItems(query).map((item) => ({
@@ -83,8 +88,7 @@ function toolCommands(query: string, go: (href: string) => void): Command[] {
         hint: 'Ferramenta',
         icon: Toolbox,
         group: 'Ferramentas',
-        run: () =>
-          go(tool.id === 'calculadoras' ? '/ferramentas/calculadoras' : `/ferramentas/${tool.id}`),
+        run: () => go(toolPath(tool.id)),
       });
       continue;
     }

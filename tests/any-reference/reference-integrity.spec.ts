@@ -92,6 +92,10 @@ describe('referência congelada do ANY', () => {
         'VmGuide.tsx',
         // CC-328 — sedação (o `fmt` que a página importa; a conta e o roteiro moram na página)
         'SedaPath.tsx',
+        // CC-329 — cuidados paliativos: o dado no paliaData e a conta do
+        // conversor, a soma do PPI e boa parte do texto na própria tela.
+        'paliaData.ts',
+        'PaliaPath.tsx',
       ]),
     );
   });

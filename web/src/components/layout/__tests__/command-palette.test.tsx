@@ -120,6 +120,17 @@ describe('CommandPalette — Ferramentas (ADR-017)', () => {
     expect(push).toHaveBeenCalledWith('/ferramentas/dengue');
   });
 
+  it('com a flag ligada, acha a ferramenta pelo que ela tem dentro e abre a rota dela', async () => {
+    vi.stubEnv('NEXT_PUBLIC_FERRAMENTAS', 'on');
+    render(<CommandPalette open onOpenChange={vi.fn()} />);
+
+    await userEvent.type(screen.getByRole('combobox'), 'hipodermóclise');
+
+    const group = await screen.findByRole('group', { name: 'Ferramentas' });
+    await userEvent.click(within(group).getByRole('option', { name: /Cuidados paliativos no PS/ }));
+    expect(push).toHaveBeenCalledWith('/ferramentas/paliativos');
+  });
+
   it('com a flag ligada, a página Ferramentas aparece em Páginas', async () => {
     vi.stubEnv('NEXT_PUBLIC_FERRAMENTAS', 'on');
     render(<CommandPalette open onOpenChange={vi.fn()} />);
