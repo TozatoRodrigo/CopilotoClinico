@@ -48,6 +48,7 @@ describe('LgpdService', () => {
     audioCapture: {
       findMany: ReturnType<typeof vi.fn>;
     };
+    caseIntake: { findMany: ReturnType<typeof vi.fn> };
     $transaction: ReturnType<typeof vi.fn>;
   };
   let auditService: {
@@ -97,6 +98,7 @@ describe('LgpdService', () => {
       audioCapture: {
         findMany: vi.fn().mockResolvedValue([]),
       },
+      caseIntake: { findMany: vi.fn().mockResolvedValue([]) },
       $transaction: vi.fn(),
     };
     auditService = {
@@ -397,6 +399,7 @@ describe('LgpdService', () => {
           encounters,
           documents,
           aiInteractions,
+          caseIntakes: [],
           recommendationDecisions,
           copilotFeedback,
           audioCaptures,
@@ -404,6 +407,7 @@ describe('LgpdService', () => {
           auditLog,
         },
       });
+      expect(prisma.caseIntake.findMany).toHaveBeenCalledWith({ where: { physicianId } });
       expect(prisma.copilotFeedback.findMany).toHaveBeenCalledWith({ where: { physicianId } });
       // F0-D — decisões por recomendação são dado do médico: entram na portabilidade.
       expect(prisma.recommendationDecision.findMany).toHaveBeenCalledWith({

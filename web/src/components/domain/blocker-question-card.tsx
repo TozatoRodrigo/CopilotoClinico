@@ -9,6 +9,8 @@ import { CitationFootnote, type CitationFootnoteProps } from "@/components/domai
 interface BlockerQuestionCardProps {
   question: string;
   why: string;
+  /** F1 — decisão v2: "Separa: A × B", as hipóteses que a resposta separa. */
+  separates?: string;
   citation?: Omit<CitationFootnoteProps, "className">;
   children: ReactNode;
   className?: string;
@@ -22,6 +24,7 @@ interface BlockerQuestionCardProps {
 export function BlockerQuestionCard({
   question,
   why,
+  separates,
   citation,
   children,
   className,
@@ -49,6 +52,7 @@ export function BlockerQuestionCard({
               {messages.blocker.changesConduct}
             </Badge>
           </div>
+          {separates && <p className="text-[0.8125rem] font-medium">{separates}</p>}
           <Disclosure
             title={
               <span className="text-[0.8125rem] font-normal opacity-80">

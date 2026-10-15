@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { preliminaryReasonFor, type ContainmentContext } from './preliminary-containment';
+import {
+  preliminaryReasonFor,
+  preliminaryReasonForV2,
+  type ContainmentContext,
+} from './preliminary-containment';
 import type { CitationOrigin } from '../../../shared/contracts/clinical';
 
 const NO_RISK: ContainmentContext = {
@@ -8,8 +12,14 @@ const NO_RISK: ContainmentContext = {
   hasClarifyingQuestions: false,
 };
 
-function recommendation(origin: CitationOrigin, preliminary = false) {
-  return { citationChunkId: 'chunk-1', preliminary, origin };
+type Category = Parameters<typeof preliminaryReasonFor>[0]['category'];
+
+function recommendation(
+  origin: CitationOrigin,
+  preliminary = false,
+  category: Category = 'therapeutic',
+) {
+  return { citationChunkId: 'chunk-1', preliminary, origin, category };
 }
 
 describe('preliminaryReasonFor', () => {
@@ -71,10 +81,105 @@ describe('preliminaryReasonFor', () => {
       );
     });
 
+    it('never labels stabilization as subtype-dependent: it is safe in any subtype', () => {
+      const context = { ...NO_RISK, ambiguousSubtypeChunkIds: new Set(['chunk-1']) };
+
+      expect(
+        preliminaryReasonFor(recommendation('public', false, 'stabilization'), context),
+      ).toBeNull();
+      expect(preliminaryReasonFor(recommendation('public', false, 'therapeutic'), context)).toBe(
+        'subtype_ambiguity',
+      );
+    });
+
+    it('keeps the provenance label on stabilization citing an unreviewed source', () => {
+      const context = { ...NO_RISK, ambiguousSubtypeChunkIds: new Set(['chunk-1']) };
+
+      expect(
+        preliminaryReasonFor(
+          recommendation('official_unreviewed', false, 'stabilization'),
+          context,
+        ),
+      ).toBe('unreviewed_source');
+    });
+
     it('never turns a model-declared preliminary into definitive', () => {
       expect(preliminaryReasonFor(recommendation('public', true), NO_RISK)).toBe(
         'pending_questions',
       );
     });
+  });
+});
+
+// F1 — decisão v2 (ADR-013): o preliminar quer dizer "espere o dado";
+// proveniência vira rótulo de origem.
+describe('preliminaryReasonForV2', () => {
+  it('marks a depends recommendation as waiting for its data', () => {
+    expect(
+      preliminaryReasonForV2({ layer: 'depends', origin: 'web_official', carriesDose: false }),
+    ).toBe('depends_on_data');
+  });
+
+  it('keeps depends_on_data as the reason even when the action also carries a dose', () => {
+    expect(
+      preliminaryReasonForV2({ layer: 'depends', origin: 'model_knowledge', carriesDose: true }),
+    ).toBe('depends_on_data');
+  });
+
+  it.each([
+    'model_knowledge',
+    'web_official',
+    'official_unreviewed',
+    'curated_unsigned',
+    'public',
+    'institutional',
+  ] as const)('keeps a "now" recommendation from %s definitive', (origin) => {
+    expect(preliminaryReasonForV2({ layer: 'now', origin, carriesDose: false })).toBeNull();
+  });
+
+  it('flags model knowledge that still carries a dose', () => {
+    expect(
+      preliminaryReasonForV2({ layer: 'now', origin: 'model_knowledge', carriesDose: true }),
+    ).toBe('unverified_dose');
+  });
+
+  it('does not flag a dose that comes from a cited source', () => {
+    expect(
+      preliminaryReasonForV2({ layer: 'now', origin: 'web_official', carriesDose: true }),
+    ).toBeNull();
+  });
+
+  it('never lets a physician attachment come out definitive (F4)', () => {
+    expect(
+      preliminaryReasonForV2({ layer: 'now', origin: 'physician_attachment', carriesDose: false }),
+    ).toBe('pending_questions');
+  });
+});
+
+// Verificação com fonte (`verify`): divergência da fonte oficial vem antes de tudo.
+describe('preliminaryReasonForV2 — divergência da fonte oficial', () => {
+  it.each([
+    ['now', 'model_knowledge', false],
+    ['depends', 'model_knowledge', false],
+    ['now', 'model_knowledge', true],
+    ['now', 'physician_attachment', false],
+  ] as const)(
+    'marks a %s recommendation from %s (dose: %s) as conflicting with the source',
+    (layer, origin, carriesDose) => {
+      expect(preliminaryReasonForV2({ layer, origin, carriesDose, sourceConflict: true })).toBe(
+        'source_conflict',
+      );
+    },
+  );
+
+  it('changes nothing without a conflict', () => {
+    expect(
+      preliminaryReasonForV2({
+        layer: 'now',
+        origin: 'model_knowledge',
+        carriesDose: false,
+        sourceConflict: false,
+      }),
+    ).toBeNull();
   });
 });

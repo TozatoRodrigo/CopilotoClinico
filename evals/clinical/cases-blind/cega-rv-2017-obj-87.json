@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2017-obj-87",
+  "title": "Homem de 48 anos com olho vermelho, dor ocular intensa e vômitos na UBS",
+  "tags": [
+    "cefaleia",
+    "revalida",
+    "prova-cega",
+    "objetiva",
+    "oftalmologia",
+    "glaucoma"
+  ],
+  "critical": true,
+  "goldSource": "revalida_objetiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "UBS. Masc, 48a. Há 3 dias olhos vermelhos, dor ocular D intensa e vômitos. Piora da acuidade visual, enxergando 'vultos'. EF: hiperemia conjuntival à D; à luz direta, midríase moderada não reagente à luz; palpação bidigital do bulbo: endurecido à D. PA 165x95 mmHg."
+  },
+  "expected": {
+    "syndrome": "olho vermelho doloroso com baixa visual",
+    "diagnoses": [
+      {
+        "text": "glaucoma agudo de ângulo fechado (crise): dor ocular intensa, vômitos, baixa visual, midríase média arreativa, globo endurecido",
+        "tier": "critical"
+      }
+    ],
+    "actions": [
+      {
+        "text": "encaminhamento para avaliação oftalmológica de urgência, no mesmo dia (não ambulatorial)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "iniciar a redução da pressão intraocular enquanto aguarda o oftalmologista, se disponível [ref.: acetazolamida 500 mg EV ou VO, colírio betabloqueador e alfa-agonista, pilocarpina após a queda da PIO, hiperosmótico se refratário]",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "encaminhamento-ambulatorial",
+        "description": "Encaminhar para consulta oftalmológica ambulatorial/eletiva (alternativas A e D): a crise de glaucoma agudo é emergência e pode levar a cegueira irreversível.",
+        "patterns": [
+          "(consulta|encaminhamento|avaliacao|acompanhamento|seguimento)\\s+(oftalmologic[ao]\\s+)?(ambulatorial|eletiv[ao])",
+          "(encaminhar|referenciar)\\s+(\\S+\\s+){0,3}(ambulatorio|eletiv\\w*)"
+        ],
+        "exceptWhen": [
+          "(apos|depois\\s+d[aeo]s?)\\s+(\\S+\\s+){0,3}(crise|iridotomia|tratamento|resolucao|controle|alta|atendimento)",
+          "retorno"
+        ]
+      }
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2017, objetiva 87): alternativa B — glaucoma; consulta de urgência. Olho vermelho doloroso com vômitos, baixa visual, midríase média arreativa e globo duro é crise de glaucoma agudo de ângulo fechado, emergência oftalmológica: baixar a PIO imediatamente e iridotomia como tratamento definitivo."
+  },
+  "sources": [
+    {
+      "claim": "Gabarito definitivo (Versão 1): questão 87 = B — \"Glaucoma; consulta de urgência.\"",
+      "title": "Revalida 2017 – 001. Prova Objetiva, Versão 1 – Gabarito definitivo",
+      "publisher": "INEP",
+      "year": 2017,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf"
+    },
+    {
+      "claim": "Glaucoma agudo de ângulo fechado é emergência oftalmológica que pode levar a cegueira irreversível; baixar a PIO de imediato (decúbito dorsal, acetazolamida 500 mg EV ou VO, betabloqueador, alfa-agonista e análogo de prostaglandina tópicos, pilocarpina 2–4% após a queda inicial, hiperosmótico se a PIO seguir alta); tratamento definitivo com iridotomia.",
+      "title": "Emergency management: angle-closure glaucoma",
+      "publisher": "Community Eye Health Journal (International Centre for Eye Health, LSHTM)",
+      "year": 2018,
+      "url": "https://cehjournal.org/articles/13"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2017",
+    "item": "Objetiva questão 87",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf",
+    "originalCaseText": "Um homem com 48 anos de idade procura uma Unidade Básica de Saúde queixando-se de olhos vermelhos, dor ocular à direita intensa e vômitos há 3 dias. Refere que sua acuidade visual piorou e que está enxergando “vultos”. No exame físico do paciente, verifica-se hiperemia conjuntival à direita e, no exame com luz direta, confirma-se midríase moderada não-reagente à luz. À palpação bilateral do bulbo, observa-se endurecimento à direita. A pressão arterial do paciente é de 165 x 95 mmHg. Nesse caso, qual o diagnóstico mais provável e o tipo de consulta oftalmológica mais apropriada? (A) Glaucoma; consulta ambulatorial. (B) Glaucoma; consulta de urgência. (C) Uveíte anterior; consulta de urgência. (D) Hemorragia subconjuntival; consulta ambulatorial.",
+    "notes": "Prova cega (11/10/2026): objetiva 2017, gabarito B conferido na imagem do gabarito definitivo. Conduta vigente, sem divergência. tags[0] = cefaleia, por falta de estrato de dor ocular. O tratamento clínico para baixar a PIO entrou como importante e condicionado à disponibilidade na UBS. Proibida: encaminhamento ambulatorial (A e D)."
+  },
+  "probes": {
+    "mustFlag": [
+      "Encaminhar para consulta oftalmológica ambulatorial",
+      "Glaucoma: consulta ambulatorial com oftalmologista"
+    ],
+    "mustNotFlag": [
+      "Encaminhar ao oftalmologista com urgência, hoje",
+      "Seguimento ambulatorial após a iridotomia",
+      "Não indicar consulta ambulatorial: encaminhar ao oftalmologista com urgência"
+    ]
+  }
+}

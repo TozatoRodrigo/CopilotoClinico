@@ -77,6 +77,19 @@ services:
       AI_STRUCTURED_OUTPUT: ${AI_STRUCTURED_OUTPUT:-true}
       AI_OPENAI_STRUCTURED_OUTPUT: ${AI_OPENAI_STRUCTURED_OUTPUT:-false}
       AI_REFUSAL_FALLBACK: ${AI_REFUSAL_FALLBACK:-default}
+      # Perfis de provedor (runbook, "Um provedor por etapa"). Só a Groq está
+      # repassada; outro perfil precisa das mesmas linhas com o nome dele.
+      # Lista vazia = só o AI_PROVIDER, como antes.
+      AI_PROVIDER_PROFILES: ${AI_PROVIDER_PROFILES:-}
+      AI_PROVIDER_GROQ_KIND: ${AI_PROVIDER_GROQ_KIND:-openai}
+      AI_PROVIDER_GROQ_API_KEY: ${AI_PROVIDER_GROQ_API_KEY:-}
+      AI_PROVIDER_GROQ_BASE_URL: ${AI_PROVIDER_GROQ_BASE_URL:-https://api.groq.com/openai/v1}
+      AI_PROVIDER_GROQ_STRUCTURED_OUTPUT: ${AI_PROVIDER_GROQ_STRUCTURED_OUTPUT:-}
+      AI_PROVIDER_GROQ_MAX_TOKENS_PARAM: ${AI_PROVIDER_GROQ_MAX_TOKENS_PARAM:-}
+      AI_PROVIDER_GROQ_EXTRA_BODY: ${AI_PROVIDER_GROQ_EXTRA_BODY:-}
+      AI_REQUEST_TIMEOUT_MS: ${AI_REQUEST_TIMEOUT_MS:-180000}
+      AI_STREAM_IDLE_TIMEOUT_MS: ${AI_STREAM_IDLE_TIMEOUT_MS:-60000}
+      AI_REQUEST_MAX_RETRIES: ${AI_REQUEST_MAX_RETRIES:-2}
       EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-openai}
       EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-placeholder}
       EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-}
@@ -109,6 +122,35 @@ services:
       # motivo das linhas acima: sem repassar aqui, "=false" no .env.production
       # não chegaria ao container. Default igual ao do código (ligado).
       UNREVIEWED_SOURCES_PRELIMINARY: ${UNREVIEWED_SOURCES_PRELIMINARY:-true}
+      # F1 / ADR-013 — raciocínio em etapas (entender o caso antes de buscar).
+      # legacy = pipeline de sempre; stages liga a Etapa 1 e a busca dirigida.
+      # Mesmo motivo das linhas acima: sem repassar aqui, a troca no
+      # .env.production não chega ao container. Modelo vazio = AI_MODEL.
+      COPILOT_REASONING: ${COPILOT_REASONING:-legacy}
+      AI_UNDERSTANDING_MODEL: ${AI_UNDERSTANDING_MODEL:-}
+      AI_UNDERSTANDING_EFFORT: ${AI_UNDERSTANDING_EFFORT:-low}
+      # ADR-014 — Copiloto guiado (perguntas antes do plano). off = direto ao
+      # plano, como antes. Mesmo motivo das linhas acima. Modelo vazio = o da
+      # Etapa 1.
+      COPILOT_INTAKE: ${COPILOT_INTAKE:-off}
+      AI_INTAKE_MODEL: ${AI_INTAKE_MODEL:-}
+      # ADR-016 — modelo da decisão por gravidade. Vazio = AI_MODEL nas duas
+      # rotas, como antes. Mesmo motivo das linhas acima.
+      AI_DECISION_MODEL: ${AI_DECISION_MODEL:-}
+      AI_DECISION_CRITICAL_MODEL: ${AI_DECISION_CRITICAL_MODEL:-}
+      # F1 / ADR-013 PR 2 — decisão v2 e fonte de conhecimento (padrões = o
+      # pipeline de hoje). Mesmo motivo das linhas acima. Domínios vazios =
+      # lista padrão do código.
+      COPILOT_DECISION_PROMPT: ${COPILOT_DECISION_PROMPT:-v1}
+      COPILOT_KNOWLEDGE_SOURCE: ${COPILOT_KNOWLEDGE_SOURCE:-internal_kb}
+      AI_RESEARCH_MODEL: ${AI_RESEARCH_MODEL:-claude-sonnet-5-5}
+      AI_RESEARCH_EFFORT: ${AI_RESEARCH_EFFORT:-low}
+      WEB_RESEARCH_MAX_SEARCHES: ${WEB_RESEARCH_MAX_SEARCHES:-5}
+      WEB_RESEARCH_ALLOWED_DOMAINS: ${WEB_RESEARCH_ALLOWED_DOMAINS:-}
+      # Emenda de 11/10/2026 ao ADR-013 — modelo que liga cada conduta a um
+      # trecho na verificação com fonte (COPILOT_KNOWLEDGE_SOURCE=verify).
+      # Mesmo motivo das linhas acima; padrão igual ao do código.
+      AI_VERIFY_ATTACH_MODEL: ${AI_VERIFY_ATTACH_MODEL:-claude-sonnet-5-5}
       THROTTLER_TTL: ${THROTTLER_TTL:-60000}
       THROTTLER_LIMIT: ${THROTTLER_LIMIT:-600}
       FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY}

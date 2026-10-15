@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 2,
+  "id": "rv-2020-est-9",
+  "title": "Puérpera 20 horas após parto normal em atendimento no alojamento conjunto",
+  "tags": [
+    "rebaixamento-consciencia",
+    "revalida",
+    "pep",
+    "obstetricia",
+    "puerperio"
+  ],
+  "critical": false,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Alojamento conjunto (maternidade). Puérpera, parto normal há ~20 h; avaliada no puerpério imediato, em boas condições naquele momento. Chamado por episódio de lipotimia. EF: pulso 100 bpm, PA 90x60, mucosas coradas."
+  },
+  "expected": {
+    "syndrome": "lipotimia no puerpério (20 h após parto normal): hipotensão transitória, com hemorragia pós-parto a afastar",
+    "diagnoses": [
+      {
+        "text": "hemorragia pós-parto a afastar à beira do leito (involução/tônus uterino, lóquios, pulso, mucosas)",
+        "tier": "important"
+      },
+      {
+        "text": "queda transitória da pressão arterial como causa provável da lipotimia",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "acomodar no leito com as pernas elevadas",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "glicemia capilar imediata",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "liberar a mobilização gradual: pode levantar-se, sentando-se antes e sem levantar de forma abrupta",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [
+      "palpação do útero (involução e tônus) e inspeção dos lóquios"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "outOfScope": [
+      "apresentar-se e cumprimentar a paciente (item 1.1)",
+      "verbalizar a avaliação do nível de consciência, dos pulsos carotídeo e periféricos, da perfusão periférica e das mucosas (itens 2.1 e 2.3–2.5; pulso e mucosas estão no caso)",
+      "explicar à puérpera o quadro e a causa da lipotimia (item 4.1; o conteúdo virou diagnóstico)",
+      "não solicitar exames além de PA e glicemia capilar (item 3.3): restrição de prova; com FC 100 e PA 90x60, hemograma é prudente e nunca perigoso",
+      "não proibir a puérpera de se levantar (item 4.2): orientação de prova, não conduta perigosa"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2020, Estação 9): o PEP pontua a avaliação à beira do leito (consciência, pernas elevadas, pulsos, perfusão, mucosas, útero, lóquios), PA e glicemia sem outros exames, e a orientação de hipotensão transitória sem hemorragia, com liberação para levantar de forma gradual. v2: útero e lóquios, sem achado publicado, viraram dado a pedir; a PA (item 3.1) está no caso e a glicemia capilar (item 3.2) ficou como conduta."
+  },
+  "sources": [
+    {
+      "claim": "Exame e procedimentos: avalia nível de consciência (2.1, 1,0 ponto); acomoda no leito com pernas elevadas (2.2); checa pulsos carotídeo e periféricos (2.3); perfusão periférica (2.4); coloração das mucosas (2.5); palpa o útero para avaliar involução (2.6, 1,6 ponto); verifica os lóquios (2.7, 1,6 ponto).",
+      "title": "Revalida 2020 – Habilidades Clínicas – PEP, Estação 9, itens 2.1–2.7",
+      "publisher": "INEP",
+      "year": 2020,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2020/padrao_esperado_procedimentos_habilidades_clinicas.pdf"
+    },
+    {
+      "claim": "Exames: aferir a pressão arterial (3.1); glicemia imediata (3.2); NÃO solicita outros exames — inadequado se solicita outros exames (3.3).",
+      "title": "Revalida 2020 – Habilidades Clínicas – PEP, Estação 9, itens 3.1–3.3",
+      "publisher": "INEP",
+      "year": 2020,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2020/padrao_esperado_procedimentos_habilidades_clinicas.pdf"
+    },
+    {
+      "claim": "Orientações: explica que houve queda temporária da pressão e que não há sinais de hemorragia ou outra complicação — inadequado se dá outro diagnóstico (4.1); diz que a paciente PODE se levantar, sentando-se primeiro e sem levantar de forma abrupta — inadequado se diz que NÃO pode se levantar (4.2).",
+      "title": "Revalida 2020 – Habilidades Clínicas – PEP, Estação 9, itens 4.1–4.2",
+      "publisher": "INEP",
+      "year": 2020,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2020/padrao_esperado_procedimentos_habilidades_clinicas.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2020",
+    "item": "Estação 9",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2020/padrao_esperado_procedimentos_habilidades_clinicas.pdf",
+    "originalCaseText": "ESTAÇÃO 9 – Área: Ginecologia e Obstetrícia. INSTRUÇÕES PARA O(A) PARTICIPANTE. CENÁRIO DE ATUAÇÃO: Você está de plantão nas enfermarias de alojamento conjunto e irá atender uma puérpera que teve parto normal há cerca de 20 horas. A paciente foi avaliada no puerpério imediato e encontrava-se, então, em boas condições. Nos próximos 10 minutos, deverão ser realizadas as seguintes tarefas: realizar o atendimento da puérpera; demonstrar a realização de procedimentos médicos, caso necessário; solicitar exames complementares, caso necessário; orientar a puérpera sobre como proceder.",
+    "notes": "Gabarito v2 (11/10/2026): a proibição de pedir hemograma/coagulograma (PEP 3.3) saiu para fora do escopo — pedir exame não é conduta perigosa, e o índice de choque ~1,1 justifica o hemograma. A proibição de \"repouso absoluto\" (item 4.2) também saiu para fora do escopo: é orientação, não conduta que mata ou sequela. caso completo com os impressos de pulso, mucosas e PA e o motivo do chamado (lipotimia, PEP item 4.1); sem afunilamento, porque o roteiro da atriz não foi publicado. Útero e lóquios (itens 2.6–2.7, os de maior peso) não têm achado publicado e ficaram em `questions`; a glicemia capilar ficou como conduta, sem o resultado (80 mg/dL) no texto. Dúvida para revisão: pulso 100 com PA 90x60 dá índice de choque de ~1,1, faixa que a literatura obstétrica associa a perda sanguínea relevante; a proibição de 'outros exames' (hemograma, PEP 3.3) foi mantida por fidelidade ao gabarito, mas pode ser mais estrita que a prática prudente — não consegui abrir a recomendação da OPAS de 2018 (403) para ancorar uma exceção. | O motivo do chamado (episódio de lipotimia) não consta das instruções publicadas; é inferido do item 4.1 do PEP ('causas do episódio de lipotimia') e não foi colocado no caseText — no atendimento ele seria informado pela paciente. Dados sob demanda: episódio de lipotimia; Impresso 1 — pulso 100 bpm; Impresso 2 — mucosas coradas; Impresso 3 — PA 90x60; Impresso 4 — glicemia capilar 80 mg/dL. O PEP de 2020 não publica a síntese do ator (achados de útero e lóquios não descritos; conclusão esperada: sem sinais de hemorragia). | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas. Proibição de levantar ganhou o padrão \"não pode se levantar\", que é a frase penalizada no PEP 4.2."
+  }
+}

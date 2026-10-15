@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2011-disc-3",
+  "title": "Adolescente de 17 anos com dor epigástrica que migrou para a fossa ilíaca direita, sem contracepção e DUM desconhecida",
+  "tags": [
+    "dor-abdominal",
+    "revalida",
+    "prova-cega",
+    "discursiva",
+    "apendicite",
+    "abdome-agudo"
+  ],
+  "critical": true,
+  "goldSource": "revalida_discursiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Atendimento médico de urgência. Fem, 17a. 'Dor de barriga forte', que atribui a manga com leite comida há ~12 h. Dor iniciada há ~9 h no epigástrio, com náuseas e 1 vômito com restos alimentares; agora mais à D, perto da 'virilha'. Vida sexual ativa, sem contraceptivo; não sabe informar a DUM. Nega outros sintomas e doenças prévias. EF: FC 96, PA 110x70, FR 20, Tax 37,6 °C; corada e hidratada; ACV e AR sem alterações. Abdome plano, dor à percussão e à palpação do abdome inferior, principalmente FID e hipogástrio."
+  },
+  "expected": {
+    "syndrome": "abdome agudo inflamatório em adolescente sexualmente ativa sem contracepção (apendicite aguda; afastar gravidez ectópica e doença anexial)",
+    "diagnoses": [
+      {
+        "text": "apendicite aguda (dor epigástrica que migra para a FID, náuseas e vômito, febrícula, dor à percussão em FID — irritação peritoneal)",
+        "tier": "critical"
+      },
+      {
+        "text": "gravidez ectópica a afastar (vida sexual ativa sem contracepção, DUM desconhecida)",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "teste de gravidez (beta-hCG) antes de qualquer exame com radiação",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "ultrassonografia de abdome e pelve (transvaginal se possível) como exame de imagem inicial; RX ou TC só se necessário e após afastar gravidez",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "completar o exame: toque vaginal/bimanual (dor à mobilização do colo, massa anexial) e manobras de irritação peritoneal (descompressão brusca, Rovsing, psoas, obturador)",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "avaliação cirúrgica para apendicectomia",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [],
+    "outOfScope": [
+      "justificar a hipótese principal (item b)",
+      "citar e justificar dois diagnósticos diferenciais (item c): gravidez tópica ou ectópica, doença tubo-ovariana (cisto roto/hemorrágico, torção, DIP), litíase renal/ureteral — lista de prova; a ectópica, que mata se perdida, ficou como diagnóstico importante",
+      "descrever os achados esperados de cada exame de imagem para a hipótese e os diferenciais (item d)"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2011, Questão 3): complementar o exame (exame pélvico, descompressão brusca, manobras de abdome agudo), apendicite aguda como principal hipótese, diferenciais (gravidez tópica/ectópica, doença tubo-ovariana, litíase), ultrassonografia de abdome e pelve como exame de escolha e RX/TC só após afastar gravidez. v2: apendicite é o diagnóstico crítico; o teste de gravidez, pré-condição explícita do padrão para qualquer exame com radiação e única forma de afastar a ectópica, ficou crítico."
+  },
+  "sources": [
+    {
+      "claim": "Enunciado e comandos da questão discursiva 3.",
+      "title": "Revalida 2011 – Prova Discursiva, Questão 3",
+      "publisher": "INEP",
+      "year": 2011,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/provas/2011/prova_discursiva.pdf"
+    },
+    {
+      "claim": "Complementar o exame físico com exame pélvico (toque vaginal, retal ou bidigital), descompressão brusca em FID e outras manobras de abdome agudo (Rovsing, Lennander, obturador, iliopsoas, Giordano, Murphy).",
+      "title": "Revalida 2011 – Prova Discursiva – Padrão de Resposta definitivo, Questão 3, item a",
+      "publisher": "INEP",
+      "year": 2011,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2011/padrao_de_respostas_definitivo.pdf"
+    },
+    {
+      "claim": "Principal hipótese: apendicite aguda (dor epigástrica que migra para FID e hipogástrio, irritação peritoneal). Diferenciais: gravidez tópica ou ectópica (vida sexual ativa sem contracepção, atraso menstrual indefinido), doenças tubo-ovarianas (cisto hemorrágico ou torção, DIP) e litíase renal/ureteral.",
+      "title": "Revalida 2011 – Prova Discursiva – Padrão de Resposta definitivo, Questão 3, itens b–c",
+      "publisher": "INEP",
+      "year": 2011,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2011/padrao_de_respostas_definitivo.pdf"
+    },
+    {
+      "claim": "Ultrassonografia de abdome e pelve é o exame de escolha (sem radiação); RX simples ou TC de abdome só após afastar gravidez; USG transvaginal ou pélvica para ectópica e doença anexial; USG para litíase.",
+      "title": "Revalida 2011 – Prova Discursiva – Padrão de Resposta definitivo, Questão 3, item d",
+      "publisher": "INEP",
+      "year": 2011,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2011/padrao_de_respostas_definitivo.pdf"
+    },
+    {
+      "claim": "Ultrassonografia (POCUS) como primeira ferramenta diagnóstica na suspeita de apendicite em adultos e crianças; TC com contraste de baixa dose quando o US é negativo ou inconclusivo.",
+      "title": "Diagnosis and treatment of acute appendicitis: 2020 update of the WSES Jerusalem guidelines",
+      "publisher": "World Society of Emergency Surgery (World J Emerg Surg)",
+      "year": 2020,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7386163/"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2011",
+    "item": "Discursiva caso 3",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2011/padrao_de_respostas_definitivo.pdf",
+    "originalCaseText": "Mulher, com 17 anos de idade, procura atendimento médico de urgência porque está com “dor de barriga forte” e atribui o episódio ao fato de ter comido, há cerca de 12 horas, manga com leite. Comenta que a dor teve início há aproximadamente nove horas, com localização epigástrica, acompanhada de náuseas e um episódio de vômito, contendo os restos alimentares dessa refeição. Informa ainda que agora a dor está mais do lado direito, perto da “virilha”. Informa vida sexual ativa, sem uso de contraceptivos e não sabe informar quando foi a última menstruação. Nega outros sintomas e doenças prévias. Ao exame físico apresenta: Frequência cardíaca = 96 bpm, Pressão arterial = 110x70 mmHg, Frequência respiratória = 20 ipm. Está corada e hidratada. Temperatura axilar = 37,6°C. Não há alterações ao exame cardiovascular e respiratório. Exame abdominal: abdome plano com dor à percussão e à palpação do abdome inferior, principalmente na fossa ilíaca direita e região hipogástrica. Com base nesse quadro clínico e na principal hipótese diagnóstica, descreva: a) a complementação do exame físico do paciente que contribua para a confirmação da hipótese principal. b) cite a principal hipótese diagnóstica e justifique. c) cite dois diagnósticos diferenciais que devem ser considerados para o caso e justifique-os. d) cite os exames de imagem a serem solicitados e os achados esperados para a principal hipótese diagnóstica e para os diagnósticos diferenciais. [Quadro: Exame(s) solicitado(s) | Achado(s) — Hipótese diagnóstica principal; Diagnóstico diferencial 1; Diagnóstico diferencial 2]",
+    "notes": "Prova cega (11/10/2026): caseText com todo o enunciado em estilo nota. O padrão não pede conduta terapêutica: a avaliação cirúrgica entrou como importante por ser implicação direta do diagnóstico. Conferido contra a WSES 2020 (aberta e lida): US como exame inicial e TC só se o US for inconclusivo, de acordo com o padrão. A diretriz não trata do teste de gravidez no trecho lido; o beta-hCG crítico se apoia no próprio padrão (RX/TC só após afastar gravidez; ectópica entre os diferenciais). Dúvida para revisão: o beta-hCG como item crítico é leitura do padrão, que não o pede como conduta isolada."
+  }
+}

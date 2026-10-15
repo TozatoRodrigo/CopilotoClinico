@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2012-disc-2",
+  "title": "Mulher de 24 anos com atraso menstrual, sangramento em borra de café e dor em fossa ilíaca direita com massa anexial",
+  "tags": [
+    "dor-abdominal",
+    "revalida",
+    "prova-cega",
+    "discursiva",
+    "obstetricia",
+    "gravidez-ectopica"
+  ],
+  "critical": true,
+  "goldSource": "revalida_discursiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "UPA municipal. Fem, 24a. Sangramento vaginal tipo borra de café, pequena quantidade, há 5 dias, com dor contínua em baixo ventre, tipo peso, leve; nas últimas 12 h a dor aumentou para moderada. Nega febre, corrimento, queixas urinárias e gastrointestinais. Mastalgia e náuseas matinais esporádicas há 15 dias. Vida sexual ativa, preservativo de uso irregular; DUM incerta, refere atraso de 'umas três semanas'. Sexarca aos 14 a, 5 parceiros. Apendicectomia há 4 a (apendicite supurada). EF: PA 110x70, FC 80, FR 18, Tax 36,8 °C; consciente, orientada, corada, hidratada, pulsos cheios e simétricos; cardiopulmonar normal; punho-percussão lombar negativa. Abdome plano, RHA presentes, dor à palpação profunda em FID, descompressão brusca negativa; cicatriz de apendicectomia. Ginecológico: pouco sangue no canal vaginal; útero ligeiramente aumentado; colo fechado; dor à palpação anexial D, com massa de ~2 cm; sem abaulamento de fundo de saco."
+  },
+  "expected": {
+    "syndrome": "dor pélvica com sangramento vaginal e atraso menstrual em mulher hemodinamicamente estável (gravidez ectópica íntegra)",
+    "diagnoses": [
+      {
+        "text": "gravidez ectópica (tubária) íntegra/não rota, hemodinamicamente estável",
+        "tier": "critical"
+      },
+      {
+        "text": "sem sinais de rotura agora (estável, descompressão brusca negativa, sem abaulamento de fundo de saco), mas com risco de rotura tubária, hemoperitônio e choque",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "beta-hCG quantitativo sérico e ultrassonografia transvaginal",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "tratamento conforme beta-hCG e USTV, com o ginecologista: laparoscopia (salpingectomia ou salpingostomia) ou, se critérios, metotrexato ou conduta expectante [ref.: MTX se estável, massa ≤ 3,5 cm, beta-hCG ≤ 5.000 e sem dor]",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "hemograma e tipagem ABO-Rh",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [],
+    "outOfScope": [
+      "citar cinco informações que justificam a hipótese (item b) — lista de prova",
+      "citar dois diagnósticos diferenciais (item c): gravidez intrauterina, ameaça de abortamento, abscesso tubo-ovariano, torção de ovário, endometrioma, corpo lúteo hemorrágico, tumor/cisto ovariano, DIP, doença trofoblástica — lista de prova",
+      "citar duas complicações (item e): rotura tubária, recidiva, infertilidade, choque hipovolêmico, peritonite, morte materna — o risco de rotura ficou como diagnóstico importante"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2012, Questão 2): gravidez ectópica íntegra/não rota (a rota é considerada incorreta), confirmada por USG transvaginal e beta-hCG. v2: o diagnóstico de ectópica íntegra é crítico; beta-hCG com USTV é a conduta crítica para agora. O tratamento não é pedido pelo padrão e entrou como importante pelo Manual de Gestação de Alto Risco."
+  },
+  "sources": [
+    {
+      "claim": "Enunciado e comandos da questão discursiva 2.",
+      "title": "Revalida 2012 – Prova Discursiva, Questão 2",
+      "publisher": "INEP",
+      "year": 2012,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/provas/2012/prova_discursiva_revalida_2012.pdf"
+    },
+    {
+      "claim": "Prenhez ectópica (tubária) íntegra ou não rota (correta); 'ectópica' sem qualificar vale parcial; 'ectópica rota' é incorreta (rotura cursaria com hemoperitônio, choque, dor intensa, abdome distendido e abaulamento de fundo de saco).",
+      "title": "Revalida 2012 – Prova Discursiva – Padrão de Resposta definitivo, Questão 2, item a",
+      "publisher": "INEP",
+      "year": 2012,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2012/revalida_2012_padrao_de_respostas_definitivo.pdf"
+    },
+    {
+      "claim": "Exames para confirmar: imagem — USG transvaginal/pélvica (também aceitos videolaparoscopia, curetagem, culdocentese, RM e TC); laboratório — dosagem da fração beta da gonadotrofina coriônica (beta-hCG sanguíneo).",
+      "title": "Revalida 2012 – Prova Discursiva – Padrão de Resposta definitivo, Questão 2, item d",
+      "publisher": "INEP",
+      "year": 2012,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2012/revalida_2012_padrao_de_respostas_definitivo.pdf"
+    },
+    {
+      "claim": "Informações que justificam (vida sexual ativa, preservativo irregular, sangramento, dor, atraso menstrual, múltiplos parceiros, cirurgia abdominal prévia, massa anexial etc.), diferenciais (gravidez intrauterina, abortamento, abscesso tubo-ovariano, torção, endometrioma, corpo lúteo hemorrágico, tumor ovariano, DIP, doença trofoblástica) e complicações (rotura, recidiva, infertilidade, choque, peritonite, morte materna).",
+      "title": "Revalida 2012 – Prova Discursiva – Padrão de Resposta definitivo, Questão 2, itens b, c, e",
+      "publisher": "INEP",
+      "year": 2012,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2012/revalida_2012_padrao_de_respostas_definitivo.pdf"
+    },
+    {
+      "claim": "Na gestação tubária íntegra o diagnóstico precoce se faz com beta-hCG associado à USG transvaginal; tratamento cirúrgico (salpingectomia ou salpingostomia, laparoscópica salvo instabilidade), expectante ou com metotrexato (critérios: estabilidade, massa ≤ 3,5 cm, beta-hCG ≤ 5.000, ausência de dor); antes do MTX, hemograma, enzimas hepáticas, creatinina e tipagem ABO-Rh.",
+      "title": "Manual de Gestação de Alto Risco (1ª ed., versão eletrônica)",
+      "publisher": "Ministério da Saúde",
+      "year": 2022,
+      "url": "https://bvsms.saude.gov.br/bvs/publicacoes/manual_gestacao_alto_risco.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2012",
+    "item": "Discursiva caso 2",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2012/revalida_2012_padrao_de_respostas_definitivo.pdf",
+    "originalCaseText": "Mulher, com 24 anos de idade, procura a Unidade de Pronto Atendimento Municipal, queixando-se de sangramento vaginal tipo borra de café, em pequena quantidade, há 5 dias, associado a dor contínua em baixo ventre, tipo peso, de leve intensidade. Evoluiu com aumento da intensidade da dor nas últimas 12 horas, que passou a ser de moderada intensidade. Nega febre, corrimento vaginal, alterações urinárias e gastrointestinais. Refere mastalgia e náuseas esporádicas pela manhã, há 15 dias. Informa vida sexual ativa, com uso irregular de preservativo masculino e não sabe informar com certeza quando foi a última menstruação, mas que está atrasada “umas três semanas” (sic). Sua primeira relação sexual foi aos 14 anos e teve cinco parceiros sexuais até o momento. Foi submetida a apendicectomia há 4 anos, devido a apendicite supurada. Ao exame físico apresenta: pressão arterial = 110 x 70 mmHg, frequência cardíaca = 80 bpm, frequência respiratória = 18 irpm, temperatura axilar = 36,8 °C. Está consciente, orientada, corada, hidratada, com pulsos cheios e simétricos. Exame cardiopulmonar normal e punho-percussão lombar negativa. Abdome plano, com ruídos hidroaéreos preservados, dor à palpação profunda em fossa ilíaca direita, descompressão brusca negativa. Presença de cicatriz operatória de apendicectomia. O exame ginecológico revela a presença de sangue no canal vaginal em pequena quantidade, útero ligeiramente aumentado de volume, colo uterino fechado e dor à palpação em região anexial direita, onde se pode palpar uma massa com aproximadamente 2,0 cm de diâmetro. Ausência de abaulamentos em fundo de saco vaginal. Considerando os dados acima apresentados, descreva a) a principal hipótese diagnóstica; (valor: 2,0 pontos) b) cinco informações que justificam a principal hipótese diagnóstica; (valor: 2,0 pontos) c) dois diagnósticos diferenciais a serem considerados para o caso; (valor: 2,0 pontos) d) dois exames complementares a serem solicitados para confirmação da hipótese diagnóstica; (valor: 2,0 pontos) e) duas complicações decorrentes da principal hipótese diagnóstica. (valor: 2,0 pontos)",
+    "notes": "Prova cega (11/10/2026): caseText com todo o enunciado em estilo nota. Conferido contra o Manual de Gestação de Alto Risco (MS, 2022, aberto e lido): beta-hCG com USTV continua o caminho diagnóstico da ectópica íntegra, de acordo com o padrão. Tratamento e tipagem ABO-Rh não são pedidos pelo padrão e entraram como importantes, ancorados no manual. Itens de lista (justificativas, diferenciais, complicações) ficaram fora do escopo."
+  }
+}

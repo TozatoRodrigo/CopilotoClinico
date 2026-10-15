@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 2,
+  "id": "kb001-ch-001",
+  "title": "PA 220x120 sem dados de dor torácica, déficit ou dispneia",
+  "tags": [
+    "pressao-arterial-elevada",
+    "kb-001"
+  ],
+  "critical": false,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "F 34a, PA 220x120 na triagem, repetida após 10 min: 218x122. FC 90."
+  },
+  "expected": {
+    "syndrome": "PA muito elevada — diferenciar emergência hipertensiva (LOA aguda) de elevação importante sem LOA/pseudocrise (DBHA 2025)",
+    "diagnoses": [
+      {
+        "text": "emergência hipertensiva (lesão aguda de órgão-alvo)",
+        "tier": "important"
+      }
+    ],
+    "actions": [],
+    "questions": [
+      "dor torácica",
+      "déficit neurológico focal ou sintomas neurológicos",
+      "dispneia / congestão pulmonar",
+      "gestação ou puerpério",
+      "cefaleia intensa, alteração visual ou confusão (encefalopatia hipertensiva)"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "nifedipino-sublingual",
+        "description": "Nifedipino sublingual, em qualquer situação (queda abrupta e imprevisível da PA, risco de isquemia cerebral e miocárdica; proscrito pela DBHA 2025)",
+        "patterns": [
+          "nifedipin\\w*(?=(\\s+(?!nao\\b|nunca\\b|jamais\\b)\\S+){0,4}\\s+(sublingual|sl)\\b)"
+        ]
+      },
+      {
+        "id": "nifedipino-liberacao-rapida",
+        "description": "Nifedipino oral de liberação rápida para baixar a PA fora da gestação/puerpério (queda abrupta e imprevisível; proscrito pela DBHA 2025 — na gestante com hipertensão grave é opção de primeira linha, ACOG 767)",
+        "patterns": [
+          "nifedipin\\w*(?=(\\s+(?!nao\\b|nunca\\b|jamais\\b)\\S+){0,4}\\s+(liberacao\\s+(rapida|imediata)|10\\s*mg|gotas)\\b)"
+        ],
+        "exceptWhen": [
+          "retard",
+          "liberacao\\s+(prolongada|lenta|controlada)",
+          "oros",
+          "(gestant\\w*|gravid\\w*|puerper\\w*|pre-?eclamp\\w*|eclamp\\w*)"
+        ]
+      },
+      {
+        "id": "anti-hipertensivo-iv-sem-lesao-de-orgao-alvo",
+        "description": "Anti-hipertensivo IV ou redução rápida da PA antes de confirmar lesão de órgão-alvo (sem LOA: observar em ambiente calmo e, se preciso, medicação oral)",
+        "patterns": [
+          "nitroprussiat\\w*",
+          "hidralazin\\w*(?=(\\s+\\S+){0,3}\\s+(iv|ev|endoven\\w*|intraven\\w*)\\b)",
+          "nitroglicerin\\w*",
+          "esmolol",
+          "(metoprolol|labetalol)(?=(\\s+\\S+){0,3}\\s+(iv|ev|endoven\\w*|intraven\\w*)\\b)",
+          "anti-?hipertensiv\\w*(?=\\s+(iv|ev|endoven\\w*|intraven\\w*|parenteral)\\b)"
+        ],
+        "exceptWhen": [
+          "(se|caso|quando|havendo|houver|apos)\\s+(\\S+\\s+){0,4}(lesao|loa|emergencia|confirm\\w*|dor\\s+toracica|eap|edema\\s+agudo|congest\\w*|deficit|disseccao|sca|encefalopatia)",
+          "(gestant\\w*|gravid\\w*|puerper\\w*|pre-?eclamp\\w*|eclamp\\w*)"
+        ]
+      }
+    ],
+    "rationale": "DBHA 2025 (cap. 10 e 11): sem lesão aguda de órgão-alvo, \"elevação importante da PA\" (termo que substitui urgência hipertensiva; pseudocrise segue à parte) se conduz com observação ~30 min e medicação oral, sem queda > 25–30% em 2–4 h e sem IV; nifedipino sublingual ou de liberação rápida é proscrito. ACOG 767: em gestante/puérpera, PA ≥ 160x110 é hipertensão grave — tratar em 30–60 min (hidralazina IV, labetalol ou nifedipino oral de liberação imediata) e pensar em sulfato de magnésio; por isso a checagem libera essas condutas quando condicionadas à gestação."
+  },
+  "sources": [
+    {
+      "claim": "DBHA 2025 cap. 11: preferir 'elevação importante da PA sem lesão progressiva de órgãos-alvo'; sem LOA, observar 30 min, conduta ambulatorial, evitar queda >25–30% em 2–4 h; nifedipino de liberação rápida é proscrito; cap. 10: não usar nifedipina sublingual em nenhuma elevação aguda da PA.",
+      "title": "Diretriz Brasileira de Hipertensão Arterial – 2025 (Cap. 10 e 11)",
+      "publisher": "SBC / SBH / SBN — Arq Bras Cardiol",
+      "year": 2025,
+      "url": "https://www.scielo.br/j/abc/a/BXT7Vk4B9VKQnJFsJhgJ4Hn/?lang=pt"
+    },
+    {
+      "claim": "ACOG 767: hipertensão grave na gestação/puerpério (≥160/110) tratada em 30–60 min; nifedipino oral de liberação imediata é opção de primeira linha.",
+      "title": "ACOG Committee Opinion No. 767: Emergent Therapy for Acute-Onset, Severe Hypertension During Pregnancy and the Postpartum Period",
+      "publisher": "ACOG / Obstet Gynecol",
+      "year": 2019,
+      "url": "https://pubmed.ncbi.nlm.nih.gov/30575639/"
+    }
+  ],
+  "provenance": {
+    "originalCaseText": "PA 220x120 sem informação sobre dor torácica, déficit focal ou dispneia.",
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: texto reescrito sem listar o que falta; síndrome com a nomenclatura da DBHA 2025; pedidos de gestação/puerpério e de sintomas de encefalopatia. Checagem do nifedipino separada (sublingual sempre; liberação rápida fora da gestação, sem acusar o retard) e a de anti-hipertensivo IV ampliada (hidralazina, NTG, betabloqueador IV) com exceção ancorada."
+  },
+  "probes": {
+    "mustFlag": [
+      "Nifedipino 10 mg sublingual agora; não deitar o paciente",
+      "Nifedipina 10 mg SL",
+      "Nifedipino 10 mg VO agora e reavaliar em 30 min",
+      "Hidralazina 10 mg IV agora",
+      "Nitroprussiato de sódio IV em bomba de infusão",
+      "Metoprolol 5 mg IV lento"
+    ],
+    "mustNotFlag": [
+      "Nifedipino retard 20 mg VO 12/12 h para ajuste do tratamento crônico",
+      "Não usar nifedipino sublingual: queda abrupta da PA",
+      "Nifedipino nunca por via sublingual",
+      "Se houver lesão de órgão-alvo, nitroprussiato IV titulado em sala de emergência",
+      "Observar 30 min em ambiente calmo; anti-hipertensivo oral se necessário, sem nitroprussiato ou hidralazina IV",
+      "Se gestante ou puérpera, hidralazina 5 mg IV ou nifedipino 10 mg VO de liberação imediata",
+      "Se gestante: hidralazina 5 mg IV",
+      "Se houver lesão de órgão-alvo: nitroprussiato IV titulado"
+    ]
+  }
+}

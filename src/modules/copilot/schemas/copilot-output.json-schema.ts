@@ -1,4 +1,5 @@
 import type { JsonResponseSchema } from '../../ai-gateway/providers/provider.interface';
+import { arrayOf, BOOLEAN, nullable, NUMBER, oneOf, STRING, strictObject } from './json-schema';
 
 /**
  * JSON Schema do `CopilotOutputSchema` (guardrails/output-validator.ts) para
@@ -6,53 +7,10 @@ import type { JsonResponseSchema } from '../../ai-gateway/providers/provider.int
  * (confidence 0..1, máx. 3 diferenciais/perguntas, strings não vazias) e os
  * `.refine` de negócio continuam no zod, que valida a resposta depois.
  *
- * Subconjunto aceito pela Anthropic e pelo modo estrito da OpenAI: todo
- * objeto fecha com `additionalProperties: false` e lista todos os campos em
- * `required`; campo opcional no zod vira anulável aqui. Escrito à mão porque o
- * zod 3 não gera JSON Schema — copilot-output.json-schema.spec.ts garante a
- * paridade de campos, tipos e enums com o zod.
+ * Regras do subconjunto aceito pelos dois providers em json-schema.ts;
+ * copilot-output.json-schema.spec.ts garante a paridade de campos, tipos e
+ * enums com o zod.
  */
-
-export type JsonSchemaNode =
-  | { type: 'string'; enum?: readonly string[] }
-  | { type: 'number' }
-  | { type: 'boolean' }
-  | { type: 'null' }
-  | { type: 'array'; items: JsonSchemaNode }
-  | JsonObjectSchema
-  | { anyOf: readonly JsonSchemaNode[] };
-
-export type JsonObjectSchema = {
-  type: 'object';
-  properties: Record<string, JsonSchemaNode>;
-  required: string[];
-  additionalProperties: false;
-};
-
-const STRING: JsonSchemaNode = { type: 'string' };
-const NUMBER: JsonSchemaNode = { type: 'number' };
-const BOOLEAN: JsonSchemaNode = { type: 'boolean' };
-
-function oneOf(values: readonly string[]): JsonSchemaNode {
-  return { type: 'string', enum: values };
-}
-
-function arrayOf(items: JsonSchemaNode): JsonSchemaNode {
-  return { type: 'array', items };
-}
-
-function nullable(node: JsonSchemaNode): JsonSchemaNode {
-  return { anyOf: [node, { type: 'null' }] };
-}
-
-function strictObject(properties: Record<string, JsonSchemaNode>): JsonObjectSchema {
-  return {
-    type: 'object',
-    properties,
-    required: Object.keys(properties),
-    additionalProperties: false,
-  };
-}
 
 const RED_FLAG = strictObject({
   finding: STRING,
@@ -101,4 +59,47 @@ const COPILOT_OUTPUT = strictObject({
 export const COPILOT_OUTPUT_JSON_SCHEMA = {
   name: 'copilot_output',
   schema: COPILOT_OUTPUT,
+} satisfies JsonResponseSchema;
+
+/**
+ * F1 — saída da decisão v2 (ADR-013, Etapa 3), paridade com
+ * `CopilotOutputV2Schema` (guardrails/output-validator-v2.ts). Sem
+ * `preliminary`: a camada diz o que depende de dado e a contenção decide o
+ * rótulo. A ordem é a de geração: camada e base antes da citação.
+ */
+const RECOMMENDATION_V2 = strictObject({
+  action: STRING,
+  rationale: STRING,
+  category: oneOf(['stabilization', 'diagnostic', 'therapeutic', 'verify']),
+  layer: oneOf(['now', 'depends']),
+  dependsOn: nullable(STRING),
+  basis: oneOf(['source', 'model_knowledge']),
+  citationChunkId: nullable(STRING),
+  confidence: NUMBER,
+});
+
+const CLARIFYING_QUESTION_V2 = strictObject({
+  id: STRING,
+  question: STRING,
+  why: STRING,
+  separates: arrayOf(STRING),
+  criticality: oneOf(['blocker', 'important', 'optional']),
+  expectedAnswerType: oneOf(['boolean', 'choice', 'number', 'text']),
+  choices: nullable(arrayOf(STRING)),
+  purpose: nullable(STRING),
+});
+
+const COPILOT_OUTPUT_V2 = strictObject({
+  reasoning: STRING,
+  redFlags: arrayOf(RED_FLAG),
+  recommendations: arrayOf(RECOMMENDATION_V2),
+  uncertainty: BOOLEAN,
+  uncertaintyReason: nullable(STRING),
+  differentials: arrayOf(DIFFERENTIAL),
+  clarifyingQuestions: arrayOf(CLARIFYING_QUESTION_V2),
+});
+
+export const COPILOT_OUTPUT_V2_JSON_SCHEMA = {
+  name: 'copilot_output_v2',
+  schema: COPILOT_OUTPUT_V2,
 } satisfies JsonResponseSchema;

@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2017-obj-45",
+  "title": "Adolescente de 16 anos com febre, cefaleia, mialgia e dor retro-orbitária há 4 dias na UPA",
+  "tags": [
+    "febre",
+    "revalida",
+    "prova-cega",
+    "objetiva",
+    "dengue"
+  ],
+  "critical": true,
+  "goldSource": "revalida_objetiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "UPA. Fem, 16a. Febre de 38,5 °C, cefaleia, mialgia e dor retro-orbitária há 4 dias. Nega vômitos ou sangramentos. EF: prova do laço com 23 petéquias na área demarcada; PA e FC normais. Hemograma: Ht 49% (VR 42 ± 6%), Hb 16 g/dL (VR 13,6 ± 2,0), plaquetas 6.000/mm³ (VR 130.000–370.000)."
+  },
+  "expected": {
+    "syndrome": "síndrome febril aguda com prova do laço positiva, hemoconcentração e plaquetopenia grave",
+    "diagnoses": [
+      {
+        "text": "dengue (caso suspeito)",
+        "tier": "critical"
+      },
+      {
+        "text": "hemoconcentração (Ht 49%, acima da referência) com plaquetopenia grave: conduzir como grupo C",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "reposição volêmica EV imediata com soro fisiológico 0,9% 10 mL/kg na primeira hora",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "reavaliação clínica após 1 h e novo hematócrito em 2 h, após a etapa de expansão",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "internação em leito até a estabilização (mínimo 48 h)",
+        "tier": "important",
+        "timing": "now"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "tratamento-ambulatorial-com-hemoconcentracao",
+        "description": "Hidratação oral com tratamento ambulatorial e alta (alternativas C e D) na dengue com hemoconcentração e plaquetas 6.000: o manual do MS manda conduzir como grupo C, com internação.",
+        "patterns": [
+          "(tratamento|regime|acompanhamento|seguimento|manejo)\\s+(\\S+\\s+){0,2}ambulatoria\\w*",
+          "(hidratacao|reidratacao)\\s+(\\S+\\s+){0,1}oral\\s+(\\S+\\s+){0,3}(domicili\\w*|em\\s+casa|ambulatori\\w*)",
+          "alta\\s+(\\S+\\s+){0,2}(domicili\\w*|para\\s+casa|com\\s+(hidratacao|reidratacao|sro|orientac\\w*|retorno))",
+          "(liberar|dispensar)\\s+(\\S+\\s+){0,3}(domicili\\w*|casa)"
+        ],
+        "exceptWhen": [
+          "(apos|depois\\s+d[aeo]s?)\\s+(\\S+\\s+){0,4}(estabiliza\\w*|alta|criterios|48\\s*h|normaliza\\w*|internac\\w*)",
+          "(na|apos\\s+a|depois\\s+da)\\s+alta",
+          "criterios\\s+de\\s+alta",
+          "(se|caso|quando)\\s+(\\S+\\s+){0,4}(normaliz\\w*|estabiliz\\w*|hematocrito\\s+normal)"
+        ]
+      }
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2017, objetiva, questão 45): alternativa B — SF 10 mL/kg na primeira hora, novo hematócrito em 2 h e leito de internação até a estabilização (conduta do grupo C). Distratoras: 20 mL/kg em 20 min com UTI (A, conduta de choque), hidratação oral ambulatorial (C e D). Conferido com o manual do MS de 2024 (6ª ed.): o grupo B com hemoconcentração vai para a conduta do grupo C, que é exatamente a alternativa B; o Ht de referência da mulher é 42 ± 6%."
+  },
+  "sources": [
+    {
+      "claim": "Questão 45: gabarito definitivo B — reposição volêmica endovenosa com 10 mL/kg de soro fisiológico na primeira hora; repetição do exame de hematócrito em 2 horas; acompanhamento da paciente em leito de internação até sua estabilização.",
+      "title": "Revalida 2017 – Prova Objetiva (versão 1) – gabarito definitivo",
+      "publisher": "INEP",
+      "year": 2017,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf"
+    },
+    {
+      "claim": "Enunciado, comando e alternativas da questão 45 (caderno da versão 1, 24/09/2017)",
+      "title": "Revalida 2017 – Prova Objetiva (versão 1), questão 45",
+      "publisher": "INEP",
+      "year": 2017,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/provas/2017/prova_objetiva_1.pdf"
+    },
+    {
+      "claim": "Manual do MS (6ª ed., 2024): grupo B com hemoconcentração ou sinal de alarme é conduzido como grupo C; aumento progressivo do hematócrito é sinal de alarme; grupo C: reposição volêmica imediata com SF 0,9% 10 mL/kg na primeira hora, reavaliação clínica após 1 h, manutenção de 10 mL/kg/h até o hematócrito de 2 h, e leito de internação até estabilização (mínimo 48 h); referência de Ht para mulheres 42 ± 6% (Apêndice I); plaquetas só se sangramento persistente.",
+      "title": "Dengue: diagnóstico e manejo clínico – adulto e criança (6ª edição)",
+      "publisher": "Ministério da Saúde",
+      "year": 2024,
+      "url": "https://bvsms.saude.gov.br/bvs/publicacoes/dengue_diagnostico_manejo_clinico_6ed.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2017",
+    "item": "Objetiva questão 45",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf",
+    "originalCaseText": "Uma adolescente com 16 anos de idade é atendida em uma Unidade de Pronto Atendimento com história de febre de 38,5 ºC, cefaleia, mialgia e dor retrorbitária há 4 dias. Nega vômitos ou sangramentos. Ao exame físico, evidencia-se prova do laço com surgimento de 23 petéquias na área demarcada; pressão arterial e frequência cardíaca normais. O hemograma apresenta hematócrito = 49% (valor de referência: 42 ± 6%), hemoglobina = 16 g/dL (valor de referência: 13,6 ± 2,0 g/dL) e plaquetas = 6.000/mL (valor de referência: 130.000 a 370.000/mL). Considerando o quadro clínico apresentado, a conduta adequada é (A) reposição volêmica endovenosa com 20 mL/kg de soro fisiológico em 20 minutos; repetição do exame de hematócrito em 2 horas; internação da paciente em leito de terapia intensiva até sua estabilização. (B) reposição volêmica endovenosa com 10 mL/kg de soro fisiológico na primeira hora; repetição do exame de hematócrito em 2 horas; acompanhamento da paciente em leito de internação até sua estabilização. (C) hidratação oral da paciente com 60 mL/kg/dia, sendo 1/3 com solução de reidratação oral e o restante com líquidos caseiros; tratamento da paciente em regime ambulatorial com reavaliação diária do quadro clínico. (D) hidratação oral da paciente com 80 mL/kg/dia, sendo 1/3 com solução de reidratação oral e o restante com líquidos caseiros; tratamento da paciente em regime ambulatorial com reavaliação após melhora da febre.",
+    "notes": "Prova cega (11/10/2026): letra B conferida na imagem do gabarito definitivo (versão 1, text/img/2017_obj_gabarito-p01.png) e enunciado relido no texto de duas colunas, sem mistura com as questões vizinhas. Sinalizado como possivelmente desatualizado na triagem, mas o gabarito confere com o manual do MS de 2024 (6ª ed., verificado): hemoconcentração no grupo B leva à conduta do grupo C (SF 10 mL/kg na 1ª hora, Ht em 2 h, internação até estabilização, mínimo de 48 h). Plaquetas no enunciado em '/mL', erro de unidade da prova; no caseText ficou /mm³. Tratamento ambulatorial (C, D) virou proibida; a expansão de choque com UTI (A) não, por não ser perigosa agora no mesmo grau. O diagnóstico de dengue ficou crítico porque o schema exige um diagnóstico crítico; a classificação ficou importante."
+  },
+  "probes": {
+    "mustFlag": [
+      "Hidratação oral 60 mL/kg/dia e tratamento ambulatorial com reavaliação diária",
+      "Tratamento em regime ambulatorial com reavaliação após melhora da febre",
+      "Alta com hidratação oral e retorno em 24 h"
+    ],
+    "mustNotFlag": [
+      "Internar em enfermaria; seguimento ambulatorial só após estabilização e critérios de alta",
+      "Não fazer tratamento ambulatorial: há hemoconcentração",
+      "SF 0,9% 10 mL/kg na 1ª hora e internação"
+    ]
+  }
+}

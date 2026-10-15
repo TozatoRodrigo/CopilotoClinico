@@ -78,7 +78,22 @@ Digite o caso diretamente no campo de texto. Use os **modelos de queixa** (dor t
 - **Recursos disponíveis**: TC, Labs, UTI, SUS — marque o que está disponível no seu plantão agora. Isso muda as recomendações (ex: uma conduta que dependa de TC não é sugerida se você não marcar TC disponível).
 - **Red flags**: Imunossuprimido, Gestante, Anticoagulante (críticas), Pediátrico, 65+ (atenção), Alergia (informativa). Marcar esses chips garante que o Copiloto sempre considere esses fatores de risco na análise, mesmo que você não os tenha mencionado explicitamente no texto.
 
-Quando o campo mostrar **"Pronto para analisar"**, clique em **"Analisar com Copiloto"**.
+Quando o campo mostrar **"Pronto para analisar"**, clique em **"Enviar caso"** (ou ⌘↵ / Ctrl+↵).
+
+### O Copiloto pergunta o que falta — uma coisa por vez
+
+Depois de enviar, o caso vira uma **conversa**. Em poucos segundos o Copiloto diz o que entendeu ("**Entendi:** …") e decide:
+
+- **Paciente instável** (choque, hipoxemia, rebaixamento, sangramento ativo, convulsão, arritmia instável): **nenhuma pergunta** — o plano começa na hora.
+- **Caso completo para decidir**: nenhuma pergunta — o plano começa na hora.
+- **Falta um dado que muda a conduta e que você tem à mão** (história, exame físico, sinais vitais, glicemia capilar, ECG): até **3 perguntas, uma por vez** (1 só em quadro tempo-dependente).
+
+Cada pergunta mostra o que ela separa ("Separa: A × B") e o porquê. Responda com **um toque** (Sim / Não / **Não sei**, ou as opções da pergunta — no computador, as teclas 1 a 9), digite os **sinais vitais** que faltam numa tela só, ou responda **com suas palavras ou pela voz** no campo de baixo. A próxima pergunta vem na hora; depois da última, o plano começa sozinho.
+
+- **"Analisar agora com o que tenho"** fica sempre visível: o que ficou sem resposta entra no plano como "Depende de…".
+- Uma resposta que mostra gravidade (ex.: dor de início súbito) **encerra as perguntas** e o plano começa.
+- **"Corrigir"** ao lado do "Entendi" registra o que o Copiloto entendeu errado — a correção entra no plano.
+- Foi interrompido? A conversa fica salva. Ao voltar ao caso (em qualquer aparelho), a pergunta da vez estará esperando.
 
 > 🔒 **Nunca digite nome completo, CPF ou outros identificadores diretos do paciente no texto livre.** O sistema filtra PII automaticamente antes de enviar à IA, mas a prática correta é usar apenas o identificador interno do caso (prontuário/etiqueta), nunca dados que identifiquem a pessoa.
 
@@ -92,15 +107,17 @@ Depois de analisar, você vê:
 - **Red flags**: achados críticos/de atenção, cada um com uma ação recomendada.
 - **Plano sugerido**: recomendações concretas, cada uma **citando a diretriz de origem** (fonte, versão, trecho exato) com um nível de confiança. Recomendações fora da estabilização imediata vêm marcadas como *preliminares* quando há um red flag crítico em aberto — elas pedem mais confirmação antes de virarem conduta definitiva.
 - **Diagnósticos diferenciais**: hipóteses a considerar, com o que ajudaria a distingui-las.
-- **Perguntas bloqueadoras** ("O copiloto precisa saber"): perguntas que mudam a conduta e que o sistema não conseguiu responder sozinho a partir do texto.
+- **Perguntas para fechar o plano**: se ainda faltar algo que muda a conduta, o Copiloto pergunta logo abaixo do plano, uma por vez.
 
 ### Quando aparece "incerteza"
 
 Se o Copiloto não encontra diretriz aplicável na base (ou a evidência é insuficiente), ele **se recusa a inventar uma recomendação** — mostra `uncertainty` e explica o motivo. Isso é uma proteção de segurança clínica, não um erro do sistema.
 
-### Respondendo perguntas e reanalisando
+### Respondendo depois do plano
 
-Responda as perguntas bloqueadoras nos campos apresentados e clique em **"Reanalisar com as respostas"**. O Copiloto gera uma nova análise já considerando suas respostas, podendo transformar recomendações preliminares em definitivas.
+As perguntas que aparecem abaixo do plano funcionam como as de antes: uma por vez, com um toque. Depois da última, o Copiloto **refaz o plano** (cerca de 1 minuto) já com suas respostas — a nova rodada aparece na mesma conversa e a anterior fica recolhida em "Plano anterior". Se não quiser responder, toque em **"Seguir com este plano"**.
+
+Para acrescentar algo que não foi perguntado (ex.: resultado de exame), escreva ou dite no campo de baixo da conversa: o plano é refeito com a informação nova. Cada caso tem até 5 rodadas.
 
 ---
 

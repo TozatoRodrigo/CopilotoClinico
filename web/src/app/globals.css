@@ -409,6 +409,55 @@
   }
 }
 
+/* Gravura do rodapé da landing (app/_components/engraved-scene.tsx). Valores
+   em unidades do viewBox (1600×640): a ambulância espera ~1s fora da tela,
+   cruza o viaduto e some atrás do hospital; roda e poeira seguem a velocidade
+   (≈113 u/s → uma volta da roda de r=9,5 a cada 0,52s). */
+@theme {
+  --animate-scene-drive: scene-drive 16s linear infinite;
+  --animate-scene-bob: scene-bob 0.6s ease-in-out infinite;
+  --animate-scene-spin: scene-spin 0.52s linear infinite;
+  --animate-scene-puff: scene-puff 1.2s linear infinite;
+
+  @keyframes scene-drive {
+    0%,
+    7% {
+      transform: translateX(-1030px);
+    }
+    93%,
+    100% {
+      transform: translateX(524px);
+    }
+  }
+  @keyframes scene-bob {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    35% {
+      transform: translateY(-0.9px);
+    }
+    70% {
+      transform: translateY(0.2px);
+    }
+  }
+  @keyframes scene-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  @keyframes scene-puff {
+    0% {
+      opacity: 0.6;
+      transform: translate(0, 0) scale(0.5);
+    }
+    100% {
+      opacity: 0;
+      transform: translate(-70px, -8px) scale(1.8);
+    }
+  }
+}
+
 @layer utilities {
   /* Títulos de página no estilo Notion: sans, negrito, tracking levemente negativo. */
   .font-display {

@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 2,
+  "id": "kb004-delirium-febril-no-idoso",
+  "title": "Primeiro episódio de agitação flutuante com febre e SpO2 90% aos 68 anos",
+  "tags": [
+    "agitacao-psicomotora",
+    "delirium",
+    "dicotomia-agitacao"
+  ],
+  "critical": true,
+  "goldSource": "kb004_dichotomy",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Masc, 68a, sem história psiquiátrica, trazido por agitação e falas desconexas desde a tarde; ora sonolento, ora agitado, desorientado, diz ver bichos na parede. T 38,6, FC 112, SpO2 90%, glicemia 104."
+  },
+  "expected": {
+    "syndrome": "delirium hiperativo por causa orgânica (provável infecção com hipoxemia)",
+    "diagnoses": [
+      {
+        "text": "infecção ou sepse como causa do delirium",
+        "tier": "critical"
+      },
+      {
+        "text": "meningite ou encefalite (punção lombar, precedida de TC quando indicada)",
+        "tier": "critical"
+      },
+      {
+        "text": "abstinência alcoólica / delirium tremens",
+        "tier": "critical"
+      }
+    ],
+    "actions": [
+      {
+        "text": "oxigênio e investigação infecciosa (foco, culturas, exames)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "tratar a causa antes de sedar; se houver risco, antipsicótico em dose baixa e por curto prazo (ex.: haloperidol 0,5-1 mg), reservando benzodiazepínico para abstinência",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [
+      "pressão arterial",
+      "frequência respiratória",
+      "uso de álcool, benzodiazepínicos ou outras substâncias (abstinência)",
+      "medicações em uso (anticolinérgicos, opioides, sedativos, início recente)"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "benzodiazepinico-em-delirium-de-idoso",
+        "description": "Benzodiazepínico como sedação de primeira linha em delirium de idoso hipoxêmico (fora de abstinência)",
+        "patterns": [
+          "midazolam",
+          "diazepam",
+          "lorazepam",
+          "clonazepam",
+          "benzodiazep\\w*"
+        ],
+        "exceptWhen": [
+          "(se|caso|suspeita\\s+de|por|em|na)\\s+(\\S+\\s+){0,3}abstin\\w*",
+          "delirium\\s+tremens"
+        ]
+      },
+      {
+        "id": "conduzir-como-psiquiatrico",
+        "description": "Conduzir como quadro psiquiátrico primário sem investigar a causa orgânica",
+        "patterns": []
+      }
+    ],
+    "rationale": "KB-004 (09-agitacao-causa-organica): > 40 anos sem história psiquiátrica, flutuação, alucinação visual, febre e hipóxia = causa orgânica. A causa ainda é aberta: sepse/pneumonia, infecção do SNC (atípica no idoso) ou delirium tremens (zoopsia, febre, taquicardia) — este inverte a sedação (benzodiazepínico vira tratamento, com tiamina). ABP 2019, NICE CG103 e Beers 2023: tratar a causa; se houver risco, antipsicótico em dose baixa e curta; evitar benzodiazepínico fora de abstinência."
+  },
+  "sources": [
+    {
+      "claim": "Delirium: evitar BZD (pode exacerbar o delirium); antipsicóticos de 2ª geração preferidos, haloperidol/risperidona em dose baixa aceitáveis; tratar a causa orgânica é superior a qualquer droga; BZD preferido na abstinência alcoólica.",
+      "title": "Brazilian guidelines for the management of psychomotor agitation. Part 2. Pharmacological approach",
+      "publisher": "Braz J Psychiatry (Baldaçara et al.)",
+      "year": 2019,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6804299/"
+    },
+    {
+      "claim": "Considerar haloperidol de curto prazo (geralmente ≤ 1 semana), na menor dose, só se houver sofrimento ou risco e falha do de-escalonamento; identificar e tratar a causa.",
+      "title": "Delirium: prevention, diagnosis and management in hospital and long-term care (CG103)",
+      "publisher": "NICE",
+      "year": 2010,
+      "url": "https://www.nice.org.uk/guidance/cg103"
+    },
+    {
+      "claim": "Benzodiazepínicos aumentam o risco de delirium em idosos; o uso de antipsicóticos em delirium tem alerta reforçado.",
+      "title": "American Geriatrics Society 2023 updated AGS Beers Criteria for potentially inappropriate medication use in older adults",
+      "publisher": "American Geriatrics Society (J Am Geriatr Soc)",
+      "year": 2023,
+      "url": "https://doi.org/10.1111/jgs.18372"
+    },
+    {
+      "claim": "Benzodiazepínicos são o tratamento central da abstinência alcoólica; tiamina para prevenir encefalopatia de Wernicke.",
+      "title": "The ASAM Clinical Practice Guideline on Alcohol Withdrawal Management",
+      "publisher": "American Society of Addiction Medicine",
+      "year": 2020,
+      "url": "https://www.asam.org/docs/default-source/quality-science/the_asam_clinical_practice_guideline_on_alcohol-1.pdf"
+    },
+    {
+      "claim": "Febre com alteração do estado mental faz parte da apresentação da meningite bacteriana; a apresentação é atípica em idosos.",
+      "title": "ESCMID guideline: diagnosis and treatment of acute bacterial meningitis",
+      "publisher": "ESCMID (Clin Microbiol Infect)",
+      "year": 2016,
+      "url": "https://doi.org/10.1016/j.cmi.2016.01.007"
+    }
+  ],
+  "provenance": {
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: meningite/encefalite e delirium tremens entram como hipóteses obrigatórias; a sedação de risco passou a nomear a classe (antipsicótico em dose baixa); pedidos de FR e medicações; exceção de abstinência presa ao benzodiazepínico (\"não\" e \"abstin\" soltos anulavam a checagem)."
+  },
+  "probes": {
+    "mustFlag": [
+      "Midazolam 5 mg IM para contenção química; investigar abstinência",
+      "Midazolam 5 mg IM, não há outra opção",
+      "Diazepam 10 mg IV para a agitação"
+    ],
+    "mustNotFlag": [
+      "Evitar benzodiazepínico fora de abstinência; haloperidol 0,5 mg se risco",
+      "Diazepam se abstinência alcoólica confirmada, com tiamina",
+      "Não usar midazolam: piora o delirium no idoso"
+    ]
+  }
+}

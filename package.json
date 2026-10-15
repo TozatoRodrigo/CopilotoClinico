@@ -10,7 +10,7 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
-    "lint": "eslint src/ --max-warnings=0",
+    "lint": "eslint src/ evals/ --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -28,7 +28,11 @@
     "e2e:ui": "playwright test",
     "ingest:guidelines": "tsx scripts/ingest-batch.ts",
     "sync:official-guidelines": "tsx scripts/sync-official-guidelines.ts",
-    "backfill:copilot-feedback": "tsx scripts/backfill-copilot-feedback.ts"
+    "backfill:copilot-feedback": "tsx scripts/backfill-copilot-feedback.ts",
+    "verify:audit-chain": "tsx scripts/verify-audit-chain.ts",
+    "eval:clinical": "tsx evals/clinical/run.ts",
+    "eval:clinical:compare": "tsx evals/clinical/compare.ts",
+    "eval:deid": "tsx evals/deid/run.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",

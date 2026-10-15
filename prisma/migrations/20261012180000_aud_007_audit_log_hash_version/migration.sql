@@ -1,0 +1,11 @@
+-- Migration: AUD-007 — versão do hash da cadeia de auditoria (ADR-015)
+--
+-- NULL = hash legado: JSON.stringify com o payload na ordem de inserção, que
+-- o jsonb não preserva. 2 = JSON canônico (chaves ordenadas), gravado pela
+-- aplicação a partir desta versão.
+--
+-- Aditiva e sem reescrita: coluna nula sem default é só metadado no
+-- PostgreSQL, nenhum registro existente muda e o trigger append-only
+-- (audit_log_no_update_delete) continua valendo. O GRANT de INSERT de
+-- copiloto_app é por tabela e já cobre a coluna nova.
+ALTER TABLE "audit_log" ADD COLUMN "hash_version" SMALLINT;

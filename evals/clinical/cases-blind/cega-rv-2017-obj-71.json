@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2017-obj-71",
+  "title": "Primigesta de 31 semanas com cefaleia occipital persistente na emergência obstétrica",
+  "tags": [
+    "pressao-arterial-elevada",
+    "revalida",
+    "prova-cega",
+    "objetiva",
+    "obstetricia",
+    "pre-eclampsia"
+  ],
+  "critical": true,
+  "goldSource": "revalida_objetiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Emergência obstétrica. Primigesta, 27a, IG 31 sem. Cefaleia occipital moderada e persistente há 12 h. EF: palidez cutaneomucosa ++/4+; edema de MMII +++/4+; PA 145x95 mmHg; AU 30 cm; BCF 140 bpm com aceleração transitória. Dinâmica: 2 contrações de 30 s em 10 min. Toque: colo grosso, posterior, 1 polpa digital, bolsa íntegra. CTG com padrão tranquilizador. Lab: Ht 39%, Hb 13 g/dL, plaquetas 65.000/mm³, DHL 1.500 UI/L, AST 105 UI/L; proteinúria em fita +++/4+."
+  },
+  "expected": {
+    "syndrome": "pré-eclâmpsia com sinais de gravidade na gestação pré-termo",
+    "diagnoses": [
+      {
+        "text": "síndrome HELLP (plaquetas 65.000, DHL 1.500, AST 105) em pré-eclâmpsia com sinais de gravidade (cefaleia persistente, proteinúria +++)",
+        "tier": "critical"
+      }
+    ],
+    "actions": [
+      {
+        "text": "sulfato de magnésio para prevenção de eclâmpsia",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "interrupção da gestação após estabilização materna, independentemente da idade gestacional — via por indicação obstétrica: cesárea (gabarito de 2017) ou parto vaginal, que a RBEHG/MS 2022 prefere para reduzir sangramento",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "estabilização antes do parto: anti-hipertensivo de ação rápida se a PA subir acima da meta (PAS < 150 e PAD < 100 mmHg), monitorização materno-fetal e reserva de plaquetas e hemácias (plaquetas > 50.000 para cesárea)",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "tocolise-na-pre-eclampsia-grave",
+        "description": "Tocólise (nifedipina como uterolítico, alternativa D) na pré-eclâmpsia com sinais de gravidade/HELLP: contraindicada (MS 2022) e adia a interrupção indicada.",
+        "patterns": [
+          "tocol\\w*",
+          "atosiban\\w*",
+          "uterolitic\\w*",
+          "terbutalin\\w*",
+          "inib\\w*\\s+(as\\s+)?(contracoes|(o\\s+)?trabalho\\s+de\\s+parto)"
+        ]
+      }
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2017, objetiva 71): alternativa C — sulfato de magnésio, estabilização e resolução da gestação por cesárea. Plaquetopenia < 100.000 com DHL e AST elevados em pré-eclâmpsia é síndrome HELLP: emergência obstétrica com MgSO4 e interrupção da gestação em qualquer idade gestacional (MS 2022/RBEHG). Corticoide para maturação pulmonar entre 24 e 34 semanas é aceito se não atrasar a resolução; tocólise é contraindicada."
+  },
+  "sources": [
+    {
+      "claim": "Gabarito definitivo (Versão 1): questão 71 = C — \"administrar sulfato de magnésio, estabilizar clinicamente a paciente e proceder à resolução da gestação por parto cesáreo.\"",
+      "title": "Revalida 2017 – 001. Prova Objetiva, Versão 1 – Gabarito definitivo",
+      "publisher": "INEP",
+      "year": 2017,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf"
+    },
+    {
+      "claim": "Síndrome HELLP (seção 11.6.3, quadro 4, RBEHG/Peraçoli 2020): emergência obstétrica; interrupção da gestação indicada independentemente da idade gestacional, salvo condições excepcionais; MgSO4 sempre; manter PAD < 100 e PAS < 150 mmHg; corticoide entre 24 e 34 semanas; plaquetas > 50.000 para cesárea; via de parto por indicação obstétrica, sendo a vaginal a melhor para diminuir sangramento; sem razão aceitável para manter a gestação com plaquetas < 100.000. Tocólise contraindicada na pré-eclâmpsia com achados graves (seção 6.4.2).",
+      "title": "Manual de Gestação de Alto Risco (1ª edição)",
+      "publisher": "Ministério da Saúde",
+      "year": 2022,
+      "url": "https://bvsms.saude.gov.br/bvs/publicacoes/manual_gestacao_alto_risco.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2017",
+    "item": "Objetiva questão 71",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf",
+    "originalCaseText": "Uma primigesta com 27 anos de idade, na 31ª semana de gestação, procura a emergência obstétrica, queixando-se de cefaleia occipital moderada e persistente há 12 horas. O exame físico revela: palidez cutâneo-mucosa ++/4+; edema de membros inferiores +++/4+; pressão arterial = 145 x 95 mmHg; altura uterina = 30 cm; batimentos cardíacos fetais = 140 bpm, com aceleração transitória presente. Dinâmica: duas contrações de 30 segundos em 10 minutos. Toque vaginal: colo grosso, posterior, uma polpa digital, bolsa íntegra. Cardiotocografia com padrão tranquilizador. Os resultados dos exames laboratoriais demonstram: hematócrito = 39% (valor de referência: 36 a 54%); hemoglobina = 13 g/dL (valor de referência: 13,0 a 16,5 g/dL); plaquetas = 65.000/mL (valor de referência: 130.000 a 450.000/mm3); desidrogenase láctica = 1.500 UI/L (valor de referência: 240 a 480 U/L); aspartato aminotransferase = 105 UI/L (valor de referência: < 34 U/L); proteinúria em fita +++/4+. Em face desse quadro clínico, a conduta adequada é (A) administrar sulfato de magnésio e corticoterapia para a maturação pulmonar fetal e iniciar a indução do parto vaginal, após 24 horas da segunda dose do corticoide. (B) prescrever corticoterapia para a maturação pulmonar fetal e iniciar a indução do parto vaginal, após 24 horas da segunda dose do corticoide. (C) administrar sulfato de magnésio, estabilizar clinicamente a paciente e proceder à resolução da gestação por parto cesáreo. (D) iniciar tocólise com nifedipina via oral e prescrever corticoterapia para maturação pulmonar fetal.",
+    "notes": "Prova cega (11/10/2026): objetiva 2017, gabarito C conferido na imagem do gabarito definitivo. Divergência vigente: o MS 2022 (quadro da RBEHG) diz que a via de parto na HELLP é obstétrica e prefere a vaginal; o gabarito fixou cesárea. O item aceita as duas vias, sem excludeFromGate. Corticoide antenatal (24–34 sem) não virou item: não está na alternativa correta; também não é proibido. Proibida: tocólise (D); nifedipina não entrou nos padrões porque também é anti-hipertensivo legítimo. Indução após 48 h de corticoide (A) não virou proibida."
+  },
+  "probes": {
+    "mustFlag": [
+      "Iniciar tocólise com nifedipina VO e corticoide",
+      "Atosibana para inibir as contrações"
+    ],
+    "mustNotFlag": [
+      "Tocólise contraindicada: HELLP",
+      "Nifedipina 10 mg VO se PA ≥ 160x110",
+      "Não inibir o trabalho de parto"
+    ]
+  }
+}

@@ -10,7 +10,9 @@ import {
   Sse,
   MessageEvent,
   Inject,
+  Res,
 } from '@nestjs/common';
+import type { FastifyReply } from 'fastify';
 import { Observable } from 'rxjs';
 import { CopilotService } from './copilot.service';
 import { CopilotFeedbackService } from './feedback/copilot-feedback.service';
@@ -28,6 +30,7 @@ import type {
   RespondInput,
   CopilotFeedbackInput,
 } from './schemas/copilot.schemas';
+import { sendEventStream, streamEvents } from './stream-events';
 
 @Controller('encounters/:encounterId/copilot')
 @UseGuards(JwtAuthGuard)
@@ -75,21 +78,7 @@ export class CopilotController {
       demoCase,
     };
 
-    return new Observable((subscriber) => {
-      const gen = this.copilotService.stream(req.user.physicianId, encounterId, input);
-
-      void (async () => {
-        try {
-          for await (const event of gen) {
-            subscriber.next({ data: event });
-            if (event.type === 'done' || event.type === 'error') break;
-          }
-          subscriber.complete();
-        } catch (err) {
-          subscriber.error(err);
-        }
-      })();
-    });
+    return streamEvents(() => this.copilotService.stream(req.user.physicianId, encounterId, input));
   }
 
   @Post('respond')
@@ -99,6 +88,28 @@ export class CopilotController {
     @Body(new ZodValidationPipe(respondSchema)) body: RespondInput,
   ) {
     return this.copilotService.respond(req.user.physicianId, encounterId, body);
+  }
+
+  /**
+   * Reanálise por streaming — o mesmo corpo e a mesma validação do POST
+   * /respond, com os eventos do streaming (entendimento refeito, deltas,
+   * done) numa resposta text/event-stream. POST, e não GET com EventSource:
+   * as respostas do médico vão no corpo, nunca na URL (ADR-014). O que recusa
+   * o pedido (validação, interação de outro atendimento, teto de turnos,
+   * injeção) sai antes de qualquer byte, como o 4xx de sempre.
+   */
+  @Post('respond/stream')
+  async respondStream(
+    @Request() req: { user: { physicianId: string } },
+    @Param('encounterId') encounterId: string,
+    @Body(new ZodValidationPipe(respondSchema)) body: RespondInput,
+    @Res() reply: FastifyReply,
+  ): Promise<FastifyReply> {
+    const events = await this.copilotService.respondStream(req.user.physicianId, encounterId, body);
+    return sendEventStream(
+      reply,
+      streamEvents(() => events),
+    );
   }
 
   /**

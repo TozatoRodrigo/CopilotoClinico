@@ -1,0 +1,228 @@
+{
+  "schemaVersion": 2,
+  "id": "rv-2025-1-est-7",
+  "title": "Dor súbita em flanco direito irradiada para virilha em mulher de 24 anos na emergência",
+  "tags": [
+    "dor-lombar-flanco",
+    "revalida",
+    "pep",
+    "urolitiase"
+  ],
+  "critical": false,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Emergência de hospital terciário (radiologia, laboratório, centro cirúrgico). Fem, 24a, estudante. Dor intensa (9/10) no lado D do abdome (flanco D), de início súbito há ~24 h, em cólica que vai e volta, irradiando para a virilha e a face interna da coxa; não consegue ficar parada. Dipirona sem melhora. Notou sangue na urina quando a dor começou. Náuseas sem vômitos. Nega disúria, urgência, odor forte na urina, corrimento e dispareunia. Já teve dor parecida, muito mais branda. Sem ITU prévia, trauma ou cirurgia; sem doenças prévias nem na família. Parceiro fixo, usa preservativo; nuligesta; menstruação terminou há 7 d; sem IST prévia. Sedentária, não fuma, não bebe; quase não ingere água. EF: REG, desidratada 1+/4+, normocorada, acianótica. FC 110, PA 110x70, FR 20, T 37,0 °C, IMC 22. Abdome plano, flácido, indolor à palpação profunda, sem tumorações; Blumberg, Rovsing e Giordano negativos. Aparelhos respiratório, cardiovascular e ginecológico sem alterações.",
+    "funnel": {
+      "opening": "Emergência de hospital terciário (radiologia, laboratório, centro cirúrgico). Fem, 24a, dor no abdome.",
+      "script": [
+        {
+          "id": "h-identificacao",
+          "kind": "history",
+          "text": "24 anos, solteira, estudante."
+        },
+        {
+          "id": "h-dor-inicio",
+          "kind": "history",
+          "text": "Dor intensa (nota 9 de 10) no lado direito da barriga, que começou subitamente há cerca de 24 horas."
+        },
+        {
+          "id": "h-dor-colica",
+          "kind": "history",
+          "text": "A dor é uma cólica que vai e volta e irradia para a virilha e para a parte interna da coxa.",
+          "key": true
+        },
+        {
+          "id": "h-inquieta",
+          "kind": "history",
+          "text": "Não consegue se mexer nem ficar parada por causa da dor."
+        },
+        {
+          "id": "h-dipirona",
+          "kind": "history",
+          "text": "Tomou dipirona, sem melhora."
+        },
+        {
+          "id": "h-hematuria",
+          "kind": "history",
+          "text": "Notou sangue na urina quando a dor começou."
+        },
+        {
+          "id": "h-sem-sintomas-urinarios",
+          "kind": "history",
+          "text": "Sem dor ou ardência ao urinar, sem urgência urinária e sem odor forte na urina."
+        },
+        {
+          "id": "h-sem-corrimento",
+          "kind": "history",
+          "text": "Sem corrimento ou secreção vaginal e sem dor na relação sexual."
+        },
+        {
+          "id": "h-nausea",
+          "kind": "history",
+          "text": "Está nauseada, mas não vomitou."
+        },
+        {
+          "id": "h-dor-previa",
+          "kind": "history",
+          "text": "Já sentiu uma dor parecida, mas muito mais branda."
+        },
+        {
+          "id": "h-sem-itu",
+          "kind": "history",
+          "text": "Nunca teve infecção urinária."
+        },
+        {
+          "id": "h-sem-trauma",
+          "kind": "history",
+          "text": "Nunca sofreu trauma ou lesão nem foi operada."
+        },
+        {
+          "id": "h-antecedentes",
+          "kind": "history",
+          "text": "Sem doenças prévias e sem histórico de doenças na família."
+        },
+        {
+          "id": "h-parceiro",
+          "kind": "history",
+          "text": "Tem parceiro fixo e usa preservativo."
+        },
+        {
+          "id": "h-gineco",
+          "kind": "history",
+          "text": "Nunca engravidou; a menstruação terminou há 7 dias."
+        },
+        {
+          "id": "h-sem-ist",
+          "kind": "history",
+          "text": "Sem antecedente de infecções sexualmente transmissíveis."
+        },
+        {
+          "id": "h-habitos",
+          "kind": "history",
+          "text": "Não fuma, não bebe, não pratica atividade física regular; alimentação saudável."
+        },
+        {
+          "id": "h-agua",
+          "kind": "history",
+          "text": "Quase não ingere água."
+        },
+        {
+          "id": "e-geral-sinais",
+          "kind": "exam",
+          "text": "REG, desidratada 1+/4+, normocorada, acianótica; FC 110 bpm, PA 110x70 mmHg, FR 20 irpm, T 37,0 °C, IMC 22 kg/m²."
+        },
+        {
+          "id": "e-abdome",
+          "kind": "exam",
+          "text": "Abdome plano, flácido, indolor à palpação profunda em todos os quadrantes, sem tumorações; Blumberg, Rovsing e Giordano negativos."
+        },
+        {
+          "id": "e-outros",
+          "kind": "exam",
+          "text": "Aparelhos respiratório, cardiovascular e ginecológico sem alterações."
+        },
+        {
+          "id": "t-laboratorio",
+          "kind": "test",
+          "text": "Hb 13,5, Ht 40,2%, leucócitos 10.500, plaquetas 240.000; PCR 7 mg/dL (VR ≤ 8); creatinina 1,5 mg/dL, ureia 58; sódio 138, potássio 5,1 mEq/L; beta-hCG negativo."
+        },
+        {
+          "id": "t-urina",
+          "kind": "test",
+          "text": "Rotina de urina: amarela, límpida, densidade 1025, pH 5,0; proteína, glicose, cetonas e bilirrubinas negativas; leucócitos 2.000/mL, hemácias 75.000/mL (VR até 13.000)."
+        },
+        {
+          "id": "t-usg",
+          "kind": "test",
+          "text": "USG de abdome: hidronefrose à direita, sem fator obstrutivo identificável pelo método; sem outros achados."
+        },
+        {
+          "id": "t-tc",
+          "kind": "test",
+          "text": "TC de abdome sem contraste: hidronefrose à direita com cálculo de 10 mm na junção ureterovesical; sem outros achados.",
+          "key": true
+        }
+      ]
+    }
+  },
+  "expected": {
+    "syndrome": "cólica renal por ureterolitíase à direita",
+    "diagnoses": [
+      {
+        "text": "cólica renal por ureterolitíase à direita (litíase urinária / uropatia obstrutiva por cálculo)",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "analgesia especificando a droga ou a classe: AINE, opioide ou dipirona",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "exames: hemograma, PCR e/ou VHS, creatinina e/ou ureia, sódio e/ou potássio, urina tipo 1 e/ou urocultura e beta-hCG",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "TC de abdome ou de rins e vias urinárias sem contraste (USG isolada é alternativa parcial)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "encaminhar à urologia e/ou prescrever terapia expulsiva medicamentosa",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [],
+    "outOfScope": [
+      "identificar-se e cumprimentar a paciente (item 1)",
+      "perguntar características da dor, manifestações associadas e antecedentes ginecológicos (itens 2–4) — anamnese, coberta pelo roteiro",
+      "orientar prevenção de novos episódios: mais água, menos sódio e oxalato, IMC normal (item 10)"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2025/1, Estação 7): a descrição inicial traz só a queixa de dor abdominal; o PEP pontua anamnese dirigida, laboratório com beta-HCG e TC antes do diagnóstico de ureterolitíase, com analgesia, urologia ou terapia expulsiva e orientações de prevenção. Gabarito v2: laboratório e imagem ficaram no funnel; a decisão pedida no caseText é analgesia, investigação e encaminhamento."
+  },
+  "sources": [
+    {
+      "claim": "Itens 2–4 (0,8 ponto cada): pergunta características da dor (início/duração, localização, irradiação/migração, tipo, intensidade, fatores de piora e de melhora); manifestações associadas (náuseas/vômitos, febre, disúria, polaciúria, urgência urinária, hematúria); queixas e antecedentes ginecológicos (corrimento vaginal, histórico de IST, atividade sexual desprotegida/número de parceiros, data da última menstruação).",
+      "title": "Revalida 2025/1 – Habilidades Clínicas – PEP definitivo, Estação 7, itens 2–4",
+      "publisher": "INEP",
+      "year": 2025,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Itens 5–6: solicita hemograma, PCR e/ou VHS, creatinina e/ou ureia, sódio e/ou potássio, rotina de urina e/ou urocultura e beta-HCG (1,4; adequado com cinco ou seis); solicita TC de abdome ou de rins e vias urinárias (adequado) e/ou USG de abdome ou de rins e vias urinárias (USG isolada = parcial) (1,0).",
+      "title": "Revalida 2025/1 – Habilidades Clínicas – PEP definitivo, Estação 7, itens 5–6",
+      "publisher": "INEP",
+      "year": 2025,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Item 7 (2,0 pontos): define hipótese de ureterolitíase / litíase urinária / urolitíase / uropatia obstrutiva por cálculo.",
+      "title": "Revalida 2025/1 – Habilidades Clínicas – PEP definitivo, Estação 7, item 7",
+      "publisher": "INEP",
+      "year": 2025,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Itens 8–10: indica analgesia com anti-inflamatórios não esteroidais, opioides ou dipirona, especificando droga ou classe (1,0); encaminha para avaliação de especialista em urologia e/ou prescreve terapia expulsiva medicamentosa (1,0); orienta prevenção de novos episódios — aumento da ingesta hídrica, baixa ingesta de sódio, baixa ingesta de oxalato, manutenção do IMC normal (1,0).",
+      "title": "Revalida 2025/1 – Habilidades Clínicas – PEP definitivo, Estação 7, itens 8–10",
+      "publisher": "INEP",
+      "year": 2025,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2025/1",
+    "item": "Estação 7",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf",
+    "originalCaseText": "CENÁRIO DE ATENDIMENTO Nível de atenção: terciária. Tipo de atendimento: urgência e emergência. A unidade apresenta a seguinte infraestrutura: ● setor de radiologia; ● laboratório de análises clínicas; ● centro cirúrgico. DESCRIÇÃO DO CASO Você atenderá uma mulher de 24 anos que apresenta dor em abdome. Nos 10 minutos de duração da estação, você deverá executar as seguintes tarefas: ● realizar anamnese; ● solicitar e interpretar exame físico; ● solicitar e interpretar exames complementares pertinentes ao caso; ● formular e verbalizar a hipótese diagnóstica definitiva; ● orientar o plano terapêutico mais indicado ao quadro clínico. A PACIENTE SIMULADA NÃO DEVERÁ SER TOCADA DURANTE O ATENDIMENTO.",
+    "notes": "Gabarito v2 (11/10/2026): caseText e funnel com o roteiro oficial da paciente simulada e o impresso de exame físico; laboratório, urina, USG e TC ficaram só no funnel (o PEP cobra solicitá-los e o laudo da TC traz o diagnóstico) e viraram itens importantes 'agora'. O impresso de laboratório é imagem e foi lido na página renderizada (creatinina 1,5, potássio 5,1, hemácias 75.000/mL, beta-hCG negativo). Caso segue não crítico; todos os itens são importantes. Prevenção de novos episódios foi para outOfScope. Dúvida para revisão: a creatinina 1,5 com cálculo obstrutivo de 10 mm não é cobrada pelo gabarito, mas pode pesar contra AINE e a favor de urologia urgente. | Dados sob demanda: estudante, sem comorbidades; dor intensa (9/10) no lado direito da barriga, súbita há ~24 h, em cólica que vai e volta, irradiando para virilha e face interna da coxa; não consegue ficar parada; dipirona sem melhora; notou sangue na urina no início da dor; sem disúria, urgência ou odor forte; sem corrimento ou dispareunia; náuseas sem vômitos; dor parecida no passado, mais branda; sem ITU, trauma ou cirurgia prévia; sem doenças na família; parceiro fixo, usa preservativo; nuligesta, menstruação terminou há 7 dias; sem IST; sedentária, não fuma, não bebe; quase não ingere água. Exame físico: REG, desidratada +/4+, FC 110, PA 110x70, FR 20, T 37,0 °C, abdome plano, flácido, indolor à palpação profunda, sem tumorações, Blumberg, Rovsing e Giordano negativos; aparelhos respiratório, cardiovascular e ginecológico sem alterações. Exames laboratoriais (incluindo rotina de urina): valores não transcritos no texto da prova. USG de abdome: hidronefrose à direita, sem fator obstrutivo identificável. TC de abdome sem contraste: hidronefrose à direita com cálculo de 10 mm na junção ureterovesical."
+  }
+}

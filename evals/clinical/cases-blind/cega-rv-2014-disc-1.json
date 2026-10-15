@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2014-disc-1",
+  "title": "Prematuro de 28 semanas e 950 g, de mãe febril com bolsa rota há 2 dias, com gemência e retrações após reanimação",
+  "tags": [
+    "dispneia",
+    "revalida",
+    "prova-cega",
+    "discursiva",
+    "neonatologia",
+    "sepse-neonatal"
+  ],
+  "critical": true,
+  "goldSource": "revalida_discursiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Maternidade de referência, centro obstétrico (UTI neonatal disponível). Recepção de RN prematuro. Mãe primigesta 26a, IG 28 sem (DUM confirmada por USG), sem pré-natal; procurou o serviço de emergência febril e em início de trabalho de parto, com perda de líquido vaginal há 2 dias. Cesárea. RN 950 g, nasceu em apneia; VPP com O2 a 100% iniciada imediatamente, com boa resposta nos primeiros 30 s. Em seguida: gemência com retrações subcostais e intercostais moderadas."
+  },
+  "expected": {
+    "syndrome": "desconforto respiratório precoce em prematuro extremo com risco infeccioso materno (febre e bolsa rota prolongada)",
+    "diagnoses": [
+      {
+        "text": "síndrome do desconforto respiratório (doença da membrana hialina) do prematuro",
+        "tier": "critical"
+      },
+      {
+        "text": "sepse neonatal precoce/pneumonia congênita, provável estreptococo do grupo B (febre materna, bolsa rota há 2 dias, prematuridade)",
+        "tier": "critical"
+      }
+    ],
+    "actions": [
+      {
+        "text": "suporte ventilatório gentil: CPAP ou VPP com pressão controlada e PEEP, titulando a FiO2 pela SatO2 pré-ductal [ref.: SBP 2022: em < 34 semanas iniciar com O2 a 30%; não manter O2 a 100%]",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "colher hemocultura e iniciar antibiótico empírico IV (ampicilina + gentamicina)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "prevenir hipotermia: saco plástico, touca, fonte de calor radiante [ref.: temperatura axilar 36,5–37,5 °C]",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "surfactante endotraqueal na SDR com necessidade de O2 ou ventilação",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "avaliar a necessidade de suporte hemodinâmico (perfusão, PA, glicemia)",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "exames nas primeiras 24 h: RX de tórax, hemograma, PCR, hemocultura, gasometria arterial, glicemia e eletrólitos (o padrão aceitava também urocultura)",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [],
+    "outOfScope": [
+      "citar três fatores que predispõem ao quadro respiratório (item b): prematuridade, oxigênio em alta concentração, ventilação com pressão positiva, infecção, biotrauma — lista de prova",
+      "iniciar as manobras de reanimação de imediato (item c, 1ª medida): já feito no caseText (VPP ao nascer)"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2014, Questão 1): hipóteses de doença da membrana hialina/SDR e pneumonia por estreptococo do grupo B; fatores predisponentes (prematuridade, O2 em alta concentração, VPP, infecção, biotrauma); estabilização na 1ª hora (reanimação, ventilação gentil, prevenção de hipotermia, suporte hemodinâmico, afastar/tratar infecção, surfactante) e exames em 24 h. v2: as duas hipóteses são críticas; ventilação gentil e antibiótico empírico (febre materna + bolsa rota + prematuridade) são as condutas críticas."
+  },
+  "sources": [
+    {
+      "claim": "Enunciado e comandos da questão discursiva 1.",
+      "title": "Revalida 2014 – Prova Discursiva, Questão 1",
+      "publisher": "INEP",
+      "year": 2014,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/provas/2014/po_revalida_discursiva_2014.pdf"
+    },
+    {
+      "claim": "Duas hipóteses: doença pulmonar da membrana hialina ou síndrome do desconforto respiratório; pneumonia por estreptococo do grupo B (1,0).",
+      "title": "Revalida 2014 – Prova Discursiva – Padrão de Resposta definitivo, Questão 1, item a",
+      "publisher": "INEP",
+      "year": 2014,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2014/padrao_resposta_prova_discursiva_20072014.pdf"
+    },
+    {
+      "claim": "Fatores predisponentes: prematuridade, oxigênio em alta concentração, ventilação com pressão positiva, infecção, biotrauma (3,0).",
+      "title": "Revalida 2014 – Prova Discursiva – Padrão de Resposta definitivo, Questão 1, item b",
+      "publisher": "INEP",
+      "year": 2014,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2014/padrao_resposta_prova_discursiva_20072014.pdf"
+    },
+    {
+      "claim": "Quatro medidas na 1ª hora: iniciar reanimação de imediato; ventilação gentil (controlando a pressão); prevenir hipotermia; avaliar suporte hemodinâmico; afastar/tratar o processo infeccioso; surfactante endotraqueal (4,0).",
+      "title": "Revalida 2014 – Prova Discursiva – Padrão de Resposta definitivo, Questão 1, item c",
+      "publisher": "INEP",
+      "year": 2014,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2014/padrao_resposta_prova_discursiva_20072014.pdf"
+    },
+    {
+      "claim": "Exames em 24 h: RX de tórax, hemograma, PCR, hemocultura, urocultura, gasometria arterial, eletrólitos, glicemia (2,0).",
+      "title": "Revalida 2014 – Prova Discursiva – Padrão de Resposta definitivo, Questão 1, item d",
+      "publisher": "INEP",
+      "year": 2014,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2014/padrao_resposta_prova_discursiva_20072014.pdf"
+    },
+    {
+      "claim": "RN < 34 semanas: iniciar a VPP com O2 a 30%, titulando pela SatO2 pré-ductal (ILCOR: 21–30%); CPAP em RNPT < 34 semanas com FC > 100 e respiração espontânea, mas com desconforto respiratório ou SatO2 abaixo do esperado; normotermia (36,5–37,5 °C) com saco plástico transparente sob fonte de calor radiante.",
+      "title": "Reanimação do recém-nascido <34 semanas em sala de parto: Diretrizes 2022 da Sociedade Brasileira de Pediatria",
+      "publisher": "Sociedade Brasileira de Pediatria (Programa de Reanimação Neonatal)",
+      "year": 2022,
+      "url": "https://www.sbp.com.br/fileadmin/user_upload/sbp/2022/maio/20/DiretrizesSBP-Reanimacao-RNmenor34semanas-MAIO2022.pdf"
+    },
+    {
+      "claim": "Sepse neonatal precoce: fatores de risco incluem febre materna, bolsa rota > 18 h, corioamnionite e prematuridade (o mais importante); após coletar culturas, antibioticoterapia empírica com ampicilina associada a gentamicina.",
+      "title": "Atenção à saúde do recém-nascido: guia para os profissionais de saúde, vol. 2 (cap. 14, Sepse neonatal precoce)",
+      "publisher": "Ministério da Saúde",
+      "year": 2014,
+      "url": "https://bvsms.saude.gov.br/bvs/publicacoes/atencao_saude_recem_nascido_v2.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2014",
+    "item": "Discursiva caso 1",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2014/padrao_resposta_prova_discursiva_20072014.pdf",
+    "originalCaseText": "Em uma maternidade de referência, o médico é chamado ao Centro Obstétrico para recepcionar um recém-nascido prematuro. A mãe é uma primigesta de 26 anos de idade, com 28 semanas de idade gestacional pela data da última menstruação confirmada pela ultrassonografia. Ela não realizou pré-natal, só procurando o Serviço de Emergência, em estado febril e em início de trabalho de parto. Referia ainda perda de líquido vaginal há dois dias. Foi indicada cesariana, com o nascimento de um recém-nascido pesando 950 gramas e em apneia. Imediatamente após o nascimento, iniciou-se ventilação com pressão positiva e oxigênio a 100%, com boa resposta nos primeiros 30 segundos de ventilação. Em seguida, o recém-nascido evoluiu com quadro de gemência acompanhado de retrações subcostais e intercostais moderadas. Para o quadro clínico apresentado pelo recém-nascido, indique: a) duas hipóteses diagnósticas. (Valor: 1,0 ponto) b) três fatores que predispõem o recém-nascido a desenvolver o quadro respiratório descrito. ( Valor: 3,0 pontos) c) quatro medidas recomendadas para a estabilização desse recém-nascido na primeira hora de vida. (Valor: 4,0 pontos) d) quatro exames complementares que devem ser solicitados dentro das primeiras 24 horas de vida. (Valor: 2,0 pontos)",
+    "notes": "Prova cega (11/10/2026): caso limítrofe (sala de parto/neonatologia, não PS), mantido pela estabilização tempo-dependente. Conferido contra as diretrizes SBP 2022 de reanimação do RN < 34 semanas e o guia do MS de atenção ao RN (cap. sepse precoce), ambos abertos e lidos: O2 a 100% do enunciado é prática antiga (hoje 30% titulado) — o padrão já trata O2 em alta concentração como fator agressor, e o item de ventilação diz isso; o antibiótico empírico, uma das opções do padrão, virou crítico porque febre materna + bolsa rota + prematuridade o indicam. Urocultura (aceita pelo padrão) não é rotina na sepse precoce e ficou só como alternativa aceita. Há notícia de atualização SBP 2026 para < 34 semanas que não consegui abrir; registrada como dúvida."
+  }
+}

@@ -182,7 +182,7 @@ export default function EncounterDetailPage({ params }: { params: Promise<{ id: 
     <>
       {!isFinalized && latestInteraction && (
         <Button variant="outline" asChild>
-          <Link href={`/encounters/${id}/capture`}>
+          <Link href={`/encounters/${id}/conversation?novo=1`}>
             <Microphone aria-hidden="true" />
             Reanalisar
           </Link>
@@ -190,7 +190,7 @@ export default function EncounterDetailPage({ params }: { params: Promise<{ id: 
       )}
       {!isFinalized && latestInteraction && (
         <Button asChild className="max-md:flex-1">
-          <Link href={`/encounters/${id}/result`}>
+          <Link href={`/encounters/${id}/conversation`}>
             <Brain aria-hidden="true" />
             Ver análise
           </Link>
@@ -198,7 +198,7 @@ export default function EncounterDetailPage({ params }: { params: Promise<{ id: 
       )}
       {!isFinalized && !latestInteraction && (
         <Button asChild className="max-md:flex-1">
-          <Link href={`/encounters/${id}/capture`}>
+          <Link href={`/encounters/${id}/conversation`}>
             <Microphone weight="fill" aria-hidden="true" />
             Analisar
           </Link>

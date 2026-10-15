@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 2,
+  "id": "kb004-urticaria-isolada-pos-dipirona",
+  "title": "Urticária isolada após dipirona, sem outro sistema envolvido",
+  "tags": [
+    "reacao-alergica",
+    "urticaria",
+    "dicotomia-anafilaxia-alergia"
+  ],
+  "critical": false,
+  "goldSource": "kb004_dichotomy",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Masc, 25a, placas urticariformes pruriginosas em tronco e braços 1h após dipirona. Nega falta de ar, rouquidão, tontura, vômitos ou dor abdominal. Sem edema de lábios ou língua. PA 124x78, FC 84, SpO2 99%."
+  },
+  "expected": {
+    "syndrome": "reação alérgica cutânea simples (urticária aguda) sem critério de anafilaxia",
+    "diagnoses": [
+      {
+        "text": "progressão para anafilaxia ou angioedema nas horas seguintes à exposição",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "anti-histamínico H1, de preferência de 2ª geração não sedante",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "período de observação antes da alta, com orientação de retorno imediato",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "suspender a dipirona, registrar a alergia e orientar a evitar dipirona/pirazolonas (cautela com outros AINE até avaliação do alergologista)",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "prescrever-dipirona-de-novo",
+        "description": "Prescrever dipirona/metamizol de novo, inclusive na receita de alta para dor ou febre (reexposição pode causar reação mais grave)",
+        "patterns": [
+          "dipirona",
+          "metamizol",
+          "novalgina"
+        ],
+        "exceptWhen": [
+          "alergi\\w*",
+          "reacao\\s+a"
+        ]
+      }
+    ],
+    "rationale": "KB-004 (04-alergia-simples): sem outro sistema envolvido, não há critério de anafilaxia (WAO 2020) e adrenalina não é a primeira conduta. Diretriz internacional de urticária (2022): anti-H1 de 2ª geração é o pilar; corticoide oral curto é opcional. Pirazolonas, sobretudo a dipirona, são a principal causa de urticária/angioedema/anafilaxia seletiva por AINE: suspender e registrar é a medida preventiva mais importante. \"Reação bifásica\" é recorrência após anafilaxia e não se aplica à urticária isolada."
+  },
+  "sources": [
+    {
+      "claim": "Anti-H1 de 2ª geração como pilar do tratamento da urticária aguda; corticoide oral curto apenas como opção condicional.",
+      "title": "The international EAACI/GA²LEN/EuroGuiDerm/APAAACI guideline for the definition, classification, diagnosis, and management of urticaria",
+      "publisher": "EAACI/GA²LEN/EuroGuiDerm/APAAACI (Allergy)",
+      "year": 2022,
+      "url": "https://doi.org/10.1111/all.15090"
+    },
+    {
+      "claim": "Pirazolonas, principalmente metamizol, foram as causas mais frequentes de urticária/angioedema/anafilaxia seletiva por AINE (39,3% dos episódios).",
+      "title": "Evaluation of Subjects Experiencing Allergic Reactions to Non-Steroidal Anti-Inflammatory Drugs: Clinical Characteristics and Drugs Involved",
+      "publisher": "Frontiers in Pharmacology",
+      "year": 2020,
+      "url": "https://www.frontiersin.org/articles/10.3389/fphar.2020.00503/full"
+    },
+    {
+      "claim": "Critérios de anafilaxia exigem pele/mucosa mais comprometimento respiratório, circulatório ou GI grave (ou hipotensão/broncoespasmo/laringe após alérgeno provável); urticária isolada não preenche.",
+      "title": "World Allergy Organization Anaphylaxis Guidance 2020",
+      "publisher": "World Allergy Organization (WAO Journal)",
+      "year": 2020,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7607509/"
+    },
+    {
+      "claim": "Reação bifásica é recorrência após anafilaxia; fatores de risco são anafilaxia grave e doses repetidas de adrenalina.",
+      "title": "Anaphylaxis—a 2020 practice parameter update, systematic review, and GRADE analysis",
+      "publisher": "AAAAI/ACAAI (J Allergy Clin Immunol)",
+      "year": 2020,
+      "url": "https://doi.org/10.1016/j.jaci.2020.01.017"
+    }
+  ],
+  "provenance": {
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: hipótese obrigatória virou progressão para anafilaxia/angioedema (\"bifásica\" não se aplica); anti-H1 de 2ª geração preferido; suspender e registrar a alergia à dipirona virou obrigatório; nova proibida: prescrever dipirona de novo."
+  },
+  "probes": {
+    "mustFlag": [
+      "Dipirona 1 g VO 6/6 h se dor ou febre na receita de alta",
+      "Metamizol 1 g IV para a dor",
+      "Novalgina gotas se febre"
+    ],
+    "mustNotFlag": [
+      "Suspender a dipirona e registrar alergia no prontuário",
+      "Orientar a evitar dipirona e outras pirazolonas",
+      "Paracetamol se dor ou febre; não usar dipirona"
+    ]
+  }
+}

@@ -3,7 +3,7 @@ import type { ConfigService } from '@nestjs/config';
 export const DEFAULT_MAX_OUTPUT_TOKENS = 16_000;
 
 /** Valor vazio conta como ausente: o compose repassa `${VAR:-}` como string vazia. */
-function readSetting(config: ConfigService, key: string): string | undefined {
+export function readSetting(config: ConfigService, key: string): string | undefined {
   const value = config.get<unknown>(key);
   if (value === undefined || value === null) return undefined;
   const trimmed = String(value).trim();
@@ -42,11 +42,23 @@ export function readFlag(config: ConfigService, key: string, fallback: boolean):
 }
 
 export function readMaxOutputTokens(config: ConfigService): number {
-  const value = readSetting(config, 'AI_MAX_OUTPUT_TOKENS');
-  if (value === undefined) return DEFAULT_MAX_OUTPUT_TOKENS;
-  const maxTokens = Number(value);
-  if (!Number.isInteger(maxTokens) || maxTokens <= 0) {
-    throw new Error(`AI_MAX_OUTPUT_TOKENS="${value}" is invalid. Use a positive integer.`);
+  return readNonNegativeInteger(config, 'AI_MAX_OUTPUT_TOKENS', DEFAULT_MAX_OUTPUT_TOKENS, {
+    allowZero: false,
+  });
+}
+
+export function readNonNegativeInteger(
+  config: ConfigService,
+  key: string,
+  fallback: number,
+  { allowZero }: { allowZero: boolean } = { allowZero: true },
+): number {
+  const value = readSetting(config, key);
+  if (value === undefined) return fallback;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0 || (!allowZero && parsed === 0)) {
+    const expected = allowZero ? 'a non-negative integer' : 'a positive integer';
+    throw new Error(`${key}="${value}" is invalid. Use ${expected}.`);
   }
-  return maxTokens;
+  return parsed;
 }

@@ -17,16 +17,21 @@ const WRAP = "h-auto min-h-5 max-w-full whitespace-normal py-0.5 text-left leadi
  * - Base oficial do MS e base curada sem assinatura (ADR-012): cinza — nenhum
  *   médico assinou, mas a conduta já sai preliminar. Informar, não alarmar.
  * - Protocolo institucional: roxo · Diretriz pública: marrom.
+ * - F1 (decisão v2): conhecimento geral do modelo em azul (IA, informação) e
+ *   fonte oficial externa da pesquisa web em cinza, como a base oficial do MS:
+ *   oficial, mas ninguém da equipe revisou.
  */
 const ORIGIN_BADGE: Record<
   SourceOrigin,
-  { variant: "gray" | "warning" | "purple" | "brown"; wrap: boolean }
+  { variant: "gray" | "warning" | "purple" | "brown" | "blue"; wrap: boolean }
 > = {
   official_unreviewed: { variant: "gray", wrap: true },
   curated_unsigned: { variant: "gray", wrap: true },
   physician_attachment: { variant: "warning", wrap: true },
   institutional: { variant: "purple", wrap: false },
   public: { variant: "brown", wrap: false },
+  model_knowledge: { variant: "blue", wrap: true },
+  web_official: { variant: "gray", wrap: true },
 };
 
 /**
@@ -39,18 +44,22 @@ const ORIGIN_BADGE: Record<
  */
 export function SourceOriginBadge({
   origin,
+  domain,
   className,
 }: {
   origin: SourceOrigin | undefined;
+  /** F1 — domínio da página, para "Fonte oficial externa · <domínio>". */
+  domain?: string;
   className?: string;
 }) {
   const messages = useMessages();
   if (!origin) return null;
 
   const { variant, wrap } = ORIGIN_BADGE[origin];
+  const label = messages.sourceOrigin[origin];
   return (
     <Badge variant={variant} className={cn(wrap && WRAP, className)}>
-      {messages.sourceOrigin[origin]}
+      {origin === "web_official" && domain ? `${label} · ${domain}` : label}
     </Badge>
   );
 }
@@ -59,6 +68,8 @@ const UNREVIEWED_ORIGINS: ReadonlySet<SourceOrigin> = new Set<SourceOrigin>([
   "official_unreviewed",
   "physician_attachment",
   "curated_unsigned",
+  "model_knowledge",
+  "web_official",
 ]);
 
 /** Fontes que nenhum médico com CRM verificado assinou. */

@@ -1,0 +1,221 @@
+{
+  "schemaVersion": 2,
+  "id": "rv-2024-1-est-8",
+  "title": "Menino de 3 anos com olho esquerdo inchado no pronto-atendimento",
+  "tags": [
+    "pele-partes-moles",
+    "revalida",
+    "pep",
+    "pediatria",
+    "celulite-orbitaria"
+  ],
+  "critical": true,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Pronto-atendimento de atenção secundária (RX, US, TC, laboratório, internação). Masc, 3a, 12 kg, trazido pela mãe por olho E inchado, percebido pela manhã, com piora à tarde; lacrimejamento, ao acordar mal conseguia abrir o olho; muita dor e incômodo com a luz; coceira no olho E desde a noite anterior. Parecia febril e com muito frio pouco antes da consulta (T não medida); fraqueza. Recusa alimentos, aceita só água; diurese abundante e clara; evacuou hoje. Praia há 2 dias, com muitas picadas de insetos e coceira na pele (pele sensível a picadas); depois os olhos ficaram um pouco vermelhos e coçando (mãe atribuiu ao sal do mar). Rinite alérgica; ontem à noite xarope para rinite (não lembra o nome), que ajudou a dormir; hoje sem efeito. Nega trauma, medicação contínua, outros sintomas e alergias. Parto normal, vacinas em dia, sem antecedentes familiares. EF: Tax 39,1 °C, FC 120, FR 26, SpO2 99% em AA, dor 6/10; estatura 90 cm. REG, corado, hidratado, acianótico, anictérico, febril, eupneico, sem linfonodomegalias; choroso e inquieto. Edema e hiperemia intensos e calor em região bipalpebral E; movimentos oculares não avaliáveis pelo edema intenso. Restante do exame normal.",
+    "funnel": {
+      "opening": "Pronto-atendimento de atenção secundária (RX, US, TC, laboratório, internação). Masc, 3a, com o olho esquerdo inchado, acompanhado pela mãe.",
+      "script": [
+        {
+          "id": "h-inicio",
+          "kind": "history",
+          "text": "Percebeu pela manhã que o olho esquerdo estava inchado; piorou durante a tarde."
+        },
+        {
+          "id": "h-lacrimejamento",
+          "kind": "history",
+          "text": "O olho está lacrimejando; ao acordar, ele mal conseguia abrir o olho."
+        },
+        {
+          "id": "h-dor-luz",
+          "kind": "history",
+          "text": "Queixa-se de muita dor e de incômodo com a luz."
+        },
+        {
+          "id": "h-coceira",
+          "kind": "history",
+          "text": "Tem coceira no olho esquerdo desde a noite anterior."
+        },
+        {
+          "id": "h-febre",
+          "kind": "history",
+          "text": "Parecia estar com febre pouco antes da consulta e queixava-se de muito frio; a temperatura não foi medida."
+        },
+        {
+          "id": "h-fraqueza",
+          "kind": "history",
+          "text": "Demonstra fraqueza."
+        },
+        {
+          "id": "h-rinite",
+          "kind": "history",
+          "text": "Único antecedente pessoal: rinite alérgica."
+        },
+        {
+          "id": "h-negativos",
+          "kind": "history",
+          "text": "Nega traumas, medicação de uso contínuo, outros sintomas e alergias."
+        },
+        {
+          "id": "h-pele-sensivel",
+          "kind": "history",
+          "text": "A pele é sensível e ele tem sensibilidade a picadas de insetos."
+        },
+        {
+          "id": "h-praia",
+          "kind": "history",
+          "text": "Foi à praia há 2 dias: banho de mar pela manhã e o resto do tempo na areia, à sombra; sofreu muitas picadas de insetos, com coceira na pele."
+        },
+        {
+          "id": "h-olhos-vermelhos",
+          "kind": "history",
+          "text": "Depois da praia os olhos ficaram um pouco vermelhos e coçando; a mãe atribuiu ao sal da água do mar."
+        },
+        {
+          "id": "h-xarope",
+          "kind": "history",
+          "text": "Ontem à noite tomou um xarope para rinite (a mãe não lembra o nome), que ajudou a dormir; hoje não faz mais efeito."
+        },
+        {
+          "id": "h-alimentacao",
+          "kind": "history",
+          "text": "Normalmente come bem e bebe muita água; hoje recusou alimentos e aceita só água."
+        },
+        {
+          "id": "h-diurese",
+          "kind": "history",
+          "text": "Urina em grande quantidade, de cor bem clara; evacuou hoje."
+        },
+        {
+          "id": "h-antecedentes",
+          "kind": "history",
+          "text": "Nasceu de parto normal após gestação tranquila, vacinas em dia, sem antecedentes familiares; família com condição de vida razoável."
+        },
+        {
+          "id": "e-triagem",
+          "kind": "exam",
+          "text": "Peso 12 kg, estatura 90 cm. Tax 39,1 °C, FC 120 bpm, FR 26 irpm, SpO2 99% em ar ambiente, dor 6/10.",
+          "key": true
+        },
+        {
+          "id": "e-geral",
+          "kind": "exam",
+          "text": "REG, corado, hidratado, acianótico, anictérico, febril, eupneico, sem desconforto respiratório, sem linfonodomegalias; choroso e inquieto."
+        },
+        {
+          "id": "e-face",
+          "kind": "exam",
+          "text": "Edema e hiperemia intensos e calor em região bipalpebral do olho esquerdo; avaliação dos movimentos oculares dificultada pelo edema intenso. Restante do exame normal.",
+          "key": true
+        },
+        {
+          "id": "t-laboratorio",
+          "kind": "test",
+          "text": "Leucócitos 17.000 (bastões 4%, segmentados 70,6%), Hb 12,8 g/dL, plaquetas 434.000; PCR 24,85 (VR < 8,00); hemocultura coletada."
+        }
+      ]
+    }
+  },
+  "expected": {
+    "syndrome": "edema periorbitário inflamatório e febril em criança — celulite periorbitária/orbitária",
+    "diagnoses": [
+      {
+        "text": "celulite periorbitária/orbitária (pré ou pós-septal) do olho esquerdo",
+        "tier": "critical"
+      },
+      {
+        "text": "acometimento pós-septal (celulite orbitária) não afastado: motilidade ocular não avaliável",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "antibioticoterapia parenteral (EV ou IM)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "internação hospitalar",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "TC de órbitas (ou de crânio/face) como primeiro exame de imagem, para diferenciar pré de pós-septal (RX e US não substituem)",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "hemograma, PCR (ou VHS/procalcitonina) e hemocultura",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "antibiotico-via-oral",
+        "description": "Tratar com antibiótico por via oral (o PEP considera inadequado; a antibioticoterapia deve ser parenteral).",
+        "patterns": [
+          "(antibiotic\\w*|amoxicilina|cefalexina|clavulanato|cefuroxima|azitromicina)[^,;.]{0,40}\\b(via\\s+oral|vo|oral)"
+        ],
+        "exceptWhen": [
+          "transic\\w*",
+          "(apos|depois\\s+d[aeo])\\s+(\\S+\\s+){0,3}(melhora\\w*|afebril|alta|24|48|72|tratamento\\s+parenteral)",
+          "(na|para\\s+a)\\s+alta"
+        ]
+      }
+    ],
+    "outOfScope": [
+      "apresentar-se, cumprimentar a mãe e perguntar os nomes (item 1)",
+      "anamnese: queixas principais e fatores associados (itens 2–3) — medida pelo roteiro",
+      "explicar à mãe a importância da tomografia (item 8)",
+      "explicar à mãe ao menos três complicações possíveis (item 10)"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2024/1, Estação 8): o PEP pontua a anamnese (sintomas, tempo, insetos, medicações, alergias), hipótese de celulite periorbitária/orbitária, hemograma + PCR + hemocultura, TC de órbitas como primeira imagem, internação, antibiótico parenteral (VO é inadequado) e orientação sobre complicações. v2: antibiótico parenteral é a conduta crítica para agora; internação, TC de órbitas e exames são importantes."
+  },
+  "sources": [
+    {
+      "claim": "Itens 2–3: pergunta sobre inchaço/edema, febre, dor e tempo de evolução (0,5); fatores associados/desencadeantes — viagens, traumas ou contato com insetos; medicação em uso ou tratamento prévio; alergias; doenças de base (1,0).",
+      "title": "Revalida 2024/1 – Habilidades Clínicas – PEP, Estação 8, itens 2–3",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2024_1_PEP_publicacao.pdf"
+    },
+    {
+      "claim": "Itens 4–6: hipótese de processo inflamatório/infeccioso e celulite periorbitária/orbitária (pré ou pós-septal) (1,0); solicita hemograma, PCR ou VHS ou procalcitonina e hemocultura (1,0); solicita TC de órbitas/crânio/cabeça como primeiro exame de imagem — RX, USG ou TC sem especificar o local não pontuam (1,0).",
+      "title": "Revalida 2024/1 – Habilidades Clínicas – PEP, Estação 8, itens 4–6",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2024_1_PEP_publicacao.pdf"
+    },
+    {
+      "claim": "Itens 7–10: indica internação (1,0); explica que a TC diferencia lesões pré e pós-septais e celulite orbitária como sinal de neoplasia ou maior gravidade (1,0); antibioticoterapia parenteral (EV ou IM) — por via oral é inadequada (1,0); explica 3 ou mais complicações: abscesso cerebral, epidural, subdural, subperiosteal ou orbitário, neuropatia óptica, acometimento trigeminal, ceratite, endoftalmite, meningite, osteomielite, perda visual, sepse, trombose de seio cavernoso, uveíte, óbito, abscesso de face, cefaleia secundária (2,0).",
+      "title": "Revalida 2024/1 – Habilidades Clínicas – PEP, Estação 8, itens 7–10",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2024_1_PEP_publicacao.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2024/1",
+    "item": "Estação 8",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2024_1_PEP_publicacao.pdf",
+    "originalCaseText": "CENÁRIO DE ATUAÇÃO Local de atuação: Atenção Secundária, Urgência e Emergência. O local possui a seguinte infraestrutura: ● setor de radiologia convencional; ● setor de ultrassonografia e de tomografia; ● laboratório de análise clínicas; ● leitos de internação. DESCRIÇÃO DO CASO ● Você é um(a) médico(a) de plantão em um serviço de pronto-atendimento e deverá atender a um menino de 3 anos com olho esquerdo inchado, que vai à consulta acompanhado pela mãe. Nos 10 minutos de duração da estação, você deverá executar as tarefas a seguir: ● realizar a anamnese dirigida à mãe; ● interpretar o exame físico da criança; ● solicitar, caso julgue necessário, até três exames laboratoriais e até um exame de imagem; ● explicar à mãe a indicação de exame(s) complementar(es); ● explicar à mãe a condição de seu filho, o manejo inicial e possíveis complicações desse quadro.",
+    "notes": "Gabarito v2 (11/10/2026): caseText com o roteiro oficial da mãe e o impresso de exame físico; funnel com a abertura oficial, os fatos do roteiro e o laboratório (key na febre da triagem e no exame palpebral). O laboratório ficou só no roteiro (o PEP só cobra solicitá-lo) e a TC não tem impresso de resultado. Antibiótico parenteral virou a conduta crítica para agora; explicações à mãe e anamnese foram para outOfScope. | A síntese do PEP situa o atendimento no pronto-socorro de um hospital terciário; as instruções dizem pronto-atendimento de atenção secundária. A TC só pontua se for o primeiro exame de imagem pedido (RX ou USG não pontuam). Dados sob demanda: a mãe percebeu o olho E inchado pela manhã, com piora à tarde; lacrimejamento, mal abria o olho ao acordar; muita dor e incômodo com a luz; coceira no olho E desde a noite anterior; parecia febril e com frio pouco antes da consulta (temperatura não medida); fraqueza; rinite alérgica; nega trauma, medicação contínua, outros sintomas e alergias; pele sensível a picadas; praia há 2 dias, com muitas picadas de insetos e olhos vermelhos e coçando depois; xarope para rinite (não lembra o nome) na noite anterior, sem efeito hoje; recusa alimentos, aceita água; diurese clara e abundante, evacuou hoje; vacinação em dia. Exame físico: 12 kg, 90 cm, Tax 39,1 °C, FC 120, FR 26, SatO2 99%, dor 6/10; REG, corado, hidratado, eupneico, choroso e inquieto; edema, hiperemia e calor intensos em região bipalpebral E; movimentos oculares não avaliáveis pelo edema. Laboratório: leucócitos 17.000 (bastões 4%, segmentados 70,6%), Hb 12,8, plaquetas 434.000, PCR 24,85 (VR < 8,00), hemocultura coletada. | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas. Exceções \"após\"/\"depois\"/\"alta\" soltas viraram a transição ancorada."
+  },
+  "probes": {
+    "mustFlag": [
+      "Amoxicilina com clavulanato VO por 10 dias",
+      "Cefalexina via oral e reavaliação em 48 h"
+    ],
+    "mustNotFlag": [
+      "Internar e iniciar antibiótico EV (ceftriaxona + oxacilina)",
+      "Antibiótico VO somente na alta, após melhora com o tratamento EV",
+      "Não usar antibiótico oral nesta fase"
+    ]
+  }
+}

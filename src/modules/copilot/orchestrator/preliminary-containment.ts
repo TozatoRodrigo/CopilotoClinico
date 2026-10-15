@@ -1,4 +1,11 @@
-import type { CitationOrigin, PreliminaryReason } from '../../../shared/contracts/clinical';
+import type {
+  CitationOrigin,
+  PreliminaryReason,
+  RecommendationLayer,
+} from '../../../shared/contracts/clinical';
+import type { CopilotOutput } from '../guardrails/output-validator';
+
+type RecommendationCategory = CopilotOutput['recommendations'][number]['category'];
 
 /**
  * F0-C / ADR-012 — origens que nenhum médico com CRM verificado assinou.
@@ -34,7 +41,8 @@ export interface ContainmentContext {
  *    POR DESENHO: marca preliminar mesmo quando o modelo discriminou certo,
  *    porque ainda não há como separar a conduta comum aos subtipos da conduta
  *    que depende do dado discriminante. A Fase 1 (conduta em duas camadas)
- *    é que permite afrouxar isto.
+ *    é que permite afrouxar isto. Exceção já agora: `stabilization`, que é
+ *    segura em qualquer subtipo.
  * 2. `pending_questions` — o modelo marcou preliminar e há perguntas em
  *    aberto: responder pode tornar a conduta definitiva.
  * 3. `unreviewed_source` — cita fonte não assinada por médico (ADR-012).
@@ -43,10 +51,23 @@ export interface ContainmentContext {
  *    (red flag crítica, anexo, último turno): o significado histórico.
  */
 export function preliminaryReasonFor(
-  recommendation: { citationChunkId: string; preliminary: boolean; origin: CitationOrigin },
+  recommendation: {
+    citationChunkId: string | null;
+    preliminary: boolean;
+    origin: CitationOrigin;
+    category: RecommendationCategory;
+  },
   context: ContainmentContext,
 ): PreliminaryReason | null {
-  if (context.ambiguousSubtypeChunkIds.has(recommendation.citationChunkId)) {
+  // Estabilização (adrenalina na anafilaxia, via aérea, acesso, monitorização)
+  // é segura em qualquer subtipo — é a "camada 1" da conduta. Rotulá-la como
+  // "depende do dado que discrimina" diria ao médico para esperar justamente
+  // o que não pode esperar.
+  if (
+    recommendation.category !== 'stabilization' &&
+    recommendation.citationChunkId !== null &&
+    context.ambiguousSubtypeChunkIds.has(recommendation.citationChunkId)
+  ) {
     return 'subtype_ambiguity';
   }
   if (recommendation.preliminary && context.hasClarifyingQuestions) return 'pending_questions';
@@ -54,4 +75,37 @@ export function preliminaryReasonFor(
     return 'unreviewed_source';
   }
   return recommendation.preliminary ? 'pending_questions' : null;
+}
+
+/**
+ * F1 — contenção da decisão v2 (ADR-013). O preliminar volta a dizer uma coisa
+ * só: "espere o dado". Proveniência (fonte não revisada, conhecimento geral
+ * do modelo, página oficial externa) vira rótulo de origem, não preliminar —
+ * a camada `now` já é, por definição, segura em toda hipótese aberta. A
+ * ambiguidade de subtipo também sai: é exatamente o que a camada `depends`
+ * resolve.
+ *
+ * 1. `source_conflict` — a verificação com fonte (`verify`) achou uma fonte
+ *    oficial que diverge da conduta. Vem antes de tudo: é o que mais pode
+ *    mudar o que o médico faz, e a camada `depends` continua visível no grupo
+ *    "Depende de…";
+ * 2. `depends_on_data` — conduta da camada `depends`;
+ * 3. `unverified_dose` — conhecimento geral do modelo que ainda traz dose
+ *    depois do retry: fica, mas marcada (dose só de fonte citada);
+ * 4. `pending_questions` — anexo do médico, que nunca sai definitivo (F4).
+ */
+export function preliminaryReasonForV2(recommendation: {
+  layer: RecommendationLayer;
+  origin: CitationOrigin;
+  carriesDose: boolean;
+  /** Só na verificação com fonte; ausente nos outros modos. */
+  sourceConflict?: boolean;
+}): PreliminaryReason | null {
+  if (recommendation.sourceConflict) return 'source_conflict';
+  if (recommendation.layer === 'depends') return 'depends_on_data';
+  if (recommendation.origin === 'model_knowledge' && recommendation.carriesDose) {
+    return 'unverified_dose';
+  }
+  if (recommendation.origin === 'physician_attachment') return 'pending_questions';
+  return null;
 }

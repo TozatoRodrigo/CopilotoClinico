@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2015-disc-1",
+  "title": "Mulher de 25 anos com convulsão tônico-clônica, artralgias e fotossensibilidade, leucopenia, proteinúria e creatinina 2,4",
+  "tags": [
+    "crise-convulsiva",
+    "revalida",
+    "prova-cega",
+    "discursiva",
+    "lupus"
+  ],
+  "critical": false,
+  "goldSource": "revalida_discursiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Emergência. Fem, 25a, trazida por crise convulsiva tônico-clônica generalizada, controlada com benzodiazepínico. Há > 2 anos: artralgias intermitentes, fotossensibilidade cutânea e cefaleia. EF: REG, palidez cutaneomucosa; exames neurológico e cardiorrespiratório normais. Lab inicial: anemia leve, leucócitos 2.300, linfócitos < 1.500, plaquetas normais. Urina: hematúria e proteinúria 3+/4+. Cr 2,4, ureia 65. Urocultura e hemocultura negativas."
+  },
+  "expected": {
+    "syndrome": "crise convulsiva como manifestação de doença sistêmica (lúpus eritematoso sistêmico grave com nefrite e acometimento neurológico)",
+    "diagnoses": [
+      {
+        "text": "lúpus eritematoso sistêmico grave com nefrite lúpica (hematúria, proteinúria 3+, Cr 2,4) e acometimento neuropsiquiátrico (convulsão), com leucopenia e linfopenia",
+        "tier": "important"
+      },
+      {
+        "text": "afastar outras causas da convulsão (infecção do SNC, distúrbio metabólico/urêmico, crise hipertensiva) antes de atribuí-la ao lúpus",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "confirmar: FAN, anti-dsDNA, anti-Sm, complemento (C3 e C4) e anticorpos antifosfolípides; biópsia renal",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "corticoide em alta dose — pulsoterapia com metilprednisolona IV ou prednisona VO em dose alta — após afastar infecção [ref.: pulsos de 250–1.000 mg/dia por 1–3 dias]",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "imunossupressor associado: ciclofosfamida IV ou micofenolato",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [
+      "PA e glicemia capilar (encefalopatia hipertensiva e hipoglicemia como causas da convulsão)"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "outOfScope": [
+      "listar os critérios que justificam a hipótese (item b): mulher jovem, artralgia, fotossensibilidade, distúrbio renal, leucopenia e linfopenia, anemia hemolítica, distúrbio neurológico — ≥ 4 critérios do ACR"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2015, Questão 1): LES (grave), justificado por fotossensibilidade, artralgia, nefropatia, leucopenia/linfopenia e convulsão; confirmação por FAN, anti-Sm, anti-DNA, complemento baixo, antifosfolípides e biópsia renal; tratamento inicial com corticoide em alta dose (oral ou pulso), isolado ou com ciclofosfamida ou micofenolato, após descartar infecção. v2: caso não crítico (como na triagem); diagnóstico, exames e tratamento viraram itens importantes."
+  },
+  "sources": [
+    {
+      "claim": "Enunciado e comandos da questão discursiva 1.",
+      "title": "Revalida 2015 – Prova Discursiva, Questão 1",
+      "publisher": "INEP",
+      "year": 2015,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/provas/2015/prova_discursiva.pdf"
+    },
+    {
+      "claim": "Lúpus eritematoso sistêmico (grave); critérios: mulher jovem com artralgia, fotossensibilidade, distúrbio renal, leucopenia (< 4.000) com linfopenia (< 1.500), anemia hemolítica e distúrbio neurológico (convulsão); quatro critérios bastam (Colégio Americano de Reumatologia).",
+      "title": "Revalida 2015 – Prova Discursiva – Padrão de Resposta definitivo, Questão 1, itens a–b",
+      "publisher": "INEP",
+      "year": 2015,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2015/padrao_de_respostas_definitivo_da_prova_discursiva_REVALIDA2015.pdf"
+    },
+    {
+      "claim": "Exames: FAN positivo, anti-Sm, anti-DNA dupla hélice, C3 e C4 reduzidos no acometimento renal; o mais específico é anti-Sm com anti-DNA em título alto; antifosfolípides; biópsia renal sugestiva de nefrite lúpica.",
+      "title": "Revalida 2015 – Prova Discursiva – Padrão de Resposta definitivo, Questão 1, item c",
+      "publisher": "INEP",
+      "year": 2015,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2015/padrao_de_respostas_definitivo_da_prova_discursiva_REVALIDA2015.pdf"
+    },
+    {
+      "claim": "LES grave com acometimento do SNC e/ou renal: imunossupressão com corticoide em altas doses (oral ou pulsoterapia), isolado ou com outros imunossupressores (ciclofosfamida, micofenolato), após descartar infecção.",
+      "title": "Revalida 2015 – Prova Discursiva – Padrão de Resposta definitivo, Questão 1, item d",
+      "publisher": "INEP",
+      "year": 2015,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2015/padrao_de_respostas_definitivo_da_prova_discursiva_REVALIDA2015.pdf"
+    },
+    {
+      "claim": "Recomendações EULAR 2023 para o LES: glicocorticoide com hidroxicloroquina segue como base do tratamento; na doença moderada a grave, considerar pulsos de glicocorticoide (250–1.000 mg/dia por 1–3 dias); ciclofosfamida e micofenolato continuam as drogas-âncora na nefrite lúpica, inclusive em combinação na primeira linha.",
+      "title": "EULAR 2023 Recommendations for the Management of Systemic Lupus Erythematosus: One Step Forward (comentário de Moysidou e Fanouriakis)",
+      "publisher": "Mediterranean Journal of Rheumatology",
+      "year": 2024,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC11082770/"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2015",
+    "item": "Discursiva caso 1",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2015/padrao_de_respostas_definitivo_da_prova_discursiva_REVALIDA2015.pdf",
+    "originalCaseText": "Uma mulher de 25 anos de idade foi levada à Emergência por apresentar convulsão tônico-clônica generalizada, que foi controlada por benzodiazepínico. No acompanhamento, foi detectado quadro anterior de artralgias intermitentes, fotossensibilidade cutânea e cefaleia há mais de dois anos. Apresentava-se em regular estado geral e palidez cutâneo-mucosa. Os exames neurológico e cardiorespiratório foram normais. Os resultados dos exames complementares solicitados inicialmente mostraram anemia leve, leucopenia (2.300/mm3) e linfopenia (< 1.500/mm3), com plaquetas normais. No exame urinário foi detectada presença de hematúria e proteinúria (+++/4+). As dosagens plasmáticas de Creatinina (2,4 mg/dL) e Ureia (65 mg/dL) estavam elevadas. A urocultura e hemocultura foram negativas. Considerando o caso acima, responda às questões a seguir. a) Qual a provável hipótese diagnóstica para o caso? (valor: 2,0 pontos) b) Quais os critérios que justificam a hipótese diagnóstica? (valor: 3,0 pontos) c) Quais exames complementares são confirmatórios do diagnóstico e quais os resultados esperados? (valor: 3,0 pontos) d) Qual a conduta inicial para o tratamento da doença diagnosticada? (valor: 2,0 pontos)",
+    "notes": "Prova cega (11/10/2026): caso limítrofe (o padrão pontua sobretudo critérios e sorologia), não crítico como na triagem. Conferido contra a EULAR 2023 pelo comentário de Fanouriakis (primeiro autor da diretriz), aberto e lido (a diretriz no ARD devolveu 403): pulso de corticoide e ciclofosfamida/micofenolato seguem o padrão. Os critérios do item b são os do ACR 1997; não abri a classificação EULAR/ACR 2019, então o item ficou fora do escopo sem comentar a mudança. PA e glicemia não constam do enunciado e entraram em questions (mudam a leitura da convulsão)."
+  }
+}
