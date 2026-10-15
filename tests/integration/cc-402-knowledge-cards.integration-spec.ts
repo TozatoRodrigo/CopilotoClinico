@@ -20,6 +20,7 @@ import type { PrismaService } from '../../src/config/prisma.service';
 import type { AiGatewayService } from '../../src/modules/ai-gateway/ai-gateway.service';
 import type { GuidelinesService } from '../../src/modules/guidelines/guidelines.service';
 import { KnowledgeCardsService } from '../../src/modules/knowledge-cards/knowledge-cards.service';
+import { KnowledgeGapsService } from '../../src/modules/knowledge-gaps/knowledge-gaps.service';
 import { KnowledgeCardDraftService } from '../../src/modules/knowledge-cards/drafting/card-draft.service';
 import { CardIndexService } from '../../src/modules/knowledge-cards/card-index/card-index.service';
 import {
@@ -43,6 +44,13 @@ describe('CC-402 — cartões revisados (integration)', () => {
   let chunkIds: string[];
 
   async function cleanUp(): Promise<void> {
+    // CC-409 — aprovar fecha grupos de lacunas: o grupo aponta para o cartão
+    // e para o rascunho com RESTRICT, então sai antes deles.
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM knowledge_gap_groups
+        WHERE covered_by_card_id IN (SELECT id FROM knowledge_cards WHERE topic LIKE 'CC-402 %')
+           OR draft_id IN (SELECT id FROM knowledge_card_drafts WHERE topic LIKE 'CC-402 %')`,
+    );
     // FKs com RESTRICT nos dois sentidos: solta a versão publicada antes de apagar.
     await prisma.$executeRawUnsafe(
       `UPDATE knowledge_cards SET status = 'archived', archived_at = now(), published_version_id = NULL
@@ -119,7 +127,12 @@ describe('CC-402 — cartões revisados (integration)', () => {
       identity: () => ({ provider: 'none', model: 'none' }),
       embed: () => Promise.reject(new Error('embedding desligado')),
     });
-    cards = new KnowledgeCardsService(prisma as unknown as PrismaService, audit, cardIndex);
+    cards = new KnowledgeCardsService(
+      prisma as unknown as PrismaService,
+      audit,
+      cardIndex,
+      new KnowledgeGapsService(prisma as unknown as PrismaService, audit),
+    );
     drafts = new KnowledgeCardDraftService(
       prisma as unknown as PrismaService,
       gateway as unknown as AiGatewayService,

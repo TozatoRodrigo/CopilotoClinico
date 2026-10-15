@@ -20,6 +20,7 @@ import type {
   ApplicableCardsResult,
   ReviewedCardRetrievalService,
 } from '../../knowledge-cards/card-retrieval/reviewed-card-retrieval.service';
+import type { KnowledgeGapsService } from '../../knowledge-gaps/knowledge-gaps.service';
 import { understandingFixture } from '../../../../tests/fixtures/case-understanding';
 import {
   REVIEWED_CARD_ID,
@@ -146,6 +147,7 @@ describe('OrchestratorService — cartões revisados na decisão (CC-408)', () =
   let findApplicable: ReturnType<typeof vi.fn>;
   let gateway: { complete: ReturnType<typeof vi.fn>; completeStream: ReturnType<typeof vi.fn> };
   let interactionCreate: ReturnType<typeof vi.fn>;
+  let recordGap: ReturnType<typeof vi.fn>;
   let service: OrchestratorService;
 
   beforeEach(() => {
@@ -162,6 +164,12 @@ describe('OrchestratorService — cartões revisados na decisão (CC-408)', () =
       completeStream: vi.fn(() => fakeStream(decision([recommendation(), destination]))),
     };
     interactionCreate = vi.fn().mockResolvedValue({ id: 'interaction-001' });
+    recordGap = vi.fn().mockResolvedValue({
+      recorded: true,
+      gapId: 'gap-1',
+      groupId: 'group-1',
+      newGroup: true,
+    });
 
     const forbidden = (what: string) =>
       vi.fn(() => {
@@ -196,6 +204,7 @@ describe('OrchestratorService — cartões revisados na decisão (CC-408)', () =
       { understand } as unknown as UnderstandingService,
       { research: forbidden('a pesquisa web') } as unknown as WebResearchService,
       { findApplicable } as unknown as ReviewedCardRetrievalService,
+      { record: recordGap } as unknown as KnowledgeGapsService,
     );
   });
 
@@ -388,6 +397,89 @@ describe('OrchestratorService — cartões revisados na decisão (CC-408)', () =
     expect(result.output.recommendations).toHaveLength(1);
     expect(messages()[1]!.content).not.toContain('reviewed_cards');
     expect(persisted().data.params.reviewedCards).toMatchObject({ status: 'retrieval_failed' });
+  });
+
+  describe('lacuna da decisão (CC-409)', () => {
+    const noCard = (): ApplicableCardsResult => ({
+      cards: [],
+      trace: {
+        status: 'ok',
+        gate: 'similarity-theme',
+        candidates: 1,
+        accepted: 0,
+        rejected: { topic_mismatch: 1 },
+      },
+    });
+
+    beforeEach(() => {
+      gateway.complete.mockResolvedValue(completion(decision([destination])));
+    });
+
+    it('nenhum cartão aplicável grava a lacuna com síndrome e consultas, nunca o texto do caso', async () => {
+      findApplicable.mockResolvedValue(noCard());
+
+      await service.analyze(physicianId, encounterId, input);
+
+      expect(recordGap).toHaveBeenCalledWith({
+        source: 'decision_no_card',
+        interactionId: 'interaction-001',
+        syndrome: 'febre',
+        searchQueries: understanding.searchQueries,
+        dedupeEncounterId: encounterId,
+      });
+      expect(JSON.stringify(recordGap.mock.calls)).not.toContain('PA 118x72');
+    });
+
+    it('com cartão aplicável, não há lacuna', async () => {
+      gateway.complete.mockResolvedValue(completion(decision([recommendation(), destination])));
+
+      await service.analyze(physicianId, encounterId, input);
+
+      expect(recordGap).not.toHaveBeenCalled();
+    });
+
+    it('sem busca (embedding fora, portão que falhou, busca que lançou) não diz que falta cartão', async () => {
+      findApplicable.mockResolvedValueOnce({
+        ...noCard(),
+        trace: { ...noCard().trace, status: 'embeddings_disabled' },
+      });
+      await service.analyze(physicianId, encounterId, input);
+      findApplicable.mockResolvedValueOnce({
+        ...noCard(),
+        trace: { ...noCard().trace, status: 'gate_failed' },
+      });
+      await service.analyze(physicianId, encounterId, input);
+      findApplicable.mockRejectedValueOnce(new Error('db down'));
+      await service.analyze(physicianId, encounterId, input);
+
+      expect(recordGap).not.toHaveBeenCalled();
+    });
+
+    it('a flag desligada não grava lacuna', async () => {
+      delete env.COPILOT_REVIEWED_CARDS;
+
+      await service.analyze(physicianId, encounterId, input);
+
+      expect(recordGap).not.toHaveBeenCalled();
+    });
+
+    it('a análise que não valida não grava lacuna: ela é refeita', async () => {
+      findApplicable.mockResolvedValue(noCard());
+      gateway.complete.mockResolvedValue(completion('não é JSON'));
+
+      await expect(service.analyze(physicianId, encounterId, input)).rejects.toThrow();
+
+      expect(recordGap).not.toHaveBeenCalled();
+    });
+
+    it('falhar ao gravar a lacuna não derruba a análise', async () => {
+      findApplicable.mockResolvedValue(noCard());
+      recordGap.mockRejectedValue(new Error('banco fora'));
+
+      const result = await service.analyze(physicianId, encounterId, input);
+
+      expect(result.output.recommendations).toHaveLength(1);
+    });
   });
 
   it('o streaming entrega o mesmo cartão e o mesmo "Revisado por"', async () => {

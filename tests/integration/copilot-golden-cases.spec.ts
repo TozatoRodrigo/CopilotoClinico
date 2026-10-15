@@ -51,7 +51,7 @@ import { AuditService } from '../../src/modules/audit/audit.service';
 import { ConfigService } from '@nestjs/config';
 import type { UnderstandingService } from '../../src/modules/copilot/understanding/understanding.service';
 import type { WebResearchService } from '../../src/modules/copilot/research/web-research.service';
-import { cardRetrievalNeverCalled } from '../fixtures/reviewed-cards';
+import { cardRetrievalNeverCalled, knowledgeGapsNeverCalled } from '../fixtures/reviewed-cards';
 import { validateOutput } from '../../src/modules/copilot/guardrails/output-validator';
 
 /** ADR-010 — busca sem trechos da base oficial do MS. */
@@ -170,6 +170,7 @@ describe('CC-06: Golden cases — copilot never leaves the physician at a dead e
         },
       } as unknown as WebResearchService,
       cardRetrievalNeverCalled(),
+      knowledgeGapsNeverCalled(),
     );
 
     encountersMock.findById.mockResolvedValue({

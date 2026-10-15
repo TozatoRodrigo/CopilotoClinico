@@ -16,7 +16,10 @@ import type {
   UnderstandingService,
 } from '../understanding/understanding.service';
 import type { ResearchOutcome, WebResearchService } from '../research/web-research.service';
-import { cardRetrievalNeverCalled } from '../../../../tests/fixtures/reviewed-cards';
+import {
+  cardRetrievalNeverCalled,
+  knowledgeGapsNeverCalled,
+} from '../../../../tests/fixtures/reviewed-cards';
 import { DECISION_V3_SYSTEM_PROMPT } from './decision-prompt-v3';
 import { DECISION_V4_SYSTEM_PROMPT } from './decision-prompt-v4';
 import { COPILOT_OUTPUT_V2_JSON_SCHEMA } from '../schemas/copilot-output.json-schema';
@@ -180,6 +183,7 @@ describe('OrchestratorService — decisão v3', () => {
       { understand } as unknown as UnderstandingService,
       { research } as unknown as WebResearchService,
       cardRetrievalNeverCalled(),
+      knowledgeGapsNeverCalled(),
     );
   });
 

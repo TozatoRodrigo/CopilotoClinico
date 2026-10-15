@@ -16,7 +16,10 @@ import { COPILOT_OUTPUT_JSON_SCHEMA } from '../schemas/copilot-output.json-schem
 import { ConfigService } from '@nestjs/config';
 import type { UnderstandingService } from '../understanding/understanding.service';
 import type { WebResearchService } from '../research/web-research.service';
-import { cardRetrievalNeverCalled } from '../../../../tests/fixtures/reviewed-cards';
+import {
+  cardRetrievalNeverCalled,
+  knowledgeGapsNeverCalled,
+} from '../../../../tests/fixtures/reviewed-cards';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 /** ADR-010 — busca sem trechos da base oficial do MS. */
@@ -157,6 +160,7 @@ describe('OrchestratorService', () => {
         },
       } as unknown as WebResearchService,
       cardRetrievalNeverCalled(),
+      knowledgeGapsNeverCalled(),
     );
   }
 

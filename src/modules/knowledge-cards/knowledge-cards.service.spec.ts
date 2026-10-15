@@ -19,6 +19,7 @@ import { prepareCardContent } from './card-sources';
 import { CARD_DETAIL_SELECT } from './knowledge-card-views';
 import { KnowledgeCardsService } from './knowledge-cards.service';
 import type { CardIndexService } from './card-index/card-index.service';
+import type { KnowledgeGapsService } from '../knowledge-gaps/knowledge-gaps.service';
 
 const CARD_ID = '88888888-8888-4888-8888-888888888888';
 const VERSION_ID = '99999999-9999-4999-8999-999999999999';
@@ -156,6 +157,7 @@ describe('KnowledgeCardsService', () => {
   let db: ReturnType<typeof createPrisma>;
   let audit: { log: ReturnType<typeof vi.fn> };
   let cardIndex: { syncCard: ReturnType<typeof vi.fn> };
+  let knowledgeGaps: { closeGroupsCoveredBy: ReturnType<typeof vi.fn> };
   let service: KnowledgeCardsService;
 
   beforeEach(() => {
@@ -164,10 +166,12 @@ describe('KnowledgeCardsService', () => {
     db = createPrisma();
     audit = { log: vi.fn().mockResolvedValue({}) };
     cardIndex = { syncCard: vi.fn().mockResolvedValue(null) };
+    knowledgeGaps = { closeGroupsCoveredBy: vi.fn().mockResolvedValue(0) };
     service = new KnowledgeCardsService(
       db.prisma as unknown as PrismaService,
       audit as unknown as AuditService,
       cardIndex as unknown as CardIndexService,
+      knowledgeGaps as unknown as KnowledgeGapsService,
     );
   });
 
@@ -472,6 +476,32 @@ describe('KnowledgeCardsService', () => {
         ForbiddenException,
       );
       expect(cardIndex.syncCard).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('lacunas (CC-409)', () => {
+    it('aprovar fecha as lacunas cobertas, depois de publicar e reindexar', async () => {
+      await service.approve(REVIEWER_ID, CARD_ID, { version: 1 });
+
+      expect(knowledgeGaps.closeGroupsCoveredBy).toHaveBeenCalledWith(CARD_ID, REVIEWER_ID);
+      expect(cardIndex.syncCard.mock.invocationCallOrder[0]).toBeLessThan(
+        knowledgeGaps.closeGroupsCoveredBy.mock.invocationCallOrder[0]!,
+      );
+    });
+
+    it('falhar ao fechar lacunas não desfaz a aprovação', async () => {
+      knowledgeGaps.closeGroupsCoveredBy.mockRejectedValue(new Error('banco fora'));
+
+      await expect(service.approve(REVIEWER_ID, CARD_ID, { version: 1 })).resolves.toBeDefined();
+    });
+
+    it('corrigir, enviar, rejeitar e arquivar não fecham lacuna', async () => {
+      db.setState({ status: 'draft' });
+      await service.submit(REVIEWER_ID, CARD_ID, { version: 1 });
+      db.setState({ status: 'published', publishedVersionId: VERSION_ID });
+      await service.archive(REVIEWER_ID, CARD_ID, { reason: 'PCDT revogado' });
+
+      expect(knowledgeGaps.closeGroupsCoveredBy).not.toHaveBeenCalled();
     });
   });
 

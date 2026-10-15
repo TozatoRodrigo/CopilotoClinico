@@ -454,7 +454,7 @@ O botão "Não encontrei o que precisava", sob a análise, grava uma lacuna em
 da busca dirigida que o entendimento registrou, e a frase opcional do médico
 (até 280 caracteres, mascarada). Nunca o texto do caso. Uma por análise: tocar
 de novo atualiza a nota. No log: `KNOWLEDGE_GAP_RECORDED`. É a entrada da
-fila de cartões (CC-409) e do painel do beta (CC-705).
+fila de cartões (CC-409, abaixo) e do painel do beta (CC-705).
 
 ```sql
 -- Lacunas da semana por síndrome, com as consultas mais repetidas
@@ -818,7 +818,8 @@ flag ligada não quebra nada: a busca não roda e a análise segue sem cartões.
 
 No log: `REVIEWED_CARDS` (status, portão, síndrome, candidatos, aceitos,
 rejeitados por motivo, `cardId:versão:similaridade`), `REVIEWED_CARDS_GAP`
-(nenhum cartão aplicável — a lacuna da CC-409), `REVIEWED_CARDS_SKIPPED`
+(nenhum cartão aplicável; a análise válida grava a lacuna em `knowledge_gaps`
+— ver "Lacunas e fila de cartões"), `REVIEWED_CARDS_SKIPPED`
 (decisão v1 ou sem entendimento), `REVIEWED_CARDS_FAILED` e
 `REVIEWED_CARDS_GATE_FAILED` (também no Sentry; a análise segue sem cartões)
 e `REVIEWED_CARD_DOSE_DEMOTED` (dose fora do cartão depois do retry). Na
@@ -877,8 +878,8 @@ flag está ligada.
 
 No log: `QUICK_QUESTION` (id, desfecho, estado da busca, candidatos,
 `cardId:versão:similaridade`, PII detectada, latência — o p50 alvo é ≤ 5 s),
-`QUICK_QUESTION_GAP` (a lacuna, sem texto; com a tabela `knowledge_gaps` do
-PR #185 passa a gravar a pergunta mascarada), `QUICK_QUESTION_SEARCH_FAILED`,
+`QUICK_QUESTION_GAP` (a lacuna, sem texto no log; a pergunta mascarada vai
+para `knowledge_gaps`, CC-409), `QUICK_QUESTION_SEARCH_FAILED`,
 `QUICK_QUESTION_GAP_FAILED` e `QUICK_QUESTION_AUDIT_FAILED` (os três também
 no Sentry). Na trilha, `QUICK_QUESTION_ASKED` por pergunta, sem texto.
 
@@ -919,6 +920,83 @@ SELECT date_trunc('week', created_at) AS semana,
        count(*) FILTER (WHERE payload->>'outcome' = 'search_unavailable') AS sem_busca,
        count(*) FILTER (WHERE payload->>'outcome' = 'refused') AS recusadas
 FROM audit_log WHERE action = 'QUICK_QUESTION_ASKED' GROUP BY 1 ORDER BY 1 DESC;
+```
+
+### Lacunas e fila de cartões (CC-409)
+
+Toda vez que o médico procura e não há cartão, uma lacuna entra em
+`knowledge_gaps` — as três fontes na mesma tabela:
+
+| Fonte (`source`) | Quando | O que grava |
+|---|---|---|
+| `physician_not_found` | "Não encontrei o que precisava" na análise (CC-703) | síndrome e consultas do entendimento, nota mascarada; uma por análise |
+| `decision_no_card` | a decisão buscou cartão (`COPILOT_REVIEWED_CARDS`), o portão julgou e nenhum se aplica (CC-408) | síndrome e consultas do entendimento; só análise válida, uma por atendimento e tema |
+| `quick_question` | a pergunta rápida não achou cartão (CC-501) | a pergunta mascarada como consulta, sem síndrome |
+
+Nunca o texto do caso, nunca o médico, o atendimento ou a instituição na
+lacuna: a da análise sai com o atendimento (cascata da análise, LGPD), a da
+pergunta rápida não tem dono. Sem busca (flag desligada, embedding fora,
+portão que falhou) não há lacuna: não dá para dizer que falta cartão.
+
+**Agrupamento.** Cada lacuna cai num grupo (`knowledge_gap_groups`) por
+regra determinística, sem embedding (`gap-grouping.ts`): consultas sem
+acento, sem palavra genérica ("dose", "conduta", "adulto"…), cortadas no
+radical de 6 letras; junta com o grupo da mesma síndrome (ou sem síndrome)
+quando divide ao menos 2 termos e metade do menor conjunto com a assinatura
+dele (a lacuna que abriu o grupo). Lacuna sem consulta só se junta a grupo
+sem consulta da mesma síndrome. O grupo sem síndrome adota a primeira que
+chega.
+
+**Fila do curador** — `/admin/lacunas` (papel COMPLIANCE/ADMIN e curador),
+`GET /v1/admin/knowledge-gaps?status=`: grupos com contagem, fontes,
+primeira e última ocorrência, consultas mais repetidas e as notas recentes,
+na ordem ocorrências × gravidade da síndrome (tempo-crítica 3, urgente 2,
+comum 1 — `SYNDROME_SEVERITY`, provisória até a revisão médica). Ações:
+
+- **Gerar rascunho de cartão** (`POST /:id/draft`, tema ajustável): chama o
+  rascunho por IA do CC-403 com o tema e a síndrome do grupo, cartão
+  global. Só com `KNOWLEDGE_CARDS_DRAFT_ENABLED` (sem ela, 503 e nada
+  muda). Com cartão aceito pela checagem de citação, o grupo vai para "em
+  rascunho"; sem nenhum, fica aberto com o rascunho registrado.
+- **Descartar com motivo** (`POST /:id/dismiss`): motivo mascarado; novas
+  lacunas do tema continuam contando no grupo descartado, sem reabrir.
+- **Reabrir** (`POST /:id/reopen`): rascunho que não vingou, cobertura
+  errada ou descarte desfeito.
+- **Coberta por cartão** — automático: aprovar (publicar) um cartão fecha o
+  grupo que pediu o rascunho de onde ele saiu e, para cartão global, os
+  grupos em que o tema e a pergunta do cartão cairiam. Grupo fechado que
+  volta a receber lacuna aparece como "voltou a aparecer".
+
+Contagens saem das lacunas na leitura: apagar um atendimento (LGPD) tira a
+lacuna e a conta acompanha. Quem tratou o grupo fica só na trilha
+(`KNOWLEDGE_GAP_DRAFT_REQUESTED`, `KNOWLEDGE_GAP_DISMISSED` com o hash do
+motivo, `KNOWLEDGE_GAP_REOPENED`, `KNOWLEDGE_GAP_COVERED`).
+
+**Retenção e varredura.** Lacuna fica 180 dias (`KNOWLEDGE_GAP_RETENTION_DAYS`).
+A varredura diária (04:30 UTC) apaga o que passou disso, agrupa lacunas sem
+grupo (gravadas antes desta migration) e apaga grupo aberto que ficou vazio;
+grupo fechado fica como histórico.
+
+**Ritual de sexta** — `GET /v1/admin/knowledge-gaps/weekly-report` (e o
+topo da página): os 7 dias até agora, total por fonte, grupos novos e
+fechados, e os 10 grupos com mais lacunas na semana (sem os descartados),
+sem consulta nem nota. `?endingAt=` refaz uma semana passada. É a fonte do
+painel do beta (CC-705).
+
+No log: `KNOWLEDGE_GAP_RECORDED` (fonte, grupo, novo grupo, síndrome,
+contagens), `KNOWLEDGE_GAP_DRAFTED`, `KNOWLEDGE_GAP_DISMISSED`,
+`KNOWLEDGE_GAP_REOPENED`, `KNOWLEDGE_GAP_COVERED`,
+`KNOWLEDGE_GAP_MAINTENANCE`; e com Sentry: `KNOWLEDGE_GAP_RECORD_FAILED` (a
+análise segue), `KNOWLEDGE_GAP_CLOSE_FAILED` (o cartão já está publicado:
+feche o grupo à mão), `KNOWLEDGE_GAP_MAINTENANCE_FAILED` e
+`KNOWLEDGE_GAP_AUDIT_FAILED`.
+
+```sql
+-- Top lacunas da semana direto no banco (mesma conta da API)
+SELECT gr.id, gr.topic, gr.syndrome, gr.status, count(*) AS semana
+FROM knowledge_gaps g JOIN knowledge_gap_groups gr ON gr.id = g.group_id
+WHERE g.created_at > now() - interval '7 days' AND gr.status <> 'dismissed'
+GROUP BY gr.id ORDER BY semana DESC LIMIT 10;
 ```
 
 ### Sincronizar a base oficial da Conitec (ADR-010)
@@ -1230,6 +1308,7 @@ apenas na resposta. Acesso a um protocolo de outra instituição retorna `404`
 | `20261014120000_cc_402_knowledge_cards` | Cartões revisados (ADR-019): `knowledge_card_drafts`, `knowledge_cards`, `knowledge_card_versions`, trigger que congela o conteúdo assinado e GRANT sem DELETE; só cria tabelas |
 | `20261014180000_cc_703_knowledge_gaps` | Tabela `knowledge_gaps` (registro de lacunas, CC-703); só cria tabela e tipo, sem tocar nas existentes |
 | `20261015120000_cc_406_knowledge_card_index` | Índice semântico dos cartões (CC-406): `knowledge_card_index`, derivado (CASCADE a partir do cartão, GRANT com DELETE), `embedding vector` sem dimensão fixa; só cria tabela — depois do deploy, `pnpm cards:reindex` |
+| `20261015180000_cc_409_knowledge_gap_groups` | Fila de lacunas (CC-409): `knowledge_gap_groups`, `knowledge_gaps.group_id` (SET NULL), fontes `decision_no_card` e `quick_question` no enum; só acrescenta — lacunas antigas são agrupadas pela varredura diária |
 
 ### Rollback de Migration
 

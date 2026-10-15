@@ -18,6 +18,7 @@ import { ClinicalCaseSchema } from '../../evals/clinical/case.schema';
 import { AuditService } from '../../src/modules/audit/audit.service';
 import { CopilotFeedbackService } from '../../src/modules/copilot/feedback/copilot-feedback.service';
 import { KnowledgeGapService } from '../../src/modules/copilot/gaps/knowledge-gap.service';
+import { KnowledgeGapsService } from '../../src/modules/knowledge-gaps/knowledge-gaps.service';
 import { LgpdService } from '../../src/modules/lgpd/lgpd.service';
 import type { PrismaService } from '../../src/config/prisma.service';
 
@@ -35,12 +36,17 @@ describe('CC-703 — feedback que vira caso e registro de lacunas (integration)'
   beforeAll(async () => {
     prisma = await connectTestDb();
     audit = new AuditService(prisma as unknown as PrismaService);
-    gaps = new KnowledgeGapService(prisma as unknown as PrismaService);
+    gaps = new KnowledgeGapService(
+      prisma as unknown as PrismaService,
+      new KnowledgeGapsService(prisma as unknown as PrismaService, audit),
+    );
   });
 
   afterAll(async () => {
     await prisma.physician.deleteMany({ where: { email: { endsWith: EMAIL_DOMAIN } } });
     await prisma.knowledgeGap.deleteMany({ where: { interactionId: null } });
+    // CC-409 — toda lacuna abre ou entra num grupo; o que ficou vazio sai.
+    await prisma.knowledgeGapGroup.deleteMany({ where: { gaps: { none: {} } } });
     await clearAuditLog(prisma);
     await disconnectTestDb();
   });

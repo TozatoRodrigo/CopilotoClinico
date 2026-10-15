@@ -19,7 +19,10 @@ import type {
   UnderstandingService,
 } from '../understanding/understanding.service';
 import type { WebResearchService } from '../research/web-research.service';
-import { cardRetrievalNeverCalled } from '../../../../tests/fixtures/reviewed-cards';
+import {
+  cardRetrievalNeverCalled,
+  knowledgeGapsNeverCalled,
+} from '../../../../tests/fixtures/reviewed-cards';
 import { SOURCE_VERIFICATION_SYSTEM_PROMPT } from '../research/source-verification-prompt';
 import { DECISION_V3_SYSTEM_PROMPT } from './decision-prompt-v3';
 import { understandingFixture } from '../../../../tests/fixtures/case-understanding';
@@ -243,6 +246,7 @@ describe('OrchestratorService — verificação com fonte depois da decisão', (
       { understand } as unknown as UnderstandingService,
       { research: forbidden('a pesquisa antes da decisão') } as unknown as WebResearchService,
       cardRetrievalNeverCalled(),
+      knowledgeGapsNeverCalled(),
     );
   });
 

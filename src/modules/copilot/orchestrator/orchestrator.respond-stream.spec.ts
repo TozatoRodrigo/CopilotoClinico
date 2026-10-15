@@ -17,7 +17,10 @@ import type {
   UnderstandingService,
 } from '../understanding/understanding.service';
 import type { WebResearchService } from '../research/web-research.service';
-import { cardRetrievalNeverCalled } from '../../../../tests/fixtures/reviewed-cards';
+import {
+  cardRetrievalNeverCalled,
+  knowledgeGapsNeverCalled,
+} from '../../../../tests/fixtures/reviewed-cards';
 import type { RespondInput } from '../schemas/copilot.schemas';
 import { understandingFixture } from '../../../../tests/fixtures/case-understanding';
 
@@ -203,6 +206,7 @@ describe('OrchestratorService — reanálise por streaming', () => {
         },
       } as unknown as WebResearchService,
       cardRetrievalNeverCalled(),
+      knowledgeGapsNeverCalled(),
     );
   });
 

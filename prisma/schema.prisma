@@ -490,11 +490,26 @@ model CopilotFeedback {
   @@map("copilot_feedback")
 }
 
-/// CC-703 — de onde veio a lacuna. A CC-409 acrescenta a da análise sem cartão
-/// aplicável; a CC-501, a da pergunta rápida sem cartão.
+/// CC-703/CC-409 — de onde veio a lacuna: as três fontes gravam na mesma tabela.
 enum KnowledgeGapSource {
   /// O médico tocou "não encontrei o que precisava" na análise.
   physician_not_found
+  /// CC-408 — a busca de cartões rodou na decisão e o portão não aceitou nenhum.
+  decision_no_card
+  /// CC-501 — a pergunta rápida não achou cartão aplicável.
+  quick_question
+}
+
+/// CC-409 — onde o grupo de lacunas está na fila de criação de cartões.
+enum KnowledgeGapGroupStatus {
+  /// Ninguém tratou ainda.
+  open
+  /// O curador pediu o rascunho de cartão por IA e ele gerou cartões para revisão.
+  drafting
+  /// Um cartão publicado cobre o grupo (`covered_by_card_id`).
+  covered
+  /// O curador decidiu não escrever cartão, com motivo.
+  dismissed
 }
 
 /// CC-703 — registro de lacunas: o que o médico procurou e o Copiloto não
@@ -517,17 +532,61 @@ model KnowledgeGap {
   searchQueries String[]           @map("search_queries")
   /// O que faltou, nas palavras do médico — já mascarado de PII.
   note          String?            @db.Text
+  /// CC-409 — grupo de lacunas parecidas; null até o agrupamento (lacuna
+  /// gravada antes da CC-409 entra na varredura diária).
+  groupId       String?            @map("group_id") @db.Uuid
   createdAt     DateTime           @default(now()) @map("created_at")
   updatedAt     DateTime           @updatedAt @map("updated_at")
 
-  interaction AiInteraction? @relation(fields: [interactionId], references: [id], onDelete: Cascade)
+  interaction AiInteraction?     @relation(fields: [interactionId], references: [id], onDelete: Cascade)
+  group       KnowledgeGapGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
 
   /// Uma lacuna por análise e fonte: tocar de novo atualiza a nota em vez de
   /// contar duas vezes. Lacunas sem análise (NULL) não colidem entre si.
   @@unique([interactionId, source])
   @@index([createdAt])
   @@index([syndrome, createdAt])
+  @@index([groupId, createdAt])
   @@map("knowledge_gaps")
+}
+
+/// CC-409 — grupo de lacunas parecidas (mesma síndrome, consultas próximas):
+/// o item da fila de criação de cartões que o curador trata.
+///
+/// Contagem, primeira e última ocorrência saem das lacunas do grupo na
+/// leitura, nunca de um contador: apagar um atendimento (LGPD) ou passar da
+/// retenção tira a lacuna e a conta acompanha. Sem médico aqui também; quem
+/// tratou o grupo fica na trilha de auditoria (`KNOWLEDGE_GAP_*`).
+model KnowledgeGapGroup {
+  id              String                  @id @default(uuid()) @db.Uuid
+  /// `PS_SYNDROMES` da lacuna que abriu o grupo; null/`outro` não separam.
+  syndrome        String?                 @db.VarChar(40)
+  /// Termos normalizados das consultas da lacuna que abriu o grupo
+  /// (`gapTerms`): a assinatura com que as próximas são comparadas. Fixa,
+  /// para o grupo não crescer por arrasto.
+  signature       String[]
+  /// Tema sugerido para o rascunho: a primeira consulta, mascarada, da lacuna
+  /// que abriu o grupo. Vazio quando ela não tinha consulta.
+  topic           String                  @db.VarChar(200)
+  status          KnowledgeGapGroupStatus @default(open)
+  /// Último rascunho de IA pedido pela fila (CC-403).
+  draftId         String?                 @map("draft_id") @db.Uuid
+  /// Cartão publicado que cobriu o grupo.
+  coveredByCardId String?                 @map("covered_by_card_id") @db.Uuid
+  /// Motivo do descarte, já mascarado de PII.
+  dismissReason   String?                 @map("dismiss_reason") @db.Text
+  statusChangedAt DateTime?               @map("status_changed_at")
+  createdAt       DateTime                @default(now()) @map("created_at")
+  updatedAt       DateTime                @updatedAt @map("updated_at")
+
+  gaps          KnowledgeGap[]
+  draft         KnowledgeCardDraft? @relation(fields: [draftId], references: [id], onDelete: Restrict)
+  coveredByCard KnowledgeCard?      @relation(fields: [coveredByCardId], references: [id], onDelete: Restrict)
+
+  @@index([status])
+  @@index([syndrome])
+  @@index([draftId])
+  @@map("knowledge_gap_groups")
 }
 
 model GuidelineChunk {
@@ -674,7 +733,9 @@ model KnowledgeCardDraft {
   requestId           String?                  @map("request_id") @db.VarChar(64)
   createdAt           DateTime                 @default(now()) @map("created_at")
 
-  versions KnowledgeCardVersion[]
+  versions  KnowledgeCardVersion[]
+  /// CC-409 — grupos de lacunas que pediram este rascunho.
+  gapGroups KnowledgeGapGroup[]
 
   @@index([sourceContentSha256])
   @@index([createdAt])
@@ -709,6 +770,8 @@ model KnowledgeCard {
   publishedVersion KnowledgeCardVersion?    @relation("KnowledgeCardPublishedVersion", fields: [publishedVersionId], references: [id], onDelete: Restrict)
   versions         KnowledgeCardVersion[]   @relation("KnowledgeCardVersions")
   indexEntry       KnowledgeCardIndexEntry?
+  /// CC-409 — grupos de lacunas que este cartão cobriu.
+  coveredGapGroups KnowledgeGapGroup[]
 
   @@index([status, updatedAt])
   @@index([institutionId])

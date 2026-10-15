@@ -145,3 +145,52 @@ describe('CC-406 migration 20261015120000_cc_406_knowledge_card_index', () => {
     expect(sql).toContain('knowledge_card_index_embedding_model_check');
   });
 });
+
+/**
+ * CC-409 — grupos de lacunas: a API agrupa, muda o status e apaga o grupo
+ * aberto vazio; nada aqui apaga cartão nem rascunho, e nenhuma das duas
+ * tabelas tem coluna de médico.
+ */
+describe('CC-409 migration 20261015180000_cc_409_knowledge_gap_groups', () => {
+  const sql = readFileSync(
+    join(
+      process.cwd(),
+      'prisma/migrations/20261015180000_cc_409_knowledge_gap_groups/migration.sql',
+    ),
+    'utf8',
+  );
+
+  it('grants only DML on the groups and smoke-checks it', () => {
+    expect(sql).toContain(
+      'GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "knowledge_gap_groups" TO copiloto_app',
+    );
+    expect(sql).not.toMatch(/GRANT\s+ALL/i);
+    expect(sql).not.toMatch(/GRANT[^;]*TRUNCATE/i);
+    expect(sql).toContain("has_table_privilege('copiloto_app', 'knowledge_gap_groups', privilege)");
+    expect(sql).toContain(
+      "has_table_privilege('copiloto_app', 'knowledge_gap_groups', 'TRUNCATE')",
+    );
+  });
+
+  it('never cascades into cards or drafts, and a group going away only unlinks its gaps', () => {
+    expect(sql).toContain(
+      'FOREIGN KEY ("draft_id") REFERENCES "knowledge_card_drafts"("id") ON DELETE RESTRICT',
+    );
+    expect(sql).toContain(
+      'FOREIGN KEY ("covered_by_card_id") REFERENCES "knowledge_cards"("id") ON DELETE RESTRICT',
+    );
+    expect(sql).toContain(
+      'FOREIGN KEY ("group_id") REFERENCES "knowledge_gap_groups"("id") ON DELETE SET NULL',
+    );
+    expect(sql).not.toMatch(/ON DELETE CASCADE/);
+  });
+
+  it('keeps gaps and groups without a physician column', () => {
+    expect(sql).not.toMatch(/physician/i);
+  });
+
+  it('requires the card for "covered" and the reason for "dismissed"', () => {
+    expect(sql).toContain(`CHECK ("status" <> 'covered' OR "covered_by_card_id" IS NOT NULL)`);
+    expect(sql).toContain(`CHECK ("status" <> 'dismissed' OR "dismiss_reason" IS NOT NULL)`);
+  });
+});

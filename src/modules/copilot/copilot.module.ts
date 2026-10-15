@@ -20,6 +20,7 @@ import { IntakeController } from './intake/intake.controller';
 import { IntakeService } from './intake/intake.service';
 import { ConversationService } from './intake/conversation.service';
 import { KnowledgeCardRetrievalModule } from '../knowledge-cards/card-retrieval/knowledge-card-retrieval.module';
+import { KnowledgeGapsModule } from '../knowledge-gaps/knowledge-gaps.module';
 
 @Module({
   imports: [
@@ -29,6 +30,8 @@ import { KnowledgeCardRetrievalModule } from '../knowledge-cards/card-retrieval/
     ProtocolEngineModule,
     // CC-408 — cartões revisados na decisão (COPILOT_REVIEWED_CARDS).
     KnowledgeCardRetrievalModule,
+    // CC-409 — lacunas: "não encontrei o que precisava" e decisão sem cartão.
+    KnowledgeGapsModule,
     forwardRef(() => QueueModule),
   ],
   controllers: [

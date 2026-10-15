@@ -1,29 +1,31 @@
-import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import type { KnowledgeGapSource } from '@prisma/client';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../../config/prisma.service';
 import type { KnowledgeGapReportResponse } from '../../../shared/contracts/clinical';
+import { KnowledgeGapsService } from '../../knowledge-gaps/knowledge-gaps.service';
 import { maskFreeText } from '../guardrails/pii-filter';
 import { extractUnderstandingSignals } from '../interaction-trace';
 import type { KnowledgeGapReportInput } from '../schemas/copilot.schemas';
 
 /**
- * CC-703 — registro de lacunas (`knowledge_gaps`): o que o médico procurou e
- * o Copiloto não tinha.
+ * CC-703 — "não encontrei o que precisava": o que o médico procurou e o
+ * Copiloto não tinha.
  *
  * Grava a síndrome de PS e as consultas da busca dirigida que o entendimento
- * da análise registrou, nunca o texto do caso. É o que a fila de criação de
- * cartões (CC-409) agrupa por semana e o painel do beta (CC-705) conta.
+ * da análise registrou, nunca o texto do caso. CC-409 — a gravação é a do
+ * registro único de lacunas (`KnowledgeGapsService`), que agrupa com as
+ * lacunas da decisão e da pergunta rápida para a fila de cartões.
  */
 @Injectable()
 export class KnowledgeGapService {
-  private readonly logger = new Logger(KnowledgeGapService.name);
-
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
+  constructor(
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(KnowledgeGapsService) private readonly gaps: KnowledgeGapsService,
+  ) {}
 
   /**
-   * "Não encontrei o que precisava" numa análise. Tocar de novo na mesma
-   * análise atualiza a lacuna (índice único por análise e fonte) em vez de
-   * contá-la duas vezes; sem nota nova, a anterior fica.
+   * Tocar de novo na mesma análise atualiza a lacuna (índice único por
+   * análise e fonte) em vez de contá-la duas vezes; sem nota nova, a
+   * anterior fica.
    */
   async reportNotFound(
     physicianId: string,
@@ -39,21 +41,17 @@ export class KnowledgeGapService {
     // médico: não confirmar a existência de um atendimento alheio.
     if (!interaction) throw new NotFoundException('Analysis not found for this encounter');
 
-    const source: KnowledgeGapSource = 'physician_not_found';
     const { syndrome, searchQueries } = extractUnderstandingSignals(interaction.rawOutput);
     const note = maskFreeText(input.note);
 
-    const gap = await this.prisma.knowledgeGap.upsert({
-      where: { interactionId_source: { interactionId: interaction.id, source } },
-      create: { source, interactionId: interaction.id, syndrome, searchQueries, note },
-      update: { syndrome, searchQueries, ...(note ? { note } : {}) },
-      select: { id: true },
+    await this.gaps.record({
+      source: 'physician_not_found',
+      interactionId: interaction.id,
+      syndrome,
+      searchQueries,
+      // Sem nota nova, a anterior fica.
+      ...(note ? { note } : {}),
     });
-
-    this.logger.log(
-      `KNOWLEDGE_GAP_RECORDED gapId=${gap.id} source=${source} ` +
-        `syndromeKnown=${syndrome !== null} queries=${searchQueries.length} hasNote=${note !== null}`,
-    );
 
     return { recorded: true };
   }

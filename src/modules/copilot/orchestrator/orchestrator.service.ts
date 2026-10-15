@@ -98,6 +98,8 @@ import {
   type ReviewedCardEvidence,
 } from '../reviewed-cards/reviewed-card-evidence';
 import { withAnsweredQuestions } from './answered-questions';
+import { KnowledgeGapsService } from '../../knowledge-gaps/knowledge-gaps.service';
+import { understandingSignals } from '../interaction-trace';
 
 const DEFAULT_MAX_TURNS = 5;
 
@@ -932,6 +934,7 @@ export class OrchestratorService {
     @Inject(WebResearchService) private readonly webResearch: WebResearchService,
     @Inject(ReviewedCardRetrievalService)
     private readonly reviewedCardRetrieval: ReviewedCardRetrievalService,
+    @Inject(KnowledgeGapsService) private readonly knowledgeGaps: KnowledgeGapsService,
   ) {
     this.sourceVerification = new SourceVerificationService(aiGateway, config);
   }
@@ -1996,6 +1999,7 @@ export class OrchestratorService {
     });
     const cost = analysisCost(settled, attempt);
     await this.recordTurn(settled, interaction.id, output, cost);
+    await this.recordCardGap(settled, interaction.id);
 
     const { retrievalResult } = settled;
     return {
@@ -2024,6 +2028,31 @@ export class OrchestratorService {
         },
       },
     };
+  }
+
+  /**
+   * CC-409 — a busca de cartões rodou, o portão julgou e nenhum cartão se
+   * aplica: lacuna da decisão, com a síndrome e as consultas do entendimento
+   * (nunca o texto do caso). Só na análise válida — a que falhou é refeita —
+   * e uma vez por atendimento e tema: a reanálise do mesmo caso não conta de
+   * novo. Sem busca (flag desligada, embedding fora, portão que falhou) não
+   * dá para dizer que falta cartão. A lacuna nunca derruba a análise.
+   */
+  private async recordCardGap(prepared: PreparedAnalysis, interactionId: string): Promise<void> {
+    const cards = prepared.reviewedCards;
+    if (!cards || cards.trace.status !== 'ok' || cards.evidence.length > 0) return;
+    try {
+      await this.knowledgeGaps.record({
+        source: 'decision_no_card',
+        interactionId,
+        ...understandingSignals(prepared.stage?.understanding ?? null),
+        dedupeEncounterId: prepared.encounterId,
+      });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      this.logger.error(`KNOWLEDGE_GAP_RECORD_FAILED${prepared.logLabel}: ${reason}`);
+      Sentry.captureMessage(`KNOWLEDGE_GAP_RECORD_FAILED: ${reason}`, 'error');
+    }
   }
 
   /**

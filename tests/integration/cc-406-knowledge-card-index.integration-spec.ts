@@ -22,6 +22,7 @@ import type { AuditService } from '../../src/modules/audit/audit.service';
 import { SimilarityThemeGate } from '../../src/modules/knowledge-cards/card-retrieval/card-relevance-gate';
 import { ReviewedCardRetrievalService } from '../../src/modules/knowledge-cards/card-retrieval/reviewed-card-retrieval.service';
 import { KnowledgeCardsService } from '../../src/modules/knowledge-cards/knowledge-cards.service';
+import type { KnowledgeGapsService } from '../../src/modules/knowledge-gaps/knowledge-gaps.service';
 import { storedCardContent } from '../fixtures/knowledge-cards';
 
 const EMAIL_DOMAIN = '@cc406.test';
@@ -346,6 +347,7 @@ describe('CC-406 — índice semântico dos cartões (integration)', () => {
       prisma as unknown as PrismaService,
       {} as AuditService,
       index,
+      {} as KnowledgeGapsService,
     );
     await expect(cards.getPublished(verifiedReviewerId, applies.cardId)).resolves.toMatchObject({
       id: applies.cardId,

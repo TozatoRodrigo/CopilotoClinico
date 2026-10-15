@@ -1,22 +1,13 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import { KnowledgeGapsService } from '../knowledge-gaps/knowledge-gaps.service';
 
 /**
  * CC-501 — lacuna da pergunta rápida: a busca rodou e nenhum cartão revisado
  * serve. É o insumo da fila de criação de cartões (CC-409).
  *
- * Ponto de extensão (`KNOWLEDGE_GAP_RECORDER`). Hoje a lacuna vai só para o
- * log, no formato do `REVIEWED_CARDS_GAP` da decisão (contagens, sem texto).
- * Quando a tabela `knowledge_gaps` do PR #185 (CC-703) estiver na base, a
- * implementação que grava nela:
- *
- * 1. acrescenta `quick_question` ao enum `KnowledgeGapSource` (migration nova);
- * 2. grava `{ source: 'quick_question', interactionId: null, syndrome: null,
- *    searchQueries: [maskedQuestion] }` — a pergunta já mascarada é a
- *    "consulta" da lacuna, como as `searchQueries` da análise;
- * 3. entra no lugar de `LoggedKnowledgeGapRecorder` no `QuickQuestionModule`.
- *
- * A retenção do texto mascarado passa a ser a das lacunas (ver a emenda da
- * pergunta rápida na ADR-019).
+ * Ponto de extensão (`KNOWLEDGE_GAP_RECORDER`): o serviço da pergunta rápida
+ * não sabe onde a lacuna fica. CC-409 — fica em `knowledge_gaps`, com as
+ * lacunas da análise e da decisão (`StoredKnowledgeGapRecorder`).
  */
 export interface QuickQuestionGap {
   questionId: string;
@@ -36,17 +27,32 @@ export interface KnowledgeGapRecorder {
 
 export const KNOWLEDGE_GAP_RECORDER = Symbol('KNOWLEDGE_GAP_RECORDER');
 
-/** Implementação de hoje: a contagem no log, sem a pergunta. */
+/**
+ * CC-409 — a lacuna vai para `knowledge_gaps` com `source = quick_question`,
+ * sem análise e sem síndrome: a pergunta mascarada é a "consulta" da lacuna,
+ * como as `searchQueries` da análise. Nem o médico nem a instituição são
+ * gravados ("lacunas não têm médico"). A retenção é a das lacunas (180 dias,
+ * `KNOWLEDGE_GAP_RETENTION_DAYS`).
+ */
 @Injectable()
-export class LoggedKnowledgeGapRecorder implements KnowledgeGapRecorder {
-  readonly name = 'log';
-  private readonly logger = new Logger(LoggedKnowledgeGapRecorder.name);
+export class StoredKnowledgeGapRecorder implements KnowledgeGapRecorder {
+  readonly name = 'knowledge_gaps';
+  private readonly logger = new Logger(StoredKnowledgeGapRecorder.name);
+
+  constructor(@Inject(KnowledgeGapsService) private readonly gaps: KnowledgeGapsService) {}
 
   async record(gap: QuickQuestionGap): Promise<boolean> {
+    const result = await this.gaps.record({
+      source: 'quick_question',
+      interactionId: null,
+      syndrome: null,
+      searchQueries: [gap.maskedQuestion],
+    });
     this.logger.log(
-      `QUICK_QUESTION_GAP questionId=${gap.questionId} syndrome=- ` +
-        `institution=${gap.institutionId ?? '-'} candidates=${gap.candidates}`,
+      `QUICK_QUESTION_GAP questionId=${gap.questionId} groupId=${result.groupId} ` +
+        `newGroup=${result.newGroup} institution=${gap.institutionId ?? '-'} ` +
+        `candidates=${gap.candidates}`,
     );
-    return true;
+    return result.recorded;
   }
 }

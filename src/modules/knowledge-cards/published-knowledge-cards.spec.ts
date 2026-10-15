@@ -4,6 +4,7 @@ import type { PrismaService } from '../../config/prisma.service';
 import type { AuditService } from '../audit/audit.service';
 import { REVIEWED_CARD_ID, reviewedCardRow } from '../../../tests/fixtures/reviewed-cards';
 import type { CardIndexService } from './card-index/card-index.service';
+import type { KnowledgeGapsService } from '../knowledge-gaps/knowledge-gaps.service';
 import { REVIEWED_CARD_SELECT } from './card-retrieval/reviewed-card-view';
 import { KnowledgeCardsService } from './knowledge-cards.service';
 import { PublishedKnowledgeCardsController } from './published-knowledge-cards.controller';
@@ -28,6 +29,7 @@ describe('cartão publicado para o médico do plantão (CC-408)', () => {
       } as unknown as PrismaService,
       {} as AuditService,
       {} as CardIndexService,
+      {} as KnowledgeGapsService,
     );
   });
 

@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/node';
 import {
   ConflictException,
   ForbiddenException,
@@ -33,6 +34,7 @@ import {
 } from './domain/card-lifecycle';
 import { loadSourceChunks, prepareCardContent, requestedChunkIds } from './card-sources';
 import { CardIndexService } from './card-index/card-index.service';
+import { KnowledgeGapsService } from '../knowledge-gaps/knowledge-gaps.service';
 import { KNOWLEDGE_CARD_AUDIT_ACTIONS, KNOWLEDGE_CARD_AUDIT_ENTITY } from './knowledge-card-audit';
 import {
   CARD_DETAIL_SELECT,
@@ -96,6 +98,8 @@ function displayStatusWhere(
  * CC-406 — aprovar e arquivar atualizam o índice semântico, depois da trilha:
  * são as duas transições que mudam a versão publicada ou tiram o cartão de
  * uso. Corrigir e rejeitar não mexem na versão publicada.
+ *
+ * CC-409 — aprovar também fecha as lacunas que o cartão publicado cobre.
  */
 @Injectable()
 export class KnowledgeCardsService {
@@ -105,6 +109,7 @@ export class KnowledgeCardsService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(CardIndexService) private readonly cardIndex: CardIndexService,
+    @Inject(KnowledgeGapsService) private readonly knowledgeGaps: KnowledgeGapsService,
   ) {}
 
   async list(query: ListKnowledgeCardsQueryInput): Promise<KnowledgeCardListPage> {
@@ -311,7 +316,22 @@ export class KnowledgeCardsService {
       commentSha256: textSha256(comment),
     });
     await this.cardIndex.syncCard(cardId);
+    await this.closeCoveredGaps(cardId, reviewerId);
     return this.get(cardId);
+  }
+
+  /**
+   * CC-409 — o cartão já está publicado: falhar aqui não desfaz a aprovação.
+   * O grupo que ficou aberto o curador fecha à mão; o erro vai para o Sentry.
+   */
+  private async closeCoveredGaps(cardId: string, reviewerId: string): Promise<void> {
+    try {
+      await this.knowledgeGaps.closeGroupsCoveredBy(cardId, reviewerId);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      this.logger.error(`KNOWLEDGE_GAP_CLOSE_FAILED card=${cardId}: ${reason}`);
+      Sentry.captureMessage(`KNOWLEDGE_GAP_CLOSE_FAILED: ${reason}`, 'error');
+    }
   }
 
   /**

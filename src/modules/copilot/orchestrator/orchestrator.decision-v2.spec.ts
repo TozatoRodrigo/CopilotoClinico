@@ -16,7 +16,10 @@ import type {
   UnderstandingService,
 } from '../understanding/understanding.service';
 import type { ResearchOutcome, WebResearchService } from '../research/web-research.service';
-import { cardRetrievalNeverCalled } from '../../../../tests/fixtures/reviewed-cards';
+import {
+  cardRetrievalNeverCalled,
+  knowledgeGapsNeverCalled,
+} from '../../../../tests/fixtures/reviewed-cards';
 import { DECISION_V2_SYSTEM_PROMPT } from './decision-prompt-v2';
 import {
   COPILOT_OUTPUT_JSON_SCHEMA,
@@ -212,6 +215,7 @@ describe('OrchestratorService — decisão v2 e fontes de conhecimento (F1)', ()
       { understand } as unknown as UnderstandingService,
       { research } as unknown as WebResearchService,
       cardRetrievalNeverCalled(),
+      knowledgeGapsNeverCalled(),
     );
   });
 

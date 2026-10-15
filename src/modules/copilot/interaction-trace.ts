@@ -70,7 +70,17 @@ export interface UnderstandingSignals {
  */
 export function extractUnderstandingSignals(rawOutput: Prisma.JsonValue): UnderstandingSignals {
   const parsed = understandingSignalsSchema.safeParse(rawOutput);
-  const understanding = parsed.success ? parsed.data.understanding : null;
+  return understandingSignals(parsed.success ? parsed.data.understanding : null);
+}
+
+/**
+ * CC-409 — os mesmos sinais direto do entendimento do turno (a decisão sem
+ * cartão grava a lacuna antes de reler a análise): consultas de novo pela
+ * máscara, com os mesmos tetos.
+ */
+export function understandingSignals(
+  understanding: { syndrome: PsSyndrome | null; searchQueries: readonly string[] } | null,
+): UnderstandingSignals {
   if (!understanding) return { syndrome: null, searchQueries: [] };
   return {
     syndrome: understanding.syndrome,

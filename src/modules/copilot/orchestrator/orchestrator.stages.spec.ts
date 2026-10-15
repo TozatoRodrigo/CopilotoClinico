@@ -17,7 +17,10 @@ import type {
   UnderstandingService,
 } from '../understanding/understanding.service';
 import type { WebResearchService } from '../research/web-research.service';
-import { cardRetrievalNeverCalled } from '../../../../tests/fixtures/reviewed-cards';
+import {
+  cardRetrievalNeverCalled,
+  knowledgeGapsNeverCalled,
+} from '../../../../tests/fixtures/reviewed-cards';
 import { UNDERSTANDING_CORRECTION_QUESTION_ID } from '../../../shared/contracts/clinical';
 import { understandingFixture } from '../../../../tests/fixtures/case-understanding';
 
@@ -164,6 +167,7 @@ describe('OrchestratorService — raciocínio em etapas (F1)', () => {
       { understand } as unknown as UnderstandingService,
       { research } as unknown as WebResearchService,
       cardRetrievalNeverCalled(),
+      knowledgeGapsNeverCalled(),
     );
   });
 

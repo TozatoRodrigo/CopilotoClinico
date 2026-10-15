@@ -1,6 +1,6 @@
 # ADR-019: Cartões revisados — modelo, rascunho com citação literal e anti-circularidade
 
-**Status:** Proposto — base implementada (CC-402, CC-403, CC-412), índice (CC-406), cartões na decisão (CC-408) e pergunta rápida com guarda de escopo (CC-501, CC-503) atrás de flag, aguardando revisão clínica
+**Status:** Proposto — base implementada (CC-402, CC-403, CC-412), índice (CC-406), cartões na decisão (CC-408), pergunta rápida com guarda de escopo (CC-501, CC-503) atrás de flag e fila de lacunas (CC-409), aguardando revisão clínica
 **Data:** 2026-10-14
 **Relaciona:** ADR-002/ADR-015 (trilha de auditoria), ADR-009 (multi-tenancy),
 ADR-010/ADR-012 (fontes não revisadas)
@@ -277,7 +277,7 @@ bruto não sai da requisição.
 | Provedor de embedding | pergunta mascarada | política do provedor (o mesmo das diretrizes) |
 | Log | id, desfecho, contagens, `cardId:versão:similaridade`, latência — nunca texto | retenção dos logs |
 | `audit_log` | `QUICK_QUESTION_ASKED` sem texto (item 6) | a da trilha (append-only) |
-| `knowledge_gaps` (com o #185) | pergunta mascarada, só quando falta cartão | a das lacunas, a definir na CC-409 |
+| `knowledge_gaps` (com o #185) | pergunta mascarada, só quando falta cartão | 180 dias (emenda da CC-409) |
 | Navegador | estado da tela | até sair da página: nada em URL, armazenamento local ou evento de uso |
 
 **Riscos.** O portão provisório com a pergunta como hipótese depende do tema
@@ -333,3 +333,49 @@ e a retenção do lado deles não está na documentação pública: exige termos
 privacidade (DPA) antes de ligar. A chamada do Jev ainda não entra em `ai_calls` (sem preço na tabela
 nem etapa própria): o log `JEV_SCOPE` traz modelo, escolha, confiança, tokens
 de entrada e latência.
+
+## Emenda — 15/10/2026: lacunas e fila de cartões (CC-409)
+
+**Contexto.** Três lugares descobrem que falta cartão: o "não encontrei o
+que precisava" da análise (CC-703, tabela `knowledge_gaps`), a decisão sem
+cartão aplicável (`REVIEWED_CARDS_GAP`, só log) e a pergunta rápida sem
+cartão (`QUICK_QUESTION_GAP`, só log). O time quer escrever primeiro o que
+os médicos mais procuram (CC-410), e o rascunho por IA (CC-403) precisa de
+um tema.
+
+**Decisão.**
+
+1. **Uma tabela.** As três fontes gravam em `knowledge_gaps`, pelo mesmo
+   serviço (`KnowledgeGapsService.record`): síndrome e consultas mascaradas
+   (a pergunta mascarada, na pergunta rápida), nunca o texto do caso, nunca
+   o médico. A da decisão só na análise válida com busca e portão que
+   rodaram, uma por atendimento e tema.
+2. **Grupos determinísticos.** Lacunas parecidas formam um grupo
+   (`knowledge_gap_groups`): mesma síndrome (ou sem) e termos das consultas
+   próximos — normalização, palavras genéricas fora, radical de 6 letras,
+   ao menos 2 termos e metade do menor conjunto em comum com a assinatura
+   fixa do grupo. Embedding ficou de fora: está desligado na produção e o
+   curador precisa entender por que duas lacunas caíram juntas.
+3. **Fila.** O grupo é o item do curador, ordenado por ocorrências × peso
+   da gravidade da síndrome (provisório, para revisão médica), com status
+   aberta → em rascunho → coberta por cartão, ou descartada com motivo.
+   "Gerar rascunho" chama o rascunho do CC-403 com o tema do grupo (atrás de
+   `KNOWLEDGE_CARDS_DRAFT_ENABLED`). Aprovar um cartão fecha o grupo que
+   pediu o rascunho dele e, se o cartão é global, os grupos em que o tema e
+   a pergunta do cartão cairiam pela mesma regra do item 2.
+4. **Contagem na leitura e retenção.** Contagem, primeira e última
+   ocorrência saem das lacunas (sem contador); a eliminação LGPD de um
+   atendimento leva as lacunas dele e a conta acompanha. Lacunas ficam 180
+   dias; grupo aberto vazio sai na varredura diária, grupo fechado fica como
+   histórico da decisão do curador (a trilha guarda quem decidiu).
+5. **Relatório semanal** dos 10 grupos com mais lacunas em 7 dias, sem
+   consulta nem nota, para o ritual de sexta e o painel do beta (CC-705).
+
+**Riscos.** A regra por termos erra para os dois lados: sinônimo fora do
+radical abre grupo novo (o curador vê dois itens do mesmo tema), e dois
+temas com os mesmos termos genéricos que escaparam da lista caem juntos. O
+fechamento por semelhança pode fechar um grupo que o cartão não cobre de
+fato: a fila mostra o cartão e o curador reabre. O grupo guarda como tema a
+primeira consulta mascarada da lacuna que o abriu, mesmo depois que a lacuna
+sai (retenção ou LGPD) — consultas da busca dirigida são escritas sem dado
+de paciente (ADR-013) e passam pela máscara de novo.
