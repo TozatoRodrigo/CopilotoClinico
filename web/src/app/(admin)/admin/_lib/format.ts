@@ -36,3 +36,17 @@ export function isReviewOverdue(validFrom: string): boolean {
   reviewDate.setMonth(reviewDate.getMonth() + REVIEW_CYCLE_MONTHS);
   return reviewDate < new Date();
 }
+
+/** CC-707 — tempo de resposta legível: "45 min", "3 h 10", "2 d 4 h"; `null` = "—". */
+export function formatDuration(minutes: number | null): string {
+  if (minutes === null) return '—';
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) {
+    const rest = minutes % 60;
+    return rest > 0 ? `${hours} h ${String(rest).padStart(2, '0')}` : `${hours} h`;
+  }
+  const days = Math.floor(hours / 24);
+  const restHours = hours % 24;
+  return restHours > 0 ? `${days} d ${restHours} h` : `${days} d`;
+}
