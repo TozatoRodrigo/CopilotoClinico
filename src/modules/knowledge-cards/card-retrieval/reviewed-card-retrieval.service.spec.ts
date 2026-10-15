@@ -73,6 +73,7 @@ describe('ReviewedCardRetrievalService (CC-408)', () => {
     expect(result.trace).toEqual({
       status: 'ok',
       gate: 'similarity-theme',
+      fallback: null,
       candidates: 3,
       accepted: 1,
       rejected: { syndrome_mismatch: 1, below_similarity: 1 },
@@ -101,6 +102,7 @@ describe('ReviewedCardRetrievalService (CC-408)', () => {
       trace: {
         status: 'embeddings_disabled',
         gate: 'similarity-theme',
+        fallback: null,
         candidates: 0,
         accepted: 0,
         rejected: {},
@@ -141,7 +143,14 @@ describe('ReviewedCardRetrievalService (CC-408)', () => {
 
     expect(result).toEqual({
       cards: [],
-      trace: { status: 'gate_failed', gate: 'jev', candidates: 1, accepted: 0, rejected: {} },
+      trace: {
+        status: 'gate_failed',
+        gate: 'jev',
+        fallback: null,
+        candidates: 1,
+        accepted: 0,
+        rejected: {},
+      },
     });
   });
 
@@ -152,18 +161,48 @@ describe('ReviewedCardRetrievalService (CC-408)', () => {
     });
     const calibrated: CardRelevanceGate = {
       name: 'jev',
-      judge: async (candidates) =>
-        candidates.map(({ card }) => ({
+      judge: async (candidates) => ({
+        gate: 'jev',
+        fallback: null,
+        verdicts: candidates.map(({ card }) => ({
           cardId: card.cardId,
           applies: card.cardId === REVIEWED_CARD_ID,
           reason: card.cardId === REVIEWED_CARD_ID ? 'applies' : 'gate_rejected',
           score: card.cardId === REVIEWED_CARD_ID ? 0.93 : 0.04,
         })),
+      }),
     };
 
     const result = await service(calibrated).findApplicable(request);
 
     expect(result.cards.map(({ card }) => card.cardId)).toEqual([REVIEWED_CARD_ID]);
     expect(result.trace).toMatchObject({ gate: 'jev', rejected: { gate_rejected: 1 } });
+  });
+
+  it('a trilha mostra quem decidiu e o fallback do portão configurado (CC-407)', async () => {
+    search.mockResolvedValue({ status: 'ok', hits: [hit(REVIEWED_CARD_ID, 0.9)] });
+    const fellBack: CardRelevanceGate = {
+      name: 'jev',
+      judge: async (candidates) => ({
+        gate: 'similarity-theme',
+        fallback: 'jev_failed',
+        verdicts: candidates.map(({ card }) => ({
+          cardId: card.cardId,
+          applies: true,
+          reason: 'applies',
+          score: null,
+        })),
+      }),
+    };
+
+    const result = await service(fellBack).findApplicable(request);
+
+    expect(result.cards).toHaveLength(1);
+    expect(result.trace).toMatchObject({
+      status: 'ok',
+      gate: 'similarity-theme',
+      fallback: 'jev_failed',
+      accepted: 1,
+    });
   });
 });

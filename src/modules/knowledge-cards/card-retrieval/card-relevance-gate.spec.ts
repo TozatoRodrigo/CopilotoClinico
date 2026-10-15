@@ -82,7 +82,11 @@ describe('portão de relevância por similaridade e tema (CC-408)', () => {
       new ConfigService({ REVIEWED_CARDS_MIN_SIMILARITY: '0.8' }),
     );
 
-    const verdicts = await gate.judge(
+    const {
+      gate: decidedBy,
+      fallback,
+      verdicts,
+    } = await gate.judge(
       [
         { card: reviewedCard(), similarity: 0.75 },
         { card: reviewedCard({ cardId: 'b' }), similarity: 0.85 },
@@ -91,6 +95,7 @@ describe('portão de relevância por similaridade e tema (CC-408)', () => {
     );
 
     expect(gate.name).toBe('similarity-theme');
+    expect({ decidedBy, fallback }).toEqual({ decidedBy: 'similarity-theme', fallback: null });
     expect(verdicts.map((verdict) => verdict.applies)).toEqual([false, true]);
   });
 });

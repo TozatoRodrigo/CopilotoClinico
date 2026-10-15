@@ -8,10 +8,11 @@ import type { CardSearchUnavailableReason } from '../card-index/card-search';
 import {
   CARD_RELEVANCE_GATE,
   type CardCandidate,
+  type CardGateFallbackReason,
   type CardRelevanceContext,
   type CardRelevanceGate,
+  type CardRelevanceJudgement,
   type CardRelevanceReason,
-  type CardRelevanceVerdict,
 } from './card-relevance-gate';
 import { REVIEWED_CARD_SELECT, toReviewedCard } from './reviewed-card-view';
 import {
@@ -40,7 +41,10 @@ export interface ApplicableCard {
  */
 export interface ApplicableCardsTrace {
   status: 'ok' | 'gate_failed' | CardSearchUnavailableReason;
+  /** O portão que decidiu (ou o configurado, quando nenhum julgou). */
   gate: string;
+  /** CC-407 — o portão configurado não decidiu e o por similaridade decidiu no lugar. */
+  fallback: CardGateFallbackReason | null;
   candidates: number;
   accepted: number;
   rejected: Partial<Record<CardRelevanceReason, number>>;
@@ -55,7 +59,7 @@ export interface ApplicableCardsResult {
 /**
  * CC-408 (ADR-019) — cartões revisados que se aplicam a um caso: busca
  * semântica no índice (CC-406), carga da versão publicada com o revisor e o
- * portão de relevância (`CARD_RELEVANCE_GATE`; a CC-407 troca o portão).
+ * portão de relevância (`CARD_RELEVANCE_GATE`: por limiar, Jev ou reranker, CC-407).
  *
  * Reutilizável fora da decisão: a pergunta rápida da CC-501 chama o mesmo
  * método com a pergunta como consulta e como hipótese.
@@ -87,12 +91,13 @@ export class ReviewedCardRetrievalService {
     const candidates = await this.loadCandidates(search.hits);
     if (candidates.length === 0) return this.finish(request, [], this.trace('ok', 0, []));
 
-    let verdicts: CardRelevanceVerdict[];
+    let judgement: CardRelevanceJudgement;
     try {
-      verdicts = await this.gate.judge(candidates, request);
+      judgement = await this.gate.judge(candidates, request);
     } catch (error) {
-      // Portão fora do ar (CC-407: API externa) não pode liberar dose sem
-      // julgamento: nenhum cartão nesta análise, e o erro vai para o Sentry.
+      // Portão que lança não pode liberar dose sem julgamento: nenhum cartão
+      // nesta análise, e o erro vai para o Sentry. (Jev ou reranker fora do ar
+      // não chegam aqui: o portão configurado cai no por limiar.)
       const reason = error instanceof Error ? error.message : String(error);
       this.logger.error(`REVIEWED_CARDS_GATE_FAILED gate=${this.gate.name}: ${reason}`);
       Sentry.captureMessage(
@@ -102,6 +107,7 @@ export class ReviewedCardRetrievalService {
       return this.finish(request, [], this.trace('gate_failed', candidates.length, []));
     }
 
+    const { verdicts } = judgement;
     const applies = new Set(
       verdicts.filter((verdict) => verdict.applies).map((verdict) => verdict.cardId),
     );
@@ -112,11 +118,11 @@ export class ReviewedCardRetrievalService {
     const rejectedReasons = verdicts
       .filter((verdict) => !verdict.applies)
       .map((verdict) => verdict.reason);
-    return this.finish(
-      request,
-      accepted,
-      this.trace('ok', candidates.length, rejectedReasons, accepted.length),
-    );
+    return this.finish(request, accepted, {
+      ...this.trace('ok', candidates.length, rejectedReasons, accepted.length),
+      gate: judgement.gate,
+      fallback: judgement.fallback,
+    });
   }
 
   /**
@@ -153,7 +159,7 @@ export class ReviewedCardRetrievalService {
   ): ApplicableCardsTrace {
     const rejected: ApplicableCardsTrace['rejected'] = {};
     for (const reason of rejectedReasons) rejected[reason] = (rejected[reason] ?? 0) + 1;
-    return { status, gate: this.gate.name, candidates, accepted, rejected };
+    return { status, gate: this.gate.name, fallback: null, candidates, accepted, rejected };
   }
 
   private finish(
@@ -165,7 +171,8 @@ export class ReviewedCardRetrievalService {
       .map(([reason, count]) => `${reason}:${count}`)
       .join(',');
     this.logger.log(
-      `REVIEWED_CARDS status=${trace.status} gate=${trace.gate} syndrome=${request.syndrome ?? '-'} ` +
+      `REVIEWED_CARDS status=${trace.status} gate=${trace.gate} fallback=${trace.fallback ?? '-'} ` +
+        `syndrome=${request.syndrome ?? '-'} ` +
         `candidates=${trace.candidates} accepted=${trace.accepted} rejected=${rejected || '-'} ` +
         `cards=[${cards.map(({ card, similarity }) => `${card.cardId}:v${card.version}:${similarity.toFixed(3)}`).join(',')}]`,
     );

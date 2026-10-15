@@ -20,7 +20,7 @@ export interface ReviewedCardsSettings {
   maxCards: number;
 }
 
-function readNumber(
+export function readNumber(
   config: ConfigService,
   key: string,
   fallback: number,

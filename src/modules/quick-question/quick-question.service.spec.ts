@@ -36,6 +36,7 @@ function okTrace(
   return {
     status: 'ok',
     gate: 'similarity-theme',
+    fallback: null,
     candidates: 0,
     accepted: 0,
     rejected: {},

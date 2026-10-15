@@ -133,6 +133,7 @@ function applicable(): ApplicableCardsResult {
     trace: {
       status: 'ok',
       gate: 'similarity-theme',
+      fallback: null,
       candidates: 2,
       accepted: 1,
       rejected: { syndrome_mismatch: 1 },
