@@ -38,6 +38,17 @@ describe('CommandPalette — Ferramentas (ADR-017)', () => {
     expect(push).toHaveBeenCalledWith('/ferramentas/calculadoras/curb65');
   });
 
+  it('com a flag ligada, acha os Bloqueios regionais pelo anestésico (CC-330)', async () => {
+    vi.stubEnv('NEXT_PUBLIC_FERRAMENTAS', 'on');
+    render(<CommandPalette open onOpenChange={vi.fn()} />);
+
+    await userEvent.type(screen.getByRole('combobox'), 'lidocaina');
+
+    const group = await screen.findByRole('group', { name: 'Ferramentas' });
+    await userEvent.click(within(group).getByRole('option', { name: /Bloqueios regionais/ }));
+    expect(push).toHaveBeenCalledWith('/ferramentas/bloqueios');
+  });
+
   it('com a flag ligada, a página Ferramentas aparece em Páginas', async () => {
     vi.stubEnv('NEXT_PUBLIC_FERRAMENTAS', 'on');
     render(<CommandPalette open onOpenChange={vi.fn()} />);
