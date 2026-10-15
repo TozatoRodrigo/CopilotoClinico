@@ -2,7 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { QuickQuestionRefusalReason } from '../../../shared/contracts/quick-question';
 import { scanForInjection } from '../../copilot/guardrails/injection-defense';
-import { JevClient, type JevChoiceQuestion } from './jev-client';
+import { JEV_FETCH, JevClient, type JevChoiceQuestion } from '../../jev/jev-client';
 import {
   accept,
   refuse,
@@ -10,9 +10,6 @@ import {
   type QuickQuestionScopeVerdict,
 } from './quick-question-scope-guard';
 import { readJevSettings } from './scope-guard.settings';
-
-/** `fetch` injetável: os testes nunca chamam a TypeSafe. */
-export const JEV_FETCH = Symbol('JEV_FETCH');
 
 export const JEV_GUARD_NAME = 'jev';
 const QUESTION_ID = 'quick_question_scope';

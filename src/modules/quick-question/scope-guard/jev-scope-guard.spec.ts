@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ConfigService } from '@nestjs/config';
-import { JevClient, JevRequestError, type JevChoiceQuestion } from './jev-client';
+import { jevChoiceBody, jevResponse } from '../../../../tests/fixtures/jev';
 import { JEV_SCOPE_QUESTION, JevScopeGuard } from './jev-scope-guard';
 import { ConfiguredScopeGuard } from './configured-scope-guard';
 import { HeuristicScopeGuard } from './heuristic-scope-guard';
@@ -8,114 +8,11 @@ import { HeuristicScopeGuard } from './heuristic-scope-guard';
 /**
  * CC-503 — o Jev (TypeSafe) atrás de `QUICK_QUESTION_SCOPE_GUARD=jev`.
  * Nenhum teste chama a API: o `fetch` é falso e o contrato é o da
- * documentação pública (docs.typesafe.ai/api).
+ * documentação pública (docs.typesafe.ai/api). O cliente tem os próprios
+ * testes em `src/modules/jev/jev-client.spec.ts`.
  */
 
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  });
-}
-
-function choiceBody(choice: string, confidence: number, questionId = 'quick_question_scope') {
-  return {
-    model: 'jev-1.13.0',
-    answers: {
-      [questionId]: {
-        type: 'choice',
-        choice,
-        probabilities: { [choice]: confidence },
-        confidence,
-      },
-    },
-    usage: { input_tokens: 87, output_tokens: 0 },
-  };
-}
-
-describe('JevClient', () => {
-  const question: JevChoiceQuestion = {
-    type: 'choice',
-    instructions: 'Qual time cuida disto?',
-    criteria: { billing: 'cobrança', technical: null },
-  };
-
-  function client(fetchImpl: ReturnType<typeof vi.fn>, timeoutMs = 1000) {
-    return new JevClient({
-      apiKey: 'chave-de-teste',
-      baseUrl: 'https://jev.example',
-      model: 'jev-latest',
-      timeoutMs,
-      fetch: fetchImpl as unknown as typeof fetch,
-    });
-  }
-
-  it('manda state, model e a pergunta Choice com a chave no Bearer', async () => {
-    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse(choiceBody('billing', 0.9, 'q1')));
-
-    const result = await client(fetchImpl).choose('texto mascarado', 'q1', question);
-
-    expect(fetchImpl).toHaveBeenCalledWith('https://jev.example/v1/systemone', {
-      method: 'POST',
-      headers: { Authorization: 'Bearer chave-de-teste', 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        state: 'texto mascarado',
-        model: 'jev-latest',
-        questions: { q1: question },
-      }),
-      signal: expect.any(AbortSignal),
-    });
-    expect(result).toMatchObject({
-      answer: { choice: 'billing', confidence: 0.9 },
-      model: 'jev-1.13.0',
-      inputTokens: 87,
-    });
-  });
-
-  it.each([401, 422, 429, 529])('HTTP %i vira JevRequestError sem o corpo', async (status) => {
-    const fetchImpl = vi.fn().mockResolvedValue(jsonResponse({ error: 'eco da pergunta' }, status));
-
-    const failure = client(fetchImpl).choose('x', 'q1', question);
-
-    await expect(failure).rejects.toBeInstanceOf(JevRequestError);
-    await expect(failure).rejects.toThrow(`Jev http ${status}`);
-  });
-
-  it('resposta fora do contrato ou com opção que não foi pedida é inválida', async () => {
-    const unknownChoice = vi
-      .fn()
-      .mockResolvedValue(jsonResponse(choiceBody('constructor', 0.9, 'q1')));
-    const missingAnswer = vi.fn().mockResolvedValue(jsonResponse({ model: 'jev', answers: {} }));
-
-    await expect(client(unknownChoice).choose('x', 'q1', question)).rejects.toThrow(
-      'Jev invalid_response 200',
-    );
-    await expect(client(missingAnswer).choose('x', 'q1', question)).rejects.toThrow(
-      'Jev invalid_response 200',
-    );
-  });
-
-  it('estoura o tempo e aborta a chamada', async () => {
-    const fetchImpl = vi.fn(
-      (_url: string, init: RequestInit) =>
-        new Promise<Response>((_resolve, reject) => {
-          init.signal?.addEventListener('abort', () => {
-            const error = new Error('aborted');
-            error.name = 'AbortError';
-            reject(error);
-          });
-        }),
-    );
-
-    await expect(client(fetchImpl, 10).choose('x', 'q1', question)).rejects.toThrow('Jev timeout');
-  });
-
-  it('erro de rede vira JevRequestError', async () => {
-    const fetchImpl = vi.fn().mockRejectedValue(new TypeError('fetch failed'));
-
-    await expect(client(fetchImpl).choose('x', 'q1', question)).rejects.toThrow('Jev network');
-  });
-});
+const QUESTION_ID = 'quick_question_scope';
 
 describe('JevScopeGuard (CC-503)', () => {
   let fetchImpl: ReturnType<typeof vi.fn>;
@@ -131,7 +28,7 @@ describe('JevScopeGuard (CC-503)', () => {
   });
 
   it('pergunta as classes da história (clínica, administrativa, fora) com a pergunta mascarada', async () => {
-    fetchImpl.mockResolvedValue(jsonResponse(choiceBody('clinical_question', 0.97)));
+    fetchImpl.mockResolvedValue(jevResponse(jevChoiceBody('clinical_question', 0.97, QUESTION_ID)));
 
     const verdict = await guard().classify('dose de adrenalina? CPF [REDACTED_CPF]');
 
@@ -165,7 +62,7 @@ describe('JevScopeGuard (CC-503)', () => {
     ['not_clinical', 'not_clinical', 'out_of_scope'],
     ['instruction_injection', 'injection', 'out_of_scope'],
   ])('com confiança, "%s" vira recusa %s', async (choice, reason, scope) => {
-    fetchImpl.mockResolvedValue(jsonResponse(choiceBody(choice, 0.88)));
+    fetchImpl.mockResolvedValue(jevResponse(jevChoiceBody(choice, 0.88, QUESTION_ID)));
 
     await expect(guard().classify('pergunta mascarada')).resolves.toMatchObject({
       inScope: false,
@@ -177,7 +74,7 @@ describe('JevScopeGuard (CC-503)', () => {
   });
 
   it('sem confiança, a pergunta segue (JEV_SCOPE_MIN_CONFIDENCE, padrão 0,6)', async () => {
-    fetchImpl.mockResolvedValue(jsonResponse(choiceBody('not_clinical', 0.41)));
+    fetchImpl.mockResolvedValue(jevResponse(jevChoiceBody('not_clinical', 0.41, QUESTION_ID)));
 
     await expect(guard().classify('leptospirose doxiciclina?')).resolves.toMatchObject({
       inScope: true,
@@ -187,7 +84,7 @@ describe('JevScopeGuard (CC-503)', () => {
 
   it('o limiar vem do ambiente', async () => {
     env = { ...env, JEV_SCOPE_MIN_CONFIDENCE: '0.95' };
-    fetchImpl.mockResolvedValue(jsonResponse(choiceBody('not_clinical', 0.9)));
+    fetchImpl.mockResolvedValue(jevResponse(jevChoiceBody('not_clinical', 0.9, QUESTION_ID)));
 
     await expect(guard().classify('x')).resolves.toMatchObject({ inScope: true });
   });
@@ -236,7 +133,7 @@ describe('ConfiguredScopeGuard — QUICK_QUESTION_SCOPE_GUARD (CC-503)', () => {
   );
 
   it('jev com chave: decide o Jev', async () => {
-    fetchImpl.mockResolvedValue(jsonResponse(choiceBody('administrative', 0.9)));
+    fetchImpl.mockResolvedValue(jevResponse(jevChoiceBody('administrative', 0.9, QUESTION_ID)));
 
     await expect(
       guard({ QUICK_QUESTION_SCOPE_GUARD: 'jev', JEV_API_KEY: 'k' }).classify('x'),
@@ -244,7 +141,7 @@ describe('ConfiguredScopeGuard — QUICK_QUESTION_SCOPE_GUARD (CC-503)', () => {
   });
 
   it('jev fora do ar: decide a heurística e marca jev_failed', async () => {
-    fetchImpl.mockResolvedValue(jsonResponse({}, 529));
+    fetchImpl.mockResolvedValue(jevResponse({}, 529));
 
     await expect(
       guard({ QUICK_QUESTION_SCOPE_GUARD: 'jev', JEV_API_KEY: 'k' }).classify(

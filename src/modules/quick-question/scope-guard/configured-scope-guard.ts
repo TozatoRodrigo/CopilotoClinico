@@ -2,7 +2,7 @@ import * as Sentry from '@sentry/node';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HeuristicScopeGuard } from './heuristic-scope-guard';
-import { JevRequestError } from './jev-client';
+import { JevRequestError } from '../../jev/jev-client';
 import { JevScopeGuard } from './jev-scope-guard';
 import type {
   QuickQuestionScopeGuard,

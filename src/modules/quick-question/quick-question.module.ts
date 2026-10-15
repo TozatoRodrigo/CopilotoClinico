@@ -1,12 +1,13 @@
 import { Module } from '@nestjs/common';
 import { InstitutionsModule } from '../institutions/institutions.module';
+import { JEV_FETCH_PROVIDER } from '../jev/jev-client';
 import { KnowledgeCardRetrievalModule } from '../knowledge-cards/card-retrieval/knowledge-card-retrieval.module';
 import { KNOWLEDGE_GAP_RECORDER, LoggedKnowledgeGapRecorder } from './knowledge-gap-recorder';
 import { QuickQuestionController } from './quick-question.controller';
 import { QuickQuestionService } from './quick-question.service';
 import { ConfiguredScopeGuard } from './scope-guard/configured-scope-guard';
 import { HeuristicScopeGuard } from './scope-guard/heuristic-scope-guard';
-import { JEV_FETCH, JevScopeGuard } from './scope-guard/jev-scope-guard';
+import { JevScopeGuard } from './scope-guard/jev-scope-guard';
 import { QUICK_QUESTION_SCOPE_GUARD } from './scope-guard/quick-question-scope-guard';
 
 /**
@@ -26,7 +27,7 @@ import { QUICK_QUESTION_SCOPE_GUARD } from './scope-guard/quick-question-scope-g
     { provide: KNOWLEDGE_GAP_RECORDER, useClass: LoggedKnowledgeGapRecorder },
     HeuristicScopeGuard,
     JevScopeGuard,
-    { provide: JEV_FETCH, useFactory: (): typeof fetch => globalThis.fetch.bind(globalThis) },
+    JEV_FETCH_PROVIDER,
     ConfiguredScopeGuard,
     { provide: QUICK_QUESTION_SCOPE_GUARD, useExisting: ConfiguredScopeGuard },
   ],
