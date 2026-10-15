@@ -19,7 +19,7 @@ import {
   Users,
 } from '@phosphor-icons/react';
 import { CALCULATOR_CATALOG } from '@clinical-tools/calculator-catalog';
-import { calculatorName } from '@clinical-tools/catalog';
+import { calculatorName, TOOLS } from '@clinical-tools/catalog';
 import { useEncounterDetail } from '@/lib/clinical-queries';
 import { Breadcrumb, type BreadcrumbItem } from '@/components/ui/breadcrumb';
 
@@ -79,13 +79,20 @@ function EncounterCrumbs({ segments }: { segments: string[] }) {
   return <Breadcrumb items={items} />;
 }
 
-/** ADR-017 — Ferramentas › Calculadoras › nome da calculadora. */
+/**
+ * ADR-017 — Ferramentas › Calculadoras › nome da calculadora, ou
+ * Ferramentas › nome da ferramenta (ex.: Dengue).
+ */
 function ferramentasCrumbs(segments: string[]): BreadcrumbItem[] {
   const [, section, id] = segments;
   const items: BreadcrumbItem[] = [
     { label: 'Ferramentas', icon: Toolbox, href: section ? '/ferramentas' : undefined },
   ];
-  if (section !== 'calculadoras') return items;
+  if (section !== 'calculadoras') {
+    const tool = TOOLS.find((entry) => entry.id === section && entry.status === 'disponivel');
+    if (tool) items.push({ label: tool.name });
+    return items;
+  }
   items.push({
     label: 'Calculadoras',
     icon: Calculator,
