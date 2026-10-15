@@ -62,6 +62,22 @@
 - Pendente: prazo de retenção da lista de espera e menção na Política de
   Privacidade (revisão jurídica, junto com o texto final do termo do beta).
 
+### Usuários do ANY App (CC-335, CC-336)
+- **Origem:** export do Supabase do ANY (e-mail, provedor de login, data de
+  cadastro, último acesso), com base legal registrada na trilha
+  (`ANY_USERS_IMPORT`: texto da base legal, sha256 do export e contagens)
+  antes de qualquer convite. A hipótese legal e o texto do e-mail são do
+  jurídico (pendente, junto com a cessão da CC-301).
+- **Onde o e-mail fica:** só no export e no arquivo de envio, fora do banco do
+  Copiloto, ambos apagados depois do envio (e a lista no provedor de e-mail),
+  com registro `ANY_DECOMMISSION_STEP` `arquivo_envio_apagado`. O Copiloto
+  não guarda qual e-mail recebeu qual convite; convites do lote "base ANY"
+  são códigos aleatórios como os demais.
+- **Quem já tem conta** não é vinculado automaticamente: recebe só um aviso.
+- **Supabase do ANY:** 30 dias de leitura depois da mudança, então apagado e
+  conferido por SQL (contagens zeradas na trilha, `dados_supabase_apagados`) e
+  o projeto excluído. Passo a passo em `docs/any/migracao-e-desligamento.md`.
+
 ## Direitos do Titular (Médico)
 
 | Direito (Art. 18) | Endpoint |

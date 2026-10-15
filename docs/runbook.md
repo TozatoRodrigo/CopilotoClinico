@@ -487,6 +487,27 @@ SELECT batch_label, count(*) AS codigos, sum(uses_count) AS usos
 FROM beta_invites GROUP BY batch_label ORDER BY usos DESC;
 ```
 
+### Migrar os usuários e desligar o ANY (CC-335, CC-336)
+
+Passo a passo completo em `docs/any/migracao-e-desligamento.md`. Comandos:
+
+- `pnpm any:import-users --file <export.csv> --base-legal "<texto>" --data-mudanca AAAA-MM-DD --admin <e-mail> [--dry-run]`:
+  um convite de uso único por usuário do ANY no lote "base ANY", base legal
+  na trilha (`ANY_USERS_IMPORT`) antes de qualquer convite, e o arquivo de
+  envio (e-mail + link + data de mudança, permissão 600). Quem já tem conta só
+  recebe aviso, sem vínculo. Sai com 2 se bloqueado (linha inválida, export já
+  importado). **O arquivo de envio e o export são apagados depois do envio.**
+- `pnpm any:redirects --site <origem>`: regrava `deploy/any-app/_redirects` e
+  `netlify.toml` (301 por ferramenta) a partir de
+  `src/shared/any-migration/any-redirects.ts`.
+- `pnpm any:decommission-log --etapa <etapa> --admin <e-mail> --nota "<texto>"`:
+  registra na trilha (`ANY_DECOMMISSION_STEP`) os passos feitos fora do
+  Copiloto (arquivo de envio apagado, redirecionamento publicado, dados do
+  Supabase apagados — exige `--contagens` zeradas —, Netlify desligado).
+
+No log: `ANY_IMPORT_PLANNED`, `ANY_IMPORT_DONE importId=...` e
+`ANY_IMPORT_AUDIT_FAILED`; só contagens e ids, nunca e-mail ou código.
+
 ### Calibrar o piso de relevância (KB-005/KB-006)
 
 O piso (`RETRIEVAL_MIN_SEMANTIC_SCORE`, default `0.3`) é o que permite ao
