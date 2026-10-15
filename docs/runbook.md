@@ -619,6 +619,14 @@ banco:
 UPDATE physicians SET is_curator = true WHERE email = 'curador@exemplo.com';
 ```
 
+A mesma flag autoriza escrever protocolo (CC-020): criar
+(`POST /v1/protocols`), publicar (`POST /v1/protocols/:id/publish`) e criar
+versão nova (`POST /v1/protocols/:id/revise`) são de curador ou ADMIN; os
+demais médicos recebem `403` e só leem e rodam. Vale na hora, sem novo login
+(a flag é lida do banco a cada pedido). Recusas aparecem no log como
+`PROTOCOL_WRITE_DENIED action=<create|publish|revise>`. Protocolo institucional
+exige, além do papel, vínculo ativo com a instituição (ADR-009, adendo CC-020).
+
 ### Sincronizar a base oficial da Conitec (ADR-010)
 
 PCDT, DDT, Diretrizes Brasileiras e Protocolos de Uso (~190 documentos) entram
