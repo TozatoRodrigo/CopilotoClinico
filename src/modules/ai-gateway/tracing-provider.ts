@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { AiRefusalError, AiTruncatedError } from './ai-gateway.errors';
+import { AiRefusalError, AiTruncatedError, errorTypeOf } from './ai-gateway.errors';
 import type { AiCallOutcome, AiCallSink, AiCallStage, AiCallTrace } from './ai-call-trace';
 import type {
   AIProvider,
@@ -23,12 +23,6 @@ function systemPromptOf(messages: ChatMessage[]): string {
     .filter(({ role }) => role === 'system')
     .map(({ content }) => content)
     .join('\n');
-}
-
-function errorTypeOf(error: unknown): string {
-  if (!(error instanceof Error)) return 'unknown';
-  const status = (error as { status?: unknown }).status;
-  return typeof status === 'number' ? `${error.name}:${status}` : error.name;
 }
 
 interface Failure {
@@ -132,6 +126,7 @@ export class TracingAiProvider implements AIProvider {
       effort: params.effort,
       systemPrompt: params.system,
       responseSchema: null,
+      fallbackFrom: null,
     };
     try {
       const response = await this.inner.research(params);
@@ -156,6 +151,7 @@ export class TracingAiProvider implements AIProvider {
         effort: params.effort,
         systemPrompt: systemPromptOf(params.messages),
         responseSchema: params.responseSchema?.name ?? null,
+        fallbackFrom: params.fallbackFrom ?? null,
       },
       startedAt,
       failure,
@@ -169,6 +165,7 @@ export class TracingAiProvider implements AIProvider {
       effort: CompletionParams['effort'];
       systemPrompt: string;
       responseSchema: string | null;
+      fallbackFrom: string | null;
     },
     startedAt: number,
     result: Failure,
@@ -186,6 +183,7 @@ export class TracingAiProvider implements AIProvider {
       latencyMs: Date.now() - startedAt,
       outcome: result.outcome,
       errorType: result.errorType,
+      fallbackFrom: call.fallbackFrom,
     };
     try {
       this.sink.record(trace);

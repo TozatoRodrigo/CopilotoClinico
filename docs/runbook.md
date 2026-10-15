@@ -816,6 +816,73 @@ Logs para acompanhar depois da troca:
 | `AI_PROVIDER_RETRY operation=... status=...` | Host compatível com OpenAI respondeu 429/5xx, estourou o prazo ou caiu a rede; nova tentativa | Esporádico: esperado. Contínuo: limite do plano no host ou instabilidade |
 | `AI_PROVIDER_ERROR operation=... status=...` | Falha definitiva do host compatível com OpenAI | 400: parâmetro ou schema rejeitado pelo modelo; 401: chave do perfil |
 
+#### Reserva de provedor (CC-107)
+
+Com a Groq (ou qualquer perfil) numa etapa, uma queda do host virava erro
+para o médico. Com `AI_FALLBACK_MODEL`, quando a chamada de uma etapa falha
+por **indisponibilidade** — prazo estourado, falha de rede, 5xx (inclusive o
+529 da Anthropic), 429 depois das novas tentativas do provedor ou limite de
+uso da conta (o 400 "workspace API usage limits" da Anthropic, o 402 e o
+`insufficient_quota` dos hosts compatíveis com a OpenAI) — o gateway repete a
+chamada **uma vez** no modelo de reserva, com as mesmas mensagens, esforço e
+schema.
+
+```bash
+# docker/.env.production — Groq na leitura e no entendimento, Sonnet de reserva
+AI_FALLBACK_MODEL=claude-sonnet-5-5
+# Opcional, por etapa (vence a geral); "none" desliga a reserva na etapa
+AI_DECISION_FALLBACK_MODEL=claude-opus-5-5
+```
+
+| Variável | Etapa (`ai_calls.stage`) |
+|---|---|
+| `AI_FALLBACK_MODEL` | todas sem variável própria |
+| `AI_INTAKE_FALLBACK_MODEL` | `intake_reading` |
+| `AI_UNDERSTANDING_FALLBACK_MODEL` | `understanding` |
+| `AI_DECISION_FALLBACK_MODEL` | `decision` (as duas rotas da ADR-016) |
+| `AI_VERIFY_ATTACH_FALLBACK_MODEL` | `verify_attach` |
+| `AI_GUIDELINE_CLASSIFICATION_FALLBACK_MODEL` | `guideline_classification` |
+
+Aceitam `perfil:modelo`, como os modelos das etapas; vazio = sem reserva,
+como antes. A reserva **não** entra:
+
+- em erro do pedido: 400 de parâmetro ou schema, 401/403 de chave, 404 de
+  modelo, recusa (`AiRefusalError`), truncamento (`AiTruncatedError`) ou saída
+  que não passa na validação — outro provedor não resolveria, e repetir só
+  dobraria custo e espera;
+- quando a reserva está no mesmo perfil que caiu (`AI_FALLBACK_SKIPPED`): o
+  mesmo host responderia de novo. Um segundo perfil da mesma empresa com
+  outra chave (outro workspace) conta como outro perfil;
+- no stream da decisão depois do primeiro trecho (`AI_FALLBACK_SKIPPED ...: o
+  stream já tinha começado`): trocar de modelo no meio misturaria duas
+  respostas. Antes do primeiro trecho, o stream continua na reserva;
+- na pesquisa web, que só existe na Anthropic (falha nela já segue sem pesquisa).
+
+Se a reserva também falha, a etapa recebe o erro **original** (o do provedor
+que caiu), com `AI_FALLBACK_FAILED` no log. Exceção: recusa ou truncamento da
+reserva seguem como estão, porque quem chama contabiliza o custo deles e já
+sabe tratá-los.
+
+⚠️ **Latência.** A reserva só entra depois das novas tentativas do provedor.
+Com os padrões (`AI_REQUEST_TIMEOUT_MS=180000`, `AI_REQUEST_MAX_RETRIES=2`),
+um host que trava em vez de recusar segura a etapa por até ~9 min antes da
+reserva. Com a reserva ligada, vale encurtar os dois (ex.: `60000` e `1`):
+valem para todos os perfis compatíveis com a OpenAI. 429 e 5xx rápidos
+caem para a reserva em segundos.
+
+No rastro, as duas chamadas ficam em `ai_calls` com o mesmo `request_id`: a
+que falhou (`outcome=error`, `error_type` com classe e status ou motivo, ex.:
+`AiProviderError:503`, `AiProviderError:timeout`) e a da reserva, com
+`fallback_from` = perfil que caiu (exige a migration
+`20261014180000_ai_calls_fallback_from`). Rollback: esvaziar
+`AI_FALLBACK_MODEL` (e as variáveis por etapa) e recriar o container, sem rebuild.
+
+| Log | Significado | Ação |
+|---|---|---|
+| `AI_FALLBACK stage=... from=... fromModel=... to=... toModel=... reason=... error=... requestId=...` (WARN) | A etapa foi para a reserva; `reason` = `timeout`, `network`, `rate_limit`, `server_error` ou `usage_limit` | Esporádico: esperado. Contínuo: ver o status do host (status.groq.com, status.anthropic.com) ou o limite da conta |
+| `AI_FALLBACK_SKIPPED ...: reserva no mesmo perfil que caiu` / `o stream já tinha começado` (WARN) | Indisponibilidade sem reserva possível | Mesmo perfil: apontar a reserva da etapa para outro perfil |
+| `AI_FALLBACK_FAILED stage=... original=... error=...` (ERROR) | A reserva também falhou; a etapa recebeu o erro original | Os dois provedores fora: ver status dos dois e o limite de uso |
+
 #### Pesquisa web (`COPILOT_KNOWLEDGE_SOURCE=web`)
 
 A pesquisa usa as ferramentas de servidor da Anthropic nas versões básicas
@@ -925,6 +992,7 @@ apenas na resposta. Acesso a um protocolo de outra instituição retorna `404`
 | `20260924180000_f9_guideline_chunks_text_tsv_generated` | `guideline_chunks.text_tsv` vira coluna gerada + índice GIN — liga a busca lexical (ver "Busca lexical (`text_tsv`) — F9") |
 | `20260924220000_ivfflat_probes_exact` | `ivfflat.probes = 100` no banco: busca vetorial exata (incidente de 24/09/2026) |
 | `20261012180000_aud_007_audit_log_hash_version` | `audit_log.hash_version` (NULL = hash legado, 2 = JSON canônico) — ADR-015; só adiciona coluna nula |
+| `20261014180000_ai_calls_fallback_from` | `ai_calls.fallback_from` (perfil que caiu, na chamada feita no modelo de reserva) — CC-107; só adiciona coluna nula |
 
 ### Rollback de Migration
 
@@ -950,6 +1018,7 @@ Prisma não suporta rollback automático. Para reverter:
 | `COPILOT_REASONING` | `stages` liga o raciocínio em etapas da ADR-013 (entendimento do caso antes da busca, busca dirigida, card "O que eu entendi"); `legacy` (padrão) volta ao pipeline de sempre. Ausente ou irreconhecível = `legacy`. Etapa 1 com `AI_UNDERSTANDING_MODEL` (vazio = `AI_MODEL`) e `AI_UNDERSTANDING_EFFORT` (padrão `low`). Falha da Etapa 1 aparece como `UNDERSTANDING_FAILED`/`UNDERSTANDING_FALLBACK` no log e a análise segue pela busca de sempre |
 | `COPILOT_DECISION_PROMPT` | `v2` liga a decisão em duas camadas da ADR-013 ("Fazer agora" × "Depende de…", perguntas que separam hipóteses, conhecimento geral do modelo rotulado e sem dose); `v1` (padrão) é o prompt de sempre. Exige `COPILOT_REASONING=stages`: sem ele fica `v1` e o log mostra `DECISION_PIPELINE_DOWNGRADE`. Regra da v2 que sobra depois do retry vira `OUTPUT_VALIDATION_WARNING`, nunca bloqueio |
 | `COPILOT_INTAKE` | `on` liga o Copiloto guiado da ADR-014: antes do plano, a leitura do caso decide se pergunta (no máximo 3 perguntas, uma por vez). `off` (padrão) vai direto ao plano. Ausente ou irreconhecível = `off`. Modelo da leitura em `AI_INTAKE_MODEL` (vazio = o da Etapa 1). No log: `INTAKE_READING` (tempo e perguntas), `INTAKE_STARTED` (caminho: `ask`, `unstable`, `complete`, `reading_failed`, `disabled`), `INTAKE_CLOSED` (motivo) e `INTAKE_READING_TIMEOUT` (leitura passou de 20 s e o caso seguiu direto ao plano). Exige a migration `20261012120000_adr_014_case_intakes` |
+| `AI_FALLBACK_MODEL` | CC-107: modelo de reserva quando o provedor de uma etapa fica fora do ar (prazo, rede, 5xx, 429, limite de uso); uma nova tentativa nele. Vazio = sem reserva. Por etapa: `AI_<ETAPA>_FALLBACK_MODEL` (`none` desliga). Ver "Reserva de provedor (CC-107)". No log: `AI_FALLBACK`, `AI_FALLBACK_SKIPPED`, `AI_FALLBACK_FAILED` |
 | `AI_DECISION_MODEL` / `AI_DECISION_CRITICAL_MODEL` | ADR-016: modelo da decisão no caso comum e no caso grave (instável ou tempo-crítico pela Etapa 1, ou sem entendimento). Vazios = `AI_MODEL` nas duas rotas. Crítico vazio = o comum nas duas. Aceitam `perfil:modelo`. No log: `DECISION_MODEL route=critical\|standard model=...`; a interação grava `params.decisionRoute` |
 | `COPILOT_KNOWLEDGE_SOURCE` | `internal_kb` (padrão) é a busca de sempre (embedding na OpenAI); `model_only` não busca nada; `web` pesquisa em fontes oficiais (`AI_RESEARCH_MODEL`, padrão `claude-sonnet-5-5`; `AI_RESEARCH_EFFORT`, padrão `low`; `WEB_RESEARCH_MAX_SEARCHES`, padrão 5; `WEB_RESEARCH_ALLOWED_DOMAINS`, vazio = 32 fontes padrão). `model_only` e `web` nunca chamam o provedor de embedding. `web` exige `stages` e `COPILOT_DECISION_PROMPT=v2` (sem eles vira `model_only`, com `DECISION_PIPELINE_DOWNGRADE` no log) e Anthropic como `AI_PROVIDER`; pesquisa que falha aparece como `WEB_RESEARCH_FALLBACK` e a análise segue só com o conhecimento do modelo |
 
@@ -963,8 +1032,9 @@ Cada chamada ao modelo grava uma linha em `ai_calls` e uma linha `AI_CALL` no
 log: etapa (`intake_reading`, `understanding`, `decision`, `research`,
 `verify_attach`, `guideline_classification`), perfil, provedor, modelo pedido
 e servido, esforço, hash do system prompt (a versão do prompt), tokens, custo,
-latência e desfecho (`ok`, `refusal`, `truncated`, `error`, `aborted`). Nenhum
-texto do caso, do prompt ou da resposta. A resposta HTTP devolve
+latência e desfecho (`ok`, `refusal`, `truncated`, `error`, `aborted`), e
+`fallback_from` (o perfil que caiu) quando a chamada foi no modelo de reserva
+(CC-107). Nenhum texto do caso, do prompt ou da resposta. A resposta HTTP devolve
 `x-request-id`; o mesmo id está em `ai_calls.request_id` e em
 `ai_interactions.request_id`. Falha ao gravar vira `AI_CALL_LOG_FAILED` (WARN)
 e nunca para a análise.
@@ -981,6 +1051,12 @@ GROUP BY 1, 2 ORDER BY usd DESC NULLS LAST;
 -- Tudo o que uma requisição chamou (o médico ou o suporte citam o x-request-id)
 SELECT created_at, stage, served_model, outcome, latency_ms, cost_usd, left(prompt_sha256, 12)
 FROM ai_calls WHERE request_id = '<x-request-id>' ORDER BY created_at;
+
+-- CC-107: quantas etapas a reserva salvou, por etapa e perfil que caiu
+SELECT stage, fallback_from, count(*) AS fallbacks,
+       count(*) FILTER (WHERE outcome = 'ok') AS saved
+FROM ai_calls WHERE fallback_from IS NOT NULL AND created_at > now() - interval '7 days'
+GROUP BY 1, 2 ORDER BY fallbacks DESC;
 ```
 
 ### Logs de nível ERROR que exigem atenção imediata
@@ -991,6 +1067,7 @@ FROM ai_calls WHERE request_id = '<x-request-id>' ORDER BY created_at;
 | `Audit chain verification failed with exception` | Erro ao verificar cadeia | Verificar conectividade com banco |
 | `Output validation failed` | IA retornou resposta inválida | Verificar provider, possível mudança de modelo |
 | `Anthropic API error: status=...` | Falha na API da Anthropic | 4xx: ver "Trocar o provider ou o modelo de IA"; 429/5xx: o SDK já retentou 2x, checar status.anthropic.com |
+| `AI_FALLBACK_FAILED` | Provedor da etapa e modelo de reserva fora ao mesmo tempo (CC-107) | Ver "Reserva de provedor (CC-107)" |
 | `Injection detected` | Possível tentativa de prompt injection | Revisar logs de acesso, bloquear IP se necessário |
 
 ---

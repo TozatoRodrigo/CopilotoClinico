@@ -25,7 +25,9 @@ const params: CompletionParams = {
 function provider(overrides: Partial<AIProvider> = {}): AIProvider {
   return {
     name: 'anthropic',
-    complete: vi.fn().mockResolvedValue({ content: '{}', model: 'claude-opus-5-5', usage, latencyMs: 5 }),
+    complete: vi
+      .fn()
+      .mockResolvedValue({ content: '{}', model: 'claude-opus-5-5', usage, latencyMs: 5 }),
     completeStream: vi.fn(),
     embed: vi.fn(),
     research: vi.fn(),
@@ -35,7 +37,10 @@ function provider(overrides: Partial<AIProvider> = {}): AIProvider {
 
 function traced(inner: AIProvider) {
   const traces: AiCallTrace[] = [];
-  return { traces, tracing: new TracingAiProvider(inner, 'default', { record: (t) => traces.push(t) }) };
+  return {
+    traces,
+    tracing: new TracingAiProvider(inner, 'default', { record: (t) => traces.push(t) }),
+  };
 }
 
 describe('TracingAiProvider', () => {
@@ -56,11 +61,20 @@ describe('TracingAiProvider', () => {
         usage,
         outcome: 'ok',
         errorType: null,
+        fallbackFrom: null,
       }),
     ]);
     expect(traces[0]?.promptSha256).toMatch(/^[0-9a-f]{64}$/);
     expect(JSON.stringify(traces)).not.toContain('Maria');
     expect(JSON.stringify(traces)).not.toContain('Regras');
+  });
+
+  it('marks a call on the reserve model with the profile that went down', async () => {
+    const { traces, tracing } = traced(provider());
+
+    await tracing.complete({ ...params, fallbackFrom: 'groq' });
+
+    expect(traces[0]).toMatchObject({ fallbackFrom: 'groq', outcome: 'ok' });
   });
 
   it('fingerprints only the system prompt: same rules, same hash, whatever the case', async () => {
@@ -76,7 +90,12 @@ describe('TracingAiProvider', () => {
   });
 
   it('records a refusal with its usage and rethrows', async () => {
-    const refusal = new AiRefusalError({ model: 'claude-opus-5-5', category: 'bio', explanation: null, usage });
+    const refusal = new AiRefusalError({
+      model: 'claude-opus-5-5',
+      category: 'bio',
+      explanation: null,
+      usage,
+    });
     const { traces, tracing } = traced(provider({ complete: vi.fn().mockRejectedValue(refusal) }));
 
     await expect(tracing.complete(params)).rejects.toBe(refusal);
@@ -93,7 +112,11 @@ describe('TracingAiProvider', () => {
 
     await expect(tracing.complete(params)).rejects.toBe(error);
 
-    expect(traces[0]).toMatchObject({ outcome: 'error', errorType: 'RateLimitError:429', usage: null });
+    expect(traces[0]).toMatchObject({
+      outcome: 'error',
+      errorType: 'RateLimitError:429',
+      usage: null,
+    });
     expect(JSON.stringify(traces)).not.toContain('Maria');
   });
 

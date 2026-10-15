@@ -67,6 +67,58 @@ export class AiCapabilityUnsupportedError extends Error {
 }
 
 /**
+ * Por que o provedor não atendeu, quando a falha é dele e não do pedido:
+ * prazo estourado, rede, 429, 5xx ou limite de uso da conta. Só estes motivos
+ * acionam o modelo de reserva (provider-fallback.ts).
+ */
+export const AI_UNAVAILABILITY_REASONS = [
+  'timeout',
+  'network',
+  'rate_limit',
+  'server_error',
+  'usage_limit',
+] as const;
+export type AiUnavailabilityReason = (typeof AI_UNAVAILABILITY_REASONS)[number];
+
+interface AiProviderErrorDetails {
+  /** Status HTTP da última resposta; `null` quando nem houve resposta (prazo ou rede). */
+  status: number | null;
+  /** `null` quando o erro é do pedido (400 de schema, 401 de chave, 404 de modelo...). */
+  unavailability: AiUnavailabilityReason | null;
+}
+
+/**
+ * Falha definitiva do provedor compatível com a OpenAI, já depois das novas
+ * tentativas. A mensagem nunca traz o corpo do host, que pode repetir o caso.
+ */
+export class AiProviderError extends Error {
+  override readonly name = 'AiProviderError';
+
+  constructor(
+    message: string,
+    readonly details: AiProviderErrorDetails,
+    options?: ErrorOptions,
+  ) {
+    super(message, options);
+  }
+}
+
+/**
+ * Classe do erro e status HTTP (ou motivo, sem status), nunca a mensagem:
+ * vai para o rastro e para o log, e a mensagem de alguns hosts repete a entrada.
+ */
+export function errorTypeOf(error: unknown): string {
+  if (!(error instanceof Error)) return 'unknown';
+  if (error instanceof AiProviderError) {
+    return `${error.name}:${error.details.status ?? error.details.unavailability ?? '-'}`;
+  }
+  // Os erros do SDK da Anthropic não definem `name`: a classe diz mais que "Error".
+  const name = error.name === 'Error' ? error.constructor.name : error.name;
+  const status = (error as { status?: unknown }).status;
+  return typeof status === 'number' ? `${name}:${status}` : name;
+}
+
+/**
  * `EMBEDDING_PROVIDER=none`: o serviço roda sem embeddings (a Anthropic não
  * tem API de embedding, e a conta da OpenAI ficou sem crédito em 10/2026).
  * Quem chama segue sem o vetor: a busca vira textual e o trecho é gravado
