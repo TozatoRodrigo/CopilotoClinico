@@ -160,6 +160,22 @@ O metrônomo agenda as batidas à frente no relógio do Web Audio (o ANY usava
 `setInterval`, que acumula atraso) e a tela fica acesa pela Wake Lock API,
 com aviso discreto quando o navegador não suporta.
 
+**Histórico de paradas (CC-314): no aparelho, sem identificação, apagável.**
+Ao encerrar (RCE ou óbito), a parada vira um registro no `localStorage`
+(`copiloto:ferramentas:acls:historico`): número do atendimento, data, horários,
+ritmo inicial, desfecho, ciclos, choques, duração e o relatório pronto para o
+prontuário. O roteiro não pede nem guarda nome, leito, prontuário ou qualquer
+dado do paciente, e o relatório não traz nenhum. O médico apaga um registro ou
+todos (com confirmação); passando de 50, sai o mais antigo. Nada vai para o
+servidor neste momento.
+
+Alternativas consideradas: cifrar no aparelho (sem segredo do usuário, a chave
+ficaria ao lado do dado; não protege nada a mais do que o próprio aparelho) e
+ligar a parada a um caso do Copiloto (exige servidor, auditoria e o fluxo de
+dado de paciente; fica para quando houver pedido e a revisão de LGPD). Em
+aparelho compartilhado, quem abre o navegador vê o histórico: por isso ele não
+tem identificação e o apagar fica na própria tela.
+
 ## Consequências
 
 - Toda ferramenta nova traz definição com procedência, teste diferencial e,

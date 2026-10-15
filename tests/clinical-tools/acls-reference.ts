@@ -182,6 +182,24 @@ export function anyComponent(scope: AnyComponentScope): AnyComponentLogic {
   return load().component(scope);
 }
 
+/**
+ * Textos da tela de OVACE do ANY, que estão no JSX e não num dado: todo texto
+ * entre tags do trecho da tela, com os espaços da indentação colapsados.
+ */
+export function anyOvaceTexts(): string[] {
+  const screen = slice(
+    original(),
+    '{/* ===== SCREEN: OVACE ===== */}',
+    '{/* ===== SCREEN: RHYTHM ===== */}',
+  );
+  return (
+    [...screen.matchAll(/>([^<>{}]+)</g)]
+      .map((match) => (match[1] ?? '').replace(/\s+/g, ' ').trim())
+      // Sobra de sintaxe ("(" de um `&& (`) não é texto de tela.
+      .filter((text) => /[\p{L}\d]/u.test(text))
+  );
+}
+
 /** Lê o `defaultConfig` do `MetronomeContext` do ANY (110/min, ventilação a cada 6 s). */
 export function anyMetronomeDefaults(): {
   bpm: number;

@@ -17,6 +17,7 @@ import {
   type AclsRhythm,
   type EpinephrineIntervalSeconds,
 } from './content';
+import { ROSC_CHECKLIST_IDS, type RoscChecklistItemId } from './reversible-causes';
 
 /**
  * Estado de uma parada (ACLS) como reducer puro (CC-313): o mesmo
@@ -72,6 +73,10 @@ export interface AclsState {
   totalPauseMs: number;
   outcome: AclsOutcome | null;
   events: readonly AclsEvent[];
+  /** Itens do checklist pós-RCE já conferidos (CC-314). */
+  roscChecklist: readonly RoscChecklistItemId[];
+  /** Relatório salvo no histórico do aparelho ao encerrar (CC-314). */
+  report: { number: number; recordId: string } | null;
 }
 
 export type AclsRhythmCheckResult = AclsRhythm | AclsOutcome;
@@ -86,6 +91,8 @@ export type AclsAction =
   | { type: 'set-advanced-airway'; at: number; value: boolean }
   | { type: 'set-epinephrine-interval'; seconds: EpinephrineIntervalSeconds }
   | { type: 'toggle-compression-pause'; at: number }
+  | { type: 'toggle-rosc-item'; item: RoscChecklistItemId }
+  | { type: 'record-report'; number: number; recordId: string }
   | { type: 'discard' };
 
 export const INITIAL_ACLS_STATE: AclsState = {
@@ -107,6 +114,8 @@ export const INITIAL_ACLS_STATE: AclsState = {
   totalPauseMs: 0,
   outcome: null,
   events: [],
+  roscChecklist: [],
+  report: null,
 };
 
 const CYCLE_MS = ACLS_CYCLE_SECONDS * 1000;
@@ -153,6 +162,20 @@ export function aclsReducer(state: AclsState, action: AclsAction): AclsState {
       startedAt: action.at,
       events: [{ at: action.at, elapsedSeconds: 0, type: 'system', detail: EVENT_TEXT.started }],
     };
+  }
+  // Depois do fim só o checklist pós-RCE e o número do relatório mudam.
+  if (action.type === 'toggle-rosc-item') {
+    if (state.status !== 'finished' || state.outcome !== 'rosc') return state;
+    return {
+      ...state,
+      roscChecklist: state.roscChecklist.includes(action.item)
+        ? state.roscChecklist.filter((item) => item !== action.item)
+        : [...state.roscChecklist, action.item],
+    };
+  }
+  if (action.type === 'record-report') {
+    if (state.status !== 'finished' || state.report !== null) return state;
+    return { ...state, report: { number: action.number, recordId: action.recordId } };
   }
   // Fora de uma parada em curso nada mais se registra: a tela não oferece, e
   // um toque atrasado depois do RCE não pode mudar o relatório.
@@ -495,6 +518,15 @@ function isEvent(value: unknown): value is AclsEvent {
   );
 }
 
+function isReport(value: unknown): value is { number: number; recordId: string } {
+  return (
+    isRecord(value) &&
+    isCount(value.number) &&
+    typeof value.recordId === 'string' &&
+    value.recordId !== ''
+  );
+}
+
 /** Lê um estado salvo; devolve `null` se qualquer campo estiver fora do formato. */
 export function parseAclsState(value: unknown): AclsState | null {
   if (!isRecord(value)) return null;
@@ -523,7 +555,10 @@ export function parseAclsState(value: unknown): AclsState | null {
     !isCount(value.totalPauseMs) ||
     !(value.outcome === null || includes(OUTCOMES, value.outcome)) ||
     !Array.isArray(value.events) ||
-    !value.events.every(isEvent)
+    !value.events.every(isEvent) ||
+    !Array.isArray(value.roscChecklist) ||
+    !value.roscChecklist.every((item) => includes(ROSC_CHECKLIST_IDS, item)) ||
+    !(value.report === null || isReport(value.report))
   ) {
     return null;
   }
@@ -546,5 +581,7 @@ export function parseAclsState(value: unknown): AclsState | null {
     totalPauseMs: value.totalPauseMs,
     outcome: value.outcome,
     events: value.events,
+    roscChecklist: value.roscChecklist as RoscChecklistItemId[],
+    report: value.report,
   };
 }

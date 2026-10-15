@@ -17,13 +17,29 @@ import {
   type AclsNudge,
   type AclsState,
 } from '../../src/shared/clinical-tools/acls/session';
+import { createAclsHistoryRecord } from '../../src/shared/clinical-tools/acls/history';
+import {
+  OVACE_SIGNS,
+  OVACE_STEPS,
+  OVACE_SUBTITLE,
+  OVACE_TITLE,
+} from '../../src/shared/clinical-tools/acls/ovace';
+import { ACLS_REPORT_TITLE, buildAclsReport } from '../../src/shared/clinical-tools/acls/report';
+import {
+  HS_CAUSES,
+  ROSC_CHECKLIST,
+  TS_CAUSES,
+  type ReversibleCause,
+} from '../../src/shared/clinical-tools/acls/reversible-causes';
 import { apply, newPairedSession, nextOperation, type PairedSession } from './acls-driver';
 import {
   anyAcls,
   anyComponent,
   anyMetronomeDefaults,
   anyMetronomeSource,
+  anyOvaceTexts,
   type AnyGuide,
+  type AnyHsTs,
   type AnyNudge,
   type AnyState,
 } from './acls-reference';
@@ -35,13 +51,16 @@ import { DIFFERENTIAL_CASES, seededRandom } from './seeded-random';
  *
  * 1.000 paradas aleatórias (semente fixa): a cada toque, o mesmo estado
  * (contadores, epinefrina, amiodarona, via aérea, pausas, desfecho e linha do
- * tempo) e, em instantes aleatórios entre os toques, o mesmo card "Agora", os
- * mesmos lembretes e a mesma FCT.
+ * tempo); em instantes aleatórios entre os toques, o mesmo card "Agora", os
+ * mesmos lembretes e a mesma FCT; no fim (CC-314), o mesmo relatório e o mesmo
+ * registro no histórico.
  *
  * Diferenças deliberadas, e só elas:
  * - textos com imperativo viraram sugestão (`LANGUAGE_CHANGES`);
  * - o ANY registrava o ritmo duas vezes em cada checagem; o Copiloto, uma
- *   (revisão clínica, item 3.1).
+ *   (revisão clínica, item 3.1);
+ * - no relatório: título e rodapé do Copiloto, horário de relógio em cada
+ *   linha do tempo e a linha "Medicações" (item 3.7).
  *
  * O branch antigo do ANY (claude/update-test-database-M10pD) não tem teste do
  * ACLS: não há teste antigo para portar aqui.
@@ -56,6 +75,24 @@ const LANGUAGE_CHANGES: Record<string, string> = {
   'Após 3° choque sem sucesso': 'Após 3º choque sem sucesso',
   'Priorize acesso IV. IO se IV não viável.': 'Considere priorizar acesso IV; IO se IV não viável.',
   '1ª dose (após 3° choque)': '1ª dose (após 3º choque)',
+  'Incentive a tosse': 'Incentivar a tosse',
+  'Continue monitorando sinais de agravamento. Não interfira enquanto a tosse for efetiva.':
+    'Continuar monitorando sinais de agravamento. Não interferir enquanto a tosse for efetiva.',
+  '← Voltar': 'Voltar',
+  'Repita até que o objeto seja expelido ou o paciente fique inconsciente':
+    'Repetir até que o objeto seja expelido ou o paciente fique inconsciente',
+  'Inicie compressões torácicas. Antes de cada ventilação, verifique se há objeto visível na boca.':
+    'Iniciar compressões torácicas. Antes de cada ventilação, verificar se há objeto visível na boca.',
+  'Acione o serviço médico de emergência': 'Acionar o serviço médico de emergência',
+  'Iniciar Código de PCR': 'Iniciar código de PCR',
+  'Continue monitorando o paciente': 'Continuar monitorando o paciente',
+  'Mantenha observação até a chegada do serviço médico de emergência.':
+    'Manter observação até a chegada do serviço médico de emergência.',
+  'Trombose coronaria (IAM)': 'Trombose coronária (IAM)',
+  'Avalie convulsão, solicite EEG se não segue comandos':
+    'Avaliar convulsão, solicitar EEG se não segue comandos',
+  'Evite hipoglicemia (menor que 70) e hiperglicemia (maior que 180)':
+    'Evitar hipoglicemia (menor que 70 mg/dL) e hiperglicemia (maior que 180 mg/dL)',
 };
 
 function changed(text: string): string {
@@ -149,6 +186,47 @@ function expectedNudges(nudges: readonly AnyNudge[]): AclsNudge[] {
   }));
 }
 
+/**
+ * Relatório e registro do histórico do ANY para a parada encerrada, gerados
+ * no instante do fim e com `previous` registros já salvos no aparelho.
+ */
+function anyReport(session: PairedSession, previous: number) {
+  vi.setSystemTime(session.any.endTime ?? 0);
+  let saved = '[]';
+  const storage = {
+    getItem: () => JSON.stringify(Array.from({ length: previous }, (_, index) => ({ num: index }))),
+    setItem: (_key: string, value: string) => {
+      saved = value;
+    },
+  };
+  const text = anyComponent({ state: session.any, totalElapsed: 0, storage }).generateReport();
+  const records = JSON.parse(saved) as Record<string, unknown>[];
+  return { text, record: records.at(-1) ?? {} };
+}
+
+/** Relatório do ANY sem título/rodapé dele e sem a linha do ritmo duplicado. */
+function normalizeAnyReport(text: string, duplicates: ReadonlySet<number>): string {
+  const lines = text.split('\n');
+  const timeline = lines.indexOf('LINHA DO TEMPO:') + 1;
+  return lines
+    .filter((_, index) => !(index >= timeline && duplicates.has(index - timeline)))
+    .map((line, index, all) =>
+      index === 0 ? ACLS_REPORT_TITLE : index === all.length - 1 ? 'RODAPÉ' : line,
+    )
+    .join('\n');
+}
+
+/** Relatório do Copiloto sem o que ele acrescenta (horário de relógio e "Medicações"). */
+function normalizeOurReport(text: string): string {
+  const lines = text.split('\n');
+  return lines
+    .filter((line) => !line.startsWith('Medicações: '))
+    .map((line, index, all) =>
+      index === all.length - 1 ? 'RODAPÉ' : line.replace(/^( {2}\d+:\d{2}) \(\d{2}:\d{2}\)/, '$1'),
+    )
+    .join('\n');
+}
+
 /** Instantes logo antes, em cima e logo depois de cada limiar de tempo ainda por vir. */
 function boundaries(state: AclsState, now: number): number[] {
   const edges: number[] = [];
@@ -193,7 +271,14 @@ describe('ACLS contra o ANY congelado — 1.000 paradas aleatórias', () => {
   it('mesmo estado, mesmo card "Agora", mesmos lembretes e mesma FCT', () => {
     const random = seededRandom(SEED);
     const mismatches: unknown[] = [];
-    const reached = { amiodarone150: 0, urgentEpinephrine: 0, rosc: 0, death: 0, twoNudges: 0 };
+    const reached = {
+      amiodarone150: 0,
+      urgentEpinephrine: 0,
+      rosc: 0,
+      death: 0,
+      twoNudges: 0,
+      reports: 0,
+    };
 
     for (let index = 0; index < DIFFERENTIAL_CASES && mismatches.length < 5; index += 1) {
       const session = newPairedSession();
@@ -228,6 +313,34 @@ describe('ACLS contra o ANY congelado — 1.000 paradas aleatórias', () => {
       }
       if (session.ours.outcome === 'rosc') reached.rosc += 1;
       if (session.ours.outcome === 'death') reached.death += 1;
+      if (session.ours.status !== 'finished' || mismatches.length > 0) continue;
+
+      // CC-314: relatório e registro do histórico iguais aos do ANY.
+      const previous = random.integer(0, 4);
+      const any = anyReport(session, previous);
+      const report = buildAclsReport(session.ours, previous + 1) ?? '';
+      const expectedReport = normalizeAnyReport(any.text, session.duplicateRhythmEvents);
+      if (normalizeOurReport(report) !== expectedReport) {
+        mismatches.push({ case: index, expected: expectedReport, received: report });
+        continue;
+      }
+      const record = createAclsHistoryRecord(session.ours, { id: 'x', number: previous + 1 });
+      const expectedRecord = {
+        number: any.record.num,
+        date: any.record.date,
+        startTime: any.record.startTime,
+        endTime: any.record.endTime,
+        initialRhythm: any.record.rhythm,
+        outcome: any.record.outcome,
+        cycles: any.record.cycles,
+        shocks: any.record.shocks,
+        durationSeconds: any.record.duration,
+      };
+      const { id: _id, report: _report, ...receivedRecord } = record ?? { id: '', report: '' };
+      if (JSON.stringify(receivedRecord) !== JSON.stringify(expectedRecord)) {
+        mismatches.push({ case: index, expected: expectedRecord, received: receivedRecord });
+      }
+      reached.reports += 1;
     }
 
     expect(mismatches).toEqual([]);
@@ -236,6 +349,7 @@ describe('ACLS contra o ANY congelado — 1.000 paradas aleatórias', () => {
     expect(reached.urgentEpinephrine).toBeGreaterThan(0);
     expect(reached.twoNudges).toBeGreaterThan(0);
     expect(reached.rosc + reached.death).toBe(DIFFERENTIAL_CASES);
+    expect(reached.reports).toBe(DIFFERENTIAL_CASES);
   });
 });
 
@@ -283,5 +397,47 @@ describe('conteúdo do ACLS igual ao do ANY', () => {
     for (const seconds of [0, 5, 59, 60, 61, 119, 120, 599, 3599, 3600, 3700, 7322]) {
       expect(formatElapsed(seconds)).toBe(any.formatElapsed(seconds));
     }
+  });
+});
+
+const ANY_LINK: Record<string, ReversibleCause['link']> = {
+  '/airway': 'via-aerea',
+  '/tox': 'toxicologia',
+};
+
+function expectedCauses(causes: readonly AnyHsTs[]) {
+  return causes.map(({ name, action, link }) => ({
+    name: changed(name),
+    action: changed(action),
+    link: link ? ANY_LINK[link.path] : undefined,
+  }));
+}
+
+describe('conteúdo do pós-parada igual ao do ANY (CC-314)', () => {
+  const any = anyAcls();
+
+  it("os 10 cards de H's e T's, com os links para Via aérea e Toxicologia", () => {
+    const ours = (causes: readonly ReversibleCause[]) =>
+      causes.map(({ name, action, link }) => ({ name, action, link }));
+    expect(ours(HS_CAUSES)).toEqual(expectedCauses(any.HS_CAUSES));
+    expect(ours(TS_CAUSES)).toEqual(expectedCauses(any.TS_CAUSES));
+    expect(HS_CAUSES.length + TS_CAUSES.length).toBe(10);
+  });
+
+  it('os 10 itens do checklist pós-RCE, na mesma ordem', () => {
+    expect(ROSC_CHECKLIST.map(({ text }) => text)).toEqual(any.ROSC_CHECKLIST.map(changed));
+  });
+
+  it('os sinais e todos os textos do roteiro de OVACE', () => {
+    expect(OVACE_SIGNS).toEqual(any.OVACE_SIGNS);
+    const ours = new Set<string>([OVACE_TITLE, OVACE_SUBTITLE]);
+    for (const step of Object.values(OVACE_STEPS)) {
+      for (const block of step.blocks) {
+        for (const text of [block.label, block.title, block.text]) if (text) ours.add(text);
+      }
+      if (step.note) ours.add(step.note);
+      for (const option of step.options) ours.add(option.label);
+    }
+    expect([...ours].sort()).toEqual([...new Set(anyOvaceTexts().map(changed))].sort());
   });
 });

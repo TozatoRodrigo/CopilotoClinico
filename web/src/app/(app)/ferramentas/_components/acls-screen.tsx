@@ -1,8 +1,9 @@
 'use client';
 
-import { Heartbeat } from '@phosphor-icons/react';
+import Link from 'next/link';
+import { ClockCounterClockwise, Heartbeat, Wind } from '@phosphor-icons/react';
 import { ACLS_PROVENANCE } from '@clinical-tools/acls/content';
-import { aclsElapsedSeconds, formatElapsed } from '@clinical-tools/acls/session';
+import { OVACE_SUBTITLE } from '@clinical-tools/acls/ovace';
 import {
   AclsControlBar,
   AclsSettings,
@@ -16,22 +17,26 @@ import {
   WakeLockNote,
 } from '@/components/domain/clinical-tools/acls/code-panel';
 import { useAclsSession } from '@/components/domain/clinical-tools/acls/acls-session-provider';
+import {
+  AclsOutcome,
+  ReversibleCausesSection,
+} from '@/components/domain/clinical-tools/acls/post-arrest';
 import { RhythmCheckDialog } from '@/components/domain/clinical-tools/acls/rhythm-check-dialog';
 import { DecisionSupportNotice } from '@/components/domain/clinical-tools/decision-support-notice';
 import { ContentProvenanceNote } from '@/components/domain/clinical-tools/reference-section';
 import { Page } from '@/components/layout/page';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
-import { Callout } from '@/components/ui/callout';
 import { useToolFavorites } from '@/lib/tool-favorites';
 import { FavoriteButton } from './tool-entries';
 
 const TITLE = 'Parada cardiorrespiratória (ACLS)';
 
 /**
- * /ferramentas/acls (CC-313): iniciar, escolher o ritmo e conduzir a parada.
- * O estado mora no AclsSessionProvider do AppShell; esta tela só mostra a
- * fase em que a parada está.
+ * /ferramentas/acls (CC-313 e CC-314): iniciar, escolher o ritmo, conduzir a
+ * parada e, no fim, o checklist pós-RCE e o relatório. O estado mora no
+ * AclsSessionProvider do AppShell; esta tela só mostra a fase em que a parada
+ * está.
  */
 export function AclsScreen() {
   const session = useAclsSession();
@@ -76,7 +81,48 @@ function AclsStart() {
         O ciclo, a epinefrina e o metrônomo continuam se você abrir outra ferramenta; uma faixa no
         topo leva de volta. Tudo fica só neste aparelho.
       </p>
+      <ul className="flex flex-col">
+        <StartLink
+          href="/ferramentas/acls/ovace"
+          icon={<Wind className="size-5" aria-hidden="true" />}
+          title="OVACE"
+          description={OVACE_SUBTITLE}
+        />
+        <StartLink
+          href="/ferramentas/acls/historico"
+          icon={<ClockCounterClockwise className="size-5" aria-hidden="true" />}
+          title="Atendimentos salvos"
+          description="Relatórios das paradas anteriores, guardados neste aparelho."
+        />
+      </ul>
     </div>
+  );
+}
+
+function StartLink({
+  href,
+  icon,
+  title,
+  description,
+}: {
+  href: string;
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+}) {
+  return (
+    <li>
+      <Link
+        href={href}
+        className="flex min-h-12 items-center gap-3 rounded-md px-2 py-2 transition-colors duration-75 hover:bg-hover focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-none"
+      >
+        <span className="shrink-0 text-muted-foreground">{icon}</span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-medium text-foreground">{title}</span>
+          <span className="block text-xs text-muted-foreground">{description}</span>
+        </span>
+      </Link>
+    </li>
   );
 }
 
@@ -90,6 +136,7 @@ function AclsCode() {
       <ShockButton />
       <MedicationList />
       <AdvancedAirwayToggle />
+      <ReversibleCausesSection />
       <AclsSettings />
       <DecisionSupportNotice />
       <DiscardCodeButton />
@@ -99,17 +146,18 @@ function AclsCode() {
 }
 
 function AclsFinished() {
-  const { state, now, discard } = useAclsSession();
-  const rosc = state.outcome === 'rosc';
+  const { discard } = useAclsSession();
   return (
-    <div className="flex flex-col gap-4">
-      <Callout title={rosc ? 'RCE obtido' : 'Fim dos esforços'}>
-        Tempo total de RCP: {formatElapsed(aclsElapsedSeconds(state, now))} · {state.cycleCount}{' '}
-        ciclos · {state.shockCount} choques
-      </Callout>
-      <Button type="button" variant="outline" onClick={discard} className="min-h-12 self-start">
-        Iniciar nova parada
-      </Button>
+    <div className="flex flex-col gap-6">
+      <AclsOutcome />
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" onClick={discard} className="min-h-12">
+          Iniciar nova parada
+        </Button>
+        <Button asChild variant="outline" className="min-h-12">
+          <Link href="/ferramentas/acls/historico">Atendimentos salvos</Link>
+        </Button>
+      </div>
     </div>
   );
 }

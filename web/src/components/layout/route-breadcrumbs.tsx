@@ -79,9 +79,14 @@ function EncounterCrumbs({ segments }: { segments: string[] }) {
   return <Breadcrumb items={items} />;
 }
 
+/** Subpáginas de um roteiro (ACLS › OVACE, ACLS › Atendimentos salvos). */
+const TOOL_SUBPAGES: Record<string, Record<string, string>> = {
+  acls: { ovace: 'OVACE', historico: 'Atendimentos salvos' },
+};
+
 /**
  * ADR-017 — Ferramentas › Calculadoras › nome da calculadora, ou
- * Ferramentas › nome do roteiro (ACLS).
+ * Ferramentas › nome do roteiro (ACLS) › subpágina.
  */
 function ferramentasCrumbs(segments: string[]): BreadcrumbItem[] {
   const [, section, id] = segments;
@@ -90,7 +95,10 @@ function ferramentasCrumbs(segments: string[]): BreadcrumbItem[] {
   ];
   if (section !== 'calculadoras') {
     const tool = TOOLS.find((entry) => entry.id === section && entry.status === 'disponivel');
-    if (tool) items.push({ label: tool.name, href: id ? `/ferramentas/${tool.id}` : undefined });
+    if (!tool) return items;
+    items.push({ label: tool.name, href: id ? `/ferramentas/${tool.id}` : undefined });
+    const subpage = id ? TOOL_SUBPAGES[tool.id]?.[id] : undefined;
+    if (subpage) items.push({ label: subpage });
     return items;
   }
   items.push({

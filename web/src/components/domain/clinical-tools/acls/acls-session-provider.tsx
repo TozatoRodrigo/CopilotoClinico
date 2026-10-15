@@ -16,16 +16,19 @@ import type {
   AclsRhythm,
   EpinephrineIntervalSeconds,
 } from '@clinical-tools/acls/content';
+import type { RoscChecklistItemId } from '@clinical-tools/acls/reversible-causes';
 import {
   aclsReducer,
   cycleDueAt,
   INITIAL_ACLS_STATE,
   selectEpinephrineTimer,
+  type AclsAction,
   type AclsRhythmCheckResult,
   type AclsState,
 } from '@clinical-tools/acls/session';
 import { createAclsAudio, type AclsAudio } from '@/lib/acls/audio';
 import { ACLS_VIBRATION, vibrate } from '@/lib/acls/haptics';
+import { saveAclsRecord } from '@/lib/acls/history-storage';
 import { loadAclsSession, saveAclsSession } from '@/lib/acls/session-storage';
 import { createScreenWakeLock, type WakeLockStatus } from '@/lib/acls/wake-lock';
 
@@ -56,6 +59,7 @@ export interface AclsSession {
   toggleCompressionPause(): void;
   /** Liga ou desliga; `false` quando o navegador não tem áudio. */
   toggleMetronome(): boolean;
+  toggleRoscItem(item: RoscChecklistItemId): void;
   discard(): void;
 }
 
@@ -163,13 +167,20 @@ export function AclsSessionProvider({
 
   const checkRhythm = useCallback(
     (result: AclsRhythmCheckResult, etco2?: number) => {
-      if (result === 'rosc' || result === 'death') setMetronomeOn(false);
-      dispatch({
+      const action: AclsAction = {
         type: 'check-rhythm',
         at: clock(),
         result,
         ...(etco2 === undefined ? {} : { etco2 }),
-      });
+      };
+      const next = aclsReducer(stateRef.current, action);
+      dispatch(action);
+      if (next.status !== 'finished' || next.report !== null) return;
+      // CC-314: a parada encerrada vai para o histórico do aparelho na hora,
+      // com o relatório pronto; o médico não precisa lembrar de gerar.
+      setMetronomeOn(false);
+      const record = saveAclsRecord(next);
+      if (record) dispatch({ type: 'record-report', number: record.number, recordId: record.id });
     },
     [clock],
   );
@@ -218,6 +229,11 @@ export function AclsSessionProvider({
     return started;
   }, [metronomeOn, audio, state.advancedAirway]);
 
+  const toggleRoscItem = useCallback(
+    (item: RoscChecklistItemId) => dispatch({ type: 'toggle-rosc-item', item }),
+    [],
+  );
+
   const discard = useCallback(() => {
     setMetronomeOn(false);
     dispatch({ type: 'discard' });
@@ -238,6 +254,7 @@ export function AclsSessionProvider({
       setEpinephrineInterval,
       toggleCompressionPause,
       toggleMetronome,
+      toggleRoscItem,
       discard,
     }),
     [
@@ -255,6 +272,7 @@ export function AclsSessionProvider({
       setEpinephrineInterval,
       toggleCompressionPause,
       toggleMetronome,
+      toggleRoscItem,
       discard,
     ],
   );
