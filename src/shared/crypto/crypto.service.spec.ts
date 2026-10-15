@@ -3,13 +3,15 @@ import { ConfigService } from '@nestjs/config';
 import { CryptoService } from './crypto.service';
 
 const VALID_KEY = 'a'.repeat(64); // 64 hex chars = 32 bytes
+const NEW_KEY = 'b'.repeat(64);
 
-function buildService(keyOverride?: string): CryptoService {
+function buildService(keyOverride?: string, previousKey?: string): CryptoService {
   const service = new CryptoService({
     getOrThrow: (key: string) => {
       if (key === 'FIELD_ENCRYPTION_KEY') return keyOverride ?? VALID_KEY;
       throw new Error(`Unexpected config key: ${key}`);
     },
+    get: (key: string) => (key === 'FIELD_ENCRYPTION_KEY_PREVIOUS' ? previousKey : undefined),
   } as unknown as ConfigService);
   service.onModuleInit();
   return service;
@@ -38,6 +40,31 @@ describe('CryptoService', () => {
         getOrThrow: () => 'z'.repeat(64),
       } as unknown as ConfigService);
       expect(() => service.onModuleInit()).toThrow('FIELD_ENCRYPTION_KEY');
+    });
+
+    it('throws when FIELD_ENCRYPTION_KEY_PREVIOUS is malformed', () => {
+      expect(() => buildService(NEW_KEY, 'tooshort')).toThrow('FIELD_ENCRYPTION_KEY_PREVIOUS');
+    });
+  });
+
+  // CC-207 — rotação: com a chave anterior no ambiente, o segredo do MFA e o
+  // áudio cifrados com ela continuam abrindo.
+  describe('key rotation (FIELD_ENCRYPTION_KEY_PREVIOUS)', () => {
+    it('decrypts a legacy value encrypted with the previous key', () => {
+      const encryptedWithOldKey = buildService(VALID_KEY).encrypt('JBSWY3DPEHPK3PXP');
+      const rotated = buildService(NEW_KEY, VALID_KEY);
+      expect(rotated.decrypt(encryptedWithOldKey)).toBe('JBSWY3DPEHPK3PXP');
+    });
+
+    it('encrypts new values with the current key only', () => {
+      const encrypted = buildService(NEW_KEY, VALID_KEY).encrypt('segredo');
+      expect(buildService(NEW_KEY).decrypt(encrypted)).toBe('segredo');
+      expect(() => buildService(VALID_KEY).decrypt(encrypted)).toThrow();
+    });
+
+    it('still fails without the previous key', () => {
+      const encryptedWithOldKey = buildService(VALID_KEY).encrypt('segredo');
+      expect(() => buildService(NEW_KEY).decrypt(encryptedWithOldKey)).toThrow();
     });
   });
 
