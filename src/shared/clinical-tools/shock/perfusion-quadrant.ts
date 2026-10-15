@@ -157,3 +157,14 @@ export function evaluatePerfusion(
   }
   return { status: 'complete', quadrant: classifyPerfusion(svco2, gapCO2), svco2, gapCO2 };
 }
+
+/** Tela do gap CO2 × SvcO2 avulso (CC-317), com os textos da tela "Gap CO2" do ANY. */
+export const PERFUSION_STANDALONE = {
+  title: 'Gap CO2 × SvcO2',
+  subtitle: 'Quadrante perfusional',
+  info: {
+    title: 'Interpretação',
+    text: 'A combinação de SvcO2 e gap CO2 (diferença entre a PCO2 venosa central e a arterial) permite identificar o mecanismo predominante de hipoperfusão (Ltaief et al. Critical Care 2021).',
+  },
+  note: 'Ltaief et al. Critical Care 2021.',
+} as const;

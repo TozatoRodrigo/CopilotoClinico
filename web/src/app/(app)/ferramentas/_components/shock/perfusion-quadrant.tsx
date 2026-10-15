@@ -41,7 +41,7 @@ export function PerfusionQuadrantGrid({
               'flex flex-col gap-1 rounded-md border border-l-4 border-border p-2.5 text-xs transition-opacity',
               TONE_BORDER[quadrant.tone],
               active && cn(toneBg[RESULT_TONE[quadrant.tone]], 'font-medium'),
-              activeId !== null && !active && 'opacity-60',
+              activeId !== null && !active && 'opacity-75',
             )}
           >
             <span className="text-[0.8125rem] font-semibold text-foreground">

@@ -25,7 +25,7 @@ vi.mock('@/lib/clinical-queries', () => ({
   useEncounterDetail: () => ({ data: undefined }),
 }));
 
-describe('roteiros das Ferramentas no ⌘K e na trilha (CC-316)', () => {
+describe('roteiros das Ferramentas no ⌘K e na trilha (CC-316, CC-317)', () => {
   afterEach(() => {
     vi.unstubAllEnvs();
     push.mockClear();
@@ -40,6 +40,17 @@ describe('roteiros das Ferramentas no ⌘K e na trilha (CC-316)', () => {
     const group = await screen.findByRole('group', { name: 'Ferramentas' });
     await userEvent.click(within(group).getByRole('option', { name: /Choque séptico/ }));
     expect(push).toHaveBeenCalledWith('/ferramentas/choque-septico');
+  });
+
+  it('o ⌘K acha o Choque indiferenciado pelo VNERi (CC-317)', async () => {
+    vi.stubEnv('NEXT_PUBLIC_FERRAMENTAS', 'on');
+    render(<CommandPalette open onOpenChange={vi.fn()} />);
+
+    await userEvent.type(screen.getByRole('combobox'), 'vneri');
+
+    const group = await screen.findByRole('group', { name: 'Ferramentas' });
+    await userEvent.click(within(group).getByRole('option', { name: /Choque indiferenciado/ }));
+    expect(push).toHaveBeenCalledWith('/ferramentas/choque-indiferenciado');
   });
 
   it('a trilha mostra Ferramentas › Choque séptico', () => {

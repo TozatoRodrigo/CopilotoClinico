@@ -3,6 +3,7 @@ import { RESULT_TONES } from '../tone';
 import { describeLactate, LACTATE_RANGES, lactateMmolToMgDl, lactateToMmol } from './lactate';
 import { classifyPerfusion, evaluatePerfusion, PERFUSION_QUADRANTS } from './perfusion-quadrant';
 import * as septic from './septic-shock';
+import * as vti from './vti';
 import { SEPTIC_SHOCK_PROVENANCE, SEPTIC_SHOCK_REFERENCES } from './sources';
 import {
   evaluateVneri,
@@ -43,6 +44,16 @@ const CONDUCT_TEXTS = [
   ...Object.values(septic.PROFILE_SUGGESTIONS),
   ...VNERI_CONDUCTS.map(({ text }) => text),
   ...PERFUSION_QUADRANTS.flatMap(({ conduct, cell }) => [conduct, cell.hint]),
+  // CC-317 — módulo VTI
+  ...Object.values(vti.VTI_ZONES).map(({ text }) => text),
+  ...Object.values(vti.VTI_SHOCK_TYPE_CONTENT).flatMap(({ sections, summary }) => [
+    ...sections.filter(({ title }) => title === 'Conduta sugerida').flatMap(({ items }) => items),
+    ...summary.lines.map(({ text }) => text),
+  ]),
+  ...strings(vti.DISTRIBUTIVE_SCREEN.interpretation),
+  ...strings(vti.LOW_OUTPUT_FLUIDS.methods),
+  ...strings(vti.LOW_OUTPUT_FLUIDS.notResponsive),
+  ...Object.values(vti.GREY_ZONE_PATTERNS).map(({ text }) => text),
 ];
 
 describe('linguagem (ADR-017)', () => {

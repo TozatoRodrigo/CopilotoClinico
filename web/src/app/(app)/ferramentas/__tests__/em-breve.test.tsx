@@ -16,6 +16,7 @@ describe('/ferramentas/[ferramenta] — ferramenta ainda não portada', () => {
     const ids = generateStaticParams().map(({ ferramenta }) => ferramenta);
     expect(ids).toContain('infusoes');
     expect(ids).not.toContain('choque-septico');
+    expect(ids).not.toContain('choque-indiferenciado');
     expect(ids).not.toContain('calculadoras');
   });
 

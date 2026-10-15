@@ -211,3 +211,18 @@ export function evaluateVneri(raw: Readonly<Record<VneriInputId, string>>): Vner
     inputs: { pad, fc, doseNE },
   };
 }
+
+/** Tela do VNERi avulso (CC-317), com os textos da tela "VNERi" do ANY. */
+export const VNERI_STANDALONE = {
+  title: 'VNERi',
+  subtitle: 'Vascular Norepinephrine Responsiveness index',
+  info: {
+    title: 'O que mede?',
+    text: 'Avalia a responsividade vascular à noradrenalina no choque séptico. Valores baixos indicam que o vaso não responde bem à NE — considere terapia adjuvante. A curva de mortalidade tem formato de J invertido: mortalidade mínima em VNERi ~ 6,7.',
+    formula: 'Fórmula: PAD / (dose NE × FC)',
+  },
+  notes: [
+    'Goury et al. Ann Intensive Care 2025 — curva em J invertido, nadir de mortalidade em VNERi 6,7.',
+    'Validado para choque séptico (Goury et al. Ann Intensive Care 2025).',
+  ],
+} as const;

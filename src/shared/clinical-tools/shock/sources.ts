@@ -96,3 +96,10 @@ export const SEPTIC_SHOCK_REFERENCES: readonly ShockReference[] = [
   SHOCK_REFERENCES.survivingSepsis2021,
   SHOCK_REFERENCES.andromedaShock,
 ];
+
+/** Referências do choque indiferenciado (VTI, VNERi e gap CO2 × SvcO2). */
+export const UNDIFFERENTIATED_SHOCK_REFERENCES: readonly ShockReference[] = [
+  SHOCK_REFERENCES.mercadal,
+  SHOCK_REFERENCES.goury,
+  SHOCK_REFERENCES.ltaief,
+];
