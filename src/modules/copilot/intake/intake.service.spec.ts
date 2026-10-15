@@ -531,6 +531,28 @@ describe('IntakeService', () => {
       expect(input.caseText).toContain('[PATIENT_REF_REDACTED]');
     });
 
+    // CC-602 — o local escolhido na captura chega ao plano (e às reanálises,
+    // que leem o contexto gravado no encontro).
+    it('hands the practice site chosen on the case to the analysis', async () => {
+      const site = {
+        siteId: '22222222-2222-4222-8222-222222222222',
+        name: 'UPA Centro',
+        facilityType: 'upa_porte_1' as const,
+        specialists: [],
+        referenceTravelMinutes: 90,
+        referenceDistanceKm: null,
+      };
+      const context = { hasCT: false, isSus: true, hasLab: true, hasICU: false, site };
+      const { intakeId } = await service.start(physicianId, encounterId, {
+        ...startInput,
+        context,
+      });
+
+      expect(encounterUpdate).toHaveBeenCalledWith(expect.objectContaining({ data: { context } }));
+      const { input } = await service.beginAnalysis(physicianId, encounterId, intakeId);
+      expect(input.context).toEqual(context);
+    });
+
     it('hands the answers to the analysis as answered before the first plan', async () => {
       const { intakeId } = await service.start(physicianId, encounterId, startInput);
       await service.answer(physicianId, encounterId, intakeId, {

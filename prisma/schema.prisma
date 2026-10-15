@@ -139,8 +139,40 @@ model Physician {
   institutions            PhysicianInstitution[]
   recommendationDecisions RecommendationDecision[]
   copilotFeedback         CopilotFeedback[]
+  practiceSites           PracticeSite[]
 
   @@map("physicians")
+}
+
+/// CC-602 — local onde o médico dá plantão: recursos (TC, laboratório, UTI),
+/// porte do serviço, especialistas e distância até a referência. Preenche o
+/// contexto do caso novo; o médico troca no caso. Sem dado de paciente.
+///
+/// Um padrão por médico: garantido pelo índice único parcial
+/// `practice_sites_one_default_per_physician` (só na migration — o Prisma não
+/// descreve índice parcial) e pela transação do serviço.
+model PracticeSite {
+  id                     String   @id @default(uuid()) @db.Uuid
+  physicianId            String   @map("physician_id") @db.Uuid
+  name                   String   @db.VarChar(80)
+  /// FacilityType (src/shared/contracts/practice-site.ts), validado na aplicação.
+  facilityType           String   @map("facility_type") @db.VarChar(32)
+  hasCT                  Boolean  @default(false) @map("has_ct")
+  hasLab                 Boolean  @default(false) @map("has_lab")
+  hasICU                 Boolean  @default(false) @map("has_icu")
+  isSus                  Boolean  @default(false) @map("is_sus")
+  /// SiteSpecialist[], validado na aplicação.
+  specialists            String[] @default([])
+  referenceTravelMinutes Int?     @map("reference_travel_minutes")
+  referenceDistanceKm    Int?     @map("reference_distance_km")
+  isDefault              Boolean  @default(false) @map("is_default")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  physician Physician @relation(fields: [physicianId], references: [id], onDelete: Cascade)
+
+  @@index([physicianId])
+  @@map("practice_sites")
 }
 
 /**

@@ -199,6 +199,42 @@ describe('EncountersService', () => {
           expect.objectContaining({ payload: expect.objectContaining({ identified: true }) }),
         );
       });
+
+      // CC-602 — métrica "% de casos com contexto preenchido".
+      it('audits whether the case was created with a declared practice site', async () => {
+        const auditLog = vi.fn().mockResolvedValue(undefined);
+        const serviceWithAuditSpy = new EncountersService(
+          prisma as unknown as PrismaService,
+          { log: auditLog } as unknown as AuditService,
+          institutionsService as unknown as InstitutionsService,
+        );
+        const resources = { hasCT: false, isSus: true, hasLab: true, hasICU: false };
+        prisma.encounter.create.mockResolvedValue(baseEncounter);
+
+        await serviceWithAuditSpy.create(physicianId, {
+          vertical: 'general',
+          context: {
+            ...resources,
+            site: {
+              siteId: null,
+              name: 'UPA Centro',
+              facilityType: 'upa_porte_1',
+              specialists: [],
+              referenceTravelMinutes: 90,
+              referenceDistanceKm: null,
+            },
+          },
+        });
+        expect(auditLog).toHaveBeenLastCalledWith(
+          expect.objectContaining({ payload: expect.objectContaining({ siteDeclared: true }) }),
+        );
+        expect(JSON.stringify(auditLog.mock.calls)).not.toContain('UPA Centro');
+
+        await serviceWithAuditSpy.create(physicianId, { vertical: 'general', context: resources });
+        expect(auditLog).toHaveBeenLastCalledWith(
+          expect.objectContaining({ payload: expect.objectContaining({ siteDeclared: false }) }),
+        );
+      });
     });
   });
 
