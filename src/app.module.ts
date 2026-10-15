@@ -23,6 +23,7 @@ import { AudioModule } from './modules/audio/audio.module';
 import { RedisModule } from './modules/redis/redis.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { MentoringModule } from './modules/mentoring/mentoring.module';
 import { PiiLogSanitizerInterceptor } from './shared/interceptors/pii-log-sanitizer.interceptor';
 import { RequestContextInterceptor } from './shared/request-context/request-context.interceptor';
 
@@ -53,6 +54,7 @@ import { RequestContextInterceptor } from './shared/request-context/request-cont
     RedisModule,
     StorageModule,
     AnalyticsModule,
+    MentoringModule,
   ],
   providers: [
     {

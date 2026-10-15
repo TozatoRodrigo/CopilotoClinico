@@ -46,6 +46,10 @@ describe('LgpdService', () => {
       deleteMany: ReturnType<typeof vi.fn>;
     };
     caseIntake: { findMany: ReturnType<typeof vi.fn> };
+    mentoringRequest: {
+      findMany: ReturnType<typeof vi.fn>;
+      deleteMany: ReturnType<typeof vi.fn>;
+    };
     $transaction: ReturnType<typeof vi.fn>;
   };
   let auditService: {
@@ -93,6 +97,10 @@ describe('LgpdService', () => {
         deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
       caseIntake: { findMany: vi.fn().mockResolvedValue([]) },
+      mentoringRequest: {
+        findMany: vi.fn().mockResolvedValue([]),
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
       $transaction: vi.fn(),
     };
     auditService = {
@@ -369,9 +377,14 @@ describe('LgpdService', () => {
           caseIntakes: [],
           recommendationDecisions,
           copilotFeedback,
+          mentoringRequests: [],
           consents,
           auditLog,
         },
+      });
+      // CC-707 — pedidos que fez e respostas que deu como mentor.
+      expect(prisma.mentoringRequest.findMany).toHaveBeenCalledWith({
+        where: { OR: [{ requesterId: physicianId }, { mentorId: physicianId }] },
       });
       expect(prisma.caseIntake.findMany).toHaveBeenCalledWith({ where: { physicianId } });
       expect(prisma.copilotFeedback.findMany).toHaveBeenCalledWith({ where: { physicianId } });
@@ -463,6 +476,7 @@ describe('LgpdService', () => {
 
       prisma.recommendationDecision.deleteMany.mockResolvedValue({ count: 4 });
       prisma.copilotFeedback.deleteMany.mockResolvedValue({ count: 3 });
+      prisma.mentoringRequest.deleteMany.mockResolvedValue({ count: 2 });
       prisma.encounter.deleteMany.mockResolvedValue({ count: 2 });
       prisma.consent.deleteMany.mockResolvedValue({ count: 1 });
       prisma.refreshToken.deleteMany.mockResolvedValue({ count: 1 });
@@ -492,6 +506,7 @@ describe('LgpdService', () => {
       expect(result.erased).toEqual({
         recommendationDecisions: 4,
         copilotFeedback: 3,
+        mentoringRequests: 2,
         encounters: 2,
         consents: 1,
         refreshTokens: 1,
@@ -500,6 +515,9 @@ describe('LgpdService', () => {
         where: { physicianId },
       });
       expect(prisma.copilotFeedback.deleteMany).toHaveBeenCalledWith({ where: { physicianId } });
+      expect(prisma.mentoringRequest.deleteMany).toHaveBeenCalledWith({
+        where: { requesterId: physicianId },
+      });
       expect(prisma.encounter.deleteMany).toHaveBeenCalledWith({
         where: { physicianId },
       });
@@ -527,6 +545,7 @@ describe('LgpdService', () => {
           erased: {
             recommendationDecisions: 4,
             copilotFeedback: 3,
+            mentoringRequests: 2,
             encounters: 2,
             consents: 1,
             refreshTokens: 1,
