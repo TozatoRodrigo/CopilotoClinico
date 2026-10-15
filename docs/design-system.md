@@ -109,7 +109,14 @@ Proibido: rótulos em caixa-alta com tracking largo (`uppercase tracking-…`),
   Para elementos fixos dentro da página use `sticky top-11`.
 - **Mobile**: barra inferior (Plantão, Casos, Novo caso por voz, Diretrizes,
   Buscar); o menu ☰ abre o sidebar num sheet. O `main` tem `pb-28` para não
-  esconder conteúdo atrás da barra.
+  esconder conteúdo atrás da barra. Com `NEXT_PUBLIC_FERRAMENTAS=on`
+  (ADR-017), Ferramentas ocupa o lugar de Buscar e a busca vira uma lupa na
+  barra superior.
+- **Faixa de parada** (`AclsBanner`, CC-313): com uma parada (ACLS) em curso,
+  uma faixa vermelha fica logo abaixo da barra superior (`sticky top-11`) em
+  toda tela, menos na do próprio ACLS: tempo, ciclo, "Checar ritmo",
+  epinefrina vencida, metrônomo e o botão de volta. É o único elemento fixo
+  do shell que não é navegação; vermelho porque é risco crítico em curso.
 - O `main` já aplica padding lateral responsivo (`px-4 → xl:px-24`) e topo.
 
 ### Página
@@ -144,6 +151,32 @@ Proibido: rótulos em caixa-alta com tracking largo (`uppercase tracking-…`),
 | `Kbd` | Atalhos (⌘K, ↵). |
 | `EmptyState` | Estados vazios: ícone cinza, título, uma frase, uma ação. |
 | `ProgressSteps` | Trilha Captura / Análise / Documento. |
+
+## Ferramentas clínicas (`web/src/components/domain/clinical-tools`)
+
+Componentes das calculadoras e roteiros de beira-leito (ADR-017). Toda conta e
+todo texto clínico vêm do motor (`src/shared/clinical-tools`); o componente só
+desenha. Vitrine em `/dev/components#ferramentas`.
+
+| Componente | Quando usar |
+| --- | --- |
+| `NumericField` | Valor com unidade dentro do campo, vírgula ou ponto, faixa aceita como dica. Erro acima do máximo na hora; abaixo do mínimo ao sair do campo. |
+| `WeightField` | Peso adulto (40–200 kg) ou pediátrico (0,5–50 kg). |
+| `ScoreItemList` | Itens de escore como rádio nativo, pontos à direita (classificação e parâmetro de fórmula não mostram ponto). |
+| `ChoiceGroup` | O único seletor de opção das Ferramentas (modo da droga, fase do protocolo, "responsivo a fluidos?", momento do HACOR): rádio nativo, alvo de 44px, descrição opcional na opção, desmarcar ao tocar de novo (`onClear`) e colunas no celular. Roteiro não cria o seu. |
+| `ToolReturnLink` | "Voltar para …" no topo da ferramenta aberta por outra (`?de=`, CC-331), no layout de `/ferramentas`. |
+| `ToolsOfflineFooter` | Rodapé das Ferramentas (CC-322): "Disponível sem conexão · versão do conteúdo …" e "recarregar" quando chega versão nova. |
+| `CalculatorResult` | Resultado ao vivo (`role="status"`): valor, faixa, resultados secundários e ação sugerida. Tom: baixo risco cinza, intermediário laranja, alto vermelho. Quando a faixa é o resultado (CAM-ICU), o nome dela ocupa o lugar do número. |
+| `ReferenceSection` / `ContentProvenanceNote` | Por que usar, quando usar, pérolas, citação; origem, versão e revisão do conteúdo. |
+| `CopyToChartButton` | Texto para o prontuário, com o texto selecionável se a área de transferência falhar. |
+| `DecisionSupportNotice` | Aviso fixo "Apoio à decisão; não substitui o julgamento clínico." |
+| `CalculatorView` | Tudo acima montado a partir de uma `CalculatorDefinition`, com os campos que o ANY abria preenchidos (FiO₂ 21%) e o aviso de versão aproximada (GRACE, APACHE II) acima dos campos. |
+| `InlineCalculator` | Calculadora dentro de um roteiro (Wells e D-dímero no TEP): campos, itens e resultado ao vivo, sem aviso, referência nem "copiar". `onComplete` faz o roteiro andar quando a conta fecha; `action` põe um botão abaixo do resultado ("Prosseguir como categoria B"). |
+| `pediatrics/BroselowPicker` | As nove cores da fita de Broselow como grupo de rádio (toque de 44 px), com nome e peso; a amostra usa os tokens de tom e vai sempre com o nome. |
+| `pediatrics/PediatricDrugCard` | Droga em bolus: dose, volume (ou vazão da infusão), teto e "teto atingido", selo e aviso de "não rotineiro", preparo. |
+| `pediatrics/PediatricInfusionCard` | Infusão pediátrica: preparo da faixa de peso, dose → mL/h ao vivo e a conta inversa. |
+| `pediatrics/ToolCollapsible` | Bloco que abre e fecha com alvo de 44 px e título em cabeçalho (o `Disclosure` tem 28 px). |
+| `pediatrics/CanonicalSourceNotice` | Aviso laranja "Doses aguardando assinatura da fonte única (CC-321)"; some quando a revisão do dado passa a `revisado`. |
 
 ## Receitas de página
 

@@ -6,6 +6,10 @@ export default defineConfig({
     environment: 'node',
     root: './',
     include: ['src/**/*.spec.ts', 'tests/**/*.spec.ts', 'evals/**/*.spec.ts'],
+    // Os diferenciais das Ferramentas (ADR-017) rodam 1.000 entradas ou todas as
+    // combinações, alguns renderizando a tela do ANY: 1–2 s cada sozinhos, mas
+    // passam dos 5 s padrão com a suíte inteira disputando a CPU.
+    testTimeout: 20_000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov', 'json-summary'],

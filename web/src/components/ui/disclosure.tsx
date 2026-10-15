@@ -18,6 +18,7 @@ function Disclosure({
   open,
   onOpenChange,
   className,
+  triggerClassName,
   contentClassName,
   children,
 }: {
@@ -28,6 +29,8 @@ function Disclosure({
   open?: boolean
   onOpenChange?: (open: boolean) => void
   className?: string
+  /** Ex.: `min-h-11` quando o toggle é alvo de toque principal (listas no celular). */
+  triggerClassName?: string
   contentClassName?: string
   children: React.ReactNode
 }) {
@@ -39,7 +42,12 @@ function Disclosure({
       onOpenChange={onOpenChange}
       className={cn("group/disclosure", className)}
     >
-      <CollapsiblePrimitive.Trigger className="-mx-1 flex w-[calc(100%+0.5rem)] items-center gap-1.5 rounded-sm px-1 py-1 text-left text-sm font-medium text-foreground transition-colors hover:bg-hover focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-none">
+      <CollapsiblePrimitive.Trigger
+        className={cn(
+          "-mx-1 flex w-[calc(100%+0.5rem)] items-center gap-1.5 rounded-sm px-1 py-1 text-left text-sm font-medium text-foreground transition-colors hover:bg-hover focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-none",
+          triggerClassName
+        )}
+      >
         <CaretRight
           weight="fill"
           aria-hidden="true"

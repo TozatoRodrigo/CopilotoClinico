@@ -10,8 +10,10 @@ import {
   ShieldCheck,
   ShieldWarning,
   SquaresFour,
+  Toolbox,
 } from '@phosphor-icons/react';
 import type { AppRole } from '@/lib/auth-store';
+import { isFerramentasEnabled } from '@/lib/feature-flags';
 
 export interface NavItem {
   href: string;
@@ -57,6 +59,26 @@ export const APP_SECTIONS_BY_ROLE: Record<AppRole, NavSection[]> = {
 };
 
 export const HOME_ITEM: NavItem = { href: '/dashboard', label: 'Plantão', icon: House };
+
+/** ADR-017 — área Ferramentas (calculadoras e roteiros de beira-leito). */
+export const FERRAMENTAS_ITEM: NavItem = {
+  href: '/ferramentas',
+  label: 'Ferramentas',
+  icon: Toolbox,
+};
+
+/**
+ * Seções do sidebar com as entradas que dependem de flag. Ferramentas entra
+ * depois de Diretrizes no Workspace, só com `NEXT_PUBLIC_FERRAMENTAS=on`.
+ */
+export function appSectionsFor(role: AppRole): NavSection[] {
+  if (!isFerramentasEnabled()) return APP_SECTIONS_BY_ROLE[role];
+  return APP_SECTIONS_BY_ROLE[role].map((section) =>
+    section.items === CLINICAL_ITEMS
+      ? { ...section, items: [...CLINICAL_ITEMS, FERRAMENTAS_ITEM] }
+      : section,
+  );
+}
 
 export const SETTINGS_ITEM: NavItem = {
   href: '/settings',

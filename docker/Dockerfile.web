@@ -4,14 +4,18 @@ FROM node:22-alpine AS base
 RUN corepack enable && corepack prepare pnpm@10.33.0 --activate
 WORKDIR /app
 
-# Instala deps do frontend
+# Instala deps do frontend. O web fica em /app/web, como no repositório:
+# ele importa o motor clínico de ../src/shared/clinical-tools (ADR-017).
 FROM base AS deps
+WORKDIR /app/web
 COPY web/package.json web/pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
 # Build do frontend
 FROM deps AS builder
 COPY web/ ./
+# Motor clínico compartilhado (ADR-017): TypeScript puro, sem dependência.
+COPY src/shared/clinical-tools /app/src/shared/clinical-tools
 # NEXT_PUBLIC_API_URL=/v1 faz o browser chamar a mesma origem (/v1/auth/login etc).
 # Traefik roteia /v1/* → copiloto-api e /* → copiloto-web.
 ENV NEXT_PUBLIC_API_URL=/v1
@@ -22,6 +26,10 @@ ENV NEXT_PUBLIC_API_URL=/v1
 # renderiza (ver web/src/app/layout.tsx).
 ENV NEXT_PUBLIC_UMAMI_WEBSITE_ID=ddd2c36c-bcc0-47b0-8288-2d3bbebfa954
 ENV NEXT_PUBLIC_UMAMI_SRC=https://analytics.servidortozato.cloud/script.js
+# ADR-017 — área Ferramentas. Desligada até a cessão do ANY (CC-301) e a
+# revisão clínica (CC-310); liga com --build-arg NEXT_PUBLIC_FERRAMENTAS=on.
+ARG NEXT_PUBLIC_FERRAMENTAS=off
+ENV NEXT_PUBLIC_FERRAMENTAS=$NEXT_PUBLIC_FERRAMENTAS
 RUN pnpm build
 
 # Runtime
@@ -31,9 +39,11 @@ ENV NODE_ENV=production
 ENV HOSTNAME=0.0.0.0
 RUN apk add --no-cache tini
 
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
+# O standalone espelha o repositório (outputFileTracingRoot na raiz, ver
+# web/next.config.ts): o servidor fica em web/server.js.
+COPY --from=builder /app/web/.next/standalone ./
+COPY --from=builder /app/web/.next/static ./web/.next/static
+COPY --from=builder /app/web/public ./web/public
 
 EXPOSE 3000
-CMD ["tini", "--", "node", "server.js"]
+CMD ["tini", "--", "node", "web/server.js"]

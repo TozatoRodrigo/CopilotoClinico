@@ -1,0 +1,20 @@
+{
+  // ADR-017 — o motor clínico (src/shared/clinical-tools) roda no navegador,
+  // no service worker e na API. Este typecheck compila o motor sozinho, só
+  // com a biblioteca padrão do ECMAScript: sem DOM e sem @types/node, qualquer
+  // `window`, `document`, `process` ou `Buffer` quebra o `pnpm typecheck`.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "types": [],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "skipLibCheck": true
+  },
+  "include": ["src/shared/clinical-tools/**/*.ts"],
+  "exclude": ["src/shared/clinical-tools/**/*.spec.ts"]
+}

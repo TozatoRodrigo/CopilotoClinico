@@ -1,0 +1,237 @@
+// @ts-nocheck — código do ANY App copiado sem alteração; o TS estrito do
+// Copiloto (noUncheckedIndexedAccess) acusaria o acesso indexado original.
+//
+// REFERÊNCIA CONGELADA DO ANY APP (ADR-017) — SOMENTE LEITURA, SÓ PARA TESTE.
+// Nada fora de tests/ pode importar daqui, e nada abaixo do marcador pode
+// mudar: tests/any-reference/reference-integrity.spec.ts confere as duas coisas.
+//
+// Origem: github.com/bugamoreira/any-app, branch v4, revisão 95c8fba82e63e338338c3f6517bde444164f6183
+// Arquivo: v2/src/contexts/MetronomeContext.tsx
+// sha256 do original: 5efd1d34f8857d973f4bc3ff6d7536152865201bd50e5a95b8a08a182c6884a3
+// ---- início do arquivo original ----
+import { createContext, useContext, useState, useRef, useCallback, useMemo, useEffect, type ReactNode } from 'react'
+import { useLocation } from 'react-router-dom'
+
+interface MetronomeConfig {
+  bpm: number
+  ventEnabled: boolean
+  ventIntervalMs: number
+}
+
+interface MetronomeContextType {
+  isPlaying: boolean
+  config: MetronomeConfig
+  start: (config?: Partial<MetronomeConfig>) => void
+  stop: () => void
+  toggle: (config?: Partial<MetronomeConfig>) => void
+  /** Liga/desliga o beep de ventilacao sem reiniciar as compressoes */
+  updateVent: (ventEnabled: boolean) => void
+  /** Dois bipes graves (600 Hz square) — alerta de fim de ciclo */
+  playAlert: () => void
+}
+
+const defaultConfig: MetronomeConfig = { bpm: 110, ventEnabled: false, ventIntervalMs: 6000 }
+
+const MetronomeContext = createContext<MetronomeContextType | null>(null)
+
+/**
+ * O iOS toca Web Audio pelo canal de "ambiente", que obedece a chave lateral do
+ * silencioso — por isso o metronomo ficava mudo com o telefone no silencioso.
+ * Declarar a sessao como 'playback' faz o iOS tratar o som como midia: toca com
+ * a chave no silencioso e continua com a tela bloqueada.
+ *
+ * Suportado a partir do iOS 16.4 / Safari 16.4. Em versoes anteriores nao existe
+ * caminho pelo navegador — degrada para o comportamento antigo, sem quebrar.
+ * Observacao: o volume de MIDIA em zero silencia em qualquer versao; a chave do
+ * silencioso e o volume sao controles diferentes.
+ */
+function setAudioSession(type: 'playback' | 'auto') {
+  try {
+    const session = (navigator as unknown as { audioSession?: { type: string } }).audioSession
+    if (session) session.type = type
+  } catch {
+    // navegador sem suporte — ignora
+  }
+}
+
+export function MetronomeProvider({ children }: { children: ReactNode }) {
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [config, setConfig] = useState<MetronomeConfig>(defaultConfig)
+  const audioCtxRef = useRef<AudioContext | null>(null)
+  const intervalRef = useRef<number | null>(null)
+  const ventIntervalRef = useRef<number | null>(null)
+  const silentAudioRef = useRef<HTMLAudioElement | null>(null)
+  const { pathname } = useLocation()
+
+  function getAudioCtx() {
+    setAudioSession('playback')
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)()
+    }
+    if (audioCtxRef.current.state === 'suspended') {
+      audioCtxRef.current.resume()
+    }
+    return audioCtxRef.current
+  }
+
+  // 880 Hz / 0,08s sine — mesmo tick do v1
+  function playClick() {
+    const ctx = getAudioCtx()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.value = 880
+    gain.gain.setValueAtTime(0.5, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08)
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start()
+    osc.stop(ctx.currentTime + 0.08)
+  }
+
+  function playVentBeep() {
+    const ctx = getAudioCtx()
+    const osc1 = ctx.createOscillator()
+    const gain1 = ctx.createGain()
+    osc1.type = 'sine'
+    osc1.frequency.value = 1200
+    gain1.gain.setValueAtTime(0.6, ctx.currentTime)
+    gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15)
+    osc1.connect(gain1)
+    gain1.connect(ctx.destination)
+    osc1.start()
+    osc1.stop(ctx.currentTime + 0.15)
+    setTimeout(() => {
+      const osc2 = ctx.createOscillator()
+      const gain2 = ctx.createGain()
+      osc2.type = 'sine'
+      osc2.frequency.value = 1500
+      gain2.gain.setValueAtTime(0.6, ctx.currentTime)
+      gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15)
+      osc2.connect(gain2)
+      gain2.connect(ctx.destination)
+      osc2.start()
+      osc2.stop(ctx.currentTime + 0.15)
+    }, 180)
+  }
+
+  function startSilentAudio() {
+    if (silentAudioRef.current) return
+    try {
+      const audio = document.createElement('audio')
+      audio.setAttribute('loop', '')
+      // 50 ms de silencio, WAV mono 8 kHz 16-bit valido (o anterior tinha bloco de dados vazio)
+      audio.src = 'data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YSADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=='
+      audio.volume = 0.01
+      audio.play().catch(() => {})
+      silentAudioRef.current = audio
+    } catch { /* nao critico */ }
+  }
+
+  function stopSilentAudio() {
+    if (silentAudioRef.current) {
+      silentAudioRef.current.pause()
+      silentAudioRef.current.src = ''
+      silentAudioRef.current = null
+    }
+  }
+
+  const start = useCallback((overrides?: Partial<MetronomeConfig>) => {
+    setConfig(prev => {
+      const cfg = { ...prev, ...overrides }
+
+      if (intervalRef.current) clearInterval(intervalRef.current)
+      if (ventIntervalRef.current) clearInterval(ventIntervalRef.current)
+
+      startSilentAudio()
+      intervalRef.current = window.setInterval(playClick, 60000 / cfg.bpm)
+      if (cfg.ventEnabled) {
+        ventIntervalRef.current = window.setInterval(playVentBeep, cfg.ventIntervalMs)
+      }
+      return cfg
+    })
+    setIsPlaying(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const stop = useCallback(() => {
+    if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null }
+    if (ventIntervalRef.current) { clearInterval(ventIntervalRef.current); ventIntervalRef.current = null }
+    stopSilentAudio()
+    setAudioSession('auto')
+    setIsPlaying(false)
+  }, [])
+
+  const toggle = useCallback((overrides?: Partial<MetronomeConfig>) => {
+    if (intervalRef.current) stop()
+    else start(overrides)
+  }, [start, stop])
+
+  const updateVent = useCallback((ventEnabled: boolean) => {
+    setConfig(prev => {
+      if (intervalRef.current) {
+        if (ventIntervalRef.current) { clearInterval(ventIntervalRef.current); ventIntervalRef.current = null }
+        if (ventEnabled) {
+          ventIntervalRef.current = window.setInterval(playVentBeep, prev.ventIntervalMs)
+        }
+      }
+      return { ...prev, ventEnabled }
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const playAlert = useCallback(() => {
+    const beep = () => {
+      const ctx = getAudioCtx()
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'square'
+      osc.frequency.value = 600
+      gain.gain.setValueAtTime(0.5, ctx.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15)
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start()
+      osc.stop(ctx.currentTime + 0.15)
+    }
+    beep()
+    setTimeout(beep, 200)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current)
+      if (ventIntervalRef.current) clearInterval(ventIntervalRef.current)
+      stopSilentAudio()
+      setAudioSession('auto')
+      if (audioCtxRef.current) audioCtxRef.current.close()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const value = useMemo(
+    () => ({ isPlaying, config, start, stop, toggle, updateVent, playAlert }),
+    [isPlaying, config, start, stop, toggle, updateVent, playAlert]
+  )
+
+  return (
+    <MetronomeContext.Provider value={value}>
+      {children}
+      {/* Banner global — so fora do /acls (la o proprio guide mostra o estado) */}
+      {isPlaying && pathname !== '/acls' && (
+        <div className="fixed top-0 left-0 right-0 z-[9998] bg-accent text-white text-center py-2 px-4 text-sm font-semibold flex items-center justify-center gap-3">
+          <span className="animate-pulse">Metrônomo ativo — {config.bpm} BPM</span>
+          <button onClick={stop} className="bg-white/20 px-3 py-1 rounded-lg text-xs font-bold border-none cursor-pointer text-white" aria-label="Parar metrônomo">Parar</button>
+        </div>
+      )}
+    </MetronomeContext.Provider>
+  )
+}
+
+export function useMetronome() {
+  const context = useContext(MetronomeContext)
+  if (!context) throw new Error('useMetronome deve ser usado dentro de MetronomeProvider')
+  return context
+}

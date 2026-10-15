@@ -19,6 +19,7 @@ export default defineConfig({
     alias: {
       "@": resolve(__dirname, "./src"),
       "@contracts": resolve(__dirname, "../src/shared/contracts"),
+      "@clinical-tools": resolve(__dirname, "../src/shared/clinical-tools"),
     },
   },
 });

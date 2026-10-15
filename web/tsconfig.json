@@ -21,11 +21,13 @@
     ],
     "paths": {
       "@/*": ["./src/*"],
-      "@contracts/*": ["../src/shared/contracts/*"]
+      "@contracts/*": ["../src/shared/contracts/*"],
+      "@clinical-tools/*": ["../src/shared/clinical-tools/*"]
     }
   },
   "include": [
     "../src/shared/contracts/**/*.ts",
+    "../src/shared/clinical-tools/**/*.ts",
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
@@ -33,5 +35,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "../src/shared/clinical-tools/**/*.spec.ts"]
 }

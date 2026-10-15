@@ -4,12 +4,15 @@ import { useDeferredValue, useEffect, useMemo, useRef, useState, type ElementTyp
 import { useRouter } from 'next/navigation';
 import {
   ArrowElbowDownLeft,
+  Calculator,
   ClipboardText,
+  Drop,
   Gear,
   MagnifyingGlass,
   Microphone,
   MoonStars,
   Sun,
+  Toolbox,
   UserCircle,
 } from '@phosphor-icons/react';
 import { useEncounterList } from '@/lib/clinical-queries';
@@ -17,7 +20,10 @@ import { useAuth } from '@/lib/auth-store';
 import { useTheme } from '@/components/providers/theme-provider';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Kbd } from '@/components/ui/kbd';
-import { APP_SECTIONS_BY_ROLE, HOME_ITEM } from '@/components/layout/nav-config';
+import { HOME_ITEM, appSectionsFor } from '@/components/layout/nav-config';
+import { calculatorName, searchTools } from '@clinical-tools/catalog';
+import { infusionHref, searchInfusionItems } from '@clinical-tools/infusions/items';
+import { isFerramentasEnabled } from '@/lib/feature-flags';
 import { cn } from '@/lib/utils';
 
 /**
@@ -32,16 +38,13 @@ interface Command {
   label: string;
   hint?: string;
   icon: ElementType;
-  group: 'Ações' | 'Páginas' | 'Casos';
+  group: 'Ações' | 'Páginas' | 'Ferramentas' | 'Casos';
   keywords?: string;
   run: () => void;
 }
 
 function normalize(value: string): string {
-  return value
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase();
+  return value.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -50,6 +53,57 @@ const STATUS_LABEL: Record<string, string> = {
   finalized: 'Assinado',
   cancelled: 'Cancelado',
 };
+
+/**
+ * ADR-017 — ferramentas e calculadoras já portadas entram na busca do ⌘K pelo
+ * nome e pelos sinônimos (a mesma busca do hub: "pcr" acha o ACLS, "wells" o
+ * TEP), e as drogas de Infusões abrem direto na calculadora delas ("nora" →
+ * Noradrenalina). Só com texto digitado, para não encher a lista inicial; as
+ * "em breve" não aparecem porque não abrem.
+ */
+const MAX_TOOL_COMMANDS = 5;
+
+/** A lista de calculadoras tem rota própria; as demais ferramentas, /ferramentas/<id>. */
+function toolPath(id: string): string {
+  return id === 'calculadoras' ? '/ferramentas/calculadoras' : `/ferramentas/${id}`;
+}
+
+function toolCommands(query: string, go: (href: string) => void): Command[] {
+  if (!isFerramentasEnabled() || query.length < 2) return [];
+  const commands: Command[] = searchInfusionItems(query).map((item) => ({
+    id: `infusao-${item.id}`,
+    label: item.name,
+    hint: 'Infusões contínuas',
+    icon: Drop,
+    group: 'Ferramentas',
+    run: () => go(infusionHref(item.id)),
+  }));
+  for (const result of searchTools(query)) {
+    if (result.status !== 'disponivel') continue;
+    if (result.kind === 'tool') {
+      const { tool } = result;
+      commands.push({
+        id: `tool-${tool.id}`,
+        label: tool.name,
+        hint: 'Ferramenta',
+        icon: Toolbox,
+        group: 'Ferramentas',
+        run: () => go(toolPath(tool.id)),
+      });
+      continue;
+    }
+    const { id } = result.calculator;
+    commands.push({
+      id: `calc-${id}`,
+      label: calculatorName(result.calculator),
+      hint: 'Calculadora',
+      icon: Calculator,
+      group: 'Ferramentas',
+      run: () => go(`/ferramentas/calculadoras/${id}`),
+    });
+  }
+  return commands.slice(0, MAX_TOOL_COMMANDS);
+}
 
 function PaletteBody({ onClose }: { onClose: () => void }) {
   const router = useRouter();
@@ -71,7 +125,7 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
   };
 
   const staticCommands = useMemo<Command[]>(() => {
-    const pages = [HOME_ITEM, ...APP_SECTIONS_BY_ROLE[role].flatMap((s) => s.items)];
+    const pages = [HOME_ITEM, ...appSectionsFor(role).flatMap((s) => s.items)];
     return [
       {
         id: 'new-case',
@@ -136,7 +190,7 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
       group: 'Casos',
       run: () => go(`/encounters/${enc.id}`),
     }));
-    return [...filtered, ...cases];
+    return [...filtered, ...toolCommands(deferredQuery, go), ...cases];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deferredQuery, staticCommands, casesQuery.data]);
 
@@ -152,14 +206,16 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
       setActiveIndex((i) => (commands.length === 0 ? 0 : (i + 1) % commands.length));
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
-      setActiveIndex((i) => (commands.length === 0 ? 0 : (i - 1 + commands.length) % commands.length));
+      setActiveIndex((i) =>
+        commands.length === 0 ? 0 : (i - 1 + commands.length) % commands.length,
+      );
     } else if (event.key === 'Enter') {
       event.preventDefault();
       commands[activeIndex]?.run();
     }
   }
 
-  const groups = (['Ações', 'Páginas', 'Casos'] as const)
+  const groups = (['Ações', 'Páginas', 'Ferramentas', 'Casos'] as const)
     .map((group) => ({
       group,
       items: commands
@@ -173,7 +229,10 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
   return (
     <>
       <div className="flex items-center gap-2.5 border-b border-border px-4">
-        <MagnifyingGlass className="size-[18px] shrink-0 text-muted-foreground" aria-hidden="true" />
+        <MagnifyingGlass
+          className="size-[18px] shrink-0 text-muted-foreground"
+          aria-hidden="true"
+        />
         <input
           autoFocus
           value={query}
@@ -230,7 +289,10 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
                       active ? 'bg-hover text-foreground' : 'text-foreground',
                     )}
                   >
-                    <Icon className="size-[18px] shrink-0 text-muted-foreground" aria-hidden="true" />
+                    <Icon
+                      className="size-[18px] shrink-0 text-muted-foreground"
+                      aria-hidden="true"
+                    />
                     <span className="min-w-0 truncate">{command.label}</span>
                     {command.hint && (
                       <span className="min-w-0 truncate text-xs text-muted-foreground">
@@ -239,7 +301,10 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
                     )}
                     <span className="flex-1" />
                     {active && (
-                      <ArrowElbowDownLeft className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                      <ArrowElbowDownLeft
+                        className="size-3.5 shrink-0 text-muted-foreground"
+                        aria-hidden="true"
+                      />
                     )}
                   </div>
                 );

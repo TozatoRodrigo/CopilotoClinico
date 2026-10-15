@@ -1,8 +1,18 @@
+import path from 'node:path';
 import type { NextConfig } from 'next';
+
+// ADR-017 — o web importa o motor clínico de ../src/shared/clinical-tools.
+// O Turbopack não resolve arquivo fora da raiz, e sem raiz fixa ele adivinha
+// pelo lockfile mais externo (a raiz do repo no CI, só `web/` na imagem).
+// Fixar a raiz do repo nos dois deixa o build igual em todo lugar e o
+// standalone sempre em .next/standalone/web/server.js.
+const REPO_ROOT = path.join(__dirname, '..');
 
 const nextConfig: NextConfig = {
   // Standalone output para Docker — gera .next/standalone (server.js independente).
   output: 'standalone',
+  outputFileTracingRoot: REPO_ROOT,
+  turbopack: { root: REPO_ROOT },
   poweredByHeader: false,
   compress: true,
   images: {
