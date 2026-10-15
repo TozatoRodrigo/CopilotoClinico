@@ -1,0 +1,109 @@
+import { describe, expect, it } from 'vitest';
+import {
+  CALCULATOR_CATEGORIES,
+  calculatorName,
+  calculatorStatus,
+  normalizeSearchText,
+  searchTools,
+  TOOL_GROUPS,
+  TOOLS,
+  type ToolSearchResult,
+} from './catalog';
+import { CALCULATOR_CATALOG } from './calculator-catalog';
+
+function names(results: ToolSearchResult[]): string[] {
+  return results.map((result) =>
+    result.kind === 'tool' ? result.tool.name : calculatorName(result.calculator),
+  );
+}
+
+describe('grupos e ferramentas', () => {
+  it('tem os onze grupos do hub, na ordem da história CC-304', () => {
+    expect(TOOL_GROUPS.map(({ label }) => label)).toEqual([
+      'Calculadoras',
+      'Ressuscitação',
+      'Via aérea',
+      'Choque e sepse',
+      'Pediatria',
+      'Toxicologia',
+      'Metabólico',
+      'Ventilação',
+      'Sedação e dor',
+      'Paliativos',
+      'Infecciosas',
+    ]);
+  });
+
+  it('todo grupo tem ao menos uma ferramenta e nenhum id se repete', () => {
+    for (const group of TOOL_GROUPS) {
+      expect(
+        TOOLS.some((tool) => tool.group === group.id),
+        group.id,
+      ).toBe(true);
+    }
+    const ids = TOOLS.map(({ id }) => id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('marca como disponível só a calculadora já portada', () => {
+    const available = CALCULATOR_CATALOG.filter(
+      (entry) => calculatorStatus(entry) === 'disponivel',
+    );
+    expect(available.map(({ id }) => id).sort()).toEqual(
+      ['chadsvasc', 'curb65', 'has-bled', 'qsofa', 'shock-index'].sort(),
+    );
+  });
+
+  it('lista as 16 categorias de calculadora do ANY', () => {
+    expect(CALCULATOR_CATEGORIES).toHaveLength(16);
+    expect(CALCULATOR_CATEGORIES[0]).toBe('Cardiologia / SCA');
+  });
+});
+
+describe('searchTools', () => {
+  it('não devolve nada para busca vazia', () => {
+    expect(searchTools('   ')).toEqual([]);
+  });
+
+  it('acha pelo nome, sem acento e sem diferença de caixa', () => {
+    expect(names(searchTools('cha2ds2'))).toEqual(['CHA2DS2-VASc']);
+    expect(names(searchTools('INDICE DE CHOQUE'))[0]).toBe('Índice de choque');
+  });
+
+  it('acha pelo sinônimo', () => {
+    expect(names(searchTools('pcr'))).toContain('Parada cardiorrespiratória (ACLS)');
+    expect(names(searchTools('fibrilação atrial'))).toContain('CHA2DS2-VASc');
+    expect(names(searchTools('intubacao'))).toContain('Intubação e via aérea difícil');
+  });
+
+  it('acha pelo grupo do hub', () => {
+    expect(names(searchTools('ressuscitação parada'))).toEqual([
+      'Parada cardiorrespiratória (ACLS)',
+    ]);
+  });
+
+  it('exige todas as palavras da busca', () => {
+    const results = names(searchTools('sepse triagem'));
+    expect(results).toContain('qSOFA');
+    expect(results).not.toContain('Choque séptico');
+  });
+
+  it('põe o que já abre antes do "em breve" quando o encaixe é igual', () => {
+    // "sepse" só aparece em sinônimos: todos os resultados têm o mesmo encaixe.
+    const statuses = searchTools('sepse').map((result) => result.status);
+    expect(statuses).toContain('disponivel');
+    expect(statuses).toContain('em-breve');
+    expect(statuses.lastIndexOf('disponivel')).toBeLessThan(statuses.indexOf('em-breve'));
+  });
+
+  it('traz calculadora ainda não portada como "em breve"', () => {
+    const [nihss] = searchTools('nihss');
+    expect(nihss).toMatchObject({ kind: 'calculator', status: 'em-breve' });
+  });
+});
+
+describe('normalizeSearchText', () => {
+  it('tira acento e caixa', () => {
+    expect(normalizeSearchText('  Ressuscitação ')).toBe('ressuscitacao');
+  });
+});
