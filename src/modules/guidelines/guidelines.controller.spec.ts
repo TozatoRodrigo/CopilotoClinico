@@ -2,6 +2,7 @@ import { NotFoundException } from '@nestjs/common';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GuidelinesController } from './guidelines.controller';
 import { GuidelinesService } from './guidelines.service';
+import type { LgpdService } from '../lgpd/lgpd.service';
 
 describe('GuidelinesController', () => {
   let controller: GuidelinesController;
@@ -11,7 +12,9 @@ describe('GuidelinesController', () => {
     approveChunk: ReturnType<typeof vi.fn>;
     rejectChunk: ReturnType<typeof vi.fn>;
     suggestGuideline: ReturnType<typeof vi.fn>;
+    consult: ReturnType<typeof vi.fn>;
   };
+  let lgpdMock: { checkConsent: ReturnType<typeof vi.fn> };
 
   const req = { user: { physicianId: 'curator-1' } };
 
@@ -23,8 +26,13 @@ describe('GuidelinesController', () => {
       approveChunk: vi.fn(),
       rejectChunk: vi.fn(),
       suggestGuideline: vi.fn(),
+      consult: vi.fn().mockResolvedValue([]),
     };
-    controller = new GuidelinesController(guidelinesServiceMock as unknown as GuidelinesService);
+    lgpdMock = { checkConsent: vi.fn().mockResolvedValue(true) };
+    controller = new GuidelinesController(
+      guidelinesServiceMock as unknown as GuidelinesService,
+      lgpdMock as unknown as LgpdService,
+    );
   });
 
   it('returns a cited guideline chunk by id', async () => {
@@ -51,6 +59,23 @@ describe('GuidelinesController', () => {
     guidelinesServiceMock.getChunkById.mockResolvedValue(null);
 
     await expect(controller.getChunk('missing-chunk')).rejects.toThrow(NotFoundException);
+  });
+
+  describe('consult', () => {
+    it.each([
+      [true, 'com'],
+      [false, 'sem'],
+    ])('busca por significado só com o consentimento de IA (%s: %s)', async (granted) => {
+      lgpdMock.checkConsent.mockResolvedValue(granted);
+
+      await controller.consult(req, { query: 'picada de escorpião', limit: 5 });
+
+      expect(lgpdMock.checkConsent).toHaveBeenCalledWith('curator-1', 'ai_processing');
+      expect(guidelinesServiceMock.consult).toHaveBeenCalledWith('picada de escorpião', {
+        limit: 5,
+        semantic: granted,
+      });
+    });
   });
 
   describe('listPending', () => {

@@ -1,10 +1,11 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { HttpException, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Worker, type Job } from 'bullmq';
+import { UnrecoverableError, Worker, type Job } from 'bullmq';
 import IORedis from 'ioredis';
 import { OrchestratorService } from '../copilot/orchestrator/orchestrator.service';
 import { PrismaService } from '../../config/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { LgpdService } from '../lgpd/lgpd.service';
 import { maskPII } from '../copilot/guardrails/pii-filter';
 import {
   INFERENCE_QUEUE,
@@ -16,6 +17,18 @@ import {
 import { InferenceQueueService } from './inference-queue.service';
 
 const DEFAULT_CONCURRENCY = 2;
+
+/**
+ * Recusa do pedido (4xx: consentimento revogado, atendimento de outro médico,
+ * injeção) não muda numa nova tentativa: o job falha na hora, sem retry e sem
+ * nova chamada de IA. A mensagem da recusa não leva texto clínico.
+ */
+function failFastOnRefusal(error: unknown): never {
+  if (error instanceof HttpException && error.getStatus() < 500) {
+    throw new UnrecoverableError(error.message);
+  }
+  throw error;
+}
 
 @Injectable()
 export class InferenceWorkerService implements OnModuleInit, OnModuleDestroy {
@@ -29,6 +42,7 @@ export class InferenceWorkerService implements OnModuleInit, OnModuleDestroy {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly queue: InferenceQueueService,
+    private readonly lgpd: LgpdService,
   ) {}
 
   onModuleInit(): void {
@@ -68,14 +82,21 @@ export class InferenceWorkerService implements OnModuleInit, OnModuleDestroy {
   private async process(
     job: Job<InferenceJobData, InferenceJobResult>,
   ): Promise<InferenceJobResult> {
-    if (job.data.type === 'analyze') {
-      return this.processAnalyze(job as Job<AnalyzeJobData>);
+    try {
+      if (job.data.type === 'analyze') {
+        return await this.processAnalyze(job as Job<AnalyzeJobData>);
+      }
+      return await this.processTranscribe(job as Job<TranscribeJobData>);
+    } catch (error) {
+      return failFastOnRefusal(error);
     }
-    return this.processTranscribe(job as Job<TranscribeJobData>);
   }
 
   private async processAnalyze(job: Job<AnalyzeJobData>): Promise<InferenceJobResult> {
     const { physicianId, encounterId, input } = job.data;
+    // CC-010 — o médico pode revogar o consentimento entre o pedido (que já
+    // passou pelo AiConsentGuard) e a vez do job na fila.
+    await this.lgpd.assertAiProcessingAllowed(physicianId);
     await job.updateProgress(10);
     const result = await this.orchestrator.analyze(physicianId, encounterId, input);
     await job.updateProgress(100);

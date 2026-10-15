@@ -1025,3 +1025,18 @@ export interface GuidelineSearchResult {
   reviewerName: string | null;
   rank: number;
 }
+
+/**
+ * CC-010 — `code` do 403 de quem revogou o consentimento `ai_processing`
+ * (Configurações → Privacidade). A recusa sai antes de qualquer chamada de IA:
+ * leitura do caso, análise, reanálise e transcrição do ditado. A mensagem já
+ * vem escrita para o médico; o web a mostra como qualquer outro erro.
+ */
+export const AI_CONSENT_REVOKED = 'AI_CONSENT_REVOKED' as const;
+
+export interface AiConsentRevokedError {
+  statusCode: 403;
+  error: 'Forbidden';
+  code: typeof AI_CONSENT_REVOKED;
+  message: string;
+}

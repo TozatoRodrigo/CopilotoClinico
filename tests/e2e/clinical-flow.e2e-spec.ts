@@ -638,6 +638,91 @@ describe('Clinical Flow E2E', () => {
     }
   });
 
+  // ── 6c. CC-010 — consentimento de IA revogado ─────────────────────────────
+  // Revogar `ai_processing` em Configurações → Privacidade recusa com 403
+  // tudo o que manda o caso a um modelo, antes de qualquer chamada de IA. O
+  // histórico continua aberto, e a consulta de diretrizes segue sem embedding.
+  describe('com o consentimento ai_processing revogado', () => {
+    const audio = { mimeType: 'audio/webm', sizeBytes: 4, data: 'AAAA' };
+    const caseBody = { caseText: MOCK_COPILOT_OUTPUT.reasoning };
+    const refused: Array<[string, string, Record<string, unknown>]> = [
+      ['POST', `/v1/encounters/${ENCOUNTER_ID}/copilot/analyze`, caseBody],
+      ['POST', `/v1/encounters/${ENCOUNTER_ID}/copilot/analyze/async`, caseBody],
+      ['POST', `/v1/encounters/${ENCOUNTER_ID}/copilot/intake`, caseBody],
+      [
+        'POST',
+        `/v1/encounters/${ENCOUNTER_ID}/copilot/respond/stream`,
+        { interactionId: INTERACTION_ID, answers: [{ questionId: 'q1', answer: 'sim' }] },
+      ],
+      ['POST', '/v1/audio/transcribe', audio],
+      ['POST', `/v1/encounters/${ENCOUNTER_ID}/audio`, audio],
+    ];
+
+    let aiCalls: Array<ReturnType<typeof vi.fn>>;
+
+    beforeAll(() => {
+      prismaMock.consent.findFirst.mockResolvedValue({ revokedAt: new Date() });
+      const gateway = app.get(AiGatewayService) as unknown as Record<
+        string,
+        ReturnType<typeof vi.fn>
+      >;
+      const whisper = app.get(WhisperService) as unknown as Record<
+        string,
+        ReturnType<typeof vi.fn>
+      >;
+      const queue = app.get(InferenceQueueService) as unknown as Record<
+        string,
+        ReturnType<typeof vi.fn>
+      >;
+      aiCalls = [gateway.complete!, gateway.embed!, whisper.transcribe!, queue.enqueueAnalyze!];
+      for (const call of aiCalls) call.mockClear();
+    });
+
+    afterAll(() => {
+      prismaMock.consent.findFirst.mockResolvedValue(null);
+    });
+
+    it.each(refused)('%s %s → 403 AI_CONSENT_REVOKED', async (method, url, payload) => {
+      const res = await app.inject({
+        method: method as 'POST',
+        url,
+        headers: { cookie: `access_token=${accessToken}` },
+        payload,
+      });
+
+      expect(res.statusCode).toBe(403);
+      expect(res.json<{ code: string; message: string }>()).toMatchObject({
+        code: 'AI_CONSENT_REVOKED',
+        message: expect.stringContaining('Configurações → Privacidade'),
+      });
+      for (const call of aiCalls) expect(call).not.toHaveBeenCalled();
+    });
+
+    it('GET /copilot/latest continua aberto: revogar não esconde o histórico', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: `/v1/encounters/${ENCOUNTER_ID}/copilot/latest`,
+        headers: { cookie: `access_token=${accessToken}` },
+      });
+
+      expect(res.statusCode).toBe(200);
+    });
+
+    it('POST /guidelines/consult responde sem mandar a consulta ao provedor de embedding', async () => {
+      // Busca por palavra-chave (SQL cru) sem nenhum trecho na base.
+      Object.assign(prismaMock, { $queryRawUnsafe: vi.fn().mockResolvedValue([]) });
+      const res = await app.inject({
+        method: 'POST',
+        url: '/v1/guidelines/consult',
+        headers: { cookie: `access_token=${accessToken}` },
+        payload: { query: 'picada de escorpião' },
+      });
+
+      expect(res.statusCode).toBe(200);
+      for (const call of aiCalls) expect(call).not.toHaveBeenCalled();
+    });
+  });
+
   // ── 7. Generate SOAP document ────────────────────────────────────────────────
   it('POST /documents generates a SOAP document', async () => {
     const res = await app.inject({

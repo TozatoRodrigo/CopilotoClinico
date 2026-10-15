@@ -846,6 +846,27 @@ Antes de ligar:
 O custo gravado em `ai_interactions.cost` considera leitura e escrita de cache
 e, desde a Fase 0-B, também as análises em stream (antes gravavam 0).
 
+### Consentimento de IA (CC-010)
+
+Quem revoga "Processamento por IA" em Configurações → Privacidade recebe 403
+com `code: "AI_CONSENT_REVOKED"` na leitura do caso, análise (POST, streaming
+e fila), reanálise e ditado, antes de qualquer chamada ao gateway ou ao
+Whisper (`AiConsentGuard`). Análise que já estava na fila falha sem retry. A
+consulta de diretrizes segue só por palavra-chave. O histórico e os documentos
+continuam abertos. No log: `AI_CONSENT_REVOKED physicianId=...` (WARN).
+
+Vale o registro mais recente de `consents` para o escopo; sem nenhum, o
+processamento por IA está ativo (padrão desde o cadastro). Não há flag: para
+liberar, o próprio médico concede de novo na mesma tela.
+
+```sql
+-- Antes do deploy: quem ficará bloqueado (última linha de ai_processing revogada)
+SELECT DISTINCT ON (physician_id) physician_id, granted_at, revoked_at
+FROM consents WHERE scope = 'ai_processing'
+ORDER BY physician_id, granted_at DESC;
+-- bloqueados = linhas com revoked_at preenchido
+```
+
 ---
 
 ## Multi-tenancy institucional (PROT-004)

@@ -18,6 +18,7 @@ import { Roles } from '../../shared/decorators/roles.decorator';
 import { InternalServiceGuard } from '../../shared/guards/internal-service.guard';
 import { CuratorGuard } from '../../shared/guards/curator.guard';
 import { GuidelinesService } from './guidelines.service';
+import { LgpdService } from '../lgpd/lgpd.service';
 import type { GuidelineConsultResponse } from '../../shared/contracts/clinical';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import {
@@ -37,7 +38,10 @@ import {
 
 @Controller('guidelines')
 export class GuidelinesController {
-  constructor(@Inject(GuidelinesService) private readonly guidelinesService: GuidelinesService) {}
+  constructor(
+    @Inject(GuidelinesService) private readonly guidelinesService: GuidelinesService,
+    @Inject(LgpdService) private readonly lgpd: LgpdService,
+  ) {}
 
   @Get()
   @UseGuards(JwtAuthGuard)
@@ -60,14 +64,22 @@ export class GuidelinesController {
    * Consulta de diretrizes dentro do caso (curada + oficial). POST porque o
    * texto pode ser o caso inteiro — em query string ele iria para o log de
    * acesso.
+   *
+   * CC-010 — sem consentimento de IA, a consulta continua, só por
+   * palavra-chave: buscar diretriz não depende de IA, e recusar com 403 só
+   * tiraria do médico a biblioteca.
    */
   @Post('consult')
   @HttpCode(200)
   @UseGuards(JwtAuthGuard)
   async consult(
+    @Request() req: { user: { physicianId: string } },
     @Body(new ZodValidationPipe(consultGuidelinesSchema)) body: ConsultGuidelinesBody,
   ): Promise<GuidelineConsultResponse> {
-    return { results: await this.guidelinesService.consult(body.query, body.limit) };
+    const semantic = await this.lgpd.checkConsent(req.user.physicianId, 'ai_processing');
+    return {
+      results: await this.guidelinesService.consult(body.query, { limit: body.limit, semantic }),
+    };
   }
 
   @Get('pending')

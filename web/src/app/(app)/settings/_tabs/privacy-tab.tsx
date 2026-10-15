@@ -21,7 +21,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Lock, Download, Trash, Warning, ShieldCheck } from '@phosphor-icons/react';
 import { SettingsPane, SettingsRow, SettingsSection } from '../_components/settings-layout';
 
-interface ConsentScopeStatus {
+export interface ConsentScopeStatus {
   scope: string;
   granted: boolean;
   grantedAt: string | null;
@@ -41,20 +41,46 @@ interface ErasureResponse {
   erased: { encounters: number; consents: number; refreshTokens: number };
 }
 
+// CC-010 — cada descrição diz o que o consentimento muda hoje no código.
 const SCOPE_LABELS: Record<string, { label: string; description: string }> = {
   ai_processing: {
     label: 'Processamento por IA',
-    description: 'Permite que a IA analise dados clínicos para gerar recomendações e documentos.',
+    description:
+      'Leitura do caso, perguntas, análise, reanálise e transcrição do ditado por IA. Revogar bloqueia novos pedidos; o histórico continua disponível.',
   },
   data_sharing: {
     label: 'Compartilhamento de dados',
-    description: 'Compartilha dados com a instituição de saúde vinculada (quando aplicável).',
+    description:
+      'Compartilhamento com a instituição de saúde vinculada. Hoje fica só registrado: nenhum fluxo consulta este consentimento.',
   },
   analytics: {
     label: 'Analytics',
-    description: 'Coleta métricas de uso anônimas para melhorar o produto.',
+    description:
+      'Métricas de uso para melhorar o produto. Hoje fica só registrado: as visitas por página são contadas sem cookie para todos.',
   },
 };
+
+const DATE_FORMAT: Intl.DateTimeFormatOptions = {
+  day: '2-digit',
+  month: 'long',
+  year: 'numeric',
+};
+
+/**
+ * Sem registro nenhum, o escopo vale o padrão do servidor: o processamento
+ * por IA chega `granted` sem data de concessão (ativo desde o cadastro); os
+ * outros chegam não concedidos e sem data de revogação.
+ */
+export function consentNote(consent: ConsentScopeStatus): string | null {
+  if (consent.granted) {
+    return consent.grantedAt
+      ? `Concedido em ${new Date(consent.grantedAt).toLocaleDateString('pt-BR', DATE_FORMAT)}`
+      : 'Ativo por padrão desde o cadastro.';
+  }
+  return consent.revokedAt
+    ? `Revogado em ${new Date(consent.revokedAt).toLocaleDateString('pt-BR', DATE_FORMAT)}`
+    : null;
+}
 
 export function PrivacyTab() {
   const queryClient = useQueryClient();
@@ -165,6 +191,7 @@ export function PrivacyTab() {
               label: consent.scope,
               description: '',
             };
+            const note = consentNote(consent);
             return (
               <SettingsRow
                 key={consent.scope}
@@ -176,8 +203,10 @@ export function PrivacyTab() {
                         <ShieldCheck weight="fill" aria-hidden="true" />
                         Ativo
                       </Badge>
-                    ) : (
+                    ) : consent.revokedAt ? (
                       <Badge variant="secondary">Revogado</Badge>
+                    ) : (
+                      <Badge variant="outline">Não concedido</Badge>
                     )}
                   </>
                 }
@@ -206,16 +235,7 @@ export function PrivacyTab() {
                   )
                 }
               >
-                {consent.grantedAt && (
-                  <p className="text-xs text-muted-foreground">
-                    Concedido em{' '}
-                    {new Date(consent.grantedAt).toLocaleDateString('pt-BR', {
-                      day: '2-digit',
-                      month: 'long',
-                      year: 'numeric',
-                    })}
-                  </p>
-                )}
+                {note && <p className="text-xs text-muted-foreground">{note}</p>}
               </SettingsRow>
             );
           })

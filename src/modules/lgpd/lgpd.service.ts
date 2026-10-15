@@ -1,7 +1,8 @@
-import { BadRequestException, Injectable, Inject, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Inject, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../config/prisma.service';
 import { AuditService } from '../audit/audit.service';
-import { consentScopes, type ConsentScope } from './schemas/lgpd.schemas';
+import { AiConsentRevokedException } from './ai-consent.exception';
+import { consentDefaults, consentScopes, type ConsentScope } from './schemas/lgpd.schemas';
 import type {
   Physician,
   Consent,
@@ -46,6 +47,8 @@ export interface ConsentScopeStatus {
 
 @Injectable()
 export class LgpdService {
+  private readonly logger = new Logger(LgpdService.name);
+
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(AuditService) private readonly auditService: AuditService,
@@ -87,7 +90,9 @@ export class LgpdService {
 
       return {
         scope,
-        granted: latestConsent?.revokedAt === null,
+        // Sem registro, vale o padrão do escopo: `grantedAt` nulo com
+        // `granted` verdadeiro é o processamento por IA ativo desde o cadastro.
+        granted: latestConsent ? latestConsent.revokedAt === null : consentDefaults[scope],
         grantedAt: latestConsent?.grantedAt ?? null,
         revokedAt: latestConsent?.revokedAt ?? null,
       };
@@ -101,7 +106,7 @@ export class LgpdService {
     });
 
     if (!consent) {
-      throw new NotFoundException('Active consent not found');
+      return this.revokeDefaultConsent(physicianId, consentScope);
     }
 
     const revokedConsent = await this.prisma.consent.update({
@@ -120,12 +125,65 @@ export class LgpdService {
     return revokedConsent;
   }
 
+  /**
+   * CC-010 — escopo ativo por padrão e sem nenhum registro: a revogação grava
+   * a primeira linha já revogada. A concessão é a data do cadastro, quando o
+   * padrão passou a valer; não há outra data a registrar.
+   */
+  private async revokeDefaultConsent(physicianId: string, scope: ConsentScope): Promise<Consent> {
+    if (!consentDefaults[scope]) {
+      throw new NotFoundException('Active consent not found');
+    }
+    const [recorded, physician] = await Promise.all([
+      this.prisma.consent.findFirst({ where: { physicianId, scope }, select: { id: true } }),
+      this.prisma.physician.findUnique({
+        where: { id: physicianId },
+        select: { createdAt: true },
+      }),
+    ]);
+    // Com registro, a última linha já está revogada: não há o que revogar.
+    if (recorded || !physician) {
+      throw new NotFoundException('Active consent not found');
+    }
+
+    const revokedConsent = await this.prisma.consent.create({
+      data: { physicianId, scope, grantedAt: physician.createdAt, revokedAt: new Date() },
+    });
+
+    await this.auditService.log({
+      actorId: physicianId,
+      action: 'CONSENT_REVOKED',
+      entity: 'Consent',
+      entityId: revokedConsent.id,
+      payload: { scope, fromDefault: true },
+    });
+
+    return revokedConsent;
+  }
+
+  /**
+   * O registro mais recente do escopo decide; sem nenhum, o padrão
+   * (`consentDefaults`). Há no máximo uma linha ativa por escopo: conceder
+   * com uma ativa devolve a mesma, e revogar fecha a ativa.
+   */
   async checkConsent(physicianId: string, scope: string): Promise<boolean> {
     const consentScope = this.parseConsentScope(scope);
-    const consent = await this.prisma.consent.findFirst({
-      where: { physicianId, scope: consentScope, revokedAt: null },
+    const latest = await this.prisma.consent.findFirst({
+      where: { physicianId, scope: consentScope },
+      orderBy: { grantedAt: 'desc' },
+      select: { revokedAt: true },
     });
-    return consent !== null;
+    return latest ? latest.revokedAt === null : consentDefaults[consentScope];
+  }
+
+  /**
+   * CC-010 — a única checagem de consentimento antes de IA com o caso do
+   * médico: o `AiConsentGuard` das rotas e o worker da fila chamam aqui.
+   */
+  async assertAiProcessingAllowed(physicianId: string): Promise<void> {
+    if (await this.checkConsent(physicianId, 'ai_processing')) return;
+    this.logger.warn(`AI_CONSENT_REVOKED physicianId=${physicianId}: pedido de IA recusado`);
+    throw new AiConsentRevokedException();
   }
 
   private parseConsentScope(scope: string): ConsentScope {

@@ -454,15 +454,25 @@ export class GuidelinesService {
    * consulta é só por palavra-chave: primeiro com todos os termos (consulta
    * curta, termo exato) e, para o caso inteiro — onde todos os termos nunca
    * casam —, com qualquer termo, pesado pela raridade de cada termo.
+   *
+   * CC-010 — `semantic: false` (o médico revogou o processamento por IA) é a
+   * mesma busca por palavra-chave: a consulta não sai para o provedor.
    */
-  async consult(query: string, limit?: number): Promise<GuidelineConsultResult[]> {
+  async consult(
+    query: string,
+    request: { limit?: number; semantic: boolean },
+  ): Promise<GuidelineConsultResult[]> {
     const masked = maskPII(query).redacted;
-    const [embedding] =
-      (await embedOrNull(this.aiGateway, [masked], {
-        logger: this.logger,
-        label: 'consulta',
-      })) ?? [];
-    const options = { ...DEFAULT_CONSULT_OPTIONS, limit: limit ?? DEFAULT_CONSULT_OPTIONS.limit };
+    const [embedding] = request.semantic
+      ? ((await embedOrNull(this.aiGateway, [masked], {
+          logger: this.logger,
+          label: 'consulta',
+        })) ?? [])
+      : [];
+    const options = {
+      ...DEFAULT_CONSULT_OPTIONS,
+      limit: request.limit ?? DEFAULT_CONSULT_OPTIONS.limit,
+    };
 
     if (!embedding) {
       const allTerms = await this.keywordCandidates(masked, 'all');

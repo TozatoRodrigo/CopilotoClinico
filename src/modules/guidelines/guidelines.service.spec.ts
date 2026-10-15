@@ -743,7 +743,9 @@ describe('GuidelinesService', () => {
         ])
         .mockResolvedValueOnce([]);
 
-      const results = await service.consult('Paciente CPF 123.456.789-09 picado por escorpião');
+      const results = await service.consult('Paciente CPF 123.456.789-09 picado por escorpião', {
+        semantic: true,
+      });
 
       const embedded = aiGateway.embed.mock.calls[0]![0] as string[];
       expect(embedded[0]).not.toContain('123.456.789-09');
@@ -782,6 +784,7 @@ describe('GuidelinesService', () => {
 
       const results = await service.consult(
         'Criança de 4 anos com dor na perna após picada de escorpião',
+        { semantic: true },
       );
 
       expect(aiGateway.embed).not.toHaveBeenCalled();
@@ -802,12 +805,24 @@ describe('GuidelinesService', () => {
       aiGateway.embed.mockRejectedValue(new Error('AI provider embed error: 429'));
       prisma.$queryRawUnsafe.mockResolvedValueOnce([keywordHit]).mockResolvedValueOnce([]);
 
-      const results = await service.consult('escorpião');
+      const results = await service.consult('escorpião', { semantic: true });
 
       expect(Sentry.captureMessage).toHaveBeenCalledWith(
         expect.stringContaining('GUIDELINE_EMBEDDING_UNAVAILABLE consulta'),
         'error',
       );
+      expect(results.map((result) => result.chunkId)).toEqual(['off-1']);
+    });
+
+    // CC-010 — quem revogou o processamento por IA consulta só por
+    // palavra-chave: o caso não vai ao provedor de embedding.
+    it('sem consentimento de IA, busca por palavra-chave sem chamar o provedor', async () => {
+      prisma.$queryRawUnsafe.mockResolvedValueOnce([keywordHit]).mockResolvedValueOnce([]);
+
+      const results = await service.consult('Picada de escorpião há 1 hora', { semantic: false });
+
+      expect(aiGateway.embed).not.toHaveBeenCalled();
+      expect(Sentry.captureMessage).not.toHaveBeenCalled();
       expect(results.map((result) => result.chunkId)).toEqual(['off-1']);
     });
   });
