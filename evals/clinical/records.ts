@@ -28,7 +28,7 @@ import { JudgeOutcomeSchema } from './graders/judge';
  */
 
 /** Espelha CompletionUsage do gateway (cache é subconjunto de promptTokens). */
-const UsageSchema = z.object({
+export const UsageSchema = z.object({
   promptTokens: z.number(),
   completionTokens: z.number(),
   totalTokens: z.number(),

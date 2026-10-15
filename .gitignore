@@ -41,3 +41,6 @@ coverage/
 evals/clinical/runs/
 evals/deid/out/
 evals/clinical/variants.json
+# Leitura do caso (CC-104) — saídas e os casos reais anonimizados, que nunca vão ao git
+evals/intake/runs/
+evals/intake/cases-local/

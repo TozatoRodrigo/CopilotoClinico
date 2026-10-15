@@ -1,0 +1,29 @@
+{
+  "id": "cm-avc-sem-tc",
+  "source": {
+    "kind": "clinical_case",
+    "caseId": "cm-avc-sem-tc"
+  },
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Masc, 74a, desvio de rima, afasia e hemiplegia D de início súbito; visto bem pela última vez às 14h (há 1h30). PA 176x94, FC 88 irregular, glicemia 134, NIHSS 14. TC ainda não feita (tomógrafo ocupado, previsão 20 min)."
+  },
+  "expected": {
+    "sex": "M",
+    "age": 74,
+    "vitals": {
+      "systolicBp": 176,
+      "diastolicBp": 94,
+      "heartRate": 88,
+      "respiratoryRate": null,
+      "spo2": null,
+      "temperature": null,
+      "glucose": 134
+    },
+    "syndrome": ["deficit-neurologico-focal"],
+    "instability": false,
+    "timeCritical": true
+  }
+}

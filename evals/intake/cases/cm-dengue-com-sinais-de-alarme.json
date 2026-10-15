@@ -1,0 +1,29 @@
+{
+  "id": "cm-dengue-com-sinais-de-alarme",
+  "source": {
+    "kind": "clinical_case",
+    "caseId": "cm-dengue-com-sinais-de-alarme"
+  },
+  "review": {
+    "status": "draft",
+    "notes": "PA deitada e sentada: vale qualquer uma das duas."
+  },
+  "input": {
+    "caseText": "Fem, 27a, 5º dia de febre (cedeu ontem), mialgia, dor retro-orbitária; hoje dor abdominal intensa e contínua, vômitos persistentes (4x), gengivorragia. Tonteira ao sentar; PA 108x72 deitada e 92x64 sentada, FC 104. Hepatomegalia dolorosa 3 cm. Bairro com surto de dengue. Ht 46% (basal 38%), plaquetas 62.000."
+  },
+  "expected": {
+    "sex": "F",
+    "age": 27,
+    "vitals": {
+      "systolicBp": [108, 92],
+      "diastolicBp": [72, 64],
+      "heartRate": 104,
+      "respiratoryRate": null,
+      "spo2": null,
+      "temperature": null,
+      "glucose": null
+    },
+    "syndrome": ["febre", "febre-hipotensao"],
+    "timeCritical": true
+  }
+}

@@ -380,6 +380,9 @@ local até que `KB001_INTEGRATION=1` seja informado junto de um PostgreSQL de te
 Esses dois testes conferem o pacote e o retrieval, não a resposta do modelo. Para medir
 a resposta — e para o portão de release de qualquer mudança clínica — use o gabarito
 clínico (`pnpm eval:clinical`, ver [docs/evals/gabarito-clinico.md](evals/gabarito-clinico.md)).
+O modelo da leitura do caso do Copiloto guiado (`AI_INTAKE_MODEL`) se escolhe
+pela latência e pelos erros de dado de cada candidato (`pnpm eval:intake`, ver
+[docs/evals/leitura-do-caso.md](evals/leitura-do-caso.md)).
 
 ### Publicar os pacotes KB-005 (dengue) e KB-006 (cefaleias) em produção
 
