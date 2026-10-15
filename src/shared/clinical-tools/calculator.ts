@@ -212,7 +212,7 @@ export function evaluateCalculator(
   };
 }
 
-/** "3 pontos", "Grau 2", "1,22", "72 mmHg". */
+/** "3 pontos" (escore), "2" (classe; o nome vem na faixa), "1,22" ou "72 mmHg" (fórmula). */
 export function formatResultValue(definition: CalculatorDefinition, value: number): string {
   switch (definition.kind) {
     case 'score':
