@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import {
   copilotFeedbackStatusValues,
+  KNOWLEDGE_GAP_NOTE_MAX_CHARS,
   recommendationDecisionValues,
 } from '../../../shared/contracts/clinical';
 
@@ -114,6 +115,18 @@ export const updateCopilotFeedbackTriageSchema = z.object({
 });
 
 export type UpdateCopilotFeedbackTriageInput = z.infer<typeof updateCopilotFeedbackTriageSchema>;
+
+/**
+ * CC-703 — "não encontrei o que precisava": a análise e, opcional, uma frase
+ * sobre o que faltou. Curta de propósito: é um sinal para a fila de cartões,
+ * não um reporte de erro (esse é o feedback, que vai para a triagem).
+ */
+export const knowledgeGapReportSchema = z.object({
+  interactionId: z.string().uuid('interactionId must be a valid UUID'),
+  note: z.string().max(KNOWLEDGE_GAP_NOTE_MAX_CHARS).optional(),
+});
+
+export type KnowledgeGapReportInput = z.infer<typeof knowledgeGapReportSchema>;
 
 /** F0-D — mesmo teto do comentário de feedback: nota clínica, não prontuário. */
 export const RECOMMENDATION_NOTE_MAX_CHARS = 2000;

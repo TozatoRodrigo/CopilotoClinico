@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { z } from 'zod';
 import type { CopilotFeedbackKind, CopilotFeedbackStatus, Prisma } from '@prisma/client';
@@ -10,12 +10,14 @@ import type {
   CopilotFeedbackOutputSummary,
   CopilotFeedbackTriageItem,
   CopilotFeedbackTriagePage,
+  EvalCaseDraft,
 } from '../../../shared/contracts/clinical';
 import type {
   CopilotFeedbackInput,
   ListCopilotFeedbackQuery,
   UpdateCopilotFeedbackTriageInput,
 } from '../schemas/copilot.schemas';
+import { buildEvalCaseDraft } from './eval-case-draft';
 
 const TRIAGE_SELECT = {
   id: true,
@@ -44,6 +46,25 @@ const TRIAGE_SELECT = {
 } as const satisfies Prisma.CopilotFeedbackSelect;
 
 type TriageRow = Prisma.CopilotFeedbackGetPayload<{ select: typeof TRIAGE_SELECT }>;
+
+/** CC-703 — o que o rascunho de caso do gabarito precisa do reporte e da análise. */
+const EVAL_CASE_DRAFT_SELECT = {
+  id: true,
+  kind: true,
+  comment: true,
+  createdAt: true,
+  encounter: { select: { context: true } },
+  interaction: {
+    select: {
+      model: true,
+      turnIndex: true,
+      inputRedacted: true,
+      answeredQuestions: true,
+      params: true,
+      rawOutput: true,
+    },
+  },
+} as const satisfies Prisma.CopilotFeedbackSelect;
 
 /**
  * Leitura defensiva do `rawOutput` (JSON gravado sem re-validação): cada
@@ -146,6 +167,8 @@ function sha256(text: string): string {
  */
 @Injectable()
 export class CopilotFeedbackService {
+  private readonly logger = new Logger(CopilotFeedbackService.name);
+
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(AuditService) private readonly auditService: AuditService,
@@ -283,5 +306,35 @@ export class CopilotFeedbackService {
     });
 
     return toTriageItem(updated);
+  }
+
+  /**
+   * CC-703 — rascunho do caso do gabarito para o curador baixar e levar ao
+   * repositório por PR (a API não escreve em evals/). Sai do sistema com o
+   * texto do caso (mascarado), então fica na trilha quem exportou e quando.
+   */
+  async exportEvalCaseDraft(curatorId: string, feedbackId: string): Promise<EvalCaseDraft> {
+    const row = await this.prisma.copilotFeedback.findUnique({
+      where: { id: feedbackId },
+      select: EVAL_CASE_DRAFT_SELECT,
+    });
+    if (!row) throw new NotFoundException('Feedback not found');
+
+    const draft = buildEvalCaseDraft({
+      feedback: { id: row.id, kind: row.kind, comment: row.comment, createdAt: row.createdAt },
+      interaction: row.interaction,
+      encounterContext: row.encounter.context,
+    });
+
+    await this.auditService.log({
+      actorId: curatorId,
+      action: 'COPILOT_FEEDBACK_EVAL_CASE_EXPORTED',
+      entity: 'CopilotFeedback',
+      entityId: feedbackId,
+      payload: { draftId: draft.id },
+    });
+    this.logger.log(`EVAL_CASE_DRAFT_EXPORTED feedbackId=${feedbackId} draftId=${draft.id}`);
+
+    return draft;
   }
 }

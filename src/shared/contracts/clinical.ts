@@ -821,6 +821,68 @@ export interface UpdateCopilotFeedbackTriageRequest {
 }
 
 /**
+ * CC-703 — marca, no rascunho de caso do gabarito, o que o curador ainda
+ * precisa escrever. O teste do gabarito (evals/clinical/cases.spec.ts) recusa
+ * arquivo de caso com esta marca: um rascunho commitado sem preencher
+ * rodaria sem nada a medir.
+ */
+export const EVAL_CASE_DRAFT_PLACEHOLDER = 'A PREENCHER';
+
+/**
+ * CC-703 — rascunho de caso do gabarito v2 (evals/clinical/case.schema.ts)
+ * gerado de um reporte da triagem: texto do caso mascarado, expectativas
+ * vazias e o que falta marcado com EVAL_CASE_DRAFT_PLACEHOLDER. Já passa no
+ * schema; o arquivo se chama `<id>.json`.
+ */
+export interface EvalCaseDraft {
+  schemaVersion: 2;
+  /** `campo-` + 8 primeiros caracteres do id do reporte. */
+  id: string;
+  title: string;
+  /** `tags[0]` é a síndrome de PS: a do entendimento da análise ou uma provisória. */
+  tags: [Exclude<PsSyndrome, 'outro'>, ...string[]];
+  /** Sempre `false` no rascunho: caso crítico exige diagnóstico `critical`. */
+  critical: false;
+  goldSource: 'field_incident';
+  review: { status: 'draft'; notes: string };
+  input: {
+    caseText: string;
+    context?: EncounterContext;
+    redFlags?: Record<string, boolean>;
+  };
+  expected: {
+    syndrome: string;
+    diagnoses: [];
+    actions: [];
+    questions: [];
+    forbiddenDefinitiveActions: [];
+    rationale: string;
+  };
+  provenance: {
+    /** `feedback:<id do reporte>` — liga o caso de volta à fila de triagem. */
+    origin: `feedback:${string}`;
+    notes: string;
+  };
+}
+
+/**
+ * CC-703 — "não encontrei o que precisava": o médico diz que a análise não
+ * trouxe o que ele procurava. Alimenta o registro de lacunas (CC-409), não a
+ * fila de triagem.
+ */
+export const KNOWLEDGE_GAP_NOTE_MAX_CHARS = 280;
+
+export interface KnowledgeGapReportRequest {
+  interactionId: string;
+  /** O que faltou, em poucas palavras. Opcional; o servidor mascara PII. */
+  note?: string;
+}
+
+export interface KnowledgeGapReportResponse {
+  recorded: true;
+}
+
+/**
  * F0-D — o que o médico fez com uma recomendação, persistido no servidor
  * (antes vivia só no sessionStorage). `modified` = adotou com ajuste (Adotar
  * + nota); a regra completa de mapeamento dos botões está em
