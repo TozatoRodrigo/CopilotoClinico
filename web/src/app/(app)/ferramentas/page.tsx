@@ -4,7 +4,6 @@ import { useDeferredValue, useMemo, useState } from 'react';
 import { Toolbox } from '@phosphor-icons/react';
 import { CALCULATOR_CATALOG } from '@clinical-tools/calculator-catalog';
 import { calculatorStatus, searchTools, TOOL_GROUPS, TOOLS } from '@clinical-tools/catalog';
-import { CALCULATORS } from '@clinical-tools/registry';
 import { DecisionSupportNotice } from '@/components/domain/clinical-tools/decision-support-notice';
 import { Page } from '@/components/layout/page';
 import { PageHeader, SectionHeader } from '@/components/layout/page-header';
@@ -19,7 +18,18 @@ import {
 
 const CATALOG_BY_ID = new Map(CALCULATOR_CATALOG.map((entry) => [entry.id, entry]));
 const TOOLS_BY_ID = new Map(TOOLS.map((tool) => [tool.id, tool]));
-const PORTED = CALCULATORS.flatMap((definition) => CATALOG_BY_ID.get(definition.id) ?? []);
+/**
+ * Calculadoras em destaque no grupo Calculadoras do hub: as cinco da fundação
+ * (CC-303). Com as 75 no ar, listar todas aqui empurraria os roteiros para
+ * baixo; a lista completa fica em /ferramentas/calculadoras, e as do dia a dia
+ * de cada médico ficam nos favoritos.
+ */
+const FEATURED_CALCULATORS = ['chadsvasc', 'has-bled', 'qsofa', 'curb65', 'shock-index'].flatMap(
+  (id) => {
+    const entry = CATALOG_BY_ID.get(id);
+    return entry && calculatorStatus(entry) === 'disponivel' ? [entry] : [];
+  },
+);
 
 /**
  * /ferramentas — hub das ferramentas de beira-leito (CC-304, ADR-017).
@@ -126,7 +136,7 @@ export default function FerramentasPage() {
                         .map((tool) => (
                           <ToolRow key={tool.id} tool={tool} favorites={favorites} />
                         ))}
-                      {PORTED.map((entry) => (
+                      {FEATURED_CALCULATORS.map((entry) => (
                         <CalculatorRow key={entry.id} calculator={entry} favorites={favorites} />
                       ))}
                       {tools

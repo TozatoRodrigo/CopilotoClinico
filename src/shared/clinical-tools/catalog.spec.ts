@@ -2,14 +2,17 @@ import { describe, expect, it } from 'vitest';
 import {
   CALCULATOR_CATEGORIES,
   calculatorName,
+  calculatorPathway,
   calculatorStatus,
   normalizeSearchText,
   searchTools,
   TOOL_GROUPS,
   TOOLS,
+  type ToolEntry,
   type ToolSearchResult,
 } from './catalog';
 import { CALCULATOR_CATALOG } from './calculator-catalog';
+import { CURB65 } from './calculators/curb65';
 
 function names(results: ToolSearchResult[]): string[] {
   return results.map((result) =>
@@ -105,5 +108,30 @@ describe('searchTools', () => {
 describe('normalizeSearchText', () => {
   it('tira acento e caixa', () => {
     expect(normalizeSearchText('  Ressuscitação ')).toBe('ressuscitacao');
+  });
+});
+
+describe('calculatorPathway (CC-306)', () => {
+  const withPathway = { ...CURB65, pathway: { toolId: 'toxicologia' } };
+  const tox = (status: ToolEntry['status']): ToolEntry => ({
+    id: 'toxicologia',
+    name: 'Intoxicações e antídotos',
+    description: '',
+    group: 'toxicologia',
+    synonyms: [],
+    status,
+  });
+
+  it('não aponta roteiro enquanto ele estiver "em breve"', () => {
+    expect(calculatorPathway(withPathway, [tox('em-breve')])).toBeNull();
+    expect(calculatorPathway(withPathway)).toBeNull();
+  });
+
+  it('aponta o roteiro quando ele já abre', () => {
+    expect(calculatorPathway(withPathway, [tox('disponivel')])?.id).toBe('toxicologia');
+  });
+
+  it('não aponta nada para calculadora sem roteiro', () => {
+    expect(calculatorPathway(CURB65, [tox('disponivel')])).toBeNull();
   });
 });

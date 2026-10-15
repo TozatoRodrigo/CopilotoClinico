@@ -10,11 +10,21 @@ function isCompact(item: ScoreItem): boolean {
   return item.options.length <= 3 && item.options.every(({ label }) => label.length <= 14);
 }
 
+/** Padrão: mostra o ponto, menos quando a opção é parâmetro de fórmula (fator, potência). */
+function defaultShowsPoints(item: ScoreItem): boolean {
+  return item.role !== 'parameter';
+}
+
 export interface ScoreItemListProps {
   items: readonly ScoreItem[];
   /** id do item → id da opção escolhida. */
   answers: Readonly<Record<string, string | undefined>>;
   onAnswer: (itemId: string, optionId: string) => void;
+  /**
+   * Se o item mostra "+N" ao lado das opções. A calculadora decide
+   * (`itemShowsPoints`): classificação e parâmetro de fórmula não mostram.
+   */
+  showsPoints?: (item: ScoreItem) => boolean;
   className?: string;
 }
 
@@ -24,12 +34,19 @@ export interface ScoreItemListProps {
  * opção à direita. O resultado é ao vivo: quem decide quando calcular é a
  * caixa de resultado, não um botão.
  */
-export function ScoreItemList({ items, answers, onAnswer, className }: ScoreItemListProps) {
+export function ScoreItemList({
+  items,
+  answers,
+  onAnswer,
+  showsPoints = defaultShowsPoints,
+  className,
+}: ScoreItemListProps) {
   const groupId = useId();
   return (
     <div data-slot="score-item-list" className={cn('flex flex-col gap-4', className)}>
       {items.map((item) => {
         const compact = isCompact(item);
+        const points = showsPoints(item);
         return (
           <fieldset key={item.id} className="flex min-w-0 flex-col gap-1.5">
             <legend className="mb-1.5 text-sm font-medium text-foreground">{item.label}</legend>
@@ -61,7 +78,7 @@ export function ScoreItemList({ items, answers, onAnswer, className }: ScoreItem
                       className="size-4 shrink-0 accent-primary"
                     />
                     <span className="min-w-0 flex-1">{option.label}</span>
-                    {option.points !== 0 ? (
+                    {points && option.points !== 0 ? (
                       <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
                         {option.points > 0 ? '+' : ''}
                         {formatCompact(option.points)}

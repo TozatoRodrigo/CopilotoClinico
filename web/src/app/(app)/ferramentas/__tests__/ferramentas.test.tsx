@@ -145,6 +145,22 @@ describe('/ferramentas — hub (CC-304)', () => {
 });
 
 describe('/ferramentas/calculadoras', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  it('mostra as calculadoras favoritas no topo, sem as ferramentas favoritas do hub', () => {
+    window.localStorage.setItem(FAVORITES_KEY, JSON.stringify(['calc:qsofa', 'tool:calculadoras']));
+    render(<CalculadorasPage />);
+
+    const favorites = screen.getByRole('region', { name: 'Favoritas' });
+    expect(within(favorites).getAllByRole('link')).toHaveLength(1);
+    expect(within(favorites).getByRole('link', { name: /qSOFA/ })).toHaveAttribute(
+      'href',
+      '/ferramentas/calculadoras/qsofa',
+    );
+  });
+
   it('lista as 75 calculadoras por categoria, com as portadas abrindo', () => {
     render(<CalculadorasPage />);
 

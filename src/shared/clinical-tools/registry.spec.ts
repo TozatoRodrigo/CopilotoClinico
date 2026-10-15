@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import type { CalculatorDefinition } from './calculator';
+import { allBands, isRuleInterpretation, type CalculatorDefinition } from './calculator';
 import { CALCULATOR_CATALOG } from './calculator-catalog';
+import { TOOLS } from './catalog';
 import { CALCULATORS, getCalculator } from './registry';
 import { RESULT_TONES } from './tone';
 
 function texts(calculator: CalculatorDefinition): string[] {
-  const { bands, otherwise } = calculator.interpretation;
-  return [...bands, otherwise].map(({ action }) => action);
+  return allBands(calculator.interpretation).map(({ action }) => action);
 }
 
 /**
@@ -25,19 +25,28 @@ describe.each(CALCULATORS.map((calculator) => [calculator.id, calculator] as con
     });
 
     it('tem faixas em ordem crescente, com tom válido e ação', () => {
-      const { bands, otherwise } = calculator.interpretation;
-      for (let index = 1; index < bands.length; index += 1) {
-        const previous = bands[index - 1];
-        const current = bands[index];
-        expect(current && previous && current.upTo.value >= previous.upTo.value).toBe(true);
+      const { interpretation } = calculator;
+      if (!isRuleInterpretation(interpretation)) {
+        const { bands } = interpretation;
+        for (let index = 1; index < bands.length; index += 1) {
+          const previous = bands[index - 1];
+          const current = bands[index];
+          expect(current && previous && current.upTo.value >= previous.upTo.value).toBe(true);
+        }
       }
-      for (const band of [...bands, otherwise]) {
+      const bands = allBands(interpretation);
+      for (const band of bands) {
         expect(RESULT_TONES).toContain(band.tone);
         expect(band.label.trim()).not.toBe('');
         expect(band.action.trim()).not.toBe('');
       }
-      const ids = [...bands, otherwise].map(({ id }) => id);
+      const ids = bands.map(({ id }) => id);
       expect(new Set(ids).size).toBe(ids.length);
+    });
+
+    it('aponta para um roteiro que existe no catálogo, quando tem roteiro', () => {
+      if (!calculator.pathway) return;
+      expect(TOOLS.map(({ id }) => id)).toContain(calculator.pathway.toolId);
     });
 
     it('não repete id de item nem de opção', () => {
@@ -49,7 +58,14 @@ describe.each(CALCULATORS.map((calculator) => [calculator.id, calculator] as con
       if (calculator.kind === 'formula') {
         const inputs = calculator.inputs.map(({ id }) => id);
         expect(new Set(inputs).size).toBe(inputs.length);
-        for (const input of calculator.inputs) expect(input.min).toBeLessThan(input.max);
+        for (const input of calculator.inputs) {
+          expect(input.min).toBeLessThan(input.max);
+          if (input.defaultValue !== undefined) {
+            expect(input.defaultValue).toBeGreaterThanOrEqual(input.min);
+            expect(input.defaultValue).toBeLessThanOrEqual(input.max);
+          }
+          if (input.optional) expect(input.defaultValue).toBeDefined();
+        }
       }
     });
 
@@ -62,7 +78,7 @@ describe.each(CALCULATORS.map((calculator) => [calculator.id, calculator] as con
     });
 
     it('sugere em vez de mandar', () => {
-      for (const action of texts(calculator)) {
+      for (const action of [...texts(calculator), calculator.versionNotice?.text ?? '']) {
         expect(action, action).not.toMatch(IMPERATIVE_START);
         expect(action, action).not.toMatch(/imediatamente/i);
       }

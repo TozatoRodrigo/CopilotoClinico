@@ -48,6 +48,16 @@ Calculadora, droga e roteiro são definições (`CalculatorDefinition` e as que
 vierem), não JSX. Itens, pontos, faixas, textos de ação, referência e
 pérolas ficam na definição. **Nenhuma dose ou limiar mora em componente.**
 
+A faixa sai do valor por limites (a maioria dos escores) ou por regra
+(`byRule`), quando o valor sozinho não decide: CAM-ICU (F1 e F2 e F3 ou F4),
+Winters (pCO2 medida contra a esperada), Rumack-Matthew (nível contra a
+linha). Mesmo na regra, os textos de cada faixa ficam na definição; a regra só
+escolhe o id. Resultados secundários da mesma conta (QTc de Fridericia,
+divisão do Parkland, DPP) saem em `details`; combinação de campos que não
+fecha (31/02, DUM no futuro) sai em `check` e não calcula. Versão não oficial
+do escore (GRACE "aproximação", APACHE II "simplificado") traz
+`versionNotice`, fixo na tela e no texto do prontuário.
+
 Toda definição carrega `provenance`: origem (arquivo e revisão do ANY),
 versão do conteúdo (semver, sobe a cada mudança clínica), data e revisão
 clínica (`pendente` ou `revisado` com nome, CRM e data). A tela mostra isso no
