@@ -36,7 +36,7 @@ Entre com **e-mail e senha** (e o código do autenticador, se você ativou a ver
 ### Navegando
 
 - **Barra lateral** (computador): Buscar, Plantão, Novo caso, Casos e Diretrizes. Recolha com o botão « ou com **⌘\** (Ctrl+\ no Windows) — nas telas de captura, análise e edição de documento ela já abre recolhida para dar foco.
-- **Buscar (⌘K / Ctrl+K)**: abre a busca rápida — digite parte da queixa ou do identificador para ir direto a um caso, ou o nome de uma página/ação ("novo caso", "tema escuro").
+- **Buscar (⌘K / Ctrl+K, ou o ícone de busca no celular)**: uma busca só, com resultados por grupo — **Ferramentas** (calculadoras e drogas, pelo nome ou sinônimo: "nora", "NIHSS"), **Cartões** revisados, **Protocolos** da base de diretrizes e os seus **Casos** (pela data — "12/10", "ontem" —, pela síndrome — "dor torácica" — ou pelo identificador). Também acha páginas e ações ("novo caso", "tema escuro"). Use ↑ ↓ e ↵. Sem conexão, as ferramentas continuam aparecendo; cartões, protocolos e casos esperam a internet voltar.
 - **Barra superior**: mostra onde você está (ex.: Casos / Leito 4 / Análise); clique em qualquer trecho para voltar.
 - **Celular**: barra inferior com Plantão, Casos, o botão central de **novo caso por voz**, Diretrizes e Buscar.
 - **Sua conta**: clique no seu nome no topo da barra lateral (ou no avatar, no celular) para Perfil, Configurações, tema claro/escuro e Sair.

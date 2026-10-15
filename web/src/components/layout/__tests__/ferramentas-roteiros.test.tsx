@@ -26,6 +26,12 @@ vi.mock('@/lib/clinical-queries', () => ({
   useEncounterDetail: () => ({ data: undefined }),
 }));
 
+// CC-502 — a busca no servidor fica de fora: aqui só importam as ferramentas, locais.
+vi.mock('@/lib/unified-search', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/unified-search')>()),
+  useUnifiedSearch: () => ({ data: undefined, isPending: true, isError: false, isFetching: false }),
+}));
+
 describe('roteiros das Ferramentas no ⌘K e na trilha (CC-316, CC-317)', () => {
   afterEach(() => {
     vi.unstubAllEnvs();

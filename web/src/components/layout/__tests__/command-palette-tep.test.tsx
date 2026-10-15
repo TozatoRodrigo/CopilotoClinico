@@ -22,6 +22,12 @@ vi.mock('@/lib/clinical-queries', () => ({
   useEncounterList: () => ({ data: undefined, isFetching: false }),
 }));
 
+// CC-502 — a busca no servidor fica de fora: aqui só importam as ferramentas, locais.
+vi.mock('@/lib/unified-search', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/unified-search')>()),
+  useUnifiedSearch: () => ({ data: undefined, isPending: true, isError: false, isFetching: false }),
+}));
+
 // Com todas as ferramentas do ANY no ar, o ACLS volta a "em breve" só aqui,
 // para conferir que o ⌘K não oferece o que não abre.
 vi.mock('@clinical-tools/catalog', async (importOriginal) => {

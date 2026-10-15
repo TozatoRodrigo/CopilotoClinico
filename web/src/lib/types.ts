@@ -86,3 +86,12 @@ export type {
   KnowledgeCardDose,
   PublishedKnowledgeCard,
 } from '@contracts/knowledge-cards';
+
+export type {
+  CardSearchHit,
+  CaseSearchHit,
+  ProtocolSearchHit,
+  UnifiedSearchGroup,
+  UnifiedSearchGroupResult,
+  UnifiedSearchResponse,
+} from '@contracts/search';

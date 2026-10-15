@@ -4,7 +4,9 @@ import { useDeferredValue, useEffect, useMemo, useRef, useState, type ElementTyp
 import { useRouter } from 'next/navigation';
 import {
   ArrowElbowDownLeft,
+  BookOpen,
   Calculator,
+  Cards,
   ClipboardText,
   Drop,
   Gear,
@@ -14,31 +16,65 @@ import {
   Sun,
   Toolbox,
   UserCircle,
+  WarningCircle,
+  WifiSlash,
 } from '@phosphor-icons/react';
 import { useEncounterList } from '@/lib/clinical-queries';
 import { useAuth } from '@/lib/auth-store';
+import { messages } from '@/lib/messages';
 import { useTheme } from '@/components/providers/theme-provider';
+import { useOnlineStatus } from '@/components/providers/offline-provider';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Kbd } from '@/components/ui/kbd';
 import { HOME_ITEM, appSectionsFor } from '@/components/layout/nav-config';
 import { calculatorName, searchTools } from '@clinical-tools/catalog';
 import { infusionHref, searchInfusionItems } from '@clinical-tools/infusions/items';
 import { isFerramentasEnabled } from '@/lib/feature-flags';
+import { reviewedCardHref } from '@/lib/reviewed-card';
+import {
+  UNIFIED_SEARCH_DEBOUNCE_MS,
+  serverSearchQuery,
+  useDebouncedValue,
+  useUnifiedSearch,
+} from '@/lib/unified-search';
+import type {
+  CardSearchHit,
+  CaseSearchHit,
+  EncounterSummary,
+  ProtocolSearchHit,
+  UnifiedSearchGroup,
+  UnifiedSearchGroupResult,
+} from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 /**
  * Busca/ações rápidas (⌘K) no estilo do "Search" do Notion: campo grande sem
  * borda no topo, resultados agrupados, navegação por teclado (↑ ↓ ↵ esc).
- * Busca casos no backend (`GET /encounters?search=`) e filtra páginas/ações
- * localmente.
+ *
+ * CC-502 — busca única: páginas, ações e ferramentas são filtradas aqui, a
+ * cada tecla e sem sinal; cartões revisados, protocolos e casos vêm de
+ * `GET /search`, depois de uma pausa na digitação, e a busca anterior é
+ * cancelada. Sem a busca, os casos recentes.
  */
+
+type Group = 'Ações' | 'Páginas' | 'Ferramentas' | 'Cartões' | 'Protocolos' | 'Casos';
+
+/** Ordem na tela e no teclado: o que é local antes do que vem do servidor. */
+const GROUP_ORDER: readonly Group[] = [
+  'Ações',
+  'Páginas',
+  'Ferramentas',
+  'Cartões',
+  'Protocolos',
+  'Casos',
+];
 
 interface Command {
   id: string;
   label: string;
   hint?: string;
   icon: ElementType;
-  group: 'Ações' | 'Páginas' | 'Ferramentas' | 'Casos';
+  group: Group;
   keywords?: string;
   run: () => void;
 }
@@ -105,19 +141,113 @@ function toolCommands(query: string, go: (href: string) => void): Command[] {
   return commands.slice(0, MAX_TOOL_COMMANDS);
 }
 
+/** "12/10", no fuso do plantão. */
+function caseDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    timeZone: 'America/Sao_Paulo',
+  });
+}
+
+function caseCommand(
+  encounter: Pick<EncounterSummary, 'id' | 'patientRef' | 'chiefComplaint' | 'status'>,
+  details: Array<string | null>,
+  go: (href: string) => void,
+): Command {
+  return {
+    id: `case-${encounter.id}`,
+    label: encounter.chiefComplaint ?? encounter.patientRef ?? 'Consulta rápida',
+    hint: [
+      encounter.chiefComplaint ? encounter.patientRef : null,
+      ...details,
+      STATUS_LABEL[encounter.status] ?? encounter.status,
+    ]
+      .filter(Boolean)
+      .join(' · '),
+    icon: ClipboardText,
+    group: 'Casos',
+    run: () => go(`/encounters/${encounter.id}`),
+  };
+}
+
+function foundCaseCommand(hit: CaseSearchHit, go: (href: string) => void): Command {
+  return caseCommand(
+    hit,
+    [caseDate(hit.createdAt), hit.syndrome ? messages.understanding.syndromes[hit.syndrome] : null],
+    go,
+  );
+}
+
+function cardCommand(hit: CardSearchHit, go: (href: string) => void): Command {
+  return {
+    id: `card-${hit.id}`,
+    label: hit.topic,
+    hint: hit.question,
+    icon: Cards,
+    group: 'Cartões',
+    run: () => go(reviewedCardHref(hit.id)),
+  };
+}
+
+/** O protocolo abre nas Diretrizes já buscando pelo título dele — nunca pela busca digitada. */
+function protocolCommand(hit: ProtocolSearchHit, go: (href: string) => void): Command {
+  const version = /^\d/.test(hit.sourceVersion) ? `v${hit.sourceVersion}` : hit.sourceVersion;
+  return {
+    id: `protocol-${hit.source}`,
+    label: hit.source,
+    hint: [hit.institutional ? 'Da instituição' : 'Diretriz', version].join(' · '),
+    icon: BookOpen,
+    group: 'Protocolos',
+    run: () => go(`/guidelines?q=${encodeURIComponent(hit.source)}`),
+  };
+}
+
+type RemoteGroup = Extract<Group, 'Cartões' | 'Protocolos' | 'Casos'>;
+
+/** Estado da busca no servidor para a busca digitada agora. */
+type RemoteState =
+  | { status: 'idle' | 'offline' | 'loading' | 'error' }
+  | { status: 'ready'; failed: RemoteGroup[] };
+
+const REMOTE_GROUPS: readonly RemoteGroup[] = ['Cartões', 'Protocolos', 'Casos'];
+
+const REMOTE_GROUP_KEY: Record<RemoteGroup, UnifiedSearchGroup> = {
+  Cartões: 'cards',
+  Protocolos: 'protocols',
+  Casos: 'cases',
+};
+
+const REMOTE_GROUP_NOUN: Record<RemoteGroup, string> = {
+  Cartões: 'cartões',
+  Protocolos: 'protocolos',
+  Casos: 'casos',
+};
+
+function isRemoteGroup(group: Group): group is RemoteGroup {
+  return (REMOTE_GROUPS as readonly Group[]).includes(group);
+}
+
+function groupItems<T>(result: UnifiedSearchGroupResult<T>): T[] {
+  return result.status === 'ok' ? result.items : [];
+}
+
 function PaletteBody({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const { role } = useAuth();
   const { resolvedTheme, setTheme } = useTheme();
+  const { isOnline } = useOnlineStatus();
   const [query, setQuery] = useState('');
   const deferredQuery = useDeferredValue(query.trim());
   const [activeIndex, setActiveIndex] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
 
-  const searching = deferredQuery.length >= 2;
-  const casesQuery = useEncounterList(
-    searching ? { search: deferredQuery, limit: 6 } : { limit: 6 },
-  );
+  // Busca no servidor: só a partir de 2 caracteres, depois da pausa na digitação.
+  const typedServerQuery = serverSearchQuery(deferredQuery);
+  const searching = typedServerQuery !== null;
+  const serverQuery = useDebouncedValue(typedServerQuery, UNIFIED_SEARCH_DEBOUNCE_MS);
+  const search = useUnifiedSearch(serverQuery, { online: isOnline });
+  const recentCases = useEncounterList({ limit: 6 });
 
   const go = (href: string) => {
     onClose();
@@ -175,56 +305,90 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role, resolvedTheme, setTheme]);
 
+  // Resultado do servidor só vale para a busca que está no campo: enquanto a
+  // pausa não passou ou a resposta não chegou, nada de lista velha (o ↵ não
+  // pode abrir um caso de outra busca).
+  const remote: RemoteState = !searching
+    ? { status: 'idle' }
+    : !isOnline
+      ? { status: 'offline' }
+      : serverQuery !== typedServerQuery ||
+          search.isPending ||
+          (search.isError && search.isFetching)
+        ? { status: 'loading' }
+        : search.isError || !search.data
+          ? { status: 'error' }
+          : {
+              status: 'ready',
+              failed: REMOTE_GROUPS.filter(
+                (group) => search.data[REMOTE_GROUP_KEY[group]].status === 'error',
+              ),
+            };
+
   const commands = useMemo<Command[]>(() => {
     const q = normalize(deferredQuery);
     const filtered = q
       ? staticCommands.filter((c) => normalize(`${c.label} ${c.keywords ?? ''}`).includes(q))
       : staticCommands;
-    const cases = (casesQuery.data?.data ?? []).map<Command>((enc) => ({
-      id: `case-${enc.id}`,
-      label: enc.chiefComplaint ?? enc.patientRef ?? 'Consulta rápida',
-      hint: [enc.chiefComplaint ? enc.patientRef : null, STATUS_LABEL[enc.status] ?? enc.status]
-        .filter(Boolean)
-        .join(' · '),
-      icon: ClipboardText,
-      group: 'Casos',
-      run: () => go(`/encounters/${enc.id}`),
-    }));
-    return [...filtered, ...toolCommands(deferredQuery, go), ...cases];
+    const found =
+      remote.status === 'ready' && search.data
+        ? [
+            ...groupItems(search.data.cards).map((hit) => cardCommand(hit, go)),
+            ...groupItems(search.data.protocols).map((hit) => protocolCommand(hit, go)),
+            ...groupItems(search.data.cases).map((hit) => foundCaseCommand(hit, go)),
+          ]
+        : [];
+    const recent = searching
+      ? []
+      : (recentCases.data?.data ?? []).map((encounter) => caseCommand(encounter, [], go));
+    const all = [...filtered, ...toolCommands(deferredQuery, go), ...found, ...recent];
+    // A ordem do teclado é a da tela: grupo a grupo.
+    return GROUP_ORDER.flatMap((group) => all.filter((command) => command.group === group));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deferredQuery, staticCommands, casesQuery.data]);
+  }, [deferredQuery, staticCommands, remote.status, search.data, searching, recentCases.data]);
+
+  const safeIndex = commands.length === 0 ? 0 : Math.min(activeIndex, commands.length - 1);
 
   useEffect(() => {
-    const el = listRef.current?.querySelector<HTMLElement>(`[data-index="${activeIndex}"]`);
+    const el = listRef.current?.querySelector<HTMLElement>(`[data-index="${safeIndex}"]`);
     // jsdom não implementa scrollIntoView.
     if (typeof el?.scrollIntoView === 'function') el.scrollIntoView({ block: 'nearest' });
-  }, [activeIndex]);
+  }, [safeIndex]);
 
   function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
     if (event.key === 'ArrowDown') {
       event.preventDefault();
-      setActiveIndex((i) => (commands.length === 0 ? 0 : (i + 1) % commands.length));
+      setActiveIndex(commands.length === 0 ? 0 : (safeIndex + 1) % commands.length);
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
-      setActiveIndex((i) =>
-        commands.length === 0 ? 0 : (i - 1 + commands.length) % commands.length,
+      setActiveIndex(
+        commands.length === 0 ? 0 : (safeIndex - 1 + commands.length) % commands.length,
       );
     } else if (event.key === 'Enter') {
       event.preventDefault();
-      commands[activeIndex]?.run();
+      commands[safeIndex]?.run();
     }
   }
 
-  const groups = (['Ações', 'Páginas', 'Ferramentas', 'Casos'] as const)
-    .map((group) => ({
-      group,
-      items: commands
-        .map((command, index) => ({ command, index }))
-        .filter(({ command }) => command.group === group),
-    }))
-    .filter((g) => g.items.length > 0 || (g.group === 'Casos' && casesQuery.isFetching));
+  const groups = GROUP_ORDER.map((group) => ({
+    group,
+    items: commands
+      .map((command, index) => ({ command, index }))
+      .filter(({ command }) => command.group === group),
+  }));
+  const failedGroups: readonly Group[] = remote.status === 'ready' ? remote.failed : [];
+  const recentLoading = !searching && recentCases.isFetching;
+  const visibleGroups = groups.filter(
+    ({ group, items }) =>
+      items.length > 0 || failedGroups.includes(group) || (group === 'Casos' && recentLoading),
+  );
+  const nothingFound =
+    commands.length === 0 &&
+    (remote.status === 'ready' || remote.status === 'idle') &&
+    failedGroups.length === 0 &&
+    !recentLoading;
 
-  const activeId = commands[activeIndex]?.id;
+  const activeId = commands[safeIndex]?.id;
 
   return (
     <>
@@ -241,8 +405,8 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
             setActiveIndex(0);
           }}
           onKeyDown={handleKeyDown}
-          placeholder="Buscar casos, páginas e ações…"
-          aria-label="Buscar casos, páginas e ações"
+          placeholder="Buscar ferramentas, cartões, protocolos e casos…"
+          aria-label="Buscar ferramentas, cartões, protocolos, casos, páginas e ações"
           role="combobox"
           aria-expanded="true"
           aria-controls="command-palette-list"
@@ -257,60 +421,66 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
         id="command-palette-list"
         role="listbox"
         aria-label="Resultados"
+        aria-busy={remote.status === 'loading'}
         className="max-h-[min(60vh,420px)] overflow-y-auto p-1.5"
       >
-        {groups.length === 0 ? (
+        {visibleGroups.map(({ group, items }) => (
+          <div key={group} role="group" aria-label={group} className="pb-1">
+            <p className="px-2 pt-2 pb-1 text-xs font-medium text-muted-foreground">
+              {group === 'Casos' ? (searching ? 'Casos encontrados' : 'Casos recentes') : group}
+            </p>
+            {items.length === 0 && group === 'Casos' && !searching && (
+              <p className="px-2 py-1.5 text-sm text-muted-foreground">Buscando…</p>
+            )}
+            {items.length === 0 && isRemoteGroup(group) && failedGroups.includes(group) && (
+              <p className="flex items-center gap-2 px-2 py-1.5 text-sm text-muted-foreground">
+                <WarningCircle className="size-4 shrink-0" aria-hidden="true" />
+                Não foi possível buscar {REMOTE_GROUP_NOUN[group]} agora.
+              </p>
+            )}
+            {items.map(({ command, index }) => {
+              const Icon = command.icon;
+              const active = index === safeIndex;
+              return (
+                <div
+                  key={command.id}
+                  id={`cmd-${command.id}`}
+                  role="option"
+                  aria-selected={active}
+                  data-index={index}
+                  onMouseMove={() => setActiveIndex(index)}
+                  onClick={() => command.run()}
+                  className={cn(
+                    'flex h-9 cursor-pointer items-center gap-2.5 rounded-md px-2 text-sm',
+                    active ? 'bg-hover text-foreground' : 'text-foreground',
+                  )}
+                >
+                  <Icon className="size-[18px] shrink-0 text-muted-foreground" aria-hidden="true" />
+                  <span className="min-w-0 truncate">{command.label}</span>
+                  {command.hint && (
+                    <span className="min-w-0 truncate text-xs text-muted-foreground">
+                      {command.hint}
+                    </span>
+                  )}
+                  <span className="flex-1" />
+                  {active && (
+                    <ArrowElbowDownLeft
+                      className="size-3.5 shrink-0 text-muted-foreground"
+                      aria-hidden="true"
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ))}
+
+        <RemoteStatus state={remote} onRetry={() => void search.refetch()} />
+
+        {nothingFound && (
           <p className="px-3 py-8 text-center text-sm text-muted-foreground">
             Nada encontrado para “{deferredQuery}”.
           </p>
-        ) : (
-          groups.map(({ group, items }) => (
-            <div key={group} role="group" aria-label={group} className="pb-1">
-              <p className="px-2 pt-2 pb-1 text-xs font-medium text-muted-foreground">
-                {group === 'Casos' ? (searching ? 'Casos encontrados' : 'Casos recentes') : group}
-              </p>
-              {items.length === 0 && group === 'Casos' && (
-                <p className="px-2 py-1.5 text-sm text-muted-foreground">Buscando…</p>
-              )}
-              {items.map(({ command, index }) => {
-                const Icon = command.icon;
-                const active = index === activeIndex;
-                return (
-                  <div
-                    key={command.id}
-                    id={`cmd-${command.id}`}
-                    role="option"
-                    aria-selected={active}
-                    data-index={index}
-                    onMouseMove={() => setActiveIndex(index)}
-                    onClick={() => command.run()}
-                    className={cn(
-                      'flex h-9 cursor-pointer items-center gap-2.5 rounded-md px-2 text-sm',
-                      active ? 'bg-hover text-foreground' : 'text-foreground',
-                    )}
-                  >
-                    <Icon
-                      className="size-[18px] shrink-0 text-muted-foreground"
-                      aria-hidden="true"
-                    />
-                    <span className="min-w-0 truncate">{command.label}</span>
-                    {command.hint && (
-                      <span className="min-w-0 truncate text-xs text-muted-foreground">
-                        {command.hint}
-                      </span>
-                    )}
-                    <span className="flex-1" />
-                    {active && (
-                      <ArrowElbowDownLeft
-                        className="size-3.5 shrink-0 text-muted-foreground"
-                        aria-hidden="true"
-                      />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ))
         )}
       </div>
 
@@ -325,6 +495,47 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
       </div>
     </>
   );
+}
+
+/**
+ * O que a busca no servidor está fazendo, abaixo do que já é local: buscando,
+ * sem conexão (ferramentas seguem funcionando) ou com erro, com nova tentativa.
+ */
+function RemoteStatus({ state, onRetry }: { state: RemoteState; onRetry: () => void }) {
+  if (state.status === 'loading') {
+    return (
+      <p role="status" className="px-2 py-1.5 text-sm text-muted-foreground">
+        Buscando cartões, protocolos e casos…
+      </p>
+    );
+  }
+  if (state.status === 'offline') {
+    return (
+      <p role="status" className="flex items-start gap-2 px-2 py-2 text-sm text-muted-foreground">
+        <WifiSlash className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+        <span>
+          Sem conexão: cartões, protocolos e casos precisam de internet.
+          {isFerramentasEnabled() && ' As ferramentas funcionam sem sinal.'}
+        </span>
+      </p>
+    );
+  }
+  if (state.status === 'error') {
+    return (
+      <p role="status" className="flex items-center gap-2 px-2 py-2 text-sm text-muted-foreground">
+        <WarningCircle className="size-4 shrink-0" aria-hidden="true" />
+        <span>Não foi possível buscar cartões, protocolos e casos.</span>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="rounded-sm font-medium text-foreground underline underline-offset-2 focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-none"
+        >
+          Tentar de novo
+        </button>
+      </p>
+    );
+  }
+  return null;
 }
 
 export function CommandPalette({
@@ -353,7 +564,8 @@ export function CommandPalette({
       >
         <DialogTitle className="sr-only">Ações rápidas</DialogTitle>
         <DialogDescription className="sr-only">
-          Busque casos, abra páginas ou execute ações. Use as setas para navegar.
+          Busque ferramentas, cartões revisados, protocolos e casos, abra páginas ou execute ações.
+          Use as setas para navegar.
         </DialogDescription>
         <PaletteBody onClose={() => onOpenChange(false)} />
       </DialogContent>

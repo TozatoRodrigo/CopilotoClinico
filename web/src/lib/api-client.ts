@@ -20,6 +20,8 @@ interface RequestOptions {
   params?: Record<string, string>;
   body?: unknown;
   headers?: Record<string, string>;
+  /** Cancela a requisição (o React Query passa o dele: a busca que ficou velha não termina). */
+  signal?: AbortSignal;
 }
 
 class ApiClient {
@@ -45,7 +47,7 @@ class ApiClient {
     path: string,
     options: RequestOptions = {},
   ): Promise<T> {
-    const { params, body, headers: customHeaders } = options;
+    const { params, body, headers: customHeaders, signal } = options;
     const url = this.buildUrl(path, params);
 
     const headers: Record<string, string> = {
@@ -60,6 +62,7 @@ class ApiClient {
       headers,
       credentials: "include",
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal,
     });
 
     if (response.status === 401) {
@@ -89,8 +92,12 @@ class ApiClient {
     return response.json() as Promise<T>;
   }
 
-  get<T>(path: string, params?: Record<string, string>): Promise<T> {
-    return this.request<T>("GET", path, { params });
+  get<T>(
+    path: string,
+    params?: Record<string, string>,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<T> {
+    return this.request<T>("GET", path, { params, signal: options.signal });
   }
 
   post<T>(path: string, body?: unknown): Promise<T> {
