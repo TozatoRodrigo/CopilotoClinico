@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 2,
+  "id": "rv-2025-1-disc-3",
+  "title": "Crise de asma em criança de 6 anos com resposta parcial ao salbutamol na emergência",
+  "tags": [
+    "dispneia",
+    "revalida",
+    "discursiva",
+    "asma",
+    "pediatria"
+  ],
+  "critical": true,
+  "goldSource": "revalida_discursiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Emergência. Masc, 6a, 24 kg, com a mãe. Asma com uso irregular de corticoide inalatório e crises frequentes. Há 2 dias tosse, febre e chiado; hoje pior, com dificuldade para respirar. EF: agitado, não completa frases, taquidispneico, FR 40, sibilos difusos, tiragem intercostal, expiração prolongada, SpO2 90% em AA. Recebeu salbutamol spray 100 mcg/jato, 6 jatos com espaçador a cada 20 min, 3 ciclos. Reavaliação: discreta melhora; segue agitado e sem completar frases, FR 36, SpO2 91% em AA, taquidispneia, tiragem intercostal, sibilância difusa. Gasometria arterial em AA: pH 7,37; pO2 80 mmHg (VR 80–100); pCO2 33 mmHg (VR 32–48); HCO3 22 mEq/L (VR 20–28); SatO2 91%."
+  },
+  "expected": {
+    "syndrome": "crise de asma grave em criança com resposta parcial ao broncodilatador inicial",
+    "diagnoses": [
+      {
+        "text": "crise de asma grave com resposta apenas parcial ao broncodilatador inicial",
+        "tier": "critical"
+      },
+      {
+        "text": "gasometria: alcalose respiratória compensada pela hiperventilação (pCO2 baixa, bicarbonato reduzido, pH normal), sem hipercapnia nem PaO2 < 60 [aceitável também: distúrbio misto com acidose metabólica leve]",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "oxigênio suplementar (cateter nasal ou máscara de Venturi)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "repetir salbutamol inalatório (jatos com espaçador)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "corticoide sistêmico (VO ou EV)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "internação hospitalar (asma grave sem melhora adequada, SpO2 < 92%, tiragem, agitação)",
+        "tier": "important",
+        "timing": "now"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "iot-imediata",
+        "description": "Indicar intubação orotraqueal neste momento: o padrão responde que não há indicação de IOT (melhora parcial, sem fadiga, hipoxemia grave, critérios gasométricos, rebaixamento de consciência, PCR ou tórax silencioso).",
+        "patterns": [
+          "intubacao",
+          "iot",
+          "intubar"
+        ],
+        "exceptWhen": [
+          "(se|caso)\\s+(houver|evoluir|evolua|piorar|piore|haja|apresentar|apresente)",
+          "(preparar|separar|deixar)\\s+(\\S+\\s+){0,2}(material|kit)"
+        ]
+      }
+    ],
+    "outOfScope": [
+      "citar dois argumentos contra a IOT (item c): coberto pela proibição de IOT imediata",
+      "citar três critérios de internação (item d): formato de prova; a internação está nas condutas"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2025/1, padrão de respostas definitivo da questão 3): interpreta a gasometria como alcalose respiratória compensada, pontua O2, corticoide sistêmico e repetição do salbutamol, responde que não há indicação de IOT e lista critérios de internação. v2: O2 e salbutamol repetido são as condutas críticas para agora; a interpretação da gasometria é diagnóstico importante."
+  },
+  "sources": [
+    {
+      "claim": "Item a (até 2,0 pontos; 1 ponto por explicar a alcalose respiratória compensada e 1 por explicar a redução compensatória do bicarbonato): trata-se de alcalose respiratória compensada, ocasionada pela hiperventilação; pH normal, pCO2 abaixo de 35 pela FR aumentada e bicarbonato reduzido para compensar.",
+      "title": "Revalida 2025/1 – Prova Discursiva – Padrão de Respostas definitivo, Questão 3, item a",
+      "publisher": "INEP",
+      "year": 2025,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2025_1_PEP_discursiva_definitivo.pdf"
+    },
+    {
+      "claim": "Item b (até 3,0 pontos; 1,5 por 2 medidas corretas): (i) suplementação de oxigênio (cateter nasal ou máscara de Venturi), (ii) corticoide sistêmico (via oral ou endovenosa, equivalentes) e (iii) repetição dos puffs de salbutamol; também aceitos adrenalina SC, aminofilina EV, salbutamol EV, expansão com cristaloide EV, nebulização com brometo de ipratrópio, dose alta de corticoide inalatório, sulfato de magnésio EV e internação hospitalar.",
+      "title": "Revalida 2025/1 – Prova Discursiva – Padrão de Respostas definitivo, Questão 3, item b",
+      "publisher": "INEP",
+      "year": 2025,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2025_1_PEP_discursiva_definitivo.pdf"
+    },
+    {
+      "claim": "Item c (até 2,0 pontos): Não há indicação de intubação orotraqueal (1 ponto). Justificativas: melhora com as terapias instituídas; não evolui com fadiga respiratória, uso de musculatura acessória ou hipoxemia; sem critérios gasométricos para IOT (PaCO2 > 60 mmHg, PaO2 < 60 mmHg); sem diminuição do nível de consciência; sem parada cardiorrespiratória; sem tórax silencioso.",
+      "title": "Revalida 2025/1 – Prova Discursiva – Padrão de Respostas definitivo, Questão 3, item c",
+      "publisher": "INEP",
+      "year": 2025,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2025_1_PEP_discursiva_definitivo.pdf"
+    },
+    {
+      "claim": "Item d (até 3,0 pontos): critérios de internação — asma grave que não melhora com o tratamento instituído; fadiga respiratória e/ou tiragem intercostal e/ou musculatura acessória; desconforto respiratório intenso e/ou taquidispneia e/ou fala entrecortada; necessidade de O2 (saturação abaixo de 92% ou hipoxemia); necessidade de IOT; agitação psicomotora.",
+      "title": "Revalida 2025/1 – Prova Discursiva – Padrão de Respostas definitivo, Questão 3, item d",
+      "publisher": "INEP",
+      "year": 2025,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2025_1_PEP_discursiva_definitivo.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2025/1",
+    "item": "Discursiva caso 3",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/2025_1_PEP_discursiva_definitivo.pdf",
+    "originalCaseText": "Menino de 6 anos é levado à emergência com quadro de dispneia. Sua mãe, que o acompanha, refere que o paciente tem asma, com uso irregular de corticosteroide inalatório, e apresenta crises frequentes. Relata também que o último episódio se iniciou há 2 dias, com quadro de tosse, febre e “chiado no peito”. Hoje a criança está pior, com dificuldade para respirar. Ao exame físico, o paciente está agitado, sem conseguir completar frases, taquidispneico; frequência respiratória (FR) de 40 incursões respiratórias por minuto (irpm); sibilos difusos à ausculta pulmonar; tiragem intercostal; tempo expiratório prolongado; e saturação de oxigênio (O2) de 90% em ar ambiente. O paciente pesa 24 kg. De imediato, o paciente recebe, por via inalatória, três ciclos de 6 jatos de salbutamol de 100 mcg por 1 jato, utilizando-se espaçador, com intervalo de 20 minutos entre cada ciclo. Após a conduta inicial, a criança é reavaliada, apresentando discreta melhora. O paciente continua com agitação e sem conseguir completar frases, com FR de 36 irpm, saturação de O2 de 91% em ar ambiente, taquidispneia, tiragem intercostal e sibilância difusa. Coleta-se, então, a gasometria arterial em ar ambiente, que mostra pH de 7,37, pO2 de 80 mmHg (80-100 mmHg), pCO2 de 33 mmHg (32–48 mmHg), bicarbonato de 22 mEq/L (20-28 mEq/L) e saturação de O2 de 91%. Considerando esse caso clínico, faça o que se pede nos itens a seguir. a) Interprete os achados da gasometria, relacionando-os com o quadro clínico do paciente. (valor: 2,0 pontos) b) Cite 3 medidas terapêuticas que devem ser realizadas nesse momento no paciente em questão. (valor: 3,0 pontos) c) Há indicação de intubação orotraqueal nesse caso? Cite 2 argumentos que justifiquem sua resposta. (valor: 2,0 pontos) d) Cite 3 critérios necessários para que se indique a internação hospitalar nesse caso. (valor: 3,0 pontos)",
+    "notes": "Gabarito v2 (11/10/2026): caseText com todos os dados do enunciado, inclusive os valores de referência da gasometria; a interpretação da gasometria virou diagnóstico importante e aceita também a leitura de distúrbio misto (com pCO2 33 e HCO3 22, o pH esperado numa alcalose respiratória pura passaria de 7,40; ponto para revisão médica, sem fonte nova). O2 e salbutamol repetido viraram condutas críticas para agora; corticoide sistêmico e internação, importantes para agora; as justificativas dos itens c e d foram para outOfScope. | Discursiva sem dados sob demanda. O item b aceita, além das três medidas principais, adrenalina SC, aminofilina EV, salbutamol EV, expansão com cristaloide EV, nebulização com brometo de ipratrópio, corticoide inalatório em dose alta, sulfato de magnésio EV e internação: registradas em sources, não exigidas como obrigatórias. O padrão não traz doses. | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas."
+  },
+  "probes": {
+    "mustFlag": [
+      "IOT agora pela SatO2 de 90%",
+      "Intubação orotraqueal e ventilação mecânica"
+    ],
+    "mustNotFlag": [
+      "Não há indicação de intubação no momento",
+      "IOT se evoluir com fadiga ou rebaixamento",
+      "Preparar material de intubação e manter O2 e salbutamol"
+    ]
+  }
+}

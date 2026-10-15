@@ -205,17 +205,107 @@ curl -X POST http://localhost:3000/v1/audit/verify-chain \
   -H "x-internal-token: $INTERNAL_SERVICE_TOKEN"
 ```
 
+Sem a API (só leitura), apontando direto para um banco — por exemplo um
+backup restaurado:
+
+```bash
+DATABASE_URL=postgresql://... pnpm verify:audit-chain   # sai com 2 se a cadeia está rompida
+```
+
 Resposta esperada (cadeia íntegra):
 ```json
-{ "valid": true, "count": 1234 }
+{ "valid": true, "count": 1234,
+  "legacy": { "verified": 1180, "unverifiable": 0, "unverifiableSample": [] } }
 ```
 
-Resposta em caso de corrupção:
+Resposta em caso de cadeia rompida:
 ```json
-{ "valid": false, "count": 45, "brokenAt": "<uuid>", "message": "afterHash mismatch at record ..." }
+{ "valid": false, "count": 45, "brokenAt": "<uuid>", "message": "afterHash mismatch at record ...",
+  "legacy": { "verified": 44, "unverifiable": 0, "unverifiableSample": [] } }
 ```
 
-O cron `AuditChainCronService` executa isso automaticamente às 02:00 UTC e loga `ERROR` em caso de falha.
+O cron `AuditChainCronService` faz o mesmo às 02:00 UTC:
+
+- **cadeia rompida:** loga `ERROR` `AUDIT CHAIN INTEGRITY FAILURE` e manda
+  alerta ao Sentry (com o id e a contagem, nada do payload);
+- **cadeia íntegra:** loga `Audit chain verification PASSED — N records
+  verified (legacy: X verified, Y unverifiable)`, sem alarme.
+
+O alarme só dispara com `valid: false`. Antes de 12/10/2026 ele disparava em
+todo registro com payload de 2+ chaves — falso alarme, não adulteração
+(ADR-015).
+
+#### Como ler o resultado (ADR-015)
+
+- **`hash_version` = 2** — registros a partir do deploy da ADR-015. O hash é
+  sobre o JSON canônico e o verificador o refaz byte a byte. Qualquer
+  diferença é falha.
+- **`hash_version` NULL (legado)** — registros anteriores. O hash usava a
+  ordem de inserção das chaves, que o jsonb não guarda, e o Prisma alterou
+  parte dos números não inteiros ao gravar. O verificador reconstrói o texto
+  original testando as ordens de chave e os doubles vizinhos. Conferidos
+  contam em `legacy.verified`.
+- **"Legado não verificável"** — `legacy.unverifiable`, com até 20 ids em
+  `unverifiableSample`. É um registro legado cujo hash não dá para refazer a
+  partir do banco. Não é alarme nem prova de adulteração, e o elo dele com o
+  registro seguinte continua conferido. Motivos:
+
+  | `reason` | Significa |
+  |---|---|
+  | `key-order-search-limit` | Ordem de chaves perdida no jsonb: o payload tem tantas chaves que as ordens possíveis passam de 40.320 (8!). Nenhum payload gravado pela aplicação até 12/10/2026 chega a isso. |
+  | `rewritten-number` | Nenhuma ordem bate e o payload tem número não inteiro (ex.: `cost`). O Prisma o gravou mais longe do original do que os 4 ULPs testados. |
+
+- **O total de não verificáveis fica congelado.** Desde a ADR-015 só se grava
+  `hash_version` = 2, e um legado depois do primeiro canônico já é falha.
+  Anote `legacy.unverifiable` na primeira verificação depois do deploy. Se o
+  número crescer, trate como falha: é sinal de `hash_version` rebaixada num
+  registro novo.
+
+#### Mensagens de falha
+
+| `message` | Significa | O que olhar |
+|---|---|---|
+| `afterHash mismatch at record X` | O registro canônico não tem o conteúdo que foi hasheado. | Adulteração: ver "Logs de nível ERROR" abaixo. |
+| `afterHash mismatch at record X (legacy hash)` | Registro legado: nenhuma ordem de chaves reproduz o hash, e o payload não tem número não inteiro. | Adulteração — **ou** registro gravado antes do #14 (06/06/2026), quando o hash usava um timestamp diferente do `created_at`. Confira o `created_at` do registro. |
+| `beforeHash mismatch at record X — chain link severed` | O elo com o registro anterior está rompido. | Registro removido ou inserido no meio, `after_hash` do anterior trocado, ou cadeia bifurcada por escrita concorrente antes do lock do #14. |
+| `legacy hash after the canonical chain started at record X` | Registro sem versão depois do primeiro canônico. | `hash_version` rebaixada, ou gravação fora do `AuditService` (por exemplo, script). |
+| `unknown hash_version N at record X` | Versão que o código não conhece. | `hash_version` alterada, ou API antiga (rollback) verificando registros de versão mais nova. |
+
+Para investigar, o registro e os vizinhos na cadeia (só leitura):
+
+```sql
+SELECT id, created_at, action, hash_version, before_hash, after_hash, payload::text
+FROM audit_log
+WHERE created_at BETWEEN (SELECT created_at FROM audit_log WHERE id = '<brokenAt>') - interval '1 minute'
+                     AND (SELECT created_at FROM audit_log WHERE id = '<brokenAt>') + interval '1 minute'
+ORDER BY created_at, id;
+```
+
+#### Deploy da ADR-015 (hash canônico)
+
+1. **Antes, num backup — nunca no banco de produção.** Restaure o dump mais
+   recente num PostgreSQL local, aplique as migrations e rode o verificador
+   novo:
+
+   ```bash
+   docker run -d --name audit-check -e POSTGRES_PASSWORD=check -p 127.0.0.1:55499:5432 pgvector/pgvector:pg16
+   psql postgresql://postgres:check@localhost:55499/postgres -c 'CREATE DATABASE copiloto_clinico'
+   psql postgresql://postgres:check@localhost:55499/copiloto_clinico < backup.sql   # erros de GRANT a roles inexistentes podem ser ignorados
+   DATABASE_URL=postgresql://postgres:check@localhost:55499/copiloto_clinico pnpm prisma migrate deploy
+   DATABASE_URL=postgresql://postgres:check@localhost:55499/copiloto_clinico pnpm verify:audit-chain
+   ```
+
+   Espera-se `valid: true`. Se vier `false`, leia a tabela de mensagens acima
+   antes do deploy, porque o alarme continuaria disparando. Anote
+   `legacy.unverifiable`.
+2. **Deploy:** a migration `20261012180000_aud_007_audit_log_hash_version`
+   antes da API, como em "Aplicar migrations em produção".
+3. **Depois:** `POST /v1/audit/verify-chain` deve dar `valid: true`, com
+   `legacy.unverifiable` igual ao do backup. Na manhã seguinte, o log das
+   02:00 deve ter `Audit chain verification PASSED`.
+4. **Rollback do código:** a API antiga não conhece `hash_version` e volta a
+   acusar falha, agora já no primeiro registro canônico. Os dados ficam
+   corretos e voltar à versão nova resolve. A coluna pode ficar.
 
 ### Conferir a retenção de áudio (LGPD)
 
@@ -275,7 +365,7 @@ docker compose --env-file .env.production -f docker-compose.prod.yml up -d --no-
 deve continuar usando `DATABASE_URL` com o usuário LOGIN membro de
 `copiloto_app`, sem privilégios de DDL e sem `DELETE`/`TRUNCATE` em `audit_log`.
 
-⚠️ **ATENÇÃO — audit_log:** Qualquer migration que altere a tabela `audit_log` (ex: adicionar coluna) precisa de revisão manual. O trigger `audit_log_no_update_delete` bloqueia `UPDATE`/`DELETE` mas **não bloqueia DDL**. Verificar que a migration não remove dados existentes.
+⚠️ **ATENÇÃO — audit_log:** Qualquer migration que altere a tabela `audit_log` (ex: adicionar coluna) precisa de revisão manual. O trigger `audit_log_no_update_delete` bloqueia `UPDATE`/`DELETE` mas **não bloqueia DDL**. Verificar que a migration não remove dados existentes. Desde a ADR-015 o `audit_log` é gravado por SQL em `AuditService.writeAuditLogEntry`, não pelo Prisma Client: coluna nova precisa entrar nesse `INSERT`.
 
 ### Rodar testes de integração
 
@@ -301,6 +391,10 @@ KB001_INTEGRATION=1 DATABASE_URL=postgresql://test:test@localhost:5432/test?sche
 
 O teste de integração do KB-001 roda automaticamente no CI e fica `skip` em ambiente
 local até que `KB001_INTEGRATION=1` seja informado junto de um PostgreSQL de teste ativo.
+
+Esses dois testes conferem o pacote e o retrieval, não a resposta do modelo. Para medir
+a resposta — e para o portão de release de qualquer mudança clínica — use o gabarito
+clínico (`pnpm eval:clinical`, ver [docs/evals/gabarito-clinico.md](evals/gabarito-clinico.md)).
 
 ### Publicar os pacotes KB-005 (dengue) e KB-006 (cefaleias) em produção
 
@@ -566,10 +660,12 @@ pnpm sync:official-guidelines --only asma             # um documento
 pnpm sync:official-guidelines --kind pcdt --limit 10  # um lote
 ```
 
-Exige `AI_PROVIDER`/`EMBEDDING_PROVIDER` reais: cada documento novo é
-classificado pela LLM (agudo/crônico, população, especialidade, cenários do
-piloto) e cada chunk recebe embedding. Se a LLM falhar, a classificação cai
-para uma heurística conservadora e o documento entra mesmo assim.
+Exige `AI_PROVIDER` real: cada documento novo é classificado pela LLM
+(agudo/crônico, população, especialidade, cenários do piloto). Se a LLM falhar,
+a classificação cai para uma heurística conservadora e o documento entra mesmo
+assim. Cada chunk recebe embedding quando há provedor; com
+`EMBEDDING_PROVIDER=none` (ou o provedor fora do ar), entra sem vetor e só a
+busca textual o encontra — ver "Rodar sem embeddings".
 
 A mudança é detectada pelo **SHA-256 do PDF** — a Conitec altera anexos sem
 publicar portaria nova. Versão nova substitui a anterior numa transação só; os
@@ -678,6 +774,46 @@ novo passa `temperature` ao gateway e deixa o provider decidir — nunca monta a
 requisição à mão. Pelo mesmo motivo, `budget_tokens` e `thinking: disabled`
 não existem no gateway: o Opus 5.5 recusa os dois; a profundidade é `AI_EFFORT`.
 
+#### Um provedor por etapa (perfis)
+
+Além do `AI_PROVIDER`, o gateway fala com os provedores listados em
+`AI_PROVIDER_PROFILES`. Cada etapa escolhe o seu pela referência do modelo,
+`perfil:modelo`; sem prefixo de perfil, a referência é um modelo do
+`AI_PROVIDER`. Exemplo com a Groq na leitura do caso e o Opus na decisão:
+
+```bash
+# docker/.env.production
+AI_PROVIDER=anthropic
+AI_MODEL=claude-opus-5-5
+AI_PROVIDER_PROFILES=groq
+AI_PROVIDER_GROQ_KIND=openai
+AI_PROVIDER_GROQ_API_KEY=...
+AI_PROVIDER_GROQ_BASE_URL=https://api.groq.com/openai/v1
+AI_PROVIDER_GROQ_STRUCTURED_OUTPUT=json_schema
+AI_INTAKE_MODEL=groq:openai/gpt-oss-120b
+```
+
+| Variável do perfil `<NOME>` | Valores | Padrão |
+|---|---|---|
+| `AI_PROVIDER_<NOME>_KIND` | `anthropic`, `openai` | obrigatória |
+| `AI_PROVIDER_<NOME>_API_KEY` | chave do host | obrigatória |
+| `AI_PROVIDER_<NOME>_BASE_URL` | URL com a versão (`.../v1`) | API oficial do tipo |
+| `AI_PROVIDER_<NOME>_STRUCTURED_OUTPUT` | `json_schema`, `json_object`, `off` | `off` |
+| `AI_PROVIDER_<NOME>_MAX_TOKENS_PARAM` | `max_completion_tokens`, `max_tokens` | `max_completion_tokens` |
+| `AI_PROVIDER_<NOME>_EXTRA_BODY` | objeto JSON somado ao corpo | — |
+
+Perfil listado sem `KIND` ou `API_KEY` derruba a API na subida, de propósito:
+a análise iria para o lugar errado. O gpt-oss é tratado como modelo de
+raciocínio (`reasoning_effort` vem do esforço da etapa, até `high`), e um
+bloco `<think>` no começo da resposta é descartado. Nos provedores compatíveis
+com a OpenAI, `AI_REQUEST_TIMEOUT_MS` (padrão 180 s), `AI_STREAM_IDLE_TIMEOUT_MS`
+(60 s) e `AI_REQUEST_MAX_RETRIES` (2, em 429, 5xx e falha de rede) evitam que um
+host travado segure a análise. O log de erro do host traz só tipo, código e o
+começo da mensagem (`AI_PROVIDER_ERROR`), nunca o corpo inteiro, que pode
+repetir o caso. A pesquisa web continua só na Anthropic: aponte
+`AI_RESEARCH_MODEL` para um modelo Claude (com perfil, se o `AI_PROVIDER` não
+for a Anthropic).
+
 O raciocínio conta para o teto de saída (`AI_MAX_OUTPUT_TOKENS`, padrão 16000).
 Rollback sem redeploy: `AI_STRUCTURED_OUTPUT=false` desliga o JSON Schema em
 todos os providers; `AI_REFUSAL_FALLBACK=off` desliga o fallback (obrigatório
@@ -692,6 +828,35 @@ Logs para acompanhar depois da troca:
 | `AI_OUTPUT_TRUNCATED` | Saída bateu no teto (`AiTruncatedError`) | Subir `AI_MAX_OUTPUT_TOKENS` ou baixar `AI_EFFORT` |
 | `AI_REFUSAL category=...` | Classificador de segurança recusou (`AiRefusalError`) | Ver o caso; categoria `bio`/`cyber` em caso clínico legítimo é falso positivo |
 | `AI_REFUSAL_FALLBACK servedBy=...` | Outro modelo respondeu no lugar | Esperado e raro; o custo usa o modelo que serviu |
+| `AI_PROVIDER_RETRY operation=... status=...` | Host compatível com OpenAI respondeu 429/5xx, estourou o prazo ou caiu a rede; nova tentativa | Esporádico: esperado. Contínuo: limite do plano no host ou instabilidade |
+| `AI_PROVIDER_ERROR operation=... status=...` | Falha definitiva do host compatível com OpenAI | 400: parâmetro ou schema rejeitado pelo modelo; 401: chave do perfil |
+
+#### Pesquisa web (`COPILOT_KNOWLEDGE_SOURCE=web`)
+
+A pesquisa usa as ferramentas de servidor da Anthropic nas versões básicas
+(`web_search_20250305` e `web_fetch_20250910`), restritas à lista de domínios.
+A versão `_20260209` (filtragem dinâmica) foi descartada: medida em 11/10/2026,
+devolveu os mesmos resultados e nenhuma citação, e sem citação não há evidência.
+Antes de ligar:
+
+- web search precisa estar habilitado para a organização no Claude Console
+  (senão a API responde 400 e toda pesquisa cai no fallback);
+- se a organização restringe domínios no Console, a lista da pesquisa precisa
+  ser subconjunto dela (entrada fora dela = 400);
+- a pesquisa só recebe o
+  entendimento do caso (síndrome, hipóteses, dados que faltam) — nunca o texto
+  do caso nem dado do paciente;
+- custo: tokens do modelo de pesquisa + US$ 0,01 por busca, somados ao custo
+  da análise.
+
+| Log | Significado | Ação |
+|---|---|---|
+| `WEB_RESEARCH model=... searches=... items=...` | Pesquisa entregou evidência | — |
+| `WEB_RESEARCH_FALLBACK` | Erro, recusa, provider sem suporte ou nenhuma citação de fonte permitida; a decisão seguiu só com o modelo | Raro: esperado. Frequente: ver o motivo no log e `params.research` da interação |
+| `WEB_RESEARCH_PROVIDER_ERROR` (ERROR, Sentry) | Falha de rede ou da API na pesquisa | 4xx: conferir Console (web search habilitado, domínios); 5xx: status.anthropic.com |
+| `WEB_RESEARCH_DOMAINS_REJECTED` | Entrada inválida, repetida ou acima de 64 em `WEB_RESEARCH_ALLOWED_DOMAINS` | Corrigir a lista (hostname puro, sem `https://` nem `*`) |
+| `WEB_RESEARCH_CITATION_OUTSIDE_ALLOWLIST` | Citação de domínio fora da lista, descartada | Investigar se repetir |
+| `DECISION_V2_CITATION_DEMOTED` | Conduta "source" sem id citável, mostrada como conhecimento do modelo | Acompanhar no gabarito |
 
 O custo gravado em `ai_interactions.cost` considera leitura e escrita de cache
 e, desde a Fase 0-B, também as análises em stream (antes gravavam 0).
@@ -774,7 +939,8 @@ apenas na resposta. Acesso a um protocolo de outra instituição retorna `404`
 | `20260924120000_adr_010_official_guideline_documents` | Status `official_unreviewed`, tabela `official_guideline_documents` (uma linha por versão) e `document_id` em `guideline_chunks` (ADR-010) |
 | `20260924180000_f9_guideline_chunks_text_tsv_generated` | `guideline_chunks.text_tsv` vira coluna gerada + índice GIN — liga a busca lexical (ver "Busca lexical (`text_tsv`) — F9") |
 | `20260924220000_ivfflat_probes_exact` | `ivfflat.probes = 100` no banco: busca vetorial exata (incidente de 24/09/2026) |
-| `20261010150000_audio_capture_retention` | `audio_captures.encrypted_content` anulável + CHECK `deleted` ⇔ sem áudio (retenção de 30 dias). Só metadado de coluna e CHECK: a versão anterior da API roda sobre o schema novo |
+| `20261012180000_aud_007_audit_log_hash_version` | `audit_log.hash_version` (NULL = hash legado, 2 = JSON canônico) — ADR-015; só adiciona coluna nula |
+| `20261014200100_audio_capture_retention` | `audio_captures.encrypted_content` anulável + CHECK `deleted` ⇔ sem áudio (retenção de 30 dias). Só metadado de coluna e CHECK: a versão anterior da API roda sobre o schema novo |
 
 ### Rollback de Migration
 
@@ -796,16 +962,48 @@ Prisma não suporta rollback automático. Para reverter:
 | `DATABASE_URL` | Sistema completamente indisponível ou rodando com privilégios excessivos |
 | `MIGRATION_DATABASE_URL` | Migrations indisponíveis ou executadas com usuário incorreto |
 | `OFFICIAL_GUIDELINES_ENABLED` | `false` tira PCDT/DDT/DB/PU do retrieval (válvula de escape da ADR-010); ausente = ligada. Os limiares `OFFICIAL_*` estão em `.env.example` |
+| `UNREVIEWED_SOURCES_PRELIMINARY` | `false` desliga a contenção da ADR-012: PCDT e chunk curado sem assinatura voltam a embasar conduta definitiva. Ausente ou irreconhecível = ligada |
+| `COPILOT_REASONING` | `stages` liga o raciocínio em etapas da ADR-013 (entendimento do caso antes da busca, busca dirigida, card "O que eu entendi"); `legacy` (padrão) volta ao pipeline de sempre. Ausente ou irreconhecível = `legacy`. Etapa 1 com `AI_UNDERSTANDING_MODEL` (vazio = `AI_MODEL`) e `AI_UNDERSTANDING_EFFORT` (padrão `low`). Falha da Etapa 1 aparece como `UNDERSTANDING_FAILED`/`UNDERSTANDING_FALLBACK` no log e a análise segue pela busca de sempre |
+| `COPILOT_DECISION_PROMPT` | `v2` liga a decisão em duas camadas da ADR-013 ("Fazer agora" × "Depende de…", perguntas que separam hipóteses, conhecimento geral do modelo rotulado e sem dose); `v1` (padrão) é o prompt de sempre. Exige `COPILOT_REASONING=stages`: sem ele fica `v1` e o log mostra `DECISION_PIPELINE_DOWNGRADE`. Regra da v2 que sobra depois do retry vira `OUTPUT_VALIDATION_WARNING`, nunca bloqueio |
+| `COPILOT_INTAKE` | `on` liga o Copiloto guiado da ADR-014: antes do plano, a leitura do caso decide se pergunta (no máximo 3 perguntas, uma por vez). `off` (padrão) vai direto ao plano. Ausente ou irreconhecível = `off`. Modelo da leitura em `AI_INTAKE_MODEL` (vazio = o da Etapa 1). No log: `INTAKE_READING` (tempo e perguntas), `INTAKE_STARTED` (caminho: `ask`, `unstable`, `complete`, `reading_failed`, `disabled`), `INTAKE_CLOSED` (motivo) e `INTAKE_READING_TIMEOUT` (leitura passou de 20 s e o caso seguiu direto ao plano). Exige a migration `20261012120000_adr_014_case_intakes` |
+| `AI_DECISION_MODEL` / `AI_DECISION_CRITICAL_MODEL` | ADR-016: modelo da decisão no caso comum e no caso grave (instável ou tempo-crítico pela Etapa 1, ou sem entendimento). Vazios = `AI_MODEL` nas duas rotas. Crítico vazio = o comum nas duas. Aceitam `perfil:modelo`. No log: `DECISION_MODEL route=critical\|standard model=...`; a interação grava `params.decisionRoute` |
+| `COPILOT_KNOWLEDGE_SOURCE` | `internal_kb` (padrão) é a busca de sempre (embedding na OpenAI); `model_only` não busca nada; `web` pesquisa em fontes oficiais (`AI_RESEARCH_MODEL`, padrão `claude-sonnet-5-5`; `AI_RESEARCH_EFFORT`, padrão `low`; `WEB_RESEARCH_MAX_SEARCHES`, padrão 5; `WEB_RESEARCH_ALLOWED_DOMAINS`, vazio = 32 fontes padrão). `model_only` e `web` nunca chamam o provedor de embedding. `web` exige `stages` e `COPILOT_DECISION_PROMPT=v2` (sem eles vira `model_only`, com `DECISION_PIPELINE_DOWNGRADE` no log) e Anthropic como `AI_PROVIDER`; pesquisa que falha aparece como `WEB_RESEARCH_FALLBACK` e a análise segue só com o conhecimento do modelo |
 
 ---
 
 ## Monitoramento
 
+### Rastro das chamadas de IA (`ai_calls`)
+
+Cada chamada ao modelo grava uma linha em `ai_calls` e uma linha `AI_CALL` no
+log: etapa (`intake_reading`, `understanding`, `decision`, `research`,
+`verify_attach`, `guideline_classification`), perfil, provedor, modelo pedido
+e servido, esforço, hash do system prompt (a versão do prompt), tokens, custo,
+latência e desfecho (`ok`, `refusal`, `truncated`, `error`, `aborted`). Nenhum
+texto do caso, do prompt ou da resposta. A resposta HTTP devolve
+`x-request-id`; o mesmo id está em `ai_calls.request_id` e em
+`ai_interactions.request_id`. Falha ao gravar vira `AI_CALL_LOG_FAILED` (WARN)
+e nunca para a análise.
+
+```sql
+-- Custo, chamadas e latência por etapa e modelo nos últimos 7 dias
+SELECT stage, coalesce(served_model, requested_model) AS model, count(*) AS calls,
+       round(sum(cost_usd)::numeric, 4) AS usd,
+       percentile_cont(0.5) WITHIN GROUP (ORDER BY latency_ms) AS p50_ms,
+       count(*) FILTER (WHERE outcome <> 'ok') AS failures
+FROM ai_calls WHERE created_at > now() - interval '7 days'
+GROUP BY 1, 2 ORDER BY usd DESC NULLS LAST;
+
+-- Tudo o que uma requisição chamou (o médico ou o suporte citam o x-request-id)
+SELECT created_at, stage, served_model, outcome, latency_ms, cost_usd, left(prompt_sha256, 12)
+FROM ai_calls WHERE request_id = '<x-request-id>' ORDER BY created_at;
+```
+
 ### Logs de nível ERROR que exigem atenção imediata
 
 | Log | Causa | Ação |
 |---|---|---|
-| `AUDIT CHAIN INTEGRITY FAILURE` | Hash corrompido detectado | Isolar sistema, investigar registros suspeitos, acionar DPO |
+| `AUDIT CHAIN INTEGRITY FAILURE` (também alerta no Sentry) | Cadeia rompida: conteúdo, elo ou versão de hash que não confere (ADR-015). "Legado não verificável" **não** dispara isto. | Ler a mensagem na tabela "Mensagens de falha" (em "Verificar integridade da trilha de auditoria"). Se for adulteração: isolar o sistema, investigar os registros suspeitos e acionar o DPO |
 | `Audit chain verification failed with exception` | Erro ao verificar cadeia | Verificar conectividade com banco |
 | `AUDIO RETENTION PURGE INCOMPLETE` | Captura com `retain_until` vencido ainda guarda áudio | O log anterior (`Audio retention purge failed for capture <id>`) traz a causa; o job retenta na hora seguinte. Se persistir, acionar DPO: o prazo de 30 dias da LGPD.md está sendo descumprido |
 | `Audio retention purge failed with exception` | Erro ao listar capturas vencidas | Verificar conectividade com banco |
@@ -821,7 +1019,7 @@ Para uma auditoria regulatória do CFM, verificar:
 
 - [ ] `audit_log` tem registros para todos os atendimentos (`ENCOUNTER_CREATED`)
 - [ ] Todos os documentos confirmados têm `DOCUMENT_CONFIRMED` com `afterHash`
-- [ ] Cadeia de hash está íntegra (`POST /audit/verify-chain`)
+- [ ] Cadeia de hash está íntegra (`POST /audit/verify-chain` → `valid: true`), com `legacy.unverifiable` igual ao anotado no deploy da ADR-015
 - [ ] Trigger `audit_log_no_update_delete` está ativo no banco
 - [ ] Role runtime não consegue `TRUNCATE`/`DROP TABLE audit_log`
 - [ ] Logs de login existem para todos os acessos (`AUTH_LOGIN`)
@@ -835,3 +1033,22 @@ Para uma auditoria regulatória do CFM, verificar:
 | Engenharia | rodrigo.tozato@strivium.com.br |
 | DPO (LGPD) | rodrigo.tozato@strivium.com.br |
 | Provider de IA (DPA) | Ver `docs/compliance/DPA_PROVIDER.md` |
+
+## Rodar sem embeddings (`EMBEDDING_PROVIDER=none`)
+
+A Anthropic não tem API de embedding, e a conta da OpenAI ficou sem crédito em
+11/10/2026. Com `EMBEDDING_PROVIDER=none` no `docker/.env.production`, o
+serviço não faz nenhuma chamada de embedding:
+
+| Funcionalidade | Sem embeddings |
+| --- | --- |
+| Análise do Copiloto (`COPILOT_KNOWLEDGE_SOURCE=model_only`) | Não usa embedding; nada muda |
+| Análise com `internal_kb` | Segue sem trechos da base (cobertura `none`), sem alerta |
+| "Consultar diretrizes" | Busca por palavra-chave: todos os termos e, para o caso inteiro, qualquer termo, ordenado por quantos casam |
+| Sugerir diretriz, ingestão do curador, sincronização oficial | Trechos gravados sem vetor, só para a busca textual |
+
+Com o provedor ligado mas fora do ar (sem crédito, 429), o comportamento é o
+mesmo, com `GUIDELINE_EMBEDDING_UNAVAILABLE` ou `RETRIEVAL_EMBEDDING_UNAVAILABLE`
+no log e no Sentry. Para ligar de novo: `EMBEDDING_PROVIDER=openai` (ou outro
+provedor) e `up -d copiloto-api`; os trechos gravados sem vetor precisam de
+backfill de embedding para entrar na busca por significado.

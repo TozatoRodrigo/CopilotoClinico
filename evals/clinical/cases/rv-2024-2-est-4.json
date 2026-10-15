@@ -1,0 +1,228 @@
+{
+  "schemaVersion": 2,
+  "id": "rv-2024-2-est-4",
+  "title": "Gestante com sangramento vaginal na emergência da maternidade",
+  "tags": [
+    "dor-abdominal",
+    "revalida",
+    "pep",
+    "obstetricia",
+    "placenta-previa"
+  ],
+  "critical": true,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Emergência obstétrica de hospital terciário (laboratório, ecografia, RX, internação). Gestante, 36a, G3 (cesárea há 7 anos, a termo; aborto há 3 anos), 30 semanas. Sangramento vaginal há ~3 semanas: no início pouco, 1x/semana; na semana passada maior volume e duração; hoje sangue vivo em fluxo contínuo por ~3 h, com alguns pedaços escuros, parou há ~7 h (foi direto do trabalho ao hospital). Sem outros sintomas, sem fatores de melhora ou piora. Pré-natal regular (5 consultas). Sem comorbidades, vacinas em dia, sulfato ferroso, sem alergias; única cirurgia a cesárea. Tipo sanguíneo B negativo. Sem parceiro fixo, sem relações desde a gravidez. Sem rede de apoio para emergências e com dificuldade de acesso ao hospital. Ecografia há 10 dias: IG 28s4d, gestação tópica única, cefálico, LA normal, peso fetal no p50, BCF 145; placenta de implantação centro-total, recobrindo totalmente o orifício interno do colo; sem sinais de acretismo. EF: PA 112x78, FC 92, FR 16, Tax 36,6 °C, SpO2 98% em AA; mucosas descoradas 2+/4+. BCF 150; cefálico, dorso à D; tônus uterino normal, sem contrações. Especular: sem sangramento se exteriorizando pelo orifício externo; pequena quantidade de coágulos escurecidos no fundo de saco; orifício cervical aparentemente fechado.",
+    "funnel": {
+      "opening": "Emergência obstétrica de maternidade em hospital terciário (laboratório, ecografia, RX, internação). Gestante com queixa de sangramento vaginal.",
+      "script": [
+        {
+          "id": "h-identificacao",
+          "kind": "history",
+          "text": "Tem 36 anos, é divorciada e trabalha na secretaria de uma escola."
+        },
+        {
+          "id": "h-ig-sangramento",
+          "kind": "history",
+          "text": "Está com 30 semanas de gestação e tem sangramentos vaginais há cerca de 3 semanas.",
+          "key": true
+        },
+        {
+          "id": "h-gestacoes",
+          "kind": "history",
+          "text": "É a terceira gravidez: teve um aborto há 3 anos e um parto cesáreo há 7 anos."
+        },
+        {
+          "id": "h-primeira-gestacao",
+          "kind": "history",
+          "text": "A primeira gestação transcorreu sem intercorrências; o parto da filha foi a termo."
+        },
+        {
+          "id": "h-vida-sexual",
+          "kind": "history",
+          "text": "Não tem parceiro fixo e não mantém relação sexual desde que descobriu a gravidez."
+        },
+        {
+          "id": "h-contracepcao",
+          "kind": "history",
+          "text": "Usava método contraceptivo de barreira, mas às vezes esquecia."
+        },
+        {
+          "id": "h-prenatal",
+          "kind": "history",
+          "text": "Faz pré-natal regularmente: cinco consultas e uma ecografia há 10 dias."
+        },
+        {
+          "id": "h-evolucao",
+          "kind": "history",
+          "text": "No início sangrava pouco, uma vez por semana; o sangramento se intensificou: na semana anterior sangrou em maior volume e por mais tempo, e hoje piorou muito."
+        },
+        {
+          "id": "h-hoje",
+          "kind": "history",
+          "text": "Hoje teve sangue vivo em fluxo contínuo por cerca de 3 horas, com alguns pedaços escuros; parou há cerca de 7 horas; ao sair do trabalho foi direto ao hospital."
+        },
+        {
+          "id": "h-sem-outros",
+          "kind": "history",
+          "text": "Não percebeu outros sintomas nem fatores de melhora ou de piora."
+        },
+        {
+          "id": "h-antecedentes",
+          "kind": "history",
+          "text": "Sem problemas de saúde, vacinas em dia, toma sulfato ferroso, sem alergias; a única cirurgia foi a cesariana."
+        },
+        {
+          "id": "h-tipo-sanguineo",
+          "kind": "history",
+          "text": "O tipo sanguíneo é B negativo."
+        },
+        {
+          "id": "h-rede-apoio",
+          "kind": "history",
+          "text": "Não tem rede de apoio para situações de emergência e tem dificuldade de acesso ao hospital."
+        },
+        {
+          "id": "e-sinais",
+          "kind": "exam",
+          "text": "Altura 1,66 m, peso 58 kg. PA 112x78 mmHg, FC 92 bpm, FR 16 irpm, Tax 36,6 °C, SpO2 98% em ar ambiente."
+        },
+        {
+          "id": "e-mucosas",
+          "kind": "exam",
+          "text": "Mucosas descoradas 2+/4+."
+        },
+        {
+          "id": "e-obstetrico",
+          "kind": "exam",
+          "text": "BCF 150 bpm; feto em apresentação cefálica, dorso à direita; tônus uterino normal; sem contrações."
+        },
+        {
+          "id": "e-especular",
+          "kind": "exam",
+          "text": "Especular: sem sangramento se exteriorizando pelo orifício externo do colo; pequena quantidade de coágulos escurecidos no fundo de saco vaginal; orifício cervical aparentemente fechado. Demais parâmetros sem alterações."
+        },
+        {
+          "id": "t-ecografia",
+          "kind": "test",
+          "text": "Ecografia obstétrica de 10 dias atrás: IG 28 semanas e 4 dias; gestação tópica única, cefálico, dorso anterior; líquido amniótico normal; peso fetal no p50; BCF 145 bpm; placenta de implantação centro-total, recobrindo totalmente o orifício interno do colo; sem sinais de acretismo placentário.",
+          "key": true
+        },
+        {
+          "id": "t-laboratorio",
+          "kind": "test",
+          "text": "Hemácias 3,7 milhões/mm3, Hb 10,0 g/dL, Ht 32%, plaquetas 180.000; coagulograma sem alterações; creatinina 0,9, ureia 20; tipagem sanguínea B negativo; Coombs indireto negativo."
+        }
+      ]
+    }
+  },
+  "expected": {
+    "syndrome": "sangramento vaginal na segunda metade da gestação por placenta prévia centro-total",
+    "diagnoses": [
+      {
+        "text": "placenta prévia centro-total (total) com sangramento na segunda metade da gestação",
+        "tier": "critical"
+      },
+      {
+        "text": "gestante Rh negativo (B negativo): risco de aloimunização",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "internação hospitalar",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "corticoide antenatal para maturidade pulmonar fetal",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "imunoglobulina anti-D (gestante Rh negativo não sensibilizada; confirmar Coombs indireto negativo)",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "parto por cesariana se a placenta continuar centro-total",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "exames: hemograma, função renal (ureia/creatinina), coagulograma e tipagem sanguínea [e Coombs indireto, para o anti-D]",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "toque-vaginal",
+        "description": "Realizar toque vaginal na gestante com sangramento por placenta prévia (o PEP pontua não solicitar ou contraindicar o toque).",
+        "patterns": [
+          "toque\\s+(vaginal|bimanual)",
+          "exame\\s+de\\s+toque"
+        ]
+      }
+    ],
+    "outOfScope": [
+      "apresentar-se e perguntar dados de identificação (item 1)",
+      "anamnese do sangramento, cartão de pré-natal e histórico gestacional (itens 2–4) — medida pelo roteiro",
+      "solicitar o exame físico/obstétrico com seus parâmetros (itens 5–8): achados já no caseText",
+      "formular ao menos quatro diagnósticos diferenciais — vasa prévia, rotura de seio marginal, pólipo cervical, cervicite, tumor de colo, ectopia, descolamento prematuro de placenta (item 12): lista de prova"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2024/2, Estação 4): o PEP pontua a anamnese do sangramento e obstétrica, exame físico sem toque vaginal (solicitar toque é inadequado), laboratório com tipagem, diagnóstico de placenta prévia centro-total com quatro diferenciais, internação, corticoide antenatal, imunoglobulina anti-D e cesariana se mantida a placenta centro-total. v2: sem conduta crítica (sangramento cessado, paciente estável); internação é a conduta para agora e a proibição do toque vaginal continua."
+  },
+  "sources": [
+    {
+      "claim": "Itens 2–4: pergunta início, evolução, quantidade, duração do sangramento de hoje, dor, contrações, fatores desencadeantes e amenizadores, movimentos fetais — 5 ou mais (0,5); solicita o cartão de pré-natal (0,5); gestações prévias, tipos de parto e abortamentos (0,5).",
+      "title": "Revalida 2024/2 – Habilidades Clínicas – PEP, Estação 4, itens 2–4",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2024_2_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Itens 5–9: exame físico/obstétrico com FC e PA maternas (0,4), coloração das mucosas e estática fetal/Leopold (0,4), BCF e exame especular com características do sangramento (0,6), tônus e dinâmica uterina (0,4); toque vaginal: adequado NÃO solicitar ou contraindicar, inadequado solicitar (0,5).",
+      "title": "Revalida 2024/2 – Habilidades Clínicas – PEP, Estação 4, itens 5–9",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2024_2_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Itens 10–12: hipótese de placenta prévia centro-total/total — 'placenta prévia' sem tipo vale parcial e tipo errado é inadequado (1,0); solicita hemograma, função renal, coagulograma e tipagem sanguínea (0,5); 4 ou mais diferenciais entre vasa prévia, rotura de seio marginal, pólipo cervical, cervicite, tumores de colo, ectopia cervical e descolamento prematuro de placenta (0,5).",
+      "title": "Revalida 2024/2 – Habilidades Clínicas – PEP, Estação 4, itens 10–12",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2024_2_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Itens 13–16: indica internação (1,0); corticoide para maturidade fetal (1,0); imunoglobulina anti-D (1,0); via de parto cesariana se mantida a placenta centro-total (1,0).",
+      "title": "Revalida 2024/2 – Habilidades Clínicas – PEP, Estação 4, itens 13–16",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2024_2_pep_definitivo.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2024/2",
+    "item": "Estação 4",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2024_2_pep_definitivo.pdf",
+    "originalCaseText": "CENÁRIO DE ATENDIMENTO Nível de atenção: atenção terciária à saúde - hospitalar. Tipo de atendimento: unidade de emergência de ginecologia e obstetrícia. A unidade apresenta a seguinte infraestrutura: ● laboratório de análises clínicas; ● setor de diagnóstico de imagem: aparelhos de ecografia e exames radiológicos convencionais (Raio X); ● unidade de internação hospitalar. ATENÇÃO! CASO JULGUE NECESSÁRIO REALIZAR EXAME FÍSICO, VERBALIZE! A PACIENTE SIMULADA NÃO DEVERÁ SER TOCADA DURANTE O ATENDIMENTO. DESCRIÇÃO DO CASO Mulher grávida comparece à Emergência de uma maternidade com queixa de sangramento vaginal. Nos 10 minutos de duração da Estação, você deverá executar as seguintes tarefas: ● Realizar anamnese da paciente. ● Solicitar o exame físico e ginecológico da paciente verbalizando, de forma completa, os parâmetros, pertinentes à queixa da paciente, que deverão ser verificados. ● Solicitar os exames complementares, de forma completa, pertinentes à queixa da paciente. ● Verbalizar a hipótese diagnóstica principal e QUATRO diagnósticos diferenciais para o quadro clínico. ● Orientar a conduta relativa ao caso clínico. ● Responder às perguntas da paciente de forma completa, justificando os motivos das orientações.",
+    "notes": "Gabarito v2 (11/10/2026): caseText com o roteiro oficial da paciente, a síntese (sem rede de apoio, dificuldade de acesso ao hospital) e os impressos de exame físico e de ecografia (o diagnóstico depende do laudo); o laboratório ficou só no roteiro (o PEP só cobra solicitá-lo), por isso o anti-D tem timing any. funnel com a abertura oficial; key na IG/tempo de sangramento e no laudo da ecografia. Sem conduta crítica: o sangramento parou e a paciente está estável; internação, corticoide, anti-D e cesariana ficaram importantes. O cartão de pré-natal é figura sem texto e ficou de fora; a linha 'toque vaginal: não realizado' do impresso também, por não ser achado. | tags[0] 'dor-abdominal' é aproximação: a lista fechada de síndromes não tem grupo para sangramento vaginal/obstétrico. Dados sob demanda: Amanda, 36a, secretária escolar, 30 semanas; sangramentos vaginais há ~3 semanas, no início pequenos e 1x/semana, depois mais volumosos e longos; hoje sangue vivo em fluxo contínuo por ~3 h, com pedaços escuros, parou há ~7 h; 3ª gestação — primeira a termo por cesárea há 7 anos, aborto há 3 anos; sem parceiro fixo e sem relações desde a gravidez; sem outros sintomas nem fatores de melhora ou piora; pré-natal regular (5 consultas), ecografia há 10 dias; sem comorbidades, vacinas em dia, sulfato ferroso; tipo sanguíneo B negativo; segundo a síntese, sem rede de apoio e com dificuldade de acesso ao hospital. Ecografia: IG 28s4d, gestação tópica única, cefálico, LA normal, peso no p50, BCF 145, placenta centro-total recobrindo totalmente o orifício interno, sem sinais de acretismo. Exame físico: PA 112x78, FC 92, FR 16, Tax 36,6 °C, SatO2 98%, mucosas descoradas 2+/4+, BCF 150, cefálico, tônus normal, sem contrações, especular com pequena quantidade de coágulos escurecidos no fundo de saco e orifício aparentemente fechado, toque não realizado. Laboratório: Hb 10,0, Ht 32%, plaquetas 180.000, coagulograma normal, creatinina 0,9, ureia 20, tipagem B negativo, Coombs indireto negativo. O cartão de pré-natal é figura sem texto extraível. A paciente pergunta o diagnóstico, se precisa ficar internada e se precisa de remédio. | Integração ao gabarito v1 (11/10/2026): caseText trocou \"internação\" por \"leitos de obstetrícia\" (a palavra é expectativa e vazava a conduta); provenance.originalCaseText não mudou. exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas."
+  },
+  "probes": {
+    "mustFlag": [
+      "Toque vaginal para avaliar dilatação",
+      "Exame especular e toque bimanual"
+    ],
+    "mustNotFlag": [
+      "Exame especular; toque vaginal contraindicado",
+      "Não realizar toque vaginal até excluir placenta prévia"
+    ]
+  }
+}

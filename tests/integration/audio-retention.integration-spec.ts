@@ -2,7 +2,7 @@
  * Testes de integração — retenção das capturas de áudio (LGPD, minimização).
  *
  * Requisito: banco PostgreSQL acessível via DATABASE_URL com as migrations
- * aplicadas (inclui 20261010150000_audio_capture_retention).
+ * aplicadas (inclui 20261014200100_audio_capture_retention).
  *
  * Cobre o que os testes unitários não alcançam: o UPDATE condicional sob
  * execuções concorrentes de verdade (cada captura eliminada e auditada uma
@@ -126,7 +126,12 @@ describe('Retenção de capturas de áudio (integration)', () => {
     }
     expect(JSON.stringify(entries)).not.toContain(MASKED_TRANSCRIPT);
 
-    await expect(audit.verifyChain()).resolves.toEqual({ valid: true, count: 3 });
+    await expect(audit.verifyChain()).resolves.toEqual({
+      valid: true,
+      count: 3,
+      // Nenhuma linha legada: o escritor da transação é o canônico (ADR-015).
+      legacy: { verified: 0, unverifiable: 0, unverifiableSample: [] },
+    });
   });
 
   it('é idempotente: reexecutar não elimina nem audita de novo', async () => {
@@ -154,7 +159,11 @@ describe('Retenção de capturas de áudio (integration)', () => {
     const entries = await purgeEntries();
     expect(entries).toHaveLength(total);
     expect(new Set(entries.map((entry) => entry.entityId))).toEqual(new Set(ids));
-    await expect(audit.verifyChain()).resolves.toEqual({ valid: true, count: total });
+    await expect(audit.verifyChain()).resolves.toEqual({
+      valid: true,
+      count: total,
+      legacy: { verified: 0, unverifiable: 0, unverifiableSample: [] },
+    });
 
     const remaining = await prisma.audioCapture.count({
       where: { id: { in: ids }, encryptedContent: { not: null } },

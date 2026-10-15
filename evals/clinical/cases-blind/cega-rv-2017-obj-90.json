@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2017-obj-90",
+  "title": "Menino de 8 anos torporoso, hipotenso e com extremidades frias após 3 dias de febre e tosse",
+  "tags": [
+    "febre-hipotensao",
+    "revalida",
+    "prova-cega",
+    "objetiva",
+    "pediatria",
+    "sepse"
+  ],
+  "critical": true,
+  "goldSource": "revalida_objetiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Setor de emergência de hospital, trazido pelo Corpo de Bombeiros. Masc, 8a. Há 3 dias febre 39 °C e tosse produtiva com expectoração amarelada; piora importante do estado geral nas últimas 24 h, com redução do débito urinário. EF: torporoso, taquicárdico, taquidispneico, hipotenso, pulsos finos, extremidades frias e cianóticas, TEC 5 s. Leucócitos 24.000/mm³ (bastões 15%, segmentados 50%). Gasometria: alcalose respiratória. RX de tórax: condensação em todo o pulmão D."
+  },
+  "expected": {
+    "syndrome": "choque séptico pediátrico",
+    "diagnoses": [
+      {
+        "text": "choque séptico (hipotensão, má perfusão, oligúria, torpor) de foco pulmonar — pneumonia extensa à D",
+        "tier": "critical"
+      }
+    ],
+    "actions": [
+      {
+        "text": "acesso vascular imediato: intraósseo (gabarito) ou venoso periférico se obtido rapidamente — não esperar acesso central",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "expansão volêmica com bolus de cristaloide isotônico 20 mL/kg (SF 0,9% ou cristaloide balanceado), reavaliando após cada bolus [ref.: SSC pediátrica 2020: 10–20 mL/kg por bolus, até 40–60 mL/kg na 1ª hora, parando se houver sinais de sobrecarga]",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "antibioticoterapia EV de amplo espectro na 1ª hora",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "oxigenoterapia",
+        "tier": "important",
+        "timing": "now"
+      }
+    ],
+    "questions": [
+      "peso (o bolus é calculado em mL/kg)"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "solucao-glicosada-na-expansao",
+        "description": "Expansão volêmica com soro glicofisiológico (alternativas A e C): a SSC pediátrica 2020 indica cristaloide isotônico (balanceado ou SF 0,9%) nos bolus.",
+        "patterns": [
+          "(soro|solucao)\\s+glico-?fisiologic\\w*",
+          "glicofisiologic\\w*"
+        ],
+        "exceptWhen": [
+          "manutencao",
+          "(apos|depois\\s+d[aeo])\\s+(\\S+\\s+){0,3}(estabiliz\\w*|expansao|ressuscitacao)"
+        ]
+      }
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2017, objetiva 90): alternativa D — acesso intraósseo e SF 20 mL/kg. Choque séptico descompensado (hipotensão) pede acesso rápido (o intraósseo é rápido e eficaz, recomendado pelo PALS quando a veia periférica falha) e bolus de cristaloide isotônico com reavaliação. A SSC pediátrica 2020 sugere bolus de 10–20 mL/kg (até 40–60 mL/kg na 1ª hora, com UTI disponível), cristaloide balanceado em vez de SF (fraca) e antibiótico na 1ª hora."
+  },
+  "sources": [
+    {
+      "claim": "Gabarito definitivo (Versão 1): questão 90 = D — \"intraósseo; soro fisiológico a 20 mL/kg.\"",
+      "title": "Revalida 2017 – 001. Prova Objetiva, Versão 1 – Gabarito definitivo",
+      "publisher": "INEP",
+      "year": 2017,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf"
+    },
+    {
+      "claim": "Rec. 17: com UTI disponível, até 40–60 mL/kg em bolus de 10–20 mL/kg na 1ª hora, titulados por débito cardíaco e suspensos se sobrecarga; Rec. 19: sem UTI e com hipotensão, até 40 mL/kg; Rec. 21: cristaloide balanceado em vez de SF 0,9% (fraca); acesso intraósseo é rápido e eficaz e recomendado pelo PALS se a punção periférica falhar; Rec. 5: antimicrobiano na 1ª hora no choque séptico.",
+      "title": "Surviving Sepsis Campaign International Guidelines for the Management of Septic Shock and Sepsis-Associated Organ Dysfunction in Children",
+      "publisher": "Society of Critical Care Medicine / European Society of Intensive Care Medicine (Intensive Care Med)",
+      "year": 2020,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7095013/"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2017",
+    "item": "Objetiva questão 90",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf",
+    "originalCaseText": "Um menino com 8 anos de idade foi encaminhado ao setor de emergência de um hospital pelo Corpo de Bombeiros. À admissão, a mãe do menino relata que, há 3 dias, ele começou a ter febre de 39 ºC e tosse produtiva, com expectoração amarelada. Refere, ainda, que a criança apresentou piora significativa do estado geral nas últimas 24 horas, com redução do débito urinário. Ao exame físico, encontrava-se torporoso, taquicárdico, taquidispneico, hipotenso, com pulsos finos, extremidades frias e cianóticas e enchimento capilar de 5 segundos. Os exames e respectivos resultados são apresentados a seguir: hemograma: leucócitos = 24.000/mm3 (valor de referência: 4.000 a 10.000/mm3) bastões = 15%, segmentados = 50%. Gasometria: alcalose respiratória. Radiografia de tórax: condensação em todo pulmão direito. Nesse caso, nos primeiros 10 minutos, além de iniciar oxigenioterapia e antibioticoterapia, a conduta em relação ao acesso e à expansão volumétrica deve ser (A) venoso central; soro glicofisiológico a 40 mL/kg. (B) venoso central; soro fisiológico a 40 mL/kg. (C) intraósseo; soro glicofisiológico a 20 mL/kg. (D) intraósseo; soro fisiológico a 20 mL/kg.",
+    "notes": "Prova cega (11/10/2026): objetiva 2017, gabarito D conferido na imagem do gabarito definitivo. Possível desatualização (candidates.tsv) conferida na SSC pediátrica 2020: o bolus de 20 mL/kg segue dentro da recomendação; a SSC sugere cristaloide balanceado em vez de SF (fraca), e o item aceita os dois; o intraósseo segue válido como acesso rápido, e o item aceita o periférico se obtido logo. Sem excludeFromGate. O antibiótico e o O2, já citados no comando da questão, viraram importantes (não críticos), porque a alternativa trata só de acesso e volume. Proibida: soro glicofisiológico na expansão (A e C)."
+  },
+  "probes": {
+    "mustFlag": [
+      "Soro glicofisiológico 20 mL/kg em bolus",
+      "Acesso central e soro glicofisiológico 40 mL/kg"
+    ],
+    "mustNotFlag": [
+      "SF 0,9% 20 mL/kg em bolus pelo intraósseo",
+      "Não usar soro glicofisiológico na expansão",
+      "Soro glicofisiológico apenas na manutenção após estabilização"
+    ]
+  }
+}

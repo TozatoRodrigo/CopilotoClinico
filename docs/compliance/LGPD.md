@@ -66,7 +66,7 @@ Gravadas por `POST /encounters/:encounterId/audio` para transcrição (Whisper).
     continua resolvível e dá para provar por consulta que nenhum áudio passou do
     prazo;
   - a lápide sai junto com o atendimento (`ON DELETE CASCADE`) no direito de
-    eliminação (`DELETE /lgpd/erasure`).
+    eliminação (`POST /lgpd/erasure`).
 - **Garantias**:
   - CHECK no banco (`audio_captures_content_matches_status`):
     `status = 'deleted'` ⇔ `encrypted_content IS NULL`. Nenhuma captura

@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 2,
+  "id": "kb001-pc-001",
+  "title": "Suspeita de pneumonia sem SpO2, FR ou estado mental",
+  "tags": [
+    "infeccao-respiratoria",
+    "pneumonia",
+    "kb-001"
+  ],
+  "critical": false,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "H 70a, tosse produtiva e febre há 4 d, crepitação em base D."
+  },
+  "expected": {
+    "syndrome": "pneumonia adquirida na comunidade — gravidade a estratificar",
+    "diagnoses": [
+      {
+        "text": "sepse de foco pulmonar",
+        "tier": "important"
+      }
+    ],
+    "actions": [],
+    "questions": [
+      "SpO2",
+      "frequência respiratória",
+      "estado mental (confusão)",
+      "pressão arterial",
+      "comorbidades / uso recente de antibiótico"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "Os dados ausentes são os do CRB-65 (confusão, FR, PA; a idade está no texto) e a SpO2, critério de internação da SBPT 2018 (< 92%). Comorbidades e antibiótico recente definem o esquema ambulatorial (ATS/IDSA 2019). Confirmação radiológica e teste de influenza/COVID-19 quando circulam são desejáveis, não exigidos."
+  },
+  "sources": [
+    {
+      "claim": "O CURB-65 inclui ureia > 50 mg/dL e idade ≥ 65; o CRB-65 dispensa a ureia. SpO2 < 92% indica internação.",
+      "title": "Recomendações para o manejo da pneumonia adquirida na comunidade 2018",
+      "publisher": "SBPT (J Bras Pneumol 2018;44:405-423)",
+      "year": 2018,
+      "url": "https://jornaldepneumologia.com.br/details/2853/en-US"
+    },
+    {
+      "claim": "PSI preferido ao CURB-65. O esquema ambulatorial depende de comorbidades. Testar influenza em toda PAC quando o vírus circula.",
+      "title": "Community-Acquired Pneumonia: Updated Recommendations from the ATS and IDSA (resumo AFP da diretriz 2019)",
+      "publisher": "AAFP / ATS-IDSA",
+      "year": 2020,
+      "url": "https://www.aafp.org/pubs/afp/issues/2020/0715/p121.html"
+    }
+  ],
+  "provenance": {
+    "originalCaseText": "Suspeita de pneumonia sem saturação, FR ou estado mental informados.",
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: texto reescrito como nota de beira de leito (o original anunciava SpO2, FR e estado mental como ausentes), já com a idade (70 anos), que a auditoria pedia. Rationale corrigido (o CURB-65 não inclui SpO2) e comorbidades/antibiótico recente acrescentados ao mustRequest. Radiografia e influenza/COVID-19 ficaram no rationale (opcionais)."
+  }
+}

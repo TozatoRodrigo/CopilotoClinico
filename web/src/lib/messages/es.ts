@@ -19,6 +19,12 @@
  */
 import type { Messages } from './pt-BR';
 
+const ES_NUMBER = new Intl.NumberFormat('es');
+
+function formatNumberEs(value: number): string {
+  return ES_NUMBER.format(value);
+}
+
 export const es: Messages = {
   common: {
     actions: {
@@ -39,11 +45,15 @@ export const es: Messages = {
       // "2 definitivas · 1 preliminar"
       preliminarySummary: (definitive: number, preliminary: number) =>
         `${definitive} definitiva${definitive === 1 ? '' : 's'} · ${preliminary} preliminar${preliminary === 1 ? '' : 'es'}`,
+      // "2 para ahora · 1 depende de un dato"
+      layersSummary: (now: number, depends: number) =>
+        `${now} para ahora · ${depends} depende${depends === 1 ? '' : 'n'} de un dato`,
     },
 
     questions: {
       heading: 'Para orientar con seguridad, necesito:',
       whyAsk: '¿Por qué esta pregunta?',
+      separates: (hypotheses: string[]) => `Separa: ${hypotheses.join(' × ')}`,
       boolean: {
         yes: 'Sí',
         no: 'No',
@@ -120,12 +130,48 @@ export const es: Messages = {
     },
     categoryBracket: (label: string) => `[${label}]`,
     preliminary: 'Preliminar — responda las preguntas anteriores',
-    confidence: (value: number) => `${Math.round(value * 100)}%`,
-    confidenceTooltipTitle: 'Cómo calculamos la confianza',
-    confidenceTooltipBody:
-      'Combina la cobertura de la evidencia recuperada (cuántos fragmentos relevantes aportó la guía) con la coherencia interna del análisis (consistencia entre el razonamiento, las recomendaciones y las citas).',
-    confidenceTooltipDisclaimer:
-      'No es una garantía clínica ni una probabilidad de acierto. La decisión final es suya.',
+    preliminaryBadge: 'Preliminar',
+    preliminaryReason: {
+      unreviewed_source: 'Fuente no revisada por un médico',
+      subtype_ambiguity: 'Subtipo indefinido — depende del dato que lo discrimina',
+      depends_on_data: 'Depende de un dato aún no disponible',
+      unverified_dose: 'Dosis sin fuente citada — confirme en el protocolo local',
+      source_conflict: 'La fuente oficial diverge — verifique antes de continuar',
+    },
+    layers: {
+      now: { label: 'Hacer ahora', hint: 'seguro en todas las hipótesis abiertas' },
+      depends: { label: 'Depende del resultado', hint: 'solo vale si la condición se confirma' },
+    },
+    dependsOn: (data: string) => `Depende de: ${data}`,
+    ifCondition: (condition: string) => `Si ${condition}`,
+    dependsOnMissing: 'Depende de un dato aún no informado',
+    why: 'Por qué',
+    openSourcePage: 'Abrir la página de la fuente',
+  },
+
+  plan: {
+    mostLikely: 'Más probable',
+    noHypothesis: 'Evaluación clínica en curso',
+    cannotMiss: 'No se puede pasar por alto:',
+    pendingTitle: 'Falta saber',
+    pendingHint: 'Responder actualiza el plan (cerca de 1 minuto).',
+    modelKnowledgeNote:
+      'Conductas del conocimiento general del modelo, sin fuente revisada. Confirme las dosis en el protocolo local.',
+    consultGuidelines: 'Consultar guías',
+    reasoning: 'Ver razonamiento',
+    reasoningWhy: 'Por qué el copiloto llegó a este plan',
+    noRecommendations:
+      'Ninguna conducta sugerida en esta ronda — responda lo que falta saber o consulte las guías.',
+  },
+
+  sourceOrigin: {
+    institutional: 'Protocolo institucional',
+    public: 'Guía pública',
+    physician_attachment: 'Adjunto del médico · no curado',
+    official_unreviewed: 'Ministerio de Salud · no revisado por el equipo',
+    curated_unsigned: 'Base curada · sin firma médica',
+    model_knowledge: 'Conocimiento general del modelo — confirme en el protocolo local',
+    web_official: 'Fuente oficial externa',
   },
 
   redFlags: {
@@ -162,6 +208,65 @@ export const es: Messages = {
       placeholder:
         'Agregue lo que ayude a aclarar el cuadro — tiempo de evolución, signos vitales, exámenes ya realizados...',
       submit: 'Reanalizar con el complemento',
+      submitting: 'Reanalizando...',
+      cancel: 'Cancelar',
+    },
+  },
+
+  // F1 — el contenido del entendimiento (hipótesis, hallazgos) llega en
+  // portugués: el prompt de la Etapa 1 pide pt-BR. Solo la interfaz se traduce.
+  understanding: {
+    heading: 'Lo que entendí',
+    description: 'Revíselo antes del plan. Si algo está mal, corríjalo y el copiloto reanaliza.',
+    syndrome: 'Síndrome',
+    syndromes: {
+      'agitacao-psicomotora': 'Agitación psicomotora',
+      cefaleia: 'Cefalea',
+      choque: 'Shock',
+      'crise-convulsiva': 'Crisis convulsiva',
+      'deficit-neurologico-focal': 'Déficit neurológico focal',
+      'diarreia-vomitos': 'Diarrea y vómitos',
+      'disturbio-glicemico': 'Trastorno glucémico',
+      dispneia: 'Disnea',
+      'dor-abdominal': 'Dolor abdominal',
+      'dor-lombar-flanco': 'Dolor lumbar o en flanco',
+      'dor-toracica': 'Dolor torácico',
+      febre: 'Fiebre',
+      'febre-hipotensao': 'Fiebre con hipotensión',
+      'infeccao-respiratoria': 'Infección respiratoria',
+      intoxicacao: 'Intoxicación',
+      'pele-partes-moles': 'Piel y partes blandas',
+      'pressao-arterial-elevada': 'Presión arterial elevada',
+      'reacao-alergica': 'Reacción alérgica',
+      'rebaixamento-consciencia': 'Disminución del nivel de conciencia',
+      'sintomas-urinarios': 'Síntomas urinarios',
+      vertigem: 'Vértigo',
+      outro: 'Otro síndrome',
+    },
+    instabilityTitle: 'Inestabilidad — amenaza inmediata',
+    data: {
+      heading: 'Datos informados',
+      age: (years: number) => `${formatNumberEs(years)} años`,
+      sex: { F: 'Femenino', M: 'Masculino' },
+      bloodPressure: (systolic: number | null, diastolic: number | null) =>
+        `PA ${systolic ?? '?'}/${diastolic ?? '?'}`,
+      heartRate: (value: number) => `FC ${formatNumberEs(value)}`,
+      respiratoryRate: (value: number) => `FR ${formatNumberEs(value)}`,
+      spo2: (value: number) => `SpO₂ ${formatNumberEs(value)}%`,
+      temperature: (value: number) => `T ${formatNumberEs(value)}`,
+      glucose: (value: number) => `Glucemia ${formatNumberEs(value)}`,
+      onset: (value: string) => `Inicio: ${value}`,
+    },
+    cannotMissHeading: 'Ineludible',
+    confirmOrRuleOut: 'Confirma o descarta:',
+    likelyHeading: 'Más probables',
+    missingHeading: 'Lo que falta saber',
+    separates: (hypotheses: string[]) => `Distingue ${hypotheses.join(' × ')}`,
+    correction: {
+      cta: 'Corregir entendimiento',
+      label: '¿Qué entendió mal el copiloto o qué dejó fuera?',
+      placeholder: 'Ej.: el déficit cedió en 10 minutos y volvió dos veces.',
+      submit: 'Reanalizar con la corrección',
       submitting: 'Reanalizando...',
       cancel: 'Cancelar',
     },
@@ -214,6 +319,82 @@ export const es: Messages = {
       'No fue posible analizar el caso. Verifique los datos e intente de nuevo.',
     templateApplied: (name: string) => `Plantilla "${name}" agregada al caso.`,
     streamingHint: 'El copiloto ya está respondiendo...',
+  },
+
+  conversation: {
+    title: 'Describa el caso',
+    description:
+      'Dicte o escriba el caso como se lo pasaría a un colega. Si falta algo que cambia la conducta, le pregunto — una cosa a la vez.',
+    sendCase: 'Enviar caso',
+    sendingCase: 'Enviando…',
+    you: 'Usted',
+    copilot: 'Copiloto',
+    reading: 'Leyendo el caso…',
+    understood: 'Entendí:',
+    correct: 'Corregir',
+    correctionPlaceholder: '¿Qué entendí mal o dejé fuera?',
+    correctionNoted: 'Anoté la corrección — entra en el plan.',
+    questionsIntro: (count: number) =>
+      count === 1
+        ? 'Antes del plan, 1 pregunta rápida que cambia la conducta.'
+        : `Antes del plan, ${count} preguntas rápidas que cambian la conducta.`,
+    progress: (current: number, total: number) => `Pregunta ${current} de ${total}`,
+    analyzeNow: 'Analizar ahora con lo que tengo',
+    unstableTitle: (findings: string) => `Paciente inestable: ${findings}.`,
+    unstableBody:
+      'Voy directo a lo que hay que hacer ahora, sin preguntas antes. Si necesito algo, pregunto después del plan.',
+    complete: 'Tengo lo que necesito para empezar.',
+    urgentStop: 'Esa respuesta cambia la prioridad. Voy directo al plan.',
+    skipped:
+      'Sin problema. Sigo con lo que tengo; lo que quedó abierto entra en el plan como "Depende de…".',
+    allAnswered: 'Gracias. Armando el plan con lo que me contó.',
+    buildingPlan: 'Armando el plan…',
+    buildingPlanHint:
+      'Toma cerca de 1 minuto. Puede salir de esta pantalla: el plan queda guardado en el caso.',
+    rebuildingPlan: 'Rehaciendo el plan con su respuesta…',
+    planFailed: 'No pude armar el plan ahora.',
+    retryPlan: 'Intentar de nuevo',
+    keepPlan: 'Seguir con este plan',
+    rebuildNow: 'Rehacer el plan ahora',
+    previousPlan: (round: number) => `Plan anterior · ronda ${round}`,
+    youAnswered: 'Usted informó',
+    lastRound: 'Última ronda — el próximo plan sale con lo que usted haya informado.',
+    limitReached: 'Llegó al límite de rondas de este caso.',
+    numberPlaceholder: 'Valor',
+    numberSend: 'Enviar',
+    numberUnknown: 'No lo medí',
+    vitals: {
+      labels: {
+        bloodPressure: 'PA',
+        heartRate: 'FC',
+        respiratoryRate: 'FR',
+        spo2: 'SpO₂',
+        temperature: 'Temp.',
+        glucose: 'Glucemia capilar',
+      },
+      units: {
+        bloodPressure: 'mmHg',
+        heartRate: 'lpm',
+        respiratoryRate: 'rpm',
+        spo2: '%',
+        temperature: '°C',
+        glucose: 'mg/dL',
+      },
+      bloodPressurePlaceholder: '120/80',
+      send: 'Enviar',
+      none: 'No los tengo ahora',
+      invalid: 'Revise los valores: la PA va como 120/80 y los demás solo con números.',
+    },
+    composer: {
+      answerPlaceholder: 'O responda con sus palabras…',
+      complementPlaceholder: 'Agregue algo al caso (ej.: resultado de examen)…',
+      waitingPlaceholder: 'Espere el plan…',
+      send: 'Enviar',
+      dictate: 'Dictar',
+      stopDictation: 'Detener y transcribir',
+      transcribing: 'Transcribiendo…',
+      offline: 'Sin conexión. Su mensaje queda en el campo hasta que vuelva internet.',
+    },
   },
 
   documents: {

@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2017-obj-65",
+  "title": "Criança de 6 anos com anemia falciforme, febre, dispneia e dor torácica",
+  "tags": [
+    "dispneia",
+    "revalida",
+    "prova-cega",
+    "objetiva",
+    "pediatria",
+    "doenca-falciforme"
+  ],
+  "critical": true,
+  "goldSource": "revalida_objetiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Internação pediátrica (hospital). Criança, 6a, anemia falciforme. Há 3 dias febre 38,5 °C, tosse, dispneia intensa e dor torácica. EF: hipoativa, hipocorada +++/4, taquipneica, taquicárdica, sopro sistólico ++/6, fígado a 2 cm do RCD, baço não palpável, SpO2 92% em AA. RX de tórax: opacificações em lobos inferiores. Hb 6,0 g/dL (Hb do mês anterior 7,2 g/dL). Já iniciados O2 por máscara com reservatório a 10 L/min, hidratação venosa e analgesia: SpO2 subiu para 94%."
+  },
+  "expected": {
+    "syndrome": "síndrome torácica aguda em criança com doença falciforme",
+    "diagnoses": [
+      {
+        "text": "síndrome torácica aguda da anemia falciforme (febre, dor torácica, dispneia, hipoxemia e opacidades em lobos inferiores)",
+        "tier": "critical"
+      },
+      {
+        "text": "anemia aguda sobre a basal: Hb 6,0 g/dL, queda > 1 g/dL em relação ao mês anterior (7,2)",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "transfusão simples de concentrado de hemácias [ref.: 10 mL/kg; NHLBI 2014: Hb > 1 g/dL abaixo da basal]",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "antibioticoterapia empírica de amplo espectro EV [ref.: cefalosporina EV + macrolídeo, NHLBI 2014]",
+        "tier": "critical",
+        "timing": "now"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "Gabarito oficial do INEP (Revalida 2017, objetiva 65): alternativa A — transfusão de concentrado de hemácias e antibioticoterapia empírica de amplo espectro. A síndrome torácica aguda pede antibiótico (cefalosporina + macrolídeo), O2 e transfusão simples quando a Hb cai mais de 1 g/dL abaixo da basal (NHLBI 2014). A exsanguineotransfusão fica para progressão rápida (SpO2 < 90% apesar de O2, piora respiratória, infiltrados progressivos ou queda da Hb apesar da transfusão simples) — aqui a SpO2 subiu para 94% com O2."
+  },
+  "sources": [
+    {
+      "claim": "Gabarito definitivo (Versão 1): questão 65 = A — \"transfusão de concentrado de hemácias e início de antibioticoterapia empírica de amplo espectro.\"",
+      "title": "Revalida 2017 – 001. Prova Objetiva, Versão 1 – Gabarito definitivo",
+      "publisher": "INEP",
+      "year": 2017,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf"
+    },
+    {
+      "claim": "Síndrome torácica aguda: internar; cefalosporina EV + macrolídeo VO, O2 para SpO2 > 95% e monitorização (forte); transfusão simples de 10 mL/kg de hemácias se Hb > 1,0 g/dL abaixo da basal (fraca); exsanguineotransfusão urgente se progressão rápida (SpO2 < 90% apesar de O2, piora respiratória, infiltrados progressivos ou queda da Hb apesar da transfusão simples).",
+      "title": "Evidence-Based Management of Sickle Cell Disease: Expert Panel Report, 2014 — Guide to Recommendations (p. 22–23)",
+      "publisher": "National Heart, Lung, and Blood Institute (NIH)",
+      "year": 2014,
+      "url": "https://www.nhlbi.nih.gov/sites/default/files/media/docs/Evd-Bsd_SickleCellDis_Rep2014.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2017",
+    "item": "Objetiva questão 65",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf",
+    "originalCaseText": "Uma criança com 6 anos de idade, portadora de anemia falciforme, é internada com quadro de febre de 38,5 ºC associada a tosse, dispneia intensa e dor torácica há 3 dias. Ao exame físico, encontra-se hipoativa, hipocorada +++/4, taquipneica, taquicárdica, com sopro sistólico de ++/6, fígado a 2 cm do rebordo costal direito e baço não palpável, saturação de O2 = 92% em ar ambiente. Radiografia de tórax revela opacificações em lobos inferiores. O hemograma revela hemoglobina = 6,0 g/dL (valor de referência: 12 a 16 g/dL), sendo a hemoglobina do mês anterior igual a 7,2 g/dL. Foram iniciados os procedimentos de oxigenioterapia com máscara com reservatório a 10 L/min, hidratação venosa e analgesia, observando-se elevação da saturação de O2 para 94%. Nesse caso, a conduta terapêutica adequada é (A) transfusão de concentrado de hemácias e início de antibioticoterapia empírica de amplo espectro. (B) transfusão de concentrado de hemácias e instalação de BIPAP. (C) antibioticoterapia empírica de amplo espectro e surfactante. (D) exosanguineotransfusão parcial e instalação de BIPAP.",
+    "notes": "Prova cega (11/10/2026): objetiva 2017, gabarito A conferido na imagem do gabarito definitivo. A conduta segue vigente no relatório do NHLBI (2014), sem diretriz posterior que a contradiga encontrada. As duas partes da alternativa viraram condutas críticas separadas. Sem proibidas: BIPAP, surfactante e exsanguineotransfusão (B–D) não são dano imediato; a exsanguineotransfusão é a escalada prevista se houver progressão."
+  }
+}

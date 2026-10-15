@@ -1,0 +1,129 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2011-disc-2",
+  "title": "Gestante de 36 semanas com cefaleia súbita, epigastralgia, PA 160x120, plaquetopenia e transaminases elevadas",
+  "tags": [
+    "pressao-arterial-elevada",
+    "revalida",
+    "prova-cega",
+    "discursiva",
+    "obstetricia",
+    "pre-eclampsia"
+  ],
+  "critical": true,
+  "goldSource": "revalida_discursiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Pronto-atendimento obstétrico de hospital (cardiotocografia disponível). Gestante 18a, negra, G1P0A0, IG 36s1d (USG de 1º trimestre + DUM). Cefaleia intensa de início súbito há ~2 h; epigastralgia há ~30 min. Em seguimento no ambulatório de gestação de alto risco, última consulta há 1 semana; em uso de metildopa 250 mg VO 6/6h e nifedipina 10 mg VO 12/12h. Exames após a última consulta: Hb 12,2, Ht 32%, leucócitos 12.200, plaquetas 98.000; proteinúria de 24 h 1,2 g; Cr 1,5; ácido úrico 7,0; AST 200, ALT 350. USG: biometria fetal compatível com 33 sem, oligoâmnio acentuado; Doppler de artéria umbilical e cerebral média fetal sem alterações. EF: PA 160x120, pulso 85; AU 30 cm; BCF 170 bpm; dinâmica uterina ausente; toque: colo fechado, grosso, posterior; edema de MMII 4+/4+; ausculta cardíaca e pulmonar sem alterações. CTG: traçado liso, de variabilidade reduzida (padrão 'line pencil'), feto inativo/hiporreativo."
+  },
+  "expected": {
+    "syndrome": "pré-eclâmpsia com sinais de gravidade (iminência de eclâmpsia e síndrome HELLP) a termo precoce, com restrição de crescimento e vitalidade fetal comprometida",
+    "diagnoses": [
+      {
+        "text": "pré-eclâmpsia com sinais de gravidade e iminência de eclâmpsia (cefaleia intensa e epigastralgia, PA 160x120)",
+        "tier": "critical"
+      },
+      {
+        "text": "síndrome HELLP (plaquetas 98.000, AST 200, ALT 350; completar com DHL e bilirrubinas para hemólise)",
+        "tier": "critical"
+      },
+      {
+        "text": "restrição de crescimento fetal (biometria de 33 semanas com 36) com oligoâmnio acentuado",
+        "tier": "important"
+      },
+      {
+        "text": "vitalidade fetal comprometida: CTG não tranquilizadora (feto inativo/hiporreativo, padrão 'line pencil') e taquicardia fetal",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "sulfato de magnésio IV para prevenção de eclâmpsia [ref.: ataque 4 g IV em 5–10 min e manutenção 1–2 g/h; esquema IM evitado com plaquetopenia]",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "anti-hipertensivo de ação rápida para PA ≥ 160/110: hidralazina IV ou nifedipina VO [ref.: hidralazina 5 mg IV a cada 20 min; meta de reduzir 15–25% na 1ª hora]",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "interrupção da gestação após estabilização materna, por cesárea (vitalidade fetal comprometida com colo desfavorável; a via é de indicação obstétrica)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "internação hospitalar (risco materno-fetal: HELLP, eclâmpsia, insuficiência hepática; oligoâmnio e restrição de crescimento com CTG não tranquilizadora)",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "exames: DHL, bilirrubinas, hemograma com plaquetas, creatinina, TGO/TGP e coagulograma; reserva de hemocomponentes",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [],
+    "outOfScope": [
+      "citar três informações que justificam a principal suspeita (item b): primigesta, negra, PA ≥ 160x110, edema, proteinúria > 1 g/dia, Cr 1,5, plaquetas < 100.000, enzimas hepáticas elevadas, cefaleia, epigastralgia — lista de prova",
+      "descrever o traçado da cardiotocografia (item d): o laudo do padrão entrou no caseText e a interpretação virou diagnóstico importante",
+      "justificar a internação (item e): a internação ficou como conduta"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2011, Questão 2): pré-eclâmpsia grave com iminência de eclâmpsia e com HELLP (mais restrição de crescimento), medidas imediatas (hidralazina IV ou sulfato de magnésio, avaliação da vitalidade fetal), CTG não tranquilizadora, internação e resolução da gestação por cesárea. v2: MgSO4 e anti-hipertensivo viraram ambos críticos (o Manual de Gestação de Alto Risco 2022 indica os dois com PA ≥ 160/110 e iminência de eclâmpsia); a interrupção é crítica porque HELLP indica o parto em qualquer idade gestacional."
+  },
+  "sources": [
+    {
+      "claim": "Enunciado e comandos da questão discursiva 2.",
+      "title": "Revalida 2011 – Prova Discursiva, Questão 2",
+      "publisher": "INEP",
+      "year": 2011,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/provas/2011/prova_discursiva.pdf"
+    },
+    {
+      "claim": "Duas suspeitas: pré-eclâmpsia grave com iminência de eclâmpsia e pré-eclâmpsia grave com síndrome HELLP; considerado também restrição de crescimento intrauterino.",
+      "title": "Revalida 2011 – Prova Discursiva – Padrão de Resposta definitivo, Questão 2, item a",
+      "publisher": "INEP",
+      "year": 2011,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2011/padrao_de_respostas_definitivo.pdf"
+    },
+    {
+      "claim": "Medidas imediatas no pronto-atendimento: hidralazina endovenosa ou sulfato de magnésio endovenoso, e avaliar a vitalidade fetal (cardiotocografia).",
+      "title": "Revalida 2011 – Prova Discursiva – Padrão de Resposta definitivo, Questão 2, item c",
+      "publisher": "INEP",
+      "year": 2011,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2011/padrao_de_respostas_definitivo.pdf"
+    },
+    {
+      "claim": "Laudo da cardiotocografia: feto inativo ou inativo hiporreativo, padrão 'line pencil', cardiotocografia tipo 2 ou traçado não tranquilizador (sofrimento fetal agudo).",
+      "title": "Revalida 2011 – Prova Discursiva – Padrão de Resposta definitivo, Questão 2, item d",
+      "publisher": "INEP",
+      "year": 2011,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2011/padrao_de_respostas_definitivo.pdf"
+    },
+    {
+      "claim": "Há necessidade de internação pelos riscos materno-fetais (HELLP, risco de convulsão e de falência hepática; oligoâmnio e restrição de crescimento com CTG não satisfatória); conduta: resolução da gestação por cesárea.",
+      "title": "Revalida 2011 – Prova Discursiva – Padrão de Resposta definitivo, Questão 2, itens e–f",
+      "publisher": "INEP",
+      "year": 2011,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2011/padrao_de_respostas_definitivo.pdf"
+    },
+    {
+      "claim": "Pré-eclâmpsia com sinais de gravidade inclui PA ≥ 160/110, HELLP e iminência de eclâmpsia; HELLP e alterações da vitalidade fetal indicam o término da gravidez em qualquer idade gestacional; sulfato de magnésio é o anticonvulsivante de escolha na iminência de eclâmpsia, na HELLP e com PA ≥ 160/110; hidralazina IV ou nifedipina VO na crise hipertensiva, reduzindo a PA 15–25% na 1ª hora; MgSO4 IM não deve ser usado na HELLP com plaquetopenia; na HELLP a via de parto é de indicação obstétrica (vaginal preferível quando possível; indução só com vitalidade fetal preservada); exames mínimos: hemograma, DHL, bilirrubinas, creatinina e TGO.",
+      "title": "Manual de Gestação de Alto Risco (1ª ed., versão eletrônica)",
+      "publisher": "Ministério da Saúde",
+      "year": 2022,
+      "url": "https://bvsms.saude.gov.br/bvs/publicacoes/manual_gestacao_alto_risco.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2011",
+    "item": "Discursiva caso 2",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2011/padrao_de_respostas_definitivo.pdf",
+    "originalCaseText": "Gestante, com 18 anos de idade, negra, G1P0A0, com 36 semanas e um dia de gestação, de acordo com exame ecográfico de primeiro trimestre e tempo de amenorreia, procura o Pronto-Atendimento Obstétrico queixando-se de cefaleia intensa, de início súbito há mais ou menos duas horas. Relata epigastralgia com início aproximado de meia hora e informa estar em seguimento no Ambulatório de Gestação de Alto Risco. Sua última consulta ocorreu há uma semana. Informa fazer uso de Alfa-Metil-Dopa 250mg, de 6/6h associada a Nifedipina 10 mg, ambos por via oral, de 12/12h. Os exames realizados após a última consulta mostram: Hemograma (Hb = 12,2 g/dL; Ht = 32 %; leucócitos = 12.200 /mm³; plaquetas = 98.000 /mm³); proteinúria de 24h =1,2 g; creatinina sérica = 1,5 mg/dL, ácido úrico sérico= 7,0 mg/dl, AST = 200 U/L, ALT = 350 U/L, Exame ultrassonográfico com biometria fetal compatível para 33 semanas, oligoâmnio acentuado, exame dopplervelocimétrico sem alterações na artéria umbilical e cerebral média do feto. Ao exame: Pressão arterial = 160 x 120 mmHg, pulso=85 bpm; altura uterina = 30 cm; Batimentos cardíacos fetais= 170 bpm; dinâmica uterina = ausente; Toque vaginal = colo fechado, grosso, posterior; edema em MMII ++++/4+; ausculta cardíaca e ausculta pulmonar sem alterações. Parte I - Com base no quadro clínico-obstétrico, exame físico da mãe e exames complementares apresentados, descreva a) duas suspeitas diagnósticas: 1 - 2 - b) três informações que justifiquem corretamente a principal suspeita diagnóstica para esse quadro clínico: 1 - 2 - 3 - c) duas medidas imediatas a serem tomadas pelo médico em relação à paciente ainda na sala de Pronto-Atendimento Obstétrico: 1 - 2 - Parte II - Após as medidas iniciais de assistência à paciente, realizou-se exame de Cardiotocografia, reproduzida à seguir: [traçado cardiotocográfico — imagem] d) descreva o observado no traçado cardiotocográfico representado. Parte III - Com base nos dados apresentados, estabeleça a conduta definitiva para o caso: e) de forma justificada, se há necessidade de internação da gestante. f) qual é a conduta a ser tomada.",
+    "notes": "Prova cega (11/10/2026): caseText com todo o enunciado em estilo nota; o traçado da CTG é imagem e entrou pelo laudo que o próprio padrão descreve (achado neutro, sem 'sofrimento fetal'), sem dizer que foi feito após as medidas iniciais. Conferido contra o Manual de Gestação de Alto Risco (MS, 2022, aberto e lido): MgSO4 e anti-hipertensivo são ambos indicados (o padrão aceitava um ou outro) e viraram críticos; na HELLP a via de parto é obstétrica e o MS prefere a vaginal quando a vitalidade fetal está preservada — aqui não está, então a cesárea do padrão segue válida e o item diz o porquê. A avaliação da vitalidade fetal (item c) já está no caseText e não virou conduta. Exames de HELLP e reserva de hemocomponentes entraram como importantes pelo manual do MS (não estão no padrão)."
+  }
+}

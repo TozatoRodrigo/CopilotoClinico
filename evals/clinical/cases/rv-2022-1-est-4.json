@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 2,
+  "id": "rv-2022-1-est-4",
+  "title": "Dor abdominal em mulher de 18 anos deitada em maca",
+  "tags": [
+    "dor-abdominal",
+    "revalida",
+    "pep",
+    "ginecologia",
+    "doenca-inflamatoria-pelvica"
+  ],
+  "critical": true,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Hospital secundário (consultórios, laboratório, radiologia e ecografia). Fem, 18a, deitada em maca, com queixa de dor. SV: PA 120x80, Tax 37,5 °C, FC 90, FR 12, SpO2 98%. Ausculta cardíaca e pulmonar normais. Abdome levemente distendido, RHA hipoativos difusamente, normotimpânico; dor de média intensidade em todo o abdome à palpação superficial e profunda; descompressão brusca no quadrante inferior D com dor mais intensa (grita). Exame ginecológico: leucorreia amarelada com odor fétido; colo hiperemiado com muco turvo; útero de volume normal; dor à mobilização dos anexos bilateralmente, mais à D; dor difusa ao toque e principalmente à mobilização do colo. Hemograma: Hb 12,8, leucócitos 15.000 com 15% de bastões, plaquetas 234.000. USTV: útero em AVF, 80 cm³, endométrio 5 mm; ovário D aumentado (3,0 cm³) com áreas hiperecogênicas vascularizadas ocupando todo o parênquima e área cística anecoica de ~2 x 2 x 1,5 cm; pequena quantidade de líquido livre em fundo de saco; ovário E de 3,5 cm³ normal."
+  },
+  "expected": {
+    "syndrome": "dor abdominopélvica aguda com peritonite em mulher jovem (doença inflamatória pélvica complicada)",
+    "diagnoses": [
+      {
+        "text": "doença inflamatória pélvica complicada: pelviperitonite e possível abscesso tubo-ovariano à direita",
+        "tier": "critical"
+      },
+      {
+        "text": "diferenciais que mudam a conduta: gestação ectópica (afastar com beta-hCG) e apendicite aguda",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "antibioticoterapia parenteral de amplo espectro iniciada já [ref. PCDT IST 2022, esquema hospitalar: ceftriaxona 1 g IV 1x/dia + doxiciclina 100 mg VO 12/12 h + metronidazol 400 mg IV 12/12 h]",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "internação hospitalar, justificada pela pelviperitonite e/ou abscesso tubo-ovariano",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "teste de gravidez (beta-hCG)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "exames para outras IST (HIV, sífilis, hepatites B e C)",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "tratamento do(s) parceiro(s) sexual(is)",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "antibiotico-oral-dip-complicada",
+        "description": "Tratar esta DIP só com antibiótico por via oral (regime ambulatorial): o PEP (item 11) exige antibiótico endovenoso com internação. A doxiciclina VO dentro do esquema hospitalar (com ceftriaxona IV e metronidazol IV, PCDT IST 2022) e a transição oral após a melhora não são proibidas.",
+        "patterns": [
+          "antibiotic\\w*\\s+(por\\s+)?(via\\s+)?oral",
+          "antibiotic\\w*\\s+vo",
+          "amoxicilina\\w*\\s+(\\S+\\s+){0,3}(vo|oral)"
+        ],
+        "exceptWhen": [
+          "transic\\w*",
+          "(apos|depois\\s+d[aeo])\\s+(\\S+\\s+){0,3}(melhora\\w*|afebril|alta|24|48|72|tratamento\\s+parenteral)",
+          "(na|para\\s+a)\\s+alta"
+        ]
+      }
+    ],
+    "outOfScope": [
+      "cumprimentar e apresentar-se (item 1)",
+      "perguntar características da dor, febre, vômitos, anticoncepção e data da última menstruação (itens 2–4) — anamnese; a síntese da atriz não é publicada",
+      "verbalizar a manobra de descompressão brusca e referir o exame ginecológico (itens 6–7) — achados no caseText",
+      "citar ao menos dois diferenciais da lista apendicite, gestação ectópica, cisto de ovário roto e torção ovariana (item 9) — lista de prova; os que mudam a conduta ficaram como item importante",
+      "explicar as complicações futuras (item 13) e orientar preservativo e multiplicidade de parceiros (item 15)"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2022/1, Estação 4): o PEP pontua anamnese dirigida, teste de gravidez, descompressão brusca e exame ginecológico, o diagnóstico de DIP com diferenciais, internação com antibiótico EV (oral é inadequado), tratamento do parceiro, complicações, rastreio de outras ISTs e prevenção. Gabarito v2: a proibição deixou de casar 'doxiciclina VO' e 'metronidazol VO', que fazem parte do esquema hospitalar do PCDT IST 2022; continua acusando antibiótico oral como regime."
+  },
+  "sources": [
+    {
+      "claim": "Itens 2–5 (0,5 + 0,25 + 1,0 + 1,0 ponto): pergunta características da dor, febre e vômitos; anticoncepção; data da última menstruação; solicita teste de gravidez.",
+      "title": "Revalida 2022/1 – Habilidades Clínicas – PEP, Estação 4, itens 2–5",
+      "publisher": "INEP",
+      "year": 2022,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2022_1_publicacao.pdf"
+    },
+    {
+      "claim": "Itens 6–7 (1,0 + 0,5 ponto): verbaliza a manobra de descompressão brusca abdominal; refere a necessidade de exame ginecológico (toque vaginal ou exame especular).",
+      "title": "Revalida 2022/1 – Habilidades Clínicas – PEP, Estação 4, itens 6–7",
+      "publisher": "INEP",
+      "year": 2022,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2022_1_publicacao.pdf"
+    },
+    {
+      "claim": "Itens 8–9 (1,25 + 1,0 ponto): diagnóstico de doença inflamatória pélvica; diagnósticos diferenciais apendicite, gestação ectópica, cisto de ovário roto e torção ovariana (adequado: dois ou mais).",
+      "title": "Revalida 2022/1 – Habilidades Clínicas – PEP, Estação 4, itens 8–9",
+      "publisher": "INEP",
+      "year": 2022,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2022_1_publicacao.pdf"
+    },
+    {
+      "claim": "Itens 10–12 (1,0 + 0,25 + 0,25 ponto): indica internação justificando por peritonite e/ou abscesso tubo-ovariano; orienta antibiótico endovenoso (inadequado: antibiótico por via oral); orienta tratamento do parceiro sexual.",
+      "title": "Revalida 2022/1 – Habilidades Clínicas – PEP, Estação 4, itens 10–12",
+      "publisher": "INEP",
+      "year": 2022,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2022_1_publicacao.pdf"
+    },
+    {
+      "claim": "Itens 13–15 (0,5 + 1,0 + 0,25 ponto): refere complicações futuras (infertilidade, sinéquias intrauterinas, dor pélvica crônica, gravidez ectópica, peri-hepatite/Fitz-Hugh-Curtis — dois ou mais); refere exames para outras ISTs; orienta preservativo e refere a multiplicidade de parceiros como fator de risco.",
+      "title": "Revalida 2022/1 – Habilidades Clínicas – PEP, Estação 4, itens 13–15",
+      "publisher": "INEP",
+      "year": 2022,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2022_1_publicacao.pdf"
+    },
+    {
+      "claim": "Tratamento hospitalar de DIP (Quadro 44): ceftriaxona 1 g IV 1x/dia + doxiciclina 100 mg VO 2x/dia + metronidazol 400 mg IV 12/12 h por 14 dias; o parenteral é suspenso 24 h após a cessação dos sintomas, com continuação oral até 14 dias. Abscesso tubo-ovariano indica internação (Quadro 43); o tratamento ambulatorial aplica-se a quadro leve sem pelviperitonite.",
+      "title": "Protocolo Clínico e Diretrizes Terapêuticas para Atenção Integral às Pessoas com Infecções Sexualmente Transmissíveis (IST)",
+      "publisher": "Ministério da Saúde",
+      "year": 2022,
+      "url": "https://www.gov.br/aids/pt-br/central-de-conteudo/pcdts/2022/ist/pcdt-ist-2022_isbn-1.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2022/1",
+    "item": "Estação 4",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2022_1_publicacao.pdf",
+    "originalCaseText": "ESTAÇÃO 4 – Área: Ginecologia e Obstetrícia. INSTRUÇÕES PARA O(A) PARTICIPANTE. CENÁRIO DE ATUAÇÃO. Local de atuação: Atenção Secundária Hospitalar. A unidade possui a seguinte infraestrutura: • consultórios para atendimento; • laboratório de análises clínicas; e • laboratório de imagem (radiologia e ecografia). DESCRIÇÃO DO CASO. Paciente de 18 anos encontra-se deitada em uma maca, com queixa de dor. Nos próximos 10 minutos, deverão ser realizadas as seguintes tarefas: • realizar anamnese; • solicitar exames pertinentes ao caso; • verbalizar hipótese diagnóstica e pelo menos dois diagnósticos diferenciais; • solicitar exames complementares, caso necessário; • propor à paciente o tratamento a ser realizado; • explicar à paciente pelo menos duas das possíveis complicações da doença; e • dar orientações de seguimento à paciente. A PACIENTE SIMULADA NÃO DEVE SER TOCADA DURANTE O ATENDIMENTO.",
+    "notes": "Gabarito v2 (11/10/2026): caseText com os impressos oficiais (sinais vitais, abdome, descompressão brusca, exame ginecológico, hemograma e USTV, este por sustentar a hipótese de abscesso que o PEP usa para justificar a internação); o beta-hCG ficou fora porque o PEP cobra solicitá-lo e virou item importante 'agora'. Sem funnel: o PEP não publica o roteiro da atriz. Antibiótico parenteral virou o item crítico. A proibição de antibiótico oral perdeu os padrões de doxiciclina e metronidazol VO: o PCDT IST 2022 (aberto e conferido, Quadro 44) usa doxiciclina VO no esquema hospitalar, e a sonda com o esquema oficial era acusada; o regime oral sem parenteral fica para o juiz pela descrição. Sondas atualizadas. | O PEP desta edição não publica a síntese do ator (respostas da anamnese não disponíveis). Item 11 do PEP considera inadequado antibiótico por via oral, por isso há uma ação proibida. Dados sob demanda: SV PA 120x80, Tax 37,5 °C, FC 90, FR 12, SatO2 98%, auscultas normais; abdome levemente distendido, RHA hipoativos, dor de média intensidade difusa à palpação; descompressão brusca no lado inferior direito com dor mais intensa; exame ginecológico: leucorreia amarelada com odor fétido, colo hiperemiado com muco turvo, útero de volume normal, dor à mobilização dos anexos (mais à D) e à mobilização do colo; hemograma: leucócitos 15.000 com 15% de bastões (2.250), Hb 12,8, plaquetas 234.000; beta-hCG negativo; USTV: ovário D aumentado com áreas hiperecogênicas vascularizadas em todo o parênquima e área cística anecoica de ~2 x 2 x 1,5 cm, pequena quantidade de líquido livre em fundo de saco; ovário E normal. | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas. Exceção \"após\" passou a exigir a transição pós-melhora (\"após 24-48 h de melhora\", \"na alta\")."
+  },
+  "probes": {
+    "mustFlag": [
+      "Antibiótico VO e retorno em 72 h",
+      "Tratamento ambulatorial com antibiótico oral por 14 dias",
+      "Amoxicilina com clavulanato VO por 14 dias"
+    ],
+    "mustNotFlag": [
+      "Internar e iniciar antibiótico EV; evitar antibiótico oral",
+      "Antibiótico VO só na transição, após 24 h de melhora clínica",
+      "Ceftriaxona EV + doxiciclina; tratar o parceiro",
+      "Internar; ceftriaxona 1 g IV 1x/dia + doxiciclina 100 mg VO 12/12 h + metronidazol 400 mg IV 12/12 h",
+      "Doxiciclina 100 mg VO 12/12 h por 14 dias"
+    ]
+  }
+}

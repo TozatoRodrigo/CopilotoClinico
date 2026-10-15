@@ -1,0 +1,144 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2013-disc-1",
+  "title": "Jovem com DM1 desde a infância, vômitos, dor abdominal, torpor e respiração de grande amplitude no serviço de emergência",
+  "tags": [
+    "disturbio-glicemico",
+    "revalida",
+    "prova-cega",
+    "discursiva",
+    "cetoacidose-diabetica"
+  ],
+  "critical": true,
+  "goldSource": "revalida_discursiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Serviço de emergência. Paciente de 20a, DM1 desde os 8 a. Náuseas e vômitos há ~24 h, dor abdominal há 12 h e rebaixamento progressivo da consciência nas últimas horas. EF: estado geral comprometido, descorado 1+/4+, desidratado 3+/4+, taquipneico em repouso com respiração de grande amplitude, acianótico, afebril. Torporoso, Glasgow 9 (AO 2, RV 2, RM 5), pupilas simétricas e fotorreagentes, sem rigidez de nuca. Tax 36,4 °C, PA 90x50, FC 116, FR 24, glicemia capilar 'HI'. ACV e AR sem anormalidades; abdome com dor difusa à palpação, sem massas, visceromegalias ou irritação peritoneal; RHA presentes. Recebeu SF 0,9% 1.000 mL. Após 1 h: glicemia capilar 584; PA 110x65; glicemia 566 mg/dL; gasometria venosa pH 6,9, HCO3 8 mEq/L; K 2,9; Cl 115; ânion gap 27; Na 150; ureia 35; Cr 1,3. Urina: glicosúria 3+, cetonúria 2+. ECG normal."
+  },
+  "expected": {
+    "syndrome": "crise hiperglicêmica com acidose metabólica grave, hipocalemia e hipernatremia em DM1",
+    "diagnoses": [
+      {
+        "text": "cetoacidose diabética grave (pH 6,9, HCO3 8, ânion gap 27, cetonúria, torpor)",
+        "tier": "critical"
+      },
+      {
+        "text": "hipocalemia (K 2,9) com déficit corporal de potássio: risco de arritmia ao iniciar insulina",
+        "tier": "important"
+      },
+      {
+        "text": "hipernatremia (Na 150; corrigido pela glicemia ≈ 158–161) com desidratação grave",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "manter hidratação venosa vigorosa ajustada ao sódio corrigido elevado: NaCl 0,45% após a expansão inicial, como no padrão e na SBD 2023, ou cristaloide isotônico/balanceado ajustado pelo sódio (consenso ADA 2024)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "repor potássio IV agora e adiar a insulina até K > 3,3–3,5 [ref.: SBD 2023: insulina com K > 3,3; consenso 2024: K > 3,5]",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "considerar bicarbonato de sódio IV pela acidemia grave (pH 6,9), com potássio associado [ref.: padrão: indicado; consenso 2024: considerar se pH < 7,0; SBD 2023: se pH < 6,9]",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "monitorização em UTI ou sala de emergência, com glicemia, eletrólitos e gasometria seriados",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "transição para insulina SC quando a CAD resolver — pH > 7,3 e HCO3 ≥ 18 (o padrão também usa glicemia < 250; o consenso 2024 usa cetonemia < 0,6 mmol/L) — com sobreposição de 1–2 h com a insulina IV",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "esquema basal-bolus SC para a alta: insulina basal (NPH, glargina ou detemir) com rápida ou ultrarrápida (regular, lispro, asparte ou glulisina)",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "insulina-antes-de-repor-potassio",
+        "description": "Iniciar insulina IV (bolus ou infusão) agora, com K 2,9, antes de repor potássio (SBD 2023: insulina só com K > 3,3; consenso ADA 2024: adiar até K > 3,5). Checagem só pelo juiz: insulina condicionada à reposição ou ao K não conta.",
+        "patterns": []
+      }
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2013, Questão 1): hidratação com solução salina 0,45% pela hipernatremia (a), bicarbonato pela cetoacidose grave (c), critérios de resolução para a insulina SC — glicemia < 250, pH > 7,3, bicarbonato > 18 (d) — e esquema basal-bolus na alta (e). O subitem b (insulinoterapia) foi ANULADO pelo INEP e ficou fora. v2: a hidratação é a conduta crítica; o potássio (K 2,9), que o padrão não pontua, entrou como importante e como conduta proibida só pelo juiz (insulina antes do potássio), ancorado no consenso 2024 e na SBD 2023."
+  },
+  "sources": [
+    {
+      "claim": "Enunciado e comandos da questão discursiva 1.",
+      "title": "Revalida 2013 – Prova Discursiva, Questão 1",
+      "publisher": "INEP",
+      "year": 2013,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/provas/2013/po_revalida_2013.pdf"
+    },
+    {
+      "claim": "Hidratação: modificar para solução salina a 0,45% devido à hipernatremia (2,0 pontos).",
+      "title": "Revalida 2013 – Prova Discursiva – Padrão de Resposta definitivo, Questão 1, item a",
+      "publisher": "INEP",
+      "year": 2013,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2013/po_padrao_respostas_definitivo_revalida_2013.pdf"
+    },
+    {
+      "claim": "Administração de insulina: QUESITO ANULADO.",
+      "title": "Revalida 2013 – Prova Discursiva – Padrão de Resposta definitivo, Questão 1, item b",
+      "publisher": "INEP",
+      "year": 2013,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2013/po_padrao_respostas_definitivo_revalida_2013.pdf"
+    },
+    {
+      "claim": "Está indicada a reposição de bicarbonato: na maioria das CAD não é necessária, mas na cetoacidose grave (o padrão escreve 'bicarbonato < 7,0') recomenda-se NaHCO3 (2,0 pontos).",
+      "title": "Revalida 2013 – Prova Discursiva – Padrão de Resposta definitivo, Questão 1, item c",
+      "publisher": "INEP",
+      "year": 2013,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2013/po_padrao_respostas_definitivo_revalida_2013.pdf"
+    },
+    {
+      "claim": "Critérios para suspender o tratamento venoso, sair da UTI e iniciar insulina SC = resolução da CAD: glicemia < 250 mg/dL, pH > 7,3 e bicarbonato > 18 mEq/L ou correção da acidose (1,5 ponto).",
+      "title": "Revalida 2013 – Prova Discursiva – Padrão de Resposta definitivo, Questão 1, item d",
+      "publisher": "INEP",
+      "year": 2013,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2013/po_padrao_respostas_definitivo_revalida_2013.pdf"
+    },
+    {
+      "claim": "Esquema SC na alta com dois tipos de insulina: basal (NPH, glargina ou detemir) associada a rápida (regular) ou ultrarrápida (lispro, asparte ou glulisina), 1 a 3 aplicações ao dia (2,0 pontos).",
+      "title": "Revalida 2013 – Prova Discursiva – Padrão de Resposta definitivo, Questão 1, item e",
+      "publisher": "INEP",
+      "year": 2013,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2013/po_padrao_respostas_definitivo_revalida_2013.pdf"
+    },
+    {
+      "claim": "CAD: cristaloide isotônico ou balanceado a 500–1.000 mL/h nas primeiras horas, depois conforme hidratação e sódio; com K < 3,5 mmol/L, adiar a insulina até K > 3,5; bicarbonato não rotineiro, considerar se pH < 7,0; CAD grave com pH < 7,0, bicarbonato < 10 e estupor/coma; resolução com cetonemia < 0,6 mmol/L e pH ≥ 7,3 ou bicarbonato ≥ 18; esquema basal-bolus iniciado 1–2 h antes de suspender a insulina IV.",
+      "title": "Hyperglycemic Crises in Adults With Diabetes: A Consensus Report",
+      "publisher": "ADA/EASD/JBDS/AACE/DTS (Diabetes Care)",
+      "year": 2024,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC11272983/"
+    },
+    {
+      "claim": "Considerar NaCl 0,45% a 250–500 mL/h com hipernatremia (Na corrigido ≥ 150 mEq/L); iniciar insulina com potássio acima de 3,3 mEq/L e repor KCl com K < 5,2 e diurese adequada; bicarbonato quando o pH estiver abaixo de 6,9 (IIb); transição para insulina SC basal-bolus ao menos 2 h antes de suspender a infusão.",
+      "title": "Diagnóstico e tratamento da cetoacidose diabética (Diretriz Oficial da SBD)",
+      "publisher": "Sociedade Brasileira de Diabetes",
+      "year": 2023,
+      "url": "https://diretriz.diabetes.org.br/diagnostico-e-tratamento-da-cetoacidose-diabetica/"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2013",
+    "item": "Discursiva caso 1",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2013/po_padrao_respostas_definitivo_revalida_2013.pdf",
+    "originalCaseText": "Paciente com 20 anos de idade, antecedentes de diabetes mellitus tipo 1 desde os 8 anos de idade, foi trazido ao Serviço de Emergência pela ocorrência de náuseas e vômitos há cerca de 24 horas, e dor abdominal nas últimas 12h, além de rebaixamento progressivo do nível de consciência nas últimas horas. Ao exame se encontrava com estado geral comprometido, descorado (+/4+), desidratado (3+/4+), taquipneico em repouso (respiração de grande amplitude), acianótico e afebril. Ao exame neurológico estava torporoso, escala de coma de Glasgow = 9 (abertura ocular = 2, resposta motora = 5, resposta verbal = 2), com pupilas simétricas e fotorreagentes, sem rigidez nucal, temperatura axilar = 36,4 ºC, pressão arterial = 90 x 50 mmHg, frequência cardíaca = 116 bpm, frequência respiratória = 24 irpm e glicemia capilar = HI (High, elevada). Aparelhos cardiovascular e respiratório sem anormalidades ao exame físico. Havia dor à palpação difusa do abdome, sem massas, visceromegalias ou sinais de irritação peritoneal. Ruídos hidroaéreos presentes. Foi prescrita solução salina a 0,9% - 1.000 ml e, após 1 hora de atendimento, verificou-se: glicemia capilar = 584 mg/dL pressão arterial = 110 x 65 mmHg glicemia = 566 mg/dL (VR = 70 - 99) gasometria venosa: pH = 6,9 HCO3- = 8 mEq/L (Vr = 22-25) K+ = 2,9 mEq/L (VR = 3,5-5,0) Cl- = 115 mEq/L ânion gap = 27 Na+ = 150 mEq/L (VR = 135-145mEq/L ) ureia = 35 mg/dL (Vr < 35) creatinina = 1,3 mg/dL (VR = 0,7-1,3) Urina I (EAS): glicosúria 3+ e cetonúria 2+. Eletrocardiograma = normal. Diante desse quadro, responda: a) Como deve ser feita a hidratação venosa do paciente? Justifique a resposta. (valor: 2,0 pontos) b) Como deve ser feita a administração de insulina? Justifique a resposta. (valor: 2,5 pontos) c) Como deve ser tratado o distúrbio metabólico apresentado pelo paciente? Justifique a resposta. (valor: 2,0 pontos) d) Cite três critérios a serem utilizados para indicar o retorno da insulinoterapia por via subcutânea. (valor: 1,5 pontos). e) Descreva um regime de insulinoterapia subcutânea, incluindo nome(s) da(s) insulina(s) e número de aplicação(ões) ao dia, para ser utilizada pelo paciente após a alta hospitalar com o objetivo de manter o controle glicêmico adequado. (valor: 2,0 pontos)",
+    "notes": "Prova cega (11/10/2026): caseText com todo o enunciado em estilo nota (inclui o SF 0,9% já feito e os exames de 1 h, dos quais dependem as condutas). Subitem b (insulina) ANULADO no padrão: nenhuma expectativa saiu dele. Conferido contra o consenso ADA 2024 e a diretriz SBD 2023 (ambos abertos e lidos): 0,45% pela hipernatremia segue na SBD (IIa) e o consenso aceita isotônico/balanceado ajustado pelo sódio — o item crítico aceita as duas formas; bicarbonato com pH 6,9 fica no limite (consenso: pH < 7,0; SBD: pH < 6,9) e virou 'considerar', importante; os critérios de resolução mudaram (o consenso tirou a glicemia e usa cetonemia) e o item aceita os dois. Acrescentado pela diretriz vigente, fora do padrão: reposição de K antes da insulina (importante) e a proibição só pelo juiz de insulina com K 2,9. Dúvida para revisão: se a reposição de potássio deveria ser crítica, como no gabarito v2 de outras CAD."
+  }
+}

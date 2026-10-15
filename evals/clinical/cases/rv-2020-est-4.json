@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 2,
+  "id": "rv-2020-est-4",
+  "title": "Sangramento vaginal em atendimento na UPA",
+  "tags": [
+    "choque",
+    "revalida",
+    "pep",
+    "ginecologia",
+    "sangramento-uterino-anormal"
+  ],
+  "critical": false,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "UPA com laboratório; a unidade não dispõe de US ginecológica. Mulher com sangramento vaginal. SV: PA 90x60 mmHg, P 98 bpm, FR 15 irpm, Tax 36,5 °C. Mucosas descoradas 2+/4+. Exame especular: colo uterino exposto, sangramento proveniente do colo. Hemograma: Hb 9,2 g/dL, Ht 26,6%, leucócitos 5.080, plaquetas 196.000. Beta-hCG < 5 mUI/mL."
+  },
+  "expected": {
+    "syndrome": "sangramento uterino anormal agudo, não gestacional (beta-hCG negativo), com anemia",
+    "diagnoses": [
+      {
+        "text": "sangramento uterino anormal agudo não gestacional (beta-hCG negativo), a investigar pelo PALM-COEIN",
+        "tier": "important"
+      },
+      {
+        "text": "anemia (Hb 9,2 g/dL) por sangramento agudo, hemodinamicamente compensada",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "hidratação venosa com cristaloide",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "ácido tranexâmico",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "anti-inflamatório não esteroidal",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "reposição de ferro",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "alta sem internação, com referência ao ginecologista e ultrassonografia transvaginal ambulatorial (sem outro exame de imagem da pelve)",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [],
+    "outOfScope": [
+      "apresentar-se e perguntar o nome da paciente (item 1.1)",
+      "realizar anamnese (item 1.2) — a síntese do ator não é publicada",
+      "citar ao menos cinco causas do PALM-COEIN (item 1.3) — lista de prova",
+      "técnica do exame especular e toque vaginal (itens 2.1–2.2) — o achado (sangramento proveniente do colo) está no caseText",
+      "solicitar beta-hCG e hemograma (itens 3.1–3.2) — os resultados estão no caseText porque a decisão de não internar, o AINE e o ferro dependem deles",
+      "antes conduta proibida: Internar a paciente: o PEP pontua não internar e referenciar ao ginecologista (item 5.2) — saiu porque internar é defensável com PA 90x60 e P 98; não é conduta perigosa",
+      "antes conduta proibida: Solicitar outro exame de imagem da pelve além da ecografia transvaginal (PEP 5.1: inadequado se também solicita outro exame de imagem da pelve) — saiu porque pedir outro exame de imagem não é conduta perigosa"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2020, Estação 4): o PEP pontua anamnese, causas PALM-COEIN, exame especular, beta-hCG e hemograma antes da prescrição (AINE, ácido tranexâmico, hidratação, ferro) e da alta com US transvaginal e encaminhamento ao ginecologista, sem internação. Gabarito v2: beta-hCG e hemograma entram no caseText porque a proibição de internar só é justa com a gestação afastada e a Hb conhecida."
+  },
+  "sources": [
+    {
+      "claim": "Atendimento inicial: realiza anamnese (1.2); analisa as causas de sangramento uterino anormal pelo PALM-COEIN — adequado se cita ≥ 5 (pólipo, adenomiose, leiomioma, malignidade/câncer de endométrio, coagulação, distúrbio de ovulação, distúrbio endometrial, iatrogenia, não determinado); 'gestação' não pontua (1.3).",
+      "title": "Revalida 2020 – Habilidades Clínicas – PEP, Estação 4, itens 1.2–1.3",
+      "publisher": "INEP",
+      "year": 2020,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2020/padrao_esperado_procedimentos_habilidades_clinicas.pdf"
+    },
+    {
+      "claim": "Exame físico: exame especular identificando que o sangramento provém do colo uterino (2.1); toque vaginal (2.2). Exames na urgência: beta-hCG (3.1, 1,2 ponto) e hemograma (3.2, 1,2 ponto).",
+      "title": "Revalida 2020 – Habilidades Clínicas – PEP, Estação 4, itens 2.1–3.2",
+      "publisher": "INEP",
+      "year": 2020,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2020/padrao_esperado_procedimentos_habilidades_clinicas.pdf"
+    },
+    {
+      "claim": "Prescrição: anti-inflamatório (4.1), ácido tranexâmico (4.2), hidratação venosa (4.3), reposição de ferro (4.4). Orientação final: ecografia transvaginal — inadequado se não solicitar ou se também solicitar outro exame de imagem da pelve (5.1); não interna a paciente e a referencia ao ginecologista (5.2).",
+      "title": "Revalida 2020 – Habilidades Clínicas – PEP, Estação 4, itens 4.1–5.2",
+      "publisher": "INEP",
+      "year": 2020,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2020/padrao_esperado_procedimentos_habilidades_clinicas.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2020",
+    "item": "Estação 4",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2020/padrao_esperado_procedimentos_habilidades_clinicas.pdf",
+    "originalCaseText": "ESTAÇÃO 4 – Área: Ginecologia e Obstetrícia. INSTRUÇÕES PARA O(A) PARTICIPANTE. CENÁRIO DE ATUAÇÃO: Você está de plantão em uma Unidade de Pronto Atendimento e deverá conduzir o atendimento de paciente com quadro de sangramento vaginal. Nos próximos 10 minutos, deverão ser realizadas as seguintes tarefas: realizar o atendimento da paciente e analisar, verbalmente, as possíveis causas do sangramento; realizar exame ginecológico no manequim e verbalizar achados; solicitar, se necessário, exames complementares, verbalmente; prescrever, verbalmente, o tratamento inicial a ser realizado na própria unidade de atendimento e o tratamento de manutenção a ser feito após o atendimento; solicitar, se necessário, exames a serem agendados posteriormente e programar o acompanhamento médico eletivo.",
+    "notes": "Gabarito v2 (11/10/2026): conduta proibida só para o que mata ou sequela — internar-sangramento-uterino-estavel, outro-exame-imagem-pelve foi para fora do escopo. caseText com os impressos oficiais (sinais vitais, hemograma, beta-hCG, ausência de US na UPA) e o achado do especular do PEP 2.1; sem funnel, porque o PEP de 2020 não publica o roteiro da atriz (idade e padrão do sangramento desconhecidos). Beta-hCG e hemograma ficaram no caseText, e a solicitação deles (itens 3.1–3.2) foi para outOfScope: a proibição de internar depende de a gestação estar afastada e de a Hb ser conhecida. Prescrição e alta com US e ginecologista viraram itens importantes. Dúvida para revisão: com PA 90x60, P 98 e Hb 9,2, internar para observação é defensável; a proibição foi mantida por fidelidade ao PEP (5.2), sem fonte vigente verificada que a contrarie. | tags[0] = choque por falta de estrato para sangramento genital (PA 90x60, Hb 9,2); o PEP trata como quadro estável sem internação. Dados sob demanda: Impresso 1 — PA 90x60, pulso 98, FR 15, Tax 36,5 °C, mucosas descoradas 2+/4+. Impresso 2 — Ht 26,6%, Hb 9,2 g/dL, leucócitos 5.080, plaquetas 196.000. Impresso 3 — beta-hCG < 5 mUI/mL. Impresso 4 — a UPA não dispõe de ultrassonografia ginecológica. Exame especular no manequim: sangramento proveniente do colo uterino (PEP 2.1). O PEP de 2020 não publica a síntese do ator (idade, padrão do sangramento). | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas."
+  }
+}

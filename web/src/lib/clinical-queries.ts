@@ -73,6 +73,7 @@ export const clinicalQueryKeys = {
   audit: (filters: AuditFilters, offset: number, limit: number) =>
     ['audit', filters, offset, limit] as const,
   latestInteraction: (encounterId: string) => ['latest-interaction', encounterId] as const,
+  caseConversation: (encounterId: string) => ['case-conversation', encounterId] as const,
   recommendationDecisions: (encounterId: string, interactionId: string) =>
     ['recommendation-decisions', encounterId, interactionId] as const,
   copilotFeedbackQueue: (filters: CopilotFeedbackQueueFilters) =>

@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 2,
+  "id": "rv-2021-est-10",
+  "title": "Mulher de 43 anos com febre, mialgia, cefaleia e dor retro-orbitária há 2 dias na UBS",
+  "tags": [
+    "febre",
+    "revalida",
+    "pep",
+    "dengue",
+    "desatualizado"
+  ],
+  "critical": false,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "UBS com apoio laboratorial de urgência; demanda espontânea, classificação de risco amarela. Fem, 43a. Febre, dor no corpo, cefaleia e dor nos olhos há 2 dias. Peso 70 kg, IMC 28. Acolhimento: PA 120x70, FC 98, T 38,5 °C. EF: PA em pé 120x70, deitada 124x72; BEG, hidratada, corada, ativa; pele e conjuntivas normais; ausculta cardiorrespiratória normal; abdome semigloboso, sem visceromegalias, indolor à palpação superficial e profunda, RHA presentes; MMII com pulsos pediosos cheios, sem edema, panturrilhas livres. Prova do laço positiva (petéquias no quadrado de 2,5 cm). Hemograma: Hb 12,3, Ht 36,8%, leucócitos 5.000 sem desvio, plaquetas 152.000."
+  },
+  "expected": {
+    "syndrome": "síndrome febril aguda: dengue sem sinais de alarme, grupo B (prova do laço positiva)",
+    "diagnoses": [
+      {
+        "text": "dengue",
+        "tier": "important"
+      },
+      {
+        "text": "grupo B: sem sinais de alarme, prova do laço positiva, sem queda postural da PA, hemograma sem hemoconcentração",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "sintomáticos: paracetamol ou dipirona",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "hidratação oral imediata [ref.: manual MS 2024: 60 mL/kg/dia, 1/3 com SRO; o gabarito usa 80 mL/kg/dia]",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "exames específicos de dengue conforme o dia de doença: NS1/teste rápido ou RT-PCR nos primeiros dias, IgM a partir do 6º dia",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "notificação do caso suspeito no SINAN",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "retorno para reavaliação clínica e novo hemograma em até 48 h (ou diária até 48 h após a queda da febre), com orientação dos sinais de alarme",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [
+      "sinais de alarme na anamnese: dor abdominal intensa e contínua, vômitos persistentes, sangramento de mucosas, lipotimia, sonolência ou irritabilidade, diminuição da diurese"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "outOfScope": [
+      "habilidades de comunicação: cumprimentar, identificar-se, contato visual, linguagem acessível, responder às perguntas (itens 1–4)",
+      "pesquisar foco infeccioso e contexto socioambiental (itens 5 e 7; roteiro da atriz não publicado)",
+      "explicar a forma de contágio da dengue (item 12)",
+      "abordagem comunitária multiprofissional, busca de novos casos no território e intervenção em criadouros (itens 13–14, exceto a notificação)",
+      "antes conduta proibida: Prescrever medicações não indicadas além dos sintomáticos, como antibióticos ou oseltamivir (PEP item 15) — saiu porque antibiótico/oseltamivir desnecessários na dengue não matam nem sequelam (AINE/AAS seguem proibidos onde o caso pede)"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2021, Estação 10): o PEP pontua pesquisa de foco e de sinais de alarme, PA em duas posições e prova do laço, exames específicos de dengue, classificação como grupo B, hidratação oral e sintomáticos (sem antibiótico/oseltamivir), vigilância/notificação e retorno em < 48 h com novo hemograma. v2: hidratação e retorno aceitam o manual do MS de 2024 (60 mL/kg/dia; reavaliação diária até 48 h após a febre) e a forma do gabarito."
+  },
+  "sources": [
+    {
+      "claim": "Anamnese: sintomas de foco infeccioso — tosse, dispneia, diarreia, disúria, polaciúria, dor abdominal (5); sinais de alarme — dor abdominal intensa e contínua, vômitos persistentes, hipotensão postural/lipotimia, hepatomegalia dolorosa, sangramento de mucosas, hemorragias, sonolência/irritabilidade, diminuição da diurese, hipotermia, aumento do hematócrito, queda de plaquetas, desconforto respiratório, cefaleia intensa (6); contexto socioambiental (7).",
+      "title": "Revalida 2021 – Habilidades Clínicas – PEP, Estação 10, itens 5–7",
+      "publisher": "INEP",
+      "year": 2021,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2021_publicacao.pdf"
+    },
+    {
+      "claim": "Exame e exames: exame físico (8); PA em duas posições e prova do laço positiva (9); exames específicos de dengue com tempo ideal de coleta — NS1/teste rápido, RT-PCR ou isolamento viral idealmente antes do 4º dia, IgM a partir do 6º dia (10); diagnóstico de dengue grupo B (11).",
+      "title": "Revalida 2021 – Habilidades Clínicas – PEP, Estação 10, itens 8–11",
+      "publisher": "INEP",
+      "year": 2021,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2021_publicacao.pdf"
+    },
+    {
+      "claim": "Conduta: explica a forma de contágio (12); abordagem comunitária multiprofissional (13); vigilância — notificação no SINAN, busca de novos casos no território, intervenção em criadouros (14); sintomáticos e reidratação oral imediata (80 mL/kg/dia, 1/3 com SRO), sem acrescentar antibióticos, oseltamivir ou outras medicações não indicadas (15); retorno em < 48 h (grupo B), sinais de alarme, novo hemograma (16).",
+      "title": "Revalida 2021 – Habilidades Clínicas – PEP, Estação 10, itens 12–16",
+      "publisher": "INEP",
+      "year": 2021,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2021_publicacao.pdf"
+    },
+    {
+      "claim": "Manual do MS (6ª ed., 2024): hidratação oral do adulto nos grupos A e B de 60 mL/kg/dia, 1/3 com SRO; grupo B = sangramento de pele espontâneo ou induzido (prova do laço) ou condição clínica especial (inclui gestantes); hemograma obrigatório no grupo B, com observação até o resultado; hematócrito normal: tratamento ambulatorial com reavaliação clínica e laboratorial diária até 48 h após a queda da febre; paracetamol ou dipirona; não usar salicilatos nem AINE; notificar todo caso suspeito.",
+      "title": "Dengue: diagnóstico e manejo clínico – adulto e criança (6ª edição)",
+      "publisher": "Ministério da Saúde",
+      "year": 2024,
+      "url": "https://bvsms.saude.gov.br/bvs/publicacoes/dengue_diagnostico_manejo_clinico_6ed.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2021",
+    "item": "Estação 10",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2021_publicacao.pdf",
+    "originalCaseText": "ESTAÇÃO 10 – Área: Medicina de Família e Comunidade – Saúde Coletiva. INSTRUÇÕES PARA O(A) PARTICIPANTE. CENÁRIO DE ATUAÇÃO: Você trabalha em uma Unidade Básica de Saúde (UBS) com apoio laboratorial diagnóstico de urgência. Você realizará o atendimento de demanda espontânea de uma mulher de 43 anos de idade. Os dados do acolhimento foram coletados pela técnica de enfermagem. Motivo da Consulta: Febre. Paciente refere dor no corpo, na cabeça, nos olhos e febre há dois dias. Peso: 70 kg Índice de Massa Corporal: 28 kg/m². Pressão Arterial: 120 mmHg × 70 mmHg. Frequência Cardíaca: 98 batimentos/minuto. Temperatura: 38,5 ºC. Classificação de Risco – AMARELA – RISCO INTERMEDIÁRIO. Nos próximos 10 minutos, deverão ser realizadas as seguintes tarefas: realizar o atendimento da paciente; explicar as medidas necessárias para a correta investigação clínica e seguimento do caso; verbalizar as condutas necessárias e as orientações à paciente e demais ações a serem realizadas pela equipe de saúde da UBS.",
+    "notes": "Gabarito v2 (11/10/2026): conduta proibida só para o que mata ou sequela — medicacoes-nao-indicadas-na-dengue foi para fora do escopo. caso completo com o acolhimento e os impressos de exame físico (prova do laço só em imagem, descrita como positiva no item 9 do PEP) e de hemograma, de cuja interpretação depende a conduta do grupo B; o teste rápido (NS1 reagente) saiu do texto e virou conduta. Sem afunilamento: o roteiro da atriz não foi publicado, e os sinais de alarme ficaram em `questions`. O manual do MS 'Dengue: diagnóstico e manejo clínico' (6ª ed., 2024; verificado) prescreve 60 mL/kg/dia (1/3 SRO) e reavaliação diária até 48 h após a defervescência; o item de hidratação aceita esse volume e o do gabarito (dose só como referência) e o retorno aceita as duas formas, o que resolve o motivo da exclusão: o caso voltou ao portão. A tag 'desatualizado' foi mantida por regra. | possivelmente desatualizado: o manual do MS 'Dengue: diagnóstico e manejo clínico' (6ª ed., 2024) revisou o manejo por grupos, incluindo volumes de hidratação oral (o gabarito usa 80 mL/kg/dia, 1/3 com SRO) | Extraído apesar de ser UBS: demanda espontânea com classificação de risco amarela e apoio laboratorial de urgência; dengue grupo B exige hemograma e decisão de seguimento. Dados sob demanda: Impresso 1 — PA em pé 120x70 e deitada 124x72; BEG, hidratada, corada, ativa, pele e conjuntivas normais; ausculta normal; abdome sem visceromegalias ou dor; MMII sem edema, panturrilhas livres; prova do laço (imagem; o PEP considera positiva). Impresso 2 — Hb 12,3, Ht 36,8%, leucócitos 5.000 sem desvio, plaquetas 152.000. Impresso 3 — teste rápido de dengue: IgM e IgG não reagentes, NS1 reagente. A síntese do ator não é publicada no PEP de 2021. | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas."
+  }
+}

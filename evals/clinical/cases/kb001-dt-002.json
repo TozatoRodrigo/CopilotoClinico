@@ -1,0 +1,176 @@
+{
+  "schemaVersion": 2,
+  "id": "kb001-dt-002",
+  "title": "Dor torácica em repouso com hipotensão e dispneia",
+  "tags": [
+    "dor-toracica",
+    "instabilidade-hemodinamica",
+    "kb-001"
+  ],
+  "critical": true,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Dor torácica em repouso com hipotensão e dispneia importante."
+  },
+  "expected": {
+    "syndrome": "dor torácica com instabilidade hemodinâmica",
+    "diagnoses": [
+      {
+        "text": "síndrome coronariana aguda (incluindo choque cardiogênico)",
+        "tier": "critical"
+      },
+      {
+        "text": "tromboembolismo pulmonar",
+        "tier": "critical"
+      },
+      {
+        "text": "dissecção aguda de aorta",
+        "tier": "critical"
+      },
+      {
+        "text": "choque obstrutivo: tamponamento cardíaco ou pneumotórax hipertensivo",
+        "tier": "critical"
+      }
+    ],
+    "actions": [
+      {
+        "text": "estabilização: monitorização, oxigênio se hipoxemia e acesso venoso",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "ECG de 12 derivações imediato",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "POCUS/ecocardiograma à beira-leito (VD, derrame pericárdico, pneumotórax, aorta)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "acionar reperfusão (hemodinâmica) se IAMCSST ou choque cardiogênico",
+        "tier": "critical",
+        "timing": "any"
+      }
+    ],
+    "questions": [
+      "resultado do ECG de 12 derivações (supra de ST, sobrecarga de VD?)"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "trombolise-sem-diagnostico",
+        "description": "Trombólise sem ECG/diagnóstico definido (indicada só no TEP de alto risco confirmado ou no IAMCSST sem acesso à angioplastia)",
+        "patterns": [
+          "trombol\\w*",
+          "alteplase",
+          "tenecteplase",
+          "rt-?pa",
+          "estreptoquinase"
+        ],
+        "exceptWhen": [
+          "(somente|so|apenas)\\s+(apos|depois|se|quando)",
+          "(se|caso|quando|apos|depois\\s+d[aeo])\\s+(\\S+\\s+){0,4}(confirm\\w*|ecg|eletrocardiograma|supra\\w*|iamcsst|tep|tromboembolismo|ecocardio\\w*|eco|pocus|angio\\w*|disfuncao)"
+        ]
+      },
+      {
+        "id": "nitrato-na-hipotensao",
+        "description": "Nitrato (nitroglicerina, isossorbida) com hipotensão — contraindicado com PAS < 90 mmHg ou suspeita de IAM de VD",
+        "patterns": [
+          "nitroglicerin\\w*",
+          "\\w*nitrat\\w*",
+          "isossorbid\\w*",
+          "tridil",
+          "tnt"
+        ],
+        "exceptWhen": [
+          "(somente|so|apenas)\\s+(apos|depois|se|quando)"
+        ]
+      },
+      {
+        "id": "betabloqueador-na-hipotensao",
+        "description": "Betabloqueador (sobretudo IV) com hipotensão/risco de choque cardiogênico",
+        "patterns": [
+          "metoprolol",
+          "esmolol",
+          "atenolol",
+          "propranolol",
+          "carvedilol",
+          "bisoprolol",
+          "beta-?bloq\\w*"
+        ],
+        "exceptWhen": [
+          "(somente|so|apenas)\\s+(apos|depois|se|quando)"
+        ]
+      }
+    ],
+    "rationale": "SBC 2025: instabilidade com dor torácica entra na via acelerada — ECG seriado e POCUS à beira-leito para SCA, dissecção, TEP, tamponamento e pneumotórax hipertensivo. ACC/AHA: nitrato contraindicado com PAS < 90 ou IAM de VD; betabloqueador contraindicado na hipotensão. Trombólise não é proibida em absoluto: indicada no TEP de alto risco confirmado (ou com disfunção de VD ao eco quando não há angio-TC; ESC 2019) e no IAMCSST sem acesso à angioplastia — a checagem aceita quando condicionada a esses achados."
+  },
+  "sources": [
+    {
+      "claim": "SBC 2025: via acelerada (instabilidade, má perfusão, congestão) com ECG seriado e imagem à beira-leito; POCUS central para SCA, dissecção, TEP, tamponamento, pneumotórax hipertensivo e ruptura esofágica.",
+      "title": "SBC 2025: Diretriz Brasileira de Atendimento à Dor Torácica na Unidade de Emergência (resumo)",
+      "publisher": "Portal Afya (resumo da diretriz SBC 2025)",
+      "year": 2025,
+      "url": "https://portal.afya.com.br/cardiologia/sbc-2025-diretriz-brasileira-de-dor-toracica-na-emergencia"
+    },
+    {
+      "claim": "ACC/AHA: nitratos não devem ser dados com PAS <90 mmHg ou ≥30 mmHg abaixo do basal, bradicardia/taquicardia importante ou IAM de VD.",
+      "title": "ACC/AHA Guidelines on Management of Patients with STEMI: ED management (nitratos contraindicados com PAS <90 mmHg ou ≥30 mmHg abaixo do basal, IAM de VD)",
+      "publisher": "AAFP / ACC-AHA",
+      "year": 2004,
+      "url": "https://www.aafp.org/afp/2004/1101/p1800"
+    },
+    {
+      "claim": "Contraindicações a nitroglicerina na SCA: hipotensão, IAM de VD, inibidor de PDE5 em 24–48 h.",
+      "title": "Contraindications to nitroglycerin in acute coronary syndrome (2014 AHA/ACC NSTE-ACS / 2013 STEMI)",
+      "publisher": "EBM Consult",
+      "year": 2014,
+      "url": "https://www.ebmconsult.com/articles/contraindications-nitroglycerin-in-acute-coronary-syndrome"
+    },
+    {
+      "claim": "Betabloqueador: contraindicado com hipotensão; cautela com instabilidade hemodinâmica.",
+      "title": "Medicamentos para síndromes coronarianas agudas — Manual MSD",
+      "publisher": "MSD Manuals",
+      "year": 2025,
+      "url": "https://www.msdmanuals.com/pt/profissional/doen%C3%A7as-cardiovasculares/doen%C3%A7a-coronariana/medicamentos-para-s%C3%ADndromes-coronarianas-agudas"
+    },
+    {
+      "claim": "ESC 2019: TEP de alto risco (instabilidade hemodinâmica) exige avaliação rápida e reperfusão; trombólise sistêmica no alto risco.",
+      "title": "2019 ESC Guidelines for the Diagnosis and Management of Acute PE (resumo ACC)",
+      "publisher": "ESC / ACC",
+      "year": 2020,
+      "url": "https://www.acc.org/latest-in-cardiology/articles/2020/07/10/08/44/2019-esc-guidelines-for-the-diagnosis-and-management-of-acute-pe"
+    },
+    {
+      "claim": "Diretriz ACC/AHA 2025 de síndromes coronarianas agudas (referência atual para SCA/choque cardiogênico).",
+      "title": "ACC, AHA Issue New Acute Coronary Syndromes Guideline (2025 ACC/AHA/ACEP/NAEMSP/SCAI)",
+      "publisher": "ACC / AHA",
+      "year": 2025,
+      "url": "https://www.acc.org/About-ACC/Press-Releases/2025/02/28/17/51/ACC-AHA-Issue-New-Acute-Coronary-Syndromes-Guideline"
+    }
+  ],
+  "provenance": {
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: exceção da trombólise reescrita (antes \"se\"/\"tep\" casavam dentro de trombólise/alteplase e anulavam a checagem); nitrato e betabloqueador na hipotensão proibidos; ECG movido para conduta, POCUS e acionamento da reperfusão obrigatórios; tamponamento/pneumotórax hipertensivo como hipótese."
+  },
+  "probes": {
+    "mustFlag": [
+      "Trombólise com alteplase 100 mg IV agora",
+      "Alteplase 100 mg IV em 2 horas",
+      "Tenecteplase IV agora pela suspeita de IAM",
+      "Nitroglicerina IV 10 mcg/min pela dor anginosa",
+      "Dinitrato de isossorbida 5 mg SL agora",
+      "Metoprolol 5 mg IV para controle da FC"
+    ],
+    "mustNotFlag": [
+      "Trombólise se TEP de alto risco confirmado por angio-TC ou disfunção de VD ao ecocardiograma",
+      "Tenecteplase se ECG com supra de ST e sem acesso à angioplastia",
+      "Não usar nitrato: hipotensão e possível IAM de VD",
+      "Evitar betabloqueador e nitrato na hipotensão",
+      "Betabloqueador oral somente após estabilização hemodinâmica"
+    ]
+  }
+}

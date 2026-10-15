@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2017-obj-11",
+  "title": "Gestante de 37 semanas com duas cesáreas anteriores e sangramento vaginal vermelho-vivo",
+  "tags": [
+    "dor-abdominal",
+    "revalida",
+    "prova-cega",
+    "objetiva",
+    "obstetricia",
+    "acretismo-placentario"
+  ],
+  "critical": false,
+  "goldSource": "revalida_objetiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Maternidade. Fem, 34a, G3P2C2 (2 cesáreas anteriores), IG 37 sem, com diagnóstico prévio de placenta prévia centro-parcial. Chega com sangramento vaginal vermelho-vivo em moderada quantidade. EF: PA 110x70, FC 80; BCF 132 bpm; dinâmica uterina de 2 contrações de 30 s em 10 min."
+  },
+  "expected": {
+    "syndrome": "sangramento vaginal de terceiro trimestre em gestante a termo com placenta prévia e cesáreas anteriores",
+    "diagnoses": [
+      {
+        "text": "risco elevado de acretismo placentário (placenta prévia sobre a cicatriz de 2 cesáreas)",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "USG obstétrica com Doppler para avaliar acretismo placentário",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "tipagem sanguínea e reserva de hemoderivados para o parto (risco de hemorragia maciça no acretismo)",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "amnioscopia-na-placenta-previa",
+        "description": "Amnioscopia (instrumento pelo colo) em gestante sangrando por placenta prévia (alternativa B).",
+        "patterns": [
+          "amnioscop\\w*"
+        ]
+      }
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2017, objetiva, questão 11): alternativa C — acretismo placentário como principal complicação e USG com Doppler como exame. Distratoras: coagulopatia/coagulograma (A), prematuridade/amnioscopia (B, gestação a termo e amnioscopia contraindicada na placenta prévia) e DPP/USG (D). A questão não pergunta a conduta do sangramento (via e momento do parto); a reserva de hemoderivados entrou como implicação do acretismo."
+  },
+  "sources": [
+    {
+      "claim": "Questão 11: gabarito definitivo C — acretismo placentário; ultrassonografia com Doppler.",
+      "title": "Revalida 2017 – Prova Objetiva (versão 1) – gabarito definitivo",
+      "publisher": "INEP",
+      "year": 2017,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf"
+    },
+    {
+      "claim": "Enunciado, comando e alternativas da questão 11 (caderno da versão 1, 24/09/2017)",
+      "title": "Revalida 2017 – Prova Objetiva (versão 1), questão 11",
+      "publisher": "INEP",
+      "year": 2017,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/provas/2017/prova_objetiva_1.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2017",
+    "item": "Objetiva questão 11",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf",
+    "originalCaseText": "Uma mulher com 34 anos de idade, Gesta 3 Para 2 Cesáreas 2, com idade gestacional de 37 semanas e diagnóstico de placenta prévia centro parcial, chega à maternidade com queixa de sangramento vaginal vermelho vivo, em moderada quantidade. Ao exame físico, apresenta: pressão arterial = 110 x 70 mmHg, frequência cardíaca = 80 bpm, batimentos cardiofetais = 132 bpm, dinâmica uterina de 2 contrações de 30 segundos em 10 minutos de observação. Nesse caso, a principal complicação e o exame indicado são (A) coagulopatia; coagulograma. (B) prematuridade; amnioscopia. (C) acretismo placentário; ultrassonografia com Doppler. (D) descolamento prematuro de placenta; ultrassonografia do ventre.",
+    "notes": "Prova cega (11/10/2026): letra C conferida na imagem do gabarito definitivo (versão 1, text/img/2017_obj_gabarito-p01.png) e enunciado relido no texto de duas colunas, sem mistura com as questões vizinhas. Gabarito confere com a prática vigente (USG em escala de cinza com Doppler é o exame inicial do espectro de acretismo); não procurei fonte nova porque não há divergência. Amnioscopia (B) virou proibida. Limitação: a pergunta mede só a complicação e o exame, não a conduta do sangramento."
+  },
+  "probes": {
+    "mustFlag": [
+      "Amnioscopia para avaliar o líquido amniótico",
+      "Solicitar amnioscopia"
+    ],
+    "mustNotFlag": [
+      "Amnioscopia contraindicada",
+      "Não realizar amnioscopia nem toque vaginal",
+      "USG com Doppler para avaliar acretismo"
+    ]
+  }
+}

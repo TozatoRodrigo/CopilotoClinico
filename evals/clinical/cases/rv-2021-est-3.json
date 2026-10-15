@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 2,
+  "id": "rv-2021-est-3",
+  "title": "Recém-nascido a termo no alojamento conjunto mais quieto e com a pele diferente",
+  "tags": [
+    "pele-partes-moles",
+    "revalida",
+    "pep",
+    "neonatologia",
+    "ictericia-neonatal",
+    "desatualizado"
+  ],
+  "critical": true,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "excludeFromGate": {
+    "reason": "Gabarito anterior à diretriz AAP 2022 de hiperbilirrubinemia, que revisou os limiares de fototerapia por horas de vida."
+  },
+  "input": {
+    "caseText": "Alojamento conjunto de hospital secundário, visita ao RN. Mãe preocupada: o bebê está mais quietinho e com a pele diferente. RN masc, parto vaginal, IG 40 sem, Apgar 9/10, PN 3.410 g, comprimento 51 cm, PC 34,5 cm. Mãe com gestação anterior; tipagem materna O Rh negativo. Tipagem do RN: A Rh positivo. EF: BEG, corado, hidratado, eupneico, afebril, acianótico. AR: MV sem RA. ACV: RCR 2T, BNF, sem sopros. Abdome semigloboso, RHA presentes, normotenso, sem massas ou visceromegalias. Reflexos primitivos presentes e simétricos. Icterícia 3+/4+ até joelhos e cotovelos. Lab: BT 15 mg/dL, BI 14,7, BD 0,3; Coombs direto positivo; Ht 50%; reticulócitos 0,8%; DHL 239."
+  },
+  "expected": {
+    "syndrome": "icterícia neonatal por hiperbilirrubinemia indireta com Coombs direto positivo (incompatibilidade ABO e Rh)",
+    "diagnoses": [
+      {
+        "text": "hiperbilirrubinemia indireta por doença hemolítica isoimune (Coombs direto positivo; incompatibilidade materno-fetal ABO e Rh)",
+        "tier": "critical"
+      },
+      {
+        "text": "risco de encefalopatia bilirrubínica (kernicterus) se a bilirrubina alta se prolongar sem tratamento",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "fototerapia com proteção ocular, indicada pela bilirrubina total para a idade gestacional e as horas de vida, com a doença hemolítica isoimune como fator de risco de neurotoxicidade",
+        "tier": "critical",
+        "timing": "any"
+      },
+      {
+        "text": "recoleta de bilirrubinas durante a fototerapia para decidir a suspensão e a alta",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [
+      "idade do RN em horas de vida (define o limiar de fototerapia)"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "outOfScope": [
+      "apresentar-se e perguntar o nome da mãe ou do bebê (item 1)",
+      "antecedentes gestacionais, via de parto e amamentação, tipagem materna e uso de anti-D na gestação anterior (itens 2–5) — anamnese; a síntese da atriz não é publicada",
+      "realizar o exame físico do RN (item 6) — achados no caseText",
+      "solicitar a tipagem do RN e os exames laboratoriais (itens 8–9) — os resultados estão no caseText porque o diagnóstico e a fototerapia dependem deles",
+      "explicar à mãe as incompatibilidades ABO e Rh (item 11) e o risco de kernicterus (item 13)",
+      "orientar os cuidados gerais do RN: triagens neonatais, vacinação, coto umbilical, aleitamento materno (item 14)",
+      "postura acolhedora e perguntar se há dúvidas (item 15)"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2021, Estação 3): o PEP pontua anamnese materna (tipagem, anti-D), tipagem e exames do RN (bilirrubinas, Coombs, Ht, reticulócitos, DHL), diagnóstico de icterícia por incompatibilidade ABO/Rh e fototerapia com proteção ocular, recoleta de bilirrubinas e orientação sobre kernicterus. Gabarito v2: a fototerapia fica condicionada ao limiar por horas de vida (dado ausente, em questions), para o item não ser mais estrito que a diretriz da AAP de 2022."
+  },
+  "sources": [
+    {
+      "claim": "Anamnese: antecedentes gestacionais — gestações, abortos, partos (2); via de parto e amamentação (3); tipagem sanguínea da mãe (4); imunoglobulina anti-D após a gestação anterior (5); exame físico do RN (6); diagnóstico de icterícia (7).",
+      "title": "Revalida 2021 – Habilidades Clínicas – PEP, Estação 3, itens 2–7",
+      "publisher": "INEP",
+      "year": 2021,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2021_publicacao.pdf"
+    },
+    {
+      "claim": "Exames: tipagem sanguínea do RN (8); bilirrubinas totais e frações (obrigatório), Coombs direto, hematócrito/hemograma, reticulócitos, DHL — adequado ≥ 3 incluindo bilirrubinas, pedidos antes do impresso 3 (9, 2,0 pontos).",
+      "title": "Revalida 2021 – Habilidades Clínicas – PEP, Estação 3, itens 8–9",
+      "publisher": "INEP",
+      "year": 2021,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2021_publicacao.pdf"
+    },
+    {
+      "claim": "Conduta e orientação: fototerapia com fotoproteção ocular (10); explica incompatibilidade ABO e Rh após gestação prévia como fator de risco (11); recoleta de bilirrubinas após fototerapia para suspensão e alta (12); risco de kernicterus com bilirrubina alta prolongada sem tratamento (13); cuidados gerais — triagens neonatais, vacinação na 1ª semana, coto umbilical, aleitamento materno (14).",
+      "title": "Revalida 2021 – Habilidades Clínicas – PEP, Estação 3, itens 10–14",
+      "publisher": "INEP",
+      "year": 2021,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2021_publicacao.pdf"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2021",
+    "item": "Estação 3",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/PEP_2021_publicacao.pdf",
+    "originalCaseText": "ESTAÇÃO 3 – Área: Pediatria. INSTRUÇÕES PARA O(A) PARTICIPANTE. CENÁRIO DE ATUAÇÃO: Você está de plantão no alojamento conjunto de um hospital secundário e está passando visita nos bebês recém-nascidos. A mãe do recém-nascido do qual você irá fazer a consulta agora está preocupada, pois notou que seu bebê está mais quietinho e com a pele diferente. Nos próximos 10 minutos, deverão ser realizadas as seguintes tarefas: fazer a anamnese dirigida à mãe; ler a ficha do bebê afixada na mesa; comentar o exame físico (não será necessário examinar diretamente o bebê simulado); solicitar todos os exames complementares que julgar necessário (se indicados); responder aos questionamentos da mãe do bebê simulado; propor conduta clínica ao bebê simulado (se indicada); orientar a mãe quanto aos cuidados gerais do recém-nascido. FICHA DO RECÉM-NASCIDO: Francisco – RN de Célia; Via de parto: Vaginal; Idade gestacional: 40 semanas; APGAR: 1° minuto: 9 / 5° minuto: 10; Peso de Nascimento: 3410 g; Comprimento: 51 cm; PC: 34,5 cm.",
+    "notes": "Gabarito v2 (11/10/2026): caseText com a ficha do RN e os impressos 1–3 (tipagem, exame físico, laboratório), porque o diagnóstico e a fototerapia dependem deles; a solicitação desses exames (itens 8–9) foi para outOfScope. Sem funnel: o PEP de 2021 não publica o roteiro da atriz. A tipagem materna (O Rh negativo) e a gestação anterior foram deduzidas do item 11 do PEP (incompatibilidade ABO e Rh após gestação prévia, com RN A Rh positivo); o uso de anti-D não é publicado e ficou fora. As horas de vida não constam da estação e entraram em questions; a fototerapia ficou crítica com timing 'any' e condicionada ao limiar por horas de vida. excludeFromGate mantido: o item já não é mais estrito que a AAP 2022, mas o texto da diretriz (publications.aap.org) devolveu 403 e não foi conferido; páginas secundárias (CHOP, BiliTool) confirmam limiar por idade gestacional, idade e fatores de risco de neurotoxicidade (doença hemolítica isoimune), mas não foram acrescentadas como fonte. | possivelmente desatualizado: a diretriz da AAP de hiperbilirrubinemia neonatal (≥ 35 semanas, 2022) revisou os limiares de fototerapia por horas de vida e fatores de risco de neurotoxicidade (doença hemolítica isoimune é um deles); o gabarito indica fototerapia sem citar curva nem horas de vida | tags[0] = pele-partes-moles pela queixa materna ('pele diferente'); não há estrato para icterícia. A ficha do RN (lida na mesa ao entrar) foi incluída no caseText. Dados sob demanda: Impresso 1 — tipagem do RN A Rh positivo. Impresso 2 — BEG, corado, hidratado, eupneico, afebril; AR, ACV e abdome normais; reflexos primitivos presentes e simétricos; icterícia +3/+4 até joelhos e cotovelos. Impresso 3 — BT 15, BI 14,7, BD 0,3 mg/dL, Coombs direto positivo, Ht 50%, reticulócitos 0,8%, DHL 239. Pelo PEP (item 11), há incompatibilidade ABO e Rh após gestação prévia (tipagem materna e anti-D na gestação anterior são informadas pela mãe; a síntese do ator não é publicada). Horas de vida não informadas. Exames só pontuam se pedidos antes da entrega do impresso 3."
+  }
+}

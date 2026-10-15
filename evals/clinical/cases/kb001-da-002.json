@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 2,
+  "id": "kb001-da-002",
+  "title": "Dor abdominal intensa com defesa involuntária e hipotensão",
+  "tags": [
+    "dor-abdominal",
+    "abdome-agudo",
+    "instabilidade-hemodinamica",
+    "kb-001"
+  ],
+  "critical": true,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Dor abdominal intensa com defesa involuntária e hipotensão."
+  },
+  "expected": {
+    "syndrome": "abdome agudo com instabilidade hemodinâmica",
+    "diagnoses": [
+      {
+        "text": "perfuração de víscera / peritonite",
+        "tier": "critical"
+      },
+      {
+        "text": "hemorragia intra-abdominal (aneurisma de aorta roto ou gravidez ectópica rota)",
+        "tier": "critical"
+      }
+    ],
+    "actions": [
+      {
+        "text": "dois acessos venosos calibrosos e ressuscitação guiada pela causa: se hemorragia, hemocomponentes precoces e hipotensão permissiva até o controle cirúrgico; se peritonite/sepse, cristaloide e antibiótico IV de amplo espectro em até 1 h",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "POCUS à beira-leito (FAST e aorta)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "avaliação cirúrgica de urgência",
+        "tier": "critical",
+        "timing": "now"
+      }
+    ],
+    "questions": [
+      "possibilidade de gestação (beta-hCG se mulher em idade fértil)"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "tc-antes-de-estabilizar",
+        "description": "Levar o paciente instável à TC antes da estabilização ou da decisão cirúrgica (atrasa o controle do sangramento ou do foco)",
+        "patterns": []
+      }
+    ],
+    "rationale": "Abdome agudo com choque: a ressuscitação depende da causa — ESVS 2024 (Rec. 72): hipotensão permissiva no AAA roto; ACOG 193: ectópica rota instável vai à cirurgia; SSC 2021 e WSES 2020: na perfuração/peritonite, cristaloide, antibiótico em até 1 h e controle do foco. POCUS (FAST/aorta) diferencia hemorragia de perfuração à beira-leito. Desejáveis, mas não exigidos: anticoagulante e idade; isquemia mesentérica como hipótese nomeada."
+  },
+  "sources": [
+    {
+      "claim": "ESVS 2024 Rec. 72: política de hipotensão permissiva recomendada no AAA roto.",
+      "title": "ESVS 2024 Clinical Practice Guidelines on the Management of Abdominal Aorto-Iliac Artery Aneurysms (Rec. 72: hipotensão permissiva no AAA roto)",
+      "publisher": "European Society for Vascular Surgery / EJVES",
+      "year": 2024,
+      "url": "https://esvs.org/wp-content/uploads/2024/02/ESVS-2024-AAA-Guidelines.pdf"
+    },
+    {
+      "claim": "SSC 2021: antimicrobiano em até 1 h no choque séptico; cristaloide balanceado; noradrenalina.",
+      "title": "Surviving Sepsis Campaign: International Guidelines for Management of Sepsis and Septic Shock 2021",
+      "publisher": "SCCM / ESICM",
+      "year": 2021,
+      "url": "https://sccm.org/sepsisguidelines"
+    },
+    {
+      "claim": "WSES 2020: na úlcera perfurada, ressuscitação, antibiótico e tratamento cirúrgico oportuno.",
+      "title": "Perforated and bleeding peptic ulcer: WSES guidelines",
+      "publisher": "WSES / World J Emerg Surg",
+      "year": 2020,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6947898/"
+    },
+    {
+      "claim": "Ectópica rota com instabilidade: cirurgia imediata.",
+      "title": "ACOG Practice Bulletin No. 193: Tubal Ectopic Pregnancy",
+      "publisher": "ACOG / Obstet Gynecol",
+      "year": 2018,
+      "url": "https://pubmed.ncbi.nlm.nih.gov/29470343/"
+    }
+  ],
+  "provenance": {
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: ressuscitação separada entre hemorragia (hemocomponentes, hipotensão permissiva) e sepse (cristaloide + antibiótico); POCUS obrigatório; TC antes de estabilizar proibida (só juiz). Anticoagulante/idade e isquemia mesentérica ficaram no rationale (opcionais)."
+  }
+}

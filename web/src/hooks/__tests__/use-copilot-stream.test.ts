@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { useCopilotStream, isStreamEligible } from "../use-copilot-stream";
-import type { CopilotAnalyzeResponse, EncounterContext } from "@/lib/types";
+import { useCopilotStream } from "../use-copilot-stream";
+import type { CopilotAnalyzeResponse } from "@/lib/types";
 
 // EventSource não existe em jsdom — mock controlável para disparar
 // onmessage/onerror manualmente e inspecionar a URL construída.
@@ -36,7 +36,7 @@ class MockEventSource {
   }
 }
 
-const baseContext: EncounterContext = { hasCT: true, isSus: false, hasLab: true, hasICU: false };
+const INTAKE_ID = "00000000-0000-4000-8000-000000000001";
 
 const doneResult: CopilotAnalyzeResponse = {
   interactionId: "interaction-stream-001",
@@ -70,20 +70,6 @@ function latestInstance(): MockEventSource {
   return instance;
 }
 
-describe("isStreamEligible (UX-06)", () => {
-  it("accepts case text within the safe URL-length threshold", () => {
-    expect(isStreamEligible("Paciente com dor torácica.")).toBe(true);
-  });
-
-  it("rejects case text long enough to risk truncation as a GET query param", () => {
-    expect(isStreamEligible("a".repeat(3001))).toBe(false);
-  });
-
-  it("accepts exactly at the boundary", () => {
-    expect(isStreamEligible("a".repeat(3000))).toBe(true);
-  });
-});
-
 describe("useCopilotStream (UX-06)", () => {
   beforeEach(() => {
     MockEventSource.instances = [];
@@ -94,48 +80,25 @@ describe("useCopilotStream (UX-06)", () => {
     vi.unstubAllGlobals();
   });
 
-  it("builds the stream URL with case text, context and red-flag defaults, using credentials", () => {
+  it("opens the plan stream with only the conversation id in the URL, using credentials", () => {
     const { result } = renderHook(() => useCopilotStream("enc-001"));
 
     act(() => {
-      void result.current.start({ caseText: "Dor torácica aguda", context: baseContext });
+      void result.current.startFromIntake(INTAKE_ID);
     });
 
     const es = latestInstance();
     expect(es.withCredentials).toBe(true);
-    expect(es.url).toContain("/encounters/enc-001/copilot/stream?");
-    expect(es.url).toContain("caseText=Dor+tor%C3%A1cica+aguda");
-    expect(es.url).toContain("hasCT=true");
-    expect(es.url).toContain("isSus=false");
-    // UX-06 — paridade de red flags: mesmo sem marcar nenhuma, os 6
-    // parâmetros vão explicitamente como false (não omitidos).
-    for (const key of ["immunosuppressed", "pregnant", "anticoagulant", "pediatric", "elderly65", "allergy"]) {
-      expect(es.url).toContain(`${key}=false`);
-    }
-  });
-
-  it("forwards physician-confirmed red flags in the query string", () => {
-    const { result } = renderHook(() => useCopilotStream("enc-001"));
-
-    act(() => {
-      void result.current.start({
-        caseText: "Paciente gestante com dor abdominal",
-        context: baseContext,
-        redFlags: { pregnant: true, anticoagulant: true },
-      });
-    });
-
-    const es = latestInstance();
-    expect(es.url).toContain("pregnant=true");
-    expect(es.url).toContain("anticoagulant=true");
-    expect(es.url).toContain("immunosuppressed=false");
+    // ADR-014 — o caso e as respostas já estão no servidor: nada clínico na URL.
+    expect(es.url).toMatch(new RegExp(`/encounters/enc-001/copilot/intake/${INTAKE_ID}/stream$`));
+    expect(es.url).not.toContain("?");
   });
 
   it("accumulates delta events into partialText as a live signal (not shown as structured content)", async () => {
     const { result } = renderHook(() => useCopilotStream("enc-001"));
 
     act(() => {
-      void result.current.start({ caseText: "Caso clínico", context: baseContext });
+      void result.current.startFromIntake(INTAKE_ID);
     });
     const es = latestInstance();
 
@@ -150,12 +113,62 @@ describe("useCopilotStream (UX-06)", () => {
     expect(result.current.status).toBe("streaming");
   });
 
+  // F1 — com o raciocínio em etapas, o entendimento do caso chega antes dos
+  // deltas: é estrutura já validada no servidor, pode ir para a tela.
+  it("exposes the understanding event as soon as it arrives, before the plan", async () => {
+    const { result } = renderHook(() => useCopilotStream("enc-001"));
+    const understanding = {
+      problemRepresentation: "Homem de 68 anos com déficit focal súbito.",
+      structuredData: {
+        age: 68,
+        sex: "M" as const,
+        vitals: {
+          systolicBp: null,
+          diastolicBp: null,
+          heartRate: null,
+          respiratoryRate: null,
+          spo2: null,
+          temperature: null,
+          glucose: null,
+        },
+        onset: null,
+        keyFindings: [],
+        relevantContext: [],
+      },
+      instability: { present: false, findings: [] },
+      syndrome: "deficit-neurologico-focal" as const,
+      syndromeNote: null,
+      cannotMiss: [],
+      likely: [],
+      missingDiscriminators: [],
+      searchQueries: ["manejo inicial do AVC"],
+      timeCritical: true,
+    };
+
+    act(() => {
+      void result.current.startFromIntake(INTAKE_ID);
+    });
+    expect(result.current.understanding).toBeNull();
+    const es = latestInstance();
+
+    act(() => {
+      es.emitMessage({ type: "understanding", understanding });
+    });
+
+    await waitFor(() => {
+      expect(result.current.understanding).toEqual(understanding);
+    });
+    expect(result.current.status).toBe("streaming");
+    expect(result.current.partialText).toBe("");
+    expect(es.closed).toBe(false);
+  });
+
   it("resolves with the validated result and sets status=done on the done event", async () => {
     const { result } = renderHook(() => useCopilotStream("enc-001"));
 
     let resolved: CopilotAnalyzeResponse | undefined;
     act(() => {
-      void result.current.start({ caseText: "Caso clínico", context: baseContext }).then((r) => {
+      void result.current.startFromIntake(INTAKE_ID).then((r) => {
         resolved = r;
       });
     });
@@ -178,7 +191,7 @@ describe("useCopilotStream (UX-06)", () => {
     let caught: Error | undefined;
     act(() => {
       void result.current
-        .start({ caseText: "Caso clínico", context: baseContext })
+        .startFromIntake(INTAKE_ID)
         .catch((err: Error) => {
           caught = err;
         });
@@ -202,7 +215,7 @@ describe("useCopilotStream (UX-06)", () => {
     let caught: Error | undefined;
     act(() => {
       void result.current
-        .start({ caseText: "Caso clínico", context: baseContext })
+        .startFromIntake(INTAKE_ID)
         .catch((err: Error) => {
           caught = err;
         });
@@ -230,7 +243,7 @@ describe("useCopilotStream (UX-06)", () => {
     let settledTwice = false;
     act(() => {
       void result.current
-        .start({ caseText: "Caso clínico", context: baseContext })
+        .startFromIntake(INTAKE_ID)
         .then(() => {
           if (settledTwice) throw new Error("promise resolved twice");
         })
@@ -259,7 +272,7 @@ describe("useCopilotStream (UX-06)", () => {
     const { result } = renderHook(() => useCopilotStream("enc-001"));
 
     act(() => {
-      void result.current.start({ caseText: "Caso clínico", context: baseContext });
+      void result.current.startFromIntake(INTAKE_ID);
     });
     const es = latestInstance();
 
@@ -278,7 +291,7 @@ describe("useCopilotStream (UX-06)", () => {
     const { result } = renderHook(() => useCopilotStream("enc-001"));
 
     act(() => {
-      void result.current.start({ caseText: "Caso clínico", context: baseContext });
+      void result.current.startFromIntake(INTAKE_ID);
     });
     const es = latestInstance();
     expect(es.closed).toBe(false);
