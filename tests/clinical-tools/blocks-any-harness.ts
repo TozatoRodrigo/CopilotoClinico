@@ -1,6 +1,19 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import ts from 'typescript';
+import {
+  FRAGMENT,
+  findAll,
+  isRaw,
+  jsx,
+  stubModule,
+  type AnyElement,
+  type AnyNode,
+  type AnyStub,
+  type RawElement,
+} from './any-jsx-runtime';
+
+export { findAll, type AnyElement, type AnyNode };
 
 /**
  * Roda a página BlockPath congelada do ANY (tests/any-reference) sem React,
@@ -63,15 +76,6 @@ export interface AnyBlockPathState {
   showEvoResult: boolean;
 }
 
-export interface AnyElement {
-  /** Tag HTML ('div') ou `@Nome` (componente ou ícone importado). */
-  type: string;
-  props: Record<string, unknown>;
-  children: AnyNode[];
-}
-
-export type AnyNode = AnyElement | string;
-
 export interface AnyBlockData {
   id: string;
   name: string;
@@ -98,14 +102,6 @@ export interface AnyBlockPathInternals {
   }[];
 }
 
-interface RawElement {
-  $$any: true;
-  type: unknown;
-  props: Record<string, unknown>;
-}
-
-type Stub = (() => null) & { stubName: string };
-
 interface RenderContext {
   state: Partial<AnyBlockPathState>;
   slot: number;
@@ -117,25 +113,6 @@ let active: RenderContext | null = null;
 function context(): RenderContext {
   if (!active) throw new Error('Hook do ANY chamado fora de render()');
   return active;
-}
-
-const stubs = new Map<string, Stub>();
-
-function stub(name: string): Stub {
-  let component = stubs.get(name);
-  if (!component) {
-    component = Object.assign(() => null, { stubName: name });
-    stubs.set(name, component);
-  }
-  return component;
-}
-
-/** Módulo cujos exports são todos marcadores (componentes e ícones). */
-function stubModule(): unknown {
-  return new Proxy(
-    {},
-    { get: (_target, name) => (name === '__esModule' ? true : stub(String(name))) },
-  );
 }
 
 function useState<T>(initial: T): [T, (next: T | ((current: T) => T)) => void] {
@@ -150,14 +127,6 @@ function useState<T>(initial: T): [T, (next: T | ((current: T) => T)) => void] {
   };
   return [state[name] as T, setter];
 }
-
-const jsx = (type: unknown, props: Record<string, unknown>): RawElement => ({
-  $$any: true,
-  type,
-  props: props ?? {},
-});
-
-const FRAGMENT = stub('Fragment');
 
 function fakeRequire(path: string): unknown {
   switch (path) {
@@ -218,10 +187,6 @@ export function anyBlockPathInternals(): AnyBlockPathInternals {
   return load().internals;
 }
 
-function isRaw(value: unknown): value is RawElement {
-  return typeof value === 'object' && value !== null && '$$any' in value;
-}
-
 /** Filhos como o React desenharia: lista achatada, sem `false`/`null`, número vira texto. */
 function normalizeChildren(children: unknown): AnyNode[] {
   if (children === undefined || children === null || typeof children === 'boolean') return [];
@@ -238,7 +203,7 @@ function expand(element: RawElement): AnyElement {
   if (typeof type === 'string') return { type, props: rest, children: normalizeChildren(children) };
   if (typeof type === 'function' && 'stubName' in type) {
     return {
-      type: `@${(type as Stub).stubName}`,
+      type: `@${(type as AnyStub).stubName}`,
       props: rest,
       children: normalizeChildren(children),
     };
@@ -276,12 +241,6 @@ export class AnyBlockPathSession {
 
 export function textOf(node: AnyNode): string {
   return typeof node === 'string' ? node : node.children.map(textOf).join('');
-}
-
-export function findAll(node: AnyNode, match: (element: AnyElement) => boolean): AnyElement[] {
-  if (typeof node === 'string') return [];
-  const own = match(node) ? [node] : [];
-  return [...own, ...node.children.flatMap((child) => findAll(child, match))];
 }
 
 export function findOne(node: AnyNode, match: (element: AnyElement) => boolean): AnyElement {

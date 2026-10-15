@@ -1,10 +1,10 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import ts from 'typescript';
 import { fmt } from '../any-reference/formatters';
 import {
   createHeadlessReact,
   findAll,
+  loadFrozenModule,
   isElement,
   textOf,
   type HeadlessElement,
@@ -22,7 +22,6 @@ import {
  * exibida) sai renderizando o próprio componente com um React de mentira.
  */
 
-const REFERENCE = join(process.cwd(), 'tests/any-reference/PedGuide.tsx');
 const MARKER = '// ---- início do arquivo original ----\n';
 
 export interface AnyBolusResult {
@@ -181,34 +180,11 @@ export interface PedGuideReference {
 }
 
 export function loadPedGuide(): PedGuideReference {
-  const content = readFileSync(REFERENCE, 'utf-8');
-  const original = content.split(MARKER)[1];
-  if (original === undefined) throw new Error('PedGuide.tsx sem o marcador da referência');
-  const { outputText } = ts.transpileModule(original, {
-    compilerOptions: {
-      jsx: ts.JsxEmit.React,
-      module: ts.ModuleKind.CommonJS,
-      target: ts.ScriptTarget.ES2022,
-    },
-    fileName: 'PedGuide.tsx',
-  });
   const react = createHeadlessReact();
-  const modules = layoutStubs(react);
-  const exportsObject: Record<string, unknown> = {};
-  const require = (specifier: string): unknown => {
-    if (specifier === 'react') return react.module;
-    if (specifier in modules) return modules[specifier];
-    throw new Error(`PedGuide.tsx importa "${specifier}", que o teste não forneceu`);
-  };
-  // Acrescentado depois do código original (que segue intacto): expõe o que
-  // o arquivo não exporta, para comparar dado com dado.
-  const expose = `\nexports.__internals = { ${INTERNALS.join(', ')} };\n`;
-  // eslint-disable-next-line @typescript-eslint/no-implied-eval -- só teste, sobre arquivo congelado
-  new Function('exports', 'require', 'React', outputText + expose)(
-    exportsObject,
-    require,
-    react.module,
-  );
+  const exportsObject = loadFrozenModule('PedGuide.tsx', react, layoutStubs(react), {
+    // Expõe o que o arquivo não exporta, para comparar dado com dado.
+    expose: INTERNALS,
+  });
   const internals = exportsObject.__internals as Omit<PedGuideInternals, 'PedGuide'>;
   return {
     internals: { ...internals, PedGuide: exportsObject.default as PedGuideInternals['PedGuide'] },

@@ -79,16 +79,29 @@ export function createHeadlessReact() {
     Fragment: 'fragment',
   };
 
+  function renderShallow<P>(
+    component: (props: P) => HeadlessNode,
+    props: P,
+    state: readonly unknown[] = [],
+  ): HeadlessNode {
+    overrides = state;
+    position = 0;
+    setCalls.length = 0;
+    return component(props);
+  }
+
   return {
     module,
     setCalls,
     /** Chama o componente com o estado indicado por posição (`undefined` = valor inicial). */
     render<P>(component: (props: P) => HeadlessNode, props: P, state: readonly unknown[] = []) {
-      overrides = state;
-      position = 0;
-      setCalls.length = 0;
-      return expand(component(props));
+      return expand(renderShallow(component, props, state));
     },
+    /**
+     * Como `render`, mas sem executar os componentes-função da árvore: o teste
+     * lê as props deles (as calculadoras internas do VmGuide).
+     */
+    renderShallow,
   };
 }
 
@@ -101,14 +114,27 @@ function expand(node: HeadlessNode): HeadlessNode {
   return { ...node, children: node.children.map(expand) };
 }
 
+export interface LoadFrozenModuleOptions {
+  /**
+   * Nomes internos do arquivo (não exportados) a expor em `__internals`. A
+   * linha é acrescentada depois do código original, que segue intacto.
+   */
+  expose?: readonly string[];
+  /** Globais do navegador que o arquivo usa (`window`, `localStorage`), simulados pelo teste. */
+  globals?: Readonly<Record<string, unknown>>;
+}
+
 /**
  * Carrega um arquivo congelado e devolve o que ele exporta. `modules` resolve
- * cada `import` do arquivo; import que não estiver ali falha alto.
+ * cada `import` do arquivo; import que não estiver ali falha alto. `react` é o
+ * React de mentira (o de `createHeadlessReact` ou um próprio do roteiro, com
+ * `useReducer`).
  */
 export function loadFrozenModule(
   file: string,
-  react: ReturnType<typeof createHeadlessReact>,
+  react: { module: object },
   modules: Record<string, unknown>,
+  options: LoadFrozenModuleOptions = {},
 ): Record<string, unknown> {
   const content = readFileSync(join(REFERENCE_DIR, file), 'utf-8');
   const original = content.split(MARKER)[1];
@@ -127,8 +153,18 @@ export function loadFrozenModule(
     if (specifier in modules) return modules[specifier];
     throw new Error(`${file} importa "${specifier}", que o teste não forneceu`);
   };
+  const expose = options.expose
+    ? `\nexports.__internals = { ${options.expose.join(', ')} };\n`
+    : '';
+  const globals = Object.entries(options.globals ?? {});
   // eslint-disable-next-line @typescript-eslint/no-implied-eval -- só teste, sobre arquivo congelado
-  new Function('exports', 'require', 'React', outputText)(exports, require, react.module);
+  new Function(
+    'exports',
+    'require',
+    'React',
+    ...globals.map(([name]) => name),
+    outputText + expose,
+  )(exports, require, react.module, ...globals.map(([, value]) => value));
   return exports;
 }
 

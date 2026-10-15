@@ -1,8 +1,12 @@
-import { readFileSync } from 'fs';
-import { join } from 'path';
-import ts from 'typescript';
 import * as anyCalculations from '../any-reference/calculations';
 import * as anyVmData from '../any-reference/vmData';
+import {
+  createHeadlessReact,
+  isElement,
+  loadFrozenModule,
+  type HeadlessElement,
+  type HeadlessNode,
+} from './any-component-harness';
 
 /**
  * Roda a página VmGuide congelada do ANY (tests/any-reference/VmGuide.tsx)
@@ -22,26 +26,15 @@ import * as anyVmData from '../any-reference/vmData';
  * A ordem das chamadas a `useState` é a do arquivo congelado; como o hash é
  * conferido, a posição de cada estado é estável.
  *
- * O AnyComponentHarness do TEP (CC-318) faz o mesmo para outras páginas; ao
- * juntar as branches, este pode passar a usar aquele.
+ * O React de mentira e o carregador são os de any-component-harness.ts; aqui
+ * fica só o que é do VmGuide (achar as calculadoras internas e clicar em
+ * "Calcular").
  */
 
-export interface VmElement {
-  type: string | ((props: Record<string, unknown>) => VmNode);
-  props: Record<string, unknown>;
-  children: VmNode[];
-}
-
-export type VmNode = VmElement | string | number | boolean | null | undefined;
+export type VmElement = HeadlessElement;
+export type VmNode = HeadlessNode;
 
 type Component = (props: Record<string, unknown>) => VmNode;
-
-const MARKER = '// ---- início do arquivo original ----\n';
-const FRAGMENT = 'fragment';
-
-function isElement(node: VmNode): node is VmElement {
-  return typeof node === 'object' && node !== null;
-}
 
 /** Todas as tags da árvore, em profundidade, sem executar componentes. */
 export function* walk(node: VmNode): Generator<VmElement> {
@@ -97,55 +90,6 @@ export interface VmGuideHarness {
   calculator(name: string): VmCalculatorHarness;
 }
 
-function createHeadlessReact() {
-  let overrides: readonly unknown[] = [];
-  let position = 0;
-  const setCalls: { position: number; value: unknown }[] = [];
-
-  const createElement = (
-    type: VmElement['type'],
-    props: Record<string, unknown> | null,
-    ...children: VmNode[]
-  ): VmElement => ({
-    type,
-    props: props ?? {},
-    children: (children as unknown[]).flat(Infinity) as VmNode[],
-  });
-
-  const hooks = {
-    useState(initial: unknown) {
-      const current = position;
-      position += 1;
-      const override = overrides[current];
-      const value =
-        override !== undefined
-          ? override
-          : typeof initial === 'function'
-            ? (initial as () => unknown)()
-            : initial;
-      return [value, (next: unknown) => setCalls.push({ position: current, value: next })];
-    },
-    useMemo<T>(factory: () => T): T {
-      return factory();
-    },
-    useCallback<T>(fn: T): T {
-      return fn;
-    },
-    useRef<T>(initial: T) {
-      return { current: initial };
-    },
-  };
-
-  function render(component: Component, state: readonly unknown[]): VmNode {
-    overrides = state;
-    position = 0;
-    setCalls.length = 0;
-    return component({});
-  }
-
-  return { createElement, hooks, setCalls, render };
-}
-
 /** Componente de layout do ANY que o teste não lê: vira uma tag com o nome. */
 function stub(name: string): Component {
   const component = (props: Record<string, unknown>) => ({
@@ -162,23 +106,8 @@ function stub(name: string): Component {
  * da página (elas não são exportadas).
  */
 export function loadVmGuide(): VmGuideHarness {
-  const content = readFileSync(join(process.cwd(), 'tests/any-reference/VmGuide.tsx'), 'utf-8');
-  const original = content.split(MARKER)[1];
-  if (original === undefined) throw new Error('VmGuide.tsx sem o marcador da referência');
-
-  const { outputText } = ts.transpileModule(original, {
-    compilerOptions: {
-      jsx: ts.JsxEmit.React,
-      jsxFactory: '__h',
-      jsxFragmentFactory: '__Fragment',
-      module: ts.ModuleKind.CommonJS,
-      target: ts.ScriptTarget.ES2022,
-    },
-  });
-
   const react = createHeadlessReact();
   const modules: Record<string, unknown> = {
-    react: react.hooks,
     'react-router-dom': { useNavigate: () => () => undefined },
     '../components/layout/Disclaimer': { Disclaimer: stub('Disclaimer') },
     '../components/layout/Header': { Header: stub('Header') },
@@ -190,25 +119,13 @@ export function loadVmGuide(): VmGuideHarness {
     '../utils/calculations': anyCalculations,
     '../data/vmData': anyVmData,
   };
-  const requireModule = (name: string): unknown => {
-    if (!(name in modules)) throw new Error(`VmGuide importa "${name}", que o harness não conhece`);
-    return modules[name];
-  };
-
-  const exports: Record<string, unknown> = {};
-  const run = new Function('require', 'exports', '__h', '__Fragment', outputText) as (
-    require: (name: string) => unknown,
-    exports: Record<string, unknown>,
-    h: typeof react.createElement,
-    fragment: string,
-  ) => void;
-  run(requireModule, exports, react.createElement, FRAGMENT);
+  const exports = loadFrozenModule('VmGuide.tsx', react, modules);
 
   const page = exports.default as Component | undefined;
   if (!page) throw new Error('VmGuide sem export default');
 
   const components = new Map<string, Component>();
-  for (const element of walk(react.render(page, []))) {
+  for (const element of walk(react.renderShallow(page, {}, []))) {
     const name = componentName(element);
     if (name && typeof element.type === 'function') components.set(name, element.type);
   }
@@ -218,9 +135,9 @@ export function loadVmGuide(): VmGuideHarness {
       const component = components.get(name);
       if (!component) throw new Error(`Calculadora "${name}" não encontrada na página do ANY`);
       return {
-        render: (state) => react.render(component, state),
+        render: (state) => react.renderShallow(component, {}, state),
         calculate(fields) {
-          const tree = react.render(component, fields);
+          const tree = react.renderShallow(component, {}, fields);
           const button = findAll(tree, 'CalcButton')[0];
           const onClick = button?.props.onClick;
           if (typeof onClick !== 'function') throw new Error(`${name} sem botão Calcular`);
@@ -228,7 +145,7 @@ export function loadVmGuide(): VmGuideHarness {
           // O resultado é o último `useState` do componente: a posição logo depois dos campos.
           const call = react.setCalls.find(({ position }) => position === fields.length);
           const stored = call ? call.value : undefined;
-          return { stored, tree: react.render(component, [...fields, stored ?? null]) };
+          return { stored, tree: react.renderShallow(component, {}, [...fields, stored ?? null]) };
         },
         calls: () => [...react.setCalls],
       };

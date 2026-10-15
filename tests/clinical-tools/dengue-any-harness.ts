@@ -2,6 +2,9 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import ts from 'typescript';
 import { calcDengueHydration } from '../any-reference/calculations';
+import { type AnyElement, type AnyNode, type RawElement } from './any-jsx-runtime';
+
+export type { AnyElement, AnyNode };
 
 /**
  * Roda a página DenguePath congelada do ANY (tests/any-reference) sem React e
@@ -86,15 +89,6 @@ export interface AnyDengueState {
   wppVisible: boolean;
 }
 
-export interface AnyElement {
-  /** Tag HTML ('div') ou `@Nome` (componente importado). */
-  type: string;
-  props: Record<string, unknown>;
-  children: AnyNode[];
-}
-
-export type AnyNode = AnyElement | string;
-
 export interface AnyDengueInternals {
   fmtInt: (n: number | null) => string;
   ALARM_LABELS: readonly string[];
@@ -105,7 +99,6 @@ export interface AnyDengueInternals {
 }
 
 type Component = ((props: Record<string, unknown>) => unknown) & { stubName?: string };
-type RawElement = { $$any: true; type: unknown; props: Record<string, unknown> };
 
 interface Runtime {
   slots: unknown[];

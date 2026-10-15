@@ -1,7 +1,14 @@
-import { readFileSync } from 'fs';
-import { join } from 'path';
-import ts from 'typescript';
 import * as calculations from '../any-reference/calculations';
+import {
+  findAll,
+  isElement,
+  loadFrozenModule,
+  textOf,
+  type HeadlessElement,
+  type HeadlessNode,
+} from './any-component-harness';
+
+export { findAll, isElement, textOf, type HeadlessElement, type HeadlessNode };
 
 /**
  * Roda o ShockPath congelado do ANY (tests/any-reference/ShockPath.tsx) sem
@@ -23,14 +30,6 @@ import * as calculations from '../any-reference/calculations';
  * linha que expõe as funções internas do módulo (o reducer, o estado inicial,
  * os textos de conduta) — sem tocar no código original.
  */
-
-export interface HeadlessElement {
-  type: string | ((props: Record<string, unknown>) => HeadlessNode);
-  props: Record<string, unknown>;
-  children: HeadlessNode[];
-}
-
-export type HeadlessNode = HeadlessElement | string | number | boolean | null | undefined;
 
 export interface RenderedComponent {
   name: string;
@@ -61,10 +60,14 @@ interface Internals {
   TecReavalSection: (props: Record<string, unknown>) => HeadlessNode;
 }
 
-const MARKER = '// ---- início do arquivo original ----\n';
-const FILE = join(process.cwd(), 'tests/any-reference/ShockPath.tsx');
-const EXPOSE =
-  '\nexports.__internals = { shockReducer, initialState, getVneriCondutaText, getQuadrantConductText, QUADRANT_CELLS, TecReavalSection };\n';
+const EXPOSE = [
+  'shockReducer',
+  'initialState',
+  'getVneriCondutaText',
+  'getQuadrantConductText',
+  'QUADRANT_CELLS',
+  'TecReavalSection',
+];
 
 /** Componentes de layout e comuns do ANY viram elementos com o nome deles. */
 const STUBBED_COMPONENTS: Record<string, string[]> = {
@@ -130,16 +133,6 @@ const fakeReact = {
 };
 
 function load(): { ShockPath: () => HeadlessNode; internals: Internals } {
-  const original = readFileSync(FILE, 'utf-8').split(MARKER)[1];
-  if (original === undefined) throw new Error('ShockPath.tsx sem o marcador da referência');
-  const { outputText } = ts.transpileModule(original, {
-    compilerOptions: {
-      jsx: ts.JsxEmit.React,
-      module: ts.ModuleKind.CommonJS,
-      target: ts.ScriptTarget.ES2022,
-    },
-    fileName: 'ShockPath.tsx',
-  });
   const modules: Record<string, unknown> = {
     react: fakeReact,
     'react-router-dom': { useNavigate: () => (path: string) => recorder.navigated.push(path) },
@@ -155,21 +148,10 @@ function load(): { ShockPath: () => HeadlessNode; internals: Internals } {
   for (const [specifier, names] of Object.entries(STUBBED_COMPONENTS)) {
     modules[specifier] = Object.fromEntries(names.map((name) => [name, stub(name)]));
   }
-  const exports: Record<string, unknown> = {};
-  const require = (specifier: string): unknown => {
-    if (specifier in modules) return modules[specifier];
-    throw new Error(`ShockPath importa "${specifier}", que o teste não forneceu`);
-  };
-  const fakeWindow = { scrollTo() {} };
-  const fakeStorage = { setItem() {}, getItem: () => null };
-  // eslint-disable-next-line @typescript-eslint/no-implied-eval -- só teste, sobre arquivo congelado
-  new Function('exports', 'require', 'React', 'window', 'localStorage', outputText + EXPOSE)(
-    exports,
-    require,
-    fakeReact,
-    fakeWindow,
-    fakeStorage,
-  );
+  const exports = loadFrozenModule('ShockPath.tsx', { module: fakeReact }, modules, {
+    expose: EXPOSE,
+    globals: { window: { scrollTo() {} }, localStorage: { setItem() {}, getItem: () => null } },
+  });
   return {
     ShockPath: exports.default as () => HeadlessNode,
     internals: exports.__internals as Internals,
@@ -180,17 +162,6 @@ const loaded = load();
 
 /** Funções internas do ShockPath congelado (reducer, estado inicial, textos). */
 export const anyShock: Internals = loaded.internals;
-
-export function isElement(node: HeadlessNode): node is HeadlessElement {
-  return node !== null && typeof node === 'object';
-}
-
-/** Texto visível de um nó. */
-export function textOf(node: HeadlessNode): string {
-  if (node === null || node === undefined || typeof node === 'boolean') return '';
-  if (typeof node === 'string' || typeof node === 'number') return String(node);
-  return node.children.map(textOf).join('');
-}
 
 function expand(node: HeadlessNode, components: RenderedComponent[]): HeadlessNode {
   if (!isElement(node)) return node;
@@ -225,16 +196,6 @@ export function renderShockPath(
     dispatched: recorder.dispatched,
     navigated: recorder.navigated,
   };
-}
-
-/** Todos os elementos que passam no filtro, em ordem de documento. */
-export function findAll(
-  node: HeadlessNode,
-  predicate: (element: HeadlessElement) => boolean,
-): HeadlessElement[] {
-  if (!isElement(node)) return [];
-  const own = predicate(node) ? [node] : [];
-  return [...own, ...node.children.flatMap((child) => findAll(child, predicate))];
 }
 
 /** Componentes de um nome (ex.: todos os `ResultCard` visíveis). */

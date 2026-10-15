@@ -1,6 +1,19 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import ts from 'typescript';
+import {
+  EVENT,
+  FRAGMENT,
+  findAll,
+  isRaw,
+  jsx,
+  stub,
+  type AnyElement,
+  type AnyNode,
+  type RawElement,
+} from './any-jsx-runtime';
+
+export { findAll, type AnyElement, type AnyNode };
 
 /**
  * Roda a página AirwayGuide congelada do ANY (tests/any-reference) sem React,
@@ -45,15 +58,6 @@ const INTERNALS = [
   'CHECKLIST_POS',
   'PATHWAY_STEPS',
 ] as const;
-
-export interface AnyElement {
-  /** Tag HTML ('div'), `@Nome` (componente importado) ou `#Nome` (componente local). */
-  type: string;
-  props: Record<string, unknown>;
-  children: AnyNode[];
-}
-
-export type AnyNode = AnyElement | string;
 
 export type AnyState = Record<string, unknown> & {
   crash: Record<'C' | 'R' | 'A' | 'S' | 'H', boolean>;
@@ -102,7 +106,6 @@ export interface AnyAirwayInternals {
   PATHWAY_STEPS: readonly { number: number; title: string }[];
 }
 
-type RawElement = { $$any: true; type: unknown; props: Record<string, unknown> };
 type Component = ((props: Record<string, unknown>) => unknown) & { stubName?: string };
 
 interface Hooks {
@@ -126,25 +129,6 @@ function dispatch(action: AnyAction): void {
   if (!current.reducer) throw new Error('dispatch antes do useReducer');
   current.state = current.reducer(current.state, action);
 }
-
-const stubs = new Map<string, Component>();
-
-function stub(name: string): Component {
-  let component = stubs.get(name);
-  if (!component) {
-    component = Object.assign(() => null, { stubName: name });
-    stubs.set(name, component);
-  }
-  return component;
-}
-
-const jsx = (type: unknown, props: Record<string, unknown>): RawElement => ({
-  $$any: true,
-  type,
-  props: props ?? {},
-});
-
-const FRAGMENT = stub('Fragment');
 
 function fakeRequire(path: string): unknown {
   switch (path) {
@@ -231,10 +215,6 @@ export function anyAirwayInternals(): AnyAirwayInternals {
   return load().internals;
 }
 
-function isRaw(node: unknown): node is RawElement {
-  return typeof node === 'object' && node !== null && '$$any' in node;
-}
-
 function expand(node: unknown): AnyNode[] {
   if (node === null || node === undefined || typeof node === 'boolean') return [];
   if (typeof node === 'string' || typeof node === 'number') return [String(node)];
@@ -261,18 +241,6 @@ export function textOf(node: AnyNode | readonly AnyNode[]): string {
   const title = typeof element.props.title === 'string' ? `${element.props.title} ` : '';
   return title + textOf(element.children);
 }
-
-export function findAll(
-  node: AnyNode | readonly AnyNode[],
-  predicate: (element: AnyElement) => boolean,
-): AnyElement[] {
-  if (typeof node === 'string') return [];
-  if (Array.isArray(node)) return node.flatMap((child) => findAll(child as AnyNode, predicate));
-  const element = node as AnyElement;
-  return [...(predicate(element) ? [element] : []), ...findAll(element.children, predicate)];
-}
-
-const EVENT = { stopPropagation: () => undefined, preventDefault: () => undefined };
 
 /** Uma sessão da página do ANY: estado, toasts, navegação e área de transferência. */
 export class AnyAirwaySession {

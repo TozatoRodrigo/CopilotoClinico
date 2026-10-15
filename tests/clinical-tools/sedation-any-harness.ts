@@ -2,6 +2,19 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import ts from 'typescript';
 import { fmt } from '../any-reference/calculations';
+import {
+  EVENT,
+  FRAGMENT,
+  findAll,
+  isRaw,
+  jsx,
+  stub,
+  type AnyElement,
+  type AnyNode,
+  type RawElement,
+} from './any-jsx-runtime';
+
+export { findAll, type AnyElement, type AnyNode };
 
 /**
  * Roda a página SedaPath congelada do ANY (tests/any-reference) sem React e
@@ -72,16 +85,6 @@ export interface AnySedaInternals {
   BREADCRUMB_LABELS: Record<AnyScreen, string>;
 }
 
-export interface AnyElement {
-  /** Tag HTML ('div'), `@Nome` (componente importado) ou `#Nome` (componente local). */
-  type: string;
-  props: Record<string, unknown>;
-  children: AnyNode[];
-}
-
-export type AnyNode = AnyElement | string;
-
-type RawElement = { $$any: true; type: unknown; props: Record<string, unknown> };
 type Component = ((props: Record<string, unknown>) => unknown) & { stubName?: string };
 
 interface Runtime {
@@ -98,25 +101,6 @@ function runtime(): Runtime {
   if (!active) throw new Error('Hook do ANY chamado fora de render()');
   return active;
 }
-
-const stubs = new Map<string, Component>();
-
-function stub(name: string): Component {
-  let component = stubs.get(name);
-  if (!component) {
-    component = Object.assign(() => null, { stubName: name });
-    stubs.set(name, component);
-  }
-  return component;
-}
-
-const FRAGMENT = stub('Fragment');
-
-const jsx = (type: unknown, props: Record<string, unknown>): RawElement => ({
-  $$any: true,
-  type,
-  props: props ?? {},
-});
 
 const reactStub = {
   useState(initial: unknown) {
@@ -204,10 +188,6 @@ export function anySedaInternals(): AnySedaInternals {
   return load().internals;
 }
 
-function isRaw(node: unknown): node is RawElement {
-  return typeof node === 'object' && node !== null && '$$any' in node;
-}
-
 function expand(node: unknown): AnyNode[] {
   if (node === null || node === undefined || typeof node === 'boolean') return [];
   if (typeof node === 'string' || typeof node === 'number') return [String(node)];
@@ -237,16 +217,6 @@ export function textOf(node: AnyNode | readonly AnyNode[]): string {
   return title + textOf(element.children);
 }
 
-export function findAll(
-  node: AnyNode | readonly AnyNode[],
-  predicate: (element: AnyElement) => boolean,
-): AnyElement[] {
-  if (typeof node === 'string') return [];
-  if (Array.isArray(node)) return node.flatMap((child) => findAll(child as AnyNode, predicate));
-  const element = node as AnyElement;
-  return [...(predicate(element) ? [element] : []), ...findAll(element.children, predicate)];
-}
-
 /** Pedaços de texto como a tela os mostra, um por nó, com os títulos dos importados. */
 export function textFragments(node: AnyNode | readonly AnyNode[]): string[] {
   if (typeof node === 'string') return [node.trim()].filter((text) => text !== '');
@@ -258,8 +228,6 @@ export function textFragments(node: AnyNode | readonly AnyNode[]): string[] {
       : [];
   return [...title, ...textFragments(element.children)];
 }
-
-const EVENT = { stopPropagation: () => undefined, preventDefault: () => undefined };
 
 function call(element: AnyElement, handler: string, ...args: unknown[]): void {
   const callback = element.props[handler];
