@@ -154,6 +154,12 @@ services:
       THROTTLER_TTL: ${THROTTLER_TTL:-60000}
       THROTTLER_LIMIT: ${THROTTLER_LIMIT:-600}
       FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY}
+      # CC-207 / ADR-020 — texto clínico cifrado em repouso. off = grava em
+      # claro, como antes (a leitura abre os dois formatos). Mesmo motivo das
+      # flags acima: sem repassar aqui, a troca no .env.production não chega ao
+      # container. A chave anterior só existe durante uma rotação.
+      CLINICAL_TEXT_ENCRYPTION: ${CLINICAL_TEXT_ENCRYPTION:-off}
+      FIELD_ENCRYPTION_KEY_PREVIOUS: ${FIELD_ENCRYPTION_KEY_PREVIOUS:-}
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       AI_EMBEDDING_MODEL: ${AI_EMBEDDING_MODEL:-text-embedding-3-small}
       LOG_LEVEL: info

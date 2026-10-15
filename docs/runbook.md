@@ -352,6 +352,99 @@ deve continuar usando `DATABASE_URL` com o usuário LOGIN membro de
 
 ⚠️ **ATENÇÃO — audit_log:** Qualquer migration que altere a tabela `audit_log` (ex: adicionar coluna) precisa de revisão manual. O trigger `audit_log_no_update_delete` bloqueia `UPDATE`/`DELETE` mas **não bloqueia DDL**. Verificar que a migration não remove dados existentes. Desde a ADR-015 o `audit_log` é gravado por SQL em `AuditService.writeAuditLogEntry`, não pelo Prisma Client: coluna nova precisa entrar nesse `INSERT`.
 
+### Texto clínico cifrado em repouso (CC-207, ADR-020)
+
+O texto clínico (caso, saída da IA, conversa, anexos, transcrições,
+documentos, notas — inventário completo na ADR-020) é cifrado pela extensão
+do Prisma com `FIELD_ENCRYPTION_KEY` quando `CLINICAL_TEXT_ENCRYPTION=on`. A
+leitura abre texto em claro e cifrado sempre, com a flag ligada ou não.
+
+#### Deploy (primeira vez)
+
+Na VPS, em `~/apps/copiloto-clinico/docker`, com `set -a; . ./.env.production; set +a`:
+
+1. **Cópia da chave.** Confirme que `FIELD_ENCRYPTION_KEY` de
+   `.env.production` está guardada também fora do servidor. Sem ela, o texto
+   cifrado não volta.
+2. **Backup** (como no Passo 0.2 do release), e confira que não está vazio:
+
+   ```bash
+   docker compose -f docker-compose.prod.yml exec copiloto-db \
+     pg_dump -U "$POSTGRES_OWNER_USER" copiloto_clinico > backup-pre-cc207-$(date +%F-%H%M).sql
+   ```
+
+3. **Código e migration com a flag desligada** (padrão `off`): ver
+   "Aplicar migrations em produção". A migration
+   `20261015180000_cc207_chief_complaint_text` só troca
+   `encounters.chief_complaint` de `VARCHAR(140)` para `TEXT` (sem reescrever
+   a tabela). Nada muda para o médico.
+4. **Ligar a gravação cifrada:** `CLINICAL_TEXT_ENCRYPTION=on` em
+   `.env.production`, depois
+   `docker compose --env-file .env.production -f docker-compose.prod.yml up -d --no-deps copiloto-api`.
+   Confira que o container recebeu: `docker compose -f docker-compose.prod.yml exec copiloto-api printenv CLINICAL_TEXT_ENCRYPTION` → `on`.
+   Faça uma análise de teste e confira que abre normalmente.
+5. **Cifrar o que já existe.** A imagem de runtime não tem `scripts/`: use o
+   estágio `builder`, como na ingestão, e a role da aplicação.
+
+   ```bash
+   docker build -f Dockerfile.api --target builder -t copiloto-cc207:tmp ..
+   APPDB="postgresql://${POSTGRES_APP_USER}:${POSTGRES_APP_PASSWORD}@copiloto-db:5432/copiloto_clinico?schema=public"
+   cc207() {
+     docker run --rm --network docker_copiloto-net \
+       -e DATABASE_URL="$APPDB" -e FIELD_ENCRYPTION_KEY="$FIELD_ENCRYPTION_KEY" \
+       -e FIELD_ENCRYPTION_KEY_PREVIOUS="${FIELD_ENCRYPTION_KEY_PREVIOUS:-}" \
+       --entrypoint sh copiloto-cc207:tmp -c "npx tsx scripts/encrypt-clinical-text.ts $*"
+   }
+   cc207 --dry-run            # contagem por coluna, nada gravado
+   cc207 --batch 500          # cifra; pode interromper e rodar de novo
+   cc207 --verify             # tem que terminar com "OK: nenhum texto clínico em claro."
+   ```
+
+   A `Chave atual` impressa pelo script tem que ser a mesma nas três
+   chamadas. `concorrentes > 0` é normal com médicos usando o sistema: rode
+   de novo até zerar. `falhas > 0` (chave desconhecida ou valor que não abre)
+   para tudo — ver a tabela de erros abaixo.
+6. **Conferir no banco** (amostra; não deve aparecer texto legível):
+
+   ```bash
+   docker compose -f docker-compose.prod.yml exec copiloto-db psql -U "$POSTGRES_OWNER_USER" -d copiloto_clinico -c \
+     "SELECT left(input_redacted, 20), left(raw_output::text, 22) FROM ai_interactions ORDER BY created_at DESC LIMIT 3;"
+   ```
+
+   Esperado: `enc:v1:<id>:…` e `"enc:v1:<id>:…`.
+7. **Backups antigos** (antes do passo 5) continuam com o texto em claro:
+   aplique a política de retenção a eles.
+
+#### Rollback
+
+- **Comportamento:** `CLINICAL_TEXT_ENCRYPTION=off` e `up -d --no-deps
+  copiloto-api`. Volta a gravar em claro; o que já foi cifrado continua
+  abrindo (leitura dupla). Não precisa decifrar nada.
+- **Código:** a versão anterior ao CC-207 não lê `enc:v1:`. Para voltar a
+  imagem da API para antes do CC-207: flag `off`, depois `cc207 --decrypt
+  --dry-run` e `cc207 --decrypt` (grava em claro o que estava cifrado, com o
+  mesmo compare-and-set), e só então a imagem antiga. A migration pode ficar
+  (`TEXT` serve à versão antiga).
+
+#### Rotação da chave
+
+1. `FIELD_ENCRYPTION_KEY` = nova (`openssl rand -hex 32`),
+   `FIELD_ENCRYPTION_KEY_PREVIOUS` = antiga; `up -d --no-deps copiloto-api`.
+2. `cc207 --batch 500` (o relatório mostra `rotacionados`), depois
+   `cc207 --verify` com `chaveAnterior` = 0 em todas as colunas.
+3. **Não remova a chave anterior ainda:** o segredo do MFA e o áudio (formato
+   legado) também abrem com ela, mas o script não os refaz. Sem ela, o login
+   de quem tem MFA quebra.
+
+#### Erros
+
+| Erro (log/Sentry) | Causa | Ação |
+|---|---|---|
+| `SealedValueError: <Modelo>.<campo>: Sealed value uses unknown key <id>` | Valor cifrado com uma chave que não está no ambiente (chave trocada sem `FIELD_ENCRYPTION_KEY_PREVIOUS`). | Recolocar a chave certa (ou a anterior em `FIELD_ENCRYPTION_KEY_PREVIOUS`) e reiniciar a API. |
+| `SealedValueError: … does not open with key <id>` / `Malformed sealed value` | Valor cifrado alterado ou truncado no banco. | Tratar como incidente de integridade: `cc207 --verify` lista os ids (`undecryptableIds`). |
+| `FieldKeyError: FIELD_ENCRYPTION_KEY is required` (na leitura: `SealedValueError: <Modelo>.<campo>: FIELD_ENCRYPTION_KEY is required`) | Flag ligada, ou valor cifrado lido, sem a chave no ambiente. | Conferir o repasse no `docker-compose.prod.yml`. |
+| `ClinicalTextQueryError: <Modelo>.<campo> é texto clínico cifrado: …` | Código novo filtrando/ordenando pelo conteúdo de um campo cifrado. | Bug: o filtro não funcionaria sobre texto cifrado. Corrigir o código (filtrar por outro campo ou no código depois de ler). |
+
 ### Rodar testes de integração
 
 ```bash
@@ -925,6 +1018,7 @@ apenas na resposta. Acesso a um protocolo de outra instituição retorna `404`
 | `20260924180000_f9_guideline_chunks_text_tsv_generated` | `guideline_chunks.text_tsv` vira coluna gerada + índice GIN — liga a busca lexical (ver "Busca lexical (`text_tsv`) — F9") |
 | `20260924220000_ivfflat_probes_exact` | `ivfflat.probes = 100` no banco: busca vetorial exata (incidente de 24/09/2026) |
 | `20261012180000_aud_007_audit_log_hash_version` | `audit_log.hash_version` (NULL = hash legado, 2 = JSON canônico) — ADR-015; só adiciona coluna nula |
+| `20261015180000_cc207_chief_complaint_text` | `encounters.chief_complaint` de `VARCHAR(140)` para `TEXT`, para caber o valor cifrado — CC-207/ADR-020; sem reescrever a tabela |
 
 ### Rollback de Migration
 
@@ -945,6 +1039,9 @@ Prisma não suporta rollback automático. Para reverter:
 | `AI_API_KEY` | Análise clínica indisponível |
 | `DATABASE_URL` | Sistema completamente indisponível ou rodando com privilégios excessivos |
 | `MIGRATION_DATABASE_URL` | Migrations indisponíveis ou executadas com usuário incorreto |
+| `FIELD_ENCRYPTION_KEY` | API não sobe (segredo do MFA). Trocada sem `FIELD_ENCRYPTION_KEY_PREVIOUS`: MFA, áudio e texto clínico cifrado deixam de abrir (`SealedValueError`). Perdida: o texto clínico cifrado não volta |
+| `CLINICAL_TEXT_ENCRYPTION` | `on` grava o texto clínico cifrado (CC-207/ADR-020); `off` (padrão) grava em claro. A leitura abre os dois sempre: desligar é o rollback. Ausente ou irreconhecível = `off`. Ver "Texto clínico cifrado em repouso" |
+| `FIELD_ENCRYPTION_KEY_PREVIOUS` | Só durante uma rotação: a chave anterior, para decifrar. Vazia = sem rotação |
 | `OFFICIAL_GUIDELINES_ENABLED` | `false` tira PCDT/DDT/DB/PU do retrieval (válvula de escape da ADR-010); ausente = ligada. Os limiares `OFFICIAL_*` estão em `.env.example` |
 | `UNREVIEWED_SOURCES_PRELIMINARY` | `false` desliga a contenção da ADR-012: PCDT e chunk curado sem assinatura voltam a embasar conduta definitiva. Ausente ou irreconhecível = ligada |
 | `COPILOT_REASONING` | `stages` liga o raciocínio em etapas da ADR-013 (entendimento do caso antes da busca, busca dirigida, card "O que eu entendi"); `legacy` (padrão) volta ao pipeline de sempre. Ausente ou irreconhecível = `legacy`. Etapa 1 com `AI_UNDERSTANDING_MODEL` (vazio = `AI_MODEL`) e `AI_UNDERSTANDING_EFFORT` (padrão `low`). Falha da Etapa 1 aparece como `UNDERSTANDING_FAILED`/`UNDERSTANDING_FALLBACK` no log e a análise segue pela busca de sempre |
@@ -992,6 +1089,7 @@ FROM ai_calls WHERE request_id = '<x-request-id>' ORDER BY created_at;
 | `Output validation failed` | IA retornou resposta inválida | Verificar provider, possível mudança de modelo |
 | `Anthropic API error: status=...` | Falha na API da Anthropic | 4xx: ver "Trocar o provider ou o modelo de IA"; 429/5xx: o SDK já retentou 2x, checar status.anthropic.com |
 | `Injection detected` | Possível tentativa de prompt injection | Revisar logs de acesso, bloquear IP se necessário |
+| `SealedValueError` / `ClinicalTextQueryError` | Texto clínico cifrado que não abre (chave) ou consulta pelo conteúdo de um campo cifrado (bug) — CC-207 | Tabela "Erros" em "Texto clínico cifrado em repouso" |
 
 ---
 
