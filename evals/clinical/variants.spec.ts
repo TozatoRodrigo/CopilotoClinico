@@ -91,6 +91,27 @@ describe('variantes versionadas', () => {
     }
   });
 
+  // CC-408 — a variante com cartões é a v3-modelo mais a flag e o embedding
+  // da busca nos cartões: a comparação caso a caso mede só o efeito dos cartões.
+  it('trazem a v3-modelo com cartões revisados, diferente só nos cartões', () => {
+    const variants = loadVariants(VERSIONED_VARIANTS_FILE);
+    const byName = (name: string) => variants.find((variant) => variant.name === name);
+    const base = byName('claude-opus-5-5-v3-modelo');
+    const cards = byName('claude-opus-5-5-v3-modelo-cartoes');
+
+    expect(cards?.env).toEqual({
+      ...base?.env,
+      COPILOT_REVIEWED_CARDS: 'on',
+      EMBEDDING_PROVIDER: 'openai',
+      EMBEDDING_BASE_URL: '${EMBEDDING_BASE_URL}',
+      EMBEDDING_API_KEY: '${EMBEDDING_API_KEY}',
+      AI_EMBEDDING_MODEL: '${AI_EMBEDDING_MODEL}',
+    });
+    expect(() => resolveVariantEnv(cards!, { ANTHROPIC_API_KEY: 'sk-ant-x' })).toThrow(
+      /EMBEDDING_BASE_URL/,
+    );
+  });
+
   it('não guardam nenhuma chave literal', () => {
     for (const variant of loadVariants(VERSIONED_VARIANTS_FILE)) {
       for (const [key, value] of Object.entries(variant.env)) {

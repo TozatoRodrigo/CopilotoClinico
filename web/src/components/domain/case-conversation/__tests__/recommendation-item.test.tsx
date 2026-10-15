@@ -367,6 +367,82 @@ describe("RecommendationItem — F1: decisão v2", () => {
   });
 });
 
+describe("RecommendationItem — CC-408: cartão revisado", () => {
+  const fromCard: CopilotRecommendation = {
+    ...baseRec,
+    action: "Ceftriaxona 2 g IV a cada 12 horas",
+    citationChunkId: "card:1",
+    layer: "now",
+    dependsOn: null,
+    basis: "source",
+    source: "Cartão revisado — Meningite bacteriana",
+    sourceVersion: "v2",
+    sourceText: "Ceftriaxona 2 g IV a cada 12 horas, iniciada logo após a coleta do líquor.",
+    sourceUrl: "/cartoes/77777777-7777-4777-8777-777777777777",
+    origin: "reviewed_card",
+    reviewedCard: {
+      cardId: "77777777-7777-4777-8777-777777777777",
+      version: 2,
+      question: "Qual o antibiótico empírico na suspeita de meningite bacteriana no adulto?",
+      reviewer: { name: "Ana Souza", crmNumber: "123456", crmUf: "SP" },
+      reviewedAt: "2026-10-12T15:00:00.000Z",
+      validUntil: "2027-10-12T15:00:00.000Z",
+    },
+  };
+
+  function renderRec(rec: CopilotRecommendation) {
+    render(
+      <RecommendationItem
+        rec={rec}
+        index={0}
+        decision={undefined}
+        onAdopt={vi.fn()}
+        onReject={vi.fn()}
+        onNote={vi.fn()}
+      />,
+    );
+  }
+
+  it("mostra a dose do cartão, quem revisou com o CRM e o link para o cartão", () => {
+    renderRec(fromCard);
+
+    expect(
+      screen.getByRole("heading", { name: /Ceftriaxona 2 g IV a cada 12 horas/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Revisado por Dr(a). Ana Souza · CRM 123456/SP · em 12/10/2026"),
+    ).toBeInTheDocument();
+    const tag = screen
+      .getByText("Cartão revisado por médico")
+      .closest<HTMLElement>('[data-slot="badge"]');
+    expect(tag).toHaveAttribute("data-variant", "success");
+    expect(screen.getByRole("link", { name: "Ver cartão" })).toHaveAttribute(
+      "href",
+      "/cartoes/77777777-7777-4777-8777-777777777777",
+    );
+    expect(screen.queryByText(/Preliminar/)).not.toBeInTheDocument();
+  });
+
+  it("sem nome cadastrado, mostra só o CRM", () => {
+    renderRec({
+      ...fromCard,
+      reviewedCard: {
+        ...fromCard.reviewedCard!,
+        reviewer: { name: null, crmNumber: "123456", crmUf: "SP" },
+      },
+    });
+
+    expect(screen.getByText("Revisado por CRM 123456/SP · em 12/10/2026")).toBeInTheDocument();
+  });
+
+  it("conduta sem cartão não mostra 'Revisado por'", () => {
+    renderRec(baseRec);
+
+    expect(screen.queryByText(/Revisado por/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Ver cartão" })).not.toBeInTheDocument();
+  });
+});
+
 describe("planGroups — F1: plano em duas camadas", () => {
   const messages = getMessages("pt-BR");
   const now: CopilotRecommendation = { ...baseRec, action: "Glicemia capilar", layer: "now" };

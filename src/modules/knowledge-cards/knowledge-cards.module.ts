@@ -6,6 +6,7 @@ import { KnowledgeCardsService } from './knowledge-cards.service';
 import { KnowledgeCardDraftService } from './drafting/card-draft.service';
 import { KnowledgeCardIndexModule } from './card-index/knowledge-card-index.module';
 import { CardIndexCronService } from '../../workers/card-index-cron.service';
+import { PublishedKnowledgeCardsController } from './published-knowledge-cards.controller';
 
 /**
  * CC-402/CC-403 (ADR-019) — cartões revisados. AuditService vem do AuditModule
@@ -14,7 +15,7 @@ import { CardIndexCronService } from '../../workers/card-index-cron.service';
  */
 @Module({
   imports: [AiGatewayModule, GuidelinesModule, KnowledgeCardIndexModule],
-  controllers: [KnowledgeCardsController],
+  controllers: [KnowledgeCardsController, PublishedKnowledgeCardsController],
   providers: [KnowledgeCardsService, KnowledgeCardDraftService, CardIndexCronService],
   exports: [KnowledgeCardsService, KnowledgeCardDraftService],
 })

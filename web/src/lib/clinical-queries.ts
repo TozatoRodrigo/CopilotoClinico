@@ -24,6 +24,7 @@ import type {
   GuidelineConsultResponse,
   GuidelineSourceSummary,
   PendingGuidelineChunk,
+  PublishedKnowledgeCard,
   CopilotFeedbackKind,
   CopilotFeedbackRequest,
   CopilotFeedbackResponse,
@@ -115,6 +116,16 @@ export function useEncounterDetail(encounterId: string) {
     queryKey: clinicalQueryKeys.encounter(encounterId),
     queryFn: () => apiClient.get<EncounterDetail>(`/encounters/${encounterId}`),
     enabled: Boolean(encounterId),
+  });
+}
+
+/** CC-408 — o cartão revisado aberto pelo "Revisado por" da tela do plano. */
+export function usePublishedKnowledgeCard(cardId: string) {
+  return useQuery({
+    queryKey: ['knowledge-card', cardId] as const,
+    queryFn: () => apiClient.get<PublishedKnowledgeCard>(`/knowledge-cards/${cardId}`),
+    enabled: Boolean(cardId),
+    retry: false,
   });
 }
 

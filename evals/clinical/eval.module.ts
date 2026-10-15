@@ -12,6 +12,8 @@ import { EncountersService } from '../../src/modules/encounters/encounters.servi
 import { GuidelinesModule } from '../../src/modules/guidelines/guidelines.module';
 import { InstitutionsService } from '../../src/modules/institutions/institutions.service';
 import { RedisModule } from '../../src/modules/redis/redis.module';
+import { CARD_INDEX_PROVIDERS } from '../../src/modules/knowledge-cards/card-index/knowledge-card-index.module';
+import { REVIEWED_CARD_RETRIEVAL_PROVIDERS } from '../../src/modules/knowledge-cards/card-retrieval/knowledge-card-retrieval.module';
 import { CompletionRecorder, RecordingAiGatewayService } from './recorder';
 import { ENV_FILE_PATHS } from './variants';
 
@@ -54,6 +56,10 @@ export class EvalModule {
         RetrievalService,
         UnderstandingService,
         WebResearchService,
+        // CC-408 — cartões revisados (variantes com COPILOT_REVIEWED_CARDS),
+        // com o gateway que grava as chamadas: o embedding da busca entra no rastro.
+        ...CARD_INDEX_PROVIDERS,
+        ...REVIEWED_CARD_RETRIEVAL_PROVIDERS,
         OrchestratorService,
       ],
     };

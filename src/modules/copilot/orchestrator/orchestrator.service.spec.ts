@@ -16,6 +16,7 @@ import { COPILOT_OUTPUT_JSON_SCHEMA } from '../schemas/copilot-output.json-schem
 import { ConfigService } from '@nestjs/config';
 import type { UnderstandingService } from '../understanding/understanding.service';
 import type { WebResearchService } from '../research/web-research.service';
+import { cardRetrievalNeverCalled } from '../../../../tests/fixtures/reviewed-cards';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 /** ADR-010 — busca sem trechos da base oficial do MS. */
@@ -155,6 +156,7 @@ describe('OrchestratorService', () => {
           throw new Error('internal_kb não chama a pesquisa web');
         },
       } as unknown as WebResearchService,
+      cardRetrievalNeverCalled(),
     );
   }
 

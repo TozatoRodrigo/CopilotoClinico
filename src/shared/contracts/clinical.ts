@@ -280,6 +280,40 @@ export interface CopilotRecommendation {
   dependsOn?: string | null;
   /** F1 — decisão v2. */
   basis?: RecommendationBasis;
+  /**
+   * CC-408 — conduta que segue um cartão revisado (`origin: 'reviewed_card'`):
+   * quem assinou, para o "Revisado por" e o link do cartão. Ausente nas
+   * outras origens e com `COPILOT_REVIEWED_CARDS` desligada.
+   */
+  reviewedCard?: RecommendationReviewedCard;
+}
+
+/** CC-408 — o cartão revisado que sustenta uma conduta, como a tela do plano o mostra. */
+export interface RecommendationReviewedCard {
+  cardId: string;
+  /** Versão publicada usada na análise (o cartão pode ter versão mais nova depois). */
+  version: number;
+  /** A pergunta que o cartão responde. */
+  question: string;
+  reviewer: { name: string | null; crmNumber: string; crmUf: string };
+  reviewedAt: string;
+  validUntil: string;
+}
+
+/**
+ * CC-408 — cartão revisado entregue à decisão, gravado em `rawOutput` para a
+ * trilha: qual versão, com que hash assinado, por quem e com que
+ * similaridade. Sem texto do cartão (está na versão, pelo id).
+ */
+export interface ReviewedCardRecord {
+  /** Id que o prompt deu ao cartão ("card:1"). */
+  citationId: string;
+  cardId: string;
+  versionId: string;
+  version: number;
+  contentSha256: string;
+  reviewerId: string;
+  similarity: number;
 }
 
 export interface ClarifyingQuestion {
@@ -354,6 +388,11 @@ export interface EvidenceTable {
  * F1 (decisão v2) — `model_knowledge` é conhecimento geral do modelo, sem
  * trecho citado; `web_official` é página de fonte oficial da lista de domínios
  * confiáveis, achada pela pesquisa web.
+ *
+ * CC-408 (ADR-019) — `reviewed_card` é cartão revisado publicado: escrito a
+ * partir de diretriz oficial e assinado por médico com CRM verificado. É a
+ * única origem que libera dose na decisão em etapas, e só a dose estruturada
+ * do próprio cartão.
  */
 export const CITATION_ORIGINS = [
   'institutional',
@@ -363,6 +402,7 @@ export const CITATION_ORIGINS = [
   'curated_unsigned',
   'model_knowledge',
   'web_official',
+  'reviewed_card',
 ] as const;
 
 export type CitationOrigin = (typeof CITATION_ORIGINS)[number];
@@ -521,6 +561,11 @@ export interface CopilotAnalysis {
    * análise seguiu só com o conhecimento do modelo.
    */
   webEvidence?: WebEvidenceItem[];
+  /**
+   * CC-408 — cartões revisados entregues à decisão. Ausente com
+   * `COPILOT_REVIEWED_CARDS` desligada; vazio quando nenhum cartão se aplicou.
+   */
+  reviewedCards?: ReviewedCardRecord[];
 }
 
 export interface CopilotAnalyzeResponse {

@@ -147,6 +147,34 @@ export const es: Messages = {
     dependsOnMissing: 'Depende de un dato aún no informado',
     why: 'Por qué',
     openSourcePage: 'Abrir la página de la fuente',
+    reviewedBy: (reviewer: string | null, crm: string, date: string) =>
+      `Revisado por ${reviewer ? `${reviewer} · ` : ''}CRM ${crm} · el ${date}`,
+    openCard: 'Ver tarjeta',
+  },
+
+  reviewedCard: {
+    title: 'Tarjeta revisada',
+    loading: 'Cargando la tarjeta…',
+    notFound: 'Tarjeta no encontrada o fuera de uso.',
+    needsReview:
+      'La aprobación de esta tarjeta venció: no entra en los análisis hasta que se revise de nuevo.',
+    population: 'Para quién',
+    answer: 'Respuesta',
+    claims: 'Qué hacer',
+    sources: 'Fuentes',
+    dose: 'Dosis',
+    reviewedBy: (reviewer: string | null, crm: string, date: string) =>
+      `Revisado por ${reviewer ? `${reviewer} · ` : ''}CRM ${crm} · el ${date}`,
+    validUntil: (date: string) => `Válida hasta ${date}`,
+    version: (version: number) => `Versión ${version}`,
+    claimKind: {
+      conduct: 'Conducta',
+      criterion: 'Criterio',
+      alarm_sign: 'Signo de alarma',
+      disposition: 'Destino',
+      notification: 'Notificación',
+      pitfall: 'Trampa',
+    },
   },
 
   plan: {
@@ -172,6 +200,7 @@ export const es: Messages = {
     curated_unsigned: 'Base curada · sin firma médica',
     model_knowledge: 'Conocimiento general del modelo — confirme en el protocolo local',
     web_official: 'Fuente oficial externa',
+    reviewed_card: 'Tarjeta revisada por médico',
   },
 
   redFlags: {

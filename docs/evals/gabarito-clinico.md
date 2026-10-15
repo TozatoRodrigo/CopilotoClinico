@@ -200,6 +200,8 @@ Nenhum caso do gabarito nasce dos cartões revisados (ADR-019): um caso escrito 
 - Caso escrito a partir de um rascunho de IA de cartão registra `draftOrigin` (`draftId` e `sourceContentSha256` do rascunho). `pnpm cards:check-circularity` e o runner do gabarito recusam caso e cartão com o mesmo `draftId` ou o mesmo `sourceContentSha256` (os mesmos trechos de fonte entregues ao modelo, em outro pedido).
 - O runner faz essa checagem antes de medir; sem caso com `draftOrigin`, nem consulta o banco.
 
+**Medir os cartões na decisão (CC-408).** A variante `claude-opus-5-5-v3-modelo-cartoes` é a `claude-opus-5-5-v3-modelo` com `COPILOT_REVIEWED_CARDS=on` e o embedding da busca nos cartões (`EMBEDDING_BASE_URL`, `EMBEDDING_API_KEY` e `AI_EMBEDDING_MODEL` vêm do ambiente — o provedor escolhido na CC-406). O banco local precisa dos cartões publicados e do índice (`pnpm cards:reindex`). Rode as duas variantes nos mesmos casos e compare caso a caso: o critério para ligar a flag é nenhum erro crítico novo. O relatório mostra quantas condutas citaram cartão e quantas trouxeram a dose dele. Comandos no runbook ("Cartões na decisão").
+
 ---
 
 ## Para devs: rodar

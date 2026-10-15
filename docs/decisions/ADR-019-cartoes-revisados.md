@@ -1,6 +1,6 @@
 # ADR-019: Cartões revisados — modelo, rascunho com citação literal e anti-circularidade
 
-**Status:** Proposto — base implementada (CC-402, CC-403, CC-412), aguardando revisão clínica
+**Status:** Proposto — base implementada (CC-402, CC-403, CC-412), índice (CC-406) e cartões na decisão atrás de flag (CC-408), aguardando revisão clínica
 **Data:** 2026-10-14
 **Relaciona:** ADR-002/ADR-015 (trilha de auditoria), ADR-009 (multi-tenancy),
 ADR-010/ADR-012 (fontes não revisadas)
@@ -160,3 +160,65 @@ mesmo fornecedor do `rerank-2.5`, a alternativa ao Jev no portão da CC-407.
 **Pendente.** As 50 perguntas (escritas pelos médicos, depois de haver
 cartões publicados), as chaves dos provedores e a rodada de medição. Até lá,
 o índice usa o provedor das diretrizes — desligado em produção.
+
+## Emenda — 15/10/2026: cartões na decisão (CC-408)
+
+**Contexto.** Na produção (`stages` + v3 + `model_only`) toda conduta é
+conhecimento do modelo, e a regra 7 do prompt e o validador
+(`DOSE WITHOUT SOURCE`, ADR-013) não deixam dose sem fonte citada: o médico
+recebe "dose conforme protocolo institucional". O cartão revisado é a fonte
+que pode liberar a dose.
+
+**Decisão.** Atrás de `COPILOT_REVIEWED_CARDS` (padrão desligada), só na
+decisão em etapas (v2, v3, v4), em qualquer fonte de conhecimento:
+
+1. **Busca e portão.** Com o entendimento do caso (Etapa 1), a busca
+   semântica do índice (CC-406) roda com as `searchQueries` — nunca o texto
+   do caso — na instituição do atendimento. Um portão de relevância decide
+   se cada cartão se aplica: hoje similaridade mínima
+   (`REVIEWED_CARDS_MIN_SIMILARITY`, padrão 0,50, provisório) e tema — mesma
+   síndrome quando cartão e caso têm síndrome definida; senão, o tema do
+   cartão nas hipóteses do caso. Até `REVIEWED_CARDS_MAX` cartões (padrão 3).
+   O portão é a interface `CardRelevanceGate` (`CARD_RELEVANCE_GATE`): a
+   CC-407 troca a implementação (Jev ou reranker) sem mexer na busca nem na
+   decisão, recebendo só o entendimento. Portão que falha = nenhum cartão.
+   Nenhum cartão aplicável = lacuna (`REVIEWED_CARDS_GAP`, para a CC-409).
+2. **Prompt.** O cartão entra na mensagem do usuário, antes da outra
+   evidência, como `card:N`, com "Revisado por Dr(a). X, CRM Y/UF, em data",
+   versão, pergunta, população, resposta e as afirmações com a dose
+   estruturada. Uma nota diz que só a dose de uma linha "Dose" do cartão
+   citado pode ser escrita, exatamente como lá. O system prompt não muda; sem
+   cartão (flag desligada ou nenhum aplicável) a mensagem é byte a byte a de
+   antes — impressões digitais no teste tiradas do código anterior.
+3. **Dose liberada só do cartão.** Conduta que cita `card:N` pode trazer
+   dose, desde que toda dose do texto dela esteja num campo da dose
+   estruturada do cartão (quantidade, teto, frequência), do mesmo fármaco
+   (todas as palavras do nome). Dose na resposta em texto livre do cartão não
+   basta. Dose fora do cartão é corrigível (`CARD DOSE NOT IN CARD`: um retry
+   com feedback); se sobrar, a conduta perde a citação e sai como
+   conhecimento do modelo com `unverified_dose`. O resto não afrouxa:
+   conhecimento do modelo continua sem dose, e as outras fontes seguem as
+   regras de antes.
+4. **Origem e tela.** Nova origem `reviewed_card` (rótulo verde, "Cartão
+   revisado por médico"); a conduta leva `reviewedCard` (cartão, versão,
+   pergunta, nome e CRM do revisor, data) e a tela mostra "Revisado por …
+   CRM … em …" com o link para `/cartoes/:id`, que lê o cartão publicado em
+   `GET /v1/knowledge-cards/:id` (médico autenticado; cartão de instituição
+   só para quem é dela; vencido aparece como "revisar"). A verificação com
+   fonte (`verify`) não troca um cartão por página web.
+5. **Trilha.** `rawOutput.reviewedCards` guarda id, versão, hash assinado,
+   revisor e similaridade de cada cartão entregue; `params.reviewedCards`, o
+   que a busca e o portão fizeram (sem texto).
+
+**Medição.** Variante `claude-opus-5-5-v3-modelo-cartoes` do gabarito: a
+`claude-opus-5-5-v3-modelo` mais a flag e o embedding dos cartões. O
+relatório conta condutas que citam cartão e as que trazem a dose dele.
+Critério 3 da CC-408 para ligar: nenhum aumento de erro crítico contra a
+v3-modelo, caso a caso.
+
+**Riscos.** O portão provisório erra para os dois lados: tema por radical
+de palavra perde sinônimos (cartão fica de fora, a análise segue como antes)
+e a mesma síndrome não garante o mesmo cenário (dor torácica: SCA ×
+dissecção) — por isso a camada `depends` e a nota do prompt ("só quando
+trata desta apresentação") continuam valendo, e a CC-407 calibra o portão
+com pares rotulados pelos médicos.

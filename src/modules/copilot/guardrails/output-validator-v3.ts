@@ -6,6 +6,7 @@ import {
   type ValidationResult,
 } from './output-validator';
 import {
+  cardDoseNotInCard,
   CopilotOutputV2Schema,
   dependsWithoutData,
   describeKnownDataQuestions,
@@ -75,6 +76,7 @@ export function validateOutputV3(
     ...sourceWithoutValidCitation(written, citableIds),
     ...modelKnowledgeWithCitation(written),
     ...modelKnowledgeWithDose(written),
+    ...(context.reviewedCards ? cardDoseNotInCard(written, context.reviewedCards) : []),
     ...questionsWithoutSeparates(written, removed),
   ];
 

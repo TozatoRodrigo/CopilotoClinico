@@ -72,9 +72,17 @@ export type {
   RecommendationCategory,
   RecommendationLayer,
   RecommendationDecisionRecord,
+  RecommendationReviewedCard,
+  ReviewedCardRecord,
   RecommendationDecisionValue,
   UpsertRecommendationDecisionRequest,
   RedFlag,
   RedFlagSeverity,
   ResolveCrmVerificationRequest,
 } from '@contracts/clinical';
+
+export type {
+  KnowledgeCardClaimKind,
+  KnowledgeCardDose,
+  PublishedKnowledgeCard,
+} from '@contracts/knowledge-cards';

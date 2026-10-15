@@ -17,6 +17,7 @@ import type {
   UnderstandingService,
 } from '../understanding/understanding.service';
 import type { WebResearchService } from '../research/web-research.service';
+import { cardRetrievalNeverCalled } from '../../../../tests/fixtures/reviewed-cards';
 import { UNDERSTANDING_CORRECTION_QUESTION_ID } from '../../../shared/contracts/clinical';
 import { understandingFixture } from '../../../../tests/fixtures/case-understanding';
 
@@ -162,6 +163,7 @@ describe('OrchestratorService — raciocínio em etapas (F1)', () => {
       config as unknown as ConfigService,
       { understand } as unknown as UnderstandingService,
       { research } as unknown as WebResearchService,
+      cardRetrievalNeverCalled(),
     );
   });
 

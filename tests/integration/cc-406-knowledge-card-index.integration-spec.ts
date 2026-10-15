@@ -1,5 +1,5 @@
 /**
- * Testes de integração — CC-406 (ADR-019, emenda de 15/10/2026): índice
+ * Testes de integração — CC-406 e CC-408 (ADR-019, emendas de 15/10/2026): índice
  * semântico dos cartões revisados.
  *
  * Requisito: banco PostgreSQL com pgvector acessível via DATABASE_URL, com as
@@ -17,6 +17,11 @@ import { connectTestDb, disconnectTestDb } from './helpers/db';
 import type { PrismaService } from '../../src/config/prisma.service';
 import type { CardEmbedder } from '../../src/modules/knowledge-cards/card-index/card-embedder';
 import { CardIndexService } from '../../src/modules/knowledge-cards/card-index/card-index.service';
+import { ConfigService } from '@nestjs/config';
+import type { AuditService } from '../../src/modules/audit/audit.service';
+import { SimilarityThemeGate } from '../../src/modules/knowledge-cards/card-retrieval/card-relevance-gate';
+import { ReviewedCardRetrievalService } from '../../src/modules/knowledge-cards/card-retrieval/reviewed-card-retrieval.service';
+import { KnowledgeCardsService } from '../../src/modules/knowledge-cards/knowledge-cards.service';
 import { storedCardContent } from '../fixtures/knowledge-cards';
 
 const EMAIL_DOMAIN = '@cc406.test';
@@ -76,13 +81,14 @@ describe('CC-406 — índice semântico dos cartões (integration)', () => {
       institutionId?: string | null;
       validUntil?: Date;
       archived?: boolean;
+      syndrome?: string;
     } = {},
   ): Promise<{ cardId: string; versionId: string }> {
     const reviewerId = options.reviewerId ?? verifiedReviewerId;
     const card = await prisma.knowledgeCard.create({
       data: {
         topic: `${TOPIC_PREFIX}${topic}`,
-        syndrome: 'febre',
+        syndrome: options.syndrome ?? 'febre',
         institutionId: options.institutionId ?? null,
         status: 'in_review',
         currentVersion: 1,
@@ -302,6 +308,50 @@ describe('CC-406 — índice semântico dos cartões (integration)', () => {
       limitPerQuery: 5,
     });
     expect(after.status === 'ok' && after.hits.map((hit) => hit.cardId)).toEqual([card.cardId]);
+  });
+
+  it('CC-408: devolve o cartão aplicável com o revisor e o portão tira o de outra síndrome', async () => {
+    const applies = await publishedCard('Meningite bacteriana');
+    await publishedCard('Meningite em dor torácica', { syndrome: 'dor-toracica' });
+    await index.syncAll();
+    const config = new ConfigService({});
+    const retrieval = new ReviewedCardRetrievalService(
+      prisma as unknown as PrismaService,
+      index,
+      new SimilarityThemeGate(config),
+      config,
+    );
+
+    const result = await retrieval.findApplicable({
+      queries: ['meningite bacteriana antibiótico'],
+      institutionId: null,
+      syndrome: 'febre',
+      hypotheses: ['Meningite bacteriana'],
+      problemRepresentation: 'Adulto com febre e rigidez de nuca',
+    });
+
+    expect(result.cards.map(({ card }) => card.cardId)).toEqual([applies.cardId]);
+    expect(result.cards[0]?.card).toMatchObject({
+      versionId: applies.versionId,
+      reviewer: { name: 'Dra. Revisora', crmUf: 'SP', crmVerified: true },
+      contentSha256,
+    });
+    expect(result.trace).toMatchObject({
+      candidates: 2,
+      accepted: 1,
+      rejected: { syndrome_mismatch: 1 },
+    });
+
+    const cards = new KnowledgeCardsService(
+      prisma as unknown as PrismaService,
+      {} as AuditService,
+      index,
+    );
+    await expect(cards.getPublished(verifiedReviewerId, applies.cardId)).resolves.toMatchObject({
+      id: applies.cardId,
+      displayStatus: 'published',
+      reviewer: { name: 'Dra. Revisora', crmNumber: '040601', crmUf: 'SP' },
+    });
   });
 
   it('a role de runtime lê, grava e apaga o índice, sem TRUNCATE', async () => {

@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import type { CaseUnderstanding } from '../../../shared/contracts/clinical';
+import type { ReviewedCard } from '../../../shared/contracts/knowledge-cards';
+import { unsupportedCardDoses } from '../reviewed-cards/reviewed-card-evidence';
 import { findDoseMentions } from './dose-detector';
 import {
   answerTypeMismatchError,
@@ -72,6 +74,12 @@ export type CopilotOutputV2 = z.infer<typeof CopilotOutputV2Schema>;
 export interface DecisionV2Context {
   /** Entendimento da Etapa 1; `null` quando ela falhou (as regras que dependem dele não rodam). */
   understanding: CaseUnderstanding | null;
+  /**
+   * CC-408 — cartões revisados entregues à decisão, pelo id do prompt
+   * ("card:1"). Ausente com `COPILOT_REVIEWED_CARDS` desligada: a regra da
+   * dose do cartão não roda e a validação fica igual à de antes.
+   */
+  reviewedCards?: ReadonlyMap<string, ReviewedCard>;
 }
 
 export function validateOutputV2(
@@ -95,6 +103,7 @@ export function validateOutputV2(
     ...sourceWithoutValidCitation(output, citableIds),
     ...modelKnowledgeWithCitation(output),
     ...modelKnowledgeWithDose(output),
+    ...(context.reviewedCards ? cardDoseNotInCard(output, context.reviewedCards) : []),
     ...questionsWithoutSeparates(output),
     ...(context.understanding ? questionsForKnownData(output, context.understanding) : []),
     ...(context.understanding ? uncoveredCannotMiss(output, context.understanding) : []),
@@ -180,6 +189,34 @@ export function modelKnowledgeWithDose(output: CopilotOutputV2): string[] {
       'concentration with "basis": "model_knowledge". Without a cited excerpt, never state a ' +
       'dose: write "dose conforme protocolo institucional", or cite the evidence id that gives ' +
       'the dose with "basis": "source".',
+  ];
+}
+
+/**
+ * CC-408 — conduta que cita um cartão revisado só pode trazer a dose
+ * estruturada desse cartão, do mesmo fármaco (`unsupportedCardDoses`). Vale
+ * um retry com a dose do cartão no feedback; se sobrar, o orquestrador tira a
+ * citação e a conduta sai como conhecimento do modelo, marcada
+ * `unverified_dose` — nunca com a autoria do cartão numa dose que ele não dá.
+ */
+export function cardDoseNotInCard(
+  output: CopilotOutputV2,
+  cards: ReadonlyMap<string, ReviewedCard>,
+): string[] {
+  const offenses = output.recommendations.flatMap((rec, index) => {
+    const card = rec.citationChunkId ? cards.get(rec.citationChunkId) : undefined;
+    if (!card) return [];
+    const doses = unsupportedCardDoses(`${rec.action} ${rec.rationale}`, card);
+    return doses.length > 0
+      ? [`index ${index} ("${doses.join('", "')}" citing ${rec.citationChunkId})`]
+      : [];
+  });
+  if (offenses.length === 0) return [];
+  return [
+    `CARD DOSE NOT IN CARD: recommendations ${offenses.join('; ')} state a dose that is not in ` +
+      'a "Dose" line of the cited reviewed card for that drug. Copy the dose exactly as the card ' +
+      'writes it (drug, amount, route, frequency, maximum), or drop the dose and write "dose ' +
+      'conforme protocolo institucional".',
   ];
 }
 

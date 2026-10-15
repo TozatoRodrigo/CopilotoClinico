@@ -17,7 +17,13 @@ import {
   type KnowledgeCardDetail,
   type KnowledgeCardDisplayStatus,
   type KnowledgeCardListPage,
+  type PublishedKnowledgeCard,
 } from '../../shared/contracts/knowledge-cards';
+import {
+  REVIEWED_CARD_SELECT,
+  toPublishedCard,
+  toReviewedCard,
+} from './card-retrieval/reviewed-card-view';
 import { KnowledgeCardContentSchema } from './domain/card-content';
 import {
   DEFAULT_VALIDITY_MONTHS,
@@ -147,6 +153,36 @@ export class KnowledgeCardsService {
     });
     if (!row) throw new NotFoundException('Cartão não encontrado');
     return toCardDetail(row, new Date());
+  }
+
+  /**
+   * CC-408 — o cartão publicado, aberto pelo "Revisado por" da tela do plano.
+   * Só a versão assinada por médico com CRM verificado; arquivado, sem versão
+   * publicada ou de outra instituição (ADR-009) é 404 — a existência do
+   * cartão de outra instituição não vaza. Vencido aparece como "revisar".
+   */
+  async getPublished(physicianId: string, cardId: string): Promise<PublishedKnowledgeCard> {
+    const row = await this.prisma.knowledgeCard.findUnique({
+      where: { id: cardId },
+      select: REVIEWED_CARD_SELECT,
+    });
+    const card = row ? toReviewedCard(row) : null;
+    if (!card || !(await this.belongsToInstitution(physicianId, card.institutionId))) {
+      throw new NotFoundException('Cartão não encontrado');
+    }
+    return toPublishedCard(card, new Date());
+  }
+
+  private async belongsToInstitution(
+    physicianId: string,
+    institutionId: string | null,
+  ): Promise<boolean> {
+    if (!institutionId) return true;
+    const membership = await this.prisma.physicianInstitution.findUnique({
+      where: { physicianId_institutionId: { physicianId, institutionId } },
+      select: { id: true },
+    });
+    return membership !== null;
   }
 
   /**

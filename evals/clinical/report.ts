@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { findDoseMentions } from '../../src/modules/copilot/guardrails/dose-detector';
 import type { ClinicalCase } from './case.schema';
 import { actionPasses, actionPassesStrict } from './graders/judge';
 import { isGateCase } from './grading';
@@ -149,6 +150,9 @@ export interface RunSummary {
     /** Condutas com `basis: 'source'` entre as que têm base. */
     sourced: Rate;
     webOfficial: number;
+    /** CC-408 — condutas que citam um cartão revisado, e as que trazem a dose dele. */
+    reviewedCard: number;
+    reviewedCardWithDose: number;
     modelKnowledge: number;
     unverifiedDose: number;
     research: {
@@ -296,11 +300,19 @@ function summarizeEvidence(results: ResultRow[]): RunSummary['evidence'] {
     .flatMap((row) => row.output?.recommendations ?? [])
     .filter((recommendation) => recommendation.basis !== undefined);
   const researched = results.flatMap((row) => (row.research ? [row.research] : []));
+  const fromCards = recommendations.filter(
+    (recommendation) => recommendation.origin === 'reviewed_card',
+  );
   return {
     recommendations: recommendations.length,
     sourced: rateOf(recommendations.map((recommendation) => recommendation.basis === 'source')),
     webOfficial: recommendations.filter(
       (recommendation) => recommendation.origin === 'web_official',
+    ).length,
+    reviewedCard: fromCards.length,
+    reviewedCardWithDose: fromCards.filter(
+      (recommendation) =>
+        findDoseMentions(`${recommendation.action} ${recommendation.rationale}`).length > 0,
     ).length,
     modelKnowledge: recommendations.filter(
       (recommendation) => recommendation.basis === 'model_knowledge',
@@ -792,6 +804,10 @@ export function renderSummaryMarkdown(run: LoadedRun, summary: RunSummary): stri
         [
           ['Condutas com fonte citada (basis "source")', formatRate(evidence.sourced)],
           ['… citando fonte oficial externa (pesquisa web)', String(evidence.webOfficial)],
+          [
+            '… citando cartão revisado (com a dose do cartão)',
+            `${evidence.reviewedCard} (${evidence.reviewedCardWithDose})`,
+          ],
           ['Condutas do conhecimento geral do modelo', String(evidence.modelKnowledge)],
           ['… ainda com dose sem fonte depois do retry', String(evidence.unverifiedDose)],
           [

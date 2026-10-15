@@ -341,6 +341,20 @@ describe('summarizeRun — base das condutas (decisão v2)', () => {
             preliminary: true,
             preliminaryReason: 'unverified_dose',
           },
+          {
+            ...v2Recommendation,
+            action: 'Ceftriaxona 2 g IV a cada 12 horas',
+            basis: 'source',
+            citationChunkId: 'card:1',
+            origin: 'reviewed_card',
+          },
+          {
+            ...v2Recommendation,
+            action: 'Notificar o caso suspeito de meningite',
+            basis: 'source',
+            citationChunkId: 'card:1',
+            origin: 'reviewed_card',
+          },
         ],
       },
       research,
@@ -363,9 +377,11 @@ describe('summarizeRun — base das condutas (decisão v2)', () => {
     );
 
     expect(summary.evidence).toEqual({
-      recommendations: 6,
-      sourced: expect.objectContaining({ passed: 2, total: 6 }),
+      recommendations: 10,
+      sourced: expect.objectContaining({ passed: 6, total: 10 }),
       webOfficial: 2,
+      reviewedCard: 4,
+      reviewedCardWithDose: 2,
       modelKnowledge: 4,
       unverifiedDose: 2,
       research: { runs: 2, fallbacks: 1, webSearches: 6, costUsd: 0.1, latencyP50: 9_000 },
