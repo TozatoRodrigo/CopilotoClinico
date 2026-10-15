@@ -41,3 +41,4 @@ coverage/
 evals/clinical/runs/
 evals/deid/out/
 evals/clinical/variants.json
+evals/cards/runs/

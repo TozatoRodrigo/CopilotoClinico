@@ -1,0 +1,33 @@
+{
+  "description": "CC-407 — cartões de teste da semente do bake-off: os mesmos de tests/fixtures (reviewedCard, anaphylaxisCard), só com o que o portão lê. Texto sintético, não é conteúdo clínico revisado.",
+  "cards": [
+    {
+      "cardId": "77777777-7777-4777-8777-777777777777",
+      "topic": "Meningite bacteriana",
+      "syndrome": "febre",
+      "content": {
+        "question": "Qual o antibiótico empírico na suspeita de meningite bacteriana no adulto?",
+        "population": "Adulto no pronto-socorro com suspeita de meningite bacteriana",
+        "answer": "Ceftriaxona 2 g IV a cada 12 horas, iniciada logo após a coleta do líquor.",
+        "claims": [
+          { "text": "Iniciar a ceftriaxona sem aguardar o resultado do líquor." },
+          { "text": "A doença meningocócica é de notificação compulsória imediata." }
+        ]
+      }
+    },
+    {
+      "cardId": "88888888-8888-4888-8888-888888888888",
+      "topic": "Anafilaxia: adrenalina IM",
+      "syndrome": null,
+      "content": {
+        "question": "Qual a dose de adrenalina IM na anafilaxia?",
+        "population": "Criança ou adulto com anafilaxia no pronto-socorro",
+        "answer": "Adrenalina 0,01 mg/kg IM na face lateral da coxa, até 0,5 mg por dose.",
+        "claims": [
+          { "text": "Aplicar adrenalina IM assim que reconhecer a anafilaxia." },
+          { "text": "Anti-histamínico não substitui a adrenalina." }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,301 @@
+{
+  "description": "CC-407 — SEMENTE SINTÉTICA, NÃO ROTULADA POR MÉDICO. 20 pares (10 situações × os 2 cartões de teste de gate-cards.seed.json) só para o harness ter com o que rodar nos testes. Situações, rótulos e similaridades foram escritos à mão; não servem para escolher o portão nem o limiar.",
+  "pairs": [
+    {
+      "id": "semente-meningite-adulto-x-meningite",
+      "situation": {
+        "kind": "case",
+        "text": "Adulto de 30 anos com febre, cefaleia intensa e rigidez de nuca há 12 horas; petéquias em membros inferiores.",
+        "syndrome": "febre",
+        "hypotheses": ["Meningite bacteriana", "Meningococcemia"]
+      },
+      "cardId": "77777777-7777-4777-8777-777777777777",
+      "label": "relevant",
+      "labeler": {
+        "kind": "seed"
+      },
+      "similarity": 0.82
+    },
+    {
+      "id": "semente-meningite-adulto-x-anafilaxia",
+      "situation": {
+        "kind": "case",
+        "text": "Adulto de 30 anos com febre, cefaleia intensa e rigidez de nuca há 12 horas; petéquias em membros inferiores.",
+        "syndrome": "febre",
+        "hypotheses": ["Meningite bacteriana", "Meningococcemia"]
+      },
+      "cardId": "88888888-8888-4888-8888-888888888888",
+      "label": "irrelevant",
+      "labeler": {
+        "kind": "seed"
+      },
+      "similarity": 0.18
+    },
+    {
+      "id": "semente-meningite-idoso-x-meningite",
+      "situation": {
+        "kind": "case",
+        "text": "Idoso com febre, confusão aguda e rigidez de nuca, sem déficit focal.",
+        "syndrome": "febre",
+        "hypotheses": ["Meningite bacteriana", "Encefalite"]
+      },
+      "cardId": "77777777-7777-4777-8777-777777777777",
+      "label": "relevant",
+      "labeler": {
+        "kind": "seed"
+      },
+      "similarity": 0.77
+    },
+    {
+      "id": "semente-meningite-idoso-x-anafilaxia",
+      "situation": {
+        "kind": "case",
+        "text": "Idoso com febre, confusão aguda e rigidez de nuca, sem déficit focal.",
+        "syndrome": "febre",
+        "hypotheses": ["Meningite bacteriana", "Encefalite"]
+      },
+      "cardId": "88888888-8888-4888-8888-888888888888",
+      "label": "irrelevant",
+      "labeler": {
+        "kind": "seed"
+      },
+      "similarity": 0.15
+    },
+    {
+      "id": "semente-hsa-cefaleia-subita-x-meningite",
+      "situation": {
+        "kind": "case",
+        "text": "Cefaleia súbita em trovoada, a pior da vida, com rigidez de nuca e sem febre.",
+        "syndrome": "cefaleia",
+        "hypotheses": ["Hemorragia subaracnóidea"]
+      },
+      "cardId": "77777777-7777-4777-8777-777777777777",
+      "label": "irrelevant",
+      "labeler": {
+        "kind": "seed"
+      },
+      "similarity": 0.58,
+      "note": "Rigidez de nuca sem febre: outro cenário; o cartão de meningite não se aplica."
+    },
+    {
+      "id": "semente-hsa-cefaleia-subita-x-anafilaxia",
+      "situation": {
+        "kind": "case",
+        "text": "Cefaleia súbita em trovoada, a pior da vida, com rigidez de nuca e sem febre.",
+        "syndrome": "cefaleia",
+        "hypotheses": ["Hemorragia subaracnóidea"]
+      },
+      "cardId": "88888888-8888-4888-8888-888888888888",
+      "label": "irrelevant",
+      "labeler": {
+        "kind": "seed"
+      },
+      "similarity": 0.12
+    },
+    {
+      "id": "semente-dengue-alarme-x-meningite",
+      "situation": {
+        "kind": "case",
+        "text": "Febre há 4 dias com mialgia, dor retro-orbitária, dor abdominal intensa, vômitos persistentes e plaquetas baixas.",
+        "syndrome": "febre",
+        "hypotheses": ["Dengue com sinais de alarme", "Sepse"]
+      },
+      "cardId": "77777777-7777-4777-8777-777777777777",
+      "label": "irrelevant",
+      "labeler": {
+        "kind": "seed"
+      },
+      "similarity": 0.52,
+      "note": "Mesma síndrome (febre), outro cenário: o erro que motivou o plano de confiabilidade."
+    },
+    {
+      "id": "semente-dengue-alarme-x-anafilaxia",
+      "situation": {
+        "kind": "case",
+        "text": "Febre há 4 dias com mialgia, dor retro-orbitária, dor abdominal intensa, vômitos persistentes e plaquetas baixas.",
+        "syndrome": "febre",
+        "hypotheses": ["Dengue com sinais de alarme", "Sepse"]
+      },
+      "cardId": "88888888-8888-4888-8888-888888888888",
+      "label": "irrelevant",
+      "labeler": {
+        "kind": "seed"
+      },
+      "similarity": 0.1
+    },
+    {
+      "id": "semente-anafilaxia-abelha-x-meningite",
+      "situation": {
+        "kind": "case",
+        "text": "Minutos após picada de abelha: urticária generalizada, sibilância e PA 80x50.",
+        "syndrome": "reacao-alergica",
+        "hypotheses": ["Anafilaxia"]
+      },
+      "cardId": "77777777-7777-4777-8777-777777777777",
+      "label": "irrelevant",
+      "labeler": {
+        "kind": "seed"
+      },
+      "similarity": 0.14
+    },
+    {
+      "id": "semente-anafilaxia-abelha-x-anafilaxia",
+      "situation": {
+        "kind": "case",
+        "text": "Minutos após picada de abelha: urticária generalizada, sibilância e PA 80x50.",
+        "syndrome": "reacao-alergica",
+        "hypotheses": ["Anafilaxia"]
+      },
+      "cardId": "88888888-8888-4888-8888-888888888888",
+      "label": "relevant",
+      "labeler": {
+        "kind": "seed"
+      },
+      "similarity": 0.86
+    },
+    {
+      "id": "semente-anafilaxia-amendoim-crianca-x-meningite",
+      "situation": {
+        "kind": "case",
+        "text": "Criança de 6 anos com edema de lábios, estridor e vômitos 15 minutos após comer amendoim.",
+        "syndrome": "reacao-alergica",
+        "hypotheses": ["Anafilaxia"]
+      },
+      "cardId": "77777777-7777-4777-8777-777777777777",
+      "label": "irrelevant",
+      "labeler": {
+        "kind": "seed"
+      },
+      "similarity": 0.11
+    },
+    {
+      "id": "semente-anafilaxia-amendoim-crianca-x-anafilaxia",
+      "situation": {
+        "kind": "case",
+        "text": "Criança de 6 anos com edema de lábios, estridor e vômitos 15 minutos após comer amendoim.",
+        "syndrome": "reacao-alergica",
+        "hypotheses": ["Anafilaxia"]
+      },
+      "cardId": "88888888-8888-4888-8888-888888888888",
+      "label": "relevant",
+      "labeler": {
+        "kind": "seed"
+      },
+      "similarity": 0.79
+    },
+    {
+      "id": "semente-urticaria-isolada-x-meningite",
+      "situation": {
+        "kind": "case",
+        "text": "Urticária isolada após dipirona, sem sintomas respiratórios, gastrointestinais ou hipotensão.",
+        "syndrome": "reacao-alergica",
+        "hypotheses": ["Urticária aguda", "Reação alérgica leve"]
+      },
+      "cardId": "77777777-7777-4777-8777-777777777777",
+      "label": "irrelevant",
+      "labeler": {
+        "kind": "seed"
+      },
+      "similarity": 0.09
+    },
+    {
+      "id": "semente-urticaria-isolada-x-anafilaxia",
+      "situation": {
+        "kind": "case",
+        "text": "Urticária isolada após dipirona, sem sintomas respiratórios, gastrointestinais ou hipotensão.",
+        "syndrome": "reacao-alergica",
+        "hypotheses": ["Urticária aguda", "Reação alérgica leve"]
+      },
+      "cardId": "88888888-8888-4888-8888-888888888888",
+      "label": "irrelevant",
+      "labeler": {
+        "kind": "seed"
+      },
+      "similarity": 0.66,
+      "note": "Reação alérgica sem critério de anafilaxia: adrenalina IM não está indicada."
+    },
+    {
+      "id": "semente-angioedema-ieca-x-meningite",
+      "situation": {
+        "kind": "case",
+        "text": "Edema de face e língua recorrente, sem urticária, em uso de enalapril.",
+        "syndrome": "reacao-alergica",
+        "hypotheses": ["Angioedema por IECA"]
+      },
+      "cardId": "77777777-7777-4777-8777-777777777777",
+      "label": "irrelevant",
+      "labeler": {
+        "kind": "seed"
+      },
+      "similarity": 0.08
+    },
+    {
+      "id": "semente-angioedema-ieca-x-anafilaxia",
+      "situation": {
+        "kind": "case",
+        "text": "Edema de face e língua recorrente, sem urticária, em uso de enalapril.",
+        "syndrome": "reacao-alergica",
+        "hypotheses": ["Angioedema por IECA"]
+      },
+      "cardId": "88888888-8888-4888-8888-888888888888",
+      "label": "irrelevant",
+      "labeler": {
+        "kind": "seed"
+      },
+      "similarity": 0.61,
+      "note": "Angioedema por bradicinina: adrenalina não é a conduta do cenário."
+    },
+    {
+      "id": "semente-pergunta-ceftriaxona-x-meningite",
+      "situation": {
+        "kind": "quick_question",
+        "text": "Dose de ceftriaxona na meningite bacteriana do adulto?"
+      },
+      "cardId": "77777777-7777-4777-8777-777777777777",
+      "label": "relevant",
+      "labeler": {
+        "kind": "seed"
+      },
+      "similarity": 0.74
+    },
+    {
+      "id": "semente-pergunta-ceftriaxona-x-anafilaxia",
+      "situation": {
+        "kind": "quick_question",
+        "text": "Dose de ceftriaxona na meningite bacteriana do adulto?"
+      },
+      "cardId": "88888888-8888-4888-8888-888888888888",
+      "label": "irrelevant",
+      "labeler": {
+        "kind": "seed"
+      },
+      "similarity": 0.12
+    },
+    {
+      "id": "semente-pergunta-adrenalina-crianca-x-meningite",
+      "situation": {
+        "kind": "quick_question",
+        "text": "Dose de adrenalina IM na anafilaxia em criança de 20 kg?"
+      },
+      "cardId": "77777777-7777-4777-8777-777777777777",
+      "label": "irrelevant",
+      "labeler": {
+        "kind": "seed"
+      },
+      "similarity": 0.1
+    },
+    {
+      "id": "semente-pergunta-adrenalina-crianca-x-anafilaxia",
+      "situation": {
+        "kind": "quick_question",
+        "text": "Dose de adrenalina IM na anafilaxia em criança de 20 kg?"
+      },
+      "cardId": "88888888-8888-4888-8888-888888888888",
+      "label": "relevant",
+      "labeler": {
+        "kind": "seed"
+      },
+      "similarity": 0.81
+    }
+  ]
+}

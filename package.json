@@ -36,6 +36,7 @@
     "eval:clinical": "tsx evals/clinical/run.ts",
     "eval:clinical:compare": "tsx evals/clinical/compare.ts",
     "eval:card-retrieval": "tsx evals/cards/retrieval.ts",
+    "eval:card-gate": "tsx evals/cards/gate.ts",
     "eval:deid": "tsx evals/deid/run.ts"
   },
   "dependencies": {
