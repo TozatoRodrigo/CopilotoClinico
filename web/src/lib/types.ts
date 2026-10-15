@@ -86,3 +86,14 @@ export type {
   KnowledgeCardDose,
   PublishedKnowledgeCard,
 } from '@contracts/knowledge-cards';
+
+export type {
+  AskQuickQuestionRequest,
+  QuickQuestionAvailability,
+  QuickQuestionCardAnswer,
+  QuickQuestionDose,
+  QuickQuestionResponse,
+  QuickQuestionSource,
+  WeightBasedDose,
+  WeightDoseNotComputedReason,
+} from '@contracts/quick-question';

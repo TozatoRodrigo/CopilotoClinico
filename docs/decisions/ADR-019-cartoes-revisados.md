@@ -1,6 +1,6 @@
 # ADR-019: Cartões revisados — modelo, rascunho com citação literal e anti-circularidade
 
-**Status:** Proposto — base implementada (CC-402, CC-403, CC-412), índice (CC-406) e cartões na decisão atrás de flag (CC-408), aguardando revisão clínica
+**Status:** Proposto — base implementada (CC-402, CC-403, CC-412), índice (CC-406), cartões na decisão (CC-408) e pergunta rápida (CC-501) atrás de flag, aguardando revisão clínica
 **Data:** 2026-10-14
 **Relaciona:** ADR-002/ADR-015 (trilha de auditoria), ADR-009 (multi-tenancy),
 ADR-010/ADR-012 (fontes não revisadas)
@@ -222,3 +222,67 @@ e a mesma síndrome não garante o mesmo cenário (dor torácica: SCA ×
 dissecção) — por isso a camada `depends` e a nota do prompt ("só quando
 trata desta apresentação") continuam valendo, e a CC-407 calibra o portão
 com pares rotulados pelos médicos.
+
+## Emenda — 15/10/2026: pergunta rápida (CC-501)
+
+**Contexto.** O médico quer perguntar "dose de ceftriaxona na meningite?" e
+ter a resposta com fonte em segundos, sem abrir caso — para não abrir o
+ChatGPT. A CC-501 previa, sem cartão, uma resposta do modelo rotulada
+"conhecimento do modelo", sem dose.
+
+**Decisão.** Atrás de `COPILOT_QUICK_QUESTION` (padrão desligada), um campo
+no Plantão e `POST /v1/quick-questions`:
+
+1. **Só cartão.** A resposta é o cartão publicado, sem reescrita: resposta,
+   população, cada dose estruturada, as fontes com os trechos citados pela
+   resposta e pelas doses e "Revisado por Dr(a). X, CRM Y/UF, em data".
+   Nenhum modelo de linguagem neste fluxo — o único provedor chamado é o de
+   embedding, pela busca. Sem cartão, a tela diz "ainda não temos um cartão
+   revisado para isso" e oferece abrir um caso. A resposta do modelo
+   rotulada, prevista na história, fica de fora: resposta livre sem fonte é o
+   que o plano de confiabilidade tira, e a análise do caso já cobre esse
+   caminho com as regras de dose (ADR-013).
+2. **Mesma busca e mesmo portão da decisão.** `findApplicable` com a
+   pergunta mascarada como consulta e como hipótese, sem síndrome e sem
+   representação do problema: o `CardRelevanceGate` decide pelo tema do
+   cartão na pergunta. A instituição é a única do médico (regra do
+   atendimento, PROT-004); sem ela ou com mais de uma, só cartões globais.
+3. **Três desfechos.** `answered`; `no_card` só quando a busca rodou e o
+   portão julgou; `search_unavailable` quando não há busca (embedding
+   desligado ou fora, portão que falhou) — aí não se pode dizer que falta
+   cartão, e nada vai para a lacuna.
+4. **Dose por peso.** Dose estruturada por kg e um peso na pergunta ("criança
+   de 20 kg"): a tela mostra, ao lado da dose assinada, a conta
+   (quantidade × peso, limitada ao teto do cartão) marcada como conta do
+   Copiloto. Não calcula dose por tempo (mg/kg/dia, mcg/kg/min), faixa, teto
+   em outra unidade ou base, nem peso ambíguo ou fora de 0,5–200 kg — diz por
+   quê. O motor das ferramentas (ADR-017, PR #180) substitui esta conta
+   quando entrar.
+5. **Lacuna.** Ponto de extensão `KNOWLEDGE_GAP_RECORDER`. Hoje
+   `QUICK_QUESTION_GAP` no log, no formato do `REVIEWED_CARDS_GAP`
+   (contagens, sem texto). Com a tabela `knowledge_gaps` do PR #185, a
+   implementação grava `source = quick_question`, `interaction_id` nulo e a
+   pergunta mascarada em `search_queries`.
+6. **Trilha.** Uma linha `QUICK_QUESTION_ASKED` por pergunta: desfecho,
+   cartão, versão e hash assinado mostrados, estado da busca, tamanho da
+   pergunta e se a máscara achou PII. Falhar a trilha não tira a resposta
+   (vai para o Sentry).
+
+**Retenção da pergunta.** A máscara (`maskPII`) é o primeiro passo; o texto
+bruto não sai da requisição.
+
+| Onde | O quê | Por quanto tempo |
+| --- | --- | --- |
+| Memória da API | texto bruto | só durante o pedido |
+| Provedor de embedding | pergunta mascarada | política do provedor (o mesmo das diretrizes) |
+| Log | id, desfecho, contagens, `cardId:versão:similaridade`, latência — nunca texto | retenção dos logs |
+| `audit_log` | `QUICK_QUESTION_ASKED` sem texto (item 6) | a da trilha (append-only) |
+| `knowledge_gaps` (com o #185) | pergunta mascarada, só quando falta cartão | a das lacunas, a definir na CC-409 |
+| Navegador | estado da tela | até sair da página: nada em URL, armazenamento local ou evento de uso |
+
+**Riscos.** O portão provisório com a pergunta como hipótese depende do tema
+do cartão aparecer na pergunta: sinônimo fora do radical deixa o cartão de
+fora (vira lacuna, não erro). A conta por peso é código novo sobre dose
+assinada — precisa da revisão clínica antes de ligar a flag. Até o PR #168
+entrar, a linha de erro do acesso HTTP leva o corpo da requisição: um 400 ou
+404 da pergunta rápida gravaria a pergunta no log. Ligar depois do #168.

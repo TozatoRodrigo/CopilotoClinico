@@ -25,6 +25,9 @@ import type {
   GuidelineSourceSummary,
   PendingGuidelineChunk,
   PublishedKnowledgeCard,
+  AskQuickQuestionRequest,
+  QuickQuestionAvailability,
+  QuickQuestionResponse,
   CopilotFeedbackKind,
   CopilotFeedbackRequest,
   CopilotFeedbackResponse,
@@ -126,6 +129,30 @@ export function usePublishedKnowledgeCard(cardId: string) {
     queryFn: () => apiClient.get<PublishedKnowledgeCard>(`/knowledge-cards/${cardId}`),
     enabled: Boolean(cardId),
     retry: false,
+  });
+}
+
+/**
+ * CC-501 — a pergunta rápida só aparece com `COPILOT_QUICK_QUESTION` ligada
+ * no servidor. Sem resposta (erro, offline), o campo fica escondido.
+ */
+export function useQuickQuestionAvailability() {
+  return useQuery({
+    queryKey: ['quick-question', 'availability'] as const,
+    queryFn: () => apiClient.get<QuickQuestionAvailability>('/quick-questions/availability'),
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
+}
+
+/**
+ * CC-501 — a pergunta vai no corpo, nunca na URL, e não fica em cache: cada
+ * envio é uma busca nova nos cartões publicados.
+ */
+export function useAskQuickQuestion() {
+  return useMutation({
+    mutationFn: (body: AskQuickQuestionRequest) =>
+      apiClient.post<QuickQuestionResponse>('/quick-questions', body),
   });
 }
 

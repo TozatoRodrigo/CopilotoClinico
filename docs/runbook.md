@@ -813,6 +813,47 @@ O relatório ganha "… citando cartão revisado (com a dose do cartão)" na
 seção "Base das condutas". O workspace da Anthropic é o da produção:
 confirme o limite antes de rodar.
 
+**Pergunta rápida (CC-501, `COPILOT_QUICK_QUESTION`)** — desligada por
+padrão: o campo não aparece no Plantão e `POST /v1/quick-questions` responde
+404. Ligada, o médico escreve uma dúvida curta (até 300 caracteres) e a
+resposta vem **só** de cartões publicados — nenhum modelo de linguagem é
+chamado, só o embedding da busca:
+
+1. a pergunta passa por `maskPII` antes de tudo; o texto bruto não vai para
+   embedding, log, trilha nem banco;
+2. a mesma busca e o mesmo portão da decisão (acima), com a pergunta
+   mascarada como consulta e hipótese, na instituição única do médico (ou só
+   cartões globais);
+3. com cartão: resposta, doses estruturadas (e a conta por peso quando a
+   dose é por kg e a pergunta traz o peso), fontes com o trecho citado e
+   "Revisado por"; sem cartão: "ainda não temos um cartão revisado para
+   isso", lacuna registrada e "Abrir um caso"; sem busca (embedding
+   desligado, portão fora): "busca indisponível", sem lacuna.
+
+Pré-requisitos para ligar: os mesmos dos cartões na decisão (cartões
+publicados, embedding ligado, `pnpm cards:reindex` com código 0), a revisão
+clínica da conta por peso (ADR-019, emenda da pergunta rápida) e o PR #168
+(sem ele, um 400/404 desta rota grava o corpo — a pergunta — na linha de
+erro do acesso HTTP). `GET /v1/quick-questions/availability` diz à tela se a
+flag está ligada.
+
+No log: `QUICK_QUESTION` (id, desfecho, estado da busca, candidatos,
+`cardId:versão:similaridade`, PII detectada, latência — o p50 alvo é ≤ 5 s),
+`QUICK_QUESTION_GAP` (a lacuna, sem texto; com a tabela `knowledge_gaps` do
+PR #185 passa a gravar a pergunta mascarada), `QUICK_QUESTION_SEARCH_FAILED`,
+`QUICK_QUESTION_GAP_FAILED` e `QUICK_QUESTION_AUDIT_FAILED` (os três também
+no Sentry). Na trilha, `QUICK_QUESTION_ASKED` por pergunta, sem texto.
+
+```sql
+-- Uso semanal (métrica da CC-501: ≥ 30% dos médicos ativos) e desfechos
+SELECT date_trunc('week', created_at) AS semana,
+       count(DISTINCT actor_id) AS medicos,
+       count(*) FILTER (WHERE payload->>'outcome' = 'answered') AS respondidas,
+       count(*) FILTER (WHERE payload->>'outcome' = 'no_card') AS sem_cartao,
+       count(*) FILTER (WHERE payload->>'outcome' = 'search_unavailable') AS sem_busca
+FROM audit_log WHERE action = 'QUICK_QUESTION_ASKED' GROUP BY 1 ORDER BY 1 DESC;
+```
+
 ### Sincronizar a base oficial da Conitec (ADR-010)
 
 PCDT, DDT, Diretrizes Brasileiras e Protocolos de Uso (~190 documentos) entram

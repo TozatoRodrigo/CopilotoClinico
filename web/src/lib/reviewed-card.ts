@@ -1,6 +1,8 @@
+import type { KnowledgeCardDose } from '@contracts/knowledge-cards';
+
 /**
  * CC-408 — "Revisado por" de um cartão revisado: a mesma data e o mesmo CRM
- * na tela do plano e na página do cartão.
+ * na tela do plano, na página do cartão e na pergunta rápida (CC-501).
  */
 
 /** dd/mm/aaaa no fuso de Brasília — a data que o revisor viu ao assinar. */
@@ -26,4 +28,21 @@ export function reviewerCrm(reviewer: { crmNumber: string; crmUf: string }): str
 /** Página do cartão — o link do "Revisado por". */
 export function reviewedCardHref(cardId: string): string {
   return `/cartoes/${cardId}`;
+}
+
+/**
+ * "Ceftriaxona 2 g · intravenosa · a cada 12 horas · máx. 4 g/dia" — a dose
+ * como o cartão a assina, na página do cartão e na pergunta rápida.
+ */
+export function formatDose(
+  dose: Pick<KnowledgeCardDose, 'drug' | 'amount' | 'route' | 'frequency' | 'maxDose'>,
+): string {
+  return [
+    `${dose.drug} ${dose.amount}`,
+    dose.route,
+    dose.frequency,
+    dose.maxDose ? `máx. ${dose.maxDose}` : null,
+  ]
+    .filter((part): part is string => Boolean(part))
+    .join(' · ');
 }
