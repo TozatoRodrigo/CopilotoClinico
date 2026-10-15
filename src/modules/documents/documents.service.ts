@@ -19,6 +19,8 @@ import { generatePrescricao } from './generators/prescricao.generator';
 import { generateAlta } from './generators/alta.generator';
 import { generateAtestado } from './generators/atestado.generator';
 import { buildDocumentPdf, type PdfDocumentInput } from './pdf/document-pdf.builder';
+import { aiUseRecordOf, withAiUseRecord } from './ai-use-record';
+import { AI_USE_RECORD_FIELD } from '../../shared/contracts/clinical';
 import type { CopilotOutput } from '../copilot/guardrails/output-validator';
 
 const DOCUMENT_SELECT = {
@@ -161,42 +163,45 @@ export class DocumentsService {
 
     const patientRef = encounter.patientRef ?? undefined;
 
-    let content: Prisma.InputJsonValue;
+    let generated: Prisma.InputJsonObject;
     switch (input.type) {
       case 'soap':
-        content = generateSOAP(caseText, copilotOutput) as unknown as Prisma.InputJsonObject;
+        generated = generateSOAP(caseText, copilotOutput) as unknown as Prisma.InputJsonObject;
         break;
       case 'sbar':
-        content = generateSBAR(caseText, copilotOutput) as unknown as Prisma.InputJsonObject;
+        generated = generateSBAR(caseText, copilotOutput) as unknown as Prisma.InputJsonObject;
         break;
       case 'prescricao':
-        content = generatePrescricao(
+        generated = generatePrescricao(
           caseText,
           copilotOutput,
           patientRef,
         ) as unknown as Prisma.InputJsonObject;
         break;
       case 'alta':
-        content = generateAlta(
+        generated = generateAlta(
           caseText,
           copilotOutput,
           patientRef,
         ) as unknown as Prisma.InputJsonObject;
         break;
       case 'atestado':
-        content = generateAtestado(
+        generated = generateAtestado(
           caseText,
           copilotOutput,
           patientRef,
         ) as unknown as Prisma.InputJsonObject;
         break;
       default:
-        content = {
+        generated = {
           source: caseText,
           recommendations: copilotOutput.recommendations,
         } as unknown as Prisma.InputJsonObject;
     }
 
+    // F0-D — Res. CFM 2.454/2026: SOAP, SBAR e Alta registram o uso de IA no
+    // próprio conteúdo, então o registro entra no hash e no PDF assinado.
+    const content = withAiUseRecord(input.type, generated);
     const contentHash = canonicalHash(content);
 
     const document = await this.prisma.document.create({
@@ -227,16 +232,24 @@ export class DocumentsService {
   async edit(physicianId: string, documentId: string, input: EditDocumentInput) {
     const doc = await this.prisma.document.findUnique({
       where: { id: documentId },
-      select: { physicianId: true, confirmedBy: true },
+      select: { physicianId: true, confirmedBy: true, content: true },
     });
 
     if (!doc) throw new NotFoundException('Document not found');
     if (doc.physicianId !== physicianId) throw new ForbiddenException('Access denied');
     if (doc.confirmedBy) throw new ForbiddenException('Confirmed documents cannot be edited');
 
+    // F0-D — o registro de uso de IA não é editável: a edição do médico
+    // (que substitui o conteúdo inteiro no confirm) sempre leva o texto
+    // gravado na geração, mesmo que o cliente o omita ou altere.
+    const aiUseRecord = aiUseRecordOf(doc.content);
+    const physicianEdits = aiUseRecord
+      ? { ...input.physicianEdits, [AI_USE_RECORD_FIELD]: aiUseRecord }
+      : input.physicianEdits;
+
     const updated = await this.prisma.document.update({
       where: { id: documentId },
-      data: { physicianEdits: input.physicianEdits as unknown as Prisma.InputJsonObject },
+      data: { physicianEdits: physicianEdits as unknown as Prisma.InputJsonObject },
       select: DOCUMENT_SELECT,
     });
 

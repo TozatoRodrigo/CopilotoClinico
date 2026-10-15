@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 2,
+  "id": "kb004-hipoglicemia-por-sulfonilureia",
+  "title": "Confusão e sudorese em diabético com glibenclamida, glicemia 36",
+  "tags": [
+    "disturbio-glicemico",
+    "hipoglicemia",
+    "dicotomia-hipo-hiper"
+  ],
+  "critical": true,
+  "goldSource": "kb004_dichotomy",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Masc, 72a, DM2 em uso de glibenclamida, trazido pela filha por confusão e sudorese há 1h. Sem déficit motor. PA 150x90, FC 102, SpO2 97%. Glicemia capilar 36 mg/dL."
+  },
+  "expected": {
+    "syndrome": "hipoglicemia grave por sulfonilureia",
+    "diagnoses": [
+      {
+        "text": "hipoglicemia recorrente ou de rebote por sulfonilureia",
+        "tier": "critical"
+      }
+    ],
+    "actions": [
+      {
+        "text": "glicose IV imediata (hipertônica ou a 10-20%)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "suporte contínuo de glicose (dieta VO quando desperto e/ou infusão de glicose 10%) e octreotida se houver recorrência",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "internação ou observação com glicemia capilar seriada por ≥ 24 h, prolongada se houver DRC, idade avançada ou dose alta",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "suspender a glibenclamida e revisar o tratamento na alta",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [
+      "função renal (creatinina/TFG)",
+      "dose tomada, ingestão acidental ou intencional e ingesta alimentar recente"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "insulina-em-hipoglicemia",
+        "description": "Insulina em paciente hipoglicêmico",
+        "patterns": [
+          "insulin\\w*"
+        ],
+        "exceptWhen": [
+          "(trocar|substituir|substituicao|transicao)",
+          "(na|para\\s+a)\\s+alta",
+          "ambulatori\\w*"
+        ]
+      },
+      {
+        "id": "alta-precoce-apos-correcao",
+        "description": "Alta do PS após a correção da glicemia, sem observação prolongada (a hipoglicemia por sulfonilureia recorre horas depois, em casa)",
+        "patterns": [
+          "(dar|receber|programar)\\s+alta",
+          "alta\\s+(hospitalar|para\\s+casa|para\\s+o\\s+domicilio|apos\\s+(a\\s+)?(correcao|normalizacao|melhora)|com\\s+(orientac\\w*|retorno|acompanhante))",
+          "liberar\\s+(para\\s+casa|o\\s+paciente)"
+        ],
+        "exceptWhen": [
+          "(somente|so|apenas)\\s+(apos|depois|se|quando|com)",
+          "(apos|depois\\s+de)\\s+(\\S+\\s+){0,3}(24|48)\\s*h"
+        ]
+      }
+    ],
+    "rationale": "KB-004 (01-hipoglicemia): glicose IV primeiro (50% ou 10-20%, ambas aceitas). Sulfonilureia de longa ação é a red flag: a hipoglicemia pode recorrer por mais de 24 h, sobretudo com DRC (MJA 2004); a glicose estimula secreção de insulina e a octreotida reduz a recorrência (Ann Emerg Med 2008). Glucagon tem pouco papel aqui. Beers 2023 desaconselha glibenclamida em idosos. O erro que mata é a alta após a correção."
+  },
+  "sources": [
+    {
+      "claim": "Hipoglicemia por sulfonilureia pode ser prolongada e recorrer por mais de 24 h apesar do tratamento; monitorar glicemia por pelo menos 24 h; insuficiência renal aumenta o risco; análogos de somatostatina reduzem o rebote; glucagon sem papel.",
+      "title": "Long-acting sulfonylureas — long-acting hypoglycaemia",
+      "publisher": "Med J Aust",
+      "year": 2004,
+      "url": "https://www.mja.com.au/journal/2004/180/2/long-acting-sulfonylureas-long-acting-hypoglycaemia"
+    },
+    {
+      "claim": "ECR duplo-cego: octreotida somada ao tratamento padrão elevou a glicemia nas primeiras 8 h e reduziu episódios recorrentes de hipoglicemia por sulfonilureia.",
+      "title": "Comparison of octreotide and standard therapy versus standard therapy alone for the treatment of sulfonylurea-induced hypoglycemia",
+      "publisher": "Ann Emerg Med",
+      "year": 2008,
+      "url": "https://doi.org/10.1016/j.annemergmed.2007.06.493"
+    },
+    {
+      "claim": "Glicose 10% ou 20% preferível à 50% (risco de extravasamento); bolus de 100 mL de glicose 20% ou 200 mL de glicose 10%.",
+      "title": "The Hospital Management of Hypoglycaemia in Adults with Diabetes Mellitus (revisão 2013, arquivo)",
+      "publisher": "Joint British Diabetes Societies for Inpatient Care",
+      "year": 2013,
+      "url": "https://abcd.care/sites/default/files/site_uploads/JBDS_Guidelines_Archive/JBDS_01_Hypo_Guidelines_Revised_September_2013_Archive.pdf"
+    },
+    {
+      "claim": "Sulfonilureias podem causar hipoglicemia recorrente; antibióticos podem potencializar o efeito; glucagon para quem não pode ingerir carboidrato.",
+      "title": "6. Glycemic Goals, Hypoglycemia, and Hyperglycemic Crises: Standards of Care in Diabetes—2026",
+      "publisher": "American Diabetes Association (Diabetes Care)",
+      "year": 2026,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12690178/"
+    },
+    {
+      "claim": "Evitar sulfonilureias (glibenclamida em particular) em idosos pelo risco de hipoglicemia prolongada.",
+      "title": "American Geriatrics Society 2023 updated AGS Beers Criteria",
+      "publisher": "American Geriatrics Society (J Am Geriatr Soc)",
+      "year": 2023,
+      "url": "https://doi.org/10.1111/jgs.18372"
+    }
+  ],
+  "provenance": {
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: observação ≥ 24 h sem teto (prolongada se DRC); suporte de glicose aceita dieta VO ou infusão, com octreotida na recorrência; suspender glibenclamida; pedidos de função renal e de dose/intenção/ingesta; nova proibida com checagem automática: alta precoce; insulina na troca de esquema deixou de ser acusada; estrato trocado para distúrbio glicêmico."
+  },
+  "probes": {
+    "mustFlag": [
+      "Glicose 50% 50 mL IV e alta com orientação de retorno",
+      "Alta após correção da glicemia, com acompanhante",
+      "Dar alta quando glicemia > 100",
+      "Insulina regular SC conforme a glicemia de rebote"
+    ],
+    "mustNotFlag": [
+      "Não dar alta: observação com glicemia seriada por ≥ 24 h",
+      "Alta somente após 24 h sem hipoglicemia, com glibenclamida suspensa",
+      "Substituir glibenclamida por insulina basal na alta, se necessário",
+      "Não usar insulina"
+    ]
+  }
+}

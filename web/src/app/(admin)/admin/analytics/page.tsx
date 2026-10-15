@@ -60,6 +60,10 @@ interface DecisionLoopFunnel {
   abandonmentRate: number;
   confirmedDocuments: number;
   uncertaintyRate: number;
+  /** F0-D — espelha DecisionLoopFunnel em src/modules/analytics/product-funnel.types.ts. */
+  decisionsAdopted: number;
+  decisionsModified: number;
+  decisionsRejected: number;
 }
 
 interface ActivationFunnel {
@@ -254,6 +258,29 @@ function FunnelPanel() {
         )}
       </section>
 
+      {/* F0-D — o que os médicos fizeram com as condutas sugeridas. */}
+      <section className="flex flex-col gap-3">
+        <SectionHeader
+          title="Decisões sobre as condutas"
+          description="Adotar, ajustar ou rejeitar cada recomendação. Rejeição alta aponta conduta errada na base."
+        />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <DecisionMetric label="Adotadas" count={dl?.decisionsAdopted} decisionLoop={dl} loading={isPending} />
+          <DecisionMetric
+            label="Adotadas com ajuste"
+            count={dl?.decisionsModified}
+            decisionLoop={dl}
+            loading={isPending}
+          />
+          <DecisionMetric
+            label="Rejeitadas"
+            count={dl?.decisionsRejected}
+            decisionLoop={dl}
+            loading={isPending}
+          />
+        </div>
+      </section>
+
       {/* Activation funnel */}
       <section className="flex flex-col gap-3">
         <SectionHeader
@@ -287,6 +314,35 @@ function FunnelPanel() {
         </div>
       </section>
     </div>
+  );
+}
+
+function totalDecisions(decisionLoop: DecisionLoopFunnel): number {
+  return decisionLoop.decisionsAdopted + decisionLoop.decisionsModified + decisionLoop.decisionsRejected;
+}
+
+function DecisionMetric({
+  label,
+  count,
+  decisionLoop,
+  loading,
+}: {
+  label: string;
+  count: number | undefined;
+  decisionLoop: DecisionLoopFunnel | undefined;
+  loading: boolean;
+}) {
+  const total = decisionLoop ? totalDecisions(decisionLoop) : 0;
+  const share = total > 0 && count !== undefined ? count / total : 0;
+  return (
+    <Metric
+      label={label}
+      value={count === undefined ? '—' : String(count)}
+      sub={decisionLoop ? `${pct(share)} de ${total} ${total === 1 ? 'decisão' : 'decisões'}` : null}
+      loading={loading}
+    >
+      {decisionLoop && <RateMeter rate={share} />}
+    </Metric>
   );
 }
 

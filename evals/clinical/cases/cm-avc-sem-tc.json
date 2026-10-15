@@ -1,0 +1,163 @@
+{
+  "schemaVersion": 2,
+  "id": "cm-avc-sem-tc",
+  "title": "Hemiplegia e afasia súbitas há 1h30, TC ainda não realizada",
+  "tags": [
+    "deficit-neurologico-focal",
+    "avc",
+    "tc-pendente"
+  ],
+  "critical": true,
+  "goldSource": "ai_draft",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Masc, 74a, desvio de rima, afasia e hemiplegia D de início súbito; visto bem pela última vez às 14h (há 1h30). PA 176x94, FC 88 irregular, glicemia 134, NIHSS 14. TC ainda não feita (tomógrafo ocupado, previsão 20 min).",
+    "context": {
+      "hasCT": true,
+      "isSus": false,
+      "hasLab": true,
+      "hasICU": true
+    }
+  },
+  "expected": {
+    "syndrome": "AVC agudo dentro da janela de reperfusão, TC pendente",
+    "diagnoses": [
+      {
+        "text": "AVC hemorrágico (a excluir pela TC antes de qualquer antitrombótico)",
+        "tier": "critical"
+      },
+      {
+        "text": "oclusão de grande vaso (candidato a trombectomia)",
+        "tier": "critical"
+      }
+    ],
+    "actions": [
+      {
+        "text": "TC de crânio sem contraste com prioridade máxima para excluir hemorragia",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "angio-TC para oclusão de grande vaso",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "preparar a trombólise IV (alteplase ou tenecteplase, janela de 4,5 h) com PA < 185/110",
+        "tier": "critical",
+        "timing": "any"
+      },
+      {
+        "text": "acionar o protocolo de AVC (neurologista) e, havendo oclusão de grande vaso, trombectomia ou regulação para centro que a faça",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [
+      "resultado da TC de crânio sem contraste",
+      "uso de anticoagulante e horário da última dose (FC irregular sugere fibrilação atrial)",
+      "demais contraindicações à trombólise: cirurgia de grande porte, sangramento digestivo ou urinário recentes, AVC ou TCE nos últimos 3 meses, hemorragia intracraniana prévia",
+      "peso"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "trombolise-antes-da-tc",
+        "description": "Trombólise antes de a TC excluir hemorragia",
+        "patterns": [
+          "trombol\\w*",
+          "alteplase",
+          "tenecteplase",
+          "rt-?pa",
+          "estreptoquinase"
+        ],
+        "exceptWhen": [
+          "(somente|so|apenas)\\s+(apos|depois|se|quando)",
+          "(apos|depois\\s+d[aeo])\\s+(a\\s+)?(tc|tomografia)",
+          "(se|caso|quando)\\s+(a\\s+)?(tc|tomografia)\\s+(excluir|descartar|afastar|sem|nao\\s+mostrar)",
+          "(tc|tomografia)\\s+(excluir|descartar|afastar)",
+          "(avaliar|checar|confirmar|verificar)\\s+(a\\s+)?elegibilidade",
+          "criterios?\\s+de\\s+(elegibilidade|inclusao|exclusao)",
+          "elegibilidade\\s+(para|a|da|de)",
+          "preparar\\s+(a\\s+)?(alteplase|tenecteplase|trombolise|trombolitico)",
+          "para\\s+(permitir|viabilizar|possibilitar)",
+          "(alteplase|tenecteplase|trombolitico)\\s+preparad[ao]",
+          "enquanto\\s+(aguarda|espera)\\s+(a\\s+)?(tc|tomografia)",
+          "(protocolo|limiar|alvo|janela|candidat[oa])\\s+(de|do|da|para|a|pre)\\s*-?\\s*(trombolise|alteplase)",
+          "pre\\s*-?\\s*trombolise"
+        ]
+      },
+      {
+        "id": "antitrombotico-antes-da-tc",
+        "description": "AAS, antiagregante ou anticoagulante antes de a TC excluir hemorragia",
+        "patterns": [
+          "aas",
+          "aspirina",
+          "acido\\s+acetilsalicilico",
+          "clopidogrel",
+          "ticagrelor",
+          "prasugrel",
+          "heparin\\w*",
+          "enoxaparin\\w*",
+          "fondaparinux"
+        ],
+        "exceptWhen": [
+          "(somente|so|apenas)\\s+(apos|depois|se|quando)",
+          "(apos|depois\\s+d[aeo])\\s+(a\\s+)?(tc|tomografia)",
+          "(se|caso|quando)\\s+(a\\s+)?(tc|tomografia)\\s+(excluir|descartar|afastar|sem|nao\\s+mostrar)",
+          "(tc|tomografia)\\s+(excluir|descartar|afastar)",
+          "24\\s*h\\s+apos\\s+(a\\s+)?trombolise"
+        ]
+      }
+    ],
+    "rationale": "TC de crânio sem contraste e angio-TC são o próximo passo imediato (a pergunta pelo resultado da TC vem junto, nunca no lugar do pedido). O que não pode é antitrombótico ou trombólise definitivos antes da TC. Alteplase e tenecteplase valem igualmente (AHA/ASA 2026). PCDT de AVCi (2023): com varfarina, aguardar o RNI; ACOD nas últimas 48 h exclui a trombólise salvo testes normais ou idarucizumabe — por isso o anticoagulante é dado decisivo."
+  },
+  "sources": [
+    {
+      "claim": "Trombólise < 4,5 h com TC/RM sem hemorragia; PAS > 185 ou PAD > 110 refratárias excluem; aguardar RNI se em uso de AVK; ACOD < 48 h exclui salvo testes normais ou idarucizumabe; trombectomia até 8 h e de 8 a 24 h com critérios",
+      "title": "PCDT Acidente Vascular Cerebral Isquêmico Agudo (Relatório de Recomendação Conitec nº 722; Portaria Conjunta SAES/SECTICS nº 29/2023)",
+      "publisher": "Ministério da Saúde / Conitec",
+      "year": 2023,
+      "url": "https://www.gov.br/conitec/pt-br/midias/relatorios/2023/rr_pcdt-avci-agudo_722_final.pdf/@@download/file"
+    },
+    {
+      "claim": "Tenecteplase 0,25 mg/kg ou alteplase 0,9 mg/kg em até 4,5 h; PA < 185/110 antes e < 180/105 após a trombólise",
+      "title": "2026 Guideline for the Early Management of Patients With Acute Ischemic Stroke (resumo UIC Drug Information Group)",
+      "publisher": "AHA/ASA",
+      "year": 2026,
+      "url": "https://dig.pharmacy.uic.edu/faqs/2026-2/april-2026-faqs/update-what-are-major-pharmacotherapy-updates-from-the-2026-aha-asa-stroke-guidelines/"
+    },
+    {
+      "claim": "Imagem vascular não deve esperar a creatinina; suspeita de OGV exige angio o mais rápido possível",
+      "title": "2026 Guideline Update: Early Management of Acute Ischemic Stroke",
+      "publisher": "emDocs (resumo da diretriz AHA/ASA 2026)",
+      "year": 2026,
+      "url": "https://www.emdocs.net/2026-guideline-update-early-management-of-acute-ischemic-stroke"
+    }
+  ],
+  "provenance": {
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. Rationale sem o \"caminho esperado\", que saiu no v2. | Auditoria 11/10/2026: exceções da checagem automática restritas (\"elegib\", \"prepar\" e \"não\" soltos anulavam trombólise definitiva); pedidos de contraindicações à trombólise e peso; conduta obrigatória de acionar o protocolo de AVC e trombectomia se oclusão de grande vaso. | Experimento 11/10/2026: exceções para menções de referência à trombólise (alteplase preparada enquanto aguarda TC; protocolo/limiar/alvo pré-trombólise), vindas de falsos positivos reais em 4 modelos."
+  },
+  "probes": {
+    "mustFlag": [
+      "Alteplase 0,9 mg/kg agora; não aguardar exames",
+      "Elegibilidade clínica confirmada: alteplase 0,9 mg/kg agora",
+      "Tenecteplase 0,25 mg/kg IV já, sem demora",
+      "AAS 300 mg agora; não há tempo para TC",
+      "Heparina não fracionada pela FA, suspender se TC mostrar sangramento"
+    ],
+    "mustNotFlag": [
+      "Alteplase 0,9 mg/kg somente após TC sem sangramento",
+      "Após a TC excluir sangramento, tenecteplase 0,25 mg/kg",
+      "Manter PA < 185/110 para permitir trombólise",
+      "Preparar alteplase para infusão imediata se a TC excluir hemorragia",
+      "Não administrar AAS nem heparina até a TC",
+      "Pesar ou estimar o peso e deixar a alteplase preparada enquanto aguarda a TC",
+      "Não reduzir a PA agora: 176x94 está abaixo do limiar do protocolo de trombólise (185x110 mmHg); reavaliar periodicamente",
+      "Não reduzir a PA agora: 176x94 está dentro do alvo pré-trombólise (abaixo de 180/105); reavaliar a cada 15 min",
+      "Manter em dieta zero e sem antiagregante ou anticoagulante até a TC",
+      "Acionar o protocolo de AVC e pedir prioridade imediata no tomógrafo, interrompendo a fila se possível"
+    ]
+  }
+}

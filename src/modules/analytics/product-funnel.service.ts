@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import type { RecommendationDecisionKind } from '@prisma/client';
 import { PrismaService } from '../../config/prisma.service';
 import {
   ABANDONMENT_ALERT_THRESHOLD,
@@ -88,10 +89,19 @@ export class ProductFunnelService {
 
     const byEncounter = this.groupBy(interactions, (i) => i.encounterId);
 
-    const confirmedDocs = await this.prisma.document.findMany({
-      where: { encounterId: { in: encounterIds }, confirmedAt: { not: null } },
-      select: { encounterId: true },
-    });
+    const [confirmedDocs, decisionCounts] = await Promise.all([
+      this.prisma.document.findMany({
+        where: { encounterId: { in: encounterIds }, confirmedAt: { not: null } },
+        select: { encounterId: true },
+      }),
+      this.prisma.recommendationDecision.groupBy({
+        by: ['decision'],
+        where: { encounterId: { in: encounterIds } },
+        _count: { _all: true },
+      }),
+    ]);
+    const decisionsWith = (decision: RecommendationDecisionKind): number =>
+      decisionCounts.find((row) => row.decision === decision)?._count._all ?? 0;
     const confirmedEncounters = new Set(confirmedDocs.map((d) => d.encounterId));
 
     let encountersWithBlockers = 0;
@@ -173,6 +183,9 @@ export class ProductFunnelService {
       uncertaintyRate: round3(
         totalInteractions > 0 ? uncertainInteractions / totalInteractions : 0,
       ),
+      decisionsAdopted: decisionsWith('adopted'),
+      decisionsModified: decisionsWith('modified'),
+      decisionsRejected: decisionsWith('rejected'),
     };
   }
 
@@ -217,6 +230,9 @@ export class ProductFunnelService {
       abandonmentRate: 0,
       confirmedDocuments: 0,
       uncertaintyRate: 0,
+      decisionsAdopted: 0,
+      decisionsModified: 0,
+      decisionsRejected: 0,
     };
   }
 

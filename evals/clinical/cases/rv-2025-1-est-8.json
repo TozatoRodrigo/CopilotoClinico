@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 2,
+  "id": "rv-2025-1-est-8",
+  "title": "Criança de 3 anos com urticária, edema facial, vômitos e desconforto respiratório após picada de abelha",
+  "tags": [
+    "reacao-alergica",
+    "revalida",
+    "pep",
+    "anafilaxia",
+    "pediatria"
+  ],
+  "critical": true,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "UPA, sala de emergência (salas de reanimação e de observação, internação e UTI pediátricas, laboratório, imagem). Masc, 3a11m, trazido pelo avô (pais viajando); o avô está fora do consultório. Picado por abelha há ~15 min enquanto brincava no jardim. Relato da enfermagem: até chegar ao hospital, urticária em face, tronco e membros e edema de lábios, olhos e orelhas; chegou choroso e evoluiu com vários episódios de vômitos, tosse seca, desconforto respiratório e palidez. Não está desacordado nem desmaiado."
+  },
+  "expected": {
+    "syndrome": "anafilaxia pediátrica após picada de abelha",
+    "diagnoses": [
+      {
+        "text": "anafilaxia por picada de abelha (reação de hipersensibilidade tipo 1 grave, com acometimento cutâneo-mucoso, respiratório e gastrointestinal)",
+        "tier": "critical"
+      }
+    ],
+    "actions": [
+      {
+        "text": "adrenalina IM na face anterolateral da coxa (vasto lateral), imediata [ref.: 0,01 mg/kg, máx. 0,5 mg; 1 a 5 anos ≈ 0,15 mg (PEP: 0,15 mg ou 0,15–0,2 mL); repetir a cada 5–15 min se necessário]",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "observação ou internação no serviço após a estabilização (risco de reação bifásica)",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "corticoide-ou-anti-histaminico-antes-da-adrenalina",
+        "description": "Indicar corticoide ou anti-histamínico isoladamente ou antes da adrenalina (PEP itens 7–8: inadequado).",
+        "patterns": []
+      },
+      {
+        "id": "alta-imediata-apos-estabilizacao",
+        "description": "Dar alta imediatamente após a estabilização (PEP item 9: inadequado).",
+        "patterns": [
+          "alta\\s+imediata",
+          "alta\\s+(logo\\s+)?apos\\s+(a\\s+)?estabiliza\\w*",
+          "(dar|receber)\\s+alta\\s+(logo\\s+)?(apos|depois)"
+        ]
+      }
+    ],
+    "outOfScope": [
+      "escutar o relato da enfermeira (item 1)",
+      "pedir exame físico / avaliação primária ABCDE antes da pergunta da enfermeira (item 2): o impresso de exame é imagem sem descrição textual"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2025/1, Estação 8): com o relato inicial da enfermeira, o PEP pontua o diagnóstico de anafilaxia, adrenalina como primeira escolha com via e dose, corticoide/anti-histamínico só depois da adrenalina e observação/internação, penalizando alta imediata. v2: adrenalina IM na coxa é a conduta crítica para agora (WAO 2020); a via SC aceita pelo PEP não vale e o rótulo 'choque anafilático' deixou de ser penalizado."
+  },
+  "sources": [
+    {
+      "claim": "Itens 1–2: escuta o relato da enfermeira (0,5); pede para realizar exame físico ou avaliação primária sistematizada ABCDE antes da pergunta ativa da enfermeira (0,5).",
+      "title": "Revalida 2025/1 – Habilidades Clínicas – PEP definitivo, Estação 8, itens 1–2",
+      "publisher": "INEP",
+      "year": 2025,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Item 3 (2,5 pontos): formula o diagnóstico de anafilaxia (reação alérgica tipo 1, hipersensibilidade tipo 1, alergia grave, reação anafilática ou reação alérgica grave); inadequado se não formula ou formula choque anafilático ou outro tipo de choque.",
+      "title": "Revalida 2025/1 – Habilidades Clínicas – PEP definitivo, Estação 8, item 3",
+      "publisher": "INEP",
+      "year": 2025,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Itens 4–6: solicita adrenalina/epinefrina como primeira opção medicamentosa (2,0); indica a via intramuscular (vasto lateral da coxa) ou subcutânea (1,0); indica a dose 0,01 mg/kg/dose — 0,15 mg ou 0,01 mL/kg/dose — 0,15 mL, aceitando 0,2 mL (1,5).",
+      "title": "Revalida 2025/1 – Habilidades Clínicas – PEP definitivo, Estação 8, itens 4–6",
+      "publisher": "INEP",
+      "year": 2025,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Itens 7–8 (0,5 cada): corticoide (metilprednisolona, prednisona, prednisolona, hidrocortisona) e anti-histamínico (prometazina, difenidramina, loratadina) são adequados se não indicados ou indicados após a adrenalina; inadequado indicá-los isoladamente ou antes da adrenalina.",
+      "title": "Revalida 2025/1 – Habilidades Clínicas – PEP definitivo, Estação 8, itens 7–8",
+      "publisher": "INEP",
+      "year": 2025,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Item 9 (1,0 ponto): indica observação e/ou internação do paciente no serviço; inadequado não indicar ou dar alta imediatamente após a estabilização.",
+      "title": "Revalida 2025/1 – Habilidades Clínicas – PEP definitivo, Estação 8, item 9",
+      "publisher": "INEP",
+      "year": 2025,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Adrenalina IM no vasto lateral (face anterolateral da coxa), 0,01 mg/kg até 0,5 mg (0,15 mg de 1 a 5 anos), repetida a cada 5–15 min se refratária; via EV não recomendada no tratamento inicial; anafilaxia pode ocorrer sem choque; anti-histamínicos e glicocorticoides são de segunda linha; pacientes com anafilaxia devem ficar em observação (cerca de metade das reações bifásicas ocorre nas primeiras 6–12 h).",
+      "title": "World Allergy Organization anaphylaxis guidance 2020",
+      "publisher": "World Allergy Organization (World Allergy Organization Journal)",
+      "year": 2020,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7607509/"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2025/1",
+    "item": "Estação 8",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2025_1_pep_definitivo.pdf",
+    "originalCaseText": "CENÁRIO DE ATENDIMENTO Nível de atenção: secundária. Tipo de atendimento: urgência e emergência. A unidade apresenta a seguinte infraestrutura: • consultórios médicos; • sala de reanimação; • sala de observação; • unidade de internação pediátrica; • unidade de terapia intensiva pediátrica; • laboratório de patologia clínica; • imagenologia. DESCRIÇÃO DO CASO Você é um médico de plantão atuando na sala de emergência de uma unidade de pronto atendimento (UPA) e dialogará com uma enfermeira. Ela pedirá a você que avalie Artur, uma criança de 3 anos e 11 meses que foi trazida ao hospital por seu avô, Sr. Álvaro, porque seus pais estão viajando. Ainda na recepção, o avô relatou à enfermeira que a criança brincava no jardim quando foi atacada por uma abelha, há cerca de 15 minutos. Nos 10 minutos de duração da estação, você deverá executar as seguintes tarefas: ● escutar o relato da enfermeira; ● solicitar exame físico relacionado à queixa principal; ● formular e verbalizar o diagnóstico do paciente, com base no relato clínico e no exame físico; ● definir e verbalizar a conduta medicamentosa inicial, com base no diagnóstico, indicando: (1) medicação de primeira escolha / primeira linha; (2) dose (mg ou mL/kg); e (3) via de administração para o tratamento emergencial. ● definir a conduta após a estabilização ou não do paciente. ATENÇÃO! CASO JULGUE NECESSÁRIO REALIZAR EXAME FÍSICO, VERBALIZE! O PACIENTE SIMULADO NÃO DEVERÁ SER TOCADO DURANTE O ATENDIMENTO.",
+    "notes": "Gabarito v2 (11/10/2026): sem modo afunilamento — a abertura oficial já traz o relato da enfermagem, não há fato a revelar por pergunta. caseText com o relato inicial da enfermeira e o que ela informa sob demanda; funnel com a abertura e o relato (dados no início da interação, sem pergunta), por isso nenhum fato do roteiro é key. Os impressos de avaliação inicial e do monitor são imagens sem descrição textual e ficaram de fora (peso e sinais vitais desconhecidos). excludeFromGate removido: a conduta crítica exige adrenalina IM na coxa, como a WAO Anaphylaxis Guidance 2020 (aberta e conferida em pmc.ncbi.nlm.nih.gov), sem aceitar a via SC que o PEP aceitava; e o v2 não penaliza o rótulo 'choque anafilático': o diagnóstico crítico é anafilaxia, que a WAO define sem exigir choque. Os dois motivos da exclusão deixaram de valer. | O caseText inclui o relato da enfermeira que a síntese define como informado no início da interação (não sob demanda). Dados sob demanda: a criança não está desacordada nem desmaiada; o avô está fora do consultório. Impressos de avaliação inicial/exame físico e do monitor da sala de admissão: imagens sem descrição textual na prova (peso e sinais vitais indisponíveis em texto). Bandeja de medicações injetáveis: adrenalina, noradrenalina, dobutamina, metilprednisolona, midazolam, difenidramina, adenosina, atropina. A enfermeira responde 'considere feito' a elevação de MMII/Trendelenburg, O2, acesso venoso, expansão com cristaloide, broncodilatador inalatório, anti-histamínico e demais medicações da bandeja. Particularidades do gabarito, mantidas como estão: a síntese grafa a dose como '0,1 mL/kg/dose' e o PEP como '0,01 mL/kg/dose — 0,15 mL' (aceita 0,2 mL); o PEP aceita via IM ou subcutânea; o PEP considera inadequado formular o diagnóstico de 'choque anafilático'. | Integração ao gabarito v1 (11/10/2026): exceções genéricas de negação removidas (a checagem já reconhece a negação que governa o termo); sondas acrescentadas."
+  },
+  "probes": {
+    "mustFlag": [
+      "Alta imediata após a adrenalina, com prescrição de anti-histamínico",
+      "Alta logo após a estabilização"
+    ],
+    "mustNotFlag": [
+      "Manter em observação no serviço; não dar alta imediata",
+      "Observação/internação após estabilizar; evitar alta imediata"
+    ]
+  }
+}

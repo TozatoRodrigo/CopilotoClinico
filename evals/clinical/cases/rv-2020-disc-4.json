@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 2,
+  "id": "rv-2020-disc-4",
+  "title": "Jovem com DM1, omissão de insulina, taquipneia, dor abdominal e acidose com ânion gap aumentado",
+  "tags": [
+    "disturbio-glicemico",
+    "revalida",
+    "discursiva",
+    "cetoacidose-diabetica",
+    "desatualizado"
+  ],
+  "critical": true,
+  "goldSource": "revalida_discursiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Unidade de Emergência. Fem, 22a, DM1 há 3 a, em uso de insulina NPH 14 + 7 U e regular com ajuste pré-prandial. Entrada por taquipneia e dor abdominal difusa. Família: deprimida desde o fim do noivado há 1 mês; desde então usa insulina de forma irregular, com omissão de doses. Poliúria com ardência urinária, sem estrangúria ou febre. EF: sonolenta, hálito adocicado, desidratada 2+/4+, corada, acianótica, anictérica, afebril. PA 100x70, FC 121, FR 32, SatO2 99% AA. Abdome plano, flácido, peristáltico, doloroso difusamente à palpação profunda, sem irritação peritoneal, sem massas ou visceromegalias. Restante do exame sem alterações. Glicemia capilar 257 mg/dL. Gasometria venosa: acidose metabólica com ânion gap aumentado. K 3,5 mEq/L (VR 3,5–5,2). Urina: sem piúria; nitrito e esterase leucocitária negativos."
+  },
+  "expected": {
+    "syndrome": "cetoacidose diabética em DM1 precipitada por insulinização inadequada (omissão de insulina)",
+    "diagnoses": [
+      {
+        "text": "cetoacidose diabética",
+        "tier": "critical"
+      },
+      {
+        "text": "fator precipitante: uso irregular/omissão de insulina (urina sem piúria, nitrito ou esterase: não é infecção urinária; o estado emocional não é o precipitante)",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "hidratação venosa com cristaloide isotônico",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "reposição parenteral de potássio (K 3,5, no limite inferior), associada à hidratação e antes ou junto do início da insulina",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "insulina de ação rápida IV em infusão contínua, sem adiar além da correção do potássio (análogo de ação rápida SC é aceitável na CAD leve/moderada não complicada) [ref.: consenso 2024: com K baixo, repor K e adiar a insulina até K > 3,5 mmol/L]",
+        "tier": "critical",
+        "timing": "any"
+      },
+      {
+        "text": "confirmar com cetonemia (β-hidroxibutirato) ou cetonúria e gasometria com pH e bicarbonato",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [],
+    "outOfScope": [
+      "citar os pontos de corte diagnósticos do padrão (glicemia > 250 mg/dL, pH ≤ 7,30 e HCO3 < 15 mmol/L em gasometria arterial — item B), revistos pelo consenso de 2024; o pedido dos exames ficou como conduta"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2020, Questão 4): diagnóstico de CAD confirmado por glicemia, pH/bicarbonato e cetonas, precipitada por insulinização inadequada (não por ITU), com tratamento inicial por hidratação venosa, insulina IV rápida e reposição parenteral de potássio. Gabarito v2: condutas viraram itens próprios (hidratação e potássio críticos para agora; insulina crítica e condicionável ao potássio), sem os pontos de corte antigos da CAD."
+  },
+  "sources": [
+    {
+      "claim": "Item A (2,0 pontos): cetoacidose diabética (CAD).",
+      "title": "Revalida 2020 – Prova Discursiva – Padrão de Respostas, Questão 4, item A",
+      "publisher": "INEP",
+      "year": 2020,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2020/padrao_de_respostas_discursivas.pdf"
+    },
+    {
+      "claim": "Item B (3,0 pontos): glicemia > 250 mg/dL (1,0); gasometria arterial com pH < (ou ≤) 7,30 (0,5) e bicarbonato < 15 mmol/L (0,5); presença de cetonúria ou cetonemia (1,0).",
+      "title": "Revalida 2020 – Prova Discursiva – Padrão de Respostas, Questão 4, item B",
+      "publisher": "INEP",
+      "year": 2020,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2020/padrao_de_respostas_discursivas.pdf"
+    },
+    {
+      "claim": "Item C (2,0 pontos): inadequada insulinização, uso irregular ou falta de insulina; não é aceita a resposta 'infecção urinária' (exame de urina tipo I) nem a citação do estado emocional.",
+      "title": "Revalida 2020 – Prova Discursiva – Padrão de Respostas, Questão 4, item C",
+      "publisher": "INEP",
+      "year": 2020,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2020/padrao_de_respostas_discursivas.pdf"
+    },
+    {
+      "claim": "Item D (3,0 pontos): hidratação venosa (1,0); insulinização/insulina intravenosa de ação rápida (1,0); reposição parenteral de potássio (1,0).",
+      "title": "Revalida 2020 – Prova Discursiva – Padrão de Respostas, Questão 4, item D",
+      "publisher": "INEP",
+      "year": 2020,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2020/padrao_de_respostas_discursivas.pdf"
+    },
+    {
+      "claim": "Consenso 2024: CAD exige hiperglicemia (≥ 200 mg/dL ou DM prévio), cetose e acidose; com K baixo na admissão, repor K a 10 mmol/h e adiar a insulina até K > 3,5 mmol/L; CAD leve ou moderada não complicada pode ser tratada com análogo de insulina de ação rápida SC; na classificação de gravidade, sonolência entra na faixa moderada e estupor/coma na grave.",
+      "title": "Hyperglycemic Crises in Adults With Diabetes: A Consensus Report",
+      "publisher": "American Diabetes Association / Diabetes Care",
+      "year": 2024,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC11272983/"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2020",
+    "item": "Discursiva caso 4",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/padrao_respostas/2020/padrao_de_respostas_discursivas.pdf",
+    "originalCaseText": "Uma mulher com 22 anos de idade, com diagnóstico há 3 anos de diabete melito tipo 1, em tratamento com insulina NPH (14 + 7 unidades) e insulina regular (ajuste pré-prandial), dá entrada na Unidade de Emergência com quadro de taquipneia e de dor abdominal difusa. Segundo familiares, a paciente tem se mostrado deprimida desde o fim do noivado há 1 mês, fazendo uso irregular de insulina desde então, inclusive com omissões de administração do fármaco. Há relato, ainda, de poliúria, com ardência urinária, mas sem estrangúria ou febre. Ao exame físico, a paciente se revela sonolenta, com hálito adocicado, hipohidratada (2+/4+), corada, acianótica, anictérica e afebril. Tem PA = 100 x 70 mmHg; FC = 121 bpm; FR = 32 irpm; SaO2 (ar ambiente) = 99 %. Apresenta abdome plano, flácido, peristáltico, doloroso difusamente à compressão profunda, sem sinais de irritação peritoneal, sem massas ou visceromegalias. O restante do exame físico está sem anormalidades. A glicemia capilar, nesse momento, é de 257 mg/dL, enquanto uma gasometria venosa fornece um padrão de acidose metabólica, apresentando o hiato aniônico aumentado; o nível sérico de potássio é de 3,5 mEq/L (valor de referência: 3,5 a 5,2 mEq/L). É solicitado exame de urina com objetivo de reforçar a hipótese diagnóstica para o caso, incluindo possível fator precipitante: não há piúria e as pesquisas de nitrito e de esterase leucocitária revelam-se negativas. Considerando o caso relatado, responda às questões a seguir. (A) Qual é a principal hipótese diagnóstica? (valor: 2,0 pontos) (B) Cite três exames complementares e os respectivos resultados que confirmam essa hipótese diagnóstica. (valor: 3,0 pontos) (C) Cite a situação relacionada ao plano terapêutico da paciente que desencadeou essa hipótese diagnóstica. (valor: 2,0 pontos) (D) Cite três condutas médicas indicadas para o tratamento inicial dessa paciente, considerando essa hipótese diagóstica. (valor: 3,0 pontos)",
+    "notes": "Gabarito v2 (11/10/2026): caso completo igual ao enunciado (discursiva, sem roteiro). Hidratação venosa e reposição de K ficaram críticas para agora; a insulina ficou crítica com timing any, porque o K = 3,5 está no limite e o consenso ADA 2024 (verificado) manda adiar a insulina até K > 3,5 e aceita análogo SC na CAD leve/moderada não complicada; os exames confirmatórios ficaram sem pontos de corte. Como nenhum item depende mais dos critérios antigos de CAD, o caso voltou ao portão (excludeFromGate removido); a tag 'desatualizado' foi mantida por regra. | possivelmente desatualizado: o consenso internacional de crises hiperglicêmicas em adultos (2024) revisou os critérios diagnósticos de CAD (glicemia ≥ 200 mg/dL ou DM prévio, cetonemia/β-hidroxibutirato ≥ 3,0 mmol/L, pH < 7,3 e/ou HCO3 < 18 mmol/L); o gabarito usa glicemia > 250 mg/dL, pH ≤ 7,30 e HCO3 < 15 mmol/L em gasometria arterial | Item C: o gabarito exige como precipitante a insulinização inadequada/omissão de insulina e NÃO aceita 'infecção urinária' (urina sem piúria, nitrito e esterase negativos) nem o estado emocional como resposta."
+  }
+}

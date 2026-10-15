@@ -1,0 +1,131 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2017-obj-44",
+  "title": "Mulher de 26 anos com dor abdominal alta que piora na UTI com febre, calafrios e icterícia",
+  "tags": [
+    "dor-abdominal",
+    "revalida",
+    "prova-cega",
+    "objetiva",
+    "pancreatite",
+    "colangite"
+  ],
+  "critical": true,
+  "goldSource": "revalida_objetiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Hospital com PS, UTI e TC. Fem, 26a, obesa, multípara, passado de dores biliares recorrentes. Na admissão: dor abdominal de início abrupto e forte intensidade há ~2 h, em andar superior, irradiada para o dorso, com náuseas e vômitos. EF: hipo-hidratada (+/4+), dor à palpação abdominal, abdome levemente distendido, peristalse diminuída, Murphy ausente. Lab: lipase 370 UI/L (VR 0–160), leucócitos 18.700/mm³, glicose 230 mg/dL, ALT 260, AST 360, DHL 425 UI/L. Internada na UTI com pausa alimentar, hidratação venosa, reposição eletrolítica e analgesia parenteral, mas evolui mal. Após 48 h: piora da dor abdominal, taquipneia, icterícia (2+/4+), febre de 39 °C e calafrios. Lab: piora do leucograma com 17% de bastões, queda de 11% do Ht, ureia 15 mg/dL acima da admissão. TC dinâmica de abdome: necrose pancreática de ~35% do parênquima; dilatação significativa das vias biliares extra-hepáticas com cálculo impactado no colédoco terminal."
+  },
+  "expected": {
+    "syndrome": "dor abdominal superior grave com febre, calafrios e icterícia em paciente internada na UTI",
+    "diagnoses": [
+      {
+        "text": "colangite aguda por coledocolitíase (cálculo impactado no colédoco terminal)",
+        "tier": "critical"
+      },
+      {
+        "text": "pancreatite aguda biliar grave, necrosante (necrose de ~35%), com piora renal e respiratória",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "CPRE com esfincterotomia e desobstrução da via biliar de urgência (idealmente em até 24 h)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "antibioticoterapia IV de amplo espectro imediata",
+        "tier": "critical",
+        "timing": "now"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "colecistectomia-de-urgencia",
+        "description": "Colecistectomia de urgência na pancreatite biliar necrosante com colangite (alternativa B); a colecistectomia é adiada até as coleções resolverem ou estabilizarem (WSES 2019; ACG 2024).",
+        "patterns": [
+          "colecistectomia"
+        ],
+        "exceptWhen": [
+          "(apos|depois\\s+d[aeo]s?)\\s+(\\S+\\s+){0,4}(resolu\\w*|estabiliza\\w*|melhora|regress\\w*|recupera\\w*|alta|semanas|maturac\\w*)",
+          "(tardia|eletiva|programada|adiada|diferida|posterior|futura|posteriormente|oportunamente)",
+          "\\d+\\s*(a\\s*\\d+\\s*)?semanas",
+          "(so|somente|apenas)\\s+(apos|depois|quando|se)"
+        ]
+      },
+      {
+        "id": "necrosectomia-precoce",
+        "description": "Necrosectomia extensa precoce (48 h de evolução, sem necrose infectada encapsulada) (alternativa D); intervenção adiada ~4 semanas e minimamente invasiva (ACG 2024; WSES 2019).",
+        "patterns": [
+          "necrosectomia\\w*",
+          "desbridamento\\s+(\\S+\\s+){0,2}(necrose|pancrea\\w*)"
+        ],
+        "exceptWhen": [
+          "(se|caso|quando)\\s+(\\S+\\s+){0,4}(infectad\\w*|infeccao|encapsulad\\w*|organizad\\w*)",
+          "(apos|depois\\s+d[aeo]s?)\\s+(\\S+\\s+){0,3}(semanas|encapsula\\w*|organiza\\w*|matura\\w*)",
+          "\\d+\\s*(a\\s*\\d+\\s*)?semanas",
+          "(tardia|adiada|diferida)",
+          "(so|somente|apenas)\\s+(se|apos|depois|quando|em)"
+        ]
+      }
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2017, objetiva, questão 44): alternativa C — antibiótico de amplo espectro e CPRE com esfincterotomia na pancreatite biliar necrosante que evolui com colangite (febre, calafrios, icterícia, cálculo impactado no colédoco). Distratoras: NPT com ciprofloxacina e ampicilina (A), colecistectomia de urgência (B) e necrosectomia extensa (D). Conferido com a ACG 2024 (CPRE em até 24 h na colangite; colecistectomia adiada na necrose; necrosectomia adiada e minimamente invasiva; evitar NPT) e a WSES 2019."
+  },
+  "sources": [
+    {
+      "claim": "Questão 44: gabarito definitivo C — antibioticoterapia de amplo espectro e realizar colangiopancreatografia retrógrada endoscópica com esfincterotomia.",
+      "title": "Revalida 2017 – Prova Objetiva (versão 1) – gabarito definitivo",
+      "publisher": "INEP",
+      "year": 2017,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf"
+    },
+    {
+      "claim": "Enunciado, comando e alternativas da questão 44 (caderno da versão 1, 24/09/2017)",
+      "title": "Revalida 2017 – Prova Objetiva (versão 1), questão 44",
+      "publisher": "INEP",
+      "year": 2017,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/provas/2017/prova_objetiva_1.pdf"
+    },
+    {
+      "claim": "Pancreatite aguda com colangite concomitante: CPRE precoce, nas primeiras 24 h, reduz morbidade e mortalidade; na pancreatite biliar com necrose, a colecistectomia é adiada para mais tarde na internação; necrosectomia preferencialmente minimamente invasiva e adiada (~4 semanas) no paciente estável; evitar nutrição parenteral se a via enteral for possível.",
+      "title": "American College of Gastroenterology Guidelines: Management of Acute Pancreatitis",
+      "publisher": "American College of Gastroenterology (Am J Gastroenterol)",
+      "year": 2024,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC13221274/"
+    },
+    {
+      "claim": "CPRE indicada na pancreatite biliar com colangite (1B); na pancreatite biliar com coleções peripancreáticas, adiar a colecistectomia até as coleções resolverem ou estabilizarem (2C); adiar intervenções cirúrgicas por mais de 4 semanas reduz a mortalidade, com abordagem step-up (drenagem percutânea primeiro); nutrição parenteral total deve ser evitada.",
+      "title": "2019 WSES guidelines for the management of severe acute pancreatitis",
+      "publisher": "World Society of Emergency Surgery (World J Emerg Surg)",
+      "year": 2019,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6567462/"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2017",
+    "item": "Objetiva questão 44",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2017/gabarito_prova_objetiva1.pdf",
+    "originalCaseText": "Uma mulher com 26 anos de idade, obesa e multípara, com passado de dores biliares recorrentes, é atendida no Pronto-Socorro, queixando-se de dor abdominal de início abrupto, de forte intensidade, iniciada há aproximadamente 2 horas. Refere que a dor se localiza no andar superior do abdome, irradiando-se para o dorso, tendo ainda apresentado náuseas e vômitos. Ao exame físico, a paciente mostra-se hipo-hidratada (+/4+) e sente dor à palpação do abdome, que se encontra levemente distendido e com peristalse diminuída e sinal de Murphy ausente. Os exames laboratoriais mostram: aumento de lipase (370 UI/L; valor de referência: 0 a 160 UI/L); leucócitos = 18.700/mm³ (valor de referência: 6.000 a 10.000/mm³); glicose sérica = 230 mg/dL (valor de referência: 60 a 110 mg/dL); ALT = 260 UI/L (valor de referência: 0 a 35 UI/L); AST = 360 UI/L (valor de referência: 0 a 35 UI/L) e desidrogenase lática = 425 UI/L (valor de referência: 88 a 230 UI/L). A paciente é internada na Unidade de Tratamento Intensivo, mas, a despeito de ser tratada de forma adequada (pausa alimentar, hidratação venosa, reposição eletrolítica e analgesia parenteral), evolui de forma grave. Após 48 horas, a paciente apresenta piora da dor abdominal, taquipneia, icterícia (2+/4+), febre elevada (39 ºC) e calafrios. Os exames complementares realizados nesse dia revelam piora do leucograma, com desvio à esquerda (17% de bastões; valor de referência: 0 a 5%), queda de 11% do hematócrito e aumento de escórias nitrogenadas, com elevação da ureia sérica de 15 mg/dL em relação ao exame feito na admissão. Uma tomografia computadorizada dinâmica de abdome revela a presença de necrose pancreática que ocupa cerca de 35% do parênquima e dilatação significativa das vias biliares extra-hepáticas, com presença de cálculo impactado no colédoco terminal. Nesse caso, o tratamento adequado e imediato para a paciente é instituir (A) hidratação parenteral vigorosa, nutrição parenteral total e antibioticoterapia com ciprofloxacina e ampicilina. (B) hidratação parenteral vigorosa, antibioticoterapia de amplo espectro e realizar colecistectomia de urgência. (C) antibioticoterapia de amplo espectro e realizar colangiopancreatografia retrógrada endoscópica com esfincterotomia. (D) nutrição enteral com cateter posicionado distalmente ao duodeno, antibioticoterapia e proceder a necrosectomia extensa.",
+    "notes": "Prova cega (11/10/2026): letra C conferida na imagem do gabarito definitivo (versão 1, text/img/2017_obj_gabarito-p01.png) e enunciado relido no texto de duas colunas, sem mistura com as questões vizinhas. Gabarito confere com a ACG 2024 e a WSES 2019 (verificadas). Colecistectomia de urgência (B) e necrosectomia precoce (D) viraram proibidas, com exceções para a colecistectomia tardia e para a necrosectomia condicionada a necrose infectada ou adiada. NPT (A) é desaconselhada, mas não perigosa agora: fica fora das proibidas. A lipase do enunciado (370; < 3x o limite) foi mantida como está."
+  },
+  "probes": {
+    "mustFlag": [
+      "Colecistectomia videolaparoscópica de urgência",
+      "Hidratação vigorosa, antibiótico e colecistectomia hoje",
+      "Necrosectomia extensa por laparotomia",
+      "Nutrição enteral pós-pilórica, antibiótico e necrosectomia"
+    ],
+    "mustNotFlag": [
+      "Colecistectomia tardia, após resolução das coleções peripancreáticas",
+      "Não indicar colecistectomia de urgência",
+      "CPRE com esfincterotomia agora; colecistectomia eletiva depois",
+      "Necrosectomia só se necrose infectada, após 4 semanas",
+      "Não indicar necrosectomia precoce"
+    ]
+  }
+}

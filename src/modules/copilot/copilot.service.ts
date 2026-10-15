@@ -1,13 +1,11 @@
 import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Prisma } from '@prisma/client';
 import { OrchestratorService } from './orchestrator/orchestrator.service';
 import { InferenceQueueService } from '../queue/inference-queue.service';
 import { PrismaService } from '../../config/prisma.service';
-import { AuditService } from '../audit/audit.service';
-import type { AnalyzeInput, RespondInput, CopilotFeedbackInput } from './schemas/copilot.schemas';
+import { extractRetrievalCoverage } from './interaction-trace';
+import type { AnalyzeInput, RespondInput } from './schemas/copilot.schemas';
 import type { OrchestratorResult, StreamEvent } from './orchestrator/orchestrator.service';
-import type { RetrievalCoverage } from './retrieval/hybrid-search';
 
 // UX-03 — mesmo default de orchestrator.service.ts (DEFAULT_MAX_TURNS).
 // Duplicado aqui (em vez de importado) porque é uma constante, não lógica —
@@ -22,66 +20,7 @@ export class CopilotService {
     @Inject(InferenceQueueService) private readonly queue: InferenceQueueService,
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(ConfigService) private readonly config: ConfigService,
-    @Inject(AuditService) private readonly auditService: AuditService,
   ) {}
-
-  /**
-   * F7 — Registra o feedback do médico sobre uma análise.
-   *
-   * Origem: os dois erros clínicos que motivaram KB-005/KB-006 chegaram por
-   * mensagem, dias depois, sem `interactionId` e sem os chunks recuperados.
-   * Reproduzir dependia de alguém lembrar o que tinha sido digitado.
-   *
-   * Grava na trilha de auditoria em vez de numa tabela nova por dois motivos:
-   * (1) o evento é legitimamente auditável — um médico registrando que o
-   * copiloto apontou o cenário errado pertence ao rastro médico-legal do
-   * atendimento, não a um backlog de produto; (2) já é append-only,
-   * encadeado por hash e exposto na tela de Auditoria, sem migration.
-   *
-   * O payload carrega o rastro técnico necessário para transformar o reporte
-   * em caso de regressão: chunks recuperados, cobertura do retrieval e os
-   * chunks efetivamente citados.
-   */
-  async submitFeedback(
-    physicianId: string,
-    encounterId: string,
-    input: CopilotFeedbackInput,
-  ): Promise<{ recorded: true }> {
-    const interaction = await this.prisma.aiInteraction.findFirst({
-      where: { id: input.interactionId, encounter: { id: encounterId, physicianId } },
-      select: {
-        id: true,
-        model: true,
-        turnIndex: true,
-        retrievedChunkIds: true,
-        params: true,
-        citations: true,
-      },
-    });
-
-    // Mesmo tratamento de encounter inexistente e de encounter de outro
-    // médico: não confirmar a existência de um atendimento alheio.
-    if (!interaction) throw new NotFoundException('Analysis not found for this encounter');
-
-    await this.auditService.log({
-      actorId: physicianId,
-      action: 'COPILOT_FEEDBACK',
-      entity: 'AiInteraction',
-      entityId: interaction.id,
-      payload: {
-        encounterId,
-        kind: input.kind,
-        comment: input.comment ?? null,
-        model: interaction.model,
-        turnIndex: interaction.turnIndex,
-        retrievedChunkIds: interaction.retrievedChunkIds,
-        retrievalCoverage: extractRetrievalCoverage(interaction.params),
-        citedChunkIds: extractCitedChunkIds(interaction.citations),
-      },
-    });
-
-    return { recorded: true };
-  }
 
   async analyze(
     physicianId: string,
@@ -105,6 +44,20 @@ export class CopilotService {
     input: AnalyzeInput,
   ): AsyncGenerator<StreamEvent> {
     return this.orchestrator.analyzeStream(physicianId, encounterId, input);
+  }
+
+  /**
+   * Reanálise por streaming: espelho de `respond` com os eventos de `stream`.
+   * Recusa (exceção) ao abrir; depois, os eventos. Como no POST, todo o resto
+   * (status do atendimento, auditoria, gravação da interação) acontece dentro
+   * do orquestrador.
+   */
+  respondStream(
+    physicianId: string,
+    encounterId: string,
+    input: RespondInput,
+  ): Promise<AsyncGenerator<StreamEvent>> {
+    return this.orchestrator.continueAnalysisStream(physicianId, encounterId, input);
   }
 
   async analyzeAsync(
@@ -167,31 +120,4 @@ export class CopilotService {
       maxTurns: this.config.get<number>('COPILOT_MAX_TURNS', DEFAULT_MAX_TURNS),
     };
   }
-}
-
-/**
- * F7 — ids das fontes que a análise realmente citou. Junto dos
- * `retrievedChunkIds`, é o que permite distinguir "a base não tinha o
- * conteúdo" de "tinha, e o modelo citou outra coisa".
- */
-function extractCitedChunkIds(citations: Prisma.JsonValue | null): string[] {
-  if (!Array.isArray(citations)) return [];
-  return citations
-    .map((citation) =>
-      citation && typeof citation === 'object' && !Array.isArray(citation)
-        ? (citation as Record<string, unknown>).chunkId
-        : null,
-    )
-    .filter((chunkId): chunkId is string => typeof chunkId === 'string');
-}
-
-/**
- * KB-005/KB-006 — lê `retrievalCoverage` do JSON `params` da interação.
- * Interações gravadas antes desta mudança não têm a chave: devolvem `null`,
- * e a UI simplesmente não mostra o aviso de cobertura (nunca inventa "full").
- */
-function extractRetrievalCoverage(params: Prisma.JsonValue | null): RetrievalCoverage | null {
-  if (!params || typeof params !== 'object' || Array.isArray(params)) return null;
-  const value = (params as Record<string, unknown>).retrievalCoverage;
-  return value === 'full' || value === 'partial' || value === 'none' ? value : null;
 }

@@ -1,0 +1,161 @@
+{
+  "schemaVersion": 2,
+  "id": "cega-rv-2014-disc-3",
+  "title": "Idoso em uso de varfarina com hemiplegia direita há 9 horas, NIHSS 18, PA 190x100 e taquiarritmia",
+  "tags": [
+    "deficit-neurologico-focal",
+    "revalida",
+    "prova-cega",
+    "discursiva",
+    "avc-isquemico",
+    "fibrilacao-atrial"
+  ],
+  "critical": true,
+  "goldSource": "revalida_discursiva",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "PS (TC disponível). Masc, 72a. HAS desde os 40 a e 'arritmia cardíaca' há 2 a; em uso de captopril 25 mg 12/12h, HCTZ 25 mg/d e varfarina 5 mg/d. Hemiplegia D completa e proporcionada, de início súbito há ~9 h. Nega outras comorbidades, cirurgias, traumas, episódios semelhantes ou sangramentos. EF: REG, eupneico (FR 16), acianótico, descorado 1+/4+. Ausculta: ritmo taquicárdico em 2 tempos, sem sopros, FC 148; PA 190x100. Pulmões e abdome normais; sem edema de MMII. Neuro: consciente, leve desorientação temporoespacial, Glasgow 15, pupilas simétricas e fotorreagentes, sem sinais meníngeos; hemiplegia completa à D, sem alteração de sensibilidade; NIHSS 18. TC de crânio sem contraste: sem sangramento e sem áreas de hipodensidade. Lab: leucócitos 12.000 (74% segmentados), Hb 13, Ht 33,3%, plaquetas 231.000, glicemia 84, ureia 30, Cr 1,2, TP 19,5 s (atividade 30%), INR 2,1, TTPa 35 s (relação 1,0), Na 135, K 4,1. ECG da admissão (descrito no padrão oficial): QRS irregulares sem ondas P, FC ~148; sinais de sobrecarga de VE."
+  },
+  "expected": {
+    "syndrome": "déficit neurológico focal agudo (AVC isquêmico extenso) fora da janela de trombólise, em anticoagulado, com fibrilação atrial de alta resposta",
+    "diagnoses": [
+      {
+        "text": "AVC isquêmico agudo extenso (hemisfério E, NIHSS 18) com ~9 h de evolução, provavelmente cardioembólico",
+        "tier": "critical"
+      },
+      {
+        "text": "fibrilação atrial com alta resposta ventricular (FC 148) como fonte embólica, com sobrecarga de VE",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "não indicar trombólise IV: mais de 4,5 h do início e INR 2,1 (> 1,7) em uso de varfarina",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "avaliar trombectomia mecânica: angioTC (com perfusão ou RM com difusão) em busca de oclusão de grande vaso — janela de até 24 h com NIHSS ≥ 6 e critérios de imagem; INR 2,1 não a contraindica",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "PA: não reduzir de rotina (190x100 está abaixo de 220/120 e não há reperfusão), como no padrão; se for para trombectomia, reduzir para ≤ 185/110 antes do procedimento",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "controle da frequência da FA: betabloqueador, bloqueador de canal de cálcio ou digoxina (o padrão aceita amiodarona, que pode reverter a FA)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "ecocardiograma (transtorácico ou, de preferência pelo padrão, transesofágico)",
+        "tier": "important",
+        "timing": "any"
+      },
+      {
+        "text": "planejar a anticoagulação para prevenção secundária, pesando o risco de transformação hemorrágica do infarto extenso (o padrão aceitava manter a varfarina ou trocar por heparina não fracionada ou HBPM)",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "trombolise-iv",
+        "description": "Trombólise IV (alteplase ou tenecteplase) neste caso: mais de 4,5 h do início e INR 2,1 em uso de varfarina (padrão, item a; PCDT do AVCi agudo: RNI > 1,7 contraindica).",
+        "patterns": [
+          "trombol\\w*",
+          "alteplase",
+          "tenecteplase",
+          "rt-?pa",
+          "tnk",
+          "fibrinol\\w*"
+        ],
+        "exceptWhen": [
+          "fora\\s+d[ae]\\s+janela",
+          "(in|nao\\s+)elegive\\w*"
+        ]
+      }
+    ],
+    "outOfScope": [
+      "explicar a relação entre a FA e o AVE (trombo no átrio/aurícula esquerda que emboliza para a circulação cerebral) (item c, parte 2) — fisiopatologia de prova; a FA como fonte embólica ficou no diagnóstico"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2014, Questão 3): sem indicação de alteplase (> 4,5 h e INR alargado pela varfarina), sem anti-hipertensivo com PA abaixo de 220x120, ECG com FA de alta resposta e sobrecarga de VE como etiologia embólica, e condutas para a FA (ecocardiograma, anticoagulação, controle de frequência). v2: AVC isquêmico é o diagnóstico crítico e a trombólise é conduta proibida; a avaliação para trombectomia (inexistente em 2014) entrou como importante pela diretriz vigente, e o item de PA aceita a meta pré-trombectomia."
+  },
+  "sources": [
+    {
+      "claim": "Enunciado e comandos da questão discursiva 3.",
+      "title": "Revalida 2014 – Prova Discursiva, Questão 3",
+      "publisher": "INEP",
+      "year": 2014,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/provas/2014/po_revalida_discursiva_2014.pdf"
+    },
+    {
+      "claim": "Não existe indicação de trombolítico: o déficit excedeu 4,5 h e a varfarina com INR alargado contraindica adicionalmente (2,0).",
+      "title": "Revalida 2014 – Prova Discursiva – Padrão de Resposta definitivo, Questão 3, item a",
+      "publisher": "INEP",
+      "year": 2014,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2014/padrao_resposta_prova_discursiva_20072014.pdf"
+    },
+    {
+      "claim": "Não há indicação de anti-hipertensivo nesse momento: PA adequada à condição (abaixo de 220x120) e sem outra emergência hipertensiva (2,0).",
+      "title": "Revalida 2014 – Prova Discursiva – Padrão de Resposta definitivo, Questão 3, item b",
+      "publisher": "INEP",
+      "year": 2014,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2014/padrao_resposta_prova_discursiva_20072014.pdf"
+    },
+    {
+      "claim": "ECG: fibrilação atrial com alta resposta ventricular (QRS irregulares, sem onda P) e sobrecarga de VE; FA como etiologia embólica do AVE isquêmico (3,0).",
+      "title": "Revalida 2014 – Prova Discursiva – Padrão de Resposta definitivo, Questão 3, item c",
+      "publisher": "INEP",
+      "year": 2014,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2014/padrao_resposta_prova_discursiva_20072014.pdf"
+    },
+    {
+      "claim": "Condutas na FA: ecocardiograma, de preferência transesofágico; manter a varfarina ou trocar para heparina não fracionada ou HBPM; controlar a frequência (bloqueador de canal de cálcio, betabloqueador ou digoxina; amiodarona pode reverter a FA) (3,0).",
+      "title": "Revalida 2014 – Prova Discursiva – Padrão de Resposta definitivo, Questão 3, item d",
+      "publisher": "INEP",
+      "year": 2014,
+      "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2014/padrao_resposta_prova_discursiva_20072014.pdf"
+    },
+    {
+      "claim": "Trombólise só com início há menos de 4,5 h; contraindicada com RNI > 1,7; trombectomia mecânica com oclusão de grande vaso em até 8 h ou entre 8 e 24 h (NIHSS ≥ 6, Rankin prévio ≤ 2 e volume de infarto por perfusão ou difusão); entre 8 e 24 h exclui anticoagulante oral com RNI > 3 e PA sustentada > 185/110.",
+      "title": "Protocolo Clínico e Diretrizes Terapêuticas do Acidente Vascular Cerebral Isquêmico Agudo (Relatório de Recomendação Conitec nº 722)",
+      "publisher": "Ministério da Saúde / Conitec",
+      "year": 2022,
+      "url": "https://www.gov.br/conitec/pt-br/midias/relatorios/2023/rr_pcdt-avci-agudo_722_final.pdf/@@download/file"
+    },
+    {
+      "claim": "Diretriz AHA/ASA 2026 (Prabhakaran et al., Stroke, doi:10.1161/STR.0000000000000513): trombectomia recomendada (COR 1) entre 6 e 24 h em pacientes selecionados com NIHSS ≥ 6; trombólise na janela estendida (4,5–9 h) só com penumbra na perfusão automatizada (COR 2a).",
+      "title": "2026 Guideline Update: Early Management of Acute Ischemic Stroke (resumo da diretriz AHA/ASA 2026)",
+      "publisher": "emDocs",
+      "year": 2026,
+      "url": "https://www.emdocs.net/2026-guideline-update-early-management-of-acute-ischemic-stroke"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2014",
+    "item": "Discursiva caso 3",
+    "url": "https://download.inep.gov.br/educacao_superior/revalida/gabaritos/2014/padrao_resposta_prova_discursiva_20072014.pdf",
+    "originalCaseText": "Um homem com 72 anos de idade, com antecedentes de hipertensão arterial desde os 40 anos de idade e “arritmia cardíaca” há dois anos, em uso de captopril-25 mg de 12/12h, hidroclorotiazida-25 mg/dia e warfarina-5 mg/dia, deu entrada no Pronto-Socorro com quadro de hemiplegia direita, completa e proporcionada, de início súbito há cerca de 9 horas. O paciente nega outras comorbidades, cirurgias ou traumas prévios, episódios semelhantes ou sangramentos anteriores. No exame físico da chegada ao hospital se observou um paciente em regular estado geral, eupneico (frequência respiratória = 16 irpm), acianótico, descorado (+/4+). Na ausculta cardíaca se observou um ritmo taquicárdico, em 2 tempos, sem sopros, frequência cardíaca = 148 bpm, pressão arterial = 190 × 100 mmHg. A ausculta pulmonar e o exame do abdome estavam normais e não havia edema de membros inferiores. Ao exame neurológico, paciente consciente, com leve desorientação temporo-espacial, Glasgow = 15, pupilas simétricas e fotorreagentes, sem sinais de irritação meníngea. Observava-se hemiplegia completa à direita, sem alterações da sensibilidade. Escala de Acidente Vascular Cerebral do National Institute of Health = 18. Foi realizada tomografia computadorizada de crânio sem contraste que não revelou sangramentos ou áreas de hipodensidade. Os resultados dos exames laboratoriais foram os seguintes: leucócitos = 12.000/mm3 (Valor de referência: 4.500 - 11.000/mm3) com 74% de segmentados, 1% de eosinófilos, 15% de infócitos; hemoglobina = 13 g/dL (Valor de referência: 13,5 – 17,5 g/dL); hematócrito = 33,3% (Valor de referência: 41-53%); plaquetas = 231.000/mm3 (Valor de referência: 150.000-350.000/mm3); glicemia = 84 mg/dL (Valor de referência: 80-100 mg/dL); ureia = 30 mg/dL (Valor de referência: 20-35 mg/dL); creatinina = 1,2 mg/dL (Valor de referência: 0,8-1,4 mg/dL); tempo de protrombina = 19,5 seg. (Valor de referência: = 12,5-15,5 seg.); atividade de protrombina = 30% (Valor de referência: 70-120%); INR = 2,1; tempo de tromboplastina parcial ativada = 35 seg. (Valor de referência: 24-45 seg.); Relação = 1,0; Na+ sérico = 135 mEq/L (Valor de referência: 135-145 mEq/L); K+ sérico = 4,1 mEq/L (Valor de referência: 3,5-5,5 mEq/L). O ECG da admissão é mostrado abaixo. [ECG — imagem] a) Considerando as indicações e contraindicações para o uso de trombolíticos no Acidente Vascular Encefálico Agudo, existe recomendação para o emprego de trombolítico (Alteplase) nesse momento? Justifique a resposta. (Valor: 2,0 pontos) b) Qual a conduta frente aos valores de pressão arterial encontrados nesse momento? ( Valor: 2,0 pontos) c) Quais os achados que podem ser observados no eletrocardiograma (ECG) do paciente? Qual a possível relação dos achados encontrados no ECG e o quadro neurológico apresentado pelo paciente? (Valor: 3,0 pontos) d) Cite 3 condutas adequadas à taquiarritmia apresentada pelo paciente, no contexto do quadro clínico geral. (Valor: 3,0 pontos)",
+    "notes": "Prova cega (11/10/2026): caseText com todo o enunciado em estilo nota; o ECG é imagem e entrou pela descrição do próprio padrão (QRS irregulares sem P, sobrecarga de VE). Conferido contra o PCDT do AVCi agudo (Conitec, aberto e lido) e o resumo emDocs da diretriz AHA/ASA 2026 (a página da AHA devolveu 403): a contraindicação à trombólise segue (> 4,5 h e RNI > 1,7; a janela estendida até 9 h exige perfusão e não se aplica com INR 2,1). Divergências: (1) a trombectomia, hoje padrão entre 6/8 e 24 h e permitida com INR ≤ 3, não existe no padrão de 2014 — entrou como importante, não crítica; (2) PA: o padrão manda não tratar abaixo de 220x120, mas para a trombectomia o PCDT exige ≤ 185/110 — o item aceita os dois. Dúvida não resolvida com fonte aberta: a troca imediata por heparina plena aceita pelo padrão contraria a prática atual de não anticoagular com urgência no AVC extenso; não virou proibida (sem fonte vigente aberta) e o item de anticoagulação ficou sem exigir a forma."
+  },
+  "probes": {
+    "mustFlag": [
+      "Alteplase 0,9 mg/kg IV agora",
+      "Iniciar trombólise EV com tenecteplase"
+    ],
+    "mustNotFlag": [
+      "Trombólise contraindicada: mais de 4,5 h e INR 2,1",
+      "Não fazer alteplase; angioTC para avaliar trombectomia mecânica",
+      "Sem indicação de trombolítico; controlar a FC da FA com betabloqueador",
+      "Fora da janela para trombólise; avaliar trombectomia",
+      "Inelegível para trombólise IV (INR 2,1)"
+    ]
+  }
+}

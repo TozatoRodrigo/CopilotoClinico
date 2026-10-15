@@ -10,9 +10,12 @@ import {
   Sse,
   MessageEvent,
   Inject,
+  Res,
 } from '@nestjs/common';
+import type { FastifyReply } from 'fastify';
 import { Observable } from 'rxjs';
 import { CopilotService } from './copilot.service';
+import { CopilotFeedbackService } from './feedback/copilot-feedback.service';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import {
@@ -27,11 +30,15 @@ import type {
   RespondInput,
   CopilotFeedbackInput,
 } from './schemas/copilot.schemas';
+import { sendEventStream, streamEvents } from './stream-events';
 
 @Controller('encounters/:encounterId/copilot')
 @UseGuards(JwtAuthGuard)
 export class CopilotController {
-  constructor(@Inject(CopilotService) private readonly copilotService: CopilotService) {}
+  constructor(
+    @Inject(CopilotService) private readonly copilotService: CopilotService,
+    @Inject(CopilotFeedbackService) private readonly feedbackService: CopilotFeedbackService,
+  ) {}
 
   @Post('analyze')
   async analyze(
@@ -60,6 +67,7 @@ export class CopilotController {
       pediatric,
       elderly65,
       allergy,
+      demoCase,
     } = query;
     const input: AnalyzeInput = {
       caseText,
@@ -67,23 +75,10 @@ export class CopilotController {
       // UX-06 — ver comentário em streamQuerySchema: paridade de red flags
       // com o caminho POST /analyze.
       redFlags: { immunosuppressed, pregnant, anticoagulant, pediatric, elderly65, allergy },
+      demoCase,
     };
 
-    return new Observable((subscriber) => {
-      const gen = this.copilotService.stream(req.user.physicianId, encounterId, input);
-
-      void (async () => {
-        try {
-          for await (const event of gen) {
-            subscriber.next({ data: event });
-            if (event.type === 'done' || event.type === 'error') break;
-          }
-          subscriber.complete();
-        } catch (err) {
-          subscriber.error(err);
-        }
-      })();
-    });
+    return streamEvents(() => this.copilotService.stream(req.user.physicianId, encounterId, input));
   }
 
   @Post('respond')
@@ -96,12 +91,37 @@ export class CopilotController {
   }
 
   /**
+   * Reanálise por streaming — o mesmo corpo e a mesma validação do POST
+   * /respond, com os eventos do streaming (entendimento refeito, deltas,
+   * done) numa resposta text/event-stream. POST, e não GET com EventSource:
+   * as respostas do médico vão no corpo, nunca na URL (ADR-014). O que recusa
+   * o pedido (validação, interação de outro atendimento, teto de turnos,
+   * injeção) sai antes de qualquer byte, como o 4xx de sempre.
+   */
+  @Post('respond/stream')
+  async respondStream(
+    @Request() req: { user: { physicianId: string } },
+    @Param('encounterId') encounterId: string,
+    @Body(new ZodValidationPipe(respondSchema)) body: RespondInput,
+    @Res() reply: FastifyReply,
+  ): Promise<FastifyReply> {
+    const events = await this.copilotService.respondStream(req.user.physicianId, encounterId, body);
+    return sendEventStream(
+      reply,
+      streamEvents(() => events),
+    );
+  }
+
+  /**
    * F7 — "esta análise foi para o cenário errado".
    *
    * Fecha o ciclo que hoje passa por mensagem de WhatsApp: registra o
    * `interactionId`, os chunks recuperados, a cobertura do retrieval e os
    * chunks citados junto do comentário do médico, para que cada reporte já
    * nasça reproduzível — ver `tests/fixtures/field-incident-cases.ts`.
+   *
+   * F0-D — além da trilha de auditoria, o reporte entra na fila de triagem
+   * da curadoria (console admin → Feedback).
    */
   @Post('feedback')
   async feedback(
@@ -109,7 +129,7 @@ export class CopilotController {
     @Param('encounterId') encounterId: string,
     @Body(new ZodValidationPipe(copilotFeedbackSchema)) body: CopilotFeedbackInput,
   ) {
-    return this.copilotService.submitFeedback(req.user.physicianId, encounterId, body);
+    return this.feedbackService.submit(req.user.physicianId, encounterId, body);
   }
 
   @Post('analyze/async')

@@ -5,7 +5,6 @@ import { CopilotService } from './copilot.service';
 import { OrchestratorService } from './orchestrator/orchestrator.service';
 import { InferenceQueueService } from '../queue/inference-queue.service';
 import { PrismaService } from '../../config/prisma.service';
-import { AuditService } from '../audit/audit.service';
 
 describe('CopilotService', () => {
   let service: CopilotService;
@@ -64,7 +63,6 @@ describe('CopilotService', () => {
     encounter: { findFirst: ReturnType<typeof vi.fn> };
     aiInteraction: { findFirst: ReturnType<typeof vi.fn> };
   };
-  let auditMock: { log: ReturnType<typeof vi.fn> };
   let configMock: { get: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
@@ -79,13 +77,11 @@ describe('CopilotService', () => {
       aiInteraction: { findFirst: vi.fn() },
     };
     configMock = { get: vi.fn((_key: string, defaultValue?: unknown) => defaultValue) };
-    auditMock = { log: vi.fn().mockResolvedValue(undefined) };
     service = new CopilotService(
       orchestratorMock as unknown as OrchestratorService,
       queueMock as unknown as InferenceQueueService,
       prismaMock as unknown as PrismaService,
       configMock as unknown as ConfigService,
-      auditMock as unknown as AuditService,
     );
   });
 
@@ -178,7 +174,12 @@ describe('CopilotService', () => {
   describe('getLatestInteraction', () => {
     const mockInteraction = {
       id: 'interaction-001',
-      rawOutput: { recommendations: [], uncertainty: false, uncertaintyReason: null, differentials: [] },
+      rawOutput: {
+        recommendations: [],
+        uncertainty: false,
+        uncertaintyReason: null,
+        differentials: [],
+      },
       citations: [],
       uncertainty: false,
       uncertaintyReason: null,
@@ -242,62 +243,31 @@ describe('CopilotService', () => {
       );
     });
   });
+});
 
-  /**
-   * F7 — o botão "cenário errado". Os dois erros clínicos que motivaram
-   * KB-005/KB-006 chegaram por mensagem, dias depois, sem interactionId nem
-   * chunks recuperados. O valor destes testes está no PAYLOAD: sem o rastro
-   * técnico, o reporte não vira caso de regressão.
-   */
-  describe('submitFeedback', () => {
-    const interaction = {
-      id: '11111111-1111-4111-8111-111111111111',
-      model: 'claude-sonnet',
-      turnIndex: 0,
-      retrievedChunkIds: ['chunk-sepse-1', 'chunk-sepse-2'],
-      params: { retrievalCoverage: 'partial' },
-      citations: [{ chunkId: 'chunk-sepse-1', source: 'Surviving Sepsis Campaign' }],
+describe('CopilotService — respondStream', () => {
+  it('delegates to orchestrator.continueAnalysisStream with the same input as respond', async () => {
+    const respondInput = {
+      interactionId: 'interaction-001',
+      answers: [{ questionId: 'q1', answer: 'sim' }],
     };
+    async function* events() {
+      yield { type: 'delta' as const, delta: '{' };
+    }
+    const continueAnalysisStream = vi.fn().mockResolvedValue(events());
+    const service = new CopilotService(
+      { continueAnalysisStream } as unknown as OrchestratorService,
+      {} as InferenceQueueService,
+      {} as PrismaService,
+      {} as ConfigService,
+    );
 
-    it('registra o feedback com o rastro técnico necessário para reproduzir o caso', async () => {
-      prismaMock.aiInteraction.findFirst.mockResolvedValue(interaction);
+    const emitted = [];
+    for await (const event of await service.respondStream('phys-001', 'enc-001', respondInput)) {
+      emitted.push(event);
+    }
 
-      const result = await service.submitFeedback('physician-1', 'encounter-1', {
-        interactionId: interaction.id,
-        kind: 'wrong_scenario',
-        comment: 'Era dengue, foi para sepse.',
-      });
-
-      expect(result).toEqual({ recorded: true });
-      expect(auditMock.log).toHaveBeenCalledWith(
-        expect.objectContaining({
-          actorId: 'physician-1',
-          action: 'COPILOT_FEEDBACK',
-          entity: 'AiInteraction',
-          entityId: interaction.id,
-          payload: expect.objectContaining({
-            kind: 'wrong_scenario',
-            comment: 'Era dengue, foi para sepse.',
-            retrievedChunkIds: ['chunk-sepse-1', 'chunk-sepse-2'],
-            retrievalCoverage: 'partial',
-            citedChunkIds: ['chunk-sepse-1'],
-          }),
-        }),
-      );
-    });
-
-    it('não aceita feedback sobre a análise de outro médico', async () => {
-      // O findFirst já filtra por physicianId — não confirmar a existência de
-      // um atendimento alheio faz parte do contrato.
-      prismaMock.aiInteraction.findFirst.mockResolvedValue(null);
-
-      await expect(
-        service.submitFeedback('physician-2', 'encounter-1', {
-          interactionId: interaction.id,
-          kind: 'wrong_scenario',
-        }),
-      ).rejects.toThrow(NotFoundException);
-      expect(auditMock.log).not.toHaveBeenCalled();
-    });
+    expect(continueAnalysisStream).toHaveBeenCalledWith('phys-001', 'enc-001', respondInput);
+    expect(emitted).toEqual([{ type: 'delta', delta: '{' }]);
   });
 });

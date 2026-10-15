@@ -95,3 +95,18 @@ export function selectOfficialChunks(
     discardedByFloor: hits.length - passing.length,
   };
 }
+
+/**
+ * F1 — busca dirigida (ADR-013): candidatos de todas as consultas, cada
+ * trecho com a MELHOR similaridade entre elas. A seleção (piso, penalização
+ * de crônico, teto por documento e por análise) roda depois sobre a união,
+ * então os tetos continuam valendo para a análise inteira.
+ */
+export function bestOfficialHitPerChunk(hitsPerQuery: OfficialHit[][]): OfficialHit[] {
+  const best = new Map<string, OfficialHit>();
+  for (const hit of hitsPerQuery.flat()) {
+    const current = best.get(hit.chunkId);
+    if (!current || hit.similarity > current.similarity) best.set(hit.chunkId, hit);
+  }
+  return [...best.values()];
+}

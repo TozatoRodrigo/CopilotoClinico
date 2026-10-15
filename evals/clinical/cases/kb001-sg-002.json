@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 2,
+  "id": "kb001-sg-002",
+  "title": "Síndrome gripal com SpO2 91%, dispneia e hipotensão",
+  "tags": [
+    "infeccao-respiratoria",
+    "srag",
+    "influenza",
+    "kb-001"
+  ],
+  "critical": true,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Paciente com síndrome gripal, SpO2 91%, dispneia e hipotensão leve."
+  },
+  "expected": {
+    "syndrome": "síndrome respiratória aguda grave (SRAG) com hipoxemia e hipotensão",
+    "diagnoses": [
+      {
+        "text": "sepse ou choque séptico de foco pulmonar, incluindo pneumonia bacteriana secundária",
+        "tier": "critical"
+      },
+      {
+        "text": "COVID-19 (não se distingue clinicamente da influenza)",
+        "tier": "critical"
+      }
+    ],
+    "actions": [
+      {
+        "text": "oxigenoterapia",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "oseltamivir (indicado em SRAG independentemente do tempo de sintomas)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "internação (avaliar leito de maior complexidade)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "reposição volêmica guiada pela perfusão",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "avaliação de sepse (lactato, hemoculturas) com decisão explícita sobre antibiótico empírico precoce se houver suspeita de pneumonia bacteriana ou sepse",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "coleta de amostra respiratória (influenza/SARS-CoV-2) sem atrasar o oseltamivir e notificação de SRAG",
+        "tier": "important",
+        "timing": "any"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "Guia MS de influenza 2023: SRAG (dispneia, SpO2 ≤ 94%, hipotensão) → internar, hidratação venosa e O2, oseltamivir logo após a suspeita, sem esperar exame e sem limite de 48 h; coletar amostra e notificar (obrigatório). Antibiótico só com suspeita de coinfecção bacteriana — com hipotensão, a sepse bacteriana é plausível (SSC 2021: antibiótico em até 1 h se possível choque), por isso o gabarito exige a decisão explícita, não necessariamente o antibiótico."
+  },
+  "sources": [
+    {
+      "claim": "SRAG: síndrome gripal com dispneia ou SpO2 ≤ 94% em ar ambiente, desconforto respiratório ou hipotensão. Conduta: internar, iniciar suporte imediato (hidratação venosa e oxigenoterapia), iniciar oseltamivir logo após a suspeita independentemente da coleta, coletar amostras. Fluxograma: 'Oseltamivir. Antibioticoterapia. Hidratação venosa...' e 'Notificar e coletar exames específicos'. Antimicrobiano sem benefício na influenza, salvo forte suspeita de coinfecção. Notificação de SRAG obrigatória.",
+      "title": "Guia de manejo e tratamento de influenza 2023",
+      "publisher": "Ministério da Saúde (SVSA)",
+      "year": 2023,
+      "url": "https://goias.gov.br/saude/wp-content/uploads/sites/34/2012/06/guia_tratamento-influenza-2023-d45.pdf"
+    },
+    {
+      "claim": "Antibiótico em até 1 h na possível sepse/choque; em até 3 h na sepse sem choque com infecção provável.",
+      "title": "Surviving Sepsis Campaign Guidelines 2021",
+      "publisher": "SCCM/ESICM",
+      "year": 2021,
+      "url": "https://sccm.org/sepsisguidelines"
+    }
+  ],
+  "provenance": {
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: acrescentadas reposição volêmica, avaliação de sepse com decisão sobre antibiótico, coleta de amostra e notificação de SRAG às condutas (fluxograma de SRAG do MS 2023), e COVID-19 e pneumonia bacteriana secundária ao cannotMiss."
+  }
+}

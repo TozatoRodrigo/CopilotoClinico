@@ -1,0 +1,247 @@
+{
+  "variants": [
+    {
+      "name": "baseline",
+      "description": "Configuração atual de produção: provedor e modelo vêm do ambiente (AI_PROVIDER/AI_MODEL), assim como embeddings e demais flags do gateway.",
+      "env": {
+        "AI_PROVIDER": "${AI_PROVIDER}",
+        "AI_MODEL": "${AI_MODEL}"
+      }
+    },
+    {
+      "name": "claude-sonnet-5-5",
+      "description": "Claude Sonnet 5.5 na completion (effort high, teto de 32k tokens de saída, fallback de recusa padrão); embeddings continuam na OpenAI para o retrieval ser o mesmo do baseline.",
+      "env": {
+        "AI_PROVIDER": "anthropic",
+        "AI_MODEL": "claude-sonnet-5-5",
+        "AI_BASE_URL": "https://api.anthropic.com",
+        "AI_API_KEY": "${ANTHROPIC_API_KEY}",
+        "AI_MAX_OUTPUT_TOKENS": "32000",
+        "AI_EFFORT": "high",
+        "EMBEDDING_PROVIDER": "openai",
+        "EMBEDDING_API_KEY": "${OPENAI_API_KEY}",
+        "COPILOT_REASONING": "legacy"
+      }
+    },
+    {
+      "name": "claude-opus-5-5",
+      "description": "Claude Opus 5.5 na completion (effort high, teto de 32k tokens de saída, fallback de recusa padrão); embeddings continuam na OpenAI para o retrieval ser o mesmo do baseline.",
+      "env": {
+        "AI_PROVIDER": "anthropic",
+        "AI_MODEL": "claude-opus-5-5",
+        "AI_BASE_URL": "https://api.anthropic.com",
+        "AI_API_KEY": "${ANTHROPIC_API_KEY}",
+        "AI_MAX_OUTPUT_TOKENS": "32000",
+        "AI_EFFORT": "high",
+        "EMBEDDING_PROVIDER": "openai",
+        "EMBEDDING_API_KEY": "${OPENAI_API_KEY}",
+        "COPILOT_REASONING": "legacy"
+      }
+    },
+    {
+      "name": "claude-sonnet-5-5-stages",
+      "description": "Claude Sonnet 5.5 com raciocínio em etapas (ADR-013): entendimento do caso com o mesmo modelo em effort low, busca dirigida pelas consultas do entendimento e decisão em effort high. Demais parâmetros iguais a claude-sonnet-5-5, para comparar legacy × stages caso a caso.",
+      "env": {
+        "AI_PROVIDER": "anthropic",
+        "AI_MODEL": "claude-sonnet-5-5",
+        "AI_BASE_URL": "https://api.anthropic.com",
+        "AI_API_KEY": "${ANTHROPIC_API_KEY}",
+        "AI_MAX_OUTPUT_TOKENS": "32000",
+        "AI_EFFORT": "high",
+        "EMBEDDING_PROVIDER": "openai",
+        "EMBEDDING_API_KEY": "${OPENAI_API_KEY}",
+        "COPILOT_REASONING": "stages",
+        "AI_UNDERSTANDING_EFFORT": "low"
+      }
+    },
+    {
+      "name": "claude-opus-5-5-stages",
+      "description": "Claude Opus 5.5 com raciocínio em etapas (ADR-013): entendimento do caso com o mesmo modelo em effort low, busca dirigida pelas consultas do entendimento e decisão em effort high. Demais parâmetros iguais a claude-opus-5-5, para comparar legacy × stages caso a caso.",
+      "env": {
+        "AI_PROVIDER": "anthropic",
+        "AI_MODEL": "claude-opus-5-5",
+        "AI_BASE_URL": "https://api.anthropic.com",
+        "AI_API_KEY": "${ANTHROPIC_API_KEY}",
+        "AI_MAX_OUTPUT_TOKENS": "32000",
+        "AI_EFFORT": "high",
+        "EMBEDDING_PROVIDER": "openai",
+        "EMBEDDING_API_KEY": "${OPENAI_API_KEY}",
+        "COPILOT_REASONING": "stages",
+        "AI_UNDERSTANDING_EFFORT": "low"
+      }
+    },
+    {
+      "name": "claude-opus-5-5-v2-modelo",
+      "description": "Fase 1 (ADR-013, PR 2): Claude Opus 5.5 com raciocínio em etapas e decisão v2 em duas camadas, só com o conhecimento do modelo (COPILOT_KNOWLEDGE_SOURCE=model_only): nenhuma busca, nenhuma chamada de embedding, nenhuma chave da OpenAI.",
+      "env": {
+        "AI_PROVIDER": "anthropic",
+        "AI_MODEL": "claude-opus-5-5",
+        "AI_BASE_URL": "https://api.anthropic.com",
+        "AI_API_KEY": "${ANTHROPIC_API_KEY}",
+        "AI_MAX_OUTPUT_TOKENS": "32000",
+        "AI_EFFORT": "high",
+        "COPILOT_REASONING": "stages",
+        "AI_UNDERSTANDING_EFFORT": "low",
+        "COPILOT_DECISION_PROMPT": "v2",
+        "COPILOT_KNOWLEDGE_SOURCE": "model_only"
+      }
+    },
+    {
+      "name": "claude-opus-5-5-v2-web",
+      "description": "Fase 1 (ADR-013, PR 2): Claude Opus 5.5 com raciocínio em etapas e decisão v2, com evidência da pesquisa web em fontes oficiais (Claude Sonnet 5.5 em effort low, até 5 buscas, lista padrão de domínios). Sem embedding nem chave da OpenAI.",
+      "env": {
+        "AI_PROVIDER": "anthropic",
+        "AI_MODEL": "claude-opus-5-5",
+        "AI_BASE_URL": "https://api.anthropic.com",
+        "AI_API_KEY": "${ANTHROPIC_API_KEY}",
+        "AI_MAX_OUTPUT_TOKENS": "32000",
+        "AI_EFFORT": "high",
+        "COPILOT_REASONING": "stages",
+        "AI_UNDERSTANDING_EFFORT": "low",
+        "COPILOT_DECISION_PROMPT": "v2",
+        "COPILOT_KNOWLEDGE_SOURCE": "web",
+        "AI_RESEARCH_MODEL": "claude-sonnet-5-5",
+        "AI_RESEARCH_EFFORT": "low",
+        "WEB_RESEARCH_MAX_SEARCHES": "5"
+      }
+    },
+    {
+      "name": "claude-haiku-5-5-v2-modelo",
+      "description": "Fase 1 (ADR-013, PR 2): Claude Haiku 5.5 no entendimento e na decisão v2, só com o conhecimento do modelo — mede quanto o modelo barato perde. Sem embedding nem chave da OpenAI.",
+      "env": {
+        "AI_PROVIDER": "anthropic",
+        "AI_MODEL": "claude-haiku-5-5",
+        "AI_BASE_URL": "https://api.anthropic.com",
+        "AI_API_KEY": "${ANTHROPIC_API_KEY}",
+        "AI_MAX_OUTPUT_TOKENS": "32000",
+        "AI_EFFORT": "high",
+        "COPILOT_REASONING": "stages",
+        "AI_UNDERSTANDING_EFFORT": "low",
+        "COPILOT_DECISION_PROMPT": "v2",
+        "AI_UNDERSTANDING_MODEL": "claude-haiku-5-5",
+        "COPILOT_KNOWLEDGE_SOURCE": "model_only"
+      }
+    },
+    {
+      "name": "claude-opus-5-5-v2-web-entendimento-haiku",
+      "description": "Igual a claude-opus-5-5-v2-web, com o entendimento do caso no Claude Haiku 5.5 (AI_UNDERSTANDING_MODEL): mede se a Etapa 1 barata e rápida segura a qualidade da decisão e da pesquisa.",
+      "env": {
+        "AI_PROVIDER": "anthropic",
+        "AI_MODEL": "claude-opus-5-5",
+        "AI_BASE_URL": "https://api.anthropic.com",
+        "AI_API_KEY": "${ANTHROPIC_API_KEY}",
+        "AI_MAX_OUTPUT_TOKENS": "32000",
+        "AI_EFFORT": "high",
+        "COPILOT_REASONING": "stages",
+        "AI_UNDERSTANDING_EFFORT": "low",
+        "COPILOT_DECISION_PROMPT": "v2",
+        "COPILOT_KNOWLEDGE_SOURCE": "web",
+        "AI_RESEARCH_MODEL": "claude-sonnet-5-5",
+        "AI_RESEARCH_EFFORT": "low",
+        "WEB_RESEARCH_MAX_SEARCHES": "5",
+        "AI_UNDERSTANDING_MODEL": "claude-haiku-5-5"
+      }
+    },
+    {
+      "name": "test",
+      "description": "Provedor determinístico offline (AI_PROVIDER=test): nenhuma chamada paga. Valida a fiação do harness, não a qualidade clínica.",
+      "env": {
+        "AI_PROVIDER": "test",
+        "AI_MODEL": "deterministic-test",
+        "AI_API_KEY": "offline",
+        "AI_EMBEDDING_MODEL": "deterministic-test-embedding"
+      }
+    },
+    {
+      "name": "claude-opus-5-5-v3-modelo",
+      "description": "Regras v3 (emenda de 11/10/2026 ao ADR-013): Claude Opus 5.5, decisão v3 (0 a 2 perguntas, até 6 condutas para agora, destino e notificação, correções determinísticas no lugar de retry), só com o conhecimento do modelo. Sem embedding nem chave da OpenAI.",
+      "env": {
+        "AI_PROVIDER": "anthropic",
+        "AI_MODEL": "claude-opus-5-5",
+        "AI_BASE_URL": "https://api.anthropic.com",
+        "AI_API_KEY": "${ANTHROPIC_API_KEY}",
+        "AI_MAX_OUTPUT_TOKENS": "32000",
+        "AI_EFFORT": "high",
+        "COPILOT_REASONING": "stages",
+        "AI_UNDERSTANDING_EFFORT": "low",
+        "COPILOT_DECISION_PROMPT": "v3",
+        "COPILOT_KNOWLEDGE_SOURCE": "model_only"
+      }
+    },
+    {
+      "name": "claude-opus-5-5-v4-modelo",
+      "description": "Decisão v4 (v3 com quatro regras novas: suporte ventilatório indicado é tempo-crítico, checagem rápida de segurança fica em \"agora\", \"depende\" só com dado que decide, sem alta antes do dado e transferência para recurso que falta já) só com o conhecimento do Opus 5.5.",
+      "env": {
+        "AI_PROVIDER": "anthropic",
+        "AI_MODEL": "claude-opus-5-5",
+        "AI_BASE_URL": "https://api.anthropic.com",
+        "AI_API_KEY": "${ANTHROPIC_API_KEY}",
+        "AI_MAX_OUTPUT_TOKENS": "32000",
+        "AI_EFFORT": "high",
+        "COPILOT_REASONING": "stages",
+        "AI_UNDERSTANDING_EFFORT": "low",
+        "COPILOT_DECISION_PROMPT": "v4",
+        "COPILOT_KNOWLEDGE_SOURCE": "model_only"
+      }
+    },
+    {
+      "name": "claude-opus-5-5-v3-verifica",
+      "description": "Regras v3 com verificação com fonte DEPOIS da decisão (COPILOT_KNOWLEDGE_SOURCE=verify): o plano sai do conhecimento do Opus 5.5; a pesquisa (Sonnet 5.5, effort low, até 5 buscas, domínios oficiais) confere as condutas e o vínculo (Sonnet 5.5) anexa fonte e dose literal ou aponta divergência.",
+      "env": {
+        "AI_PROVIDER": "anthropic",
+        "AI_MODEL": "claude-opus-5-5",
+        "AI_BASE_URL": "https://api.anthropic.com",
+        "AI_API_KEY": "${ANTHROPIC_API_KEY}",
+        "AI_MAX_OUTPUT_TOKENS": "32000",
+        "AI_EFFORT": "high",
+        "COPILOT_REASONING": "stages",
+        "AI_UNDERSTANDING_EFFORT": "low",
+        "COPILOT_DECISION_PROMPT": "v3",
+        "COPILOT_KNOWLEDGE_SOURCE": "verify",
+        "AI_RESEARCH_MODEL": "claude-sonnet-5-5",
+        "AI_RESEARCH_EFFORT": "low",
+        "WEB_RESEARCH_MAX_SEARCHES": "5",
+        "AI_VERIFY_ATTACH_MODEL": "claude-sonnet-5-5"
+      }
+    },
+    {
+      "name": "claude-haiku-5-5-v3-modelo",
+      "description": "Regras v3 com Claude Haiku 5.5 no entendimento e na decisão, só com o conhecimento do modelo — mede se o modelo barato e rápido segura o gabarito v2.",
+      "env": {
+        "AI_PROVIDER": "anthropic",
+        "AI_MODEL": "claude-haiku-5-5",
+        "AI_BASE_URL": "https://api.anthropic.com",
+        "AI_API_KEY": "${ANTHROPIC_API_KEY}",
+        "AI_MAX_OUTPUT_TOKENS": "32000",
+        "AI_EFFORT": "high",
+        "COPILOT_REASONING": "stages",
+        "AI_UNDERSTANDING_EFFORT": "low",
+        "AI_UNDERSTANDING_MODEL": "claude-haiku-5-5",
+        "COPILOT_DECISION_PROMPT": "v3",
+        "COPILOT_KNOWLEDGE_SOURCE": "model_only"
+      }
+    },
+    {
+      "name": "gpt-oss-120b-groq-v3-modelo",
+      "description": "Regras v3 com o gpt-oss-120b (pesos abertos) servido pela Groq no entendimento e na decisão, só com o conhecimento do modelo. O provedor padrão continua a Anthropic; o perfil groq atende as duas etapas (AI_PROVIDER_PROFILES).",
+      "env": {
+        "AI_PROVIDER": "anthropic",
+        "AI_BASE_URL": "https://api.anthropic.com",
+        "AI_API_KEY": "${ANTHROPIC_API_KEY}",
+        "AI_PROVIDER_PROFILES": "groq",
+        "AI_PROVIDER_GROQ_KIND": "openai",
+        "AI_PROVIDER_GROQ_API_KEY": "${GROQ_API_KEY}",
+        "AI_PROVIDER_GROQ_BASE_URL": "https://api.groq.com/openai/v1",
+        "AI_PROVIDER_GROQ_STRUCTURED_OUTPUT": "json_schema",
+        "AI_MODEL": "groq:openai/gpt-oss-120b",
+        "AI_UNDERSTANDING_MODEL": "groq:openai/gpt-oss-120b",
+        "AI_MAX_OUTPUT_TOKENS": "32000",
+        "AI_REASONING_EFFORT": "high",
+        "COPILOT_REASONING": "stages",
+        "AI_UNDERSTANDING_EFFORT": "low",
+        "COPILOT_DECISION_PROMPT": "v3",
+        "COPILOT_KNOWLEDGE_SOURCE": "model_only"
+      }
+    }
+  ]
+}

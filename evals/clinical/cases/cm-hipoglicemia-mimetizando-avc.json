@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 2,
+  "id": "cm-hipoglicemia-mimetizando-avc",
+  "title": "Afasia e fraqueza ao acordar em diabético com NPH, glicemia 42",
+  "tags": [
+    "deficit-neurologico-focal",
+    "hipoglicemia",
+    "mimetizador-de-avc"
+  ],
+  "critical": true,
+  "goldSource": "ai_draft",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Masc, 63a, DM2 com NPH. Acordou com fala arrastada e fraqueza em braço E; a esposa achou que era derrame. Visto bem pela última vez às 23h (há 8h). PA 158x92, FC 98, sudoreico. Glicemia capilar 42."
+  },
+  "expected": {
+    "syndrome": "hipoglicemia com déficit focal (mimetizador de AVC)",
+    "diagnoses": [
+      {
+        "text": "AVC isquêmico se o déficit persistir após a correção da glicemia",
+        "tier": "critical"
+      },
+      {
+        "text": "AVC ao despertar com oclusão de grande vaso, ainda candidato a trombectomia se o déficit persistir",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "glicose IV imediata (hipertônica ou a 10-20%; glucagon IM se sem acesso venoso)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "glicemia seriada e reavaliação do déficit após a correção",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "manter aporte de glicose ou alimentação e observar pelo risco de recorrência (NPH)",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "se o déficit persistir com glicemia normal: protocolo de AVC com TC e angio-TC para avaliar trombectomia (último visto bem há 8 h)",
+        "tier": "critical",
+        "timing": "any"
+      }
+    ],
+    "questions": [
+      "uso de sulfonilureia ou outros hipoglicemiantes, ingestão alimentar, álcool e função renal (risco de hipoglicemia prolongada e recorrente)"
+    ],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "trombolise-sem-corrigir-glicemia",
+        "description": "Trombólise antes de corrigir a hipoglicemia e reavaliar o déficit",
+        "patterns": [
+          "trombol\\w*",
+          "alteplase",
+          "tenecteplase",
+          "rt-?pa",
+          "estreptoquinase"
+        ],
+        "exceptWhen": [
+          "(se|caso|quando)\\s+(o\\s+)?deficit\\s+persist\\w*",
+          "(apos|depois\\s+de)\\s+(corrigir|normalizar|correcao|normalizacao)",
+          "guiad[ao]\\s+por\\s+(imagem|perfusao|rm|ressonancia)",
+          "(somente|so|apenas)\\s+(apos|depois|se|quando)"
+        ]
+      }
+    ],
+    "rationale": "KB-003/KB-004: hipoglicemia mimetiza AVC; glicemia antes de qualquer outra hipótese, e glicemia < 50 com recuperação atribuída a ela contraindica a trombólise (PCDT AVCi 2023). Se o déficit persistir com glicemia normal, é AVC ao despertar contado do último visto bem (8 h): trombectomia segue possível (PCDT até 24 h com critérios de imagem) e, fora do SUS, trombólise guiada por imagem (AHA 2026, até 9 h do ponto médio do sono). NPH tem ação prolongada: a hipoglicemia recorre após o bolus."
+  },
+  "sources": [
+    {
+      "claim": "Glicemia < 50 com recuperação completa atribuída à hipoglicemia é contraindicação relativa à trombólise; hipoglicemia é mimetizador; AVC ao despertar usa o último visto bem; trombectomia até 8 h ou de 8 a 24 h com critérios; alteplase não preconizada além de 4,5 h",
+      "title": "PCDT Acidente Vascular Cerebral Isquêmico Agudo (Relatório Conitec nº 722)",
+      "publisher": "Ministério da Saúde / Conitec",
+      "year": 2023,
+      "url": "https://www.gov.br/conitec/pt-br/midias/relatorios/2023/rr_pcdt-avci-agudo_722_final.pdf/@@download/file"
+    },
+    {
+      "claim": "Trombólise estendida guiada por imagem para quem acorda com sintomas, até 9 h do ponto médio do sono (perfusão), ou por mismatch DWI-FLAIR (classe 2a); trombectomia de 6 a 24 h",
+      "title": "2026 Guideline Update: Early Management of Acute Ischemic Stroke",
+      "publisher": "emDocs (resumo da diretriz AHA/ASA 2026, Stroke, doi 10.1161/STR.0000000000000513)",
+      "year": 2026,
+      "url": "https://www.emdocs.net/2026-guideline-update-early-management-of-acute-ischemic-stroke"
+    },
+    {
+      "claim": "Hipoglicemia grave: 100 mL de glicose a 20% ou 200 mL a 10% em 15 min; glucagon 1 mg IM sem acesso; rechecar em 10 min",
+      "title": "Inpatient treatment of hypoglycaemia in adults with diabetes (adaptado da JBDS)",
+      "publisher": "NHS Swansea Bay / JBDS",
+      "year": 2022,
+      "url": "https://swanseabay.nhs.wales/files/freedom-of-information-disclosure-log-2025/january/25-a-056-cid208-inpatient-treatment-of-hypoglycaemia-in-adults-with-diabetes-revised-august-2022-pdf/"
+    }
+  ],
+  "provenance": {
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. AVC ao despertar com oclusão de grande vaso rebaixado a importante: depende de o déficit persistir após a glicose. | Auditoria 11/10/2026: \"fora da janela\" deixou de encerrar o raciocínio — com déficit persistente, protocolo de AVC e trombectomia viraram obrigatórios; mustRequest trocou conduta por dado (hipoglicemiantes, ingestão, álcool, função renal); glicose IV aceita qualquer concentração e glucagon; aporte contínuo pela NPH."
+  },
+  "probes": {
+    "mustFlag": [
+      "Alteplase 0,9 mg/kg IV pelo déficit focal",
+      "Trombólise já; a glicemia se corrige em paralelo",
+      "Tenecteplase 0,25 mg/kg; não aguardar exames"
+    ],
+    "mustNotFlag": [
+      "Não trombolisar antes de corrigir a glicemia e reavaliar o déficit",
+      "Trombólise guiada por imagem se o déficit persistir após normoglicemia",
+      "Glicose 50% 50 mL IV; trombólise contraindicada enquanto hipoglicêmico"
+    ]
+  }
+}

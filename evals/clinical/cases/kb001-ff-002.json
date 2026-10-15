@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 2,
+  "id": "kb001-ff-002",
+  "title": "Febre com hipotensão, confusão e neutropenia pós-quimioterapia",
+  "tags": [
+    "febre-hipotensao",
+    "neutropenia-febril",
+    "sepse",
+    "kb-001"
+  ],
+  "critical": true,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Febre com hipotensão, confusão e neutropenia pós-quimioterapia."
+  },
+  "expected": {
+    "syndrome": "neutropenia febril com choque séptico",
+    "diagnoses": [
+      {
+        "text": "choque séptico em paciente neutropênico",
+        "tier": "critical"
+      }
+    ],
+    "actions": [
+      {
+        "text": "antibiótico IV de amplo espectro com cobertura antipseudomonas na primeira hora",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "hemoculturas sem atrasar o antibiótico",
+        "tier": "important",
+        "timing": "now"
+      },
+      {
+        "text": "ressuscitação volêmica e vasopressor se hipotensão persistir",
+        "tier": "important",
+        "timing": "now"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "adiar-antibiotico-ou-tratar-ambulatorial",
+        "description": "Adiar o antibiótico IV à espera de hemograma ou culturas, ou tratar com esquema oral/ambulatorial — neutropenia febril em choque exige a primeira dose em até 1 h e internação",
+        "patterns": []
+      }
+    ],
+    "rationale": "IDSA 2010, ASCO/IDSA 2018 e SSC 2021: beta-lactâmico antipseudomonas IV (cefepima, piperacilina-tazobactam ou meropeném) em até 1 h, hemoculturas sem atrasá-lo, cristaloide e vasopressor se a hipotensão persistir. O gabarito não fixa a droga. Acrescentar vancomicina ou ampliar para resistentes pela instabilidade é aceitável (IDSA 2010) e não é exigido; cateter venoso central, colonização por multirresistente e profilaxia em uso mudam o esquema, mas não são exigidos no turno 0."
+  },
+  "sources": [
+    {
+      "claim": "Monoterapia com beta-lactâmico antipseudomonas como base; vancomicina não é padrão, mas deve ser considerada se houver instabilidade hemodinâmica; modificar para resistentes se o paciente estiver instável.",
+      "title": "Clinical Practice Guideline for the Use of Antimicrobial Agents in Neutropenic Patients with Cancer: 2010 Update",
+      "publisher": "IDSA (Clin Infect Dis)",
+      "year": 2011,
+      "url": "https://academic.oup.com/cid/article/52/4/e56/382256"
+    },
+    {
+      "claim": "Primeira dose de antibiótico empírico em até 1 h da triagem; paciente de alto risco precisa de internação para antibiótico IV.",
+      "title": "Outpatient Management of Fever and Neutropenia in Adults Treated for Malignancy: ASCO/IDSA Guideline Update",
+      "publisher": "ASCO/IDSA (J Clin Oncol)",
+      "year": 2018,
+      "url": "https://ace.asco.org/guidelines/9966"
+    },
+    {
+      "claim": "Antibiótico imediato (idealmente em até 1 h) se há possível choque séptico; cristaloide de pelo menos 30 mL/kg em 3 h na hipoperfusão (recomendação fraca); vasopressor se persistir.",
+      "title": "Surviving Sepsis Campaign Guidelines 2021",
+      "publisher": "SCCM/ESICM",
+      "year": 2021,
+      "url": "https://sccm.org/sepsisguidelines"
+    }
+  ],
+  "provenance": {
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: caso correto. Acrescentada a conduta proibida de adiar o antibiótico ou tratar com esquema oral/ambulatorial (só para o juiz). Vancomicina e os dados de cateter, colonização e profilaxia ficaram no rationale, por serem opcionais segundo a auditoria."
+  }
+}

@@ -50,15 +50,24 @@ describe('generateSBAR', () => {
     expect(result).toHaveProperty('recommendation');
   });
 
-  it('includes top 5 recommendations with confidence', () => {
+  it('includes top 5 recommendations without a confidence percentage', () => {
     const result = generateSBAR('Caso clínico', makeCopilotOutput());
 
     expect(result.recommendation).toContain('Initiate ACE inhibitor therapy');
-    expect(result.recommendation).toContain('confiança: 85%');
     expect(result.recommendation).toContain('Order renal function panel');
-    expect(result.recommendation).toContain('confiança: 90%');
     expect(result.recommendation).toContain('Schedule follow-up in 2 weeks');
-    expect(result.recommendation).toContain('confiança: 75%');
+    expect(result.recommendation).not.toMatch(/confiança|\d+%/);
+  });
+
+  it('flags preliminary recommendations', () => {
+    const output = makeCopilotOutput();
+    const [first, ...rest] = output.recommendations;
+    const result = generateSBAR('Caso clínico', {
+      ...output,
+      recommendations: [{ ...first!, preliminary: true }, ...rest],
+    });
+
+    expect(result.recommendation).toContain(`${first!.action} (preliminar)`);
   });
 
   it('limits to top 5 recommendations', () => {

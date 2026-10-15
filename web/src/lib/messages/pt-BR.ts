@@ -18,6 +18,8 @@
  * string values. Every locale dictionary implements this same interface.
  */
 
+import type { CitationOrigin, PreliminaryReason, PsSyndrome } from '@contracts/clinical';
+
 export interface Messages {
   common: {
     actions: {
@@ -33,11 +35,15 @@ export interface Messages {
       title: string;
       recommendationsCount: (n: number) => string;
       preliminarySummary: (definitive: number, preliminary: number) => string;
+      /** F1 — decisão v2: "2 para agora · 1 depende de dado". */
+      layersSummary: (now: number, depends: number) => string;
     };
 
     questions: {
       heading: string;
       whyAsk: string;
+      /** F1 — decisão v2: hipóteses que a resposta separa ("Separa: A × B"). */
+      separates: (hypotheses: string[]) => string;
       boolean: {
         yes: string;
         no: string;
@@ -107,11 +113,48 @@ export interface Messages {
     };
     categoryBracket: (label: string) => string;
     preliminary: string;
-    confidence: (value: number) => string;
-    confidenceTooltipTitle: string;
-    confidenceTooltipBody: string;
-    confidenceTooltipDisclaimer: string;
+    /** Tag de conduta preliminar no card da recomendação. */
+    preliminaryBadge: string;
+    /**
+     * F0-C — por que a conduta é preliminar, por valor de `preliminaryReason`.
+     * `pending_questions` (e análise antiga sem o campo) mostra só
+     * `preliminaryBadge`, o texto de sempre.
+     */
+    preliminaryReason: Record<Exclude<PreliminaryReason, 'pending_questions'>, string>;
+    /** F1 — grupos da decisão v2 (ADR-013): o que fazer agora e o que espera um dado. */
+    layers: Record<'now' | 'depends', { label: string; hint: string }>;
+    dependsOn: (data: string) => string;
+    /** Conduta "depende" lida como fluxograma: a condição antes da conduta. */
+    ifCondition: (condition: string) => string;
+    /** Conduta "depende" sem o dado declarado (o validador pede, mas não bloqueia). */
+    dependsOnMissing: string;
+    /** Abre a justificativa da conduta, recolhida para o plano caber numa tela. */
+    why: string;
+    /** F1 — link para a página da fonte oficial externa (pesquisa web). */
+    openSourcePage: string;
   };
+
+  /** O plano de uma rodada da conversa: cabeçalho, pendências e rodapé. */
+  plan: {
+    mostLikely: string;
+    noHypothesis: string;
+    cannotMiss: string;
+    /** Perguntas que a decisão deixou, dentro do plano, entre o "agora" e o "depende". */
+    pendingTitle: string;
+    pendingHint: string;
+    /** Uma vez por plano, no lugar da etiqueta em cada conduta. */
+    modelKnowledgeNote: string;
+    consultGuidelines: string;
+    reasoning: string;
+    reasoningWhy: string;
+    noRecommendations: string;
+  };
+
+  /**
+   * Rótulo de origem da fonte citada, por valor de `Citation.origin` (F4,
+   * ADR-010, ADR-012). A interface sempre diz se a fonte passou por médico.
+   */
+  sourceOrigin: Record<CitationOrigin, string>;
 
   redFlags: {
     heading: string;
@@ -142,6 +185,44 @@ export interface Messages {
     };
     complement: {
       heading: string;
+      placeholder: string;
+      submit: string;
+      submitting: string;
+      cancel: string;
+    };
+  };
+
+  /**
+   * F1 — card "O que eu entendi" (ADR-013, Etapa 1): o que o copiloto
+   * entendeu do caso ANTES de buscar evidência, para o médico conferir e
+   * corrigir antes de ler o plano.
+   */
+  understanding: {
+    heading: string;
+    description: string;
+    syndrome: string;
+    syndromes: Record<PsSyndrome, string>;
+    instabilityTitle: string;
+    data: {
+      heading: string;
+      age: (years: number) => string;
+      sex: Record<'F' | 'M', string>;
+      bloodPressure: (systolic: number | null, diastolic: number | null) => string;
+      heartRate: (value: number) => string;
+      respiratoryRate: (value: number) => string;
+      spo2: (value: number) => string;
+      temperature: (value: number) => string;
+      glucose: (value: number) => string;
+      onset: (value: string) => string;
+    };
+    cannotMissHeading: string;
+    confirmOrRuleOut: string;
+    likelyHeading: string;
+    missingHeading: string;
+    separates: (hypotheses: string[]) => string;
+    correction: {
+      cta: string;
+      label: string;
       placeholder: string;
       submit: string;
       submitting: string;
@@ -193,6 +274,66 @@ export interface Messages {
     streamingHint: string;
   };
 
+  /**
+   * ADR-014 — Copiloto guiado: a conversa do caso. Primeira pessoa e sem
+   * culpa ("a parede" da Sprint 26): o Copiloto pede porque quer acertar a
+   * conduta, e pular nunca é erro.
+   */
+  conversation: {
+    title: string;
+    description: string;
+    sendCase: string;
+    sendingCase: string;
+    you: string;
+    copilot: string;
+    reading: string;
+    understood: string;
+    correct: string;
+    correctionPlaceholder: string;
+    correctionNoted: string;
+    questionsIntro: (count: number) => string;
+    progress: (current: number, total: number) => string;
+    analyzeNow: string;
+    unstableTitle: (findings: string) => string;
+    unstableBody: string;
+    complete: string;
+    urgentStop: string;
+    skipped: string;
+    allAnswered: string;
+    buildingPlan: string;
+    buildingPlanHint: string;
+    rebuildingPlan: string;
+    planFailed: string;
+    retryPlan: string;
+    keepPlan: string;
+    rebuildNow: string;
+    previousPlan: (round: number) => string;
+    youAnswered: string;
+    lastRound: string;
+    limitReached: string;
+    numberPlaceholder: string;
+    numberSend: string;
+    numberUnknown: string;
+    vitals: {
+      labels: Record<'bloodPressure' | 'heartRate' | 'respiratoryRate' | 'spo2' | 'temperature' | 'glucose', string>;
+      units: Record<'bloodPressure' | 'heartRate' | 'respiratoryRate' | 'spo2' | 'temperature' | 'glucose', string>;
+      bloodPressurePlaceholder: string;
+      send: string;
+      none: string;
+      invalid: string;
+    };
+    composer: {
+      answerPlaceholder: string;
+      complementPlaceholder: string;
+      waitingPlaceholder: string;
+      send: string;
+      dictate: string;
+      stopDictation: string;
+      transcribing: string;
+      offline: string;
+    };
+  };
+
   documents: {
     generateHeading: string;
     generating: string;
@@ -230,6 +371,12 @@ export interface Messages {
   };
 }
 
+const PT_BR_NUMBER = new Intl.NumberFormat('pt-BR');
+
+function formatNumberPtBr(value: number): string {
+  return PT_BR_NUMBER.format(value);
+}
+
 export const ptBR: Messages = {
   common: {
     actions: {
@@ -247,6 +394,9 @@ export const ptBR: Messages = {
       // "2 definitivas · 1 preliminar"
       preliminarySummary: (definitive: number, preliminary: number) =>
         `${definitive} definitiv${definitive === 1 ? 'a' : 'as'} · ${preliminary} preliminar${preliminary === 1 ? '' : 'es'}`,
+      // "2 para agora · 1 depende de dado"
+      layersSummary: (now: number, depends: number) =>
+        `${now} para agora · ${depends} depende${depends === 1 ? '' : 'm'} de dado`,
     },
 
     questions: {
@@ -256,6 +406,7 @@ export const ptBR: Messages = {
       // exata armadilha foi a causa da "parede" identificada na Sprint 26.
       heading: 'Para orientar com segurança, preciso de:',
       whyAsk: 'Por que essa pergunta?',
+      separates: (hypotheses: string[]) => `Separa: ${hypotheses.join(' × ')}`,
       boolean: {
         yes: 'Sim',
         no: 'Não',
@@ -338,14 +489,48 @@ export const ptBR: Messages = {
     // bracketed form used in turn history
     categoryBracket: (label: string) => `[${label}]`,
     preliminary: 'Preliminar — responda as perguntas acima',
-    confidence: (value: number) => `${Math.round(value * 100)}%`,
-    // S23-UX-01 — explicação de metodologia para evitar falsa precisão clínica.
-    // Médico pode interpretar "87%" como garantia estatística — médico-legalmente arriscado.
-    confidenceTooltipTitle: 'Como calculamos a confiança',
-    confidenceTooltipBody:
-      'Combina cobertura da evidência recuperada (quantos trechos relevantes a diretriz forneceu) com coerência interna da análise (consistência entre raciocínio, recomendações e citações).',
-    confidenceTooltipDisclaimer:
-      'Não é garantia clínica ou probabilidade de acerto. A decisão final é sua, médico.',
+    preliminaryBadge: 'Preliminar',
+    preliminaryReason: {
+      unreviewed_source: 'Fonte não revisada por médico',
+      subtype_ambiguity: 'Subtipo indefinido — depende do dado que discrimina',
+      depends_on_data: 'Depende de dado ainda não disponível',
+      unverified_dose: 'Dose sem fonte citada — confirme no protocolo local',
+      source_conflict: 'Fonte oficial diverge — confira antes de seguir',
+    },
+    layers: {
+      now: { label: 'Fazer agora', hint: 'seguro em todas as hipóteses abertas' },
+      depends: { label: 'Depende do resultado', hint: 'só vale se a condição se confirmar' },
+    },
+    dependsOn: (data: string) => `Depende de: ${data}`,
+    ifCondition: (condition: string) => `Se ${condition}`,
+    dependsOnMissing: 'Depende de dado ainda não informado',
+    why: 'Por quê',
+    openSourcePage: 'Abrir página da fonte',
+  },
+
+  plan: {
+    mostLikely: 'Mais provável',
+    noHypothesis: 'Avaliação clínica em andamento',
+    cannotMiss: 'Não pode perder:',
+    pendingTitle: 'Falta saber',
+    pendingHint: 'Responder atualiza o plano (cerca de 1 minuto).',
+    modelKnowledgeNote:
+      'Condutas do conhecimento geral do modelo, sem fonte revisada. Confirme doses no protocolo local.',
+    consultGuidelines: 'Consultar diretrizes',
+    reasoning: 'Ver raciocínio',
+    reasoningWhy: 'Por que o copiloto chegou a este plano',
+    noRecommendations:
+      'Nenhuma conduta sugerida nesta rodada — responda o que falta saber ou consulte as diretrizes.',
+  },
+
+  sourceOrigin: {
+    institutional: 'Protocolo institucional',
+    public: 'Diretriz pública',
+    physician_attachment: 'Anexo do médico · não curada',
+    official_unreviewed: 'Ministério da Saúde · não revisado pela equipe',
+    curated_unsigned: 'Base curada · sem assinatura médica',
+    model_knowledge: 'Conhecimento geral do modelo — confirme no protocolo local',
+    web_official: 'Fonte oficial externa',
   },
 
   redFlags: {
@@ -384,6 +569,63 @@ export const ptBR: Messages = {
       placeholder:
         'Acrescente o que ajudar a esclarecer o quadro — tempo de evolução, sinais vitais, exames já feitos...',
       submit: 'Reanalisar com o complemento',
+      submitting: 'Reanalisando...',
+      cancel: 'Cancelar',
+    },
+  },
+
+  understanding: {
+    heading: 'O que eu entendi',
+    description: 'Confira antes do plano. Se algo estiver errado, corrija e o copiloto reanalisa.',
+    syndrome: 'Síndrome',
+    syndromes: {
+      'agitacao-psicomotora': 'Agitação psicomotora',
+      cefaleia: 'Cefaleia',
+      choque: 'Choque',
+      'crise-convulsiva': 'Crise convulsiva',
+      'deficit-neurologico-focal': 'Déficit neurológico focal',
+      'diarreia-vomitos': 'Diarreia e vômitos',
+      'disturbio-glicemico': 'Distúrbio glicêmico',
+      dispneia: 'Dispneia',
+      'dor-abdominal': 'Dor abdominal',
+      'dor-lombar-flanco': 'Dor lombar ou em flanco',
+      'dor-toracica': 'Dor torácica',
+      febre: 'Febre',
+      'febre-hipotensao': 'Febre com hipotensão',
+      'infeccao-respiratoria': 'Infecção respiratória',
+      intoxicacao: 'Intoxicação',
+      'pele-partes-moles': 'Pele e partes moles',
+      'pressao-arterial-elevada': 'Pressão arterial elevada',
+      'reacao-alergica': 'Reação alérgica',
+      'rebaixamento-consciencia': 'Rebaixamento de consciência',
+      'sintomas-urinarios': 'Sintomas urinários',
+      vertigem: 'Vertigem',
+      outro: 'Outra síndrome',
+    },
+    instabilityTitle: 'Instabilidade — ameaça imediata',
+    data: {
+      heading: 'Dados informados',
+      age: (years: number) => `${formatNumberPtBr(years)} anos`,
+      sex: { F: 'Feminino', M: 'Masculino' },
+      bloodPressure: (systolic: number | null, diastolic: number | null) =>
+        `PA ${systolic ?? '?'}x${diastolic ?? '?'}`,
+      heartRate: (value: number) => `FC ${formatNumberPtBr(value)}`,
+      respiratoryRate: (value: number) => `FR ${formatNumberPtBr(value)}`,
+      spo2: (value: number) => `SpO₂ ${formatNumberPtBr(value)}%`,
+      temperature: (value: number) => `Tax ${formatNumberPtBr(value)}`,
+      glucose: (value: number) => `Glicemia ${formatNumberPtBr(value)}`,
+      onset: (value: string) => `Início: ${value}`,
+    },
+    cannotMissHeading: 'Não pode perder',
+    confirmOrRuleOut: 'Confirma ou afasta:',
+    likelyHeading: 'Mais prováveis',
+    missingHeading: 'O que falta saber',
+    separates: (hypotheses: string[]) => `Separa ${hypotheses.join(' × ')}`,
+    correction: {
+      cta: 'Corrigir entendimento',
+      label: 'O que o copiloto entendeu errado ou deixou de fora?',
+      placeholder: 'Ex.: o déficit regrediu em 10 minutos e voltou duas vezes.',
+      submit: 'Reanalisar com a correção',
       submitting: 'Reanalisando...',
       cancel: 'Cancelar',
     },
@@ -439,6 +681,81 @@ export const ptBR: Messages = {
     templateApplied: (name: string) => `Modelo "${name}" adicionado ao caso.`,
     // UX-06 — streaming: sinal de vida rápido em vez de spinner mudo.
     streamingHint: 'O copiloto já está respondendo...',
+  },
+
+  conversation: {
+    title: 'Descreva o caso',
+    description:
+      'Dite ou digite como passaria o caso a um colega. Se faltar algo que muda a conduta, eu pergunto — uma coisa por vez.',
+    sendCase: 'Enviar caso',
+    sendingCase: 'Enviando…',
+    you: 'Você',
+    copilot: 'Copiloto',
+    reading: 'Lendo o caso…',
+    understood: 'Entendi:',
+    correct: 'Corrigir',
+    correctionPlaceholder: 'O que eu entendi errado ou deixei de fora?',
+    correctionNoted: 'Anotei a correção — ela entra no plano.',
+    questionsIntro: (count: number) =>
+      count === 1
+        ? 'Antes do plano, 1 pergunta rápida que muda a conduta.'
+        : `Antes do plano, ${count} perguntas rápidas que mudam a conduta.`,
+    progress: (current: number, total: number) => `Pergunta ${current} de ${total}`,
+    analyzeNow: 'Analisar agora com o que tenho',
+    unstableTitle: (findings: string) => `Paciente instável: ${findings}.`,
+    unstableBody:
+      'Vou direto ao que fazer agora, sem perguntas antes. Se eu precisar de algo, pergunto depois do plano.',
+    complete: 'Tenho o que preciso para começar.',
+    urgentStop: 'Essa resposta muda a prioridade. Vou direto ao plano.',
+    skipped:
+      'Sem problema. Sigo com o que tenho; o que ficou aberto entra no plano como "Depende de…".',
+    allAnswered: 'Obrigado. Montando o plano com o que você me contou.',
+    buildingPlan: 'Montando o plano…',
+    buildingPlanHint: 'Leva cerca de 1 minuto. Pode sair desta tela: o plano fica salvo no caso.',
+    rebuildingPlan: 'Refazendo o plano com a sua resposta…',
+    planFailed: 'Não consegui montar o plano agora.',
+    retryPlan: 'Tentar de novo',
+    keepPlan: 'Seguir com este plano',
+    rebuildNow: 'Refazer o plano agora',
+    previousPlan: (round: number) => `Plano anterior · rodada ${round}`,
+    youAnswered: 'Você informou',
+    lastRound: 'Última rodada — o próximo plano sai com o que você tiver informado.',
+    limitReached: 'Você chegou ao limite de rodadas deste caso.',
+    numberPlaceholder: 'Valor',
+    numberSend: 'Enviar',
+    numberUnknown: 'Não medi',
+    vitals: {
+      labels: {
+        bloodPressure: 'PA',
+        heartRate: 'FC',
+        respiratoryRate: 'FR',
+        spo2: 'SpO₂',
+        temperature: 'Tax',
+        glucose: 'Glicemia capilar',
+      },
+      units: {
+        bloodPressure: 'mmHg',
+        heartRate: 'bpm',
+        respiratoryRate: 'irpm',
+        spo2: '%',
+        temperature: '°C',
+        glucose: 'mg/dL',
+      },
+      bloodPressurePlaceholder: '120/80',
+      send: 'Enviar',
+      none: 'Não tenho agora',
+      invalid: 'Confira os valores: a PA vai como 120/80 e os outros só com números.',
+    },
+    composer: {
+      answerPlaceholder: 'Ou responda com suas palavras…',
+      complementPlaceholder: 'Acrescente algo ao caso (ex.: resultado de exame)…',
+      waitingPlaceholder: 'Aguarde o plano…',
+      send: 'Enviar',
+      dictate: 'Ditar',
+      stopDictation: 'Parar e transcrever',
+      transcribing: 'Transcrevendo…',
+      offline: 'Sem conexão. Sua mensagem fica no campo até a internet voltar.',
+    },
   },
 
   documents: {

@@ -122,8 +122,8 @@ export default function NewEncounterPage() {
         body,
       );
       const captureUrl = demoPreset
-        ? `/encounters/${response.id}/capture?demoCase=${demoPreset.slug}`
-        : `/encounters/${response.id}/capture`;
+        ? `/encounters/${response.id}/conversation?demoCase=${demoPreset.slug}`
+        : `/encounters/${response.id}/conversation`;
       router.push(captureUrl);
     } catch (err) {
       if (err instanceof ApiError) {

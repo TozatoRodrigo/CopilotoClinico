@@ -18,7 +18,10 @@ import type {
   AudioCapture,
   Document as DocumentRecord,
   AiInteraction,
+  CaseIntake,
   AuditLog,
+  RecommendationDecision,
+  CopilotFeedback,
 } from '@prisma/client';
 
 /**
@@ -49,6 +52,12 @@ export interface PhysicianDataExport {
     audioCaptures: ExportedAudioCapture[];
     documents: DocumentRecord[];
     aiInteractions: AiInteraction[];
+    /** ADR-014 — conversas antes do plano (caso e respostas já redigidos). */
+    caseIntakes: CaseIntake[];
+    /** F0-D — Adotar/Rejeitar/Anotar por recomendação (notas já mascaradas). */
+    recommendationDecisions: RecommendationDecision[];
+    /** F0-D — reportes do médico sobre análises (comentário já mascarado). */
+    copilotFeedback: CopilotFeedback[];
     consents: Consent[];
     auditLog: AuditLog[];
   };
@@ -58,6 +67,8 @@ export interface ErasureResult {
   status: 'completed';
   estimatedCompletion: Date;
   erased: {
+    recommendationDecisions: number;
+    copilotFeedback: number;
     encounters: number;
     encounterAttachments: number;
     audioCaptures: number;
@@ -201,24 +212,37 @@ export class LgpdService {
     const hasEncounters = encounterIds.length > 0;
     const ofEncounters = { encounterId: { in: encounterIds } };
 
-    const [documents, consents, auditLog, aiInteractions, encounterAttachments, audioCaptures] =
-      await Promise.all([
-        this.prisma.document.findMany({ where: { physicianId } }),
-        this.prisma.consent.findMany({ where: { physicianId } }),
-        this.prisma.auditLog.findMany({ where: { actorId: physicianId } }),
-        hasEncounters
-          ? this.prisma.aiInteraction.findMany({ where: ofEncounters })
-          : Promise.resolve([]),
-        hasEncounters
-          ? this.prisma.encounterAttachment.findMany({ where: ofEncounters })
-          : Promise.resolve([]),
-        hasEncounters
-          ? this.prisma.audioCapture.findMany({
-              where: ofEncounters,
-              omit: { encryptedContent: true },
-            })
-          : Promise.resolve([]),
-      ]);
+    const [
+      documents,
+      consents,
+      auditLog,
+      aiInteractions,
+      recommendationDecisions,
+      copilotFeedback,
+      caseIntakes,
+      encounterAttachments,
+      audioCaptures,
+    ] = await Promise.all([
+      this.prisma.document.findMany({ where: { physicianId } }),
+      this.prisma.consent.findMany({ where: { physicianId } }),
+      this.prisma.auditLog.findMany({ where: { actorId: physicianId } }),
+      hasEncounters
+        ? this.prisma.aiInteraction.findMany({ where: ofEncounters })
+        : Promise.resolve([]),
+      this.prisma.recommendationDecision.findMany({ where: { physicianId } }),
+      this.prisma.copilotFeedback.findMany({ where: { physicianId } }),
+      // ADR-014 — a conversa antes do plano (caso e respostas já redigidos).
+      this.prisma.caseIntake.findMany({ where: { physicianId } }),
+      hasEncounters
+        ? this.prisma.encounterAttachment.findMany({ where: ofEncounters })
+        : Promise.resolve([]),
+      hasEncounters
+        ? this.prisma.audioCapture.findMany({
+            where: ofEncounters,
+            omit: { encryptedContent: true },
+          })
+        : Promise.resolve([]),
+    ]);
 
     return {
       exportVersion: 'lgpd-portability-v1',
@@ -234,6 +258,9 @@ export class LgpdService {
         audioCaptures,
         documents,
         aiInteractions,
+        caseIntakes,
+        recommendationDecisions,
+        copilotFeedback,
         consents,
         auditLog,
       },
@@ -256,10 +283,16 @@ export class LgpdService {
     const storageObjects = await this.eraseDocumentPdfs(physicianId);
 
     const erasedRows = await this.prisma.$transaction(async (tx) => {
-      // Anexos e capturas de áudio cairiam na cascata do Encounter de qualquer
-      // forma; apagá-los explicitamente dá a contagem que vai para a resposta e
-      // para a trilha de auditoria. Nenhum dos dois tem objeto no storage: o
-      // anexo guarda só o texto mascarado e o áudio fica cifrado na própria linha.
+      // F0-D — o CASCADE de encounters já levaria decisões e feedback junto;
+      // apagar explicitamente deixa a contagem no relatório de eliminação.
+      const recommendationDecisions = await tx.recommendationDecision.deleteMany({
+        where: { physicianId },
+      });
+      const copilotFeedback = await tx.copilotFeedback.deleteMany({ where: { physicianId } });
+      // Anexos e capturas de áudio também cairiam na cascata do Encounter;
+      // apagá-los explicitamente dá a contagem que vai para a resposta e para a
+      // trilha de auditoria. Nenhum dos dois tem objeto no storage: o anexo
+      // guarda só o texto mascarado e o áudio fica cifrado na própria linha.
       const encounterAttachments = await tx.encounterAttachment.deleteMany({
         where: { encounter: { physicianId } },
       });
@@ -280,6 +313,8 @@ export class LgpdService {
       });
 
       return {
+        recommendationDecisions: recommendationDecisions.count,
+        copilotFeedback: copilotFeedback.count,
         encounters: encounters.count,
         encounterAttachments: encounterAttachments.count,
         audioCaptures: audioCaptures.count,

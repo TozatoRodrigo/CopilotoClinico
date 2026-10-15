@@ -1,0 +1,149 @@
+{
+  "schemaVersion": 2,
+  "id": "rv-2024-2-est-7",
+  "title": "Jovem de 22 anos com dor abdominal em quadrante superior esquerdo na emergência",
+  "tags": [
+    "dor-abdominal",
+    "revalida",
+    "pep",
+    "trauma",
+    "desatualizado"
+  ],
+  "critical": true,
+  "goldSource": "revalida_pep",
+  "review": {
+    "status": "official_exam_key"
+  },
+  "input": {
+    "caseText": "Emergência de hospital terciário (US/FAST, laboratório, centro cirúrgico, UTI; TC em manutenção). Masc, 22a, pedreiro. Dor moderada no lado superior esquerdo do abdome, com fraqueza e tontura. Há 2 d uma pia de concreto caiu sobre seu abdome; piora nas últimas 24 h. À chegada: taquicardia, pulso fino, palidez e hipotensão (sem valores registrados). EF: REG, orientado, palidez de mucosas, sem cianose, enchimento capilar lentificado, pulso rápido mas palpável; ACV sem alterações; MV presente, pouco diminuído na base E. Abdome: leve distensão; dor difusa, mais intensa no QSE, sem sinais de irritação peritoneal; macicez no QSE; RHA normoativos. Lab: Hb 8,7, Ht 25%, leucograma normal, amilase 76, lipase 30; gasometria arterial pH 7,36, PaCO2 30, PaO2 80, HCO3 19; lactato 2. FAST: líquido livre no QSD estendendo-se ao flanco, sem hematoma hepático; líquido junto à loja esplênica com hematoma subcapsular, cápsula esplênica espessada e irregular; grande quantidade de líquido livre na pelve.",
+    "funnel": {
+      "opening": "Emergência de hospital terciário (US/FAST, laboratório, centro cirúrgico, UTI; TC em manutenção). Masc, 22a, com dor abdominal em quadrante superior esquerdo.",
+      "script": [
+        {
+          "id": "h-identificacao",
+          "kind": "history",
+          "text": "Tem 22 anos e trabalha como pedreiro."
+        },
+        {
+          "id": "h-dor",
+          "kind": "history",
+          "text": "Sente dor moderada no lado superior esquerdo do abdome, além de fraqueza e tontura."
+        },
+        {
+          "id": "h-trauma",
+          "kind": "history",
+          "text": "Uma pia de concreto caiu sobre o seu abdome há 2 dias; nas últimas 24 horas os sintomas pioraram.",
+          "key": true
+        },
+        {
+          "id": "e-chegada",
+          "kind": "exam",
+          "text": "À chegada na emergência: taquicardia, pulso fino, palidez e hipotensão (sem valores registrados)."
+        },
+        {
+          "id": "e-geral",
+          "kind": "exam",
+          "text": "REG, orientado, palidez de mucosas, sem cianose, enchimento capilar lentificado, pulso rápido mas palpável; ACV sem alterações; MV presente, pouco diminuído na base esquerda."
+        },
+        {
+          "id": "e-abdome",
+          "kind": "exam",
+          "text": "Leve distensão abdominal; dor difusa, mais intensa no QSE, sem sinais de irritação peritoneal; macicez no QSE; ruídos intestinais normoativos."
+        },
+        {
+          "id": "t-laboratorio",
+          "kind": "test",
+          "text": "Hb 8,7, Ht 25%, leucograma sem alterações, amilase 76, lipase 30; gasometria arterial pH 7,36, PaCO2 30, PaO2 80, HCO3 19; lactato 2."
+        },
+        {
+          "id": "t-fast",
+          "kind": "test",
+          "text": "FAST: líquido livre no QSD estendendo-se ao flanco, sem hematoma hepático; líquido junto à loja esplênica com hematoma subcapsular, cápsula esplênica espessada e irregular; grande quantidade de líquido livre na pelve.",
+          "key": true
+        }
+      ]
+    }
+  },
+  "expected": {
+    "syndrome": "choque hipovolêmico/abdome agudo hemorrágico por trauma abdominal fechado com lesão esplênica",
+    "diagnoses": [
+      {
+        "text": "choque hipovolêmico/abdome agudo hemorrágico por trauma abdominal fechado, com lesão esplênica (ruptura esplênica em dois tempos)",
+        "tier": "critical"
+      },
+      {
+        "text": "FAST com hemoperitônio volumoso e hematoma subcapsular esplênico",
+        "tier": "important"
+      }
+    ],
+    "actions": [
+      {
+        "text": "tratar o choque imediatamente: reposição volêmica com cristaloide (SF ou Ringer), restritiva, e/ou hemocomponentes precoces — sem esperar o sangue para começar",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "cirurgia de urgência: laparotomia exploradora/esplenectomia (acionar o cirurgião e o centro cirúrgico já)",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "tipagem sanguínea, prova cruzada/reserva de sangue e transfusão",
+        "tier": "important",
+        "timing": "now"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "hemoderivados-de-imediato",
+        "description": "Esperar o sangue para começar a tratar o choque, sem reposição volêmica inicial (o PEP, item 7, considera inadequado não tratar o choque ou indicar só sangue e hemoderivados de imediato). Hemocomponentes precoces junto com o cristaloide inicial NÃO contam: a diretriz europeia de 2023 recomenda iniciar cristaloide no hipotenso que sangra e hemocomponentes precoces na hemorragia maciça.",
+        "patterns": []
+      }
+    ],
+    "outOfScope": [
+      "apresentar-se e perguntar dados de identificação (item 1)",
+      "anamnese das características da dor e dos sintomas de choque (itens 2 e 3), medida pelo roteiro",
+      "solicitar o exame físico e verbalizar o exame abdominal (itens 4 e 5)"
+    ],
+    "rationale": "Gabarito oficial do INEP (Revalida 2024/2, Estação 7): o PEP pontua a anamnese da dor e dos sintomas de choque, exame abdominal, diagnóstico de choque hipovolêmico/abdome agudo hemorrágico por trauma fechado, cristaloide inicial, Hb/gasometria/lactato/tipagem, FAST, diagnóstico de lesão esplênica, reserva/prova cruzada/transfusão e cirurgia de urgência. No v2, o tratamento do choque aceita cristaloide inicial e/ou hemocomponentes precoces (diretriz europeia de 2023) e a proibição passou a valer só para esperar o sangue sem reposição inicial."
+  },
+  "sources": [
+    {
+      "claim": "Itens 2–5: características da dor — início/duração, tipo, irradiação, intensidade, fatores de piora/melhora; 4 ou mais (1,0); sintomas de choque hipovolêmico — tontura, fraqueza, alteração do nível de consciência, extremidades frias, sede, oligúria, dispneia; 5 ou mais (1,0); solicita exame físico (0,3); exame abdominal identificando dor difusa, mais intensa em QSE, sem irritação peritoneal (1,2).",
+      "title": "Revalida 2024/2 – Habilidades Clínicas – PEP, Estação 7, itens 2–5",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2024_2_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Itens 6–7: diagnóstico clínico de choque hipovolêmico/abdome agudo hemorrágico secundário a trauma abdominal fechado ou contuso (1,0); inicia tratamento do choque com reposição volêmica com SF, Ringer ou cristaloide (1,0) — inadequado não tratar o choque ou indicar reposição de sangue e hemoderivados de imediato.",
+      "title": "Revalida 2024/2 – Habilidades Clínicas – PEP, Estação 7, itens 6–7",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2024_2_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Itens 8–12: solicita, antes de receber o impresso, Hb/Ht ou hemograma, gasometria arterial, lactato e tipagem sanguínea — 3 ou mais (0,7); USG de abdome ou FAST (0,8); diagnóstico final de trauma/lesão esplênica (1,0); prova cruzada, reserva de sangue ou transfusão (0,7); tratamento cirúrgico de urgência — laparotomia exploradora, esplenectomia de urgência ou encaminhamento urgente ao cirurgião, enfatizando a urgência (1,0).",
+      "title": "Revalida 2024/2 – Habilidades Clínicas – PEP, Estação 7, itens 8–12",
+      "publisher": "INEP",
+      "year": 2024,
+      "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2024_2_pep_definitivo.pdf"
+    },
+    {
+      "claim": "Diretriz europeia de sangramento no trauma (6ª ed.): iniciar cristaloide (SF 0,9% ou balanceado) no paciente hipotenso que sangra (R15, 1B) com estratégia de volume restritivo (PAS-alvo 80–90 mmHg até controlar o sangramento, R13); na hemorragia maciça esperada, reanimação inicial com concentrado de hemácias e plasma (razão de ao menos 1:2) ou fibrinogênio (R25, 1C); controle imediato do sangramento e cirurgia de controle de danos no choque hemorrágico (R6 e R19).",
+      "title": "The European guideline on management of major bleeding and coagulopathy following trauma: sixth edition",
+      "publisher": "Critical Care (Task Force for Advanced Bleeding Care in Trauma)",
+      "year": 2023,
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9977110/"
+    }
+  ],
+  "provenance": {
+    "exam": "Revalida/INEP",
+    "edition": "2024/2",
+    "item": "Estação 7",
+    "url": "https://download.inep.gov.br/revalida/provas_e_gabaritos/revalida_2024_2_pep_definitivo.pdf",
+    "originalCaseText": "CENÁRIO DE ATENDIMENTO Nível de atenção: terciária. Tipo de atendimento: urgência e emergência. A unidade apresenta a seguinte infraestrutura: ● Unidade de imagem (ultrassonografia/FAST). Tomografia está em manutenção. ● Laboratório de análises clínicas. ● Centro cirúrgico. ● Unidade de terapia intensiva. DESCRIÇÃO DO CASO Você é o médico de plantão na emergência de um hospital terciário e irá atender um paciente com 22 anos de idade com dor abdominal, em quadrante superior esquerdo (QSE). Nos 10 minutos de duração da Estação, você deverá executar as seguintes tarefas: ● Realizar ANAMNESE e EXAME FÍSICO do paciente, verbalizando as alterações. ● Estabelecer e comunicar hipótese diagnóstica inicial. ● Solicitar e interpretar EXAMES LABORATORIAIS (no máximo QUATRO exames). ● Solicitar e interpretar outros EXAMES COMPLEMENTARES disponíveis na unidade, pertinentes ao caso. ● Estabelecer e comunicar a(s) hipótese(s) diagnóstica(s) definitiva(s) e propor tratamento inicial e definitivo. ATENÇÃO! VOCÊ PODERÁ TOCAR O PACIENTE SOMENTE PARA REALIZAR O EXAME FÍSICO DE ABDOME.",
+    "notes": "Gabarito v2 (11/10/2026): caso completo com o roteiro, os sinais de choque à chegada descritos na síntese, os impressos de exame, o laboratório e o FAST; no afunilamento, o trauma e o FAST são key. A diretriz europeia de sangramento no trauma (6ª ed., 2023, conferida) recomenda cristaloide inicial no hipotenso e hemocomponentes precoces na hemorragia maciça: o item crítico do choque aceita as duas formas e a proibição foi restrita a esperar o sangue sem reposição inicial (descrição reescrita, padrões vazios). Isso resolve o motivo da exclusão do portão, que saiu. | possivelmente desatualizado: o PEP (item 7) pontua reposição com cristaloide e considera inadequado indicar sangue e hemoderivados de imediato no choque hemorrágico; o ATLS 10ª ed. (2018) e a 11ª ed. (2025) recomendam limitar o cristaloide e iniciar hemocomponentes precocemente (reposição balanceada) | A proibição do item 7 foi mantida por fidelidade ao gabarito, com patterns vazios porque o item 11 pontua reserva de sangue/prova cruzada/transfusão. tags[0] segue a queixa de entrada (dor abdominal); a síntese descreve sinais de choque hipovolêmico. Dados sob demanda: Paulo, 22a, pedreiro; dor moderada no lado superior esquerdo do abdome, fraqueza e tontura; uma pia de concreto caiu sobre seu abdome há 2 dias, com piora nas últimas 24 h (síntese: ruptura esplênica em dois tempos). Exame físico geral: REG, orientado, palidez de mucosas, sem cianose, enchimento capilar lentificado, pulso rápido mas palpável, ACV normal, MV pouco diminuído na base E (o impresso não traz PA/FC numéricas; a síntese cita taquicardia, pulso fino, palidez e hipotensão na chegada). Abdome: leve distensão, dor difusa mais intensa em QSE, sem irritação peritoneal, macicez em QSE, RHA normoativos. Laboratório: Hb 8,7, Ht 25%, leucograma normal, amilase 76, lipase 30, gasometria pH 7,36, PaCO2 30, PaO2 80, HCO3 19, lactato 2. FAST: líquido livre peritoneal no QSD estendendo-se ao flanco, líquido junto à loja esplênica com hematoma subcapsular e cápsula espessada e irregular, grande quantidade de líquido na pelve."
+  }
+}

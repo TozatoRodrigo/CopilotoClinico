@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 2,
+  "id": "kb001-lb-002",
+  "title": "Lombalgia com anestesia em sela, retenção urinária e déficit motor",
+  "tags": [
+    "dor-lombar-flanco",
+    "cauda-equina",
+    "kb-001"
+  ],
+  "critical": true,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Lombalgia com anestesia em sela, retenção urinária e déficit motor progressivo."
+  },
+  "expected": {
+    "syndrome": "síndrome da cauda equina / compressão radicular-medular",
+    "diagnoses": [
+      {
+        "text": "compressão de cauda equina (incluindo hérnia volumosa, abscesso epidural, hematoma ou neoplasia)",
+        "tier": "critical"
+      }
+    ],
+    "actions": [
+      {
+        "text": "ressonância magnética de coluna em caráter de urgência",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "avaliação neurocirúrgica/ortopédica de urgência",
+        "tier": "critical",
+        "timing": "now"
+      },
+      {
+        "text": "sondagem vesical (de alívio ou de demora)",
+        "tier": "important",
+        "timing": "now"
+      }
+    ],
+    "questions": [],
+    "forbiddenDefinitiveActions": [
+      {
+        "id": "alta-com-analgesia",
+        "description": "Alta com analgesia e seguimento ambulatorial — atrasa a RM e a descompressão e arrisca sequela esfincteriana e motora permanente",
+        "patterns": []
+      }
+    ],
+    "rationale": "Via nacional de cauda equina (NHS GIRFT 2023): RM de emergência e avaliação cirúrgica sem atraso. Causas de compressão: hérnia, tumor, hematoma e abscesso epidural (ACEP 2022). Febre/imunossupressão/drogas IV, câncer prévio e anticoagulante orientam a etiologia (antibiótico no abscesso, reversão no hematoma), mas não são exigidos no turno 0."
+  },
+  "sources": [
+    {
+      "claim": "Via nacional de suspeita de cauda equina (NHS GIRFT, fev/2023): RM de emergência o mais rápido possível (em até 4 h do pedido, segundo resumos da via) e encaminhamento cirúrgico sem atraso.",
+      "title": "National Suspected Cauda Equina Syndrome Pathway",
+      "publisher": "NHS Getting It Right First Time (GIRFT)",
+      "year": 2023,
+      "url": "https://gettingitrightfirsttime.co.uk/pathway-supports-clinicians-to-diagnose-and-treat-cauda-equina-syndrome-without-delay/"
+    },
+    {
+      "claim": "Causas de compressão incluem hérnia, tumor, hematoma epidural e abscesso epidural.",
+      "title": "Re-evaluating Red Flags for Back Pain",
+      "publisher": "ACEP – Sports Medicine Section",
+      "year": 2022,
+      "url": "https://acep.org/sportsmedicine/newsroom/newsroom-articles/august2022/re-evaluating-red-flags-for-back-pain"
+    }
+  ],
+  "provenance": {
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: caso correto. A sondagem vesical aceita alívio ou demora (exigir \"de alívio\" era estrito). Os dados de etiologia (febre, câncer, anticoagulante) ficaram no rationale, por serem opcionais."
+  }
+}

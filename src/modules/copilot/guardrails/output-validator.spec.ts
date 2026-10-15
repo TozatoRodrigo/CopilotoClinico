@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateOutput, CopilotOutputSchema } from './output-validator';
+import { validateOutput, CopilotOutputSchema, ambiguousSubtypeChunkIds } from './output-validator';
 
 const VALID_CHUNK_IDS = ['chunk-1', 'chunk-2', 'chunk-3'];
 
@@ -159,26 +159,29 @@ describe('validateOutput', () => {
       ['palavra "probabilidade"', 'Alta probabilidade de etiologia vascular dado o perfil.'],
       ['likelihood em inglês', 'High likelihood of aortic dissection given the presentation.'],
       ['razão de chance', 'A chance de ser isso é considerável.'],
-    ])('rejects differential whose text uses %s instead of cannotMiss/timeToHarm', (_label, whyConsider) => {
-      const result = validateOutput(
-        makeValidOutput({
-          differentials: [
-            {
-              hypothesis: 'Dissecção de aorta',
-              whyConsider,
-              whatDistinguishes: 'AngioTC.',
-              cannotMiss: true,
-              timeToHarm: 'minutos',
-            },
-          ],
-        }),
-        VALID_CHUNK_IDS,
-      );
-      expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.startsWith('PROBABILITY LANGUAGE NOT ALLOWED'))).toBe(
-        true,
-      );
-    });
+    ])(
+      'rejects differential whose text uses %s instead of cannotMiss/timeToHarm',
+      (_label, whyConsider) => {
+        const result = validateOutput(
+          makeValidOutput({
+            differentials: [
+              {
+                hypothesis: 'Dissecção de aorta',
+                whyConsider,
+                whatDistinguishes: 'AngioTC.',
+                cannotMiss: true,
+                timeToHarm: 'minutos',
+              },
+            ],
+          }),
+          VALID_CHUNK_IDS,
+        );
+        expect(result.valid).toBe(false);
+        expect(result.errors.some((e) => e.startsWith('PROBABILITY LANGUAGE NOT ALLOWED'))).toBe(
+          true,
+        );
+      },
+    );
 
     it('rejects probability language in hypothesis or whatDistinguishes too, not just whyConsider', () => {
       const inHypothesis = validateOutput(
@@ -405,7 +408,12 @@ describe('validateOutput', () => {
 
   it('CC-02: the DEAD END message is actionable — it tells the model to ask, not just that it failed (contrato com o retry automático)', () => {
     const result = validateOutput(
-      makeValidOutput({ recommendations: [], clarifyingQuestions: [], uncertainty: true, uncertaintyReason: 'x' }),
+      makeValidOutput({
+        recommendations: [],
+        clarifyingQuestions: [],
+        uncertainty: true,
+        uncertaintyReason: 'x',
+      }),
       VALID_CHUNK_IDS,
     );
     const deadEndError = result.errors.find((e) => e.startsWith('DEAD END'));
@@ -526,32 +534,38 @@ describe('validateOutput', () => {
   describe('UX-07: clarifyingQuestions answer-type mismatch', () => {
     it.each([
       ['quais são os valores', 'Quais são os valores de PA, FC, FR, SpO2 e temperatura?'],
-      ['quando + qual (composta)', 'Qual foi o último momento em que o paciente estava bem, e qual é a glicemia capilar?'],
+      [
+        'quando + qual (composta)',
+        'Qual foi o último momento em que o paciente estava bem, e qual é a glicemia capilar?',
+      ],
       ['quantos/quantas', 'Quantos episódios de vômito o paciente teve nas últimas 24h?'],
       ['quem', 'Quem observou o início dos sintomas?'],
       ['onde', 'Onde exatamente é a dor referida?'],
-    ])('rejects a "boolean" question whose text asks %s (an open value, not yes/no)', (_label, question) => {
-      const result = validateOutput(
-        makeValidOutput({
-          clarifyingQuestions: [
-            {
-              id: 'q1',
-              question,
-              why: 'Define estabilidade hemodinâmica',
-              // 'important' (não 'blocker') para não colidir com o refine
-              // pré-existente que exige recomendações preliminares quando
-              // há uma pergunta blocker — irrelevante para este teste.
-              criticality: 'important',
-              expectedAnswerType: 'boolean',
-            },
-          ],
-        }),
-        VALID_CHUNK_IDS,
-      );
-      expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.startsWith('ANSWER TYPE MISMATCH'))).toBe(true);
-      expect(result.errors.join(' ')).toContain(question);
-    });
+    ])(
+      'rejects a "boolean" question whose text asks %s (an open value, not yes/no)',
+      (_label, question) => {
+        const result = validateOutput(
+          makeValidOutput({
+            clarifyingQuestions: [
+              {
+                id: 'q1',
+                question,
+                why: 'Define estabilidade hemodinâmica',
+                // 'important' (não 'blocker') para não colidir com o refine
+                // pré-existente que exige recomendações preliminares quando
+                // há uma pergunta blocker — irrelevante para este teste.
+                criticality: 'important',
+                expectedAnswerType: 'boolean',
+              },
+            ],
+          }),
+          VALID_CHUNK_IDS,
+        );
+        expect(result.valid).toBe(false);
+        expect(result.errors.some((e) => e.startsWith('ANSWER TYPE MISMATCH'))).toBe(true);
+        expect(result.errors.join(' ')).toContain(question);
+      },
+    );
 
     it('accepts the same question text when expectedAnswerType is "text" instead of "boolean"', () => {
       const result = validateOutput(
@@ -861,6 +875,9 @@ describe('validateOutput', () => {
   });
 
   describe('S21-CLIN-01: unresolved subtype ambiguity guardrail', () => {
+    // Fase 0 (10/10/2026): a ambiguidade de subtipo deixou de bloquear a
+    // resposta — vira aviso aqui e rótulo preliminar na contenção do
+    // orquestrador. Ver o comentário S21-CLIN-01 em output-validator.ts.
     // Regressão do caso real de demo: déficit focal flutuante-reversível
     // (padrão de isquemia/AIT) citado contra o chunk de AVC hemorrágico, sem
     // que a alternativa isquêmica fosse sequer mencionada. Ver
@@ -875,7 +892,7 @@ describe('validateOutput', () => {
     // também no guardrail (não relacionado) de "citação sem chunk válido".
     const AVC_CHUNK_IDS = AVC_CHUNKS.map((c) => c.id);
 
-    it('rejects citing only the hemorrhagic subtype when both subtypes were retrieved and the model shows no sign of having considered the alternative', () => {
+    it('does not block, but warns on citing only the hemorrhagic subtype when both subtypes were retrieved and the model shows no sign of having considered the alternative', () => {
       const result = validateOutput(
         makeValidOutput({
           reasoning: 'Paciente com déficit focal agudo, TC com ASPECTS 10.',
@@ -892,8 +909,10 @@ describe('validateOutput', () => {
         AVC_CHUNK_IDS,
         AVC_CHUNKS,
       );
-      expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.startsWith('UNRESOLVED SUBTYPE AMBIGUITY'))).toBe(true);
+      expect(result.valid).toBe(true);
+      expect(
+        (result.warnings ?? []).some((e) => e.startsWith('UNRESOLVED SUBTYPE AMBIGUITY')),
+      ).toBe(true);
     });
 
     it('accepts the same citation when a differential covers the other subtype', () => {
@@ -1007,17 +1026,20 @@ describe('validateOutput', () => {
         chunks.map((c) => c.id),
         chunks,
       );
-      expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.includes('cenario_sintetico'))).toBe(true);
+      expect(result.valid).toBe(true);
+      expect((result.warnings ?? []).some((e) => e.includes('cenario_sintetico'))).toBe(true);
     });
 
     // KB-004 (docs/guidelines/drafts/kb-004-dicotomias-plantao/03-anafilaxia.md
     // e 04-alergia-simples.md) — segunda dicotomia real de conduta oposta,
     // além do caso original de AVC: tratar anafilaxia como alergia simples
     // atrasa a adrenalina IM, e o atraso mata em minutos.
-    it('rejects treating a case as simple allergy without addressing anaphylaxis when both subtypes were retrieved for anafilaxia_urticaria', () => {
+    it('does not block, but warns on treating a case as simple allergy without addressing anaphylaxis when both subtypes were retrieved for anafilaxia_urticaria', () => {
       const chunks = [
-        { id: 'chunk-anafilaxia', metadata: { cenario: 'anafilaxia_urticaria', subtipo: 'anafilaxia' } },
+        {
+          id: 'chunk-anafilaxia',
+          metadata: { cenario: 'anafilaxia_urticaria', subtipo: 'anafilaxia' },
+        },
         {
           id: 'chunk-alergia-simples',
           metadata: { cenario: 'anafilaxia_urticaria', subtipo: 'alergia_simples' },
@@ -1039,9 +1061,171 @@ describe('validateOutput', () => {
         chunks.map((c) => c.id),
         chunks,
       );
-      expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.startsWith('UNRESOLVED SUBTYPE AMBIGUITY'))).toBe(true);
+      expect(result.valid).toBe(true);
+      expect(
+        (result.warnings ?? []).some((e) => e.startsWith('UNRESOLVED SUBTYPE AMBIGUITY')),
+      ).toBe(true);
     });
+
+    // F0-C — antes, QUALQUER diferencial satisfazia a regra: um diferencial
+    // sobre outra coisa liberava a citação silenciosa de um subtipo.
+    describe('F0-C: o subtipo alternativo precisa ser nomeado', () => {
+      const hemorrhagicRecommendation = {
+        action: 'Reverter anticoagulação e controlar PA <150mmHg',
+        rationale: 'Conduta de hemorragia intracraniana',
+        citationChunkId: 'chunk-avc-hemorragico',
+        confidence: 0.8,
+      };
+
+      it('does not block, but warns on a differential that does not name the other subtype', () => {
+        const result = validateOutput(
+          makeValidOutput({
+            reasoning: 'Paciente com déficit focal agudo, TC com ASPECTS 10.',
+            recommendations: [hemorrhagicRecommendation],
+            differentials: [
+              {
+                hypothesis: 'Hipoglicemia',
+                whyConsider: 'Mimetiza déficit focal.',
+                whatDistinguishes: 'Glicemia capilar.',
+                cannotMiss: true,
+                timeToHarm: 'minutos',
+              },
+            ],
+          }),
+          AVC_CHUNK_IDS,
+          AVC_CHUNKS,
+        );
+
+        expect(result.valid).toBe(true);
+        const error = (result.warnings ?? []).find((e) =>
+          e.startsWith('UNRESOLVED SUBTYPE AMBIGUITY'),
+        );
+        expect(error).toContain('"isquemico"');
+      });
+
+      it('accepts the other subtype named in whatDistinguishes, ignoring accents and case', () => {
+        const result = validateOutput(
+          makeValidOutput({
+            reasoning: 'Paciente com déficit focal agudo.',
+            recommendations: [hemorrhagicRecommendation],
+            differentials: [
+              {
+                hypothesis: 'Hipoglicemia',
+                whyConsider: 'Mimetiza déficit focal.',
+                whatDistinguishes: 'TC sem sangue aponta para AVC ISQUÊMICO.',
+                cannotMiss: false,
+              },
+            ],
+          }),
+          AVC_CHUNK_IDS,
+          AVC_CHUNKS,
+        );
+
+        expect(result.valid).toBe(true);
+      });
+
+      it('matches a snake_case subtype written with spaces', () => {
+        const chunks = [
+          {
+            id: 'chunk-anafilaxia',
+            metadata: { cenario: 'anafilaxia_urticaria', subtipo: 'anafilaxia' },
+          },
+          {
+            id: 'chunk-alergia-simples',
+            metadata: { cenario: 'anafilaxia_urticaria', subtipo: 'alergia_simples' },
+          },
+        ];
+
+        const result = validateOutput(
+          makeValidOutput({
+            reasoning: 'Sem envolvimento respiratório ou hemodinâmico: não é alergia simples.',
+            recommendations: [
+              {
+                action: 'Adrenalina IM',
+                rationale: 'Anafilaxia',
+                citationChunkId: 'chunk-anafilaxia',
+                confidence: 0.9,
+              },
+            ],
+            differentials: [],
+          }),
+          chunks.map((c) => c.id),
+          chunks,
+        );
+
+        expect(result.valid).toBe(true);
+      });
+
+      it('requires the whole word: "NSTEMI" does not count as naming "STEMI"', () => {
+        const chunks = [
+          { id: 'chunk-stemi', metadata: { cenario: 'SCA', subtipo: 'STEMI' } },
+          { id: 'chunk-nstemi', metadata: { cenario: 'SCA', subtipo: 'NSTEMI' } },
+        ];
+
+        const result = validateOutput(
+          makeValidOutput({
+            reasoning: 'ECG sem supra; conduzir como NSTEMI.',
+            recommendations: [
+              {
+                action: 'Estratificar risco',
+                rationale: 'SCA sem supra',
+                citationChunkId: 'chunk-nstemi',
+                confidence: 0.8,
+              },
+            ],
+            differentials: [],
+          }),
+          chunks.map((c) => c.id),
+          chunks,
+        );
+
+        expect(result.valid).toBe(true);
+        expect(
+          (result.warnings ?? []).find((e) => e.startsWith('UNRESOLVED SUBTYPE AMBIGUITY')),
+        ).toContain('"STEMI"');
+      });
+
+      it('requires every alternative subtype when the evidence spans three', () => {
+        const chunks = [
+          { id: 'chunk-a', metadata: { cenario: 'cenario_x', subtipo: 'tipo_a' } },
+          { id: 'chunk-b', metadata: { cenario: 'cenario_x', subtipo: 'tipo_b' } },
+          { id: 'chunk-c', metadata: { cenario: 'cenario_x', subtipo: 'tipo_c' } },
+        ];
+
+        const result = validateOutput(
+          makeValidOutput({
+            reasoning: 'Descartado tipo b pelo exame.',
+            recommendations: [
+              { action: 'Conduta A', rationale: 'R', citationChunkId: 'chunk-a', confidence: 0.8 },
+            ],
+            differentials: [],
+          }),
+          chunks.map((c) => c.id),
+          chunks,
+        );
+
+        expect(result.valid).toBe(true);
+        const error = (result.warnings ?? []).find((e) =>
+          e.startsWith('UNRESOLVED SUBTYPE AMBIGUITY'),
+        );
+        expect(error).toContain('"tipo c"');
+        expect(error).not.toContain('"tipo b"');
+      });
+    });
+  });
+});
+
+describe('ambiguousSubtypeChunkIds', () => {
+  it('returns the subtype-specific chunks of scenarios that span at least two subtypes', () => {
+    const ids = ambiguousSubtypeChunkIds([
+      { id: 'avc-i', metadata: { cenario: 'avc_agudo', subtipo: 'isquemico' } },
+      { id: 'avc-h', metadata: { cenario: 'avc_agudo', subtipo: 'hemorragico' } },
+      { id: 'avc-geral', metadata: { cenario: 'avc_agudo' } },
+      { id: 'sepse-choque', metadata: { cenario: 'sepse', subtipo: 'choque_septico' } },
+      { id: 'oficial', metadata: { cenario: null, subtipo: null } },
+    ]);
+
+    expect([...ids].sort()).toEqual(['avc-h', 'avc-i']);
   });
 });
 
@@ -1296,7 +1480,9 @@ describe('validateOutput — recomendação apoiada em anexo do médico', () => 
     const result = validateOutput(outputCitandoAnexo(false), idsComAnexo);
 
     expect(result.valid).toBe(false);
-    expect(result.errors.join(' ')).toContain('ATTACHMENT-BACKED RECOMMENDATION MUST BE PRELIMINARY');
+    expect(result.errors.join(' ')).toContain(
+      'ATTACHMENT-BACKED RECOMMENDATION MUST BE PRELIMINARY',
+    );
   });
 
   it('continua rejeitando id de anexo que não foi realmente anexado', () => {

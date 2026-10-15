@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 2,
+  "id": "kb001-te-001",
+  "title": "Dispneia e dor torácica sem dados de hipotensão, hemoptise ou edema unilateral",
+  "tags": [
+    "dispneia",
+    "tep",
+    "kb-001"
+  ],
+  "critical": true,
+  "goldSource": "kb001_synthetic",
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "F 58a, dispneia e dor torácica há 2 h."
+  },
+  "expected": {
+    "syndrome": "dor torácica aguda com dispneia: diferencial de causas ameaçadoras (SCA, TEP, dissecção de aorta, pneumotórax)",
+    "diagnoses": [
+      {
+        "text": "tromboembolismo pulmonar",
+        "tier": "critical"
+      },
+      {
+        "text": "síndrome coronariana aguda",
+        "tier": "critical"
+      },
+      {
+        "text": "dissecção aguda de aorta",
+        "tier": "critical"
+      },
+      {
+        "text": "pneumotórax (hipertensivo)",
+        "tier": "critical"
+      }
+    ],
+    "actions": [
+      {
+        "text": "ECG de 12 derivações em até 10 minutos",
+        "tier": "critical",
+        "timing": "now"
+      }
+    ],
+    "questions": [
+      "pressão arterial e frequência cardíaca (estabilidade hemodinâmica)",
+      "SpO2",
+      "edema ou dor unilateral em membro inferior",
+      "fatores de risco para TEV (cirurgia ou imobilização recente, TEV prévio, câncer) e hemoptise",
+      "características da dor (pleurítica, opressiva, ou súbita e lancinante com irradiação para o dorso)"
+    ],
+    "forbiddenDefinitiveActions": [],
+    "rationale": "AHA/ACC 2021 (dor torácica): ECG em até 10 min; causas imediatamente ameaçadoras são SCA, TEP, dissecção de aorta, pneumotórax hipertensivo, tamponamento e ruptura esofágica. A dissecção não pode faltar porque a via do TEP leva à anticoagulação empírica (a ESC 2019 admite anticoagular durante a investigação se a probabilidade for alta). Probabilidade pré-teste de TEP por Wells/Genebra (FC, TEV prévio, cirurgia/imobilização, câncer, hemoptise, sinais de TVP)."
+  },
+  "sources": [
+    {
+      "claim": "ECG de 12 derivações em até 10 min da chegada. Causas imediatamente ameaçadoras: SCA, TEP, dissecção de aorta, pneumotórax hipertensivo, tamponamento e ruptura esofágica.",
+      "title": "Chest Pain Evaluation: Updated Guidelines From the AHA/ACC (resumo da diretriz 2021)",
+      "publisher": "AAFP / AHA-ACC",
+      "year": 2023,
+      "url": "https://www.aafp.org/afp/2023/0200/practice-guidelines-chest-pain-evaluation"
+    },
+    {
+      "claim": "Probabilidade clínica por Wells/Genebra (FC, TEV prévio, cirurgia/imobilização, câncer, hemoptise, sinais de TVP); anticoagulação iniciada durante a investigação se a probabilidade for alta ou intermediária.",
+      "title": "2019 ESC Guidelines for the diagnosis and management of acute pulmonary embolism",
+      "publisher": "ESC/ERS (Eur Heart J)",
+      "year": 2019,
+      "url": "https://academic.oup.com/eurheartj/article/41/4/543/5556136"
+    }
+  ],
+  "provenance": {
+    "originalCaseText": "Dispneia e dor torácica sem informação sobre hipotensão, hemoptise ou edema unilateral.",
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: texto reescrito como nota de beira de leito (o original anunciava hipotensão, hemoptise e edema unilateral como ausentes). Síndrome ampliada de \"suspeita de TEP\" para dor torácica com diferencial ameaçador; dissecção de aorta e pneumotórax no cannotMiss; ECG saiu do mustRequest e virou a conduta obrigatória (em até 10 min); FC, fatores de risco para TEV, hemoptise e características da dor no mustRequest."
+  }
+}
