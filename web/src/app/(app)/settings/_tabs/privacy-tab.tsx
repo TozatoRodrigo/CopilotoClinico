@@ -48,11 +48,15 @@ const SCOPE_LABELS: Record<string, { label: string; description: string }> = {
   },
   data_sharing: {
     label: 'Compartilhamento de dados',
-    description: 'Compartilha dados com a instituição de saúde vinculada (quando aplicável).',
+    // CC-014 — nenhum fluxo compartilha dados hoje: o texto não promete o que não existe.
+    description:
+      'Hoje nenhum dado seu vai à instituição de saúde nem a outros terceiros, além dos fornecedores que operam o serviço em nosso nome: modelos de IA, transcrição do ditado, hospedagem e monitoramento de erros. Nada depende deste consentimento por enquanto.',
   },
   analytics: {
     label: 'Analytics',
-    description: 'Coleta métricas de uso anônimas para melhorar o produto.',
+    // CC-014 — aplicado em web/src/hooks/use-analytics-consent.ts.
+    description:
+      'Contagem de visitas por página e de uso das funções, sem cookie e sem texto clínico. Fica ligada até você revogar; revogada, o Copiloto deixa de carregar o contador nos navegadores em que você entrar.',
   },
 };
 
