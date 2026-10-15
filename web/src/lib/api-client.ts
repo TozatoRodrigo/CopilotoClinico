@@ -75,10 +75,14 @@ class ApiClient {
     }
 
     if (!response.ok) {
-      const errorBody = await response.json().catch(() => ({}));
+      const errorBody = (await response.json().catch(() => ({}))) as {
+        message?: string;
+        code?: unknown;
+      };
       throw new ApiError(
         response.status,
-        (errorBody as { message?: string }).message ?? messages.errors.httpError(response.status),
+        errorBody.message ?? messages.errors.httpError(response.status),
+        typeof errorBody.code === "string" ? errorBody.code : undefined,
       );
     }
 
@@ -112,11 +116,17 @@ class ApiClient {
 
 export class ApiError extends Error {
   status: number;
+  /**
+   * `code` do corpo do erro, quando a API manda um (ex.: `BETA_INVITE_REQUIRED`,
+   * CC-702): distingue recusas com o mesmo status sem comparar a mensagem.
+   */
+  code: string | undefined;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, code?: string) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.code = code;
   }
 }
 

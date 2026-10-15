@@ -59,6 +59,10 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_APP_USER}:${POSTGRES_APP_PASSWORD}@copiloto-db:5432/copiloto_clinico?schema=public
       MIGRATION_DATABASE_URL: postgresql://${POSTGRES_OWNER_USER}:${POSTGRES_OWNER_PASSWORD}@copiloto-db:5432/copiloto_clinico?schema=public
       REDIS_URL: redis://copiloto-redis:6379
+      # CC-702 — beta fechado: on = cadastro só com convite (quem não tem entra
+      # na lista de espera). off = cadastro aberto, como antes. Sem repassar
+      # aqui, a troca no .env.production não chega ao container.
+      BETA_INVITE_REQUIRED: ${BETA_INVITE_REQUIRED:-off}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
       JWT_SECRET: ${JWT_SECRET}
