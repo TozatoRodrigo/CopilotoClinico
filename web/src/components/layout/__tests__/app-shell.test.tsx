@@ -153,4 +153,12 @@ describe("AppShell — Ferramentas (ADR-017)", () => {
     );
     expect(screen.getAllByText("qSOFA").length).toBeGreaterThan(0);
   });
+
+  it("mostra o nome da ferramenta portada na trilha (via aérea)", () => {
+    vi.stubEnv("NEXT_PUBLIC_FERRAMENTAS", "on");
+    pathname.current = "/ferramentas/via-aerea";
+    renderShell();
+
+    expect(screen.getAllByText("Intubação e via aérea difícil").length).toBeGreaterThan(0);
+  });
 });
