@@ -237,6 +237,8 @@ const SourceSchema = z
   })
   .strict();
 
+const FEEDBACK_ORIGIN = /^feedback:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
 /** De onde o caso veio e o que mudou nele. */
 const ProvenanceSchema = z
   .object({
@@ -251,6 +253,14 @@ const ProvenanceSchema = z
     originalCaseText: nonEmptyText.optional(),
     /** O que mudou no caso e por quê. */
     notes: nonEmptyText.optional(),
+    /**
+     * CC-703 — de onde o caso nasceu dentro do sistema: `feedback:<id>` é o
+     * reporte da fila de triagem que gerou o rascunho.
+     */
+    origin: z
+      .string()
+      .regex(FEEDBACK_ORIGIN, 'origem no formato "feedback:<uuid do reporte>"')
+      .optional(),
   })
   .strict();
 

@@ -12,6 +12,7 @@ import type {
   AuditLog,
   RecommendationDecision,
   CopilotFeedback,
+  KnowledgeGap,
 } from '@prisma/client';
 
 export interface PhysicianDataExport {
@@ -32,6 +33,12 @@ export interface PhysicianDataExport {
     recommendationDecisions: RecommendationDecision[];
     /** F0-D — reportes do médico sobre análises (comentário já mascarado). */
     copilotFeedback: CopilotFeedback[];
+    /**
+     * CC-703 — "não encontrei o que precisava" nas análises do médico (nota
+     * já mascarada). Sem coluna de médico: sai pelas análises dele, e a
+     * eliminação o leva junto, por cascata, com os atendimentos.
+     */
+    knowledgeGaps: KnowledgeGap[];
     consents: Consent[];
     auditLog: AuditLog[];
   };
@@ -173,6 +180,7 @@ export class LgpdService {
       recommendationDecisions,
       copilotFeedback,
       caseIntakes,
+      knowledgeGaps,
     ] = await Promise.all([
       this.prisma.document.findMany({ where: { physicianId } }),
       this.prisma.consent.findMany({ where: { physicianId } }),
@@ -186,6 +194,9 @@ export class LgpdService {
       this.prisma.copilotFeedback.findMany({ where: { physicianId } }),
       // ADR-014 — a conversa antes do plano (caso e respostas já redigidos).
       this.prisma.caseIntake.findMany({ where: { physicianId } }),
+      this.prisma.knowledgeGap.findMany({
+        where: { interaction: { encounter: { physicianId } } },
+      }),
     ]);
 
     return {
@@ -203,6 +214,7 @@ export class LgpdService {
         caseIntakes,
         recommendationDecisions,
         copilotFeedback,
+        knowledgeGaps,
         consents,
         auditLog,
       },

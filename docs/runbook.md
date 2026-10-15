@@ -431,6 +431,44 @@ importa na triagem:
 | `kind=wrong_scenario` com `coverage=partial`/`none` | A base não cobre o cenário — problema de curadoria, vira pacote KB novo |
 | `kind=helpful` | Contraste positivo, necessário para calibrar o piso de relevância |
 
+### Feedback que vira caso do gabarito e "não encontrei" (CC-703)
+
+Na triagem (`/admin/feedback`), "Virou caso do gabarito" marca o reporte e já
+baixa o rascunho do caso, `campo-<8 primeiros do id>.json`; "Baixar rascunho do
+caso" baixa de novo a qualquer momento. O servidor monta o rascunho
+(`GET /v1/admin/copilot-feedback/:id/eval-case-draft`, papel
+COMPLIANCE/ADMIN e curador): formato v2 do gabarito, texto que o modelo leu
+naquela rodada (caso e respostas) passado de novo pela máscara, expectativas
+vazias, `provenance.origin = feedback:<id>` e o que é do curador marcado
+`A PREENCHER`. Cada download fica na trilha como
+`COPILOT_FEEDBACK_EVAL_CASE_EXPORTED` (só o id do rascunho) e no log como
+`EVAL_CASE_DRAFT_EXPORTED`.
+
+A API não escreve no repositório. O curador salva o arquivo em
+`evals/clinical/cases/`, preenche o que está marcado (ver
+`docs/evals/gabarito-clinico.md`, "Caso novo") e abre o PR. O teste do
+gabarito recusa arquivo com `A PREENCHER` ou com a tag `a-preencher`.
+
+O botão "Não encontrei o que precisava", sob a análise, grava uma lacuna em
+`knowledge_gaps` (não entra na fila de triagem): a síndrome de PS e as consultas
+da busca dirigida que o entendimento registrou, e a frase opcional do médico
+(até 280 caracteres, mascarada). Nunca o texto do caso. Uma por análise: tocar
+de novo atualiza a nota. No log: `KNOWLEDGE_GAP_RECORDED`. É a entrada da
+fila de cartões (CC-409) e do painel do beta (CC-705).
+
+```sql
+-- Lacunas da semana por síndrome, com as consultas mais repetidas
+SELECT coalesce(g.syndrome, '(sem entendimento)') AS syndrome, count(DISTINCT g.id) AS gaps,
+       (array_agg(DISTINCT q.query))[1:5] AS sample_queries
+FROM knowledge_gaps g LEFT JOIN LATERAL unnest(g.search_queries) AS q(query) ON true
+WHERE g.created_at > now() - interval '7 days'
+GROUP BY 1 ORDER BY gaps DESC;
+
+-- O que os médicos disseram que faltou
+SELECT created_at, syndrome, note FROM knowledge_gaps
+WHERE note IS NOT NULL ORDER BY created_at DESC LIMIT 50;
+```
+
 ### Triar sugestões de diretriz enviadas por médicos (F4)
 
 Qualquer médico autenticado pode enviar material pela tela de Diretrizes
@@ -925,6 +963,7 @@ apenas na resposta. Acesso a um protocolo de outra instituição retorna `404`
 | `20260924180000_f9_guideline_chunks_text_tsv_generated` | `guideline_chunks.text_tsv` vira coluna gerada + índice GIN — liga a busca lexical (ver "Busca lexical (`text_tsv`) — F9") |
 | `20260924220000_ivfflat_probes_exact` | `ivfflat.probes = 100` no banco: busca vetorial exata (incidente de 24/09/2026) |
 | `20261012180000_aud_007_audit_log_hash_version` | `audit_log.hash_version` (NULL = hash legado, 2 = JSON canônico) — ADR-015; só adiciona coluna nula |
+| `20261014180000_cc_703_knowledge_gaps` | Tabela `knowledge_gaps` (registro de lacunas, CC-703); só cria tabela e tipo, sem tocar nas existentes |
 
 ### Rollback de Migration
 
