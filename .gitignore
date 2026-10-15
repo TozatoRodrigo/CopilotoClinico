@@ -41,3 +41,7 @@ coverage/
 evals/clinical/runs/
 evals/deid/out/
 evals/clinical/variants.json
+
+# CC-205 — ditados (áudio é dado sensível) e relatórios da transcrição
+evals/transcription/audio-local/
+evals/transcription/out/
