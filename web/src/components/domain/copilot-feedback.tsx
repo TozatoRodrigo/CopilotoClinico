@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useCopilotFeedback, useReportKnowledgeGap } from '@/lib/clinical-queries';
+import { trackEvent } from '@/lib/analytics';
 import { ApiError } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import type { CopilotFeedbackKind } from '@/lib/types';
@@ -73,6 +74,7 @@ export function CopilotFeedback({ encounterId, interactionId, className }: Copil
   async function send(kind: CopilotFeedbackKind, text?: string) {
     try {
       await feedback.mutateAsync({ interactionId, kind, comment: text?.trim() || undefined });
+      trackEvent('feedback_enviado', { tipo: kind });
       setSent(true);
       setSelected(null);
       setComment('');
@@ -85,8 +87,11 @@ export function CopilotFeedback({ encounterId, interactionId, className }: Copil
   }
 
   async function sendGap() {
+    const note = gapNote.trim() || undefined;
     try {
-      await knowledgeGap.mutateAsync({ interactionId, note: gapNote.trim() || undefined });
+      await knowledgeGap.mutateAsync({ interactionId, note });
+      // Só se houve nota, nunca o texto dela.
+      trackEvent('nao_encontrei', { com_nota: note !== undefined });
       setGapSent(true);
       setGapOpen(false);
       setGapNote('');

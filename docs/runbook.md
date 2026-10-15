@@ -1022,6 +1022,32 @@ SELECT created_at, stage, served_model, outcome, latency_ms, cost_usd, left(prom
 FROM ai_calls WHERE request_id = '<x-request-id>' ORDER BY created_at;
 ```
 
+### Eventos de produto no Umami (CC-704)
+
+O web manda eventos ao Umami autoalojado (sem cookie) pelo módulo único
+`web/src/lib/analytics.ts`. A lista é fechada e nenhuma propriedade aceita
+texto livre: só valor de lista, número inteiro, sim/não ou id de ferramenta
+(kebab-case curto, nunca UUID). Evento fora da lista não sai. Sem o script do
+Umami (local, CI, e2e) nada é enviado.
+
+| Evento | Propriedades | Quando |
+|---|---|---|
+| `analise_iniciada` | `rodada`: `inicial` \| `reanalise` | Caso enviado; reanálise pedida depois do plano |
+| `analise_concluida` | `rodada`, `duracao_s` (montagem do plano) | Plano entregue nesta tela |
+| `pergunta_respondida` | `fase`: `antes_do_plano` \| `depois_do_plano`; `canal` (antes do plano): `tap` \| `text` \| `voice` | Cada resposta a uma pergunta do Copiloto (a correção do entendimento não conta) |
+| `feedback_enviado` | `tipo`: `wrong_scenario` \| `missing_coverage` \| `wrong_recommendation` \| `helpful` | Reporte sob a análise |
+| `nao_encontrei` | `com_nota`: sim/não | "Não encontrei o que precisava" (CC-703) |
+| `ferramenta_aberta` | `ferramenta` (id), `origem`: `hub` \| `busca` \| `plano` \| `link` | Pronto para a área Ferramentas |
+| `calculo_feito` | `ferramenta` (id) | Pronto para as calculadoras |
+| `cartao_aberto` | `cartao` (id), `origem`: `plano` \| `pergunta_rapida` \| `busca` | Pronto para os cartões; o id precisa ser um slug, o UUID do cartão é recusado |
+| `pergunta_rapida` | `fonte`: `cartao` \| `modelo`, `duracao_s` | Pronto para a pergunta rápida |
+
+A URL que o Umami anexa ao evento vai como rota, sem id e sem query
+(`/encounters/:id/conversation`). O pageview automático do script continua com
+a URL completa da página. Evento novo: acrescente em `PRODUCT_EVENTS` (o teste
+`web/src/lib/__tests__/analytics.test.ts` confere que nenhuma propriedade
+aceita texto livre) e nesta tabela.
+
 ### Logs de nível ERROR que exigem atenção imediata
 
 | Log | Causa | Ação |

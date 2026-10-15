@@ -6,6 +6,7 @@ import { CopilotFeedback } from "../copilot-feedback";
 const mutateAsync = vi.fn();
 const reportGap = vi.fn();
 const toastError = vi.fn();
+const trackEvent = vi.fn();
 
 vi.mock("@/lib/clinical-queries", () => ({
   useCopilotFeedback: () => ({ mutateAsync, isPending: false }),
@@ -13,6 +14,8 @@ vi.mock("@/lib/clinical-queries", () => ({
 }));
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: (...args: unknown[]) => toastError(...args) } }));
+
+vi.mock("@/lib/analytics", () => ({ trackEvent: (...args: unknown[]) => trackEvent(...args) }));
 
 /**
  * F7 — o botão existe para que um erro clínico chegue com o rastro técnico
@@ -58,6 +61,9 @@ describe("CopilotFeedback", () => {
         comment: "Era dengue, foi para sepse.",
       }),
     );
+    // CC-704 — o tipo do reporte vai para o Umami; o comentário, nunca.
+    expect(trackEvent).toHaveBeenCalledWith("feedback_enviado", { tipo: "wrong_scenario" });
+    expect(JSON.stringify(trackEvent.mock.calls)).not.toContain("dengue");
   });
 
   it("confirma o registro e não deixa o médico reenviar o mesmo reporte", async () => {
@@ -94,6 +100,8 @@ describe("CopilotFeedback", () => {
       );
       expect(mutateAsync).not.toHaveBeenCalled();
       expect(await screen.findByText(/O que faltou entra na lista/i)).toBeInTheDocument();
+      expect(trackEvent).toHaveBeenCalledWith("nao_encontrei", { com_nota: true });
+      expect(JSON.stringify(trackEvent.mock.calls)).not.toContain("ceftriaxona");
       expect(
         screen.queryByRole("button", { name: /Não encontrei o que precisava/i }),
       ).not.toBeInTheDocument();
@@ -109,6 +117,7 @@ describe("CopilotFeedback", () => {
       await waitFor(() =>
         expect(reportGap).toHaveBeenCalledWith({ interactionId: "int-1", note: undefined }),
       );
+      expect(trackEvent).toHaveBeenCalledWith("nao_encontrei", { com_nota: false });
     });
 
     it("limita a frase ao teto do contrato", async () => {
@@ -145,6 +154,7 @@ describe("CopilotFeedback", () => {
 
       await waitFor(() => expect(toastError).toHaveBeenCalled());
       expect(screen.getByRole("textbox", { name: "O que faltou (opcional)" })).toBeInTheDocument();
+      expect(trackEvent).not.toHaveBeenCalled();
     });
   });
 });
