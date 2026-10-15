@@ -151,6 +151,11 @@ services:
       # trecho na verificação com fonte (COPILOT_KNOWLEDGE_SOURCE=verify).
       # Mesmo motivo das linhas acima; padrão igual ao do código.
       AI_VERIFY_ATTACH_MODEL: ${AI_VERIFY_ATTACH_MODEL:-claude-sonnet-5-5}
+      # CC-005 — alertas de custo do dia e de p95 da decisão (runbook,
+      # "Alertas de custo e latência da IA"). Vazio = desligado. Mesmo motivo
+      # das linhas acima: sem repassar aqui, o .env.production não chega.
+      AI_DAILY_COST_ALERT_USD: ${AI_DAILY_COST_ALERT_USD:-}
+      AI_P95_ALERT_MS: ${AI_P95_ALERT_MS:-}
       THROTTLER_TTL: ${THROTTLER_TTL:-60000}
       THROTTLER_LIMIT: ${THROTTLER_LIMIT:-600}
       FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY}
