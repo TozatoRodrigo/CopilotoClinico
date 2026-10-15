@@ -5,6 +5,7 @@ import { consentScopes, type ConsentScope } from './schemas/lgpd.schemas';
 import type {
   Physician,
   Consent,
+  LegalDocument,
   Encounter,
   Document as DocumentRecord,
   AiInteraction,
@@ -33,6 +34,14 @@ export interface PhysicianDataExport {
     /** F0-D — reportes do médico sobre análises (comentário já mascarado). */
     copilotFeedback: CopilotFeedback[];
     consents: Consent[];
+    /** CC-905 — versões dos termos e da política que o médico aceitou, e quando. */
+    legalAcceptances: Array<{
+      acceptedAt: Date;
+      document: Pick<
+        LegalDocument,
+        'type' | 'version' | 'contentHash' | 'provisional' | 'publishedAt'
+      >;
+    }>;
     auditLog: AuditLog[];
   };
 }
@@ -168,6 +177,7 @@ export class LgpdService {
     const [
       documents,
       consents,
+      legalAcceptances,
       auditLog,
       aiInteractions,
       recommendationDecisions,
@@ -176,6 +186,22 @@ export class LgpdService {
     ] = await Promise.all([
       this.prisma.document.findMany({ where: { physicianId } }),
       this.prisma.consent.findMany({ where: { physicianId } }),
+      this.prisma.legalAcceptance.findMany({
+        where: { physicianId },
+        orderBy: { acceptedAt: 'asc' },
+        select: {
+          acceptedAt: true,
+          document: {
+            select: {
+              type: true,
+              version: true,
+              contentHash: true,
+              provisional: true,
+              publishedAt: true,
+            },
+          },
+        },
+      }),
       this.prisma.auditLog.findMany({ where: { actorId: physicianId } }),
       encounterIds.length > 0
         ? this.prisma.aiInteraction.findMany({
@@ -204,6 +230,7 @@ export class LgpdService {
         recommendationDecisions,
         copilotFeedback,
         consents,
+        legalAcceptances,
         auditLog,
       },
     };
@@ -217,6 +244,7 @@ export class LgpdService {
       copilotFeedback: number;
       encounters: number;
       consents: number;
+      legalAcceptances: number;
       refreshTokens: number;
     };
   }> {
@@ -237,6 +265,8 @@ export class LgpdService {
       const copilotFeedback = await tx.copilotFeedback.deleteMany({ where: { physicianId } });
       const encounters = await tx.encounter.deleteMany({ where: { physicianId } });
       const consents = await tx.consent.deleteMany({ where: { physicianId } });
+      // CC-905 — o aceite sai com a conta; o evento continua na trilha.
+      const legalAcceptances = await tx.legalAcceptance.deleteMany({ where: { physicianId } });
       const refreshTokens = await tx.refreshToken.deleteMany({ where: { physicianId } });
 
       await tx.physician.update({
@@ -253,6 +283,7 @@ export class LgpdService {
         copilotFeedback: copilotFeedback.count,
         encounters: encounters.count,
         consents: consents.count,
+        legalAcceptances: legalAcceptances.count,
         refreshTokens: refreshTokens.count,
       };
     });

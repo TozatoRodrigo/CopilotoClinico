@@ -13,6 +13,7 @@ import { DocumentsModule } from './modules/documents/documents.module';
 import { EncountersModule } from './modules/encounters/encounters.module';
 import { CopilotModule } from './modules/copilot/copilot.module';
 import { LgpdModule } from './modules/lgpd/lgpd.module';
+import { LegalModule } from './modules/legal/legal.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { GuidelinesModule } from './modules/guidelines/guidelines.module';
 import { ProtocolsModule } from './modules/protocols/protocols.module';
@@ -25,6 +26,7 @@ import { StorageModule } from './modules/storage/storage.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { PiiLogSanitizerInterceptor } from './shared/interceptors/pii-log-sanitizer.interceptor';
 import { RequestContextInterceptor } from './shared/request-context/request-context.interceptor';
+import { LegalTermsGateInterceptor } from './modules/legal/legal-terms-gate.interceptor';
 
 @Module({
   imports: [
@@ -47,6 +49,7 @@ import { RequestContextInterceptor } from './shared/request-context/request-cont
     InstitutionsModule,
     AuditModule,
     LgpdModule,
+    LegalModule,
     PhysiciansModule,
     ObservabilityModule,
     AudioModule,
@@ -66,6 +69,11 @@ import { RequestContextInterceptor } from './shared/request-context/request-cont
     {
       provide: APP_INTERCEPTOR,
       useClass: PiiLogSanitizerInterceptor,
+    },
+    // CC-905 — depois do contexto da requisição: o 428 também leva x-request-id.
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: LegalTermsGateInterceptor,
     },
   ],
 })

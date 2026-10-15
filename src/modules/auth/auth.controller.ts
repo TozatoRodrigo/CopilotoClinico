@@ -23,6 +23,7 @@ import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { InternalServiceGuard } from '../../shared/guards/internal-service.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
 import { Roles } from '../../shared/decorators/roles.decorator';
+import { AllowWithoutLegalAcceptance } from '../../shared/decorators/legal-acceptance.decorator';
 import {
   registerSchema,
   loginSchema,
@@ -163,6 +164,8 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
+  // CC-905 — quem não aceitou os termos novos precisa conseguir sair.
+  @AllowWithoutLegalAcceptance()
   async logout(
     @Request()
     req: {

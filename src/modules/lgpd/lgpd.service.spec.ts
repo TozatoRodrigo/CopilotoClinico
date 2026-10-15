@@ -46,6 +46,10 @@ describe('LgpdService', () => {
       deleteMany: ReturnType<typeof vi.fn>;
     };
     caseIntake: { findMany: ReturnType<typeof vi.fn> };
+    legalAcceptance: {
+      findMany: ReturnType<typeof vi.fn>;
+      deleteMany: ReturnType<typeof vi.fn>;
+    };
     $transaction: ReturnType<typeof vi.fn>;
   };
   let auditService: {
@@ -93,6 +97,10 @@ describe('LgpdService', () => {
         deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
       caseIntake: { findMany: vi.fn().mockResolvedValue([]) },
+      legalAcceptance: {
+        findMany: vi.fn().mockResolvedValue([]),
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
       $transaction: vi.fn(),
     };
     auditService = {
@@ -370,6 +378,7 @@ describe('LgpdService', () => {
           recommendationDecisions,
           copilotFeedback,
           consents,
+          legalAcceptances: [],
           auditLog,
         },
       });
@@ -384,6 +393,48 @@ describe('LgpdService', () => {
       expect(JSON.stringify(result)).not.toContain('refreshTokens');
       expect(prisma.aiInteraction.findMany).toHaveBeenCalledWith({
         where: { encounterId: { in: ['enc-1'] } },
+      });
+    });
+
+    it('exports which versions of the terms and the privacy policy were accepted (CC-905)', async () => {
+      const legalAcceptances = [
+        {
+          acceptedAt: new Date('2026-10-16T10:00:00.000Z'),
+          document: {
+            type: 'terms_of_use',
+            version: '2026-10-15-v2-provisorio',
+            contentHash: 'a'.repeat(64),
+            provisional: true,
+            publishedAt: new Date('2026-10-15T18:00:00.000Z'),
+          },
+        },
+      ];
+      prisma.physician.findUnique.mockResolvedValue({ id: physicianId, email: 'test@test.com' });
+      prisma.encounter.findMany.mockResolvedValue([]);
+      prisma.document.findMany.mockResolvedValue([]);
+      prisma.consent.findMany.mockResolvedValue([]);
+      prisma.auditLog.findMany.mockResolvedValue([]);
+      prisma.legalAcceptance.findMany.mockResolvedValue(legalAcceptances);
+
+      const result = await service.exportPhysicianData(physicianId);
+
+      expect(result.data.legalAcceptances).toEqual(legalAcceptances);
+      // Só o vínculo e a data: nada de id interno do aceite.
+      expect(prisma.legalAcceptance.findMany).toHaveBeenCalledWith({
+        where: { physicianId },
+        orderBy: { acceptedAt: 'asc' },
+        select: {
+          acceptedAt: true,
+          document: {
+            select: {
+              type: true,
+              version: true,
+              contentHash: true,
+              provisional: true,
+              publishedAt: true,
+            },
+          },
+        },
       });
     });
 
@@ -465,6 +516,7 @@ describe('LgpdService', () => {
       prisma.copilotFeedback.deleteMany.mockResolvedValue({ count: 3 });
       prisma.encounter.deleteMany.mockResolvedValue({ count: 2 });
       prisma.consent.deleteMany.mockResolvedValue({ count: 1 });
+      prisma.legalAcceptance.deleteMany.mockResolvedValue({ count: 2 });
       prisma.refreshToken.deleteMany.mockResolvedValue({ count: 1 });
       prisma.physician.update.mockResolvedValue({
         ...physician,
@@ -494,6 +546,7 @@ describe('LgpdService', () => {
         copilotFeedback: 3,
         encounters: 2,
         consents: 1,
+        legalAcceptances: 2,
         refreshTokens: 1,
       });
       expect(prisma.recommendationDecision.deleteMany).toHaveBeenCalledWith({
@@ -506,6 +559,7 @@ describe('LgpdService', () => {
       expect(prisma.consent.deleteMany).toHaveBeenCalledWith({
         where: { physicianId },
       });
+      expect(prisma.legalAcceptance.deleteMany).toHaveBeenCalledWith({ where: { physicianId } });
       expect(prisma.refreshToken.deleteMany).toHaveBeenCalledWith({
         where: { physicianId },
       });
@@ -529,6 +583,7 @@ describe('LgpdService', () => {
             copilotFeedback: 3,
             encounters: 2,
             consents: 1,
+            legalAcceptances: 2,
             refreshTokens: 1,
           },
         },

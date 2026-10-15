@@ -132,6 +132,7 @@ model Physician {
 
   encounters              Encounter[]
   documents               Document[]
+  legalAcceptances        LegalAcceptance[]
   consents                Consent[]
   refreshTokens           RefreshToken[]
   mfaBackupCodes          MfaBackupCode[]
@@ -597,6 +598,55 @@ model Consent {
 
   @@index([physicianId])
   @@map("consents")
+}
+
+/// CC-905 — versão publicada de um documento legal (termos de uso, política
+/// de privacidade). Imutável: texto novo é versão nova (a role da API só lê e
+/// insere). O texto vem do catálogo versionado no código
+/// (src/modules/legal/legal-document-catalog.ts) e é copiado aqui na
+/// publicação, com o hash, para o aceite apontar sempre para o texto exato
+/// que o médico leu. A vigente de cada tipo é a publicada por último.
+/// `type` é validado na aplicação, como `locale`: um tipo novo (termo do beta,
+/// da mentoria) não exige migração.
+model LegalDocument {
+  id            String   @id @default(uuid()) @db.Uuid
+  type          String   @db.VarChar(40)
+  version       String   @db.VarChar(64)
+  title         String   @db.VarChar(200)
+  /// LegalDocumentSection[] (src/shared/contracts/legal.ts).
+  sections      Json
+  /// O que mudou desde a versão anterior, mostrado na tela de aceite.
+  changeSummary String[] @map("change_summary")
+  /// sha256 (hex) do texto: título e seções (legal-document-hash.ts).
+  contentHash   String   @map("content_hash") @db.Char(64)
+  /// Texto ainda sem parecer jurídico (CC-006): a tela diz isso.
+  provisional   Boolean
+  publishedAt   DateTime @default(now()) @map("published_at")
+  /// Admin que publicou (sem FK, como `triagedBy`).
+  publishedById String   @map("published_by_id") @db.Uuid
+
+  acceptances LegalAcceptance[]
+
+  @@unique([type, version])
+  @@index([type, publishedAt])
+  @@map("legal_documents")
+}
+
+/// CC-905 — aceite de uma versão por um médico: só o vínculo e a data, sem IP
+/// nem navegador. Um por (médico, versão). Entra na exportação LGPD e sai na
+/// eliminação; a trilha de auditoria guarda o evento LEGAL_DOCUMENT_ACCEPTED.
+model LegalAcceptance {
+  id          String   @id @default(uuid()) @db.Uuid
+  physicianId String   @map("physician_id") @db.Uuid
+  documentId  String   @map("document_id") @db.Uuid
+  acceptedAt  DateTime @default(now()) @map("accepted_at")
+
+  physician Physician     @relation(fields: [physicianId], references: [id], onDelete: Cascade)
+  document  LegalDocument @relation(fields: [documentId], references: [id], onDelete: Restrict)
+
+  @@unique([physicianId, documentId])
+  @@index([documentId])
+  @@map("legal_acceptances")
 }
 
 model RefreshToken {
