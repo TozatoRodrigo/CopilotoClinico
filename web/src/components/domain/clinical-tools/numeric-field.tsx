@@ -31,7 +31,7 @@ function visibleError(
 
 export interface NumericFieldProps {
   label: string;
-  /** Unidade sempre visível dentro do campo ("kg", "bpm"). */
+  /** Unidade sempre visível dentro do campo ("kg", "bpm"); vazia em contagem e data. */
   unit: string;
   /** Faixa aceita. Fora dela o campo mostra erro e a conta não roda. */
   range?: Omit<NumericRange, 'unit'>;
@@ -39,6 +39,11 @@ export interface NumericFieldProps {
   onValueChange: (raw: string) => void;
   /** Texto de apoio abaixo do campo; sem ele, mostra a faixa aceita. */
   hint?: ReactNode;
+  /**
+   * Problema que o campo sozinho não vê: a combinação com os outros campos
+   * não fecha (31/02, DUM no futuro). Aparece como erro, sem esperar sair do campo.
+   */
+  issue?: string;
   placeholder?: string;
   id?: string;
   className?: string;
@@ -56,6 +61,7 @@ export function NumericField({
   value,
   onValueChange,
   hint,
+  issue,
   placeholder,
   id,
   className,
@@ -68,7 +74,7 @@ export function NumericField({
 
   const fullRange: NumericRange = { ...(range ?? UNBOUNDED), unit };
   const checked = validateNumber(value, fullRange);
-  const error = visibleError(checked.ok ? null : checked.error, value, left);
+  const error = visibleError(checked.ok ? null : checked.error, value, left)?.message ?? issue;
   const hintText = hint ?? (range ? `Faixa aceita: ${describeRange(fullRange)}.` : null);
   // O erro substitui a dica: as mensagens de faixa já repetem a faixa.
   const showHint = Boolean(hintText) && !error;
@@ -78,8 +84,13 @@ export function NumericField({
     <div data-slot="numeric-field" className={cn('flex flex-col gap-1.5', className)}>
       <label htmlFor={inputId} className="text-[0.8125rem] font-medium text-muted-foreground">
         {label}
-        {/* A unidade visível fica dentro do campo; aqui ela entra no nome acessível. */}{' '}
-        <span className="sr-only">({unit})</span>
+        {/* A unidade visível fica dentro do campo; aqui ela entra no nome acessível. */}
+        {unit ? (
+          <>
+            {' '}
+            <span className="sr-only">({unit})</span>
+          </>
+        ) : null}
       </label>
       <div className="relative">
         <Input
@@ -94,14 +105,19 @@ export function NumericField({
           onBlur={() => setLeft(true)}
           aria-invalid={error ? true : undefined}
           aria-describedby={describedBy || undefined}
-          className="h-11 pr-16 pl-3 text-base font-medium tabular-nums placeholder:font-normal max-sm:h-11 md:text-base"
+          className={cn(
+            'h-11 pl-3 text-base font-medium tabular-nums placeholder:font-normal max-sm:h-11 md:text-base',
+            unit ? 'pr-16' : 'pr-3',
+          )}
         />
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground"
-        >
-          {unit}
-        </span>
+        {unit ? (
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground"
+          >
+            {unit}
+          </span>
+        ) : null}
       </div>
       <div className="flex flex-col gap-0.5">
         {showHint ? (
@@ -111,7 +127,7 @@ export function NumericField({
         ) : null}
         {/* Sempre na árvore: região live que aparece só na hora do erro não é anunciada. */}
         <p id={errorId} aria-live="polite" className="text-xs font-medium text-destructive">
-          {error?.message ?? ''}
+          {error ?? ''}
         </p>
       </div>
     </div>

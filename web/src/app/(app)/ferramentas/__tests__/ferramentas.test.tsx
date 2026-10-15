@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { CALCULATORS } from '@clinical-tools/registry';
 import FerramentasPage from '../page';
 import CalculadorasPage from '../calculadoras/page';
 import FerramentasLayout from '../layout';
@@ -145,12 +146,28 @@ describe('/ferramentas — hub (CC-304)', () => {
 });
 
 describe('/ferramentas/calculadoras', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  it('mostra as calculadoras favoritas no topo, sem as ferramentas favoritas do hub', () => {
+    window.localStorage.setItem(FAVORITES_KEY, JSON.stringify(['calc:qsofa', 'tool:calculadoras']));
+    render(<CalculadorasPage />);
+
+    const favorites = screen.getByRole('region', { name: 'Favoritas' });
+    expect(within(favorites).getAllByRole('link')).toHaveLength(1);
+    expect(within(favorites).getByRole('link', { name: /qSOFA/ })).toHaveAttribute(
+      'href',
+      '/ferramentas/calculadoras/qsofa',
+    );
+  });
+
   it('lista as 75 calculadoras por categoria, com as portadas abrindo', () => {
     render(<CalculadorasPage />);
 
     expect(screen.getAllByRole('region')).toHaveLength(16);
-    expect(screen.getAllByRole('link')).toHaveLength(5);
-    expect(screen.getAllByText('Em breve')).toHaveLength(70);
+    expect(screen.getAllByRole('link')).toHaveLength(CALCULATORS.length);
+    expect(screen.queryAllByText('Em breve')).toHaveLength(75 - CALCULATORS.length);
   });
 });
 
@@ -162,15 +179,50 @@ describe('/ferramentas/calculadoras/[id]', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Faltam 3 respostas');
   });
 
-  it("mostra 'em breve' para a calculadora do catálogo ainda não portada", () => {
-    render(<CalculatorScreen id="nihss" />);
+  it.each([
+    ['grace-score', 'Versão aproximada'],
+    ['apache-ii', 'Versão simplificada'],
+  ])('%s mostra o aviso de versão acima dos campos (CC-307)', (id, title) => {
+    render(<CalculatorScreen id={id} />);
 
-    expect(screen.getByRole('heading', { level: 1, name: 'NIHSS' })).toBeInTheDocument();
-    expect(screen.getByText('Em breve')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Ver calculadoras disponíveis' })).toHaveAttribute(
-      'href',
-      '/ferramentas/calculadoras',
-    );
-    expect(screen.getByRole('note')).toBeInTheDocument();
+    expect(screen.getByText(title)).toBeInTheDocument();
+  });
+
+  it('CIWA-Ar não mostra "Abrir no roteiro" enquanto o roteiro de Toxicologia está em breve (CC-306)', () => {
+    render(<CalculatorScreen id="ciwa-ar" />);
+
+    expect(screen.getByRole('heading', { level: 1, name: 'CIWA-Ar' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Abrir no roteiro/ })).not.toBeInTheDocument();
+  });
+
+  it('CAM-ICU mostra a faixa como resultado, sem número', async () => {
+    render(<CalculatorScreen id="cam-icu" />);
+    for (const legend of [/^Feature 1/, /^Feature 2/, /^Feature 3/, /^Feature 4/]) {
+      const group = screen.getByRole('group', { name: legend });
+      await userEvent.click(within(group).getByRole('radio', { name: /^Presente/ }));
+    }
+
+    const result = screen.getByRole('status');
+    expect(result).toHaveTextContent('CAM-ICU positivo — delirium presente');
+    expect(result).not.toHaveTextContent('pontos');
+  });
+
+  it('DPP: data que não existe marca o campo e não calcula; data válida mostra a DPP', async () => {
+    render(<CalculatorScreen id="dpp-dum" />);
+    const day = screen.getByRole('textbox', { name: 'Dia da DUM' });
+    await userEvent.type(day, '31');
+    await userEvent.type(screen.getByRole('textbox', { name: 'Mês da DUM' }), '2');
+    await userEvent.type(screen.getByRole('textbox', { name: 'Ano da DUM' }), '2026');
+
+    const result = screen.getByRole('status');
+    expect(result).toHaveTextContent('A data 31/02/2026 não existe. Confira o dia e o mês.');
+    expect(day).toBeInvalid();
+
+    await userEvent.clear(day);
+    await userEvent.type(day, '7');
+    await userEvent.clear(screen.getByRole('textbox', { name: 'Mês da DUM' }));
+    await userEvent.type(screen.getByRole('textbox', { name: 'Mês da DUM' }), '1');
+    expect(result).toHaveTextContent('14/10/2026');
+    expect(result).toHaveTextContent('Data provável do parto (Naegele)');
   });
 });

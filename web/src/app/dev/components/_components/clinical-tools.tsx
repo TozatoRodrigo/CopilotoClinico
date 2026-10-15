@@ -3,7 +3,10 @@
 import { useMemo, useState } from 'react';
 import { evaluateCalculator, type CalculatorEvaluation } from '@clinical-tools/calculator';
 import { buildChartNote } from '@clinical-tools/chart-note';
+import { CAM_ICU } from '@clinical-tools/calculators/cam-icu';
 import { CHADSVASC } from '@clinical-tools/calculators/chadsvasc';
+import { CRITERIOS_LIGHT } from '@clinical-tools/calculators/criterios-light';
+import { GRACE_SCORE } from '@clinical-tools/calculators/grace-score';
 import { SHOCK_INDEX } from '@clinical-tools/calculators/shock-index';
 import { CalculatorResult } from '@/components/domain/clinical-tools/calculator-result';
 import { CalculatorView } from '@/components/domain/clinical-tools/calculator-view';
@@ -70,6 +73,14 @@ function FieldsSpecimen() {
   );
 }
 
+/** CC-306: detalhe da mesma conta (Light) e faixa no lugar do número (CAM-ICU). */
+const LIGHT_EXAMPLE = evaluateCalculator(CRITERIOS_LIGHT, {
+  inputs: { prot_lp: '3,5', prot_serum: '6', ldh_lp: '100', ldh_serum: '250', ldh_upper: '250' },
+});
+const CAM_ICU_EXAMPLE = evaluateCalculator(CAM_ICU, {
+  items: { f1: 'sim', f2: 'sim', f3: 'nao', f4: 'sim' },
+});
+
 const SAMPLE_RESULT = toneExample('110', '90');
 const SAMPLE_NOTE =
   SAMPLE_RESULT.status === 'complete' ? buildChartNote(SHOCK_INDEX, SAMPLE_RESULT) : null;
@@ -123,6 +134,23 @@ export function ClinicalToolsSection() {
             <CalculatorResult definition={SHOCK_INDEX} evaluation={toneExample('110', '')} />
           </div>
         </div>
+      </Specimen>
+
+      <Specimen
+        title="Resultado com detalhe e faixa como resultado"
+        note="Resultados secundários da mesma conta aparecem abaixo do valor (critérios de Light). Quando o valor é só um código, o nome da faixa ocupa o lugar do número (CAM-ICU)."
+      >
+        <div className="flex flex-col gap-3">
+          <CalculatorResult definition={CRITERIOS_LIGHT} evaluation={LIGHT_EXAMPLE} />
+          <CalculatorResult definition={CAM_ICU} evaluation={CAM_ICU_EXAMPLE} />
+        </div>
+      </Specimen>
+
+      <Specimen
+        title="Calculadora com aviso de versão"
+        note="GRACE e APACHE II não são a versão oficial: o aviso fica acima dos campos e vai junto no texto do prontuário. Os itens mostram os pontos à direita."
+      >
+        <CalculatorView definition={GRACE_SCORE} />
       </Specimen>
 
       <Specimen

@@ -10,7 +10,11 @@ import { cn } from '@/lib/utils';
 import { RESULT_TONE } from './result-tone';
 
 function pendingMessage(evaluation: Extract<CalculatorEvaluation, { status: 'pending' }>): string {
-  const invalid = Object.keys(evaluation.errors).length;
+  const errors = Object.values(evaluation.errors);
+  // Combinação incoerente (31/02, DUM no futuro): a mensagem diz o que conferir.
+  const inconsistent = errors.find((error) => error.kind === 'inconsistent');
+  if (inconsistent) return inconsistent.message;
+  const invalid = errors.length;
   if (invalid > 0) {
     return invalid === 1
       ? 'Corrija o campo destacado para ver o resultado.'
@@ -29,9 +33,11 @@ export interface CalculatorResultProps {
 }
 
 /**
- * Caixa de resultado (CC-305): valor, faixa no tom do design system e a ação
- * sugerida. Atualiza ao vivo e é anunciada pelo leitor de tela (`status`).
- * Enquanto falta resposta ou há campo inválido, não mostra número nenhum.
+ * Caixa de resultado (CC-305): valor, faixa no tom do design system, os
+ * resultados secundários da mesma conta e a ação sugerida. Atualiza ao vivo e
+ * é anunciada pelo leitor de tela (`status`). Enquanto falta resposta ou há
+ * campo inválido, não mostra número nenhum. Quando a faixa é o resultado
+ * (CAM-ICU, Forrest), o nome da faixa ocupa o lugar do número.
  */
 export function CalculatorResult({ definition, evaluation, className }: CalculatorResultProps) {
   if (evaluation.status === 'pending') {
@@ -52,6 +58,8 @@ export function CalculatorResult({ definition, evaluation, className }: Calculat
   }
 
   const tone = RESULT_TONE[evaluation.band.tone];
+  const ink = tone === 'gray' ? 'text-foreground' : toneInk[tone];
+  const value = formatResultValue(definition, evaluation.value);
   return (
     <div
       role="status"
@@ -62,26 +70,30 @@ export function CalculatorResult({ definition, evaluation, className }: Calculat
       className={cn('flex flex-col gap-2 rounded-lg px-4 py-3', toneBg[tone], className)}
     >
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1.5">
-        <span
-          className={cn(
-            'text-3xl font-semibold tabular-nums',
-            tone === 'gray' ? 'text-foreground' : toneInk[tone],
-          )}
-        >
-          {formatResultValue(definition, evaluation.value)}
-        </span>
-        <span className={cn('rounded-[3px] px-1.5 py-0.5 text-sm font-medium', toneTag[tone])}>
-          {evaluation.band.label}
-        </span>
-      </div>
-      <p
-        className={cn(
-          'text-[0.9375rem] text-pretty',
-          tone === 'gray' ? 'text-foreground' : toneInk[tone],
+        {value === null ? (
+          <span className={cn('text-xl font-semibold text-balance', ink)}>
+            {evaluation.band.label}
+          </span>
+        ) : (
+          <>
+            <span className={cn('text-3xl font-semibold tabular-nums', ink)}>{value}</span>
+            <span className={cn('rounded-[3px] px-1.5 py-0.5 text-sm font-medium', toneTag[tone])}>
+              {evaluation.band.label}
+            </span>
+          </>
         )}
-      >
-        {evaluation.band.action}
-      </p>
+      </div>
+      {evaluation.details.length > 0 ? (
+        <dl className={cn('flex flex-col gap-0.5 text-[0.9375rem]', ink)}>
+          {evaluation.details.map((detail) => (
+            <div key={detail.label} className="flex flex-wrap gap-x-1.5">
+              <dt>{detail.label}:</dt>
+              <dd className="font-medium tabular-nums">{detail.value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+      <p className={cn('text-[0.9375rem] text-pretty', ink)}>{evaluation.band.action}</p>
     </div>
   );
 }

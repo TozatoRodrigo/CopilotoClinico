@@ -1,3 +1,4 @@
+import type { CalculatorDefinition } from './calculator';
 import { CALCULATOR_CATALOG, type CalculatorCatalogEntry } from './calculator-catalog';
 import { getCalculator } from './registry';
 
@@ -206,6 +207,20 @@ export function calculatorStatus(entry: CalculatorCatalogEntry): ToolStatus {
 /** Nome na tela: o da definição portada, quando houver; senão o do catálogo. */
 export function calculatorName(entry: CalculatorCatalogEntry): string {
   return getCalculator(entry.id)?.name ?? entry.name;
+}
+
+/**
+ * Roteiro em que a calculadora também existe no ANY (CIWA-Ar no de
+ * Toxicologia, VTI no de choque). `null` enquanto o roteiro estiver "em breve":
+ * a tela não mostra link que não abre (CC-306).
+ */
+export function calculatorPathway(
+  definition: CalculatorDefinition,
+  tools: readonly ToolEntry[] = TOOLS,
+): ToolEntry | null {
+  if (!definition.pathway) return null;
+  const tool = tools.find(({ id }) => id === definition.pathway?.toolId);
+  return tool?.status === 'disponivel' ? tool : null;
 }
 
 export type ToolSearchResult =

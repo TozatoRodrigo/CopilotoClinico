@@ -1,9 +1,10 @@
 /**
  * Catálogo das 75 calculadoras do ANY App v4 (16 categorias), na ordem de lá.
- * Só nome, categoria e sinônimos: serve à busca e à lista "em breve". A conta
- * de cada uma entra no motor quando for portada (registry.ts), com teste
- * diferencial. tests/clinical-tools/catalog.spec.ts confere esta lista contra
- * a referência congelada.
+ * Só nome, categoria e sinônimos: serve à busca, à lista e às rotas. A conta
+ * de cada uma está no motor (registry.ts), com teste diferencial; entrada sem
+ * definição no registro aparece como "em breve".
+ * tests/clinical-tools/catalog-reference.spec.ts confere esta lista contra a
+ * referência congelada.
  *
  * `id` é o id do ANY sem acento (vira URL); `anyId` é o original.
  */

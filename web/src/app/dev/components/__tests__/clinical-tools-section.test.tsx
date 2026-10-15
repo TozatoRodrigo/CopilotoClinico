@@ -26,6 +26,8 @@ describe('playground — Ferramentas clínicas (CC-305)', () => {
       'Campo numérico e campo de peso',
       'Itens de escore com resultado ao vivo',
       'Caixa de resultado',
+      'Resultado com detalhe e faixa como resultado',
+      'Calculadora com aviso de versão',
       'Copiar para o prontuário',
       'Seção de referência',
       'Calculadora completa',
