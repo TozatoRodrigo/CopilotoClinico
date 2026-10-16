@@ -58,6 +58,25 @@ export function resolveClientIp(req: ClientIpRequest, trustedProxyHops: number):
   return candidate !== undefined && isIP(candidate) !== 0 ? candidate : socketIp;
 }
 
+/** `audit_log.ip` é VARCHAR(45), o tamanho do IPv6 mais longo em texto. */
+const MAX_AUDIT_IP_LENGTH = 45;
+
+/**
+ * CC-026 — IP do cliente para gravar na trilha de auditoria: o mesmo do
+ * limite por IP. Antes a trilha lia `req.ips`, que o Fastify só preenche com
+ * `trustProxy` (desligado na API), e gravava o IP do Traefik.
+ *
+ * Lê `TRUSTED_PROXY_HOPS` a cada chamada; valor inválido cai no padrão (o
+ * aviso sai uma vez, na subida, pelo ThrottlerBehindProxyGuard). Sem IP
+ * válido devolve `undefined` (a coluna aceita NULL): um valor maior que a
+ * coluna derrubaria a gravação, e a trilha perderia o registro.
+ */
+export function clientIpForAudit(req: ClientIpRequest): string | undefined {
+  const { hops } = parseTrustedProxyHops(process.env.TRUSTED_PROXY_HOPS);
+  const ip = resolveClientIp(req, hops);
+  return isIP(ip) !== 0 && ip.length <= MAX_AUDIT_IP_LENGTH ? ip : undefined;
+}
+
 /** O Node junta cabeçalhos repetidos com vírgula, mas o tipo admite array. */
 function forwardedChain(header: string | string[] | undefined): string[] {
   if (header === undefined) return [];

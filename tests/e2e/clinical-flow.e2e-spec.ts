@@ -99,11 +99,11 @@ function buildPrismaMock() {
       ),
     },
 
+    // CC-026 — o contador do login é reservado com UPDATE condicional
+    // (AccountLockoutService): count 1 = tentativa reservada.
     loginSecurityState: {
-      findUnique: vi.fn().mockResolvedValue(null),
-      findFirst: vi.fn().mockResolvedValue(null),
-      upsert: vi.fn().mockResolvedValue({}),
-      update: vi.fn().mockResolvedValue({}),
+      createMany: vi.fn().mockResolvedValue({ count: 1 }),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
 
     refreshToken: {
@@ -995,12 +995,21 @@ describe('CC-018 — LGPD erasure ends the session (E2E)', () => {
       mentoringRequest: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
       encounterAttachment: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
       audioCapture: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
-      encounter: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
+      encounter: {
+        findMany: vi.fn().mockResolvedValue([]),
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
       practiceSite: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
       consent: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
       legalAcceptance: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
       refreshToken: { deleteMany: vi.fn().mockResolvedValue({ count: 1 }) },
       externalIdentity: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
+      // CC-012 — chamadas de IA desvinculadas; MFA, CRM, vínculos e login apagados.
+      aiCall: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
+      mfaBackupCode: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
+      crmVerificationRequest: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
+      physicianInstitution: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
+      loginSecurityState: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
       physician: { update: vi.fn().mockResolvedValue({}) },
     };
     // A trilha da eliminação não é silenciosa: a transação da cadeia de

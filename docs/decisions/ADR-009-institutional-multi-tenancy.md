@@ -196,3 +196,46 @@ vínculo. As exceções são as rotas que já são deles: a curadoria (ADR-008,
 `pending`/`approve`/`reject`/`ingest-review`, com `CuratorGuard`) vê os
 pendentes de todas as instituições, e o catálogo de fontes (`GET /guidelines`)
 passa a exigir COMPLIANCE ou ADMIN — é o console administrativo.
+
+## Adendo — CC-020 (15/10/2026): quem escreve protocolo
+
+O adendo do CC-019 fechou o protocolo de outra instituição, mas qualquer
+médico autenticado ainda criava, publicava ou criava versão nova de protocolo
+**global**. Protocolo publicado vira roteiro que o médico segue no plantão
+(ADR-008 do motor de execução de protocolos): escrever é ato de curadoria
+clínica, não de qualquer usuário.
+
+**Regra.** Criar rascunho (`POST /protocols`), publicar
+(`POST /protocols/:id/publish`) e criar versão nova
+(`POST /protocols/:id/revise`) exigem curador (`is_curator`, ADR-008 da
+revisão de diretrizes) **ou** ADMIN. Sem um dos dois, `403` para qualquer id,
+antes de ler o protocolo (não confirma que ele existe), e nada é gravado. Papel
+e flag são lidos do banco a cada pedido, não do token: tirar a flag vale no
+pedido seguinte. Ler e rodar protocolo continua aberto a todo médico, com o
+filtro do CC-019. A checagem fica em `ProtocolsService`, não num guard, para
+valer em qualquer chamador do serviço.
+
+**Institucional.** Este ADR não tem papel de gestor da instituição, então a
+regra é a mesma do global: curador ou ADMIN. O vínculo ativo do CC-019 continua
+exigido à parte: sem ele, publicar ou revisar o protocolo da instituição é
+`404` e criar nela é `403`, inclusive para ADMIN (papel não amplia o que se vê
+nas rotas do médico). O médico vinculado sem papel lê e roda o protocolo da
+própria instituição, mas não escreve. Se um dia houver gestor por instituição,
+ele entra como mais um caminho em `protocolAuthority`
+(`protocols/protocol-authoring.ts`), restrito à instituição dele.
+
+**Por que curador OU ADMIN, e não E como na curadoria de diretrizes.** As rotas
+de curadoria de diretrizes pedem COMPLIANCE/ADMIN **e** `is_curator`. Para
+protocolo valem os dois caminhos: o curador clínico, que revisa o conteúdo, e
+o ADMIN, que opera a base. COMPLIANCE sem a flag não escreve: auditar não é
+autorar.
+
+**Auditoria.** `PROTOCOL_CREATED`, `PROTOCOL_PUBLISHED` e `PROTOCOL_REVISED`
+ganham `authorizedAs: 'curator' | 'admin'` no payload: o papel que autorizou o
+ato, sem outro dado do médico além do `actorId` de sempre. A recusa não entra
+na trilha (nada mudou); vai para o log como
+`PROTOCOL_WRITE_DENIED action=<create|publish|revise>`, sem identificar o
+médico (rota e IP já estão no log de acesso).
+
+**Web.** O front não tem tela de autoria de protocolo nem botão de publicar ou
+revisar; não há o que esconder. Quando houver, a tela segue a mesma regra.

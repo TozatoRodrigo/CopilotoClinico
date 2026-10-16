@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { Prisma } from '@prisma/client';
-import { CITATION_ORIGINS, PS_SYNDROMES } from '../../shared/contracts/clinical';
+import { CITATION_ORIGINS, PS_SYNDROMES, type PsSyndrome } from '../../shared/contracts/clinical';
 import {
   SHIFT_REVIEW_CONFIDENCES,
   type ShiftReviewConfidence,
@@ -51,14 +51,25 @@ const StoredSourceSchema: z.ZodType<ShiftReviewStoredSource, z.ZodTypeDef, unkno
 
 const SyndromeSchema = z.enum(PS_SYNDROMES).nullable().catch(null);
 
+/** Síndrome gravada na pergunta; fora da lista fechada vira `null`. */
+export function parseSyndrome(syndrome: string | null): PsSyndrome | null {
+  return SyndromeSchema.parse(syndrome);
+}
+
 export function parseOptions(options: Prisma.JsonValue): string[] {
   const parsed = OptionsSchema.safeParse(options);
   return parsed.success ? parsed.data : [];
 }
 
-function sourceView(source: Prisma.JsonValue): ShiftReviewSource {
+/** A fonte gravada na pergunta; `null` se o JSON não tiver a forma esperada. */
+export function parseStoredSource(source: Prisma.JsonValue): ShiftReviewStoredSource | null {
   const parsed = StoredSourceSchema.safeParse(source);
-  if (!parsed.success) {
+  return parsed.success ? parsed.data : null;
+}
+
+function sourceView(source: Prisma.JsonValue): ShiftReviewSource {
+  const stored = parseStoredSource(source);
+  if (!stored) {
     return {
       title: 'Fonte citada na análise',
       version: null,
@@ -67,7 +78,7 @@ function sourceView(source: Prisma.JsonValue): ShiftReviewSource {
       excerpt: '',
     };
   }
-  const { title, version, origin, url, excerpt } = parsed.data;
+  const { title, version, origin, url, excerpt } = stored;
   return { title, version, origin, url, excerpt };
 }
 
@@ -83,7 +94,7 @@ export function questionView(question: QuestionRecord): ShiftReviewQuestionView 
     stem: question.stem,
     options: parseOptions(question.options),
     topic: question.topic,
-    syndrome: SyndromeSchema.parse(question.syndrome),
+    syndrome: parseSyndrome(question.syndrome),
     answer: answered
       ? {
           chosenOption,

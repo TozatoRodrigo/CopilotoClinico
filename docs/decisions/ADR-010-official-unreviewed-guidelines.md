@@ -2,7 +2,7 @@
 
 **Status:** Aceito — a decisão sobre `preliminary` foi alterada pela ADR-012
 **Data:** 2026-09-24
-**Plano:** `docs/plano-fontes-oficiais-pcdt.md`
+**Plano:** `docs/planos/plano-fontes-oficiais-pcdt.md`
 
 ## Contexto
 

@@ -29,6 +29,25 @@ export const MAX_GENERATION_ATTEMPTS = 3;
  */
 export const STALE_GENERATION_MS = 5 * 60_000;
 
+/** CC-802 — respostas para o mapa de calibração sair (critério de aceite). */
+export const CALIBRATION_MAP_MIN_ANSWERS = 20;
+
+/**
+ * CC-802 — respostas para um tema mostrar os quadrantes. Com 1–2 não há
+ * conclusão; com 3 por semana, um tema chega a 3 em poucas semanas.
+ */
+export const CALIBRATION_THEME_MIN_ANSWERS = 3;
+
+/**
+ * CC-802 — teto de respostas lidas para o mapa: as mais recentes (mais de um
+ * ano de revisões), para o mapa mostrar como o médico está, e a leitura ter
+ * custo fixo.
+ */
+export const CALIBRATION_MAP_MAX_ANSWERS = 200;
+
+/** CC-802 — sugestões de estudo por tema. */
+export const MAX_STUDY_SUGGESTIONS_PER_THEME = 3;
+
 /** `COPILOT_SHIFT_REVIEW`: desligada por padrão; typo cai no padrão. */
 export function readShiftReviewEnabled(config: ConfigService): boolean {
   return readBooleanFlag(config, 'COPILOT_SHIFT_REVIEW', false);

@@ -61,6 +61,12 @@ export interface Physician {
   locale?: string;
   // CC-014 — escolhida no onboarding ou no perfil; null até o médico escolher.
   specialty?: PhysicianSpecialty | null;
+  /**
+   * CC-404 — revisor de cartões: vê a fila de revisão (/revisao). Opcional
+   * porque a sessão gravada antes do campo não o tem — some até o próximo
+   * login, e a API é quem decide o acesso.
+   */
+  isCardReviewer?: boolean;
 }
 
 /**

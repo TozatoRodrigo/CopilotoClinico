@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from '../../src/config/prisma.module';
 import { AiGatewayService } from '../../src/modules/ai-gateway/ai-gateway.service';
 import { AuditModule } from '../../src/modules/audit/audit.module';
+import { DeidModule } from '../../src/modules/deid/deid.module';
 import { ConversationService } from '../../src/modules/copilot/intake/conversation.service';
 import { IntakeService } from '../../src/modules/copilot/intake/intake.service';
 import { OrchestratorService } from '../../src/modules/copilot/orchestrator/orchestrator.service';
@@ -47,6 +48,9 @@ export class EvalModule {
         PrismaModule,
         RedisModule,
         AuditModule,
+        // CC-203 — caso, respostas e anexos passam pela de-identificação de
+        // produção (DEID_MODE da variante; padrão regex).
+        DeidModule,
         GuidelinesModule,
       ],
       providers: [

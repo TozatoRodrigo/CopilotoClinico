@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../config/prisma.service';
 import {
   BETA_ACTIVATION_TARGET,
@@ -62,9 +63,31 @@ export class BetaActivationService {
 
   async report(days: number, now: Date = new Date()): Promise<BetaActivationReport> {
     const since = new Date(now.getTime() - days * DAY_MS);
+    const window = await this.reportBetween(since, null, now);
+    return {
+      days,
+      target: BETA_ACTIVATION_TARGET,
+      ...window,
+      generatedAt: now.toISOString(),
+    };
+  }
+
+  /**
+   * Médicos cadastrados a partir de `since` (e antes de `until`, quando há),
+   * com a ativação contada até `now`. O painel semanal (CC-705) pede a coorte
+   * de uma semana.
+   */
+  async reportBetween(
+    since: Date,
+    until: Date | null,
+    now: Date = new Date(),
+  ): Promise<Pick<BetaActivationReport, 'overall' | 'byBatch'>> {
     // As colunas são `timestamp` sem fuso, gravadas em UTC pelo Prisma: o
     // limite vai como texto ISO e é convertido para UTC explicitamente, sem
     // depender do fuso da sessão.
+    const untilFilter = until
+      ? Prisma.sql`AND p.created_at < (${until.toISOString()}::timestamptz AT TIME ZONE 'UTC')`
+      : Prisma.empty;
     const rows = await this.prisma.$queryRaw<ActivationRow[]>`
       SELECT p.id AS physician_id,
              p.created_at,
@@ -77,6 +100,7 @@ export class BetaActivationService {
       LEFT JOIN encounters e ON e.physician_id = p.id
       LEFT JOIN ai_interactions ai ON ai.encounter_id = e.id
       WHERE p.created_at >= (${since.toISOString()}::timestamptz AT TIME ZONE 'UTC')
+        ${untilFilter}
         AND p.role = 'PHYSICIAN'
       GROUP BY p.id, p.created_at, i.batch_label`;
 
@@ -91,12 +115,6 @@ export class BetaActivationService {
       .map(([batchLabel, group]) => ({ batchLabel, ...countActivation(group, now) }))
       .sort((a, b) => b.registered - a.registered);
 
-    return {
-      days,
-      target: BETA_ACTIVATION_TARGET,
-      overall: countActivation(rows, now),
-      byBatch,
-      generatedAt: now.toISOString(),
-    };
+    return { overall: countActivation(rows, now), byBatch };
   }
 }

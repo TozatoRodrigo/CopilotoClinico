@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../config/prisma.service';
 import { USAGE_LIMIT_ERROR_SUFFIX } from '../ai-gateway/ai-call-trace';
 import type {
+  AiCallAnalysisSummary,
   AiCallLatency,
   AiCallReport,
   AiCallReportPeriod,
@@ -51,6 +52,11 @@ interface StageModelSqlRow {
 interface AnalysesSqlRow {
   analyses: number;
   total_cost: number | null;
+}
+
+interface AnalysisSummarySqlRow extends AnalysesSqlRow {
+  p50: number | null;
+  p95: number | null;
 }
 
 interface RequestSqlRow {
@@ -212,6 +218,37 @@ export class AiCallReportService {
       })),
       totalCostUsd: roundUsd(rows.reduce((sum, row) => sum + (row.costUsd ?? 0), 0)),
       totalLatencyMs: rows.reduce((sum, row) => sum + row.latencyMs, 0),
+    };
+  }
+
+  /**
+   * CC-705 — análises completas de uma janela fechada `[from, to)`, para o
+   * painel semanal do beta. Mesma definição de `getReport().analyses`; a
+   * latência de cada análise é a soma das latências das suas chamadas.
+   */
+  async getAnalysisSummary(from: Date, to: Date): Promise<AiCallAnalysisSummary> {
+    const rows = await this.prisma.$queryRaw<AnalysisSummarySqlRow[]>`
+      WITH analyses AS (
+        SELECT request_id, sum(cost_usd) AS cost, sum(latency_ms) AS latency
+        FROM ai_calls
+        WHERE created_at >= ${from} AND created_at < ${to} AND request_id IS NOT NULL
+        GROUP BY request_id
+        HAVING bool_or(stage = 'decision')
+      )
+      SELECT count(*)::int AS analyses,
+             sum(cost)::float8 AS total_cost,
+             percentile_cont(0.5) WITHIN GROUP (ORDER BY latency)::float8 AS p50,
+             percentile_cont(0.95) WITHIN GROUP (ORDER BY latency)::float8 AS p95
+      FROM analyses
+    `;
+    const row = rows[0];
+    const count = row?.analyses ?? 0;
+    const totalCostUsd = roundUsd(row?.total_cost ?? null);
+    return {
+      count,
+      totalCostUsd,
+      avgCostUsd: count > 0 ? roundUsd(totalCostUsd / count) : null,
+      latency: row ? latencyOf(row) : { p50Ms: null, p95Ms: null },
     };
   }
 
