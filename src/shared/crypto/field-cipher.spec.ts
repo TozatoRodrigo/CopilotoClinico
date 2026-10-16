@@ -158,7 +158,11 @@ describe('field-cipher', () => {
       const ring = keyring(KEY_A);
       const sealed = sealJson(ring, [{ questionId: 'q1', answer: 'Sim, há 3 dias' }]);
       expect(isSealedText(sealed)).toBe(true);
-      expect(sealed).not.toContain('q1');
+      // Aspas e espaço não existem em base64: o texto cifrado nunca contém o
+      // JSON em claro. Um trecho curto como 'q1' aparece no base64 por acaso
+      // (~2% das execuções).
+      expect(sealed).not.toContain('"questionId"');
+      expect(sealed).not.toContain('Sim, há 3 dias');
     });
 
     it('reads legacy JSON values as is', () => {
