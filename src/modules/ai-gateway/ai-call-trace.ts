@@ -45,6 +45,8 @@ export interface AiCallTrace {
    * mensagem; termina em `USAGE_LIMIT_ERROR_SUFFIX` quando acabou a cota.
    */
   errorType: string | null;
+  /** Chamada no modelo de reserva: o perfil que caiu antes dela, na mesma requisição. */
+  fallbackFrom: string | null;
 }
 
 export const AI_CALL_SINK = Symbol('AI_CALL_SINK');
