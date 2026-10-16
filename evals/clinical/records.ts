@@ -8,11 +8,16 @@ import {
 import {
   CITATION_ORIGINS,
   DECISION_PROMPT_VERSIONS,
+  INTAKE_ANSWER_TYPES,
+  INTAKE_CLOSE_REASONS,
+  INTAKE_PATHS,
   KNOWLEDGE_SOURCES,
   PRELIMINARY_REASONS,
 } from '../../src/shared/contracts/clinical';
+import { INTAKE_MODES } from '../../src/modules/copilot/intake/intake.settings';
 import { StoredCaseUnderstandingSchema } from '../../src/modules/copilot/understanding/case-understanding.schema';
 import { REASONING_MODES } from '../../src/modules/copilot/understanding/understanding.settings';
+import { ConversationGradeSchema } from './graders/conversation';
 import { DeterministicGradeSchema, RUN_STATUSES } from './graders/deterministic';
 import { JudgeOutcomeSchema } from './graders/judge';
 
@@ -118,8 +123,9 @@ const PipelineMetadataSchema = z.object({
 /**
  * Gabarito v2 — como o caso é entregue ao Copiloto:
  * - `complete`: o `caseText` completo, num turno;
- * - `funnel`: a abertura; o médico simulado responde às perguntas do Copiloto
- *   com o roteiro oficial, por até três turnos, e o último turno é avaliado.
+ * - `funnel`: a abertura, pela conversa do Copiloto guiado (CC-106); o médico
+ *   simulado responde às perguntas da leitura e às do plano com o roteiro
+ *   oficial, por até três turnos do plano, e o último turno é avaliado.
  */
 export const EVAL_MODES = ['complete', 'funnel'] as const;
 export type EvalMode = (typeof EVAL_MODES)[number];
@@ -135,22 +141,61 @@ export const FunnelExchangeSchema = z.object({
 
 export type FunnelExchange = z.infer<typeof FunnelExchangeSchema>;
 
+/** Modelo, custo e tempo de uma chamada ao médico simulado. */
+const SimulatorCallSchema = z.object({
+  model: z.string(),
+  costUsd: z.number().nullable(),
+  latencyMs: z.number(),
+});
+
+export type SimulatorCall = z.infer<typeof SimulatorCallSchema>;
+
 export const FunnelTurnSchema = z.object({
   turnIndex: z.number().int(),
   /** Saída deste turno; a do último também é `output` da linha. */
   output: ResultOutputSchema.nullable(),
   /** Perguntas deste turno respondidas pelo médico simulado (vazio no último). */
   exchanges: z.array(FunnelExchangeSchema),
-  simulator: z
-    .object({
-      model: z.string(),
-      costUsd: z.number().nullable(),
-      latencyMs: z.number(),
-    })
-    .nullable(),
+  simulator: SimulatorCallSchema.nullable(),
 });
 
 export type FunnelTurn = z.infer<typeof FunnelTurnSchema>;
+
+/** CC-106 — uma pergunta da leitura do caso, como o portão a deixou passar para a tela. */
+export const IntakeQuestionTraceSchema = z.object({
+  id: z.string(),
+  question: z.string(),
+  answerType: z.enum(INTAKE_ANSWER_TYPES),
+  choices: z.array(z.string()),
+  separates: z.array(z.string()),
+  why: z.string(),
+});
+
+/**
+ * CC-106 — a conversa antes do plano (Copiloto guiado, ADR-014), só no
+ * afunilamento: o que a leitura entendeu da abertura, as perguntas que o
+ * portão deixou passar e o que o médico simulado respondeu, uma por vez.
+ */
+export const IntakeTraceSchema = z.object({
+  intakeId: z.string(),
+  path: z.enum(INTAKE_PATHS),
+  closeReason: z.enum(INTAKE_CLOSE_REASONS).nullable(),
+  /** Entendimento da leitura, sem as perguntas; `null` sem leitura válida. */
+  understanding: StoredCaseUnderstandingSchema.nullable(),
+  readingModel: z.string().nullable(),
+  /** Tempo e custo da leitura, como a conversa grava (`case_intakes`). */
+  readingMs: z.number(),
+  readingCostUsd: z.number(),
+  /** As perguntas que a tela mostraria, na ordem. */
+  questions: z.array(IntakeQuestionTraceSchema),
+  /** As respostas gravadas, na ordem; a resposta urgente encerra as perguntas. */
+  exchanges: z.array(FunnelExchangeSchema),
+  simulator: SimulatorCallSchema.nullable(),
+  /** Do início do caso à primeira pergunta na tela; `null` sem pergunta. */
+  firstQuestionMs: z.number().nullable(),
+});
+
+export type IntakeTrace = z.infer<typeof IntakeTraceSchema>;
 
 const RowKeySchema = z.object({
   runId: z.string(),
@@ -164,6 +209,8 @@ export const ResultRowSchema = RowKeySchema.extend({
   mode: z.enum(EVAL_MODES).default('complete'),
   /** Só no afunilamento: um item por turno, na ordem. */
   turns: z.array(FunnelTurnSchema).default([]),
+  /** CC-106 — só no afunilamento: a conversa antes do 1º plano. Execuções anteriores não a têm. */
+  intake: IntakeTraceSchema.nullable().default(null),
   /** Tentativas do runner (retry de falha transitória), não do pipeline. */
   harnessAttempts: z.number().int(),
   servedModel: z.string().nullable(),
@@ -253,6 +300,8 @@ export const GradeRowSchema = RowKeySchema.extend({
   /** null quando a execução rodou com --judge none ou não houve resposta a julgar. */
   judge: JudgeOutcomeSchema.nullable(),
   criticalError: CriticalErrorSchema,
+  /** CC-106 — nota determinística da conversa antes do plano; `null` fora do afunilamento. */
+  conversation: ConversationGradeSchema.nullable().default(null),
 });
 
 export type GradeRow = z.infer<typeof GradeRowSchema>;
@@ -315,6 +364,14 @@ export const RunMetaSchema = z.object({
       .default(null),
     structuredOutput: z.boolean(),
     refusalFallback: z.boolean(),
+    /**
+     * CC-106 — Copiloto guiado no afunilamento: COPILOT_INTAKE efetivo e o
+     * modelo da leitura do caso. `null` no caso completo e antes do CC-106.
+     */
+    intake: z
+      .object({ mode: z.enum(INTAKE_MODES), readingModel: z.string() })
+      .nullable()
+      .default(null),
   }),
   knowledgeBase: z.object({
     approvedChunks: z.number(),

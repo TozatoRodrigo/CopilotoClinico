@@ -13,6 +13,8 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useAuth } from '@/lib/auth-store';
 import { apiClient, ApiError } from '@/lib/api-client';
+import { PHYSICIAN_SPECIALTY_OPTIONS } from '@/lib/physician-specialty';
+import type { Physician, PhysicianSpecialty } from '@/lib/types';
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -70,25 +72,6 @@ const STEP_LABELS: Record<Step, string> = {
  */
 const BACKUP_CODES_KEY = 'copiloto:onboarding:backup-codes';
 
-/**
- * S24-ONBOARD-01 — lista de especialidades para o step de perfil.
- * Permite segmentação clínica (qual diretriz priorizar, analytics por área).
- */
-const SPECIALTIES = [
-  'Emergência',
-  'Clínica Médica',
-  'Cardiologia',
-  'Pneumologia',
-  'Pediatria',
-  'Neurologia',
-  'Cirurgia Geral',
-  'Ortopedia',
-  'Ginecologia/Obstetrícia',
-  'Psiquiatria',
-  'Anestesiologia',
-  'Outra',
-] as const;
-
 export default function OnboardingPage() {
   const { physician, updatePhysician } = useAuth();
   const router = useRouter();
@@ -115,7 +98,7 @@ export default function OnboardingPage() {
   const [backupCopied, setBackupCopied] = useState(false);
 
   const [profileName, setProfileName] = useState(physician?.name ?? '');
-  const [profileSpecialty, setProfileSpecialty] = useState<string>('');
+  const [profileSpecialty, setProfileSpecialty] = useState<PhysicianSpecialty | null>(null);
 
   const digitRefs = useRef<(HTMLInputElement | null)[]>([]);
   const setDigitRef = useCallback(
@@ -278,7 +261,9 @@ export default function OnboardingPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const payload: Record<string, string> = {};
+      // CC-014 — vai o slug do contrato (`medicina_de_emergencia`), não o
+      // rótulo da tela: o PATCH recusa valor fora da lista em vez de descartar.
+      const payload: Pick<Partial<Physician>, 'name' | 'specialty'> = {};
       if (profileName.trim() && profileName !== physician?.name) {
         payload.name = profileName.trim();
       }
@@ -539,16 +524,16 @@ export default function OnboardingPage() {
                 Especialidade
               </legend>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {SPECIALTIES.map((spec) => (
+                {PHYSICIAN_SPECIALTY_OPTIONS.map((option) => (
                   <OptionCard
-                    key={spec}
+                    key={option.value}
                     name="specialty"
-                    value={spec}
-                    checked={profileSpecialty === spec}
-                    onSelect={setProfileSpecialty}
+                    value={option.value}
+                    checked={profileSpecialty === option.value}
+                    onSelect={() => setProfileSpecialty(option.value)}
                   >
                     {/* Espaço de largura zero após "/" para quebrar "Ginecologia/Obstetrícia". */}
-                    {spec.replace('/', '/\u200B')}
+                    {option.label.replace('/', '/\u200B')}
                   </OptionCard>
                 ))}
               </div>

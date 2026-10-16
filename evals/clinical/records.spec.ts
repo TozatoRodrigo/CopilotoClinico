@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { understandingFixture } from '../../tests/fixtures/case-understanding';
 import { loadCaseSet } from './cases';
 import { gradeDeterministic } from './graders/deterministic';
-import { ResultRowSchema, RunMetaSchema } from './records';
+import { GradeRowSchema, ResultRowSchema, RunMetaSchema } from './records';
 
 /**
  * F1 — results.jsonl é relido para dar as notas: o entendimento do caso
@@ -186,6 +186,63 @@ describe('RunMetaSchema', () => {
       decisionPrompt: 'v1',
       knowledgeSource: 'internal_kb',
       research: null,
+      intake: null,
     });
+  });
+});
+
+// CC-106 — a conversa antes do plano entrou nos arquivos da execução sem
+// tornar ilegíveis os que foram gravados antes: `--regrade --reuse-judge`
+// relê execuções antigas.
+describe('conversa antes do plano nos arquivos da execução', () => {
+  it('lê como sem conversa a linha gravada antes do CC-106', () => {
+    expect(ResultRowSchema.parse({ ...row, mode: 'funnel', turns: [] }).intake).toBeNull();
+  });
+
+  it('guarda a conversa na releitura do results.jsonl', () => {
+    const intake = {
+      intakeId: 'conversa-1',
+      path: 'ask',
+      closeReason: 'urgent_answer',
+      understanding: understandingFixture(),
+      readingModel: 'claude-haiku-5-5',
+      readingMs: 1_500,
+      readingCostUsd: 0.002,
+      questions: [
+        {
+          id: 'intake-1',
+          question: 'O déficit flutua?',
+          answerType: 'boolean',
+          choices: ['Sim', 'Não', 'Não sei'],
+          separates: ['AIT', 'AVC'],
+          why: 'Separa AIT de AVC',
+        },
+      ],
+      exchanges: [
+        { questionId: 'intake-1', question: 'O déficit flutua?', answer: 'Sim.', factIds: ['h-1'] },
+      ],
+      simulator: { model: 'claude-haiku-5-5', costUsd: 0.001, latencyMs: 5 },
+      firstQuestionMs: 1_700,
+    };
+
+    const parsed = ResultRowSchema.parse(JSON.parse(JSON.stringify({ ...row, intake })));
+
+    expect(parsed.intake).toEqual(intake);
+  });
+
+  it('lê como sem nota de conversa a nota gravada antes do CC-106', () => {
+    const grade = GradeRowSchema.parse({
+      runId: 'run',
+      variant: 'v',
+      caseId: 'cm-avc-sem-tc',
+      rep: 0,
+      status: 'ok',
+      critical: true,
+      deterministic: { noAnswer: false, shape: null, forbiddenMatches: [] },
+      judge: null,
+      criticalError: { value: false, complete: true, reasons: [] },
+    });
+
+    expect(grade.conversation).toBeNull();
   });
 });

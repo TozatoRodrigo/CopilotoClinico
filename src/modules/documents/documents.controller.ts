@@ -53,6 +53,14 @@ export class DocumentsController {
     return this.documentsService.confirm(req.user.physicianId, id);
   }
 
+  @Get(':id/integrity')
+  async verifyIntegrity(
+    @Request() req: { user: { physicianId: string } },
+    @Param('id') id: string,
+  ) {
+    return this.documentsService.verifyIntegrity(req.user.physicianId, id);
+  }
+
   @Get(':id/download')
   async download(
     @Request() req: { user: { physicianId: string } },

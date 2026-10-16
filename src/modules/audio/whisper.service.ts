@@ -1,7 +1,11 @@
 import { Injectable, Logger, InternalServerErrorException, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-const WHISPER_MODEL = 'whisper-large-v3';
+/**
+ * Padrão large-v3 (US$ 0,111/h na Groq). O turbo custa US$ 0,04/h; a troca
+ * espera o teste com ditados reais em português.
+ */
+const DEFAULT_WHISPER_MODEL = 'whisper-large-v3';
 const TRANSCRIPTION_PATH = '/audio/transcriptions';
 
 @Injectable()
@@ -9,12 +13,14 @@ export class WhisperService implements OnModuleInit {
   private readonly logger = new Logger(WhisperService.name);
   private baseUrl!: string;
   private apiKey!: string;
+  private model!: string;
 
   constructor(private readonly config: ConfigService) {}
 
   onModuleInit(): void {
     this.baseUrl = this.config.get<string>('WHISPER_BASE_URL', 'https://api.groq.com/openai/v1');
     this.apiKey = this.config.getOrThrow<string>('WHISPER_API_KEY');
+    this.model = this.config.get<string>('WHISPER_MODEL')?.trim() || DEFAULT_WHISPER_MODEL;
   }
 
   async transcribe(audioBuffer: Buffer, mimeType: string, filename = 'audio'): Promise<string> {
@@ -25,7 +31,7 @@ export class WhisperService implements OnModuleInit {
       audioBuffer.byteOffset + audioBuffer.byteLength,
     ) as ArrayBuffer;
     formData.append('file', new Blob([slice], { type: mimeType }), `${filename}.${ext}`);
-    formData.append('model', WHISPER_MODEL);
+    formData.append('model', this.model);
     formData.append('response_format', 'text');
     formData.append('language', 'pt');
 
