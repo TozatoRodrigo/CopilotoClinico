@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../config/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { PhysicianErasureCheck } from '../auth/physician-erasure-check.service';
 import { consentScopes, type ConsentScope } from './schemas/lgpd.schemas';
 import type {
   Physician,
@@ -22,7 +23,9 @@ export interface PhysicianDataExport {
     id: string;
   };
   data: {
-    physician: Omit<Physician, 'passwordHash' | 'mfaSecret' | 'mfaEnabled'>;
+    // CC-018 — erasedAt fica de fora: é sempre null para quem ainda consegue
+    // pedir a exportação (o cadastro eliminado não tem mais sessão).
+    physician: Omit<Physician, 'passwordHash' | 'mfaSecret' | 'mfaEnabled' | 'erasedAt'>;
     encounters: Encounter[];
     documents: DocumentRecord[];
     aiInteractions: AiInteraction[];
@@ -49,6 +52,7 @@ export class LgpdService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(PhysicianErasureCheck) private readonly erasureCheck: PhysicianErasureCheck,
   ) {}
 
   async grantConsent(physicianId: string, scope: string): Promise<Consent> {
@@ -245,6 +249,8 @@ export class LgpdService {
           name: 'ERASED',
           email: `erased-${physicianId}@erased.com`,
           passwordHash: `erased:${physicianId}`,
+          // CC-018 — a estratégia JWT e o refresh recusam a sessão por aqui.
+          erasedAt: new Date(),
         },
       });
 
@@ -256,6 +262,10 @@ export class LgpdService {
         refreshTokens: refreshTokens.count,
       };
     });
+
+    // CC-018 — só depois do commit: marcar antes trancaria o médico fora de uma
+    // conta que continua dele quando a transação falha.
+    this.erasureCheck.markErased(physicianId);
 
     await this.auditService.log({
       actorId: physicianId,

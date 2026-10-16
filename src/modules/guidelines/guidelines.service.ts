@@ -36,6 +36,11 @@ function consultColumns(similarity: string): string {
 const SIMILARITY_TO_VECTOR = `CASE WHEN gc.embedding IS NULL THEN NULL
               ELSE 1 - (gc.embedding <=> $1::vector) END`;
 
+/**
+ * Só conteúdo global, para qualquer médico: a consulta não recebe o médico.
+ * CC-019 — mais restrito que o ADR-009 permite, e seguro; mostrar ao médico o
+ * protocolo da própria instituição na consulta é decisão de produto.
+ */
 const CONSULT_ELIGIBLE = `gc.status IN ('approved', 'official_unreviewed')
          AND gc.valid_to IS NULL
          AND gc.institution_id IS NULL`;
@@ -45,6 +50,21 @@ function withNumericSimilarity(rows: ConsultCandidate[]): ConsultCandidate[] {
     ...row,
     similarity: row.similarity === null ? null : Number(row.similarity),
   }));
+}
+
+/**
+ * CC-019 — ADR-009 na busca da biblioteca, no banco e antes do LIMIT: trecho
+ * global para todos; institucional só das instituições informadas (as de
+ * vínculo ativo do médico). Sem instituições, só o global — quem esquecer de
+ * passá-las não vaza nada. Filtrar depois do LIMIT devolveria a página curta.
+ */
+function institutionVisibilityClause(
+  params: unknown[],
+  institutionIds: readonly string[] | undefined,
+): string {
+  if (!institutionIds || institutionIds.length === 0) return 'AND gc.institution_id IS NULL';
+  params.push([...institutionIds]);
+  return `AND (gc.institution_id IS NULL OR gc.institution_id = ANY($${params.length}::uuid[]))`;
 }
 
 export interface IngestGuidelineInput {
@@ -353,15 +373,20 @@ export class GuidelinesService {
    * quando preenchido (busca textual com ranking); vazio lista tudo que
    * está aprovado, mais recente primeiro dentro de cada fonte.
    */
+  /**
+   * CC-019 — `institutionIds`: as instituições de vínculo ativo do médico.
+   * Sem elas, só trechos globais (ver `institutionVisibilityClause`).
+   */
   async searchChunks(
     query: string,
     specialty?: string,
     limit: number = 20,
+    institutionIds?: readonly string[],
   ): Promise<GuidelineChunkSearchRow[]> {
     const trimmed = query.trim();
 
     if (trimmed.length < 2) {
-      return this.listApprovedChunks(specialty, limit);
+      return this.listApprovedChunks(specialty, limit, institutionIds);
     }
 
     const params: unknown[] = [trimmed, limit];
@@ -370,6 +395,7 @@ export class GuidelinesService {
       params.push(specialty);
       specialtyClause = `AND gc.specialty = $${params.length}`;
     }
+    const institutionClause = institutionVisibilityClause(params, institutionIds);
 
     const rows = await this.prisma.$queryRawUnsafe(
       `SELECT
@@ -385,6 +411,7 @@ export class GuidelinesService {
          AND gc.valid_to IS NULL
          AND gc.text_tsv @@ plainto_tsquery('portuguese', $1)
          ${specialtyClause}
+         ${institutionClause}
        ORDER BY rank DESC, gc.valid_from DESC
        LIMIT $2`,
       ...params,
@@ -397,6 +424,7 @@ export class GuidelinesService {
   private async listApprovedChunks(
     specialty: string | undefined,
     limit: number,
+    institutionIds: readonly string[] | undefined,
   ): Promise<GuidelineChunkSearchRow[]> {
     const params: unknown[] = [limit];
     let specialtyClause = '';
@@ -404,6 +432,7 @@ export class GuidelinesService {
       params.push(specialty);
       specialtyClause = `AND gc.specialty = $${params.length}`;
     }
+    const institutionClause = institutionVisibilityClause(params, institutionIds);
 
     const rows = await this.prisma.$queryRawUnsafe(
       `SELECT
@@ -418,6 +447,7 @@ export class GuidelinesService {
        WHERE gc.status = 'approved'
          AND gc.valid_to IS NULL
          ${specialtyClause}
+         ${institutionClause}
        ORDER BY gc.source ASC, gc.valid_from DESC
        LIMIT $1`,
       ...params,
@@ -426,9 +456,17 @@ export class GuidelinesService {
     return rows as GuidelineChunkSearchRow[];
   }
 
-  async getChunkById(id: string) {
-    return this.prisma.guidelineChunk.findUnique({
-      where: { id },
+  /**
+   * Trecho citado na análise (`sourceUrl` da citação). CC-019 — trecho de
+   * instituição sem vínculo ativo volta `null`, e a rota responde 404 como
+   * para id inexistente: não confirma que o protocolo de outro hospital existe.
+   */
+  async getChunkById(id: string, institutionIds: readonly string[]) {
+    return this.prisma.guidelineChunk.findFirst({
+      where: {
+        id,
+        OR: [{ institutionId: null }, { institutionId: { in: [...institutionIds] } }],
+      },
       select: {
         id: true,
         source: true,

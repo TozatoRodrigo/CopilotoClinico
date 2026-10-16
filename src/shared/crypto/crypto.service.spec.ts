@@ -67,7 +67,10 @@ describe('CryptoService', () => {
       const svc = buildService();
       const encrypted = svc.encrypt('secret');
       const [iv, tag, ct] = encrypted.split(':') as [string, string, string];
-      const tampered = `${iv}:${tag}:${ct.slice(0, -2)}ff`;
+      // Inverte um bit do último byte: trocar por um valor fixo ("ff") não
+      // adultera nada quando o byte já é esse (1 em 256 execuções).
+      const lastByte = Number.parseInt(ct.slice(-2), 16) ^ 0x01;
+      const tampered = `${iv}:${tag}:${ct.slice(0, -2)}${lastByte.toString(16).padStart(2, '0')}`;
       expect(() => svc.decrypt(tampered)).toThrow();
     });
 
