@@ -1,0 +1,28 @@
+{
+  "id": "cm-hipoglicemia-mimetizando-avc",
+  "source": {
+    "kind": "clinical_case",
+    "caseId": "cm-hipoglicemia-mimetizando-avc"
+  },
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Masc, 63a, DM2 com NPH. Acordou com fala arrastada e fraqueza em braço E; a esposa achou que era derrame. Visto bem pela última vez às 23h (há 8h). PA 158x92, FC 98, sudoreico. Glicemia capilar 42."
+  },
+  "expected": {
+    "sex": "M",
+    "age": 63,
+    "vitals": {
+      "systolicBp": 158,
+      "diastolicBp": 92,
+      "heartRate": 98,
+      "respiratoryRate": null,
+      "spo2": null,
+      "temperature": null,
+      "glucose": 42
+    },
+    "syndrome": ["deficit-neurologico-focal", "disturbio-glicemico"],
+    "timeCritical": true
+  }
+}

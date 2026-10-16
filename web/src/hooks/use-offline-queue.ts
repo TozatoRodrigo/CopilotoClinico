@@ -26,6 +26,17 @@ export interface UseOfflineQueueResult {
   syncNow: () => Promise<void>;
 }
 
+/** Fila em ordem de chegada; null quando a IndexedDB não responde. */
+async function readSortedQueue(): Promise<QueueItem[] | null> {
+  try {
+    const queue = await getQueue();
+    return queue.sort((a, b) => a.createdAt - b.createdAt);
+  } catch {
+    // IndexedDB pode falhar em modos privados do Safari — silently ignore.
+    return null;
+  }
+}
+
 export function useOfflineQueue(): UseOfflineQueueResult {
   const { isOnline } = useOnlineStatus();
   const [items, setItems] = useState<QueueItem[]>([]);
@@ -36,12 +47,8 @@ export function useOfflineQueue(): UseOfflineQueueResult {
   } | null>(null);
 
   const refresh = useCallback(async () => {
-    try {
-      const queue = await getQueue();
-      setItems(queue.sort((a, b) => a.createdAt - b.createdAt));
-    } catch {
-      // IndexedDB pode falhar em modos privados do Safari — silently ignore.
-    }
+    const queue = await readSortedQueue();
+    if (queue) setItems(queue);
   }, []);
 
   const removeItem = useCallback(
@@ -64,10 +71,18 @@ export function useOfflineQueue(): UseOfflineQueueResult {
     }
   }, [isSyncing, refresh]);
 
-  // Refresh inicial + quando volta online (dispara sync automaticamente).
+  // Leitura inicial. O setState fica no callback da promise (não no corpo do
+  // efeito) e é descartado se o componente desmontar antes da IndexedDB
+  // responder. A volta da conexão é tratada no efeito abaixo.
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    let cancelled = false;
+    void readSortedQueue().then((queue) => {
+      if (queue && !cancelled) setItems(queue);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!isOnline) return;

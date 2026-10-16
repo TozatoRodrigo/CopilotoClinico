@@ -304,6 +304,7 @@ describe('EncountersService', () => {
         prisma.encounter.count.mockResolvedValue(1);
         prisma.aiInteraction.findMany.mockResolvedValue([
           {
+            id: 'row-1',
             encounterId: 'enc-1',
             createdAt: new Date('2025-06-01T10:00:00Z'),
             rawOutput: {
@@ -322,23 +323,45 @@ describe('EncountersService', () => {
         expect(result.data[0]?.lastInteractionAt).toBe('2025-06-01T10:00:00.000Z');
       });
 
-      it('batches into a single aiInteraction.findMany call for the whole page (no N+1)', async () => {
+      it('batches the whole page into two fixed queries, reading rawOutput only of the latest turn (no N+1)', async () => {
         prisma.encounter.findMany.mockResolvedValue([
           { ...baseEncounter, id: 'enc-1' },
           { ...baseEncounter, id: 'enc-2' },
           { ...baseEncounter, id: 'enc-3' },
         ]);
         prisma.encounter.count.mockResolvedValue(3);
+        prisma.aiInteraction.findMany
+          .mockResolvedValueOnce([
+            { id: 'int-2', encounterId: 'enc-1', createdAt: new Date('2025-06-01T10:30:00Z') },
+            { id: 'int-1', encounterId: 'enc-1', createdAt: new Date('2025-06-01T10:00:00Z') },
+            { id: 'int-3', encounterId: 'enc-3', createdAt: new Date('2025-06-01T09:00:00Z') },
+          ])
+          .mockResolvedValueOnce([]);
+
+        await service.findByPhysician(physicianId, { page: 1, limit: 20, includeUnidentified: false });
+
+        expect(prisma.aiInteraction.findMany).toHaveBeenCalledTimes(2);
+        expect(prisma.aiInteraction.findMany).toHaveBeenNthCalledWith(1, {
+          where: { encounterId: { in: ['enc-1', 'enc-2', 'enc-3'] } },
+          orderBy: { createdAt: 'desc' },
+          select: { id: true, encounterId: true, createdAt: true },
+        });
+        // CC-207 — o texto clínico (cifrado em repouso) só da interação mais
+        // recente de cada encontro: o turno antigo int-1 nem é lido.
+        expect(prisma.aiInteraction.findMany).toHaveBeenNthCalledWith(2, {
+          where: { id: { in: ['int-2', 'int-3'] } },
+          select: { id: true, rawOutput: true },
+        });
+      });
+
+      it('skips the rawOutput query when no encounter on the page has an analysis', async () => {
+        prisma.encounter.findMany.mockResolvedValue([{ ...baseEncounter, id: 'enc-1' }]);
+        prisma.encounter.count.mockResolvedValue(1);
         prisma.aiInteraction.findMany.mockResolvedValue([]);
 
         await service.findByPhysician(physicianId, { page: 1, limit: 20, includeUnidentified: false });
 
         expect(prisma.aiInteraction.findMany).toHaveBeenCalledTimes(1);
-        expect(prisma.aiInteraction.findMany).toHaveBeenCalledWith({
-          where: { encounterId: { in: ['enc-1', 'enc-2', 'enc-3'] } },
-          orderBy: { createdAt: 'desc' },
-          select: { encounterId: true, rawOutput: true, createdAt: true },
-        });
       });
 
       it('uses only the LATEST turn per encounter, not the historical maximum across turns', async () => {
@@ -347,11 +370,13 @@ describe('EncountersService', () => {
         // orderBy desc — turno mais recente (10:30) vem primeiro no array.
         prisma.aiInteraction.findMany.mockResolvedValue([
           {
+            id: 'row-2',
             encounterId: 'enc-1',
             createdAt: new Date('2025-06-01T10:30:00Z'),
             rawOutput: { redFlags: [{ finding: 'Febre baixa', severity: 'moderate', action: 'Observar' }] },
           },
           {
+            id: 'row-3',
             encounterId: 'enc-1',
             createdAt: new Date('2025-06-01T10:00:00Z'),
             rawOutput: { redFlags: [{ finding: 'Choque', severity: 'critical', action: 'Estabilizar' }] },
@@ -369,7 +394,7 @@ describe('EncountersService', () => {
         prisma.encounter.findMany.mockResolvedValue([{ ...baseEncounter, id: 'enc-1' }]);
         prisma.encounter.count.mockResolvedValue(1);
         prisma.aiInteraction.findMany.mockResolvedValue([
-          { encounterId: 'enc-1', createdAt: new Date('2025-06-01T10:00:00Z'), rawOutput: { redFlags: [] } },
+          { id: 'row-6', encounterId: 'enc-1', createdAt: new Date('2025-06-01T10:00:00Z'), rawOutput: { redFlags: [] } },
         ]);
 
         const result = await service.findByPhysician(physicianId, { page: 1, limit: 20, includeUnidentified: false });
@@ -393,7 +418,7 @@ describe('EncountersService', () => {
         prisma.encounter.findMany.mockResolvedValue([{ ...baseEncounter, id: 'enc-1' }]);
         prisma.encounter.count.mockResolvedValue(1);
         prisma.aiInteraction.findMany.mockResolvedValue([
-          { encounterId: 'enc-1', createdAt: new Date('2025-06-01T10:00:00Z'), rawOutput: { reasoning: 'x' } },
+          { id: 'row-7', encounterId: 'enc-1', createdAt: new Date('2025-06-01T10:00:00Z'), rawOutput: { reasoning: 'x' } },
         ]);
 
         const result = await service.findByPhysician(physicianId, { page: 1, limit: 20, includeUnidentified: false });
@@ -418,11 +443,13 @@ describe('EncountersService', () => {
         prisma.encounter.count.mockResolvedValue(2);
         prisma.aiInteraction.findMany.mockResolvedValue([
           {
+            id: 'row-4',
             encounterId: 'enc-1',
             createdAt: new Date('2025-06-01T10:00:00Z'),
             rawOutput: { redFlags: [{ finding: 'A', severity: 'high', action: 'x' }] },
           },
           {
+            id: 'row-5',
             encounterId: 'enc-2',
             createdAt: new Date('2025-06-01T09:00:00Z'),
             rawOutput: { redFlags: [{ finding: 'B', severity: 'moderate', action: 'y' }] },

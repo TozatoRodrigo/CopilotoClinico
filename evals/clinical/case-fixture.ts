@@ -67,6 +67,7 @@ export function resultRowFixture(overrides: Partial<ResultRow> = {}): ResultRow 
     status: 'ok',
     mode: 'complete',
     turns: [],
+    intake: null,
     harnessAttempts: 1,
     servedByFallback: false,
     servedModel: 'modelo',

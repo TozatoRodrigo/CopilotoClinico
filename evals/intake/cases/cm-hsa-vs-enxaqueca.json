@@ -1,0 +1,29 @@
+{
+  "id": "cm-hsa-vs-enxaqueca",
+  "source": {
+    "kind": "clinical_case",
+    "caseId": "cm-hsa-vs-enxaqueca"
+  },
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Fem, 41a, enxaquecosa, diz que \"essa é diferente\": dor occipital explosiva que chegou no máximo em segundos durante a academia, há 3h, a pior da vida. Vomitou 2x. Glasgow 15, sem déficit focal, rigidez de nuca duvidosa. PA 168x96."
+  },
+  "expected": {
+    "sex": "F",
+    "age": 41,
+    "vitals": {
+      "systolicBp": 168,
+      "diastolicBp": 96,
+      "heartRate": null,
+      "respiratoryRate": null,
+      "spo2": null,
+      "temperature": null,
+      "glucose": null
+    },
+    "syndrome": ["cefaleia"],
+    "instability": false,
+    "timeCritical": true
+  }
+}

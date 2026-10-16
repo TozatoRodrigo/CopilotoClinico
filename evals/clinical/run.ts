@@ -14,8 +14,12 @@ import {
   readMaxOutputTokens,
 } from '../../src/modules/ai-gateway/ai-gateway.settings';
 import { AI_EFFORTS } from '../../src/modules/ai-gateway/providers/provider.interface';
+import { ConversationService } from '../../src/modules/copilot/intake/conversation.service';
+import { IntakeService } from '../../src/modules/copilot/intake/intake.service';
+import { readIntakeMode } from '../../src/modules/copilot/intake/intake.settings';
 import { OrchestratorService } from '../../src/modules/copilot/orchestrator/orchestrator.service';
 import {
+  readIntakeReadingModel,
   readReasoningMode,
   readUnderstandingEffort,
   readUnderstandingModel,
@@ -62,6 +66,7 @@ import {
   pickVariants,
   redactVariantEnv,
   resolveVariantEnv,
+  withGuidedIntake,
   type Variant,
 } from './variants';
 
@@ -76,8 +81,10 @@ const USAGE = `Uso: pnpm eval:clinical --variant <nome> [opções]
   --variants-file <path>  Padrão: evals/clinical/variants.json, ou o variants.example.json.
   --cases <seletor>       critical | glob no id (kb001-*) | tag:<tag> | id. Vírgula = união. Padrão: todos.
   --set <conjunto>        main (padrão) | blind — a prova cega, que nunca entra no ajuste de regras.
-  --mode <modo>           complete (caso completo, padrão) | funnel (abertura + médico simulado;
-                          só casos com input.funnel; modelo em SIMULATOR_MODEL, padrão claude-haiku-5-5).
+  --mode <modo>           complete (caso completo, padrão) | funnel (abertura pela conversa do
+                          Copiloto guiado + médico simulado; só casos com input.funnel; liga
+                          COPILOT_INTAKE se a variante não o fixar; modelo do simulador em
+                          SIMULATOR_MODEL, padrão claude-haiku-5-5).
   --reps <n>              Repetições por caso (padrão 1).
   --concurrency <n>       Casos em paralelo (padrão 2).
   --judge <provedor>      anthropic | openai | none (padrão none).
@@ -188,7 +195,12 @@ const OUTCOME_LABELS: Record<string, string> = {
 function describeOutcome(outcome: CaseRunRow): string {
   if (outcome.kind === 'error')
     return `! erro de infraestrutura (${outcome.row.failureClass}): ${outcome.row.message}`;
-  return OUTCOME_LABELS[outcome.row.status] ?? outcome.row.status;
+  const label = OUTCOME_LABELS[outcome.row.status] ?? outcome.row.status;
+  // CC-106 — só contagens: o texto das perguntas fica no results.jsonl.
+  const { intake } = outcome.row;
+  return intake
+    ? `${label} · leitura ${intake.path}, ${intake.exchanges.length} pergunta(s) antes do plano`
+    : label;
 }
 
 interface VariantRunContext {
@@ -265,6 +277,7 @@ async function executeVariant(context: VariantRunContext): Promise<string> {
       gateway.route().model,
       config,
     );
+    const funnel = options.mode === 'funnel';
     const services = {
       orchestrator: app.get(OrchestratorService),
       encounters: app.get(EncountersService),
@@ -272,7 +285,10 @@ async function executeVariant(context: VariantRunContext): Promise<string> {
       recorder,
       physicianId: await ensureEvalPhysician(prisma),
       refusalFallback,
-      simulator: options.mode === 'funnel' ? createPhysicianSimulator() : undefined,
+      simulator: funnel ? createPhysicianSimulator() : undefined,
+      guided: funnel
+        ? { intake: app.get(IntakeService), conversation: app.get(ConversationService) }
+        : undefined,
     };
 
     const meta: RunMeta = {
@@ -307,6 +323,12 @@ async function executeVariant(context: VariantRunContext): Promise<string> {
         ...decisionSettings(config),
         structuredOutput: readFlag(config, 'AI_STRUCTURED_OUTPUT', true),
         refusalFallback,
+        intake: funnel
+          ? {
+              mode: readIntakeMode(config),
+              readingModel: readIntakeReadingModel(config) ?? requestedModel,
+            }
+          : null,
       },
       knowledgeBase: await knowledgeBaseSnapshot(prisma),
       judge: null,
@@ -317,7 +339,7 @@ async function executeVariant(context: VariantRunContext): Promise<string> {
       `\n▶ ${variant.name}: ${meta.pipeline.completionProvider} · ${meta.pipeline.requestedModel} — ${runDir}`,
     );
     console.log(
-      `  Modo ${options.mode === 'funnel' ? `afunilamento (médico simulado ${services.simulator?.model})` : 'caso completo'} · raciocínio ${meta.pipeline.reasoning} · decisão ${meta.pipeline.decisionPrompt} · fonte ${meta.pipeline.knowledgeSource}${meta.pipeline.research ? ` · pesquisa ${meta.pipeline.research.model}` : ''}`,
+      `  Modo ${funnel ? `afunilamento (médico simulado ${services.simulator?.model}, leitura do caso ${meta.pipeline.intake?.mode})` : 'caso completo'} · raciocínio ${meta.pipeline.reasoning} · decisão ${meta.pipeline.decisionPrompt} · fonte ${meta.pipeline.knowledgeSource}${meta.pipeline.research ? ` · pesquisa ${meta.pipeline.research.model}` : ''}`,
     );
     console.log(
       `  Base: ${meta.knowledgeBase.approvedChunks} trechos aprovados (${meta.knowledgeBase.approvedChunksWithEmbedding} com embedding), ${meta.knowledgeBase.officialChunks} oficiais`,
@@ -459,10 +481,10 @@ async function main(): Promise<number> {
     );
   }
   const variants = pickVariants(loadVariants(options.variantsFile), options.variants).map(
-    (variant) => ({
-      variant,
-      env: resolveVariantEnv(variant),
-    }),
+    (variant) => {
+      const env = resolveVariantEnv(variant);
+      return { variant, env: options.mode === 'funnel' ? withGuidedIntake(env) : env };
+    },
   );
   const database = formatDatabaseTarget(
     assertSafeDatabase(process.env.DATABASE_URL, { allowRemote: options.allowRemoteDb }),

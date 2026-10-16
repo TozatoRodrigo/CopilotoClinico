@@ -62,6 +62,30 @@ describe('gabarito clínico', () => {
     }
   });
 
+  // CC-106 — a pergunta essencial mede o que a conversa descobre: a abertura
+  // não pode já trazer a resposta.
+  it('nunca entrega na abertura a resposta de uma pergunta essencial da conversa', () => {
+    const withConversation = cases.filter(
+      (clinicalCase) => clinicalCase.expected.conversation?.essentialQuestions,
+    );
+    expect(withConversation.length).toBeGreaterThan(0);
+    for (const clinicalCase of withConversation) {
+      const funnel = clinicalCase.input.funnel;
+      const opening = normalizeForMatching(funnel?.opening ?? '');
+      const essentialIds = new Set(
+        clinicalCase.expected.conversation?.essentialQuestions?.flatMap(
+          (question) => question.factIds,
+        ),
+      );
+      for (const fact of funnel?.script.filter((candidate) => essentialIds.has(candidate.id)) ??
+        []) {
+        expect(opening, `${clinicalCase.id}: ${fact.id}`).not.toContain(
+          normalizeForMatching(fact.text),
+        );
+      }
+    }
+  });
+
   it('mantém como rascunho todo gabarito ainda não revisado por médico', () => {
     for (const clinicalCase of cases) {
       if (clinicalCase.review.status === 'physician_reviewed') {
@@ -329,6 +353,49 @@ describe('loadCaseSet', () => {
       },
     });
     expect(() => loadCaseSet(dir)).toThrow(/ids repetidos em funnel\.script/);
+  });
+
+  // CC-106 — o que se espera da conversa antes do plano, no afunilamento.
+  it('aceita a expectativa da conversa e recusa fato essencial fora do roteiro', () => {
+    const funnel = {
+      opening: 'Criança de 4 anos com dor na perna.',
+      script: [{ id: 'h-picada', kind: 'history', text: 'Pai viu um escorpião.', key: true }],
+    };
+    const withConversation = (conversation: unknown, input: object = funnel) => ({
+      ...validCase,
+      input: { ...(validCase.input as object), funnel: input },
+      expected: { ...(validCase.expected as object), conversation },
+    });
+
+    writeCase(
+      'fi-001-dengue-como-sepse.json',
+      withConversation({
+        syndromes: ['outro', 'intoxicacao'],
+        severity: 'time_critical',
+        essentialQuestions: [{ about: 'picada ou contato com animal', factIds: ['h-picada'] }],
+      }),
+    );
+    expect(loadCaseSet(dir).cases[0]?.expected.conversation?.essentialQuestions).toHaveLength(1);
+
+    writeCase(
+      'fi-001-dengue-como-sepse.json',
+      withConversation({ essentialQuestions: [{ about: 'picada', factIds: ['h-outro'] }] }),
+    );
+    expect(() => loadCaseSet(dir)).toThrow(/essentialQuestions precisa de input\.funnel/);
+
+    writeCase('fi-001-dengue-como-sepse.json', withConversation({ severity: 'grave' }));
+    expect(() => loadCaseSet(dir)).toThrow(/conversation\.severity/);
+  });
+
+  it('recusa fato essencial em caso sem afunilamento', () => {
+    writeCase('fi-001-dengue-como-sepse.json', {
+      ...validCase,
+      expected: {
+        ...(validCase.expected as object),
+        conversation: { essentialQuestions: [{ about: 'picada', factIds: ['h-picada'] }] },
+      },
+    });
+    expect(() => loadCaseSet(dir)).toThrow(/essentialQuestions precisa de input\.funnel/);
   });
 
   it('aceita caso fora do portão com motivo', () => {

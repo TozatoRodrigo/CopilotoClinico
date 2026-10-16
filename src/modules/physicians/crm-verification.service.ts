@@ -1,5 +1,6 @@
 import { Injectable, Inject, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../config/prisma.service';
+import { freeTextHash } from '../audit/audit-payload';
 import { AuditService } from '../audit/audit.service';
 import type { CrmVerificationRequest } from '@prisma/client';
 
@@ -48,7 +49,11 @@ export class CrmVerificationService {
       action: 'CRM_VERIFICATION_REQUESTED',
       entity: 'CrmVerificationRequest',
       entityId: request.id,
-      payload: { crmUf: physician.crmUf, crmNumber: physician.crmNumber },
+      // Sem o número do CRM, nem como hash: com a UF, ele identifica o médico
+      // no cadastro público do CFM, e o espaço de números é pequeno o bastante
+      // para reverter o hash por força bruta. A trilha sobrevive à eliminação
+      // LGPD; o entityId e o actorId já ligam o evento ao médico.
+      payload: { crmUf: physician.crmUf },
       ip,
     });
 
@@ -146,7 +151,7 @@ export class CrmVerificationService {
       action: 'CRM_VERIFICATION_APPROVED',
       entity: 'CrmVerificationRequest',
       entityId: requestId,
-      payload: { physicianId: request.physicianId, notes },
+      payload: { physicianId: request.physicianId, notesHash: freeTextHash(notes) },
     });
 
     return updated;
@@ -184,7 +189,7 @@ export class CrmVerificationService {
       action: 'CRM_VERIFICATION_REJECTED',
       entity: 'CrmVerificationRequest',
       entityId: requestId,
-      payload: { physicianId: request.physicianId, notes },
+      payload: { physicianId: request.physicianId, notesHash: freeTextHash(notes) },
     });
 
     return updated;
