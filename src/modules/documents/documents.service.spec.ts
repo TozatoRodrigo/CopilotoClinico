@@ -5,8 +5,8 @@ import { AuditService } from '../audit/audit.service';
 import { StorageService } from '../storage/storage.service';
 import { InstitutionsService } from '../institutions/institutions.service';
 import { NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
-import { createHash } from 'crypto';
 import { extractText, getDocumentProxy } from 'unpdf';
+import { sealContent } from './content-hash';
 import { AI_USE_RECORD_TEXT } from './ai-use-record';
 
 const physicianId = '550e8400-e29b-41d4-a716-446655440000';
@@ -53,11 +53,9 @@ const baseDocument = {
   createdAt: new Date('2025-01-01'),
 };
 
-/** Mesmo hash canônico de documents.service.ts (chaves de topo ordenadas). */
+/** Hash do selo atual, o mesmo que documents.service.ts grava. */
 function canonicalHashOf(content: Record<string, unknown>): string {
-  return createHash('sha256')
-    .update(JSON.stringify(content, Object.keys(content).sort()))
-    .digest('hex');
+  return sealContent(content as Parameters<typeof sealContent>[0]).contentHash;
 }
 
 /** Texto do PDF sem espaços: o pdfkit quebra linhas longas (ver document-pdf.builder.spec.ts). */
@@ -157,10 +155,27 @@ describe('DocumentsService', () => {
             physicianId,
             type: 'soap',
             contentHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+            contentHashVersion: 2,
           }),
         }),
       );
       expect(result).toEqual(baseDocument);
+    });
+
+    it('registra o selo da geração no payload da auditoria', async () => {
+      prisma.encounter.findUnique.mockResolvedValue({ physicianId, patientRef: 'PAT-001' });
+      prisma.aiInteraction.findUnique.mockResolvedValue({ rawOutput: copilotRawOutput });
+      prisma.document.create.mockResolvedValue(baseDocument);
+
+      await service.generate(physicianId, encounterId, { type: 'soap', aiInteractionId });
+
+      const [createCall] = prisma.document.create.mock.calls as [[{ data: { content: object } }]];
+      expect(auditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'DOCUMENT_GENERATED',
+          payload: expect.objectContaining(sealContent(createCall[0].data.content)),
+        }),
+      );
     });
 
     it('creates SBAR document', async () => {
@@ -751,7 +766,7 @@ describe('DocumentsService', () => {
           data: expect.objectContaining({
             confirmedBy: physicianId,
             confirmedAt: expect.any(Date),
-            contentHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+            ...sealContent(baseDocument.content),
           }),
         }),
       );
@@ -903,6 +918,51 @@ describe('DocumentsService', () => {
       await expect(service.confirm(physicianId, documentId)).rejects.toThrow(NotFoundException);
     });
 
+    // ADR-018 — AuditService.log() descarta `afterHash` e recalcula o seu;
+    // só o payload entra no hash encadeado.
+    it('ancora o selo confirmado no payload do DOCUMENT_CONFIRMED', async () => {
+      prisma.document.findUnique.mockResolvedValue(docBase);
+      prisma.document.update.mockResolvedValue({ ...baseDocument, confirmedBy: physicianId });
+      prisma.encounter.update.mockResolvedValue({});
+
+      await service.confirm(physicianId, documentId);
+
+      expect(auditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'DOCUMENT_CONFIRMED',
+          payload: expect.objectContaining(sealContent(baseDocument.content)),
+        }),
+      );
+    });
+
+    // ADR-018 — regressão: o hash v1 serializava cada medicamento como `{}`.
+    it('sela os campos de cada medicamento da prescrição', async () => {
+      const medication = { medicamento: 'AAS', dosagem: '100 mg', via: 'oral' };
+      const prescription = { paciente: 'PAT-001', medicamentos: [medication] };
+      const confirmedHashFor = async (content: object) => {
+        prisma.document.findUnique.mockResolvedValueOnce({
+          ...docBase,
+          type: 'prescricao',
+          content,
+        });
+        await service.confirm(physicianId, documentId);
+        const updateCalls = prisma.document.update.mock.calls as [
+          { data: { contentHash: string } },
+        ][];
+        return updateCalls.at(-1)![0].data.contentHash;
+      };
+      prisma.document.update.mockResolvedValue({ ...baseDocument, confirmedBy: physicianId });
+      prisma.encounter.update.mockResolvedValue({});
+
+      const originalHash = await confirmedHashFor(prescription);
+      const editedHash = await confirmedHashFor({
+        ...prescription,
+        medicamentos: [{ ...medication, dosagem: '500 mg' }],
+      });
+
+      expect(editedHash).not.toBe(originalHash);
+    });
+
     // Cenário 6: upload do PDF para o storage é best-effort (fire-and-forget) e
     // re-busca o documento (com o join de physician) para renderizar o PDF —
     // cobre o refactor que unificou a renderização usada por upload e download.
@@ -943,6 +1003,97 @@ describe('DocumentsService', () => {
         where: { id: documentId },
         data: { pdfObjectKey: `documents/${encounterId}/${documentId}.pdf` },
       });
+    });
+  });
+
+  describe('verifyIntegrity — ADR-018', () => {
+    const prescription = {
+      paciente: 'PAC-001',
+      medicamentos: [{ medicamento: 'AAS', dosagem: '100 mg', via: 'oral' }],
+    };
+    const confirmedPrescription = {
+      physicianId,
+      confirmedBy: physicianId,
+      content: prescription,
+      physicianEdits: null,
+      ...sealContent(prescription),
+    };
+
+    it('retorna intact quando o conteúdo confirmado bate com o selo v2', async () => {
+      prisma.document.findUnique.mockResolvedValue(confirmedPrescription);
+
+      await expect(service.verifyIntegrity(physicianId, documentId)).resolves.toEqual({
+        documentId,
+        status: 'intact',
+        contentHashVersion: 2,
+      });
+    });
+
+    it('verifica as edições do médico, que são o conteúdo efetivamente confirmado', async () => {
+      const physicianEdits = { ...prescription, paciente: 'PAC-002' };
+      prisma.document.findUnique.mockResolvedValue({
+        ...confirmedPrescription,
+        physicianEdits,
+        ...sealContent(physicianEdits),
+      });
+
+      const integrity = await service.verifyIntegrity(physicianId, documentId);
+
+      expect(integrity.status).toBe('intact');
+    });
+
+    it('retorna intact para documento legado selado com o v1', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        ...confirmedPrescription,
+        // canonicalHash original (3be2d1dd) sobre `prescription`
+        contentHash: '3592846b9ea35e29dad9449a98379da73a4c222f0d77c704ab0a7ecee7ec94e6',
+        contentHashVersion: 1,
+      });
+
+      const integrity = await service.verifyIntegrity(physicianId, documentId);
+
+      expect(integrity).toEqual({ documentId, status: 'intact', contentHashVersion: 1 });
+    });
+
+    it('retorna mismatch quando um medicamento foi alterado depois da confirmação', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        ...confirmedPrescription,
+        content: {
+          ...prescription,
+          medicamentos: [{ ...prescription.medicamentos[0], dosagem: '500 mg' }],
+        },
+      });
+
+      const integrity = await service.verifyIntegrity(physicianId, documentId);
+
+      expect(integrity.status).toBe('mismatch');
+    });
+
+    it('retorna unconfirmed para rascunho', async () => {
+      prisma.document.findUnique.mockResolvedValue({ ...confirmedPrescription, confirmedBy: null });
+
+      const integrity = await service.verifyIntegrity(physicianId, documentId);
+
+      expect(integrity.status).toBe('unconfirmed');
+    });
+
+    it('throws ForbiddenException quando o médico não é o autor', async () => {
+      prisma.document.findUnique.mockResolvedValue({
+        ...confirmedPrescription,
+        physicianId: otherPhysicianId,
+      });
+
+      await expect(service.verifyIntegrity(physicianId, documentId)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('throws NotFoundException para documento inexistente', async () => {
+      prisma.document.findUnique.mockResolvedValue(null);
+
+      await expect(service.verifyIntegrity(physicianId, documentId)).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 

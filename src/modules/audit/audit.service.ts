@@ -26,7 +26,6 @@ interface LogParams {
   action: string;
   entity: string;
   entityId: string;
-  afterHash?: string;
   payload?: Record<string, unknown>;
   ip?: string;
 }

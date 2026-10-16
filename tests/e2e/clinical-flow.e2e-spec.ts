@@ -424,6 +424,7 @@ describe('Clinical Flow E2E', () => {
   let app: NestFastifyApplication;
   let prismaMock: ReturnType<typeof buildPrismaMock>;
   let accessToken: string;
+  let confirmedSeal: { contentHash: string; contentHashVersion: number };
   let refreshToken: string;
   let cookies: Record<string, string>;
 
@@ -702,9 +703,39 @@ describe('Clinical Flow E2E', () => {
     });
 
     expect([200, 201]).toContain(res.statusCode);
-    const body = res.json<{ confirmedBy: string; contentHash: string }>();
+    const body = res.json<{
+      confirmedBy: string;
+      contentHash: string;
+      contentHashVersion: number;
+    }>();
     expect(body.confirmedBy).toBe(PHYSICIAN_ID);
-    expect(body.contentHash).toBeTruthy();
+    expect(body.contentHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(body.contentHashVersion).toBe(2);
+    confirmedSeal = { contentHash: body.contentHash, contentHashVersion: body.contentHashVersion };
+  });
+
+  // ── 8b. Verify the confirmation seal (ADR-018) ──────────────────────────────
+  it('GET /documents/:id/integrity verifies the seal written by confirm', async () => {
+    prismaMock.document.findUnique.mockResolvedValueOnce({
+      physicianId: PHYSICIAN_ID,
+      confirmedBy: PHYSICIAN_ID,
+      content: MOCK_COPILOT_OUTPUT,
+      physicianEdits: null,
+      ...confirmedSeal,
+    });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/v1/encounters/${ENCOUNTER_ID}/documents/${DOCUMENT_ID}/integrity`,
+      headers: { cookie: `access_token=${accessToken}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({
+      documentId: DOCUMENT_ID,
+      status: 'intact',
+      contentHashVersion: 2,
+    });
   });
 
   // ── 9. LGPD export ──────────────────────────────────────────────────────────

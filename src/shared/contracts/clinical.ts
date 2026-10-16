@@ -164,8 +164,18 @@ export interface Document {
   confirmedBy: string | null;
   confirmedAt: string | null;
   contentHash: string | null;
+  // ADR-018 — algoritmo do contentHash: 1 = legado, 2 = JSON canônico.
+  contentHashVersion: number | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export type DocumentIntegrityStatus = 'unconfirmed' | 'intact' | 'mismatch';
+
+export interface DocumentIntegrity {
+  documentId: string;
+  status: DocumentIntegrityStatus;
+  contentHashVersion: number | null;
 }
 
 export interface AuditEntry {
