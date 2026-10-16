@@ -19,6 +19,7 @@ import { analyzeSchema, type AnalyzeInput } from '../schemas/copilot.schemas';
 import { ConversationService } from './conversation.service';
 import { IntakeService } from './intake.service';
 import { answerIntakeSchema, type AnswerIntakeInput } from './intake.schemas';
+import { RequiresAiConsent } from '../../lgpd/ai-consent.guard';
 
 type AuthenticatedRequest = { user: { physicianId: string } };
 
@@ -35,6 +36,7 @@ export class IntakeController {
   ) {}
 
   @Post('intake')
+  @RequiresAiConsent()
   start(
     @Request() req: AuthenticatedRequest,
     @Param('encounterId') encounterId: string,
@@ -64,6 +66,7 @@ export class IntakeController {
 
   /** Plano sem streaming: o caminho de reserva quando o SSE cai. */
   @Post('intake/:intakeId/analyze')
+  @RequiresAiConsent()
   analyze(
     @Request() req: AuthenticatedRequest,
     @Param('encounterId') encounterId: string,
@@ -73,6 +76,7 @@ export class IntakeController {
   }
 
   @Sse('intake/:intakeId/stream')
+  @RequiresAiConsent()
   stream(
     @Request() req: AuthenticatedRequest,
     @Param('encounterId') encounterId: string,

@@ -307,6 +307,114 @@ ORDER BY created_at, id;
    acusar falha, agora já no primeiro registro canônico. Os dados ficam
    corretos e voltar à versão nova resolve. A coluna pode ficar.
 
+### Limite de tentativas: login, MFA e troca de senha (CC-025)
+
+Duas camadas, independentes:
+
+- **Por IP** (`@nestjs/throttler`, em memória na API): `/auth/login` e
+  `/auth/register` 5 por minuto, `/auth/mfa/verify` 5 a cada 5 minutos, o resto
+  `THROTTLER_LIMIT` (600/min em produção). O IP é o N-ésimo a partir da
+  direita do `X-Forwarded-For`, com N = `TRUSTED_PROXY_HOPS` (padrão 1). Antes
+  do CC-025 era o primeiro da lista, que o cliente forja.
+- **Por conta** (`login_security_states`, no Postgres): 5 tentativas sem
+  acerto em 15 min bloqueiam por 15 min (`AUTH_LOCKOUT_*`). Contadores
+  separados: login (por e-mail), código do MFA (login com MFA, desativar o
+  MFA, gerar novos códigos de backup) e senha atual na troca de senha. Login
+  bloqueado responde 401, igual a senha errada; MFA e troca de senha
+  respondem 429 "Muitas tentativas".
+
+#### `TRUSTED_PROXY_HOPS` e o Traefik
+
+Cada proxy acrescenta à direita do XFF o IP de quem se conectou a ele; o que
+está à esquerda veio do cliente. O valor certo é o número de proxies entre a
+internet e a API:
+
+| Caminho | `TRUSTED_PROXY_HOPS` |
+|---|---|
+| cliente → Traefik → API (produção hoje) | `1` (padrão) |
+| cliente → Cloudflare com proxy ligado (nuvem laranja) → Traefik → API | `2` |
+| cliente → API, sem proxy | `0` |
+
+- **Com 1**, a configuração do Traefik não muda o resultado: a API usa o IP
+  que o próprio Traefik acrescentou, mesmo que ele repasse o XFF do cliente.
+- **Com 2**, o Traefik precisa aceitar o XFF **só** da Cloudflare:
+  `entryPoints.websecure.forwardedHeaders.trustedIPs` com as faixas de
+  <https://www.cloudflare.com/ips/> e **sem** `forwardedHeaders.insecure`.
+  Assim, quem chega direto ao Traefik (pulando a Cloudflare) tem o XFF
+  descartado e a API usa o IP que o Traefik viu. Com `insecure` ou
+  `trustedIPs` amplo (ex.: `0.0.0.0/0`), quem pula a Cloudflare escolhe o
+  próprio rastreador.
+- **Ligar a Cloudflare e trocar para 2 no mesmo deploy.** Com 1 atrás da
+  Cloudflare, o rastreador vira o IP da borda dela, e médicos diferentes
+  dividem os mesmos 5 logins por minuto.
+- Valor inválido na env: a API usa 1 e loga `TRUSTED_PROXY_HOPS inválido`
+  na subida.
+
+Conferir na VPS (a configuração estática do Traefik não está neste repo):
+
+```bash
+# Flags de linha de comando do Traefik
+docker inspect <container-do-traefik> --format '{{range .Args}}{{println .}}{{end}}' \
+  | grep -i -E 'entrypoints|forwardedheaders'
+# Ou o arquivo estático montado (traefik.yml/traefik.toml)
+docker inspect <container-do-traefik> --format '{{range .Mounts}}{{println .Source}}{{end}}'
+grep -n -i -A4 'forwardedHeaders' <arquivo-estático>
+# Cloudflare na frente? Endereços dela (104.16.0.0/13, 172.64.0.0/13…) = proxy ligado
+dig +short copiloto.servidortozato.cloud
+```
+
+Teste depois do deploy, de fora da VPS (seu IP fica 1 min sem login):
+
+```bash
+for i in 1 2 3 4 5 6 7; do
+  curl -s -o /dev/null -w '%{http_code}\n' -X POST https://copiloto.servidortozato.cloud/v1/auth/login \
+    -H 'content-type: application/json' -H "x-forwarded-for: 198.51.100.$i" \
+    -d '{"email":"teste-limite@example.com","password":"senha-errada"}'
+done
+# Esperado: 401 cinco vezes e depois 429. Sete 401 = o XFF forjado ainda troca o rastreador.
+```
+
+#### Logs
+
+| Log (WARN) | Significado |
+|---|---|
+| `AUTH_RATE_LIMITED reason=ip route=AuthController.<rota> limit=… ttlMs=… blockedForS=…` | Um IP passou do limite numa rota de `/auth`. Uma linha por bloqueio, não por requisição recusada; sem o IP |
+| `RATE_LIMITED reason=ip route=…` | O mesmo fora de `/auth` |
+| `AUTH_RATE_LIMITED reason=account scope=login\|mfa\|password_change subject=<hash>` | Tentativa recusada porque a conta está bloqueada |
+| `AUTH_ACCOUNT_LOCKED scope=mfa\|password_change subject=<hash> durationMs=…` | Começo de um bloqueio por conta |
+
+`subject` são os 12 primeiros hex do sha256 do id do médico (`unknown` no
+login de e-mail sem cadastro). Bloqueios seguidos de `scope=mfa` para o mesmo
+`subject` querem dizer que alguém tem a senha desse médico: avisar o médico
+para trocá-la. Para achar o médico e, depois de confirmar com ele, desbloquear:
+
+```bash
+docker exec -i copiloto-db psql -v ON_ERROR_STOP=1 -U "$POSTGRES_OWNER_USER" -d copiloto_clinico <<'SQL'
+SELECT id FROM physicians
+WHERE left(encode(sha256(convert_to(id::text, 'UTF8')), 'hex'), 12) = '<subject>';
+
+-- Zera login, MFA e troca de senha desse médico
+UPDATE login_security_states
+SET failed_count = 0, locked_until = NULL, last_failed_at = NULL
+WHERE physician_id = '<id>';
+SQL
+```
+
+### Conferir a retenção de áudio (LGPD)
+
+O cron `AudioRetentionCronService` roda de hora em hora (minuto 15, UTC) e
+elimina o áudio das capturas com `retain_until` vencido. Regras e motivo da
+lápide: "Capturas de áudio" em `docs/compliance/LGPD.md`.
+
+```sql
+-- Deve retornar 0. A folga de 1h cobre o intervalo entre execuções.
+SELECT count(*) FROM audio_captures
+WHERE status <> 'deleted' AND retain_until < now() - interval '1 hour';
+```
+
+Cada eliminação deixa uma entrada `AUDIO_RETENTION_PURGE` na trilha
+(`entity = 'AudioCapture'`, `entity_id` = id da captura).
+
 ### Aplicar migrations em produção
 
 Na VPS, em `~/apps/copiloto-clinico/docker`, **nesta ordem**:
@@ -325,9 +433,21 @@ docker compose --env-file .env.production -f docker-compose.prod.yml run --rm --
 docker compose --env-file .env.production -f docker-compose.prod.yml up -d --no-deps copiloto-api
 ```
 
+- A imagem `copiloto-api` sai de `docker/Dockerfile.api` (o `dockerfile` do
+  serviço em `docker-compose.prod.yml`), e a do web, de `docker/Dockerfile.web`.
+  O antigo `docker/api.Dockerfile` foi removido na CC-014: nenhum compose,
+  script, workflow ou documento o usava, e ele divergia da imagem de produção
+  (pnpm sem versão fixa, sem `pnpm-workspace.yaml` e sem `tini`). A demo
+  (`scripts/demo.sh`) usa o `Dockerfile` da raiz.
 - A imagem de runtime não tem `pnpm` (`sh: pnpm: not found`): use
   `npx --no-install prisma`, que usa o CLI já instalado em `node_modules` e
   nunca baixa nada. Corrigido em 24/09/2026, no deploy da ADR-010.
+- Desde a CC-024, o `node_modules` da imagem de runtime tem só as dependências
+  de produção e o CLI do Prisma, que fica para este passo. `tsx`, `nest`,
+  `vitest` e afins existem só no estágio `builder`: rode scripts de `scripts/`
+  por ele, como na ingestão. Se um build quebrar em `prisma generate` no
+  estágio `prod-deps`, o lock deixou de trazer o CLI como dependência opcional
+  do `@prisma/client` (comentário em `docker/Dockerfile.api`).
 - Subir a API antes da migration quebra o que depende do schema novo — na
   ADR-010, a busca oficial filtra por um valor de enum que só a migration cria.
 - `--env-file .env.production` é obrigatório: sem ele o compose não interpola
@@ -351,6 +471,99 @@ deve continuar usando `DATABASE_URL` com o usuário LOGIN membro de
 `copiloto_app`, sem privilégios de DDL e sem `DELETE`/`TRUNCATE` em `audit_log`.
 
 ⚠️ **ATENÇÃO — audit_log:** Qualquer migration que altere a tabela `audit_log` (ex: adicionar coluna) precisa de revisão manual. O trigger `audit_log_no_update_delete` bloqueia `UPDATE`/`DELETE` mas **não bloqueia DDL**. Verificar que a migration não remove dados existentes. Desde a ADR-015 o `audit_log` é gravado por SQL em `AuditService.writeAuditLogEntry`, não pelo Prisma Client: coluna nova precisa entrar nesse `INSERT`.
+
+### Texto clínico cifrado em repouso (CC-207, ADR-021)
+
+O texto clínico (caso, saída da IA, conversa, anexos, transcrições,
+documentos, notas — inventário completo na ADR-021) é cifrado pela extensão
+do Prisma com `FIELD_ENCRYPTION_KEY` quando `CLINICAL_TEXT_ENCRYPTION=on`. A
+leitura abre texto em claro e cifrado sempre, com a flag ligada ou não.
+
+#### Deploy (primeira vez)
+
+Na VPS, em `~/apps/copiloto-clinico/docker`, com `set -a; . ./.env.production; set +a`:
+
+1. **Cópia da chave.** Confirme que `FIELD_ENCRYPTION_KEY` de
+   `.env.production` está guardada também fora do servidor. Sem ela, o texto
+   cifrado não volta.
+2. **Backup** (como no Passo 0.2 do release), e confira que não está vazio:
+
+   ```bash
+   docker compose -f docker-compose.prod.yml exec copiloto-db \
+     pg_dump -U "$POSTGRES_OWNER_USER" copiloto_clinico > backup-pre-cc207-$(date +%F-%H%M).sql
+   ```
+
+3. **Código e migration com a flag desligada** (padrão `off`): ver
+   "Aplicar migrations em produção". A migration
+   `20261015180000_cc207_chief_complaint_text` só troca
+   `encounters.chief_complaint` de `VARCHAR(140)` para `TEXT` (sem reescrever
+   a tabela). Nada muda para o médico.
+4. **Ligar a gravação cifrada:** `CLINICAL_TEXT_ENCRYPTION=on` em
+   `.env.production`, depois
+   `docker compose --env-file .env.production -f docker-compose.prod.yml up -d --no-deps copiloto-api`.
+   Confira que o container recebeu: `docker compose -f docker-compose.prod.yml exec copiloto-api printenv CLINICAL_TEXT_ENCRYPTION` → `on`.
+   Faça uma análise de teste e confira que abre normalmente.
+5. **Cifrar o que já existe.** A imagem de runtime não tem `scripts/`: use o
+   estágio `builder`, como na ingestão, e a role da aplicação.
+
+   ```bash
+   docker build -f Dockerfile.api --target builder -t copiloto-cc207:tmp ..
+   APPDB="postgresql://${POSTGRES_APP_USER}:${POSTGRES_APP_PASSWORD}@copiloto-db:5432/copiloto_clinico?schema=public"
+   cc207() {
+     docker run --rm --network docker_copiloto-net \
+       -e DATABASE_URL="$APPDB" -e FIELD_ENCRYPTION_KEY="$FIELD_ENCRYPTION_KEY" \
+       -e FIELD_ENCRYPTION_KEY_PREVIOUS="${FIELD_ENCRYPTION_KEY_PREVIOUS:-}" \
+       --entrypoint sh copiloto-cc207:tmp -c "npx tsx scripts/encrypt-clinical-text.ts $*"
+   }
+   cc207 --dry-run            # contagem por coluna, nada gravado
+   cc207 --batch 500          # cifra; pode interromper e rodar de novo
+   cc207 --verify             # tem que terminar com "OK: nenhum texto clínico em claro."
+   ```
+
+   A `Chave atual` impressa pelo script tem que ser a mesma nas três
+   chamadas. `concorrentes > 0` é normal com médicos usando o sistema: rode
+   de novo até zerar. `falhas > 0` (chave desconhecida ou valor que não abre)
+   para tudo — ver a tabela de erros abaixo.
+6. **Conferir no banco** (amostra; não deve aparecer texto legível):
+
+   ```bash
+   docker compose -f docker-compose.prod.yml exec copiloto-db psql -U "$POSTGRES_OWNER_USER" -d copiloto_clinico -c \
+     "SELECT left(input_redacted, 20), left(raw_output::text, 22) FROM ai_interactions ORDER BY created_at DESC LIMIT 3;"
+   ```
+
+   Esperado: `enc:v1:<id>:…` e `"enc:v1:<id>:…`.
+7. **Backups antigos** (antes do passo 5) continuam com o texto em claro:
+   aplique a política de retenção a eles.
+
+#### Rollback
+
+- **Comportamento:** `CLINICAL_TEXT_ENCRYPTION=off` e `up -d --no-deps
+  copiloto-api`. Volta a gravar em claro; o que já foi cifrado continua
+  abrindo (leitura dupla). Não precisa decifrar nada.
+- **Código:** a versão anterior ao CC-207 não lê `enc:v1:`. Para voltar a
+  imagem da API para antes do CC-207: flag `off`, depois `cc207 --decrypt
+  --dry-run` e `cc207 --decrypt` (grava em claro o que estava cifrado, com o
+  mesmo compare-and-set), e só então a imagem antiga. A migration pode ficar
+  (`TEXT` serve à versão antiga).
+
+#### Rotação da chave
+
+1. `FIELD_ENCRYPTION_KEY` = nova (`openssl rand -hex 32`),
+   `FIELD_ENCRYPTION_KEY_PREVIOUS` = antiga; `up -d --no-deps copiloto-api`.
+2. `cc207 --batch 500` (o relatório mostra `rotacionados`), depois
+   `cc207 --verify` com `chaveAnterior` = 0 em todas as colunas.
+3. **Não remova a chave anterior ainda:** o segredo do MFA e o áudio (formato
+   legado) também abrem com ela, mas o script não os refaz. Sem ela, o login
+   de quem tem MFA quebra.
+
+#### Erros
+
+| Erro (log/Sentry) | Causa | Ação |
+|---|---|---|
+| `SealedValueError: <Modelo>.<campo>: Sealed value uses unknown key <id>` | Valor cifrado com uma chave que não está no ambiente (chave trocada sem `FIELD_ENCRYPTION_KEY_PREVIOUS`). | Recolocar a chave certa (ou a anterior em `FIELD_ENCRYPTION_KEY_PREVIOUS`) e reiniciar a API. |
+| `SealedValueError: … does not open with key <id>` / `Malformed sealed value` | Valor cifrado alterado ou truncado no banco. | Tratar como incidente de integridade: `cc207 --verify` lista os ids (`undecryptableIds`). |
+| `FieldKeyError: FIELD_ENCRYPTION_KEY is required` (na leitura: `SealedValueError: <Modelo>.<campo>: FIELD_ENCRYPTION_KEY is required`) | Flag ligada, ou valor cifrado lido, sem a chave no ambiente. | Conferir o repasse no `docker-compose.prod.yml`. |
+| `ClinicalTextQueryError: <Modelo>.<campo> é texto clínico cifrado: …` | Código novo filtrando/ordenando pelo conteúdo de um campo cifrado. | Bug: o filtro não funcionaria sobre texto cifrado. Corrigir o código (filtrar por outro campo ou no código depois de ler). |
 
 ### Rodar testes de integração
 
@@ -913,6 +1126,44 @@ Antes de ligar:
 O custo gravado em `ai_interactions.cost` considera leitura e escrita de cache
 e, desde a Fase 0-B, também as análises em stream (antes gravavam 0).
 
+### Consentimento de IA (CC-010)
+
+Quem revoga "Processamento por IA" em Configurações → Privacidade recebe 403
+com `code: "AI_CONSENT_REVOKED"` na leitura do caso, análise (POST, streaming
+e fila), reanálise e ditado, antes de qualquer chamada ao gateway ou ao
+Whisper (`AiConsentGuard`). Análise que já estava na fila falha sem retry. A
+consulta de diretrizes segue só por palavra-chave. O histórico e os documentos
+continuam abertos. No log: `AI_CONSENT_REVOKED physicianId=...` (WARN).
+
+Vale o registro mais recente de `consents` para o escopo; sem nenhum, o
+processamento por IA está ativo (padrão desde o cadastro). Não há flag: para
+liberar, o próprio médico concede de novo na mesma tela.
+
+```sql
+-- Antes do deploy: quem ficará bloqueado (última linha de ai_processing revogada)
+SELECT DISTINCT ON (physician_id) physician_id, granted_at, revoked_at
+FROM consents WHERE scope = 'ai_processing'
+ORDER BY physician_id, granted_at DESC;
+-- bloqueados = linhas com revoked_at preenchido
+```
+
+### Fila de análise assíncrona (CC-011)
+
+`POST .../copilot/analyze/async` e o áudio gravado (`POST
+/encounters/:id/audio`) gravam o caso já redigido numa conversa sem leitura
+(`case_intakes`, `path = disabled`) e enfileiram só ids: `{ physicianId,
+encounterId, intakeId }`. O worker analisa pela conversa, como o plano sem
+streaming da tela. O resultado no Redis também são só ids (`intakeId`,
+`interactionId`); o plano sai por `GET .../copilot/conversation` ou
+`.../latest`. Retenção da fila: concluído 24 h, falho 7 dias.
+
+Deploy: job enfileirado antes da versão nova ainda leva o caso sem redação. O
+worker tira o texto do Redis antes de tudo (`INFERENCE_LEGACY_JOB jobId=...`,
+WARN), abre a conversa e segue como um job novo; se a conversa for recusada
+(injeção, caso encerrado), o job falha sem o texto. Esse caminho pode sair
+depois de 7 dias da versão no ar. Recusa 4xx (consentimento, posse, injeção,
+plano já feito) falha sem retry.
+
 ---
 
 ## Multi-tenancy institucional (PROT-004)
@@ -973,6 +1224,40 @@ sem se invalidar.
 apenas na resposta. Acesso a um protocolo de outra instituição retorna `404`
 (nunca `403`, para não confirmar a existência do recurso).
 
+**5. Desativar uma instituição (nunca apagar)**
+
+Desde a CC-021 o banco recusa apagar instituição que tenha protocolo, trecho
+de diretriz ou atendimento (`ON DELETE RESTRICT`, erro `violates foreign key
+constraint`). Antes, o `institution_id` desses registros virava `NULL`, e o
+material interno passava a aparecer para todos os médicos. Para tirar uma
+instituição de uso, desative-a. Não há rota para isso (`POST /v1/institutions`
+só cria); na VPS, como owner:
+
+```bash
+docker exec -i copiloto-db psql -v ON_ERROR_STOP=1 -U "$POSTGRES_OWNER_USER" -d copiloto_clinico \
+  -c "UPDATE institutions SET status = 'inactive', updated_at = now() WHERE id = '<uuid>';"
+```
+
+O conteúdo continua institucional, nunca global. Com a CC-019 (filtro por
+vínculo ativo), vínculo com instituição `inactive` não conta e os médicos dela
+deixam de ver esse conteúdo; antes dela, a aplicação não lê `status`.
+
+Só se apaga instituição sem nada apontando para ela (ex.: criada por engano).
+O vínculo com médicos sai junto (`CASCADE`). Para ver o que ainda a prende:
+
+```sql
+SELECT 'protocols' AS tabela, count(*) FROM protocols WHERE institution_id = '<uuid>'
+UNION ALL SELECT 'guideline_chunks', count(*) FROM guideline_chunks WHERE institution_id = '<uuid>'
+UNION ALL SELECT 'encounters', count(*) FROM encounters WHERE institution_id = '<uuid>';
+```
+
+Não zere `institution_id` para destravar o `DELETE`: em protocolo e diretriz,
+`NULL` publica o conteúdo para todos (ADR-009, adendo CC-021).
+
+A migration `20261015190000_cc_021_institution_delete_restrict` só troca a
+regra das três FKs: não depende de código novo e entra pelo passo 2 de
+"Aplicar migrations em produção", sem janela.
+
 ---
 
 ## Migrações
@@ -993,6 +1278,8 @@ apenas na resposta. Acesso a um protocolo de outra instituição retorna `404`
 | `20260924220000_ivfflat_probes_exact` | `ivfflat.probes = 100` no banco: busca vetorial exata (incidente de 24/09/2026) |
 | `20261012180000_aud_007_audit_log_hash_version` | `audit_log.hash_version` (NULL = hash legado, 2 = JSON canônico) — ADR-015; só adiciona coluna nula |
 | `20261014180000_ai_calls_fallback_from` | `ai_calls.fallback_from` (perfil que caiu, na chamada feita no modelo de reserva) — CC-107; só adiciona coluna nula |
+| `20261014200100_audio_capture_retention` | `audio_captures.encrypted_content` anulável + CHECK `deleted` ⇔ sem áudio (retenção de 30 dias). Só metadado de coluna e CHECK: a versão anterior da API roda sobre o schema novo |
+| `20261015180000_cc207_chief_complaint_text` | `encounters.chief_complaint` de `VARCHAR(140)` para `TEXT`, para caber o valor cifrado — CC-207/ADR-021; sem reescrever a tabela |
 
 ### Rollback de Migration
 
@@ -1003,16 +1290,50 @@ Prisma não suporta rollback automático. Para reverter:
 
 ---
 
+## Containers de produção (CC-013)
+
+`docker/docker-compose.prod.yml` sobe `copiloto-db`, `copiloto-redis`,
+`copiloto-api` (`docker/Dockerfile.api`) e `copiloto-web`
+(`docker/Dockerfile.web`). Não há container de worker:
+
+- **Worker da fila e crons rodam dentro da API.** `InferenceWorkerService`
+  (BullMQ, fila `inference`) sobe no `onModuleInit` do `QueueModule`, e os
+  crons de `src/workers/` (cadeia de auditoria, saúde do banco, abandono do
+  funil) vêm do `ScheduleModule`, no mesmo processo. Concorrência e ritmo:
+  `INFERENCE_QUEUE_CONCURRENCY` e `INFERENCE_QUEUE_RATE_PER_SEC`.
+- **`docker/worker.Dockerfile` foi removido.** Ele rodava `dist/workers/main.js`,
+  que nunca existiu, e copiava de uma imagem `copiloto-api:latest` que nenhum
+  compose gera. Separar o worker exige um entrypoint próprio que suba só a
+  fila, sem HTTP e sem os crons (senão os crons rodam duas vezes); só vale a
+  pena se a análise pela fila competir com a API por CPU.
+
+**Object storage (MinIO/S3): desligado em produção, de propósito.** O
+compose não repassa `MINIO_*`, então `StorageService.isAvailable()` é falso:
+o PDF do documento confirmado é montado na hora do download
+(`DocumentsService`, "PDF sob demanda") e nada fica gravado fora do banco.
+Ligar exige subir um MinIO (ou usar S3) com backup e retenção próprios e
+resolver o PDF que fica órfão na eliminação da conta (em PR aberto, #142).
+Até lá, nenhum ganho justifica guardar mais uma cópia do documento clínico.
+
+**Sentry:** o `SENTRY_DSN` no compose e o evento sem corpo nem cabeçalhos de
+credencial vêm do PR #168 (seção "Sentry" em Monitoramento).
+
+---
+
 ## Variáveis de Ambiente Críticas
 
 | Variável | Risco se ausente/errada |
 |---|---|
 | `JWT_ACCESS_SECRET` | Todos os tokens são inválidos ou forjáveis |
 | `JWT_REFRESH_SECRET` | Refresh tokens inválidos |
+| `TRUSTED_PROXY_HOPS` | Proxies confiáveis à frente da API (padrão 1 = Traefik). Alto demais (2 sem Cloudflare) deixa o cliente escolher o IP do limite de tentativas; baixo demais (1 com Cloudflare) junta médicos no mesmo limite. Ver "Limite de tentativas" |
 | `INTERNAL_SERVICE_TOKEN` | Endpoint `/audit/verify-chain` inacessível |
 | `AI_API_KEY` | Análise clínica indisponível |
 | `DATABASE_URL` | Sistema completamente indisponível ou rodando com privilégios excessivos |
 | `MIGRATION_DATABASE_URL` | Migrations indisponíveis ou executadas com usuário incorreto |
+| `FIELD_ENCRYPTION_KEY` | API não sobe (segredo do MFA). Trocada sem `FIELD_ENCRYPTION_KEY_PREVIOUS`: MFA, áudio e texto clínico cifrado deixam de abrir (`SealedValueError`). Perdida: o texto clínico cifrado não volta |
+| `CLINICAL_TEXT_ENCRYPTION` | `on` grava o texto clínico cifrado (CC-207/ADR-021); `off` (padrão) grava em claro. A leitura abre os dois sempre: desligar é o rollback. Ausente ou irreconhecível = `off`. Ver "Texto clínico cifrado em repouso" |
+| `FIELD_ENCRYPTION_KEY_PREVIOUS` | Só durante uma rotação: a chave anterior, para decifrar. Vazia = sem rotação |
 | `OFFICIAL_GUIDELINES_ENABLED` | `false` tira PCDT/DDT/DB/PU do retrieval (válvula de escape da ADR-010); ausente = ligada. Os limiares `OFFICIAL_*` estão em `.env.example` |
 | `UNREVIEWED_SOURCES_PRELIMINARY` | `false` desliga a contenção da ADR-012: PCDT e chunk curado sem assinatura voltam a embasar conduta definitiva. Ausente ou irreconhecível = ligada |
 | `COPILOT_REASONING` | `stages` liga o raciocínio em etapas da ADR-013 (entendimento do caso antes da busca, busca dirigida, card "O que eu entendi"); `legacy` (padrão) volta ao pipeline de sempre. Ausente ou irreconhecível = `legacy`. Etapa 1 com `AI_UNDERSTANDING_MODEL` (vazio = `AI_MODEL`) e `AI_UNDERSTANDING_EFFORT` (padrão `low`). Falha da Etapa 1 aparece como `UNDERSTANDING_FAILED`/`UNDERSTANDING_FALLBACK` no log e a análise segue pela busca de sempre |
@@ -1025,6 +1346,15 @@ Prisma não suporta rollback automático. Para reverter:
 ---
 
 ## Monitoramento
+
+### Sentry
+
+O Sentry só liga com `SENTRY_DSN` no `.env.production` (o compose repassa a
+variável). Antes de ligar, confirme região e retenção do projeto no Sentry
+(`docs/compliance/DPA_PROVIDER.md`). O evento vai sem corpo, query, cookies e
+cabeçalhos de credencial (`scrubSentryEvent`): o corpo da requisição é o caso
+clínico. Os logs de acesso com erro registram só os nomes dos campos do corpo
+(`bodyFields=`).
 
 ### Rastro das chamadas de IA (`ai_calls`)
 
@@ -1065,10 +1395,13 @@ GROUP BY 1, 2 ORDER BY fallbacks DESC;
 |---|---|---|
 | `AUDIT CHAIN INTEGRITY FAILURE` (também alerta no Sentry) | Cadeia rompida: conteúdo, elo ou versão de hash que não confere (ADR-015). "Legado não verificável" **não** dispara isto. | Ler a mensagem na tabela "Mensagens de falha" (em "Verificar integridade da trilha de auditoria"). Se for adulteração: isolar o sistema, investigar os registros suspeitos e acionar o DPO |
 | `Audit chain verification failed with exception` | Erro ao verificar cadeia | Verificar conectividade com banco |
+| `AUDIO RETENTION PURGE INCOMPLETE` | Captura com `retain_until` vencido ainda guarda áudio | O log anterior (`Audio retention purge failed for capture <id>`) traz a causa; o job retenta na hora seguinte. Se persistir, acionar DPO: o prazo de 30 dias da LGPD.md está sendo descumprido |
+| `Audio retention purge failed with exception` | Erro ao listar capturas vencidas | Verificar conectividade com banco |
 | `Output validation failed` | IA retornou resposta inválida | Verificar provider, possível mudança de modelo |
 | `Anthropic API error: status=...` | Falha na API da Anthropic | 4xx: ver "Trocar o provider ou o modelo de IA"; 429/5xx: o SDK já retentou 2x, checar status.anthropic.com |
 | `AI_FALLBACK_FAILED` | Provedor da etapa e modelo de reserva fora ao mesmo tempo (CC-107) | Ver "Reserva de provedor (CC-107)" |
 | `Injection detected` | Possível tentativa de prompt injection | Revisar logs de acesso, bloquear IP se necessário |
+| `SealedValueError` / `ClinicalTextQueryError` | Texto clínico cifrado que não abre (chave) ou consulta pelo conteúdo de um campo cifrado (bug) — CC-207 | Tabela "Erros" em "Texto clínico cifrado em repouso" |
 
 ---
 

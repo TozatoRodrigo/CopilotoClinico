@@ -6,14 +6,12 @@ import { CopilotController } from './copilot.controller';
 import { CopilotService } from './copilot.service';
 import { CopilotFeedbackService } from './feedback/copilot-feedback.service';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
-import { lastValueFrom, toArray } from 'rxjs';
 import { understandingFixture } from '../../../tests/fixtures/case-understanding';
 
 describe('CopilotController', () => {
   let controller: CopilotController;
   let serviceMock: {
     analyze: ReturnType<typeof vi.fn>;
-    stream: ReturnType<typeof vi.fn>;
     respond: ReturnType<typeof vi.fn>;
   };
   let feedbackMock: { submit: ReturnType<typeof vi.fn> };
@@ -34,7 +32,7 @@ describe('CopilotController', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    serviceMock = { analyze: vi.fn(), stream: vi.fn(), respond: vi.fn() };
+    serviceMock = { analyze: vi.fn(), respond: vi.fn() };
     feedbackMock = { submit: vi.fn().mockResolvedValue({ recorded: true }) };
     controller = new CopilotController(
       serviceMock as unknown as CopilotService,
@@ -82,136 +80,6 @@ describe('CopilotController', () => {
 
       expect(serviceMock.respond).toHaveBeenCalledWith('phys-001', encounterId, respondBody);
       expect(result).toEqual(analyzeResult);
-    });
-  });
-
-  describe('RT-001: stream', () => {
-    async function* fakeGen() {
-      yield { type: 'delta' as const, delta: 'hello' };
-      yield { type: 'done' as const, result: analyzeResult };
-    }
-
-    const noRedFlagsQuery = {
-      hasCT: false,
-      isSus: false,
-      hasLab: false,
-      hasICU: false,
-      immunosuppressed: false,
-      pregnant: false,
-      anticoagulant: false,
-      pediatric: false,
-      elderly65: false,
-      allergy: false,
-    };
-
-    it('returns an Observable that emits MessageEvents from the generator', async () => {
-      serviceMock.stream.mockReturnValue(fakeGen());
-
-      const query = {
-        caseText: body.caseText,
-        ...noRedFlagsQuery,
-        hasCT: true,
-        hasLab: true,
-      };
-      const observable = controller.stream(req, encounterId, query);
-
-      const events = await lastValueFrom(observable.pipe(toArray()));
-
-      expect(serviceMock.stream).toHaveBeenCalledWith('phys-001', encounterId, {
-        caseText: body.caseText,
-        context: { hasCT: true, isSus: false, hasLab: true, hasICU: false },
-        redFlags: {
-          immunosuppressed: false,
-          pregnant: false,
-          anticoagulant: false,
-          pediatric: false,
-          elderly65: false,
-          allergy: false,
-        },
-      });
-      expect(events).toHaveLength(2);
-      expect(events[0]?.data).toEqual({ type: 'delta', delta: 'hello' });
-      expect(events[1]?.data).toMatchObject({ type: 'done' });
-    });
-
-    // UX-06 — paridade com POST /analyze: red flags confirmadas pelo médico
-    // não podem se perder só porque o caminho é streaming/GET.
-    it('forwards physician-confirmed red flags from individual query params (S20-CLIN-01 parity)', async () => {
-      serviceMock.stream.mockReturnValue(fakeGen());
-
-      const query = {
-        caseText: body.caseText,
-        ...noRedFlagsQuery,
-        pregnant: true,
-        anticoagulant: true,
-      };
-      const observable = controller.stream(req, encounterId, query);
-      // Observable é lazy (cold) — o generator só é chamado ao inscrever.
-      await lastValueFrom(observable.pipe(toArray()));
-
-      expect(serviceMock.stream).toHaveBeenCalledWith(
-        'phys-001',
-        encounterId,
-        expect.objectContaining({
-          redFlags: expect.objectContaining({ pregnant: true, anticoagulant: true }),
-        }),
-      );
-    });
-
-    // F0-C — paridade de `params`: a tag de funil chega ao orquestrador também
-    // pelo streaming.
-    it('forwards the demoCase funnel tag', async () => {
-      serviceMock.stream.mockReturnValue(fakeGen());
-
-      const query = { caseText: body.caseText, ...noRedFlagsQuery, demoCase: 'sindrome-gripal' };
-      await lastValueFrom(controller.stream(req, encounterId, query).pipe(toArray()));
-
-      expect(serviceMock.stream).toHaveBeenCalledWith(
-        'phys-001',
-        encounterId,
-        expect.objectContaining({ demoCase: 'sindrome-gripal' }),
-      );
-    });
-
-    // F1 — o entendimento do caso (ADR-013) chega ao navegador como evento
-    // SSE próprio, antes dos deltas, no mesmo formato `data: <json>`.
-    it('forwards the understanding event before the deltas', async () => {
-      const understanding = understandingFixture();
-      async function* stagesGen() {
-        yield { type: 'understanding' as const, understanding };
-        yield { type: 'delta' as const, delta: '{' };
-        yield { type: 'done' as const, result: analyzeResult };
-      }
-      serviceMock.stream.mockReturnValue(stagesGen());
-
-      const query = { caseText: body.caseText, ...noRedFlagsQuery };
-      const events = await lastValueFrom(
-        controller.stream(req, encounterId, query).pipe(toArray()),
-      );
-
-      expect(events.map((event) => (event.data as { type: string }).type)).toEqual([
-        'understanding',
-        'delta',
-        'done',
-      ]);
-      expect(events[0]?.data).toEqual({ type: 'understanding', understanding });
-    });
-
-    it('completes observable after done event', async () => {
-      serviceMock.stream.mockReturnValue(fakeGen());
-
-      const query = { caseText: body.caseText, ...noRedFlagsQuery };
-      const observable = controller.stream(req, encounterId, query);
-
-      let completed = false;
-      await new Promise<void>((resolve) => {
-        observable.subscribe({
-          complete: () => { completed = true; resolve(); },
-          error: resolve,
-        });
-      });
-
-      expect(completed).toBe(true);
     });
   });
 });
@@ -282,7 +150,7 @@ describe('CopilotController — respond/stream', () => {
   }
 
   describe('corpo', () => {
-    it('accepts the same body as POST /respond, with no size ceiling', () => {
+    it('accepts the same body as POST /respond, with long answers up to the case text ceiling', () => {
       const long = { interactionId, answers: [{ questionId: 'q1', answer: 'a'.repeat(20_000) }] };
 
       expect(bodyPipe().transform(body, { type: 'body' })).toEqual(body);

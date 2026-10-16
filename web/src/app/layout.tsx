@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import Script from "next/script";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { IconProvider } from "@/components/providers/icon-provider";
 import { OfflineProvider } from "@/components/providers/offline-provider";
@@ -9,6 +8,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/lib/auth-store";
 import { ServiceWorkerRegistrar } from "@/components/providers/sw-registrar";
 import { InstallPromptBanner } from "@/components/domain/install-prompt-banner";
+import { UmamiScript } from "@/components/providers/umami-script";
 import "./globals.css";
 
 // Tipografia: pilha de fontes do sistema (a mesma do Notion), definida em
@@ -44,6 +44,8 @@ export const viewport: Viewport = {
 // consentimento necessário — é o próprio motivo de escolha dele). Opcional
 // via env: ausente em build local/CI/e2e (nenhum tráfego de teste polui os
 // dados), presente só na imagem de produção (ver docker/Dockerfile.web).
+// CC-014: o carregador fica dentro do AuthProvider e não carrega o script
+// para o médico que revogou "Analytics" (ver UmamiScript).
 const UMAMI_WEBSITE_ID = process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID;
 const UMAMI_SRC = process.env.NEXT_PUBLIC_UMAMI_SRC;
 
@@ -70,19 +72,15 @@ export default function RootLayout({
             __html: `(function(){try{var t=localStorage.getItem('theme');var m=window.matchMedia('(prefers-color-scheme: dark)').matches;if(t==='dark'||(!t&&m)){document.documentElement.classList.add('dark')}}catch(e){}})()`,
           }}
         />
-        {UMAMI_WEBSITE_ID && UMAMI_SRC && (
-          <Script
-            src={UMAMI_SRC}
-            data-website-id={UMAMI_WEBSITE_ID}
-            strategy="afterInteractive"
-          />
-        )}
       </head>
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <IconProvider>
           <ThemeProvider>
             <QueryProvider>
               <AuthProvider>
+                {UMAMI_WEBSITE_ID && UMAMI_SRC && (
+                  <UmamiScript src={UMAMI_SRC} websiteId={UMAMI_WEBSITE_ID} />
+                )}
                 <OfflineProvider>
                   <TooltipProvider>
                     {children}
