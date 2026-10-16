@@ -63,7 +63,8 @@ export const CLINICAL_TEXT_FIELDS = {
 export const PLAINTEXT_BY_DESIGN: Readonly<Record<string, Readonly<Record<string, string>>>> = {
   Encounter: {
     vertical: 'categoria do atendimento (ex.: trauma), não texto do caso',
-    context: 'recursos do plantão em booleanos (TC, laboratório, UTI, SUS)',
+    context:
+      'recursos do plantão em booleanos (TC, laboratório, UTI, SUS) e a cópia do local de plantão (CC-602: nome dado pelo médico, porte, especialistas, tempo até a referência), não texto do caso',
     patientRef:
       'identificador opaco do HIS (ADR-004), não texto clínico; a busca do Plantão usa contains/insensitive e não funcionaria sobre texto cifrado',
   },
