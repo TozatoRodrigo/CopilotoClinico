@@ -53,6 +53,7 @@ Cada caso é um arquivo JSON. Abra, leia, corrija o que estiver errado e marque 
 | `expected.conversation` | O que se espera da conversa **antes do plano** no modo afunilamento (Copiloto guiado), opcional: `syndromes` (síndromes de PS aceitas na leitura da abertura; padrão: `tags[0]`), `severity` (`stable`, `time_critical` ou `unstable` — a gravidade que a leitura não pode subestimar; padrão: `time_critical` em caso `critical`) e `essentialQuestions` (cada uma com `about`, o dado em uma linha, e `factIds`, os fatos do roteiro que a respondem — basta um). Ver "Conversa antes do plano". |
 | `sources` | Fontes que sustentam as expectativas: `claim` (o que a fonte sustenta), `title`, `publisher`, `year` (ou `null`) e `url`. Opcional. |
 | `provenance` | De onde o caso veio e o que mudou: `exam`, `edition`, `item` e `url` (prova de origem), `originalCaseText` (texto antes de reescrito), `notes` (o que mudou e por quê) e `origin` (`feedback:<id>` quando o caso nasceu de um reporte da triagem). Opcional. |
+| `draftOrigin` | Só para caso escrito a partir de um rascunho de IA de cartão: `draftId` e `sourceContentSha256` do rascunho (`GET /v1/admin/knowledge-cards/drafts`). Ausente = caso escrito sem rascunho de IA. Ver "Gabarito e cartões" abaixo. Opcional. |
 | `probes` | Frases de recomendação que a checagem automática **deve** acusar (`mustFlag`) e **não pode** acusar (`mustNotFlag`) neste caso — ao menos uma de cada. Obrigatório quando o caso tem conduta proibida com `patterns`. Ver abaixo. |
 | `excludeFromGate` | `{ "reason": "..." }`: o caso roda e recebe nota, mas não decide o portão de release (gabarito oficial desatualizado ou discutível). Aparece no relatório em "Fora do portão". Opcional. |
 
@@ -194,6 +195,14 @@ Regra do Copiloto escrita olhando os erros do conjunto principal tende a ir melh
 Todo incidente reportado em campo vira caso: copie um arquivo parecido, troque o `id` (e o nome do arquivo), escreva o texto como o médico digitou e preencha o gabarito. `goldSource` é `field_incident` ou `physician`.
 
 **Reporte do beta (triagem do feedback).** Em `/admin/feedback`, "Virou caso do gabarito" baixa o rascunho `campo-<8 caracteres>.json` (ou "Baixar rascunho do caso", a qualquer momento). Ele já passa no formato: traz o texto que o Copiloto leu naquela rodada (o caso e as respostas do médico), mascarado; o contexto e as bandeiras de alerta; a síndrome que o entendimento registrou em `tags[0]`; e o reporte, o comentário do médico e a hipótese do Copiloto em `provenance.notes`. As expectativas vêm vazias. Salve em `evals/clinical/cases/`, preencha tudo o que está marcado `A PREENCHER` (a lista está em `review.notes`), confira se sobrou identificador no texto, apague a nota e abra o PR. Sem síndrome registrada, `tags[0]` vem provisória com a tag `a-preencher` ao lado. O teste do gabarito recusa arquivo com `A PREENCHER` ou com a tag `a-preencher`: rascunho sem expectativa rodaria sem medir nada.
+
+### Gabarito e cartões (CC-412)
+
+Nenhum caso do gabarito nasce dos cartões revisados (ADR-019): um caso escrito a partir de um cartão mede o Copiloto contra ele mesmo — o problema do gabarito v1. Três regras:
+
+- `goldSource` registra a fonte real (prova oficial, médico, incidente…). `card` e `knowledge_card` são recusados pelo schema, com a mensagem do CC-412.
+- Caso escrito a partir de um rascunho de IA de cartão registra `draftOrigin` (`draftId` e `sourceContentSha256` do rascunho). `pnpm cards:check-circularity` e o runner do gabarito recusam caso e cartão com o mesmo `draftId` ou o mesmo `sourceContentSha256` (os mesmos trechos de fonte entregues ao modelo, em outro pedido).
+- O runner faz essa checagem antes de medir; sem caso com `draftOrigin`, nem consulta o banco.
 
 ---
 

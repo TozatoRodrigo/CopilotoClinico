@@ -36,6 +36,7 @@ import {
   readWebResearchMaxSearches,
 } from '../../src/modules/copilot/research/web-research.settings';
 import type { ClinicalCase } from './case.schema';
+import { assertNoCircularGoldCases } from './card-circularity';
 import { CASE_SETS, loadCaseSet, selectCases } from './cases';
 import { assertSafeDatabase, formatDatabaseTarget } from './db-safety';
 import { EvalModule } from './eval.module';
@@ -274,6 +275,9 @@ async function executeVariant(context: VariantRunContext): Promise<string> {
 
   try {
     const prisma = app.get(PrismaService);
+    // CC-412: com cartão e caso do gabarito da mesma origem, a nota mediria
+    // o Copiloto contra ele mesmo — não mede.
+    await assertNoCircularGoldCases(prisma);
     const config = app.get(ConfigService);
     const gateway = app.get(AiGatewayService);
     const requestedModel = config.getOrThrow<string>('AI_MODEL');

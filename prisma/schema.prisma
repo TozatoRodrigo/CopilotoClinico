@@ -168,6 +168,8 @@ model Physician {
   shiftReviews            ShiftReview[]
   shiftReviewQuestions    ShiftReviewQuestion[]
   externalIdentities      ExternalIdentity[]
+  knowledgeCardVersions   KnowledgeCardVersion[]   @relation("KnowledgeCardVersionAuthor")
+  knowledgeCardReviews    KnowledgeCardVersion[]   @relation("KnowledgeCardVersionReviewer")
 
   @@map("physicians")
 }
@@ -254,6 +256,7 @@ model Institution {
   guidelineChunks GuidelineChunk[]
   encounters      Encounter[]
   protocols       Protocol[]
+  knowledgeCards  KnowledgeCard[]
 
   mentoringRequests MentoringRequest[]
 
@@ -885,6 +888,150 @@ model OfficialGuidelineDocument {
   @@index([status])
   @@index([kind])
   @@map("official_guideline_documents")
+}
+
+/// CC-402 (ADR-019) — ciclo de vida do cartão revisado. "Revisar" (validade
+/// vencida) não é status gravado: é derivado na leitura (card-lifecycle.ts).
+enum KnowledgeCardStatus {
+  draft
+  in_review
+  published
+  archived
+}
+
+/// CC-402 — quem escreveu uma versão: a IA (rascunho) ou um médico (correção).
+enum KnowledgeCardAuthorKind {
+  ai
+  physician
+}
+
+/// CC-402 — decisão do médico revisor sobre UMA versão.
+enum KnowledgeCardReviewDecision {
+  approved
+  rejected
+}
+
+/// CC-403 — desfecho de um pedido de rascunho à IA.
+enum KnowledgeCardDraftStatus {
+  /// O modelo respondeu no schema; cada cartão foi aceito ou rejeitado pela checagem de citação.
+  completed
+  /// O provedor falhou, recusou, truncou ou a resposta saiu do schema: nenhum cartão.
+  failed
+}
+
+/// CC-403 (ADR-019) — um pedido de rascunho de cartões à IA: tema, trechos de
+/// fonte entregues, modelo, versão do prompt e o que passou na checagem de
+/// citação. Gravado de uma vez, depois da resposta — inclusive quando falha,
+/// porque o custo já foi gasto.
+///
+/// CC-412 — `id` e `source_content_sha256` são a origem do rascunho: um caso
+/// do gabarito que registre a mesma origem de um cartão é circular.
+model KnowledgeCardDraft {
+  id                  String                   @id @default(uuid()) @db.Uuid
+  topic               String                   @db.VarChar(200)
+  /// Síndrome de PS (`PS_SYNDROMES`), quando o pedido informa.
+  syndrome            String?                  @db.VarChar(40)
+  /// ADR-009 — instituição dos cartões gerados; null = cartão global.
+  institutionId       String?                  @map("institution_id") @db.Uuid
+  /// Quem pediu (admin); null pelo script.
+  requestedBy         String?                  @map("requested_by") @db.Uuid
+  status              KnowledgeCardDraftStatus
+  /// Referência pedida ao gateway (`perfil:modelo` ou só o modelo).
+  requestedModel      String                   @map("requested_model") @db.VarChar(128)
+  servedModel         String?                  @map("served_model") @db.VarChar(128)
+  /// SHA-256 do system prompt: a versão do prompt (mesmo valor de ai_calls.prompt_sha256).
+  promptSha256        String                   @map("prompt_sha256") @db.Char(64)
+  /// CC-412 — SHA-256 do conteúdo de origem: os trechos entregues, normalizados e ordenados.
+  sourceContentSha256 String                   @map("source_content_sha256") @db.Char(64)
+  sourceChunkIds      String[]                 @map("source_chunk_ids")
+  cardsAccepted       Int                      @default(0) @map("cards_accepted")
+  cardsRejected       Int                      @default(0) @map("cards_rejected")
+  /// `{ index, question, issues[] }[]` dos cartões rejeitados. Texto de diretriz, nunca de paciente.
+  rejections          Json                     @default("[]")
+  failureReason       String?                  @map("failure_reason") @db.VarChar(300)
+  costUsd             Float                    @default(0) @map("cost_usd")
+  latencyMs           Int                      @map("latency_ms")
+  requestId           String?                  @map("request_id") @db.VarChar(64)
+  createdAt           DateTime                 @default(now()) @map("created_at")
+
+  versions KnowledgeCardVersion[]
+
+  @@index([sourceContentSha256])
+  @@index([createdAt])
+  @@map("knowledge_card_drafts")
+}
+
+/// CC-402 (ADR-019) — cartão revisado: uma situação clínica, pergunta e
+/// resposta curta com fonte, assinado por médico com CRM verificado.
+///
+/// O cartão é a identidade estável; o conteúdo vive nas versões. Editar cria
+/// versão nova e não mexe na versão publicada: `published_version_id` só muda
+/// quando outra versão é aprovada. Nunca é apagado: sai de uso por `archived`.
+model KnowledgeCard {
+  id                 String              @id @default(uuid()) @db.Uuid
+  /// ADR-009 — null = cartão global; preenchido = só daquela instituição.
+  institutionId      String?             @map("institution_id") @db.Uuid
+  topic              String              @db.VarChar(200)
+  /// Síndrome de PS (`PS_SYNDROMES`), a mesma lista do entendimento do caso.
+  syndrome           String?             @db.VarChar(40)
+  status             KnowledgeCardStatus @default(draft)
+  /// Número da versão mais recente — a que está em rascunho ou revisão.
+  currentVersion     Int                 @map("current_version")
+  /// Versão assinada que vale para o médico; null até a primeira aprovação.
+  publishedVersionId String?             @unique @map("published_version_id") @db.Uuid
+  archivedAt         DateTime?           @map("archived_at")
+  /// Motivo do arquivamento, já mascarado de PII (a trilha guarda só o hash).
+  archivedReason     String?             @map("archived_reason") @db.Text
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+
+  institution      Institution?           @relation(fields: [institutionId], references: [id], onDelete: Restrict)
+  publishedVersion KnowledgeCardVersion?  @relation("KnowledgeCardPublishedVersion", fields: [publishedVersionId], references: [id], onDelete: Restrict)
+  versions         KnowledgeCardVersion[] @relation("KnowledgeCardVersions")
+
+  @@index([status, updatedAt])
+  @@index([institutionId])
+  @@index([syndrome])
+  @@map("knowledge_cards")
+}
+
+/// CC-402 — uma versão do conteúdo de um cartão e a revisão dela. Conteúdo e
+/// autoria não mudam depois de gravados, e a decisão do revisor é gravada uma
+/// vez só (trigger da migration 20261014120000_cc_402_knowledge_cards).
+model KnowledgeCardVersion {
+  id                String                       @id @default(uuid()) @db.Uuid
+  cardId            String                       @map("card_id") @db.Uuid
+  version           Int
+  /// `KnowledgeCardContent` (contrato), validado pelo zod antes de gravar.
+  content           Json
+  /// SHA-256 do JSON canônico do conteúdo: o que o revisor assina.
+  contentSha256     String                       @map("content_sha256") @db.Char(64)
+  authorKind        KnowledgeCardAuthorKind      @map("author_kind")
+  /// Médico que escreveu a correção; null quando a IA escreveu.
+  authorPhysicianId String?                      @map("author_physician_id") @db.Uuid
+  /// CC-403/CC-412 — rascunho de IA de onde a versão saiu; null na correção do médico.
+  draftId           String?                      @map("draft_id") @db.Uuid
+  reviewDecision    KnowledgeCardReviewDecision? @map("review_decision")
+  reviewerId        String?                      @map("reviewer_id") @db.Uuid
+  reviewedAt        DateTime?                    @map("reviewed_at")
+  /// Comentário ou motivo do revisor, já mascarado de PII.
+  reviewComment     String?                      @map("review_comment") @db.Text
+  /// CC-404 — tempo que o revisor levou na tela, quando ela informa.
+  reviewDurationMs  Int?                         @map("review_duration_ms")
+  /// Até quando a aprovação vale; depois o cartão aparece como "revisar".
+  validUntil        DateTime?                    @map("valid_until")
+  createdAt         DateTime                     @default(now()) @map("created_at")
+
+  card            KnowledgeCard       @relation("KnowledgeCardVersions", fields: [cardId], references: [id], onDelete: Restrict)
+  publishedOf     KnowledgeCard?      @relation("KnowledgeCardPublishedVersion")
+  draft           KnowledgeCardDraft? @relation(fields: [draftId], references: [id], onDelete: Restrict)
+  authorPhysician Physician?          @relation("KnowledgeCardVersionAuthor", fields: [authorPhysicianId], references: [id], onDelete: Restrict)
+  reviewer        Physician?          @relation("KnowledgeCardVersionReviewer", fields: [reviewerId], references: [id], onDelete: Restrict)
+
+  @@unique([cardId, version])
+  @@index([draftId])
+  @@index([reviewerId])
+  @@map("knowledge_card_versions")
 }
 
 model AuditLog {
