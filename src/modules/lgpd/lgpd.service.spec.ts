@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { LgpdService } from './lgpd.service';
+import { describe, it, expect, expectTypeOf, beforeEach, vi } from 'vitest';
+import { LgpdService, type ExportedAudioCapture } from './lgpd.service';
 import { PrismaService } from '../../config/prisma.service';
 import type { PhysicianErasureCheck } from '../auth/physician-erasure-check.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
@@ -45,6 +45,9 @@ describe('LgpdService', () => {
     copilotFeedback: {
       findMany: ReturnType<typeof vi.fn>;
       deleteMany: ReturnType<typeof vi.fn>;
+    };
+    audioCapture: {
+      findMany: ReturnType<typeof vi.fn>;
     };
     caseIntake: { findMany: ReturnType<typeof vi.fn> };
     $transaction: ReturnType<typeof vi.fn>;
@@ -93,6 +96,9 @@ describe('LgpdService', () => {
       copilotFeedback: {
         findMany: vi.fn().mockResolvedValue([]),
         deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
+      audioCapture: {
+        findMany: vi.fn().mockResolvedValue([]),
       },
       caseIntake: { findMany: vi.fn().mockResolvedValue([]) },
       $transaction: vi.fn(),
@@ -306,6 +312,32 @@ describe('LgpdService', () => {
   });
 
   describe('exportPhysicianData', () => {
+    const audioCaptures: ExportedAudioCapture[] = [
+      {
+        id: 'aud-1',
+        encounterId: 'enc-1',
+        mimeType: 'audio/webm',
+        sizeBytes: 48_000,
+        status: 'completed',
+        transcribedText: 'CPF [REDACTED_CPF], dor torácica há duas horas',
+        retainUntil: new Date('2026-11-09T12:00:00.000Z'),
+        createdAt: new Date('2026-10-10T12:00:00.000Z'),
+        updatedAt: new Date('2026-10-10T12:01:00.000Z'),
+      },
+      {
+        // Áudio eliminado pela retenção: a linha e a transcrição mascarada continuam.
+        id: 'aud-2',
+        encounterId: 'enc-1',
+        mimeType: 'audio/webm',
+        sizeBytes: 32_000,
+        status: 'deleted',
+        transcribedText: 'Febre há três dias',
+        retainUntil: new Date('2026-10-01T12:00:00.000Z'),
+        createdAt: new Date('2026-09-01T12:00:00.000Z'),
+        updatedAt: new Date('2026-10-01T13:15:00.000Z'),
+      },
+    ];
+
     it('returns all physician data', async () => {
       const physician = {
         id: physicianId,
@@ -352,6 +384,7 @@ describe('LgpdService', () => {
       prisma.physician.findUnique.mockResolvedValue(physician);
       prisma.recommendationDecision.findMany.mockResolvedValue(recommendationDecisions);
       prisma.copilotFeedback.findMany.mockResolvedValue(copilotFeedback);
+      prisma.audioCapture.findMany.mockResolvedValue(audioCaptures);
       prisma.encounter.findMany.mockResolvedValue(encounters);
       prisma.document.findMany.mockResolvedValue(documents);
       prisma.consent.findMany.mockResolvedValue(consents);
@@ -376,6 +409,7 @@ describe('LgpdService', () => {
           caseIntakes: [],
           recommendationDecisions,
           copilotFeedback,
+          audioCaptures,
           consents,
           auditLog,
         },
@@ -392,6 +426,35 @@ describe('LgpdService', () => {
       expect(prisma.aiInteraction.findMany).toHaveBeenCalledWith({
         where: { encounterId: { in: ['enc-1'] } },
       });
+    });
+
+    it('exports audio capture metadata and masked transcript, never the encrypted audio', async () => {
+      prisma.physician.findUnique.mockResolvedValue({ id: physicianId });
+      prisma.encounter.findMany.mockResolvedValue([]);
+      prisma.document.findMany.mockResolvedValue([]);
+      prisma.consent.findMany.mockResolvedValue([]);
+      prisma.auditLog.findMany.mockResolvedValue([]);
+      prisma.audioCapture.findMany.mockResolvedValue(audioCaptures);
+
+      const result = await service.exportPhysicianData(physicianId);
+
+      // Allowlist exata: `encryptedContent` (áudio cifrado) e `jobId` (fila) não saem.
+      expect(prisma.audioCapture.findMany).toHaveBeenCalledWith({
+        where: { physicianId },
+        select: {
+          id: true,
+          encounterId: true,
+          mimeType: true,
+          sizeBytes: true,
+          status: true,
+          transcribedText: true,
+          retainUntil: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+      expect(result.data.audioCaptures).toEqual(audioCaptures);
+      expectTypeOf<ExportedAudioCapture>().not.toHaveProperty('encryptedContent');
     });
 
     it('does not query refresh tokens for portability exports', async () => {

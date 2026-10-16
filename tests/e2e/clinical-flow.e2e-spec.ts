@@ -230,6 +230,10 @@ function buildPrismaMock() {
     caseIntake: {
       findMany: vi.fn().mockResolvedValue([]),
     },
+    // Capturas de áudio entram no export LGPD (sem o áudio cifrado).
+    audioCapture: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
 
     physicianInstitution: {
       findMany: vi.fn().mockResolvedValue([]),

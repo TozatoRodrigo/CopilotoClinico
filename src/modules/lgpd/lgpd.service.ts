@@ -4,6 +4,7 @@ import { AuditService } from '../audit/audit.service';
 import { PhysicianErasureCheck } from '../auth/physician-erasure-check.service';
 import { consentScopes, type ConsentScope } from './schemas/lgpd.schemas';
 import type {
+  Prisma,
   Physician,
   Consent,
   Encounter,
@@ -14,6 +15,29 @@ import type {
   RecommendationDecision,
   CopilotFeedback,
 } from '@prisma/client';
+
+/**
+ * Captura de áudio na exportação: metadados e transcrição (já mascarada de
+ * PII). `encryptedContent` fica de fora: é o áudio bruto cifrado com a chave do
+ * servidor, inútil para o titular, e decifrá-lo poria a voz do paciente, sem
+ * máscara, num JSON baixado pelo navegador. Allowlist em vez de `omit`: coluna
+ * nova em `audio_captures` só entra na exportação se for listada aqui.
+ */
+const EXPORTED_AUDIO_CAPTURE_SELECT = {
+  id: true,
+  encounterId: true,
+  mimeType: true,
+  sizeBytes: true,
+  status: true,
+  transcribedText: true,
+  retainUntil: true,
+  createdAt: true,
+  updatedAt: true,
+} as const satisfies Prisma.AudioCaptureSelect;
+
+export type ExportedAudioCapture = Prisma.AudioCaptureGetPayload<{
+  select: typeof EXPORTED_AUDIO_CAPTURE_SELECT;
+}>;
 
 export interface PhysicianDataExport {
   exportVersion: 'lgpd-portability-v1';
@@ -35,6 +59,8 @@ export interface PhysicianDataExport {
     recommendationDecisions: RecommendationDecision[];
     /** F0-D — reportes do médico sobre análises (comentário já mascarado). */
     copilotFeedback: CopilotFeedback[];
+    /** Capturas de áudio, inclusive as com o áudio já eliminado (`status: deleted`). */
+    audioCaptures: ExportedAudioCapture[];
     consents: Consent[];
     auditLog: AuditLog[];
   };
@@ -177,6 +203,7 @@ export class LgpdService {
       recommendationDecisions,
       copilotFeedback,
       caseIntakes,
+      audioCaptures,
     ] = await Promise.all([
       this.prisma.document.findMany({ where: { physicianId } }),
       this.prisma.consent.findMany({ where: { physicianId } }),
@@ -190,6 +217,10 @@ export class LgpdService {
       this.prisma.copilotFeedback.findMany({ where: { physicianId } }),
       // ADR-014 — a conversa antes do plano (caso e respostas já redigidos).
       this.prisma.caseIntake.findMany({ where: { physicianId } }),
+      this.prisma.audioCapture.findMany({
+        where: { physicianId },
+        select: EXPORTED_AUDIO_CAPTURE_SELECT,
+      }),
     ]);
 
     return {
@@ -207,6 +238,7 @@ export class LgpdService {
         caseIntakes,
         recommendationDecisions,
         copilotFeedback,
+        audioCaptures,
         consents,
         auditLog,
       },
