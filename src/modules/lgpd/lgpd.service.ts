@@ -104,6 +104,8 @@ export interface ErasureResult {
   erased: {
     recommendationDecisions: number;
     copilotFeedback: number;
+    /** CC-707 — pedidos de mentoria que o médico fez. */
+    mentoringRequests: number;
     encounters: number;
     encounterAttachments: number;
     audioCaptures: number;

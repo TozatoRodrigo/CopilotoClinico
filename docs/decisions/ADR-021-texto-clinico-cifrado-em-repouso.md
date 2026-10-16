@@ -75,6 +75,7 @@ contra o schema.
 | `recommendation_decisions` | `note` |
 | `copilot_feedback` | `comment`, `triage_note` |
 | `protocol_runs` | `answers` (há perguntas de texto livre), `abandon_reason` |
+| `mentoring_requests` | `question`, `answer`, `case_snapshot` (caso e plano mascarados enviados ao mentor, CC-707) |
 
 Ficam em claro, de propósito (`PLAINTEXT_BY_DESIGN`, com o motivo de cada
 coluna):

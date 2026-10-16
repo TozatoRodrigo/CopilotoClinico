@@ -41,6 +41,7 @@ interface ErasureResponse {
   erased: {
     recommendationDecisions: number;
     copilotFeedback: number;
+    mentoringRequests: number;
     encounters: number;
     encounterAttachments: number;
     audioCaptures: number;
