@@ -41,7 +41,12 @@ function validInput(overrides: Partial<CreateProtocolInput> = {}): CreateProtoco
   };
 }
 
-function dbNode(id: string, nodeType: 'question' | 'action' | 'outcome', content: unknown, order: number) {
+function dbNode(
+  id: string,
+  nodeType: 'question' | 'action' | 'outcome',
+  content: unknown,
+  order: number,
+) {
   return {
     id,
     protocolId,
@@ -268,40 +273,66 @@ describe('ProtocolsService', () => {
     it('throws NotFoundException when the protocol does not exist', async () => {
       prisma.protocol.findUnique.mockResolvedValue(null);
 
-      await expect(service.publish(physicianId, protocolId)).rejects.toThrow(NotFoundException);
+      await expect(service.publish(physicianId, protocolId, [])).rejects.toThrow(NotFoundException);
     });
 
     it('throws ConflictException when the protocol is not a draft', async () => {
       prisma.protocol.findUnique.mockResolvedValue({
         id: protocolId,
+        institutionId: null,
         status: 'published',
         nodes: [],
       });
 
-      await expect(service.publish(physicianId, protocolId)).rejects.toThrow(ConflictException);
+      await expect(service.publish(physicianId, protocolId, [])).rejects.toThrow(ConflictException);
       expect(prisma.protocol.update).not.toHaveBeenCalled();
     });
 
     it('rejects publishing a draft whose graph is invalid', async () => {
       prisma.protocol.findUnique.mockResolvedValue({
         id: protocolId,
+        institutionId: null,
         status: 'draft',
         nodes: [
-          dbNode('q1', 'question', { question: 'Sintomas há mais de 48h?', answerType: 'boolean' }, 0),
+          dbNode(
+            'q1',
+            'question',
+            { question: 'Sintomas há mais de 48h?', answerType: 'boolean' },
+            0,
+          ),
         ],
       });
 
-      await expect(service.publish(physicianId, protocolId)).rejects.toThrow(BadRequestException);
+      await expect(service.publish(physicianId, protocolId, [])).rejects.toThrow(
+        BadRequestException,
+      );
       expect(prisma.protocol.update).not.toHaveBeenCalled();
     });
 
     it('publishes a draft with a valid graph and audits PROTOCOL_PUBLISHED', async () => {
-      const q1 = dbNode('q1', 'question', { question: 'Sintomas há mais de 48h?', answerType: 'boolean' }, 0);
+      const q1 = dbNode(
+        'q1',
+        'question',
+        { question: 'Sintomas há mais de 48h?', answerType: 'boolean' },
+        0,
+      );
       const a1 = dbNode('a1', 'action', { action: 'Considerar oseltamivir' }, 1);
       const o1 = dbNode('o1', 'outcome', { outcome: 'Conduta sintomática' }, 2);
       q1.outgoingEdges = [
-        { id: 'e1', fromNodeId: 'q1', toNodeId: 'a1', condition: { answer: true }, createdAt: new Date() },
-        { id: 'e2', fromNodeId: 'q1', toNodeId: 'o1', condition: { answer: false }, createdAt: new Date() },
+        {
+          id: 'e1',
+          fromNodeId: 'q1',
+          toNodeId: 'a1',
+          condition: { answer: true },
+          createdAt: new Date(),
+        },
+        {
+          id: 'e2',
+          fromNodeId: 'q1',
+          toNodeId: 'o1',
+          condition: { answer: false },
+          createdAt: new Date(),
+        },
       ];
       a1.outgoingEdges = [
         { id: 'e3', fromNodeId: 'a1', toNodeId: 'o1', condition: null, createdAt: new Date() },
@@ -311,6 +342,7 @@ describe('ProtocolsService', () => {
         id: protocolId,
         name: 'Síndrome gripal',
         specialty: 'clinica_geral',
+        institutionId: null,
         version: 1,
         status: 'draft',
         nodes: [q1, a1, o1],
@@ -322,7 +354,7 @@ describe('ProtocolsService', () => {
         nodes: [q1, a1, o1],
       });
 
-      const result = await service.publish(physicianId, protocolId);
+      const result = await service.publish(physicianId, protocolId, []);
 
       expect(prisma.protocol.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -337,13 +369,56 @@ describe('ProtocolsService', () => {
     });
   });
 
+  describe('CC-019 — protocolo de outra instituição', () => {
+    const draftOfOtherHospital = {
+      id: protocolId,
+      institutionId: 'inst-outro-hospital',
+      status: 'draft',
+      nodes: [],
+    };
+
+    it('findVisibleById: devolve o da instituição de vínculo ativo', async () => {
+      prisma.protocol.findUnique.mockResolvedValue(draftOfOtherHospital);
+
+      await expect(
+        service.findVisibleById(protocolId, ['inst-outro-hospital']),
+      ).resolves.toMatchObject({ id: protocolId });
+    });
+
+    it('publicar o rascunho de outra instituição é 404, sem publicar nem devolver o protocolo', async () => {
+      prisma.protocol.findUnique.mockResolvedValue(draftOfOtherHospital);
+
+      await expect(service.publish(physicianId, protocolId, ['inst-meu'])).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(prisma.protocol.update).not.toHaveBeenCalled();
+    });
+
+    it('revisar o protocolo de outra instituição é 404, sem criar versão', async () => {
+      prisma.protocol.findUnique.mockResolvedValue({
+        ...draftOfOtherHospital,
+        status: 'published',
+      });
+
+      await expect(
+        service.reviseAsNewVersion(physicianId, protocolId, validInput(), []),
+      ).rejects.toThrow(NotFoundException);
+      expect(prisma.protocol.create).not.toHaveBeenCalled();
+    });
+  });
+
   describe('reviseAsNewVersion', () => {
     it('throws ConflictException when revising a draft protocol', async () => {
-      prisma.protocol.findUnique.mockResolvedValue({ id: protocolId, status: 'draft', nodes: [] });
+      prisma.protocol.findUnique.mockResolvedValue({
+        id: protocolId,
+        institutionId: null,
+        status: 'draft',
+        nodes: [],
+      });
 
-      await expect(service.reviseAsNewVersion(physicianId, protocolId, validInput())).rejects.toThrow(
-        ConflictException,
-      );
+      await expect(
+        service.reviseAsNewVersion(physicianId, protocolId, validInput(), []),
+      ).rejects.toThrow(ConflictException);
     });
 
     it('creates a new version from a published protocol without mutating the previous one', async () => {
@@ -384,7 +459,7 @@ describe('ProtocolsService', () => {
       prisma.protocolNode.create.mockResolvedValue({ id: 'node-x' });
       prisma.protocolEdge.create.mockResolvedValue({});
 
-      const result = await service.reviseAsNewVersion(physicianId, protocolId, validInput());
+      const result = await service.reviseAsNewVersion(physicianId, protocolId, validInput(), []);
 
       expect(result.id).toBe('new-protocol-id');
       expect(result.version).toBe(2);
@@ -393,7 +468,11 @@ describe('ProtocolsService', () => {
       expect(auditService.log).toHaveBeenCalledWith(
         expect.objectContaining({
           action: 'PROTOCOL_REVISED',
-          payload: expect.objectContaining({ previousProtocolId: protocolId, previousVersion: 1, newVersion: 2 }),
+          payload: expect.objectContaining({
+            previousProtocolId: protocolId,
+            previousVersion: 1,
+            newVersion: 2,
+          }),
         }),
       );
     });

@@ -9,13 +9,17 @@
  * Esta implementação mantém a mesma API ({ theme, setTheme, resolvedTheme })
  * sem injetar scripts. O FOUC é tratado pelo <script> inline cru no <head>
  * do layout (HTML puro, não React).
+ *
+ * O tema escolhido mora no localStorage e a preferência do sistema no
+ * matchMedia; o React lê os dois por useSyncExternalStore. No servidor e na
+ * hidratação o tema é "system" e o resolvido fica indefinido; logo depois o
+ * client troca pelo valor real, sem mismatch e sem setState dentro de efeito.
  */
 import {
   createContext,
   useContext,
   useEffect,
-  useState,
-  useCallback,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 
@@ -31,12 +35,45 @@ interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 const STORAGE_KEY = "theme";
+const DARK_QUERY = "(prefers-color-scheme: dark)";
 
-function getSystemTheme(): ResolvedTheme {
-  if (typeof window === "undefined") return "light";
-  return window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
+const themeListeners = new Set<() => void>();
+
+function isTheme(value: string | null): value is Theme {
+  return value === "light" || value === "dark" || value === "system";
+}
+
+function subscribeTheme(onChange: () => void): () => void {
+  themeListeners.add(onChange);
+  return () => themeListeners.delete(onChange);
+}
+
+function readStoredTheme(): Theme {
+  const stored = localStorage.getItem(STORAGE_KEY);
+  return isTheme(stored) ? stored : "system";
+}
+
+function serverTheme(): Theme {
+  return "system";
+}
+
+function setTheme(next: Theme): void {
+  localStorage.setItem(STORAGE_KEY, next);
+  themeListeners.forEach((listener) => listener());
+}
+
+function subscribeSystemTheme(onChange: () => void): () => void {
+  const mq = window.matchMedia(DARK_QUERY);
+  mq.addEventListener("change", onChange);
+  return () => mq.removeEventListener("change", onChange);
+}
+
+function readSystemTheme(): ResolvedTheme {
+  return window.matchMedia(DARK_QUERY).matches ? "dark" : "light";
+}
+
+function serverSystemTheme(): ResolvedTheme | undefined {
+  return undefined;
 }
 
 function applyTheme(resolved: ResolvedTheme) {
@@ -49,38 +86,17 @@ function applyTheme(resolved: ResolvedTheme) {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("system");
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme | undefined>(
-    undefined,
+  const theme = useSyncExternalStore(subscribeTheme, readStoredTheme, serverTheme);
+  const systemTheme = useSyncExternalStore(
+    subscribeSystemTheme,
+    readSystemTheme,
+    serverSystemTheme,
   );
+  const resolvedTheme = theme === "system" ? systemTheme : theme;
 
   useEffect(() => {
-    const stored = (localStorage.getItem(STORAGE_KEY) as Theme | null) ?? "system";
-    setThemeState(stored);
-    const resolved = stored === "system" ? getSystemTheme() : stored;
-    setResolvedTheme(resolved);
-    applyTheme(resolved);
-  }, []);
-
-  useEffect(() => {
-    if (theme !== "system") return;
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const handler = () => {
-      const resolved = getSystemTheme();
-      setResolvedTheme(resolved);
-      applyTheme(resolved);
-    };
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, [theme]);
-
-  const setTheme = useCallback((next: Theme) => {
-    setThemeState(next);
-    const resolved = next === "system" ? getSystemTheme() : next;
-    setResolvedTheme(resolved);
-    applyTheme(resolved);
-    localStorage.setItem(STORAGE_KEY, next);
-  }, []);
+    if (resolvedTheme) applyTheme(resolvedTheme);
+  }, [resolvedTheme]);
 
   return (
     <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme }}>
