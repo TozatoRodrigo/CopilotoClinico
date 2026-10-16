@@ -11,7 +11,7 @@ import {
   ChatCircleText,
   CheckCircle,
   Clock,
-  Copy,
+  DownloadSimple,
   Flag,
   ListBullets,
   SealCheck,
@@ -19,7 +19,11 @@ import {
   XCircle,
   type Icon,
 } from '@phosphor-icons/react';
-import { useCopilotFeedbackQueue, useTriageCopilotFeedback } from '@/lib/clinical-queries';
+import {
+  useCopilotFeedbackQueue,
+  useEvalCaseDraft,
+  useTriageCopilotFeedback,
+} from '@/lib/clinical-queries';
 import { ApiError } from '@/lib/api-client';
 import type {
   CopilotFeedbackKind,
@@ -54,7 +58,7 @@ import { EmptyState } from '@/components/domain/empty-state';
 import { Page } from '@/components/layout/page';
 import { PageHeader, SectionHeader } from '@/components/layout/page-header';
 import { cn } from '@/lib/utils';
-import { buildGoldCaseSkeleton, copyText } from '../_lib/gold-case';
+import { downloadEvalCaseDraft } from '../_lib/gold-case';
 
 /**
  * F0-D — fila de triagem do feedback dos médicos.
@@ -63,8 +67,8 @@ import { buildGoldCaseSkeleton, copyText } from '../_lib/gold-case';
  * incorreta", "foi útil") ficavam só na trilha de auditoria, sem fila nem
  * estado — e os erros clínicos conhecidos chegavam por WhatsApp. Aqui a
  * curadoria lê o caso como foi analisado, a resposta do copiloto e o rastro
- * técnico, decide o destino do reporte e, quando vale, copia o esqueleto de
- * um caso do gabarito de avaliação.
+ * técnico, decide o destino do reporte e, quando vale, baixa o rascunho do
+ * caso do gabarito de avaliação (CC-703).
  */
 
 const PAGE_SIZE = 20;
@@ -240,8 +244,8 @@ function FeedbackDetail({
   onTriaged: (updated: CopilotFeedbackTriageItem) => void;
 }) {
   const [triageNote, setTriageNote] = useState(item.triageNote ?? '');
-  const [manualCopyJson, setManualCopyJson] = useState<string | null>(null);
   const triage = useTriageCopilotFeedback();
+  const evalCaseDraft = useEvalCaseDraft();
   const { interaction } = item;
   const { output } = interaction;
 
@@ -252,6 +256,8 @@ function FeedbackDetail({
         onSuccess: (updated) => {
           onTriaged(updated);
           toast.success(`Reporte marcado como “${STATUS_TAG[status].label}”.`);
+          // CC-703 — "virou caso" entrega o caso: o rascunho já sai baixado.
+          if (status === 'converted_to_eval_case') handleDownloadDraft();
         },
         onError: (err) => {
           toast.error(err instanceof ApiError ? err.message : 'Não foi possível salvar a triagem.');
@@ -260,17 +266,20 @@ function FeedbackDetail({
     );
   }
 
-  // A escrita na área de transferência acontece DENTRO do clique (gesto do
-  // usuário) — ver copyText.
-  async function handleCopyGoldCase() {
-    const json = JSON.stringify(buildGoldCaseSkeleton(item), null, 2);
-    if (await copyText(json)) {
-      setManualCopyJson(null);
-      toast.success('Caso do gabarito copiado. Cole no arquivo de casos e complete o esperado.');
-      return;
-    }
-    setManualCopyJson(json);
-    toast.error('Não foi possível copiar automaticamente — copie o JSON abaixo.');
+  function handleDownloadDraft() {
+    evalCaseDraft.mutate(item.id, {
+      onSuccess: (draft) => {
+        const fileName = downloadEvalCaseDraft(draft);
+        toast.success(
+          `Rascunho ${fileName} baixado. Salve em evals/clinical/cases/, preencha o que está marcado “A PREENCHER” e abra o PR.`,
+        );
+      },
+      onError: (err) => {
+        toast.error(
+          err instanceof ApiError ? err.message : 'Não foi possível gerar o rascunho do caso.',
+        );
+      },
+    });
   }
 
   return (
@@ -399,26 +408,17 @@ function FeedbackDetail({
             Dados pessoais são mascarados ao salvar. A mudança fica na trilha de auditoria.
           </p>
         </section>
-
-        {manualCopyJson && (
-          <section className="flex flex-col gap-2">
-            <Label htmlFor="gold-case-json">Caso do gabarito (copie manualmente)</Label>
-            <Textarea
-              id="gold-case-json"
-              readOnly
-              value={manualCopyJson}
-              rows={10}
-              className="font-mono text-xs"
-              onFocus={(e) => e.currentTarget.select()}
-            />
-          </section>
-        )}
       </div>
 
       <div className="flex flex-col gap-2 border-t border-border p-4">
-        <Button type="button" variant="outline" onClick={() => void handleCopyGoldCase()}>
-          <Copy aria-hidden="true" />
-          Copiar como caso do gabarito
+        <Button
+          type="button"
+          variant="outline"
+          disabled={evalCaseDraft.isPending}
+          onClick={handleDownloadDraft}
+        >
+          <DownloadSimple aria-hidden="true" />
+          {evalCaseDraft.isPending ? 'Gerando rascunho…' : 'Baixar rascunho do caso'}
         </Button>
         <div className="flex flex-wrap gap-1.5">
           {TRIAGE_ACTIONS.map((action) => {

@@ -39,9 +39,11 @@ describe('AUD-002 database least-privilege migration', () => {
 const F0D_MIGRATIONS = [
   { dir: '20261010120000_f0d_recommendation_decisions', table: 'recommendation_decisions' },
   { dir: '20261010120100_f0d_copilot_feedback', table: 'copilot_feedback' },
+  // CC-707 — mesma regra para os pedidos de mentoria.
+  { dir: '20261014120000_cc_707_mentoring_requests', table: 'mentoring_requests' },
 ] as const;
 
-describe.each(F0D_MIGRATIONS)('F0-D migration $dir', ({ dir, table }) => {
+describe.each(F0D_MIGRATIONS)('Table migration $dir', ({ dir, table }) => {
   const sql = readFileSync(join(process.cwd(), `prisma/migrations/${dir}/migration.sql`), 'utf8');
 
   it('grants only DML on the new table to the runtime role', () => {

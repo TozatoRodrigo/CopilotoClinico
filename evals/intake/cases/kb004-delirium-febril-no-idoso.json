@@ -1,0 +1,29 @@
+{
+  "id": "kb004-delirium-febril-no-idoso",
+  "source": {
+    "kind": "clinical_case",
+    "caseId": "kb004-delirium-febril-no-idoso"
+  },
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Masc, 68a, sem história psiquiátrica, trazido por agitação e falas desconexas desde a tarde; ora sonolento, ora agitado, desorientado, diz ver bichos na parede. T 38,6, FC 112, SpO2 90%, glicemia 104."
+  },
+  "expected": {
+    "sex": "M",
+    "age": 68,
+    "vitals": {
+      "systolicBp": null,
+      "diastolicBp": null,
+      "heartRate": 112,
+      "respiratoryRate": null,
+      "spo2": 90,
+      "temperature": 38.6,
+      "glucose": 104
+    },
+    "syndrome": ["agitacao-psicomotora", "rebaixamento-consciencia", "febre"],
+    "instability": true,
+    "timeCritical": true
+  }
+}

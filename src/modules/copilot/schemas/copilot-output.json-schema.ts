@@ -1,5 +1,14 @@
 import type { JsonResponseSchema } from '../../ai-gateway/providers/provider.interface';
-import { arrayOf, BOOLEAN, nullable, NUMBER, oneOf, STRING, strictObject } from './json-schema';
+import {
+  arrayOf,
+  BOOLEAN,
+  nullable,
+  NUMBER,
+  oneOf,
+  STRING,
+  strictObject,
+  type JsonSchemaNode,
+} from './json-schema';
 
 /**
  * JSON Schema do `CopilotOutputSchema` (guardrails/output-validator.ts) para
@@ -67,7 +76,7 @@ export const COPILOT_OUTPUT_JSON_SCHEMA = {
  * `preliminary`: a camada diz o que depende de dado e a contenção decide o
  * rótulo. A ordem é a de geração: camada e base antes da citação.
  */
-const RECOMMENDATION_V2 = strictObject({
+const RECOMMENDATION_V2_FIELDS = {
   action: STRING,
   rationale: STRING,
   category: oneOf(['stabilization', 'diagnostic', 'therapeutic', 'verify']),
@@ -76,7 +85,9 @@ const RECOMMENDATION_V2 = strictObject({
   basis: oneOf(['source', 'model_knowledge']),
   citationChunkId: nullable(STRING),
   confidence: NUMBER,
-});
+};
+
+const RECOMMENDATION_V2 = strictObject(RECOMMENDATION_V2_FIELDS);
 
 const CLARIFYING_QUESTION_V2 = strictObject({
   id: STRING,
@@ -89,17 +100,39 @@ const CLARIFYING_QUESTION_V2 = strictObject({
   purpose: nullable(STRING),
 });
 
-const COPILOT_OUTPUT_V2 = strictObject({
-  reasoning: STRING,
-  redFlags: arrayOf(RED_FLAG),
-  recommendations: arrayOf(RECOMMENDATION_V2),
-  uncertainty: BOOLEAN,
-  uncertaintyReason: nullable(STRING),
-  differentials: arrayOf(DIFFERENTIAL),
-  clarifyingQuestions: arrayOf(CLARIFYING_QUESTION_V2),
-});
+function copilotOutputV2(recommendation: JsonSchemaNode) {
+  return strictObject({
+    reasoning: STRING,
+    redFlags: arrayOf(RED_FLAG),
+    recommendations: arrayOf(recommendation),
+    uncertainty: BOOLEAN,
+    uncertaintyReason: nullable(STRING),
+    differentials: arrayOf(DIFFERENTIAL),
+    clarifyingQuestions: arrayOf(CLARIFYING_QUESTION_V2),
+  });
+}
 
 export const COPILOT_OUTPUT_V2_JSON_SCHEMA = {
   name: 'copilot_output_v2',
-  schema: COPILOT_OUTPUT_V2,
+  schema: copilotOutputV2(RECOMMENDATION_V2),
+} satisfies JsonResponseSchema;
+
+/**
+ * CC-601 — a v2 com a linha de "por quê" (`COPILOT_WHY_LINE`), paridade com
+ * `CopilotOutputV2WhySchema`. A linha vem depois da camada e do `dependsOn`:
+ * o modelo já decidiu se a conduta é "agora" quando a escreve. O teto de 120
+ * caracteres fica no validador (why-line.ts), como os outros limites.
+ */
+const { basis, citationChunkId, confidence, ...beforeWhy } = RECOMMENDATION_V2_FIELDS;
+const RECOMMENDATION_V2_WHY = strictObject({
+  ...beforeWhy,
+  why: nullable(STRING),
+  basis,
+  citationChunkId,
+  confidence,
+});
+
+export const COPILOT_OUTPUT_V2_WHY_JSON_SCHEMA = {
+  name: 'copilot_output_v2_why',
+  schema: copilotOutputV2(RECOMMENDATION_V2_WHY),
 } satisfies JsonResponseSchema;

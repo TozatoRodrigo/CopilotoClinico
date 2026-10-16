@@ -1,0 +1,29 @@
+{
+  "id": "kb004-pseudocrise-por-dor",
+  "source": {
+    "kind": "clinical_case",
+    "caseId": "kb004-pseudocrise-por-dor"
+  },
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Masc, 52a, HAS com uso irregular de losartana, veio por entorse de tornozelo com dor 9/10. PA 196x112, FC 98. Sem dor torácica, dispneia, cefaleia, alteração visual ou déficit. Exame neurológico normal."
+  },
+  "expected": {
+    "sex": "M",
+    "age": 52,
+    "vitals": {
+      "systolicBp": 196,
+      "diastolicBp": 112,
+      "heartRate": 98,
+      "respiratoryRate": null,
+      "spo2": null,
+      "temperature": null,
+      "glucose": null
+    },
+    "syndrome": ["pressao-arterial-elevada", "outro"],
+    "instability": false,
+    "timeCritical": false
+  }
+}

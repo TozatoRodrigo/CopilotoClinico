@@ -1,0 +1,29 @@
+{
+  "id": "kb004-choque-cardiogenico-pos-iam",
+  "source": {
+    "kind": "clinical_case",
+    "caseId": "kb004-choque-cardiogenico-pos-iam"
+  },
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Masc, 66a, IAM anterior há 3 dias (não reperfundido, procurou tarde). Dispneia progressiva há 6h. PA 78x50, FC 118, SpO2 88% em ar ambiente, estertores até ápices, turgência jugular, extremidades frias e mosqueadas, TEC 5s. Lactato 4,8."
+  },
+  "expected": {
+    "sex": "M",
+    "age": 66,
+    "vitals": {
+      "systolicBp": 78,
+      "diastolicBp": 50,
+      "heartRate": 118,
+      "respiratoryRate": null,
+      "spo2": 88,
+      "temperature": null,
+      "glucose": null
+    },
+    "syndrome": ["choque", "dispneia"],
+    "instability": true,
+    "timeCritical": true
+  }
+}

@@ -90,6 +90,15 @@ services:
       AI_REQUEST_TIMEOUT_MS: ${AI_REQUEST_TIMEOUT_MS:-180000}
       AI_STREAM_IDLE_TIMEOUT_MS: ${AI_STREAM_IDLE_TIMEOUT_MS:-60000}
       AI_REQUEST_MAX_RETRIES: ${AI_REQUEST_MAX_RETRIES:-2}
+      # CC-107 — reserva de provedor (runbook, "Reserva de provedor"). Vazio =
+      # sem reserva, como antes. Sem repassar aqui, a troca no .env.production
+      # não chega ao container.
+      AI_FALLBACK_MODEL: ${AI_FALLBACK_MODEL:-}
+      AI_INTAKE_FALLBACK_MODEL: ${AI_INTAKE_FALLBACK_MODEL:-}
+      AI_UNDERSTANDING_FALLBACK_MODEL: ${AI_UNDERSTANDING_FALLBACK_MODEL:-}
+      AI_DECISION_FALLBACK_MODEL: ${AI_DECISION_FALLBACK_MODEL:-}
+      AI_VERIFY_ATTACH_FALLBACK_MODEL: ${AI_VERIFY_ATTACH_FALLBACK_MODEL:-}
+      AI_GUIDELINE_CLASSIFICATION_FALLBACK_MODEL: ${AI_GUIDELINE_CLASSIFICATION_FALLBACK_MODEL:-}
       EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-openai}
       EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-placeholder}
       EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-}
@@ -97,6 +106,12 @@ services:
       WHISPER_PROVIDER: groq
       WHISPER_API_KEY: ${WHISPER_API_KEY:-placeholder}
       WHISPER_BASE_URL: https://api.groq.com/openai/v1
+      # CC-205 — modelo da transcrição. Mesmo motivo das linhas abaixo: sem
+      # repassar aqui, a troca no .env.production não chega ao container.
+      WHISPER_MODEL: ${WHISPER_MODEL:-whisper-large-v3}
+      # Erros 5xx e alertas (captureMessage) vão ao Sentry só com o DSN; sem ele,
+      # o Sentry fica desligado, como até aqui.
+      SENTRY_DSN: ${SENTRY_DSN:-}
       INFERENCE_QUEUE_CONCURRENCY: "2"
       INFERENCE_QUEUE_RATE_PER_SEC: "10"
       COPILOT_MAX_TURNS: "5"
@@ -143,6 +158,9 @@ services:
       # lista padrão do código.
       COPILOT_DECISION_PROMPT: ${COPILOT_DECISION_PROMPT:-v1}
       COPILOT_KNOWLEDGE_SOURCE: ${COPILOT_KNOWLEDGE_SOURCE:-internal_kb}
+      # CC-601 — linha de "por quê" em cada conduta "agora" (exige v3 ou v4).
+      # off = prompt e saída de hoje. Mesmo motivo das linhas acima.
+      COPILOT_WHY_LINE: ${COPILOT_WHY_LINE:-off}
       AI_RESEARCH_MODEL: ${AI_RESEARCH_MODEL:-claude-sonnet-5-5}
       AI_RESEARCH_EFFORT: ${AI_RESEARCH_EFFORT:-low}
       WEB_RESEARCH_MAX_SEARCHES: ${WEB_RESEARCH_MAX_SEARCHES:-5}
@@ -151,9 +169,23 @@ services:
       # trecho na verificação com fonte (COPILOT_KNOWLEDGE_SOURCE=verify).
       # Mesmo motivo das linhas acima; padrão igual ao do código.
       AI_VERIFY_ATTACH_MODEL: ${AI_VERIFY_ATTACH_MODEL:-claude-sonnet-5-5}
+      # CC-005 — alertas de custo do dia e de p95 da decisão (runbook,
+      # "Alertas de custo e latência da IA"). Vazio = desligado. Mesmo motivo
+      # das linhas acima: sem repassar aqui, o .env.production não chega.
+      AI_DAILY_COST_ALERT_USD: ${AI_DAILY_COST_ALERT_USD:-}
+      AI_P95_ALERT_MS: ${AI_P95_ALERT_MS:-}
       THROTTLER_TTL: ${THROTTLER_TTL:-60000}
       THROTTLER_LIMIT: ${THROTTLER_LIMIT:-600}
+      # CC-025 — proxies confiáveis à frente da API (1 = só o Traefik). Mesmo
+      # motivo das linhas acima: ligar a Cloudflare exige 2 sem rebuild.
+      TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-1}
       FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY}
+      # CC-207 / ADR-021 — texto clínico cifrado em repouso. off = grava em
+      # claro, como antes (a leitura abre os dois formatos). Mesmo motivo das
+      # flags acima: sem repassar aqui, a troca no .env.production não chega ao
+      # container. A chave anterior só existe durante uma rotação.
+      CLINICAL_TEXT_ENCRYPTION: ${CLINICAL_TEXT_ENCRYPTION:-off}
+      FIELD_ENCRYPTION_KEY_PREVIOUS: ${FIELD_ENCRYPTION_KEY_PREVIOUS:-}
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       AI_EMBEDDING_MODEL: ${AI_EMBEDDING_MODEL:-text-embedding-3-small}
       # CC-015 — e-mail transacional. SMTP_HOST vazio = nenhum e-mail sai (só
@@ -168,6 +200,9 @@ services:
       SMTP_FROM: ${SMTP_FROM:-}
       WEB_PUBLIC_URL: ${WEB_PUBLIC_URL:-https://copiloto.servidortozato.cloud}
       LOG_LEVEL: info
+      # MINIO_* fica de fora de propósito: sem object storage, o PDF do
+      # documento é montado no download. Ver docs/runbook.md, "Containers de
+      # produção".
     networks:
       - copiloto-net
       - proxy

@@ -1,0 +1,28 @@
+{
+  "id": "kb001-dt-001",
+  "source": {
+    "kind": "clinical_case",
+    "caseId": "kb001-dt-001"
+  },
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "H 56a, dor torácica súbita há 40 min, com sudorese. Acabou de dar entrada no PS."
+  },
+  "expected": {
+    "sex": "M",
+    "age": 56,
+    "vitals": {
+      "systolicBp": null,
+      "diastolicBp": null,
+      "heartRate": null,
+      "respiratoryRate": null,
+      "spo2": null,
+      "temperature": null,
+      "glucose": null
+    },
+    "syndrome": ["dor-toracica"],
+    "timeCritical": true
+  }
+}

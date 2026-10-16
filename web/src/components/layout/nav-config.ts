@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   ShieldWarning,
   SquaresFour,
+  Stethoscope,
 } from '@phosphor-icons/react';
 import type { AppRole } from '@/lib/auth-store';
 
@@ -58,6 +59,12 @@ export const APP_SECTIONS_BY_ROLE: Record<AppRole, NavSection[]> = {
 
 export const HOME_ITEM: NavItem = { href: '/dashboard', label: 'Plantão', icon: House };
 
+/**
+ * CC-707 — fila de mentoria dos médicos da equipe. Não depende do papel: só
+ * aparece com `COPILOT_MENTORING` ligada e `is_mentor` (ver app-shell.tsx).
+ */
+export const MENTOR_ITEM: NavItem = { href: '/mentoria', label: 'Mentoria', icon: Stethoscope };
+
 export const SETTINGS_ITEM: NavItem = {
   href: '/settings',
   label: 'Configurações',
@@ -65,7 +72,10 @@ export const SETTINGS_ITEM: NavItem = {
   matchPrefixes: ['/profile'],
 };
 
-type AdminNavItem = NavItem & { roles: AppRole[]; enabled?: boolean };
+/** Funcionalidades atrás de flag que somem do menu quando desligadas. */
+export type AdminFeature = 'mentoring';
+
+type AdminNavItem = NavItem & { roles: AppRole[]; enabled?: boolean; feature?: AdminFeature };
 
 /**
  * S20-UX-01 — `enabled: false` remove placeholders não prontos do nav
@@ -88,17 +98,33 @@ const ADMIN_ITEMS: AdminNavItem[] = [
     icon: ChatCircleText,
     roles: ['compliance', 'admin'],
   },
+  // CC-707 — pedidos, tempo de resposta e satisfação da mentoria.
+  {
+    href: '/admin/mentoria',
+    label: 'Mentoria',
+    icon: Stethoscope,
+    roles: ['compliance', 'admin'],
+    feature: 'mentoring',
+  },
   { href: '/audit', label: 'Auditoria', icon: ShieldWarning, roles: ['compliance', 'admin'] },
   { href: '/admin/analytics', label: 'Analytics', icon: ChartBar, roles: ['compliance', 'admin'] },
   { href: '/admin/users', label: 'Usuários', icon: House, roles: ['admin'], enabled: false },
   { href: '/admin/sistema', label: 'Sistema', icon: Gear, roles: ['admin'], enabled: false },
 ];
 
-export function adminSectionsFor(role: AppRole): NavSection[] {
+export function adminSectionsFor(
+  role: AppRole,
+  features: ReadonlySet<AdminFeature> = new Set(),
+): NavSection[] {
   return [
     {
       label: 'Operação',
-      items: ADMIN_ITEMS.filter((item) => item.roles.includes(role) && item.enabled !== false),
+      items: ADMIN_ITEMS.filter(
+        (item) =>
+          item.roles.includes(role) &&
+          item.enabled !== false &&
+          (item.feature === undefined || features.has(item.feature)),
+      ),
     },
   ];
 }
