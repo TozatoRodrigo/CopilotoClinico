@@ -14,6 +14,7 @@ import {
   FileText,
   IdentificationCard,
   ListChecks,
+  MapPin,
   Microphone,
   SealCheck,
   Tag,
@@ -58,6 +59,7 @@ import {
 import { DecisionThread, type DecisionThreadItem } from '@/components/domain/decision-thread';
 import { CaseMentoring } from '@/components/domain/mentoring/case-mentoring';
 import { messages } from '@/lib/messages';
+import { describeSite } from '@/lib/practice-sites';
 import type { EncounterContext, EncounterDetail, EncounterVertical } from '@/lib/types';
 import {
   DOC_TYPE_LABELS,
@@ -291,6 +293,18 @@ export default function EncounterDetailPage({ params }: { params: Promise<{ id: 
                 </span>
               )}
             </PropertyRow>
+            {/* CC-602 — o local de plantão com que o caso foi analisado. */}
+            {encounter.context.site && (
+              <PropertyRow icon={MapPin} label="Local" className={PROPERTY_ROW}>
+                <span>
+                  {encounter.context.site.name}
+                  <span className="text-muted-foreground">
+                    {' '}
+                    · {describeSite(encounter.context.site, encounter.context)}
+                  </span>
+                </span>
+              </PropertyRow>
+            )}
             <PropertyRow icon={Buildings} label="Contexto" className={PROPERTY_ROW}>
               {activeContexts.length > 0 ? (
                 <span className="flex flex-wrap gap-1">

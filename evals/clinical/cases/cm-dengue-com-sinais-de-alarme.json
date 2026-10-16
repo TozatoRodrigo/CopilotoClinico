@@ -18,7 +18,17 @@
       "hasCT": false,
       "isSus": true,
       "hasLab": true,
-      "hasICU": false
+      "hasICU": false,
+      "site": {
+        "siteId": null,
+        "name": "UPA porte II (gabarito)",
+        "facilityType": "upa_porte_2",
+        "specialists": [
+          "pediatria"
+        ],
+        "referenceTravelMinutes": 40,
+        "referenceDistanceKm": 35
+      }
     }
   },
   "expected": {
@@ -90,6 +100,15 @@
         ]
       }
     ],
+    "destination": {
+      "text": "internação hospitalar em leito com monitorização, pela central de regulação, com UTI de referência se evoluir para choque",
+      "tier": "important",
+      "priority": "urgent",
+      "untilTransfer": [
+        "expansão volêmica com cristaloide já na UPA, com reavaliação clínica e do hematócrito a cada etapa",
+        "monitorização de sinais vitais, perfusão e diurese enquanto a vaga não sai; se surgir choque, expansão do grupo D e prioridade imediata"
+      ]
+    },
     "rationale": "MS, Dengue: diagnóstico e manejo clínico (6ª ed., 2024). Dor abdominal contínua, vômitos persistentes, sangramento de mucosa, hepatomegalia e Ht em ascensão são sinais de alarme (grupo C: 10 mL/kg de SF 0,9% na 1ª hora, reavaliação, internação ≥ 48 h). Taquicardia e queda postural também aparecem como choque compensado na Tabela 1; sem dado de perfusão, a expansão de grupo D (20 mL/kg em 20 min) é igualmente defensável — o gabarito aceita as duas. Nunca AINE/AAS; plaqueta profilática não é indicada. Exames do grupo C (albumina, transaminases, RX/USG) e notificação são desejáveis, mas não exigidos no turno 0."
   },
   "sources": [
@@ -110,7 +129,7 @@
   ],
   "provenance": {
     "originalCaseText": "Fem, 27a, 5º dia de febre (cedeu ontem), mialgia, dor retro-orbitária; hoje dor abdominal intensa e contínua, vômitos persistentes (4x), gengivorragia. PA 108x72 deitada e 92x64 sentada, FC 104. Hepatomegalia dolorosa 3 cm. Bairro com surto de dengue. Ht 46% (basal 38%), plaquetas 62.000.",
-    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: sem dado de perfusão o caso admite grupo C ou D, e o gabarito passou a aceitar as duas expansões; perfusão, peso e gestação viraram pedidos; \"tonteira ao sentar\" deixa a queda postural explícita; transfusão reservada a sangramento persistente não é mais acusada."
+    "notes": "Gabarito v2 (11/10/2026): migração mecânica; níveis e timing definidos pelas regras do v2. | Auditoria 11/10/2026: sem dado de perfusão o caso admite grupo C ou D, e o gabarito passou a aceitar as duas expansões; perfusão, peso e gestação viraram pedidos; \"tonteira ao sentar\" deixa a queda postural explícita; transfusão reservada a sangramento persistente não é mais acusada. | CC-603 (14/10/2026): o local declarado (UPA porte II, sem UTI) entrou em input.context.site, e o gabarito ganhou o destino (nível importante: o que decide aqui é a hidratação já); com COPILOT_SITE_CONTEXT desligado o prompt fica igual."
   },
   "probes": {
     "mustFlag": [

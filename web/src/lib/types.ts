@@ -19,6 +19,9 @@ export type {
   CopilotFeedbackTriageItem,
   CopilotFeedbackTriagePage,
   UpdateCopilotFeedbackTriageRequest,
+  EvalCaseDraft,
+  KnowledgeGapReportRequest,
+  KnowledgeGapReportResponse,
   ExtractDocumentTextRequest,
   ExtractDocumentTextResponse,
   ExtractableDocumentMime,
@@ -65,6 +68,7 @@ export type {
   SuggestGuidelineResponse,
   Physician,
   PhysicianRole,
+  PhysicianSpecialty,
   PendingGuidelineChunk,
   PreliminaryReason,
   PsSyndrome,
@@ -95,3 +99,12 @@ export type {
   MentoringTermsDocument,
   RateMentoringRequest,
 } from '@contracts/clinical';
+
+// CC-602 — locais de plantão do médico.
+export type {
+  EncounterSite,
+  FacilityType,
+  PracticeSite,
+  PracticeSiteInput,
+  SiteSpecialist,
+} from '@contracts/practice-site';

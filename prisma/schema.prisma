@@ -132,15 +132,22 @@ model Physician {
   createdAt          DateTime           @default(now()) @map("created_at")
   updatedAt          DateTime           @updatedAt @map("updated_at")
 
-  isCurator Boolean @default(false) @map("is_curator")
+  isCurator Boolean   @default(false) @map("is_curator")
   // PI-05 — preferência de idioma persistida na conta (não só localStorage
   // do dispositivo): o médico troca de terminal no hospital e a UI/análise
   // precisam seguir com ele. 'pt-BR' | 'es' — validado na aplicação, não
   // como enum do banco, para não exigir migração a cada novo idioma.
-  locale    String  @default("pt-BR")
+  locale    String    @default("pt-BR")
+  // CC-018 — quando a eliminação LGPD anonimizou o cadastro. A estratégia JWT
+  // e o refresh recusam sessão de quem tem esta data: o access token é
+  // stateless e, sem isso, seguia valendo até expirar (15 min).
+  erasedAt  DateTime? @map("erased_at")
+  // CC-014 — slug de physicianSpecialtyValues (src/shared/contracts/clinical.ts),
+  // validado na aplicação pelo mesmo motivo do locale. Nulo até o médico escolher.
+  specialty String?   @db.VarChar(64)
   // CC-707 — médico da equipe que responde pedidos de mentoria. Flag
   // operacional, como `isCurator`: ligada por SQL (ver docs/runbook.md).
-  isMentor  Boolean @default(false) @map("is_mentor")
+  isMentor  Boolean   @default(false) @map("is_mentor")
 
   encounters              Encounter[]
   documents               Document[]
@@ -151,10 +158,42 @@ model Physician {
   institutions            PhysicianInstitution[]
   recommendationDecisions RecommendationDecision[]
   copilotFeedback         CopilotFeedback[]
+  practiceSites           PracticeSite[]
   mentoringRequests       MentoringRequest[]       @relation("MentoringRequester")
   mentoringAnswers        MentoringRequest[]       @relation("MentoringMentor")
 
   @@map("physicians")
+}
+
+/// CC-602 — local onde o médico dá plantão: recursos (TC, laboratório, UTI),
+/// porte do serviço, especialistas e distância até a referência. Preenche o
+/// contexto do caso novo; o médico troca no caso. Sem dado de paciente.
+///
+/// Um padrão por médico: garantido pelo índice único parcial
+/// `practice_sites_one_default_per_physician` (só na migration — o Prisma não
+/// descreve índice parcial) e pela transação do serviço.
+model PracticeSite {
+  id                     String   @id @default(uuid()) @db.Uuid
+  physicianId            String   @map("physician_id") @db.Uuid
+  name                   String   @db.VarChar(80)
+  /// FacilityType (src/shared/contracts/practice-site.ts), validado na aplicação.
+  facilityType           String   @map("facility_type") @db.VarChar(32)
+  hasCT                  Boolean  @default(false) @map("has_ct")
+  hasLab                 Boolean  @default(false) @map("has_lab")
+  hasICU                 Boolean  @default(false) @map("has_icu")
+  isSus                  Boolean  @default(false) @map("is_sus")
+  /// SiteSpecialist[], validado na aplicação.
+  specialists            String[] @default([])
+  referenceTravelMinutes Int?     @map("reference_travel_minutes")
+  referenceDistanceKm    Int?     @map("reference_distance_km")
+  isDefault              Boolean  @default(false) @map("is_default")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  physician Physician @relation(fields: [physicianId], references: [id], onDelete: Cascade)
+
+  @@index([physicianId])
+  @@map("practice_sites")
 }
 
 /**
@@ -163,6 +202,9 @@ model Physician {
  * PhysicianInstitution. institutionId em GuidelineChunk/Encounter/Protocol é
  * nullable — NULL representa conteúdo/atendimento global, visível a todas as
  * instituições.
+ * CC-021: por isso essas três FKs são `onDelete: Restrict`. Com SetNull, apagar
+ * a instituição tornava global o protocolo e a diretriz internos dela. Para
+ * tirar uma instituição de uso, desative (`status = inactive`); ver ADR-009.
  */
 model Institution {
   id        String            @id @default(uuid()) @db.Uuid
@@ -227,14 +269,15 @@ model Encounter {
   // paciente via PATCH). Ver EncountersService.findByPhysician.
   patientRef     String?         @map("patient_ref") @db.VarChar(50)
   // RD-E7 — queixa principal derivada da 1ª análise de IA (nunca digitada
-  // manualmente); título das listas de casos no lugar de patientRef.
-  chiefComplaint String?         @map("chief_complaint") @db.VarChar(140)
+  // manualmente); título das listas de casos no lugar de patientRef. Até 140
+  // caracteres na aplicação; TEXT porque o valor cifrado (CC-207) é maior.
+  chiefComplaint String?         @map("chief_complaint") @db.Text
   status         EncounterStatus @default(draft)
   createdAt      DateTime        @default(now()) @map("created_at")
   updatedAt      DateTime        @updatedAt @map("updated_at")
 
   physician      Physician             @relation(fields: [physicianId], references: [id], onDelete: Cascade)
-  institution    Institution?          @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  institution    Institution?          @relation(fields: [institutionId], references: [id], onDelete: Restrict)
   aiInteractions AiInteraction[]
   documents      Document[]
   audioCaptures  AudioCapture[]
@@ -306,6 +349,7 @@ model AiInteraction {
   recommendationDecisions RecommendationDecision[]
   copilotFeedback         CopilotFeedback[]
   caseIntake              CaseIntake?
+  knowledgeGaps           KnowledgeGap[]
   mentoringRequests       MentoringRequest[]
 
   @@index([encounterId])
@@ -340,6 +384,8 @@ model AiCall {
   latencyMs        Int      @map("latency_ms")
   outcome          String   @db.VarChar(16)
   errorType        String?  @map("error_type") @db.VarChar(64)
+  /// CC-107 — perfil que ficou indisponível e que esta chamada, no modelo de reserva, substituiu.
+  fallbackFrom     String?  @map("fallback_from") @db.VarChar(32)
   createdAt        DateTime @default(now()) @map("created_at")
 
   @@index([requestId])
@@ -447,18 +493,21 @@ model RecommendationDecision {
 }
 
 model Document {
-  id             String       @id @default(uuid()) @db.Uuid
-  encounterId    String       @map("encounter_id") @db.Uuid
-  physicianId    String       @map("physician_id") @db.Uuid
-  type           DocumentType
-  content        Json
-  physicianEdits Json?        @map("physician_edits")
-  confirmedBy    String?      @map("confirmed_by") @db.Uuid
-  confirmedAt    DateTime?    @map("confirmed_at")
-  pdfObjectKey   String?      @map("pdf_object_key")
-  contentHash    String?      @map("content_hash") @db.Char(64)
-  createdAt      DateTime     @default(now()) @map("created_at")
-  updatedAt      DateTime     @updatedAt @map("updated_at")
+  id                 String       @id @default(uuid()) @db.Uuid
+  encounterId        String       @map("encounter_id") @db.Uuid
+  physicianId        String       @map("physician_id") @db.Uuid
+  type               DocumentType
+  content            Json
+  physicianEdits     Json?        @map("physician_edits")
+  confirmedBy        String?      @map("confirmed_by") @db.Uuid
+  confirmedAt        DateTime?    @map("confirmed_at")
+  pdfObjectKey       String?      @map("pdf_object_key")
+  contentHash        String?      @map("content_hash") @db.Char(64)
+  /// ADR-018 — algoritmo do content_hash (1 = legado, 2 = JSON canônico).
+  /// CHECK no banco: preenchido se e somente se content_hash estiver.
+  contentHashVersion Int?         @map("content_hash_version") @db.SmallInt
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
 
   encounter Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
   physician Physician @relation(fields: [physicianId], references: [id], onDelete: Cascade)
@@ -502,6 +551,46 @@ model CopilotFeedback {
   @@index([encounterId])
   @@index([physicianId])
   @@map("copilot_feedback")
+}
+
+/// CC-703 — de onde veio a lacuna. A CC-409 acrescenta a da análise sem cartão
+/// aplicável; a CC-501, a da pergunta rápida sem cartão.
+enum KnowledgeGapSource {
+  /// O médico tocou "não encontrei o que precisava" na análise.
+  physician_not_found
+}
+
+/// CC-703 — registro de lacunas: o que o médico procurou e o Copiloto não
+/// tinha. É a entrada da fila de criação de cartões (CC-409: lacunas mais
+/// frequentes da semana) e do painel do beta (CC-705).
+///
+/// Sem texto do caso: a síndrome de PS e as consultas da busca dirigida vêm
+/// do entendimento da análise (`extractUnderstandingSignals`), e a nota é a
+/// frase curta do médico, mascarada. Sem `physician_id`: a lacuna é do
+/// conteúdo, não de quem a encontrou; apagar o atendimento (LGPD) apaga a
+/// análise e, por cascata, a lacuna.
+model KnowledgeGap {
+  id            String             @id @default(uuid()) @db.Uuid
+  source        KnowledgeGapSource
+  /// Análise em que a lacuna apareceu; null para fontes sem análise (CC-501).
+  interactionId String?            @map("interaction_id") @db.Uuid
+  /// `PS_SYNDROMES`; null quando a análise não registrou o entendimento.
+  syndrome      String?            @db.VarChar(40)
+  /// Consultas da busca dirigida (até 4), mascaradas.
+  searchQueries String[]           @map("search_queries")
+  /// O que faltou, nas palavras do médico — já mascarado de PII.
+  note          String?            @db.Text
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+
+  interaction AiInteraction? @relation(fields: [interactionId], references: [id], onDelete: Cascade)
+
+  /// Uma lacuna por análise e fonte: tocar de novo atualiza a nota em vez de
+  /// contar duas vezes. Lacunas sem análise (NULL) não colidem entre si.
+  @@unique([interactionId, source])
+  @@index([createdAt])
+  @@index([syndrome, createdAt])
+  @@map("knowledge_gaps")
 }
 
 /// CC-707 — "Discutir este caso com um médico da equipe" (mentoria em modo
@@ -580,6 +669,9 @@ model GuidelineChunk {
   institutionId String?                      @map("institution_id") @db.Uuid
   reviewedBy    String?                      @map("reviewed_by") @db.Uuid
   reviewedAt    DateTime?                    @map("reviewed_at")
+  /// Motivo da rejeição escrito pelo curador, já mascarado (`maskFreeText`).
+  /// A trilha (GUIDELINE_REJECTED) leva só o hash — ver docs/compliance/LGPD.md.
+  reviewNote    String?                      @map("review_note") @db.Text
   validFrom     DateTime                     @default(now()) @map("valid_from")
   validTo       DateTime?                    @map("valid_to")
   createdAt     DateTime                     @default(now()) @map("created_at")
@@ -587,7 +679,7 @@ model GuidelineChunk {
   /// ADR-010 — versão do documento oficial de onde o chunk saiu.
   documentId String? @map("document_id") @db.Uuid
 
-  institution Institution?               @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  institution Institution?               @relation(fields: [institutionId], references: [id], onDelete: Restrict)
   document    OfficialGuidelineDocument? @relation(fields: [documentId], references: [id], onDelete: Restrict)
 
   @@index([source, sourceVersion])
@@ -716,7 +808,9 @@ model AudioCapture {
   id               String             @id @default(uuid()) @db.Uuid
   encounterId      String             @map("encounter_id") @db.Uuid
   physicianId      String             @map("physician_id") @db.Uuid
-  encryptedContent String             @map("encrypted_content") @db.Text
+  /// Nulo só depois da eliminação por retenção (status `deleted`); a CHECK
+  /// `audio_captures_content_matches_status` garante os dois sentidos.
+  encryptedContent String?            @map("encrypted_content") @db.Text
   mimeType         String             @map("mime_type") @db.VarChar(100)
   sizeBytes        Int                @map("size_bytes")
   status           AudioCaptureStatus @default(pending)
@@ -747,7 +841,7 @@ model Protocol {
   createdAt     DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
 
-  institution Institution?   @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  institution Institution?   @relation(fields: [institutionId], references: [id], onDelete: Restrict)
   nodes       ProtocolNode[]
   runs        ProtocolRun[]
 

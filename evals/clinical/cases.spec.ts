@@ -1,8 +1,9 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { maskPII } from '../../src/modules/copilot/guardrails/pii-filter';
+import { EVAL_CASE_DRAFT_PLACEHOLDER } from '../../src/shared/contracts/clinical';
 import { scanForInjection } from '../../src/modules/copilot/guardrails/injection-defense';
 import { FIELD_INCIDENT_CASES } from '../../tests/fixtures/field-incident-cases';
 import { KB_001_SYNTHETIC_CASES } from '../../tests/fixtures/kb-001-synthetic-cases';
@@ -60,6 +61,73 @@ describe('gabarito clínico', () => {
         );
       }
     }
+  });
+
+  // CC-106 — a pergunta essencial mede o que a conversa descobre: a abertura
+  // não pode já trazer a resposta.
+  it('nunca entrega na abertura a resposta de uma pergunta essencial da conversa', () => {
+    const withConversation = cases.filter(
+      (clinicalCase) => clinicalCase.expected.conversation?.essentialQuestions,
+    );
+    expect(withConversation.length).toBeGreaterThan(0);
+    for (const clinicalCase of withConversation) {
+      const funnel = clinicalCase.input.funnel;
+      const opening = normalizeForMatching(funnel?.opening ?? '');
+      const essentialIds = new Set(
+        clinicalCase.expected.conversation?.essentialQuestions?.flatMap(
+          (question) => question.factIds,
+        ),
+      );
+      for (const fact of funnel?.script.filter((candidate) => essentialIds.has(candidate.id)) ??
+        []) {
+        expect(opening, `${clinicalCase.id}: ${fact.id}`).not.toContain(
+          normalizeForMatching(fact.text),
+        );
+      }
+    }
+  });
+
+  // CC-703 — o rascunho baixado da triagem do feedback já passa no schema,
+  // com o que é do curador marcado (texto "A PREENCHER" e, sem síndrome, a
+  // tag "a-preencher"). Commitado assim, rodaria sem nada a medir.
+  it('não aceita rascunho da triagem com campo ainda a preencher', () => {
+    const toFill = new RegExp(`${EVAL_CASE_DRAFT_PLACEHOLDER}|"a-preencher"`, 'i');
+    for (const dir of [CASES_DIR, BLIND_CASES_DIR]) {
+      for (const file of readdirSync(dir).filter((name) => name.endsWith('.json'))) {
+        expect(readFileSync(join(dir, file), 'utf-8'), file).not.toMatch(toFill);
+      }
+    }
+  });
+
+  // CC-603 — com o local declarado e um recurso que o serviço não tem, o
+  // gabarito diz para onde, com que prioridade e o que fazer até a vaga.
+  it('traz o destino em todo caso com local declarado e recurso ausente', () => {
+    const withMissingResource = cases.filter((clinicalCase) => {
+      const context = clinicalCase.input.context;
+      return context?.site !== undefined && (!context.hasCT || !context.hasLab || !context.hasICU);
+    });
+    expect(withMissingResource.map((clinicalCase) => clinicalCase.id)).toEqual(
+      expect.arrayContaining([
+        'cc603-avc-na-janela-upa-sem-tc',
+        'cc603-supra-st-upa-longe-da-hemodinamica',
+        'cm-dengue-com-sinais-de-alarme',
+      ]),
+    );
+    for (const clinicalCase of withMissingResource) {
+      expect(clinicalCase.expected.destination, clinicalCase.id).toBeDefined();
+    }
+  });
+
+  it('pede regulação imediata e proíbe trombólise no AVC na janela em UPA sem TC', () => {
+    const stroke = caseById.get('cc603-avc-na-janela-upa-sem-tc');
+    expect(stroke?.input.context).toMatchObject({
+      hasCT: false,
+      site: { facilityType: 'upa_porte_1' },
+    });
+    expect(stroke?.expected.destination).toMatchObject({ tier: 'critical', priority: 'immediate' });
+    expect(stroke?.expected.forbiddenDefinitiveActions.map((action) => action.id)).toEqual(
+      expect.arrayContaining(['trombolise-na-upa-sem-tc', 'tc-no-proprio-servico']),
+    );
   });
 
   it('mantém como rascunho todo gabarito ainda não revisado por médico', () => {
@@ -130,6 +198,8 @@ describe('gabarito clínico', () => {
   // dispare qualquer um dos dois mediria o filtro, não o modelo.
   // Vale também para a abertura e o roteiro do afunilamento: as respostas do
   // médico simulado passam pelos mesmos filtros na reanálise.
+  // Com as regras de contexto ligadas (CC-201/CC-206): nenhum caso real tem
+  // prontuário nem nome, então qualquer máscara aqui é falso positivo clínico.
   it('chega ao modelo exatamente como escrito (sem PII mascarada nem bloqueio de injeção)', () => {
     for (const clinicalCase of cases) {
       const funnel = clinicalCase.input.funnel;
@@ -138,7 +208,9 @@ describe('gabarito clínico', () => {
         ...(funnel ? [funnel.opening, ...funnel.script.map((fact) => fact.text)] : []),
       ];
       for (const text of texts) {
-        expect(maskPII(text).hasPII, `${clinicalCase.id}: ${text}`).toBe(false);
+        expect(maskPII(text, { contextRules: true }).hasPII, `${clinicalCase.id}: ${text}`).toBe(
+          false,
+        );
         expect(scanForInjection(text).safe, `${clinicalCase.id}: ${text}`).toBe(true);
       }
     }
@@ -174,7 +246,10 @@ describe('prova cega (cases-blind)', () => {
 
   it('chega ao modelo exatamente como escrito (sem PII mascarada nem bloqueio de injeção)', () => {
     for (const clinicalCase of blind) {
-      expect(maskPII(clinicalCase.input.caseText).hasPII, clinicalCase.id).toBe(false);
+      expect(
+        maskPII(clinicalCase.input.caseText, { contextRules: true }).hasPII,
+        clinicalCase.id,
+      ).toBe(false);
       expect(scanForInjection(clinicalCase.input.caseText).safe, clinicalCase.id).toBe(true);
     }
   });
@@ -322,6 +397,49 @@ describe('loadCaseSet', () => {
       },
     });
     expect(() => loadCaseSet(dir)).toThrow(/ids repetidos em funnel\.script/);
+  });
+
+  // CC-106 — o que se espera da conversa antes do plano, no afunilamento.
+  it('aceita a expectativa da conversa e recusa fato essencial fora do roteiro', () => {
+    const funnel = {
+      opening: 'Criança de 4 anos com dor na perna.',
+      script: [{ id: 'h-picada', kind: 'history', text: 'Pai viu um escorpião.', key: true }],
+    };
+    const withConversation = (conversation: unknown, input: object = funnel) => ({
+      ...validCase,
+      input: { ...(validCase.input as object), funnel: input },
+      expected: { ...(validCase.expected as object), conversation },
+    });
+
+    writeCase(
+      'fi-001-dengue-como-sepse.json',
+      withConversation({
+        syndromes: ['outro', 'intoxicacao'],
+        severity: 'time_critical',
+        essentialQuestions: [{ about: 'picada ou contato com animal', factIds: ['h-picada'] }],
+      }),
+    );
+    expect(loadCaseSet(dir).cases[0]?.expected.conversation?.essentialQuestions).toHaveLength(1);
+
+    writeCase(
+      'fi-001-dengue-como-sepse.json',
+      withConversation({ essentialQuestions: [{ about: 'picada', factIds: ['h-outro'] }] }),
+    );
+    expect(() => loadCaseSet(dir)).toThrow(/essentialQuestions precisa de input\.funnel/);
+
+    writeCase('fi-001-dengue-como-sepse.json', withConversation({ severity: 'grave' }));
+    expect(() => loadCaseSet(dir)).toThrow(/conversation\.severity/);
+  });
+
+  it('recusa fato essencial em caso sem afunilamento', () => {
+    writeCase('fi-001-dengue-como-sepse.json', {
+      ...validCase,
+      expected: {
+        ...(validCase.expected as object),
+        conversation: { essentialQuestions: [{ about: 'picada', factIds: ['h-picada'] }] },
+      },
+    });
+    expect(() => loadCaseSet(dir)).toThrow(/essentialQuestions precisa de input\.funnel/);
   });
 
   it('aceita caso fora do portão com motivo', () => {

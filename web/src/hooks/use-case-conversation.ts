@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { apiClient, ApiError } from "@/lib/api-client";
+import { secondsSince, trackEvent } from "@/lib/analytics";
 import { clinicalQueryKeys } from "@/lib/clinical-queries";
 import { addToQueue } from "@/lib/offline-queue";
 import { syncOfflineQueue } from "@/lib/copilot-queue";
@@ -219,6 +220,7 @@ export function useCaseConversation(encounterId: string) {
       }
       try {
         await startMutation.mutateAsync(input);
+        trackEvent("analise_iniciada", { rodada: "inicial" });
         return "started";
       } catch {
         return "failed";
@@ -263,6 +265,10 @@ export function useCaseConversation(encounterId: string) {
           label,
           channel,
         });
+        // A correção do entendimento usa o mesmo caminho, mas não responde pergunta.
+        if (questionId !== UNDERSTANDING_CORRECTION_QUESTION_ID) {
+          trackEvent("pergunta_respondida", { fase: "antes_do_plano", canal: channel });
+        }
         return true;
       } catch {
         return false;
@@ -299,14 +305,19 @@ export function useCaseConversation(encounterId: string) {
       setPlannedFor(intakeId);
       setBuilding(true);
       setPlanError(null);
+      const startedAt = Date.now();
+      // Plano que saiu por esta tela; o que outra aba montou não conta aqui.
+      let delivered = false;
       try {
         await stream.startFromIntake(intakeId);
+        delivered = true;
       } catch {
         try {
           const latest = await refreshConversation();
           const settledElsewhere = latest.turns.length > 0 || latest.intake?.analysisInProgress;
           if (!settledElsewhere) {
             await apiClient.post(`/encounters/${encounterId}/copilot/intake/${intakeId}/analyze`);
+            delivered = true;
           }
         } catch (error) {
           if (!(error instanceof ApiError && error.status === 409)) {
@@ -316,6 +327,9 @@ export function useCaseConversation(encounterId: string) {
       } finally {
         await queryClient.invalidateQueries({ queryKey });
         setBuilding(false);
+      }
+      if (delivered) {
+        trackEvent("analise_concluida", { rodada: "inicial", duracao_s: secondsSince(startedAt) });
       }
       markFirstAnalysisDone();
     },
@@ -374,7 +388,12 @@ export function useCaseConversation(encounterId: string) {
       const pending = { parentInteractionId: variables.interactionId, startedAt: Date.now() };
       writeSession(pendingRespondKey(encounterId), pending);
       setPendingRespond(pending);
+      trackEvent("analise_iniciada", { rodada: "reanalise" });
       await requestReanalysis(variables);
+      trackEvent("analise_concluida", {
+        rodada: "reanalise",
+        duracao_s: secondsSince(pending.startedAt),
+      });
       return { queued: false };
     },
     onSuccess: async ({ queued }) => {
@@ -429,6 +448,7 @@ export function useCaseConversation(encounterId: string) {
         answers: { ...draft.answers, [questionId]: { value, label } },
       };
       saveDraft(next);
+      trackEvent("pergunta_respondida", { fase: "depois_do_plano" });
       const open = followUpQuestions.some((question) => !(question.id in next.answers));
       if (open) return;
       respondWith(
