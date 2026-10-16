@@ -123,8 +123,10 @@ jobs:
       - name: Typecheck
         run: pnpm exec tsc --noEmit
 
+      # O Next 16 não tem mais `next lint`; o lint é o ESLint do web
+      # (eslint.config.mjs). Erro reprova; aviso fica como aviso.
       - name: Lint
-        run: pnpm exec next lint --max-warnings 0 || true
+        run: pnpm lint
 
       - name: Check for Geist/Inter (A1 — identidade tipográfica Strivium)
         run: |
@@ -140,6 +142,14 @@ jobs:
             src/app/\(app\)/encounters/\[id\]/result/page.tsx \
             src/components/copilot/*.tsx \
             --include='*.tsx' && exit 1 || exit 0
+
+      # A imagem do web (docker/Dockerfile.web) copia só web/: import de VALOR
+      # de @contracts/* quebra o docker build com "Module not found", e o Build
+      # abaixo não pega porque roda com o repositório inteiro.
+      - name: Check @contracts só de tipo (imagem do web sem ../src)
+        run: |
+          pnpm exec vitest run scripts/check-contracts-type-only.test.mjs
+          node scripts/check-contracts-type-only.mjs src
 
       - name: Build
         run: pnpm build
