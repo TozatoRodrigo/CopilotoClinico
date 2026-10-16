@@ -13,7 +13,7 @@ avance sem o resultado esperado**. Executar na VPS (Hostinger), no diretório do
 
 > Origem: reportes de campo de 03/09/2026 — caso de dengue conduzido como
 > sepse, cefaleia em salvas apontada como hemorragia, e erro ao anexar arquivo.
-> Diagnóstico completo em `docs/plano-base-contexto.md`.
+> Diagnóstico completo em `docs/planos/plano-base-contexto.md`.
 
 ### Passo 0 — Pré-voo (antes de tocar em qualquer coisa)
 
@@ -450,7 +450,8 @@ docker compose --env-file .env.production -f docker-compose.prod.yml up -d --no-
   O antigo `docker/api.Dockerfile` foi removido na CC-014: nenhum compose,
   script, workflow ou documento o usava, e ele divergia da imagem de produção
   (pnpm sem versão fixa, sem `pnpm-workspace.yaml` e sem `tini`). A demo
-  (`scripts/demo.sh`) usa o `Dockerfile` da raiz.
+  (`scripts/demo.sh`) usa o `docker/demo.Dockerfile`, que até 16/10/2026
+  ficava na raiz como `Dockerfile`.
 - A imagem de runtime não tem `pnpm` (`sh: pnpm: not found`): use
   `npx --no-install prisma`, que usa o CLI já instalado em `node_modules` e
   nunca baixa nada. Corrigido em 24/09/2026, no deploy da ADR-010.
@@ -1030,6 +1031,14 @@ banco:
 ```sql
 UPDATE physicians SET is_curator = true WHERE email = 'curador@exemplo.com';
 ```
+
+A mesma flag autoriza escrever protocolo (CC-020): criar
+(`POST /v1/protocols`), publicar (`POST /v1/protocols/:id/publish`) e criar
+versão nova (`POST /v1/protocols/:id/revise`) são de curador ou ADMIN; os
+demais médicos recebem `403` e só leem e rodam. Vale na hora, sem novo login
+(a flag é lida do banco a cada pedido). Recusas aparecem no log como
+`PROTOCOL_WRITE_DENIED action=<create|publish|revise>`. Protocolo institucional
+exige, além do papel, vínculo ativo com a instituição (ADR-009, adendo CC-020).
 
 ### Cartões revisados (CC-402/CC-403/CC-412, ADR-019)
 
