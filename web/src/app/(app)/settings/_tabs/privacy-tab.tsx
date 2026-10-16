@@ -39,6 +39,8 @@ interface ErasureResponse {
   status: string;
   estimatedCompletion: string;
   erased: {
+    betaWaitlistEntries: number;
+    betaParticipantProfile: number;
     recommendationDecisions: number;
     copilotFeedback: number;
     mentoringRequests: number;

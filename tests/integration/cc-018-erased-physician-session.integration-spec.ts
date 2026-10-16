@@ -25,6 +25,7 @@ import { PhysicianErasureCheck } from '../../src/modules/auth/physician-erasure-
 import { JwtStrategy } from '../../src/modules/auth/strategies/jwt.strategy';
 import { LgpdService } from '../../src/modules/lgpd/lgpd.service';
 import type { MfaService } from '../../src/modules/auth/mfa.service';
+import type { BetaInviteService } from '../../src/modules/beta/beta-invite.service';
 import type { CrmVerificationService } from '../../src/modules/physicians/crm-verification.service';
 import type { CrmCheckerService } from '../../src/modules/physicians/crm-checker.service';
 import type { PrismaService } from '../../src/config/prisma.service';
@@ -84,6 +85,8 @@ describe('CC-018 — eliminação LGPD encerra a sessão (integration)', () => {
       new AccountLockoutService(prisma as unknown as PrismaService, config),
       // O login com MFA só chega à busca do cadastro se o código conferir.
       { verifyMfaCode: async () => undefined } as unknown as MfaService,
+      // O beta só entra no cadastro, que este teste não usa.
+      {} as BetaInviteService,
       {} as CrmVerificationService,
       {} as CrmCheckerService,
     );

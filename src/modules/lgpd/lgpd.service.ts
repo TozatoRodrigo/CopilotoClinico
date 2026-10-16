@@ -115,6 +115,10 @@ export interface ErasureResult {
   status: 'completed';
   estimatedCompletion: Date;
   erased: {
+    /** CC-702 — entradas da lista de espera com o e-mail da conta. */
+    betaWaitlistEntries: number;
+    /** CC-702 — participação no beta com termo e perfil apagados (ficam os ids). */
+    betaParticipantProfile: number;
     recommendationDecisions: number;
     copilotFeedback: number;
     /** CC-707 — pedidos de mentoria que o médico fez. */

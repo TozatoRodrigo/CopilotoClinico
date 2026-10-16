@@ -973,6 +973,8 @@ describe('CC-018 — LGPD erasure ends the session (E2E)', () => {
   it('POST /lgpd/erasure anonymizes the physician and writes erasedAt', async () => {
     prismaMock.physician.findUnique.mockResolvedValueOnce(profile(PHYSICIAN_ID, 'dr@test.com'));
     const erasureTx = {
+      betaWaitlistEntry: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
+      betaParticipant: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
       recommendationDecision: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
       copilotFeedback: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
       mentoringRequest: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
