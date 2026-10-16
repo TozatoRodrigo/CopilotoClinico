@@ -328,6 +328,12 @@ docker compose --env-file .env.production -f docker-compose.prod.yml up -d --no-
 - A imagem de runtime não tem `pnpm` (`sh: pnpm: not found`): use
   `npx --no-install prisma`, que usa o CLI já instalado em `node_modules` e
   nunca baixa nada. Corrigido em 24/09/2026, no deploy da ADR-010.
+- Desde a CC-024, o `node_modules` da imagem de runtime tem só as dependências
+  de produção e o CLI do Prisma, que fica para este passo. `tsx`, `nest`,
+  `vitest` e afins existem só no estágio `builder`: rode scripts de `scripts/`
+  por ele, como na ingestão. Se um build quebrar em `prisma generate` no
+  estágio `prod-deps`, o lock deixou de trazer o CLI como dependência opcional
+  do `@prisma/client` (comentário em `docker/Dockerfile.api`).
 - Subir a API antes da migration quebra o que depende do schema novo — na
   ADR-010, a busca oficial filtra por um valor de enum que só a migration cria.
 - `--env-file .env.production` é obrigatório: sem ele o compose não interpola
