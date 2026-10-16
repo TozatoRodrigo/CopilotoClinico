@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
-const LAST_UPDATED = '18 de junho de 2026';
+const LAST_UPDATED = '14 de outubro de 2026';
 
 /** Item de lista: `term` vira o início em negrito ("Dados de cadastro:"). */
 interface PolicyItem {
@@ -34,6 +34,9 @@ interface PolicySection {
   items: PolicyItem[];
 }
 
+// CC-010 — cada frase descreve o que o código faz hoje. Base legal, retenção
+// da trilha de auditoria e a forma de citar os fornecedores dependem de
+// revisão jurídica.
 const SECTIONS: PolicySection[] = [
   {
     id: 'dados-coletados',
@@ -41,19 +44,19 @@ const SECTIONS: PolicySection[] = [
     items: [
       {
         term: 'Dados de cadastro',
-        text: 'nome, e-mail, CRM e especialidade (necessários para verificação profissional e cumprimento da Resolução CFM nº 2.314/2022 sobre responsabilidade médica em sistemas digitais).',
+        text: 'nome, e-mail, CRM (UF e número), idioma e senha, guardada só como hash. Com o segundo fator ativo, o segredo dele fica cifrado. Os dados servem à verificação profissional e ao cumprimento da Resolução CFM nº 2.314/2022 sobre responsabilidade médica em sistemas digitais.',
       },
       {
         term: 'Dados clínicos operacionais',
-        text: 'descrição do caso, red flags marcadas, perguntas respondidas, recomendações e documentos gerados. Estes dados ficam vinculados à sua conta e à instituição de saúde quando aplicável.',
+        text: 'descrição do caso e respostas às perguntas (gravadas já mascaradas, ver seção 3), red flags marcadas, análises, documentos gerados e editados, decisões e comentários sobre as recomendações e o texto mascarado dos anexos de referência (o arquivo em si não é gravado). Ficam vinculados à sua conta e, quando houver, à instituição do atendimento. Sem conexão, o caso fica no seu navegador, sem máscara, até ser enviado.',
       },
       {
         term: 'Dados técnicos',
-        text: 'endereço IP (com retenção mínima), user-agent, timestamps de sessão e logs de auditoria (necessários para rastreabilidade CFM e segurança da conta).',
+        text: 'data e hora das sessões, a trilha de auditoria das suas ações e o endereço IP, gravado nessa trilha no cadastro, no login e no pedido de verificação de CRM, sem prazo de exclusão (ver seção 5). O servidor também mantém registros técnicos de erros e tempos de resposta.',
       },
       {
-        term: 'Identificadores de paciente (patientRef)',
-        text: 'nunca solicitamos dados pessoais do paciente. Usamos apenas um identificador opaco (ex: número de prontuário) pseudonimizado automaticamente conforme LGPD Art. 13.',
+        term: 'Identificador do paciente (patientRef)',
+        text: 'o atendimento identifica o paciente só por um código opaco e opcional, como o número de prontuário. O sistema recusa CPF e nome completo nesse campo e troca o código por um marcador no texto do caso antes de gravar a análise ou enviar a um modelo. O código fica gravado no atendimento e nos documentos que o exigem (prescrição, alta e atestado).',
       },
     ],
   },
@@ -62,11 +65,14 @@ const SECTIONS: PolicySection[] = [
     title: '2. Base legal e finalidade',
     items: [
       {
-        text: 'Processamos seus dados com base no Art. 7º, V da LGPD (necessidade para execução de contrato) e Art. 11 (dados relativos à saúde, com consentimento explícito).',
+        text: 'Tratamos seus dados de cadastro e de uso da conta para executar o contrato de uso do serviço (Art. 7º, V da LGPD).',
+      },
+      {
+        text: 'O caso clínico é dado relativo à saúde (Art. 11). O processamento por IA faz parte do serviço que você aceita no cadastro, junto com esta política, e você pode revogá-lo a qualquer momento (seção 3).',
       },
       {
         term: 'Finalidades',
-        text: '(a) prestar o serviço de copiloto clínico; (b) cumprir obrigações regulatórias (CFM, LGPD); (c) garantir rastreabilidade e auditoria das decisões clínicas; (d) melhorar a qualidade do produto com métricas agregadas e anonimizadas.',
+        text: '(a) prestar o serviço de copiloto clínico; (b) cumprir obrigações regulatórias (CFM, LGPD); (c) garantir rastreabilidade e auditoria das decisões clínicas; (d) acompanhar uso, custo e qualidade do serviço: visitas por página contadas sem cookie, custo das chamadas de IA por conta e o feedback que você envia sobre as análises.',
       },
     ],
   },
@@ -75,14 +81,18 @@ const SECTIONS: PolicySection[] = [
     title: '3. Processamento por IA',
     items: [
       {
-        text: 'Ao consentir com o escopo "Processamento por IA", você autoriza que modelos de linguagem analisem os casos clínicos para gerar recomendações, documentos e perguntas de esclarecimento.',
+        text: 'O processamento por IA cobre a leitura do caso e as perguntas de esclarecimento, a análise, as reanálises e a transcrição do ditado. A busca por significado na consulta de diretrizes também usa IA. Os documentos (SOAP, SBAR, prescrição, alta e atestado) são montados a partir de uma análise já feita, sem nova chamada de IA.',
+      },
+      {
+        term: 'O que vai a cada provedor',
+        text: 'o caso e as respostas vão já mascarados aos provedores de modelos de linguagem contratados; a consulta de diretrizes, mascarada, vai ao provedor de busca por significado. O áudio do ditado vai ao serviço de transcrição como foi gravado (a máscara vale para o texto que volta) e não é guardado pelo sistema.',
       },
       {
         term: 'Defesa em profundidade (LGPD Art. 46)',
-        text: 'aplicamos filtro automático de PII (CPF, telefone, e-mail, datas), redação explícita do identificador do paciente (mesmo se digitado no texto livre) e auditoria completa do raciocínio (cada decisão fica rastreável com hash imutável).',
+        text: 'antes de gravar ou enviar a um modelo, mascaramos CPF, CNPJ, CNS, RG, telefone, e-mail, CEP e datas de nascimento e trocamos o identificador do paciente por um marcador, mesmo se digitado no texto livre. Nomes de pessoas não são detectados: não escreva o nome do paciente. Cada análise fica gravada com o caso mascarado, a resposta do modelo e as fontes citadas, e a trilha de auditoria é encadeada por hash e só aceita inserção.',
       },
       {
-        text: 'Você pode revogar este consentimento a qualquer momento em Configurações → Privacidade. A revogação interrompe novas análises por IA, mas preserva o histórico já auditado.',
+        text: 'Você pode revogar o processamento por IA a qualquer momento em Configurações → Privacidade. Com ele revogado, o sistema recusa leitura do caso, perguntas, análise, reanálise e ditado antes de qualquer envio a um provedor de IA, inclusive as análises que ainda esperam na fila, e a consulta de diretrizes passa a buscar só por palavra-chave. O histórico já gravado e a geração de documentos a partir dele continuam disponíveis.',
       },
     ],
   },
@@ -90,19 +100,25 @@ const SECTIONS: PolicySection[] = [
     id: 'seus-direitos',
     title: '4. Seus direitos (Art. 18, LGPD)',
     items: [
-      { term: 'Confirmação e acesso', text: 'saiba quais dados temos sobre você.' },
-      { term: 'Correção', text: 'atualize dados de cadastro no perfil.' },
+      {
+        term: 'Confirmação e acesso',
+        text: 'veja quais dados temos sobre você na exportação abaixo.',
+      },
+      {
+        term: 'Correção',
+        text: 'atualize nome e idioma no perfil. Para corrigir e-mail ou CRM, escreva ao Encarregado (seção 6).',
+      },
       {
         term: 'Portabilidade (Art. 18, V)',
-        text: 'exporte todos os seus dados em JSON pelas Configurações → Privacidade.',
+        text: 'em Configurações → Privacidade, exporte em JSON seu cadastro, atendimentos, conversas com o copiloto, análises, documentos, decisões e feedback sobre as recomendações, consentimentos e as entradas da trilha de auditoria feitas por você.',
       },
       {
         term: 'Revogação de consentimento',
-        text: 'gerencie escopos individuais (processamento IA, compartilhamento, analytics).',
+        text: 'revogue ou conceda de novo o processamento por IA em Configurações → Privacidade. Os escopos "Compartilhamento de dados" e "Analytics" ficam registrados, mas hoje nenhum recurso depende deles.',
       },
       {
         term: 'Eliminação (Art. 18, VI — direito ao esquecimento)',
-        text: 'exclua permanentemente conta e dados pelas Configurações → Privacidade. Ação irreversível.',
+        text: 'em Configurações → Privacidade, apague seus atendimentos (com conversas, análises, documentos, anexos, decisões e feedback), consentimentos e sessões e anonimize nome, e-mail e senha. Ação irreversível. O que continua guardado está na seção 5.',
       },
     ],
   },
@@ -111,15 +127,16 @@ const SECTIONS: PolicySection[] = [
     title: '5. Retenção e exclusão',
     items: [
       {
-        term: 'Atendimentos e interações com IA',
-        text: 'retidos enquanto a conta estiver ativa (rastreabilidade CFM).',
+        term: 'Atendimentos, conversas, análises e documentos',
+        text: 'ficam enquanto a conta existir; não há prazo automático de exclusão.',
       },
       {
-        term: 'Em caso de exclusão da conta',
-        text: 'todos os atendimentos, documentos, interações IA, consentimentos e tokens de sessão são permanentemente removidos em até 30 dias.',
+        term: 'Na exclusão da conta',
+        text: 'o apagamento descrito na seção 4 acontece na hora.',
       },
       {
-        text: 'Logs de auditoria essenciais à segurança podem ser mantidos por prazo adicional conforme obrigação legal, já anonimizados.',
+        term: 'O que continua depois da exclusão',
+        text: 'a trilha de auditoria (quem fez cada ação e quando, com o IP nos eventos da seção 1), que só aceita inserção e serve à rastreabilidade exigida pelo CFM; o registro técnico de cada chamada de IA, sem texto clínico; o CRM e os dados de segurança da conta (segundo fator, códigos de recuperação, bloqueio de login); os pedidos de verificação de CRM, os vínculos com instituições e os registros técnicos do servidor já escritos. Nada disso é anonimizado hoje.',
       },
     ],
   },

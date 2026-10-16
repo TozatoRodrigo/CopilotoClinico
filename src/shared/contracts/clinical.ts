@@ -191,8 +191,18 @@ export interface Document {
   confirmedBy: string | null;
   confirmedAt: string | null;
   contentHash: string | null;
+  // ADR-018 — algoritmo do contentHash: 1 = legado, 2 = JSON canônico.
+  contentHashVersion: number | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export type DocumentIntegrityStatus = 'unconfirmed' | 'intact' | 'mismatch';
+
+export interface DocumentIntegrity {
+  documentId: string;
+  status: DocumentIntegrityStatus;
+  contentHashVersion: number | null;
 }
 
 export interface AuditEntry {
@@ -597,7 +607,7 @@ export interface CopilotAnalyzeResponse {
 export type RetrievalCoverage = 'full' | 'partial' | 'none';
 
 /**
- * UX-06 — eventos do stream SSE de GET /encounters/:id/copilot/stream e,
+ * UX-06 — eventos do stream SSE da conversa (GET .../intake/:id/stream) e,
  * na reanálise, do corpo de POST /encounters/:id/copilot/respond/stream.
  * Espelha `StreamEvent` de orchestrator.service.ts, mas com `result`
  * tipado como `CopilotAnalyzeResponse` (o formato de wire real que a HTTP
@@ -706,7 +716,8 @@ export interface IntakeAnswer {
  * - `unstable`: paciente instável, plano direto;
  * - `complete`: nada que falte muda a conduta agora;
  * - `reading_failed`: a leitura falhou ou demorou; plano direto;
- * - `disabled`: `COPILOT_INTAKE=off`; plano direto, sem leitura.
+ * - `disabled`: sem leitura, plano direto — `COPILOT_INTAKE=off` ou análise
+ *   pela fila (`POST .../analyze/async`, áudio gravado; CC-011).
  */
 export const INTAKE_PATHS = ['ask', 'unstable', 'complete', 'reading_failed', 'disabled'] as const;
 export type IntakePath = (typeof INTAKE_PATHS)[number];
@@ -1051,4 +1062,19 @@ export interface GuidelineSearchResult {
   institutionId: string | null;
   reviewerName: string | null;
   rank: number;
+}
+
+/**
+ * CC-010 — `code` do 403 de quem revogou o consentimento `ai_processing`
+ * (Configurações → Privacidade). A recusa sai antes de qualquer chamada de IA:
+ * leitura do caso, análise, reanálise e transcrição do ditado. A mensagem já
+ * vem escrita para o médico; o web a mostra como qualquer outro erro.
+ */
+export const AI_CONSENT_REVOKED = 'AI_CONSENT_REVOKED' as const;
+
+export interface AiConsentRevokedError {
+  statusCode: 403;
+  error: 'Forbidden';
+  code: typeof AI_CONSENT_REVOKED;
+  message: string;
 }

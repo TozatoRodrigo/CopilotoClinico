@@ -1,7 +1,13 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { LgpdService } from './lgpd.service';
+import { describe, it, expect, expectTypeOf, beforeEach, vi } from 'vitest';
+import { LgpdService, type ExportedAudioCapture } from './lgpd.service';
 import { PrismaService } from '../../config/prisma.service';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import type { PhysicianErasureCheck } from '../auth/physician-erasure-check.service';
+import {
+  BadRequestException,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
+import { AiConsentRevokedException } from './ai-consent.exception';
 
 const physicianId = '550e8400-e29b-41d4-a716-446655440000';
 const consentId = '660e8400-e29b-41d4-a716-446655440001';
@@ -24,6 +30,14 @@ describe('LgpdService', () => {
       findMany: ReturnType<typeof vi.fn>;
       deleteMany: ReturnType<typeof vi.fn>;
     };
+    encounterAttachment: {
+      findMany: ReturnType<typeof vi.fn>;
+      deleteMany: ReturnType<typeof vi.fn>;
+    };
+    audioCapture: {
+      findMany: ReturnType<typeof vi.fn>;
+      deleteMany: ReturnType<typeof vi.fn>;
+    };
     document: {
       findMany: ReturnType<typeof vi.fn>;
     };
@@ -32,6 +46,8 @@ describe('LgpdService', () => {
     };
     auditLog: {
       findMany: ReturnType<typeof vi.fn>;
+      deleteMany: ReturnType<typeof vi.fn>;
+      updateMany: ReturnType<typeof vi.fn>;
     };
     refreshToken: {
       findMany: ReturnType<typeof vi.fn>;
@@ -50,6 +66,10 @@ describe('LgpdService', () => {
   };
   let auditService: {
     log: ReturnType<typeof vi.fn>;
+  };
+  let erasureCheck: { markErased: ReturnType<typeof vi.fn> };
+  let storage: {
+    deleteObjects: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(() => {
@@ -71,6 +91,14 @@ describe('LgpdService', () => {
         findMany: vi.fn(),
         deleteMany: vi.fn(),
       },
+      encounterAttachment: {
+        findMany: vi.fn(),
+        deleteMany: vi.fn(),
+      },
+      audioCapture: {
+        findMany: vi.fn().mockResolvedValue([]),
+        deleteMany: vi.fn(),
+      },
       document: {
         findMany: vi.fn(),
       },
@@ -79,6 +107,8 @@ describe('LgpdService', () => {
       },
       auditLog: {
         findMany: vi.fn(),
+        deleteMany: vi.fn(),
+        updateMany: vi.fn(),
       },
       refreshToken: {
         findMany: vi.fn(),
@@ -98,8 +128,17 @@ describe('LgpdService', () => {
     auditService = {
       log: vi.fn(),
     };
+    erasureCheck = { markErased: vi.fn() };
+    storage = {
+      deleteObjects: vi.fn().mockResolvedValue(undefined),
+    };
 
-    service = new LgpdService(prisma as unknown as PrismaService, auditService as never);
+    service = new LgpdService(
+      prisma as unknown as PrismaService,
+      auditService as never,
+      erasureCheck as unknown as PhysicianErasureCheck,
+      storage as never,
+    );
   });
 
   describe('grantConsent', () => {
@@ -195,12 +234,50 @@ describe('LgpdService', () => {
       expect(result.revokedAt).not.toBeNull();
     });
 
-    it('throws NotFoundException when no active consent exists', async () => {
-      prisma.consent.findFirst.mockResolvedValue(null);
+    it('throws NotFoundException when the latest consent is already revoked', async () => {
+      prisma.consent.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: consentId });
+      prisma.physician.findUnique.mockResolvedValue({ createdAt: new Date() });
 
       await expect(service.revokeConsent(physicianId, 'ai_processing')).rejects.toThrow(
         NotFoundException,
       );
+      expect(prisma.consent.create).not.toHaveBeenCalled();
+    });
+
+    // CC-010 — o processamento por IA vale desde o cadastro sem nenhuma linha
+    // em `consents`: revogar precisa funcionar com um clique, sem conceder antes.
+    it('records the revocation of ai_processing that was only active by default', async () => {
+      const signedUpAt = new Date('2026-06-01T00:00:00.000Z');
+      prisma.consent.findFirst.mockResolvedValue(null);
+      prisma.physician.findUnique.mockResolvedValue({ createdAt: signedUpAt });
+      prisma.consent.create.mockResolvedValue({ id: consentId, revokedAt: new Date() });
+
+      await service.revokeConsent(physicianId, 'ai_processing');
+
+      expect(prisma.consent.create).toHaveBeenCalledWith({
+        data: {
+          physicianId,
+          scope: 'ai_processing',
+          grantedAt: signedUpAt,
+          revokedAt: expect.any(Date),
+        },
+      });
+      expect(auditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'CONSENT_REVOKED',
+          entityId: consentId,
+          payload: { scope: 'ai_processing', fromDefault: true },
+        }),
+      );
+    });
+
+    it('throws NotFoundException for a scope that is off by default and never granted', async () => {
+      prisma.consent.findFirst.mockResolvedValue(null);
+
+      await expect(service.revokeConsent(physicianId, 'analytics')).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(prisma.consent.create).not.toHaveBeenCalled();
     });
 
     it('rejects unsupported consent scopes before revoking data', async () => {
@@ -215,26 +292,31 @@ describe('LgpdService', () => {
   });
 
   describe('checkConsent', () => {
-    it('returns true when active consent exists', async () => {
-      prisma.consent.findFirst.mockResolvedValue({
-        id: consentId,
-        physicianId,
-        scope: 'ai_processing',
-        grantedAt: new Date(),
-        revokedAt: null,
-      });
+    it('reads the latest record of the scope', async () => {
+      prisma.consent.findFirst.mockResolvedValue({ revokedAt: null });
 
       const result = await service.checkConsent(physicianId, 'ai_processing');
 
       expect(result).toBe(true);
+      expect(prisma.consent.findFirst).toHaveBeenCalledWith({
+        where: { physicianId, scope: 'ai_processing' },
+        orderBy: { grantedAt: 'desc' },
+        select: { revokedAt: true },
+      });
     });
 
-    it('returns false when no active consent exists', async () => {
+    it('returns false when the latest record is revoked', async () => {
+      prisma.consent.findFirst.mockResolvedValue({ revokedAt: new Date() });
+
+      expect(await service.checkConsent(physicianId, 'ai_processing')).toBe(false);
+    });
+
+    it('falls back to the scope default when nothing was recorded', async () => {
       prisma.consent.findFirst.mockResolvedValue(null);
 
-      const result = await service.checkConsent(physicianId, 'ai_processing');
-
-      expect(result).toBe(false);
+      expect(await service.checkConsent(physicianId, 'ai_processing')).toBe(true);
+      expect(await service.checkConsent(physicianId, 'data_sharing')).toBe(false);
+      expect(await service.checkConsent(physicianId, 'analytics')).toBe(false);
     });
 
     it('rejects unsupported consent scopes before checking data', async () => {
@@ -243,6 +325,25 @@ describe('LgpdService', () => {
       );
 
       expect(prisma.consent.findFirst).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('assertAiProcessingAllowed', () => {
+    it('lets the request through while ai_processing is active', async () => {
+      prisma.consent.findFirst.mockResolvedValue(null);
+
+      await expect(service.assertAiProcessingAllowed(physicianId)).resolves.toBeUndefined();
+    });
+
+    it('refuses with the AI_CONSENT_REVOKED 403 once ai_processing is revoked', async () => {
+      prisma.consent.findFirst.mockResolvedValue({ revokedAt: new Date() });
+
+      const refusal = service.assertAiProcessingAllowed(physicianId);
+
+      await expect(refusal).rejects.toBeInstanceOf(AiConsentRevokedException);
+      await expect(refusal).rejects.toMatchObject({
+        response: { statusCode: 403, code: 'AI_CONSENT_REVOKED' },
+      });
     });
   });
 
@@ -296,9 +397,47 @@ describe('LgpdService', () => {
         },
       ]);
     });
+
+    it('shows ai_processing active by default when nothing was recorded', async () => {
+      prisma.consent.findMany.mockResolvedValue([]);
+
+      const result = await service.listConsentScopes(physicianId);
+
+      expect(result).toEqual([
+        { scope: 'ai_processing', granted: true, grantedAt: null, revokedAt: null },
+        { scope: 'data_sharing', granted: false, grantedAt: null, revokedAt: null },
+        { scope: 'analytics', granted: false, grantedAt: null, revokedAt: null },
+      ]);
+    });
   });
 
   describe('exportPhysicianData', () => {
+    const audioCaptures: ExportedAudioCapture[] = [
+      {
+        id: 'aud-1',
+        encounterId: 'enc-1',
+        mimeType: 'audio/webm',
+        sizeBytes: 48_000,
+        status: 'completed',
+        transcribedText: 'CPF [REDACTED_CPF], dor torácica há duas horas',
+        retainUntil: new Date('2026-11-09T12:00:00.000Z'),
+        createdAt: new Date('2026-10-10T12:00:00.000Z'),
+        updatedAt: new Date('2026-10-10T12:01:00.000Z'),
+      },
+      {
+        // Áudio eliminado pela retenção: a linha e a transcrição mascarada continuam.
+        id: 'aud-2',
+        encounterId: 'enc-1',
+        mimeType: 'audio/webm',
+        sizeBytes: 32_000,
+        status: 'deleted',
+        transcribedText: 'Febre há três dias',
+        retainUntil: new Date('2026-10-01T12:00:00.000Z'),
+        createdAt: new Date('2026-09-01T12:00:00.000Z'),
+        updatedAt: new Date('2026-10-01T13:15:00.000Z'),
+      },
+    ];
+
     it('returns all physician data', async () => {
       const physician = {
         id: physicianId,
@@ -314,6 +453,18 @@ describe('LgpdService', () => {
       const encounters = [{ id: 'enc-1', physicianId, vertical: 'trauma', patientRef: 'PAT-001' }];
       const documents = [{ id: 'doc-1', physicianId, encounterId: 'enc-1', type: 'soap' }];
       const aiInteractions = [{ id: 'ai-1', encounterId: 'enc-1', model: 'gpt-4' }];
+      const encounterAttachments = [
+        {
+          id: 'att-1',
+          encounterId: 'enc-1',
+          physicianId,
+          filename: 'diretriz-dengue.pdf',
+          mimeType: 'application/pdf',
+          sizeBytes: 2048,
+          text: 'Hidratação venosa no grupo C. Paciente [NOME_REDACTED].',
+          createdAt: new Date(),
+        },
+      ];
       const consents = [{ id: consentId, physicianId, scope: 'ai_processing' }];
       const auditLog = [{ id: 'log-1', actorId: physicianId, action: 'LOGIN' }];
       const refreshTokens = [{ id: 'rt-1', physicianId, tokenHash: 'hash' }];
@@ -345,12 +496,14 @@ describe('LgpdService', () => {
       prisma.physician.findUnique.mockResolvedValue(physician);
       prisma.recommendationDecision.findMany.mockResolvedValue(recommendationDecisions);
       prisma.copilotFeedback.findMany.mockResolvedValue(copilotFeedback);
+      prisma.audioCapture.findMany.mockResolvedValue(audioCaptures);
       prisma.encounter.findMany.mockResolvedValue(encounters);
       prisma.document.findMany.mockResolvedValue(documents);
       prisma.consent.findMany.mockResolvedValue(consents);
       prisma.auditLog.findMany.mockResolvedValue(auditLog);
       prisma.refreshToken.findMany.mockResolvedValue(refreshTokens);
       prisma.aiInteraction.findMany.mockResolvedValue(aiInteractions);
+      prisma.encounterAttachment.findMany.mockResolvedValue(encounterAttachments);
 
       const result = await service.exportPhysicianData(physicianId);
 
@@ -364,11 +517,13 @@ describe('LgpdService', () => {
         data: {
           physician,
           encounters,
+          encounterAttachments,
           documents,
           aiInteractions,
           caseIntakes: [],
           recommendationDecisions,
           copilotFeedback,
+          audioCaptures,
           consents,
           auditLog,
         },
@@ -385,6 +540,66 @@ describe('LgpdService', () => {
       expect(prisma.aiInteraction.findMany).toHaveBeenCalledWith({
         where: { encounterId: { in: ['enc-1'] } },
       });
+    });
+
+    it('exports audio capture metadata and masked transcript, never the encrypted audio', async () => {
+      prisma.physician.findUnique.mockResolvedValue({ id: physicianId });
+      prisma.encounter.findMany.mockResolvedValue([]);
+      prisma.document.findMany.mockResolvedValue([]);
+      prisma.consent.findMany.mockResolvedValue([]);
+      prisma.auditLog.findMany.mockResolvedValue([]);
+      prisma.audioCapture.findMany.mockResolvedValue(audioCaptures);
+
+      const result = await service.exportPhysicianData(physicianId);
+
+      // Allowlist exata: `encryptedContent` (áudio cifrado) e `jobId` (fila) não saem.
+      expect(prisma.audioCapture.findMany).toHaveBeenCalledWith({
+        where: { physicianId },
+        select: {
+          id: true,
+          encounterId: true,
+          mimeType: true,
+          sizeBytes: true,
+          status: true,
+          transcribedText: true,
+          retainUntil: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+      expect(result.data.audioCaptures).toEqual(audioCaptures);
+      expectTypeOf<ExportedAudioCapture>().not.toHaveProperty('encryptedContent');
+    });
+
+    it('exports attachments with their redacted text, scoped to the physician encounters', async () => {
+      prisma.physician.findUnique.mockResolvedValue({ id: physicianId });
+      prisma.encounter.findMany.mockResolvedValue([
+        { id: 'enc-1', physicianId },
+        { id: 'enc-2', physicianId },
+      ]);
+      prisma.document.findMany.mockResolvedValue([]);
+      prisma.consent.findMany.mockResolvedValue([]);
+      prisma.auditLog.findMany.mockResolvedValue([]);
+      prisma.aiInteraction.findMany.mockResolvedValue([]);
+      prisma.audioCapture.findMany.mockResolvedValue([]);
+      const attachment = {
+        id: 'att-1',
+        encounterId: 'enc-2',
+        physicianId,
+        filename: 'abramede-sepse.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 1024,
+        text: 'Lactato > 2 mmol/L.',
+        createdAt: new Date(),
+      };
+      prisma.encounterAttachment.findMany.mockResolvedValue([attachment]);
+
+      const result = await service.exportPhysicianData(physicianId);
+
+      expect(prisma.encounterAttachment.findMany).toHaveBeenCalledWith({
+        where: { encounterId: { in: ['enc-1', 'enc-2'] } },
+      });
+      expect(result.data.encounterAttachments).toEqual([attachment]);
     });
 
     it('does not query refresh tokens for portability exports', async () => {
@@ -408,7 +623,7 @@ describe('LgpdService', () => {
       expect(prisma.refreshToken.findMany).not.toHaveBeenCalled();
     });
 
-    it('returns empty aiInteractions when physician has no encounters', async () => {
+    it('returns empty encounter-scoped collections when physician has no encounters', async () => {
       prisma.physician.findUnique.mockResolvedValue({
         id: physicianId,
         crmUf: 'SP',
@@ -429,7 +644,10 @@ describe('LgpdService', () => {
       const result = await service.exportPhysicianData(physicianId);
 
       expect(result.data.aiInteractions).toEqual([]);
+      expect(result.data.encounterAttachments).toEqual([]);
+      expect(result.data.audioCaptures).toEqual([]);
       expect(prisma.aiInteraction.findMany).not.toHaveBeenCalled();
+      expect(prisma.encounterAttachment.findMany).not.toHaveBeenCalled();
     });
 
     it('throws NotFoundException for missing physician', async () => {
@@ -440,29 +658,30 @@ describe('LgpdService', () => {
   });
 
   describe('requestErasure', () => {
-    it('anonymizes physician and deletes related data', async () => {
-      const physician = {
-        id: physicianId,
-        crmUf: 'SP',
-        crmNumber: '123456',
-        email: 'test@test.com',
-        passwordHash: 'hash',
-        name: 'Dr Test',
-        mfaEnabled: false,
-        mfaSecret: 'secret',
-        subscriptionStatus: 'trial',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+    const physician = {
+      id: physicianId,
+      crmUf: 'SP',
+      crmNumber: '123456',
+      email: 'test@test.com',
+      passwordHash: 'hash',
+      name: 'Dr Test',
+      mfaEnabled: false,
+      mfaSecret: 'secret',
+      subscriptionStatus: 'trial',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
 
+    beforeEach(() => {
       prisma.physician.findUnique.mockResolvedValue(physician);
-
       prisma.$transaction.mockImplementation(async (cb: (tx: typeof prisma) => Promise<void>) =>
         cb(prisma),
       );
-
+      prisma.document.findMany.mockResolvedValue([]);
       prisma.recommendationDecision.deleteMany.mockResolvedValue({ count: 4 });
       prisma.copilotFeedback.deleteMany.mockResolvedValue({ count: 3 });
+      prisma.encounterAttachment.deleteMany.mockResolvedValue({ count: 0 });
+      prisma.audioCapture.deleteMany.mockResolvedValue({ count: 0 });
       prisma.encounter.deleteMany.mockResolvedValue({ count: 2 });
       prisma.consent.deleteMany.mockResolvedValue({ count: 1 });
       prisma.refreshToken.deleteMany.mockResolvedValue({ count: 1 });
@@ -472,18 +691,13 @@ describe('LgpdService', () => {
         email: `erased-${physicianId}@erased.com`,
         passwordHash: `erased:${physicianId}`,
       });
-      auditService.log.mockResolvedValue({
-        id: 'log-1',
-        actorId: physicianId,
-        action: 'DATA_ERASURE',
-        entity: 'Physician',
-        entityId: physicianId,
-        beforeHash: null,
-        afterHash: null,
-        payload: { reason: 'LGPD Art. 18, VI - Data erasure request' },
-        ip: null,
-        createdAt: new Date(),
-      });
+      auditService.log.mockResolvedValue({ id: 'log-1' });
+    });
+
+    it('anonymizes physician and deletes related data', async () => {
+      prisma.encounter.deleteMany.mockResolvedValue({ count: 2 });
+      prisma.consent.deleteMany.mockResolvedValue({ count: 1 });
+      prisma.refreshToken.deleteMany.mockResolvedValue({ count: 1 });
 
       const result = await service.requestErasure(physicianId);
 
@@ -493,8 +707,11 @@ describe('LgpdService', () => {
         recommendationDecisions: 4,
         copilotFeedback: 3,
         encounters: 2,
+        encounterAttachments: 0,
+        audioCaptures: 0,
         consents: 1,
         refreshTokens: 1,
+        storageObjects: 0,
       });
       expect(prisma.recommendationDecision.deleteMany).toHaveBeenCalledWith({
         where: { physicianId },
@@ -516,8 +733,11 @@ describe('LgpdService', () => {
           email: `erased-${physicianId}@erased.com`,
           passwordHash: `erased:${physicianId}`,
           specialty: null,
+          erasedAt: expect.any(Date),
         },
       });
+      // CC-018 — a sessão cai na hora nesta instância, sem esperar o cache.
+      expect(erasureCheck.markErased).toHaveBeenCalledWith(physicianId);
       expect(auditService.log).toHaveBeenCalledWith({
         actorId: physicianId,
         action: 'DATA_ERASURE',
@@ -525,21 +745,92 @@ describe('LgpdService', () => {
         entityId: physicianId,
         payload: {
           reason: 'LGPD Art. 18, VI - Data erasure request',
-          erased: {
-            recommendationDecisions: 4,
-            copilotFeedback: 3,
-            encounters: 2,
-            consents: 1,
-            refreshTokens: 1,
-          },
+          erased: result.erased,
         },
       });
+    });
+
+    it('deletes attachments and audio captures of the physician encounters and reports the counts', async () => {
+      prisma.encounterAttachment.deleteMany.mockResolvedValue({ count: 3 });
+      prisma.audioCapture.deleteMany.mockResolvedValue({ count: 2 });
+      prisma.encounter.deleteMany.mockResolvedValue({ count: 2 });
+
+      const result = await service.requestErasure(physicianId);
+
+      expect(prisma.encounterAttachment.deleteMany).toHaveBeenCalledWith({
+        where: { encounter: { physicianId } },
+      });
+      expect(prisma.audioCapture.deleteMany).toHaveBeenCalledWith({
+        where: { encounter: { physicianId } },
+      });
+      expect(result.erased).toMatchObject({ encounterAttachments: 3, audioCaptures: 2 });
+      expect(auditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'DATA_ERASURE',
+          payload: expect.objectContaining({
+            erased: expect.objectContaining({ encounterAttachments: 3, audioCaptures: 2 }),
+          }),
+        }),
+      );
+    });
+
+    it('deletes stored document PDFs before touching the database', async () => {
+      prisma.document.findMany.mockResolvedValue([
+        { pdfObjectKey: 'documents/enc-1/doc-1.pdf' },
+        { pdfObjectKey: 'documents/enc-2/doc-2.pdf' },
+      ]);
+
+      const result = await service.requestErasure(physicianId);
+
+      expect(prisma.document.findMany).toHaveBeenCalledWith({
+        where: { encounter: { physicianId }, pdfObjectKey: { not: null } },
+        select: { pdfObjectKey: true },
+      });
+      expect(storage.deleteObjects).toHaveBeenCalledWith([
+        'documents/enc-1/doc-1.pdf',
+        'documents/enc-2/doc-2.pdf',
+      ]);
+      expect(storage.deleteObjects.mock.invocationCallOrder[0]).toBeLessThan(
+        prisma.$transaction.mock.invocationCallOrder[0] ?? 0,
+      );
+      expect(result.erased.storageObjects).toBe(2);
+    });
+
+    it('erases nothing in the database when stored PDFs cannot be deleted, so the request can be retried', async () => {
+      prisma.document.findMany.mockResolvedValue([{ pdfObjectKey: 'documents/enc-1/doc-1.pdf' }]);
+      storage.deleteObjects.mockRejectedValue(new Error('MinIO unreachable'));
+
+      await expect(service.requestErasure(physicianId)).rejects.toThrow(
+        ServiceUnavailableException,
+      );
+
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(prisma.physician.update).not.toHaveBeenCalled();
+      expect(auditService.log).not.toHaveBeenCalled();
+    });
+
+    it('never mutates the append-only audit log', async () => {
+      await service.requestErasure(physicianId);
+
+      expect(prisma.auditLog.deleteMany).not.toHaveBeenCalled();
+      expect(prisma.auditLog.updateMany).not.toHaveBeenCalled();
     });
 
     it('throws NotFoundException for missing physician', async () => {
       prisma.physician.findUnique.mockResolvedValue(null);
 
       await expect(service.requestErasure(physicianId)).rejects.toThrow(NotFoundException);
+      expect(storage.deleteObjects).not.toHaveBeenCalled();
+    });
+
+    // CC-018 — marcar antes do commit trancaria o médico fora de uma conta
+    // que continua dele quando a transação falha.
+    it('does not mark the physician as erased when the transaction fails', async () => {
+      prisma.physician.findUnique.mockResolvedValue({ id: physicianId });
+      prisma.$transaction.mockRejectedValue(new Error('deadlock'));
+
+      await expect(service.requestErasure(physicianId)).rejects.toThrow('deadlock');
+      expect(erasureCheck.markErased).not.toHaveBeenCalled();
     });
   });
 });

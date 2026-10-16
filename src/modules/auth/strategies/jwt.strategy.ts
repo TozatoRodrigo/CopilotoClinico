@@ -1,7 +1,8 @@
-import { Injectable, Inject, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Inject, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import { PhysicianErasureCheck } from '../physician-erasure-check.service';
 
 interface JwtPayload {
   sub: string;
@@ -15,7 +16,12 @@ interface JwtPayload {
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(@Inject(ConfigService) config: ConfigService) {
+  private readonly logger = new Logger(JwtStrategy.name);
+
+  constructor(
+    @Inject(ConfigService) config: ConfigService,
+    @Inject(PhysicianErasureCheck) private readonly erasureCheck: PhysicianErasureCheck,
+  ) {
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
         (req: { cookies?: Record<string, string> }) => req?.cookies?.access_token ?? null,
@@ -26,7 +32,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  validate(payload: JwtPayload) {
+  async validate(payload: JwtPayload) {
     // SEC-01 — defesa em profundidade: um access/refresh token de sessão
     // completa nunca carrega `scope`. Rejeitar aqui garante que um token de
     // propósito restrito (ex.: mfa_pending, emitido antes do 2º fator ser
@@ -34,6 +40,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     // futuro venha a ser assinado com o mesmo segredo por engano.
     if (payload.scope) {
       throw new UnauthorizedException('Token de propósito restrito não pode ser usado como sessão');
+    }
+
+    // CC-018 — a assinatura e o exp não sabem que o cadastro foi eliminado
+    // (LGPD): sem isto, o access token seguia valendo até expirar.
+    if (await this.erasureCheck.isErased(payload.physicianId)) {
+      this.logger.warn(`AUTH_ERASED_PHYSICIAN_TOKEN_REJECTED: physician ${payload.physicianId}`);
+      throw new UnauthorizedException('Sessão encerrada: cadastro eliminado');
     }
 
     return {

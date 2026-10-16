@@ -9,6 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { BadRequestException, ConflictException, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
+import { createHmac } from 'crypto';
 
 vi.mock('bcryptjs', () => ({
   hash: vi.fn(),
@@ -57,6 +58,7 @@ describe('AuthService', () => {
     };
   };
   let jwt: JwtService;
+  let auditService: { log: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -91,9 +93,7 @@ describe('AuthService', () => {
       JWT_REFRESH_EXPIRY: '7d',
     });
 
-    const auditService = {
-      log: vi.fn().mockResolvedValue(undefined),
-    } as unknown as AuditService;
+    auditService = { log: vi.fn().mockResolvedValue(undefined) };
 
     const mfaService = {
       setupMfa: vi.fn(),
@@ -116,7 +116,9 @@ describe('AuthService', () => {
       prisma as unknown as PrismaService,
       jwt,
       config,
-      auditService,
+      auditService as unknown as AuditService,
+      // CC-025 — os testes do limite por conta estão em auth.service.lockout.spec.ts.
+      { reserveAttempt: vi.fn(), clear: vi.fn() } as never,
       mfaService,
       crmVerificationService,
       crmCheckerService,
@@ -167,6 +169,30 @@ describe('AuthService', () => {
       expect(result).toHaveProperty('accessToken');
       expect(result).toHaveProperty('refreshToken');
       expect(result.physician).toEqual(mockPhysicianCreateResult);
+    });
+
+    // A trilha sobrevive à eliminação LGPD, que anonimiza o email no cadastro.
+    it('audits AUTH_REGISTER without the email', async () => {
+      prisma.physician.findUnique.mockResolvedValue(null);
+      prisma.physician.create.mockResolvedValue(mockPhysicianCreateResult);
+      vi.mocked(bcrypt.hash).mockResolvedValue('hashed-password' as never);
+
+      await service.register({
+        email: 'doctor@example.com',
+        password: 'StrongP@ss1',
+        crmUf: 'SP',
+        crmNumber: '123456',
+        name: 'Dr. Test',
+      });
+
+      expect(auditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'AUTH_REGISTER',
+          entityId: mockPhysician.id,
+          payload: { crmUf: 'SP' },
+        }),
+      );
+      expect(JSON.stringify(auditService.log.mock.calls)).not.toContain('doctor@example.com');
     });
 
     it('creates a physician without optional name', async () => {
@@ -456,6 +482,35 @@ describe('AuthService', () => {
         UnauthorizedException,
       );
     });
+
+    // CC-018 — a eliminação apaga os refresh tokens, mas um refresh que leu o
+    // token antes dela pode ter gravado um novo depois.
+    it('rejects a valid refresh token of an erased physician without issuing tokens', async () => {
+      prisma.refreshToken.findFirst.mockResolvedValue({
+        ...mockRefreshToken,
+        physician: { ...mockPhysician, erasedAt: new Date('2026-10-15T12:00:00Z') },
+      });
+
+      await expect(service.refresh({ refreshToken: 'valid-refresh-token' })).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(prisma.refreshToken.update).not.toHaveBeenCalled();
+      expect(prisma.refreshToken.create).not.toHaveBeenCalled();
+      expect(jwt.signAsync).not.toHaveBeenCalled();
+    });
+
+    it('keeps rotating for a physician who was never erased (erasedAt null)', async () => {
+      prisma.refreshToken.findFirst.mockResolvedValue({
+        ...mockRefreshToken,
+        physician: { ...mockPhysician, erasedAt: null },
+      });
+      prisma.refreshToken.update.mockResolvedValue({});
+      prisma.refreshToken.create.mockResolvedValue({});
+
+      await expect(
+        service.refresh({ refreshToken: 'valid-refresh-token' }),
+      ).resolves.toHaveProperty('accessToken');
+    });
   });
 
   // SEC-01 — regression test for the MFA-bypass fix: the mfa_pending token
@@ -481,7 +536,9 @@ describe('AuthService', () => {
         JWT_REFRESH_SECRET: refreshSecret,
       });
       const realAudit = { log: vi.fn().mockResolvedValue(undefined) } as unknown as AuditService;
-      const realMfa = { verifyMfaCode: vi.fn().mockResolvedValue(undefined) } as unknown as MfaService;
+      const realMfa = {
+        verifyMfaCode: vi.fn().mockResolvedValue(undefined),
+      } as unknown as MfaService;
       const crmVerification = {} as unknown as CrmVerificationService;
       const crmChecker = {} as unknown as CrmCheckerService;
 
@@ -490,6 +547,7 @@ describe('AuthService', () => {
         realJwt,
         realConfig,
         realAudit,
+        {} as never,
         realMfa,
         crmVerification,
         crmChecker,
@@ -526,6 +584,33 @@ describe('AuthService', () => {
       await expect(authService.verifyMfaLogin(mfaToken, '123456')).resolves.toHaveProperty(
         'accessToken',
       );
+    });
+
+    // CC-018 — o token de MFA pendente (5 min) emitido antes da eliminação
+    // não vira sessão depois dela: a busca do cadastro exige erasedAt null.
+    it('does not open a session for an erased physician holding an mfaToken', async () => {
+      const { authService, realJwt, realPrisma } = buildServiceWithRealJwt();
+      const mfaToken = await realJwt.signAsync(
+        {
+          sub: mockPhysician.id,
+          email: mockPhysician.email,
+          physicianId: mockPhysician.id,
+          scope: 'mfa_pending',
+        },
+        {
+          secret: createHmac('sha256', accessSecret).update('mfa_pending_token').digest('hex'),
+          expiresIn: '5m',
+        },
+      );
+      realPrisma.physician.findUnique.mockResolvedValue(null);
+
+      await expect(authService.verifyMfaLogin(mfaToken, '123456')).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(realPrisma.physician.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: mockPhysician.id, erasedAt: null } }),
+      );
+      expect(realPrisma.refreshToken.create).not.toHaveBeenCalled();
     });
 
     it('rejects an mfaToken signed with JWT_ACCESS_SECRET instead of the dedicated secret', async () => {
