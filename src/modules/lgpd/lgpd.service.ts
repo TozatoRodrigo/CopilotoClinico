@@ -136,6 +136,9 @@ export interface ErasureResult {
     copilotFeedback: number;
     /** CC-707 — pedidos de mentoria que o médico fez. */
     mentoringRequests: number;
+    /** CC-801 — perguntas e revisões do plantão. */
+    shiftReviewQuestions: number;
+    shiftReviews: number;
     encounters: number;
     encounterAttachments: number;
     audioCaptures: number;

@@ -44,6 +44,8 @@ interface ErasureResponse {
     recommendationDecisions: number;
     copilotFeedback: number;
     mentoringRequests: number;
+    shiftReviewQuestions: number;
+    shiftReviews: number;
     encounters: number;
     encounterAttachments: number;
     audioCaptures: number;

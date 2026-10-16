@@ -23,7 +23,8 @@ export const FALLBACK_DISABLED = 'none';
 /**
  * A variável de cada etapa segue o nome da variável do modelo dela
  * (`AI_INTAKE_MODEL` → `AI_INTAKE_FALLBACK_MODEL`). A pesquisa web só existe
- * na Anthropic e não passa pela reserva; `other` só usa a reserva geral.
+ * na Anthropic e não passa pela reserva; `other` e a revisão do plantão
+ * (`review_questions`, CC-801) só usam a reserva geral.
  */
 const STAGE_FALLBACK_KEYS: Readonly<Record<AiCallStage, string | null>> = {
   intake_reading: 'AI_INTAKE_FALLBACK_MODEL',
@@ -32,6 +33,7 @@ const STAGE_FALLBACK_KEYS: Readonly<Record<AiCallStage, string | null>> = {
   verify_attach: 'AI_VERIFY_ATTACH_FALLBACK_MODEL',
   guideline_classification: 'AI_GUIDELINE_CLASSIFICATION_FALLBACK_MODEL',
   research: null,
+  review_questions: null,
   other: null,
 };
 

@@ -986,6 +986,8 @@ describe('CC-018 — LGPD erasure ends the session (E2E)', () => {
       betaParticipant: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
       recommendationDecision: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
       copilotFeedback: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
+      shiftReviewQuestion: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
+      shiftReview: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
       mentoringRequest: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
       encounterAttachment: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
       audioCapture: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
