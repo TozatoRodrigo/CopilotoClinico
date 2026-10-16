@@ -20,11 +20,11 @@ describe('cartão publicado para o médico do plantão (CC-408)', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-10-15T12:00:00.000Z'));
     findUnique = vi.fn().mockResolvedValue(reviewedCardRow());
-    membership = vi.fn().mockResolvedValue(null);
+    membership = vi.fn().mockResolvedValue([]);
     service = new KnowledgeCardsService(
       {
         knowledgeCard: { findUnique },
-        physicianInstitution: { findUnique: membership },
+        physicianInstitution: { findMany: membership },
       } as unknown as PrismaService,
       {} as AuditService,
       {} as CardIndexService,
@@ -72,20 +72,19 @@ describe('cartão publicado para o médico do plantão (CC-408)', () => {
     );
   });
 
-  it('cartão de instituição só para quem é dela (ADR-009) — e sem dizer que existe', async () => {
+  it('cartão de instituição só para quem tem vínculo ativo (ADR-009, CC-019) — e sem dizer que existe', async () => {
     findUnique.mockResolvedValue(reviewedCardRow({ institutionId: INSTITUTION_ID }));
 
     await expect(service.getPublished(PHYSICIAN_ID, REVIEWED_CARD_ID)).rejects.toBeInstanceOf(
       NotFoundException,
     );
-    expect(membership).toHaveBeenCalledWith({
-      where: {
-        physicianId_institutionId: { physicianId: PHYSICIAN_ID, institutionId: INSTITUTION_ID },
-      },
-      select: { id: true },
-    });
+    expect(membership).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { physicianId: PHYSICIAN_ID, institution: { status: 'active' } },
+      }),
+    );
 
-    membership.mockResolvedValue({ id: 'm-1' });
+    membership.mockResolvedValue([{ institutionId: INSTITUTION_ID }]);
     await expect(service.getPublished(PHYSICIAN_ID, REVIEWED_CARD_ID)).resolves.toMatchObject({
       id: REVIEWED_CARD_ID,
     });

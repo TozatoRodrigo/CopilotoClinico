@@ -33,6 +33,10 @@ import {
 } from './domain/card-lifecycle';
 import { loadSourceChunks, prepareCardContent, requestedChunkIds } from './card-sources';
 import { CardIndexService } from './card-index/card-index.service';
+import {
+  activeInstitutionIds,
+  isVisibleToInstitutions,
+} from '../institutions/institution-visibility';
 import { KNOWLEDGE_CARD_AUDIT_ACTIONS, KNOWLEDGE_CARD_AUDIT_ENTITY } from './knowledge-card-audit';
 import {
   CARD_DETAIL_SELECT,
@@ -173,16 +177,16 @@ export class KnowledgeCardsService {
     return toPublishedCard(card, new Date());
   }
 
+  /** CC-019 — a regra das diretrizes: institucional só com vínculo ativo. */
   private async belongsToInstitution(
     physicianId: string,
     institutionId: string | null,
   ): Promise<boolean> {
     if (!institutionId) return true;
-    const membership = await this.prisma.physicianInstitution.findUnique({
-      where: { physicianId_institutionId: { physicianId, institutionId } },
-      select: { id: true },
-    });
-    return membership !== null;
+    return isVisibleToInstitutions(
+      institutionId,
+      await activeInstitutionIds(this.prisma, physicianId),
+    );
   }
 
   /**
