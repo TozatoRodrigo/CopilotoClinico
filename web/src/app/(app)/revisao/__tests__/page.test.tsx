@@ -281,7 +281,7 @@ describe('Revisão de cartões (CC-404)', () => {
   it('mostra no campo o problema de citação que a API devolveu', async () => {
     const user = userEvent.setup();
     apiPostMock.mockRejectedValueOnce(
-      new ApiError(422, 'O conteúdo não pode ser gravado', {
+      new ApiError(422, 'O conteúdo não pode ser gravado', undefined, {
         message: 'O conteúdo não pode ser gravado',
         issues: [
           {

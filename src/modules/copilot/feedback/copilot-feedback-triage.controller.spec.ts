@@ -31,7 +31,7 @@ function asUser(role: string, physicianId = curatorId) {
 
 describe('CopilotFeedbackTriageController (HTTP)', () => {
   let app: NestFastifyApplication;
-  const service = { listForTriage: vi.fn(), updateTriage: vi.fn() };
+  const service = { listForTriage: vi.fn(), updateTriage: vi.fn(), exportEvalCaseDraft: vi.fn() };
   const prisma = { physician: { findUnique: vi.fn() } };
 
   beforeAll(async () => {
@@ -60,6 +60,7 @@ describe('CopilotFeedbackTriageController (HTTP)', () => {
       .mockReset()
       .mockResolvedValue({ items: [], total: 0, countsByStatus: {} });
     service.updateTriage.mockReset().mockResolvedValue({ id: feedbackId });
+    service.exportEvalCaseDraft.mockReset().mockResolvedValue({ id: 'campo-55555555' });
     prisma.physician.findUnique.mockReset().mockResolvedValue({ isCurator: true });
   });
 
@@ -169,6 +170,49 @@ describe('CopilotFeedbackTriageController (HTTP)', () => {
 
       expect(res.statusCode).toBe(400);
       expect(service.updateTriage).not.toHaveBeenCalled();
+    });
+  });
+
+  // CC-703 — o rascunho traz o texto do caso (mascarado) de atendimentos de
+  // outros médicos: mesma barreira da fila (papel admin E curador clínico).
+  describe('GET /admin/copilot-feedback/:id/eval-case-draft', () => {
+    const url = `/admin/copilot-feedback/${feedbackId}/eval-case-draft`;
+
+    it('refuses a physician without an admin role', async () => {
+      const res = await app.inject({ method: 'GET', url, headers: asUser('PHYSICIAN') });
+
+      expect(res.statusCode).toBe(403);
+      expect(service.exportEvalCaseDraft).not.toHaveBeenCalled();
+    });
+
+    it('refuses an admin who is not a clinical curator', async () => {
+      prisma.physician.findUnique.mockResolvedValue({ isCurator: false });
+
+      const res = await app.inject({ method: 'GET', url, headers: asUser('ADMIN') });
+
+      expect(res.statusCode).toBe(403);
+      expect(service.exportEvalCaseDraft).not.toHaveBeenCalled();
+    });
+
+    it('downloads the draft as <id>.json, exported by the authenticated curator', async () => {
+      const res = await app.inject({ method: 'GET', url, headers: asUser('COMPLIANCE') });
+
+      expect(res.statusCode).toBe(200);
+      expect(service.exportEvalCaseDraft).toHaveBeenCalledWith(curatorId, feedbackId);
+      expect(res.json()).toEqual({ id: 'campo-55555555' });
+      expect(res.headers['content-disposition']).toBe('attachment; filename="campo-55555555.json"');
+      expect(res.headers['cache-control']).toBe('no-store');
+    });
+
+    it('rejects a non-UUID feedback id', async () => {
+      const res = await app.inject({
+        method: 'GET',
+        url: '/admin/copilot-feedback/42/eval-case-draft',
+        headers: asUser('ADMIN'),
+      });
+
+      expect(res.statusCode).toBe(400);
+      expect(service.exportEvalCaseDraft).not.toHaveBeenCalled();
     });
   });
 });

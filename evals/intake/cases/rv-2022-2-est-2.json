@@ -1,0 +1,29 @@
+{
+  "id": "rv-2022-2-est-2",
+  "source": {
+    "kind": "clinical_case",
+    "caseId": "rv-2022-2-est-2"
+  },
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Emergência de unidade de atenção secundária (RX, US, laboratório, banco de sangue, internação, centro cirúrgico). Masc, 59a, abatido, com sintomas urinários e febre. Traz exames de 6 meses atrás: PSA total 4,1 ng/mL (VR 0–4); US: próstata aumentada, 61 g, bexiga levemente espessada. EF: REG, hidratado, normocorado, eupneico, febril. PA 130x90, FC 100, FR 20, T 38,5 °C. Abdome: dor à palpação profunda em hipogástrio, sem dor à descompressão, sem distensão, RHA normais; punho-percussão negativa bilateral. AR e ACV sem alterações. Toque retal: próstata aumentada (~70 g), fibroelástica porém um pouco amolecida, limites precisos, dor moderada à palpação. Lab: Hb 13,2, Ht 39,5%, leucócitos 12.110, plaquetas 440.000; PCR 13 mg/L; PSA total 38,51 ng/mL. Urina tipo 1: leucócitos incontáveis, hemácias 100/campo, nitrito negativo, proteína indetectável, glicose negativa. US de próstata: 68 g, bexiga levemente espessada."
+  },
+  "expected": {
+    "sex": "M",
+    "age": 59,
+    "vitals": {
+      "systolicBp": 130,
+      "diastolicBp": 90,
+      "heartRate": 100,
+      "respiratoryRate": 20,
+      "spo2": null,
+      "temperature": 38.5,
+      "glucose": null
+    },
+    "syndrome": ["sintomas-urinarios", "febre"],
+    "instability": false,
+    "timeCritical": false
+  }
+}

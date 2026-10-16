@@ -12,6 +12,7 @@ import {
   resolveVariantEnv,
   SECRET_KEY,
   VariantError,
+  withGuidedIntake,
   type Variant,
 } from './variants';
 
@@ -91,6 +92,17 @@ describe('variantes versionadas', () => {
     }
   });
 
+  // CC-601 — a linha de "por quê" mede contra a v3 de produção: só a flag muda.
+  it('trazem a v3 com a linha de por quê, diferente da v3 só na flag', () => {
+    const variants = loadVariants(VERSIONED_VARIANTS_FILE);
+    const byName = (name: string) => variants.find((variant) => variant.name === name)?.env;
+
+    expect(byName('claude-opus-5-5-v3-por-que')).toEqual({
+      ...byName('claude-opus-5-5-v3-modelo'),
+      COPILOT_WHY_LINE: 'on',
+    });
+  });
+
   it('não guardam nenhuma chave literal', () => {
     for (const variant of loadVariants(VERSIONED_VARIANTS_FILE)) {
       for (const [key, value] of Object.entries(variant.env)) {
@@ -110,6 +122,14 @@ describe('resolveVariantEnv', () => {
 
   it('falha nomeando a variável ausente', () => {
     expect(() => resolveVariantEnv(claude, {})).toThrow(/ANTHROPIC_API_KEY/);
+  });
+});
+
+// CC-106 — o afunilamento mede a conversa do Copiloto guiado como em produção.
+describe('withGuidedIntake', () => {
+  it('liga a leitura do caso, a menos que a variante fixe COPILOT_INTAKE', () => {
+    expect(withGuidedIntake({ AI_MODEL: 'm' })).toEqual({ AI_MODEL: 'm', COPILOT_INTAKE: 'on' });
+    expect(withGuidedIntake({ COPILOT_INTAKE: 'off' })).toEqual({ COPILOT_INTAKE: 'off' });
   });
 });
 

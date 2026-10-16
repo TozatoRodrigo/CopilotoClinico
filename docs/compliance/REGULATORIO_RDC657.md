@@ -102,7 +102,7 @@ e **nao** como sistema autonomo de diagnostico, prescricao ou execucao terapeuti
 
 ### 1. Confirmacao humana auditavel
 
-O fluxo de documentos implementa o gate descrito como `CLIN-003`: um documento so e finalizado apos confirmacao humana, com `confirmedBy`, `confirmedAt` e `contentHash`.
+O fluxo de documentos implementa o gate descrito como `CLIN-003`: um documento so e finalizado apos confirmacao humana, com `confirmedBy`, `confirmedAt` e `contentHash`. O selo usa JSON canonico versionado e pode ser reverificado por documento (ADR-018).
 
 **Leitura regulatoria:** isso fortalece a tese de "humano no loop", mas hoje esta mais forte na camada documental do que na camada de recomendacao clinica em si.
 

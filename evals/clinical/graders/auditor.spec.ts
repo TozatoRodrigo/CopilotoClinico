@@ -35,6 +35,7 @@ function grade(caseId: string, critical: boolean): GradeRow {
     deterministic: { noAnswer: false, shape: null, forbiddenMatches: [] },
     judge: null,
     criticalError: { value: critical, complete: true, reasons: critical ? ['motivo'] : [] },
+    conversation: null,
   };
 }
 

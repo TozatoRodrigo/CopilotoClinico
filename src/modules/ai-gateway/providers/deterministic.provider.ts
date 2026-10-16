@@ -1,5 +1,6 @@
 import { AiCapabilityUnsupportedError } from '../ai-gateway.errors';
 import { INTAKE_READING_JSON_SCHEMA } from '../../copilot/intake/intake-reading.json-schema';
+import { REVIEW_QUESTIONS_JSON_SCHEMA } from '../../shift-review/review-questions.schema';
 import { CARD_DRAFT_JSON_SCHEMA } from '../../knowledge-cards/drafting/card-draft-prompt';
 import type {
   AIProvider,
@@ -28,6 +29,9 @@ import type {
  * is steered the same way: `[instavel]` → unstable patient (no questions),
  * `[incompleto]` → two questions (yes/no with an urgent "Sim", and the
  * missing vital signs), anything else → complete case (no questions).
+ *
+ * CC-801 — the shift review questions (`shift_review_questions`) cite the
+ * source keys listed in the prompt, in order, so the review runs offline.
  *
  * CC-403 — the knowledge card draft (`knowledge_card_draft`) returns one card
  * quoting the first excerpt literally, without a dose, so it passes the
@@ -93,10 +97,51 @@ export class DeterministicProvider implements AIProvider {
     if (params.responseSchema?.name === INTAKE_READING_JSON_SCHEMA.name) {
       return DeterministicProvider.buildIntakeReading(userText);
     }
+    if (params.responseSchema?.name === REVIEW_QUESTIONS_JSON_SCHEMA.name) {
+      return DeterministicProvider.buildReviewQuestions(userText);
+    }
     if (params.responseSchema?.name === CARD_DRAFT_JSON_SCHEMA.name) {
       return DeterministicProvider.buildCardDraft(userText);
     }
     return DeterministicProvider.buildOutput(userText);
+  }
+
+  /** One multiple-choice and two true/false questions, citing the listed sources in turn. */
+  private static buildReviewQuestions(userText: string): string {
+    const keys = [...userText.matchAll(/^\[(F\d+)\]/gm)].map((match) => match[1]!);
+    if (keys.length === 0) return JSON.stringify({ questions: [] });
+    const keyAt = (index: number) => keys[index % keys.length]!;
+    return JSON.stringify({
+      questions: [
+        {
+          sourceKey: keyAt(0),
+          topic: 'Conduta inicial (determinístico)',
+          format: 'multiple_choice',
+          stem: 'Qual é o primeiro passo que a fonte citada orienta? (determinístico)',
+          options: ['O passo da fonte', 'Esperar', 'Dar alta', 'Repetir o exame'],
+          correctOption: 0,
+          explanation: 'A fonte citada orienta este passo primeiro (determinístico).',
+        },
+        {
+          sourceKey: keyAt(1),
+          topic: 'Sinal de alarme (determinístico)',
+          format: 'true_false',
+          stem: 'O sinal de alarme da fonte pede reavaliação imediata. (determinístico)',
+          options: ['Verdadeiro', 'Falso'],
+          correctOption: 0,
+          explanation: 'O trecho citado pede reavaliação imediata (determinístico).',
+        },
+        {
+          sourceKey: keyAt(2),
+          topic: 'Critério da fonte (determinístico)',
+          format: 'true_false',
+          stem: 'A fonte dispensa qualquer exame neste quadro. (determinístico)',
+          options: ['Verdadeiro', 'Falso'],
+          correctOption: 1,
+          explanation: 'O trecho citado pede exame antes de decidir (determinístico).',
+        },
+      ],
+    });
   }
 
   private static buildIntakeReading(userText: string): string {
