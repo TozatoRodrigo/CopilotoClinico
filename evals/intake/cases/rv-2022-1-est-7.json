@@ -1,0 +1,29 @@
+{
+  "id": "rv-2022-1-est-7",
+  "source": {
+    "kind": "clinical_case",
+    "caseId": "rv-2022-1-est-7"
+  },
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Hospital de atenção secundária (radiologia e US, laboratório, banco de sangue, laringoscópio, oxímetro, ambu, leitos de internação, centro cirúrgico). Fem, 20a, previamente hígida, 50 kg, trazida pelos bombeiros, vítima de queimaduras em incêndio. SV: PA 90x60, FC 112, FR 40, T 36,1 °C, SpO2 82%. EF: desidratada ++/4+, corada, acianótica, afebril. Queimadura de vibrissas nasais, hiperemia e edema de orofaringe. Taquipneica, MV diminuído globalmente, sem ruídos adventícios. ACV e abdome sem anormalidades. Mapa das queimaduras (regra dos 9): 37% de superfície corporal queimada."
+  },
+  "expected": {
+    "sex": "F",
+    "age": 20,
+    "vitals": {
+      "systolicBp": 90,
+      "diastolicBp": 60,
+      "heartRate": 112,
+      "respiratoryRate": 40,
+      "spo2": 82,
+      "temperature": 36.1,
+      "glucose": null
+    },
+    "syndrome": ["pele-partes-moles", "dispneia"],
+    "instability": true,
+    "timeCritical": true
+  }
+}

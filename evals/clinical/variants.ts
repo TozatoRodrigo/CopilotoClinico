@@ -110,6 +110,16 @@ export function resolveVariantEnv(
   return resolved;
 }
 
+/**
+ * CC-106 — o afunilamento mede a conversa do Copiloto guiado como em
+ * produção: liga a leitura do caso (COPILOT_INTAKE=on), a menos que a
+ * variante fixe outro valor — com `off`, o caso vai da abertura direto ao
+ * plano, sem perguntas antes dele.
+ */
+export function withGuidedIntake(env: Record<string, string>): Record<string, string> {
+  return { COPILOT_INTAKE: 'on', ...env };
+}
+
 // Pelo SUFIXO: AI_MAX_OUTPUT_TOKENS é configuração, ANTHROPIC_AUTH_TOKEN é segredo.
 export const SECRET_KEY = /(?:KEY|TOKEN|SECRET|PASSWORD)$/;
 
