@@ -1,8 +1,8 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { createHash } from 'crypto';
 import { z } from 'zod';
 import type { CopilotFeedbackKind, CopilotFeedbackStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../config/prisma.service';
+import { freeTextHash } from '../../audit/audit-payload';
 import { AuditService } from '../../audit/audit.service';
 import { maskFreeText } from '../guardrails/pii-filter';
 import { extractCitedChunkIds, extractRetrievalCoverage } from '../interaction-trace';
@@ -131,10 +131,6 @@ function countsByStatus(
   };
 }
 
-function sha256(text: string): string {
-  return createHash('sha256').update(text).digest('hex');
-}
-
 /**
  * F7 + F0-D — feedback do médico sobre uma análise e a fila de triagem.
  *
@@ -156,11 +152,13 @@ export class CopilotFeedbackService {
    * 1. trilha de auditoria (COPILOT_FEEDBACK) — registro médico-legal do
    *    atendimento, append-only, com o rastro técnico para reproduzir o caso;
    * 2. fila de triagem (`copilot_feedback`), ligada à entrada da trilha.
-   * Se (2) falhar depois de (1), a linha é recuperável pelo backfill
-   * idempotente (scripts/backfill-copilot-feedback.ts).
+   * Se (2) falhar depois de (1), o backfill idempotente
+   * (scripts/backfill-copilot-feedback.ts) recupera a linha — sem o
+   * comentário, que a trilha não guarda.
    *
-   * O comentário é mascarado ANTES de ir para a trilha: ela não é apagada no
-   * pedido de eliminação (LGPD), então PII ali ficaria para sempre.
+   * A trilha leva só o hash do comentário (ver `freeTextHash`): ela não é
+   * apagada no pedido de eliminação (LGPD), e `maskFreeText` não pega nome de
+   * paciente.
    */
   async submit(
     physicianId: string,
@@ -194,7 +192,7 @@ export class CopilotFeedbackService {
       payload: {
         encounterId,
         kind,
-        comment,
+        commentHash: freeTextHash(comment),
         model: interaction.model,
         turnIndex: interaction.turnIndex,
         retrievedChunkIds: interaction.retrievedChunkIds,
@@ -278,7 +276,7 @@ export class CopilotFeedbackService {
       payload: {
         from: current.status,
         to: status,
-        triageNoteHash: triageNote ? sha256(triageNote) : null,
+        triageNoteHash: freeTextHash(triageNote),
       },
     });
 

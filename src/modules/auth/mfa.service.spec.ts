@@ -1,15 +1,40 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { BadRequestException, NotFoundException, UnauthorizedException } from '@nestjs/common';
-import { generateSecret, generateSync } from 'otplib';
+import { generateSync } from 'otplib';
 import { MfaService } from './mfa.service';
 import { PrismaService } from '../../config/prisma.service';
 import { CryptoService } from '../../shared/crypto/crypto.service';
 import { AuditService } from '../audit/audit.service';
+import { AccountLockedException, AccountLockoutService } from './account-lockout.service';
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
 const PHYSICIAN_ID = 'phy-uuid-001';
-const REAL_SECRET = generateSecret();
+// Segredo do RFC 6238 (apêndice B), o ASCII "12345678901234567890" em base32.
+// Fixo, junto com o relógio abaixo, para o código válido ser sempre o mesmo.
+const REAL_SECRET = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
+// O otplib verifica com epochTolerance 0: o código só vale na janela de 30 s
+// em que foi gerado. Com o relógio real, o teste falhava quando a janela
+// virava entre o generateSync do teste e o verifySync do serviço. Relógio
+// parado no meio de uma janela: os dois sempre veem o mesmo instante.
+const FIXED_NOW = new Date('2026-10-15T12:00:15.000Z');
+const INVALID_TOTP = '000000';
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(FIXED_NOW);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+describe('relógio do teste', () => {
+  it('o código inválido dos testes nunca é o código válido da janela fixa', () => {
+    // Com segredo aleatório, 1 em 1 milhão das execuções gerava justo '000000'.
+    expect(generateSync({ secret: REAL_SECRET })).not.toBe(INVALID_TOTP);
+  });
+});
 
 function buildMocks() {
   const prisma = {
@@ -33,8 +58,15 @@ function buildMocks() {
 
   const audit = { log: vi.fn().mockResolvedValue(undefined) } as unknown as AuditService;
 
-  const service = new MfaService(prisma, crypto, audit);
-  return { service, prisma, crypto, audit };
+  // CC-025 — por padrão o limite por conta deixa passar; os testes do limite
+  // (no fim do arquivo) trocam o comportamento.
+  const lockout = {
+    reserveAttempt: vi.fn().mockResolvedValue(undefined),
+    clear: vi.fn().mockResolvedValue(undefined),
+  } as unknown as AccountLockoutService;
+
+  const service = new MfaService(prisma, crypto, audit, lockout);
+  return { service, prisma, crypto, audit, lockout };
 }
 
 // ── setupMfa ────────────────────────────────────────────────────────────────
@@ -127,7 +159,9 @@ describe('MfaService.enableMfa', () => {
       mfaEnabled: false,
       mfaSecret: `enc:${REAL_SECRET}`,
     } as never);
-    await expect(service.enableMfa(PHYSICIAN_ID, '000000')).rejects.toThrow(UnauthorizedException);
+    await expect(service.enableMfa(PHYSICIAN_ID, INVALID_TOTP)).rejects.toThrow(
+      UnauthorizedException,
+    );
   });
 
   it('enables MFA when TOTP code is valid', async () => {
@@ -185,7 +219,9 @@ describe('MfaService.verifyMfaCode', () => {
     } as never);
     vi.mocked(prisma.mfaBackupCode.update).mockResolvedValue({} as never);
 
-    await expect(service.verifyMfaCode(PHYSICIAN_ID, 'wrong-totp-uses-backup')).resolves.toBeUndefined();
+    await expect(
+      service.verifyMfaCode(PHYSICIAN_ID, 'wrong-totp-uses-backup'),
+    ).resolves.toBeUndefined();
     expect(prisma.mfaBackupCode.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ usedAt: expect.any(Date) }) }),
     );
@@ -229,7 +265,9 @@ describe('MfaService.disableMfa', () => {
       mfaEnabled: true,
       mfaSecret: `enc:${REAL_SECRET}`,
     } as never);
-    await expect(service.disableMfa(PHYSICIAN_ID, '000000')).rejects.toThrow(UnauthorizedException);
+    await expect(service.disableMfa(PHYSICIAN_ID, INVALID_TOTP)).rejects.toThrow(
+      UnauthorizedException,
+    );
   });
 
   it('clears mfaEnabled, mfaSecret and backup codes on valid TOTP', async () => {
@@ -249,7 +287,9 @@ describe('MfaService.disableMfa', () => {
       mfaEnabled: false,
       mfaSecret: null,
     });
-    expect(prisma.mfaBackupCode.deleteMany).toHaveBeenCalledWith({ where: { physicianId: PHYSICIAN_ID } });
+    expect(prisma.mfaBackupCode.deleteMany).toHaveBeenCalledWith({
+      where: { physicianId: PHYSICIAN_ID },
+    });
   });
 });
 
@@ -280,7 +320,9 @@ describe('MfaService.resetMfa', () => {
       mfaEnabled: false,
       mfaSecret: null,
     });
-    expect(prisma.mfaBackupCode.deleteMany).toHaveBeenCalledWith({ where: { physicianId: PHYSICIAN_ID } });
+    expect(prisma.mfaBackupCode.deleteMany).toHaveBeenCalledWith({
+      where: { physicianId: PHYSICIAN_ID },
+    });
   });
 
   it('dispatches audit event with adminId as actorId', async () => {
@@ -311,8 +353,9 @@ describe('MfaService.resetAllMfa', () => {
   const ADMIN_ID = 'admin:admin-uuid-001';
 
   function withFindMany(prisma: ReturnType<typeof buildMocks>['prisma']) {
-    (prisma as unknown as { physician: { findMany: ReturnType<typeof vi.fn> } }).physician
-      .findMany = vi.fn();
+    (
+      prisma as unknown as { physician: { findMany: ReturnType<typeof vi.fn> } }
+    ).physician.findMany = vi.fn();
     return prisma as unknown as { physician: { findMany: ReturnType<typeof vi.fn> } };
   }
 
@@ -334,8 +377,9 @@ describe('MfaService.resetAllMfa', () => {
     const { service, prisma } = mocks;
     const withMany = withFindMany(prisma);
     withMany.physician.findMany.mockResolvedValue([{ id: 'phy-1' }, { id: 'phy-2' }]);
-    (prisma as unknown as { physician: { updateMany: ReturnType<typeof vi.fn> } }).physician
-      .updateMany = vi.fn().mockResolvedValue({ count: 2 });
+    (
+      prisma as unknown as { physician: { updateMany: ReturnType<typeof vi.fn> } }
+    ).physician.updateMany = vi.fn().mockResolvedValue({ count: 2 });
     vi.mocked(prisma.mfaBackupCode.deleteMany).mockResolvedValue({ count: 4 } as never);
 
     const result = await service.resetAllMfa(ADMIN_ID);
@@ -358,8 +402,9 @@ describe('MfaService.resetAllMfa', () => {
     const { service, prisma, audit } = mocks;
     const withMany = withFindMany(prisma);
     withMany.physician.findMany.mockResolvedValue([{ id: 'phy-1' }, { id: 'phy-2' }]);
-    (prisma as unknown as { physician: { updateMany: ReturnType<typeof vi.fn> } }).physician
-      .updateMany = vi.fn().mockResolvedValue({ count: 2 });
+    (
+      prisma as unknown as { physician: { updateMany: ReturnType<typeof vi.fn> } }
+    ).physician.updateMany = vi.fn().mockResolvedValue({ count: 2 });
     vi.mocked(prisma.mfaBackupCode.deleteMany).mockResolvedValue({ count: 0 } as never);
 
     await service.resetAllMfa(ADMIN_ID);
@@ -412,7 +457,7 @@ describe('S24-MFA-03 — MfaService.regenerateBackupCodes', () => {
       mfaEnabled: true,
       mfaSecret: `enc:${REAL_SECRET}`,
     } as never);
-    await expect(service.regenerateBackupCodes(PHYSICIAN_ID, '000000')).rejects.toThrow(
+    await expect(service.regenerateBackupCodes(PHYSICIAN_ID, INVALID_TOTP)).rejects.toThrow(
       UnauthorizedException,
     );
   });
@@ -505,5 +550,121 @@ describe('S24-MFA-03 — MfaService.regenerateBackupCodes', () => {
         entityId: PHYSICIAN_ID,
       }),
     );
+  });
+});
+
+// ── CC-025 — limite de tentativas por conta ─────────────────────────────────
+
+describe('CC-025 — MfaService: limite de tentativas por conta', () => {
+  function withMfaEnabled(prisma: ReturnType<typeof buildMocks>['prisma']) {
+    vi.mocked(prisma.physician.findUnique).mockResolvedValue({
+      mfaEnabled: true,
+      mfaSecret: `enc:${REAL_SECRET}`,
+    } as never);
+  }
+
+  it('verifyMfaCode: reserva a tentativa antes de conferir e não zera na falha', async () => {
+    const { service, prisma, crypto, lockout } = buildMocks();
+    withMfaEnabled(prisma);
+    vi.mocked(prisma.mfaBackupCode.findFirst).mockResolvedValue(null);
+
+    await expect(service.verifyMfaCode(PHYSICIAN_ID, 'not-a-code')).rejects.toThrow(
+      UnauthorizedException,
+    );
+
+    expect(lockout.reserveAttempt).toHaveBeenCalledWith('mfa', PHYSICIAN_ID);
+    expect(vi.mocked(lockout.reserveAttempt).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(crypto.decrypt).mock.invocationCallOrder[0]!,
+    );
+    expect(lockout.clear).not.toHaveBeenCalled();
+  });
+
+  it('verifyMfaCode: código de backup aceito zera o contador', async () => {
+    const { service, prisma, lockout } = buildMocks();
+    withMfaEnabled(prisma);
+    vi.mocked(prisma.mfaBackupCode.findFirst).mockResolvedValue({ id: 'backup-1' } as never);
+    vi.mocked(prisma.mfaBackupCode.update).mockResolvedValue({} as never);
+
+    await expect(service.verifyMfaCode(PHYSICIAN_ID, 'backup-code')).resolves.toBeUndefined();
+
+    expect(lockout.clear).toHaveBeenCalledWith('mfa', PHYSICIAN_ID);
+  });
+
+  it('verifyMfaCode: conta bloqueada recusa sem conferir o código e audita o motivo', async () => {
+    const { service, prisma, crypto, audit, lockout } = buildMocks();
+    withMfaEnabled(prisma);
+    vi.mocked(lockout.reserveAttempt).mockRejectedValue(new AccountLockedException());
+
+    await expect(service.verifyMfaCode(PHYSICIAN_ID, '123456', '203.0.113.7')).rejects.toThrow(
+      AccountLockedException,
+    );
+
+    expect(crypto.decrypt).not.toHaveBeenCalled();
+    expect(prisma.mfaBackupCode.findFirst).not.toHaveBeenCalled();
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'AUTH_MFA_FAILED',
+        payload: { reason: 'account_locked' },
+      }),
+    );
+  });
+
+  it('verifyMfaCode: MFA não configurado não abre contador', async () => {
+    const { service, prisma, lockout } = buildMocks();
+    vi.mocked(prisma.physician.findUnique).mockResolvedValue({
+      mfaEnabled: false,
+      mfaSecret: null,
+    } as never);
+
+    await expect(service.verifyMfaCode(PHYSICIAN_ID, '123456')).rejects.toThrow(
+      UnauthorizedException,
+    );
+    expect(lockout.reserveAttempt).not.toHaveBeenCalled();
+  });
+
+  it('disableMfa: conta bloqueada não desativa o MFA', async () => {
+    const { service, prisma, lockout } = buildMocks();
+    withMfaEnabled(prisma);
+    vi.mocked(lockout.reserveAttempt).mockRejectedValue(new AccountLockedException());
+
+    await expect(
+      service.disableMfa(PHYSICIAN_ID, generateSync({ secret: REAL_SECRET })),
+    ).rejects.toThrow(AccountLockedException);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('disableMfa: TOTP errado conta no mesmo limite do MFA', async () => {
+    const { service, prisma, lockout } = buildMocks();
+    withMfaEnabled(prisma);
+
+    await expect(service.disableMfa(PHYSICIAN_ID, 'not-a-code')).rejects.toThrow(
+      UnauthorizedException,
+    );
+    expect(lockout.reserveAttempt).toHaveBeenCalledWith('mfa', PHYSICIAN_ID);
+    expect(lockout.clear).not.toHaveBeenCalled();
+  });
+
+  it('regenerateBackupCodes: conta bloqueada não gera códigos', async () => {
+    const { service, prisma, lockout } = buildMocks();
+    withMfaEnabled(prisma);
+    vi.mocked(lockout.reserveAttempt).mockRejectedValue(new AccountLockedException());
+
+    await expect(
+      service.regenerateBackupCodes(PHYSICIAN_ID, generateSync({ secret: REAL_SECRET })),
+    ).rejects.toThrow(AccountLockedException);
+    expect(prisma.mfaBackupCode.createMany).not.toHaveBeenCalled();
+  });
+
+  it('enableMfa: não usa o limite (o segredo acabou de ser entregue a quem chama)', async () => {
+    const { service, prisma, lockout } = buildMocks();
+    vi.mocked(prisma.physician.findUnique).mockResolvedValue({
+      mfaEnabled: false,
+      mfaSecret: `enc:${REAL_SECRET}`,
+    } as never);
+
+    await expect(service.enableMfa(PHYSICIAN_ID, 'not-a-code')).rejects.toThrow(
+      UnauthorizedException,
+    );
+    expect(lockout.reserveAttempt).not.toHaveBeenCalled();
   });
 });
