@@ -27,6 +27,9 @@ import { PS_SYNDROMES } from '../../src/shared/contracts/clinical';
  *   orientar a família) fica em `outOfScope`, fora da nota;
  * - o "caminho esperado" saiu: a decisão em duas camadas sempre traz conduta
  *   e perguntas juntas, e o critério media o formato antigo.
+ *
+ * CC-106 acrescentou, opcional, `expected.conversation`: o que se espera da
+ * conversa do Copiloto guiado antes do plano (leitura do caso e perguntas).
  */
 
 export const CASE_SCHEMA_VERSION = 2;
@@ -321,6 +324,54 @@ const ExpectedActionSchema = ExpectedItemSchema.extend({
 
 export type ExpectedAction = z.infer<typeof ExpectedActionSchema>;
 
+/**
+ * CC-106 — gravidade que a leitura do caso dá ao paciente, da menor para a
+ * maior. É o que decide a conversa (ADR-014): `unstable` vai direto ao plano,
+ * sem pergunta; `time_critical` pergunta uma vez, no máximo.
+ */
+export const READING_SEVERITIES = ['stable', 'time_critical', 'unstable'] as const;
+
+export type ReadingSeverity = (typeof READING_SEVERITIES)[number];
+
+/**
+ * CC-106 — pergunta que não pode faltar antes do plano: o dado de beira de
+ * leito que muda o que fazer agora. Feita quando uma pergunta antes do plano
+ * revela QUALQUER um dos fatos (a hérnia irredutível vem da história ou do
+ * exame da virilha).
+ */
+const EssentialQuestionSchema = z
+  .object({
+    /** O dado, em uma linha: é o que o relatório mostra quando falta. */
+    about: nonEmptyText,
+    /** Fatos do roteiro (`input.funnel.script[].id`) que respondem à pergunta; basta um. */
+    factIds: z.array(kebabId).min(1),
+  })
+  .strict();
+
+export type EssentialQuestion = z.infer<typeof EssentialQuestionSchema>;
+
+/**
+ * CC-106 — o que se espera da conversa antes do plano (Copiloto guiado,
+ * ADR-014), medido no modo afunilamento. A leitura do caso vê só a abertura.
+ * Sem este bloco, a síndrome esperada da leitura é `tags[0]` e a gravidade
+ * que ela não pode subestimar é `time_critical` no caso crítico.
+ */
+const ConversationExpectationsSchema = z
+  .object({
+    /**
+     * Síndromes de PS aceitas na leitura, quando a abertura não basta para a
+     * de `tags[0]` (ex.: escorpião que chega como "dor na perna").
+     */
+    syndromes: z.array(z.enum(PS_SYNDROMES)).min(1).optional(),
+    /** Gravidade que a leitura não pode subestimar. */
+    severity: z.enum(READING_SEVERITIES).optional(),
+    /** Perguntas que as perguntas ANTES do plano precisam fazer. */
+    essentialQuestions: z.array(EssentialQuestionSchema).min(1).optional(),
+  })
+  .strict();
+
+export type ConversationExpectations = z.infer<typeof ConversationExpectationsSchema>;
+
 const CaseExpectationsSchema = z
   .object({
     /** Síndrome de PS em que o caso deve ser enquadrado. */
@@ -345,6 +396,8 @@ const CaseExpectationsSchema = z
     outOfScope: z.array(nonEmptyText).optional(),
     /** Por que o gabarito é este — fonte, protocolo do MS, raciocínio. */
     rationale: z.string().trim().min(10).optional(),
+    /** CC-106 — a conversa antes do plano, no modo afunilamento. */
+    conversation: ConversationExpectationsSchema.optional(),
   })
   .strict();
 
@@ -398,6 +451,18 @@ export const ClinicalCaseSchema = z
       message:
         'gabarito oficial de prova precisa de provenance.exam, provenance.url e provenance.originalCaseText',
       path: ['provenance'],
+    },
+  )
+  .refine(
+    (clinicalCase) => {
+      const essential = clinicalCase.expected.conversation?.essentialQuestions ?? [];
+      const scriptIds = new Set(clinicalCase.input.funnel?.script.map((fact) => fact.id) ?? []);
+      return essential.every((question) => question.factIds.every((id) => scriptIds.has(id)));
+    },
+    {
+      message:
+        'expected.conversation.essentialQuestions precisa de input.funnel e de factIds que existam em funnel.script',
+      path: ['expected', 'conversation', 'essentialQuestions'],
     },
   );
 
