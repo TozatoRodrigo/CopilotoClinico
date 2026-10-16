@@ -207,6 +207,17 @@ As notas de verificação de CRM têm o admin como `actor_id`; filtre por
 - Entra na exportação (`legalAcceptances`) e sai na eliminação; o evento continua na trilha (`LEGAL_DOCUMENT_ACCEPTED`)
 - Com `LEGAL_TERMS_V2` ligada, quem não aceitou a versão vigente continua podendo exportar, eliminar, revogar consentimento e sair
 
+### Revisão do plantão (ShiftReview, ShiftReviewQuestion) — CC-801
+
+- Até 3 perguntas por semana geradas das análises do próprio médico, a
+  resposta, o grau de certeza ("sei", "tenho dúvida", "chutei") e o acerto
+- O que vai ao modelo passa pela máscara de PII e pela redação do `patientRef`;
+  o texto do caso não vai. Pergunta com dado do paciente é descartada antes de
+  gravar
+- A fonte é copiada da análise (trecho da diretriz), nunca escrita pelo modelo
+- Exportação: `data.shiftReviews` (com as perguntas). Eliminação: apagadas
+  explicitamente; as perguntas também saem em cascata com o encontro
+
 ### Fora do banco
 
 | Onde                       | Dado                                                                                                                                                                                                                                                           | Retenção                                                                                                                                                                       |

@@ -27,6 +27,7 @@ import { StorageModule } from './modules/storage/storage.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { MentoringModule } from './modules/mentoring/mentoring.module';
 import { MailModule } from './modules/mail/mail.module';
+import { ShiftReviewModule } from './modules/shift-review/shift-review.module';
 import { PiiLogSanitizerInterceptor } from './shared/interceptors/pii-log-sanitizer.interceptor';
 import { RequestContextInterceptor } from './shared/request-context/request-context.interceptor';
 import { LegalTermsGateInterceptor } from './modules/legal/legal-terms-gate.interceptor';
@@ -62,6 +63,7 @@ import { LegalTermsGateInterceptor } from './modules/legal/legal-terms-gate.inte
     AnalyticsModule,
     MentoringModule,
     MailModule,
+    ShiftReviewModule,
   ],
   providers: [
     {

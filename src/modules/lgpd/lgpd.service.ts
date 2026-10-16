@@ -28,6 +28,8 @@ import type {
   PracticeSite,
   KnowledgeGap,
   MentoringRequest,
+  ShiftReview,
+  ShiftReviewQuestion,
 } from '@prisma/client';
 import type { BetaParticipant, BetaWaitlistEntry } from '@prisma/client';
 
@@ -107,6 +109,8 @@ export interface PhysicianDataExport {
      * mentor (caso, dúvida e resposta já mascarados).
      */
     mentoringRequests: MentoringRequest[];
+    /** CC-801 — revisões do plantão com as perguntas, respostas e grau de certeza. */
+    shiftReviews: Array<ShiftReview & { questions: ShiftReviewQuestion[] }>;
     consents: Consent[];
     /** CC-905 — versões dos termos e da política que o médico aceitou, e quando. */
     legalAcceptances: Array<{
@@ -132,6 +136,9 @@ export interface ErasureResult {
     copilotFeedback: number;
     /** CC-707 — pedidos de mentoria que o médico fez. */
     mentoringRequests: number;
+    /** CC-801 — perguntas e revisões do plantão. */
+    shiftReviewQuestions: number;
+    shiftReviews: number;
     encounters: number;
     encounterAttachments: number;
     audioCaptures: number;
@@ -373,6 +380,7 @@ export class LgpdService {
       practiceSites,
       knowledgeGaps,
       mentoringRequests,
+      shiftReviews,
     ] = await Promise.all([
       this.prisma.document.findMany({ where: { physicianId } }),
       this.prisma.consent.findMany({ where: { physicianId } }),
@@ -414,6 +422,11 @@ export class LgpdService {
       this.prisma.mentoringRequest.findMany({
         where: { OR: [{ requesterId: physicianId }, { mentorId: physicianId }] },
       }),
+      // CC-801 — revisões do plantão (perguntas já mascaradas, sem dado do paciente).
+      this.prisma.shiftReview.findMany({
+        where: { physicianId },
+        include: { questions: { orderBy: { position: 'asc' } } },
+      }),
     ]);
 
     return {
@@ -437,6 +450,7 @@ export class LgpdService {
         practiceSites,
         knowledgeGaps,
         mentoringRequests,
+        shiftReviews,
         consents,
         legalAcceptances,
         auditLog,
@@ -501,6 +515,12 @@ export class LgpdService {
       const mentoringRequests = await tx.mentoringRequest.deleteMany({
         where: { requesterId: physicianId },
       });
+      // CC-801 — as revisões não pendem do encontro (só as perguntas): sem
+      // apagar explicitamente, a revisão vazia ficaria no médico anonimizado.
+      const shiftReviewQuestions = await tx.shiftReviewQuestion.deleteMany({
+        where: { physicianId },
+      });
+      const shiftReviews = await tx.shiftReview.deleteMany({ where: { physicianId } });
       const encounters = await tx.encounter.deleteMany({ where: { physicianId } });
       // CC-602 — onde o médico trabalha também é dado dele.
       const practiceSites = await tx.practiceSite.deleteMany({ where: { physicianId } });
@@ -527,6 +547,8 @@ export class LgpdService {
         recommendationDecisions: recommendationDecisions.count,
         copilotFeedback: copilotFeedback.count,
         mentoringRequests: mentoringRequests.count,
+        shiftReviewQuestions: shiftReviewQuestions.count,
+        shiftReviews: shiftReviews.count,
         encounters: encounters.count,
         encounterAttachments: encounterAttachments.count,
         audioCaptures: audioCaptures.count,

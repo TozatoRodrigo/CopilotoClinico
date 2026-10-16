@@ -83,6 +83,11 @@ describe('LgpdService', () => {
       findMany: ReturnType<typeof vi.fn>;
       deleteMany: ReturnType<typeof vi.fn>;
     };
+    shiftReview: {
+      findMany: ReturnType<typeof vi.fn>;
+      deleteMany: ReturnType<typeof vi.fn>;
+    };
+    shiftReviewQuestion: { deleteMany: ReturnType<typeof vi.fn> };
     $transaction: ReturnType<typeof vi.fn>;
   };
   let auditService: {
@@ -165,6 +170,11 @@ describe('LgpdService', () => {
         findMany: vi.fn().mockResolvedValue([]),
         deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
+      shiftReview: {
+        findMany: vi.fn().mockResolvedValue([]),
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
+      shiftReviewQuestion: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
       $transaction: vi.fn(),
     };
     auditService = {
@@ -557,12 +567,23 @@ describe('LgpdService', () => {
         },
       ];
 
+      // CC-801 — revisão do plantão: perguntas, resposta e grau de certeza.
+      const shiftReviews = [
+        {
+          id: 'review-1',
+          physicianId,
+          status: 'ready',
+          questions: [{ id: 'q-1', position: 0, confidence: 'know', correct: true }],
+        },
+      ];
+
       prisma.physician.findUnique.mockResolvedValue(physician);
       prisma.practiceSite.findMany.mockResolvedValue(practiceSites);
       prisma.recommendationDecision.findMany.mockResolvedValue(recommendationDecisions);
       prisma.copilotFeedback.findMany.mockResolvedValue(copilotFeedback);
       prisma.audioCapture.findMany.mockResolvedValue(audioCaptures);
       prisma.knowledgeGap.findMany.mockResolvedValue(knowledgeGaps);
+      prisma.shiftReview.findMany.mockResolvedValue(shiftReviews);
       prisma.encounter.findMany.mockResolvedValue(encounters);
       prisma.document.findMany.mockResolvedValue(documents);
       prisma.consent.findMany.mockResolvedValue(consents);
@@ -594,6 +615,7 @@ describe('LgpdService', () => {
           practiceSites,
           knowledgeGaps,
           mentoringRequests: [],
+          shiftReviews,
           consents,
           legalAcceptances: [],
           auditLog,
@@ -609,6 +631,10 @@ describe('LgpdService', () => {
       // CC-703 — a lacuna não guarda o médico: sai pelas análises dele.
       expect(prisma.knowledgeGap.findMany).toHaveBeenCalledWith({
         where: { interaction: { encounter: { physicianId } } },
+      });
+      expect(prisma.shiftReview.findMany).toHaveBeenCalledWith({
+        where: { physicianId },
+        include: { questions: { orderBy: { position: 'asc' } } },
       });
       expect(prisma.copilotFeedback.findMany).toHaveBeenCalledWith({ where: { physicianId } });
       // F0-D — decisões por recomendação são dado do médico: entram na portabilidade.
@@ -846,6 +872,8 @@ describe('LgpdService', () => {
       prisma.encounterAttachment.deleteMany.mockResolvedValue({ count: 0 });
       prisma.audioCapture.deleteMany.mockResolvedValue({ count: 0 });
       prisma.mentoringRequest.deleteMany.mockResolvedValue({ count: 2 });
+      prisma.shiftReviewQuestion.deleteMany.mockResolvedValue({ count: 6 });
+      prisma.shiftReview.deleteMany.mockResolvedValue({ count: 2 });
       prisma.encounter.deleteMany.mockResolvedValue({ count: 2 });
       prisma.practiceSite.deleteMany.mockResolvedValue({ count: 2 });
       prisma.consent.deleteMany.mockResolvedValue({ count: 1 });
@@ -875,6 +903,8 @@ describe('LgpdService', () => {
         recommendationDecisions: 4,
         copilotFeedback: 3,
         mentoringRequests: 2,
+        shiftReviewQuestions: 6,
+        shiftReviews: 2,
         encounters: 2,
         encounterAttachments: 0,
         audioCaptures: 0,
@@ -891,6 +921,11 @@ describe('LgpdService', () => {
       expect(prisma.mentoringRequest.deleteMany).toHaveBeenCalledWith({
         where: { requesterId: physicianId },
       });
+      // CC-801 — a revisão pende do médico, não do encontro: sai explicitamente.
+      expect(prisma.shiftReviewQuestion.deleteMany).toHaveBeenCalledWith({
+        where: { physicianId },
+      });
+      expect(prisma.shiftReview.deleteMany).toHaveBeenCalledWith({ where: { physicianId } });
       expect(prisma.encounter.deleteMany).toHaveBeenCalledWith({
         where: { physicianId },
       });

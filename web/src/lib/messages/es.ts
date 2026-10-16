@@ -423,6 +423,69 @@ export const es: Messages = {
     confirmed: 'Conducta confirmada y firmada',
   },
 
+  shiftReview: {
+    title: 'Revise su guardia',
+    entry: {
+      title: 'Revise su guardia',
+      description: '3 preguntas de sus casos de la semana, con la fuente de cada respuesta.',
+      remaining: (count: number) =>
+        count === 1 ? 'Falta 1 pregunta' : `Faltan ${count} preguntas`,
+      preparing: 'Preparando las preguntas de sus casos…',
+      action: 'Revisar',
+      resume: 'Continuar',
+    },
+    page: {
+      description:
+        'Preguntas generadas de los análisis de sus casos de los últimos 7 días. Responda y diga cuánto sabía.',
+      progress: (current: number, total: number) => `Pregunta ${current} de ${total}`,
+      preparingTitle: 'Preparando sus preguntas',
+      preparingDescription: 'Leyendo los análisis y las fuentes de sus casos de la semana.',
+      unavailableTitle: 'Nada para revisar ahora',
+      unavailableDescription:
+        'La revisión aparece cuando sus casos de la semana tienen análisis con fuente citada.',
+      errorTitle: 'No fue posible cargar la revisión',
+      backToShift: 'Volver a la guardia',
+    },
+    question: {
+      trueFalse: 'Verdadero o falso',
+      multipleChoice: 'Elija una',
+      optionsLabel: 'Alternativas',
+      confidenceHeading: '¿Cuánto sabía?',
+      confidenceHint: 'Elija una alternativa y responda diciendo cuánto sabía.',
+      sending: 'Enviando…',
+    },
+    confidence: {
+      know: 'Lo sé',
+      unsure: 'Tengo dudas',
+      guessed: 'Adiviné',
+    },
+    feedback: {
+      correct: 'Acertó',
+      incorrect: 'Esta vez no',
+      correctAnswer: (option: string) => `Respuesta: ${option}`,
+      yourConfidence: (label: string) => `Usted marcó: ${label}`,
+      explanation: 'Por qué',
+      source: 'Fuente citada en el análisis',
+      openSource: 'Abrir la fuente',
+      openCase: 'Ver el caso',
+      next: 'Siguiente pregunta',
+      seeSummary: 'Ver resumen',
+      answerError: 'No fue posible enviar la respuesta. Intente de nuevo.',
+    },
+    summary: {
+      title: 'Resumen de la revisión',
+      score: (correct: number, total: number) => `Acertó ${correct} de ${total}`,
+      byConfidence: 'Aciertos × cuánto sabía',
+      tally: (correct: number, answered: number) =>
+        answered === 0 ? '—' : `${correct} de ${answered}`,
+      knewButMissed:
+        'Falló marcando "Lo sé": conviene repasar estos temas antes de la próxima guardia.',
+      guessedRight: 'Acertó adivinando: el acierto aún no es suyo, revise la fuente.',
+      calibrated: 'Lo que marcó coincidió con el resultado.',
+      done: 'Revisión de la semana concluida. La próxima sale el lunes.',
+    },
+  },
+
   errors: {
     title: 'Error',
     sessionExpired: 'Sesión expirada. Inicie sesión nuevamente.',

@@ -222,6 +222,36 @@ describe('CC-207 — texto clínico cifrado em repouso (integration)', () => {
         answeredAt: new Date(),
       },
     });
+    // CC-801 — a revisão é do médico (uma por semana); a pergunta, do caso.
+    const periodStart = new Date('2026-10-12T00:00:00.000Z');
+    const review = await raw.shiftReview.upsert({
+      where: { physicianId_periodStart: { physicianId, periodStart } },
+      create: {
+        physicianId,
+        periodStart,
+        status: 'ready',
+        trigger: 'on_demand',
+        windowStart: periodStart,
+        windowEnd: new Date(),
+      },
+      update: {},
+    });
+    await client.shiftReviewQuestion.create({
+      data: {
+        reviewId: review.id,
+        physicianId,
+        encounterId: encounter.id,
+        interactionId: interaction.id,
+        position: await raw.shiftReviewQuestion.count({ where: { reviewId: review.id } }),
+        format: 'true_false',
+        stem: `${MARKER} o supra inferior pede ECG de VD?`,
+        options: ['Verdadeiro', 'Falso'],
+        correctOption: 0,
+        explanation: `${MARKER} sim, V4R`,
+        topic: 'IAM inferior',
+        source: { kind: 'analysis_citation', excerpt: `${MARKER} trecho citado` },
+      },
+    });
     return { encounterId: encounter.id, interactionId: interaction.id };
   }
 

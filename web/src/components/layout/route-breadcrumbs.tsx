@@ -10,6 +10,7 @@ import {
   EnvelopeSimple,
   FileText,
   Gear,
+  GraduationCap,
   House,
   IdentificationCard,
   Scales,
@@ -36,6 +37,7 @@ const STATIC: Record<string, BreadcrumbItem> = {
   settings: { label: 'Configurações', icon: Gear },
   profile: { label: 'Perfil', icon: UserCircle },
   'verificacao-crm': { label: 'Verificação de CRM', icon: IdentificationCard },
+  'revise-seu-plantao': { label: 'Revisão do plantão', icon: GraduationCap },
   admin: { label: 'Console', icon: SquaresFour },
   mentoria: { label: 'Mentoria', icon: Stethoscope },
 };

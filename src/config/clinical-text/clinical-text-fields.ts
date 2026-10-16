@@ -56,6 +56,9 @@ export const CLINICAL_TEXT_FIELDS = {
   ProtocolRun: { text: ['abandonReason'], json: ['answers'] },
   // CC-707 — caso e plano mascarados enviados ao mentor, dúvida e resposta.
   MentoringRequest: { text: ['question', 'answer'], json: ['caseSnapshot'] },
+  // CC-801 — pergunta, alternativas e explicação tiradas das análises do
+  // médico; a fonte copia o trecho citado, que pode vir de um anexo dele.
+  ShiftReviewQuestion: { text: ['stem', 'explanation'], json: ['options', 'source'] },
 } as const satisfies SealedFieldRegistry;
 
 /**
@@ -98,6 +101,10 @@ export const PLAINTEXT_BY_DESIGN: Readonly<Record<string, Readonly<Record<string
     jobId: 'id do job na fila',
   },
   AiCall: { '*': 'só metadados da chamada de IA, por desenho (sem texto do caso)' },
+  ShiftReviewQuestion: {
+    topic: 'tema curto da pergunta, agrupado pelo mapa de calibração (CC-802)',
+    syndrome: 'id de PS_SYNDROMES',
+  },
   MentoringRequest: {
     termsVersion: 'versão do termo aceito pelo médico (CC-708)',
     mentorTermsVersion: 'versão do termo aceito pelo mentor (CC-708)',

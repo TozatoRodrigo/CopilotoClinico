@@ -234,6 +234,10 @@ function buildPrismaMock() {
     copilotFeedback: {
       findMany: vi.fn().mockResolvedValue([]),
     },
+    // CC-801 — as revisões do plantão (com as perguntas) também.
+    shiftReview: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
     // ADR-014 — a conversa antes do plano também entra no export LGPD.
     caseIntake: {
       findMany: vi.fn().mockResolvedValue([]),
@@ -982,6 +986,8 @@ describe('CC-018 — LGPD erasure ends the session (E2E)', () => {
       betaParticipant: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
       recommendationDecision: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
       copilotFeedback: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
+      shiftReviewQuestion: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
+      shiftReview: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
       mentoringRequest: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
       encounterAttachment: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
       audioCapture: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },

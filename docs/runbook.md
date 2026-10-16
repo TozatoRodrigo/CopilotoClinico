@@ -1584,6 +1584,66 @@ hora. Em cron, `await this.mail.send(...)`.
 
 ---
 
+### Revise seu plantão (CC-801)
+
+Depois do plantão, o médico responde até 3 perguntas geradas das análises dos
+seus casos dos últimos 7 dias, marca "sei", "tenho dúvida" ou "chutei" e vê a
+explicação com a fonte que a análise citou. Desligado por padrão
+(`COPILOT_SHIFT_REVIEW=false`).
+
+- **Onde**: entrada "Revise seu plantão" no Plantão e tela `/revise-seu-plantao`
+  no web (`/revisao` é da revisão de cartões, CC-404); API em
+  `/v1/shift-review/*`.
+
+- **Material**: só as análises do próprio médico (última análise válida de
+  cada caso não cancelado, até 6 casos), com entendimento, sinais de alarme,
+  condutas e os trechos das fontes citadas. O texto do caso não vai. Tudo
+  passa pela máscara de PII e pela redação do `patientRef`. Conhecimento geral
+  do modelo e anexo do médico não viram fonte de pergunta.
+- **Fonte**: o modelo só aponta a chave de uma fonte listada (`F1`, `F2`…); o
+  servidor copia a fonte da análise. Chave fora da lista, alternativa
+  inválida ou qualquer dado do paciente (o que a máscara pega, o `patientRef`,
+  marcas `[REDACTED_…]`) derruba a pergunta; falta de pergunta pede um retry.
+- **Cache**: uma revisão por médico por semana (segunda-feira, horário de
+  Brasília). Falha de geração pode ser tentada de novo ao abrir, até 3 vezes
+  na semana; sem material (`no_material`), só quando chega análise nova.
+  Geração parada há mais de 5 min (deploy no meio) volta a poder ser gerada.
+- **Job**: segunda às 10:00 (Brasília), gera a revisão de quem teve análise nos
+  7 dias anteriores e ainda não tem a da semana (até 500 médicos por rodada).
+- **Custo**: uma chamada por revisão (duas com o retry), etapa
+  `review_questions` em `ai_calls`. Custo e modelo também em `shift_reviews`.
+
+```sql
+-- Métrica da CC-801: % de médicos ativos que revisaram ao menos 1 vez por semana
+WITH ativos AS (
+  SELECT date_trunc('week', i.created_at AT TIME ZONE 'America/Sao_Paulo') AS semana,
+         e.physician_id
+  FROM ai_interactions i JOIN encounters e ON e.id = i.encounter_id
+  GROUP BY 1, 2
+), revisaram AS (
+  SELECT date_trunc('week', answered_at AT TIME ZONE 'America/Sao_Paulo') AS semana,
+         physician_id
+  FROM shift_review_questions WHERE answered_at IS NOT NULL
+  GROUP BY 1, 2
+)
+SELECT a.semana, count(*) AS ativos, count(r.physician_id) AS revisaram,
+       round(100.0 * count(r.physician_id) / count(*), 1) AS pct
+FROM ativos a LEFT JOIN revisaram r USING (semana, physician_id)
+GROUP BY 1 ORDER BY 1 DESC;
+
+-- Saúde da geração na semana: prontas, falhas por motivo, custo
+SELECT status, failure_reason, count(*), round(sum(cost)::numeric, 4) AS usd
+FROM shift_reviews WHERE period_start >= date_trunc('week', now())::date
+GROUP BY 1, 2 ORDER BY 3 DESC;
+
+-- Acerto × certeza (semente do mapa de calibração da CC-802)
+SELECT confidence, count(*) AS respostas, count(*) FILTER (WHERE correct) AS acertos
+FROM shift_review_questions WHERE answered_at IS NOT NULL
+GROUP BY 1;
+```
+
+---
+
 ## Multi-tenancy institucional (PROT-004)
 
 Hospitais clientes podem ter protocolos e diretrizes próprios, isolados de
@@ -1699,6 +1759,7 @@ regra das três FKs: não depende de código novo e entra pelo passo 2 de
 | `20261014180000_ai_calls_fallback_from` | `ai_calls.fallback_from` (perfil que caiu, na chamada feita no modelo de reserva) — CC-107; só adiciona coluna nula |
 | `20261014180000_cc_703_knowledge_gaps` | Tabela `knowledge_gaps` (registro de lacunas, CC-703); só cria tabela e tipo, sem tocar nas existentes |
 | `20261014200100_audio_capture_retention` | `audio_captures.encrypted_content` anulável + CHECK `deleted` ⇔ sem áudio (retenção de 30 dias). Só metadado de coluna e CHECK: a versão anterior da API roda sobre o schema novo |
+| `20261015130000_cc_801_shift_reviews` | Tabelas `shift_reviews` e `shift_review_questions` (CC-801, "Revise seu plantão"); só cria tabelas e enums, com GRANT de DML para `copiloto_app` |
 | `20261015180000_cc207_chief_complaint_text` | `encounters.chief_complaint` de `VARCHAR(140)` para `TEXT`, para caber o valor cifrado — CC-207/ADR-021; sem reescrever a tabela |
 
 ### Rollback de Migration
@@ -1767,6 +1828,7 @@ credencial vêm do PR #168 (seção "Sentry" em Monitoramento).
 | `COPILOT_MENTORING` | `on` liga "Discutir com um médico da equipe" (CC-707): o caso vai mascarado, com o plano da IA, para os médicos com `is_mentor`; a resposta aparece no caso. `off` (padrão): nada aparece e as rotas da mentoria respondem 404. Ausente ou irreconhecível = `off`. Termo provisório até o parecer (CC-708). No log: `MENTORING_REQUESTED`, `MENTORING_NOTIFY`, `MENTORING_NO_ELIGIBLE_MENTOR`, `MENTORING_NOTIFY_FAILED` e uma linha por transição. Ver "Mentoria em modo concierge (CC-707)" |
 | `AI_DECISION_MODEL` / `AI_DECISION_CRITICAL_MODEL` | ADR-016: modelo da decisão no caso comum e no caso grave (instável ou tempo-crítico pela Etapa 1, ou sem entendimento). Vazios = `AI_MODEL` nas duas rotas. Crítico vazio = o comum nas duas. Aceitam `perfil:modelo`. No log: `DECISION_MODEL route=critical\|standard model=...`; a interação grava `params.decisionRoute` |
 | `SMTP_HOST` e demais `SMTP_*`, `WEB_PUBLIC_URL` | Vazio: nenhum e-mail sai, cada envio vira `MAIL_LOGGED` no log e o fluxo segue. Preenchido com alguma variável errada: `MAIL_SMTP_CONFIG_INVALID` no boot e também nada sai. Ver "E-mail transacional (CC-015)" |
+| `COPILOT_SHIFT_REVIEW` | CC-801: `true` liga "Revise seu plantão" (perguntas sobre os próprios casos com grau de certeza). `false` (padrão) esconde a entrada e a API responde `disabled`; o job semanal não roda. Ausente ou irreconhecível = `false`. Modelo em `AI_SHIFT_REVIEW_MODEL` (vazio = `AI_MODEL`, aceita `perfil:modelo`) e esforço em `AI_SHIFT_REVIEW_EFFORT` (padrão `low`). No log: `SHIFT_REVIEW_READY`, `SHIFT_REVIEW_FAILED reason=...`, `SHIFT_REVIEW_ANSWERED`, `SHIFT_REVIEW_WEEKLY`, `REVIEW_QUESTIONS_RETRY`. Exige a migration `20261015130000_cc_801_shift_reviews`. Ver "Revise seu plantão (CC-801)" |
 | `COPILOT_KNOWLEDGE_SOURCE` | `internal_kb` (padrão) é a busca de sempre (embedding na OpenAI); `model_only` não busca nada; `web` pesquisa em fontes oficiais (`AI_RESEARCH_MODEL`, padrão `claude-sonnet-5-5`; `AI_RESEARCH_EFFORT`, padrão `low`; `WEB_RESEARCH_MAX_SEARCHES`, padrão 5; `WEB_RESEARCH_ALLOWED_DOMAINS`, vazio = 32 fontes padrão). `model_only` e `web` nunca chamam o provedor de embedding. `web` exige `stages` e `COPILOT_DECISION_PROMPT=v2` (sem eles vira `model_only`, com `DECISION_PIPELINE_DOWNGRADE` no log) e Anthropic como `AI_PROVIDER`; pesquisa que falha aparece como `WEB_RESEARCH_FALLBACK` e a análise segue só com o conhecimento do modelo |
 | `AI_DAILY_COST_ALERT_USD` / `AI_P95_ALERT_MS` | CC-005: teto do custo do dia (UTC, em USD) e meta do p95 da decisão na última hora (ms). Vazios ou inválidos = alerta desligado (inválido avisa `AI_CALL_ALERT_THRESHOLD_INVALID` no log). Ver "Alertas de custo e latência da IA" |
 | `COPILOT_SITE_CONTEXT` | CC-602/CC-603: `on` leva à decisão o local de plantão declarado no caso (porte, o que o serviço tem e **não** tem, especialistas, tempo até a referência) e a regra de transferência (destino, prioridade e conduta até a transferência; nada que exija recurso ausente no próprio serviço). Vale nos prompts v1 e v2/v3/v4. `off` (padrão), ou caso sem local declarado, mantém o prompt byte a byte igual. Ausente ou irreconhecível = `off`. No log: `SITE_CONTEXT facilityType=… missing=hasCT,hasICU specialists=n referenceMinutes=…` (sem texto do caso); a interação grava `params.siteContext: true`. Os locais do médico (Configurações → Locais de plantão) exigem a migration `20261014120000_cc_602_practice_sites`; o caso guarda uma cópia do local em `encounters.context.site` |
@@ -1789,7 +1851,7 @@ clínico. Os logs de acesso com erro registram só os nomes dos campos do corpo
 
 Cada chamada ao modelo grava uma linha em `ai_calls` e uma linha `AI_CALL` no
 log: etapa (`intake_reading`, `understanding`, `decision`, `research`,
-`verify_attach`, `guideline_classification`), perfil, provedor, modelo pedido
+`verify_attach`, `guideline_classification`, `review_questions`), perfil, provedor, modelo pedido
 e servido, esforço, hash do system prompt (a versão do prompt), tokens, custo,
 latência e desfecho (`ok`, `refusal`, `truncated`, `error`, `aborted`), e
 `fallback_from` (o perfil que caiu) quando a chamada foi no modelo de reserva
