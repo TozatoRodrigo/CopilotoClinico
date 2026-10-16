@@ -114,8 +114,10 @@ jobs:
       - name: Typecheck
         run: pnpm exec tsc --noEmit
 
+      # O Next 16 não tem mais `next lint`; o lint é o ESLint do web
+      # (eslint.config.mjs). Erro reprova; aviso fica como aviso.
       - name: Lint
-        run: pnpm exec next lint --max-warnings 0 || true
+        run: pnpm lint
 
       - name: Check for Geist/Inter (A1 — identidade tipográfica Strivium)
         run: |
