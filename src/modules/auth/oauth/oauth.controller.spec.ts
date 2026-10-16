@@ -36,7 +36,7 @@ function fakeReply() {
 }
 
 function fakeRequest(cookies: Record<string, string> = {}) {
-  return { cookies, ip: '10.0.0.1' } as unknown as FastifyRequest & {
+  return { cookies, ip: '10.0.0.1', headers: {} } as unknown as FastifyRequest & {
     cookies: Record<string, string>;
   };
 }
