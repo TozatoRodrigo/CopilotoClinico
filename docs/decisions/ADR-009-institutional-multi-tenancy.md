@@ -34,6 +34,31 @@ PROT-004 adiciona `institutionId` (nullable, FK para `institutions`) em:
 `institutionId: null` é o estado "global/público" em ambas as tabelas — não
 há um terceiro valor sentinela.
 
+#### Adendo — CC-021 (15/10/2026): apagar instituição
+
+Como `null` é global, a FK para `institutions` não pode ser
+`ON DELETE SET NULL`: apagar a instituição tornava global o protocolo e a
+diretriz internos dela, servidos a qualquer médico. `Protocol`,
+`GuidelineChunk` e `Encounter` passam a `onDelete: Restrict` (migration
+`20261015190000_cc_021_institution_delete_restrict`): o banco recusa o
+`DELETE` enquanto algum deles apontar para a instituição, e nada muda.
+
+- **`Encounter` também fica `Restrict`.** Ali o SetNull não vazava conteúdo,
+  mas apagava em silêncio a instituição do caso: a reanálise passaria a buscar
+  só no global e a trilha perderia onde o caso foi conduzido. O apagamento
+  LGPD não é afetado: os atendimentos saem pelo médico (`Cascade` em
+  `physicianId`), não pela instituição.
+- **`PhysicianInstitution` continua `Cascade`.** Sem a instituição o vínculo
+  não tem sentido, e removê-lo só tira acesso.
+- **Tirar uma instituição de uso é desativá-la** (`status = inactive`), não
+  apagá-la (runbook, "Multi-tenancy institucional"). Só se apaga instituição
+  sem conteúdo nem atendimento, como a criada por engano.
+- **FK nova para `institutions`** segue a mesma regra: `Restrict`, ou
+  `Cascade` quando a linha só existe por causa da instituição (como o
+  vínculo); nunca `SetNull` enquanto `null` significar global. O teste
+  `cc-021-institution-delete-restrict` falha se alguma FK para `institutions`
+  usar `SET NULL`.
+
 ### Resolução de instituição na borda (`resolveInstitutionId`)
 
 Endpoints autenticados (`ProtocolsController`) resolvem a instituição efetiva
