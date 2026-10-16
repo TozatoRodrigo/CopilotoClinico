@@ -120,6 +120,34 @@ describe('TracingAiProvider', () => {
     expect(JSON.stringify(traces)).not.toContain('Maria');
   });
 
+  it.each([
+    [
+      'BadRequestError',
+      400,
+      'You have reached your specified workspace API usage limits. You will regain access on 2026-11-01 at 00:00 UTC.',
+    ],
+    ['BadRequestError', 400, 'Your credit balance is too low to access the Anthropic API.'],
+    [
+      'RateLimitError',
+      429,
+      'You exceeded your current quota, please check your plan and billing details.',
+    ],
+  ])(
+    'marks %s:%i as usage_limit when the provider ran out of quota',
+    async (name, status, message) => {
+      const error = Object.assign(new Error(message), { name, status });
+      const { traces, tracing } = traced(provider({ complete: vi.fn().mockRejectedValue(error) }));
+
+      await expect(tracing.complete(params)).rejects.toBe(error);
+
+      expect(traces[0]).toMatchObject({
+        outcome: 'error',
+        errorType: `${name}:${status}:usage_limit`,
+      });
+      expect(JSON.stringify(traces)).not.toContain('regain access');
+    },
+  );
+
   it('records a stream when it finishes and when the consumer leaves early', async () => {
     async function* stream(): AsyncGenerator<string, StreamCompletionResult> {
       yield '{"a"';

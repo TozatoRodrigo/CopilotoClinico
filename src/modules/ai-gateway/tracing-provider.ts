@@ -1,5 +1,10 @@
 import { createHash } from 'node:crypto';
-import { AiRefusalError, AiTruncatedError, errorTypeOf } from './ai-gateway.errors';
+import {
+  AiRefusalError,
+  AiTruncatedError,
+  errorTypeOf as providerErrorTypeOf,
+} from './ai-gateway.errors';
+import { USAGE_LIMIT_ERROR_SUFFIX, isUsageLimitMessage } from './ai-call-trace';
 import type { AiCallOutcome, AiCallSink, AiCallStage, AiCallTrace } from './ai-call-trace';
 import type {
   AIProvider,
@@ -23,6 +28,15 @@ function systemPromptOf(messages: ChatMessage[]): string {
     .filter(({ role }) => role === 'system')
     .map(({ content }) => content)
     .join('\n');
+}
+
+/** Tipo do erro (CC-107) com `:usage_limit` quando o provedor recusou por cota (CC-005). */
+function errorTypeOf(error: unknown): string {
+  const type = providerErrorTypeOf(error);
+  // A mensagem do provedor só é lida para classificar; não vai para o rastro.
+  return error instanceof Error && isUsageLimitMessage(error.message)
+    ? `${type}${USAGE_LIMIT_ERROR_SUFFIX}`
+    : type;
 }
 
 interface Failure {

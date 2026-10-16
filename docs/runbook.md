@@ -1342,6 +1342,7 @@ credencial vêm do PR #168 (seção "Sentry" em Monitoramento).
 | `AI_FALLBACK_MODEL` | CC-107: modelo de reserva quando o provedor de uma etapa fica fora do ar (prazo, rede, 5xx, 429, limite de uso); uma nova tentativa nele. Vazio = sem reserva. Por etapa: `AI_<ETAPA>_FALLBACK_MODEL` (`none` desliga). Ver "Reserva de provedor (CC-107)". No log: `AI_FALLBACK`, `AI_FALLBACK_SKIPPED`, `AI_FALLBACK_FAILED` |
 | `AI_DECISION_MODEL` / `AI_DECISION_CRITICAL_MODEL` | ADR-016: modelo da decisão no caso comum e no caso grave (instável ou tempo-crítico pela Etapa 1, ou sem entendimento). Vazios = `AI_MODEL` nas duas rotas. Crítico vazio = o comum nas duas. Aceitam `perfil:modelo`. No log: `DECISION_MODEL route=critical\|standard model=...`; a interação grava `params.decisionRoute` |
 | `COPILOT_KNOWLEDGE_SOURCE` | `internal_kb` (padrão) é a busca de sempre (embedding na OpenAI); `model_only` não busca nada; `web` pesquisa em fontes oficiais (`AI_RESEARCH_MODEL`, padrão `claude-sonnet-5-5`; `AI_RESEARCH_EFFORT`, padrão `low`; `WEB_RESEARCH_MAX_SEARCHES`, padrão 5; `WEB_RESEARCH_ALLOWED_DOMAINS`, vazio = 32 fontes padrão). `model_only` e `web` nunca chamam o provedor de embedding. `web` exige `stages` e `COPILOT_DECISION_PROMPT=v2` (sem eles vira `model_only`, com `DECISION_PIPELINE_DOWNGRADE` no log) e Anthropic como `AI_PROVIDER`; pesquisa que falha aparece como `WEB_RESEARCH_FALLBACK` e a análise segue só com o conhecimento do modelo |
+| `AI_DAILY_COST_ALERT_USD` / `AI_P95_ALERT_MS` | CC-005: teto do custo do dia (UTC, em USD) e meta do p95 da decisão na última hora (ms). Vazios ou inválidos = alerta desligado (inválido avisa `AI_CALL_ALERT_THRESHOLD_INVALID` no log). Ver "Alertas de custo e latência da IA" |
 
 ---
 
@@ -1367,7 +1368,20 @@ latência e desfecho (`ok`, `refusal`, `truncated`, `error`, `aborted`), e
 (CC-107). Nenhum texto do caso, do prompt ou da resposta. A resposta HTTP devolve
 `x-request-id`; o mesmo id está em `ai_calls.request_id` e em
 `ai_interactions.request_id`. Falha ao gravar vira `AI_CALL_LOG_FAILED` (WARN)
-e nunca para a análise.
+e nunca para a análise. Quando o provedor recusa por cota esgotada (limite de
+uso do workspace da Anthropic, falta de crédito, `insufficient_quota` da
+OpenAI), `error_type` termina em `:usage_limit` (ex.:
+`BadRequestError:400:usage_limit`); a mensagem do provedor não é gravada.
+
+**Painel (CC-004).** `/admin/analytics`, aba "Etapas e modelos" (ADMIN e
+COMPLIANCE; o médico comum recebe 403 da API). Em 24 h, 7 ou 30 dias: por
+etapa e modelo pedido, chamadas, custo total e médio, p50 e p95 de latência
+(`percentile_cont`, como abaixo) e falhas por desfecho; custo por análise
+completa (requisição com chamada `decision`, somando todas as chamadas dela);
+as 10 requisições mais caras; e a busca pelo `x-request-id`, que lista as
+chamadas da requisição. A API é `GET /v1/analytics/ai-calls?period=24h|7d|30d`
+e `GET /v1/analytics/ai-calls/requests/<x-request-id>`. Só metadados: nenhum
+texto do caso e nenhum id de médico, paciente ou atendimento.
 
 ```sql
 -- Custo, chamadas e latência por etapa e modelo nos últimos 7 dias
@@ -1389,6 +1403,34 @@ FROM ai_calls WHERE fallback_from IS NOT NULL AND created_at > now() - interval 
 GROUP BY 1, 2 ORDER BY fallbacks DESC;
 ```
 
+### Alertas de custo e latência da IA (CC-005)
+
+O cron `ai-call-alerts` roda a cada 5 min na API e lê `ai_calls`. Cada alerta
+sai como linha ERROR no log e, com `SENTRY_DSN` no container, como mensagem no
+Sentry (tag `component=ai-gateway`). Só números, etapa e provedor: nada do
+caso nem a mensagem do provedor. O "já avisei" fica no Redis
+(`ai-call-alert:*`), então um restart não repete o alerta.
+
+| Alerta | Liga com | Dispara quando | Repete |
+|---|---|---|---|
+| `AI_DAILY_COST_ALERT` (Sentry `warning`) | `AI_DAILY_COST_ALERT_USD` | Custo estimado somado desde 00:00 UTC (21:00 de Brasília) passa do teto | 1× por dia UTC |
+| `AI_DECISION_P95_ALERT` (Sentry `warning`) | `AI_P95_ALERT_MS` | p95 da etapa `decision` na última hora passa da meta, com ao menos 3 decisões na hora | No máximo 1× por hora |
+| `AI_PROVIDER_USAGE_LIMIT` (Sentry `error`) | Sempre ligado | Alguma chamada nos últimos 10 min voltou com `:usage_limit` | 1× por hora e provedor, enquanto durar |
+
+Para ligar, defina as variáveis em `docker/.env.production` (o compose já as
+repassa) e recrie a API:
+
+```bash
+# docker/.env.production
+AI_DAILY_COST_ALERT_USD=20
+AI_P95_ALERT_MS=60000
+```
+
+O custo é estimativa pelos tokens e pela tabela de preços do código; concilie
+com a fatura do provedor. O limite que derruba a produção é o do workspace na
+Anthropic: o alerta de custo avisa antes, o de cota avisa quando já bateu.
+Sem `SENTRY_DSN` (CC-003), os alertas ficam só no log.
+
 ### Logs de nível ERROR que exigem atenção imediata
 
 | Log | Causa | Ação |
@@ -1402,6 +1444,10 @@ GROUP BY 1, 2 ORDER BY fallbacks DESC;
 | `AI_FALLBACK_FAILED` | Provedor da etapa e modelo de reserva fora ao mesmo tempo (CC-107) | Ver "Reserva de provedor (CC-107)" |
 | `Injection detected` | Possível tentativa de prompt injection | Revisar logs de acesso, bloquear IP se necessário |
 | `SealedValueError` / `ClinicalTextQueryError` | Texto clínico cifrado que não abre (chave) ou consulta pelo conteúdo de um campo cifrado (bug) — CC-207 | Tabela "Erros" em "Texto clínico cifrado em repouso" |
+| `AI_PROVIDER_USAGE_LIMIT provider=...` (também no Sentry) | O provedor recusa chamadas por cota esgotada: as análises falham | Conferir o limite e o saldo no console do provedor (na Anthropic, o limite do workspace) e subir o limite, ou trocar de provedor ("Trocar o provider ou o modelo de IA"). Parar avaliações que usem a mesma chave |
+| `AI_DAILY_COST_ALERT day=...` (também no Sentry) | Custo estimado do dia passou de `AI_DAILY_COST_ALERT_USD` | Abrir `/admin/analytics` → "Etapas e modelos" (24 h) e ver a etapa, o modelo e as requisições mais caras. Avaliação rodando com a chave de produção é o suspeito de sempre |
+| `AI_DECISION_P95_ALERT p95Ms=...` (também no Sentry) | A decisão está mais lenta que `AI_P95_ALERT_MS` na última hora | Ver p95 por modelo no painel (24 h) e o status do provedor; se persistir, trocar `AI_DECISION_MODEL` ou baixar o esforço |
+| `AI_CALL_ALERT_CHECK_FAILED check=...` | A verificação dos alertas falhou (banco fora, por exemplo) | Verificar conectividade com o banco; os outros alertas seguem |
 
 ---
 
