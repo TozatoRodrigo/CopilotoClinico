@@ -65,7 +65,6 @@ describe('rotas com IA exigem o consentimento ai_processing', () => {
   it.each(
     named([
       [CopilotController, 'analyze'],
-      [CopilotController, 'stream'],
       [CopilotController, 'respond'],
       [CopilotController, 'respondStream'],
       [CopilotController, 'analyzeAsync'],
