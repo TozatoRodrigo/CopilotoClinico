@@ -157,6 +157,9 @@ services:
       AI_VERIFY_ATTACH_MODEL: ${AI_VERIFY_ATTACH_MODEL:-claude-sonnet-5-5}
       THROTTLER_TTL: ${THROTTLER_TTL:-60000}
       THROTTLER_LIMIT: ${THROTTLER_LIMIT:-600}
+      # CC-025 — proxies confiáveis à frente da API (1 = só o Traefik). Mesmo
+      # motivo das linhas acima: ligar a Cloudflare exige 2 sem rebuild.
+      TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-1}
       FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY}
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       AI_EMBEDDING_MODEL: ${AI_EMBEDDING_MODEL:-text-embedding-3-small}
