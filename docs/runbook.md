@@ -1644,6 +1644,138 @@ GROUP BY 1;
 
 ---
 
+## Login com Google e Microsoft (CC-334)
+
+Para quem vem do ANY App (que usava OAuth do Supabase com Google e
+Microsoft). OAuth 2.0 + OpenID Connect com PKCE, `state` e `nonce`, inteiro no
+backend: o segredo do cliente e o `code_verifier` nunca vão ao navegador.
+
+**Liga sozinho quando configurado.** Cada provedor aparece na tela de login e
+de cadastro só com `OAUTH_<PROVEDOR>_CLIENT_ID`, `OAUTH_<PROVEDOR>_CLIENT_SECRET`
+e `APP_PUBLIC_URL` preenchidos (lidos a cada requisição). Sem eles, a tela e a
+API ficam como antes. Exige a migration `20261014150000_cc334_external_identities`.
+
+| Variável | Valor em produção |
+|---|---|
+| `APP_PUBLIC_URL` | `https://copiloto.servidortozato.cloud`, já o padrão do `docker-compose.prod.yml` (o web; o callback vira `${APP_PUBLIC_URL}/${API_PREFIX}/auth/oauth/<provedor>/callback`) |
+| `OAUTH_REDIRECT_BASE_URL` | vazio. Só quando a API não está em `${APP_PUBLIC_URL}/${API_PREFIX}` (dev: `http://localhost:3000/v1` com o web em `http://localhost:3001`) |
+| `OAUTH_GOOGLE_CLIENT_ID` / `OAUTH_GOOGLE_CLIENT_SECRET` | cliente OAuth do Google Cloud (abaixo) |
+| `OAUTH_MICROSOFT_CLIENT_ID` / `OAUTH_MICROSOFT_CLIENT_SECRET` | registro de aplicativo no Entra ID (abaixo) |
+
+URLs de callback a cadastrar nos provedores:
+
+- `https://copiloto.servidortozato.cloud/v1/auth/oauth/google/callback`
+- `https://copiloto.servidortozato.cloud/v1/auth/oauth/microsoft/callback`
+
+### Criar o cliente no Google Cloud
+
+1. [console.cloud.google.com](https://console.cloud.google.com) → projeto do
+   Copiloto (ou crie um).
+2. **Google Auth Platform → Branding** (antiga "Tela de consentimento OAuth"):
+   público **Externo**; nome "Copiloto Clínico"; e-mail de suporte; domínio
+   autorizado `servidortozato.cloud`; política de privacidade
+   `https://copiloto.servidortozato.cloud/privacidade`.
+3. **Data access / Escopos:** só `openid`, `.../auth/userinfo.email` e
+   `.../auth/userinfo.profile`. São escopos não sensíveis: não pedem a
+   verificação do Google.
+4. **Audience / Público:** publique o app (**Em produção**). Em "Teste", só os
+   usuários de teste listados conseguem entrar.
+5. **Clients → Criar cliente → Aplicativo da Web.** Origens JavaScript: nenhuma.
+   URI de redirecionamento autorizado: o callback do Google acima. Para dev,
+   crie um cliente separado com `http://localhost:3000/v1/auth/oauth/google/callback`.
+6. Copie o ID e o segredo para `OAUTH_GOOGLE_CLIENT_ID` e
+   `OAUTH_GOOGLE_CLIENT_SECRET` em `docker/.env.production`.
+
+### Criar o aplicativo no Microsoft Entra ID
+
+1. [entra.microsoft.com](https://entra.microsoft.com) → **Aplicativos →
+   Registros de aplicativo → Novo registro**.
+2. Nome "Copiloto Clínico". **Tipos de conta:** "Contas em qualquer diretório
+   organizacional e contas pessoais da Microsoft" — é o que o endpoint `common`
+   atende (hospital e outlook.com/hotmail.com).
+3. **URI de redirecionamento:** plataforma **Web**, o callback da Microsoft
+   acima (dev: `http://localhost:3000/v1/auth/oauth/microsoft/callback`).
+4. **Certificados e segredos → Novo segredo do cliente.** Copie o **Valor** (não
+   o "ID do segredo") para `OAUTH_MICROSOFT_CLIENT_SECRET`, e o "ID do aplicativo
+   (cliente)" da visão geral para `OAUTH_MICROSOFT_CLIENT_ID`. **Anote a data de
+   expiração** (no máximo 24 meses): vencido, o login Microsoft para com
+   `OAUTH_CALLBACK_FAILED provider=microsoft reason=provider_error detail=token_http_401`.
+5. **Configuração de token → Adicionar declaração opcional → ID:** marque
+   `email` e `xms_edov`. Sem `xms_edov`, conta corporativa nova cai em
+   `email_unverified` (só conta pessoal e quem já está vinculado entram).
+6. **Permissões de API:** Microsoft Graph, delegadas `openid`, `email` e
+   `profile` (o `User.Read` padrão pode ficar). Não pedem consentimento de
+   administrador.
+7. Tenant de hospital que bloqueia consentimento de usuário a apps de terceiros
+   mostra "Precisa da aprovação do administrador": o TI do hospital consente uma
+   vez pelo link que a própria tela oferece. A **verificação do editor**
+   (Partner Center) remove esse bloqueio na maioria dos tenants.
+
+### Deploy
+
+1. Migration `20261014150000_cc334_external_identities` antes da API, como em
+   "Aplicar migrations em produção". Ela cria `external_identities` (com GRANT
+   para `copiloto_app`) e deixa `physicians.password_hash` aceitar NULL — só
+   relaxa a restrição, nenhuma linha muda.
+2. API e web novos. As variáveis entram em `docker/.env.production`; o
+   `docker-compose.prod.yml` já as repassa.
+3. Conferir: `curl -s https://copiloto.servidortozato.cloud/v1/auth/oauth/providers`
+   lista os provedores configurados, e os botões aparecem em `/login`.
+
+### Como funciona
+
+- **Conta externa já vinculada** (chave: provedor + `sub` do id_token, não o
+  e-mail): entra direto. Com MFA ligado, pede o código como no login por senha.
+- **E-mail confirmado pelo provedor, sem cadastro:** a página `/login/oauth`
+  pede CRM (obrigatório) e o aceite da Política de Privacidade; só então a conta
+  é criada, sem senha, e segue para o onboarding. Não existe conta sem CRM.
+- **E-mail de um cadastro existente:** nunca vincula sozinho. O médico digita a
+  senha da conta uma vez (mesmo bloqueio por tentativas do login); com MFA
+  ligado, o vínculo só é gravado depois do código.
+- **E-mail não confirmado pelo provedor:** recusa (`email_unverified`). No
+  Google vale `email_verified`; na Microsoft, conta pessoal ou `xms_edov`
+  (o administrador de um tenant consegue pôr qualquer e-mail num usuário).
+- id_token conferido: assinatura RS256 pela chave do JWKS do provedor (cache de
+  1 h; `kid` desconhecido rebusca no máximo a cada 30 s), `aud` = nosso client
+  id, `exp`, `nonce` do fluxo e `iss` (Microsoft: o do tenant do próprio token).
+- Cookies do fluxo (`oauth_flow`, `oauth_pending`): httpOnly, `SameSite=Lax`,
+  caminho `/v1/auth/oauth`, 10 e 15 min. Assinados com segredos derivados do
+  `JWT_ACCESS_SECRET`, não valem como sessão.
+
+### Logs e trilha
+
+- `OAUTH_CALLBACK_FAILED provider=<p> reason=<motivo> detail=<causa>` (WARN):
+  `state_mismatch` (cookie do fluxo ausente/expirado ou outra aba),
+  `invalid_token` (`detail` = `audience`, `expired`, `issuer`, `nonce`, `signature`…),
+  `provider_error` (`token_http_<status>`, `jwks_unavailable`),
+  `email_unverified`. Nunca e-mail, `sub` ou token.
+- `OAUTH_JWKS_FETCH_FAILED uri=...` (WARN): o JWKS do provedor não respondeu.
+- Trilha: `AUTH_LOGIN`, `AUTH_LOGIN_MFA_REQUIRED` e `AUTH_LOGIN_FAILED` com
+  `{ method: 'oauth', provider }` (falha também com `reason`); `AUTH_REGISTER`
+  com `{ crmUf, method, provider }`; `AUTH_OAUTH_LINKED { provider }` e
+  `AUTH_OAUTH_LINK_FAILED { provider, reason }`. Sem e-mail nem `sub`.
+
+### Suporte e rollback
+
+```sql
+-- Contas externas de um médico
+SELECT provider, email_at_link, created_at, last_login_at
+FROM external_identities WHERE physician_id = '<id>';
+
+-- Desvincular (o médico volta a ver a tela de vínculo no próximo login)
+DELETE FROM external_identities WHERE physician_id = '<id>' AND provider = 'google';
+```
+
+- **Desligar:** apague as variáveis do provedor e suba a API de novo (`up -d
+  --no-deps copiloto-api`). ⚠️ Quem criou a conta pelo login social não tem
+  senha e fica sem entrar até o provedor voltar — não há tela para criar senha
+  depois. Antes de desligar, contar: `SELECT count(*) FROM physicians WHERE
+  password_hash IS NULL;`
+- A eliminação LGPD apaga `external_identities` do médico; a portabilidade
+  (`GET /lgpd/data`) inclui as contas vinculadas.
+
+---
+
 ## Multi-tenancy institucional (PROT-004)
 
 Hospitais clientes podem ter protocolos e diretrizes próprios, isolados de
@@ -1756,6 +1888,7 @@ regra das três FKs: não depende de código novo e entra pelo passo 2 de
 | `20260924220000_ivfflat_probes_exact` | `ivfflat.probes = 100` no banco: busca vetorial exata (incidente de 24/09/2026) |
 | `20261012180000_aud_007_audit_log_hash_version` | `audit_log.hash_version` (NULL = hash legado, 2 = JSON canônico) — ADR-015; só adiciona coluna nula |
 | `20261014120000_cc_707_mentoring_requests` | Tabela `mentoring_requests` (pedidos de mentoria, um em aberto por caso) e `physicians.is_mentor` — CC-707 |
+| `20261014150000_cc334_external_identities` | Tabela `external_identities` (login com Google/Microsoft) e `physicians.password_hash` opcional — CC-334; só cria tabela e relaxa NOT NULL |
 | `20261014180000_ai_calls_fallback_from` | `ai_calls.fallback_from` (perfil que caiu, na chamada feita no modelo de reserva) — CC-107; só adiciona coluna nula |
 | `20261014180000_cc_703_knowledge_gaps` | Tabela `knowledge_gaps` (registro de lacunas, CC-703); só cria tabela e tipo, sem tocar nas existentes |
 | `20261014200100_audio_capture_retention` | `audio_captures.encrypted_content` anulável + CHECK `deleted` ⇔ sem áudio (retenção de 30 dias). Só metadado de coluna e CHECK: a versão anterior da API roda sobre o schema novo |
@@ -1833,6 +1966,7 @@ credencial vêm do PR #168 (seção "Sentry" em Monitoramento).
 | `AI_DAILY_COST_ALERT_USD` / `AI_P95_ALERT_MS` | CC-005: teto do custo do dia (UTC, em USD) e meta do p95 da decisão na última hora (ms). Vazios ou inválidos = alerta desligado (inválido avisa `AI_CALL_ALERT_THRESHOLD_INVALID` no log). Ver "Alertas de custo e latência da IA" |
 | `COPILOT_SITE_CONTEXT` | CC-602/CC-603: `on` leva à decisão o local de plantão declarado no caso (porte, o que o serviço tem e **não** tem, especialistas, tempo até a referência) e a regra de transferência (destino, prioridade e conduta até a transferência; nada que exija recurso ausente no próprio serviço). Vale nos prompts v1 e v2/v3/v4. `off` (padrão), ou caso sem local declarado, mantém o prompt byte a byte igual. Ausente ou irreconhecível = `off`. No log: `SITE_CONTEXT facilityType=… missing=hasCT,hasICU specialists=n referenceMinutes=…` (sem texto do caso); a interação grava `params.siteContext: true`. Os locais do médico (Configurações → Locais de plantão) exigem a migration `20261014120000_cc_602_practice_sites`; o caso guarda uma cópia do local em `encounters.context.site` |
 | `LEGAL_TERMS_V2` | CC-905: `on` exige o aceite da versão vigente dos Termos de Uso e da Política de Privacidade (tela de aceite no web, 428 `TERMS_ACCEPTANCE_REQUIRED` na API, exceto aceite, logout e LGPD). `off` (padrão) não muda nada. Ausente ou irreconhecível = `off`. Sem versão publicada no console, nada é exigido. Ver "Termos de uso e política de privacidade (CC-905)" |
+| `OAUTH_GOOGLE_CLIENT_ID` / `OAUTH_GOOGLE_CLIENT_SECRET`, `OAUTH_MICROSOFT_CLIENT_ID` / `OAUTH_MICROSOFT_CLIENT_SECRET`, `APP_PUBLIC_URL` | CC-334: com os dois de um provedor e `APP_PUBLIC_URL`, o botão "Entrar com <provedor>" aparece; sem eles nada muda. Apagar depois de em uso deixa sem acesso quem criou a conta pelo login social (não tem senha) — ver "Login com Google e Microsoft". Segredo da Microsoft vence (máx. 24 meses) |
 
 ---
 

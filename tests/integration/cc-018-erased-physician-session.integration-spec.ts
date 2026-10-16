@@ -26,6 +26,7 @@ import { JwtStrategy } from '../../src/modules/auth/strategies/jwt.strategy';
 import { LgpdService } from '../../src/modules/lgpd/lgpd.service';
 import type { MfaService } from '../../src/modules/auth/mfa.service';
 import type { BetaInviteService } from '../../src/modules/beta/beta-invite.service';
+import type { ExternalIdentityService } from '../../src/modules/auth/oauth/external-identity.service';
 import type { CrmVerificationService } from '../../src/modules/physicians/crm-verification.service';
 import type { CrmCheckerService } from '../../src/modules/physicians/crm-checker.service';
 import type { PrismaService } from '../../src/config/prisma.service';
@@ -89,6 +90,8 @@ describe('CC-018 — eliminação LGPD encerra a sessão (integration)', () => {
       {} as BetaInviteService,
       {} as CrmVerificationService,
       {} as CrmCheckerService,
+      // CC-334 — sem login social neste teste.
+      {} as ExternalIdentityService,
     );
 
     const passwordHash = await bcrypt.hash(PASSWORD, 4);

@@ -49,6 +49,9 @@ export interface Physician {
   crmVerified: boolean;
   role: PhysicianRole;
   mfaEnabled?: boolean;
+  // CC-334 — false em conta criada pelo login com Google/Microsoft (sem
+  // senha): a tela de segurança esconde a troca de senha. Ausente = tem senha.
+  hasPassword?: boolean;
   // PI-05 — preferência de idioma persistida na conta ('pt-BR' | 'es'), não
   // apenas no localStorage do dispositivo. Tipado como `string` (não como a
   // união `Locale` do web/) porque este contrato é consumido pelo backend,

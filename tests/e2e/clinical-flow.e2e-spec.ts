@@ -254,6 +254,10 @@ function buildPrismaMock() {
     knowledgeGap: {
       findMany: vi.fn().mockResolvedValue([]),
     },
+    // CC-334 — contas Google/Microsoft vinculadas também entram no export LGPD.
+    externalIdentity: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
 
     physicianInstitution: {
       findMany: vi.fn().mockResolvedValue([]),
@@ -996,6 +1000,7 @@ describe('CC-018 — LGPD erasure ends the session (E2E)', () => {
       consent: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
       legalAcceptance: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
       refreshToken: { deleteMany: vi.fn().mockResolvedValue({ count: 1 }) },
+      externalIdentity: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
       physician: { update: vi.fn().mockResolvedValue({}) },
     };
     // A trilha da eliminação não é silenciosa: a transação da cadeia de

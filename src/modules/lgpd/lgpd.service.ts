@@ -30,6 +30,7 @@ import type {
   MentoringRequest,
   ShiftReview,
   ShiftReviewQuestion,
+  ExternalIdentity,
 } from '@prisma/client';
 import type { BetaParticipant, BetaWaitlistEntry } from '@prisma/client';
 
@@ -111,6 +112,11 @@ export interface PhysicianDataExport {
     mentoringRequests: MentoringRequest[];
     /** CC-801 — revisões do plantão com as perguntas, respostas e grau de certeza. */
     shiftReviews: Array<ShiftReview & { questions: ShiftReviewQuestion[] }>;
+    /** CC-334 — contas Google/Microsoft vinculadas (e-mail no momento do vínculo). */
+    externalIdentities: Pick<
+      ExternalIdentity,
+      'provider' | 'subject' | 'emailAtLink' | 'createdAt' | 'lastLoginAt'
+    >[];
     consents: Consent[];
     /** CC-905 — versões dos termos e da política que o médico aceitou, e quando. */
     legalAcceptances: Array<{
@@ -148,6 +154,8 @@ export interface ErasureResult {
     /** CC-905 — aceites dos termos e da política. */
     legalAcceptances: number;
     refreshTokens: number;
+    /** CC-334 — contas Google/Microsoft vinculadas. */
+    externalIdentities: number;
     /** PDFs de documentos confirmados apagados do MinIO. */
     storageObjects: number;
   };
@@ -381,6 +389,7 @@ export class LgpdService {
       knowledgeGaps,
       mentoringRequests,
       shiftReviews,
+      externalIdentities,
     ] = await Promise.all([
       this.prisma.document.findMany({ where: { physicianId } }),
       this.prisma.consent.findMany({ where: { physicianId } }),
@@ -427,6 +436,16 @@ export class LgpdService {
         where: { physicianId },
         include: { questions: { orderBy: { position: 'asc' } } },
       }),
+      this.prisma.externalIdentity.findMany({
+        where: { physicianId },
+        select: {
+          provider: true,
+          subject: true,
+          emailAtLink: true,
+          createdAt: true,
+          lastLoginAt: true,
+        },
+      }),
     ]);
 
     return {
@@ -451,6 +470,7 @@ export class LgpdService {
         knowledgeGaps,
         mentoringRequests,
         shiftReviews,
+        externalIdentities,
         consents,
         legalAcceptances,
         auditLog,
@@ -528,6 +548,9 @@ export class LgpdService {
       // CC-905 — o aceite sai com a conta; o evento continua na trilha.
       const legalAcceptances = await tx.legalAcceptance.deleteMany({ where: { physicianId } });
       const refreshTokens = await tx.refreshToken.deleteMany({ where: { physicianId } });
+      // CC-334 — o médico é anonimizado, não apagado: sem isto a conta
+      // Google/Microsoft continuaria entrando na conta anonimizada.
+      const externalIdentities = await tx.externalIdentity.deleteMany({ where: { physicianId } });
 
       await tx.physician.update({
         where: { id: physicianId },
@@ -556,6 +579,7 @@ export class LgpdService {
         consents: consents.count,
         legalAcceptances: legalAcceptances.count,
         refreshTokens: refreshTokens.count,
+        externalIdentities: externalIdentities.count,
       };
     });
 

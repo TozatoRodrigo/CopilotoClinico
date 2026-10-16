@@ -88,6 +88,10 @@ describe('LgpdService', () => {
       deleteMany: ReturnType<typeof vi.fn>;
     };
     shiftReviewQuestion: { deleteMany: ReturnType<typeof vi.fn> };
+    externalIdentity: {
+      findMany: ReturnType<typeof vi.fn>;
+      deleteMany: ReturnType<typeof vi.fn>;
+    };
     $transaction: ReturnType<typeof vi.fn>;
   };
   let auditService: {
@@ -175,6 +179,10 @@ describe('LgpdService', () => {
         deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
       shiftReviewQuestion: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
+      externalIdentity: {
+        findMany: vi.fn().mockResolvedValue([]),
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
       $transaction: vi.fn(),
     };
     auditService = {
@@ -591,6 +599,16 @@ describe('LgpdService', () => {
       prisma.refreshToken.findMany.mockResolvedValue(refreshTokens);
       prisma.aiInteraction.findMany.mockResolvedValue(aiInteractions);
       prisma.encounterAttachment.findMany.mockResolvedValue(encounterAttachments);
+      const externalIdentities = [
+        {
+          provider: 'google',
+          subject: 'google-sub-1',
+          emailAtLink: 'test@test.com',
+          createdAt: new Date(),
+          lastLoginAt: null,
+        },
+      ];
+      prisma.externalIdentity.findMany.mockResolvedValue(externalIdentities);
 
       const result = await service.exportPhysicianData(physicianId);
 
@@ -616,6 +634,7 @@ describe('LgpdService', () => {
           knowledgeGaps,
           mentoringRequests: [],
           shiftReviews,
+          externalIdentities,
           consents,
           legalAcceptances: [],
           auditLog,
@@ -627,6 +646,10 @@ describe('LgpdService', () => {
       expect(prisma.mentoringRequest.findMany).toHaveBeenCalledWith({
         where: { OR: [{ requesterId: physicianId }, { mentorId: physicianId }] },
       });
+      // CC-334 — contas externas vinculadas entram na portabilidade.
+      expect(prisma.externalIdentity.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { physicianId } }),
+      );
       expect(prisma.caseIntake.findMany).toHaveBeenCalledWith({ where: { physicianId } });
       // CC-703 — a lacuna não guarda o médico: sai pelas análises dele.
       expect(prisma.knowledgeGap.findMany).toHaveBeenCalledWith({
@@ -879,6 +902,7 @@ describe('LgpdService', () => {
       prisma.consent.deleteMany.mockResolvedValue({ count: 1 });
       prisma.legalAcceptance.deleteMany.mockResolvedValue({ count: 2 });
       prisma.refreshToken.deleteMany.mockResolvedValue({ count: 1 });
+      prisma.externalIdentity.deleteMany.mockResolvedValue({ count: 2 });
       prisma.physician.update.mockResolvedValue({
         ...physician,
         name: 'ERASED',
@@ -913,6 +937,11 @@ describe('LgpdService', () => {
         legalAcceptances: 2,
         refreshTokens: 1,
         storageObjects: 0,
+        externalIdentities: 2,
+      });
+      // CC-334 — sem o vínculo, a conta Google/Microsoft não entra mais.
+      expect(prisma.externalIdentity.deleteMany).toHaveBeenCalledWith({
+        where: { physicianId },
       });
       expect(prisma.recommendationDecision.deleteMany).toHaveBeenCalledWith({
         where: { physicianId },

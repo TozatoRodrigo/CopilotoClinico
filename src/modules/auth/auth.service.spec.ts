@@ -5,6 +5,7 @@ import { PrismaService } from '../../config/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CrmVerificationService } from '../physicians/crm-verification.service';
 import { CrmCheckerService } from '../physicians/crm-checker.service';
+import { ExternalIdentityService } from './oauth/external-identity.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { BadRequestException, ConflictException, UnauthorizedException } from '@nestjs/common';
@@ -137,6 +138,7 @@ describe('AuthService', () => {
       betaInvites as unknown as BetaInviteService,
       crmVerificationService,
       crmCheckerService,
+      { link: vi.fn() } as unknown as ExternalIdentityService,
     );
   });
 
@@ -327,6 +329,7 @@ describe('AuthService', () => {
         crmNumber: mockPhysician.crmNumber,
         name: mockPhysician.name,
         crmVerified: mockPhysician.crmVerified,
+        hasPassword: true,
       });
     });
 
@@ -466,6 +469,38 @@ describe('AuthService', () => {
           physicianId: mockPhysician.id,
         },
       });
+    });
+  });
+
+  // CC-334 — conta criada pelo login com Google/Microsoft não tem senha.
+  describe('account without password', () => {
+    it('refuses password login like a wrong password, counting the attempt', async () => {
+      prisma.physician.findUnique.mockResolvedValue({ ...mockPhysician, passwordHash: null });
+      prisma.loginSecurityState.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.login({ email: 'doctor@example.com', password: 'StrongP@ss1' }),
+      ).rejects.toThrow(UnauthorizedException);
+
+      expect(bcrypt.compare).not.toHaveBeenCalled();
+      expect(prisma.loginSecurityState.upsert).toHaveBeenCalled();
+    });
+
+    it('reports hasPassword on /auth/me without leaking the hash', async () => {
+      prisma.physician.findUnique.mockResolvedValue({ ...mockPhysician, passwordHash: null });
+
+      const me = await service.getMe(mockPhysician.id);
+
+      expect(me).toMatchObject({ id: mockPhysician.id, hasPassword: false });
+      expect(me).not.toHaveProperty('passwordHash');
+    });
+
+    it('explains that there is no password to change', async () => {
+      prisma.physician.findUnique.mockResolvedValue({ id: mockPhysician.id, passwordHash: null });
+
+      await expect(
+        service.changePassword(mockPhysician.id, 'qualquer', 'NovaSenha@1'),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -625,6 +660,7 @@ describe('AuthService', () => {
         betaInviteService,
         crmVerification,
         crmChecker,
+        { link: vi.fn() } as unknown as ExternalIdentityService,
       );
 
       return { authService, realJwt, realPrisma };

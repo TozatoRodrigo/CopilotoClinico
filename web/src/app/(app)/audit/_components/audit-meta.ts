@@ -8,6 +8,7 @@ import {
   Handshake,
   IdentificationCard,
   Key,
+  LinkSimple,
   Microphone,
   Paperclip,
   PencilSimple,
@@ -74,6 +75,13 @@ const ACTION_META: Record<string, ActionMeta> = {
   AUTH_LOGIN_MFA_REQUIRED: { label: 'Login aguardando MFA', icon: Key, tone: 'gray' },
   AUTH_LOGOUT: { label: 'Logout', icon: SignOut, tone: 'gray' },
   AUTH_REGISTER: { label: 'Cadastro de médico', icon: UserCircle, tone: 'gray' },
+  // CC-334 — login com Google/Microsoft (payload: provedor, sem e-mail).
+  AUTH_OAUTH_LINKED: { label: 'Conta Google/Microsoft vinculada', icon: LinkSimple, tone: 'gray' },
+  AUTH_OAUTH_LINK_FAILED: {
+    label: 'Falha ao vincular conta Google/Microsoft',
+    icon: ShieldWarning,
+    tone: 'red',
+  },
   AUTH_TOKEN_REFRESH: { label: 'Sessão renovada', icon: ArrowsClockwise, tone: 'gray' },
   AUTH_MFA_SETUP: { label: 'MFA em configuração', icon: Key, tone: 'gray' },
   AUTH_MFA_ENABLED: { label: 'MFA ativado', icon: Key, tone: 'gray' },

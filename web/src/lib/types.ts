@@ -108,3 +108,15 @@ export type {
   PracticeSiteInput,
   SiteSpecialist,
 } from '@contracts/practice-site';
+
+// CC-334 — login com Google ou Microsoft.
+export type {
+  OAuthCallbackStatus,
+  OAuthErrorReason,
+  OAuthLinkRequest,
+  OAuthLinkResponse,
+  OAuthPendingResponse,
+  OAuthProviderId,
+  OAuthProvidersResponse,
+  OAuthSignupRequest,
+} from '@contracts/oauth';
