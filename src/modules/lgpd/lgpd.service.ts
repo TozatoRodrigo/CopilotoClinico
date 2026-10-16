@@ -94,6 +94,8 @@ export interface ErasureResult {
     encounters: number;
     encounterAttachments: number;
     audioCaptures: number;
+    /** CC-602 — locais de plantão do médico. */
+    practiceSites: number;
     consents: number;
     refreshTokens: number;
     /** PDFs de documentos confirmados apagados do MinIO. */

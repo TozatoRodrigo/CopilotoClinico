@@ -44,6 +44,7 @@ interface ErasureResponse {
     encounters: number;
     encounterAttachments: number;
     audioCaptures: number;
+    practiceSites: number;
     consents: number;
     refreshTokens: number;
     storageObjects: number;
