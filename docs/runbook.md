@@ -400,6 +400,21 @@ WHERE physician_id = '<id>';
 SQL
 ```
 
+### Conferir a retenção de áudio (LGPD)
+
+O cron `AudioRetentionCronService` roda de hora em hora (minuto 15, UTC) e
+elimina o áudio das capturas com `retain_until` vencido. Regras e motivo da
+lápide: "Capturas de áudio" em `docs/compliance/LGPD.md`.
+
+```sql
+-- Deve retornar 0. A folga de 1h cobre o intervalo entre execuções.
+SELECT count(*) FROM audio_captures
+WHERE status <> 'deleted' AND retain_until < now() - interval '1 hour';
+```
+
+Cada eliminação deixa uma entrada `AUDIO_RETENTION_PURGE` na trilha
+(`entity = 'AudioCapture'`, `entity_id` = id da captura).
+
 ### Aplicar migrations em produção
 
 Na VPS, em `~/apps/copiloto-clinico/docker`, **nesta ordem**:
@@ -1058,6 +1073,7 @@ regra das três FKs: não depende de código novo e entra pelo passo 2 de
 | `20260924180000_f9_guideline_chunks_text_tsv_generated` | `guideline_chunks.text_tsv` vira coluna gerada + índice GIN — liga a busca lexical (ver "Busca lexical (`text_tsv`) — F9") |
 | `20260924220000_ivfflat_probes_exact` | `ivfflat.probes = 100` no banco: busca vetorial exata (incidente de 24/09/2026) |
 | `20261012180000_aud_007_audit_log_hash_version` | `audit_log.hash_version` (NULL = hash legado, 2 = JSON canônico) — ADR-015; só adiciona coluna nula |
+| `20261014200100_audio_capture_retention` | `audio_captures.encrypted_content` anulável + CHECK `deleted` ⇔ sem áudio (retenção de 30 dias). Só metadado de coluna e CHECK: a versão anterior da API roda sobre o schema novo |
 
 ### Rollback de Migration
 
@@ -1132,6 +1148,8 @@ FROM ai_calls WHERE request_id = '<x-request-id>' ORDER BY created_at;
 |---|---|---|
 | `AUDIT CHAIN INTEGRITY FAILURE` (também alerta no Sentry) | Cadeia rompida: conteúdo, elo ou versão de hash que não confere (ADR-015). "Legado não verificável" **não** dispara isto. | Ler a mensagem na tabela "Mensagens de falha" (em "Verificar integridade da trilha de auditoria"). Se for adulteração: isolar o sistema, investigar os registros suspeitos e acionar o DPO |
 | `Audit chain verification failed with exception` | Erro ao verificar cadeia | Verificar conectividade com banco |
+| `AUDIO RETENTION PURGE INCOMPLETE` | Captura com `retain_until` vencido ainda guarda áudio | O log anterior (`Audio retention purge failed for capture <id>`) traz a causa; o job retenta na hora seguinte. Se persistir, acionar DPO: o prazo de 30 dias da LGPD.md está sendo descumprido |
+| `Audio retention purge failed with exception` | Erro ao listar capturas vencidas | Verificar conectividade com banco |
 | `Output validation failed` | IA retornou resposta inválida | Verificar provider, possível mudança de modelo |
 | `Anthropic API error: status=...` | Falha na API da Anthropic | 4xx: ver "Trocar o provider ou o modelo de IA"; 429/5xx: o SDK já retentou 2x, checar status.anthropic.com |
 | `Injection detected` | Possível tentativa de prompt injection | Revisar logs de acesso, bloquear IP se necessário |

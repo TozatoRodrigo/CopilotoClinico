@@ -652,7 +652,9 @@ model AudioCapture {
   id               String             @id @default(uuid()) @db.Uuid
   encounterId      String             @map("encounter_id") @db.Uuid
   physicianId      String             @map("physician_id") @db.Uuid
-  encryptedContent String             @map("encrypted_content") @db.Text
+  /// Nulo só depois da eliminação por retenção (status `deleted`); a CHECK
+  /// `audio_captures_content_matches_status` garante os dois sentidos.
+  encryptedContent String?            @map("encrypted_content") @db.Text
   mimeType         String             @map("mime_type") @db.VarChar(100)
   sizeBytes        Int                @map("size_bytes")
   status           AudioCaptureStatus @default(pending)

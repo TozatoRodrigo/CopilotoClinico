@@ -89,67 +89,85 @@ export class AuditService {
     throw new Error('Audit chain write failed after retry attempts');
   }
 
+  /**
+   * Grava a entrada dentro de uma transação do chamador: a entrada só existe se
+   * a mudança que ela registra também for confirmada, e vice-versa.
+   *
+   * A transação precisa ser READ COMMITTED — a leitura do último elo da cadeia
+   * tem de enxergar o que foi confirmado depois do lock, não um snapshot antigo.
+   * O lock da cadeia fica preso até o fim da transação do chamador, então ela
+   * deve ser curta. Sem retentativa aqui: em conflito (P2034), quem retenta é
+   * o chamador, refazendo a transação inteira.
+   */
+  async logInTransaction(tx: Prisma.TransactionClient, params: LogParams): Promise<AuditLog> {
+    return this.appendChainEntry(tx, params);
+  }
+
   private async writeAuditLogEntry(params: LogParams): Promise<AuditLog> {
-    return this.prisma.$transaction(
-      async (tx) => {
-        await tx.$executeRaw`SELECT pg_advisory_xact_lock(${AUDIT_CHAIN_ADVISORY_LOCK_ID})`;
+    return this.prisma.$transaction((tx) => this.appendChainEntry(tx, params), {
+      isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+    });
+  }
 
-        let timestamp = new Date();
-        const lastEntry = await tx.auditLog.findFirst({
-          orderBy: { createdAt: 'desc' },
-          select: { afterHash: true, createdAt: true },
-        });
+  private async appendChainEntry(
+    tx: Prisma.TransactionClient,
+    params: LogParams,
+  ): Promise<AuditLog> {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${AUDIT_CHAIN_ADVISORY_LOCK_ID})`;
 
-        if (lastEntry && timestamp <= lastEntry.createdAt) {
-          timestamp = new Date(lastEntry.createdAt.getTime() + 1);
-        }
+    let timestamp = new Date();
+    const lastEntry = await tx.auditLog.findFirst({
+      orderBy: { createdAt: 'desc' },
+      select: { afterHash: true, createdAt: true },
+    });
 
-        const payload = params.payload ? toJsonValue(params.payload) : null;
-        const { afterHash, beforeHash } = chainHashes(
-          canonicalEventText({
-            actorId: params.actorId,
-            action: params.action,
-            entity: params.entity,
-            entityId: params.entityId,
-            payload,
-            timestamp: timestamp.toISOString(),
-          }),
-          lastEntry?.afterHash ?? null,
-        );
-        const entry: AuditLog = {
-          id: randomUUID(),
-          actorId: params.actorId,
-          action: params.action,
-          entity: params.entity,
-          entityId: params.entityId,
-          beforeHash,
-          afterHash,
-          hashVersion: CANONICAL_AUDIT_HASH_VERSION,
-          payload,
-          ip: params.ip ?? null,
-          createdAt: timestamp,
-        };
+    if (lastEntry && timestamp <= lastEntry.createdAt) {
+      timestamp = new Date(lastEntry.createdAt.getTime() + 1);
+    }
 
-        // SQL e não auditLog.create: o Prisma reescreve parte dos números não
-        // inteiros de um Json ao gravar (até 4 ULPs) e o hash deixaria de
-        // bater com o banco. O texto canônico vai direto para o ::jsonb, que
-        // guarda o número exato. Data em UTC explícito, como o Prisma grava.
-        await tx.$executeRaw`
-          INSERT INTO audit_log (
-            id, actor_id, action, entity, entity_id, before_hash, after_hash,
-            hash_version, payload, ip, created_at
-          ) VALUES (
-            ${entry.id}::uuid, ${entry.actorId}, ${entry.action}, ${entry.entity},
-            ${entry.entityId}, ${entry.beforeHash}, ${entry.afterHash},
-            ${CANONICAL_AUDIT_HASH_VERSION}::smallint,
-            ${payload === null ? null : canonicalJson(payload)}::jsonb, ${entry.ip},
-            ${timestamp.toISOString()}::timestamptz AT TIME ZONE 'UTC'
-          )`;
-
-        return entry;
-      },
-      { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
+    const payload = params.payload ? toJsonValue(params.payload) : null;
+    const { afterHash, beforeHash } = chainHashes(
+      canonicalEventText({
+        actorId: params.actorId,
+        action: params.action,
+        entity: params.entity,
+        entityId: params.entityId,
+        payload,
+        timestamp: timestamp.toISOString(),
+      }),
+      lastEntry?.afterHash ?? null,
     );
+    const entry: AuditLog = {
+      id: randomUUID(),
+      actorId: params.actorId,
+      action: params.action,
+      entity: params.entity,
+      entityId: params.entityId,
+      beforeHash,
+      afterHash,
+      hashVersion: CANONICAL_AUDIT_HASH_VERSION,
+      payload,
+      ip: params.ip ?? null,
+      createdAt: timestamp,
+    };
+
+    // SQL e não auditLog.create: o Prisma reescreve parte dos números não
+    // inteiros de um Json ao gravar (até 4 ULPs) e o hash deixaria de
+    // bater com o banco. O texto canônico vai direto para o ::jsonb, que
+    // guarda o número exato. Data em UTC explícito, como o Prisma grava.
+    await tx.$executeRaw`
+      INSERT INTO audit_log (
+        id, actor_id, action, entity, entity_id, before_hash, after_hash,
+        hash_version, payload, ip, created_at
+      ) VALUES (
+        ${entry.id}::uuid, ${entry.actorId}, ${entry.action}, ${entry.entity},
+        ${entry.entityId}, ${entry.beforeHash}, ${entry.afterHash},
+        ${CANONICAL_AUDIT_HASH_VERSION}::smallint,
+        ${payload === null ? null : canonicalJson(payload)}::jsonb, ${entry.ip},
+        ${timestamp.toISOString()}::timestamptz AT TIME ZONE 'UTC'
+      )`;
+
+    return entry;
   }
 
   private isSerializableTransactionConflict(err: unknown): boolean {
