@@ -112,6 +112,9 @@ describe('CC-019 — filtro de instituição em diretrizes e protocolos (integra
         crmNumber: suffix.slice(0, 8),
         email: `cc019-${label}-${suffix}@teste.invalid`,
         passwordHash: 'nao-usado',
+        // Curadores: só eles escrevem protocolo (CC-020), e aqui o assunto é
+        // a instituição, não o papel (ver cc-020-protocol-authoring).
+        isCurator: true,
       },
     });
     return physician.id;
