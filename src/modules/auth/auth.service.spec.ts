@@ -57,6 +57,7 @@ describe('AuthService', () => {
     };
   };
   let jwt: JwtService;
+  let auditService: { log: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -90,9 +91,7 @@ describe('AuthService', () => {
       JWT_REFRESH_EXPIRY: '7d',
     });
 
-    const auditService = {
-      log: vi.fn().mockResolvedValue(undefined),
-    } as unknown as AuditService;
+    auditService = { log: vi.fn().mockResolvedValue(undefined) };
 
     const mfaService = {
       setupMfa: vi.fn(),
@@ -115,7 +114,7 @@ describe('AuthService', () => {
       prisma as unknown as PrismaService,
       jwt,
       config,
-      auditService,
+      auditService as unknown as AuditService,
       // CC-025 — os testes do limite por conta estão em auth.service.lockout.spec.ts.
       { reserveAttempt: vi.fn(), clear: vi.fn() } as never,
       mfaService,
@@ -168,6 +167,30 @@ describe('AuthService', () => {
       expect(result).toHaveProperty('accessToken');
       expect(result).toHaveProperty('refreshToken');
       expect(result.physician).toEqual(mockPhysicianCreateResult);
+    });
+
+    // A trilha sobrevive à eliminação LGPD, que anonimiza o email no cadastro.
+    it('audits AUTH_REGISTER without the email', async () => {
+      prisma.physician.findUnique.mockResolvedValue(null);
+      prisma.physician.create.mockResolvedValue(mockPhysicianCreateResult);
+      vi.mocked(bcrypt.hash).mockResolvedValue('hashed-password' as never);
+
+      await service.register({
+        email: 'doctor@example.com',
+        password: 'StrongP@ss1',
+        crmUf: 'SP',
+        crmNumber: '123456',
+        name: 'Dr. Test',
+      });
+
+      expect(auditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'AUTH_REGISTER',
+          entityId: mockPhysician.id,
+          payload: { crmUf: 'SP' },
+        }),
+      );
+      expect(JSON.stringify(auditService.log.mock.calls)).not.toContain('doctor@example.com');
     });
 
     it('creates a physician without optional name', async () => {

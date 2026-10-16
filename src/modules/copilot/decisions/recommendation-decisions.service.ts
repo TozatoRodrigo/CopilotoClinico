@@ -3,6 +3,7 @@ import { createHash } from 'crypto';
 import { z } from 'zod';
 import type { Prisma, RecommendationDecisionKind } from '@prisma/client';
 import { PrismaService } from '../../../config/prisma.service';
+import { freeTextHash } from '../../audit/audit-payload';
 import { AuditService } from '../../audit/audit.service';
 import { maskFreeText } from '../guardrails/pii-filter';
 import type { UpsertRecommendationDecisionInput } from '../schemas/copilot.schemas';
@@ -48,10 +49,6 @@ function recommendationActionAt(rawOutput: Prisma.JsonValue, index: number): str
   const parsed = rawOutputRecommendationsSchema.safeParse(rawOutput);
   if (!parsed.success) return null;
   return parsed.data.recommendations[index]?.action ?? null;
-}
-
-function sha256(text: string): string {
-  return createHash('sha256').update(text).digest('hex');
 }
 
 /**
@@ -135,7 +132,7 @@ export class RecommendationDecisionsService {
         recommendationKey,
         decision,
         previousDecision: existing?.decision ?? null,
-        noteHash: note ? sha256(note) : null,
+        noteHash: freeTextHash(note),
       },
     });
 
