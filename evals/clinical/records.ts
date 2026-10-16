@@ -346,6 +346,8 @@ export const RunMetaSchema = z.object({
     /** F1 — prompt da decisão e fonte de conhecimento efetivos; antes da Fase 1, v1 + internal_kb. */
     decisionPrompt: z.enum(DECISION_PROMPT_VERSIONS).default('v1'),
     knowledgeSource: z.enum(KNOWLEDGE_SOURCES).default('internal_kb'),
+    /** CC-601 — COPILOT_WHY_LINE efetiva; execuções anteriores não a tinham. */
+    whyLine: z.boolean().default(false),
     /**
      * Modelo da decisão por gravidade (AI_DECISION_MODEL e
      * AI_DECISION_CRITICAL_MODEL); `null` = o AI_MODEL, como antes da rota.

@@ -233,13 +233,19 @@ function decisionSettings(
   config: ConfigService,
 ): Pick<
   RunMeta['pipeline'],
-  'decisionPrompt' | 'knowledgeSource' | 'decisionModel' | 'decisionCriticalModel' | 'research'
+  | 'decisionPrompt'
+  | 'knowledgeSource'
+  | 'whyLine'
+  | 'decisionModel'
+  | 'decisionCriticalModel'
+  | 'research'
 > {
   const { pipeline } = readDecisionPipeline(config);
   const decisionModels = readDecisionModels(config);
   return {
     decisionPrompt: pipeline.decisionPrompt,
     knowledgeSource: pipeline.knowledgeSource,
+    whyLine: pipeline.whyLine,
     decisionModel: decisionModels.standard ?? null,
     decisionCriticalModel: decisionModels.critical ?? null,
     // A verificação depois da decisão usa a mesma pesquisa (modelo, buscas, domínios).
@@ -339,7 +345,7 @@ async function executeVariant(context: VariantRunContext): Promise<string> {
       `\n▶ ${variant.name}: ${meta.pipeline.completionProvider} · ${meta.pipeline.requestedModel} — ${runDir}`,
     );
     console.log(
-      `  Modo ${funnel ? `afunilamento (médico simulado ${services.simulator?.model}, leitura do caso ${meta.pipeline.intake?.mode})` : 'caso completo'} · raciocínio ${meta.pipeline.reasoning} · decisão ${meta.pipeline.decisionPrompt} · fonte ${meta.pipeline.knowledgeSource}${meta.pipeline.research ? ` · pesquisa ${meta.pipeline.research.model}` : ''}`,
+      `  Modo ${funnel ? `afunilamento (médico simulado ${services.simulator?.model}, leitura do caso ${meta.pipeline.intake?.mode})` : 'caso completo'} · raciocínio ${meta.pipeline.reasoning} · decisão ${meta.pipeline.decisionPrompt}${meta.pipeline.whyLine ? ' com a linha de por quê' : ''} · fonte ${meta.pipeline.knowledgeSource}${meta.pipeline.research ? ` · pesquisa ${meta.pipeline.research.model}` : ''}`,
     );
     console.log(
       `  Base: ${meta.knowledgeBase.approvedChunks} trechos aprovados (${meta.knowledgeBase.approvedChunksWithEmbedding} com embedding), ${meta.knowledgeBase.officialChunks} oficiais`,

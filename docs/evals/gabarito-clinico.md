@@ -245,6 +245,7 @@ O `run.json` de cada execução registra quantos trechos aprovados (e com embedd
 | `claude-sonnet-5-5-stages`, `claude-opus-5-5-stages` | As mesmas, com o raciocínio em etapas da ADR-013 (`COPILOT_REASONING=stages`, entendimento em `AI_UNDERSTANDING_EFFORT=low`). As variantes sem sufixo fixam `COPILOT_REASONING=legacy`, então cada par difere só na flag |
 | `claude-opus-5-5-v3-modelo`, `claude-haiku-5-5-v3-modelo` | Decisão v3 (ADR-013, emenda de 11/10/2026) só com o conhecimento do modelo |
 | `claude-opus-5-5-v4-modelo` | Decisão v4 (v3 com as regras que os erros da rodada de 11/10/2026 pediram), só com o conhecimento do modelo |
+| `claude-opus-5-5-v3-por-que` | A `claude-opus-5-5-v3-modelo` com a linha de "por quê" em cada conduta "agora" (`COPILOT_WHY_LINE=on`, CC-601). Rode as duas juntas e compare: a linha só entra sem mais erro crítico e sem latência 10% maior |
 | `claude-opus-5-5-v3-verifica` | Decisão v3 com a verificação com fonte depois da decisão (`COPILOT_KNOWLEDGE_SOURCE=verify`) |
 | `test` | Provedor determinístico offline: nenhuma chamada paga. Valida a fiação, não a qualidade clínica |
 

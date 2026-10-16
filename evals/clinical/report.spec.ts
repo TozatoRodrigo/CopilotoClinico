@@ -69,6 +69,7 @@ function meta(caseIds: string[], judged: boolean): RunMeta {
       understandingEffort: null,
       decisionPrompt: 'v1',
       knowledgeSource: 'internal_kb',
+      whyLine: false,
       decisionModel: null,
       decisionCriticalModel: null,
       research: null,
@@ -644,6 +645,26 @@ describe('findFlips', () => {
           after: true,
         }),
       ]),
+    );
+  });
+});
+
+describe('renderSummaryMarkdown — linha de por quê (CC-601)', () => {
+  it('says when the run asked for the why line, and only then', () => {
+    const loaded = run([result(criticalCase.id, 'ok')], true);
+    const withLine: LoadedRun = {
+      ...loaded,
+      meta: {
+        ...loaded.meta,
+        pipeline: { ...loaded.meta.pipeline, decisionPrompt: 'v3', whyLine: true },
+      },
+    };
+
+    expect(renderSummaryMarkdown(withLine, summarizeRun(withLine, casesById))).toContain(
+      'prompt v3 com a linha de por quê',
+    );
+    expect(renderSummaryMarkdown(loaded, summarizeRun(loaded, casesById))).not.toContain(
+      'linha de por quê',
     );
   });
 });

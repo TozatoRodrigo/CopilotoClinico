@@ -92,6 +92,17 @@ describe('variantes versionadas', () => {
     }
   });
 
+  // CC-601 — a linha de "por quê" mede contra a v3 de produção: só a flag muda.
+  it('trazem a v3 com a linha de por quê, diferente da v3 só na flag', () => {
+    const variants = loadVariants(VERSIONED_VARIANTS_FILE);
+    const byName = (name: string) => variants.find((variant) => variant.name === name)?.env;
+
+    expect(byName('claude-opus-5-5-v3-por-que')).toEqual({
+      ...byName('claude-opus-5-5-v3-modelo'),
+      COPILOT_WHY_LINE: 'on',
+    });
+  });
+
   it('não guardam nenhuma chave literal', () => {
     for (const variant of loadVariants(VERSIONED_VARIANTS_FILE)) {
       for (const [key, value] of Object.entries(variant.env)) {

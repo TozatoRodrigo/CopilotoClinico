@@ -906,7 +906,7 @@ export function renderSummaryMarkdown(run: LoadedRun, summary: RunSummary): stri
         ],
         [
           'Decisão',
-          `raciocínio ${meta.pipeline.reasoning} · prompt ${meta.pipeline.decisionPrompt} · fonte de conhecimento ${meta.pipeline.knowledgeSource}${
+          `raciocínio ${meta.pipeline.reasoning} · prompt ${meta.pipeline.decisionPrompt}${meta.pipeline.whyLine ? ' com a linha de por quê' : ''} · fonte de conhecimento ${meta.pipeline.knowledgeSource}${
             meta.pipeline.decisionModel || meta.pipeline.decisionCriticalModel
               ? ` · modelo da decisão ${meta.pipeline.decisionModel ?? meta.pipeline.requestedModel} (caso grave: ${meta.pipeline.decisionCriticalModel ?? meta.pipeline.decisionModel ?? meta.pipeline.requestedModel})`
               : ''
