@@ -28,6 +28,7 @@ import type { MfaService } from '../../src/modules/auth/mfa.service';
 import type { CrmVerificationService } from '../../src/modules/physicians/crm-verification.service';
 import type { CrmCheckerService } from '../../src/modules/physicians/crm-checker.service';
 import type { PrismaService } from '../../src/config/prisma.service';
+import type { StorageService } from '../../src/modules/storage/storage.service';
 
 const ACCESS_SECRET = 'cc018-access-secret-at-least-32-characters-long';
 const REFRESH_SECRET = 'cc018-refresh-secret-at-least-32-characters-long';
@@ -113,7 +114,14 @@ describe('CC-018 — eliminação LGPD encerra a sessão (integration)', () => {
       expect.objectContaining({ physicianId: erasedId }),
     );
 
-    const lgpd = new LgpdService(prisma as unknown as PrismaService, audit, sameInstanceCheck);
+    // O médico eliminado não tem documento: não há PDF a apagar no storage.
+    const noStorage = { deleteObjects: async () => undefined } as unknown as StorageService;
+    const lgpd = new LgpdService(
+      prisma as unknown as PrismaService,
+      audit,
+      sameInstanceCheck,
+      noStorage,
+    );
     await lgpd.requestErasure(erasedId);
   });
 
