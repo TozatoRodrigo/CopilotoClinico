@@ -5,7 +5,7 @@ import { AuthController } from './auth.controller';
 import { AccountLockoutModule } from './account-lockout.module';
 import { AuthService } from './auth.service';
 import { MfaService } from './mfa.service';
-import { PhysicianErasureCheck } from './physician-erasure-check.service';
+import { PhysicianErasureModule } from './physician-erasure.module';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { PhysiciansModule } from '../physicians/physicians.module';
 
@@ -15,11 +15,12 @@ import { PhysiciansModule } from '../physicians/physicians.module';
     JwtModule.register({}),
     PhysiciansModule,
     AccountLockoutModule,
+    PhysicianErasureModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, MfaService, PhysicianErasureCheck, JwtStrategy],
-  // PhysicianErasureCheck é exportado para a eliminação (LgpdModule) marcar o
-  // médico na hora: o cache em memória precisa ser a mesma instância.
-  exports: [AuthService, MfaService, PhysicianErasureCheck, JwtModule],
+  providers: [AuthService, MfaService, JwtStrategy],
+  // A eliminação (LgpdModule) marca o médico na mesma instância do
+  // PhysicianErasureCheck que a estratégia JWT lê: ver PhysicianErasureModule.
+  exports: [AuthService, MfaService, PhysicianErasureModule, JwtModule],
 })
 export class AuthModule {}
