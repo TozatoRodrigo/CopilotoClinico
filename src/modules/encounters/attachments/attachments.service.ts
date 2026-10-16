@@ -14,7 +14,7 @@ import type { CreateAttachmentInput } from './schemas/attachments.schemas';
  * diferente de `POST /guidelines/suggest`: vale só para este atendimento, não
  * passa por curadoria e não afeta nenhum outro médico.
  *
- * Três propriedades que o resto do sistema depende:
+ * Quatro propriedades de que o resto do sistema depende:
  * 1. O anexo é UNTRUSTED. Passa por `scanForInjection` no upload e entra no
  *    prompt em bloco próprio, NUNCA dentro de `<guideline_evidence
  *    type="TRUSTED_CURATED_SOURCE">`.
@@ -22,6 +22,12 @@ import type { CreateAttachmentInput } from './schemas/attachments.schemas';
  *    minimização LGPD; depois da extração o binário não tem utilidade.
  * 3. Escopo por médico dono do encontro em toda operação (defesa contra IDOR,
  *    na linha do que a auditoria de segurança já apontou neste projeto).
+ * 4. O nome do arquivo NUNCA vai para a trilha de auditoria. Médico nomeia o
+ *    arquivo com o nome do paciente ("laudo_maria_silva.pdf") e a trilha é
+ *    append-only: a eliminação LGPD não a alcança. Nem como hash — nome de
+ *    arquivo é curto e previsível, reverte por dicionário. A trilha leva o id
+ *    do anexo (entityId, que liga ADDED a REMOVED), o tipo e o tamanho; o nome
+ *    fica só em `encounter_attachments`, que a eliminação apaga.
  */
 @Injectable()
 export class AttachmentsService {
@@ -91,7 +97,8 @@ export class AttachmentsService {
           payload: {
             reasons: injection.reasons,
             confidence: injection.confidence,
-            filename: input.filename,
+            mimeType: input.mimeType,
+            sizeBytes: input.sizeBytes,
             source: 'encounter_attachment',
           },
         })
@@ -127,7 +134,6 @@ export class AttachmentsService {
         entityId: attachment.id,
         payload: {
           encounterId,
-          filename: input.filename,
           mimeType: input.mimeType,
           sizeBytes: input.sizeBytes,
           extractedChars: extracted.text.length,
@@ -151,7 +157,7 @@ export class AttachmentsService {
 
     const attachment = await this.prisma.encounterAttachment.findFirst({
       where: { id: attachmentId, encounterId },
-      select: { id: true, filename: true },
+      select: { id: true },
     });
     if (!attachment) throw new NotFoundException('Attachment not found');
 
@@ -163,7 +169,7 @@ export class AttachmentsService {
         action: 'ENCOUNTER_ATTACHMENT_REMOVED',
         entity: 'EncounterAttachment',
         entityId: attachment.id,
-        payload: { encounterId, filename: attachment.filename },
+        payload: { encounterId },
       })
       .catch(() => undefined);
 

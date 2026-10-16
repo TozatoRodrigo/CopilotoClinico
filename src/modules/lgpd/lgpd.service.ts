@@ -8,14 +8,15 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../config/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { PhysicianErasureCheck } from '../auth/physician-erasure-check.service';
 import { StorageService } from '../storage/storage.service';
 import { consentScopes, type ConsentScope } from './schemas/lgpd.schemas';
 import type {
+  Prisma,
   Physician,
   Consent,
   Encounter,
   EncounterAttachment,
-  AudioCapture,
   Document as DocumentRecord,
   AiInteraction,
   CaseIntake,
@@ -26,12 +27,26 @@ import type {
 
 /**
  * Captura de áudio na exportação: metadados e transcrição (já mascarada de
- * PII), sem o áudio. `encryptedContent` é cifrado com a chave do servidor —
- * inútil para o titular — e decifrá-lo poria a voz do paciente, sem máscara
- * nenhuma, num JSON baixado pelo navegador. O resto da exportação segue a
- * mesma regra: só texto redigido.
+ * PII). `encryptedContent` fica de fora: é o áudio bruto cifrado com a chave do
+ * servidor, inútil para o titular, e decifrá-lo poria a voz do paciente, sem
+ * máscara, num JSON baixado pelo navegador. Allowlist em vez de `omit`: coluna
+ * nova em `audio_captures` só entra na exportação se for listada aqui.
  */
-export type ExportedAudioCapture = Omit<AudioCapture, 'encryptedContent'>;
+const EXPORTED_AUDIO_CAPTURE_SELECT = {
+  id: true,
+  encounterId: true,
+  mimeType: true,
+  sizeBytes: true,
+  status: true,
+  transcribedText: true,
+  retainUntil: true,
+  createdAt: true,
+  updatedAt: true,
+} as const satisfies Prisma.AudioCaptureSelect;
+
+export type ExportedAudioCapture = Prisma.AudioCaptureGetPayload<{
+  select: typeof EXPORTED_AUDIO_CAPTURE_SELECT;
+}>;
 
 export interface PhysicianDataExport {
   exportVersion: 'lgpd-portability-v1';
@@ -41,7 +56,9 @@ export interface PhysicianDataExport {
     id: string;
   };
   data: {
-    physician: Omit<Physician, 'passwordHash' | 'mfaSecret' | 'mfaEnabled'>;
+    // CC-018 — erasedAt fica de fora: é sempre null para quem ainda consegue
+    // pedir a exportação (o cadastro eliminado não tem mais sessão).
+    physician: Omit<Physician, 'passwordHash' | 'mfaSecret' | 'mfaEnabled' | 'erasedAt'>;
     encounters: Encounter[];
     /**
      * O arquivo original nunca é gravado (LGPD-005, ver AttachmentsService):
@@ -49,7 +66,6 @@ export interface PhysicianDataExport {
      * inline — não há objeto no storage para referenciar.
      */
     encounterAttachments: EncounterAttachment[];
-    audioCaptures: ExportedAudioCapture[];
     documents: DocumentRecord[];
     aiInteractions: AiInteraction[];
     /** ADR-014 — conversas antes do plano (caso e respostas já redigidos). */
@@ -58,6 +74,8 @@ export interface PhysicianDataExport {
     recommendationDecisions: RecommendationDecision[];
     /** F0-D — reportes do médico sobre análises (comentário já mascarado). */
     copilotFeedback: CopilotFeedback[];
+    /** Capturas de áudio, inclusive as com o áudio já eliminado (`status: deleted`). */
+    audioCaptures: ExportedAudioCapture[];
     consents: Consent[];
     auditLog: AuditLog[];
   };
@@ -93,6 +111,7 @@ export class LgpdService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(PhysicianErasureCheck) private readonly erasureCheck: PhysicianErasureCheck,
     @Inject(StorageService) private readonly storage: StorageService,
   ) {}
 
@@ -236,12 +255,10 @@ export class LgpdService {
       hasEncounters
         ? this.prisma.encounterAttachment.findMany({ where: ofEncounters })
         : Promise.resolve([]),
-      hasEncounters
-        ? this.prisma.audioCapture.findMany({
-            where: ofEncounters,
-            omit: { encryptedContent: true },
-          })
-        : Promise.resolve([]),
+      this.prisma.audioCapture.findMany({
+        where: { physicianId },
+        select: EXPORTED_AUDIO_CAPTURE_SELECT,
+      }),
     ]);
 
     return {
@@ -255,12 +272,12 @@ export class LgpdService {
         physician,
         encounters,
         encounterAttachments,
-        audioCaptures,
         documents,
         aiInteractions,
         caseIntakes,
         recommendationDecisions,
         copilotFeedback,
+        audioCaptures,
         consents,
         auditLog,
       },
@@ -309,6 +326,8 @@ export class LgpdService {
           name: 'ERASED',
           email: `erased-${physicianId}@erased.com`,
           passwordHash: `erased:${physicianId}`,
+          // CC-018 — a estratégia JWT e o refresh recusam a sessão por aqui.
+          erasedAt: new Date(),
         },
       });
 
@@ -322,6 +341,10 @@ export class LgpdService {
         refreshTokens: refreshTokens.count,
       };
     });
+
+    // CC-018 — só depois do commit: marcar antes trancaria o médico fora de uma
+    // conta que continua dele quando a transação falha.
+    this.erasureCheck.markErased(physicianId);
 
     const erased = { ...erasedRows, storageObjects };
 

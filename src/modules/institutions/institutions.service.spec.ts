@@ -97,7 +97,9 @@ describe('InstitutionsService', () => {
 
   describe('findAll', () => {
     it('returns institutions ordered by name', async () => {
-      prisma.institution.findMany.mockResolvedValue([{ id: institutionId, name: 'Hospital Central' }]);
+      prisma.institution.findMany.mockResolvedValue([
+        { id: institutionId, name: 'Hospital Central' },
+      ]);
 
       const result = await service.findAll();
 
@@ -179,6 +181,21 @@ describe('InstitutionsService', () => {
       const result = await service.listForPhysician(physicianId);
 
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('activeInstitutionIds (CC-019)', () => {
+    it('só os vínculos com instituição ativa contam, filtrados no banco', async () => {
+      prisma.physicianInstitution.findMany.mockResolvedValue([{ institutionId }]);
+
+      const result = await service.activeInstitutionIds(physicianId);
+
+      expect(prisma.physicianInstitution.findMany).toHaveBeenCalledWith({
+        where: { physicianId, institution: { status: 'active' } },
+        select: { institutionId: true },
+        orderBy: { createdAt: 'asc' },
+      });
+      expect(result).toEqual([institutionId]);
     });
   });
 });

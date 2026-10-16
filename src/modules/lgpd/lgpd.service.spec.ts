@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { LgpdService } from './lgpd.service';
+import { describe, it, expect, expectTypeOf, beforeEach, vi } from 'vitest';
+import { LgpdService, type ExportedAudioCapture } from './lgpd.service';
 import { PrismaService } from '../../config/prisma.service';
+import type { PhysicianErasureCheck } from '../auth/physician-erasure-check.service';
 import {
   BadRequestException,
   NotFoundException,
@@ -65,6 +66,7 @@ describe('LgpdService', () => {
   let auditService: {
     log: ReturnType<typeof vi.fn>;
   };
+  let erasureCheck: { markErased: ReturnType<typeof vi.fn> };
   let storage: {
     deleteObjects: ReturnType<typeof vi.fn>;
   };
@@ -93,7 +95,7 @@ describe('LgpdService', () => {
         deleteMany: vi.fn(),
       },
       audioCapture: {
-        findMany: vi.fn(),
+        findMany: vi.fn().mockResolvedValue([]),
         deleteMany: vi.fn(),
       },
       document: {
@@ -125,6 +127,7 @@ describe('LgpdService', () => {
     auditService = {
       log: vi.fn(),
     };
+    erasureCheck = { markErased: vi.fn() };
     storage = {
       deleteObjects: vi.fn().mockResolvedValue(undefined),
     };
@@ -132,6 +135,7 @@ describe('LgpdService', () => {
     service = new LgpdService(
       prisma as unknown as PrismaService,
       auditService as never,
+      erasureCheck as unknown as PhysicianErasureCheck,
       storage as never,
     );
   });
@@ -333,6 +337,32 @@ describe('LgpdService', () => {
   });
 
   describe('exportPhysicianData', () => {
+    const audioCaptures: ExportedAudioCapture[] = [
+      {
+        id: 'aud-1',
+        encounterId: 'enc-1',
+        mimeType: 'audio/webm',
+        sizeBytes: 48_000,
+        status: 'completed',
+        transcribedText: 'CPF [REDACTED_CPF], dor torácica há duas horas',
+        retainUntil: new Date('2026-11-09T12:00:00.000Z'),
+        createdAt: new Date('2026-10-10T12:00:00.000Z'),
+        updatedAt: new Date('2026-10-10T12:01:00.000Z'),
+      },
+      {
+        // Áudio eliminado pela retenção: a linha e a transcrição mascarada continuam.
+        id: 'aud-2',
+        encounterId: 'enc-1',
+        mimeType: 'audio/webm',
+        sizeBytes: 32_000,
+        status: 'deleted',
+        transcribedText: 'Febre há três dias',
+        retainUntil: new Date('2026-10-01T12:00:00.000Z'),
+        createdAt: new Date('2026-09-01T12:00:00.000Z'),
+        updatedAt: new Date('2026-10-01T13:15:00.000Z'),
+      },
+    ];
+
     it('returns all physician data', async () => {
       const physician = {
         id: physicianId,
@@ -358,21 +388,6 @@ describe('LgpdService', () => {
           sizeBytes: 2048,
           text: 'Hidratação venosa no grupo C. Paciente [NOME_REDACTED].',
           createdAt: new Date(),
-        },
-      ];
-      const audioCaptures = [
-        {
-          id: 'audio-1',
-          encounterId: 'enc-1',
-          physicianId,
-          mimeType: 'audio/webm',
-          sizeBytes: 4096,
-          status: 'completed',
-          jobId: 'job-1',
-          transcribedText: 'Paciente com febre há 3 dias, CPF [CPF_REDACTED].',
-          retainUntil: new Date(),
-          createdAt: new Date(),
-          updatedAt: new Date(),
         },
       ];
       const consents = [{ id: consentId, physicianId, scope: 'ai_processing' }];
@@ -406,6 +421,7 @@ describe('LgpdService', () => {
       prisma.physician.findUnique.mockResolvedValue(physician);
       prisma.recommendationDecision.findMany.mockResolvedValue(recommendationDecisions);
       prisma.copilotFeedback.findMany.mockResolvedValue(copilotFeedback);
+      prisma.audioCapture.findMany.mockResolvedValue(audioCaptures);
       prisma.encounter.findMany.mockResolvedValue(encounters);
       prisma.document.findMany.mockResolvedValue(documents);
       prisma.consent.findMany.mockResolvedValue(consents);
@@ -413,7 +429,6 @@ describe('LgpdService', () => {
       prisma.refreshToken.findMany.mockResolvedValue(refreshTokens);
       prisma.aiInteraction.findMany.mockResolvedValue(aiInteractions);
       prisma.encounterAttachment.findMany.mockResolvedValue(encounterAttachments);
-      prisma.audioCapture.findMany.mockResolvedValue(audioCaptures);
 
       const result = await service.exportPhysicianData(physicianId);
 
@@ -428,12 +443,12 @@ describe('LgpdService', () => {
           physician,
           encounters,
           encounterAttachments,
-          audioCaptures,
           documents,
           aiInteractions,
           caseIntakes: [],
           recommendationDecisions,
           copilotFeedback,
+          audioCaptures,
           consents,
           auditLog,
         },
@@ -450,6 +465,35 @@ describe('LgpdService', () => {
       expect(prisma.aiInteraction.findMany).toHaveBeenCalledWith({
         where: { encounterId: { in: ['enc-1'] } },
       });
+    });
+
+    it('exports audio capture metadata and masked transcript, never the encrypted audio', async () => {
+      prisma.physician.findUnique.mockResolvedValue({ id: physicianId });
+      prisma.encounter.findMany.mockResolvedValue([]);
+      prisma.document.findMany.mockResolvedValue([]);
+      prisma.consent.findMany.mockResolvedValue([]);
+      prisma.auditLog.findMany.mockResolvedValue([]);
+      prisma.audioCapture.findMany.mockResolvedValue(audioCaptures);
+
+      const result = await service.exportPhysicianData(physicianId);
+
+      // Allowlist exata: `encryptedContent` (áudio cifrado) e `jobId` (fila) não saem.
+      expect(prisma.audioCapture.findMany).toHaveBeenCalledWith({
+        where: { physicianId },
+        select: {
+          id: true,
+          encounterId: true,
+          mimeType: true,
+          sizeBytes: true,
+          status: true,
+          transcribedText: true,
+          retainUntil: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+      expect(result.data.audioCaptures).toEqual(audioCaptures);
+      expectTypeOf<ExportedAudioCapture>().not.toHaveProperty('encryptedContent');
     });
 
     it('exports attachments with their redacted text, scoped to the physician encounters', async () => {
@@ -481,39 +525,6 @@ describe('LgpdService', () => {
         where: { encounterId: { in: ['enc-1', 'enc-2'] } },
       });
       expect(result.data.encounterAttachments).toEqual([attachment]);
-    });
-
-    it('exports audio metadata and transcript but never the encrypted audio', async () => {
-      prisma.physician.findUnique.mockResolvedValue({ id: physicianId });
-      prisma.encounter.findMany.mockResolvedValue([{ id: 'enc-1', physicianId }]);
-      prisma.document.findMany.mockResolvedValue([]);
-      prisma.consent.findMany.mockResolvedValue([]);
-      prisma.auditLog.findMany.mockResolvedValue([]);
-      prisma.aiInteraction.findMany.mockResolvedValue([]);
-      prisma.encounterAttachment.findMany.mockResolvedValue([]);
-      const audio = {
-        id: 'audio-1',
-        encounterId: 'enc-1',
-        physicianId,
-        mimeType: 'audio/webm',
-        sizeBytes: 4096,
-        status: 'completed',
-        jobId: null,
-        transcribedText: 'Dor torácica há 2 horas.',
-        retainUntil: new Date(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      prisma.audioCapture.findMany.mockResolvedValue([audio]);
-
-      const result = await service.exportPhysicianData(physicianId);
-
-      expect(prisma.audioCapture.findMany).toHaveBeenCalledWith({
-        where: { encounterId: { in: ['enc-1'] } },
-        omit: { encryptedContent: true },
-      });
-      expect(result.data.audioCaptures).toEqual([audio]);
-      expect(result.data.audioCaptures[0]?.transcribedText).toBe('Dor torácica há 2 horas.');
     });
 
     it('does not query refresh tokens for portability exports', async () => {
@@ -562,7 +573,6 @@ describe('LgpdService', () => {
       expect(result.data.audioCaptures).toEqual([]);
       expect(prisma.aiInteraction.findMany).not.toHaveBeenCalled();
       expect(prisma.encounterAttachment.findMany).not.toHaveBeenCalled();
-      expect(prisma.audioCapture.findMany).not.toHaveBeenCalled();
     });
 
     it('throws NotFoundException for missing physician', async () => {
@@ -647,8 +657,11 @@ describe('LgpdService', () => {
           name: 'ERASED',
           email: `erased-${physicianId}@erased.com`,
           passwordHash: `erased:${physicianId}`,
+          erasedAt: expect.any(Date),
         },
       });
+      // CC-018 — a sessão cai na hora nesta instância, sem esperar o cache.
+      expect(erasureCheck.markErased).toHaveBeenCalledWith(physicianId);
       expect(auditService.log).toHaveBeenCalledWith({
         actorId: physicianId,
         action: 'DATA_ERASURE',
@@ -732,6 +745,16 @@ describe('LgpdService', () => {
 
       await expect(service.requestErasure(physicianId)).rejects.toThrow(NotFoundException);
       expect(storage.deleteObjects).not.toHaveBeenCalled();
+    });
+
+    // CC-018 — marcar antes do commit trancaria o médico fora de uma conta
+    // que continua dele quando a transação falha.
+    it('does not mark the physician as erased when the transaction fails', async () => {
+      prisma.physician.findUnique.mockResolvedValue({ id: physicianId });
+      prisma.$transaction.mockRejectedValue(new Error('deadlock'));
+
+      await expect(service.requestErasure(physicianId)).rejects.toThrow('deadlock');
+      expect(erasureCheck.markErased).not.toHaveBeenCalled();
     });
   });
 });
