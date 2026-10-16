@@ -27,11 +27,13 @@ import {
   WorkspaceSidebar,
 } from '@/components/layout/workspace-sidebar';
 import {
-  APP_SECTIONS_BY_ROLE,
+  FERRAMENTAS_ITEM,
   HOME_ITEM,
+  appSectionsFor,
   isNavItemActive,
   type NavItem,
 } from '@/components/layout/nav-config';
+import { isFerramentasEnabled } from '@/lib/feature-flags';
 import { LogoMark } from '@/components/brand/logo';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
@@ -92,7 +94,7 @@ function SidebarContents({
   // telas nesta sessão.
   const stats = useDashboardStats();
   const cases = useEncounterList({ limit: 1 });
-  const sections = APP_SECTIONS_BY_ROLE[role].map((section) => ({
+  const sections = appSectionsFor(role).map((section) => ({
     ...section,
     items: section.items.map((item) =>
       item.href === '/encounters' ? { ...item, count: cases.data?.meta?.total } : item,
@@ -137,7 +139,7 @@ const MOBILE_TABS: NavItem[] = [
   HOME_ITEM,
   { href: '/encounters', label: 'Casos', icon: ClipboardText, excludePrefixes: ['/encounters/new'] },
 ];
-const MOBILE_TABS_END: NavItem[] = [{ href: '/guidelines', label: 'Diretrizes', icon: BookOpen }];
+const GUIDELINES_TAB: NavItem = { href: '/guidelines', label: 'Diretrizes', icon: BookOpen };
 
 function MobileTab({ item, pathname }: { item: NavItem; pathname: string }) {
   const Icon = item.icon;
@@ -211,6 +213,10 @@ export function AppShell({ children, variant }: AppShellProps) {
     setPaletteOpen(true);
   }, []);
 
+  // ADR-017 — com Ferramentas ligada, ela ocupa o lugar de Buscar na barra
+  // inferior e a busca sobe para uma lupa no topo (o ⌘K e o sidebar seguem).
+  const ferramentas = isFerramentasEnabled();
+
   return (
     <div className="flex min-h-dvh w-full">
       <a
@@ -283,6 +289,17 @@ export function AppShell({ children, variant }: AppShellProps) {
                 <MagnifyingGlass className="size-4" />
               </button>
             )}
+            {ferramentas && (
+              <button
+                type="button"
+                onClick={openSearch}
+                aria-label="Buscar"
+                title="Buscar (⌘K)"
+                className="flex size-10 items-center justify-center rounded-md text-muted-foreground hover:bg-hover hover:text-foreground md:hidden"
+              >
+                <MagnifyingGlass className="size-5" />
+              </button>
+            )}
             <ThemeToggle size="sm" />
             <div className="md:hidden">
               <UserAvatarMenu />
@@ -329,18 +346,20 @@ export function AppShell({ children, variant }: AppShellProps) {
               )}
             </Link>
           </div>
-          {MOBILE_TABS_END.map((tab) => (
-            <MobileTab key={tab.href} item={tab} pathname={pathname} />
-          ))}
-          <button
-            type="button"
-            onClick={openSearch}
-            aria-label="Buscar"
-            className="flex min-w-0 flex-1 flex-col items-center gap-0.5 py-1.5 text-[0.6875rem] font-medium text-muted-foreground"
-          >
-            <MagnifyingGlass className="size-[22px]" aria-hidden="true" />
-            <span>Buscar</span>
-          </button>
+          <MobileTab item={GUIDELINES_TAB} pathname={pathname} />
+          {ferramentas ? (
+            <MobileTab item={FERRAMENTAS_ITEM} pathname={pathname} />
+          ) : (
+            <button
+              type="button"
+              onClick={openSearch}
+              aria-label="Buscar"
+              className="flex min-w-0 flex-1 flex-col items-center gap-0.5 py-1.5 text-[0.6875rem] font-medium text-muted-foreground"
+            >
+              <MagnifyingGlass className="size-[22px]" aria-hidden="true" />
+              <span>Buscar</span>
+            </button>
+          )}
         </div>
       </nav>
 

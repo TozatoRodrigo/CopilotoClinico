@@ -109,7 +109,9 @@ Proibido: rótulos em caixa-alta com tracking largo (`uppercase tracking-…`),
   Para elementos fixos dentro da página use `sticky top-11`.
 - **Mobile**: barra inferior (Plantão, Casos, Novo caso por voz, Diretrizes,
   Buscar); o menu ☰ abre o sidebar num sheet. O `main` tem `pb-28` para não
-  esconder conteúdo atrás da barra.
+  esconder conteúdo atrás da barra. Com `NEXT_PUBLIC_FERRAMENTAS=on`
+  (ADR-017), Ferramentas ocupa o lugar de Buscar e a busca vira uma lupa na
+  barra superior.
 - O `main` já aplica padding lateral responsivo (`px-4 → xl:px-24`) e topo.
 
 ### Página
@@ -144,6 +146,23 @@ Proibido: rótulos em caixa-alta com tracking largo (`uppercase tracking-…`),
 | `Kbd` | Atalhos (⌘K, ↵). |
 | `EmptyState` | Estados vazios: ícone cinza, título, uma frase, uma ação. |
 | `ProgressSteps` | Trilha Captura / Análise / Documento. |
+
+## Ferramentas clínicas (`web/src/components/domain/clinical-tools`)
+
+Componentes das calculadoras e roteiros de beira-leito (ADR-017). Toda conta e
+todo texto clínico vêm do motor (`src/shared/clinical-tools`); o componente só
+desenha. Vitrine em `/dev/components#ferramentas`.
+
+| Componente | Quando usar |
+| --- | --- |
+| `NumericField` | Valor com unidade dentro do campo, vírgula ou ponto, faixa aceita como dica. Erro acima do máximo na hora; abaixo do mínimo ao sair do campo. |
+| `WeightField` | Peso adulto (40–200 kg) ou pediátrico (0,5–50 kg). |
+| `ScoreItemList` | Itens de escore como rádio nativo, pontos à direita. |
+| `CalculatorResult` | Resultado ao vivo (`role="status"`): valor, faixa e ação sugerida. Tom: baixo risco cinza, intermediário laranja, alto vermelho. |
+| `ReferenceSection` / `ContentProvenanceNote` | Por que usar, quando usar, pérolas, citação; origem, versão e revisão do conteúdo. |
+| `CopyToChartButton` | Texto para o prontuário, com o texto selecionável se a área de transferência falhar. |
+| `DecisionSupportNotice` | Aviso fixo "Apoio à decisão; não substitui o julgamento clínico." |
+| `CalculatorView` | Tudo acima montado a partir de uma `CalculatorDefinition`. |
 
 ## Receitas de página
 
