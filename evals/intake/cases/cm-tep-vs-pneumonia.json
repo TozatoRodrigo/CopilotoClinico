@@ -1,0 +1,29 @@
+{
+  "id": "cm-tep-vs-pneumonia",
+  "source": {
+    "kind": "clinical_case",
+    "caseId": "cm-tep-vs-pneumonia"
+  },
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Fem, 34a, 10 dias de pós-op de fratura de tíbia, usa anticoncepcional oral combinado. Dispneia súbita há 6h, dor torácica que piora na inspiração, tosse seca, T 37,4. FC 118, FR 26, SpO2 89%, PA 118x76. Panturrilha E edemaciada. RX tórax sem consolidação."
+  },
+  "expected": {
+    "sex": "F",
+    "age": 34,
+    "vitals": {
+      "systolicBp": 118,
+      "diastolicBp": 76,
+      "heartRate": 118,
+      "respiratoryRate": 26,
+      "spo2": 89,
+      "temperature": 37.4,
+      "glucose": null
+    },
+    "syndrome": ["dispneia", "dor-toracica"],
+    "instability": true,
+    "timeCritical": true
+  }
+}

@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { BadRequestException, NotFoundException, UnauthorizedException } from '@nestjs/common';
-import { generateSecret, generateSync } from 'otplib';
+import { generateSync } from 'otplib';
 import { MfaService } from './mfa.service';
 import { PrismaService } from '../../config/prisma.service';
 import { CryptoService } from '../../shared/crypto/crypto.service';
@@ -11,7 +11,31 @@ import { createHash } from 'crypto';
 // ── helpers ─────────────────────────────────────────────────────────────────
 
 const PHYSICIAN_ID = 'phy-uuid-001';
-const REAL_SECRET = generateSecret();
+// Segredo do RFC 6238 (apêndice B), o ASCII "12345678901234567890" em base32.
+// Fixo, junto com o relógio abaixo, para o código válido ser sempre o mesmo.
+const REAL_SECRET = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
+// O otplib verifica com epochTolerance 0: o código só vale na janela de 30 s
+// em que foi gerado. Com o relógio real, o teste falhava quando a janela
+// virava entre o generateSync do teste e o verifySync do serviço. Relógio
+// parado no meio de uma janela: os dois sempre veem o mesmo instante.
+const FIXED_NOW = new Date('2026-10-15T12:00:15.000Z');
+const INVALID_TOTP = '000000';
+
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(FIXED_NOW);
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+
+describe('relógio do teste', () => {
+  it('o código inválido dos testes nunca é o código válido da janela fixa', () => {
+    // Com segredo aleatório, 1 em 1 milhão das execuções gerava justo '000000'.
+    expect(generateSync({ secret: REAL_SECRET })).not.toBe(INVALID_TOTP);
+  });
+});
 
 function buildMocks() {
   const prisma = {
@@ -135,7 +159,9 @@ describe('MfaService.enableMfa', () => {
       mfaEnabled: false,
       mfaSecret: `enc:${REAL_SECRET}`,
     } as never);
-    await expect(service.enableMfa(PHYSICIAN_ID, '000000')).rejects.toThrow(UnauthorizedException);
+    await expect(service.enableMfa(PHYSICIAN_ID, INVALID_TOTP)).rejects.toThrow(
+      UnauthorizedException,
+    );
   });
 
   it('enables MFA when TOTP code is valid', async () => {
@@ -189,7 +215,9 @@ describe('MfaService.verifyMfaCode', () => {
     // TOTP will fail, backup code will succeed
     vi.mocked(prisma.mfaBackupCode.updateMany).mockResolvedValue({ count: 1 } as never);
 
-    await expect(service.verifyMfaCode(PHYSICIAN_ID, 'wrong-totp-uses-backup')).resolves.toBeUndefined();
+    await expect(
+      service.verifyMfaCode(PHYSICIAN_ID, 'wrong-totp-uses-backup'),
+    ).resolves.toBeUndefined();
     expect(prisma.mfaBackupCode.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ usedAt: expect.any(Date) }) }),
     );
@@ -233,7 +261,9 @@ describe('MfaService.disableMfa', () => {
       mfaEnabled: true,
       mfaSecret: `enc:${REAL_SECRET}`,
     } as never);
-    await expect(service.disableMfa(PHYSICIAN_ID, '000000')).rejects.toThrow(UnauthorizedException);
+    await expect(service.disableMfa(PHYSICIAN_ID, INVALID_TOTP)).rejects.toThrow(
+      UnauthorizedException,
+    );
   });
 
   it('clears mfaEnabled, mfaSecret and backup codes on valid TOTP', async () => {
@@ -253,7 +283,9 @@ describe('MfaService.disableMfa', () => {
       mfaEnabled: false,
       mfaSecret: null,
     });
-    expect(prisma.mfaBackupCode.deleteMany).toHaveBeenCalledWith({ where: { physicianId: PHYSICIAN_ID } });
+    expect(prisma.mfaBackupCode.deleteMany).toHaveBeenCalledWith({
+      where: { physicianId: PHYSICIAN_ID },
+    });
   });
 });
 
@@ -284,7 +316,9 @@ describe('MfaService.resetMfa', () => {
       mfaEnabled: false,
       mfaSecret: null,
     });
-    expect(prisma.mfaBackupCode.deleteMany).toHaveBeenCalledWith({ where: { physicianId: PHYSICIAN_ID } });
+    expect(prisma.mfaBackupCode.deleteMany).toHaveBeenCalledWith({
+      where: { physicianId: PHYSICIAN_ID },
+    });
   });
 
   it('dispatches audit event with adminId as actorId', async () => {
@@ -315,8 +349,9 @@ describe('MfaService.resetAllMfa', () => {
   const ADMIN_ID = 'admin:admin-uuid-001';
 
   function withFindMany(prisma: ReturnType<typeof buildMocks>['prisma']) {
-    (prisma as unknown as { physician: { findMany: ReturnType<typeof vi.fn> } }).physician
-      .findMany = vi.fn();
+    (
+      prisma as unknown as { physician: { findMany: ReturnType<typeof vi.fn> } }
+    ).physician.findMany = vi.fn();
     return prisma as unknown as { physician: { findMany: ReturnType<typeof vi.fn> } };
   }
 
@@ -338,8 +373,9 @@ describe('MfaService.resetAllMfa', () => {
     const { service, prisma } = mocks;
     const withMany = withFindMany(prisma);
     withMany.physician.findMany.mockResolvedValue([{ id: 'phy-1' }, { id: 'phy-2' }]);
-    (prisma as unknown as { physician: { updateMany: ReturnType<typeof vi.fn> } }).physician
-      .updateMany = vi.fn().mockResolvedValue({ count: 2 });
+    (
+      prisma as unknown as { physician: { updateMany: ReturnType<typeof vi.fn> } }
+    ).physician.updateMany = vi.fn().mockResolvedValue({ count: 2 });
     vi.mocked(prisma.mfaBackupCode.deleteMany).mockResolvedValue({ count: 4 } as never);
 
     const result = await service.resetAllMfa(ADMIN_ID);
@@ -362,8 +398,9 @@ describe('MfaService.resetAllMfa', () => {
     const { service, prisma, audit } = mocks;
     const withMany = withFindMany(prisma);
     withMany.physician.findMany.mockResolvedValue([{ id: 'phy-1' }, { id: 'phy-2' }]);
-    (prisma as unknown as { physician: { updateMany: ReturnType<typeof vi.fn> } }).physician
-      .updateMany = vi.fn().mockResolvedValue({ count: 2 });
+    (
+      prisma as unknown as { physician: { updateMany: ReturnType<typeof vi.fn> } }
+    ).physician.updateMany = vi.fn().mockResolvedValue({ count: 2 });
     vi.mocked(prisma.mfaBackupCode.deleteMany).mockResolvedValue({ count: 0 } as never);
 
     await service.resetAllMfa(ADMIN_ID);
@@ -416,7 +453,7 @@ describe('S24-MFA-03 — MfaService.regenerateBackupCodes', () => {
       mfaEnabled: true,
       mfaSecret: `enc:${REAL_SECRET}`,
     } as never);
-    await expect(service.regenerateBackupCodes(PHYSICIAN_ID, '000000')).rejects.toThrow(
+    await expect(service.regenerateBackupCodes(PHYSICIAN_ID, INVALID_TOTP)).rejects.toThrow(
       UnauthorizedException,
     );
   });

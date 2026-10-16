@@ -357,7 +357,8 @@ internet e a API:
   na subida.
 - **O IP gravado na trilha de auditoria** (`audit_log.ip`, CC-026) sai da
   mesma regra. Antes do CC-026 os registros com IP (cadastro, login,
-  refresh, logout, MFA, pedido de verificação de CRM) gravavam o IP do
+  login com Google/Microsoft, refresh, logout, MFA, pedido de verificação de
+  CRM, lista de espera e aceite dos termos do beta) gravavam o IP do
   Traefik; os antigos continuam assim. O log de acesso HTTP (`HttpAccess`)
   não grava IP.
 
@@ -411,6 +412,21 @@ WHERE physician_id = '<id>';
 SQL
 ```
 
+### Conferir a retenção de áudio (LGPD)
+
+O cron `AudioRetentionCronService` roda de hora em hora (minuto 15, UTC) e
+elimina o áudio das capturas com `retain_until` vencido. Regras e motivo da
+lápide: "Capturas de áudio" em `docs/compliance/LGPD.md`.
+
+```sql
+-- Deve retornar 0. A folga de 1h cobre o intervalo entre execuções.
+SELECT count(*) FROM audio_captures
+WHERE status <> 'deleted' AND retain_until < now() - interval '1 hour';
+```
+
+Cada eliminação deixa uma entrada `AUDIO_RETENTION_PURGE` na trilha
+(`entity = 'AudioCapture'`, `entity_id` = id da captura).
+
 ### Aplicar migrations em produção
 
 Na VPS, em `~/apps/copiloto-clinico/docker`, **nesta ordem**:
@@ -429,9 +445,21 @@ docker compose --env-file .env.production -f docker-compose.prod.yml run --rm --
 docker compose --env-file .env.production -f docker-compose.prod.yml up -d --no-deps copiloto-api
 ```
 
+- A imagem `copiloto-api` sai de `docker/Dockerfile.api` (o `dockerfile` do
+  serviço em `docker-compose.prod.yml`), e a do web, de `docker/Dockerfile.web`.
+  O antigo `docker/api.Dockerfile` foi removido na CC-014: nenhum compose,
+  script, workflow ou documento o usava, e ele divergia da imagem de produção
+  (pnpm sem versão fixa, sem `pnpm-workspace.yaml` e sem `tini`). A demo
+  (`scripts/demo.sh`) usa o `Dockerfile` da raiz.
 - A imagem de runtime não tem `pnpm` (`sh: pnpm: not found`): use
   `npx --no-install prisma`, que usa o CLI já instalado em `node_modules` e
   nunca baixa nada. Corrigido em 24/09/2026, no deploy da ADR-010.
+- Desde a CC-024, o `node_modules` da imagem de runtime tem só as dependências
+  de produção e o CLI do Prisma, que fica para este passo. `tsx`, `nest`,
+  `vitest` e afins existem só no estágio `builder`: rode scripts de `scripts/`
+  por ele, como na ingestão. Se um build quebrar em `prisma generate` no
+  estágio `prod-deps`, o lock deixou de trazer o CLI como dependência opcional
+  do `@prisma/client` (comentário em `docker/Dockerfile.api`).
 - Subir a API antes da migration quebra o que depende do schema novo — na
   ADR-010, a busca oficial filtra por um valor de enum que só a migration cria.
 - `--env-file .env.production` é obrigatório: sem ele o compose não interpola
@@ -455,6 +483,99 @@ deve continuar usando `DATABASE_URL` com o usuário LOGIN membro de
 `copiloto_app`, sem privilégios de DDL e sem `DELETE`/`TRUNCATE` em `audit_log`.
 
 ⚠️ **ATENÇÃO — audit_log:** Qualquer migration que altere a tabela `audit_log` (ex: adicionar coluna) precisa de revisão manual. O trigger `audit_log_no_update_delete` bloqueia `UPDATE`/`DELETE` mas **não bloqueia DDL**. Verificar que a migration não remove dados existentes. Desde a ADR-015 o `audit_log` é gravado por SQL em `AuditService.writeAuditLogEntry`, não pelo Prisma Client: coluna nova precisa entrar nesse `INSERT`.
+
+### Texto clínico cifrado em repouso (CC-207, ADR-021)
+
+O texto clínico (caso, saída da IA, conversa, anexos, transcrições,
+documentos, notas — inventário completo na ADR-021) é cifrado pela extensão
+do Prisma com `FIELD_ENCRYPTION_KEY` quando `CLINICAL_TEXT_ENCRYPTION=on`. A
+leitura abre texto em claro e cifrado sempre, com a flag ligada ou não.
+
+#### Deploy (primeira vez)
+
+Na VPS, em `~/apps/copiloto-clinico/docker`, com `set -a; . ./.env.production; set +a`:
+
+1. **Cópia da chave.** Confirme que `FIELD_ENCRYPTION_KEY` de
+   `.env.production` está guardada também fora do servidor. Sem ela, o texto
+   cifrado não volta.
+2. **Backup** (como no Passo 0.2 do release), e confira que não está vazio:
+
+   ```bash
+   docker compose -f docker-compose.prod.yml exec copiloto-db \
+     pg_dump -U "$POSTGRES_OWNER_USER" copiloto_clinico > backup-pre-cc207-$(date +%F-%H%M).sql
+   ```
+
+3. **Código e migration com a flag desligada** (padrão `off`): ver
+   "Aplicar migrations em produção". A migration
+   `20261015180000_cc207_chief_complaint_text` só troca
+   `encounters.chief_complaint` de `VARCHAR(140)` para `TEXT` (sem reescrever
+   a tabela). Nada muda para o médico.
+4. **Ligar a gravação cifrada:** `CLINICAL_TEXT_ENCRYPTION=on` em
+   `.env.production`, depois
+   `docker compose --env-file .env.production -f docker-compose.prod.yml up -d --no-deps copiloto-api`.
+   Confira que o container recebeu: `docker compose -f docker-compose.prod.yml exec copiloto-api printenv CLINICAL_TEXT_ENCRYPTION` → `on`.
+   Faça uma análise de teste e confira que abre normalmente.
+5. **Cifrar o que já existe.** A imagem de runtime não tem `scripts/`: use o
+   estágio `builder`, como na ingestão, e a role da aplicação.
+
+   ```bash
+   docker build -f Dockerfile.api --target builder -t copiloto-cc207:tmp ..
+   APPDB="postgresql://${POSTGRES_APP_USER}:${POSTGRES_APP_PASSWORD}@copiloto-db:5432/copiloto_clinico?schema=public"
+   cc207() {
+     docker run --rm --network docker_copiloto-net \
+       -e DATABASE_URL="$APPDB" -e FIELD_ENCRYPTION_KEY="$FIELD_ENCRYPTION_KEY" \
+       -e FIELD_ENCRYPTION_KEY_PREVIOUS="${FIELD_ENCRYPTION_KEY_PREVIOUS:-}" \
+       --entrypoint sh copiloto-cc207:tmp -c "npx tsx scripts/encrypt-clinical-text.ts $*"
+   }
+   cc207 --dry-run            # contagem por coluna, nada gravado
+   cc207 --batch 500          # cifra; pode interromper e rodar de novo
+   cc207 --verify             # tem que terminar com "OK: nenhum texto clínico em claro."
+   ```
+
+   A `Chave atual` impressa pelo script tem que ser a mesma nas três
+   chamadas. `concorrentes > 0` é normal com médicos usando o sistema: rode
+   de novo até zerar. `falhas > 0` (chave desconhecida ou valor que não abre)
+   para tudo — ver a tabela de erros abaixo.
+6. **Conferir no banco** (amostra; não deve aparecer texto legível):
+
+   ```bash
+   docker compose -f docker-compose.prod.yml exec copiloto-db psql -U "$POSTGRES_OWNER_USER" -d copiloto_clinico -c \
+     "SELECT left(input_redacted, 20), left(raw_output::text, 22) FROM ai_interactions ORDER BY created_at DESC LIMIT 3;"
+   ```
+
+   Esperado: `enc:v1:<id>:…` e `"enc:v1:<id>:…`.
+7. **Backups antigos** (antes do passo 5) continuam com o texto em claro:
+   aplique a política de retenção a eles.
+
+#### Rollback
+
+- **Comportamento:** `CLINICAL_TEXT_ENCRYPTION=off` e `up -d --no-deps
+  copiloto-api`. Volta a gravar em claro; o que já foi cifrado continua
+  abrindo (leitura dupla). Não precisa decifrar nada.
+- **Código:** a versão anterior ao CC-207 não lê `enc:v1:`. Para voltar a
+  imagem da API para antes do CC-207: flag `off`, depois `cc207 --decrypt
+  --dry-run` e `cc207 --decrypt` (grava em claro o que estava cifrado, com o
+  mesmo compare-and-set), e só então a imagem antiga. A migration pode ficar
+  (`TEXT` serve à versão antiga).
+
+#### Rotação da chave
+
+1. `FIELD_ENCRYPTION_KEY` = nova (`openssl rand -hex 32`),
+   `FIELD_ENCRYPTION_KEY_PREVIOUS` = antiga; `up -d --no-deps copiloto-api`.
+2. `cc207 --batch 500` (o relatório mostra `rotacionados`), depois
+   `cc207 --verify` com `chaveAnterior` = 0 em todas as colunas.
+3. **Não remova a chave anterior ainda:** o segredo do MFA e o áudio (formato
+   legado) também abrem com ela, mas o script não os refaz. Sem ela, o login
+   de quem tem MFA quebra.
+
+#### Erros
+
+| Erro (log/Sentry) | Causa | Ação |
+|---|---|---|
+| `SealedValueError: <Modelo>.<campo>: Sealed value uses unknown key <id>` | Valor cifrado com uma chave que não está no ambiente (chave trocada sem `FIELD_ENCRYPTION_KEY_PREVIOUS`). | Recolocar a chave certa (ou a anterior em `FIELD_ENCRYPTION_KEY_PREVIOUS`) e reiniciar a API. |
+| `SealedValueError: … does not open with key <id>` / `Malformed sealed value` | Valor cifrado alterado ou truncado no banco. | Tratar como incidente de integridade: `cc207 --verify` lista os ids (`undecryptableIds`). |
+| `FieldKeyError: FIELD_ENCRYPTION_KEY is required` (na leitura: `SealedValueError: <Modelo>.<campo>: FIELD_ENCRYPTION_KEY is required`) | Flag ligada, ou valor cifrado lido, sem a chave no ambiente. | Conferir o repasse no `docker-compose.prod.yml`. |
+| `ClinicalTextQueryError: <Modelo>.<campo> é texto clínico cifrado: …` | Código novo filtrando/ordenando pelo conteúdo de um campo cifrado. | Bug: o filtro não funcionaria sobre texto cifrado. Corrigir o código (filtrar por outro campo ou no código depois de ler). |
 
 ### Rodar testes de integração
 
@@ -484,6 +605,9 @@ local até que `KB001_INTEGRATION=1` seja informado junto de um PostgreSQL de te
 Esses dois testes conferem o pacote e o retrieval, não a resposta do modelo. Para medir
 a resposta — e para o portão de release de qualquer mudança clínica — use o gabarito
 clínico (`pnpm eval:clinical`, ver [docs/evals/gabarito-clinico.md](evals/gabarito-clinico.md)).
+O modelo da leitura do caso do Copiloto guiado (`AI_INTAKE_MODEL`) se escolhe
+pela latência e pelos erros de dado de cada candidato (`pnpm eval:intake`, ver
+[docs/evals/leitura-do-caso.md](evals/leitura-do-caso.md)).
 
 ### Publicar os pacotes KB-005 (dengue) e KB-006 (cefaleias) em produção
 
@@ -535,6 +659,99 @@ importa na triagem:
 | `kind=wrong_scenario` com `coverage=partial`/`none` | A base não cobre o cenário — problema de curadoria, vira pacote KB novo |
 | `kind=helpful` | Contraste positivo, necessário para calibrar o piso de relevância |
 
+### Feedback que vira caso do gabarito e "não encontrei" (CC-703)
+
+Na triagem (`/admin/feedback`), "Virou caso do gabarito" marca o reporte e já
+baixa o rascunho do caso, `campo-<8 primeiros do id>.json`; "Baixar rascunho do
+caso" baixa de novo a qualquer momento. O servidor monta o rascunho
+(`GET /v1/admin/copilot-feedback/:id/eval-case-draft`, papel
+COMPLIANCE/ADMIN e curador): formato v2 do gabarito, texto que o modelo leu
+naquela rodada (caso e respostas) passado de novo pela máscara, expectativas
+vazias, `provenance.origin = feedback:<id>` e o que é do curador marcado
+`A PREENCHER`. Cada download fica na trilha como
+`COPILOT_FEEDBACK_EVAL_CASE_EXPORTED` (só o id do rascunho) e no log como
+`EVAL_CASE_DRAFT_EXPORTED`.
+
+A API não escreve no repositório. O curador salva o arquivo em
+`evals/clinical/cases/`, preenche o que está marcado (ver
+`docs/evals/gabarito-clinico.md`, "Caso novo") e abre o PR. O teste do
+gabarito recusa arquivo com `A PREENCHER` ou com a tag `a-preencher`.
+
+O botão "Não encontrei o que precisava", sob a análise, grava uma lacuna em
+`knowledge_gaps` (não entra na fila de triagem): a síndrome de PS e as consultas
+da busca dirigida que o entendimento registrou, e a frase opcional do médico
+(até 280 caracteres, mascarada). Nunca o texto do caso. Uma por análise: tocar
+de novo atualiza a nota. No log: `KNOWLEDGE_GAP_RECORDED`. É a entrada da
+fila de cartões (CC-409) e do painel do beta (CC-705).
+
+```sql
+-- Lacunas da semana por síndrome, com as consultas mais repetidas
+SELECT coalesce(g.syndrome, '(sem entendimento)') AS syndrome, count(DISTINCT g.id) AS gaps,
+       (array_agg(DISTINCT q.query))[1:5] AS sample_queries
+FROM knowledge_gaps g LEFT JOIN LATERAL unnest(g.search_queries) AS q(query) ON true
+WHERE g.created_at > now() - interval '7 days'
+GROUP BY 1 ORDER BY gaps DESC;
+
+-- O que os médicos disseram que faltou
+SELECT created_at, syndrome, note FROM knowledge_gaps
+WHERE note IS NOT NULL ORDER BY created_at DESC LIMIT 50;
+```
+
+### Mentoria em modo concierge (CC-707)
+
+"Discutir com um médico da equipe": o médico pede no próprio caso, aceita o
+termo (CC-708) e o caso vai **mascarado** (máscara de PII do projeto +
+patientRef), com o plano da IA, para os médicos marcados como mentores. A
+resposta aparece no caso e o médico vê um aviso no Plantão. Assíncrona, não
+serve para urgência. Atrás de `COPILOT_MENTORING` (padrão `off`: nada aparece e
+as rotas respondem 404). Exige a migration
+`20261014120000_cc_707_mentoring_requests`.
+
+**Termo provisório.** O texto em `src/modules/mentoring/mentoring-terms.ts` foi
+escrito para o piloto e aparece marcado como provisório até o parecer jurídico
+(CC-708). Ao receber o texto final: troque os parágrafos, crie uma **versão
+nova** (cada pedido grava a versão aceita, pelo médico e pelo mentor) e mude
+`provisional` para `false`. O servidor recusa aceite de versão diferente da
+vigente.
+
+**Marcar os mentores** (como `is_curator`, sem tela):
+
+```bash
+docker compose -f docker-compose.prod.yml exec copiloto-db \
+  psql -U "$POSTGRES_OWNER_USER" -d copiloto_clinico -c \
+  "UPDATE physicians SET is_mentor = true WHERE email IN ('mentor@exemplo.com');"
+```
+
+O mentor vê "Mentoria" no menu do Plantão. Ele só enxerga pedidos de casos sem
+instituição ou de uma instituição a que está vinculado (ADR-009): para atender
+um hospital cliente, vincule o mentor à instituição (seção "Multi-tenancy
+institucional"). Pedido já respondido só fica visível para quem pediu e para o
+mentor que respondeu. Pedido sem mentor elegível fica no painel e gera
+`MENTORING_NO_ELIGIBLE_MENTOR` (WARN) no log.
+
+**Aviso por e-mail ainda não existe.** O projeto não tem provedor de e-mail;
+o aviso é uma linha `MENTORING_NOTIFY event=new_request|answer` no log, só com
+ids e contagem. No concierge, a equipe acompanha a fila em `/mentoria` e o
+painel em `/admin/mentoria`. Para ligar e-mail, implemente `MentoringNotifier`
+(`src/modules/mentoring/mentoring.notifier.ts`) e troque o provider no módulo;
+o aviso leva só o link, nunca o texto do caso. Falha do aviso vira
+`MENTORING_NOTIFY_FAILED` (WARN + Sentry) e não desfaz o pedido.
+
+**Trilha de auditoria.** Cada transição grava uma entrada na entidade
+`MentoringRequest`: `MENTORING_REQUESTED`, `MENTORING_CLAIMED`,
+`MENTORING_RELEASED`, `MENTORING_ANSWERED`, `MENTORING_CANCELLED` e
+`MENTORING_RATED`, com status de/para, versões do termo, nota e hashes do caso,
+da dúvida e da resposta. Nenhum texto clínico.
+
+```sql
+-- Pedidos por médico ativo e tempo de resposta (métrica de sucesso da CC-707)
+SELECT count(*) AS pedidos,
+       count(DISTINCT requester_id) AS medicos_que_pediram,
+       percentile_cont(0.5) WITHIN GROUP (ORDER BY answered_at - created_at) AS mediana_resposta,
+       round(avg(satisfaction), 1) AS satisfacao_media
+FROM mentoring_requests WHERE created_at > now() - interval '30 days';
+```
+
 ### Triar sugestões de diretriz enviadas por médicos (F4)
 
 Qualquer médico autenticado pode enviar material pela tela de Diretrizes
@@ -546,6 +763,50 @@ Sugestão **nunca** supersede conteúdo aprovado — só um curador, via
 `ingest-review`, pode marcar versões anteriores como `superseded`. Isso é
 deliberado: um endpoint aberto que supersedesse permitiria remover conteúdo
 curado do retrieval enviando algo com o mesmo `source` e uma versão nova.
+
+### Beta por convite (CC-702)
+
+**Abrir e fechar o beta.** `BETA_INVITE_REQUIRED=on` no `.env.production` e
+`docker compose ... up -d copiloto-api` (a flag é lida a cada cadastro). Com
+ela ligada, quem chega a `/register` sem código vê a lista de espera; com
+`off`, o cadastro fica aberto e um código digitado ainda é conferido (a conta
+entra no lote do convite e passa pelo onboarding do beta).
+
+**Convites.** Console → Beta → Convites: lote/origem ("rede Ripardo", "base
+ANY"), quantidade (até 50), usos por código (1 = uso único) e validade (até
+180 dias). O sistema **não envia e-mail** (CC-015 pendente): copie o link
+(`/register?convite=XXXX-XXXX`) e mande pelo seu canal. Revogar é definitivo e
+não tira quem já entrou. O código é aleatório, sem dado pessoal; o banco
+recusa uso além do limite (`CHECK uses_count <= max_uses`).
+
+**Lista de espera.** Console → Beta → Lista de espera. "Aprovar" gera um
+convite de uso único (lote padrão "lista de espera", 14 dias) para copiar e
+mandar. "Apagar" atende o pedido da pessoa (LGPD): a entrada some e a trilha
+guarda só `BETA_WAITLIST_DELETED` com o id. A eliminação de conta
+(`POST /lgpd/erasure`) também apaga a entrada com o mesmo e-mail, e a
+exportação a inclui.
+
+**Onboarding.** Quem entra por convite passa por `/onboarding/beta`: termo do
+beta (versão em `src/shared/contracts/beta.ts`, `BETA_TERMS`; **texto
+provisório**, parecer jurídico pendente), perfil do plantão e o caso de
+exemplo do copiloto guiado. Trocar o texto do termo exige trocar `version`:
+quem aceitou a anterior volta ao onboarding para aceitar a nova.
+
+**Ativação** (meta ≥ 70% com 1ª análise em 24 h): Console → Beta → Ativação, ou
+`GET /v1/admin/beta/activation?days=30` (Admin ou Compliance) para o painel da
+CC-705. `activated24h` conta qualquer análise (inclusive o caso de exemplo);
+`activatedRealCase24h` só casos reais.
+
+No log: `BETA_INVITE_REFUSED reason=missing|not_found|revoked|expired|exhausted`
+(com `stage=claim` quando outro cadastro levou o último uso),
+`BETA_INVITE_REDEEMED inviteId=...`, `BETA_INVITES_CREATED`, `BETA_WAITLIST_JOINED`,
+`BETA_TERMS_ACCEPTED version=...`. Nenhuma linha leva e-mail ou código.
+
+```sql
+-- Usos por lote
+SELECT batch_label, count(*) AS codigos, sum(uses_count) AS usos
+FROM beta_invites GROUP BY batch_label ORDER BY usos DESC;
+```
 
 ### Calibrar o piso de relevância (KB-005/KB-006)
 
@@ -650,6 +911,53 @@ duas opções:** reativa o atalho do `ts_rank` descrito acima. Atenção também
 com `RETRIEVAL_MIN_SEMANTIC_SCORE=0`: desliga o piso inteiro, inclusive para
 os hits lexicais.
 
+### Termos de uso e política de privacidade (CC-905)
+
+Termos de Uso e Política de Privacidade versionados, com aceite por médico.
+O texto vive no código (`src/modules/legal/legal-document-catalog.ts`); uma
+versão vale quando um ADMIN a publica em **Console → Termos**
+(`/admin/termos`). A vigente de cada tipo é a publicada por último.
+
+Com `LEGAL_TERMS_V2=on`, quem não aceitou a vigente dos dois documentos vê a
+tela de aceite (`/aceite-termos`) ao entrar e a API responde **428**
+`TERMS_ACCEPTANCE_REQUIRED` em toda rota autenticada, exceto `/legal/*`,
+`/admin/legal/*`, `POST /auth/logout` e `/lgpd/*` (exportação, eliminação e
+consentimentos). Desligada (padrão), nada muda, e publicar só deixa a versão
+pronta. Sem versão publicada, nada é exigido mesmo com a flag ligada.
+
+**Ligar (primeira vez):**
+
+1. Migration `20261015180000_cc_905_legal_documents` aplicada.
+2. Console → Termos: publicar os Termos de Uso e a Política de Privacidade.
+3. `LEGAL_TERMS_V2=on` no `docker/.env.production` e reiniciar só a API.
+4. Acompanhar o % de aceite no console.
+
+**Versão nova (ex.: texto final do advogado, CC-006):** acrescentar ao
+catálogo uma versão nova com `provisional: false` (nunca editar uma versão já
+publicada: o publish recusa texto diferente com a mesma versão e o teste de
+hash do catálogo falha), fazer o deploy e publicar pelo console. Todas as
+contas voltam à tela de aceite no próximo acesso, vendo o resumo do que
+mudou. Outras instâncias da API passam a exigir a versão nova em até 30 s.
+
+**No log:** `LEGAL_DOCUMENT_PUBLISHED` (tipo, versão, hash, quem publicou),
+`LEGAL_DOCUMENTS_ACCEPTED` (médico e versões) e `LEGAL_TERMS_REQUIRED`
+(médico e handler bloqueado, sem URL). `LEGAL_AUDIT_FAILED` (ERROR) indica
+que o aceite ou a publicação foi gravado, mas a entrada da trilha falhou. Na
+trilha: `LEGAL_DOCUMENT_PUBLISHED` e `LEGAL_DOCUMENT_ACCEPTED`, entidade
+`LegalDocument`.
+
+```sql
+-- Aceites por versão (a eliminação LGPD apaga os aceites da conta)
+SELECT d.type, d.version, d.provisional, d.published_at, count(a.id) AS accepted
+FROM legal_documents d
+LEFT JOIN legal_acceptances a ON a.document_id = d.id
+GROUP BY d.id ORDER BY d.type, d.published_at DESC;
+```
+
+**Rollback:** `LEGAL_TERMS_V2=off` libera todo mundo na hora, sem redeploy.
+Versão publicada não se apaga (a API não tem `DELETE` em `legal_documents`):
+para corrigir um texto, publique uma versão nova.
+
 ### Ingestão e revisão de diretrizes (KB-002)
 
 A ingestão em lote de diretrizes clínicas usa um pipeline de curadoria: nenhum
@@ -721,6 +1029,79 @@ banco:
 
 ```sql
 UPDATE physicians SET is_curator = true WHERE email = 'curador@exemplo.com';
+```
+
+### Cartões revisados (CC-402/CC-403/CC-412, ADR-019)
+
+Um cartão é uma situação clínica com pergunta e resposta curta, em que cada
+afirmação e cada dose citam um trecho literal de uma diretriz já ingerida
+(base curada `approved` ou base oficial `official_unreviewed`). A IA rascunha;
+um médico com **CRM verificado** aprova. Por ora os cartões só existem no
+console: a decisão do Copiloto ainda não os usa (CC-408).
+
+**Rascunho por IA** — desligado por padrão (`KNOWLEDGE_CARDS_DRAFT_ENABLED`):
+cada pedido é uma chamada ao modelo (estimativa do CC-403: US$ 0,20–0,30 por
+cartão), no mesmo workspace da produção.
+
+```bash
+# Um tema; sem --chunks, a consulta de diretrizes escolhe até 8 trechos pelo tema
+KNOWLEDGE_CARDS_DRAFT_ENABLED=true pnpm cards:draft --topic "Meningite bacteriana: antibiótico empírico no adulto" --syndrome febre
+# A lista priorizada: [{ "topic": "...", "syndrome": "...", "chunkIds": ["..."] }]
+KNOWLEDGE_CARDS_DRAFT_ENABLED=true pnpm cards:draft --topics-file temas.json
+# Fiação sem custo: AI_PROVIDER=test devolve um cartão que cita o 1º trecho
+```
+
+O mesmo serviço atende `POST /v1/admin/knowledge-cards/drafts`
+(`{ topic, syndrome?, chunkIds?, institutionId?, submitForReview? }`). Cada
+cartão do modelo passa pela checagem determinística de citação (acento,
+caixa, espaço e tipografia não contam): trecho que não está no texto da fonte,
+trecho com menos de 20 letras, dose da resposta ou da afirmação que não está
+no trecho citado, ou campo da dose estruturada fora do trecho da dose — o
+cartão é **rejeitado antes da revisão** e o motivo fica em
+`knowledge_card_drafts.rejections`. Os aceitos entram `in_review`.
+
+No log: `KNOWLEDGE_CARD_DRAFT` (aceitos, rejeitados, modelo, custo) e
+`KNOWLEDGE_CARD_DRAFT_FAILED` (modelo recusou, truncou, saiu do schema ou
+erro de provedor — este também no Sentry). Nada do tema ou dos trechos no log.
+No rastro, a etapa é `card_draft` em `ai_calls`.
+
+```sql
+-- Taxa de aceite da checagem de citação por modelo (métrica do CC-403)
+SELECT coalesce(served_model, requested_model) AS model, count(*) AS drafts,
+       sum(cards_accepted) AS accepted, sum(cards_rejected) AS rejected,
+       round(sum(cost_usd)::numeric, 4) AS usd
+FROM knowledge_card_drafts GROUP BY 1 ORDER BY drafts DESC;
+```
+
+**Revisão** — `admin/knowledge-cards`, com a mesma barreira da curadoria
+(papel COMPLIANCE/ADMIN + `is_curator`). Toda decisão leva a `version` que a
+pessoa viu; se outra versão entrou no meio, 409.
+
+| Endpoint | O que faz |
+|---|---|
+| `GET /v1/admin/knowledge-cards?displayStatus=&syndrome=&institutionId=` | Fila, com contagem por status de tela |
+| `GET /v1/admin/knowledge-cards/:id` | Cartão e todas as versões, com fontes, autor (IA: modelo, hash do prompt, origem) e revisão |
+| `POST /v1/admin/knowledge-cards/:id/versions` | "Corrigir": versão nova do médico (`{ basedOnVersion, content }`); mesma checagem de citação, 422 com os problemas |
+| `POST /v1/admin/knowledge-cards/:id/submit` | Rascunho → em revisão |
+| `POST /v1/admin/knowledge-cards/:id/approve` | **Exige CRM verificado (403 sem ele).** Grava revisor, data, validade (`validityMonths`, padrão 12), comentário e `reviewDurationMs`; a versão vira a publicada |
+| `POST /v1/admin/knowledge-cards/:id/reject` | "Descartar" com `reason`: arquiva; numa correção de cartão publicado, só a correção cai |
+| `POST /v1/admin/knowledge-cards/:id/archive` | Tira de uso (final) |
+| `GET /v1/admin/knowledge-cards/drafts` | Registro dos pedidos de rascunho, com as rejeições |
+
+Corrigir um cartão publicado não o tira do ar: a versão assinada segue
+valendo até a nova ser aprovada. Publicado com a validade vencida aparece como
+`needs_review` ("revisar"). Cada transição grava `CARD_DRAFTED`,
+`CARD_VERSION_CREATED`, `CARD_SUBMITTED`, `CARD_APPROVED`, `CARD_REJECTED` ou
+`CARD_ARCHIVED` na trilha, com versão e `contentSha256` — comentário e motivo
+só como hash. No banco, um trigger impede mudar o conteúdo de uma versão ou
+regravar a decisão do revisor, e a role da API não apaga cartão nem versão.
+
+**Anti-circularidade (CC-412)** — nenhum caso do gabarito pode ter a mesma
+origem de rascunho de um cartão (mesmo `draftId` ou mesmo
+`sourceContentSha256`). O runner do gabarito confere antes de medir; à mão:
+
+```bash
+pnpm cards:check-circularity   # só leitura; código 1 se houver caso circular
 ```
 
 ### Sincronizar a base oficial da Conitec (ADR-010)
@@ -920,6 +1301,73 @@ Logs para acompanhar depois da troca:
 | `AI_PROVIDER_RETRY operation=... status=...` | Host compatível com OpenAI respondeu 429/5xx, estourou o prazo ou caiu a rede; nova tentativa | Esporádico: esperado. Contínuo: limite do plano no host ou instabilidade |
 | `AI_PROVIDER_ERROR operation=... status=...` | Falha definitiva do host compatível com OpenAI | 400: parâmetro ou schema rejeitado pelo modelo; 401: chave do perfil |
 
+#### Reserva de provedor (CC-107)
+
+Com a Groq (ou qualquer perfil) numa etapa, uma queda do host virava erro
+para o médico. Com `AI_FALLBACK_MODEL`, quando a chamada de uma etapa falha
+por **indisponibilidade** — prazo estourado, falha de rede, 5xx (inclusive o
+529 da Anthropic), 429 depois das novas tentativas do provedor ou limite de
+uso da conta (o 400 "workspace API usage limits" da Anthropic, o 402 e o
+`insufficient_quota` dos hosts compatíveis com a OpenAI) — o gateway repete a
+chamada **uma vez** no modelo de reserva, com as mesmas mensagens, esforço e
+schema.
+
+```bash
+# docker/.env.production — Groq na leitura e no entendimento, Sonnet de reserva
+AI_FALLBACK_MODEL=claude-sonnet-5-5
+# Opcional, por etapa (vence a geral); "none" desliga a reserva na etapa
+AI_DECISION_FALLBACK_MODEL=claude-opus-5-5
+```
+
+| Variável | Etapa (`ai_calls.stage`) |
+|---|---|
+| `AI_FALLBACK_MODEL` | todas sem variável própria |
+| `AI_INTAKE_FALLBACK_MODEL` | `intake_reading` |
+| `AI_UNDERSTANDING_FALLBACK_MODEL` | `understanding` |
+| `AI_DECISION_FALLBACK_MODEL` | `decision` (as duas rotas da ADR-016) |
+| `AI_VERIFY_ATTACH_FALLBACK_MODEL` | `verify_attach` |
+| `AI_GUIDELINE_CLASSIFICATION_FALLBACK_MODEL` | `guideline_classification` |
+
+Aceitam `perfil:modelo`, como os modelos das etapas; vazio = sem reserva,
+como antes. A reserva **não** entra:
+
+- em erro do pedido: 400 de parâmetro ou schema, 401/403 de chave, 404 de
+  modelo, recusa (`AiRefusalError`), truncamento (`AiTruncatedError`) ou saída
+  que não passa na validação — outro provedor não resolveria, e repetir só
+  dobraria custo e espera;
+- quando a reserva está no mesmo perfil que caiu (`AI_FALLBACK_SKIPPED`): o
+  mesmo host responderia de novo. Um segundo perfil da mesma empresa com
+  outra chave (outro workspace) conta como outro perfil;
+- no stream da decisão depois do primeiro trecho (`AI_FALLBACK_SKIPPED ...: o
+  stream já tinha começado`): trocar de modelo no meio misturaria duas
+  respostas. Antes do primeiro trecho, o stream continua na reserva;
+- na pesquisa web, que só existe na Anthropic (falha nela já segue sem pesquisa).
+
+Se a reserva também falha, a etapa recebe o erro **original** (o do provedor
+que caiu), com `AI_FALLBACK_FAILED` no log. Exceção: recusa ou truncamento da
+reserva seguem como estão, porque quem chama contabiliza o custo deles e já
+sabe tratá-los.
+
+⚠️ **Latência.** A reserva só entra depois das novas tentativas do provedor.
+Com os padrões (`AI_REQUEST_TIMEOUT_MS=180000`, `AI_REQUEST_MAX_RETRIES=2`),
+um host que trava em vez de recusar segura a etapa por até ~9 min antes da
+reserva. Com a reserva ligada, vale encurtar os dois (ex.: `60000` e `1`):
+valem para todos os perfis compatíveis com a OpenAI. 429 e 5xx rápidos
+caem para a reserva em segundos.
+
+No rastro, as duas chamadas ficam em `ai_calls` com o mesmo `request_id`: a
+que falhou (`outcome=error`, `error_type` com classe e status ou motivo, ex.:
+`AiProviderError:503`, `AiProviderError:timeout`) e a da reserva, com
+`fallback_from` = perfil que caiu (exige a migration
+`20261014180000_ai_calls_fallback_from`). Rollback: esvaziar
+`AI_FALLBACK_MODEL` (e as variáveis por etapa) e recriar o container, sem rebuild.
+
+| Log | Significado | Ação |
+|---|---|---|
+| `AI_FALLBACK stage=... from=... fromModel=... to=... toModel=... reason=... error=... requestId=...` (WARN) | A etapa foi para a reserva; `reason` = `timeout`, `network`, `rate_limit`, `server_error` ou `usage_limit` | Esporádico: esperado. Contínuo: ver o status do host (status.groq.com, status.anthropic.com) ou o limite da conta |
+| `AI_FALLBACK_SKIPPED ...: reserva no mesmo perfil que caiu` / `o stream já tinha começado` (WARN) | Indisponibilidade sem reserva possível | Mesmo perfil: apontar a reserva da etapa para outro perfil |
+| `AI_FALLBACK_FAILED stage=... original=... error=...` (ERROR) | A reserva também falhou; a etapa recebeu o erro original | Os dois provedores fora: ver status dos dois e o limite de uso |
+
 #### Pesquisa web (`COPILOT_KNOWLEDGE_SOURCE=web`)
 
 A pesquisa usa as ferramentas de servidor da Anthropic nas versões básicas
@@ -949,6 +1397,467 @@ Antes de ligar:
 
 O custo gravado em `ai_interactions.cost` considera leitura e escrita de cache
 e, desde a Fase 0-B, também as análises em stream (antes gravavam 0).
+
+#### Modelo da transcrição (`WHISPER_MODEL`)
+
+O ditado vai para a Groq (`WHISPER_BASE_URL`) com o modelo de `WHISPER_MODEL`,
+lido a cada transcrição: `whisper-large-v3` (padrão, US$ 0,111/h) ou
+`whisper-large-v3-turbo` (US$ 0,04/h). Valor fora da lista cai no padrão. A
+troca só depois de medir com `pnpm eval:transcription`
+([docs/evals/transcricao.md](./evals/transcricao.md)) e registrar a decisão lá.
+
+```bash
+# docker/.env.production
+WHISPER_MODEL=whisper-large-v3-turbo
+
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d copiloto-api
+```
+
+Rollback: apagar a linha (ou `whisper-large-v3`) e subir a API de novo. A
+auditoria `AUDIO_TRANSCRIBE` grava o modelo de cada transcrição em
+`payload.model`, e o log de debug `AUDIO_TRANSCRIBE ... model=...` também.
+Falha do provedor aparece como `Whisper API error <status> model=...`; 429
+contínuo é limite do plano na Groq.
+
+### Consentimento de IA (CC-010)
+
+Quem revoga "Processamento por IA" em Configurações → Privacidade recebe 403
+com `code: "AI_CONSENT_REVOKED"` na leitura do caso, análise (POST, streaming
+e fila), reanálise e ditado, antes de qualquer chamada ao gateway ou ao
+Whisper (`AiConsentGuard`). Análise que já estava na fila falha sem retry. A
+consulta de diretrizes segue só por palavra-chave. O histórico e os documentos
+continuam abertos. No log: `AI_CONSENT_REVOKED physicianId=...` (WARN).
+
+Vale o registro mais recente de `consents` para o escopo; sem nenhum, o
+processamento por IA está ativo (padrão desde o cadastro). Não há flag: para
+liberar, o próprio médico concede de novo na mesma tela.
+
+```sql
+-- Antes do deploy: quem ficará bloqueado (última linha de ai_processing revogada)
+SELECT DISTINCT ON (physician_id) physician_id, granted_at, revoked_at
+FROM consents WHERE scope = 'ai_processing'
+ORDER BY physician_id, granted_at DESC;
+-- bloqueados = linhas com revoked_at preenchido
+```
+
+### Fila de análise assíncrona (CC-011)
+
+`POST .../copilot/analyze/async` e o áudio gravado (`POST
+/encounters/:id/audio`) gravam o caso já redigido numa conversa sem leitura
+(`case_intakes`, `path = disabled`) e enfileiram só ids: `{ physicianId,
+encounterId, intakeId }`. O worker analisa pela conversa, como o plano sem
+streaming da tela. O resultado no Redis também são só ids (`intakeId`,
+`interactionId`); o plano sai por `GET .../copilot/conversation` ou
+`.../latest`. Retenção da fila: concluído 24 h, falho 7 dias.
+
+Deploy: job enfileirado antes da versão nova ainda leva o caso sem redação. O
+worker tira o texto do Redis antes de tudo (`INFERENCE_LEGACY_JOB jobId=...`,
+WARN), abre a conversa e segue como um job novo; se a conversa for recusada
+(injeção, caso encerrado), o job falha sem o texto. Esse caminho pode sair
+depois de 7 dias da versão no ar. Recusa 4xx (consentimento, posse, injeção,
+plano já feito) falha sem retry.
+
+---
+
+## E-mail transacional (CC-015)
+
+O `MailService` (`src/modules/mail`) envia e-mail por SMTP, então serve
+qualquer provedor (SES, Resend, Postmark, Brevo). Sem `SMTP_HOST` nada sai:
+cada envio vira uma linha `MAIL_LOGGED` (INFO) e o fluxo segue como antes.
+Falha do provedor vira `MAIL_SEND_FAILED` (WARN, e aviso no Sentry) e também
+não para o fluxo que pediu o envio.
+
+Todo e-mail sai de um template de `mail-templates.ts`. Nenhum leva texto
+clínico nem identificador de paciente: no máximo um link para a tela, que
+exige login. Templates de hoje: o teste de envio e os dois avisos da mentoria
+(pedido novo, resposta), prontos para a CC-707 ligar (ver "Usos previstos").
+
+### Variáveis
+
+| Variável | Padrão | Uso |
+|---|---|---|
+| `SMTP_HOST` | vazio | Vazio = nenhum e-mail sai (só log) |
+| `SMTP_PORT` | `587` | `587` = STARTTLS; `465` = TLS desde a conexão |
+| `SMTP_SECURE` | conforme a porta | Vazio: `465` liga e as outras não. `true`/`false` força |
+| `SMTP_USER` / `SMTP_PASSWORD` | vazios | Os dois ou nenhum. Com credencial, o envio exige TLS: a senha nunca trafega aberta |
+| `SMTP_FROM` | — | Obrigatório com SMTP: `Copiloto Clínico <nao-responda@dominio>` |
+| `WEB_PUBLIC_URL` | `https://copiloto.servidortozato.cloud` no compose | Base dos links dos e-mails. Obrigatório com SMTP |
+
+Com `SMTP_HOST` preenchido e alguma outra variável errada, o boot registra
+`MAIL_SMTP_CONFIG_INVALID invalid=<nomes das variáveis>` (WARN, sem os
+valores) e nada sai até corrigir. Os prazos são curtos e fixos no código: 5 s
+para conectar e para a saudação, 10 s de silêncio no socket e 10 s para o
+envio inteiro.
+
+### Configurar o provedor
+
+| Provedor | `SMTP_HOST` | `SMTP_PORT` | `SMTP_USER` | `SMTP_PASSWORD` |
+|---|---|---|---|---|
+| Amazon SES (São Paulo) | `email-smtp.sa-east-1.amazonaws.com` | `587` | usuário SMTP gerado no console do SES (não é a access key do IAM) | senha SMTP gerada junto |
+| Resend | `smtp.resend.com` | `587` | `resend` | a API key (`re_...`) |
+| Postmark | `smtp.postmarkapp.com` | `587` | o Server API Token | o mesmo token |
+| Brevo | `smtp-relay.brevo.com` | `587` | o login SMTP da página "SMTP & API" | a chave SMTP (não a API key) |
+
+- **SES começa em sandbox**: só entrega para endereços verificados. Peça a
+  saída do sandbox no console antes do primeiro uso real.
+- O provedor recebe o endereço do médico, que é dado pessoal (nunca dado de
+  paciente). Antes de ligar, confirme o DPA do provedor e registre-o como
+  operador em `docs/compliance/LGPD.md`.
+
+```bash
+# docker/.env.production — aspas no remetente (tem espaço e <>); aspas
+# simples na senha se ela tiver "$" (o compose interpolaria)
+SMTP_HOST=smtp.resend.com
+SMTP_PORT=587
+SMTP_USER=resend
+SMTP_PASSWORD='re_xxxxxxxx'
+SMTP_FROM="Copiloto Clínico <nao-responda@seu-dominio.com.br>"
+
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d copiloto-api
+docker logs copiloto-api 2>&1 | grep MAIL_TRANSPORT
+# Esperado: MAIL_TRANSPORT channel=smtp host=smtp.resend.com port=587 secure=false auth=on
+```
+
+### Domínio remetente: SPF, DKIM e DMARC
+
+Sem os três, o e-mail cai no spam ou é recusado (Gmail e Outlook exigem
+autenticação de quem envia volume). O domínio de `SMTP_FROM` precisa estar
+verificado no provedor; o painel dele mostra os registros exatos ao verificar
+o domínio, e são esses que valem. A forma geral:
+
+| Registro | Nome | Valor (exemplo) |
+|---|---|---|
+| SPF (TXT) | o domínio, ou o subdomínio de retorno que o provedor indicar | `v=spf1 include:<o do provedor> ~all` |
+| DKIM (TXT ou CNAME) | `<seletor>._domainkey.<domínio>` | a chave ou o CNAME que o provedor gerar |
+| DMARC (TXT) | `_dmarc.<domínio>` | `v=DMARC1; p=none; rua=mailto:dmarc@<domínio>` |
+
+- **Um SPF só por nome.** Se o domínio já tem SPF (ex.: o do e-mail
+  corporativo), acrescente o `include:` do provedor ao registro existente;
+  dois registros `v=spf1` invalidam os dois.
+- **DMARC em etapas**: comece com `p=none` e leia os relatórios do `rua` por
+  duas semanas; sem falha de alinhamento, suba para `p=quarantine` e depois
+  `p=reject`.
+- Conferir: mande o e-mail de teste (abaixo) para uma conta Gmail e abra
+  "Mostrar original". SPF, DKIM e DMARC devem aparecer como `PASS`.
+
+### Enviar o e-mail de teste
+
+`POST /v1/admin/mail/test`, só para `ADMIN`, até 3 por minuto. O e-mail vai
+para o endereço da conta do próprio admin (o endpoint não aceita destino:
+não pode virar relay). O jeito mais simples é o console do navegador, logado
+como admin em `https://copiloto.servidortozato.cloud`:
+
+```js
+await (await fetch('/v1/admin/mail/test', { method: 'POST', credentials: 'include' })).json()
+```
+
+Ou com o token de acesso:
+
+```bash
+curl -X POST https://copiloto.servidortozato.cloud/v1/admin/mail/test \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+```
+
+A resposta é sempre 200; o corpo diz o resultado:
+
+| Resposta | Significado e ação |
+|---|---|
+| `{"status":"sent","messageId":...}` | O provedor aceitou. Procure o `messageId` no painel dele se não chegar |
+| `{"status":"logged","channel":"log"}` | Sem SMTP (ou config inválida): veja `MAIL_TRANSPORT`/`MAIL_SMTP_CONFIG_INVALID` no boot |
+| `reason: "EAUTH"` (`responseCode` 535) | Usuário ou senha SMTP errados. No SES e na Brevo, a credencial SMTP é diferente da chave de API |
+| `reason: "ETLS"` | Há credencial e o servidor não ofereceu STARTTLS. Confira a porta, ou use `465` com `SMTP_SECURE=true` |
+| `reason: "ETIMEDOUT"`, `"ECONNECTION"`, `"EDNS"` | Host ou porta errados, ou a VPS bloqueia a porta de saída. Teste `587` e `465`; a `25` costuma ser bloqueada |
+| `reason: "EENVELOPE"` (`responseCode` 550/554) | Remetente não verificado no provedor, ou SES em sandbox com destinatário não verificado |
+| `reason: "invalid_recipient"` | O e-mail da conta do admin não é um endereço válido |
+
+### No log
+
+| Linha | Nível | Significado |
+|---|---|---|
+| `MAIL_TRANSPORT channel=smtp host=... port=... secure=... auth=on\|off` | INFO, no boot | SMTP ativo |
+| `MAIL_TRANSPORT channel=log reason=smtp_not_configured` | INFO, no boot | Sem `SMTP_HOST`: nada sai |
+| `MAIL_SMTP_CONFIG_INVALID invalid=SMTP_FROM,...` | WARN, no boot | `SMTP_HOST` preenchido e as variáveis listadas erradas: nada sai |
+| `MAIL_SENT template=... to=r***@s***.com.br durationMs=... messageId=...` | INFO | O provedor aceitou |
+| `MAIL_LOGGED template=... to=...` | INFO | Sem SMTP: nada saiu, o fluxo seguiu |
+| `MAIL_SEND_FAILED template=... reason=... responseCode=...` | WARN, e aviso no Sentry | O provedor recusou, estourou o prazo, ou destinatário/template inválido. O fluxo seguiu |
+
+Nenhuma linha leva assunto, corpo ou endereço completo: o destinatário sai
+mascarado e o erro do provedor só pelo código (a mensagem dele costuma repetir
+o endereço). Todas levam `requestId` quando o envio acontece numa requisição.
+
+### Para quem desenvolve
+
+```ts
+// O módulo que envia importa MailModule e injeta MailService.
+const result = await this.mail.send({
+  to: physician.email,
+  template: { name: 'mentoring_answer', params: { path: `/encounters/${id}` } },
+});
+```
+
+- `send` nunca rejeita. Numa requisição do médico, chame sem `await`
+  (`void this.mail.send(...)`) para não somar até 10 s de um provedor lento;
+  num cron, `await` serve.
+- Um destinatário por envio: aviso para vários vira vários `send`, e ninguém
+  vê o endereço do outro.
+- Template novo: um membro na união `MailTemplate`, um `case` em
+  `renderBlocks` e um teste. Parâmetro só do que pode sair por e-mail (link
+  validado, código de convite, números); nada do texto do caso.
+- Sem fila: o envio é direto, com prazo curto. Uma fila poria endereço e corpo
+  no Redis em troca de retry, o que ainda não compensa com poucos e-mails por
+  dia; se o volume crescer, ela entra atrás do mesmo `MailService`.
+- Testar localmente com o Mailpit, sem credencial:
+  `docker run --rm -p 1025:1025 -p 8025:8025 axllent/mailpit` e, no `.env`,
+  `SMTP_HOST=localhost`, `SMTP_PORT=1025`, `SMTP_FROM=dev@copiloto.local`,
+  `WEB_PUBLIC_URL=http://localhost:3001`. Os e-mails aparecem em
+  `http://localhost:8025`.
+
+### Usos previstos
+
+**Mentoria (CC-707, PR #186).** O `MentoringNotifier` do #186 recebe só ids,
+destinatários e o `path`. O adaptador fica em
+`src/modules/mentoring/mail-mentoring.notifier.ts`:
+
+```ts
+@Injectable()
+export class MailMentoringNotifier implements MentoringNotifier {
+  private readonly logger = new Logger('MentoringNotifier');
+
+  constructor(@Inject(MailService) private readonly mail: MailService) {}
+
+  async notifyNewRequest(notice: NewMentoringRequestNotice): Promise<void> {
+    this.logger.log(
+      `MENTORING_NOTIFY event=new_request requestId=${notice.requestId} ` +
+        `recipients=${notice.recipients.length} channel=${this.mail.channel}`,
+    );
+    // Sem await: o pedido do médico não espera o SMTP. Um e-mail por mentor.
+    for (const recipient of notice.recipients) {
+      void this.mail.send({
+        to: recipient.email,
+        template: { name: 'mentoring_new_request', params: { path: notice.path } },
+      });
+    }
+  }
+
+  async notifyAnswer(notice: MentoringAnswerNotice): Promise<void> {
+    this.logger.log(
+      `MENTORING_NOTIFY event=answer requestId=${notice.requestId} ` +
+        `encounterId=${notice.encounterId} channel=${this.mail.channel}`,
+    );
+    void this.mail.send({
+      to: notice.recipient.email,
+      template: { name: 'mentoring_answer', params: { path: notice.path } },
+    });
+  }
+}
+```
+
+No `mentoring.module.ts`: `imports: [MailModule]` e
+`{ provide: MENTORING_NOTIFIER, useClass: MailMentoringNotifier }` no lugar do
+`LogMentoringNotifier`. Sem SMTP, o comportamento é o de hoje mais uma linha
+`MAIL_LOGGED` por destinatário.
+
+**Convite do beta (CC-702).** Template `beta_invite` com `{ inviteCode }`
+(validado por formato, como o `path`) e link fixo para o cadastro; o código
+vai no corpo, não na URL. Convites em lote são o caso que pode pedir a fila.
+
+**Alertas de custo e latência (CC-005, PR #176).** Hoje saem como log ERROR e
+Sentry. Para também mandar e-mail: um template `ai_cost_alert` só com números
+(dia, custo, teto, chamadas, ou p95 e limite), enviado aos `ADMIN` ativos no
+`notify` do `AiCallAlertsCronService`, que já garante uma vez por dia ou por
+hora. Em cron, `await this.mail.send(...)`.
+
+---
+
+### Revise seu plantão (CC-801)
+
+Depois do plantão, o médico responde até 3 perguntas geradas das análises dos
+seus casos dos últimos 7 dias, marca "sei", "tenho dúvida" ou "chutei" e vê a
+explicação com a fonte que a análise citou. Desligado por padrão
+(`COPILOT_SHIFT_REVIEW=false`).
+
+- **Onde**: entrada "Revise seu plantão" no Plantão e tela `/revise-seu-plantao`
+  no web (`/revisao` é da revisão de cartões, CC-404); API em
+  `/v1/shift-review/*`.
+
+- **Material**: só as análises do próprio médico (última análise válida de
+  cada caso não cancelado, até 6 casos), com entendimento, sinais de alarme,
+  condutas e os trechos das fontes citadas. O texto do caso não vai. Tudo
+  passa pela máscara de PII e pela redação do `patientRef`. Conhecimento geral
+  do modelo e anexo do médico não viram fonte de pergunta.
+- **Fonte**: o modelo só aponta a chave de uma fonte listada (`F1`, `F2`…); o
+  servidor copia a fonte da análise. Chave fora da lista, alternativa
+  inválida ou qualquer dado do paciente (o que a máscara pega, o `patientRef`,
+  marcas `[REDACTED_…]`) derruba a pergunta; falta de pergunta pede um retry.
+- **Cache**: uma revisão por médico por semana (segunda-feira, horário de
+  Brasília). Falha de geração pode ser tentada de novo ao abrir, até 3 vezes
+  na semana; sem material (`no_material`), só quando chega análise nova.
+  Geração parada há mais de 5 min (deploy no meio) volta a poder ser gerada.
+- **Job**: segunda às 10:00 (Brasília), gera a revisão de quem teve análise nos
+  7 dias anteriores e ainda não tem a da semana (até 500 médicos por rodada).
+- **Custo**: uma chamada por revisão (duas com o retry), etapa
+  `review_questions` em `ai_calls`. Custo e modelo também em `shift_reviews`.
+
+```sql
+-- Métrica da CC-801: % de médicos ativos que revisaram ao menos 1 vez por semana
+WITH ativos AS (
+  SELECT date_trunc('week', i.created_at AT TIME ZONE 'America/Sao_Paulo') AS semana,
+         e.physician_id
+  FROM ai_interactions i JOIN encounters e ON e.id = i.encounter_id
+  GROUP BY 1, 2
+), revisaram AS (
+  SELECT date_trunc('week', answered_at AT TIME ZONE 'America/Sao_Paulo') AS semana,
+         physician_id
+  FROM shift_review_questions WHERE answered_at IS NOT NULL
+  GROUP BY 1, 2
+)
+SELECT a.semana, count(*) AS ativos, count(r.physician_id) AS revisaram,
+       round(100.0 * count(r.physician_id) / count(*), 1) AS pct
+FROM ativos a LEFT JOIN revisaram r USING (semana, physician_id)
+GROUP BY 1 ORDER BY 1 DESC;
+
+-- Saúde da geração na semana: prontas, falhas por motivo, custo
+SELECT status, failure_reason, count(*), round(sum(cost)::numeric, 4) AS usd
+FROM shift_reviews WHERE period_start >= date_trunc('week', now())::date
+GROUP BY 1, 2 ORDER BY 3 DESC;
+
+-- Acerto × certeza (semente do mapa de calibração da CC-802)
+SELECT confidence, count(*) AS respostas, count(*) FILTER (WHERE correct) AS acertos
+FROM shift_review_questions WHERE answered_at IS NOT NULL
+GROUP BY 1;
+```
+
+---
+
+## Login com Google e Microsoft (CC-334)
+
+Para quem vem do ANY App (que usava OAuth do Supabase com Google e
+Microsoft). OAuth 2.0 + OpenID Connect com PKCE, `state` e `nonce`, inteiro no
+backend: o segredo do cliente e o `code_verifier` nunca vão ao navegador.
+
+**Liga sozinho quando configurado.** Cada provedor aparece na tela de login e
+de cadastro só com `OAUTH_<PROVEDOR>_CLIENT_ID`, `OAUTH_<PROVEDOR>_CLIENT_SECRET`
+e `APP_PUBLIC_URL` preenchidos (lidos a cada requisição). Sem eles, a tela e a
+API ficam como antes. Exige a migration `20261014150000_cc334_external_identities`.
+
+| Variável | Valor em produção |
+|---|---|
+| `APP_PUBLIC_URL` | `https://copiloto.servidortozato.cloud`, já o padrão do `docker-compose.prod.yml` (o web; o callback vira `${APP_PUBLIC_URL}/${API_PREFIX}/auth/oauth/<provedor>/callback`) |
+| `OAUTH_REDIRECT_BASE_URL` | vazio. Só quando a API não está em `${APP_PUBLIC_URL}/${API_PREFIX}` (dev: `http://localhost:3000/v1` com o web em `http://localhost:3001`) |
+| `OAUTH_GOOGLE_CLIENT_ID` / `OAUTH_GOOGLE_CLIENT_SECRET` | cliente OAuth do Google Cloud (abaixo) |
+| `OAUTH_MICROSOFT_CLIENT_ID` / `OAUTH_MICROSOFT_CLIENT_SECRET` | registro de aplicativo no Entra ID (abaixo) |
+
+URLs de callback a cadastrar nos provedores:
+
+- `https://copiloto.servidortozato.cloud/v1/auth/oauth/google/callback`
+- `https://copiloto.servidortozato.cloud/v1/auth/oauth/microsoft/callback`
+
+### Criar o cliente no Google Cloud
+
+1. [console.cloud.google.com](https://console.cloud.google.com) → projeto do
+   Copiloto (ou crie um).
+2. **Google Auth Platform → Branding** (antiga "Tela de consentimento OAuth"):
+   público **Externo**; nome "Copiloto Clínico"; e-mail de suporte; domínio
+   autorizado `servidortozato.cloud`; política de privacidade
+   `https://copiloto.servidortozato.cloud/privacidade`.
+3. **Data access / Escopos:** só `openid`, `.../auth/userinfo.email` e
+   `.../auth/userinfo.profile`. São escopos não sensíveis: não pedem a
+   verificação do Google.
+4. **Audience / Público:** publique o app (**Em produção**). Em "Teste", só os
+   usuários de teste listados conseguem entrar.
+5. **Clients → Criar cliente → Aplicativo da Web.** Origens JavaScript: nenhuma.
+   URI de redirecionamento autorizado: o callback do Google acima. Para dev,
+   crie um cliente separado com `http://localhost:3000/v1/auth/oauth/google/callback`.
+6. Copie o ID e o segredo para `OAUTH_GOOGLE_CLIENT_ID` e
+   `OAUTH_GOOGLE_CLIENT_SECRET` em `docker/.env.production`.
+
+### Criar o aplicativo no Microsoft Entra ID
+
+1. [entra.microsoft.com](https://entra.microsoft.com) → **Aplicativos →
+   Registros de aplicativo → Novo registro**.
+2. Nome "Copiloto Clínico". **Tipos de conta:** "Contas em qualquer diretório
+   organizacional e contas pessoais da Microsoft" — é o que o endpoint `common`
+   atende (hospital e outlook.com/hotmail.com).
+3. **URI de redirecionamento:** plataforma **Web**, o callback da Microsoft
+   acima (dev: `http://localhost:3000/v1/auth/oauth/microsoft/callback`).
+4. **Certificados e segredos → Novo segredo do cliente.** Copie o **Valor** (não
+   o "ID do segredo") para `OAUTH_MICROSOFT_CLIENT_SECRET`, e o "ID do aplicativo
+   (cliente)" da visão geral para `OAUTH_MICROSOFT_CLIENT_ID`. **Anote a data de
+   expiração** (no máximo 24 meses): vencido, o login Microsoft para com
+   `OAUTH_CALLBACK_FAILED provider=microsoft reason=provider_error detail=token_http_401`.
+5. **Configuração de token → Adicionar declaração opcional → ID:** marque
+   `email` e `xms_edov`. Sem `xms_edov`, conta corporativa nova cai em
+   `email_unverified` (só conta pessoal e quem já está vinculado entram).
+6. **Permissões de API:** Microsoft Graph, delegadas `openid`, `email` e
+   `profile` (o `User.Read` padrão pode ficar). Não pedem consentimento de
+   administrador.
+7. Tenant de hospital que bloqueia consentimento de usuário a apps de terceiros
+   mostra "Precisa da aprovação do administrador": o TI do hospital consente uma
+   vez pelo link que a própria tela oferece. A **verificação do editor**
+   (Partner Center) remove esse bloqueio na maioria dos tenants.
+
+### Deploy
+
+1. Migration `20261014150000_cc334_external_identities` antes da API, como em
+   "Aplicar migrations em produção". Ela cria `external_identities` (com GRANT
+   para `copiloto_app`) e deixa `physicians.password_hash` aceitar NULL — só
+   relaxa a restrição, nenhuma linha muda.
+2. API e web novos. As variáveis entram em `docker/.env.production`; o
+   `docker-compose.prod.yml` já as repassa.
+3. Conferir: `curl -s https://copiloto.servidortozato.cloud/v1/auth/oauth/providers`
+   lista os provedores configurados, e os botões aparecem em `/login`.
+
+### Como funciona
+
+- **Conta externa já vinculada** (chave: provedor + `sub` do id_token, não o
+  e-mail): entra direto. Com MFA ligado, pede o código como no login por senha.
+- **E-mail confirmado pelo provedor, sem cadastro:** a página `/login/oauth`
+  pede CRM (obrigatório) e o aceite da Política de Privacidade; só então a conta
+  é criada, sem senha, e segue para o onboarding. Não existe conta sem CRM.
+- **E-mail de um cadastro existente:** nunca vincula sozinho. O médico digita a
+  senha da conta uma vez (mesmo bloqueio por tentativas do login); com MFA
+  ligado, o vínculo só é gravado depois do código.
+- **E-mail não confirmado pelo provedor:** recusa (`email_unverified`). No
+  Google vale `email_verified`; na Microsoft, conta pessoal ou `xms_edov`
+  (o administrador de um tenant consegue pôr qualquer e-mail num usuário).
+- id_token conferido: assinatura RS256 pela chave do JWKS do provedor (cache de
+  1 h; `kid` desconhecido rebusca no máximo a cada 30 s), `aud` = nosso client
+  id, `exp`, `nonce` do fluxo e `iss` (Microsoft: o do tenant do próprio token).
+- Cookies do fluxo (`oauth_flow`, `oauth_pending`): httpOnly, `SameSite=Lax`,
+  caminho `/v1/auth/oauth`, 10 e 15 min. Assinados com segredos derivados do
+  `JWT_ACCESS_SECRET`, não valem como sessão.
+
+### Logs e trilha
+
+- `OAUTH_CALLBACK_FAILED provider=<p> reason=<motivo> detail=<causa>` (WARN):
+  `state_mismatch` (cookie do fluxo ausente/expirado ou outra aba),
+  `invalid_token` (`detail` = `audience`, `expired`, `issuer`, `nonce`, `signature`…),
+  `provider_error` (`token_http_<status>`, `jwks_unavailable`),
+  `email_unverified`. Nunca e-mail, `sub` ou token.
+- `OAUTH_JWKS_FETCH_FAILED uri=...` (WARN): o JWKS do provedor não respondeu.
+- Trilha: `AUTH_LOGIN`, `AUTH_LOGIN_MFA_REQUIRED` e `AUTH_LOGIN_FAILED` com
+  `{ method: 'oauth', provider }` (falha também com `reason`); `AUTH_REGISTER`
+  com `{ crmUf, method, provider }`; `AUTH_OAUTH_LINKED { provider }` e
+  `AUTH_OAUTH_LINK_FAILED { provider, reason }`. Sem e-mail nem `sub`.
+
+### Suporte e rollback
+
+```sql
+-- Contas externas de um médico
+SELECT provider, email_at_link, created_at, last_login_at
+FROM external_identities WHERE physician_id = '<id>';
+
+-- Desvincular (o médico volta a ver a tela de vínculo no próximo login)
+DELETE FROM external_identities WHERE physician_id = '<id>' AND provider = 'google';
+```
+
+- **Desligar:** apague as variáveis do provedor e suba a API de novo (`up -d
+  --no-deps copiloto-api`). ⚠️ Quem criou a conta pelo login social não tem
+  senha e fica sem entrar até o provedor voltar — não há tela para criar senha
+  depois. Antes de desligar, contar: `SELECT count(*) FROM physicians WHERE
+  password_hash IS NULL;`
+- A eliminação LGPD apaga `external_identities` do médico; a portabilidade
+  (`GET /lgpd/data`) inclui as contas vinculadas.
 
 ---
 
@@ -1010,6 +1919,40 @@ sem se invalidar.
 apenas na resposta. Acesso a um protocolo de outra instituição retorna `404`
 (nunca `403`, para não confirmar a existência do recurso).
 
+**5. Desativar uma instituição (nunca apagar)**
+
+Desde a CC-021 o banco recusa apagar instituição que tenha protocolo, trecho
+de diretriz ou atendimento (`ON DELETE RESTRICT`, erro `violates foreign key
+constraint`). Antes, o `institution_id` desses registros virava `NULL`, e o
+material interno passava a aparecer para todos os médicos. Para tirar uma
+instituição de uso, desative-a. Não há rota para isso (`POST /v1/institutions`
+só cria); na VPS, como owner:
+
+```bash
+docker exec -i copiloto-db psql -v ON_ERROR_STOP=1 -U "$POSTGRES_OWNER_USER" -d copiloto_clinico \
+  -c "UPDATE institutions SET status = 'inactive', updated_at = now() WHERE id = '<uuid>';"
+```
+
+O conteúdo continua institucional, nunca global. Com a CC-019 (filtro por
+vínculo ativo), vínculo com instituição `inactive` não conta e os médicos dela
+deixam de ver esse conteúdo; antes dela, a aplicação não lê `status`.
+
+Só se apaga instituição sem nada apontando para ela (ex.: criada por engano).
+O vínculo com médicos sai junto (`CASCADE`). Para ver o que ainda a prende:
+
+```sql
+SELECT 'protocols' AS tabela, count(*) FROM protocols WHERE institution_id = '<uuid>'
+UNION ALL SELECT 'guideline_chunks', count(*) FROM guideline_chunks WHERE institution_id = '<uuid>'
+UNION ALL SELECT 'encounters', count(*) FROM encounters WHERE institution_id = '<uuid>';
+```
+
+Não zere `institution_id` para destravar o `DELETE`: em protocolo e diretriz,
+`NULL` publica o conteúdo para todos (ADR-009, adendo CC-021).
+
+A migration `20261015190000_cc_021_institution_delete_restrict` só troca a
+regra das três FKs: não depende de código novo e entra pelo passo 2 de
+"Aplicar migrations em produção", sem janela.
+
 ---
 
 ## Migrações
@@ -1029,6 +1972,14 @@ apenas na resposta. Acesso a um protocolo de outra instituição retorna `404`
 | `20260924180000_f9_guideline_chunks_text_tsv_generated` | `guideline_chunks.text_tsv` vira coluna gerada + índice GIN — liga a busca lexical (ver "Busca lexical (`text_tsv`) — F9") |
 | `20260924220000_ivfflat_probes_exact` | `ivfflat.probes = 100` no banco: busca vetorial exata (incidente de 24/09/2026) |
 | `20261012180000_aud_007_audit_log_hash_version` | `audit_log.hash_version` (NULL = hash legado, 2 = JSON canônico) — ADR-015; só adiciona coluna nula |
+| `20261014120000_cc_402_knowledge_cards` | Cartões revisados (ADR-019): `knowledge_card_drafts`, `knowledge_cards`, `knowledge_card_versions`, trigger que congela o conteúdo assinado e GRANT sem DELETE; só cria tabelas |
+| `20261014120000_cc_707_mentoring_requests` | Tabela `mentoring_requests` (pedidos de mentoria, um em aberto por caso) e `physicians.is_mentor` — CC-707 |
+| `20261014150000_cc334_external_identities` | Tabela `external_identities` (login com Google/Microsoft) e `physicians.password_hash` opcional — CC-334; só cria tabela e relaxa NOT NULL |
+| `20261014180000_ai_calls_fallback_from` | `ai_calls.fallback_from` (perfil que caiu, na chamada feita no modelo de reserva) — CC-107; só adiciona coluna nula |
+| `20261014180000_cc_703_knowledge_gaps` | Tabela `knowledge_gaps` (registro de lacunas, CC-703); só cria tabela e tipo, sem tocar nas existentes |
+| `20261014200100_audio_capture_retention` | `audio_captures.encrypted_content` anulável + CHECK `deleted` ⇔ sem áudio (retenção de 30 dias). Só metadado de coluna e CHECK: a versão anterior da API roda sobre o schema novo |
+| `20261015130000_cc_801_shift_reviews` | Tabelas `shift_reviews` e `shift_review_questions` (CC-801, "Revise seu plantão"); só cria tabelas e enums, com GRANT de DML para `copiloto_app` |
+| `20261015180000_cc207_chief_complaint_text` | `encounters.chief_complaint` de `VARCHAR(140)` para `TEXT`, para caber o valor cifrado — CC-207/ADR-021; sem reescrever a tabela |
 
 ### Rollback de Migration
 
@@ -1036,6 +1987,36 @@ Prisma não suporta rollback automático. Para reverter:
 1. Criar nova migration com o `ALTER TABLE` inverso
 2. Aplicar normalmente via `prisma migrate deploy`
 3. Nunca deletar migrations já aplicadas em produção
+
+---
+
+## Containers de produção (CC-013)
+
+`docker/docker-compose.prod.yml` sobe `copiloto-db`, `copiloto-redis`,
+`copiloto-api` (`docker/Dockerfile.api`) e `copiloto-web`
+(`docker/Dockerfile.web`). Não há container de worker:
+
+- **Worker da fila e crons rodam dentro da API.** `InferenceWorkerService`
+  (BullMQ, fila `inference`) sobe no `onModuleInit` do `QueueModule`, e os
+  crons de `src/workers/` (cadeia de auditoria, saúde do banco, abandono do
+  funil) vêm do `ScheduleModule`, no mesmo processo. Concorrência e ritmo:
+  `INFERENCE_QUEUE_CONCURRENCY` e `INFERENCE_QUEUE_RATE_PER_SEC`.
+- **`docker/worker.Dockerfile` foi removido.** Ele rodava `dist/workers/main.js`,
+  que nunca existiu, e copiava de uma imagem `copiloto-api:latest` que nenhum
+  compose gera. Separar o worker exige um entrypoint próprio que suba só a
+  fila, sem HTTP e sem os crons (senão os crons rodam duas vezes); só vale a
+  pena se a análise pela fila competir com a API por CPU.
+
+**Object storage (MinIO/S3): desligado em produção, de propósito.** O
+compose não repassa `MINIO_*`, então `StorageService.isAvailable()` é falso:
+o PDF do documento confirmado é montado na hora do download
+(`DocumentsService`, "PDF sob demanda") e nada fica gravado fora do banco.
+Ligar exige subir um MinIO (ou usar S3) com backup e retenção próprios e
+resolver o PDF que fica órfão na eliminação da conta (em PR aberto, #142).
+Até lá, nenhum ganho justifica guardar mais uma cópia do documento clínico.
+
+**Sentry:** o `SENTRY_DSN` no compose e o evento sem corpo nem cabeçalhos de
+credencial vêm do PR #168 (seção "Sentry" em Monitoramento).
 
 ---
 
@@ -1047,32 +2028,71 @@ Prisma não suporta rollback automático. Para reverter:
 | `JWT_REFRESH_SECRET` | Refresh tokens inválidos |
 | `TRUSTED_PROXY_HOPS` | Proxies confiáveis à frente da API (padrão 1 = Traefik). Define o IP do limite de tentativas e o gravado na trilha de auditoria. Alto demais (2 sem Cloudflare) deixa o cliente escolher esse IP; baixo demais (1 com Cloudflare) junta médicos no mesmo limite e grava o IP da Cloudflare. Ver "Limite de tentativas" |
 | `INTERNAL_SERVICE_TOKEN` | Endpoint `/audit/verify-chain` inacessível |
+| `BETA_INVITE_REQUIRED` | `on` fecha o cadastro para quem não tem convite do beta (CC-702): sem código válido, `403 BETA_INVITE_REQUIRED` e o web abre a lista de espera. `off` (padrão) = cadastro aberto, como antes. Ausente ou irreconhecível = `off`. Ver "Beta por convite (CC-702)". Exige a migration `20261015120000_cc702_beta_convites` |
 | `AI_API_KEY` | Análise clínica indisponível |
 | `DATABASE_URL` | Sistema completamente indisponível ou rodando com privilégios excessivos |
 | `MIGRATION_DATABASE_URL` | Migrations indisponíveis ou executadas com usuário incorreto |
+| `FIELD_ENCRYPTION_KEY` | API não sobe (segredo do MFA). Trocada sem `FIELD_ENCRYPTION_KEY_PREVIOUS`: MFA, áudio e texto clínico cifrado deixam de abrir (`SealedValueError`). Perdida: o texto clínico cifrado não volta |
+| `CLINICAL_TEXT_ENCRYPTION` | `on` grava o texto clínico cifrado (CC-207/ADR-021); `off` (padrão) grava em claro. A leitura abre os dois sempre: desligar é o rollback. Ausente ou irreconhecível = `off`. Ver "Texto clínico cifrado em repouso" |
+| `FIELD_ENCRYPTION_KEY_PREVIOUS` | Só durante uma rotação: a chave anterior, para decifrar. Vazia = sem rotação |
 | `OFFICIAL_GUIDELINES_ENABLED` | `false` tira PCDT/DDT/DB/PU do retrieval (válvula de escape da ADR-010); ausente = ligada. Os limiares `OFFICIAL_*` estão em `.env.example` |
+| `KNOWLEDGE_CARDS_DRAFT_ENABLED` | `true` liga o rascunho de cartões por IA (CC-403: `pnpm cards:draft` e `POST /v1/admin/knowledge-cards/drafts`). Ausente ou irreconhecível = desligado (503). Modelo em `AI_CARD_DRAFT_MODEL` (vazio = `AI_MODEL`; aceita `perfil:modelo`). Não muda a análise do Copiloto |
 | `UNREVIEWED_SOURCES_PRELIMINARY` | `false` desliga a contenção da ADR-012: PCDT e chunk curado sem assinatura voltam a embasar conduta definitiva. Ausente ou irreconhecível = ligada |
 | `COPILOT_REASONING` | `stages` liga o raciocínio em etapas da ADR-013 (entendimento do caso antes da busca, busca dirigida, card "O que eu entendi"); `legacy` (padrão) volta ao pipeline de sempre. Ausente ou irreconhecível = `legacy`. Etapa 1 com `AI_UNDERSTANDING_MODEL` (vazio = `AI_MODEL`) e `AI_UNDERSTANDING_EFFORT` (padrão `low`). Falha da Etapa 1 aparece como `UNDERSTANDING_FAILED`/`UNDERSTANDING_FALLBACK` no log e a análise segue pela busca de sempre |
 | `COPILOT_DECISION_PROMPT` | `v2` liga a decisão em duas camadas da ADR-013 ("Fazer agora" × "Depende de…", perguntas que separam hipóteses, conhecimento geral do modelo rotulado e sem dose); `v1` (padrão) é o prompt de sempre. Exige `COPILOT_REASONING=stages`: sem ele fica `v1` e o log mostra `DECISION_PIPELINE_DOWNGRADE`. Regra da v2 que sobra depois do retry vira `OUTPUT_VALIDATION_WARNING`, nunca bloqueio |
+| `COPILOT_WHY_LINE` | CC-601: `on` pede, em cada conduta "Fazer agora", uma linha de "por quê" de até 120 caracteres em linguagem simples, que o médico abre ao tocar em "Por quê"; sem ela (flag desligada, conduta "depende" ou linha descartada), a tela mostra o `rationale` de sempre. `off` (padrão) deixa o prompt e a saída da decisão byte a byte como antes. Ausente ou irreconhecível = `off`. Exige `COPILOT_DECISION_PROMPT=v3` ou `v4`: com outro prompt fica desligada e o log mostra `DECISION_PIPELINE_DOWNGRADE`. Nunca pede retry sozinha: linha acima do teto sai da resposta e aparece como `OUTPUT_VALIDATION_WARNING: WHY LINE TOO LONG`, conduta "agora" sem linha como `WHY LINE MISSING` (só índices, sem texto clínico). A interação grava `params.whyLine: true`. Liberar só depois do gabarito com e sem a linha (variantes `claude-opus-5-5-v3-modelo` e `claude-opus-5-5-v3-por-que`): sem aumento de erro crítico nem de latência acima de 10% |
 | `COPILOT_INTAKE` | `on` liga o Copiloto guiado da ADR-014: antes do plano, a leitura do caso decide se pergunta (no máximo 3 perguntas, uma por vez). `off` (padrão) vai direto ao plano. Ausente ou irreconhecível = `off`. Modelo da leitura em `AI_INTAKE_MODEL` (vazio = o da Etapa 1). No log: `INTAKE_READING` (tempo e perguntas), `INTAKE_STARTED` (caminho: `ask`, `unstable`, `complete`, `reading_failed`, `disabled`), `INTAKE_CLOSED` (motivo) e `INTAKE_READING_TIMEOUT` (leitura passou de 20 s e o caso seguiu direto ao plano). Exige a migration `20261012120000_adr_014_case_intakes` |
+| `AI_FALLBACK_MODEL` | CC-107: modelo de reserva quando o provedor de uma etapa fica fora do ar (prazo, rede, 5xx, 429, limite de uso); uma nova tentativa nele. Vazio = sem reserva. Por etapa: `AI_<ETAPA>_FALLBACK_MODEL` (`none` desliga). Ver "Reserva de provedor (CC-107)". No log: `AI_FALLBACK`, `AI_FALLBACK_SKIPPED`, `AI_FALLBACK_FAILED` |
+| `WHISPER_MODEL` | CC-205: modelo da transcrição do ditado, `whisper-large-v3` (padrão) ou `whisper-large-v3-turbo`. Ausente ou irreconhecível = `whisper-large-v3`. Ver "Modelo da transcrição" e docs/evals/transcricao.md |
+| `DEID_CONTEXT_RULES` | CC-201/CC-202/CC-206: `on` (padrão) faz a máscara de PII tirar também o número de prontuário pelo rótulo ("prontuário", "RH", "registro", "matrícula", "BE", "nº de atendimento" → `[REDACTED_RECORD]`) e o nome depois de tratamento ou apelido ("Seu Zé", "Dona Cida", "Sr. João", "Tião" → `[NOME]`), sem tocar a lista de epônimos protegidos (`src/modules/copilot/guardrails/protected-clinical-terms.list.ts`, revisão médica pendente). `off` volta à regex anterior, sem redeploy, se aparecer máscara indevida em texto clínico. Ausente ou irreconhecível = `on`. Vale para o caso, as respostas do afunilamento, áudio, anexos, busca de diretrizes e notas livres. No log (debug): `PII detection ... {"record":1,"name":2}`, só a contagem por tipo |
+| `COPILOT_MENTORING` | `on` liga "Discutir com um médico da equipe" (CC-707): o caso vai mascarado, com o plano da IA, para os médicos com `is_mentor`; a resposta aparece no caso. `off` (padrão): nada aparece e as rotas da mentoria respondem 404. Ausente ou irreconhecível = `off`. Termo provisório até o parecer (CC-708). No log: `MENTORING_REQUESTED`, `MENTORING_NOTIFY`, `MENTORING_NO_ELIGIBLE_MENTOR`, `MENTORING_NOTIFY_FAILED` e uma linha por transição. Ver "Mentoria em modo concierge (CC-707)" |
 | `AI_DECISION_MODEL` / `AI_DECISION_CRITICAL_MODEL` | ADR-016: modelo da decisão no caso comum e no caso grave (instável ou tempo-crítico pela Etapa 1, ou sem entendimento). Vazios = `AI_MODEL` nas duas rotas. Crítico vazio = o comum nas duas. Aceitam `perfil:modelo`. No log: `DECISION_MODEL route=critical\|standard model=...`; a interação grava `params.decisionRoute` |
+| `SMTP_HOST` e demais `SMTP_*`, `WEB_PUBLIC_URL` | Vazio: nenhum e-mail sai, cada envio vira `MAIL_LOGGED` no log e o fluxo segue. Preenchido com alguma variável errada: `MAIL_SMTP_CONFIG_INVALID` no boot e também nada sai. Ver "E-mail transacional (CC-015)" |
+| `COPILOT_SHIFT_REVIEW` | CC-801: `true` liga "Revise seu plantão" (perguntas sobre os próprios casos com grau de certeza). `false` (padrão) esconde a entrada e a API responde `disabled`; o job semanal não roda. Ausente ou irreconhecível = `false`. Modelo em `AI_SHIFT_REVIEW_MODEL` (vazio = `AI_MODEL`, aceita `perfil:modelo`) e esforço em `AI_SHIFT_REVIEW_EFFORT` (padrão `low`). No log: `SHIFT_REVIEW_READY`, `SHIFT_REVIEW_FAILED reason=...`, `SHIFT_REVIEW_ANSWERED`, `SHIFT_REVIEW_WEEKLY`, `REVIEW_QUESTIONS_RETRY`. Exige a migration `20261015130000_cc_801_shift_reviews`. Ver "Revise seu plantão (CC-801)" |
 | `COPILOT_KNOWLEDGE_SOURCE` | `internal_kb` (padrão) é a busca de sempre (embedding na OpenAI); `model_only` não busca nada; `web` pesquisa em fontes oficiais (`AI_RESEARCH_MODEL`, padrão `claude-sonnet-5-5`; `AI_RESEARCH_EFFORT`, padrão `low`; `WEB_RESEARCH_MAX_SEARCHES`, padrão 5; `WEB_RESEARCH_ALLOWED_DOMAINS`, vazio = 32 fontes padrão). `model_only` e `web` nunca chamam o provedor de embedding. `web` exige `stages` e `COPILOT_DECISION_PROMPT=v2` (sem eles vira `model_only`, com `DECISION_PIPELINE_DOWNGRADE` no log) e Anthropic como `AI_PROVIDER`; pesquisa que falha aparece como `WEB_RESEARCH_FALLBACK` e a análise segue só com o conhecimento do modelo |
+| `AI_DAILY_COST_ALERT_USD` / `AI_P95_ALERT_MS` | CC-005: teto do custo do dia (UTC, em USD) e meta do p95 da decisão na última hora (ms). Vazios ou inválidos = alerta desligado (inválido avisa `AI_CALL_ALERT_THRESHOLD_INVALID` no log). Ver "Alertas de custo e latência da IA" |
+| `COPILOT_SITE_CONTEXT` | CC-602/CC-603: `on` leva à decisão o local de plantão declarado no caso (porte, o que o serviço tem e **não** tem, especialistas, tempo até a referência) e a regra de transferência (destino, prioridade e conduta até a transferência; nada que exija recurso ausente no próprio serviço). Vale nos prompts v1 e v2/v3/v4. `off` (padrão), ou caso sem local declarado, mantém o prompt byte a byte igual. Ausente ou irreconhecível = `off`. No log: `SITE_CONTEXT facilityType=… missing=hasCT,hasICU specialists=n referenceMinutes=…` (sem texto do caso); a interação grava `params.siteContext: true`. Os locais do médico (Configurações → Locais de plantão) exigem a migration `20261014120000_cc_602_practice_sites`; o caso guarda uma cópia do local em `encounters.context.site` |
+| `LEGAL_TERMS_V2` | CC-905: `on` exige o aceite da versão vigente dos Termos de Uso e da Política de Privacidade (tela de aceite no web, 428 `TERMS_ACCEPTANCE_REQUIRED` na API, exceto aceite, logout e LGPD). `off` (padrão) não muda nada. Ausente ou irreconhecível = `off`. Sem versão publicada no console, nada é exigido. Ver "Termos de uso e política de privacidade (CC-905)" |
+| `OAUTH_GOOGLE_CLIENT_ID` / `OAUTH_GOOGLE_CLIENT_SECRET`, `OAUTH_MICROSOFT_CLIENT_ID` / `OAUTH_MICROSOFT_CLIENT_SECRET`, `APP_PUBLIC_URL` | CC-334: com os dois de um provedor e `APP_PUBLIC_URL`, o botão "Entrar com <provedor>" aparece; sem eles nada muda. Apagar depois de em uso deixa sem acesso quem criou a conta pelo login social (não tem senha) — ver "Login com Google e Microsoft". Segredo da Microsoft vence (máx. 24 meses) |
 
 ---
 
 ## Monitoramento
 
+### Sentry
+
+O Sentry só liga com `SENTRY_DSN` no `.env.production` (o compose repassa a
+variável). Antes de ligar, confirme região e retenção do projeto no Sentry
+(`docs/compliance/DPA_PROVIDER.md`). O evento vai sem corpo, query, cookies e
+cabeçalhos de credencial (`scrubSentryEvent`): o corpo da requisição é o caso
+clínico. Os logs de acesso com erro registram só os nomes dos campos do corpo
+(`bodyFields=`).
+
 ### Rastro das chamadas de IA (`ai_calls`)
 
 Cada chamada ao modelo grava uma linha em `ai_calls` e uma linha `AI_CALL` no
 log: etapa (`intake_reading`, `understanding`, `decision`, `research`,
-`verify_attach`, `guideline_classification`), perfil, provedor, modelo pedido
+`verify_attach`, `guideline_classification`, `review_questions`, `card_draft`), perfil, provedor, modelo pedido
 e servido, esforço, hash do system prompt (a versão do prompt), tokens, custo,
-latência e desfecho (`ok`, `refusal`, `truncated`, `error`, `aborted`). Nenhum
-texto do caso, do prompt ou da resposta. A resposta HTTP devolve
+latência e desfecho (`ok`, `refusal`, `truncated`, `error`, `aborted`), e
+`fallback_from` (o perfil que caiu) quando a chamada foi no modelo de reserva
+(CC-107). Nenhum texto do caso, do prompt ou da resposta. A resposta HTTP devolve
 `x-request-id`; o mesmo id está em `ai_calls.request_id` e em
 `ai_interactions.request_id`. Falha ao gravar vira `AI_CALL_LOG_FAILED` (WARN)
-e nunca para a análise.
+e nunca para a análise. Quando o provedor recusa por cota esgotada (limite de
+uso do workspace da Anthropic, falta de crédito, `insufficient_quota` da
+OpenAI), `error_type` termina em `:usage_limit` (ex.:
+`BadRequestError:400:usage_limit`); a mensagem do provedor não é gravada.
+
+**Painel (CC-004).** `/admin/analytics`, aba "Etapas e modelos" (ADMIN e
+COMPLIANCE; o médico comum recebe 403 da API). Em 24 h, 7 ou 30 dias: por
+etapa e modelo pedido, chamadas, custo total e médio, p50 e p95 de latência
+(`percentile_cont`, como abaixo) e falhas por desfecho; custo por análise
+completa (requisição com chamada `decision`, somando todas as chamadas dela);
+as 10 requisições mais caras; e a busca pelo `x-request-id`, que lista as
+chamadas da requisição. A API é `GET /v1/analytics/ai-calls?period=24h|7d|30d`
+e `GET /v1/analytics/ai-calls/requests/<x-request-id>`. Só metadados: nenhum
+texto do caso e nenhum id de médico, paciente ou atendimento.
 
 ```sql
 -- Custo, chamadas e latência por etapa e modelo nos últimos 7 dias
@@ -1086,7 +2106,67 @@ GROUP BY 1, 2 ORDER BY usd DESC NULLS LAST;
 -- Tudo o que uma requisição chamou (o médico ou o suporte citam o x-request-id)
 SELECT created_at, stage, served_model, outcome, latency_ms, cost_usd, left(prompt_sha256, 12)
 FROM ai_calls WHERE request_id = '<x-request-id>' ORDER BY created_at;
+
+-- CC-107: quantas etapas a reserva salvou, por etapa e perfil que caiu
+SELECT stage, fallback_from, count(*) AS fallbacks,
+       count(*) FILTER (WHERE outcome = 'ok') AS saved
+FROM ai_calls WHERE fallback_from IS NOT NULL AND created_at > now() - interval '7 days'
+GROUP BY 1, 2 ORDER BY fallbacks DESC;
 ```
+
+### Alertas de custo e latência da IA (CC-005)
+
+O cron `ai-call-alerts` roda a cada 5 min na API e lê `ai_calls`. Cada alerta
+sai como linha ERROR no log e, com `SENTRY_DSN` no container, como mensagem no
+Sentry (tag `component=ai-gateway`). Só números, etapa e provedor: nada do
+caso nem a mensagem do provedor. O "já avisei" fica no Redis
+(`ai-call-alert:*`), então um restart não repete o alerta.
+
+| Alerta | Liga com | Dispara quando | Repete |
+|---|---|---|---|
+| `AI_DAILY_COST_ALERT` (Sentry `warning`) | `AI_DAILY_COST_ALERT_USD` | Custo estimado somado desde 00:00 UTC (21:00 de Brasília) passa do teto | 1× por dia UTC |
+| `AI_DECISION_P95_ALERT` (Sentry `warning`) | `AI_P95_ALERT_MS` | p95 da etapa `decision` na última hora passa da meta, com ao menos 3 decisões na hora | No máximo 1× por hora |
+| `AI_PROVIDER_USAGE_LIMIT` (Sentry `error`) | Sempre ligado | Alguma chamada nos últimos 10 min voltou com `:usage_limit` | 1× por hora e provedor, enquanto durar |
+
+Para ligar, defina as variáveis em `docker/.env.production` (o compose já as
+repassa) e recrie a API:
+
+```bash
+# docker/.env.production
+AI_DAILY_COST_ALERT_USD=20
+AI_P95_ALERT_MS=60000
+```
+
+O custo é estimativa pelos tokens e pela tabela de preços do código; concilie
+com a fatura do provedor. O limite que derruba a produção é o do workspace na
+Anthropic: o alerta de custo avisa antes, o de cota avisa quando já bateu.
+Sem `SENTRY_DSN` (CC-003), os alertas ficam só no log.
+
+### Eventos de produto no Umami (CC-704)
+
+O web manda eventos ao Umami autoalojado (sem cookie) pelo módulo único
+`web/src/lib/analytics.ts`. A lista é fechada e nenhuma propriedade aceita
+texto livre: só valor de lista, número inteiro, sim/não ou id de ferramenta
+(kebab-case curto, nunca UUID). Evento fora da lista não sai. Sem o script do
+Umami (local, CI, e2e) nada é enviado.
+
+| Evento | Propriedades | Quando |
+|---|---|---|
+| `analise_iniciada` | `rodada`: `inicial` \| `reanalise` | Caso enviado; reanálise pedida depois do plano |
+| `analise_concluida` | `rodada`, `duracao_s` (montagem do plano) | Plano entregue nesta tela |
+| `pergunta_respondida` | `fase`: `antes_do_plano` \| `depois_do_plano`; `canal` (antes do plano): `tap` \| `text` \| `voice` | Cada resposta a uma pergunta do Copiloto (a correção do entendimento não conta) |
+| `feedback_enviado` | `tipo`: `wrong_scenario` \| `missing_coverage` \| `wrong_recommendation` \| `helpful` | Reporte sob a análise |
+| `nao_encontrei` | `com_nota`: sim/não | "Não encontrei o que precisava" (CC-703) |
+| `ferramenta_aberta` | `ferramenta` (id), `origem`: `hub` \| `busca` \| `plano` \| `link` | Pronto para a área Ferramentas |
+| `calculo_feito` | `ferramenta` (id) | Pronto para as calculadoras |
+| `cartao_aberto` | `cartao` (id), `origem`: `plano` \| `pergunta_rapida` \| `busca` | Pronto para os cartões; o id precisa ser um slug, o UUID do cartão é recusado |
+| `pergunta_rapida` | `fonte`: `cartao` \| `modelo`, `duracao_s` | Pronto para a pergunta rápida |
+
+A URL que o Umami anexa ao evento vai como rota, sem id e sem query
+(`/encounters/:id/conversation`). O pageview automático do script continua com
+a URL completa da página. Evento novo: acrescente em `PRODUCT_EVENTS` (o teste
+`web/src/lib/__tests__/analytics.test.ts` confere que nenhuma propriedade
+aceita texto livre) e nesta tabela.
 
 ### Logs de nível ERROR que exigem atenção imediata
 
@@ -1094,9 +2174,17 @@ FROM ai_calls WHERE request_id = '<x-request-id>' ORDER BY created_at;
 |---|---|---|
 | `AUDIT CHAIN INTEGRITY FAILURE` (também alerta no Sentry) | Cadeia rompida: conteúdo, elo ou versão de hash que não confere (ADR-015). "Legado não verificável" **não** dispara isto. | Ler a mensagem na tabela "Mensagens de falha" (em "Verificar integridade da trilha de auditoria"). Se for adulteração: isolar o sistema, investigar os registros suspeitos e acionar o DPO |
 | `Audit chain verification failed with exception` | Erro ao verificar cadeia | Verificar conectividade com banco |
+| `AUDIO RETENTION PURGE INCOMPLETE` | Captura com `retain_until` vencido ainda guarda áudio | O log anterior (`Audio retention purge failed for capture <id>`) traz a causa; o job retenta na hora seguinte. Se persistir, acionar DPO: o prazo de 30 dias da LGPD.md está sendo descumprido |
+| `Audio retention purge failed with exception` | Erro ao listar capturas vencidas | Verificar conectividade com banco |
 | `Output validation failed` | IA retornou resposta inválida | Verificar provider, possível mudança de modelo |
 | `Anthropic API error: status=...` | Falha na API da Anthropic | 4xx: ver "Trocar o provider ou o modelo de IA"; 429/5xx: o SDK já retentou 2x, checar status.anthropic.com |
+| `AI_FALLBACK_FAILED` | Provedor da etapa e modelo de reserva fora ao mesmo tempo (CC-107) | Ver "Reserva de provedor (CC-107)" |
 | `Injection detected` | Possível tentativa de prompt injection | Revisar logs de acesso, bloquear IP se necessário |
+| `SealedValueError` / `ClinicalTextQueryError` | Texto clínico cifrado que não abre (chave) ou consulta pelo conteúdo de um campo cifrado (bug) — CC-207 | Tabela "Erros" em "Texto clínico cifrado em repouso" |
+| `AI_PROVIDER_USAGE_LIMIT provider=...` (também no Sentry) | O provedor recusa chamadas por cota esgotada: as análises falham | Conferir o limite e o saldo no console do provedor (na Anthropic, o limite do workspace) e subir o limite, ou trocar de provedor ("Trocar o provider ou o modelo de IA"). Parar avaliações que usem a mesma chave |
+| `AI_DAILY_COST_ALERT day=...` (também no Sentry) | Custo estimado do dia passou de `AI_DAILY_COST_ALERT_USD` | Abrir `/admin/analytics` → "Etapas e modelos" (24 h) e ver a etapa, o modelo e as requisições mais caras. Avaliação rodando com a chave de produção é o suspeito de sempre |
+| `AI_DECISION_P95_ALERT p95Ms=...` (também no Sentry) | A decisão está mais lenta que `AI_P95_ALERT_MS` na última hora | Ver p95 por modelo no painel (24 h) e o status do provedor; se persistir, trocar `AI_DECISION_MODEL` ou baixar o esforço |
+| `AI_CALL_ALERT_CHECK_FAILED check=...` | A verificação dos alertas falhou (banco fora, por exemplo) | Verificar conectividade com o banco; os outros alertas seguem |
 
 ---
 

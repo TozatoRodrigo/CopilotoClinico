@@ -3,47 +3,21 @@ import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 
 /**
- * Campos que NUNCA devem aparecer em logs HTTP, independente do contexto.
- * Inclui campos de auth, credenciais e qualquer dado pessoal identificável.
+ * Só os nomes dos campos do corpo, nunca os valores. O corpo traz o texto do
+ * caso, as respostas do médico e comentários livres; uma lista de campos
+ * "sensíveis" sempre esquece o próximo campo clínico que alguém criar.
  */
-const SENSITIVE_FIELDS = new Set([
-  'password',
-  'passwordHash',
-  'password_hash',
-  'mfaSecret',
-  'mfa_secret',
-  'token',
-  'accessToken',
-  'refreshToken',
-  'mfaToken',
-  'authorization',
-  'x-internal-token',
-  'cookie',
-  'codeHash',
-  'code_hash',
-  'backupCodes',
-]);
-
-/**
- * Redacta campos sensíveis de um objeto antes de logar.
- * Opera de forma recursiva e não-mutante (retorna novo objeto).
- */
-export function sanitizeForLog(value: unknown, depth = 0): unknown {
-  if (depth > 5 || value === null || value === undefined) return value;
-  if (typeof value !== 'object') return value;
-  if (Array.isArray(value)) return value.map((v) => sanitizeForLog(v, depth + 1));
-
-  const sanitized: Record<string, unknown> = {};
-  for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
-    sanitized[key] = SENSITIVE_FIELDS.has(key) ? '[REDACTED]' : sanitizeForLog(val, depth + 1);
-  }
-  return sanitized;
+export function bodyFieldsForLog(body: unknown): string {
+  if (body === null || body === undefined) return '-';
+  if (Array.isArray(body)) return `array(${body.length})`;
+  if (typeof body !== 'object') return typeof body;
+  const fields = Object.keys(body);
+  return fields.length > 0 ? fields.join(',') : '-';
 }
 
 /**
- * Caminho da requisição sem a querystring. A rota GET /copilot/stream, mantida
- * para clientes PWA antigos, ainda leva o texto do caso na query, e a linha de
- * acesso não precisa dele: método, caminho e tempo bastam para depurar.
+ * Caminho da requisição sem a querystring: método, caminho e tempo bastam para
+ * depurar, e uma query pode carregar texto do médico.
  */
 export function pathForLog(url: string): string {
   const queryStart = url.indexOf('?');
@@ -51,10 +25,10 @@ export function pathForLog(url: string): string {
 }
 
 /**
- * Interceptor que loga requests/responses HTTP com campos sensíveis redactados.
+ * Interceptor que loga requests/responses HTTP sem dado do corpo nem da query.
  *
- * Garante que credenciais, tokens e dados pessoais nunca apareçam nos logs
- * de acesso HTTP, independente de quem chama o endpoint.
+ * Garante que credenciais, tokens, dados pessoais e texto clínico nunca
+ * apareçam nos logs de acesso HTTP, independente de quem chama o endpoint.
  *
  * Uso: aplicar globalmente via APP_INTERCEPTOR ou por controller.
  *
@@ -86,10 +60,8 @@ export class PiiLogSanitizerInterceptor implements NestInterceptor {
         error: (err: unknown) => {
           const ms = Date.now() - start;
           const message = err instanceof Error ? err.message : String(err);
-          // Sanitiza o body antes de logar erros — pode conter campos sensíveis
-          const safeBody = sanitizeForLog(req.body);
           this.logger.warn(
-            `${method} ${path} — ERROR ${ms}ms: ${message} body=${JSON.stringify(safeBody)}`,
+            `${method} ${path} — ERROR ${ms}ms: ${message} bodyFields=${bodyFieldsForLog(req.body)}`,
           );
         },
       }),

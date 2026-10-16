@@ -14,7 +14,7 @@
  * host impresso antes de usar `--apply`.
  */
 import { parseArgs } from 'util';
-import { PrismaClient } from '@prisma/client';
+import { PrismaService } from '../src/config/prisma.service';
 import { backfillCopilotFeedback } from '../src/modules/copilot/feedback/copilot-feedback-backfill';
 
 function databaseHost(): string {
@@ -36,9 +36,13 @@ async function main(): Promise<void> {
   const apply = values.apply ?? false;
   const batchSize = values['batch-size'] ? Number(values['batch-size']) : undefined;
 
-  console.log(`Banco: ${databaseHost()} — ${apply ? 'GRAVANDO' : 'dry-run (use --apply para gravar)'}`);
+  console.log(
+    `Banco: ${databaseHost()} — ${apply ? 'GRAVANDO' : 'dry-run (use --apply para gravar)'}`,
+  );
 
-  const prisma = new PrismaClient();
+  // CC-207 — o cliente da aplicação: com CLINICAL_TEXT_ENCRYPTION=on no
+  // ambiente, o comentário importado entra cifrado, como o da API.
+  const prisma = new PrismaService();
   try {
     const report = await backfillCopilotFeedback(prisma, { apply, batchSize });
     console.log(JSON.stringify(report, null, 2));

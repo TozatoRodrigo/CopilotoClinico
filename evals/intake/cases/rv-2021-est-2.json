@@ -1,0 +1,28 @@
+{
+  "id": "rv-2021-est-2",
+  "source": {
+    "kind": "clinical_case",
+    "caseId": "rv-2021-est-2"
+  },
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "UPA (RX convencional e US, laboratório, leitos de internação; sem TC/RM, sem centro cirúrgico, sem banco de sangue). Fem, 45a. Dor abdominal e vômitos com piora progressiva há 2 d; distensão abdominal, anorexia e parada de eliminação de flatos. EF: REG, desidratada 2+/4+, hipocorada 1+/4+, acianótica, afebril. PA 100x60, FC 100, FR 20, T 37,1 °C. Abdome globoso, distendido, hipertimpânico difusamente, doloroso à palpação superficial e profunda em todo o abdome, sem dor à descompressão brusca, RHA hipoativos. AR e ACV sem alterações. Lab: Hb 11,2, Ht 34,5%, leucócitos 12.110 sem desvio, plaquetas 251.000, PCR 10 mg/L (VR 5); ureia 21, creatinina 1,45, Na 125, K 3,0."
+  },
+  "expected": {
+    "sex": "F",
+    "age": 45,
+    "vitals": {
+      "systolicBp": 100,
+      "diastolicBp": 60,
+      "heartRate": 100,
+      "respiratoryRate": 20,
+      "spo2": null,
+      "temperature": 37.1,
+      "glucose": null
+    },
+    "syndrome": ["dor-abdominal"],
+    "instability": false
+  }
+}

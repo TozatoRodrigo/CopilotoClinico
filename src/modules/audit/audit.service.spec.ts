@@ -335,6 +335,65 @@ describe('AuditService', () => {
   });
 
   // ─────────────────────────────────────────────────
+  // logInTransaction()
+  // ─────────────────────────────────────────────────
+  describe('logInTransaction', () => {
+    it("writes the chained entry with the caller's transaction instead of opening one", async () => {
+      const previousAfterHash = 'b'.repeat(64);
+      // Sem `create`: o escritor dentro da transação do chamador tem de ser o
+      // canônico (INSERT com ::jsonb e hash_version 2, ADR-015). Um
+      // auditLog.create gravaria linha legada depois das canônicas, o que o
+      // verificador acusa como falha de integridade.
+      const tx = {
+        $executeRaw: vi.fn(),
+        auditLog: {
+          findFirst: vi.fn().mockResolvedValue({
+            afterHash: previousAfterHash,
+            createdAt: new Date('2020-01-01'),
+          }),
+        },
+      };
+      const payload = { physicianId: actorId, encounterId: entityId };
+
+      const entry = await service.logInTransaction(tx as never, {
+        actorId: 'system',
+        action: 'AUDIO_RETENTION_PURGE',
+        entity: 'AudioCapture',
+        entityId,
+        payload,
+      });
+
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(prisma.$executeRaw).not.toHaveBeenCalled();
+      expect(tx.$executeRaw).toHaveBeenCalledTimes(2);
+      expect(tx.$executeRaw.mock.invocationCallOrder[0]).toBeLessThan(
+        tx.auditLog.findFirst.mock.invocationCallOrder[0]!,
+      );
+
+      const [strings, ...values] = tx.$executeRaw.mock.calls[1] as [
+        TemplateStringsArray,
+        ...unknown[],
+      ];
+      expect(strings.join('?')).toMatch(/INSERT INTO audit_log/);
+      expect(values).toContain(canonicalJson(payload));
+      expect(entry.hashVersion).toBe(2);
+      expect(entry.beforeHash).toBe(
+        chainHashes(
+          canonicalEventText({
+            actorId: 'system',
+            action: 'AUDIO_RETENTION_PURGE',
+            entity: 'AudioCapture',
+            entityId,
+            payload,
+            timestamp: entry.createdAt.toISOString(),
+          }),
+          previousAfterHash,
+        ).beforeHash,
+      );
+    });
+  });
+
+  // ─────────────────────────────────────────────────
   // query()
   // ─────────────────────────────────────────────────
   describe('query', () => {

@@ -1,8 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { RequestMethod } from '@nestjs/common';
+import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { MfaService } from './mfa.service';
+
+// CC-014 — a tela de segurança chamava POST /auth/me/password e a rota é
+// PATCH: a troca de senha dava 404 sem ninguém notar. O web confere o verbo
+// em security-tab.test.tsx; este teste prende o lado da API.
+describe('AuthController routes', () => {
+  it('changes the password with PATCH /auth/me/password', () => {
+    const handler = AuthController.prototype.changePassword;
+
+    expect(Reflect.getMetadata(PATH_METADATA, AuthController)).toBe('auth');
+    expect(Reflect.getMetadata(PATH_METADATA, handler)).toBe('me/password');
+    expect(Reflect.getMetadata(METHOD_METADATA, handler)).toBe(RequestMethod.PATCH);
+  });
+});
 
 // CC-026 — a trilha de auditoria grava o IP que o Traefik acrescentou ao
 // X-Forwarded-For, o mesmo do limite por IP. Antes lia `req.ips?.[0] ??

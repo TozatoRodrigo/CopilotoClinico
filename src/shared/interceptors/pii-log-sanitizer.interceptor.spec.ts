@@ -3,93 +3,35 @@ import { CallHandler, ExecutionContext, Logger } from '@nestjs/common';
 import { lastValueFrom, of, throwError } from 'rxjs';
 import {
   PiiLogSanitizerInterceptor,
+  bodyFieldsForLog,
   pathForLog,
-  sanitizeForLog,
 } from './pii-log-sanitizer.interceptor';
 
-describe('sanitizeForLog', () => {
-  it('redacts password field', () => {
-    const result = sanitizeForLog({ email: 'dr@example.com', password: 'secret123' });
-    expect((result as Record<string, unknown>).password).toBe('[REDACTED]');
-    expect((result as Record<string, unknown>).email).toBe('dr@example.com');
+describe('bodyFieldsForLog', () => {
+  it('lists the field names and never the values', () => {
+    const line = bodyFieldsForLog({
+      caseText: 'Maria da Silva, 54 anos, dor torácica',
+      context: { hasCT: true },
+    });
+
+    expect(line).toBe('caseText,context');
+    expect(line).not.toContain('Maria');
   });
 
-  it('redacts token fields', () => {
-    const result = sanitizeForLog({
-      accessToken: 'eyJ...',
-      refreshToken: 'eyJ...',
-      mfaToken: 'eyJ...',
-    }) as Record<string, unknown>;
-    expect(result.accessToken).toBe('[REDACTED]');
-    expect(result.refreshToken).toBe('[REDACTED]');
-    expect(result.mfaToken).toBe('[REDACTED]');
-  });
-
-  it('redacts mfaSecret and codeHash', () => {
-    const result = sanitizeForLog({
-      mfaSecret: 'BASE32SECRET',
-      codeHash: 'abc123',
-    }) as Record<string, unknown>;
-    expect(result.mfaSecret).toBe('[REDACTED]');
-    expect(result.codeHash).toBe('[REDACTED]');
-  });
-
-  it('redacts passwordHash', () => {
-    const result = sanitizeForLog({ passwordHash: '$2b$12$...' }) as Record<string, unknown>;
-    expect(result.passwordHash).toBe('[REDACTED]');
-  });
-
-  it('passes through non-sensitive fields unchanged', () => {
-    const result = sanitizeForLog({
-      id: 'uuid-001',
-      name: 'Dr. Test',
-      crmVerified: true,
-    }) as Record<string, unknown>;
-    expect(result.id).toBe('uuid-001');
-    expect(result.name).toBe('Dr. Test');
-    expect(result.crmVerified).toBe(true);
-  });
-
-  it('handles nested objects recursively', () => {
-    const result = sanitizeForLog({
-      physician: {
-        id: 'uuid-001',
-        credentials: { password: 'secret', email: 'dr@example.com' },
-      },
-    }) as { physician: { credentials: Record<string, unknown> } };
-    expect(result.physician?.credentials?.password).toBe('[REDACTED]');
-    expect(result.physician?.credentials?.email).toBe('dr@example.com');
-  });
-
-  it('handles arrays', () => {
-    const result = sanitizeForLog([
-      { token: 'tok-1', id: '1' },
-      { token: 'tok-2', id: '2' },
-    ]) as Array<Record<string, unknown>>;
-    expect(result[0]?.token).toBe('[REDACTED]');
-    expect(result[0]?.id).toBe('1');
-    expect(result[1]?.token).toBe('[REDACTED]');
-  });
-
-  it('handles null and undefined values safely', () => {
-    expect(sanitizeForLog(null)).toBeNull();
-    expect(sanitizeForLog(undefined)).toBeUndefined();
-  });
-
-  it('handles primitive values', () => {
-    expect(sanitizeForLog('string')).toBe('string');
-    expect(sanitizeForLog(42)).toBe(42);
-    expect(sanitizeForLog(true)).toBe(true);
+  it('describes bodies that are not plain objects', () => {
+    expect(bodyFieldsForLog(undefined)).toBe('-');
+    expect(bodyFieldsForLog({})).toBe('-');
+    expect(bodyFieldsForLog([{ answer: 'sim' }])).toBe('array(1)');
+    expect(bodyFieldsForLog('texto livre')).toBe('string');
   });
 });
 
-// OPS-003 — a rota GET /copilot/stream (clientes PWA antigos) leva o texto do
-// caso na querystring (EventSource só faz GET): a linha de acesso nunca o grava.
+// OPS-003 — a linha de acesso nunca grava a querystring.
 describe('pathForLog', () => {
-  it('drops the query string, where streaming routes carry the physician text', () => {
-    expect(
-      pathForLog('/v1/encounters/enc-1/copilot/stream?caseText=dor%20tor%C3%A1cica&hasCT=true'),
-    ).toBe('/v1/encounters/enc-1/copilot/stream');
+  it('drops the query string, which may carry physician text', () => {
+    expect(pathForLog('/v1/guidelines/search?q=dor%20tor%C3%A1cica&limit=5')).toBe(
+      '/v1/guidelines/search',
+    );
   });
 
   it('keeps a path without query string unchanged', () => {
@@ -109,7 +51,7 @@ describe('PiiLogSanitizerInterceptor', () => {
     const req = {
       method: 'POST',
       url: '/v1/auth/login',
-      body: {},
+      body: { email: 'medica@example.com', password: 'senha-errada' },
       ip: SOCKET_IP,
       headers: { 'x-forwarded-for': CLIENT_IP },
     };
@@ -143,5 +85,7 @@ describe('PiiLogSanitizerInterceptor', () => {
       expect(line).not.toContain(CLIENT_IP);
       expect(line).not.toContain(SOCKET_IP);
     }
+    // A linha de erro continua com os nomes dos campos do corpo (#168).
+    expect(String(warn.mock.calls[0]?.[0])).toContain('bodyFields=email,password');
   });
 });

@@ -1,0 +1,30 @@
+{
+  "id": "cm-dissecao-aortica-vs-sca",
+  "source": {
+    "kind": "clinical_case",
+    "caseId": "cm-dissecao-aortica-vs-sca"
+  },
+  "review": {
+    "status": "draft",
+    "notes": "PA nos dois braços: vale qualquer uma das duas."
+  },
+  "input": {
+    "caseText": "Masc, 58a, hipertenso. Dor torácica súbita, \"rasgando\", irradia pro dorso, máxima desde o início, há 1h. PA 186x104 no braço D e 148x88 no E. FC 96. ECG: sinusal, sem supra."
+  },
+  "expected": {
+    "sex": "M",
+    "age": 58,
+    "vitals": {
+      "systolicBp": [186, 148],
+      "diastolicBp": [104, 88],
+      "heartRate": 96,
+      "respiratoryRate": null,
+      "spo2": null,
+      "temperature": null,
+      "glucose": null
+    },
+    "syndrome": ["dor-toracica"],
+    "instability": false,
+    "timeCritical": true
+  }
+}

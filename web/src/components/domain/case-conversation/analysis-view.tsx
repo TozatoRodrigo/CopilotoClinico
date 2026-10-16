@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { useGenerateDocument, useEncounterDetail } from '@/lib/clinical-queries';
 import { QuickConsultBanner } from '@/components/domain/quick-consult-banner';
 import {
@@ -765,8 +765,8 @@ function RedFlagTag({
  *
  * Visual: linha de to-do do Notion, compacta para o plano caber numa tela —
  * na conduta que espera um dado, a condição vem antes ("Se TC sem
- * sangramento", "→ trombólise"); a justificativa abre em "Por quê"; adotar,
- * rejeitar e anotar são ícones na mesma linha.
+ * sangramento", "→ trombólise"); a linha de "por quê" (ou a justificativa)
+ * abre em "Por quê"; adotar, rejeitar e anotar são ícones na mesma linha.
  */
 export function RecommendationItem({
   rec,
@@ -801,6 +801,7 @@ export function RecommendationItem({
   const messages = useMessages();
   const [showWhy, setShowWhy] = useState(false);
   const [showNote, setShowNote] = useState(false);
+  const whyPanelId = useId();
   // F0-D — `modified` é adoção com ajuste (Adotar + nota): mesma aparência de
   // adotada, com o rótulo dizendo que houve ajuste.
   const isModified = decision?.decision === 'modified';
@@ -816,6 +817,12 @@ export function RecommendationItem({
   const markerReason = conditionCoversPreliminary ? null : preliminaryReason;
   const isModelKnowledge = rec.origin === 'model_knowledge';
   const noteLabel = decision?.note ? 'Editar nota' : 'Anotar';
+  // CC-601 — "Por quê" abre a linha em linguagem simples quando a decisão a
+  // escreveu; sem ela (flag desligada, "depende", análise antiga), a
+  // justificativa de sempre. Com fonte oficial divergente, a justificativa
+  // aparece também: é ela que diz no quê.
+  const whyLine = rec.why?.trim() || null;
+  const showRationale = whyLine === null || preliminaryReason === 'source_conflict';
 
   return (
     <div className="flex gap-3 py-3">
@@ -948,6 +955,7 @@ export function RecommendationItem({
           <button
             type="button"
             aria-expanded={showWhy}
+            aria-controls={whyPanelId}
             onClick={() => setShowWhy((open) => !open)}
             className="-ml-1 inline-flex items-center gap-1 rounded-sm px-1 py-1 text-[0.8125rem] text-muted-foreground hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-none"
           >
@@ -998,9 +1006,16 @@ export function RecommendationItem({
         </div>
 
         {showWhy && (
-          <p className="mt-0.5 text-sm leading-relaxed text-pretty text-muted-foreground">
-            {rec.rationale}
-          </p>
+          <div id={whyPanelId} className="mt-0.5 flex flex-col gap-1">
+            {whyLine && (
+              <p className="text-sm leading-relaxed text-pretty text-foreground">{whyLine}</p>
+            )}
+            {showRationale && (
+              <p className="text-sm leading-relaxed text-pretty text-muted-foreground">
+                {rec.rationale}
+              </p>
+            )}
+          </div>
         )}
 
         {showNote && (
