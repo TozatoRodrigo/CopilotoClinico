@@ -116,6 +116,8 @@ describe('AuthService', () => {
       jwt,
       config,
       auditService,
+      // CC-025 — os testes do limite por conta estão em auth.service.lockout.spec.ts.
+      { reserveAttempt: vi.fn(), clear: vi.fn() } as never,
       mfaService,
       crmVerificationService,
       crmCheckerService,
@@ -520,6 +522,7 @@ describe('AuthService', () => {
         realJwt,
         realConfig,
         realAudit,
+        {} as never,
         realMfa,
         crmVerification,
         crmChecker,

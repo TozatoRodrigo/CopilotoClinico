@@ -307,6 +307,99 @@ ORDER BY created_at, id;
    acusar falha, agora já no primeiro registro canônico. Os dados ficam
    corretos e voltar à versão nova resolve. A coluna pode ficar.
 
+### Limite de tentativas: login, MFA e troca de senha (CC-025)
+
+Duas camadas, independentes:
+
+- **Por IP** (`@nestjs/throttler`, em memória na API): `/auth/login` e
+  `/auth/register` 5 por minuto, `/auth/mfa/verify` 5 a cada 5 minutos, o resto
+  `THROTTLER_LIMIT` (600/min em produção). O IP é o N-ésimo a partir da
+  direita do `X-Forwarded-For`, com N = `TRUSTED_PROXY_HOPS` (padrão 1). Antes
+  do CC-025 era o primeiro da lista, que o cliente forja.
+- **Por conta** (`login_security_states`, no Postgres): 5 tentativas sem
+  acerto em 15 min bloqueiam por 15 min (`AUTH_LOCKOUT_*`). Contadores
+  separados: login (por e-mail), código do MFA (login com MFA, desativar o
+  MFA, gerar novos códigos de backup) e senha atual na troca de senha. Login
+  bloqueado responde 401, igual a senha errada; MFA e troca de senha
+  respondem 429 "Muitas tentativas".
+
+#### `TRUSTED_PROXY_HOPS` e o Traefik
+
+Cada proxy acrescenta à direita do XFF o IP de quem se conectou a ele; o que
+está à esquerda veio do cliente. O valor certo é o número de proxies entre a
+internet e a API:
+
+| Caminho | `TRUSTED_PROXY_HOPS` |
+|---|---|
+| cliente → Traefik → API (produção hoje) | `1` (padrão) |
+| cliente → Cloudflare com proxy ligado (nuvem laranja) → Traefik → API | `2` |
+| cliente → API, sem proxy | `0` |
+
+- **Com 1**, a configuração do Traefik não muda o resultado: a API usa o IP
+  que o próprio Traefik acrescentou, mesmo que ele repasse o XFF do cliente.
+- **Com 2**, o Traefik precisa aceitar o XFF **só** da Cloudflare:
+  `entryPoints.websecure.forwardedHeaders.trustedIPs` com as faixas de
+  <https://www.cloudflare.com/ips/> e **sem** `forwardedHeaders.insecure`.
+  Assim, quem chega direto ao Traefik (pulando a Cloudflare) tem o XFF
+  descartado e a API usa o IP que o Traefik viu. Com `insecure` ou
+  `trustedIPs` amplo (ex.: `0.0.0.0/0`), quem pula a Cloudflare escolhe o
+  próprio rastreador.
+- **Ligar a Cloudflare e trocar para 2 no mesmo deploy.** Com 1 atrás da
+  Cloudflare, o rastreador vira o IP da borda dela, e médicos diferentes
+  dividem os mesmos 5 logins por minuto.
+- Valor inválido na env: a API usa 1 e loga `TRUSTED_PROXY_HOPS inválido`
+  na subida.
+
+Conferir na VPS (a configuração estática do Traefik não está neste repo):
+
+```bash
+# Flags de linha de comando do Traefik
+docker inspect <container-do-traefik> --format '{{range .Args}}{{println .}}{{end}}' \
+  | grep -i -E 'entrypoints|forwardedheaders'
+# Ou o arquivo estático montado (traefik.yml/traefik.toml)
+docker inspect <container-do-traefik> --format '{{range .Mounts}}{{println .Source}}{{end}}'
+grep -n -i -A4 'forwardedHeaders' <arquivo-estático>
+# Cloudflare na frente? Endereços dela (104.16.0.0/13, 172.64.0.0/13…) = proxy ligado
+dig +short copiloto.servidortozato.cloud
+```
+
+Teste depois do deploy, de fora da VPS (seu IP fica 1 min sem login):
+
+```bash
+for i in 1 2 3 4 5 6 7; do
+  curl -s -o /dev/null -w '%{http_code}\n' -X POST https://copiloto.servidortozato.cloud/v1/auth/login \
+    -H 'content-type: application/json' -H "x-forwarded-for: 198.51.100.$i" \
+    -d '{"email":"teste-limite@example.com","password":"senha-errada"}'
+done
+# Esperado: 401 cinco vezes e depois 429. Sete 401 = o XFF forjado ainda troca o rastreador.
+```
+
+#### Logs
+
+| Log (WARN) | Significado |
+|---|---|
+| `AUTH_RATE_LIMITED reason=ip route=AuthController.<rota> limit=… ttlMs=… blockedForS=…` | Um IP passou do limite numa rota de `/auth`. Uma linha por bloqueio, não por requisição recusada; sem o IP |
+| `RATE_LIMITED reason=ip route=…` | O mesmo fora de `/auth` |
+| `AUTH_RATE_LIMITED reason=account scope=login\|mfa\|password_change subject=<hash>` | Tentativa recusada porque a conta está bloqueada |
+| `AUTH_ACCOUNT_LOCKED scope=mfa\|password_change subject=<hash> durationMs=…` | Começo de um bloqueio por conta |
+
+`subject` são os 12 primeiros hex do sha256 do id do médico (`unknown` no
+login de e-mail sem cadastro). Bloqueios seguidos de `scope=mfa` para o mesmo
+`subject` querem dizer que alguém tem a senha desse médico: avisar o médico
+para trocá-la. Para achar o médico e, depois de confirmar com ele, desbloquear:
+
+```bash
+docker exec -i copiloto-db psql -v ON_ERROR_STOP=1 -U "$POSTGRES_OWNER_USER" -d copiloto_clinico <<'SQL'
+SELECT id FROM physicians
+WHERE left(encode(sha256(convert_to(id::text, 'UTF8')), 'hex'), 12) = '<subject>';
+
+-- Zera login, MFA e troca de senha desse médico
+UPDATE login_security_states
+SET failed_count = 0, locked_until = NULL, last_failed_at = NULL
+WHERE physician_id = '<id>';
+SQL
+```
+
 ### Aplicar migrations em produção
 
 Na VPS, em `~/apps/copiloto-clinico/docker`, **nesta ordem**:
@@ -981,6 +1074,7 @@ Prisma não suporta rollback automático. Para reverter:
 |---|---|
 | `JWT_ACCESS_SECRET` | Todos os tokens são inválidos ou forjáveis |
 | `JWT_REFRESH_SECRET` | Refresh tokens inválidos |
+| `TRUSTED_PROXY_HOPS` | Proxies confiáveis à frente da API (padrão 1 = Traefik). Alto demais (2 sem Cloudflare) deixa o cliente escolher o IP do limite de tentativas; baixo demais (1 com Cloudflare) junta médicos no mesmo limite. Ver "Limite de tentativas" |
 | `INTERNAL_SERVICE_TOKEN` | Endpoint `/audit/verify-chain` inacessível |
 | `AI_API_KEY` | Análise clínica indisponível |
 | `DATABASE_URL` | Sistema completamente indisponível ou rodando com privilégios excessivos |
