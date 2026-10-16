@@ -138,6 +138,8 @@ export interface ErasureResult {
     /** CC-602 — locais de plantão do médico. */
     practiceSites: number;
     consents: number;
+    /** CC-905 — aceites dos termos e da política. */
+    legalAcceptances: number;
     refreshTokens: number;
     /** PDFs de documentos confirmados apagados do MinIO. */
     storageObjects: number;

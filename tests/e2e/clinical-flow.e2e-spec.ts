@@ -988,6 +988,7 @@ describe('CC-018 — LGPD erasure ends the session (E2E)', () => {
       encounter: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
       practiceSite: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
       consent: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
+      legalAcceptance: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
       refreshToken: { deleteMany: vi.fn().mockResolvedValue({ count: 1 }) },
       physician: { update: vi.fn().mockResolvedValue({}) },
     };
