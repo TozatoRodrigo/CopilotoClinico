@@ -90,14 +90,11 @@ function failedCompletion(
  */
 @Injectable()
 export class RecordingAiGatewayService extends AiGatewayService {
-  private readonly configuredModel: string;
-
   constructor(
     @Inject(ConfigService) configService: ConfigService,
     @Inject(CompletionRecorder) private readonly recorder: CompletionRecorder,
   ) {
     super(configService);
-    this.configuredModel = configService.getOrThrow<string>('AI_MODEL');
   }
 
   override async complete(
@@ -105,7 +102,7 @@ export class RecordingAiGatewayService extends AiGatewayService {
   ): Promise<CompletionResponse> {
     const call = {
       messages: params.messages,
-      requestedModel: params.model ?? this.configuredModel,
+      requestedModel: this.route(params.model).model,
     };
     const startedAt = Date.now();
     try {
@@ -145,7 +142,7 @@ export class RecordingAiGatewayService extends AiGatewayService {
         { role: 'system' as const, content: params.system },
         { role: 'user' as const, content: params.prompt },
       ],
-      requestedModel: params.model ?? this.configuredModel,
+      requestedModel: this.route(params.model).model,
     };
     const startedAt = Date.now();
     try {

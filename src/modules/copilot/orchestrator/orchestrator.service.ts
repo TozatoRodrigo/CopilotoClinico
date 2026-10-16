@@ -5,6 +5,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../config/prisma.service';
 import { readBooleanFlag } from '../../../config/feature-flag';
 import { AiGatewayService } from '../../ai-gateway/ai-gateway.service';
+import { currentRequestContext } from '../../../shared/request-context/request-context';
 import { AiRefusalError, AiTruncatedError } from '../../ai-gateway/ai-gateway.errors';
 import type {
   CompletionUsage,
@@ -15,6 +16,7 @@ import type { RetrievalCoverage, RetrievedChunk } from '../retrieval/hybrid-sear
 import { EncountersService } from '../../encounters/encounters.service';
 import { AttachmentsService } from '../../encounters/attachments/attachments.service';
 import { AuditService } from '../../audit/audit.service';
+import { activeInstitutionIds } from '../../institutions/institution-visibility';
 import { maskPII } from '../guardrails/pii-filter';
 import { scanForInjection, type InjectionScanResult } from '../guardrails/injection-defense';
 import {
@@ -73,8 +75,10 @@ import { buildDecisionV2Prompt, type DecisionV2PromptInput } from './decision-pr
 import { buildDecisionV3Prompt } from './decision-prompt-v3';
 import { buildDecisionV4Prompt } from './decision-prompt-v4';
 import {
+  chooseDecisionModel,
   isStagedDecisionPrompt,
   readDecisionPipeline,
+  type DecisionModelChoice,
   type DecisionPipeline,
 } from './decision.settings';
 
@@ -758,6 +762,8 @@ interface PreparedAnalysis {
   logLabel: string;
   /** F1 — Etapa 1 deste turno; `null` com `COPILOT_REASONING=legacy`. */
   stage: UnderstandingOutcome | null;
+  /** Modelo da decisão deste turno, pela gravidade do caso (`chooseDecisionModel`). */
+  decisionModel: DecisionModelChoice;
   /**
    * F1 — pesquisa web deste turno; `null` fora de `COPILOT_KNOWLEDGE_SOURCE=web`.
    * Em `verify`, é `null` até a decisão e passa a ser a verificação depois
@@ -774,6 +780,12 @@ interface GatheredEvidence {
 }
 
 /** Turno 0 depois da redação de PII e da barreira de injeção. */
+/** CC-019 — de quem é a busca: a instituição do caso só vale com vínculo ativo. */
+interface EvidenceScope {
+  physicianId: string;
+  institutionId: string | null;
+}
+
 interface ScreenedCase {
   startedAt: number;
   maxTurns: number;
@@ -911,6 +923,14 @@ export class OrchestratorService {
    * F1 — flags do turno (raciocínio, prompt da decisão, fonte de
    * conhecimento), lidas uma vez por turno e sem redeploy para voltar.
    */
+  private decisionModel(stage: UnderstandingOutcome | null, logLabel: string): DecisionModelChoice {
+    const choice = chooseDecisionModel(this.config, stage?.understanding ?? null);
+    this.logger.log(
+      `DECISION_MODEL${logLabel} route=${choice.route} model=${choice.model ?? 'AI_MODEL'}`,
+    );
+    return choice;
+  }
+
   private decisionPipeline(logLabel: string): DecisionPipeline {
     const { pipeline, downgrades } = readDecisionPipeline(this.config);
     for (const downgrade of downgrades) {
@@ -946,11 +966,12 @@ export class OrchestratorService {
   private async gatherEvidence(
     caseText: string,
     stage: UnderstandingOutcome | null,
-    institutionId: string | null | undefined,
+    scope: EvidenceScope,
     pipeline: DecisionPipeline,
     logLabel: string,
   ): Promise<GatheredEvidence> {
     if (pipeline.knowledgeSource === 'internal_kb') {
+      const institutionId = await this.retrievalInstitution(scope, logLabel);
       return {
         retrievalResult: await this.retrieveEvidence(caseText, stage, institutionId, logLabel),
         research: null,
@@ -973,13 +994,32 @@ export class OrchestratorService {
   }
 
   /**
+   * CC-019 — a instituição do caso só abre o conteúdo institucional na busca
+   * enquanto o médico tem vínculo ativo com ela (ADR-009). O caso guarda a
+   * instituição de quando foi aberto; se o vínculo acabou ou a instituição
+   * foi desativada depois, a busca fica só no conteúdo global.
+   */
+  private async retrievalInstitution(
+    { physicianId, institutionId }: EvidenceScope,
+    logLabel: string,
+  ): Promise<string | null> {
+    if (!institutionId) return null;
+    const active = await activeInstitutionIds(this.prisma, physicianId);
+    if (active.includes(institutionId)) return institutionId;
+    this.logger.warn(
+      `RETRIEVAL_INSTITUTION_DROPPED${logLabel}: médico sem vínculo ativo com a instituição do caso — busca só no conteúdo global`,
+    );
+    return null;
+  }
+
+  /**
    * F1 — Etapa 2 (ADR-013): com entendimento, busca pelas consultas dele;
    * sem (legacy ou etapa que falhou), a busca de sempre pelo texto do caso.
    */
   private async retrieveEvidence(
     caseText: string,
     stage: UnderstandingOutcome | null,
-    institutionId: string | null | undefined,
+    institutionId: string | null,
     logLabel: string,
   ): Promise<RetrievalResult> {
     if (stage?.understanding) {
@@ -1167,6 +1207,8 @@ export class OrchestratorService {
     // modelo, usage) é o que dá o custo real da análise, e `for await` o
     // descartaria.
     const stream: AsyncIterator<string, StreamCompletionResult> = this.aiGateway.completeStream({
+      model: prepared.decisionModel.model,
+      stage: 'decision',
       messages: promptMessages(prepared.prompt),
       responseSchema: responseSchemaOf(prepared.pipeline),
     });
@@ -1413,7 +1455,7 @@ export class OrchestratorService {
     const evidence = await this.gatherEvidence(
       caseText,
       stage,
-      screened.institutionId,
+      { physicianId, institutionId: screened.institutionId },
       pipeline,
       logLabel,
     );
@@ -1465,6 +1507,7 @@ export class OrchestratorService {
       turn: { kind: 'initial', answeredQuestions: screened.answeredQuestions },
       logLabel,
       stage,
+      decisionModel: this.decisionModel(stage, logLabel),
       research: evidence.research,
     };
   }
@@ -1594,7 +1637,7 @@ export class OrchestratorService {
     const evidence = await this.gatherEvidence(
       screened.augmentedCaseText,
       stage,
-      screened.institutionId,
+      { physicianId, institutionId: screened.institutionId },
       pipeline,
       logLabel,
     );
@@ -1639,6 +1682,7 @@ export class OrchestratorService {
       turn: screened.turn,
       logLabel,
       stage,
+      decisionModel: this.decisionModel(stage, logLabel),
       research: evidence.research,
     };
   }
@@ -1685,6 +1729,8 @@ export class OrchestratorService {
   ): Promise<CompletionAttempt> {
     try {
       const completion = await this.aiGateway.complete({
+        model: prepared.decisionModel.model,
+        stage: 'decision',
         messages,
         responseSchema: responseSchemaOf(prepared.pipeline),
       });
@@ -1888,6 +1934,8 @@ export class OrchestratorService {
       inputRedacted: prepared.inputRedacted,
       retrievedChunkIds: prepared.prompt.retrievedChunkIds,
       model: attempt.model,
+      // Liga a interação às chamadas de IA da mesma requisição (ai_calls).
+      requestId: currentRequestContext()?.requestId ?? null,
       // S20-CLIN-01 — red flags marcadas pelo médico, para rastreabilidade
       // CFM (qualquer auditoria futura reconstrói quais bandeiras o médico
       // confirmou, independentemente do texto do caso); CC-05 — herdadas
@@ -1906,6 +1954,7 @@ export class OrchestratorService {
         // web fez (modelo, buscas, custo, motivo do fallback).
         knowledgeSource: prepared.pipeline.knowledgeSource,
         decisionPrompt: prepared.pipeline.decisionPrompt,
+        decisionRoute: prepared.decisionModel.route,
         ...(prepared.research ? { research: researchTrace(prepared.research) } : {}),
       },
       latencyMs: Date.now() - prepared.startedAt,

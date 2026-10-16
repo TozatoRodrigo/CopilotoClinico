@@ -87,6 +87,7 @@ export const CaseUnderstandingFields = z.object({
     .array(text.max(200))
     .min(1, 'searchQueries must contain at least 1 query')
     .max(MAX_SEARCH_QUERIES, `searchQueries must contain at most ${MAX_SEARCH_QUERIES} items`),
+  timeCritical: z.boolean(),
 });
 
 type UnderstandingFieldsOutput = z.output<typeof CaseUnderstandingFields>;
@@ -111,6 +112,15 @@ export function withUnderstandingRules<Output extends UnderstandingFieldsOutput,
 }
 
 export const CaseUnderstandingSchema = withUnderstandingRules(CaseUnderstandingFields);
+
+/**
+ * Entendimento gravado antes de `timeCritical` existir na Etapa 1
+ * (13/10/2026): o campo ausente conta como `false`. Só para ler o que já foi
+ * gravado; a saída do modelo continua obrigada a trazê-lo.
+ */
+export const StoredCaseUnderstandingSchema = withUnderstandingRules(
+  CaseUnderstandingFields.extend({ timeCritical: z.boolean().default(false) }),
+);
 
 export type StructuredValidation<Value> =
   | { valid: true; value: Value }

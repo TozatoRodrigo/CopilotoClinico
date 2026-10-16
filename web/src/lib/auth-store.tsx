@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, useEffect } from "react";
+import { createContext, useContext, useEffect, useSyncExternalStore } from "react";
 import type { Physician, PhysicianRole } from "@/lib/types";
 
 export type AppRole = "physician" | "compliance" | "admin";
@@ -51,84 +51,91 @@ function syncCookie(physician: Physician | null) {
   }
 }
 
-function getStoredState(): AuthState {
-  if (typeof window === "undefined") {
-    return { ...NOT_AUTHENTICATED, isLoading: false };
-  }
-  const physicianRaw = localStorage.getItem(PHYSICIAN_KEY);
-    if (physicianRaw) {
-    try {
-      const physician = JSON.parse(physicianRaw) as Physician;
-      return {
-        physician,
-        isAuthenticated: true,
-        role: toAppRole(physician.role),
-        isLoading: false,
-      };
-    } catch {
-      localStorage.removeItem(PHYSICIAN_KEY);
-    }
-  }
-  return { physician: null, isAuthenticated: false, role: DEFAULT_ROLE, isLoading: false };
-}
-
-const NOT_AUTHENTICATED: AuthState = {
+const LOADING: AuthState = {
   physician: null,
   isAuthenticated: false,
   role: DEFAULT_ROLE,
-  isLoading: true, // true até o useEffect verificar localStorage
+  isLoading: true, // servidor e hidratação: ainda não leu o localStorage
 };
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  // Hydration-safe: estado inicial é sempre NOT_AUTHENTICATED (igual no
-  // servidor e no primeiro render do client). A leitura do localStorage
-  // acontece DEPOIS da hidratação, no useEffect — evita mismatch.
-  const [state, setState] = useState<AuthState>(NOT_AUTHENTICATED);
+const SIGNED_OUT: AuthState = { ...LOADING, isLoading: false };
 
-  useEffect(() => {
-    // Lê localStorage APÓS a hidratação para evitar mismatch SSR vs client.
-    if (typeof window !== "undefined") {
-      const stored = getStoredState();
-      if (stored.isAuthenticated) {
-        setState({ ...stored, isLoading: false });
-        syncCookie(stored.physician);
-      } else {
-        setState({ ...NOT_AUTHENTICATED, isLoading: false });
-      }
-    }
-  }, []);
+// O médico logado mora no localStorage (e no cookie que o middleware lê); o
+// React lê por useSyncExternalStore. No servidor e na hidratação o snapshot é
+// LOADING, e o client troca pelo valor guardado logo depois — sem mismatch e
+// sem setState dentro de efeito. O cache por string mantém a mesma referência
+// enquanto o localStorage não muda, como o useSyncExternalStore exige.
+const authListeners = new Set<() => void>();
+let cachedRaw: string | null = null;
+let cachedState: AuthState = SIGNED_OUT;
 
-  useEffect(() => {
-    syncCookie(state.physician);
-  }, [state.physician]);
-
-  const login = useCallback((physician: Physician) => {
-    localStorage.setItem(PHYSICIAN_KEY, JSON.stringify(physician));
-    syncCookie(physician);
-    setState({
+function parseStoredPhysician(raw: string | null): AuthState {
+  if (!raw) return SIGNED_OUT;
+  try {
+    const physician = JSON.parse(raw) as Physician;
+    return {
       physician,
       isAuthenticated: true,
       role: toAppRole(physician.role),
       isLoading: false,
-    });
-  }, []);
+    };
+  } catch {
+    // JSON corrompido conta como sem sessão; o próximo login sobrescreve.
+    return SIGNED_OUT;
+  }
+}
 
-  const logout = useCallback(() => {
+function readAuthState(): AuthState {
+  const raw = localStorage.getItem(PHYSICIAN_KEY);
+  if (raw !== cachedRaw) {
+    cachedRaw = raw;
+    cachedState = parseStoredPhysician(raw);
+  }
+  return cachedState;
+}
+
+function readServerAuthState(): AuthState {
+  return LOADING;
+}
+
+function subscribeAuth(onChange: () => void): () => void {
+  authListeners.add(onChange);
+  return () => authListeners.delete(onChange);
+}
+
+function writePhysician(physician: Physician | null): void {
+  if (physician) {
+    localStorage.setItem(PHYSICIAN_KEY, JSON.stringify(physician));
+  } else {
     localStorage.removeItem(PHYSICIAN_KEY);
-    syncCookie(null);
-    setState({ physician: null, isAuthenticated: false, role: DEFAULT_ROLE, isLoading: false });
-  }, []);
+  }
+  syncCookie(physician);
+  authListeners.forEach((listener) => listener());
+}
 
-  // S24-ONBOARD-01 — merge partial em physician atual; mantém role atual.
-  const updatePhysician = useCallback((partial: Partial<Physician>) => {
-    setState((prev) => {
-      if (!prev.physician) return prev;
-      const next = { ...prev.physician, ...partial };
-      localStorage.setItem(PHYSICIAN_KEY, JSON.stringify(next));
-      syncCookie(next);
-      return { ...prev, physician: next };
-    });
-  }, []);
+function login(physician: Physician): void {
+  writePhysician(physician);
+}
+
+function logout(): void {
+  writePhysician(null);
+}
+
+// S24-ONBOARD-01 — merge partial em physician atual.
+function updatePhysician(partial: Partial<Physician>): void {
+  const current = readAuthState().physician;
+  if (!current) return;
+  writePhysician({ ...current, ...partial });
+}
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const state = useSyncExternalStore(subscribeAuth, readAuthState, readServerAuthState);
+
+  // Depois da hidratação, o cookie acompanha o localStorage: o middleware só
+  // enxerga o cookie, que expira (max-age) antes do localStorage.
+  useEffect(() => {
+    if (!state.isLoading) syncCookie(state.physician);
+  }, [state.isLoading, state.physician]);
 
   return (
     <AuthContext.Provider value={{ ...state, login, logout, updatePhysician }}>

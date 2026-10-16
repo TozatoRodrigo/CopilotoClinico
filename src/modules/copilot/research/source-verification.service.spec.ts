@@ -135,6 +135,7 @@ describe('SourceVerificationService', () => {
     expect(params).toEqual({
       model: 'claude-sonnet-5-5',
       effort: 'low',
+      stage: 'verify_attach',
       messages: [
         { role: 'system', content: SOURCE_ATTACH_SYSTEM_PROMPT },
         {

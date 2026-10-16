@@ -64,6 +64,7 @@ export function understandingFixture(
       'trombectomia mecânica oclusão de grande vaso',
       'hemorragia intracerebral controle pressórico',
     ],
+    timeCritical: false,
     ...overrides,
   };
 }

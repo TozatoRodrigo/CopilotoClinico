@@ -2,15 +2,7 @@ import type { JsonResponseSchema } from '../../ai-gateway/providers/provider.int
 import { INTAKE_ANSWER_TYPES, VITAL_SIGNS } from '../../../shared/contracts/clinical';
 import { CASE_UNDERSTANDING_PROPERTIES } from '../understanding/case-understanding.json-schema';
 import { READING_VITAL_SIGNS } from './intake-reading.schema';
-import {
-  arrayOf,
-  BOOLEAN,
-  nullable,
-  NUMBER,
-  oneOf,
-  STRING,
-  strictObject,
-} from '../schemas/json-schema';
+import { arrayOf, nullable, NUMBER, oneOf, STRING, strictObject } from '../schemas/json-schema';
 
 /**
  * ADR-014 — JSON Schema da leitura do caso (intake-reading.schema.ts). Os
@@ -41,7 +33,6 @@ export const INTAKE_READING_JSON_SCHEMA = {
       ...CASE_UNDERSTANDING_PROPERTIES.structuredData.properties,
       vitals: READING_VITALS,
     }),
-    timeCritical: BOOLEAN,
     intakeQuestions: arrayOf(INTAKE_QUESTION),
   }),
 } satisfies JsonResponseSchema;

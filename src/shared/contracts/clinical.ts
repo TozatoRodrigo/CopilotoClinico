@@ -484,6 +484,12 @@ export interface CaseUnderstanding {
   missingDiscriminators: Array<{ data: string; separates: string[]; whyItChangesConduct: string }>;
   /** Consultas da busca dirigida, de 1 a 4. */
   searchQueries: string[];
+  /**
+   * Alguma hipótese plausível pede tratamento em minutos a uma hora (AVC na
+   * janela, IAM com supra, sepse, anafilaxia...). Com a instabilidade, decide
+   * o modelo da decisão (AI_DECISION_CRITICAL_MODEL).
+   */
+  timeCritical: boolean;
 }
 
 /**
@@ -564,7 +570,7 @@ export interface CopilotAnalyzeResponse {
 export type RetrievalCoverage = 'full' | 'partial' | 'none';
 
 /**
- * UX-06 — eventos do stream SSE de GET /encounters/:id/copilot/stream e,
+ * UX-06 — eventos do stream SSE da conversa (GET .../intake/:id/stream) e,
  * na reanálise, do corpo de POST /encounters/:id/copilot/respond/stream.
  * Espelha `StreamEvent` de orchestrator.service.ts, mas com `result`
  * tipado como `CopilotAnalyzeResponse` (o formato de wire real que a HTTP

@@ -151,6 +151,96 @@ describe('AiGatewayService', () => {
     });
   });
 
+  describe('provider profiles', () => {
+    const GROQ_PROFILE = {
+      AI_PROVIDER_PROFILES: 'groq',
+      AI_PROVIDER_GROQ_KIND: 'openai',
+      AI_PROVIDER_GROQ_API_KEY: 'groq-key',
+      AI_PROVIDER_GROQ_BASE_URL: 'https://api.groq.com/openai/v1',
+    };
+
+    function mockChatCompletion() {
+      return vi.spyOn(globalThis, 'fetch').mockImplementation(() =>
+        Promise.resolve(
+          new Response(
+            JSON.stringify({
+              model: 'openai/gpt-oss-120b',
+              choices: [{ message: { content: '{"ok":true}' }, finish_reason: 'stop' }],
+              usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+            }),
+          ),
+        ),
+      );
+    }
+
+    it('sends a "profile:model" reference to that profile, without the prefix', async () => {
+      vi.restoreAllMocks();
+      const fetchMock = mockChatCompletion();
+      const svc = new AiGatewayService(createMockConfig(GROQ_PROFILE));
+
+      const result = await svc.complete({
+        model: 'groq:openai/gpt-oss-120b',
+        messages: [{ role: 'user', content: 'Hi' }],
+      });
+
+      const [url, init] = fetchMock.mock.calls[0] ?? [];
+      expect(String(url)).toBe('https://api.groq.com/openai/v1/chat/completions');
+      expect(new Headers(init?.headers).get('authorization')).toBe('Bearer groq-key');
+      expect(JSON.parse(String(init?.body)).model).toBe('openai/gpt-oss-120b');
+      expect(result.model).toBe('openai/gpt-oss-120b');
+    });
+
+    it('keeps references without a profile on the default provider', async () => {
+      const svc = new AiGatewayService(createMockConfig(GROQ_PROFILE));
+
+      await svc.complete({
+        model: 'claude-sonnet-5-5',
+        messages: [{ role: 'user', content: 'Hi' }],
+      });
+
+      expect(sentAnthropicRequest().url).toContain('https://test.api.com/v1/messages');
+    });
+
+    it('lets AI_MODEL itself point to a profile', async () => {
+      vi.restoreAllMocks();
+      const fetchMock = mockChatCompletion();
+      const svc = new AiGatewayService(
+        createMockConfig({ ...GROQ_PROFILE, AI_MODEL: 'groq:openai/gpt-oss-20b' }),
+      );
+
+      await svc.complete({ messages: [{ role: 'user', content: 'Hi' }] });
+
+      expect(String(fetchMock.mock.calls[0]?.[0])).toContain('api.groq.com');
+      expect(svc.getProviderName()).toBe('openai');
+      expect(svc.getProviderName('claude-opus-5-5')).toBe('anthropic');
+      expect(svc.route()).toMatchObject({ profile: 'groq', model: 'openai/gpt-oss-20b' });
+    });
+
+    it('traces each call with the profile that served it when a sink is given', async () => {
+      vi.restoreAllMocks();
+      mockChatCompletion();
+      const traces: Array<{ profile: string; stage: string }> = [];
+      const svc = new AiGatewayService(createMockConfig(GROQ_PROFILE), {
+        record: (trace) => traces.push(trace),
+      });
+
+      await svc.complete({
+        model: 'groq:openai/gpt-oss-120b',
+        stage: 'intake_reading',
+        messages: [{ role: 'user', content: 'Hi' }],
+      });
+
+      expect(traces).toEqual([expect.objectContaining({ profile: 'groq', stage: 'intake_reading' })]);
+    });
+
+    it('fails at startup when a listed profile is incomplete', () => {
+      expect(
+        () =>
+          new AiGatewayService(createMockConfig({ ...GROQ_PROFILE, AI_PROVIDER_GROQ_API_KEY: '' })),
+      ).toThrow(/AI_PROVIDER_GROQ_API_KEY is required/);
+    });
+  });
+
   describe('AI_STRUCTURED_OUTPUT', () => {
     const responseSchema = {
       name: 'answer',
@@ -486,13 +576,13 @@ describe('AiGatewayService', () => {
     });
 
     it('throws when the openai stream response is not ok', async () => {
-      const svc = new AiGatewayService(createMockConfig({ AI_PROVIDER: 'openai' }));
+      const svc = new AiGatewayService(
+        createMockConfig({ AI_PROVIDER: 'openai', AI_REQUEST_MAX_RETRIES: '0' }),
+      );
 
-      vi.spyOn(globalThis, 'fetch').mockResolvedValue({
-        ok: false,
-        status: 429,
-        text: () => Promise.resolve('rate limited'),
-      } as unknown as Response);
+      vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response('rate limited', { status: 429 }),
+      );
 
       await expect(async () => {
         for await (const _ of svc.completeStream({ messages: [{ role: 'user', content: 'Hi' }] })) {

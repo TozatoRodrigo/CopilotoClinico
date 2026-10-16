@@ -26,6 +26,7 @@ describe('GuidelinesService', () => {
     guidelineChunk: {
       create: ReturnType<typeof vi.fn>;
       findUnique: ReturnType<typeof vi.fn>;
+      findFirst: ReturnType<typeof vi.fn>;
       findMany: ReturnType<typeof vi.fn>;
       count: ReturnType<typeof vi.fn>;
       update: ReturnType<typeof vi.fn>;
@@ -47,6 +48,7 @@ describe('GuidelinesService', () => {
       guidelineChunk: {
         create: vi.fn(),
         findUnique: vi.fn(),
+        findFirst: vi.fn(),
         findMany: vi.fn(),
         count: vi.fn(),
         update: vi.fn(),
@@ -499,12 +501,15 @@ describe('GuidelinesService', () => {
         validTo: null,
       };
 
-      prisma.guidelineChunk.findUnique.mockResolvedValue(mockChunk);
+      prisma.guidelineChunk.findFirst.mockResolvedValue(mockChunk);
 
-      const result = await service.getChunkById('chunk-uuid-1');
+      const result = await service.getChunkById('chunk-uuid-1', ['inst-a']);
 
-      expect(prisma.guidelineChunk.findUnique).toHaveBeenCalledWith({
-        where: { id: 'chunk-uuid-1' },
+      expect(prisma.guidelineChunk.findFirst).toHaveBeenCalledWith({
+        where: {
+          id: 'chunk-uuid-1',
+          OR: [{ institutionId: null }, { institutionId: { in: ['inst-a'] } }],
+        },
         select: {
           id: true,
           source: true,
@@ -521,11 +526,26 @@ describe('GuidelinesService', () => {
     });
 
     it('returns null for non-existent ID', async () => {
-      prisma.guidelineChunk.findUnique.mockResolvedValue(null);
+      prisma.guidelineChunk.findFirst.mockResolvedValue(null);
 
-      const result = await service.getChunkById('non-existent');
+      const result = await service.getChunkById('non-existent', []);
 
       expect(result).toBeNull();
+    });
+
+    it('CC-019 — sem vínculo, só o trecho global é achado pelo id', async () => {
+      prisma.guidelineChunk.findFirst.mockResolvedValue(null);
+
+      await service.getChunkById('chunk-de-outro-hospital', []);
+
+      expect(prisma.guidelineChunk.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            id: 'chunk-de-outro-hospital',
+            OR: [{ institutionId: null }, { institutionId: { in: [] } }],
+          },
+        }),
+      );
     });
   });
 
@@ -717,6 +737,51 @@ describe('GuidelinesService', () => {
       await service.searchChunks('febre', undefined, 5);
 
       expect(prisma.$queryRawUnsafe).toHaveBeenCalledWith(expect.any(String), 'febre', 5);
+    });
+
+    it('CC-019 — com instituições, só trechos globais e delas, filtrados no banco', async () => {
+      prisma.$queryRawUnsafe.mockResolvedValue([]);
+
+      await service.searchChunks('anafilaxia', 'clinica_medica', 40, ['inst-1']);
+
+      expect(prisma.$queryRawUnsafe).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'AND (gc.institution_id IS NULL OR gc.institution_id = ANY($4::uuid[]))',
+        ),
+        'anafilaxia',
+        40,
+        'clinica_medica',
+        ['inst-1'],
+      );
+    });
+
+    it('CC-019 — a biblioteca (sem termo) filtra do mesmo jeito', async () => {
+      prisma.$queryRawUnsafe.mockResolvedValue([]);
+
+      await service.searchChunks('', undefined, 50, ['inst-1', 'inst-2']);
+
+      expect(prisma.$queryRawUnsafe).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'AND (gc.institution_id IS NULL OR gc.institution_id = ANY($2::uuid[]))',
+        ),
+        50,
+        ['inst-1', 'inst-2'],
+      );
+    });
+
+    it.each([
+      ['busca', 'anafilaxia'],
+      ['biblioteca', ''],
+    ])('CC-019 — %s sem instituições: só trechos globais', async (_mode, query) => {
+      prisma.$queryRawUnsafe.mockResolvedValue([]);
+
+      await service.searchChunks(query, undefined, 20, []);
+      await service.searchChunks(query);
+
+      for (const [sql] of prisma.$queryRawUnsafe.mock.calls) {
+        expect(sql).toContain('AND gc.institution_id IS NULL');
+        expect(sql).not.toContain('institution_id = ANY');
+      }
     });
   });
 

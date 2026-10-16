@@ -307,6 +307,99 @@ ORDER BY created_at, id;
    acusar falha, agora já no primeiro registro canônico. Os dados ficam
    corretos e voltar à versão nova resolve. A coluna pode ficar.
 
+### Limite de tentativas: login, MFA e troca de senha (CC-025)
+
+Duas camadas, independentes:
+
+- **Por IP** (`@nestjs/throttler`, em memória na API): `/auth/login` e
+  `/auth/register` 5 por minuto, `/auth/mfa/verify` 5 a cada 5 minutos, o resto
+  `THROTTLER_LIMIT` (600/min em produção). O IP é o N-ésimo a partir da
+  direita do `X-Forwarded-For`, com N = `TRUSTED_PROXY_HOPS` (padrão 1). Antes
+  do CC-025 era o primeiro da lista, que o cliente forja.
+- **Por conta** (`login_security_states`, no Postgres): 5 tentativas sem
+  acerto em 15 min bloqueiam por 15 min (`AUTH_LOCKOUT_*`). Contadores
+  separados: login (por e-mail), código do MFA (login com MFA, desativar o
+  MFA, gerar novos códigos de backup) e senha atual na troca de senha. Login
+  bloqueado responde 401, igual a senha errada; MFA e troca de senha
+  respondem 429 "Muitas tentativas".
+
+#### `TRUSTED_PROXY_HOPS` e o Traefik
+
+Cada proxy acrescenta à direita do XFF o IP de quem se conectou a ele; o que
+está à esquerda veio do cliente. O valor certo é o número de proxies entre a
+internet e a API:
+
+| Caminho | `TRUSTED_PROXY_HOPS` |
+|---|---|
+| cliente → Traefik → API (produção hoje) | `1` (padrão) |
+| cliente → Cloudflare com proxy ligado (nuvem laranja) → Traefik → API | `2` |
+| cliente → API, sem proxy | `0` |
+
+- **Com 1**, a configuração do Traefik não muda o resultado: a API usa o IP
+  que o próprio Traefik acrescentou, mesmo que ele repasse o XFF do cliente.
+- **Com 2**, o Traefik precisa aceitar o XFF **só** da Cloudflare:
+  `entryPoints.websecure.forwardedHeaders.trustedIPs` com as faixas de
+  <https://www.cloudflare.com/ips/> e **sem** `forwardedHeaders.insecure`.
+  Assim, quem chega direto ao Traefik (pulando a Cloudflare) tem o XFF
+  descartado e a API usa o IP que o Traefik viu. Com `insecure` ou
+  `trustedIPs` amplo (ex.: `0.0.0.0/0`), quem pula a Cloudflare escolhe o
+  próprio rastreador.
+- **Ligar a Cloudflare e trocar para 2 no mesmo deploy.** Com 1 atrás da
+  Cloudflare, o rastreador vira o IP da borda dela, e médicos diferentes
+  dividem os mesmos 5 logins por minuto.
+- Valor inválido na env: a API usa 1 e loga `TRUSTED_PROXY_HOPS inválido`
+  na subida.
+
+Conferir na VPS (a configuração estática do Traefik não está neste repo):
+
+```bash
+# Flags de linha de comando do Traefik
+docker inspect <container-do-traefik> --format '{{range .Args}}{{println .}}{{end}}' \
+  | grep -i -E 'entrypoints|forwardedheaders'
+# Ou o arquivo estático montado (traefik.yml/traefik.toml)
+docker inspect <container-do-traefik> --format '{{range .Mounts}}{{println .Source}}{{end}}'
+grep -n -i -A4 'forwardedHeaders' <arquivo-estático>
+# Cloudflare na frente? Endereços dela (104.16.0.0/13, 172.64.0.0/13…) = proxy ligado
+dig +short copiloto.servidortozato.cloud
+```
+
+Teste depois do deploy, de fora da VPS (seu IP fica 1 min sem login):
+
+```bash
+for i in 1 2 3 4 5 6 7; do
+  curl -s -o /dev/null -w '%{http_code}\n' -X POST https://copiloto.servidortozato.cloud/v1/auth/login \
+    -H 'content-type: application/json' -H "x-forwarded-for: 198.51.100.$i" \
+    -d '{"email":"teste-limite@example.com","password":"senha-errada"}'
+done
+# Esperado: 401 cinco vezes e depois 429. Sete 401 = o XFF forjado ainda troca o rastreador.
+```
+
+#### Logs
+
+| Log (WARN) | Significado |
+|---|---|
+| `AUTH_RATE_LIMITED reason=ip route=AuthController.<rota> limit=… ttlMs=… blockedForS=…` | Um IP passou do limite numa rota de `/auth`. Uma linha por bloqueio, não por requisição recusada; sem o IP |
+| `RATE_LIMITED reason=ip route=…` | O mesmo fora de `/auth` |
+| `AUTH_RATE_LIMITED reason=account scope=login\|mfa\|password_change subject=<hash>` | Tentativa recusada porque a conta está bloqueada |
+| `AUTH_ACCOUNT_LOCKED scope=mfa\|password_change subject=<hash> durationMs=…` | Começo de um bloqueio por conta |
+
+`subject` são os 12 primeiros hex do sha256 do id do médico (`unknown` no
+login de e-mail sem cadastro). Bloqueios seguidos de `scope=mfa` para o mesmo
+`subject` querem dizer que alguém tem a senha desse médico: avisar o médico
+para trocá-la. Para achar o médico e, depois de confirmar com ele, desbloquear:
+
+```bash
+docker exec -i copiloto-db psql -v ON_ERROR_STOP=1 -U "$POSTGRES_OWNER_USER" -d copiloto_clinico <<'SQL'
+SELECT id FROM physicians
+WHERE left(encode(sha256(convert_to(id::text, 'UTF8')), 'hex'), 12) = '<subject>';
+
+-- Zera login, MFA e troca de senha desse médico
+UPDATE login_security_states
+SET failed_count = 0, locked_until = NULL, last_failed_at = NULL
+WHERE physician_id = '<id>';
+SQL
+```
+
 ### Aplicar migrations em produção
 
 Na VPS, em `~/apps/copiloto-clinico/docker`, **nesta ordem**:
@@ -328,6 +421,12 @@ docker compose --env-file .env.production -f docker-compose.prod.yml up -d --no-
 - A imagem de runtime não tem `pnpm` (`sh: pnpm: not found`): use
   `npx --no-install prisma`, que usa o CLI já instalado em `node_modules` e
   nunca baixa nada. Corrigido em 24/09/2026, no deploy da ADR-010.
+- Desde a CC-024, o `node_modules` da imagem de runtime tem só as dependências
+  de produção e o CLI do Prisma, que fica para este passo. `tsx`, `nest`,
+  `vitest` e afins existem só no estágio `builder`: rode scripts de `scripts/`
+  por ele, como na ingestão. Se um build quebrar em `prisma generate` no
+  estágio `prod-deps`, o lock deixou de trazer o CLI como dependência opcional
+  do `@prisma/client` (comentário em `docker/Dockerfile.api`).
 - Subir a API antes da migration quebra o que depende do schema novo — na
   ADR-010, a busca oficial filtra por um valor de enum que só a migration cria.
 - `--env-file .env.production` é obrigatório: sem ele o compose não interpola
@@ -759,6 +858,46 @@ novo passa `temperature` ao gateway e deixa o provider decidir — nunca monta a
 requisição à mão. Pelo mesmo motivo, `budget_tokens` e `thinking: disabled`
 não existem no gateway: o Opus 5.5 recusa os dois; a profundidade é `AI_EFFORT`.
 
+#### Um provedor por etapa (perfis)
+
+Além do `AI_PROVIDER`, o gateway fala com os provedores listados em
+`AI_PROVIDER_PROFILES`. Cada etapa escolhe o seu pela referência do modelo,
+`perfil:modelo`; sem prefixo de perfil, a referência é um modelo do
+`AI_PROVIDER`. Exemplo com a Groq na leitura do caso e o Opus na decisão:
+
+```bash
+# docker/.env.production
+AI_PROVIDER=anthropic
+AI_MODEL=claude-opus-5-5
+AI_PROVIDER_PROFILES=groq
+AI_PROVIDER_GROQ_KIND=openai
+AI_PROVIDER_GROQ_API_KEY=...
+AI_PROVIDER_GROQ_BASE_URL=https://api.groq.com/openai/v1
+AI_PROVIDER_GROQ_STRUCTURED_OUTPUT=json_schema
+AI_INTAKE_MODEL=groq:openai/gpt-oss-120b
+```
+
+| Variável do perfil `<NOME>` | Valores | Padrão |
+|---|---|---|
+| `AI_PROVIDER_<NOME>_KIND` | `anthropic`, `openai` | obrigatória |
+| `AI_PROVIDER_<NOME>_API_KEY` | chave do host | obrigatória |
+| `AI_PROVIDER_<NOME>_BASE_URL` | URL com a versão (`.../v1`) | API oficial do tipo |
+| `AI_PROVIDER_<NOME>_STRUCTURED_OUTPUT` | `json_schema`, `json_object`, `off` | `off` |
+| `AI_PROVIDER_<NOME>_MAX_TOKENS_PARAM` | `max_completion_tokens`, `max_tokens` | `max_completion_tokens` |
+| `AI_PROVIDER_<NOME>_EXTRA_BODY` | objeto JSON somado ao corpo | — |
+
+Perfil listado sem `KIND` ou `API_KEY` derruba a API na subida, de propósito:
+a análise iria para o lugar errado. O gpt-oss é tratado como modelo de
+raciocínio (`reasoning_effort` vem do esforço da etapa, até `high`), e um
+bloco `<think>` no começo da resposta é descartado. Nos provedores compatíveis
+com a OpenAI, `AI_REQUEST_TIMEOUT_MS` (padrão 180 s), `AI_STREAM_IDLE_TIMEOUT_MS`
+(60 s) e `AI_REQUEST_MAX_RETRIES` (2, em 429, 5xx e falha de rede) evitam que um
+host travado segure a análise. O log de erro do host traz só tipo, código e o
+começo da mensagem (`AI_PROVIDER_ERROR`), nunca o corpo inteiro, que pode
+repetir o caso. A pesquisa web continua só na Anthropic: aponte
+`AI_RESEARCH_MODEL` para um modelo Claude (com perfil, se o `AI_PROVIDER` não
+for a Anthropic).
+
 O raciocínio conta para o teto de saída (`AI_MAX_OUTPUT_TOKENS`, padrão 16000).
 Rollback sem redeploy: `AI_STRUCTURED_OUTPUT=false` desliga o JSON Schema em
 todos os providers; `AI_REFUSAL_FALLBACK=off` desliga o fallback (obrigatório
@@ -773,6 +912,8 @@ Logs para acompanhar depois da troca:
 | `AI_OUTPUT_TRUNCATED` | Saída bateu no teto (`AiTruncatedError`) | Subir `AI_MAX_OUTPUT_TOKENS` ou baixar `AI_EFFORT` |
 | `AI_REFUSAL category=...` | Classificador de segurança recusou (`AiRefusalError`) | Ver o caso; categoria `bio`/`cyber` em caso clínico legítimo é falso positivo |
 | `AI_REFUSAL_FALLBACK servedBy=...` | Outro modelo respondeu no lugar | Esperado e raro; o custo usa o modelo que serviu |
+| `AI_PROVIDER_RETRY operation=... status=...` | Host compatível com OpenAI respondeu 429/5xx, estourou o prazo ou caiu a rede; nova tentativa | Esporádico: esperado. Contínuo: limite do plano no host ou instabilidade |
+| `AI_PROVIDER_ERROR operation=... status=...` | Falha definitiva do host compatível com OpenAI | 400: parâmetro ou schema rejeitado pelo modelo; 401: chave do perfil |
 
 #### Pesquisa web (`COPILOT_KNOWLEDGE_SOURCE=web`)
 
@@ -864,6 +1005,40 @@ sem se invalidar.
 apenas na resposta. Acesso a um protocolo de outra instituição retorna `404`
 (nunca `403`, para não confirmar a existência do recurso).
 
+**5. Desativar uma instituição (nunca apagar)**
+
+Desde a CC-021 o banco recusa apagar instituição que tenha protocolo, trecho
+de diretriz ou atendimento (`ON DELETE RESTRICT`, erro `violates foreign key
+constraint`). Antes, o `institution_id` desses registros virava `NULL`, e o
+material interno passava a aparecer para todos os médicos. Para tirar uma
+instituição de uso, desative-a. Não há rota para isso (`POST /v1/institutions`
+só cria); na VPS, como owner:
+
+```bash
+docker exec -i copiloto-db psql -v ON_ERROR_STOP=1 -U "$POSTGRES_OWNER_USER" -d copiloto_clinico \
+  -c "UPDATE institutions SET status = 'inactive', updated_at = now() WHERE id = '<uuid>';"
+```
+
+O conteúdo continua institucional, nunca global. Com a CC-019 (filtro por
+vínculo ativo), vínculo com instituição `inactive` não conta e os médicos dela
+deixam de ver esse conteúdo; antes dela, a aplicação não lê `status`.
+
+Só se apaga instituição sem nada apontando para ela (ex.: criada por engano).
+O vínculo com médicos sai junto (`CASCADE`). Para ver o que ainda a prende:
+
+```sql
+SELECT 'protocols' AS tabela, count(*) FROM protocols WHERE institution_id = '<uuid>'
+UNION ALL SELECT 'guideline_chunks', count(*) FROM guideline_chunks WHERE institution_id = '<uuid>'
+UNION ALL SELECT 'encounters', count(*) FROM encounters WHERE institution_id = '<uuid>';
+```
+
+Não zere `institution_id` para destravar o `DELETE`: em protocolo e diretriz,
+`NULL` publica o conteúdo para todos (ADR-009, adendo CC-021).
+
+A migration `20261015190000_cc_021_institution_delete_restrict` só troca a
+regra das três FKs: não depende de código novo e entra pelo passo 2 de
+"Aplicar migrations em produção", sem janela.
+
 ---
 
 ## Migrações
@@ -899,6 +1074,7 @@ Prisma não suporta rollback automático. Para reverter:
 |---|---|
 | `JWT_ACCESS_SECRET` | Todos os tokens são inválidos ou forjáveis |
 | `JWT_REFRESH_SECRET` | Refresh tokens inválidos |
+| `TRUSTED_PROXY_HOPS` | Proxies confiáveis à frente da API (padrão 1 = Traefik). Alto demais (2 sem Cloudflare) deixa o cliente escolher o IP do limite de tentativas; baixo demais (1 com Cloudflare) junta médicos no mesmo limite. Ver "Limite de tentativas" |
 | `INTERNAL_SERVICE_TOKEN` | Endpoint `/audit/verify-chain` inacessível |
 | `AI_API_KEY` | Análise clínica indisponível |
 | `DATABASE_URL` | Sistema completamente indisponível ou rodando com privilégios excessivos |
@@ -908,11 +1084,47 @@ Prisma não suporta rollback automático. Para reverter:
 | `COPILOT_REASONING` | `stages` liga o raciocínio em etapas da ADR-013 (entendimento do caso antes da busca, busca dirigida, card "O que eu entendi"); `legacy` (padrão) volta ao pipeline de sempre. Ausente ou irreconhecível = `legacy`. Etapa 1 com `AI_UNDERSTANDING_MODEL` (vazio = `AI_MODEL`) e `AI_UNDERSTANDING_EFFORT` (padrão `low`). Falha da Etapa 1 aparece como `UNDERSTANDING_FAILED`/`UNDERSTANDING_FALLBACK` no log e a análise segue pela busca de sempre |
 | `COPILOT_DECISION_PROMPT` | `v2` liga a decisão em duas camadas da ADR-013 ("Fazer agora" × "Depende de…", perguntas que separam hipóteses, conhecimento geral do modelo rotulado e sem dose); `v1` (padrão) é o prompt de sempre. Exige `COPILOT_REASONING=stages`: sem ele fica `v1` e o log mostra `DECISION_PIPELINE_DOWNGRADE`. Regra da v2 que sobra depois do retry vira `OUTPUT_VALIDATION_WARNING`, nunca bloqueio |
 | `COPILOT_INTAKE` | `on` liga o Copiloto guiado da ADR-014: antes do plano, a leitura do caso decide se pergunta (no máximo 3 perguntas, uma por vez). `off` (padrão) vai direto ao plano. Ausente ou irreconhecível = `off`. Modelo da leitura em `AI_INTAKE_MODEL` (vazio = o da Etapa 1). No log: `INTAKE_READING` (tempo e perguntas), `INTAKE_STARTED` (caminho: `ask`, `unstable`, `complete`, `reading_failed`, `disabled`), `INTAKE_CLOSED` (motivo) e `INTAKE_READING_TIMEOUT` (leitura passou de 20 s e o caso seguiu direto ao plano). Exige a migration `20261012120000_adr_014_case_intakes` |
+| `AI_DECISION_MODEL` / `AI_DECISION_CRITICAL_MODEL` | ADR-016: modelo da decisão no caso comum e no caso grave (instável ou tempo-crítico pela Etapa 1, ou sem entendimento). Vazios = `AI_MODEL` nas duas rotas. Crítico vazio = o comum nas duas. Aceitam `perfil:modelo`. No log: `DECISION_MODEL route=critical\|standard model=...`; a interação grava `params.decisionRoute` |
 | `COPILOT_KNOWLEDGE_SOURCE` | `internal_kb` (padrão) é a busca de sempre (embedding na OpenAI); `model_only` não busca nada; `web` pesquisa em fontes oficiais (`AI_RESEARCH_MODEL`, padrão `claude-sonnet-5-5`; `AI_RESEARCH_EFFORT`, padrão `low`; `WEB_RESEARCH_MAX_SEARCHES`, padrão 5; `WEB_RESEARCH_ALLOWED_DOMAINS`, vazio = 32 fontes padrão). `model_only` e `web` nunca chamam o provedor de embedding. `web` exige `stages` e `COPILOT_DECISION_PROMPT=v2` (sem eles vira `model_only`, com `DECISION_PIPELINE_DOWNGRADE` no log) e Anthropic como `AI_PROVIDER`; pesquisa que falha aparece como `WEB_RESEARCH_FALLBACK` e a análise segue só com o conhecimento do modelo |
 
 ---
 
 ## Monitoramento
+
+### Sentry
+
+O Sentry só liga com `SENTRY_DSN` no `.env.production` (o compose repassa a
+variável). Antes de ligar, confirme região e retenção do projeto no Sentry
+(`docs/compliance/DPA_PROVIDER.md`). O evento vai sem corpo, query, cookies e
+cabeçalhos de credencial (`scrubSentryEvent`): o corpo da requisição é o caso
+clínico. Os logs de acesso com erro registram só os nomes dos campos do corpo
+(`bodyFields=`).
+
+### Rastro das chamadas de IA (`ai_calls`)
+
+Cada chamada ao modelo grava uma linha em `ai_calls` e uma linha `AI_CALL` no
+log: etapa (`intake_reading`, `understanding`, `decision`, `research`,
+`verify_attach`, `guideline_classification`), perfil, provedor, modelo pedido
+e servido, esforço, hash do system prompt (a versão do prompt), tokens, custo,
+latência e desfecho (`ok`, `refusal`, `truncated`, `error`, `aborted`). Nenhum
+texto do caso, do prompt ou da resposta. A resposta HTTP devolve
+`x-request-id`; o mesmo id está em `ai_calls.request_id` e em
+`ai_interactions.request_id`. Falha ao gravar vira `AI_CALL_LOG_FAILED` (WARN)
+e nunca para a análise.
+
+```sql
+-- Custo, chamadas e latência por etapa e modelo nos últimos 7 dias
+SELECT stage, coalesce(served_model, requested_model) AS model, count(*) AS calls,
+       round(sum(cost_usd)::numeric, 4) AS usd,
+       percentile_cont(0.5) WITHIN GROUP (ORDER BY latency_ms) AS p50_ms,
+       count(*) FILTER (WHERE outcome <> 'ok') AS failures
+FROM ai_calls WHERE created_at > now() - interval '7 days'
+GROUP BY 1, 2 ORDER BY usd DESC NULLS LAST;
+
+-- Tudo o que uma requisição chamou (o médico ou o suporte citam o x-request-id)
+SELECT created_at, stage, served_model, outcome, latency_ms, cost_usd, left(prompt_sha256, 12)
+FROM ai_calls WHERE request_id = '<x-request-id>' ORDER BY created_at;
+```
 
 ### Logs de nível ERROR que exigem atenção imediata
 

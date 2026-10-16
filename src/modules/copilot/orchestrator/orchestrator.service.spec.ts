@@ -31,6 +31,9 @@ describe('OrchestratorService', () => {
     physician: {
       findUnique: ReturnType<typeof vi.fn>;
     };
+    physicianInstitution: {
+      findMany: ReturnType<typeof vi.fn>;
+    };
   };
   let aiGatewayMock: {
     complete: ReturnType<typeof vi.fn>;
@@ -113,6 +116,11 @@ describe('OrchestratorService', () => {
       // comportamento pt-BR padrão anterior à PI-05 em todos os testes que
       // não mockam explicitamente um locale diferente.
       physician: { findUnique: vi.fn().mockResolvedValue(null) },
+      // CC-019 — vínculos ativos do médico; a instituição do caso só filtra a
+      // busca com vínculo ativo.
+      physicianInstitution: {
+        findMany: vi.fn().mockResolvedValue([{ institutionId: 'institution-a' }]),
+      },
     };
     aiGatewayMock = {
       complete: vi.fn(),
@@ -193,6 +201,7 @@ describe('OrchestratorService', () => {
       expect(encountersMock.findById).toHaveBeenCalledWith(physicianId, encounterId);
       expect(retrievalMock.search).toHaveBeenCalled();
       expect(aiGatewayMock.complete).toHaveBeenCalledWith({
+        stage: 'decision',
         messages: [
           { role: 'system', content: expect.any(String) },
           { role: 'user', content: expect.any(String) },
@@ -775,6 +784,66 @@ describe('OrchestratorService', () => {
           origin: 'institutional',
         }),
       );
+    });
+
+    describe('CC-019 — a instituição do caso só filtra a busca com vínculo ativo', () => {
+      function encounterOf(institutionId: string | null) {
+        encountersMock.findById.mockResolvedValue({
+          id: encounterId,
+          physicianId,
+          institutionId,
+          patientRef: 'PRN-001',
+        });
+        retrievalMock.search.mockResolvedValue({
+          chunks: mockChunks,
+          totalRetrieved: 2,
+          coverage: 'full',
+          bestSemanticScore: 0.8,
+          discardedByFloor: 0,
+          official: NO_OFFICIAL,
+        });
+        aiGatewayMock.complete.mockResolvedValue({
+          content: validLLMOutput,
+          model: 'claude-3-sonnet',
+          usage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 },
+          latencyMs: 1500,
+        });
+        prismaMock.aiInteraction.create.mockResolvedValue({ id: 'interaction-001' });
+        encountersMock.update.mockResolvedValue({});
+      }
+
+      it('com vínculo ativo, busca no global e no da instituição do caso', async () => {
+        encounterOf('institution-a');
+
+        await service.analyze(physicianId, encounterId, validInput);
+
+        expect(prismaMock.physicianInstitution.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { physicianId, institution: { status: 'active' } },
+          }),
+        );
+        expect(retrievalMock.search).toHaveBeenCalledWith(expect.any(String), 5, 'institution-a');
+      });
+
+      it('sem vínculo ativo (desfeito ou instituição desativada), busca só no global', async () => {
+        encounterOf('institution-a');
+        prismaMock.physicianInstitution.findMany.mockResolvedValue([
+          { institutionId: 'institution-b' },
+        ]);
+
+        await service.analyze(physicianId, encounterId, validInput);
+
+        expect(retrievalMock.search).toHaveBeenCalledWith(expect.any(String), 5, null);
+      });
+
+      it('caso sem instituição não consulta vínculo nenhum', async () => {
+        encounterOf(null);
+
+        await service.analyze(physicianId, encounterId, validInput);
+
+        expect(prismaMock.physicianInstitution.findMany).not.toHaveBeenCalled();
+        expect(retrievalMock.search).toHaveBeenCalledWith(expect.any(String), 5, null);
+      });
     });
 
     it('RT-001: enriches each recommendation with confidence, source version, and chunk link', async () => {
@@ -1551,6 +1620,7 @@ describe('OrchestratorService', () => {
           officialChunksRetrieved: 0,
           knowledgeSource: 'internal_kb',
           decisionPrompt: 'v1',
+          decisionRoute: 'critical',
         });
       });
 
@@ -1577,6 +1647,7 @@ describe('OrchestratorService', () => {
                 officialChunksRetrieved: 0,
                 knowledgeSource: 'internal_kb',
                 decisionPrompt: 'v1',
+                decisionRoute: 'critical',
               },
             }),
           }),

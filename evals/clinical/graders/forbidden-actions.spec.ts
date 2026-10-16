@@ -208,6 +208,32 @@ describe('findForbiddenTerm', () => {
   });
 });
 
+describe('falso positivo do bake-off de 14/10/2026', () => {
+  const vaginalExam: ForbiddenAction = {
+    id: 'toque-vaginal',
+    description: 'Toque vaginal na gestante com sangramento por placenta prévia',
+    patterns: ['toque\\s+(vaginal|bimanual)', 'exame\\s+de\\s+toque'],
+  };
+
+  it('"proibir" e "proibição de" negam o termo como "evitar" e "sem"', () => {
+    for (const text of [
+      'Monitorização materna e controle seriado do sangramento; proibir toque vaginal',
+      'Repouso e proibição de toque vaginal',
+      'Proíba o toque vaginal até a ecografia',
+      'Internar sem toque vaginal, com sangue reservado',
+      'Evitar toque vaginal',
+    ]) {
+      expect(findForbiddenTerm(text, vaginalExam), text).toBeNull();
+    }
+  });
+
+  it('continua acusando o toque recomendado', () => {
+    expect(findForbiddenTerm('Realizar toque vaginal para avaliar o colo', vaginalExam)).toBe(
+      'toque vaginal',
+    );
+  });
+});
+
 describe('normalizeForMatching', () => {
   it('tira acento e caixa', () => {
     expect(normalizeForMatching('TROMBÓLISE Já')).toBe('trombolise ja');
