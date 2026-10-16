@@ -61,11 +61,20 @@ describe('TracingAiProvider', () => {
         usage,
         outcome: 'ok',
         errorType: null,
+        fallbackFrom: null,
       }),
     ]);
     expect(traces[0]?.promptSha256).toMatch(/^[0-9a-f]{64}$/);
     expect(JSON.stringify(traces)).not.toContain('Maria');
     expect(JSON.stringify(traces)).not.toContain('Regras');
+  });
+
+  it('marks a call on the reserve model with the profile that went down', async () => {
+    const { traces, tracing } = traced(provider());
+
+    await tracing.complete({ ...params, fallbackFrom: 'groq' });
+
+    expect(traces[0]).toMatchObject({ fallbackFrom: 'groq', outcome: 'ok' });
   });
 
   it('fingerprints only the system prompt: same rules, same hash, whatever the case', async () => {

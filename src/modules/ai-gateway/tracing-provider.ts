@@ -1,5 +1,9 @@
 import { createHash } from 'node:crypto';
-import { AiRefusalError, AiTruncatedError } from './ai-gateway.errors';
+import {
+  AiRefusalError,
+  AiTruncatedError,
+  errorTypeOf as providerErrorTypeOf,
+} from './ai-gateway.errors';
 import { USAGE_LIMIT_ERROR_SUFFIX, isUsageLimitMessage } from './ai-call-trace';
 import type { AiCallOutcome, AiCallSink, AiCallStage, AiCallTrace } from './ai-call-trace';
 import type {
@@ -26,12 +30,13 @@ function systemPromptOf(messages: ChatMessage[]): string {
     .join('\n');
 }
 
+/** Tipo do erro (CC-107) com `:usage_limit` quando o provedor recusou por cota (CC-005). */
 function errorTypeOf(error: unknown): string {
-  if (!(error instanceof Error)) return 'unknown';
-  const status = (error as { status?: unknown }).status;
-  const type = typeof status === 'number' ? `${error.name}:${status}` : error.name;
+  const type = providerErrorTypeOf(error);
   // A mensagem do provedor só é lida para classificar; não vai para o rastro.
-  return isUsageLimitMessage(error.message) ? `${type}${USAGE_LIMIT_ERROR_SUFFIX}` : type;
+  return error instanceof Error && isUsageLimitMessage(error.message)
+    ? `${type}${USAGE_LIMIT_ERROR_SUFFIX}`
+    : type;
 }
 
 interface Failure {
@@ -135,6 +140,7 @@ export class TracingAiProvider implements AIProvider {
       effort: params.effort,
       systemPrompt: params.system,
       responseSchema: null,
+      fallbackFrom: null,
     };
     try {
       const response = await this.inner.research(params);
@@ -159,6 +165,7 @@ export class TracingAiProvider implements AIProvider {
         effort: params.effort,
         systemPrompt: systemPromptOf(params.messages),
         responseSchema: params.responseSchema?.name ?? null,
+        fallbackFrom: params.fallbackFrom ?? null,
       },
       startedAt,
       failure,
@@ -172,6 +179,7 @@ export class TracingAiProvider implements AIProvider {
       effort: CompletionParams['effort'];
       systemPrompt: string;
       responseSchema: string | null;
+      fallbackFrom: string | null;
     },
     startedAt: number,
     result: Failure,
@@ -189,6 +197,7 @@ export class TracingAiProvider implements AIProvider {
       latencyMs: Date.now() - startedAt,
       outcome: result.outcome,
       errorType: result.errorType,
+      fallbackFrom: call.fallbackFrom,
     };
     try {
       this.sink.record(trace);

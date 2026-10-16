@@ -11,16 +11,97 @@ import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
 import { createHash, createHmac } from 'crypto';
+import { Prisma } from '@prisma/client';
+import type { Physician } from '@prisma/client';
+import { z } from 'zod';
 import { PrismaService } from '../../config/prisma.service';
+import { AccountLockoutService, accountRateLimitedLog } from './account-lockout.service';
 import { AuditService } from '../audit/audit.service';
-import { RegisterInput, LoginInput, RefreshInput } from './schemas/auth.schemas';
+import {
+  RegisterInput,
+  LoginInput,
+  RefreshInput,
+  UpdateProfileInput,
+} from './schemas/auth.schemas';
 import { MfaService } from './mfa.service';
 import { BetaInviteService } from '../beta/beta-invite.service';
 import { CrmVerificationService } from '../physicians/crm-verification.service';
 import { CrmCheckerService } from '../physicians/crm-checker.service';
+import {
+  ExternalIdentityService,
+  type ExternalIdentityClaim,
+} from './oauth/external-identity.service';
+import { oauthProviderValues, type OAuthProviderId } from '../../shared/contracts/oauth';
 
 const MFA_PENDING_SCOPE = 'mfa_pending' as const;
 const MFA_TOKEN_EXPIRY = '5m';
+
+/**
+ * Claims do token de "MFA pendente". CC-334: no login social ele leva o
+ * provedor (para a trilha) e, quando o login também vincula uma conta
+ * externa, o vínculo — que só é gravado depois do 2º fator.
+ */
+const mfaPendingClaimsSchema = z.object({
+  physicianId: z.string().min(1),
+  email: z.string(),
+  scope: z.literal(MFA_PENDING_SCOPE),
+  provider: z.enum(oauthProviderValues).optional(),
+  oauthLink: z
+    .object({
+      provider: z.enum(oauthProviderValues),
+      subject: z.string().min(1),
+      email: z.string().min(1),
+    })
+    .optional(),
+});
+
+/** Como a sessão está sendo aberta (CC-334). Vazio = e-mail e senha. */
+interface SignInContext {
+  provider?: OAuthProviderId;
+  /** Conta externa a vincular junto com este login (depois do 2º fator). */
+  oauthLink?: ExternalIdentityClaim;
+}
+
+/** O médico como a sessão o devolve ao web (sem hash de senha nem segredo de MFA). */
+export function toSessionPhysician(
+  physician: Pick<
+    Physician,
+    'id' | 'email' | 'crmUf' | 'crmNumber' | 'name' | 'crmVerified' | 'role' | 'locale'
+  > & { passwordHash: string | null },
+) {
+  return {
+    id: physician.id,
+    email: physician.email,
+    crmUf: physician.crmUf,
+    crmNumber: physician.crmNumber,
+    name: physician.name,
+    crmVerified: physician.crmVerified,
+    role: physician.role,
+    locale: physician.locale,
+    hasPassword: physician.passwordHash !== null,
+  };
+}
+
+export type SessionPhysician = ReturnType<typeof toSessionPhysician>;
+
+export type SignInResult =
+  | { mfaRequired: true; mfaToken: string }
+  | {
+      mfaRequired: false;
+      physician: SessionPhysician;
+      accessToken: string;
+      refreshToken: string;
+    };
+
+/** Cadastro vindo do login social: o e-mail é o que o provedor garantiu. */
+export interface ExternalRegistrationInput {
+  email: string;
+  name: string | null;
+  crmUf: string;
+  crmNumber: string;
+  provider: OAuthProviderId;
+  subject: string;
+}
 
 type JwtExpiry = NonNullable<JwtSignOptions['expiresIn']>;
 
@@ -45,10 +126,13 @@ export class AuthService {
     @Inject(JwtService) private readonly jwt: JwtService,
     @Inject(ConfigService) private readonly config: ConfigService,
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(AccountLockoutService) private readonly lockout: AccountLockoutService,
     @Inject(MfaService) private readonly mfaService: MfaService,
     @Inject(BetaInviteService) private readonly betaInvites: BetaInviteService,
     @Inject(CrmVerificationService) private readonly crmVerification: CrmVerificationService,
     @Inject(CrmCheckerService) private readonly crmChecker: CrmCheckerService,
+    @Inject(ExternalIdentityService)
+    private readonly externalIdentities: ExternalIdentityService,
   ) {
     this.accessSecret = this.config.getOrThrow<string>('JWT_ACCESS_SECRET');
     this.refreshSecret = this.config.getOrThrow<string>('JWT_REFRESH_SECRET');
@@ -129,20 +213,86 @@ export class AuthService {
       action: 'AUTH_REGISTER',
       entity: 'Physician',
       entityId: physician.id,
-      payload: { email: physician.email, crmUf: physician.crmUf },
+      // Sem o email: a trilha sobrevive à eliminação LGPD, que anonimiza o
+      // email no cadastro. O entityId já identifica o médico.
+      payload: { crmUf: physician.crmUf },
       ip,
     });
 
-    setImmediate(() => {
-      this.runCrmAutoVerification(
-        physician.id,
-        physician.crmUf as string,
-        physician.crmNumber as string,
-      ).catch((err) => this.logger.error('CRM auto-verification failed', err));
-    });
+    this.scheduleCrmAutoVerification(physician.id, physician.crmUf, physician.crmNumber);
 
     const tokens = await this.generateTokens(physician.id, physician.email, physician.role);
     return { physician, ...tokens };
+  }
+
+  /**
+   * CC-334 — conta nova pelo login com Google/Microsoft. Mesmo cadastro de
+   * register(), com CRM obrigatório, mas sem senha e já com a conta externa
+   * vinculada (mesma escrita). Quem chama garante que o e-mail veio
+   * verificado pelo provedor.
+   */
+  async registerWithExternalIdentity(
+    input: ExternalRegistrationInput,
+    ip?: string,
+  ): Promise<SignInResult & { mfaRequired: false }> {
+    const existing = await this.prisma.physician.findFirst({
+      where: { email: { equals: input.email, mode: 'insensitive' } },
+      select: { id: true },
+    });
+    if (existing) {
+      throw new ConflictException('Email already registered');
+    }
+
+    let physician: Physician;
+    try {
+      physician = await this.prisma.physician.create({
+        data: {
+          email: input.email,
+          passwordHash: null,
+          crmUf: input.crmUf,
+          crmNumber: input.crmNumber,
+          name: input.name,
+          externalIdentities: {
+            create: {
+              provider: input.provider,
+              subject: input.subject,
+              emailAtLink: input.email,
+              lastLoginAt: new Date(),
+            },
+          },
+        },
+      });
+    } catch (err) {
+      // Corrida (duas abas concluindo o mesmo cadastro): e-mail ou conta
+      // externa já gravados.
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        throw new ConflictException('Email already registered');
+      }
+      throw err;
+    }
+
+    // Sem e-mail no payload (padrão mais restrito da trilha, PR #147).
+    await this.auditSilently({
+      actorId: physician.id,
+      action: 'AUTH_REGISTER',
+      entity: 'Physician',
+      entityId: physician.id,
+      payload: { crmUf: physician.crmUf, method: 'oauth', provider: input.provider },
+      ip,
+    });
+
+    this.scheduleCrmAutoVerification(physician.id, physician.crmUf, physician.crmNumber);
+
+    const tokens = await this.generateTokens(physician.id, physician.email, physician.role);
+    return { mfaRequired: false, physician: toSessionPhysician(physician), ...tokens };
+  }
+
+  private scheduleCrmAutoVerification(physicianId: string, crmUf: string, crmNumber: string) {
+    setImmediate(() => {
+      this.runCrmAutoVerification(physicianId, crmUf, crmNumber).catch((err) =>
+        this.logger.error('CRM auto-verification failed', err),
+      );
+    });
   }
 
   async login(input: LoginInput, ip?: string) {
@@ -153,6 +303,7 @@ export class AuthService {
     });
 
     if (securityState?.lockedUntil && securityState.lockedUntil > new Date()) {
+      this.logger.warn(accountRateLimitedLog('login', securityState.physicianId));
       await this.auditSilently({
         actorId: securityState.physicianId ?? 'unknown',
         action: 'AUTH_LOGIN_FAILED',
@@ -181,7 +332,11 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const passwordValid = await bcrypt.compare(input.password, physician.passwordHash);
+    // CC-334 — conta criada pelo login social não tem senha: mesma resposta
+    // (e mesma contagem para o bloqueio) que uma senha errada.
+    const passwordValid =
+      physician.passwordHash !== null &&
+      (await bcrypt.compare(input.password, physician.passwordHash));
     if (!passwordValid) {
       await this.recordFailedLogin(identifierHash, physician.id, securityState);
       await this.auditSilently({
@@ -207,16 +362,107 @@ export class AuthService {
       });
     }
 
+    return this.completeSignIn(physician, ip, {});
+  }
+
+  /**
+   * CC-334 — login social de um médico já vinculado (o OAuthService validou o
+   * id_token e achou o vínculo). Com MFA ligado, o 2º fator continua exigido.
+   */
+  async signInWithExternalIdentity(
+    physician: Physician,
+    provider: OAuthProviderId,
+    ip?: string,
+  ): Promise<SignInResult> {
+    return this.completeSignIn(physician, ip, { provider });
+  }
+
+  /**
+   * CC-334 — conta existente com o mesmo e-mail da conta externa: o médico
+   * prova que é o dono com a senha (uma vez) e só então o vínculo é gravado;
+   * com MFA ligado, só depois do 2º fator (verifyMfaLogin). A senha passa
+   * pelo mesmo bloqueio por tentativas do login.
+   */
+  async linkExternalIdentityWithPassword(
+    physicianId: string,
+    password: string,
+    claim: ExternalIdentityClaim,
+    ip?: string,
+  ): Promise<SignInResult> {
+    const physician = await this.prisma.physician.findUnique({ where: { id: physicianId } });
+    if (!physician) throw new UnauthorizedException('Invalid credentials');
+
+    const identifierHash = this.hashLoginIdentifier(physician.email.trim().toLowerCase());
+    const securityState = await this.prisma.loginSecurityState.findUnique({
+      where: { identifierHash },
+    });
+
+    if (securityState?.lockedUntil && securityState.lockedUntil > new Date()) {
+      await this.auditLinkFailure(physician.id, claim.provider, 'account_locked', ip);
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const passwordValid =
+      physician.passwordHash !== null && (await bcrypt.compare(password, physician.passwordHash));
+    if (!passwordValid) {
+      await this.recordFailedLogin(identifierHash, physician.id, securityState);
+      await this.auditLinkFailure(physician.id, claim.provider, 'invalid_password', ip);
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    if (securityState) {
+      await this.prisma.loginSecurityState.update({
+        where: { identifierHash },
+        data: { failedCount: 0, lockedUntil: null, lastFailedAt: null, physicianId: physician.id },
+      });
+    }
+
+    return this.completeSignIn(physician, ip, { provider: claim.provider, oauthLink: claim });
+  }
+
+  private async auditLinkFailure(
+    physicianId: string,
+    provider: OAuthProviderId,
+    reason: 'account_locked' | 'invalid_password',
+    ip?: string,
+  ): Promise<void> {
+    await this.auditSilently({
+      actorId: physicianId,
+      action: 'AUTH_OAUTH_LINK_FAILED',
+      entity: 'Physician',
+      entityId: physicianId,
+      payload: { provider, reason },
+      ip,
+    });
+  }
+
+  /**
+   * Fim comum de todo login com a identidade já provada (senha ou provedor):
+   * MFA ligado → token de MFA pendente; senão grava o vínculo pedido (se
+   * houver) e abre a sessão.
+   */
+  private async completeSignIn(
+    physician: Physician,
+    ip: string | undefined,
+    context: SignInContext,
+  ): Promise<SignInResult> {
+    const method = context.provider ? { method: 'oauth', provider: context.provider } : undefined;
+
     if (physician.mfaEnabled) {
-      const mfaToken = await this.issueMfaPendingToken(physician.id, physician.email);
+      const mfaToken = await this.issueMfaPendingToken(physician.id, physician.email, context);
       await this.auditSilently({
         actorId: physician.id,
         action: 'AUTH_LOGIN_MFA_REQUIRED',
         entity: 'Physician',
         entityId: physician.id,
+        payload: method,
         ip,
       });
       return { mfaRequired: true, mfaToken };
+    }
+
+    if (context.oauthLink) {
+      await this.externalIdentities.link(physician.id, context.oauthLink, ip);
     }
 
     await this.auditSilently({
@@ -224,61 +470,35 @@ export class AuthService {
       action: 'AUTH_LOGIN',
       entity: 'Physician',
       entityId: physician.id,
+      payload: method,
       ip,
     });
 
     const tokens = await this.generateTokens(physician.id, physician.email, physician.role);
-    return {
-      mfaRequired: false,
-      physician: {
-        id: physician.id,
-        email: physician.email,
-        crmUf: physician.crmUf,
-        crmNumber: physician.crmNumber,
-        name: physician.name,
-        crmVerified: physician.crmVerified,
-        role: physician.role,
-        locale: physician.locale,
-      },
-      ...tokens,
-    };
+    return { mfaRequired: false, physician: toSessionPhysician(physician), ...tokens };
   }
 
   async verifyMfaLogin(mfaToken: string, code: string, ip?: string) {
-    let physicianId: string;
-    let email: string;
+    let claims: z.infer<typeof mfaPendingClaimsSchema>;
 
     try {
-      const payload = await this.jwt.verifyAsync<{
-        sub: string;
-        email: string;
-        physicianId: string;
-        scope: string;
-      }>(mfaToken, { secret: this.mfaPendingSecret });
-
-      if (payload.scope !== MFA_PENDING_SCOPE) {
-        throw new Error('Invalid token scope');
-      }
-
-      physicianId = payload.physicianId;
-      email = payload.email;
+      const payload = await this.jwt.verifyAsync<object>(mfaToken, {
+        secret: this.mfaPendingSecret,
+      });
+      // Também recusa escopo diferente de mfa_pending.
+      claims = mfaPendingClaimsSchema.parse(payload);
     } catch {
       throw new UnauthorizedException('Invalid or expired MFA token');
     }
 
+    const { physicianId, email } = claims;
+
     await this.mfaService.verifyMfaCode(physicianId, code, ip);
 
-    await this.auditSilently({
-      actorId: physicianId,
-      action: 'AUTH_LOGIN',
-      entity: 'Physician',
-      entityId: physicianId,
-      payload: { mfa: true },
-      ip,
-    });
-
+    // CC-018 — `erasedAt: null`: o token de MFA pendente (5 min) emitido antes
+    // da eliminação LGPD não vira sessão depois dela.
     const physician = await this.prisma.physician.findUnique({
-      where: { id: physicianId },
+      where: { id: physicianId, erasedAt: null },
       select: {
         id: true,
         email: true,
@@ -288,18 +508,47 @@ export class AuthService {
         crmVerified: true,
         role: true,
         locale: true,
+        passwordHash: true,
       },
     });
 
     if (!physician) throw new UnauthorizedException('Physician not found');
 
+    // CC-334 — o vínculo pedido no login social só existe depois do 2º fator
+    // (e, CC-018, só para quem não foi eliminado).
+    if (claims.oauthLink) {
+      await this.externalIdentities.link(physicianId, claims.oauthLink, ip);
+    }
+
+    await this.auditSilently({
+      actorId: physicianId,
+      action: 'AUTH_LOGIN',
+      entity: 'Physician',
+      entityId: physicianId,
+      payload: claims.provider
+        ? { mfa: true, method: 'oauth', provider: claims.provider }
+        : { mfa: true },
+      ip,
+    });
+
     const tokens = await this.generateTokens(physicianId, email, physician.role);
-    return { mfaRequired: false, physician, ...tokens };
+    return { mfaRequired: false, physician: toSessionPhysician(physician), ...tokens };
   }
 
-  private async issueMfaPendingToken(physicianId: string, email: string): Promise<string> {
+  private async issueMfaPendingToken(
+    physicianId: string,
+    email: string,
+    context: SignInContext = {},
+  ): Promise<string> {
     return this.jwt.signAsync(
-      { sub: physicianId, email, physicianId, scope: MFA_PENDING_SCOPE },
+      {
+        sub: physicianId,
+        email,
+        physicianId,
+        scope: MFA_PENDING_SCOPE,
+        ...(context.provider ? { provider: context.provider } : {}),
+        ...(context.oauthLink ? { oauthLink: context.oauthLink } : {}),
+      },
       { secret: this.mfaPendingSecret, expiresIn: MFA_TOKEN_EXPIRY },
     );
   }
@@ -319,6 +568,16 @@ export class AuthService {
     });
 
     if (!storedToken || storedToken.revoked || storedToken.expiresAt < new Date()) {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+
+    // CC-018 — a eliminação apaga os refresh tokens, mas um refresh que leu o
+    // token antes dela pode gravar um novo depois. O cadastro já vem no
+    // include: checar aqui não custa consulta.
+    if (storedToken.physician.erasedAt) {
+      this.logger.warn(
+        `AUTH_ERASED_PHYSICIAN_TOKEN_REJECTED: physician ${storedToken.physician.id} (refresh)`,
+      );
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
@@ -400,12 +659,14 @@ export class AuthService {
         crmUf: true,
         crmNumber: true,
         name: true,
+        specialty: true,
         crmVerified: true,
         role: true,
         mfaEnabled: true,
         subscriptionStatus: true,
         locale: true,
         createdAt: true,
+        passwordHash: true,
       },
     });
 
@@ -413,7 +674,8 @@ export class AuthService {
       throw new UnauthorizedException('Physician not found');
     }
 
-    return physician;
+    const { passwordHash, ...profile } = physician;
+    return { ...profile, hasPassword: passwordHash !== null };
   }
 
   private async runCrmAutoVerification(
@@ -511,10 +773,19 @@ export class AuthService {
     });
 
     if (!physician) throw new UnauthorizedException('Physician not found');
+    if (physician.passwordHash === null) {
+      throw new BadRequestException('Esta conta entra com Google ou Microsoft e não tem senha');
+    }
 
+    // CC-025 — com uma sessão roubada, chutar a senha atual aqui tomaria a
+    // conta. A reserva conta a tentativa; só o acerto zera o contador.
+    await this.lockout.reserveAttempt('password_change', physicianId);
     const valid = await bcrypt.compare(currentPassword, physician.passwordHash);
-    if (!valid) throw new UnauthorizedException('Current password is incorrect');
+    // CC-014 — 400, não 401: o web trata todo 401 como sessão expirada e leva
+    // ao login, então errar a senha atual tirava o médico da tela.
+    if (!valid) throw new BadRequestException('Senha atual incorreta');
 
+    await this.lockout.clear('password_change', physicianId);
     const newHash = await bcrypt.hash(newPassword, 12);
     await this.prisma.physician.update({
       where: { id: physicianId },
@@ -576,19 +847,16 @@ export class AuthService {
     await this.auditService.log(params).catch(() => undefined);
   }
 
-  async updateProfile(physicianId: string, data: { name?: string; locale?: string }) {
-    const physician = await this.prisma.physician.update({
+  /**
+   * Devolve o mesmo perfil de GET /auth/me. O web troca o médico da sessão
+   * por esta resposta (aba Perfil): um recorte sem `role` rebaixava o
+   * administrador na tela até o próximo login.
+   */
+  async updateProfile(physicianId: string, data: UpdateProfileInput) {
+    await this.prisma.physician.update({
       where: { id: physicianId },
-      data: { name: data.name, locale: data.locale },
-      select: {
-        id: true,
-        email: true,
-        crmUf: true,
-        crmNumber: true,
-        name: true,
-        crmVerified: true,
-        locale: true,
-      },
+      data: { name: data.name, locale: data.locale, specialty: data.specialty },
+      select: { id: true },
     });
 
     await this.auditSilently({
@@ -599,6 +867,6 @@ export class AuthService {
       payload: { fields: Object.keys(data) },
     });
 
-    return physician;
+    return this.getMe(physicianId);
   }
 }

@@ -10,6 +10,10 @@ const curatorId = '44444444-4444-4444-8444-444444444444';
 const encounterId = '22222222-2222-4222-8222-222222222222';
 const feedbackId = '55555555-5555-4555-8555-555555555555';
 
+function sha256(text: string): string {
+  return createHash('sha256').update(text).digest('hex');
+}
+
 const interaction = {
   id: '33333333-3333-4333-8333-333333333333',
   model: 'claude-sonnet',
@@ -117,7 +121,7 @@ describe('CopilotFeedbackService', () => {
         payload: {
           encounterId,
           kind: 'wrong_scenario',
-          comment: 'Era dengue, foi para sepse.',
+          commentHash: sha256('Era dengue, foi para sepse.'),
           model: 'claude-sonnet',
           turnIndex: 0,
           retrievedChunkIds: ['chunk-sepse-1', 'chunk-sepse-2'],
@@ -147,22 +151,31 @@ describe('CopilotFeedbackService', () => {
       });
     });
 
-    it('mascara PII do comentário na fila E na trilha (a trilha nunca é apagada)', async () => {
+    /**
+     * A trilha é append-only e a eliminação LGPD não a alcança. A máscara não
+     * pega nome de paciente, então o texto — mesmo mascarado — fica só na
+     * fila (apagada com o atendimento); a trilha leva o hash.
+     */
+    it('mascara PII do comentário na fila; a trilha leva só o hash do texto', async () => {
       await service.submit(physicianId, encounterId, {
         interactionId: interaction.id,
         kind: 'wrong_recommendation',
-        comment: 'Paciente CPF 529.982.247-25, tel (11) 98765-4321, alérgico a dipirona',
+        comment: 'Maria Silva, CPF 529.982.247-25, tel (11) 98765-4321, alérgica a dipirona',
       });
 
-      const masked = 'Paciente CPF [REDACTED_CPF], tel [REDACTED_PHONE], alérgico a dipirona';
+      const masked = 'Maria Silva, CPF [REDACTED_CPF], tel [REDACTED_PHONE], alérgica a dipirona';
       const createCall = prisma.copilotFeedback.create.mock.calls[0]![0] as {
         data: { comment: string };
       };
       expect(createCall.data.comment).toBe(masked);
       expect(audit.log).toHaveBeenCalledWith(
-        expect.objectContaining({ payload: expect.objectContaining({ comment: masked }) }),
+        expect.objectContaining({
+          payload: expect.objectContaining({ commentHash: sha256(masked) }),
+        }),
       );
-      expect(JSON.stringify(audit.log.mock.calls)).not.toContain('529.982.247-25');
+      const trail = JSON.stringify(audit.log.mock.calls);
+      expect(trail).not.toContain('Maria Silva');
+      expect(trail).not.toContain('529.982.247-25');
     });
 
     it('não aceita feedback sobre a análise de outro médico', async () => {
@@ -330,7 +343,7 @@ describe('CopilotFeedbackService', () => {
         payload: {
           from: 'new',
           to: 'triaged',
-          triageNoteHash: createHash('sha256').update(storedNote).digest('hex'),
+          triageNoteHash: sha256(storedNote),
         },
       });
       expect(JSON.stringify(audit.log.mock.calls)).not.toContain('dengue');

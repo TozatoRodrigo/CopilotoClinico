@@ -19,6 +19,8 @@ import { AuditService } from '../../src/modules/audit/audit.service';
 import { CopilotFeedbackService } from '../../src/modules/copilot/feedback/copilot-feedback.service';
 import { KnowledgeGapService } from '../../src/modules/copilot/gaps/knowledge-gap.service';
 import { LgpdService } from '../../src/modules/lgpd/lgpd.service';
+import { PhysicianErasureCheck } from '../../src/modules/auth/physician-erasure-check.service';
+import type { StorageService } from '../../src/modules/storage/storage.service';
 import type { PrismaService } from '../../src/config/prisma.service';
 
 const RUNTIME_ROLE = 'copiloto_app';
@@ -152,7 +154,13 @@ describe('CC-703 — feedback que vira caso e registro de lacunas (integration)'
 
     it('entra na portabilidade do médico e sai com o atendimento (eliminação LGPD)', async () => {
       await gaps.reportNotFound(physicianId, encounterId, { interactionId, note: 'Dose' });
-      const lgpd = new LgpdService(prisma as unknown as PrismaService, audit);
+      // Só a exportação: a eliminação não roda aqui, o storage não é chamado.
+      const lgpd = new LgpdService(
+        prisma as unknown as PrismaService,
+        audit,
+        new PhysicianErasureCheck(prisma as unknown as PrismaService),
+        {} as StorageService,
+      );
 
       const exported = await lgpd.exportPhysicianData(physicianId);
       expect(exported.data.knowledgeGaps).toHaveLength(1);

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { validateOutputV2 } from './output-validator-v2';
 import { validateOutputV3 } from './output-validator-v3';
+import { RECOMMENDATION_WHY_MAX_LENGTH } from '../../../shared/contracts/clinical';
 import { understandingFixture } from '../../../../tests/fixtures/case-understanding';
 
 /**
@@ -325,6 +326,110 @@ describe('validateOutputV3', () => {
       );
 
       expect(result.warnings).toEqual([expect.stringContaining('QUESTION FOR KNOWN DATA REMOVED')]);
+    });
+  });
+
+  // CC-601 — linha de "por quê" (`COPILOT_WHY_LINE`): nunca pede retry sozinha.
+  describe('linha de "por quê"', () => {
+    const why =
+      'Só a tomografia separa sangramento de entupimento, e o tratamento de um piora o outro';
+    const tooLong = `${'Explica demais '.repeat(8)}e passa do teto`;
+
+    function validateWithLine(raw: string) {
+      return validateOutputV3(raw, EVIDENCE_IDS, {
+        understanding: understandingFixture(),
+        whyLine: true,
+      });
+    }
+
+    it('accepts a line of up to 120 characters on every "now" and null on "depends"', () => {
+      const atTheLimit = 'x'.repeat(RECOMMENDATION_WHY_MAX_LENGTH);
+      const result = validateWithLine(
+        output({
+          recommendations: [
+            recommendation({ why }),
+            recommendation({ action: 'Glicemia capilar', why: atTheLimit }),
+            recommendation({ layer: 'depends', dependsOn: 'TC sem sangramento', why: null }),
+          ],
+        }),
+      );
+
+      expect(result).toMatchObject({ valid: true, errors: [], correctable: [], warnings: [] });
+      expect(result.output?.recommendations.map((rec) => rec.why)).toEqual([
+        why,
+        atTheLimit,
+        undefined,
+      ]);
+    });
+
+    it('takes out a line over the limit, never cutting it, and warns without a retry', () => {
+      expect(tooLong.length).toBeGreaterThan(RECOMMENDATION_WHY_MAX_LENGTH);
+      const result = validateWithLine(
+        output({ recommendations: [recommendation({ why }), recommendation({ why: tooLong })] }),
+      );
+
+      expect(result.valid).toBe(true);
+      expect(result.correctable).toEqual([]);
+      expect(result.warnings).toEqual([
+        expect.stringContaining('WHY LINE TOO LONG: recommendations at index 1'),
+      ]);
+      expect(result.output?.recommendations.map((rec) => rec.why)).toEqual([why, undefined]);
+      expect(result.output?.recommendations[1]?.rationale).toBe(
+        'Separa AVC isquêmico de hemorrágico',
+      );
+    });
+
+    it('warns, without a retry, when a "now" recommendation has no line', () => {
+      const result = validateWithLine(
+        output({ recommendations: [recommendation({ why: null }), recommendation({ why: ' ' })] }),
+      );
+
+      expect(result.correctable).toEqual([]);
+      expect(result.warnings).toEqual([
+        expect.stringContaining('WHY LINE MISSING: recommendations at index 0, 1'),
+      ]);
+    });
+
+    it('joins a retry that another rule already asks for', () => {
+      const result = validateWithLine(
+        output({
+          recommendations: [
+            recommendation({ why: tooLong }),
+            recommendation({ layer: 'depends', dependsOn: null, why: null }),
+          ],
+        }),
+      );
+
+      expect(result.correctable).toEqual([
+        expect.stringContaining('DEPENDS WITHOUT DATA'),
+        expect.stringContaining('WHY LINE TOO LONG: recommendations at index 0'),
+      ]);
+      expect(result.warnings).toEqual([]);
+      expect(result.output?.recommendations[0]?.why).toBeUndefined();
+    });
+
+    it('treats a dose in the line like a dose in the action', () => {
+      const result = validateWithLine(
+        output({
+          recommendations: [recommendation({ why: 'Adrenalina 0,5 mg IM reverte o choque' })],
+        }),
+      );
+
+      expect(result.correctable).toEqual([expect.stringContaining('DOSE WITHOUT SOURCE')]);
+    });
+
+    it('still parses an answer without the field, as a missing line', () => {
+      const result = validateWithLine(output());
+
+      expect(result.valid).toBe(true);
+      expect(result.warnings).toEqual([expect.stringContaining('WHY LINE MISSING')]);
+    });
+
+    it('drops any line and checks nothing when the flag is off', () => {
+      const result = validate(output({ recommendations: [recommendation({ why: tooLong })] }));
+
+      expect(result).toMatchObject({ valid: true, correctable: [], warnings: [] });
+      expect(result.output?.recommendations[0]).not.toHaveProperty('why');
     });
   });
 });

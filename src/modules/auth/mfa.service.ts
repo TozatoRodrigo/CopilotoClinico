@@ -11,10 +11,19 @@ import QRCode from 'qrcode';
 import { PrismaService } from '../../config/prisma.service';
 import { CryptoService } from '../../shared/crypto/crypto.service';
 import { AuditService } from '../audit/audit.service';
+import { AccountLockedException, AccountLockoutService } from './account-lockout.service';
 
 const BACKUP_CODE_COUNT = 8;
 const BACKUP_CODE_BYTES = 4; // produces 8 hex chars each
 const APP_NAME = 'CopilotoClinico';
+
+function isValidTotp(token: string, secret: string): boolean {
+  try {
+    return verifySync({ token, secret }).valid;
+  } catch {
+    return false;
+  }
+}
 
 @Injectable()
 export class MfaService {
@@ -22,6 +31,7 @@ export class MfaService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(CryptoService) private readonly crypto: CryptoService,
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(AccountLockoutService) private readonly lockout: AccountLockoutService,
   ) {}
 
   async setupMfa(physicianId: string): Promise<{
@@ -83,14 +93,9 @@ export class MfaService {
       throw new BadRequestException('MFA not set up — call POST /auth/mfa/setup first');
     }
 
-    const secret = this.crypto.decrypt(physician.mfaSecret);
-    let valid = false;
-    try {
-      valid = verifySync({ token: totpCode, secret }).valid;
-    } catch {
-      valid = false;
-    }
-    if (!valid) {
+    // Sem limite por conta: quem chama acabou de receber o segredo no setup,
+    // então chutar o código não abre nada.
+    if (!isValidTotp(totpCode, this.crypto.decrypt(physician.mfaSecret))) {
       throw new UnauthorizedException('Invalid TOTP code');
     }
 
@@ -117,29 +122,29 @@ export class MfaService {
       throw new UnauthorizedException('MFA not configured');
     }
 
-    const secret = this.crypto.decrypt(physician.mfaSecret);
-
-    let totpValid = false;
+    // CC-025 — sem limite por conta, o limite por IP era a única defesa dos
+    // 10^6 códigos possíveis. A reserva já conta a tentativa; só o acerto zera.
     try {
-      const totpResult = verifySync({ token: code, secret });
-      totpValid = totpResult.valid;
-    } catch {
-      totpValid = false;
-    }
-    if (totpValid) {
-      return;
+      await this.lockout.reserveAttempt('mfa', physicianId);
+    } catch (err) {
+      if (err instanceof AccountLockedException) {
+        await this.auditSilently({
+          actorId: physicianId,
+          action: 'AUTH_MFA_FAILED',
+          entity: 'Physician',
+          entityId: physicianId,
+          payload: { reason: 'account_locked' },
+          ip,
+        });
+      }
+      throw err;
     }
 
-    const codeHash = createHash('sha256').update(code).digest('hex');
-    const backupCode = await this.prisma.mfaBackupCode.findFirst({
-      where: { physicianId, codeHash, usedAt: null },
-    });
-
-    if (backupCode) {
-      await this.prisma.mfaBackupCode.update({
-        where: { id: backupCode.id },
-        data: { usedAt: new Date() },
-      });
+    const accepted =
+      isValidTotp(code, this.crypto.decrypt(physician.mfaSecret)) ||
+      (await this.consumeBackupCode(physicianId, code));
+    if (accepted) {
+      await this.lockout.clear('mfa', physicianId);
       return;
     }
 
@@ -154,6 +159,37 @@ export class MfaService {
     throw new UnauthorizedException('Invalid MFA code');
   }
 
+  private async consumeBackupCode(physicianId: string, code: string): Promise<boolean> {
+    const codeHash = createHash('sha256').update(code).digest('hex');
+    const backupCode = await this.prisma.mfaBackupCode.findFirst({
+      where: { physicianId, codeHash, usedAt: null },
+    });
+    if (!backupCode) return false;
+
+    await this.prisma.mfaBackupCode.update({
+      where: { id: backupCode.id },
+      data: { usedAt: new Date() },
+    });
+    return true;
+  }
+
+  /**
+   * CC-025 — TOTP pedido a quem já tem sessão (desativar o MFA, gerar novos
+   * códigos de backup). Conta no mesmo limite do login com MFA: com uma sessão
+   * roubada, chutar o código aqui desligaria o 2º fator da conta.
+   */
+  private async assertTotpWithinLimit(
+    physicianId: string,
+    encryptedSecret: string,
+    totpCode: string,
+  ): Promise<void> {
+    await this.lockout.reserveAttempt('mfa', physicianId);
+    if (!isValidTotp(totpCode, this.crypto.decrypt(encryptedSecret))) {
+      throw new UnauthorizedException('Invalid TOTP code');
+    }
+    await this.lockout.clear('mfa', physicianId);
+  }
+
   async disableMfa(physicianId: string, totpCode: string): Promise<void> {
     const physician = await this.prisma.physician.findUnique({
       where: { id: physicianId },
@@ -165,16 +201,7 @@ export class MfaService {
       throw new BadRequestException('MFA is not enabled');
     }
 
-    const secret = this.crypto.decrypt(physician.mfaSecret);
-    let valid = false;
-    try {
-      valid = verifySync({ token: totpCode, secret }).valid;
-    } catch {
-      valid = false;
-    }
-    if (!valid) {
-      throw new UnauthorizedException('Invalid TOTP code');
-    }
+    await this.assertTotpWithinLimit(physicianId, physician.mfaSecret, totpCode);
 
     await this.prisma.$transaction(async (tx) => {
       await tx.physician.update({
@@ -218,16 +245,7 @@ export class MfaService {
       throw new BadRequestException('MFA is not enabled');
     }
 
-    const secret = this.crypto.decrypt(physician.mfaSecret);
-    let valid = false;
-    try {
-      valid = verifySync({ token: totpCode, secret }).valid;
-    } catch {
-      valid = false;
-    }
-    if (!valid) {
-      throw new UnauthorizedException('Invalid TOTP code');
-    }
+    await this.assertTotpWithinLimit(physicianId, physician.mfaSecret, totpCode);
 
     const backupCodes = Array.from({ length: BACKUP_CODE_COUNT }, () =>
       randomBytes(BACKUP_CODE_BYTES).toString('hex'),

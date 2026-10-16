@@ -1,3 +1,5 @@
+import type { EncounterSite } from './practice-site';
+
 export const encounterVerticalValues = [
   'trauma',
   'cardiac',
@@ -28,6 +30,12 @@ export interface EncounterContext {
   isSus: boolean;
   hasLab: boolean;
   hasICU: boolean;
+  /**
+   * CC-602 — porte, especialistas e referência do local de plantão escolhido
+   * para o caso. Ausente nos casos sem local declarado: aí um recurso `false`
+   * quer dizer "não marcado", não "o serviço não tem".
+   */
+  site?: EncounterSite;
 }
 
 export type PhysicianRole = 'PHYSICIAN' | 'COMPLIANCE' | 'ADMIN';
@@ -41,6 +49,9 @@ export interface Physician {
   crmVerified: boolean;
   role: PhysicianRole;
   mfaEnabled?: boolean;
+  // CC-334 — false em conta criada pelo login com Google/Microsoft (sem
+  // senha): a tela de segurança esconde a troca de senha. Ausente = tem senha.
+  hasPassword?: boolean;
   // PI-05 — preferência de idioma persistida na conta ('pt-BR' | 'es'), não
   // apenas no localStorage do dispositivo. Tipado como `string` (não como a
   // união `Locale` do web/) porque este contrato é consumido pelo backend,
@@ -48,7 +59,34 @@ export interface Physician {
   // web/src/lib/messages/use-messages.ts é quem valida contra os locales
   // suportados antes de resolver o dicionário.
   locale?: string;
+  // CC-014 — escolhida no onboarding ou no perfil; null até o médico escolher.
+  specialty?: PhysicianSpecialty | null;
 }
+
+/**
+ * CC-014 — especialidades que o onboarding e o perfil oferecem. Lista fechada
+ * e validada no PATCH /auth/me. Os slugs são os da base de diretrizes
+ * (`SPECIALTIES` em clinical-vocabulary.ts) quando existem lá, para a
+ * especialidade do médico poder priorizar diretrizes sem tabela de tradução.
+ * Espelhado em web/src/lib/clinical-contract.ts (a imagem do web não tem
+ * ../src); tests/web-mirrors/clinical.spec.ts confere.
+ */
+export const physicianSpecialtyValues = [
+  'medicina_de_emergencia',
+  'clinica_medica',
+  'cardiologia',
+  'pneumologia',
+  'pediatria',
+  'neurologia',
+  'cirurgia_geral',
+  'ortopedia',
+  'ginecologia_obstetricia',
+  'psiquiatria',
+  'anestesiologia',
+  'outra',
+] as const;
+
+export type PhysicianSpecialty = (typeof physicianSpecialtyValues)[number];
 
 export interface AuthResponse {
   physician: Physician;
@@ -164,8 +202,18 @@ export interface Document {
   confirmedBy: string | null;
   confirmedAt: string | null;
   contentHash: string | null;
+  // ADR-018 — algoritmo do contentHash: 1 = legado, 2 = JSON canônico.
+  contentHashVersion: number | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export type DocumentIntegrityStatus = 'unconfirmed' | 'intact' | 'mismatch';
+
+export interface DocumentIntegrity {
+  documentId: string;
+  status: DocumentIntegrityStatus;
+  contentHashVersion: number | null;
 }
 
 export interface AuditEntry {
@@ -280,7 +328,18 @@ export interface CopilotRecommendation {
   dependsOn?: string | null;
   /** F1 — decisão v2. */
   basis?: RecommendationBasis;
+  /**
+   * CC-601 — linha de "por quê" de uma conduta "agora", em linguagem simples,
+   * para o médico sem residência (`COPILOT_WHY_LINE`, decisão v3 ou v4). Até
+   * `RECOMMENDATION_WHY_MAX_LENGTH` caracteres. Ausente sem a flag, na camada
+   * "depende" e quando o modelo não a escreveu dentro do limite: a UI mostra
+   * o `rationale`, como antes.
+   */
+  why?: string | null;
 }
+
+/** CC-601 — teto da linha de "por quê" (`CopilotRecommendation.why`). */
+export const RECOMMENDATION_WHY_MAX_LENGTH = 120;
 
 export interface ClarifyingQuestion {
   id: string;
@@ -570,7 +629,7 @@ export interface CopilotAnalyzeResponse {
 export type RetrievalCoverage = 'full' | 'partial' | 'none';
 
 /**
- * UX-06 — eventos do stream SSE de GET /encounters/:id/copilot/stream e,
+ * UX-06 — eventos do stream SSE da conversa (GET .../intake/:id/stream) e,
  * na reanálise, do corpo de POST /encounters/:id/copilot/respond/stream.
  * Espelha `StreamEvent` de orchestrator.service.ts, mas com `result`
  * tipado como `CopilotAnalyzeResponse` (o formato de wire real que a HTTP
@@ -679,7 +738,8 @@ export interface IntakeAnswer {
  * - `unstable`: paciente instável, plano direto;
  * - `complete`: nada que falte muda a conduta agora;
  * - `reading_failed`: a leitura falhou ou demorou; plano direto;
- * - `disabled`: `COPILOT_INTAKE=off`; plano direto, sem leitura.
+ * - `disabled`: sem leitura, plano direto — `COPILOT_INTAKE=off` ou análise
+ *   pela fila (`POST .../analyze/async`, áudio gravado; CC-011).
  */
 export const INTAKE_PATHS = ['ask', 'unstable', 'complete', 'reading_failed', 'disabled'] as const;
 export type IntakePath = (typeof INTAKE_PATHS)[number];
@@ -1086,4 +1146,203 @@ export interface GuidelineSearchResult {
   institutionId: string | null;
   reviewerName: string | null;
   rank: number;
+}
+
+/**
+ * CC-010 — `code` do 403 de quem revogou o consentimento `ai_processing`
+ * (Configurações → Privacidade). A recusa sai antes de qualquer chamada de IA:
+ * leitura do caso, análise, reanálise e transcrição do ditado. A mensagem já
+ * vem escrita para o médico; o web a mostra como qualquer outro erro.
+ */
+export const AI_CONSENT_REVOKED = 'AI_CONSENT_REVOKED' as const;
+
+export interface AiConsentRevokedError {
+  statusCode: 403;
+  error: 'Forbidden';
+  code: typeof AI_CONSENT_REVOKED;
+  message: string;
+}
+
+// ── Mentoria em modo concierge (CC-707) ────────────────────────────────────
+//
+// "Discutir este caso com um médico da equipe": assíncrona, não serve para
+// urgência. O médico aceita o termo (CC-708) e manda o caso mascarado com o
+// plano da IA; um mentor da equipe assume e responde no próprio caso.
+
+export const MENTORING_REQUEST_STATUSES = ['pending', 'claimed', 'answered', 'cancelled'] as const;
+export type MentoringRequestStatus = (typeof MENTORING_REQUEST_STATUSES)[number];
+
+/** Nota de satisfação depois da resposta. */
+export const MENTORING_SATISFACTION_MIN = 1;
+export const MENTORING_SATISFACTION_MAX = 5;
+
+/** Tetos dos textos livres (dúvida do médico e resposta do mentor). */
+export const MENTORING_QUESTION_MAX_LENGTH = 1000;
+export const MENTORING_ANSWER_MAX_LENGTH = 4000;
+
+export interface MentoringTermsDocument {
+  title: string;
+  paragraphs: string[];
+}
+
+/**
+ * CC-708 — termo da mentoria. Um texto para quem pede e outro para o mentor,
+ * com a mesma versão; `provisional` fica `true` até o parecer jurídico.
+ */
+export interface MentoringTerms {
+  version: string;
+  provisional: boolean;
+  requester: MentoringTermsDocument;
+  mentor: MentoringTermsDocument;
+}
+
+/** GET /mentoring/config — desligada (`COPILOT_MENTORING=off`), só `enabled: false`. */
+export type MentoringConfigResponse =
+  | { enabled: false }
+  | { enabled: true; isMentor: boolean; terms: MentoringTerms };
+
+/**
+ * O que os mentores recebem: o caso e o plano da IA, mascarados no servidor
+ * (PII e patientRef). Gravado no pedido: o mentor lê exatamente o que foi
+ * enviado, mesmo que o caso ganhe outra análise depois.
+ */
+export interface MentoringCaseSnapshot {
+  vertical: string;
+  context: EncounterContext | null;
+  caseText: string | null;
+  analysisCreatedAt: string | null;
+  plan: {
+    mainHypothesis: string | null;
+    differentials: Array<{ hypothesis: string; cannotMiss: boolean }>;
+    redFlags: Array<{ finding: string; severity: string }>;
+    recommendations: Array<{ action: string; preliminary: boolean }>;
+    pendingQuestions: string[];
+    uncertainty: boolean;
+  };
+}
+
+/** POST /encounters/:id/mentoring */
+export interface CreateMentoringRequest {
+  /** Versão do termo que o médico leu e aceitou (a de GET /mentoring/config). */
+  termsVersion: string;
+  /** O médico confirmou que não é urgência e que segue responsável pelo paciente. */
+  acknowledgedNotUrgent: true;
+  /** O que o médico quer discutir. O servidor mascara PII. */
+  question?: string;
+}
+
+/** POST /mentoring/requests/:id/rating */
+export interface RateMentoringRequest {
+  satisfaction: number;
+}
+
+/** POST /mentoring/queue/:id/answer */
+export interface AnswerMentoringRequest {
+  answer: string;
+  /** Versão do termo que o mentor aceitou ao responder. */
+  termsVersion: string;
+}
+
+/** O pedido visto por quem pediu, no próprio caso. */
+export interface MentoringRequestView {
+  id: string;
+  encounterId: string;
+  status: MentoringRequestStatus;
+  question: string | null;
+  termsVersion: string;
+  createdAt: string;
+  claimedAt: string | null;
+  mentorName: string | null;
+  answer: string | null;
+  answeredAt: string | null;
+  answerSeenAt: string | null;
+  cancelledAt: string | null;
+  satisfaction: number | null;
+}
+
+/** GET /mentoring/notifications — respostas que o médico ainda não abriu. */
+export interface MentoringNotificationsResponse {
+  unreadAnswers: Array<{
+    requestId: string;
+    encounterId: string;
+    /** Queixa principal do caso (nunca o patientRef). */
+    caseTitle: string | null;
+    mentorName: string | null;
+    answeredAt: string;
+  }>;
+}
+
+export const MENTOR_QUEUE_SCOPES = ['open', 'mine'] as const;
+export type MentorQueueScope = (typeof MENTOR_QUEUE_SCOPES)[number];
+
+/** Um pedido na fila do mentor (sem o caso; o caso vem no detalhe). */
+export interface MentorQueueItem {
+  id: string;
+  status: MentoringRequestStatus;
+  createdAt: string;
+  claimedAt: string | null;
+  answeredAt: string | null;
+  /** O pedido está com o mentor que consulta. */
+  assignedToMe: boolean;
+  mentorName: string | null;
+  vertical: string;
+  mainHypothesis: string | null;
+  question: string | null;
+}
+
+/** GET /mentoring/queue */
+export interface MentorQueueResponse {
+  items: MentorQueueItem[];
+  /** Pendentes sem mentor, visíveis a quem consulta (contador do menu). */
+  pendingCount: number;
+}
+
+/** GET /mentoring/queue/:id */
+export interface MentorRequestDetail extends MentorQueueItem {
+  caseSnapshot: MentoringCaseSnapshot;
+  answer: string | null;
+  satisfaction: number | null;
+}
+
+/** Uma linha do painel admin: só metadados, nenhum texto clínico. */
+export interface MentoringAdminItem {
+  id: string;
+  status: MentoringRequestStatus;
+  createdAt: string;
+  claimedAt: string | null;
+  answeredAt: string | null;
+  cancelledAt: string | null;
+  /** Do pedido à resposta, em minutos. */
+  responseMinutes: number | null;
+  satisfaction: number | null;
+  requesterName: string | null;
+  mentorName: string | null;
+  institutionName: string | null;
+  termsVersion: string;
+}
+
+export interface MentoringAdminMetrics {
+  periodDays: number;
+  total: number;
+  byStatus: Record<MentoringRequestStatus, number>;
+  /** Médicos distintos que pediram mentoria no período. */
+  requesters: number;
+  /** Médicos com ao menos uma análise do copiloto no período. */
+  activePhysicians: number;
+  /** Métrica de sucesso da CC-707; `null` sem médico ativo. */
+  requestsPerActivePhysician: number | null;
+  /** Do pedido à resposta, em minutos; `null` sem resposta no período. */
+  responseMinutes: { median: number | null; p90: number | null };
+  satisfaction: {
+    average: number | null;
+    rated: number;
+    /** Contagem por nota: índice 0 = nota 1 … índice 4 = nota 5. */
+    distribution: [number, number, number, number, number];
+  };
+}
+
+/** GET /admin/mentoring */
+export interface MentoringAdminResponse {
+  metrics: MentoringAdminMetrics;
+  items: MentoringAdminItem[];
 }

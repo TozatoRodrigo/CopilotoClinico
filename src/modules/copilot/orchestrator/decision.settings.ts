@@ -1,5 +1,5 @@
 import type { ConfigService } from '@nestjs/config';
-import { readChoiceFlag } from '../../../config/feature-flag';
+import { readBooleanFlag, readChoiceFlag } from '../../../config/feature-flag';
 import {
   DECISION_PROMPT_VERSIONS,
   KNOWLEDGE_SOURCES,
@@ -18,6 +18,11 @@ export interface DecisionPipeline {
   reasoning: ReasoningMode;
   decisionPrompt: DecisionPromptVersion;
   knowledgeSource: KnowledgeSource;
+  /**
+   * CC-601 — linha de "por quê" em cada conduta "agora" (`COPILOT_WHY_LINE`).
+   * Só vale com `decisionPrompt` v3 ou v4 (`supportsWhyLine`).
+   */
+  whyLine: boolean;
 }
 
 export interface DecisionPipelineReading {
@@ -39,6 +44,29 @@ export function isStagedDecisionPrompt(
   version: DecisionPromptVersion,
 ): version is Exclude<DecisionPromptVersion, 'v1'> {
   return version !== 'v1';
+}
+
+/**
+ * CC-601 — prompts que sabem pedir a linha de "por quê": a v3 e a v4, que
+ * têm o mesmo formato de saída e o mesmo exemplo.
+ */
+export const WHY_LINE_PROMPT_VERSIONS = [
+  'v3',
+  'v4',
+] as const satisfies readonly DecisionPromptVersion[];
+export type WhyLinePromptVersion = (typeof WHY_LINE_PROMPT_VERSIONS)[number];
+
+export function supportsWhyLine(version: DecisionPromptVersion): version is WhyLinePromptVersion {
+  return (WHY_LINE_PROMPT_VERSIONS as readonly DecisionPromptVersion[]).includes(version);
+}
+
+/**
+ * `COPILOT_WHY_LINE` (CC-601): `on` pede a linha de "por quê" de cada conduta
+ * "agora"; desligada por padrão — e aí o prompt e a saída são os de sempre,
+ * byte a byte. Typo cai em desligada.
+ */
+export function readWhyLineFlag(config: ConfigService): boolean {
+  return readBooleanFlag(config, 'COPILOT_WHY_LINE', false);
 }
 
 /**
@@ -93,11 +121,22 @@ export function readDecisionPipeline(config: ConfigService): DecisionPipelineRea
     );
   }
 
+  // CC-601 — a linha de "por quê" fala o formato da v3 e da v4; com outro
+  // prompt efetivo (inclusive a v1 do rebaixamento acima), fica de fora.
+  const requestedWhyLine = readWhyLineFlag(config);
+  const whyLine = requestedWhyLine && supportsWhyLine(decisionPrompt);
+  if (requestedWhyLine && !whyLine) {
+    downgrades.push(
+      `COPILOT_WHY_LINE exige COPILOT_DECISION_PROMPT=v3 ou v4 (efetivo: ${decisionPrompt}): plano sem a linha de por quê`,
+    );
+  }
+
   return {
     pipeline: {
       reasoning,
       decisionPrompt,
       knowledgeSource: researchUnavailable ? 'model_only' : requestedSource,
+      whyLine,
     },
     downgrades,
   };

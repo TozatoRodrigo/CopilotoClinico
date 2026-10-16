@@ -25,6 +25,8 @@ const STAGE_LABELS: Record<AiCallStage, string> = {
   research: 'Pesquisa web',
   verify_attach: 'Verificação com fonte',
   guideline_classification: 'Classificação de diretriz',
+  review_questions: 'Revisão do plantão',
+  card_draft: 'Rascunho de cartão',
   other: 'Outra',
 };
 

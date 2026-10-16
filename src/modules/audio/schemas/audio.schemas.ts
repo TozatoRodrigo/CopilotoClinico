@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
-const ALLOWED_MIME_TYPES = [
+export const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+export const ALLOWED_MIME_TYPES = [
   'audio/webm',
   'audio/ogg',
   'audio/mp4',
@@ -10,6 +10,7 @@ const ALLOWED_MIME_TYPES = [
   'audio/x-wav',
   'audio/flac',
 ] as const;
+export type AudioMimeType = (typeof ALLOWED_MIME_TYPES)[number];
 
 export const uploadAudioSchema = z.object({
   mimeType: z.enum(ALLOWED_MIME_TYPES),

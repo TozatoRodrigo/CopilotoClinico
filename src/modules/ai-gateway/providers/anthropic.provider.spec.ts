@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ConfigService } from '@nestjs/config';
 import Anthropic from '@anthropic-ai/sdk';
-import { AnthropicProvider } from './anthropic.provider';
+import { AnthropicProvider, anthropicUnavailabilityOf } from './anthropic.provider';
 import { AiRefusalError, AiTruncatedError } from '../ai-gateway.errors';
 import type { CompletionParams, JsonResponseSchema } from './provider.interface';
 
@@ -452,6 +452,53 @@ describe('AnthropicProvider', () => {
       await expect(drain(createProvider().completeStream(params()))).rejects.toBeInstanceOf(
         AiRefusalError,
       );
+    });
+  });
+
+  // CC-107 — o motivo decide se a etapa vai para o modelo de reserva.
+  describe('anthropicUnavailabilityOf', () => {
+    function apiError(status: number | undefined, type: string, message: string) {
+      const body = { type: 'error', error: { type, message } };
+      return status === undefined
+        ? new Anthropic.APIError(undefined, body, undefined, new Headers(), type as never)
+        : Anthropic.APIError.generate(status, body, undefined, new Headers());
+    }
+
+    it.each([
+      [apiError(429, 'rate_limit_error', 'slow down'), 'rate_limit'],
+      [apiError(529, 'overloaded_error', 'Overloaded'), 'server_error'],
+      [apiError(500, 'api_error', 'Internal'), 'server_error'],
+      // Erro no meio do stream (`event: error`): sem status, só o tipo.
+      [apiError(undefined, 'overloaded_error', 'Overloaded'), 'server_error'],
+      [
+        apiError(
+          400,
+          'invalid_request_error',
+          'You have reached your specified workspace API usage limits. You will regain access on 2026-11-01 at 00:00 UTC.',
+        ),
+        'usage_limit',
+      ],
+      [apiError(400, 'invalid_request_error', 'Your credit balance is too low'), 'usage_limit'],
+      [new Anthropic.APIConnectionTimeoutError(), 'timeout'],
+      [new Anthropic.APIConnectionError({ message: 'socket hang up' }), 'network'],
+    ])('treats %o as an outage (%s)', (error, reason) => {
+      expect(anthropicUnavailabilityOf(error)).toBe(reason);
+    });
+
+    it.each([
+      apiError(400, 'invalid_request_error', 'output_config.format: schema is invalid'),
+      apiError(401, 'authentication_error', 'invalid x-api-key'),
+      apiError(404, 'not_found_error', 'model: claude-x'),
+      new Anthropic.APIUserAbortError(),
+      new AiRefusalError({
+        model: 'claude-opus-5-5',
+        category: 'bio',
+        explanation: null,
+        usage: { promptTokens: 1, completionTokens: 0, totalTokens: 1 },
+      }),
+      new Error('qualquer outra coisa'),
+    ])('treats %o as a request error, not an outage', (error) => {
+      expect(anthropicUnavailabilityOf(error)).toBeNull();
     });
   });
 });
