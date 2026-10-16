@@ -4,6 +4,7 @@ import { PassportModule } from '@nestjs/passport';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { MfaService } from './mfa.service';
+import { PhysicianErasureCheck } from './physician-erasure-check.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { PhysiciansModule } from '../physicians/physicians.module';
 
@@ -14,7 +15,9 @@ import { PhysiciansModule } from '../physicians/physicians.module';
     PhysiciansModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, MfaService, JwtStrategy],
-  exports: [AuthService, MfaService, JwtModule],
+  providers: [AuthService, MfaService, PhysicianErasureCheck, JwtStrategy],
+  // PhysicianErasureCheck é exportado para a eliminação (LgpdModule) marcar o
+  // médico na hora: o cache em memória precisa ser a mesma instância.
+  exports: [AuthService, MfaService, PhysicianErasureCheck, JwtModule],
 })
 export class AuthModule {}
