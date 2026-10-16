@@ -1,0 +1,29 @@
+{
+  "id": "kb004-rebaixamento-sem-glicemia",
+  "source": {
+    "kind": "clinical_case",
+    "caseId": "kb004-rebaixamento-sem-glicemia"
+  },
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Masc, 80a, trazido do asilo por sonolência e confusão desde a manhã. Diabético. PA 140x80, FC 96, SpO2 95%, T 36,8. Sem déficit motor evidente."
+  },
+  "expected": {
+    "sex": "M",
+    "age": 80,
+    "vitals": {
+      "systolicBp": 140,
+      "diastolicBp": 80,
+      "heartRate": 96,
+      "respiratoryRate": null,
+      "spo2": 95,
+      "temperature": 36.8,
+      "glucose": null
+    },
+    "syndrome": ["rebaixamento-consciencia"],
+    "instability": true,
+    "timeCritical": true
+  }
+}

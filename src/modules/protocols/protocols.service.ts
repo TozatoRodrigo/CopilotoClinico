@@ -8,6 +8,7 @@ import {
 import { Prisma, ProtocolStatus } from '@prisma/client';
 import { PrismaService } from '../../config/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { isVisibleToInstitutions } from '../institutions/institution-visibility';
 import { CreateProtocolInput } from './schemas/protocol.schemas';
 import { validateProtocolGraph, type ProtocolGraphNode } from './protocol-graph-validator';
 
@@ -147,8 +148,25 @@ export class ProtocolsService {
     return protocol;
   }
 
-  async publish(physicianId: string, id: string) {
+  /**
+   * CC-019 — protocolo pedido por um médico: global, ou de instituição com a
+   * qual ele tem vínculo ativo (`institutionIds`). O de outra instituição é
+   * tratado como inexistente, como em `findById`.
+   */
+  async findVisibleById(id: string, institutionIds: readonly string[]) {
     const protocol = await this.findById(id);
+    if (!isVisibleToInstitutions(protocol.institutionId, institutionIds)) {
+      throw new NotFoundException('Protocol not found');
+    }
+    return protocol;
+  }
+
+  /**
+   * CC-019 — antes, qualquer médico publicava o rascunho de outra instituição
+   * e recebia o protocolo inteiro na resposta.
+   */
+  async publish(physicianId: string, id: string, institutionIds: readonly string[]) {
+    const protocol = await this.findVisibleById(id, institutionIds);
 
     if (protocol.status !== 'draft') {
       throw new ConflictException('Apenas protocolos em rascunho (draft) podem ser publicados');
@@ -196,8 +214,13 @@ export class ProtocolsService {
    * A versão anterior não é alterada e permanece consultável (imutabilidade
    * de versões publicadas, mesmo princípio do audit_log).
    */
-  async reviseAsNewVersion(physicianId: string, id: string, input: CreateProtocolInput) {
-    const previous = await this.findById(id);
+  async reviseAsNewVersion(
+    physicianId: string,
+    id: string,
+    input: CreateProtocolInput,
+    institutionIds: readonly string[],
+  ) {
+    const previous = await this.findVisibleById(id, institutionIds);
 
     if (previous.status === 'draft') {
       throw new ConflictException(

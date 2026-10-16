@@ -102,6 +102,20 @@ describe('médico simulado', () => {
     expect(historyOnly).toEqual([]);
   });
 
+  // CC-106 — pergunta da leitura do caso: a resposta começa pela opção de
+  // toque, como o médico tocaria, para a conversa reconhecer a resposta urgente.
+  it('mostra as opções de toque da pergunta da leitura do caso', () => {
+    const user = buildSimulatorUserPrompt(funnel, [
+      { id: 'intake-1', question: 'O déficit flutua?', choices: ['Sim', 'Não', 'Não sei'] },
+      { id: 'q-livre', question: 'Desde quando?' },
+    ]);
+
+    expect(user).toContain(
+      '[intake-1] O déficit flutua? (opções: "Sim" | "Não" | "Não sei" — comece a resposta pela opção',
+    );
+    expect(user).toContain('[q-livre] Desde quando?\n');
+  });
+
   it('chama o modelo com saída estruturada e calcula o custo à parte', async () => {
     const complete = vi.fn().mockResolvedValue({
       content: JSON.stringify({ answers: [] }),

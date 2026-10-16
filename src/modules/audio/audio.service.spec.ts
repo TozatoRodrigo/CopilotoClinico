@@ -126,6 +126,29 @@ describe('AudioService', () => {
 
   // ──── S21-VOICE-02 — transcribeDirect (síncrono, sem persistir áudio) ────
   describe('S21-VOICE-02 — transcribeDirect', () => {
+    it('transcribes with WHISPER_MODEL and records that model (CC-205)', async () => {
+      const turboService = new AudioService(
+        prismaMock as unknown as PrismaService,
+        cryptoMock as unknown as CryptoService,
+        auditMock as unknown as AuditService,
+        queueMock as unknown as InferenceQueueService,
+        whisperMock as unknown as WhisperService,
+        new ConfigService({ WHISPER_MODEL: 'whisper-large-v3-turbo' }),
+      );
+
+      const result = await turboService.transcribeDirect('phy-1', validInput);
+
+      expect(whisperMock.transcribe).toHaveBeenCalledWith(expect.any(Buffer), 'audio/webm', {
+        model: 'whisper-large-v3-turbo',
+      });
+      expect(result.model).toBe('whisper-large-v3-turbo');
+      expect(auditMock.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          payload: expect.objectContaining({ model: 'whisper-large-v3-turbo' }),
+        }),
+      );
+    });
+
     it('returns transcribed text with model + audioHash + durationMs', async () => {
       const result = await service.transcribeDirect('phy-1', validInput);
 
