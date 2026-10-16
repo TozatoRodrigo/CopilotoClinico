@@ -279,9 +279,14 @@ export class KnowledgeCardDraftService {
   private async resolveSources(request: CardDraftRequest): Promise<DraftSource[]> {
     const chunkIds = request.chunkIds?.length
       ? [...new Set(request.chunkIds)]
-      : (await this.guidelines.consult(request.topic, DEFAULT_DRAFT_SOURCES)).map(
-          (result) => result.chunkId,
-        );
+      : // CC-010 — o tema vem do curador, não do caso: a busca por significado
+        // não depende do consentimento de IA de um médico.
+        (
+          await this.guidelines.consult(request.topic, {
+            limit: DEFAULT_DRAFT_SOURCES,
+            semantic: true,
+          })
+        ).map((result) => result.chunkId);
     if (chunkIds.length === 0) {
       throw new UnprocessableEntityException(
         'Nenhum trecho de diretriz encontrado para o tema; informe os trechos (chunkIds)',

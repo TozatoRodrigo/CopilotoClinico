@@ -14,6 +14,8 @@ export const AI_CALL_STAGES = [
   'guideline_classification',
   /** CC-801 — perguntas da revisão do plantão, das análises do próprio médico. */
   'review_questions',
+  /** CC-403 — rascunho de cartões revisados a partir de trechos de diretriz. */
+  'card_draft',
   'other',
 ] as const;
 export type AiCallStage = (typeof AI_CALL_STAGES)[number];
