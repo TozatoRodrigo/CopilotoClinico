@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { screenClinicalText } from '../../src/modules/copilot/guardrails/clinical-text-screening';
+import { maskPII } from '../../src/modules/copilot/guardrails/pii-filter';
 import { CASES_DIR, loadCaseSet } from '../clinical/cases';
 import {
   loadIntakeCaseSet,
@@ -49,7 +50,7 @@ describe('gabarito da leitura do caso (seed)', () => {
   it.each(seed.cases.map((c) => [c.id, c] as const))(
     '%s: cada número do gabarito está no texto que o modelo recebe (depois da máscara de PII)',
     (_id, intakeCase) => {
-      const { redacted } = screenClinicalText(intakeCase.input.caseText, null);
+      const { redacted } = screenClinicalText(maskPII(intakeCase.input.caseText), null);
       const { age, vitals } = intakeCase.expected;
       const expectedNumbers = [...numbersOf(age), ...Object.values(vitals).flatMap(numbersOf)];
       const missing = expectedNumbers.filter((value) => !appearsIn(redacted, value));

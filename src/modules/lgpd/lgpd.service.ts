@@ -10,8 +10,10 @@ import { PrismaService } from '../../config/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { PhysicianErasureCheck } from '../auth/physician-erasure-check.service';
 import { StorageService } from '../storage/storage.service';
+import { loginLockoutKey } from '../auth/account-lockout.service';
 import { AiConsentRevokedException } from './ai-consent.exception';
 import { consentDefaults, consentScopes, type ConsentScope } from './schemas/lgpd.schemas';
+import { anonymizedPhysician } from './erasure-policy';
 import type {
   Prisma,
   Physician,
@@ -156,8 +158,22 @@ export interface ErasureResult {
     refreshTokens: number;
     /** CC-334 — contas Google/Microsoft vinculadas. */
     externalIdentities: number;
+    /** CC-012 — códigos de recuperação do MFA. */
+    mfaBackupCodes: number;
+    crmVerificationRequests: number;
+    /** CC-012 — vínculos com instituições. */
+    physicianInstitutions: number;
+    /** CC-012 — contadores do bloqueio por tentativas (login, MFA, troca de senha). */
+    loginSecurityStates: number;
     /** PDFs de documentos confirmados apagados do MinIO. */
     storageObjects: number;
+  };
+  /** CC-012 — o que fica, sem dado pessoal (ver erasure-policy.ts). */
+  anonymized: {
+    /** Chamadas de IA que ficam no custo agregado, sem vínculo com o médico. */
+    aiCalls: number;
+    /** Colunas do cadastro substituídas — os nomes, nunca os valores. */
+    physicianColumns: string[];
   };
 }
 
@@ -494,7 +510,9 @@ export class LgpdService {
     // inversa, uma falha deixaria PDFs órfãos sem referência para achá-los.
     const storageObjects = await this.eraseDocumentPdfs(physicianId);
 
-    const erasedRows = await this.prisma.$transaction(async (tx) => {
+    const physicianData = anonymizedPhysician(physicianId);
+
+    const { aiCalls, ...erasedRows } = await this.prisma.$transaction(async (tx) => {
       // CC-702 — a lista de espera com o e-mail da conta sai (antes da
       // anonimização, que troca o e-mail). Do participante do beta saem o
       // termo e o perfil; ficam só os ids, para a contagem do lote.
@@ -512,6 +530,17 @@ export class LgpdService {
           cityType: null,
           profileUpdatedAt: null,
         },
+      });
+
+      // CC-012 — ai_calls fica no custo agregado, sem vínculo com o médico. Vai
+      // antes dos atendimentos porque a chamada gravada sem médico no contexto
+      // só tem o encounter_id para ser achada.
+      const encounterIds = (
+        await tx.encounter.findMany({ where: { physicianId }, select: { id: true } })
+      ).map(({ id }) => id);
+      const aiCalls = await tx.aiCall.updateMany({
+        where: { OR: [{ physicianId }, { encounterId: { in: encounterIds } }] },
+        data: { physicianId: null, encounterId: null, requestId: null },
       });
 
       // F0-D — o CASCADE de encounters já levaria decisões e feedback junto;
@@ -552,20 +581,28 @@ export class LgpdService {
       // CC-334 — o médico é anonimizado, não apagado: sem isto a conta
       // Google/Microsoft continuaria entrando na conta anonimizada.
       const externalIdentities = await tx.externalIdentity.deleteMany({ where: { physicianId } });
-
-      await tx.physician.update({
-        where: { id: physicianId },
-        data: {
-          name: 'ERASED',
-          email: `erased-${physicianId}@erased.com`,
-          passwordHash: `erased:${physicianId}`,
-          specialty: null,
-          // CC-018 — a estratégia JWT e o refresh recusam a sessão por aqui.
-          erasedAt: new Date(),
+      // CC-012 — credenciais, CRM e vínculos, que ficavam para trás. O porquê
+      // de cada tabela está em erasure-policy.ts.
+      const mfaBackupCodes = await tx.mfaBackupCode.deleteMany({ where: { physicianId } });
+      const crmVerificationRequests = await tx.crmVerificationRequest.deleteMany({
+        where: { physicianId },
+      });
+      const physicianInstitutions = await tx.physicianInstitution.deleteMany({
+        where: { physicianId },
+      });
+      // A tentativa com o e-mail digitado de outro jeito grava a linha sem
+      // physician_id; só o hash do e-mail (lido antes da anonimização) a acha.
+      // Os contadores do MFA e da troca de senha (CC-025) têm physician_id.
+      const loginSecurityStates = await tx.loginSecurityState.deleteMany({
+        where: {
+          OR: [{ physicianId }, { identifierHash: loginLockoutKey(physician.email) }],
         },
       });
 
+      await tx.physician.update({ where: { id: physicianId }, data: physicianData });
+
       return {
+        aiCalls: aiCalls.count,
         betaWaitlistEntries: betaWaitlistEntries.count,
         betaParticipantProfile: betaParticipantProfile.count,
         recommendationDecisions: recommendationDecisions.count,
@@ -581,6 +618,10 @@ export class LgpdService {
         legalAcceptances: legalAcceptances.count,
         refreshTokens: refreshTokens.count,
         externalIdentities: externalIdentities.count,
+        mfaBackupCodes: mfaBackupCodes.count,
+        crmVerificationRequests: crmVerificationRequests.count,
+        physicianInstitutions: physicianInstitutions.count,
+        loginSecurityStates: loginSecurityStates.count,
       };
     });
 
@@ -589,9 +630,10 @@ export class LgpdService {
     this.erasureCheck.markErased(physicianId);
 
     const erased = { ...erasedRows, storageObjects };
+    const anonymized = { aiCalls, physicianColumns: Object.keys(physicianData).sort() };
 
     // A trilha de auditoria é append-only (AUD-001) e não é apagada: só ganha
-    // esta entrada.
+    // esta entrada. Só contagens e nomes de coluna — nenhum valor do cadastro.
     await this.auditService.log({
       actorId: physicianId,
       action: 'DATA_ERASURE',
@@ -600,10 +642,11 @@ export class LgpdService {
       payload: {
         reason: 'LGPD Art. 18, VI - Data erasure request',
         erased,
+        anonymized,
       },
     });
 
-    return { status: 'completed', estimatedCompletion: new Date(), erased };
+    return { status: 'completed', estimatedCompletion: new Date(), erased, anonymized };
   }
 
   /**

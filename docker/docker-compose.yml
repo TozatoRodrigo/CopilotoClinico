@@ -56,6 +56,21 @@ services:
       timeout: 5s
       retries: 5
 
+  # CC-203 / ADR-020 — modelo local de de-identificação. Opcional:
+  # `docker compose --profile deid up -d deid` (o primeiro build baixa ~1 GB e
+  # usa ~3 GB de RAM). A API local fala com ele com DEID_MODE=model e
+  # DEID_SERVICE_URL=http://127.0.0.1:8099.
+  deid:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.deid
+    image: copiloto-deid:latest
+    profiles: ["deid"]
+    container_name: copiloto-deid
+    ports:
+      - "127.0.0.1:8099:8000"
+    mem_limit: 400m
+
 volumes:
   postgres_data:
   redis_data:

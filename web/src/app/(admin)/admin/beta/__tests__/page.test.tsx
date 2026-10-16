@@ -11,6 +11,7 @@ import type {
   BetaWaitlistListResponse,
 } from '@contracts/beta';
 import BetaAdminPage from '../page';
+import { weeklyReport } from './weekly-fixture';
 
 const apiGetMock = vi.fn();
 const apiPostMock = vi.fn();
@@ -117,6 +118,11 @@ const activation: BetaActivationReport = {
   generatedAt: '2026-10-15T12:00:00.000Z',
 };
 
+/** CC-705 — a página abre na "Semana"; os testes da CC-702 trocam de aba antes. */
+async function openTab(name: RegExp) {
+  await userEvent.click(await screen.findByRole('tab', { name }));
+}
+
 /** O user-event troca a Clipboard API no setup: o stub vem depois dele. */
 function setupUser() {
   const user = userEvent.setup();
@@ -143,6 +149,7 @@ describe('Console admin — beta (CC-702)', () => {
       if (path === '/admin/beta/invites') return Promise.resolve(invites);
       if (path === '/admin/beta/waitlist') return Promise.resolve(waitlist);
       if (path === '/admin/beta/activation') return Promise.resolve(activation);
+      if (path === '/admin/beta/weekly') return Promise.resolve(weeklyReport());
       return Promise.reject(new Error(`unexpected ${path}`));
     });
   });
@@ -153,6 +160,7 @@ describe('Console admin — beta (CC-702)', () => {
 
   it('lists invites with status, uses and batch totals', async () => {
     renderPage();
+    await openTab(/Convites/);
 
     const list = await screen.findByRole('list', { name: 'Convites do beta' });
     expect(within(list).getByText('K3MQ-9XPT')).toBeInTheDocument();
@@ -174,6 +182,7 @@ describe('Console admin — beta (CC-702)', () => {
     const user = setupUser();
     renderPage();
 
+    await user.click(await screen.findByRole('tab', { name: /Convites/ }));
     await screen.findByRole('list', { name: 'Convites do beta' });
     await user.click(screen.getByRole('button', { name: 'Gerar' }));
     expect(screen.getByRole('alert')).toHaveTextContent('Informe o lote ou a origem');
@@ -208,6 +217,7 @@ describe('Console admin — beta (CC-702)', () => {
     const user = setupUser();
     renderPage();
 
+    await user.click(await screen.findByRole('tab', { name: /Convites/ }));
     const list = await screen.findByRole('list', { name: 'Convites do beta' });
     const revokeButtons = within(list).getAllByRole('button', { name: 'Revogar' });
     await user.click(revokeButtons[1]!);
@@ -271,6 +281,7 @@ describe('Console admin — beta (CC-702)', () => {
   it('shows Compliance only the activation, with the rate against the target', async () => {
     role = 'compliance';
     renderPage();
+    await openTab(/Ativação/);
 
     expect(screen.queryByRole('tab', { name: /Convites/ })).not.toBeInTheDocument();
     expect(await screen.findByText('60%')).toBeInTheDocument();

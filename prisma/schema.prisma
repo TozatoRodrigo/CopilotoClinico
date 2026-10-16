@@ -409,7 +409,9 @@ model AiInteraction {
 /// provedor, modelo, versão do prompt (hash do system prompt), tokens, custo,
 /// latência e desfecho. Só metadados: nenhum texto do caso, do prompt ou da
 /// resposta. Sem FK de propósito: a gravação não pode falhar a análise, e
-/// apagar o atendimento não apaga o custo agregado.
+/// apagar o atendimento não apaga o custo agregado. A eliminação LGPD zera
+/// physician_id, encounter_id e request_id (CC-012) — as únicas colunas em que
+/// a API tem UPDATE.
 model AiCall {
   id               String   @id @default(uuid()) @db.Uuid
   requestId        String?  @map("request_id") @db.VarChar(64)
