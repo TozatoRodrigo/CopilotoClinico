@@ -1158,7 +1158,8 @@ saída da decisão byte a byte iguais. Ligada, só na decisão em etapas (v2, v3
 v4) e em qualquer `COPILOT_KNOWLEDGE_SOURCE`:
 
 1. com o entendimento do caso, busca no índice pelas `searchQueries` (nunca o
-   texto do caso), na instituição do atendimento — **é uma chamada de
+   texto do caso), na instituição do atendimento se o médico tem vínculo
+   ativo com ela (CC-019; senão, só nos globais) — **é uma chamada de
    embedding a mais por análise**, inclusive em `model_only`;
 2. o portão de relevância aceita o cartão com similaridade ≥
    `REVIEWED_CARDS_MIN_SIMILARITY` (padrão 0,50) e do mesmo tema (mesma

@@ -174,7 +174,8 @@ decisão em etapas (v2, v3, v4), em qualquer fonte de conhecimento:
 
 1. **Busca e portão.** Com o entendimento do caso (Etapa 1), a busca
    semântica do índice (CC-406) roda com as `searchQueries` — nunca o texto
-   do caso — na instituição do atendimento. Um portão de relevância decide
+   do caso — na instituição do atendimento, se o médico ainda tem vínculo
+   ativo com ela (CC-019; senão, só nos globais). Um portão de relevância decide
    se cada cartão se aplica: hoje similaridade mínima
    (`REVIEWED_CARDS_MIN_SIMILARITY`, padrão 0,50, provisório) e tema — mesma
    síndrome quando cartão e caso têm síndrome definida; senão, o tema do
@@ -204,7 +205,8 @@ decisão em etapas (v2, v3, v4), em qualquer fonte de conhecimento:
    pergunta, nome e CRM do revisor, data) e a tela mostra "Revisado por …
    CRM … em …" com o link para `/cartoes/:id`, que lê o cartão publicado em
    `GET /v1/knowledge-cards/:id` (médico autenticado; cartão de instituição
-   só para quem é dela; vencido aparece como "revisar"). A verificação com
+   só para quem tem vínculo ativo com ela, CC-019; vencido aparece como
+   "revisar"). A verificação com
    fonte (`verify`) não troca um cartão por página web.
 5. **Trilha.** `rawOutput.reviewedCards` guarda id, versão, hash assinado,
    revisor e similaridade de cada cartão entregue; `params.reviewedCards`, o
