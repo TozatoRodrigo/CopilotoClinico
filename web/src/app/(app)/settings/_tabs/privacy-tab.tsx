@@ -54,7 +54,15 @@ interface ErasureResponse {
     legalAcceptances: number;
     refreshTokens: number;
     externalIdentities: number;
+    mfaBackupCodes: number;
+    crmVerificationRequests: number;
+    physicianInstitutions: number;
+    loginSecurityStates: number;
     storageObjects: number;
+  };
+  anonymized: {
+    aiCalls: number;
+    physicianColumns: string[];
   };
 }
 

@@ -1989,6 +1989,7 @@ regra das três FKs: não depende de código novo e entra pelo passo 2 de
 | `20261014200100_audio_capture_retention` | `audio_captures.encrypted_content` anulável + CHECK `deleted` ⇔ sem áudio (retenção de 30 dias). Só metadado de coluna e CHECK: a versão anterior da API roda sobre o schema novo |
 | `20261015130000_cc_801_shift_reviews` | Tabelas `shift_reviews` e `shift_review_questions` (CC-801, "Revise seu plantão"); só cria tabelas e enums, com GRANT de DML para `copiloto_app` |
 | `20261015180000_cc207_chief_complaint_text` | `encounters.chief_complaint` de `VARCHAR(140)` para `TEXT`, para caber o valor cifrado — CC-207/ADR-021; sem reescrever a tabela |
+| `20261016120000_cc_012_lgpd_erasure_privileges` | CC-012: `copiloto_app` ganha `UPDATE` só em `ai_calls.physician_id`/`encounter_id`/`request_id` e `DELETE` explícito em `mfa_backup_codes`, `crm_verification_requests`, `physician_institutions` e `login_security_states`. Só GRANT; sem ela, `POST /lgpd/erasure` falha com `permission denied for table ai_calls` e nada é apagado |
 
 ### Rollback de Migration
 
@@ -2092,6 +2093,9 @@ e nunca para a análise. Quando o provedor recusa por cota esgotada (limite de
 uso do workspace da Anthropic, falta de crédito, `insufficient_quota` da
 OpenAI), `error_type` termina em `:usage_limit` (ex.:
 `BadRequestError:400:usage_limit`); a mensagem do provedor não é gravada.
+A eliminação LGPD (CC-012) mantém as linhas no custo agregado, mas zera
+`physician_id`, `encounter_id` e `request_id`: depois dela o `x-request-id`
+daquele médico não acha mais nada.
 
 **Painel (CC-004).** `/admin/analytics`, aba "Etapas e modelos" (ADMIN e
 COMPLIANCE; o médico comum recebe 403 da API). Em 24 h, 7 ou 30 dias: por
