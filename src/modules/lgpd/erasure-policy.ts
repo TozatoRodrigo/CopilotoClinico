@@ -137,6 +137,12 @@ export const ERASURE_EXCEPTIONS = {
     'Autoria de versão de cartão clínico (ADR-019), conteúdo que outros médicos usam. Um trigger impede regravar a versão e a role da API não a apaga; a FK é RESTRICT.',
   'knowledge_card_versions.reviewer_id':
     'Idem: quem aprovou o cartão. A decisão do revisor não pode ser regravada (trigger) e é a proveniência do conteúdo publicado.',
+  'knowledge_card_cross_reviews.reviewer_id':
+    'Revisão cruzada de 10% (CC-411): a decisão do segundo médico é congelada por trigger, a role da API não a apaga e a FK é RESTRICT. É a proveniência do conteúdo publicado.',
+  'knowledge_card_cross_reviews.first_reviewer_id':
+    'Idem: o primeiro revisor da versão sorteada, copiado para garantir que o segundo médico seja outra pessoa.',
+  'knowledge_card_cross_reviews.version_author_id':
+    'Idem: o autor da versão sorteada, copiado para garantir que o segundo médico não revise o próprio cartão.',
 } as const satisfies Record<PhysicianReference, string>;
 
 /**
@@ -150,6 +156,8 @@ export const PHYSICIAN_KEPT_COLUMNS = {
   isCurator: 'Idem: proveniência da curadoria (guideline_chunks.reviewed_by).',
   isMentor:
     'Idem: proveniência das respostas de mentoria que ficam no caso de quem pediu (mentoring_requests.mentor_id). Sem sessão, a conta eliminada não responde mais.',
+  isCardReviewer:
+    'Idem: proveniência das revisões de cartão (knowledge_card_versions.reviewer_id e knowledge_card_cross_reviews.reviewer_id). Sem sessão, a conta eliminada não revisa mais.',
   subscriptionStatus: 'Estado comercial da conta, não identifica.',
   createdAt: 'Data de criação da conta, não identifica.',
   updatedAt: 'Mantida pelo Prisma: passa a ser a data da eliminação.',

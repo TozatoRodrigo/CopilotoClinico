@@ -98,3 +98,62 @@ recusado pelo schema.
 - A checagem anti-circularidade só vale para casos que registram
   `draftOrigin`: caso escrito a partir de um cartão sem declarar a origem não
   é detectável por código. A revisão do caso continua sendo a defesa.
+
+## Adendo — revisão no celular e papel de revisor (CC-404, 15/10/2026)
+
+**Decisão:** a tela de revisão (`/revisao`) não usa a barreira do console. Os
+revisores do piloto (Luiz, Ripardo, Gustavo Moreira) são médicos de papel
+`PHYSICIAN`; dar a eles COMPLIANCE/ADMIN + `is_curator` abriria diretrizes,
+feedback, verificação de CRM e o pedido de rascunho à IA, que não são deles.
+
+- Flag nova `physicians.is_card_reviewer` (mesmo modelo provisório do
+  `is_curator`, KB-002), concedida à mão pelo runbook.
+- Controller próprio, `review/knowledge-cards`, com `CardReviewerGuard`: exige
+  a flag **e** CRM verificado já na entrada — o revisor existe para assinar.
+  A flag não abre nada de `admin/knowledge-cards`; o papel de admin não abre a
+  fila (quem administra e revisa recebe as duas coisas).
+- O revisor só vê e decide cartões `in_review` globais ou da instituição com
+  que tem vínculo ativo (ADR-009, CC-019): fora do escopo, 404; já decidido, 409.
+- As decisões são as mesmas do console (`KnowledgeCardsService`): versão
+  vista, CRM para aprovar, trilha `CARD_*`. Na fila, `reviewDurationMs` é
+  obrigatório; a tela conta só o tempo com a página visível.
+- A vista do revisor traz o texto integral de cada fonte e as faixas do
+  trecho citado, calculadas no servidor com a mesma normalização da checagem
+  de citação; se o texto da fonte mudou depois da citação (`chunkSha256`), a
+  tela avisa.
+
+**Consequência:** dois caminhos de decisão sobre o mesmo serviço. O console
+continua para quem cura a base; a fila é o caminho do médico revisor.
+
+## Adendo — revisão cruzada de 10% (CC-411, 15/10/2026)
+
+**Contexto:** no modo verify, uma fonte trouxe "dexametasona 4 mg 6/6h" fora
+de contexto — o rascunho da IA erra dose, e um revisor sozinho pode deixar
+passar.
+
+**Decisão:**
+
+- **Sorteio na aprovação, determinístico.** O balde é o SHA-256 de
+  `cc-411:<id da versão aprovada>` (4 primeiros bytes, módulo 100); entra quem
+  fica abaixo de 10. O id da versão existe antes da aprovação, então ninguém
+  escolhe o que cai na amostra nem a influencia pelo momento em que decide, e
+  o sorteio é reproduzível em SQL. Por aprovação, não por cartão: cada
+  aprovação nova é um sorteio novo. A linha `pending` nasce na transação da
+  aprovação (`knowledge_card_cross_reviews`).
+- **Segundo médico ≠ primeiro.** Nem quem aprovou nem quem escreveu a versão
+  (correção de médico): filtro na fila, 403 no serviço e CHECK no banco.
+- **Divergir é corrigir, e tira do ar.** Esta é a exceção à regra "corrigir
+  não derruba a versão publicada": quando o segundo médico discorda, a versão
+  disputada não deve seguir liberando dose. A correção vira versão nova, o
+  cartão volta a `in_review` com `published_version_id` nulo e outro médico
+  decide (aprovar a correção, corrigir de novo ou descartar). Novo `reopen` no
+  ciclo de vida (publicado → em revisão).
+- Sorteio e decisão não mudam depois de gravados (trigger), e a trilha recebe
+  `CARD_CROSS_REVIEW_AGREED`/`_DIVERGED` com versões e hashes, sem texto livre.
+- Sem flag: a revisão cruzada só restringe (pode tirar cartão do ar), nunca
+  libera conduta, e os cartões ainda não chegam à decisão (CC-408).
+
+**Consequências:** a taxa de concordância (painel `/revisao/concordancia`,
+meta de divergência < 5%) só tem sentido com volume: com os 200–300 cartões do
+CC-410, são 20–30 revisões cruzadas. A porcentagem é constante no código
+(`CROSS_REVIEW_SAMPLE_PERCENT`); mudar exige PR.

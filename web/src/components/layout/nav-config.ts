@@ -1,6 +1,7 @@
 import type { ElementType } from 'react';
 import {
   BookOpen,
+  Cards,
   ChartBar,
   ChatCircleText,
   ClipboardText,
@@ -58,6 +59,26 @@ export const APP_SECTIONS_BY_ROLE: Record<AppRole, NavSection[]> = {
     { label: 'Governança', items: GOVERNANCE_ITEMS },
   ],
 };
+
+/**
+ * CC-404 — fila de revisão de cartões. Não é por papel: o médico revisor
+ * (`isCardReviewer` na conta) costuma ter papel PHYSICIAN e não vê o console.
+ */
+export const CARD_REVIEW_ITEM: NavItem = {
+  href: '/revisao',
+  label: 'Revisão de cartões',
+  icon: Cards,
+};
+
+/** Seções do sidebar clínico: as do papel e, para o revisor de cartões, a fila de revisão. */
+export function appSectionsFor(
+  role: AppRole,
+  options: { isCardReviewer?: boolean } = {},
+): NavSection[] {
+  const sections = APP_SECTIONS_BY_ROLE[role];
+  if (!options.isCardReviewer) return sections;
+  return [...sections, { label: 'Curadoria', items: [CARD_REVIEW_ITEM] }];
+}
 
 export const HOME_ITEM: NavItem = { href: '/dashboard', label: 'Plantão', icon: House };
 

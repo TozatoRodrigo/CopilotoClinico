@@ -108,6 +108,7 @@ class ApiClient {
         response.status,
         errorBody.message ?? messages.errors.httpError(response.status),
         typeof errorBody.code === "string" ? errorBody.code : undefined,
+        errorBody,
       );
     }
 
@@ -146,12 +147,19 @@ export class ApiError extends Error {
    * CC-702): distingue recusas com o mesmo status sem comparar a mensagem.
    */
   code: string | undefined;
+  /**
+   * Corpo JSON da resposta de erro, para quem precisa de mais que a mensagem
+   * (ex.: os `issues` do 422 da correção de um cartão — CC-404). Não tipado:
+   * quem lê valida a forma.
+   */
+  body: unknown;
 
-  constructor(status: number, message: string, code?: string) {
+  constructor(status: number, message: string, code?: string, body?: unknown) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
+    this.body = body;
   }
 }
 

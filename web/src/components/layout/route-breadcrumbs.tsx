@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation';
 import {
   BookOpen,
+  Cards,
   ChartBar,
   ChatCircleText,
   ClipboardText,
@@ -40,6 +41,7 @@ const STATIC: Record<string, BreadcrumbItem> = {
   'revise-seu-plantao': { label: 'Revisão do plantão', icon: GraduationCap },
   admin: { label: 'Console', icon: SquaresFour },
   mentoria: { label: 'Mentoria', icon: Stethoscope },
+  revisao: { label: 'Revisão de cartões', icon: Cards },
 };
 
 const ADMIN_CHILDREN: Record<string, BreadcrumbItem> = {
@@ -106,6 +108,7 @@ export function RouteBreadcrumbs() {
   const items: BreadcrumbItem[] = [{ ...root, href: segments.length > 1 ? `/${first}` : undefined }];
   if (first === 'encounters' && second === 'new') items.push({ label: 'Novo caso' });
   if (first === 'mentoria' && second) items.push({ label: 'Pedido' });
+  if (first === 'revisao' && second === 'concordancia') items.push({ label: 'Concordância' });
   if (first === 'admin' && second) {
     const child = ADMIN_CHILDREN[second];
     if (child) items.push({ ...child, href: undefined });

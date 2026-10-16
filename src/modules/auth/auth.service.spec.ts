@@ -334,6 +334,19 @@ describe('AuthService', () => {
       });
     });
 
+    it('tells the web whether the physician reviews knowledge cards (CC-404)', async () => {
+      prisma.physician.findUnique.mockResolvedValue({ ...mockPhysician, isCardReviewer: true });
+      vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
+
+      const result = await service.login({
+        email: 'doctor@example.com',
+        password: 'StrongP@ss1',
+      });
+
+      if (!('physician' in result)) throw new Error('Expected non-MFA login result');
+      expect(result.physician.isCardReviewer).toBe(true);
+    });
+
     it('rejects wrong password with UnauthorizedException', async () => {
       prisma.physician.findUnique.mockResolvedValue(mockPhysician);
       vi.mocked(bcrypt.compare).mockResolvedValue(false as never);

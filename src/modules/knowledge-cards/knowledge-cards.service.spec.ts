@@ -38,6 +38,8 @@ interface StateOverrides {
   status?: 'draft' | 'in_review' | 'published' | 'archived';
   currentVersion?: number;
   publishedVersionId?: string | null;
+  versionId?: string;
+  authorPhysicianId?: string | null;
 }
 
 function stateRow(overrides: StateOverrides = {}) {
@@ -49,7 +51,13 @@ function stateRow(overrides: StateOverrides = {}) {
     currentVersion,
     publishedVersionId: overrides.publishedVersionId ?? null,
     versions: [
-      { id: VERSION_ID, version: currentVersion, contentSha256: CONTENT_SHA256, content: CONTENT },
+      {
+        id: overrides.versionId ?? VERSION_ID,
+        version: currentVersion,
+        contentSha256: CONTENT_SHA256,
+        content: CONTENT,
+        authorPhysicianId: overrides.authorPhysicianId ?? null,
+      },
     ],
   };
 }
@@ -125,6 +133,7 @@ function createPrisma() {
       updateMany: vi.fn().mockResolvedValue({ count: 1 }),
       create: vi.fn().mockResolvedValue({}),
     },
+    knowledgeCardCrossReview: { create: vi.fn().mockResolvedValue({}) },
     physician: { findUnique: vi.fn().mockResolvedValue({ crmVerified: true }) },
     guidelineChunk: {
       findMany: vi.fn(async ({ where }: { where: { id: { in: string[] } } }) =>
@@ -238,8 +247,35 @@ describe('KnowledgeCardsService', () => {
           validUntil: '2027-04-14T12:00:00.000Z',
           reviewDurationMs: null,
           commentSha256: sha256Hex('Conferido'),
+          crossReviewSampled: false,
         },
       });
+      expect(db.prisma.knowledgeCardCrossReview.create).not.toHaveBeenCalled();
+    });
+
+    it('CC-411 — aprovação sorteada já nasce esperando o segundo médico, na mesma transação', async () => {
+      // Balde 1 do hash de "cc-411:<id>": cai nos 10% sorteados.
+      const sampledVersionId = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+      const author = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+      db.setState({ versionId: sampledVersionId, authorPhysicianId: author });
+      db.prisma.$transaction.mockImplementation(async (run: (tx: typeof db.prisma) => unknown) => {
+        const result = await run(db.prisma);
+        expect(db.prisma.knowledgeCardCrossReview.create).toHaveBeenCalled();
+        return result;
+      });
+
+      await service.approve(REVIEWER_ID, CARD_ID, { version: 1 });
+
+      expect(db.prisma.knowledgeCardCrossReview.create).toHaveBeenCalledWith({
+        data: {
+          cardId: CARD_ID,
+          versionId: sampledVersionId,
+          firstReviewerId: REVIEWER_ID,
+          versionAuthorId: author,
+          sampleBucket: 1,
+        },
+      });
+      expect(auditCall().payload).toMatchObject({ crossReviewSampled: true });
     });
 
     it('recusa com 409 aprovar o que não está em revisão', async () => {
