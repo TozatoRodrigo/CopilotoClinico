@@ -17,7 +17,7 @@ import { EncountersService } from '../../encounters/encounters.service';
 import { AttachmentsService } from '../../encounters/attachments/attachments.service';
 import { AuditService } from '../../audit/audit.service';
 import { activeInstitutionIds } from '../../institutions/institution-visibility';
-import { maskPII } from '../guardrails/pii-filter';
+import { countDetectionsByType, maskPII } from '../guardrails/pii-filter';
 import { scanForInjection, type InjectionScanResult } from '../guardrails/injection-defense';
 import {
   redactPatientRef,
@@ -1393,10 +1393,12 @@ export class OrchestratorService {
     // Buscar encounter para obter patientRef — necessário para redação explícita (LGPD-005)
     const encounter = await this.encounters.findById(physicianId, encounterId);
 
-    // Camada 1: filtro geral de PII (CPF, CNPJ, telefone, email, CEP, datas, RG)
+    // Camada 1: filtro geral de PII (CPF, CNPJ, telefone, email, CEP, datas, RG,
+    // prontuário e nome depois de tratamento/apelido — CC-201/CC-206)
     const piiResult = maskPII(input.caseText);
+    // Só a contagem por tipo: mostra regra disparando demais sem gravar o trecho.
     this.logger.debug(
-      `PII detection${logLabel}: ${piiResult.hasPII ? 'FOUND' : 'NONE'} (${piiResult.detections.length} items)`,
+      `PII detection${logLabel}: ${piiResult.hasPII ? 'FOUND' : 'NONE'} (${piiResult.detections.length} items) ${JSON.stringify(countDetectionsByType(piiResult.detections))}`,
     );
 
     // Camada 2: redação explícita do patientRef (LGPD-005 defense-in-depth)

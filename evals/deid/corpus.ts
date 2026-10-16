@@ -223,6 +223,186 @@ const TEMPLATES: Template[] = [
   }),
 ];
 
+/**
+ * Relatos escritos à mão, fora dos templates: as formas de prontuário,
+ * tratamento e apelido do plantão (CC-201, CC-206) e as armadilhas que não
+ * podem sumir — gasometria ("BE -5,2"), leito, "dona de casa", "seu filho",
+ * epônimo depois de "Seu" e epônimo que também é nome de gente (CC-202).
+ * "Pituca" fica de fora da lista de apelidos de propósito: o relatório mostra
+ * o limite da regex.
+ */
+const HANDWRITTEN_NOTES: Array<Omit<DeidNote, 'id'>> = [
+  {
+    text: 'Pront. nº 4.567. Seu Zé, 81 anos, dispneia há 2 dias. Gasometria com pH 7,31 e BE -5,2. Leito 12.',
+    identifiers: [
+      { type: 'record_number', value: '4.567' },
+      { type: 'nickname', value: 'Seu Zé' },
+    ],
+    keep: ['pH 7,31', 'BE -5,2', 'Leito 12'],
+  },
+  {
+    text: 'Registro HC 1234567. Dona Cida, 67 anos, dona de casa, trazida pelo filho. PA 120x80, plaquetas 150000.',
+    identifiers: [
+      { type: 'record_number', value: '1234567' },
+      { type: 'nickname', value: 'Dona Cida' },
+    ],
+    keep: ['dona de casa', 'PA 120x80', 'plaquetas 150000'],
+  },
+  {
+    text: 'BE 2024/123. Tião, 54 anos, queda de moto. Glasgow 14, Romberg presente. Registro de diurese 1500 ml.',
+    identifiers: [
+      { type: 'record_number', value: '2024/123' },
+      { type: 'nickname', value: 'Tião' },
+    ],
+    keep: ['Glasgow 14', 'Romberg presente', 'diurese 1500 ml'],
+  },
+  {
+    text: 'RH: 0012345. Sr. João Batista, 72 anos, febre e rigidez de nuca; Kernig e Brudzinski positivos, Hoffmann negativo.',
+    identifiers: [
+      { type: 'record_number', value: '0012345' },
+      { type: 'name', value: 'João Batista' },
+    ],
+    keep: ['Kernig e Brudzinski positivos', 'Hoffmann negativo'],
+  },
+  {
+    text: 'Matrícula 98765. Sra. Maria das Dores, 59 anos, dor em hipocôndrio direito e sinal de Murphy positivo. Seu médico assistente pediu USG.',
+    identifiers: [
+      { type: 'record_number', value: '98765' },
+      { type: 'name', value: 'Maria das Dores' },
+    ],
+    keep: ['sinal de Murphy positivo', 'Seu médico'],
+  },
+  {
+    text: 'Registro hospitalar 998877. Refere que seu filho notou fala arrastada às 14h30. Babinski à direita, NIHSS 6.',
+    identifiers: [{ type: 'record_number', value: '998877' }],
+    keep: ['seu filho', '14h30', 'Babinski à direita', 'NIHSS 6'],
+  },
+  {
+    text: 'Nº de atendimento 20241234. Chico, 45 anos, etilista, confusão e ataxia: pensar em Wernicke. Avaliado pela Dra. Ana Lúcia Prado.',
+    identifiers: [
+      { type: 'record_number', value: '20241234' },
+      { type: 'nickname', value: 'Chico' },
+      { type: 'physician', value: 'Ana Lúcia Prado' },
+    ],
+    keep: ['Wernicke'],
+  },
+  {
+    text: 'Atendimento nº 556677. Dona Nena, 88 anos, queda em casa, dor no quadril; Garden IV na radiografia.',
+    identifiers: [
+      { type: 'record_number', value: '556677' },
+      { type: 'nickname', value: 'Dona Nena' },
+    ],
+    keep: ['Garden IV'],
+  },
+  {
+    text: 'Prontuário: 0045872-3. Seu Holter mostrou FA paroxística e o Doppler de carótidas veio normal. Seu Didi, 76 anos, nega dor.',
+    identifiers: [
+      { type: 'record_number', value: '0045872-3' },
+      { type: 'nickname', value: 'Seu Didi' },
+    ],
+    keep: ['Seu Holter', 'Doppler de carótidas'],
+  },
+  {
+    text: 'Bia, 19 anos, 32 semanas, PA 160x110 e proteinúria. Prontuário 7788991. Manobras de Leopold com feto cefálico.',
+    identifiers: [
+      { type: 'nickname', value: 'Bia' },
+      { type: 'record_number', value: '7788991' },
+    ],
+    keep: ['PA 160x110', 'Manobras de Leopold'],
+  },
+  {
+    text: 'Seu Toninho Ferreira, 63 anos, portador de doença de Chagas, com edema e dispneia. Registro 4471029.',
+    identifiers: [
+      { type: 'nickname', value: 'Seu Toninho Ferreira' },
+      { type: 'record_number', value: '4471029' },
+    ],
+    keep: ['doença de Chagas'],
+  },
+  {
+    text: 'Sr. Francisco das Chagas, 70 anos, tosse há 3 semanas; BAAR com Ziehl-Neelsen negativo. FAA 302211.',
+    identifiers: [
+      { type: 'name', value: 'Francisco das Chagas' },
+      { type: 'record_number', value: '302211' },
+    ],
+    keep: ['Ziehl-Neelsen negativo'],
+  },
+  {
+    text: 'Sr. Wilson Hoffmann, 58 anos, vertigem rotatória; teste de Rinne positivo bilateral e Dix-Hallpike positivo à direita.',
+    identifiers: [{ type: 'name', value: 'Wilson Hoffmann' }],
+    keep: ['teste de Rinne positivo bilateral', 'Dix-Hallpike positivo'],
+  },
+  {
+    text: 'Dona Lurdinha, 79 anos, com Parkinson há 10 anos e queda; Ringer lactato 500 ml. Matrícula: 55120.',
+    identifiers: [
+      { type: 'nickname', value: 'Dona Lurdinha' },
+      { type: 'record_number', value: '55120' },
+    ],
+    keep: ['Parkinson há 10 anos', 'Ringer lactato 500 ml'],
+  },
+  {
+    text: 'Seu Juca, 84 anos, Glasgow 9, pupilas isocóricas, escala de Braden 12. Reg. 6612345.',
+    identifiers: [
+      { type: 'nickname', value: 'Seu Juca' },
+      { type: 'record_number', value: '6612345' },
+    ],
+    keep: ['Glasgow 9', 'Braden 12'],
+  },
+  {
+    text: 'Sra. Raimunda Nonato, 33 anos, dor pélvica e dor no fundo de saco de Douglas ao toque. Examinada pelo Dr. Paulo Henrique Lima. Prontuário nº 3.204.881.',
+    identifiers: [
+      { type: 'name', value: 'Raimunda Nonato' },
+      { type: 'physician', value: 'Paulo Henrique Lima' },
+      { type: 'record_number', value: '3.204.881' },
+    ],
+    keep: ['fundo de saco de Douglas'],
+  },
+  {
+    text: 'Sr. Douglas, 30 anos, trauma de punho; Finkelstein negativo, Tinel e Phalen negativos. AIH 3524100012345.',
+    identifiers: [
+      { type: 'name', value: 'Douglas' },
+      { type: 'record_number', value: '3524100012345' },
+    ],
+    keep: ['Finkelstein negativo', 'Tinel e Phalen negativos'],
+  },
+  {
+    text: 'Zezinho, 6 anos, febre há 5 dias, conjuntivite e língua em framboesa: Kawasaki? Peso 20 kg, hidratação por Holliday-Segar. Boletim nº 88123.',
+    identifiers: [
+      { type: 'nickname', value: 'Zezinho' },
+      { type: 'record_number', value: '88123' },
+    ],
+    keep: ['Kawasaki', 'Peso 20 kg', 'Holliday-Segar'],
+  },
+  {
+    text: 'A senhora Antônia Ribeiro, 66 anos, cirrose Child-Pugh B, varizes de esôfago. Contato da filha (11) 98765-4321.',
+    identifiers: [
+      { type: 'name', value: 'Antônia Ribeiro' },
+      { type: 'phone', value: '(11) 98765-4321' },
+    ],
+    keep: ['Child-Pugh B'],
+  },
+  {
+    text: 'Seu Mané, 90 anos, acamado, lesão por pressão sacral; Ramsay 3 e Rankin 5. ID do paciente 4400123.',
+    identifiers: [
+      { type: 'nickname', value: 'Seu Mané' },
+      { type: 'record_number', value: '4400123' },
+    ],
+    keep: ['Ramsay 3', 'Rankin 5'],
+  },
+  {
+    text: 'Dona Bené contou que seu marido, Seu Tonho, teve Guillain-Barré em 2019. Leucócitos 12.400, Hb 11,2.',
+    identifiers: [
+      { type: 'nickname', value: 'Dona Bené' },
+      { type: 'relative', value: 'Seu Tonho' },
+    ],
+    keep: ['seu marido', 'Guillain-Barré', 'Leucócitos 12.400', 'Hb 11,2'],
+  },
+  {
+    text: 'Pituca, 7 anos, trazida pela avó, febre e petéquias; prova do laço (Rumpel-Leede) positiva.',
+    identifiers: [{ type: 'nickname', value: 'Pituca' }],
+    keep: ['Rumpel-Leede'],
+  },
+];
+
 function buildAddress(random: () => number): string {
   return `${pick(random, STREETS)}, ${1 + Math.floor(random() * 2900)}, ${pick(random, DISTRICTS)}`;
 }
@@ -237,7 +417,16 @@ function buildBirth(random: () => number): string {
   return `${day}/${month}/${1935 + Math.floor(random() * 70)}`;
 }
 
+/** `size` relatos gerados pelos templates, seguidos dos escritos à mão (ids `deid-m01`...). */
 export function buildDeidCorpus(size = 200, seed = 20261013): DeidNote[] {
+  const handwritten = HANDWRITTEN_NOTES.map((note, index) => ({
+    id: `deid-m${String(index + 1).padStart(2, '0')}`,
+    ...note,
+  }));
+  return [...buildTemplateNotes(size, seed), ...handwritten];
+}
+
+function buildTemplateNotes(size: number, seed: number): DeidNote[] {
   const random = seededRandom(seed);
   return Array.from({ length: size }, (_, index) => {
     const firstName = pick(random, FIRST_NAMES);
