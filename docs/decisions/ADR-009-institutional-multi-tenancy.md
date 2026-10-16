@@ -156,3 +156,43 @@ ADR-008) ganha o campo opcional `institutionId`.
   requer re-ingestão.
 - `INSTITUTION_RANK_BOOST` é uma constante fixa (0.05); calibração por
   instituição/especialidade fica fora de escopo.
+
+## Adendo — CC-019 (15/10/2026): a regra em todas as rotas de leitura
+
+A busca da biblioteca (`GET /guidelines/search`), o trecho citado
+(`GET /guidelines/chunks/:id`), o catálogo de fontes (`GET /guidelines`), a
+publicação e a revisão de protocolos e o roteiro de protocolo no caso não
+aplicavam o isolamento acima: qualquer médico autenticado lia o trecho ou o
+protocolo de outra instituição.
+
+**Vínculo ativo.** O institucional só aparece para quem tem vínculo ativo com
+a instituição: o `PhysicianInstitution` existe e a instituição está `active`
+(`activeInstitutionIds`, em `institutions/institution-visibility.ts`). Vínculo
+com instituição desativada não conta, nem para a instituição implícita de
+`resolveInstitutionId` nos protocolos.
+
+**Por rota:**
+
+- `GET /guidelines/search` (busca e biblioteca): globais e os das
+  instituições de vínculo ativo do médico — todas, não só uma, porque a
+  biblioteca não está dentro de um caso. Filtro no SQL, antes do `LIMIT`, para
+  a página não vir curta. Sem instituições, só o global.
+- `GET /guidelines/chunks/:id`: trecho de instituição sem vínculo ativo é
+  `404`, como id inexistente.
+- `POST /guidelines/consult`: só conteúdo global, para todos (mais restrito
+  que este ADR permite; levar o institucional à consulta é decisão de
+  produto).
+- Análise: a instituição do caso só filtra a busca enquanto o médico tem
+  vínculo ativo com ela; sem ele, a busca fica no global
+  (`RETRIEVAL_INSTITUTION_DROPPED` no log).
+- Protocolos: `publish`, `revise` e o roteiro no caso
+  (`/protocol-runs`) usam `findVisibleById` (`404` para outra instituição);
+  criar ou revisar com `institutionId` exige vínculo ativo (`403`).
+- `POST /guidelines/suggest` já não aceitava `institutionId`: a sugestão
+  entra global e pendente.
+
+**Papéis.** ADMIN e COMPLIANCE não veem mais nas rotas do médico: a regra é o
+vínculo. As exceções são as rotas que já são deles: a curadoria (ADR-008,
+`pending`/`approve`/`reject`/`ingest-review`, com `CuratorGuard`) vê os
+pendentes de todas as instituições, e o catálogo de fontes (`GET /guidelines`)
+passa a exigir COMPLIANCE ou ADMIN — é o console administrativo.
