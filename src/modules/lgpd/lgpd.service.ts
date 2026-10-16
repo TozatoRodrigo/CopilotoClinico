@@ -1,12 +1,23 @@
-import { BadRequestException, Injectable, Inject, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Inject,
+  Logger,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { PrismaService } from '../../config/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { PhysicianErasureCheck } from '../auth/physician-erasure-check.service';
+import { StorageService } from '../storage/storage.service';
 import { AiConsentRevokedException } from './ai-consent.exception';
 import { consentDefaults, consentScopes, type ConsentScope } from './schemas/lgpd.schemas';
 import type {
+  Prisma,
   Physician,
   Consent,
   Encounter,
+  EncounterAttachment,
   Document as DocumentRecord,
   AiInteraction,
   CaseIntake,
@@ -14,6 +25,29 @@ import type {
   RecommendationDecision,
   CopilotFeedback,
 } from '@prisma/client';
+
+/**
+ * Captura de áudio na exportação: metadados e transcrição (já mascarada de
+ * PII). `encryptedContent` fica de fora: é o áudio bruto cifrado com a chave do
+ * servidor, inútil para o titular, e decifrá-lo poria a voz do paciente, sem
+ * máscara, num JSON baixado pelo navegador. Allowlist em vez de `omit`: coluna
+ * nova em `audio_captures` só entra na exportação se for listada aqui.
+ */
+const EXPORTED_AUDIO_CAPTURE_SELECT = {
+  id: true,
+  encounterId: true,
+  mimeType: true,
+  sizeBytes: true,
+  status: true,
+  transcribedText: true,
+  retainUntil: true,
+  createdAt: true,
+  updatedAt: true,
+} as const satisfies Prisma.AudioCaptureSelect;
+
+export type ExportedAudioCapture = Prisma.AudioCaptureGetPayload<{
+  select: typeof EXPORTED_AUDIO_CAPTURE_SELECT;
+}>;
 
 export interface PhysicianDataExport {
   exportVersion: 'lgpd-portability-v1';
@@ -23,8 +57,16 @@ export interface PhysicianDataExport {
     id: string;
   };
   data: {
-    physician: Omit<Physician, 'passwordHash' | 'mfaSecret' | 'mfaEnabled'>;
+    // CC-018 — erasedAt fica de fora: é sempre null para quem ainda consegue
+    // pedir a exportação (o cadastro eliminado não tem mais sessão).
+    physician: Omit<Physician, 'passwordHash' | 'mfaSecret' | 'mfaEnabled' | 'erasedAt'>;
     encounters: Encounter[];
+    /**
+     * O arquivo original nunca é gravado (LGPD-005, ver AttachmentsService):
+     * o texto extraído e mascarado é todo o conteúdo que guardamos, então vai
+     * inline — não há objeto no storage para referenciar.
+     */
+    encounterAttachments: EncounterAttachment[];
     documents: DocumentRecord[];
     aiInteractions: AiInteraction[];
     /** ADR-014 — conversas antes do plano (caso e respostas já redigidos). */
@@ -33,8 +75,26 @@ export interface PhysicianDataExport {
     recommendationDecisions: RecommendationDecision[];
     /** F0-D — reportes do médico sobre análises (comentário já mascarado). */
     copilotFeedback: CopilotFeedback[];
+    /** Capturas de áudio, inclusive as com o áudio já eliminado (`status: deleted`). */
+    audioCaptures: ExportedAudioCapture[];
     consents: Consent[];
     auditLog: AuditLog[];
+  };
+}
+
+export interface ErasureResult {
+  status: 'completed';
+  estimatedCompletion: Date;
+  erased: {
+    recommendationDecisions: number;
+    copilotFeedback: number;
+    encounters: number;
+    encounterAttachments: number;
+    audioCaptures: number;
+    consents: number;
+    refreshTokens: number;
+    /** PDFs de documentos confirmados apagados do MinIO. */
+    storageObjects: number;
   };
 }
 
@@ -52,6 +112,8 @@ export class LgpdService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(PhysicianErasureCheck) private readonly erasureCheck: PhysicianErasureCheck,
+    @Inject(StorageService) private readonly storage: StorageService,
   ) {}
 
   async grantConsent(physicianId: string, scope: string): Promise<Consent> {
@@ -222,6 +284,8 @@ export class LgpdService {
     });
 
     const encounterIds = encounters.map((e) => e.id);
+    const hasEncounters = encounterIds.length > 0;
+    const ofEncounters = { encounterId: { in: encounterIds } };
 
     const [
       documents,
@@ -231,19 +295,26 @@ export class LgpdService {
       recommendationDecisions,
       copilotFeedback,
       caseIntakes,
+      encounterAttachments,
+      audioCaptures,
     ] = await Promise.all([
       this.prisma.document.findMany({ where: { physicianId } }),
       this.prisma.consent.findMany({ where: { physicianId } }),
       this.prisma.auditLog.findMany({ where: { actorId: physicianId } }),
-      encounterIds.length > 0
-        ? this.prisma.aiInteraction.findMany({
-            where: { encounterId: { in: encounterIds } },
-          })
+      hasEncounters
+        ? this.prisma.aiInteraction.findMany({ where: ofEncounters })
         : Promise.resolve([]),
       this.prisma.recommendationDecision.findMany({ where: { physicianId } }),
       this.prisma.copilotFeedback.findMany({ where: { physicianId } }),
       // ADR-014 — a conversa antes do plano (caso e respostas já redigidos).
       this.prisma.caseIntake.findMany({ where: { physicianId } }),
+      hasEncounters
+        ? this.prisma.encounterAttachment.findMany({ where: ofEncounters })
+        : Promise.resolve([]),
+      this.prisma.audioCapture.findMany({
+        where: { physicianId },
+        select: EXPORTED_AUDIO_CAPTURE_SELECT,
+      }),
     ]);
 
     return {
@@ -256,28 +327,20 @@ export class LgpdService {
       data: {
         physician,
         encounters,
+        encounterAttachments,
         documents,
         aiInteractions,
         caseIntakes,
         recommendationDecisions,
         copilotFeedback,
+        audioCaptures,
         consents,
         auditLog,
       },
     };
   }
 
-  async requestErasure(physicianId: string): Promise<{
-    status: string;
-    estimatedCompletion: Date;
-    erased: {
-      recommendationDecisions: number;
-      copilotFeedback: number;
-      encounters: number;
-      consents: number;
-      refreshTokens: number;
-    };
-  }> {
+  async requestErasure(physicianId: string): Promise<ErasureResult> {
     const physician = await this.prisma.physician.findUnique({
       where: { id: physicianId },
     });
@@ -286,13 +349,29 @@ export class LgpdService {
       throw new NotFoundException('Physician not found');
     }
 
-    const erased = await this.prisma.$transaction(async (tx) => {
+    // Storage antes do banco: as chaves dos PDFs só existem nas linhas de
+    // Document, que a transação abaixo apaga (cascata do Encounter). Se o
+    // storage falhar, nada foi apagado e o pedido pode ser repetido; na ordem
+    // inversa, uma falha deixaria PDFs órfãos sem referência para achá-los.
+    const storageObjects = await this.eraseDocumentPdfs(physicianId);
+
+    const erasedRows = await this.prisma.$transaction(async (tx) => {
       // F0-D — o CASCADE de encounters já levaria decisões e feedback junto;
       // apagar explicitamente deixa a contagem no relatório de eliminação.
       const recommendationDecisions = await tx.recommendationDecision.deleteMany({
         where: { physicianId },
       });
       const copilotFeedback = await tx.copilotFeedback.deleteMany({ where: { physicianId } });
+      // Anexos e capturas de áudio também cairiam na cascata do Encounter;
+      // apagá-los explicitamente dá a contagem que vai para a resposta e para a
+      // trilha de auditoria. Nenhum dos dois tem objeto no storage: o anexo
+      // guarda só o texto mascarado e o áudio fica cifrado na própria linha.
+      const encounterAttachments = await tx.encounterAttachment.deleteMany({
+        where: { encounter: { physicianId } },
+      });
+      const audioCaptures = await tx.audioCapture.deleteMany({
+        where: { encounter: { physicianId } },
+      });
       const encounters = await tx.encounter.deleteMany({ where: { physicianId } });
       const consents = await tx.consent.deleteMany({ where: { physicianId } });
       const refreshTokens = await tx.refreshToken.deleteMany({ where: { physicianId } });
@@ -303,6 +382,8 @@ export class LgpdService {
           name: 'ERASED',
           email: `erased-${physicianId}@erased.com`,
           passwordHash: `erased:${physicianId}`,
+          // CC-018 — a estratégia JWT e o refresh recusam a sessão por aqui.
+          erasedAt: new Date(),
         },
       });
 
@@ -310,11 +391,21 @@ export class LgpdService {
         recommendationDecisions: recommendationDecisions.count,
         copilotFeedback: copilotFeedback.count,
         encounters: encounters.count,
+        encounterAttachments: encounterAttachments.count,
+        audioCaptures: audioCaptures.count,
         consents: consents.count,
         refreshTokens: refreshTokens.count,
       };
     });
 
+    // CC-018 — só depois do commit: marcar antes trancaria o médico fora de uma
+    // conta que continua dele quando a transação falha.
+    this.erasureCheck.markErased(physicianId);
+
+    const erased = { ...erasedRows, storageObjects };
+
+    // A trilha de auditoria é append-only (AUD-001) e não é apagada: só ganha
+    // esta entrada.
     await this.auditService.log({
       actorId: physicianId,
       action: 'DATA_ERASURE',
@@ -327,5 +418,32 @@ export class LgpdService {
     });
 
     return { status: 'completed', estimatedCompletion: new Date(), erased };
+  }
+
+  /**
+   * Apaga do MinIO os PDFs dos documentos confirmados nos atendimentos do
+   * médico e devolve quantas chaves foram apagadas.
+   */
+  private async eraseDocumentPdfs(physicianId: string): Promise<number> {
+    const documents = await this.prisma.document.findMany({
+      where: { encounter: { physicianId }, pdfObjectKey: { not: null } },
+      select: { pdfObjectKey: true },
+    });
+    const keys = documents.flatMap((doc) => (doc.pdfObjectKey ? [doc.pdfObjectKey] : []));
+
+    try {
+      await this.storage.deleteObjects(keys);
+    } catch (error) {
+      this.logger.error(
+        `LGPD erasure aborted for physician ${physicianId}: failed to delete ${keys.length} stored PDF(s)`,
+        error instanceof Error ? error.stack : String(error),
+      );
+      throw new ServiceUnavailableException(
+        'Could not delete stored files; no data was erased. Try again later.',
+        { cause: error },
+      );
+    }
+
+    return keys.length;
   }
 }
