@@ -66,6 +66,7 @@ describe('LgpdService', () => {
       findMany: ReturnType<typeof vi.fn>;
       deleteMany: ReturnType<typeof vi.fn>;
     };
+    knowledgeGap: { findMany: ReturnType<typeof vi.fn> };
     $transaction: ReturnType<typeof vi.fn>;
   };
   let auditService: {
@@ -131,6 +132,7 @@ describe('LgpdService', () => {
         findMany: vi.fn().mockResolvedValue([]),
         deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
+      knowledgeGap: { findMany: vi.fn().mockResolvedValue([]) },
       $transaction: vi.fn(),
     };
     auditService = {
@@ -512,11 +514,23 @@ describe('LgpdService', () => {
         },
       ];
 
+      const knowledgeGaps = [
+        {
+          id: 'gap-1',
+          source: 'physician_not_found',
+          interactionId: 'ai-1',
+          syndrome: 'febre',
+          searchQueries: ['dengue sinais de alarme'],
+          note: 'Faltou a hidratação por peso',
+        },
+      ];
+
       prisma.physician.findUnique.mockResolvedValue(physician);
       prisma.practiceSite.findMany.mockResolvedValue(practiceSites);
       prisma.recommendationDecision.findMany.mockResolvedValue(recommendationDecisions);
       prisma.copilotFeedback.findMany.mockResolvedValue(copilotFeedback);
       prisma.audioCapture.findMany.mockResolvedValue(audioCaptures);
+      prisma.knowledgeGap.findMany.mockResolvedValue(knowledgeGaps);
       prisma.encounter.findMany.mockResolvedValue(encounters);
       prisma.document.findMany.mockResolvedValue(documents);
       prisma.consent.findMany.mockResolvedValue(consents);
@@ -545,6 +559,7 @@ describe('LgpdService', () => {
           copilotFeedback,
           audioCaptures,
           practiceSites,
+          knowledgeGaps,
           consents,
           auditLog,
         },
@@ -552,6 +567,10 @@ describe('LgpdService', () => {
       // CC-602 — os locais de plantão são dado do médico.
       expect(prisma.practiceSite.findMany).toHaveBeenCalledWith({ where: { physicianId } });
       expect(prisma.caseIntake.findMany).toHaveBeenCalledWith({ where: { physicianId } });
+      // CC-703 — a lacuna não guarda o médico: sai pelas análises dele.
+      expect(prisma.knowledgeGap.findMany).toHaveBeenCalledWith({
+        where: { interaction: { encounter: { physicianId } } },
+      });
       expect(prisma.copilotFeedback.findMany).toHaveBeenCalledWith({ where: { physicianId } });
       // F0-D — decisões por recomendação são dado do médico: entram na portabilidade.
       expect(prisma.recommendationDecision.findMany).toHaveBeenCalledWith({

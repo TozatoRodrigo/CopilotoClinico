@@ -238,6 +238,10 @@ function buildPrismaMock() {
     practiceSite: {
       findMany: vi.fn().mockResolvedValue([]),
     },
+    // CC-703 — "não encontrei o que precisava" também.
+    knowledgeGap: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
 
     physicianInstitution: {
       findMany: vi.fn().mockResolvedValue([]),

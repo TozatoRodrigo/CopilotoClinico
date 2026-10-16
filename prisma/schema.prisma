@@ -332,6 +332,7 @@ model AiInteraction {
   recommendationDecisions RecommendationDecision[]
   copilotFeedback         CopilotFeedback[]
   caseIntake              CaseIntake?
+  knowledgeGaps           KnowledgeGap[]
 
   @@index([encounterId])
   @@index([parentInteractionId])
@@ -532,6 +533,46 @@ model CopilotFeedback {
   @@index([encounterId])
   @@index([physicianId])
   @@map("copilot_feedback")
+}
+
+/// CC-703 — de onde veio a lacuna. A CC-409 acrescenta a da análise sem cartão
+/// aplicável; a CC-501, a da pergunta rápida sem cartão.
+enum KnowledgeGapSource {
+  /// O médico tocou "não encontrei o que precisava" na análise.
+  physician_not_found
+}
+
+/// CC-703 — registro de lacunas: o que o médico procurou e o Copiloto não
+/// tinha. É a entrada da fila de criação de cartões (CC-409: lacunas mais
+/// frequentes da semana) e do painel do beta (CC-705).
+///
+/// Sem texto do caso: a síndrome de PS e as consultas da busca dirigida vêm
+/// do entendimento da análise (`extractUnderstandingSignals`), e a nota é a
+/// frase curta do médico, mascarada. Sem `physician_id`: a lacuna é do
+/// conteúdo, não de quem a encontrou; apagar o atendimento (LGPD) apaga a
+/// análise e, por cascata, a lacuna.
+model KnowledgeGap {
+  id            String             @id @default(uuid()) @db.Uuid
+  source        KnowledgeGapSource
+  /// Análise em que a lacuna apareceu; null para fontes sem análise (CC-501).
+  interactionId String?            @map("interaction_id") @db.Uuid
+  /// `PS_SYNDROMES`; null quando a análise não registrou o entendimento.
+  syndrome      String?            @db.VarChar(40)
+  /// Consultas da busca dirigida (até 4), mascaradas.
+  searchQueries String[]           @map("search_queries")
+  /// O que faltou, nas palavras do médico — já mascarado de PII.
+  note          String?            @db.Text
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+
+  interaction AiInteraction? @relation(fields: [interactionId], references: [id], onDelete: Cascade)
+
+  /// Uma lacuna por análise e fonte: tocar de novo atualiza a nota em vez de
+  /// contar duas vezes. Lacunas sem análise (NULL) não colidem entre si.
+  @@unique([interactionId, source])
+  @@index([createdAt])
+  @@index([syndrome, createdAt])
+  @@map("knowledge_gaps")
 }
 
 model GuidelineChunk {

@@ -390,4 +390,66 @@ describe('CopilotFeedbackService', () => {
       expect(audit.log).not.toHaveBeenCalled();
     });
   });
+
+  /**
+   * CC-703 — "virou caso" deixa de ser só um rótulo: o curador baixa o
+   * rascunho do caso. O formato e a máscara estão em eval-case-draft.spec.ts;
+   * aqui, o que o serviço junta do banco e deixa na trilha.
+   */
+  describe('exportEvalCaseDraft', () => {
+    const draftRow = {
+      id: feedbackId,
+      kind: 'wrong_scenario',
+      comment: 'Era dengue, foi para sepse.',
+      createdAt: new Date('2026-10-01T10:00:00.000Z'),
+      encounter: { context: { hasCT: true, isSus: true, hasLab: true, hasICU: false } },
+      interaction: {
+        model: 'claude-sonnet',
+        turnIndex: 0,
+        inputRedacted:
+          'Febre há 4 dias, plaquetas 90 mil, dor retro-orbitária. CPF 529.982.247-25.',
+        answeredQuestions: null,
+        params: { retrievalCoverage: 'partial' },
+        rawOutput: { differentials: [{ hypothesis: 'Sepse de foco indeterminado' }] },
+      },
+    };
+
+    it('monta o rascunho com o caso, a análise e o contexto do atendimento', async () => {
+      prisma.copilotFeedback.findUnique.mockResolvedValue(draftRow);
+
+      const draft = await service.exportEvalCaseDraft(curatorId, feedbackId);
+
+      expect(prisma.copilotFeedback.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: feedbackId } }),
+      );
+      expect(draft.id).toBe('campo-55555555');
+      expect(draft.provenance.origin).toBe(`feedback:${feedbackId}`);
+      expect(draft.input.caseText).toContain('CPF [REDACTED_CPF]');
+      expect(draft.input.context).toEqual(draftRow.encounter.context);
+    });
+
+    it('registra a exportação na trilha, sem o texto do caso', async () => {
+      prisma.copilotFeedback.findUnique.mockResolvedValue(draftRow);
+
+      await service.exportEvalCaseDraft(curatorId, feedbackId);
+
+      expect(audit.log).toHaveBeenCalledWith({
+        actorId: curatorId,
+        action: 'COPILOT_FEEDBACK_EVAL_CASE_EXPORTED',
+        entity: 'CopilotFeedback',
+        entityId: feedbackId,
+        payload: { draftId: 'campo-55555555' },
+      });
+      expect(JSON.stringify(audit.log.mock.calls)).not.toContain('Febre');
+    });
+
+    it('devolve 404 para feedback inexistente, sem registrar nada', async () => {
+      prisma.copilotFeedback.findUnique.mockResolvedValue(null);
+
+      await expect(service.exportEvalCaseDraft(curatorId, feedbackId)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(audit.log).not.toHaveBeenCalled();
+    });
+  });
 });

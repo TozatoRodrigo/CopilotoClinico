@@ -25,6 +25,7 @@ import type {
   RecommendationDecision,
   CopilotFeedback,
   PracticeSite,
+  KnowledgeGap,
 } from '@prisma/client';
 
 /**
@@ -80,6 +81,12 @@ export interface PhysicianDataExport {
     audioCaptures: ExportedAudioCapture[];
     /** CC-602 — locais onde o médico dá plantão. */
     practiceSites: PracticeSite[];
+    /**
+     * CC-703 — "não encontrei o que precisava" nas análises do médico (nota
+     * já mascarada). Sem coluna de médico: sai pelas análises dele, e a
+     * eliminação o leva junto, por cascata, com os atendimentos.
+     */
+    knowledgeGaps: KnowledgeGap[];
     consents: Consent[];
     auditLog: AuditLog[];
   };
@@ -304,6 +311,7 @@ export class LgpdService {
       encounterAttachments,
       audioCaptures,
       practiceSites,
+      knowledgeGaps,
     ] = await Promise.all([
       this.prisma.document.findMany({ where: { physicianId } }),
       this.prisma.consent.findMany({ where: { physicianId } }),
@@ -323,6 +331,9 @@ export class LgpdService {
         select: EXPORTED_AUDIO_CAPTURE_SELECT,
       }),
       this.prisma.practiceSite.findMany({ where: { physicianId } }),
+      this.prisma.knowledgeGap.findMany({
+        where: { interaction: { encounter: { physicianId } } },
+      }),
     ]);
 
     return {
@@ -343,6 +354,7 @@ export class LgpdService {
         copilotFeedback,
         audioCaptures,
         practiceSites,
+        knowledgeGaps,
         consents,
         auditLog,
       },
