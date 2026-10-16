@@ -333,6 +333,8 @@ model AiCall {
   latencyMs        Int      @map("latency_ms")
   outcome          String   @db.VarChar(16)
   errorType        String?  @map("error_type") @db.VarChar(64)
+  /// CC-107 — perfil que ficou indisponível e que esta chamada, no modelo de reserva, substituiu.
+  fallbackFrom     String?  @map("fallback_from") @db.VarChar(32)
   createdAt        DateTime @default(now()) @map("created_at")
 
   @@index([requestId])
