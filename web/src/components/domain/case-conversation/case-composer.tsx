@@ -13,6 +13,9 @@ import { PageHeader, SectionHeader } from '@/components/layout/page-header';
 import { useWhisperVoice, type WhisperVoiceHook } from '@/hooks/use-whisper-voice';
 import { useOnlineStatus } from '@/components/providers/offline-provider';
 import { EncounterAttachments } from '@/components/domain/encounter-attachments';
+import { PracticeSiteSelect } from '@/components/domain/practice-site-select';
+import { ToggleTag } from '@/components/ui/toggle-tag';
+import { usePracticeSites } from '@/hooks/use-practice-sites';
 import type { StartCaseInput } from '@/hooks/use-case-conversation';
 import type { DemoCasePreset } from '@/lib/demo-case-presets';
 import {
@@ -22,6 +25,7 @@ import {
   Flask,
   Hospital,
   Info,
+  MapPin,
   Microphone,
   MicrophoneSlash,
   Plus,
@@ -59,7 +63,9 @@ interface RedFlagChipDef extends ChipDef {
   severity: RedFlagSeverity;
 }
 
-const RESOURCE_CHIPS: ChipDef[] = [
+type ResourceKey = 'hasCT' | 'isSus' | 'hasLab' | 'hasICU';
+
+const RESOURCE_CHIPS: Array<{ key: ResourceKey; label: string }> = [
   { key: 'hasCT', label: 'TC' },
   { key: 'hasLab', label: 'Labs' },
   { key: 'hasICU', label: 'UTI' },
@@ -131,6 +137,12 @@ export type CaseSubmitResult = 'started' | 'queued' | 'failed';
 interface CaseComposerProps {
   encounterId: string;
   demoPreset: DemoCasePreset | null;
+  /**
+   * CC-602 — o contexto com que o caso nasceu (o local padrão, ou o que o
+   * médico escolheu ao criar o caso). Antes o relato começava sempre com
+   * tudo desmarcado e apagava o que fora marcado na criação.
+   */
+  initialContext: EncounterContext;
   sending: boolean;
   error: string | null;
   onSubmit: (input: StartCaseInput) => Promise<CaseSubmitResult>;
@@ -144,6 +156,7 @@ interface CaseComposerProps {
 export function CaseComposer({
   encounterId,
   demoPreset,
+  initialContext,
   sending,
   error,
   onSubmit,
@@ -161,9 +174,8 @@ export function CaseComposer({
     if (typeof window === 'undefined') return false;
     return sessionStorage.getItem(DRAFT_KEY(encounterId)) !== null;
   });
-  const [context, setContext] = useState<EncounterContext>(
-    () => demoPreset?.context ?? { hasCT: false, isSus: false, hasLab: false, hasICU: false },
-  );
+  const [context, setContext] = useState<EncounterContext>(initialContext);
+  const sitesQuery = usePracticeSites();
   const [redFlags, setRedFlags] = useState<Record<string, boolean>>({});
   const [isMac] = useState(
     () => typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform),
@@ -204,8 +216,8 @@ export function CaseComposer({
   const charCount = caseText.trim().length;
   const isValid = charCount >= MIN_CHARS;
 
-  function toggleContext(key: string) {
-    setContext((prev) => ({ ...prev, [key]: !prev[key as keyof EncounterContext] }));
+  function toggleContext(key: ResourceKey) {
+    setContext((prev) => ({ ...prev, [key]: !prev[key] }));
   }
 
   function toggleRedFlag(key: string) {
@@ -329,6 +341,17 @@ export function CaseComposer({
           description="Marque o que o relato nem sempre diz — recursos disponíveis e condições que mudam a conduta."
         />
         <PropertyList>
+          {/* CC-602 — o local do plantão: vem do padrão das Configurações
+              e troca aqui, junto com os recursos que ele marca. */}
+          <PropertyRow icon={MapPin} label="Local" className="max-sm:grid-cols-1 max-sm:gap-0">
+            <PracticeSiteSelect
+              id="case-site"
+              sites={sitesQuery.data ?? []}
+              context={context}
+              onChange={setContext}
+              disabled={sending}
+            />
+          </PropertyRow>
           <PropertyRow
             icon={Hospital}
             label={messages.capture.resources}
@@ -336,7 +359,7 @@ export function CaseComposer({
           >
             <div role="group" aria-label={messages.capture.resources} className="flex flex-wrap gap-1.5">
               {RESOURCE_CHIPS.map((chip) => {
-                const active = !!context[chip.key as keyof EncounterContext];
+                const active = context[chip.key];
                 return (
                   <ToggleTag
                     key={chip.key}
@@ -520,42 +543,6 @@ function VoiceBlock({
         </Button>
       )}
     </div>
-  );
-}
-
-/**
- * Tag de seleção do Notion como alternância: tracejada quando vazia, cor da
- * categoria/severidade + ícone quando marcada. `aria-pressed` comunica o
- * estado ao leitor de tela.
- */
-function ToggleTag({
-  pressed,
-  onClick,
-  activeClassName,
-  activeIcon,
-  children,
-}: {
-  pressed: boolean;
-  onClick: () => void;
-  activeClassName: string;
-  activeIcon: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={pressed}
-      className={cn(
-        'inline-flex h-7 items-center gap-1 rounded-sm border px-2 text-[0.8125rem] transition-colors duration-100 select-none focus-visible:ring-[3px] focus-visible:ring-ring/40 focus-visible:outline-none max-sm:h-10 max-sm:px-3 [&_svg]:size-3.5 [&_svg]:shrink-0',
-        pressed
-          ? cn('border-transparent font-medium', activeClassName)
-          : 'border-dashed border-input text-muted-foreground hover:bg-hover hover:text-foreground',
-      )}
-    >
-      {pressed ? activeIcon : <Plus aria-hidden="true" />}
-      {children}
-    </button>
   );
 }
 

@@ -13,19 +13,25 @@ import { DocumentsModule } from './modules/documents/documents.module';
 import { EncountersModule } from './modules/encounters/encounters.module';
 import { CopilotModule } from './modules/copilot/copilot.module';
 import { LgpdModule } from './modules/lgpd/lgpd.module';
+import { LegalModule } from './modules/legal/legal.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { GuidelinesModule } from './modules/guidelines/guidelines.module';
+import { KnowledgeCardsModule } from './modules/knowledge-cards/knowledge-cards.module';
 import { ProtocolsModule } from './modules/protocols/protocols.module';
 import { InstitutionsModule } from './modules/institutions/institutions.module';
 import { PhysiciansModule } from './modules/physicians/physicians.module';
+import { PracticeSitesModule } from './modules/practice-sites/practice-sites.module';
 import { ObservabilityModule } from './modules/observability/observability.module';
 import { AudioModule } from './modules/audio/audio.module';
 import { RedisModule } from './modules/redis/redis.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { MentoringModule } from './modules/mentoring/mentoring.module';
+import { MailModule } from './modules/mail/mail.module';
 import { ShiftReviewModule } from './modules/shift-review/shift-review.module';
 import { PiiLogSanitizerInterceptor } from './shared/interceptors/pii-log-sanitizer.interceptor';
 import { RequestContextInterceptor } from './shared/request-context/request-context.interceptor';
+import { LegalTermsGateInterceptor } from './modules/legal/legal-terms-gate.interceptor';
 
 @Module({
   imports: [
@@ -44,16 +50,21 @@ import { RequestContextInterceptor } from './shared/request-context/request-cont
     DocumentsModule,
     CopilotModule,
     GuidelinesModule,
+    KnowledgeCardsModule,
     ProtocolsModule,
     InstitutionsModule,
     AuditModule,
     LgpdModule,
+    LegalModule,
     PhysiciansModule,
+    PracticeSitesModule,
     ObservabilityModule,
     AudioModule,
     RedisModule,
     StorageModule,
     AnalyticsModule,
+    MentoringModule,
+    MailModule,
     ShiftReviewModule,
   ],
   providers: [
@@ -68,6 +79,11 @@ import { RequestContextInterceptor } from './shared/request-context/request-cont
     {
       provide: APP_INTERCEPTOR,
       useClass: PiiLogSanitizerInterceptor,
+    },
+    // CC-905 — depois do contexto da requisição: o 428 também leva x-request-id.
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: LegalTermsGateInterceptor,
     },
   ],
 })

@@ -16,6 +16,7 @@ import { useDashboardStats, useEncounterList } from '@/lib/clinical-queries';
 import { useAuth } from '@/lib/auth-store';
 import { StatCard, StatStrip } from '@/components/ui/stat-card';
 import { PlantaoQueue } from '@/components/domain/plantao-queue';
+import { MentoringAnswerNotice } from '@/components/domain/mentoring/mentoring-answer-notice';
 import { ShiftReviewEntry } from '@/components/domain/shift-review/shift-review-entry';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -118,6 +119,9 @@ export default function DashboardPage() {
           </>
         }
       />
+
+      {/* CC-707 — resposta de um médico da equipe que o médico ainda não abriu. */}
+      <MentoringAnswerNotice />
 
       {/* E2-S2: métricas */}
       {loading ? (

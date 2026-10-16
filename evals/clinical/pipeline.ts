@@ -10,9 +10,21 @@ import type {
   OrchestratorService,
 } from '../../src/modules/copilot/orchestrator/orchestrator.service';
 import type { EncountersService } from '../../src/modules/encounters/encounters.service';
-import type { CaseUnderstanding, WebEvidenceItem } from '../../src/shared/contracts/clinical';
+import type { ConversationService } from '../../src/modules/copilot/intake/conversation.service';
+import type { IntakeService } from '../../src/modules/copilot/intake/intake.service';
+import {
+  StoredIntakeReadingSchema,
+  understandingOf as readingUnderstandingOf,
+} from '../../src/modules/copilot/intake/intake-reading.schema';
+import { normalize } from '../../src/modules/copilot/guardrails/output-validator';
+import type {
+  CaseUnderstanding,
+  IntakeQuestion,
+  IntakeView,
+  WebEvidenceItem,
+} from '../../src/shared/contracts/clinical';
 import { StoredCaseUnderstandingSchema } from '../../src/modules/copilot/understanding/case-understanding.schema';
-import type { ClinicalCase } from './case.schema';
+import type { ClinicalCase, Funnel } from './case.schema';
 import type { RunStatus } from './graders/deterministic';
 import { costUsd, isSameModel } from './pricing';
 import type { CompletionRecorder, RecordedCompletion } from './recorder';
@@ -22,11 +34,14 @@ import {
   type ErrorRow,
   type EvalMode,
   type FailureClass,
+  type FunnelExchange,
   type FunnelTurn,
+  type IntakeTrace,
   type ResearchTrace,
   type ResultRow,
+  type SimulatorCall,
 } from './records';
-import type { PhysicianSimulator } from './simulator';
+import { NOT_INFORMED, type PhysicianSimulator } from './simulator';
 import { DEFAULT_RETRY_POLICY, retryWhile, withTimeout, type RetryPolicy } from './scheduling';
 
 /**
@@ -37,6 +52,10 @@ import { DEFAULT_RETRY_POLICY, retryWhile, withTimeout, type RetryPolicy } from 
  * médico simulado responde às perguntas e o caso segue por
  * `continueAnalysis`, como quando o médico responde na tela, até não haver
  * pergunta ou até o terceiro turno.
+ *
+ * CC-106 — o afunilamento entra pela conversa do Copiloto guiado (ADR-014),
+ * como a tela: leitura do caso, portão de perguntas e respostas do médico
+ * simulado antes do primeiro plano.
  */
 
 /** Turnos do afunilamento: a análise inicial e até duas rodadas de respostas. */
@@ -81,6 +100,13 @@ export interface PipelineServices {
   refusalFallback: boolean;
   /** Só no modo afunilamento. */
   simulator?: PhysicianSimulator;
+  /** CC-106 — só no modo afunilamento: a conversa antes do plano (ADR-014). */
+  guided?: GuidedServices;
+}
+
+export interface GuidedServices {
+  intake: IntakeService;
+  conversation: ConversationService;
 }
 
 /** Mesma decisão do AnthropicProvider: modelo com suporte e AI_REFUSAL_FALLBACK ≠ off. */
@@ -110,6 +136,8 @@ type AttemptOutcome =
       wallClockMs: number;
       /** Afunilamento: um item por turno; vazio no caso completo. */
       turns: FunnelTurn[];
+      /** CC-106 — afunilamento: a conversa antes do 1º plano. */
+      intake: IntakeTrace | null;
     }
   | {
       kind: 'no_answer';
@@ -128,6 +156,8 @@ type AttemptOutcome =
       wallClockMs: number;
       /** Afunilamento: os turnos respondidos antes do que falhou. */
       turns: FunnelTurn[];
+      /** CC-106 — afunilamento: a conversa antes do 1º plano. */
+      intake: IntakeTrace | null;
     }
   | {
       kind: 'infra_error';
@@ -276,6 +306,24 @@ function stringList(value: unknown): string[] {
     : [];
 }
 
+type InfraFailure = Extract<AttemptOutcome, { kind: 'infra_error' }>;
+
+/** Falha que não é desfecho do modelo: filtro de injeção, provedor, rede, banco, harness. */
+function infraFailure(error: unknown, completions: RecordedCompletion[]): InfraFailure {
+  const body = badRequestBody(error);
+  if (body?.message === UNSAFE_INPUT_MESSAGE) {
+    return {
+      kind: 'infra_error',
+      failureClass: 'input_rejected',
+      retryable: false,
+      message: `O filtro de injeção do pipeline bloqueou o texto do caso: ${stringList(body.reasons).join(', ')}`,
+      completions,
+    };
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  return { kind: 'infra_error', ...classifyInfraError(error), message, completions };
+}
+
 /**
  * Uma chamada ao orquestrador (análise ou resposta às perguntas), com os
  * desfechos classificados. `completions` é do chamador e acumula as chamadas
@@ -303,6 +351,7 @@ async function invokePipeline(
       completions,
       wallClockMs: Date.now() - startedAt,
       turns: [],
+      intake: null,
     };
   } catch (error) {
     // Gateway sem a contenção clínica: truncamento e recusa sobem como erro
@@ -323,23 +372,12 @@ async function invokePipeline(
         completions,
         wallClockMs: Date.now() - startedAt,
         turns: [],
+        intake: null,
       };
     }
 
     const body = badRequestBody(error);
-    if (body?.message === UNSAFE_INPUT_MESSAGE) {
-      return {
-        kind: 'infra_error',
-        failureClass: 'input_rejected',
-        retryable: false,
-        message: `O filtro de injeção do pipeline bloqueou o texto do caso: ${stringList(body.reasons).join(', ')}`,
-        completions,
-      };
-    }
-    if (body?.message !== VALIDATION_FAILED_MESSAGE) {
-      const message = error instanceof Error ? error.message : String(error);
-      return { kind: 'infra_error', ...classifyInfraError(error), message, completions };
-    }
+    if (body?.message !== VALIDATION_FAILED_MESSAGE) return infraFailure(error, completions);
 
     const stored = await storedFailure(services.prisma, encounterId);
     const validationErrors = stringList(body.errors);
@@ -357,6 +395,7 @@ async function invokePipeline(
       completions,
       wallClockMs: Date.now() - startedAt,
       turns: [],
+      intake: null,
     };
   }
 }
@@ -371,13 +410,14 @@ async function attemptCase(
   const startedAt = Date.now();
   const context = clinicalCase.input.context ?? DEFAULT_CONTEXT;
   const funnel = mode === 'funnel' ? clinicalCase.input.funnel : undefined;
-  if (mode === 'funnel' && (!funnel || !services.simulator)) {
+  const { simulator, guided } = services;
+  if (mode === 'funnel' && (!funnel || !simulator || !guided)) {
     return {
       kind: 'infra_error',
       failureClass: 'harness',
       retryable: false,
       message: funnel
-        ? 'modo afunilamento sem médico simulado configurado'
+        ? 'modo afunilamento sem médico simulado ou sem a conversa do Copiloto guiado configurados'
         : `caso ${clinicalCase.id} não tem input.funnel`,
       completions,
     };
@@ -399,15 +439,212 @@ async function attemptCase(
     };
   }
 
-  const first = await invokePipeline(services, encounterId, startedAt, completions, () =>
+  if (funnel && simulator && guided) {
+    return runGuidedFunnel({
+      services,
+      guided,
+      simulator,
+      funnel,
+      encounterId,
+      startedAt,
+      completions,
+      request: { caseText: funnel.opening, context, redFlags: clinicalCase.input.redFlags },
+    });
+  }
+  return invokePipeline(services, encounterId, startedAt, completions, () =>
     services.orchestrator.analyze(services.physicianId, encounterId, {
-      caseText: funnel ? funnel.opening : clinicalCase.input.caseText,
+      caseText: clinicalCase.input.caseText,
       context,
       redFlags: clinicalCase.input.redFlags,
     }),
   );
-  if (!funnel || !services.simulator || first.kind !== 'answered') return first;
-  return continueFunnel(services, funnel, services.simulator, encounterId, startedAt, first);
+}
+
+interface GuidedRun {
+  services: PipelineServices;
+  guided: GuidedServices;
+  simulator: PhysicianSimulator;
+  funnel: Funnel;
+  encounterId: string;
+  startedAt: number;
+  completions: RecordedCompletion[];
+  request: Parameters<IntakeService['start']>[2];
+}
+
+/** Chamada à conversa (leitura, resposta, leitura do banco) com as falhas classificadas como no pipeline. */
+async function guidedCall<Value>(
+  run: GuidedRun,
+  call: () => Promise<Value>,
+): Promise<{ kind: 'ok'; value: Value } | InfraFailure> {
+  try {
+    return { kind: 'ok', value: await run.services.recorder.run(run.completions, call) };
+  } catch (error) {
+    return infraFailure(error, run.completions);
+  }
+}
+
+/**
+ * CC-106 — afunilamento pelo fluxo da tela do Copiloto guiado (ADR-014): a
+ * leitura do caso lê a abertura e o portão decide se pergunta; o médico
+ * simulado responde às perguntas, uma por vez, até a conversa fechar; o
+ * plano sai da conversa (`ConversationService.analyze`) e segue pelas rodadas
+ * de resposta do plano. Com COPILOT_INTAKE=off a conversa vai direto ao
+ * plano, como em produção.
+ */
+async function runGuidedFunnel(run: GuidedRun): Promise<AttemptOutcome> {
+  const { services, guided, encounterId, startedAt, completions } = run;
+  const started = await guidedCall(run, () =>
+    guided.intake.start(services.physicianId, encounterId, run.request),
+  );
+  if (started.kind !== 'ok') return started;
+  const firstQuestionMs = started.value.questions.length > 0 ? Date.now() - startedAt : null;
+
+  const answered = await answerIntakeQuestions(run, started.value);
+  if (answered.kind !== 'ok') return answered;
+  const intake = await intakeTrace(run, { ...answered.value, firstQuestionMs });
+  if (intake.kind !== 'ok') return intake;
+
+  const first = await invokePipeline(services, encounterId, startedAt, completions, () =>
+    guided.conversation.analyze(services.physicianId, encounterId, started.value.intakeId),
+  );
+  const outcome =
+    first.kind === 'answered'
+      ? await continueFunnel(services, run.funnel, run.simulator, encounterId, startedAt, first)
+      : first;
+  return outcome.kind === 'infra_error' ? outcome : { ...outcome, intake: intake.value };
+}
+
+/** Opção de toque de quem não sabe ("Não sei", "Não examinei"), já sem acento e sem caixa. */
+const UNKNOWN_CHOICE = /^nao (sei|examinei|avaliei|medi)\b/;
+
+/**
+ * A resposta como o médico a daria na tela. Sem fato no roteiro, vale a
+ * opção de quem não sabe ("Não sei", "Não examinei"), quando a pergunta tem:
+ * "Não informado." começa pela opção "Não" e encerraria a conversa como
+ * resposta urgente quando "Não" é a resposta grave.
+ */
+function intakeExchange(question: IntakeQuestion, simulated: FunnelExchange | undefined) {
+  const exchange = simulated ?? {
+    questionId: question.id,
+    question: question.question,
+    answer: NOT_INFORMED,
+    factIds: [],
+  };
+  if (exchange.answer !== NOT_INFORMED) return exchange;
+  const unknown = question.choices.find((choice) => UNKNOWN_CHOICE.test(normalize(choice)));
+  return unknown ? { ...exchange, answer: unknown } : exchange;
+}
+
+interface AnsweredIntake {
+  view: IntakeView;
+  exchanges: FunnelExchange[];
+  simulator: SimulatorCall | null;
+}
+
+/**
+ * O médico simulado responde de uma vez às perguntas que a leitura fez — o
+ * portão as decide todas antes da primeira — e as respostas entram uma a
+ * uma, como na tela, até a conversa fechar (todas respondidas ou resposta
+ * urgente).
+ */
+async function answerIntakeQuestions(
+  run: GuidedRun,
+  view: IntakeView,
+): Promise<{ kind: 'ok'; value: AnsweredIntake } | InfraFailure> {
+  if (view.status !== 'asking' || view.questions.length === 0) {
+    return { kind: 'ok', value: { view, exchanges: [], simulator: null } };
+  }
+
+  let simulated;
+  try {
+    simulated = await run.simulator.answer(
+      run.funnel,
+      view.questions.map((question) => ({
+        id: question.id,
+        question: question.question,
+        choices: question.choices,
+      })),
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      kind: 'infra_error',
+      ...classifyInfraError(error),
+      message: `médico simulado: ${message}`,
+      completions: run.completions,
+    };
+  }
+
+  let current = view;
+  const exchanges: FunnelExchange[] = [];
+  for (const question of view.questions) {
+    if (current.status !== 'asking') break;
+    const exchange = intakeExchange(
+      question,
+      simulated.exchanges.find((candidate) => candidate.questionId === question.id),
+    );
+    const posted = await guidedCall(run, () =>
+      run.guided.intake.answer(run.services.physicianId, run.encounterId, view.intakeId, {
+        questionId: question.id,
+        answer: exchange.answer,
+        channel: 'text',
+      }),
+    );
+    if (posted.kind !== 'ok') return posted;
+    exchanges.push(exchange);
+    current = posted.value;
+  }
+  return {
+    kind: 'ok',
+    value: {
+      view: current,
+      exchanges,
+      simulator: {
+        model: simulated.model,
+        costUsd: simulated.costUsd,
+        latencyMs: simulated.latencyMs,
+      },
+    },
+  };
+}
+
+/** O que a conversa gravou da leitura (entendimento, modelo, custo e tempo), lido como a tela lê. */
+async function intakeTrace(
+  run: GuidedRun,
+  answered: AnsweredIntake & { firstQuestionMs: number | null },
+): Promise<{ kind: 'ok'; value: IntakeTrace } | InfraFailure> {
+  const { view } = answered;
+  const stored = await guidedCall(run, () =>
+    run.services.prisma.caseIntake.findUnique({
+      where: { id: view.intakeId },
+      select: { reading: true, readingModel: true, cost: true, latencyMs: true },
+    }),
+  );
+  if (stored.kind !== 'ok') return stored;
+  const reading = StoredIntakeReadingSchema.safeParse(stored.value?.reading);
+  return {
+    kind: 'ok',
+    value: {
+      intakeId: view.intakeId,
+      path: view.path,
+      closeReason: view.closeReason,
+      understanding: reading.success ? readingUnderstandingOf(reading.data) : null,
+      readingModel: stored.value?.readingModel ?? null,
+      readingMs: stored.value?.latencyMs ?? 0,
+      readingCostUsd: stored.value?.cost ?? 0,
+      questions: view.questions.map((question) => ({
+        id: question.id,
+        question: question.question,
+        answerType: question.answerType,
+        choices: question.choices,
+        separates: question.separates,
+        why: question.why,
+      })),
+      exchanges: answered.exchanges,
+      simulator: answered.simulator,
+      firstQuestionMs: answered.firstQuestionMs,
+    },
+  };
 }
 
 /**
@@ -617,6 +854,7 @@ export async function runCase(
     ...base,
     mode: options.mode ?? 'complete',
     turns: outcome.turns,
+    intake: outcome.intake,
     harnessAttempts: attempts,
     servedByFallback,
     encounterId: outcome.encounterId,

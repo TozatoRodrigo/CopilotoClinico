@@ -11,12 +11,16 @@ import {
 } from '@nestjs/common';
 import { LgpdService } from './lgpd.service';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
+import { AllowWithoutLegalAcceptance } from '../../shared/decorators/legal-acceptance.decorator';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import { grantConsentSchema, requestErasureSchema } from './schemas/lgpd.schemas';
 import { GrantConsentInput, RequestErasureInput } from './schemas/lgpd.schemas';
 
 @Controller('lgpd')
 @UseGuards(JwtAuthGuard)
+// CC-905 — exportar, eliminar e revogar consentimento são direitos do titular
+// (LGPD, Art. 18): seguem abertos para quem ainda não aceitou os termos novos.
+@AllowWithoutLegalAcceptance()
 export class LgpdController {
   constructor(@Inject(LgpdService) private readonly lgpdService: LgpdService) {}
 

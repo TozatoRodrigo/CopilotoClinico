@@ -25,7 +25,8 @@ export class AiCallLogService implements AiCallSink {
     this.logger.log(
       `AI_CALL stage=${trace.stage} profile=${trace.profile} model=${trace.servedModel ?? trace.requestedModel} ` +
         `outcome=${trace.outcome} latencyMs=${trace.latencyMs} costUsd=${costUsd ?? '-'} ` +
-        `prompt=${trace.promptSha256.slice(0, 12)} requestId=${context?.requestId ?? '-'}`,
+        `prompt=${trace.promptSha256.slice(0, 12)} fallbackFrom=${trace.fallbackFrom ?? '-'} ` +
+        `requestId=${context?.requestId ?? '-'}`,
     );
 
     void this.prisma.aiCall
@@ -50,6 +51,7 @@ export class AiCallLogService implements AiCallSink {
           latencyMs: trace.latencyMs,
           outcome: trace.outcome,
           errorType: trace.errorType,
+          fallbackFrom: trace.fallbackFrom,
         },
       })
       .catch((error: unknown) => {

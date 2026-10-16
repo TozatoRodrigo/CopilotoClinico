@@ -6,6 +6,7 @@ import { CryptoService } from '../../shared/crypto/crypto.service';
 import { AuditService } from '../audit/audit.service';
 import { InferenceQueueService } from '../queue/inference-queue.service';
 import { WhisperService } from './whisper.service';
+import { readWhisperModel } from './whisper.settings';
 import { maskPII } from '../copilot/guardrails/pii-filter';
 import type {
   UploadAudioInput,
@@ -15,7 +16,6 @@ import type {
 } from './schemas/audio.schemas';
 
 const RETENTION_DAYS = 30;
-const WHISPER_MODEL_NAME = 'whisper-large-v3';
 
 @Injectable()
 export class AudioService {
@@ -87,7 +87,7 @@ export class AudioService {
     buffer: Buffer,
     mimeType: string,
   ): Promise<string> {
-    const raw = await this.whisper.transcribe(buffer, mimeType, audioId);
+    const raw = await this.whisper.transcribe(buffer, mimeType, { filename: audioId });
     const { redacted } = maskPII(raw);
     return redacted;
   }
@@ -111,8 +111,11 @@ export class AudioService {
   ): Promise<TranscribeDirectResponse> {
     const start = Date.now();
     const audioBuffer = Buffer.from(input.data, 'base64');
+    // Lido uma vez e passado ao Whisper: a auditoria registra o modelo que
+    // transcreveu de fato.
+    const model = readWhisperModel(this.config);
 
-    const raw = await this.whisper.transcribe(audioBuffer, input.mimeType);
+    const raw = await this.whisper.transcribe(audioBuffer, input.mimeType, { model });
     const { redacted, hasPII } = maskPII(raw);
 
     const audioHash = createHash('sha256').update(audioBuffer).digest('hex');
@@ -127,7 +130,7 @@ export class AudioService {
       payload: {
         mimeType: input.mimeType,
         sizeBytes: input.sizeBytes,
-        model: WHISPER_MODEL_NAME,
+        model,
         durationMs,
         audioHash,
         piiDetected: hasPII,
@@ -137,13 +140,13 @@ export class AudioService {
     });
 
     this.logger.debug(
-      `AUDIO_TRANSCRIBE physician=${physicianId} size=${input.sizeBytes} ` +
+      `AUDIO_TRANSCRIBE physician=${physicianId} model=${model} size=${input.sizeBytes} ` +
         `duration=${durationMs}ms pii=${hasPII} hash=${audioHash.slice(0, 8)}`,
     );
 
     return {
       text: redacted,
-      model: WHISPER_MODEL_NAME,
+      model,
       audioHash,
       durationMs,
     };

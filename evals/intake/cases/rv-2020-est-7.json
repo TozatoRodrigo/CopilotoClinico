@@ -1,0 +1,28 @@
+{
+  "id": "rv-2020-est-7",
+  "source": {
+    "kind": "clinical_case",
+    "caseId": "rv-2020-est-7"
+  },
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "PS de hospital secundário de urgência (RX convencional e US; sem TC/RM; laboratório; centro cirúrgico, enfermaria e UTI; sem banco de sangue). Fem, 22a. Dor forte em andar inferior do abdome há 2 dias, com piora progressiva; distensão abdominal, anorexia, náuseas e vômitos em pequena quantidade no início do quadro. EF: PA 100x60, FC 110, FR 20, T 38,2 °C, Glasgow 15. Abdome: dor à palpação superficial e profunda, descompressão brusca positiva. Exame ginecológico: vulva e períneo sem alterações; toque sem dor à mobilização do colo e no fundo de saco de Douglas; especular com secreção vaginal normal. Lab: Hb 13,2, Ht 45,1%, leucócitos 17.110 (segmentados 68,1%, bastões 11,5%, linfócitos 8,1%, monócitos 7,4%), plaquetas 251.000; PCR 76,22 mg/L (VR 5); ureia 21, creatinina 1,08; Na 135, K 3,4; beta-HCG negativo. US de abdome: apêndice cecal de dimensões aumentadas, espessado, não compressível."
+  },
+  "expected": {
+    "sex": "F",
+    "age": 22,
+    "vitals": {
+      "systolicBp": 100,
+      "diastolicBp": 60,
+      "heartRate": 110,
+      "respiratoryRate": 20,
+      "spo2": null,
+      "temperature": 38.2,
+      "glucose": null
+    },
+    "syndrome": ["dor-abdominal"],
+    "instability": false
+  }
+}
