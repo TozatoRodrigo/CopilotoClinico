@@ -54,6 +54,11 @@ const ADMIN_CHILDREN: Record<string, BreadcrumbItem> = {
   sistema: { label: 'Sistema', icon: Gear },
 };
 
+/** CC-802 — abas da revisão do plantão que têm URL própria. */
+const SHIFT_REVIEW_CHILDREN: Record<string, BreadcrumbItem> = {
+  'seu-mapa': { label: 'Seu mapa' },
+};
+
 const CASE_CHILDREN: Record<string, string> = {
   capture: 'Captura',
   result: 'Análise',
@@ -103,6 +108,10 @@ export function RouteBreadcrumbs() {
   if (first === 'mentoria' && second) items.push({ label: 'Pedido' });
   if (first === 'admin' && second) {
     const child = ADMIN_CHILDREN[second];
+    if (child) items.push({ ...child, href: undefined });
+  }
+  if (first === 'revise-seu-plantao' && second) {
+    const child = SHIFT_REVIEW_CHILDREN[second];
     if (child) items.push({ ...child, href: undefined });
   }
   return <Breadcrumb items={items} />;
