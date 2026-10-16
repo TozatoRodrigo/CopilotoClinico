@@ -1,10 +1,12 @@
 import type { Prisma } from '@prisma/client';
 import type { PrismaService } from '../../../config/prisma.service';
+import { activeInstitutionIds } from '../../institutions/institution-visibility';
 
 /**
  * ADR-009 — o revisor vê os cartões globais (`institution_id` nulo) e os das
- * instituições a que está vinculado. Cartão institucional de outra casa não
- * aparece na fila e responde como inexistente.
+ * instituições com que tem vínculo ativo (a mesma regra das diretrizes,
+ * CC-019). Cartão institucional de outra casa não aparece na fila e responde
+ * como inexistente.
  */
 export function reviewScopeWhere(
   institutionIds: readonly string[],
@@ -17,11 +19,7 @@ export async function loadReviewerScope(
   prisma: PrismaService,
   reviewerId: string,
 ): Promise<Prisma.KnowledgeCardWhereInput> {
-  const links = await prisma.physicianInstitution.findMany({
-    where: { physicianId: reviewerId },
-    select: { institutionId: true },
-  });
-  return reviewScopeWhere(links.map((link) => link.institutionId));
+  return reviewScopeWhere(await activeInstitutionIds(prisma, reviewerId));
 }
 
 /**

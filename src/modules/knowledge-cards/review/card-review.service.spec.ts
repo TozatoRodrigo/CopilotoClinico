@@ -142,6 +142,12 @@ describe('CardReviewService', () => {
 
       const queue = await deps.service.next(REVIEWER_ID, { skip: [] });
 
+      // CC-019: só vínculo com instituição ativa abre o conteúdo institucional.
+      expect(deps.prisma.physicianInstitution.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { physicianId: REVIEWER_ID, institution: { status: 'active' } },
+        }),
+      );
       const scope = {
         OR: [{ institutionId: null }, { institutionId: { in: [INSTITUTION_ID] } }],
       };
