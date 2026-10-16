@@ -1,0 +1,29 @@
+{
+  "id": "kb004-pa-elevada-com-cefaleia-isolada",
+  "source": {
+    "kind": "clinical_case",
+    "caseId": "kb004-pa-elevada-com-cefaleia-isolada"
+  },
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Fem, 60a, HAS, cefaleia holocraniana moderada há 1 dia. PA 210x120 confirmada em 2 medidas, FC 88. Ainda sem exame físico detalhado."
+  },
+  "expected": {
+    "sex": "F",
+    "age": 60,
+    "vitals": {
+      "systolicBp": 210,
+      "diastolicBp": 120,
+      "heartRate": 88,
+      "respiratoryRate": null,
+      "spo2": null,
+      "temperature": null,
+      "glucose": null
+    },
+    "syndrome": ["pressao-arterial-elevada", "cefaleia"],
+    "instability": false,
+    "timeCritical": false
+  }
+}

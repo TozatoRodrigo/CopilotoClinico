@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { CaseUnderstanding } from '../../../shared/contracts/clinical';
+import type { CaseUnderstanding, RecommendationLayer } from '../../../shared/contracts/clinical';
 import { findDoseMentions } from './dose-detector';
 import {
   answerTypeMismatchError,
@@ -7,6 +7,7 @@ import {
   CopilotOutputBaseSchema,
   deadEndError,
   normalize,
+  optionalFromModel,
   parseModelOutput,
   probabilityLanguageError,
   RecommendationBasisSchema,
@@ -32,23 +33,34 @@ import {
  *   10/10/2026 ao ADR-012).
  */
 
-const RecommendationV2Schema = z
-  .object({
-    action: z.string().min(1),
-    rationale: z.string().min(1),
-    category: RecommendationCategorySchema.default('therapeutic'),
-    layer: RecommendationLayerSchema,
-    dependsOn: z.string().nullable(),
-    basis: RecommendationBasisSchema,
-    citationChunkId: z.string().min(1).nullable(),
-    // Mantida para compatibilidade (ordenação, SBAR, auditoria); a UI não mostra.
-    confidence: z.number().min(0).max(1),
-  })
-  // O rótulo final vem da contenção v2; até lá, o preliminar é a camada.
-  .transform((recommendation) => ({
-    ...recommendation,
-    preliminary: recommendation.layer === 'depends',
-  }));
+const RecommendationV2Fields = z.object({
+  action: z.string().min(1),
+  rationale: z.string().min(1),
+  category: RecommendationCategorySchema.default('therapeutic'),
+  layer: RecommendationLayerSchema,
+  dependsOn: z.string().nullable(),
+  basis: RecommendationBasisSchema,
+  citationChunkId: z.string().min(1).nullable(),
+  // Mantida para compatibilidade (ordenação, SBAR, auditoria); a UI não mostra.
+  confidence: z.number().min(0).max(1),
+});
+
+// O rótulo final vem da contenção v2; até lá, o preliminar é a camada.
+function withLayerPreliminary<T extends { layer: RecommendationLayer }>(recommendation: T) {
+  return { ...recommendation, preliminary: recommendation.layer === 'depends' };
+}
+
+const RecommendationV2Schema = RecommendationV2Fields.transform(withLayerPreliminary);
+
+/**
+ * CC-601 — com `COPILOT_WHY_LINE`, a conduta traz a linha de "por quê".
+ * Sem mínimo nem máximo no schema: faltar ou passar do teto é regra da linha
+ * (why-line.ts), nunca motivo para descartar a resposta inteira. `null` (a
+ * camada "depende") é lido como ausente e não vai para a resposta gravada.
+ */
+const RecommendationV2WhySchema = RecommendationV2Fields.extend({
+  why: optionalFromModel(z.string()),
+}).transform(withLayerPreliminary);
 
 const ClarifyingQuestionV2Schema = ClarifyingQuestionSchema.extend({
   // Sem mínimo no schema: pergunta sem `separates` é regra corrigível, não
@@ -56,18 +68,33 @@ const ClarifyingQuestionV2Schema = ClarifyingQuestionSchema.extend({
   separates: z.array(z.string().min(1)),
 });
 
+const ClarifyingQuestionsV2Schema = z
+  .array(ClarifyingQuestionV2Schema)
+  .max(3, 'clarifyingQuestions must contain at most 3 items per turn')
+  .default([]);
+
 export const CopilotOutputV2Schema = CopilotOutputBaseSchema.extend({
   recommendations: z.array(RecommendationV2Schema),
-  clarifyingQuestions: z
-    .array(ClarifyingQuestionV2Schema)
-    .max(3, 'clarifyingQuestions must contain at most 3 items per turn')
-    .default([]),
+  clarifyingQuestions: ClarifyingQuestionsV2Schema,
 }).refine(UNCERTAINTY_REASON_REQUIRED.check, {
   message: UNCERTAINTY_REASON_REQUIRED.message,
   path: ['uncertaintyReason'],
 });
 
-export type CopilotOutputV2 = z.infer<typeof CopilotOutputV2Schema>;
+/** CC-601 — o contrato da v2 com a linha de "por quê" (`COPILOT_WHY_LINE`). */
+export const CopilotOutputV2WhySchema = CopilotOutputBaseSchema.extend({
+  recommendations: z.array(RecommendationV2WhySchema),
+  clarifyingQuestions: ClarifyingQuestionsV2Schema,
+}).refine(UNCERTAINTY_REASON_REQUIRED.check, {
+  message: UNCERTAINTY_REASON_REQUIRED.message,
+  path: ['uncertaintyReason'],
+});
+
+/**
+ * Saída da v2, com ou sem a linha de "por quê": sem a flag, `why` nunca
+ * aparece, e as regras da v2 leem as duas do mesmo jeito.
+ */
+export type CopilotOutputV2 = z.infer<typeof CopilotOutputV2WhySchema>;
 
 export interface DecisionV2Context {
   /** Entendimento da Etapa 1; `null` quando ela falhou (as regras que dependem dele não rodam). */
@@ -119,7 +146,7 @@ export function isCitable(
   return citationChunkId !== null && citableIds.has(citationChunkId);
 }
 
-function indexesWhere<T>(items: readonly T[], predicate: (item: T) => boolean): number[] {
+export function indexesWhere<T>(items: readonly T[], predicate: (item: T) => boolean): number[] {
   return items.flatMap((item, index) => (predicate(item) ? [index] : []));
 }
 
@@ -168,10 +195,23 @@ export function modelKnowledgeWithCitation(output: CopilotOutputV2): string[] {
   ];
 }
 
+/**
+ * Texto da conduta que a regra de dose lê. CC-601 — a linha de "por quê"
+ * também entra: dose sem fonte não pode passar por ela. Sem a linha, o texto
+ * de sempre.
+ */
+export function recommendationText(rec: {
+  action: string;
+  rationale: string;
+  why?: string | null;
+}): string {
+  return rec.why ? `${rec.action} ${rec.rationale} ${rec.why}` : `${rec.action} ${rec.rationale}`;
+}
+
 export function modelKnowledgeWithDose(output: CopilotOutputV2): string[] {
   const offenses = output.recommendations.flatMap((rec, index) => {
     if (rec.basis !== 'model_knowledge') return [];
-    const doses = findDoseMentions(`${rec.action} ${rec.rationale}`);
+    const doses = findDoseMentions(recommendationText(rec));
     return doses.length > 0 ? [`index ${index} ("${doses.join('", "')}")`] : [];
   });
   if (offenses.length === 0) return [];

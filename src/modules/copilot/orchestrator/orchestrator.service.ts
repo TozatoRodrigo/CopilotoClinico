@@ -16,7 +16,8 @@ import type { RetrievalCoverage, RetrievedChunk } from '../retrieval/hybrid-sear
 import { EncountersService } from '../../encounters/encounters.service';
 import { AttachmentsService } from '../../encounters/attachments/attachments.service';
 import { AuditService } from '../../audit/audit.service';
-import { maskPII } from '../guardrails/pii-filter';
+import { activeInstitutionIds } from '../../institutions/institution-visibility';
+import { countDetectionsByType, maskPII } from '../guardrails/pii-filter';
 import { scanForInjection, type InjectionScanResult } from '../guardrails/injection-defense';
 import {
   redactPatientRef,
@@ -36,7 +37,7 @@ import {
   type CopilotOutput,
   type ValidationResult,
 } from '../guardrails/output-validator';
-import { validateOutputV2 } from '../guardrails/output-validator-v2';
+import { recommendationText, validateOutputV2 } from '../guardrails/output-validator-v2';
 import { validateOutputV3 } from '../guardrails/output-validator-v3';
 import { findDoseMentions } from '../guardrails/dose-detector';
 import type { AnalyzeInput, RespondInput } from '../schemas/copilot.schemas';
@@ -46,6 +47,7 @@ import { calculateInferenceCost } from './model-pricing';
 import {
   COPILOT_OUTPUT_JSON_SCHEMA,
   COPILOT_OUTPUT_V2_JSON_SCHEMA,
+  COPILOT_OUTPUT_V2_WHY_JSON_SCHEMA,
 } from '../schemas/copilot-output.json-schema';
 import {
   preliminaryReasonFor,
@@ -75,10 +77,12 @@ import { applySourceLinkText, type SourceLink } from '../research/source-links';
 import { buildDecisionV2Prompt, type DecisionV2PromptInput } from './decision-prompt-v2';
 import { buildDecisionV3Prompt } from './decision-prompt-v3';
 import { buildDecisionV4Prompt } from './decision-prompt-v4';
+import { buildDecisionWhyLinePrompt } from './decision-why-line';
 import {
   chooseDecisionModel,
   isStagedDecisionPrompt,
   readDecisionPipeline,
+  supportsWhyLine,
   type DecisionModelChoice,
   type DecisionPipeline,
 } from './decision.settings';
@@ -597,11 +601,13 @@ function hasCorrectable(validation: ValidationResult): boolean {
   return (validation.correctable?.length ?? 0) > 0;
 }
 
-/** F1 — JSON Schema da saída na versão do prompt de decisão (v2 e v3 têm o mesmo contrato). */
+/**
+ * F1 — JSON Schema da saída na versão do prompt de decisão (v2, v3 e v4 têm o
+ * mesmo contrato). CC-601 — com a linha de "por quê", o contrato ganha `why`.
+ */
 function responseSchemaOf(pipeline: DecisionPipeline) {
-  return isStagedDecisionPrompt(pipeline.decisionPrompt)
-    ? COPILOT_OUTPUT_V2_JSON_SCHEMA
-    : COPILOT_OUTPUT_JSON_SCHEMA;
+  if (!isStagedDecisionPrompt(pipeline.decisionPrompt)) return COPILOT_OUTPUT_JSON_SCHEMA;
+  return pipeline.whyLine ? COPILOT_OUTPUT_V2_WHY_JSON_SCHEMA : COPILOT_OUTPUT_V2_JSON_SCHEMA;
 }
 
 /**
@@ -783,6 +789,12 @@ interface GatheredEvidence {
 }
 
 /** Turno 0 depois da redação de PII e da barreira de injeção. */
+/** CC-019 — de quem é a busca: a instituição do caso só vale com vínculo ativo. */
+interface EvidenceScope {
+  physicianId: string;
+  institutionId: string | null;
+}
+
 interface ScreenedCase {
   startedAt: number;
   maxTurns: number;
@@ -985,11 +997,12 @@ export class OrchestratorService {
   private async gatherEvidence(
     caseText: string,
     stage: UnderstandingOutcome | null,
-    institutionId: string | null | undefined,
+    scope: EvidenceScope,
     pipeline: DecisionPipeline,
     logLabel: string,
   ): Promise<GatheredEvidence> {
     if (pipeline.knowledgeSource === 'internal_kb') {
+      const institutionId = await this.retrievalInstitution(scope, logLabel);
       return {
         retrievalResult: await this.retrieveEvidence(caseText, stage, institutionId, logLabel),
         research: null,
@@ -1012,13 +1025,32 @@ export class OrchestratorService {
   }
 
   /**
+   * CC-019 — a instituição do caso só abre o conteúdo institucional na busca
+   * enquanto o médico tem vínculo ativo com ela (ADR-009). O caso guarda a
+   * instituição de quando foi aberto; se o vínculo acabou ou a instituição
+   * foi desativada depois, a busca fica só no conteúdo global.
+   */
+  private async retrievalInstitution(
+    { physicianId, institutionId }: EvidenceScope,
+    logLabel: string,
+  ): Promise<string | null> {
+    if (!institutionId) return null;
+    const active = await activeInstitutionIds(this.prisma, physicianId);
+    if (active.includes(institutionId)) return institutionId;
+    this.logger.warn(
+      `RETRIEVAL_INSTITUTION_DROPPED${logLabel}: médico sem vínculo ativo com a instituição do caso — busca só no conteúdo global`,
+    );
+    return null;
+  }
+
+  /**
    * F1 — Etapa 2 (ADR-013): com entendimento, busca pelas consultas dele;
    * sem (legacy ou etapa que falhou), a busca de sempre pelo texto do caso.
    */
   private async retrieveEvidence(
     caseText: string,
     stage: UnderstandingOutcome | null,
-    institutionId: string | null | undefined,
+    institutionId: string | null,
     logLabel: string,
   ): Promise<RetrievalResult> {
     if (stage?.understanding) {
@@ -1056,8 +1088,7 @@ export class OrchestratorService {
 
     if (isStagedDecisionPrompt(pipeline.decisionPrompt)) {
       // v2, v3 e v4: a mesma mensagem do usuário; só o system prompt muda.
-      const buildStaged = STAGED_PROMPT_BUILDERS[pipeline.decisionPrompt];
-      return buildStaged({
+      const stagedInput: DecisionV2PromptInput = {
         caseText: input.caseText,
         understanding,
         redFlags: input.redFlags,
@@ -1070,7 +1101,12 @@ export class OrchestratorService {
         webEvidence: input.evidence.research?.evidence ?? [],
         additionalInstructions,
         siteContext: input.siteContext,
-      });
+      };
+      // CC-601 — a v3 ou a v4 pedindo a linha de "por quê"; sem a flag, o de sempre.
+      if (pipeline.whyLine && supportsWhyLine(pipeline.decisionPrompt)) {
+        return buildDecisionWhyLinePrompt(pipeline.decisionPrompt, stagedInput);
+      }
+      return STAGED_PROMPT_BUILDERS[pipeline.decisionPrompt](stagedInput);
     }
 
     return buildPrompt({
@@ -1395,10 +1431,12 @@ export class OrchestratorService {
     // Buscar encounter para obter patientRef — necessário para redação explícita (LGPD-005)
     const encounter = await this.encounters.findById(physicianId, encounterId);
 
-    // Camada 1: filtro geral de PII (CPF, CNPJ, telefone, email, CEP, datas, RG)
+    // Camada 1: filtro geral de PII (CPF, CNPJ, telefone, email, CEP, datas, RG,
+    // prontuário e nome depois de tratamento/apelido — CC-201/CC-206)
     const piiResult = maskPII(input.caseText);
+    // Só a contagem por tipo: mostra regra disparando demais sem gravar o trecho.
     this.logger.debug(
-      `PII detection${logLabel}: ${piiResult.hasPII ? 'FOUND' : 'NONE'} (${piiResult.detections.length} items)`,
+      `PII detection${logLabel}: ${piiResult.hasPII ? 'FOUND' : 'NONE'} (${piiResult.detections.length} items) ${JSON.stringify(countDetectionsByType(piiResult.detections))}`,
     );
 
     // Camada 2: redação explícita do patientRef (LGPD-005 defense-in-depth)
@@ -1457,7 +1495,7 @@ export class OrchestratorService {
     const evidence = await this.gatherEvidence(
       caseText,
       stage,
-      screened.institutionId,
+      { physicianId, institutionId: screened.institutionId },
       pipeline,
       logLabel,
     );
@@ -1633,7 +1671,7 @@ export class OrchestratorService {
     const evidence = await this.gatherEvidence(
       screened.augmentedCaseText,
       stage,
-      screened.institutionId,
+      { physicianId, institutionId: screened.institutionId },
       pipeline,
       logLabel,
     );
@@ -1704,7 +1742,10 @@ export class OrchestratorService {
     const decisionContext = { understanding: prepared.stage?.understanding ?? null };
     // A v4 muda as regras do prompt, não o contrato: valida como a v3.
     if (prepared.pipeline.decisionPrompt === 'v3' || prepared.pipeline.decisionPrompt === 'v4') {
-      return validateOutputV3(content, prepared.prompt.retrievedChunkIds, decisionContext);
+      return validateOutputV3(content, prepared.prompt.retrievedChunkIds, {
+        ...decisionContext,
+        whyLine: prepared.pipeline.whyLine,
+      });
     }
     if (prepared.pipeline.decisionPrompt === 'v2') {
       return validateOutputV2(content, prepared.prompt.retrievedChunkIds, decisionContext);
@@ -1953,6 +1994,8 @@ export class OrchestratorService {
         // web fez (modelo, buscas, custo, motivo do fallback).
         knowledgeSource: prepared.pipeline.knowledgeSource,
         decisionPrompt: prepared.pipeline.decisionPrompt,
+        // CC-601 — só quando ligada: sem a flag, `params` fica como antes.
+        ...(prepared.pipeline.whyLine ? { whyLine: true } : {}),
         decisionRoute: prepared.decisionModel.route,
         ...(prepared.research ? { research: researchTrace(prepared.research) } : {}),
         // CC-603 — a análise viu o local de plantão e a regra de transferência.
@@ -2049,7 +2092,7 @@ export class OrchestratorService {
         // seguro é esperar o dado.
         layer: rec.layer ?? 'depends',
         origin: resolved.origin,
-        carriesDose: findDoseMentions(`${rec.action} ${rec.rationale}`).length > 0,
+        carriesDose: findDoseMentions(recommendationText(rec)).length > 0,
         sourceConflict: Boolean(link?.conflict),
       });
       const enriched: EnrichedRecommendation = {

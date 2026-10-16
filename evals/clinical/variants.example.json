@@ -222,6 +222,23 @@
       }
     },
     {
+      "name": "claude-opus-5-5-v3-por-que",
+      "description": "CC-601: igual a claude-opus-5-5-v3-modelo, a configuração de produção, com a linha de \"por quê\" em cada conduta \"agora\" (COPILOT_WHY_LINE=on). Rodar ao lado de claude-opus-5-5-v3-modelo: a linha só entra se não aumentar os erros críticos nem a latência em mais de 10%.",
+      "env": {
+        "AI_PROVIDER": "anthropic",
+        "AI_MODEL": "claude-opus-5-5",
+        "AI_BASE_URL": "https://api.anthropic.com",
+        "AI_API_KEY": "${ANTHROPIC_API_KEY}",
+        "AI_MAX_OUTPUT_TOKENS": "32000",
+        "AI_EFFORT": "high",
+        "COPILOT_REASONING": "stages",
+        "AI_UNDERSTANDING_EFFORT": "low",
+        "COPILOT_DECISION_PROMPT": "v3",
+        "COPILOT_KNOWLEDGE_SOURCE": "model_only",
+        "COPILOT_WHY_LINE": "on"
+      }
+    },
+    {
       "name": "claude-haiku-5-5-v3-modelo",
       "description": "Regras v3 com Claude Haiku 5.5 no entendimento e na decisão, só com o conhecimento do modelo — mede se o modelo barato e rápido segura o gabarito v2.",
       "env": {

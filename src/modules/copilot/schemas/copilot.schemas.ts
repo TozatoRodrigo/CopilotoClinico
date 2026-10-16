@@ -5,8 +5,18 @@ import {
 } from '../../../shared/contracts/clinical';
 import { encounterContextSchema } from '../../encounters/schemas/encounter-context.schema';
 
+/**
+ * Teto do relato do caso. Um ditado de 5 minutos dá uns 5 mil caracteres; o
+ * teto é o mesmo do texto de anexo. Acima disso não é relato de plantão, e o
+ * custo e o tempo da análise crescem com o tamanho.
+ */
+export const MAX_CASE_TEXT_CHARS = 20_000;
+
 export const analyzeSchema = z.object({
-  caseText: z.string().min(10, 'Case text must be at least 10 characters'),
+  caseText: z
+    .string()
+    .min(10, 'Case text must be at least 10 characters')
+    .max(MAX_CASE_TEXT_CHARS, `Case text must be at most ${MAX_CASE_TEXT_CHARS} characters`),
   // CC-602 — com o local de plantão quando o médico escolheu um.
   context: encounterContextSchema.default({}),
   // S20-CLIN-01 — red flags explícitas marcadas pelo médico na captura.
@@ -22,41 +32,15 @@ export const analyzeSchema = z.object({
 // Locais que criam AnalyzeInput sem redFlags devem incluir redFlags: {} explicitamente.
 export type AnalyzeInput = z.output<typeof analyzeSchema>;
 
-const boolParam = z.preprocess((v) => v === 'true' || v === true, z.boolean()).default(false);
-
-// UX-06 — mesmas 6 chaves canônicas de RED_FLAG_LABELS (prompt-builder.ts) /
-// RED_FLAG_CHIPS (capture/page.tsx), como parâmetros booleanos individuais
-// em vez de um objeto serializado — EventSource só faz GET com querystring,
-// então segue o mesmo estilo já usado para hasCT/isSus/hasLab/hasICU em vez
-// de introduzir JSON-em-query-param. Sem isto, o caminho de streaming
-// perderia silenciosamente as red flags que o médico confirmou (S20-CLIN-01)
-// — a análise por streaming ficaria clinicamente mais pobre que a por POST.
-export const streamQuerySchema = z.object({
-  caseText: z.string().min(10, 'Case text must be at least 10 characters'),
-  hasCT: boolParam,
-  isSus: boolParam,
-  hasLab: boolParam,
-  hasICU: boolParam,
-  immunosuppressed: boolParam,
-  pregnant: boolParam,
-  anticoagulant: boolParam,
-  pediatric: boolParam,
-  elderly65: boolParam,
-  allergy: boolParam,
-  // F0-C — paridade de `params` com POST /analyze: a tag de funil (F5) é
-  // gravada também quando a análise vem pelo streaming.
-  demoCase: z.string().trim().max(64).optional(),
-});
-
-export type StreamQuery = z.infer<typeof streamQuerySchema>;
-
 export const respondSchema = z.object({
   interactionId: z.string().uuid('interactionId must be a valid UUID'),
   answers: z
     .array(
       z.object({
         questionId: z.string().min(1),
-        answer: z.union([z.string(), z.number(), z.boolean()]),
+        // O mesmo teto do relato: a resposta pode ser um complemento ditado
+        // no compositor da conversa, não só "sim" ou um número.
+        answer: z.union([z.string().max(MAX_CASE_TEXT_CHARS), z.number(), z.boolean()]),
       }),
     )
     .min(1, 'At least one answer is required'),

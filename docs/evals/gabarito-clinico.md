@@ -50,6 +50,7 @@ Cada caso é um arquivo JSON. Abra, leia, corrija o que estiver errado e marque 
 | `expected.destination` | CC-603 — quando o serviço declarado não tem o recurso que o caso pede: `text` (para onde e como: o tipo de serviço, o recurso que ele precisa ter e o meio — regulação, SAMU), `tier`, `priority` (`immediate`: pedir a vaga já, junto da estabilização, sem esperar exame; `urgent`: nas próximas horas; `elective`) e `untilTransfer` (o que fazer no local até a transferência). O juiz cobra os três juntos: destino como conduta para agora, prioridade igual ou maior e conduta até a vaga. Obrigatório em caso com `site` e recurso ausente (`cases.spec.ts`). Opcional nos demais. |
 | `expected.outOfScope` | Itens do gabarito oficial que não são papel do Copiloto (apresentar-se, orientar a família, listar diferenciais de prova, proibições de prova que não são perigosas). Ficam para rastrear a conversão; não entram na nota. |
 | `expected.rationale` | Por que o gabarito é este — protocolo do MS, diretriz, raciocínio. Opcional, mas ajuda o próximo revisor. |
+| `expected.conversation` | O que se espera da conversa **antes do plano** no modo afunilamento (Copiloto guiado), opcional: `syndromes` (síndromes de PS aceitas na leitura da abertura; padrão: `tags[0]`), `severity` (`stable`, `time_critical` ou `unstable` — a gravidade que a leitura não pode subestimar; padrão: `time_critical` em caso `critical`) e `essentialQuestions` (cada uma com `about`, o dado em uma linha, e `factIds`, os fatos do roteiro que a respondem — basta um). Ver "Conversa antes do plano". |
 | `sources` | Fontes que sustentam as expectativas: `claim` (o que a fonte sustenta), `title`, `publisher`, `year` (ou `null`) e `url`. Opcional. |
 | `provenance` | De onde o caso veio e o que mudou: `exam`, `edition`, `item` e `url` (prova de origem), `originalCaseText` (texto antes de reescrito) e `notes` (o que mudou e por quê). Opcional. |
 | `probes` | Frases de recomendação que a checagem automática **deve** acusar (`mustFlag`) e **não pode** acusar (`mustNotFlag`) neste caso — ao menos uma de cada. Obrigatório quando o caso tem conduta proibida com `patterns`. Ver abaixo. |
@@ -245,6 +246,7 @@ O `run.json` de cada execução registra quantos trechos aprovados (e com embedd
 | `claude-sonnet-5-5-stages`, `claude-opus-5-5-stages` | As mesmas, com o raciocínio em etapas da ADR-013 (`COPILOT_REASONING=stages`, entendimento em `AI_UNDERSTANDING_EFFORT=low`). As variantes sem sufixo fixam `COPILOT_REASONING=legacy`, então cada par difere só na flag |
 | `claude-opus-5-5-v3-modelo`, `claude-haiku-5-5-v3-modelo` | Decisão v3 (ADR-013, emenda de 11/10/2026) só com o conhecimento do modelo |
 | `claude-opus-5-5-v4-modelo` | Decisão v4 (v3 com as regras que os erros da rodada de 11/10/2026 pediram), só com o conhecimento do modelo |
+| `claude-opus-5-5-v3-por-que` | A `claude-opus-5-5-v3-modelo` com a linha de "por quê" em cada conduta "agora" (`COPILOT_WHY_LINE=on`, CC-601). Rode as duas juntas e compare: a linha só entra sem mais erro crítico e sem latência 10% maior |
 | `claude-opus-5-5-v3-verifica` | Decisão v3 com a verificação com fonte depois da decisão (`COPILOT_KNOWLEDGE_SOURCE=verify`) |
 | `test` | Provedor determinístico offline: nenhuma chamada paga. Valida a fiação, não a qualidade clínica |
 
@@ -276,7 +278,7 @@ JUDGE_MODEL=<modelo-openai> pnpm eval:clinical --variant baseline --variant clau
 | `--variant` | (obrigatória) | Uma ou mais variantes |
 | `--cases` | todos | `critical`, glob no id (`kb004-*`), `tag:<tag>` ou id; vírgula une |
 | `--set` | `main` | `main` (conjunto principal) ou `blind` (prova cega) |
-| `--mode` | `complete` | `complete` (caso completo) ou `funnel` (abertura + médico simulado; só casos com `input.funnel`) |
+| `--mode` | `complete` | `complete` (caso completo) ou `funnel` (abertura pela conversa do Copiloto guiado + médico simulado; só casos com `input.funnel`) |
 | `--reps` | 1 | Repetições por caso — o modelo não é determinístico |
 | `--concurrency` | 2 | Casos em paralelo |
 | `--judge` | `none` | `anthropic`, `openai` ou `none` |
@@ -297,9 +299,29 @@ Código de saída: `0` portão aprovado ou incompleto, `2` erro crítico no subc
 pnpm eval:clinical --mode funnel --variant claude-opus-5-5-v2-modelo --judge anthropic --case-timeout-ms 900000
 ```
 
-O Copiloto começa só com `input.funnel.opening`. Um médico simulado (`SIMULATOR_MODEL`, padrão `claude-haiku-5-5`) responde às perguntas dele usando **só** o roteiro — o que o roteiro não traz é "Não informado." — e devolve o resultado dos exames e avaliações que o Copiloto mandou fazer agora, como acontece no plantão. O caso segue por `continueAnalysis`, como quando o médico responde na tela, por até três turnos; o último turno é avaliado, e o juiz vê a abertura e as perguntas e respostas, nunca o caso completo. O relatório mede quantos fatos `key` as respostas revelaram.
+O Copiloto começa só com `input.funnel.opening`, pelo mesmo caminho da tela do Copiloto guiado (ADR-014): a leitura do caso lê a abertura e o portão decide se pergunta (até 3 perguntas, 1 no caso tempo-crítico, nenhuma no instável). Um médico simulado (`SIMULATOR_MODEL`, padrão `claude-haiku-5-5`) responde usando **só** o roteiro — o que o roteiro não traz é "Não informado." (ou "Não sei", quando a pergunta tem essa opção de toque) — e as respostas entram uma a uma, como na tela, até a conversa fechar (todas respondidas ou resposta urgente). Aí sai o primeiro plano (`ConversationService.analyze`). Daí em diante, o simulador responde às perguntas do plano e devolve o resultado dos exames e avaliações que o Copiloto mandou fazer agora, como acontece no plantão; o caso segue por `continueAnalysis` por até três turnos do plano. O último turno é avaliado, e o juiz vê a abertura e todas as perguntas e respostas, nunca o caso completo.
+
+No afunilamento o gabarito liga a leitura do caso (`COPILOT_INTAKE=on`, como em produção), a menos que a variante fixe `COPILOT_INTAKE`: com `off`, a abertura vai direto ao plano, sem perguntas antes dele — é assim que se mede o ganho da conversa. O `run.json` registra o modo e o modelo da leitura (`AI_INTAKE_MODEL`, ou o da Etapa 1).
 
 Na primeira rodada (11/10/2026), o simulador só respondia a perguntas: 10 dos 12 fatos decisivos "não revelados" eram resultado de exame que o Copiloto tinha pedido. Por isso o pedido agora volta com o resultado.
+
+#### Conversa antes do plano
+
+O `results.jsonl` guarda a conversa em `intake`: caminho da leitura (`ask`, `complete`, `unstable`, `reading_failed`, `disabled`), o entendimento que a leitura fez da abertura, as perguntas que o portão deixou passar, as respostas com os fatos do roteiro que cada uma revelou e o tempo até a primeira pergunta. O `grades.jsonl` traz a nota dela em `conversation`, determinística:
+
+| Medida | Como |
+| --- | --- |
+| Síndrome da leitura | A síndrome de PS da leitura está em `expected.conversation.syndromes` (padrão: `tags[0]`). A leitura vê só a abertura: quando ela não basta para `tags[0]` (o escorpião que chega como "dor na perna"), liste as aceitas. |
+| Gravidade da leitura | `unstable` (instabilidade presente) > `time_critical` > `stable`. Passa quando não subestima a esperada; superestimar é contado à parte. |
+| Voltas | Perguntas respondidas antes do 1º plano (uma volta cada, na tela) e, até o plano avaliado, também as rodadas de resposta ao plano. |
+| Tempo até a 1ª pergunta | Do início do caso à primeira pergunta na tela (é, na prática, a leitura). |
+| Perguntas que alcançaram o roteiro | Pergunta cuja resposta revelou algum fato do roteiro. |
+| Fatos decisivos antes do plano | Fatos `key` revelados pelas perguntas antes do 1º plano. |
+| Pergunta essencial faltando | `expected.conversation.essentialQuestions` que nenhuma pergunta antes do plano respondeu. Só nos casos que as declaram. |
+
+O que pede leitura de texto fica com o mesmo juiz, na mesma chamada: para cada pergunta mostrada antes do plano, se é **pertinente** (a resposta muda o que fazer agora e sai à beira do leito em minutos) e se **pediu dado que a abertura já dava**. O veredito ganhou essa parte como opcional: `--regrade --reuse-judge` relê execuções anteriores sem quebrar — a parte do juiz na conversa fica "não avaliada" e a determinística é refeita. Nenhuma dessas medidas entra no portão: a conversa ainda não tem gabarito revisado por médico.
+
+As expectativas da conversa nos casos `rv-2023-2-est-3`, `rv-2024-2-est-5`, `rv-2024-1-est-3` e `rv-2025-2-est-7` são rascunho de IA (marcado em `provenance.notes`) e aguardam revisão médica.
 
 ### Auditor sem gabarito
 
@@ -343,6 +365,8 @@ Tudo o que é preciso para explicar uma nota está nesses arquivos — não é p
 
 **Formato da resposta.** Médias de perguntas, condutas e condutas para agora por análise — mede se a resposta cabe no plantão (a decisão v2 fazia sempre 3 perguntas e cerca de 12 condutas).
 
+**Conversa antes do plano.** Só no afunilamento: caminho da leitura, síndrome e gravidade que ela deu à abertura, perguntas e voltas até o plano, tempo até a primeira pergunta, perguntas pertinentes e as que pediram dado já dado (juiz), fatos decisivos revelados antes do plano e a pergunta essencial que faltou. No fim do relatório, "Conversa por caso" lista, por execução, cada pergunta feita (antes e depois do 1º plano) com os fatos do roteiro que ela revelou. O comparador mostra a conversa lado a lado e acusa os casos que viraram na leitura e na pergunta essencial.
+
 **Desfechos.** "Sem resposta" é quando o pipeline não entregou análise nenhuma ao médico. É pontuado e separado por causa: saída inválida (o modelo não seguiu o formato), truncada (estourou o teto de tokens) ou recusa do provedor. Truncamento e recusa chegam do gateway como erros tipados (`AiTruncatedError`, `AiRefusalError`) — direto, ou convertidos pelo orquestrador em "AI output validation failed" com `OUTPUT TRUNCATED`/`MODEL REFUSAL` nos erros; o gabarito reconhece as duas formas. Erro de infraestrutura não é nota do modelo e fica fora das taxas.
 
 **Critérios.** Cada taxa vem com o intervalo de confiança de 95% (Wilson). Com dezenas de casos o intervalo é largo: duas variantes cujos intervalos se sobrepõem bastante estão empatadas até prova em contrário. Repetições do mesmo caso não são independentes, então o intervalo fica otimista quando `--reps` > 1.
@@ -373,6 +397,7 @@ Se um caso piorou por erro do gabarito, corrija o gabarito (e peça revisão mé
 ## Limitações conhecidas
 
 - **Afunilamento só no Revalida de 2023 em diante.** As edições anteriores não publicam o roteiro do ator; casos próprios não têm roteiro.
+- **Médico simulado na conversa.** Ele responde de uma vez às perguntas da leitura (o portão as decide todas antes da primeira) e as respostas entram uma a uma. Sinais vitais chegam como texto, não pelo formulário: a resposta urgente por sinal vital (PAS < 90, SpO₂ < 90...) não encerra a conversa como na tela — só a opção de toque marcada como urgente encerra.
 - **Juiz ainda não calibrado por médico.** O juiz é estável (menos de 1% de discordância consigo mesmo), mas estável não é certo: antes de confiar nas taxas para decidir, um médico precisa rotular algumas dezenas de saídas e conferir a concordância (meta: ≥ 90% nos casos claros).
 - **Casos vistos.** Regra do Copiloto escrita olhando os erros destes casos tende a ir melhor neles do que num caso novo. Para medir o caso não mapeado, rode também casos que não entraram no ajuste — e, ao liberar, uma prova cega com casos novos.
 - **Checagem automática de conduta proibida é heurística.** Ela lê orações e janelas de palavras, não entende frase; o juiz cobre o lado semântico. Falso positivo se corrige no caso, com `exceptWhen` e uma sonda `mustNotFlag` que o reproduza.

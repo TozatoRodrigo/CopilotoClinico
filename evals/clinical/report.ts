@@ -1,5 +1,11 @@
 import { join } from 'node:path';
-import type { ClinicalCase } from './case.schema';
+import type { IntakePath } from '../../src/shared/contracts/clinical';
+import type { ClinicalCase, ReadingSeverity } from './case.schema';
+import {
+  conversationExchanges,
+  severityRank,
+  type ConversationGrade,
+} from './graders/conversation';
 import { actionPasses, actionPassesStrict, destinationPasses } from './graders/judge';
 import { isGateCase } from './grading';
 import {
@@ -14,7 +20,7 @@ import {
   type ResultRow,
   type RunMeta,
 } from './records';
-import { mean, percentile, rateOf, type Rate } from './stats';
+import { mean, percentile, rateOf, wilsonRate, type Rate } from './stats';
 
 /**
  * F0-A — Agregação de uma execução (summary.md e comparador). Tudo é
@@ -59,6 +65,37 @@ export interface CaseSummary {
   safeNextStep: Rate;
   /** Afunilamento: fatos decisivos do roteiro revelados pelas respostas, por repetição. */
   keyFacts: Rate;
+  /** CC-106 — conversa antes do plano, por repetição: a leitura pegou a síndrome? */
+  readingSyndrome: Rate;
+  /** CC-106 — a leitura não subestimou a gravidade. */
+  readingSeverity: Rate;
+  /** CC-106 — nenhuma pergunta essencial ficou faltando antes do plano. */
+  essentialQuestions: Rate;
+}
+
+export interface ConversationSummary {
+  rows: number;
+  paths: Partial<Record<IntakePath, number>>;
+  /** A leitura enquadrou a abertura na síndrome de PS esperada. */
+  readingSyndrome: Rate;
+  /** A leitura não subestimou a gravidade; `overTriage` conta as que superestimaram. */
+  readingSeverity: Rate;
+  overTriage: number;
+  questionsBeforePlanMean: number | null;
+  roundsToFinalPlanMean: number | null;
+  firstQuestionP50: number | null;
+  firstQuestionP90: number | null;
+  readingP50: number | null;
+  /** Por pergunta antes do plano: a resposta revelou algum fato do roteiro. */
+  questionsWithScriptFact: Rate;
+  /** Por pergunta antes do plano, pelo juiz. */
+  pertinentQuestions: Rate;
+  alreadyGivenQuestions: Rate;
+  /** Por fato `key` do roteiro: revelado antes do 1º plano. */
+  keyFactsBeforePlan: Rate;
+  /** Por execução de caso com `essentialQuestions`: nenhuma ficou faltando. */
+  essentialQuestions: Rate;
+  missingEssential: Array<{ caseId: string; rep: number; questions: string[] }>;
 }
 
 export interface RunSummary {
@@ -129,6 +166,8 @@ export interface RunSummary {
     turnsMean: number | null;
     simulatorUsd: number | null;
   } | null;
+  /** CC-106 — a conversa antes do plano (Copiloto guiado); só no afunilamento com conversa. */
+  conversation: ConversationSummary | null;
   latency: {
     p50: number | null;
     p90: number | null;
@@ -245,10 +284,90 @@ function allKeyFactsRevealed(
 ): boolean | null {
   const keyFacts = clinicalCase?.input.funnel?.script.filter((fact) => fact.key) ?? [];
   if (row.mode !== 'funnel' || keyFacts.length === 0) return null;
-  const revealed = new Set(
-    row.turns.flatMap((turn) => turn.exchanges.flatMap((exchange) => exchange.factIds)),
-  );
+  const revealed = new Set(conversationExchanges(row).flatMap((exchange) => exchange.factIds));
   return keyFacts.every((fact) => revealed.has(fact.id));
+}
+
+function conversationOutcomes(conversations: ConversationGrade[]) {
+  return {
+    readingSyndrome: rateOf(
+      conversations.flatMap((conversation) =>
+        conversation.syndrome ? [conversation.syndrome.pass] : [],
+      ),
+    ),
+    readingSeverity: rateOf(
+      conversations.flatMap((conversation) =>
+        conversation.severity ? [conversation.severity.pass] : [],
+      ),
+    ),
+    essentialQuestions: rateOf(
+      conversations.flatMap((conversation) =>
+        conversation.missingEssentialQuestions
+          ? [conversation.missingEssentialQuestions.length === 0]
+          : [],
+      ),
+    ),
+  };
+}
+
+function gradedConversations(grades: GradeRow[]): ConversationGrade[] {
+  return grades.flatMap((grade) => (grade.conversation ? [grade.conversation] : []));
+}
+
+function sumOf(values: readonly number[]): number {
+  return values.reduce((total, value) => total + value, 0);
+}
+
+/** CC-106 — a conversa antes do plano, de todas as execuções com conversa. */
+function summarizeConversation(
+  results: ResultRow[],
+  grades: GradeRow[],
+): RunSummary['conversation'] {
+  const conversations = gradedConversations(grades);
+  if (conversations.length === 0) return null;
+  const judged = grades.flatMap((grade) => judgedVerdict(grade)?.conversation ?? []);
+  const known = (values: Array<number | null>) =>
+    values.filter((value): value is number => value !== null);
+  const firstQuestions = known(conversations.map((conversation) => conversation.firstQuestionMs));
+  const readings = results.flatMap((row) =>
+    row.intake && row.intake.path !== 'disabled' ? [row.intake.readingMs] : [],
+  );
+
+  return {
+    rows: conversations.length,
+    paths: countBy(conversations, (conversation) => conversation.path),
+    ...conversationOutcomes(conversations),
+    overTriage: conversations.filter(
+      (conversation) =>
+        conversation.severity &&
+        severityRank(conversation.severity.read) > severityRank(conversation.severity.expected),
+    ).length,
+    questionsBeforePlanMean: mean(
+      conversations.map((conversation) => conversation.questionsBeforePlan),
+    ),
+    roundsToFinalPlanMean: mean(
+      conversations.map((conversation) => conversation.roundsToFinalPlan),
+    ),
+    firstQuestionP50: percentile(firstQuestions, 0.5),
+    firstQuestionP90: percentile(firstQuestions, 0.9),
+    readingP50: percentile(readings, 0.5),
+    questionsWithScriptFact: wilsonRate(
+      sumOf(conversations.map((conversation) => conversation.questionsWithScriptFact)),
+      sumOf(conversations.map((conversation) => conversation.questionsBeforePlan)),
+    ),
+    pertinentQuestions: rateOf(judged.map((question) => question.pertinent)),
+    alreadyGivenQuestions: rateOf(judged.map((question) => question.alreadyGiven)),
+    keyFactsBeforePlan: wilsonRate(
+      sumOf(conversations.map((conversation) => conversation.keyFactsBeforePlan.length)),
+      sumOf(conversations.map((conversation) => conversation.keyFacts.length)),
+    ),
+    missingEssential: grades.flatMap((grade) => {
+      const missing = grade.conversation?.missingEssentialQuestions ?? [];
+      return missing.length > 0
+        ? [{ caseId: grade.caseId, rep: grade.rep, questions: missing }]
+        : [];
+    }),
+  };
 }
 
 function summarizeCase(
@@ -259,6 +378,7 @@ function summarizeCase(
 ): CaseSummary {
   const outcomes = criterionOutcomes(grades, casesById);
   const criticalGrades = grades.filter((grade) => grade.criticalError.value);
+  const conversation = conversationOutcomes(gradedConversations(grades));
   return {
     caseId: clinicalCase.id,
     syndromeGroup: clinicalCase.tags[0],
@@ -279,6 +399,7 @@ function summarizeCase(
         return revealed === null ? [] : [revealed];
       }),
     ),
+    ...conversation,
   };
 }
 
@@ -344,8 +465,12 @@ function summarizeFunnel(
       }),
     ),
     turnsMean: mean(funnelRows.map((row) => row.turns.length)),
+    // CC-106 — inclui as respostas às perguntas antes do plano.
     simulatorUsd: sumKnown(
-      funnelRows.flatMap((row) => row.turns.map((turn) => turn.simulator?.costUsd ?? null)),
+      funnelRows.flatMap((row) => [
+        ...(row.intake?.simulator ? [row.intake.simulator.costUsd] : []),
+        ...row.turns.map((turn) => turn.simulator?.costUsd ?? null),
+      ]),
     ).total,
   };
 }
@@ -473,6 +598,7 @@ export function summarizeRun(run: LoadedRun, casesById: Map<string, ClinicalCase
       ),
     },
     funnel: summarizeFunnel(results, casesById),
+    conversation: summarizeConversation(results, grades),
     latency: {
       p50: percentile(
         okResults.flatMap((row) =>
@@ -583,6 +709,176 @@ function table(header: string[], rows: string[][]): string {
   ].join('\n');
 }
 
+const PATH_LABELS: Record<IntakePath, string> = {
+  ask: 'perguntou',
+  complete: 'caso completo, sem pergunta',
+  unstable: 'instável, direto ao plano',
+  reading_failed: 'leitura falhou ou passou do teto',
+  disabled: 'leitura desligada',
+};
+
+const SEVERITY_LABELS: Record<ReadingSeverity, string> = {
+  stable: 'estável',
+  time_critical: 'tempo-crítico',
+  unstable: 'instável',
+};
+
+function mark(pass: boolean): string {
+  return pass ? '✓' : '✗';
+}
+
+/** CC-106 — a conversa antes do plano, agregada. */
+function renderConversation(conversation: ConversationSummary): string[] {
+  const paths = (Object.keys(PATH_LABELS) as IntakePath[])
+    .filter((path) => conversation.paths[path])
+    .map((path) => `${PATH_LABELS[path]}: ${conversation.paths[path]}`)
+    .join(' · ');
+  const missing = conversation.missingEssential
+    .map((miss) => `${miss.caseId}#${miss.rep} (${miss.questions.join('; ')})`)
+    .join('; ');
+  return [
+    '## Conversa antes do plano (Copiloto guiado)',
+    '',
+    table(
+      ['Métrica', 'Valor'],
+      [
+        ['Execuções com conversa', String(conversation.rows)],
+        ['Caminho da leitura', paths || '—'],
+        [
+          'Leitura: síndrome de PS esperada (`tags[0]` ou `expected.conversation.syndromes`)',
+          formatRate(conversation.readingSyndrome),
+        ],
+        [
+          'Leitura: gravidade não subestimada',
+          `${formatRate(conversation.readingSeverity)} · superestimada em ${conversation.overTriage}`,
+        ],
+        [
+          'Perguntas antes do 1º plano (média)',
+          conversation.questionsBeforePlanMean?.toFixed(2) ?? '—',
+        ],
+        [
+          'Voltas até o plano avaliado (média)',
+          conversation.roundsToFinalPlanMean?.toFixed(2) ?? '—',
+        ],
+        [
+          'Tempo até a 1ª pergunta p50 / p90',
+          `${formatMs(conversation.firstQuestionP50)} / ${formatMs(conversation.firstQuestionP90)}`,
+        ],
+        ['Leitura do caso p50', formatMs(conversation.readingP50)],
+        [
+          'Perguntas que alcançaram fato do roteiro — por pergunta',
+          formatRate(conversation.questionsWithScriptFact),
+        ],
+        [
+          'Perguntas pertinentes (juiz) — por pergunta',
+          formatRate(conversation.pertinentQuestions),
+        ],
+        [
+          'Perguntas que pediram dado já dado (juiz; menor é melhor) — por pergunta',
+          formatRate(conversation.alreadyGivenQuestions),
+        ],
+        [
+          'Fatos decisivos revelados antes do 1º plano — por fato',
+          formatRate(conversation.keyFactsBeforePlan),
+        ],
+        [
+          'Sem pergunta essencial faltando (`expected.conversation.essentialQuestions`)',
+          `${formatRate(conversation.essentialQuestions)}${missing ? ` — faltou em ${missing}` : ''}`,
+        ],
+      ],
+    ),
+    '',
+    'A leitura vê só a abertura. Gravidade esperada: `expected.conversation.severity` ou, no caso crítico, tempo-crítico. Perguntas e fatos de cada execução: "Conversa por caso", no fim.',
+    '',
+  ];
+}
+
+function oneLine(text: string): string {
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * CC-106 — o que cada execução perguntou e o que as respostas revelaram:
+ * as perguntas antes do plano (com o veredito do juiz, quando houver) e as
+ * do plano, cada uma com os fatos do roteiro que alcançou.
+ */
+function renderConversationByCase(run: LoadedRun): string[] {
+  const lines = ['## Conversa por caso', ''];
+  const rows = run.results
+    .filter((row) => row.intake)
+    .sort((left, right) => left.caseId.localeCompare(right.caseId) || left.rep - right.rep);
+  const gradesByKey = new Map(run.grades.map((grade) => [`${grade.caseId}#${grade.rep}`, grade]));
+
+  for (const row of rows) {
+    const { intake } = row;
+    const key = `${row.caseId}#${row.rep}`;
+    const grade = gradesByKey.get(key);
+    const conversation = grade?.conversation;
+    if (!intake || !grade || !conversation) continue;
+    const judgedQuestions = judgedVerdict(grade)?.conversation ?? [];
+    const keyFacts = new Set(conversation.keyFacts);
+    const facts = (factIds: string[]) =>
+      factIds.length === 0
+        ? 'nenhum fato do roteiro'
+        : factIds.map((id) => (keyFacts.has(id) ? `${id} (decisivo)` : id)).join(', ');
+    const reading = [
+      conversation.syndrome
+        ? `síndrome \`${conversation.syndrome.read}\` (esperada: ${conversation.syndrome.expected.join(' ou ')}) ${mark(conversation.syndrome.pass)}`
+        : 'sem leitura',
+      conversation.severity
+        ? `gravidade ${SEVERITY_LABELS[conversation.severity.read]} (mínima: ${SEVERITY_LABELS[conversation.severity.expected]}) ${mark(conversation.severity.pass)}`
+        : '',
+      `caminho: ${PATH_LABELS[intake.path]}${intake.closeReason === 'urgent_answer' ? ' (resposta urgente encerrou)' : ''}`,
+      intake.firstQuestionMs !== null ? `1ª pergunta em ${formatMs(intake.firstQuestionMs)}` : '',
+    ].filter(Boolean);
+
+    lines.push(`### ${key}`, '', `- Leitura: ${reading.join(' · ')}`);
+    if (intake.exchanges.length > 0) {
+      lines.push('- Antes do plano:');
+      intake.exchanges.forEach((exchange, index) => {
+        const verdict = judgedQuestions.find((judged) => judged.question === exchange.question);
+        const judge = verdict
+          ? ` · pertinente ${mark(verdict.pertinent)} · pediu dado já dado ${verdict.alreadyGiven ? 'sim' : 'não'}`
+          : '';
+        lines.push(
+          `  ${index + 1}. ${oneLine(exchange.question)} → ${facts(exchange.factIds)}${judge}`,
+        );
+      });
+    }
+    const afterPlanExchanges = row.turns.flatMap((turn) => turn.exchanges);
+    if (afterPlanExchanges.length > 0) {
+      lines.push('- Depois do 1º plano:');
+      afterPlanExchanges.forEach((exchange, index) => {
+        lines.push(`  ${index + 1}. ${oneLine(exchange.question)} → ${facts(exchange.factIds)}`);
+      });
+    }
+    if (conversation.keyFacts.length > 0) {
+      const beforePlan = new Set(conversation.keyFactsBeforePlan);
+      const afterPlan = new Set(afterPlanExchanges.flatMap((exchange) => exchange.factIds));
+      const revealedAfter = conversation.keyFacts.filter(
+        (id) => !beforePlan.has(id) && afterPlan.has(id),
+      );
+      const never = conversation.keyFacts.filter((id) => !beforePlan.has(id) && !afterPlan.has(id));
+      lines.push(
+        `- Fatos decisivos revelados antes do plano: ${conversation.keyFactsBeforePlan.length}/${conversation.keyFacts.length}${[
+          conversation.keyFactsBeforePlan.length > 0
+            ? ` · antes: ${conversation.keyFactsBeforePlan.join(', ')}`
+            : '',
+          revealedAfter.length > 0 ? ` · depois do 1º plano: ${revealedAfter.join(', ')}` : '',
+          never.length > 0 ? ` · nunca revelados: ${never.join(', ')}` : '',
+        ].join('')}`,
+      );
+    }
+    if (conversation.missingEssentialQuestions?.length) {
+      lines.push(
+        `- Pergunta essencial faltando: ${conversation.missingEssentialQuestions.join('; ')}`,
+      );
+    }
+    lines.push('');
+  }
+  return lines;
+}
+
 export function renderSummaryMarkdown(run: LoadedRun, summary: RunSummary): string {
   const { meta } = run;
   const lines: string[] = [];
@@ -620,7 +916,7 @@ export function renderSummaryMarkdown(run: LoadedRun, summary: RunSummary): stri
         ],
         [
           'Decisão',
-          `raciocínio ${meta.pipeline.reasoning} · prompt ${meta.pipeline.decisionPrompt} · fonte de conhecimento ${meta.pipeline.knowledgeSource}${
+          `raciocínio ${meta.pipeline.reasoning} · prompt ${meta.pipeline.decisionPrompt}${meta.pipeline.whyLine ? ' com a linha de por quê' : ''} · fonte de conhecimento ${meta.pipeline.knowledgeSource}${
             meta.pipeline.decisionModel || meta.pipeline.decisionCriticalModel
               ? ` · modelo da decisão ${meta.pipeline.decisionModel ?? meta.pipeline.requestedModel} (caso grave: ${meta.pipeline.decisionCriticalModel ?? meta.pipeline.decisionModel ?? meta.pipeline.requestedModel})`
               : ''
@@ -634,6 +930,14 @@ export function renderSummaryMarkdown(run: LoadedRun, summary: RunSummary): stri
           'Configuração do gateway',
           `teto de saída ${meta.pipeline.maxOutputTokens} tokens · effort ${meta.pipeline.effort} · structured output ${meta.pipeline.structuredOutput ? 'ligado' : 'desligado'} · fallback de recusa ${meta.pipeline.refusalFallback ? 'ativo' : 'inativo'}`,
         ],
+        ...(meta.pipeline.intake
+          ? [
+              [
+                'Copiloto guiado',
+                `leitura do caso ${meta.pipeline.intake.mode === 'on' ? 'ligada' : 'desligada'} (COPILOT_INTAKE=${meta.pipeline.intake.mode}) · modelo da leitura ${meta.pipeline.intake.readingModel}`,
+              ],
+            ]
+          : []),
         ['Modelo(s) servido(s)', summary.servedModels.join(', ') || '—'],
         ['Juiz', judgeLabel],
       ],
@@ -772,6 +1076,8 @@ export function renderSummaryMarkdown(run: LoadedRun, summary: RunSummary): stri
     );
   }
 
+  if (summary.conversation) lines.push(...renderConversation(summary.conversation));
+
   lines.push('## Por síndrome de PS', '');
   lines.push(
     table(
@@ -888,6 +1194,8 @@ export function renderSummaryMarkdown(run: LoadedRun, summary: RunSummary): stri
     'Detalhe de cada nota (justificativa do juiz, trecho que casou na regex, prompt e resposta crua do modelo): grades.jsonl e results.jsonl, pelo id do caso.',
     '',
   );
+
+  if (summary.conversation) lines.push(...renderConversationByCase(run));
 
   return lines.join('\n');
 }

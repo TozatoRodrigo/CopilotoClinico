@@ -14,7 +14,15 @@ export function readBooleanFlag(
   key: string,
   defaultValue: boolean,
 ): boolean {
-  const raw = config.get<string | boolean | undefined>(key);
+  return parseBooleanFlag(config.get<string | boolean | undefined>(key), defaultValue);
+}
+
+/**
+ * A regra de `readBooleanFlag` sobre um valor já lido — para função pura que
+ * lê `process.env` porque não tem ConfigService (ex.: a máscara de PII, usada
+ * por vários serviços).
+ */
+export function parseBooleanFlag(raw: unknown, defaultValue: boolean): boolean {
   if (raw === undefined || raw === null) return defaultValue;
 
   const normalized = String(raw).trim().toLowerCase();

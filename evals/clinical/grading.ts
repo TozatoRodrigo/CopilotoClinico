@@ -1,4 +1,5 @@
 import type { ClinicalCase } from './case.schema';
+import { conversationExchanges, gradeConversation } from './graders/conversation';
 import { gradeDeterministic, type DeterministicGrade } from './graders/deterministic';
 import {
   actionPasses,
@@ -86,7 +87,7 @@ export async function judgeOutput(
       status: 'ok',
       ...identity,
       model: response.model,
-      verdict: parseJudgeVerdict(clinicalCase, response.content),
+      verdict: parseJudgeVerdict(clinicalCase, response.content, view),
       usage: response.usage,
       costUsd: costUsd(
         response.model,
@@ -168,14 +169,23 @@ export function assessCriticalError(
 /**
  * Gabarito v2 — no afunilamento, o juiz vê a abertura e as perguntas e
  * respostas acumuladas até o último turno; no caso completo, o `caseText`.
+ *
+ * CC-106 — as respostas dadas antes do plano entram no diálogo, e as
+ * perguntas que a tela mostrou viram itens do juiz (pertinente? já dado?).
  */
 export function judgedCaseView(row: ResultRow, clinicalCase: ClinicalCase): JudgedCaseView {
   if (row.mode !== 'funnel' || !clinicalCase.input.funnel) return completeCaseView(clinicalCase);
+  const answered = new Set(row.intake?.exchanges.map((exchange) => exchange.questionId));
+  const intakeQuestions = (row.intake?.questions ?? [])
+    .filter((question) => answered.has(question.id))
+    .map((question) => ({ question: question.question, why: question.why }));
   return {
     caseText: clinicalCase.input.funnel.opening,
-    dialogue: row.turns.flatMap((turn) =>
-      turn.exchanges.map((exchange) => ({ question: exchange.question, answer: exchange.answer })),
-    ),
+    dialogue: conversationExchanges(row).map((exchange) => ({
+      question: exchange.question,
+      answer: exchange.answer,
+    })),
+    ...(intakeQuestions.length > 0 ? { intakeQuestions } : {}),
   };
 }
 
@@ -220,5 +230,6 @@ export async function gradeResult(
     deterministic,
     judge,
     criticalError: assessCriticalError(clinicalCase, deterministic, judge),
+    conversation: gradeConversation(clinicalCase, row),
   };
 }

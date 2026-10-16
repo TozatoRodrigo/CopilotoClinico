@@ -1,0 +1,28 @@
+{
+  "id": "rv-2023-1-est-7",
+  "source": {
+    "kind": "clinical_case",
+    "caseId": "rv-2023-1-est-7"
+  },
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "UPA (RX, US, laboratório). Masc, 21a, solteiro, estudante. Acordou há 2 h com dor forte no escroto D (8/10), irradiando um pouco para cima, pior ao andar; testículo D inchado; náusea. Sem analgésico hoje. Nega secreção uretral, pus ou sangue, sintomas urinários, febre e dor lombar. Sem relações sexuais há 1 mês. Sem medicações, alergias, cirurgias, caxumba ou outras doenças; nega álcool e drogas; fuma 10 cig/dia há 10 anos. Pai hipertenso. Prefere ser tratado na cidade da mãe, a 8 h daqui. EF: FC 76, PA 130x80, FR 14, Tax 36,2 °C, SpO2 99% AA, IMC 25; BEG, afebril, alerta e orientado; ACV, AR e abdome sem alterações. Bolsa escrotal: testículo D elevado e pouco horizontalizado, aumentado de volume; hiperemia da hemibolsa D. USG com Doppler colorido da bolsa escrotal: testículo D aumentado, sem fluxo sanguíneo ao Doppler; espessamento do cordão espermático D; testículo E sem alterações."
+  },
+  "expected": {
+    "sex": "M",
+    "age": 21,
+    "vitals": {
+      "systolicBp": 130,
+      "diastolicBp": 80,
+      "heartRate": 76,
+      "respiratoryRate": 14,
+      "spo2": 99,
+      "temperature": 36.2,
+      "glucose": null
+    },
+    "syndrome": ["dor-abdominal", "outro"],
+    "instability": false
+  }
+}
