@@ -752,6 +752,50 @@ Sugestão **nunca** supersede conteúdo aprovado — só um curador, via
 deliberado: um endpoint aberto que supersedesse permitiria remover conteúdo
 curado do retrieval enviando algo com o mesmo `source` e uma versão nova.
 
+### Beta por convite (CC-702)
+
+**Abrir e fechar o beta.** `BETA_INVITE_REQUIRED=on` no `.env.production` e
+`docker compose ... up -d copiloto-api` (a flag é lida a cada cadastro). Com
+ela ligada, quem chega a `/register` sem código vê a lista de espera; com
+`off`, o cadastro fica aberto e um código digitado ainda é conferido (a conta
+entra no lote do convite e passa pelo onboarding do beta).
+
+**Convites.** Console → Beta → Convites: lote/origem ("rede Ripardo", "base
+ANY"), quantidade (até 50), usos por código (1 = uso único) e validade (até
+180 dias). O sistema **não envia e-mail** (CC-015 pendente): copie o link
+(`/register?convite=XXXX-XXXX`) e mande pelo seu canal. Revogar é definitivo e
+não tira quem já entrou. O código é aleatório, sem dado pessoal; o banco
+recusa uso além do limite (`CHECK uses_count <= max_uses`).
+
+**Lista de espera.** Console → Beta → Lista de espera. "Aprovar" gera um
+convite de uso único (lote padrão "lista de espera", 14 dias) para copiar e
+mandar. "Apagar" atende o pedido da pessoa (LGPD): a entrada some e a trilha
+guarda só `BETA_WAITLIST_DELETED` com o id. A eliminação de conta
+(`POST /lgpd/erasure`) também apaga a entrada com o mesmo e-mail, e a
+exportação a inclui.
+
+**Onboarding.** Quem entra por convite passa por `/onboarding/beta`: termo do
+beta (versão em `src/shared/contracts/beta.ts`, `BETA_TERMS`; **texto
+provisório**, parecer jurídico pendente), perfil do plantão e o caso de
+exemplo do copiloto guiado. Trocar o texto do termo exige trocar `version`:
+quem aceitou a anterior volta ao onboarding para aceitar a nova.
+
+**Ativação** (meta ≥ 70% com 1ª análise em 24 h): Console → Beta → Ativação, ou
+`GET /v1/admin/beta/activation?days=30` (Admin ou Compliance) para o painel da
+CC-705. `activated24h` conta qualquer análise (inclusive o caso de exemplo);
+`activatedRealCase24h` só casos reais.
+
+No log: `BETA_INVITE_REFUSED reason=missing|not_found|revoked|expired|exhausted`
+(com `stage=claim` quando outro cadastro levou o último uso),
+`BETA_INVITE_REDEEMED inviteId=...`, `BETA_INVITES_CREATED`, `BETA_WAITLIST_JOINED`,
+`BETA_TERMS_ACCEPTED version=...`. Nenhuma linha leva e-mail ou código.
+
+```sql
+-- Usos por lote
+SELECT batch_label, count(*) AS codigos, sum(uses_count) AS usos
+FROM beta_invites GROUP BY batch_label ORDER BY usos DESC;
+```
+
 ### Calibrar o piso de relevância (KB-005/KB-006)
 
 O piso (`RETRIEVAL_MIN_SEMANTIC_SCORE`, default `0.3`) é o que permite ao
@@ -1657,6 +1701,7 @@ credencial vêm do PR #168 (seção "Sentry" em Monitoramento).
 | `JWT_REFRESH_SECRET` | Refresh tokens inválidos |
 | `TRUSTED_PROXY_HOPS` | Proxies confiáveis à frente da API (padrão 1 = Traefik). Alto demais (2 sem Cloudflare) deixa o cliente escolher o IP do limite de tentativas; baixo demais (1 com Cloudflare) junta médicos no mesmo limite. Ver "Limite de tentativas" |
 | `INTERNAL_SERVICE_TOKEN` | Endpoint `/audit/verify-chain` inacessível |
+| `BETA_INVITE_REQUIRED` | `on` fecha o cadastro para quem não tem convite do beta (CC-702): sem código válido, `403 BETA_INVITE_REQUIRED` e o web abre a lista de espera. `off` (padrão) = cadastro aberto, como antes. Ausente ou irreconhecível = `off`. Ver "Beta por convite (CC-702)". Exige a migration `20261015120000_cc702_beta_convites` |
 | `AI_API_KEY` | Análise clínica indisponível |
 | `DATABASE_URL` | Sistema completamente indisponível ou rodando com privilégios excessivos |
 | `MIGRATION_DATABASE_URL` | Migrations indisponíveis ou executadas com usuário incorreto |

@@ -10,6 +10,8 @@ import { ConfigService } from '@nestjs/config';
 import { BadRequestException, ConflictException, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { createHmac } from 'crypto';
+import { BetaInviteService, type BetaAdmission } from '../beta/beta-invite.service';
+import { BetaInviteRequiredException } from '../beta/beta.errors';
 
 vi.mock('bcryptjs', () => ({
   hash: vi.fn(),
@@ -59,6 +61,10 @@ describe('AuthService', () => {
   };
   let jwt: JwtService;
   let auditService: { log: ReturnType<typeof vi.fn> };
+  let betaInvites: {
+    admit: ReturnType<typeof vi.fn>;
+    createAccount: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -112,6 +118,14 @@ describe('AuthService', () => {
       check: vi.fn().mockResolvedValue({ valid: false, source: 'unavailable' }),
     } as unknown as CrmCheckerService;
 
+    // CC-702 — cadastro aberto por padrão; a regra do convite tem spec própria.
+    betaInvites = {
+      admit: vi.fn().mockResolvedValue({ kind: 'open' } satisfies BetaAdmission),
+      createAccount: vi.fn((_admission: BetaAdmission, create: (db: unknown) => unknown) =>
+        create(prisma),
+      ),
+    };
+
     service = new AuthService(
       prisma as unknown as PrismaService,
       jwt,
@@ -120,6 +134,7 @@ describe('AuthService', () => {
       // CC-025 — os testes do limite por conta estão em auth.service.lockout.spec.ts.
       { reserveAttempt: vi.fn(), clear: vi.fn() } as never,
       mfaService,
+      betaInvites as unknown as BetaInviteService,
       crmVerificationService,
       crmCheckerService,
     );
@@ -228,6 +243,63 @@ describe('AuthService', () => {
       ).rejects.toThrow(ConflictException);
 
       expect(prisma.physician.create).not.toHaveBeenCalled();
+    });
+
+    describe('beta por convite (CC-702)', () => {
+      const input = {
+        email: 'doctor@example.com',
+        password: 'StrongP@ss1',
+        crmUf: 'SP',
+        crmNumber: '123456',
+        inviteCode: 'k3mq-9xpt',
+      };
+
+      it('checks the invite before hashing the password and creates the account through it', async () => {
+        const admission: BetaAdmission = {
+          kind: 'invite',
+          inviteId: 'invite-1',
+          batchLabel: 'rede Ripardo',
+          waitlistEntryId: null,
+        };
+        prisma.physician.findUnique.mockResolvedValue(null);
+        prisma.physician.create.mockResolvedValue(mockPhysicianCreateResult);
+        betaInvites.admit.mockResolvedValue(admission);
+        vi.mocked(bcrypt.hash).mockResolvedValue('hashed-password' as never);
+
+        await service.register(input, '10.0.0.1');
+
+        expect(betaInvites.admit).toHaveBeenCalledWith('k3mq-9xpt');
+        expect(betaInvites.admit.mock.invocationCallOrder[0]).toBeLessThan(
+          vi.mocked(bcrypt.hash).mock.invocationCallOrder[0]!,
+        );
+        expect(betaInvites.createAccount).toHaveBeenCalledWith(
+          admission,
+          expect.any(Function),
+          '10.0.0.1',
+        );
+        expect(prisma.physician.create).toHaveBeenCalledTimes(1);
+      });
+
+      it('creates nothing when the invite is refused', async () => {
+        prisma.physician.findUnique.mockResolvedValue(null);
+        betaInvites.admit.mockRejectedValue(new BetaInviteRequiredException());
+
+        await expect(service.register({ ...input, inviteCode: undefined })).rejects.toThrow(
+          BetaInviteRequiredException,
+        );
+
+        expect(bcrypt.hash).not.toHaveBeenCalled();
+        expect(betaInvites.createAccount).not.toHaveBeenCalled();
+        expect(prisma.physician.create).not.toHaveBeenCalled();
+      });
+
+      it('reports a duplicate email before looking at the invite', async () => {
+        prisma.physician.findUnique.mockResolvedValue(mockPhysician);
+
+        await expect(service.register(input)).rejects.toThrow(ConflictException);
+
+        expect(betaInvites.admit).not.toHaveBeenCalled();
+      });
     });
   });
 
@@ -541,6 +613,7 @@ describe('AuthService', () => {
       } as unknown as MfaService;
       const crmVerification = {} as unknown as CrmVerificationService;
       const crmChecker = {} as unknown as CrmCheckerService;
+      const betaInviteService = {} as unknown as BetaInviteService;
 
       const authService = new AuthService(
         realPrisma as unknown as PrismaService,
@@ -549,6 +622,7 @@ describe('AuthService', () => {
         realAudit,
         {} as never,
         realMfa,
+        betaInviteService,
         crmVerification,
         crmChecker,
       );

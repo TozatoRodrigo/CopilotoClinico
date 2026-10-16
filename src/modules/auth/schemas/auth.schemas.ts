@@ -16,6 +16,9 @@ export const registerSchema = z.object({
     .regex(/^[A-Z]{2}$/, 'CRM UF must be 2 uppercase letters'),
   crmNumber: z.string().min(1, 'CRM number is required'),
   name: z.string().min(1).optional(),
+  // CC-702 — código de convite do beta, como o médico digitou (o serviço
+  // normaliza). Obrigatório só com BETA_INVITE_REQUIRED ligada.
+  inviteCode: z.string().trim().max(32).optional(),
 });
 
 export const loginSchema = z.object({

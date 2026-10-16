@@ -219,6 +219,14 @@ function buildPrismaMock() {
       findMany: vi.fn().mockResolvedValue([]),
     },
 
+    // CC-702 — o beta (participante e lista de espera) entra no export LGPD.
+    betaParticipant: {
+      findUnique: vi.fn().mockResolvedValue(null),
+    },
+    betaWaitlistEntry: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
+
     // F0-D — decisões por recomendação e feedback entram no export LGPD.
     recommendationDecision: {
       findMany: vi.fn().mockResolvedValue([]),
@@ -965,6 +973,8 @@ describe('CC-018 — LGPD erasure ends the session (E2E)', () => {
   it('POST /lgpd/erasure anonymizes the physician and writes erasedAt', async () => {
     prismaMock.physician.findUnique.mockResolvedValueOnce(profile(PHYSICIAN_ID, 'dr@test.com'));
     const erasureTx = {
+      betaWaitlistEntry: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
+      betaParticipant: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
       recommendationDecision: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
       copilotFeedback: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
       mentoringRequest: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },

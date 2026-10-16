@@ -7,6 +7,7 @@ import {
   ChatCircleText,
   ClipboardText,
   Database,
+  EnvelopeSimple,
   FileText,
   Gear,
   House,
@@ -41,6 +42,7 @@ const STATIC: Record<string, BreadcrumbItem> = {
 const ADMIN_CHILDREN: Record<string, BreadcrumbItem> = {
   'crm-verifications': { label: 'Verificações CRM', icon: ShieldCheck },
   diretrizes: { label: 'Diretrizes', icon: Database },
+  beta: { label: 'Beta', icon: EnvelopeSimple },
   feedback: { label: 'Feedback', icon: ChatCircleText },
   analytics: { label: 'Analytics', icon: ChartBar },
   mentoria: { label: 'Mentoria', icon: Stethoscope },

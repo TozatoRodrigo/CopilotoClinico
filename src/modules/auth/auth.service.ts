@@ -21,6 +21,7 @@ import {
   UpdateProfileInput,
 } from './schemas/auth.schemas';
 import { MfaService } from './mfa.service';
+import { BetaInviteService } from '../beta/beta-invite.service';
 import { CrmVerificationService } from '../physicians/crm-verification.service';
 import { CrmCheckerService } from '../physicians/crm-checker.service';
 
@@ -52,6 +53,7 @@ export class AuthService {
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(AccountLockoutService) private readonly lockout: AccountLockoutService,
     @Inject(MfaService) private readonly mfaService: MfaService,
+    @Inject(BetaInviteService) private readonly betaInvites: BetaInviteService,
     @Inject(CrmVerificationService) private readonly crmVerification: CrmVerificationService,
     @Inject(CrmCheckerService) private readonly crmChecker: CrmCheckerService,
   ) {
@@ -96,28 +98,38 @@ export class AuthService {
       throw new ConflictException('Email already registered');
     }
 
+    // CC-702 — com BETA_INVITE_REQUIRED ligada, só entra quem tem convite
+    // válido. Antes do hash da senha: código recusado não custa bcrypt.
+    const admission = await this.betaInvites.admit(input.inviteCode);
+
     const passwordHash = await bcrypt.hash(input.password, 12);
 
-    const physician = await this.prisma.physician.create({
-      data: {
-        email: input.email,
-        passwordHash,
-        crmUf: input.crmUf,
-        crmNumber: input.crmNumber,
-        name: input.name,
-      },
-      select: {
-        id: true,
-        email: true,
-        crmUf: true,
-        crmNumber: true,
-        name: true,
-        crmVerified: true,
-        role: true,
-        locale: true,
-        createdAt: true,
-      },
-    });
+    // A conta e o uso do convite são gravados juntos (ver BetaInviteService).
+    const physician = await this.betaInvites.createAccount(
+      admission,
+      (db) =>
+        db.physician.create({
+          data: {
+            email: input.email,
+            passwordHash,
+            crmUf: input.crmUf,
+            crmNumber: input.crmNumber,
+            name: input.name,
+          },
+          select: {
+            id: true,
+            email: true,
+            crmUf: true,
+            crmNumber: true,
+            name: true,
+            crmVerified: true,
+            role: true,
+            locale: true,
+            createdAt: true,
+          },
+        }),
+      ip,
+    );
 
     await this.auditSilently({
       actorId: physician.id,
