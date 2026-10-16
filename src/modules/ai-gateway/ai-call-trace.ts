@@ -33,6 +33,8 @@ export interface AiCallTrace {
   outcome: AiCallOutcome;
   /** Classe do erro (ex.: `RateLimitError`) e status HTTP, nunca a mensagem. */
   errorType: string | null;
+  /** Chamada no modelo de reserva: o perfil que caiu antes dela, na mesma requisição. */
+  fallbackFrom: string | null;
 }
 
 export const AI_CALL_SINK = Symbol('AI_CALL_SINK');
