@@ -27,14 +27,12 @@ export class WhisperService implements OnModuleInit {
   private readonly logger = new Logger(WhisperService.name);
   private baseUrl!: string;
   private apiKey!: string;
-  private model!: string;
 
   constructor(private readonly config: ConfigService) {}
 
   onModuleInit(): void {
     this.baseUrl = this.config.get<string>('WHISPER_BASE_URL', 'https://api.groq.com/openai/v1');
     this.apiKey = this.config.getOrThrow<string>('WHISPER_API_KEY');
-    this.model = this.config.get<string>('WHISPER_MODEL')?.trim() || DEFAULT_WHISPER_MODEL;
   }
 
   async transcribe(
