@@ -1,6 +1,7 @@
 import type { ConfigService } from '@nestjs/config';
 import type { AiGatewayService } from '../../src/modules/ai-gateway/ai-gateway.service';
 import { screenClinicalText } from '../../src/modules/copilot/guardrails/clinical-text-screening';
+import { maskPII } from '../../src/modules/copilot/guardrails/pii-filter';
 import { decideIntake } from '../../src/modules/copilot/intake/intake-gate';
 import { UnderstandingService } from '../../src/modules/copilot/understanding/understanding.service';
 import type { IntakeCase } from './case.schema';
@@ -77,8 +78,9 @@ export function createIntakeReader(deps: IntakeReaderDeps): ReadCase {
     const calls: CallRecord[] = [];
     return deps.gateway.track(calls, async (): Promise<ReadAttempt> => {
       const startedAt = clock.now();
-      // Sem patientRef: os casos do gabarito não têm. A máscara de PII é a de produção.
-      const screened = screenClinicalText(intakeCase.input.caseText, null);
+      // Sem patientRef: os casos do gabarito não têm. A máscara de PII é a de produção
+      // com DEID_MODE=regex (o padrão); o modelo local da CC-203 fica de fora.
+      const screened = screenClinicalText(maskPII(intakeCase.input.caseText), null);
       const readingStartedAt = clock.now();
       const result = await understandingFor(model).readForIntake({
         caseText: screened.redacted,
