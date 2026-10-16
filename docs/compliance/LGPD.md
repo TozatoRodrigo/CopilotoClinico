@@ -14,7 +14,7 @@
 | **Livre acesso** | `GET /lgpd/export` — exportação completa dos dados do médico |
 | **Qualidade** | Hash encadeado na auditoria garante integridade dos dados |
 | **Transparência** | Banner de status do CRM no dashboard |
-| **Segurança** | Audit log append-only (AUD-001), verificação de cadeia (AUD-003) |
+| **Segurança** | Audit log append-only (AUD-001), verificação de cadeia (AUD-003), texto clínico cifrado em repouso (AES-256-GCM, CC-207/ADR-021) |
 | **Prevenção** | Sem coleta de PII de pacientes — pseudonimização via `patientRef` |
 | **Não discriminação** | N/A |
 | **Responsabilização** | Auditoria completa de todas as ações (AUD-005) |
@@ -41,6 +41,16 @@
 ### Referências anexadas ao atendimento (EncounterAttachment)
 - Nome, tipo e tamanho do arquivo enviado pelo médico
 - `text`: texto extraído **já mascarado de PII** (LGPD-005); o arquivo original nunca é gravado
+
+### Cifra em repouso do texto clínico (CC-207, ADR-021)
+Com `CLINICAL_TEXT_ENCRYPTION=on`, o texto clínico já mascarado é gravado
+cifrado (AES-256-GCM, chave `FIELD_ENCRYPTION_KEY` fora do banco): caso,
+saída do modelo, citações, respostas, motivo da incerteza, conversa antes do
+plano, anexos, transcrições, queixa principal, documentos, notas de decisão,
+comentários de feedback e respostas de protocolo. Um dump do banco lido sem a
+chave não mostra esse texto. Ficam em claro, com o motivo na ADR-021: o
+`patientRef` (identificador opaco, usado na busca), metadados e a trilha de
+auditoria (append-only).
 
 ### Documentos gerados (Document)
 - Conteúdo SOAP/SBAR/etc. gerado pela IA

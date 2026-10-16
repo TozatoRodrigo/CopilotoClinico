@@ -221,8 +221,9 @@ model Encounter {
   // paciente via PATCH). Ver EncountersService.findByPhysician.
   patientRef     String?         @map("patient_ref") @db.VarChar(50)
   // RD-E7 — queixa principal derivada da 1ª análise de IA (nunca digitada
-  // manualmente); título das listas de casos no lugar de patientRef.
-  chiefComplaint String?         @map("chief_complaint") @db.VarChar(140)
+  // manualmente); título das listas de casos no lugar de patientRef. Até 140
+  // caracteres na aplicação; TEXT porque o valor cifrado (CC-207) é maior.
+  chiefComplaint String?         @map("chief_complaint") @db.Text
   status         EncounterStatus @default(draft)
   createdAt      DateTime        @default(now()) @map("created_at")
   updatedAt      DateTime        @updatedAt @map("updated_at")
