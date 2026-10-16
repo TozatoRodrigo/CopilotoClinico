@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ConfigService } from '@nestjs/config';
-import { readDecisionPipeline } from './decision.settings';
+import { understandingFixture } from '../../../../tests/fixtures/case-understanding';
+import { chooseDecisionModel, readDecisionPipeline } from './decision.settings';
 
 function read(env: Record<string, string>) {
   return readDecisionPipeline({ get: (key: string) => env[key] } as unknown as ConfigService);
@@ -135,5 +136,63 @@ describe('readDecisionPipeline', () => {
 
     expect(pipeline).toMatchObject({ reasoning: 'legacy', knowledgeSource: 'model_only' });
     expect(downgrades).toEqual([]);
+  });
+});
+
+describe('chooseDecisionModel', () => {
+  const ROUTED = {
+    AI_DECISION_MODEL: 'groq:openai/gpt-oss-120b',
+    AI_DECISION_CRITICAL_MODEL: 'claude-opus-5-5',
+  };
+
+  function choose(env: Record<string, string>, understanding = understandingFixture()) {
+    return chooseDecisionModel(
+      { get: (key: string) => env[key] } as unknown as ConfigService,
+      understanding,
+    );
+  }
+
+  it('keeps AI_MODEL in both routes when nothing is configured', () => {
+    expect(choose({})).toEqual({ route: 'standard', model: undefined });
+    expect(choose({}, understandingFixture({ timeCritical: true }))).toEqual({
+      route: 'critical',
+      model: undefined,
+    });
+  });
+
+  it('sends a stable, non time-critical case to AI_DECISION_MODEL', () => {
+    expect(choose(ROUTED)).toEqual({ route: 'standard', model: 'groq:openai/gpt-oss-120b' });
+  });
+
+  it.each([
+    ['time-critical', understandingFixture({ timeCritical: true })],
+    ['unstable', understandingFixture({ instability: { present: true, findings: ['PA 70x40'] } })],
+  ])('sends a %s case to AI_DECISION_CRITICAL_MODEL', (_label, understanding) => {
+    expect(choose(ROUTED, understanding)).toEqual({ route: 'critical', model: 'claude-opus-5-5' });
+  });
+
+  it('treats a case without understanding as critical', () => {
+    expect(
+      chooseDecisionModel(
+        { get: (key: string) => ROUTED[key as keyof typeof ROUTED] } as unknown as ConfigService,
+        null,
+      ),
+    ).toEqual({ route: 'critical', model: 'claude-opus-5-5' });
+  });
+
+  it('falls back to AI_DECISION_MODEL in the critical route when no critical model is set', () => {
+    expect(
+      choose(
+        { AI_DECISION_MODEL: 'claude-sonnet-5-5' },
+        understandingFixture({ timeCritical: true }),
+      ),
+    ).toEqual({ route: 'critical', model: 'claude-sonnet-5-5' });
+  });
+
+  it('ignores blank values', () => {
+    expect(choose({ AI_DECISION_MODEL: ' ', AI_DECISION_CRITICAL_MODEL: '' })).toEqual({
+      route: 'standard',
+      model: undefined,
+    });
   });
 });

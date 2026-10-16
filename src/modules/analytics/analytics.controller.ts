@@ -1,9 +1,17 @@
-import { Controller, Get, Query, UseGuards, Inject } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards, Inject } from '@nestjs/common';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
 import { Roles } from '../../shared/decorators/roles.decorator';
+import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
+import type { AiCallReport, AiCallRequestTrace } from '../../shared/contracts/ai-calls';
 import { AnalyticsService } from './analytics.service';
 import { ProductFunnelService } from './product-funnel.service';
+import { AiCallReportService } from './ai-call-report.service';
+import {
+  aiCallReportQuerySchema,
+  aiCallRequestIdSchema,
+  type AiCallReportQuery,
+} from './ai-call-report.schemas';
 
 @Controller('analytics')
 @UseGuards(JwtAuthGuard)
@@ -11,6 +19,7 @@ export class AnalyticsController {
   constructor(
     @Inject(AnalyticsService) private readonly analyticsService: AnalyticsService,
     @Inject(ProductFunnelService) private readonly funnelService: ProductFunnelService,
+    @Inject(AiCallReportService) private readonly aiCallReport: AiCallReportService,
   ) {}
 
   @Get('stats')
@@ -51,5 +60,29 @@ export class AnalyticsController {
       ? Math.min(Math.max(parseInt(projectedUsers, 10) || 100, 1), 100000)
       : 100;
     return this.analyticsService.getCostReport(parsedDays, parsedUsers);
+  }
+
+  /**
+   * CC-004 — custo, latência e falhas das chamadas de IA por etapa e modelo
+   * (`ai_calls`). Só metadados, mas o mesmo papel do painel de custo: decide
+   * o roteamento e não é assunto de médico comum.
+   */
+  @Get('ai-calls')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'COMPLIANCE')
+  getAiCallReport(
+    @Query(new ZodValidationPipe(aiCallReportQuerySchema)) query: AiCallReportQuery,
+  ): Promise<AiCallReport> {
+    return this.aiCallReport.getReport(query.period);
+  }
+
+  /** CC-004 — as chamadas de uma requisição, pelo `x-request-id`. */
+  @Get('ai-calls/requests/:requestId')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'COMPLIANCE')
+  getAiCallRequestTrace(
+    @Param('requestId', new ZodValidationPipe(aiCallRequestIdSchema)) requestId: string,
+  ): Promise<AiCallRequestTrace> {
+    return this.aiCallReport.getRequestTrace(requestId);
   }
 }

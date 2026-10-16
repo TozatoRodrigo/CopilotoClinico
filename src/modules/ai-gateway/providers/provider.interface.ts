@@ -1,3 +1,4 @@
+import type { AiCallStage } from '../ai-call-trace';
 import type { MaxTokensParam, StructuredOutputMode } from '../provider-profiles';
 
 export interface ChatMessage {
@@ -26,6 +27,13 @@ export interface CompletionParams {
   /** Profundidade de raciocínio nos modelos Claude atuais; sem efeito nos demais. */
   effort?: AiEffort;
   responseSchema?: JsonResponseSchema;
+  /** Só para o rastro (ai_calls); o provedor não envia. */
+  stage?: AiCallStage;
+  /**
+   * Só para o rastro: o perfil que ficou indisponível e que esta chamada, no
+   * modelo de reserva, substitui. Quem preenche é o gateway.
+   */
+  fallbackFrom?: string;
 }
 
 /**
@@ -98,6 +106,8 @@ export interface ResearchParams {
   maxFetches: number;
   /** Teto de tokens do texto de cada página lida (não vale para PDF). */
   maxFetchContentTokens: number;
+  /** Só para o rastro (ai_calls); padrão `research`. */
+  stage?: AiCallStage;
 }
 
 /** Trecho citado na resposta da pesquisa, já com a URL da página de onde veio. */

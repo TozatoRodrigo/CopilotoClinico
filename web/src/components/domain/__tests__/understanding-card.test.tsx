@@ -53,6 +53,7 @@ function understanding(overrides: Partial<CaseUnderstanding> = {}): CaseUndersta
       },
     ],
     searchQueries: ['manejo inicial do AVC agudo'],
+    timeCritical: true,
     ...overrides,
   };
 }

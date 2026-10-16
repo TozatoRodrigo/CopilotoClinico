@@ -216,6 +216,23 @@ describe('AiGatewayService', () => {
       expect(svc.route()).toMatchObject({ profile: 'groq', model: 'openai/gpt-oss-20b' });
     });
 
+    it('traces each call with the profile that served it when a sink is given', async () => {
+      vi.restoreAllMocks();
+      mockChatCompletion();
+      const traces: Array<{ profile: string; stage: string }> = [];
+      const svc = new AiGatewayService(createMockConfig(GROQ_PROFILE), {
+        record: (trace) => traces.push(trace),
+      });
+
+      await svc.complete({
+        model: 'groq:openai/gpt-oss-120b',
+        stage: 'intake_reading',
+        messages: [{ role: 'user', content: 'Hi' }],
+      });
+
+      expect(traces).toEqual([expect.objectContaining({ profile: 'groq', stage: 'intake_reading' })]);
+    });
+
     it('fails at startup when a listed profile is incomplete', () => {
       expect(
         () =>

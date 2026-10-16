@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CopilotOutput } from '../../src/modules/copilot/guardrails/output-validator';
 import type { ClinicalCase } from './case.schema';
+import { understandingFixture } from '../../tests/fixtures/case-understanding';
 import { resultRowFixture, strokeCaseFixture } from './case-fixture';
 import { findFlips } from './compare';
 import { gradeDeterministic } from './graders/deterministic';
@@ -67,6 +68,8 @@ function meta(caseIds: string[], judged: boolean): RunMeta {
       understandingEffort: null,
       decisionPrompt: 'v1',
       knowledgeSource: 'internal_kb',
+      decisionModel: null,
+      decisionCriticalModel: null,
       research: null,
       structuredOutput: true,
       refusalFallback: false,
@@ -379,6 +382,38 @@ describe('summarizeRun — base das condutas (decisão v2)', () => {
     expect(renderSummaryMarkdown(v1, summarizeRun(v1, casesById))).not.toContain(
       'Base das condutas',
     );
+  });
+});
+
+describe('summarizeRun — gravidade pela Etapa 1 (ADR-016)', () => {
+  function withUnderstanding(caseId: string, timeCritical: boolean): ResultRow {
+    return { ...result(caseId, 'ok'), understanding: understandingFixture({ timeCritical }) };
+  }
+
+  it('counts critical cases the understanding marked as severe and lists the others', () => {
+    const loaded = run(
+      [
+        withUnderstanding(criticalCase.id, true),
+        withUnderstanding(criticalCase.id, false),
+        withUnderstanding(nonCriticalCase.id, false),
+      ],
+      true,
+    );
+    const summary = summarizeRun(loaded, casesById);
+
+    expect(summary.severityRouting).toEqual({
+      criticalCasesSevere: expect.objectContaining({ passed: 1, total: 2 }),
+      criticalCaseIdsStandard: [criticalCase.id],
+    });
+    expect(renderSummaryMarkdown(loaded, summary)).toContain(
+      `Iriam para o modelo do caso comum: ${criticalCase.id}.`,
+    );
+  });
+
+  it('is null when no row has an understanding', () => {
+    expect(
+      summarizeRun(run([result(criticalCase.id, 'ok')], true), casesById).severityRouting,
+    ).toBeNull();
   });
 });
 

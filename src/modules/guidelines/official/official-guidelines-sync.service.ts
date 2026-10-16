@@ -330,6 +330,7 @@ export class OfficialGuidelinesSyncService {
   ): Promise<DocumentClassification> {
     try {
       const response = await this.aiGateway.complete({
+        stage: 'guideline_classification',
         messages: buildClassificationMessages({
           kind: item.kind,
           kindLabel,
