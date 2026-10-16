@@ -86,6 +86,37 @@ describe('gabarito clínico', () => {
     }
   });
 
+  // CC-603 — com o local declarado e um recurso que o serviço não tem, o
+  // gabarito diz para onde, com que prioridade e o que fazer até a vaga.
+  it('traz o destino em todo caso com local declarado e recurso ausente', () => {
+    const withMissingResource = cases.filter((clinicalCase) => {
+      const context = clinicalCase.input.context;
+      return context?.site !== undefined && (!context.hasCT || !context.hasLab || !context.hasICU);
+    });
+    expect(withMissingResource.map((clinicalCase) => clinicalCase.id)).toEqual(
+      expect.arrayContaining([
+        'cc603-avc-na-janela-upa-sem-tc',
+        'cc603-supra-st-upa-longe-da-hemodinamica',
+        'cm-dengue-com-sinais-de-alarme',
+      ]),
+    );
+    for (const clinicalCase of withMissingResource) {
+      expect(clinicalCase.expected.destination, clinicalCase.id).toBeDefined();
+    }
+  });
+
+  it('pede regulação imediata e proíbe trombólise no AVC na janela em UPA sem TC', () => {
+    const stroke = caseById.get('cc603-avc-na-janela-upa-sem-tc');
+    expect(stroke?.input.context).toMatchObject({
+      hasCT: false,
+      site: { facilityType: 'upa_porte_1' },
+    });
+    expect(stroke?.expected.destination).toMatchObject({ tier: 'critical', priority: 'immediate' });
+    expect(stroke?.expected.forbiddenDefinitiveActions.map((action) => action.id)).toEqual(
+      expect.arrayContaining(['trombolise-na-upa-sem-tc', 'tc-no-proprio-servico']),
+    );
+  });
+
   it('mantém como rascunho todo gabarito ainda não revisado por médico', () => {
     for (const clinicalCase of cases) {
       if (clinicalCase.review.status === 'physician_reviewed') {

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { PS_SYNDROMES } from '../../src/shared/contracts/clinical';
+import { encounterSiteSchema } from '../../src/modules/encounters/schemas/encounter-context.schema';
 
 /**
  * F0-A — Gabarito clínico: formato de um caso.
@@ -30,6 +31,11 @@ import { PS_SYNDROMES } from '../../src/shared/contracts/clinical';
  *
  * CC-106 acrescentou, opcional, `expected.conversation`: o que se espera da
  * conversa do Copiloto guiado antes do plano (leitura do caso e perguntas).
+ *
+ * CC-603 (14/10/2026), opcionais: `input.context.site` (o local de plantão
+ * declarado, como o caso real recebe do perfil do médico) e
+ * `expected.destination` (destino, prioridade e conduta até a transferência
+ * quando falta recurso no serviço).
  */
 
 export const CASE_SCHEMA_VERSION = 2;
@@ -120,13 +126,18 @@ const ReviewSchema = z
     message: 'caso revisado precisa de reviewer (nome e CRM) e date',
   });
 
-/** Mesmas quatro chaves do `context` de POST /copilot/analyze. */
+/**
+ * Mesmas chaves do `context` de POST /copilot/analyze. `site` (CC-602): o
+ * local de plantão declarado — sem ele, um recurso `false` é "não marcado", e
+ * a decisão não o trata como ausente.
+ */
 const EncounterContextSchema = z
   .object({
     hasCT: z.boolean(),
     isSus: z.boolean(),
     hasLab: z.boolean(),
     hasICU: z.boolean(),
+    site: encounterSiteSchema.optional(),
   })
   .strict();
 
@@ -372,6 +383,37 @@ const ConversationExpectationsSchema = z
 
 export type ConversationExpectations = z.infer<typeof ConversationExpectationsSchema>;
 
+export const TRANSFER_PRIORITIES = [
+  /** Pedir a vaga agora, junto da estabilização, sem esperar exame: o tratamento que falta é tempo-dependente. */
+  'immediate',
+  /** Nas próximas horas, depois de estabilizar ou de um dado que o próprio serviço obtém. */
+  'urgent',
+  /** Sem pressa: internação ou avaliação programada. */
+  'elective',
+] as const;
+
+export type TransferPriority = (typeof TRANSFER_PRIORITIES)[number];
+
+/**
+ * CC-603 — quando falta no serviço o recurso que o caso pede (TC, UTI,
+ * hemodinâmica, especialista), o plano precisa dizer para onde e como o
+ * paciente vai, com que prioridade, e o que fazer no local até a
+ * transferência. Os três contam juntos: destino sem prioridade, ou sem
+ * conduta até a vaga sair, deixa o médico de UPA travado do mesmo jeito.
+ */
+const ExpectedDestinationSchema = z
+  .object({
+    /** Para onde e como: o tipo de serviço, o recurso que ele precisa ter e o meio (regulação, SAMU). */
+    text: nonEmptyText,
+    tier: z.enum(ITEM_TIERS),
+    priority: z.enum(TRANSFER_PRIORITIES),
+    /** O que fazer no local até a transferência, em substância. */
+    untilTransfer: z.array(nonEmptyText).min(1),
+  })
+  .strict();
+
+export type ExpectedDestination = z.infer<typeof ExpectedDestinationSchema>;
+
 const CaseExpectationsSchema = z
   .object({
     /** Síndrome de PS em que o caso deve ser enquadrado. */
@@ -388,6 +430,8 @@ const CaseExpectationsSchema = z
     questions: z.array(nonEmptyText),
     /** Sempre crítica: sair como conduta para agora reprova o portão. */
     forbiddenDefinitiveActions: z.array(ForbiddenActionSchema),
+    /** CC-603 — destino, prioridade e conduta até a transferência (recurso ausente). */
+    destination: ExpectedDestinationSchema.optional(),
     /**
      * Itens do gabarito oficial que não são papel do Copiloto (apresentar-se,
      * explicar o diagnóstico à família, orientar prevenção). Ficam para

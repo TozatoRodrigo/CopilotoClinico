@@ -41,6 +41,8 @@ import { recommendationText, validateOutputV2 } from '../guardrails/output-valid
 import { validateOutputV3 } from '../guardrails/output-validator-v3';
 import { findDoseMentions } from '../guardrails/dose-detector';
 import type { AnalyzeInput, RespondInput } from '../schemas/copilot.schemas';
+import { readStoredEncounterContext } from '../../encounters/schemas/encounter-context.schema';
+import { declaredSiteContext, missingResources } from './site-context-prompt';
 import { calculateInferenceCost } from './model-pricing';
 import {
   COPILOT_OUTPUT_JSON_SCHEMA,
@@ -759,6 +761,8 @@ interface PreparedAnalysis {
   prompt: BuiltPrompt;
   params: InheritableParams;
   unreviewedSourcesPreliminary: boolean;
+  /** CC-603 — o bloco do local de plantão e a regra de transferência entraram no prompt. */
+  siteContext: boolean;
   turn: AnalysisTurn;
   /**
    * Sufixo dos logs: '' (analyze), ' (stream)', ' (conversa)', ' (conversa
@@ -925,6 +929,28 @@ export class OrchestratorService {
   }
 
   /**
+   * CC-602/CC-603 — `COPILOT_SITE_CONTEXT` (padrão desligado): com local de
+   * plantão declarado no caso, a decisão recebe o que o serviço tem e não tem
+   * e a regra de transferência. Desligado, ou sem local, o prompt de sempre.
+   * O log diz o porte e o que falta; nada do caso.
+   */
+  private siteContextFor(context: EncounterContext, logLabel: string): boolean {
+    const declared = declaredSiteContext(
+      context,
+      readBooleanFlag(this.config, 'COPILOT_SITE_CONTEXT', false),
+    );
+    if (!declared) return false;
+    const missing = missingResources(declared);
+    this.logger.log(
+      `SITE_CONTEXT${logLabel} facilityType=${declared.site.facilityType} ` +
+        `missing=${missing.length > 0 ? missing.join(',') : 'none'} ` +
+        `specialists=${declared.site.specialists.length} ` +
+        `referenceMinutes=${declared.site.referenceTravelMinutes ?? 'unknown'}`,
+    );
+    return true;
+  }
+
+  /**
    * F1 — flags do turno (raciocínio, prompt da decisão, fonte de
    * conhecimento), lidas uma vez por turno e sem redeploy para voltar.
    */
@@ -1049,6 +1075,7 @@ export class OrchestratorService {
       redFlags: Record<string, boolean>;
       locale: string | undefined;
       unreviewedSourcesPreliminary: boolean;
+      siteContext: boolean;
       stage: UnderstandingOutcome | null;
       finalTurn: boolean;
     },
@@ -1073,6 +1100,7 @@ export class OrchestratorService {
         physicianAttachments: input.attachments,
         webEvidence: input.evidence.research?.evidence ?? [],
         additionalInstructions,
+        siteContext: input.siteContext,
       };
       // CC-601 — a v3 ou a v4 pedindo a linha de "por quê"; sem a flag, o de sempre.
       if (pipeline.whyLine && supportsWhyLine(pipeline.decisionPrompt)) {
@@ -1093,6 +1121,7 @@ export class OrchestratorService {
       additionalInstructions,
       unreviewedSourcesPreliminary: input.unreviewedSourcesPreliminary,
       understanding,
+      siteContext: input.siteContext,
     });
   }
 
@@ -1483,21 +1512,19 @@ export class OrchestratorService {
     };
     const locale = await this.getPhysicianLocale(physicianId);
     const unreviewedSourcesPreliminary = this.unreviewedSourcesPreliminary();
+    const siteContext = this.siteContextFor(input.context, logLabel);
 
     const prompt = this.buildDecisionPrompt(pipeline, {
       caseText,
       evidence,
       attachments,
-      context: {
-        hasCT: input.context.hasCT,
-        isSus: input.context.isSus,
-        hasLab: input.context.hasLab,
-        hasICU: input.context.hasICU,
-      },
+      // CC-602 — com o local de plantão, quando o médico escolheu um.
+      context: input.context,
       // S20-CLIN-01 — injeta red flags explícitas do médico no prompt.
       redFlags: params.redFlags,
       locale,
       unreviewedSourcesPreliminary,
+      siteContext,
       stage,
       finalTurn: false,
     });
@@ -1515,6 +1542,7 @@ export class OrchestratorService {
       prompt,
       params,
       unreviewedSourcesPreliminary,
+      siteContext,
       turn: { kind: 'initial', answeredQuestions: screened.answeredQuestions },
       logLabel,
       stage,
@@ -1618,12 +1646,7 @@ export class OrchestratorService {
       // CC-03 — último turno permitido: ver FINAL_TURN_INSTRUCTIONS.
       finalTurn: newTurnIndex === maxTurns - 1,
       institutionId: encounter.institutionId,
-      context: (encounter.context as unknown as EncounterContext | null) ?? {
-        hasCT: false,
-        isSus: false,
-        hasLab: false,
-        hasICU: false,
-      },
+      context: readStoredEncounterContext(encounter.context),
       baseCaseText,
       augmentedCaseText,
       piiDetected,
@@ -1657,6 +1680,7 @@ export class OrchestratorService {
 
     const locale = await this.getPhysicianLocale(physicianId);
     const unreviewedSourcesPreliminary = this.unreviewedSourcesPreliminary();
+    const siteContext = this.siteContextFor(screened.context, logLabel);
 
     // CC-03 — no turno final, clarifyingQuestions É obrigatoriamente vazio
     // (não há próximo turno para respondê-las), então "recommendations" NUNCA
@@ -1671,6 +1695,7 @@ export class OrchestratorService {
       redFlags: screened.params.redFlags,
       locale,
       unreviewedSourcesPreliminary,
+      siteContext,
       stage,
       finalTurn: screened.finalTurn,
     });
@@ -1690,6 +1715,7 @@ export class OrchestratorService {
       // para que o PRÓXIMO turno continue herdando a cadeia de red flags.
       params: screened.params,
       unreviewedSourcesPreliminary,
+      siteContext,
       turn: screened.turn,
       logLabel,
       stage,
@@ -1972,6 +1998,8 @@ export class OrchestratorService {
         ...(prepared.pipeline.whyLine ? { whyLine: true } : {}),
         decisionRoute: prepared.decisionModel.route,
         ...(prepared.research ? { research: researchTrace(prepared.research) } : {}),
+        // CC-603 — a análise viu o local de plantão e a regra de transferência.
+        ...(prepared.siteContext ? { siteContext: true } : {}),
       },
       latencyMs: Date.now() - prepared.startedAt,
       cost: analysisCost(prepared, attempt),

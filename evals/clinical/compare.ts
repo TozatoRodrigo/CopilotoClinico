@@ -111,6 +111,7 @@ const CRITERIA: Array<[keyof RunSummary['criteria'], string]> = [
   ['questions', 'Dados ausentes pedidos (itens)'],
   ['noForbiddenAction', 'Sem conduta proibida'],
   ['safeNextStep', 'Próximo passo seguro'],
+  ['destination', 'Destino com prioridade e conduta até a transferência'],
 ];
 
 /** CC-106 — a conversa antes do plano (Copiloto guiado), lado a lado. */

@@ -20,6 +20,7 @@ import {
 } from '../../../shared/contracts/clinical';
 import { rejectInjection, screenClinicalText } from '../guardrails/clinical-text-screening';
 import type { AnalyzeInput } from '../schemas/copilot.schemas';
+import { readStoredEncounterContext } from '../../encounters/schemas/encounter-context.schema';
 import type { AnsweredQuestion, ScreenedAnalysisInput } from '../orchestrator/orchestrator.service';
 import { UnderstandingService } from '../understanding/understanding.service';
 import { intakeAnswerText } from './intake-answer-text';
@@ -417,7 +418,8 @@ export class IntakeService {
           turnIndex: BEFORE_FIRST_PLAN_TURN,
         }),
       ),
-      context: this.readContext(intake.context),
+      // CC-602 — o local de plantão escolhido na captura segue para o plano.
+      context: readStoredEncounterContext(intake.context),
       redFlags: this.readRedFlags(intake.redFlags),
       demoCase: intake.demoCase ?? undefined,
       piiDetected: intake.piiDetected,
@@ -524,17 +526,6 @@ export class IntakeService {
     const intake = await this.prisma.caseIntake.findFirst({ where: { id: intakeId, encounterId } });
     if (!intake) throw new NotFoundException('Conversa não encontrada');
     return { intake, patientRef: encounter.patientRef };
-  }
-
-  private readContext(value: Prisma.JsonValue): AnalyzeInput['context'] {
-    const record: Prisma.JsonObject =
-      value && typeof value === 'object' && !Array.isArray(value) ? value : {};
-    return {
-      hasCT: record.hasCT === true,
-      isSus: record.isSus === true,
-      hasLab: record.hasLab === true,
-      hasICU: record.hasICU === true,
-    };
   }
 
   private readRedFlags(value: Prisma.JsonValue): Record<string, boolean> {

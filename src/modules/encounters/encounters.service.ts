@@ -69,6 +69,9 @@ export class EncountersService {
           // S25-QC-01 — rastreável na trilha de auditoria sem expor o valor
           // do identificador (que já é opaco por LGPD-001, mas mesmo assim).
           identified: encounter.patientRef !== null,
+          // CC-602 — métrica "% de casos com contexto preenchido": o caso
+          // nasceu com o local de plantão (perfil salvo ou escolhido).
+          siteDeclared: input.context.site !== undefined,
         },
       })
       .catch(() => undefined);

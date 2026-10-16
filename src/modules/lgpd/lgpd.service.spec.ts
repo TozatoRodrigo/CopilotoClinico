@@ -62,6 +62,10 @@ describe('LgpdService', () => {
       deleteMany: ReturnType<typeof vi.fn>;
     };
     caseIntake: { findMany: ReturnType<typeof vi.fn> };
+    practiceSite: {
+      findMany: ReturnType<typeof vi.fn>;
+      deleteMany: ReturnType<typeof vi.fn>;
+    };
     $transaction: ReturnType<typeof vi.fn>;
   };
   let auditService: {
@@ -123,6 +127,10 @@ describe('LgpdService', () => {
         deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
       caseIntake: { findMany: vi.fn().mockResolvedValue([]) },
+      practiceSite: {
+        findMany: vi.fn().mockResolvedValue([]),
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
       $transaction: vi.fn(),
     };
     auditService = {
@@ -493,7 +501,19 @@ describe('LgpdService', () => {
         },
       ];
 
+      const practiceSites = [
+        {
+          id: 'site-1',
+          physicianId,
+          name: 'UPA Centro',
+          facilityType: 'upa_porte_1',
+          hasCT: false,
+          isDefault: true,
+        },
+      ];
+
       prisma.physician.findUnique.mockResolvedValue(physician);
+      prisma.practiceSite.findMany.mockResolvedValue(practiceSites);
       prisma.recommendationDecision.findMany.mockResolvedValue(recommendationDecisions);
       prisma.copilotFeedback.findMany.mockResolvedValue(copilotFeedback);
       prisma.audioCapture.findMany.mockResolvedValue(audioCaptures);
@@ -524,10 +544,13 @@ describe('LgpdService', () => {
           recommendationDecisions,
           copilotFeedback,
           audioCaptures,
+          practiceSites,
           consents,
           auditLog,
         },
       });
+      // CC-602 — os locais de plantão são dado do médico.
+      expect(prisma.practiceSite.findMany).toHaveBeenCalledWith({ where: { physicianId } });
       expect(prisma.caseIntake.findMany).toHaveBeenCalledWith({ where: { physicianId } });
       expect(prisma.copilotFeedback.findMany).toHaveBeenCalledWith({ where: { physicianId } });
       // F0-D — decisões por recomendação são dado do médico: entram na portabilidade.
@@ -683,6 +706,7 @@ describe('LgpdService', () => {
       prisma.encounterAttachment.deleteMany.mockResolvedValue({ count: 0 });
       prisma.audioCapture.deleteMany.mockResolvedValue({ count: 0 });
       prisma.encounter.deleteMany.mockResolvedValue({ count: 2 });
+      prisma.practiceSite.deleteMany.mockResolvedValue({ count: 2 });
       prisma.consent.deleteMany.mockResolvedValue({ count: 1 });
       prisma.refreshToken.deleteMany.mockResolvedValue({ count: 1 });
       prisma.physician.update.mockResolvedValue({
@@ -709,6 +733,7 @@ describe('LgpdService', () => {
         encounters: 2,
         encounterAttachments: 0,
         audioCaptures: 0,
+        practiceSites: 2,
         consents: 1,
         refreshTokens: 1,
         storageObjects: 0,
@@ -720,6 +745,7 @@ describe('LgpdService', () => {
       expect(prisma.encounter.deleteMany).toHaveBeenCalledWith({
         where: { physicianId },
       });
+      expect(prisma.practiceSite.deleteMany).toHaveBeenCalledWith({ where: { physicianId } });
       expect(prisma.consent.deleteMany).toHaveBeenCalledWith({
         where: { physicianId },
       });

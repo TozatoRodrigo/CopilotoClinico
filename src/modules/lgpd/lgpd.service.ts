@@ -24,6 +24,7 @@ import type {
   AuditLog,
   RecommendationDecision,
   CopilotFeedback,
+  PracticeSite,
 } from '@prisma/client';
 
 /**
@@ -77,6 +78,8 @@ export interface PhysicianDataExport {
     copilotFeedback: CopilotFeedback[];
     /** Capturas de áudio, inclusive as com o áudio já eliminado (`status: deleted`). */
     audioCaptures: ExportedAudioCapture[];
+    /** CC-602 — locais onde o médico dá plantão. */
+    practiceSites: PracticeSite[];
     consents: Consent[];
     auditLog: AuditLog[];
   };
@@ -91,6 +94,8 @@ export interface ErasureResult {
     encounters: number;
     encounterAttachments: number;
     audioCaptures: number;
+    /** CC-602 — locais de plantão do médico. */
+    practiceSites: number;
     consents: number;
     refreshTokens: number;
     /** PDFs de documentos confirmados apagados do MinIO. */
@@ -298,6 +303,7 @@ export class LgpdService {
       caseIntakes,
       encounterAttachments,
       audioCaptures,
+      practiceSites,
     ] = await Promise.all([
       this.prisma.document.findMany({ where: { physicianId } }),
       this.prisma.consent.findMany({ where: { physicianId } }),
@@ -316,6 +322,7 @@ export class LgpdService {
         where: { physicianId },
         select: EXPORTED_AUDIO_CAPTURE_SELECT,
       }),
+      this.prisma.practiceSite.findMany({ where: { physicianId } }),
     ]);
 
     return {
@@ -335,6 +342,7 @@ export class LgpdService {
         recommendationDecisions,
         copilotFeedback,
         audioCaptures,
+        practiceSites,
         consents,
         auditLog,
       },
@@ -374,6 +382,8 @@ export class LgpdService {
         where: { encounter: { physicianId } },
       });
       const encounters = await tx.encounter.deleteMany({ where: { physicianId } });
+      // CC-602 — onde o médico trabalha também é dado dele.
+      const practiceSites = await tx.practiceSite.deleteMany({ where: { physicianId } });
       const consents = await tx.consent.deleteMany({ where: { physicianId } });
       const refreshTokens = await tx.refreshToken.deleteMany({ where: { physicianId } });
 
@@ -395,6 +405,7 @@ export class LgpdService {
         encounters: encounters.count,
         encounterAttachments: encounterAttachments.count,
         audioCaptures: audioCaptures.count,
+        practiceSites: practiceSites.count,
         consents: consents.count,
         refreshTokens: refreshTokens.count,
       };

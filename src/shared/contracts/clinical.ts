@@ -1,3 +1,5 @@
+import type { EncounterSite } from './practice-site';
+
 export const encounterVerticalValues = [
   'trauma',
   'cardiac',
@@ -28,6 +30,12 @@ export interface EncounterContext {
   isSus: boolean;
   hasLab: boolean;
   hasICU: boolean;
+  /**
+   * CC-602 — porte, especialistas e referência do local de plantão escolhido
+   * para o caso. Ausente nos casos sem local declarado: aí um recurso `false`
+   * quer dizer "não marcado", não "o serviço não tem".
+   */
+  site?: EncounterSite;
 }
 
 export type PhysicianRole = 'PHYSICIAN' | 'COMPLIANCE' | 'ADMIN';

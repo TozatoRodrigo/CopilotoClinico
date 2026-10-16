@@ -3,6 +3,7 @@ import {
   copilotFeedbackStatusValues,
   recommendationDecisionValues,
 } from '../../../shared/contracts/clinical';
+import { encounterContextSchema } from '../../encounters/schemas/encounter-context.schema';
 
 /**
  * Teto do relato do caso. Um ditado de 5 minutos dá uns 5 mil caracteres; o
@@ -16,14 +17,8 @@ export const analyzeSchema = z.object({
     .string()
     .min(10, 'Case text must be at least 10 characters')
     .max(MAX_CASE_TEXT_CHARS, `Case text must be at most ${MAX_CASE_TEXT_CHARS} characters`),
-  context: z
-    .object({
-      hasCT: z.boolean().default(false),
-      isSus: z.boolean().default(false),
-      hasLab: z.boolean().default(false),
-      hasICU: z.boolean().default(false),
-    })
-    .default({}),
+  // CC-602 — com o local de plantão quando o médico escolheu um.
+  context: encounterContextSchema.default({}),
   // S20-CLIN-01 — red flags explícitas marcadas pelo médico na captura.
   // .optional() sem .default() — o tipo fica Record<string, boolean> | undefined,
   // evitando erros de tipo em todos os mocks de teste. O orchestrator já
