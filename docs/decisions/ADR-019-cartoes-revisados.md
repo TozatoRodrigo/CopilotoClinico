@@ -112,8 +112,8 @@ feedback, verificação de CRM e o pedido de rascunho à IA, que não são deles
   a flag **e** CRM verificado já na entrada — o revisor existe para assinar.
   A flag não abre nada de `admin/knowledge-cards`; o papel de admin não abre a
   fila (quem administra e revisa recebe as duas coisas).
-- O revisor só vê e decide cartões `in_review` globais ou da instituição a que
-  está vinculado (ADR-009): fora do escopo, 404; já decidido, 409.
+- O revisor só vê e decide cartões `in_review` globais ou da instituição com
+  que tem vínculo ativo (ADR-009, CC-019): fora do escopo, 404; já decidido, 409.
 - As decisões são as mesmas do console (`KnowledgeCardsService`): versão
   vista, CRM para aprovar, trilha `CARD_*`. Na fila, `reviewDurationMs` é
   obrigatório; a tela conta só o tempo com a página visível.

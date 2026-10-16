@@ -1111,7 +1111,7 @@ SELECT email, role, crm_verified, is_card_reviewer FROM physicians WHERE is_card
 
 | Endpoint (papel de revisor) | O que faz |
 |---|---|
-| `GET /v1/review/knowledge-cards/next?skip=<id>,<id>` | Próximo cartão `in_review` (o que espera há mais tempo), só globais e da instituição do revisor, com o texto das fontes e os trechos citados; `skip` = pulados na sessão |
+| `GET /v1/review/knowledge-cards/next?skip=<id>,<id>` | Próximo cartão `in_review` (o que espera há mais tempo), só globais e das instituições com que o revisor tem vínculo ativo (CC-019), com o texto das fontes e os trechos citados; `skip` = pulados na sessão |
 | `POST /v1/review/knowledge-cards/:id/versions` | Corrigir (mesma checagem de citação; 422 com os problemas por campo) |
 | `POST /v1/review/knowledge-cards/:id/approve` | Aprovar; `reviewDurationMs` obrigatório |
 | `POST /v1/review/knowledge-cards/:id/reject` | Descartar com `reason`; `reviewDurationMs` obrigatório |
