@@ -150,7 +150,7 @@ describe('CopilotController — respond/stream', () => {
   }
 
   describe('corpo', () => {
-    it('accepts the same body as POST /respond, with no size ceiling', () => {
+    it('accepts the same body as POST /respond, with long answers up to the case text ceiling', () => {
       const long = { interactionId, answers: [{ questionId: 'q1', answer: 'a'.repeat(20_000) }] };
 
       expect(bodyPipe().transform(body, { type: 'body' })).toEqual(body);

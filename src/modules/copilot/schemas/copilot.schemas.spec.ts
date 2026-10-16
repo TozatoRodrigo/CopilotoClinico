@@ -8,7 +8,7 @@
  * Referência: https://app.clickup.com/t/86aj45q3z
  */
 import { describe, it, expect } from 'vitest';
-import { analyzeSchema } from './copilot.schemas';
+import { analyzeSchema, MAX_CASE_TEXT_CHARS, respondSchema } from './copilot.schemas';
 
 const validBase = {
   caseText: 'Paciente com síndrome gripal há 3 dias.',
@@ -110,5 +110,27 @@ describe('S20-CLIN-01 — analyzeSchema.redFlags', () => {
       });
       expect(result.data.demoCase).toBe('flu-norte');
     }
+  });
+});
+
+describe('tetos de tamanho do texto livre', () => {
+  it('rejects a case text above MAX_CASE_TEXT_CHARS and accepts one at the limit', () => {
+    const context = { hasCT: false, isSus: false, hasLab: false, hasICU: false };
+    expect(
+      analyzeSchema.safeParse({ caseText: 'a'.repeat(MAX_CASE_TEXT_CHARS), context }).success,
+    ).toBe(true);
+    expect(
+      analyzeSchema.safeParse({ caseText: 'a'.repeat(MAX_CASE_TEXT_CHARS + 1), context }).success,
+    ).toBe(false);
+  });
+
+  it('rejects an answer above the case text ceiling', () => {
+    const answer = (text: string) =>
+      respondSchema.safeParse({
+        interactionId: '11111111-1111-4111-8111-111111111111',
+        answers: [{ questionId: 'q1', answer: text }],
+      }).success;
+    expect(answer('a'.repeat(MAX_CASE_TEXT_CHARS))).toBe(true);
+    expect(answer('a'.repeat(MAX_CASE_TEXT_CHARS + 1))).toBe(false);
   });
 });
