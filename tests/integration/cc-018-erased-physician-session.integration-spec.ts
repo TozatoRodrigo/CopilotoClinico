@@ -19,6 +19,7 @@ import { UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { connectTestDb, disconnectTestDb, clearAuditLog } from './helpers/db';
 import { AuditService } from '../../src/modules/audit/audit.service';
+import { AccountLockoutService } from '../../src/modules/auth/account-lockout.service';
 import { AuthService } from '../../src/modules/auth/auth.service';
 import { PhysicianErasureCheck } from '../../src/modules/auth/physician-erasure-check.service';
 import { JwtStrategy } from '../../src/modules/auth/strategies/jwt.strategy';
@@ -79,6 +80,7 @@ describe('CC-018 — eliminação LGPD encerra a sessão (integration)', () => {
       jwt,
       config,
       audit,
+      new AccountLockoutService(prisma as unknown as PrismaService, config),
       // O login com MFA só chega à busca do cadastro se o código conferir.
       { verifyMfaCode: async () => undefined } as unknown as MfaService,
       {} as CrmVerificationService,
