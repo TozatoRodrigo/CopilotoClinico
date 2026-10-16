@@ -7,7 +7,7 @@ import { CrmVerificationService } from '../physicians/crm-verification.service';
 import { CrmCheckerService } from '../physicians/crm-checker.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { createHmac } from 'crypto';
 
@@ -43,6 +43,7 @@ describe('AuthService', () => {
     physician: {
       findUnique: ReturnType<typeof vi.fn>;
       create: ReturnType<typeof vi.fn>;
+      update: ReturnType<typeof vi.fn>;
     };
     refreshToken: {
       findFirst: ReturnType<typeof vi.fn>;
@@ -66,6 +67,7 @@ describe('AuthService', () => {
       physician: {
         findUnique: vi.fn(),
         create: vi.fn(),
+        update: vi.fn(),
       },
       refreshToken: {
         findFirst: vi.fn(),
@@ -628,6 +630,92 @@ describe('AuthService', () => {
       await expect(authService.verifyMfaLogin(forgedMfaToken, '123456')).rejects.toThrow(
         UnauthorizedException,
       );
+    });
+  });
+
+  // CC-014 — o onboarding manda a especialidade no PATCH /auth/me; antes ela
+  // era descartada sem erro e GET /auth/me nunca a devolvia.
+  describe('profile specialty', () => {
+    it('saves the specialty and answers with the same profile as GET /auth/me', async () => {
+      prisma.physician.update.mockResolvedValue({ id: mockPhysician.id });
+      prisma.physician.findUnique.mockResolvedValue({
+        id: mockPhysician.id,
+        email: mockPhysician.email,
+        crmUf: mockPhysician.crmUf,
+        crmNumber: mockPhysician.crmNumber,
+        name: mockPhysician.name,
+        specialty: 'medicina_de_emergencia',
+        crmVerified: false,
+        role: 'ADMIN',
+        mfaEnabled: true,
+        subscriptionStatus: 'trial',
+        locale: 'pt-BR',
+        createdAt: mockPhysician.createdAt,
+      });
+
+      const updated = await service.updateProfile(mockPhysician.id, {
+        name: 'Dra. Ana',
+        specialty: 'medicina_de_emergencia',
+      });
+
+      expect(prisma.physician.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: mockPhysician.id },
+          data: { name: 'Dra. Ana', locale: undefined, specialty: 'medicina_de_emergencia' },
+        }),
+      );
+      // A aba Perfil troca o médico da sessão por esta resposta: sem `role`,
+      // o administrador virava médico na tela até o próximo login.
+      expect(updated).toMatchObject({ specialty: 'medicina_de_emergencia', role: 'ADMIN' });
+    });
+
+    it('returns the specialty on GET /auth/me', async () => {
+      prisma.physician.findUnique.mockResolvedValue({
+        id: mockPhysician.id,
+        specialty: 'pediatria',
+      });
+
+      const me = await service.getMe(mockPhysician.id);
+
+      expect(prisma.physician.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ select: expect.objectContaining({ specialty: true }) }),
+      );
+      expect(me).toMatchObject({ specialty: 'pediatria' });
+    });
+  });
+
+  // CC-014 — a tela de segurança passou a alcançar a troca de senha (chamava
+  // POST, a rota é PATCH). Senha atual errada não pode ser 401: o web trata
+  // 401 como sessão expirada e manda o médico para o login.
+  describe('changePassword', () => {
+    it('answers a wrong current password with 400, not 401', async () => {
+      prisma.physician.findUnique.mockResolvedValue({
+        id: mockPhysician.id,
+        passwordHash: 'hashed-password',
+      });
+      vi.mocked(bcrypt.compare).mockResolvedValue(false as never);
+
+      const attempt = service.changePassword(mockPhysician.id, 'errada', 'NovaSenha@1');
+
+      await expect(attempt).rejects.toThrow(BadRequestException);
+      await expect(attempt).rejects.not.toThrow(UnauthorizedException);
+      expect(prisma.physician.update).not.toHaveBeenCalled();
+    });
+
+    it('stores the new hash when the current password matches', async () => {
+      prisma.physician.findUnique.mockResolvedValue({
+        id: mockPhysician.id,
+        passwordHash: 'hashed-password',
+      });
+      vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
+      vi.mocked(bcrypt.hash).mockResolvedValue('new-hash' as never);
+
+      await service.changePassword(mockPhysician.id, 'Atual@123', 'NovaSenha@1');
+
+      expect(prisma.physician.update).toHaveBeenCalledWith({
+        where: { id: mockPhysician.id },
+        data: { passwordHash: 'new-hash' },
+      });
     });
   });
 });

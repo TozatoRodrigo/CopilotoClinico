@@ -14,7 +14,12 @@ import { createHash, createHmac } from 'crypto';
 import { PrismaService } from '../../config/prisma.service';
 import { AccountLockoutService, accountRateLimitedLog } from './account-lockout.service';
 import { AuditService } from '../audit/audit.service';
-import { RegisterInput, LoginInput, RefreshInput } from './schemas/auth.schemas';
+import {
+  RegisterInput,
+  LoginInput,
+  RefreshInput,
+  UpdateProfileInput,
+} from './schemas/auth.schemas';
 import { MfaService } from './mfa.service';
 import { CrmVerificationService } from '../physicians/crm-verification.service';
 import { CrmCheckerService } from '../physicians/crm-checker.service';
@@ -405,6 +410,7 @@ export class AuthService {
         crmUf: true,
         crmNumber: true,
         name: true,
+        specialty: true,
         crmVerified: true,
         role: true,
         mfaEnabled: true,
@@ -521,7 +527,9 @@ export class AuthService {
     // conta. A reserva conta a tentativa; só o acerto zera o contador.
     await this.lockout.reserveAttempt('password_change', physicianId);
     const valid = await bcrypt.compare(currentPassword, physician.passwordHash);
-    if (!valid) throw new UnauthorizedException('Current password is incorrect');
+    // CC-014 — 400, não 401: o web trata todo 401 como sessão expirada e leva
+    // ao login, então errar a senha atual tirava o médico da tela.
+    if (!valid) throw new BadRequestException('Senha atual incorreta');
 
     await this.lockout.clear('password_change', physicianId);
     const newHash = await bcrypt.hash(newPassword, 12);
@@ -585,19 +593,16 @@ export class AuthService {
     await this.auditService.log(params).catch(() => undefined);
   }
 
-  async updateProfile(physicianId: string, data: { name?: string; locale?: string }) {
-    const physician = await this.prisma.physician.update({
+  /**
+   * Devolve o mesmo perfil de GET /auth/me. O web troca o médico da sessão
+   * por esta resposta (aba Perfil): um recorte sem `role` rebaixava o
+   * administrador na tela até o próximo login.
+   */
+  async updateProfile(physicianId: string, data: UpdateProfileInput) {
+    await this.prisma.physician.update({
       where: { id: physicianId },
-      data: { name: data.name, locale: data.locale },
-      select: {
-        id: true,
-        email: true,
-        crmUf: true,
-        crmNumber: true,
-        name: true,
-        crmVerified: true,
-        locale: true,
-      },
+      data: { name: data.name, locale: data.locale, specialty: data.specialty },
+      select: { id: true },
     });
 
     await this.auditSilently({
@@ -608,6 +613,6 @@ export class AuthService {
       payload: { fields: Object.keys(data) },
     });
 
-    return physician;
+    return this.getMe(physicianId);
   }
 }

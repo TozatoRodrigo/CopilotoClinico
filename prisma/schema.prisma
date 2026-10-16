@@ -133,6 +133,9 @@ model Physician {
   // e o refresh recusam sessão de quem tem esta data: o access token é
   // stateless e, sem isso, seguia valendo até expirar (15 min).
   erasedAt  DateTime? @map("erased_at")
+  // CC-014 — slug de physicianSpecialtyValues (src/shared/contracts/clinical.ts),
+  // validado na aplicação pelo mesmo motivo do locale. Nulo até o médico escolher.
+  specialty String?   @db.VarChar(64)
 
   encounters              Encounter[]
   documents               Document[]

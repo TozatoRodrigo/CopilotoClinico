@@ -732,6 +732,7 @@ describe('LgpdService', () => {
           name: 'ERASED',
           email: `erased-${physicianId}@erased.com`,
           passwordHash: `erased:${physicianId}`,
+          specialty: null,
           erasedAt: expect.any(Date),
         },
       });
