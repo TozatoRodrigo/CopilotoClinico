@@ -17,6 +17,11 @@ import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import { createProtocolSchema, type CreateProtocolInput } from './schemas/protocol.schemas';
 
+/**
+ * Ler e rodar protocolo é de todo médico (com o filtro de instituição do
+ * CC-019). Criar, publicar e revisar exige curador ou ADMIN (CC-020),
+ * conferido em `ProtocolsService` para valer em qualquer chamador.
+ */
 @Controller('protocols')
 @UseGuards(JwtAuthGuard)
 export class ProtocolsController {

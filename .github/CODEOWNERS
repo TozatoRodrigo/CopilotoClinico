@@ -1,0 +1,21 @@
+# Donos do código: quem é chamado para revisar cada caminho.
+# Vale a última regra que casa com o arquivo; por isso as linhas clínicas
+# repetem @TozatoRodrigo.
+#
+# O GitHub só aplica este arquivo em repositório privado nos planos pagos. No
+# plano gratuito, ele documenta quem revisa e a revisão é pedida à mão (ver
+# CONTRIBUTING.md, "Quem revisa o quê").
+
+*  @TozatoRodrigo
+
+# Conteúdo clínico: também revisado por um médico. Descomente quando o usuário
+# do GitHub do Luiz estiver definido; ele precisa de permissão de escrita.
+# /evals/clinical/                                            @TozatoRodrigo @<usuario-do-luiz>
+# /docs/guidelines/                                           @TozatoRodrigo @<usuario-do-luiz>
+# /docs/guidelines-catalog.md                                 @TozatoRodrigo @<usuario-do-luiz>
+# /src/shared/clinical-tools/                                 @TozatoRodrigo @<usuario-do-luiz>
+# /src/modules/knowledge-cards/                               @TozatoRodrigo @<usuario-do-luiz>
+# /src/modules/protocols/                                     @TozatoRodrigo @<usuario-do-luiz>
+# /src/modules/guidelines/                                    @TozatoRodrigo @<usuario-do-luiz>
+# /prisma/seeds/data/                                         @TozatoRodrigo @<usuario-do-luiz>
+# /src/modules/copilot/guardrails/protected-clinical-terms.list.ts  @TozatoRodrigo @<usuario-do-luiz>

@@ -1,10 +1,9 @@
 # Arquitetura — Copiloto Clínico
 
 **Versão:** R1  
-**Data:** 2026-10-14  
-**Conferido contra:** `codex/production-readiness` (fa829a46), com o que os PRs
-#142, #143, #146, #147, #148, #149, #168, #170, #181, #187 e #196 mudaram. O que
-está só em PR aberto aparece marcado como **em PR aberto (#N)**.
+**Data:** 2026-10-16  
+**Conferido contra:** `main` em 16/10/2026. O que está só em PR aberto aparece
+marcado como **em PR aberto (#N)**.
 
 O Copiloto recebe o caso clínico do plantonista, redige dado pessoal, entende o
 caso, busca evidência e devolve um plano com conduta, perguntas e fontes. O
@@ -88,19 +87,26 @@ Módulos em `src/modules/`, registrados em `src/app.module.ts`. Guards: `JwtAuth
 
 | Módulo          | Responsabilidade                                                                                                            | Endpoints principais (prefixo `/v1`)                                                                                                                                                                         | Entidades                                                                       |
 | --------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
-| `auth`          | Cadastro, login, refresh, sessões, MFA (TOTP + códigos de backup), bloqueio por tentativas                                  | `/auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/me`, `/auth/me/sessions`, `/auth/mfa/*`, `/auth/admin/users/*/mfa-reset`                                                            | Physician, RefreshToken, MfaBackupCode, LoginSecurityState                      |
+| `auth`          | Cadastro, login, refresh, sessões, MFA (TOTP + códigos de backup), bloqueio por tentativas, login com Google ou Microsoft (CC-334) | `/auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/me`, `/auth/me/sessions`, `/auth/mfa/*`, `/auth/admin/users/*/mfa-reset`, `/auth/oauth/*` | Physician, RefreshToken, MfaBackupCode, LoginSecurityState, ExternalIdentity |
+| `beta`          | Beta por convite: convite, lista de espera, termo e perfil do beta, ativação (CC-702)                                       | `/beta/registration`, `/beta/waitlist`, `/beta/me`, `/beta/me/terms`, `/beta/me/profile`, `/admin/beta/{invites,waitlist,activation}` | BetaInvite, BetaParticipant, BetaWaitlistEntry |
+| `legal`         | Termos de Uso e Política de Privacidade versionados, aceite no próximo acesso (CC-905)                                      | `/legal/status`, `/legal/acceptances`, `/admin/legal/documents`                                                              | LegalDocument, LegalAcceptance |
+| `practice-sites`| Locais de plantão do médico, levados à decisão com `COPILOT_SITE_CONTEXT` (CC-602)                                        | `/physicians/me/practice-sites`                                                                                              | PracticeSite |
 | `physicians`    | Verificação de CRM (pedido do médico, fila do admin, checagem automática opcional por `CRM_VERIFICATION_URL`)               | `/physicians/me/crm-verification`, `/admin/crm-verifications`                                                                                                                                                | CrmVerificationRequest                                                          |
 | `institutions`  | Instituições e vínculo médico↔instituição (ADR-009)                                                                         | `GET /institutions/mine`; criação e vínculo só com token interno                                                                                                                                             | Institution, PhysicianInstitution                                               |
 | `encounters`    | Atendimentos (com ou sem `patientRef`), anexos de referência por atendimento                                                | `/encounters`, `/encounters/stats`, `/encounters/:id`, `/encounters/:id/attachments`                                                                                                                         | Encounter, EncounterAttachment                                                  |
-| `copilot`       | Análise clínica: copiloto guiado, etapas, decisão, decisões por recomendação, feedback, motor de protocolo                  | ver "Fluxo principal"; `/encounters/:id/copilot/decisions`, `/encounters/:id/copilot/feedback`, `/admin/copilot-feedback`, `/encounters/:id/protocol-runs`, `/protocol-runs/:runId/*`                        | CaseIntake, AiInteraction, RecommendationDecision, CopilotFeedback, ProtocolRun |
+| `copilot`       | Análise clínica: copiloto guiado, etapas, decisão, decisões por recomendação, feedback, "não encontrei", motor de protocolo | ver "Fluxo principal"; `/encounters/:id/copilot/decisions`, `/encounters/:id/copilot/feedback`, `/encounters/:id/copilot/knowledge-gaps`, `/admin/copilot-feedback`, `/encounters/:id/protocol-runs`, `/protocol-runs/:runId/*` | CaseIntake, AiInteraction, RecommendationDecision, CopilotFeedback, KnowledgeGap, ProtocolRun |
+| `mentoring`     | "Discutir com um médico da equipe": caso mascarado vai aos mentores (CC-707), atrás de `COPILOT_MENTORING`               | `/encounters/:id/mentoring`, `/mentoring/queue`, `/mentoring/requests/:id/*`, `/mentoring/{config,notifications}`, `/admin/mentoring`       | MentoringRequest |
+| `shift-review`  | "Revise seu plantão": perguntas sobre os próprios casos com grau de certeza (CC-801), atrás de `COPILOT_SHIFT_REVIEW`      | `/shift-review/current`, `/shift-review/questions/:questionId/answer`                                                        | ShiftReview, ShiftReviewQuestion |
 | `ai-gateway`    | Um ponto de saída para os modelos: perfis de provedor, saída estruturada, fallback de recusa, embeddings, rastro `ai_calls` | —                                                                                                                                                                                                            | AiCall                                                                          |
 | `guidelines`    | Base de conhecimento: busca, consulta dentro do caso, sugestão do médico, ingestão e curadoria, base oficial da Conitec     | `/guidelines`, `/guidelines/search`, `/guidelines/consult`, `/guidelines/suggest`, `/guidelines/extract-text`, `/guidelines/pending`, `/guidelines/chunks/:id/{approve,reject}`, `/guidelines/ingest-review` | GuidelineChunk, OfficialGuidelineDocument                                       |
+| `knowledge-cards` | Cartões revisados: rascunho por IA com citação literal, versões, revisão e aprovação (ADR-019)                           | `/admin/knowledge-cards`, `/admin/knowledge-cards/drafts`, `/admin/knowledge-cards/:id/{versions,submit,approve,reject,archive}` | KnowledgeCardDraft, KnowledgeCard, KnowledgeCardVersion |
 | `protocols`     | Protocolos versionados em árvore de decisão (ADR-007)                                                                       | `/protocols`, `/protocols/:id`, `/protocols/:id/{publish,revise}`                                                                                                                                            | Protocol, ProtocolNode, ProtocolEdge                                            |
 | `documents`     | Geração, edição, confirmação e PDF de documentos clínicos                                                                   | `/encounters/:id/documents`, `/encounters/:id/documents/:docId`, `.../confirm`, `.../download`                                                                                                               | Document                                                                        |
 | `audio`         | Ditado (transcrição direta, sem gravar áudio) e captura de áudio cifrada                                                    | `POST /audio/transcribe`, `POST /encounters/:id/audio`                                                                                                                                                       | AudioCapture                                                                    |
 | `queue`         | Fila `inference` (BullMQ): análise assíncrona e pós-transcrição                                                             | `POST /encounters/:id/copilot/analyze/async`, `GET /encounters/:id/copilot/jobs/:jobId`                                                                                                                      | —                                                                               |
 | `audit`         | Trilha append-only, consulta, exportação CSV, verificação da cadeia                                                         | `GET /audit`, `GET /audit/export` (COMPLIANCE/ADMIN), `POST /audit/verify-chain` (interno)                                                                                                                   | AuditLog                                                                        |
 | `lgpd`          | Consentimento, exportação e eliminação dos dados do médico                                                                  | `/lgpd/consent`, `/lgpd/export`, `/lgpd/erasure`                                                                                                                                                             | Consent                                                                         |
+| `mail`          | E-mail transacional por SMTP (CC-015); sem `SMTP_HOST`, cada envio vira só uma linha de log                                | `POST /admin/mail/test`                                                                                                      | — |
 | `analytics`     | Estatísticas, funil de produto (F5) e custo de IA por médico                                                                | `/analytics/stats`, `/analytics/funnel`, `/analytics/cost` (ADMIN/COMPLIANCE)                                                                                                                                | —                                                                               |
 | `observability` | Métricas de inferência e checagem de saúde do banco                                                                         | `GET /admin/metrics/inference`, `POST /admin/backup-health/check` (internos)                                                                                                                                 | —                                                                               |
 | `storage`       | Object storage S3/MinIO para PDFs; desligado sem `MINIO_*`                                                                  | —                                                                                                                                                                                                            | —                                                                               |
@@ -130,6 +136,10 @@ Detalhes e logs em `docs/runbook.md`, seção "Variáveis de Ambiente Críticas"
 | `COPILOT_DECISION_PROMPT`                          | `v1`                  | `v2`, `v3`, `v4`: decisão em duas camadas; exigem `stages`                       |
 | `COPILOT_KNOWLEDGE_SOURCE`                         | `internal_kb`         | `model_only`, `web` (pesquisa antes da decisão) ou `verify` (verificação depois) |
 | `AI_DECISION_MODEL` / `AI_DECISION_CRITICAL_MODEL` | vazios (= `AI_MODEL`) | Modelo da decisão por gravidade (ADR-016)                                        |
+| `COPILOT_WHY_LINE`                                 | `off`                 | Linha de "por quê" em cada conduta do "Fazer agora" (CC-601); exige `v3` ou `v4` |
+| `COPILOT_SITE_CONTEXT`                             | `off`                 | Local de plantão e regra de transferência na decisão (CC-602, CC-603)            |
+| `AI_FALLBACK_MODEL`                                | vazio (sem reserva)   | Modelo de reserva quando o provedor da etapa cai (CC-107)                        |
+| `DEID_CONTEXT_RULES`                               | `on`                  | Máscara de prontuário pelo rótulo e de nome após tratamento ou apelido (CC-201)  |
 | `OFFICIAL_GUIDELINES_ENABLED`                      | `true`                | Base oficial do MS no retrieval (ADR-010)                                        |
 | `UNREVIEWED_SOURCES_PRELIMINARY`                   | `true`                | Fonte não revisada sempre preliminar (ADR-012)                                   |
 | `EMBEDDING_PROVIDER`                               | `openai` no compose   | `none` desliga todo embedding: a análise segue sem trechos da base               |
@@ -348,6 +358,8 @@ Tudo roda no processo da API.
 | `AuditChainCronService`                             | 02:00 UTC                                            | Verifica a cadeia inteira (ADR-015)                                                                                                                                                                     |
 | `BackupHealthCronService`                           | 03:00 UTC                                            | Ping e contagem das tabelas críticas. Não faz backup                                                                                                                                                    |
 | `FunnelAbandonmentCronService`                      | de hora em hora                                      | Taxa de abandono do loop de decisão em 24 h; acima de 30%, WARN e alerta no Sentry só com números                                                                                                       |
+| `AiCallAlertsCronService`                           | a cada 5 minutos (UTC)                               | Custo do dia e p95 da decisão contra `AI_DAILY_COST_ALERT_USD` e `AI_P95_ALERT_MS` (CC-005); vazios = sem alerta. Só números |
+| `ShiftReviewCronService`                            | segunda, 10:00 (America/Sao_Paulo)                   | Revisão semanal do plantão (CC-801); não roda com `COPILOT_SHIFT_REVIEW` desligada |
 
 A sincronização da base oficial (`pnpm sync:official-guidelines`) e a ingestão
 em lote (`pnpm ingest:guidelines`) são scripts manuais, sem agenda.
@@ -416,16 +428,23 @@ Physician ──┬── Encounter ──┬── CaseIntake ─ analysis_inte
             │               ├── AiInteraction ◄───────────────────────┘
             │               │     ├── (pai/filho: turnos de reanálise)
             │               │     ├── RecommendationDecision
-            │               │     └── CopilotFeedback
+            │               │     ├── CopilotFeedback
+            │               │     └── KnowledgeGap
             │               ├── Document
             │               ├── EncounterAttachment
             │               ├── AudioCapture
+            │               ├── MentoringRequest (quem pede e o mentor)
             │               └── ProtocolRun ── Protocol ── ProtocolNode ── ProtocolEdge
-            ├── Consent
-            ├── RefreshToken, MfaBackupCode
+            ├── ShiftReview ── ShiftReviewQuestion (aponta o atendimento e a análise)
+            ├── PracticeSite
+            ├── Consent, LegalAcceptance ── LegalDocument
+            ├── RefreshToken, MfaBackupCode, ExternalIdentity
+            ├── BetaParticipant ── BetaInvite
             └── CrmVerificationRequest
 
 OfficialGuidelineDocument ── GuidelineChunk (uma versão por SHA-256 do PDF)
+KnowledgeCard ── KnowledgeCardVersion ── KnowledgeCardDraft (rascunho da IA)
+BetaWaitlistEntry (e-mail de quem ainda não tem conta; sem FK)
 
 Sem FK, de propósito:
   AuditLog            append-only; liga por actor_id/entity_id
@@ -498,17 +517,24 @@ Em `docs/decisions/`.
 | 015              | Hash canônico da trilha de auditoria                       | Aceito                                       |
 | 016              | Modelo da decisão por gravidade                            | Aceito; sem efeito sem `AI_DECISION_*`       |
 | 018              | Selo v2 do `contentHash` dos documentos                    | Aceito                                       |
-| 021              | Texto clínico cifrado em repouso                           | Aceito; atrás de `CLINICAL_TEXT_ENCRYPTION`  |
+| 019              | Cartões revisados                                          | Proposto; base implementada, aguarda revisão clínica |
+| 021              | Texto clínico cifrado em repouso                           | Proposto; atrás de `CLINICAL_TEXT_ENCRYPTION` |
+
+A 017 e a 020 estão em PRs abertos (tabela abaixo). Índice completo, com a
+história das duas ADR-008: `docs/decisions/README.md`.
 
 ---
 
 ## PRs abertos que mudam esta arquitetura
 
-Situação em 14/10/2026. Ao mergear um deles, atualize a seção que o cita.
+Situação em 16/10/2026. Ao mergear um deles, atualize a seção que o cita.
 
 | PR   | Muda                                                                                  |
 | ---- | ------------------------------------------------------------------------------------- |
-| #172 | De-identificação com OpenMed (só no harness `eval:deid`)                              |
+| #180 | Ferramentas de beira-leito (ADR-017): motor de cálculo em `src/shared/clinical-tools`, área no web atrás de `NEXT_PUBLIC_FERRAMENTAS` |
+| #205 | Modelo local de de-identificação no pipeline: regex, OpenMed e epônimos (ADR-020)     |
+| #206 | Protocolo global só criado, publicado e revisado por curador ou ADMIN (emenda a ADR-009) |
+| #207 | Revisão de cartões no celular e revisão cruzada de 10% por um segundo médico          |
 
 ---
 

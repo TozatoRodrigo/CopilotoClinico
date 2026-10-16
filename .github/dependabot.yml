@@ -1,0 +1,74 @@
+# Atualizações de dependência, toda segunda de manhã.
+# Minor e patch vêm num PR só por ecossistema; major vem em PR próprio, para
+# ser lido com calma. O texto depois do prefixo ("Bump x from a to b") é do
+# Dependabot e não se traduz.
+version: 2
+updates:
+  # API (raiz): pnpm-lock.yaml
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: America/Sao_Paulo
+    open-pull-requests-limit: 5
+    labels:
+      - dependências
+      - 'área: api'
+    commit-message:
+      prefix: chore(deps)
+    groups:
+      api-minor-e-patch:
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # A imagem roda Node 22: @types/node acompanha a versão do runtime.
+      - dependency-name: '@types/node'
+        update-types:
+          - version-update:semver-major
+
+  # Web: web/pnpm-lock.yaml, separado do da raiz
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: America/Sao_Paulo
+    open-pull-requests-limit: 5
+    labels:
+      - dependências
+      - 'área: web'
+    commit-message:
+      prefix: chore(deps)
+    groups:
+      web-minor-e-patch:
+        update-types:
+          - minor
+          - patch
+    ignore:
+      - dependency-name: '@types/node'
+        update-types:
+          - version-update:semver-major
+
+  # Actions dos workflows
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: America/Sao_Paulo
+    open-pull-requests-limit: 5
+    labels:
+      - dependências
+      - 'tipo: infra'
+    commit-message:
+      prefix: chore(deps)
+    groups:
+      actions-minor-e-patch:
+        update-types:
+          - minor
+          - patch

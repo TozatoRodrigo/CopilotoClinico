@@ -1,0 +1,44 @@
+name: Funcionalidade
+description: Uma ideia ou pedido de funcionalidade. O backlog oficial fica no ClickUp; a issue serve para discutir antes.
+title: 'funcionalidade: '
+labels: ['tipo: funcionalidade']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Não cole dado de paciente. Use casos inventados nos exemplos.
+  - type: textarea
+    id: problema
+    attributes:
+      label: Problema
+      description: O que o médico tenta fazer hoje e onde trava.
+    validations:
+      required: true
+  - type: textarea
+    id: proposta
+    attributes:
+      label: Proposta
+      description: O que você sugere. Pode ser rascunho.
+    validations:
+      required: true
+  - type: textarea
+    id: quem
+    attributes:
+      label: Para quem
+      description: Plantonista, compliance, admin, curador. Em que momento do plantão.
+  - type: dropdown
+    id: clinico
+    attributes:
+      label: Muda conteúdo clínico?
+      description: Dose, escore, conduta ou texto clínico. Se sim, precisa da revisão de um médico e entra atrás de flag.
+      options:
+        - Não
+        - Sim
+        - Não sei
+    validations:
+      required: true
+  - type: input
+    id: historia
+    attributes:
+      label: História no ClickUp
+      description: CC-xxx, se já existir.

@@ -7,6 +7,7 @@ import {
   AccountLockedException,
   AccountLockoutService,
   lockoutKey,
+  loginLockoutKey,
   readLockoutPolicy,
 } from './account-lockout.service';
 
@@ -215,6 +216,114 @@ describe('CC-025 — AccountLockoutService', () => {
       expect.stringMatching(refusal),
       expect.stringMatching(refusal),
     ]);
+    expect(lines.join('\n')).not.toContain(PHYSICIAN_ID);
+  });
+});
+
+describe('CC-026 — AccountLockoutService: contador do login', () => {
+  const EMAIL = 'doctor@example.com';
+  let warn: MockInstance<Logger['warn']>;
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(T0);
+    warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    warn.mockRestore();
+  });
+
+  async function failLogins(service: AccountLockoutService, count: number, id: string | null) {
+    for (let i = 0; i < count; i += 1) {
+      expect(await service.reserveLoginAttempt(EMAIL, id)).toBe(true);
+    }
+  }
+
+  it('a linha é a de antes do CC-026: sha256 do e-mail normalizado', () => {
+    const before = createHash('sha256').update(EMAIL).digest('hex');
+    expect(loginLockoutKey('  Doctor@Example.COM ')).toBe(before);
+  });
+
+  it('5 tentativas passam; a 6ª devolve false (sem lançar) e bloqueia a conta', async () => {
+    const { service, rows } = build();
+    await failLogins(service, 5, PHYSICIAN_ID);
+
+    expect(await service.reserveLoginAttempt(EMAIL, PHYSICIAN_ID)).toBe(false);
+    expect(rows.get(loginLockoutKey(EMAIL))).toMatchObject({
+      physicianId: PHYSICIAN_ID,
+      failedCount: 5,
+      lockedUntil: new Date(T0.getTime() + 15 * MINUTE),
+    });
+  });
+
+  it('linha nascida de e-mail sem cadastro ganha o id quando ele aparece', async () => {
+    const { service, rows } = build();
+    await failLogins(service, 2, null);
+    expect(rows.get(loginLockoutKey(EMAIL))?.physicianId).toBeNull();
+
+    await failLogins(service, 1, PHYSICIAN_ID);
+    expect(rows.get(loginLockoutKey(EMAIL))).toMatchObject({
+      physicianId: PHYSICIAN_ID,
+      failedCount: 3,
+    });
+  });
+
+  it('linhas gravadas pelo login antigo continuam valendo', async () => {
+    const { service, rows } = build();
+    // Bloqueio em curso, gravado no 5º erro pelo código anterior.
+    rows.set(loginLockoutKey(EMAIL), {
+      identifierHash: loginLockoutKey(EMAIL),
+      physicianId: PHYSICIAN_ID,
+      failedCount: 5,
+      lockedUntil: new Date(T0.getTime() + 10 * MINUTE),
+      lastFailedAt: new Date(T0.getTime() - 5 * MINUTE),
+    });
+    expect(await service.reserveLoginAttempt(EMAIL, PHYSICIAN_ID)).toBe(false);
+
+    // 3 erros dentro da janela: faltam 2.
+    rows.set(loginLockoutKey(EMAIL), {
+      identifierHash: loginLockoutKey(EMAIL),
+      physicianId: PHYSICIAN_ID,
+      failedCount: 3,
+      lockedUntil: null,
+      lastFailedAt: new Date(T0.getTime() - MINUTE),
+    });
+    await failLogins(service, 2, PHYSICIAN_ID);
+    expect(await service.reserveLoginAttempt(EMAIL, PHYSICIAN_ID)).toBe(false);
+  });
+
+  it('login e MFA não se zeram um ao outro', async () => {
+    const { service, rows } = build();
+    await failAttempts(service, 5);
+    await expect(service.reserveAttempt('mfa', PHYSICIAN_ID)).rejects.toThrow();
+    await failLogins(service, 3, PHYSICIAN_ID);
+
+    await service.clearLogin(EMAIL);
+    expect(rows.get(loginLockoutKey(EMAIL))?.failedCount).toBe(0);
+    expect(rows.get(lockoutKey('mfa', PHYSICIAN_ID))?.lockedUntil).not.toBeNull();
+
+    await failLogins(service, 3, PHYSICIAN_ID);
+    await service.clear('mfa', PHYSICIAN_ID);
+    expect(rows.get(loginLockoutKey(EMAIL))?.failedCount).toBe(3);
+  });
+
+  it('loga com scope=login e hash curto, nunca o e-mail; sem cadastro, subject=unknown', async () => {
+    const { service } = build();
+    await failLogins(service, 5, PHYSICIAN_ID);
+    expect(await service.reserveLoginAttempt(EMAIL, PHYSICIAN_ID)).toBe(false);
+    expect(await service.reserveLoginAttempt(EMAIL, null)).toBe(false);
+
+    const lines = warn.mock.calls.map(([message]) => String(message));
+    expect(lines).toEqual([
+      expect.stringMatching(
+        /^AUTH_ACCOUNT_LOCKED scope=login subject=[0-9a-f]{12} durationMs=900000$/,
+      ),
+      expect.stringMatching(/^AUTH_RATE_LIMITED reason=account scope=login subject=[0-9a-f]{12}$/),
+      'AUTH_RATE_LIMITED reason=account scope=login subject=unknown',
+    ]);
+    expect(lines.join('\n')).not.toContain(EMAIL);
     expect(lines.join('\n')).not.toContain(PHYSICIAN_ID);
   });
 });
