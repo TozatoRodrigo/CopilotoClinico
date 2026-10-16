@@ -256,17 +256,10 @@ export class AuthService {
 
     await this.mfaService.verifyMfaCode(physicianId, code, ip);
 
-    await this.auditSilently({
-      actorId: physicianId,
-      action: 'AUTH_LOGIN',
-      entity: 'Physician',
-      entityId: physicianId,
-      payload: { mfa: true },
-      ip,
-    });
-
+    // CC-018 — `erasedAt: null`: o token de MFA pendente (5 min) emitido antes
+    // da eliminação LGPD não vira sessão depois dela.
     const physician = await this.prisma.physician.findUnique({
-      where: { id: physicianId },
+      where: { id: physicianId, erasedAt: null },
       select: {
         id: true,
         email: true,
@@ -280,6 +273,15 @@ export class AuthService {
     });
 
     if (!physician) throw new UnauthorizedException('Physician not found');
+
+    await this.auditSilently({
+      actorId: physicianId,
+      action: 'AUTH_LOGIN',
+      entity: 'Physician',
+      entityId: physicianId,
+      payload: { mfa: true },
+      ip,
+    });
 
     const tokens = await this.generateTokens(physicianId, email, physician.role);
     return { mfaRequired: false, physician, ...tokens };
@@ -307,6 +309,16 @@ export class AuthService {
     });
 
     if (!storedToken || storedToken.revoked || storedToken.expiresAt < new Date()) {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+
+    // CC-018 — a eliminação apaga os refresh tokens, mas um refresh que leu o
+    // token antes dela pode gravar um novo depois. O cadastro já vem no
+    // include: checar aqui não custa consulta.
+    if (storedToken.physician.erasedAt) {
+      this.logger.warn(
+        `AUTH_ERASED_PHYSICIAN_TOKEN_REJECTED: physician ${storedToken.physician.id} (refresh)`,
+      );
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
