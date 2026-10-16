@@ -6,53 +6,28 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-store';
 import { apiClient, ApiError } from '@/lib/api-client';
 import type { AuthResponse } from '@/lib/types';
+import { LogoMark } from '@/components/brand/logo';
+import {
+  BetaInviteField,
+  BetaWaitlistPanel,
+  useBetaRegistration,
+} from '../_components/beta-registration';
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Callout } from '@/components/ui/callout';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { IdentificationCard, WarningCircle } from '@phosphor-icons/react';
+import { WarningCircle } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 import { AuthHeading, FieldError, subtleLinkClass } from '../_components/auth-ui';
+import {
+  CrmFields,
+  CrmPendingNotice,
+  PrivacyConsentField,
+} from '../_components/signup-fields';
+import { OAuthButtons } from '../_components/oauth-buttons';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const CRM_UF_OPTIONS = [
-  'AC',
-  'AL',
-  'AM',
-  'AP',
-  'BA',
-  'CE',
-  'DF',
-  'ES',
-  'GO',
-  'MA',
-  'MG',
-  'MS',
-  'MT',
-  'PA',
-  'PB',
-  'PE',
-  'PI',
-  'PR',
-  'RJ',
-  'RN',
-  'RO',
-  'RR',
-  'RS',
-  'SC',
-  'SE',
-  'SP',
-  'TO',
-];
 
 interface FormState {
   name: string;
@@ -88,6 +63,8 @@ function getPasswordStrength(password: string): { score: number; label: string; 
 export default function RegisterPage() {
   const { login } = useAuth();
   const router = useRouter();
+  // CC-702 — convite do beta (BETA_INVITE_REQUIRED) e lista de espera.
+  const beta = useBetaRegistration();
   const [form, setForm] = useState<FormState>({
     name: '',
     email: '',
@@ -103,6 +80,19 @@ export default function RegisterPage() {
   const [formError, setFormError] = useState('');
 
   const strength = useMemo(() => getPasswordStrength(form.password), [form.password]);
+
+  // Depois dos hooks: o beta decide a tela (lista de espera ou cadastro).
+  if (beta.loading) {
+    return (
+      <div className="flex justify-center pt-16" role="status" aria-label="Carregando">
+        <LogoMark size="lg" className="animate-pulse" />
+      </div>
+    );
+  }
+
+  if (beta.view === 'waitlist') {
+    return <BetaWaitlistPanel onHaveInvite={beta.showForm} />;
+  }
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -130,8 +120,9 @@ export default function RegisterPage() {
     e.preventDefault();
     setFormError('');
     const errors = validate();
-    if (errors) {
-      setFieldErrors(errors);
+    const inviteOk = beta.validateInvite();
+    if (errors || !inviteOk) {
+      if (errors) setFieldErrors(errors);
       return;
     }
 
@@ -143,11 +134,14 @@ export default function RegisterPage() {
         password: form.password,
         crmUf: form.crmUf,
         crmNumber: form.crmNumber,
+        inviteCode: beta.inviteCodeForRequest,
       });
       login(data.physician);
       toast.success('Conta criada com sucesso!');
-      router.push('/onboarding');
+      // Quem entrou por convite segue para o onboarding do beta.
+      router.push(beta.inviteCodeForRequest ? '/onboarding/beta' : '/onboarding');
     } catch (err) {
+      if (beta.handleRegisterError(err)) return;
       if (err instanceof ApiError) {
         if (
           err.message.toLowerCase().includes('email') &&
@@ -166,8 +160,6 @@ export default function RegisterPage() {
     }
   }
 
-  const crmError = fieldErrors.crmUf ?? fieldErrors.crmNumber;
-
   return (
     <div className="flex w-full max-w-[360px] flex-col gap-8">
       <AuthHeading
@@ -175,7 +167,22 @@ export default function RegisterPage() {
         description="Cadastre-se com seu CRM para usar o Copiloto Clínico."
       />
 
+      {/* CC-334 — o CRM é pedido depois, na volta do provedor. */}
+      <OAuthButtons verb="Cadastrar" />
+
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
+        {beta.showInviteField && (
+          <BetaInviteField
+            value={beta.inviteCode}
+            onChange={beta.setInviteCode}
+            error={beta.inviteError}
+            validFromLink={beta.inviteValidFromLink}
+            required={beta.inviteRequired}
+            disabled={loading}
+            onJoinWaitlist={beta.inviteRequired ? beta.showWaitlist : undefined}
+          />
+        )}
+
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="name">Nome (opcional)</Label>
           <Input
@@ -254,89 +261,26 @@ export default function RegisterPage() {
           )}
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <div className="grid grid-cols-[6rem_1fr] gap-2">
-            <Label htmlFor="crmUf">UF do CRM</Label>
-            <Label htmlFor="crmNumber">Número do CRM</Label>
-          </div>
-          <div className="grid grid-cols-[6rem_1fr] gap-2">
-            <Select
-              value={form.crmUf}
-              onValueChange={(value) => updateField('crmUf', value)}
-              disabled={loading}
-            >
-              <SelectTrigger
-                id="crmUf"
-                className="w-full data-[size=default]:h-10"
-                aria-invalid={!!fieldErrors.crmUf}
-                aria-describedby={crmError ? 'crm-error' : undefined}
-              >
-                <SelectValue placeholder="UF" />
-              </SelectTrigger>
-              <SelectContent>
-                {CRM_UF_OPTIONS.map((uf) => (
-                  <SelectItem key={uf} value={uf}>
-                    {uf}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Input
-              id="crmNumber"
-              type="text"
-              inputMode="numeric"
-              placeholder="12345"
-              value={form.crmNumber}
-              onChange={(e) => updateField('crmNumber', e.target.value)}
-              disabled={loading}
-              aria-invalid={!!fieldErrors.crmNumber}
-              aria-describedby={crmError ? 'crm-error' : undefined}
-              className="h-10"
-            />
-          </div>
-          {crmError && (
-            <FieldError id="crm-error">
-              {[fieldErrors.crmUf, fieldErrors.crmNumber].filter(Boolean).join(' ')}
-            </FieldError>
-          )}
-        </div>
+        <CrmFields
+          crmUf={form.crmUf}
+          crmNumber={form.crmNumber}
+          onCrmUfChange={(value) => updateField('crmUf', value)}
+          onCrmNumberChange={(value) => updateField('crmNumber', value)}
+          errors={fieldErrors}
+          disabled={loading}
+        />
 
-        <Callout tone="blue" icon={<IdentificationCard />} className="text-[0.8125rem]">
-          Seu CRM será verificado. Até a aprovação, seus documentos terão selo &quot;CRM
-          pendente&quot; — você pode usar o sistema normalmente.
-        </Callout>
+        <CrmPendingNotice />
 
-        <div className="flex flex-col gap-1.5">
-          <label className="-mx-1 flex cursor-pointer items-start gap-2.5 rounded-md px-1 py-1">
-            <input
-              type="checkbox"
-              checked={consent}
-              onChange={(e) => {
-                setConsent(e.target.checked);
-                setFieldErrors((prev) => ({ ...prev, consent: undefined }));
-              }}
-              disabled={loading}
-              aria-invalid={!!fieldErrors.consent}
-              aria-describedby={fieldErrors.consent ? 'consent-error' : undefined}
-              className="mt-0.5 size-4 shrink-0 cursor-pointer rounded-sm accent-primary"
-            />
-            <span className="text-[0.8125rem] text-muted-foreground">
-              Li e aceito a{' '}
-              <Link
-                href="/privacidade"
-                target="_blank"
-                rel="noopener noreferrer"
-                className={subtleLinkClass}
-              >
-                Política de Privacidade
-              </Link>
-              . Meus dados serão processados conforme a LGPD para prestação deste serviço médico.
-            </span>
-          </label>
-          {fieldErrors.consent && (
-            <FieldError id="consent-error">{fieldErrors.consent}</FieldError>
-          )}
-        </div>
+        <PrivacyConsentField
+          checked={consent}
+          onChange={(checked) => {
+            setConsent(checked);
+            setFieldErrors((prev) => ({ ...prev, consent: undefined }));
+          }}
+          error={fieldErrors.consent}
+          disabled={loading}
+        />
 
         {formError && (
           <Alert variant="destructive">

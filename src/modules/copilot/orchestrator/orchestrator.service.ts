@@ -17,7 +17,7 @@ import { EncountersService } from '../../encounters/encounters.service';
 import { AttachmentsService } from '../../encounters/attachments/attachments.service';
 import { AuditService } from '../../audit/audit.service';
 import { activeInstitutionIds } from '../../institutions/institution-visibility';
-import { maskPII } from '../guardrails/pii-filter';
+import { countDetectionsByType, maskPII } from '../guardrails/pii-filter';
 import { scanForInjection, type InjectionScanResult } from '../guardrails/injection-defense';
 import {
   redactPatientRef,
@@ -37,14 +37,17 @@ import {
   type CopilotOutput,
   type ValidationResult,
 } from '../guardrails/output-validator';
-import { validateOutputV2 } from '../guardrails/output-validator-v2';
+import { recommendationText, validateOutputV2 } from '../guardrails/output-validator-v2';
 import { validateOutputV3 } from '../guardrails/output-validator-v3';
 import { findDoseMentions } from '../guardrails/dose-detector';
 import type { AnalyzeInput, RespondInput } from '../schemas/copilot.schemas';
+import { readStoredEncounterContext } from '../../encounters/schemas/encounter-context.schema';
+import { declaredSiteContext, missingResources } from './site-context-prompt';
 import { calculateInferenceCost } from './model-pricing';
 import {
   COPILOT_OUTPUT_JSON_SCHEMA,
   COPILOT_OUTPUT_V2_JSON_SCHEMA,
+  COPILOT_OUTPUT_V2_WHY_JSON_SCHEMA,
 } from '../schemas/copilot-output.json-schema';
 import {
   preliminaryReasonFor,
@@ -74,13 +77,16 @@ import { applySourceLinkText, type SourceLink } from '../research/source-links';
 import { buildDecisionV2Prompt, type DecisionV2PromptInput } from './decision-prompt-v2';
 import { buildDecisionV3Prompt } from './decision-prompt-v3';
 import { buildDecisionV4Prompt } from './decision-prompt-v4';
+import { buildDecisionWhyLinePrompt } from './decision-why-line';
 import {
   chooseDecisionModel,
   isStagedDecisionPrompt,
   readDecisionPipeline,
+  supportsWhyLine,
   type DecisionModelChoice,
   type DecisionPipeline,
 } from './decision.settings';
+import { withAnsweredQuestions } from './answered-questions';
 
 const DEFAULT_MAX_TURNS = 5;
 
@@ -596,11 +602,13 @@ function hasCorrectable(validation: ValidationResult): boolean {
   return (validation.correctable?.length ?? 0) > 0;
 }
 
-/** F1 — JSON Schema da saída na versão do prompt de decisão (v2 e v3 têm o mesmo contrato). */
+/**
+ * F1 — JSON Schema da saída na versão do prompt de decisão (v2, v3 e v4 têm o
+ * mesmo contrato). CC-601 — com a linha de "por quê", o contrato ganha `why`.
+ */
 function responseSchemaOf(pipeline: DecisionPipeline) {
-  return isStagedDecisionPrompt(pipeline.decisionPrompt)
-    ? COPILOT_OUTPUT_V2_JSON_SCHEMA
-    : COPILOT_OUTPUT_JSON_SCHEMA;
+  if (!isStagedDecisionPrompt(pipeline.decisionPrompt)) return COPILOT_OUTPUT_JSON_SCHEMA;
+  return pipeline.whyLine ? COPILOT_OUTPUT_V2_WHY_JSON_SCHEMA : COPILOT_OUTPUT_V2_JSON_SCHEMA;
 }
 
 /**
@@ -754,6 +762,8 @@ interface PreparedAnalysis {
   prompt: BuiltPrompt;
   params: InheritableParams;
   unreviewedSourcesPreliminary: boolean;
+  /** CC-603 — o bloco do local de plantão e a regra de transferência entraram no prompt. */
+  siteContext: boolean;
   turn: AnalysisTurn;
   /**
    * Sufixo dos logs: '' (analyze), ' (stream)', ' (conversa)', ' (conversa
@@ -814,15 +824,6 @@ export interface ScreenedAnalysisInput extends InitialRequest {
    * nada: a Etapa 1 não roda de novo. Com respostas, ela refaz o entendimento.
    */
   understanding: { value: CaseUnderstanding; model: string | null } | null;
-}
-
-const ANSWERED_QUESTIONS_HEADER = '--- Informações adicionais fornecidas pelo médico ---';
-
-/** O caso com o bloco "P: … R: …" das respostas do médico, como a análise o lê. */
-function withAnsweredQuestions(caseText: string, answers: readonly AnsweredQuestion[]): string {
-  if (answers.length === 0) return caseText;
-  const qaBlock = answers.map((qa) => `P: ${qa.question}\nR: ${qa.answer}`).join('\n\n');
-  return `${caseText}\n\n${ANSWERED_QUESTIONS_HEADER}\n${qaBlock}`;
 }
 
 /**
@@ -917,6 +918,28 @@ export class OrchestratorService {
    */
   private unreviewedSourcesPreliminary(): boolean {
     return readBooleanFlag(this.config, 'UNREVIEWED_SOURCES_PRELIMINARY', true);
+  }
+
+  /**
+   * CC-602/CC-603 — `COPILOT_SITE_CONTEXT` (padrão desligado): com local de
+   * plantão declarado no caso, a decisão recebe o que o serviço tem e não tem
+   * e a regra de transferência. Desligado, ou sem local, o prompt de sempre.
+   * O log diz o porte e o que falta; nada do caso.
+   */
+  private siteContextFor(context: EncounterContext, logLabel: string): boolean {
+    const declared = declaredSiteContext(
+      context,
+      readBooleanFlag(this.config, 'COPILOT_SITE_CONTEXT', false),
+    );
+    if (!declared) return false;
+    const missing = missingResources(declared);
+    this.logger.log(
+      `SITE_CONTEXT${logLabel} facilityType=${declared.site.facilityType} ` +
+        `missing=${missing.length > 0 ? missing.join(',') : 'none'} ` +
+        `specialists=${declared.site.specialists.length} ` +
+        `referenceMinutes=${declared.site.referenceTravelMinutes ?? 'unknown'}`,
+    );
+    return true;
   }
 
   /**
@@ -1044,6 +1067,7 @@ export class OrchestratorService {
       redFlags: Record<string, boolean>;
       locale: string | undefined;
       unreviewedSourcesPreliminary: boolean;
+      siteContext: boolean;
       stage: UnderstandingOutcome | null;
       finalTurn: boolean;
     },
@@ -1056,8 +1080,7 @@ export class OrchestratorService {
 
     if (isStagedDecisionPrompt(pipeline.decisionPrompt)) {
       // v2, v3 e v4: a mesma mensagem do usuário; só o system prompt muda.
-      const buildStaged = STAGED_PROMPT_BUILDERS[pipeline.decisionPrompt];
-      return buildStaged({
+      const stagedInput: DecisionV2PromptInput = {
         caseText: input.caseText,
         understanding,
         redFlags: input.redFlags,
@@ -1069,7 +1092,13 @@ export class OrchestratorService {
         physicianAttachments: input.attachments,
         webEvidence: input.evidence.research?.evidence ?? [],
         additionalInstructions,
-      });
+        siteContext: input.siteContext,
+      };
+      // CC-601 — a v3 ou a v4 pedindo a linha de "por quê"; sem a flag, o de sempre.
+      if (pipeline.whyLine && supportsWhyLine(pipeline.decisionPrompt)) {
+        return buildDecisionWhyLinePrompt(pipeline.decisionPrompt, stagedInput);
+      }
+      return STAGED_PROMPT_BUILDERS[pipeline.decisionPrompt](stagedInput);
     }
 
     return buildPrompt({
@@ -1084,6 +1113,7 @@ export class OrchestratorService {
       additionalInstructions,
       unreviewedSourcesPreliminary: input.unreviewedSourcesPreliminary,
       understanding,
+      siteContext: input.siteContext,
     });
   }
 
@@ -1393,10 +1423,12 @@ export class OrchestratorService {
     // Buscar encounter para obter patientRef — necessário para redação explícita (LGPD-005)
     const encounter = await this.encounters.findById(physicianId, encounterId);
 
-    // Camada 1: filtro geral de PII (CPF, CNPJ, telefone, email, CEP, datas, RG)
+    // Camada 1: filtro geral de PII (CPF, CNPJ, telefone, email, CEP, datas, RG,
+    // prontuário e nome depois de tratamento/apelido — CC-201/CC-206)
     const piiResult = maskPII(input.caseText);
+    // Só a contagem por tipo: mostra regra disparando demais sem gravar o trecho.
     this.logger.debug(
-      `PII detection${logLabel}: ${piiResult.hasPII ? 'FOUND' : 'NONE'} (${piiResult.detections.length} items)`,
+      `PII detection${logLabel}: ${piiResult.hasPII ? 'FOUND' : 'NONE'} (${piiResult.detections.length} items) ${JSON.stringify(countDetectionsByType(piiResult.detections))}`,
     );
 
     // Camada 2: redação explícita do patientRef (LGPD-005 defense-in-depth)
@@ -1472,21 +1504,19 @@ export class OrchestratorService {
     };
     const locale = await this.getPhysicianLocale(physicianId);
     const unreviewedSourcesPreliminary = this.unreviewedSourcesPreliminary();
+    const siteContext = this.siteContextFor(input.context, logLabel);
 
     const prompt = this.buildDecisionPrompt(pipeline, {
       caseText,
       evidence,
       attachments,
-      context: {
-        hasCT: input.context.hasCT,
-        isSus: input.context.isSus,
-        hasLab: input.context.hasLab,
-        hasICU: input.context.hasICU,
-      },
+      // CC-602 — com o local de plantão, quando o médico escolheu um.
+      context: input.context,
       // S20-CLIN-01 — injeta red flags explícitas do médico no prompt.
       redFlags: params.redFlags,
       locale,
       unreviewedSourcesPreliminary,
+      siteContext,
       stage,
       finalTurn: false,
     });
@@ -1504,6 +1534,7 @@ export class OrchestratorService {
       prompt,
       params,
       unreviewedSourcesPreliminary,
+      siteContext,
       turn: { kind: 'initial', answeredQuestions: screened.answeredQuestions },
       logLabel,
       stage,
@@ -1607,12 +1638,7 @@ export class OrchestratorService {
       // CC-03 — último turno permitido: ver FINAL_TURN_INSTRUCTIONS.
       finalTurn: newTurnIndex === maxTurns - 1,
       institutionId: encounter.institutionId,
-      context: (encounter.context as unknown as EncounterContext | null) ?? {
-        hasCT: false,
-        isSus: false,
-        hasLab: false,
-        hasICU: false,
-      },
+      context: readStoredEncounterContext(encounter.context),
       baseCaseText,
       augmentedCaseText,
       piiDetected,
@@ -1646,6 +1672,7 @@ export class OrchestratorService {
 
     const locale = await this.getPhysicianLocale(physicianId);
     const unreviewedSourcesPreliminary = this.unreviewedSourcesPreliminary();
+    const siteContext = this.siteContextFor(screened.context, logLabel);
 
     // CC-03 — no turno final, clarifyingQuestions É obrigatoriamente vazio
     // (não há próximo turno para respondê-las), então "recommendations" NUNCA
@@ -1660,6 +1687,7 @@ export class OrchestratorService {
       redFlags: screened.params.redFlags,
       locale,
       unreviewedSourcesPreliminary,
+      siteContext,
       stage,
       finalTurn: screened.finalTurn,
     });
@@ -1679,6 +1707,7 @@ export class OrchestratorService {
       // para que o PRÓXIMO turno continue herdando a cadeia de red flags.
       params: screened.params,
       unreviewedSourcesPreliminary,
+      siteContext,
       turn: screened.turn,
       logLabel,
       stage,
@@ -1705,7 +1734,10 @@ export class OrchestratorService {
     const decisionContext = { understanding: prepared.stage?.understanding ?? null };
     // A v4 muda as regras do prompt, não o contrato: valida como a v3.
     if (prepared.pipeline.decisionPrompt === 'v3' || prepared.pipeline.decisionPrompt === 'v4') {
-      return validateOutputV3(content, prepared.prompt.retrievedChunkIds, decisionContext);
+      return validateOutputV3(content, prepared.prompt.retrievedChunkIds, {
+        ...decisionContext,
+        whyLine: prepared.pipeline.whyLine,
+      });
     }
     if (prepared.pipeline.decisionPrompt === 'v2') {
       return validateOutputV2(content, prepared.prompt.retrievedChunkIds, decisionContext);
@@ -1954,8 +1986,12 @@ export class OrchestratorService {
         // web fez (modelo, buscas, custo, motivo do fallback).
         knowledgeSource: prepared.pipeline.knowledgeSource,
         decisionPrompt: prepared.pipeline.decisionPrompt,
+        // CC-601 — só quando ligada: sem a flag, `params` fica como antes.
+        ...(prepared.pipeline.whyLine ? { whyLine: true } : {}),
         decisionRoute: prepared.decisionModel.route,
         ...(prepared.research ? { research: researchTrace(prepared.research) } : {}),
+        // CC-603 — a análise viu o local de plantão e a regra de transferência.
+        ...(prepared.siteContext ? { siteContext: true } : {}),
       },
       latencyMs: Date.now() - prepared.startedAt,
       cost: analysisCost(prepared, attempt),
@@ -2048,7 +2084,7 @@ export class OrchestratorService {
         // seguro é esperar o dado.
         layer: rec.layer ?? 'depends',
         origin: resolved.origin,
-        carriesDose: findDoseMentions(`${rec.action} ${rec.rationale}`).length > 0,
+        carriesDose: findDoseMentions(recommendationText(rec)).length > 0,
         sourceConflict: Boolean(link?.conflict),
       });
       const enriched: EnrichedRecommendation = {

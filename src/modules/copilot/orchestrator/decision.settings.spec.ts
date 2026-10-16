@@ -10,7 +10,12 @@ function read(env: Record<string, string>) {
 describe('readDecisionPipeline', () => {
   it('defaults to the production pipeline: legacy, internal knowledge base, v1', () => {
     expect(read({})).toEqual({
-      pipeline: { reasoning: 'legacy', decisionPrompt: 'v1', knowledgeSource: 'internal_kb' },
+      pipeline: {
+        reasoning: 'legacy',
+        decisionPrompt: 'v1',
+        knowledgeSource: 'internal_kb',
+        whyLine: false,
+      },
       downgrades: [],
     });
   });
@@ -36,6 +41,7 @@ describe('readDecisionPipeline', () => {
         reasoning: 'stages',
         decisionPrompt: prompt.toLowerCase(),
         knowledgeSource: source.toLowerCase(),
+        whyLine: false,
       });
       expect(downgrades).toEqual([]);
     },
@@ -84,6 +90,7 @@ describe('readDecisionPipeline', () => {
       reasoning: 'stages',
       decisionPrompt: 'v1',
       knowledgeSource: 'model_only',
+      whyLine: false,
     });
     expect(downgrades).toEqual([expect.stringContaining('COPILOT_DECISION_PROMPT=v2')]);
   });
@@ -100,6 +107,7 @@ describe('readDecisionPipeline', () => {
         reasoning: 'stages',
         decisionPrompt: prompt,
         knowledgeSource: 'verify',
+        whyLine: false,
       });
       expect(downgrades).toEqual([]);
     });
@@ -114,6 +122,7 @@ describe('readDecisionPipeline', () => {
         reasoning: 'legacy',
         decisionPrompt: 'v1',
         knowledgeSource: 'model_only',
+        whyLine: false,
       });
       expect(downgrades).toEqual([
         'COPILOT_DECISION_PROMPT=v3 exige COPILOT_REASONING=stages: usando v1',
@@ -136,6 +145,58 @@ describe('readDecisionPipeline', () => {
 
     expect(pipeline).toMatchObject({ reasoning: 'legacy', knowledgeSource: 'model_only' });
     expect(downgrades).toEqual([]);
+  });
+
+  // CC-601 — linha de "por quê" em cada conduta "agora".
+  describe('COPILOT_WHY_LINE', () => {
+    const v3 = { COPILOT_REASONING: 'stages', COPILOT_DECISION_PROMPT: 'v3' };
+
+    it.each(['v3', 'v4'])('asks for the why line with %s', (prompt) => {
+      const { pipeline, downgrades } = read({
+        ...v3,
+        COPILOT_DECISION_PROMPT: prompt,
+        COPILOT_WHY_LINE: 'on',
+      });
+
+      expect(pipeline).toMatchObject({ decisionPrompt: prompt, whyLine: true });
+      expect(downgrades).toEqual([]);
+    });
+
+    it.each([[{}], [{ COPILOT_WHY_LINE: 'off' }], [{ COPILOT_WHY_LINE: 'talvez' }]])(
+      'stays off by default, when off and on a typo (%o)',
+      (flag) => {
+        const { pipeline, downgrades } = read({ ...v3, ...flag });
+
+        expect(pipeline.whyLine).toBe(false);
+        expect(downgrades).toEqual([]);
+      },
+    );
+
+    it('stays off and says why with v2, whose format does not carry the line', () => {
+      const { pipeline, downgrades } = read({
+        ...v3,
+        COPILOT_DECISION_PROMPT: 'v2',
+        COPILOT_WHY_LINE: 'true',
+      });
+
+      expect(pipeline.whyLine).toBe(false);
+      expect(downgrades).toEqual([
+        'COPILOT_WHY_LINE exige COPILOT_DECISION_PROMPT=v3 ou v4 (efetivo: v2): plano sem a linha de por quê',
+      ]);
+    });
+
+    it('stays off when v3 falls back to v1 without stages', () => {
+      const { pipeline, downgrades } = read({
+        COPILOT_DECISION_PROMPT: 'v3',
+        COPILOT_WHY_LINE: 'on',
+      });
+
+      expect(pipeline).toMatchObject({ decisionPrompt: 'v1', whyLine: false });
+      expect(downgrades).toEqual([
+        'COPILOT_DECISION_PROMPT=v3 exige COPILOT_REASONING=stages: usando v1',
+        'COPILOT_WHY_LINE exige COPILOT_DECISION_PROMPT=v3 ou v4 (efetivo: v1): plano sem a linha de por quê',
+      ]);
+    });
   });
 });
 

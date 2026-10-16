@@ -53,6 +53,27 @@ const INJECTION_PATTERNS: Array<{ pattern: RegExp; reason: string }> = [
     pattern: /disregard\s+(previous|all|above|prior)/i,
     reason: 'INSTRUCTION_OVERRIDE_ATTEMPT',
   },
+  // Português. Só formas imperativas e alvos que não são vocabulário clínico:
+  // "orientações" fica de fora ("ignorou as orientações de alta" é relato).
+  {
+    pattern:
+      /\b(ignore|desconsidere|esque[çc]a)\s+(todas\s+as\s+|todos\s+os\s+|as\s+|os\s+|suas\s+|seus\s+|tudo\s+)?(instru[çc][õo]es|regras|comandos|prompts?)\b/i,
+    reason: 'INSTRUCTION_OVERRIDE_ATTEMPT',
+  },
+  {
+    pattern: /\bnovas\s+instru[çc][õo]es\s*:/i,
+    reason: 'INSTRUCTION_OVERRIDE_ATTEMPT',
+  },
+  {
+    // Sem \b depois de "é": em regex sem a flag u, "é" não conta como letra.
+    pattern: /\b(voc[êe]\s+agora\s+[ée]\s+(um|uma|o|a)\s|finja\s+(ser|que\s+[ée]))/i,
+    reason: 'ROLE_MANIPULATION_ATTEMPT',
+  },
+  {
+    pattern:
+      /\b(revele|mostre|exiba|repita|imprima)\s+(o\s+|seu\s+|suas\s+|as\s+)?(prompt|instru[çc][õo]es\s+(do\s+sistema|internas|iniciais))\b/i,
+    reason: 'SYSTEM_PROMPT_EXTRACTION_ATTEMPT',
+  },
 ];
 
 export function scanForInjection(text: string): InjectionScanResult {

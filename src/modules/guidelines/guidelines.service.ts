@@ -10,8 +10,9 @@ import { GuidelineChunkStatus } from '@prisma/client';
 import { PrismaService } from '../../config/prisma.service';
 import { AiGatewayService } from '../ai-gateway/ai-gateway.service';
 import { AuditService } from '../audit/audit.service';
+import { freeTextHash } from '../audit/audit-payload';
 import { chunkText } from './ingestion/chunking';
-import { maskPII } from '../copilot/guardrails/pii-filter';
+import { maskFreeText, maskPII } from '../copilot/guardrails/pii-filter';
 import { embedOrNull } from './embeddings';
 import type { GuidelineConsultResult } from '../../shared/contracts/clinical';
 import {
@@ -330,8 +331,13 @@ export class GuidelinesService {
     return updated;
   }
 
+  /**
+   * O motivo do curador fica mascarado em `reviewNote`; a trilha leva só o
+   * hash (ver `freeTextHash`).
+   */
   async rejectChunk(chunkId: string, reviewerId: string, reason?: string) {
     const chunk = await this.findReviewableChunkOrThrow(chunkId);
+    const reviewNote = maskFreeText(reason);
 
     const updated = await this.prisma.guidelineChunk.update({
       where: { id: chunkId },
@@ -339,6 +345,7 @@ export class GuidelinesService {
         status: GuidelineChunkStatus.rejected,
         reviewedBy: reviewerId,
         reviewedAt: new Date(),
+        reviewNote,
       },
     });
 
@@ -351,7 +358,7 @@ export class GuidelinesService {
         payload: {
           source: chunk.source,
           sourceVersion: chunk.sourceVersion,
-          reason: reason ?? null,
+          reasonHash: freeTextHash(reviewNote),
         },
       })
       .catch(() => undefined);
@@ -492,15 +499,25 @@ export class GuidelinesService {
    * consulta é só por palavra-chave: primeiro com todos os termos (consulta
    * curta, termo exato) e, para o caso inteiro — onde todos os termos nunca
    * casam —, com qualquer termo, pesado pela raridade de cada termo.
+   *
+   * CC-010 — `semantic: false` (o médico revogou o processamento por IA) é a
+   * mesma busca por palavra-chave: a consulta não sai para o provedor.
    */
-  async consult(query: string, limit?: number): Promise<GuidelineConsultResult[]> {
+  async consult(
+    query: string,
+    request: { limit?: number; semantic: boolean },
+  ): Promise<GuidelineConsultResult[]> {
     const masked = maskPII(query).redacted;
-    const [embedding] =
-      (await embedOrNull(this.aiGateway, [masked], {
-        logger: this.logger,
-        label: 'consulta',
-      })) ?? [];
-    const options = { ...DEFAULT_CONSULT_OPTIONS, limit: limit ?? DEFAULT_CONSULT_OPTIONS.limit };
+    const [embedding] = request.semantic
+      ? ((await embedOrNull(this.aiGateway, [masked], {
+          logger: this.logger,
+          label: 'consulta',
+        })) ?? [])
+      : [];
+    const options = {
+      ...DEFAULT_CONSULT_OPTIONS,
+      limit: request.limit ?? DEFAULT_CONSULT_OPTIONS.limit,
+    };
 
     if (!embedding) {
       const allTerms = await this.keywordCandidates(masked, 'all');

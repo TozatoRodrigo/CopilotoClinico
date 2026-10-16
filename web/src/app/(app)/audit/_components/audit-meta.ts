@@ -8,10 +8,12 @@ import {
   Handshake,
   IdentificationCard,
   Key,
+  LinkSimple,
   Microphone,
   Paperclip,
   PencilSimple,
   Plus,
+  Scales,
   SealCheck,
   ShieldCheck,
   ShieldWarning,
@@ -19,6 +21,7 @@ import {
   SignOut,
   Sparkle,
   ThumbsUp,
+  Ticket,
   Trash,
   UserCircle,
   type Icon,
@@ -72,6 +75,13 @@ const ACTION_META: Record<string, ActionMeta> = {
   AUTH_LOGIN_MFA_REQUIRED: { label: 'Login aguardando MFA', icon: Key, tone: 'gray' },
   AUTH_LOGOUT: { label: 'Logout', icon: SignOut, tone: 'gray' },
   AUTH_REGISTER: { label: 'Cadastro de médico', icon: UserCircle, tone: 'gray' },
+  // CC-334 — login com Google/Microsoft (payload: provedor, sem e-mail).
+  AUTH_OAUTH_LINKED: { label: 'Conta Google/Microsoft vinculada', icon: LinkSimple, tone: 'gray' },
+  AUTH_OAUTH_LINK_FAILED: {
+    label: 'Falha ao vincular conta Google/Microsoft',
+    icon: ShieldWarning,
+    tone: 'red',
+  },
   AUTH_TOKEN_REFRESH: { label: 'Sessão renovada', icon: ArrowsClockwise, tone: 'gray' },
   AUTH_MFA_SETUP: { label: 'MFA em configuração', icon: Key, tone: 'gray' },
   AUTH_MFA_ENABLED: { label: 'MFA ativado', icon: Key, tone: 'gray' },
@@ -86,6 +96,9 @@ const ACTION_META: Record<string, ActionMeta> = {
   CONSENT_GRANTED: { label: 'Consentimento concedido', icon: Handshake, tone: 'gray' },
   CONSENT_REVOKED: { label: 'Consentimento revogado', icon: Handshake, tone: 'gray' },
   DATA_ERASURE: { label: 'Exclusão de dados (LGPD)', icon: Trash, tone: 'gray' },
+  // CC-905 — termos de uso e política de privacidade (payload: tipo, versão e hash do texto).
+  LEGAL_DOCUMENT_ACCEPTED: { label: 'Termos aceitos', icon: Scales, tone: 'gray' },
+  LEGAL_DOCUMENT_PUBLISHED: { label: 'Versão dos termos publicada', icon: Scales, tone: 'gray' },
   CRM_VERIFICATION_REQUESTED: { label: 'Verificação de CRM solicitada', icon: IdentificationCard, tone: 'gray' },
   CRM_VERIFICATION_APPROVED: { label: 'CRM aprovado', icon: IdentificationCard, tone: 'gray' },
   CRM_VERIFICATION_REJECTED: { label: 'CRM rejeitado', icon: IdentificationCard, tone: 'gray' },
@@ -105,6 +118,15 @@ const ACTION_META: Record<string, ActionMeta> = {
   PROTOCOL_RUN_ABANDONED: { label: 'Protocolo abandonado', icon: FlowArrow, tone: 'gray' },
   INSTITUTION_CREATED: { label: 'Instituição criada', icon: Buildings, tone: 'gray' },
   PHYSICIAN_LINKED_TO_INSTITUTION: { label: 'Médico vinculado à instituição', icon: Buildings, tone: 'gray' },
+  // CC-702 — beta por convite (payload: ids, lote e versão do termo; sem e-mail nem código).
+  BETA_INVITES_CREATED: { label: 'Convites do beta gerados', icon: Ticket, tone: 'gray' },
+  BETA_INVITE_REVOKED: { label: 'Convite do beta revogado', icon: Ticket, tone: 'gray' },
+  BETA_INVITE_REDEEMED: { label: 'Cadastro por convite do beta', icon: Ticket, tone: 'gray' },
+  BETA_TERMS_ACCEPTED: { label: 'Termo do beta aceito', icon: Handshake, tone: 'gray' },
+  BETA_PROFILE_UPDATED: { label: 'Perfil do beta atualizado', icon: UserCircle, tone: 'gray' },
+  BETA_WAITLIST_JOINED: { label: 'Entrada na lista de espera do beta', icon: Ticket, tone: 'gray' },
+  BETA_WAITLIST_APPROVED: { label: 'Lista de espera: convite gerado', icon: Ticket, tone: 'gray' },
+  BETA_WAITLIST_DELETED: { label: 'Lista de espera: apagado a pedido', icon: Trash, tone: 'gray' },
 };
 
 function humanize(code: string): string {
@@ -134,6 +156,7 @@ export const ENTITY_OPTIONS: EntityOption[] = [
   { value: 'Physician', label: 'Médico', tone: 'pink' },
   { value: 'CrmVerificationRequest', label: 'Verificação de CRM', tone: 'yellow' },
   { value: 'Consent', label: 'Consentimento', tone: 'yellow' },
+  { value: 'LegalDocument', label: 'Termos e privacidade', tone: 'yellow' },
   { value: 'AudioCapture', label: 'Áudio', tone: 'brown' },
   { value: 'EncounterAttachment', label: 'Anexo', tone: 'brown' },
   { value: 'Protocol', label: 'Protocolo', tone: 'pink' },
@@ -143,6 +166,9 @@ export const ENTITY_OPTIONS: EntityOption[] = [
   { value: 'Institution', label: 'Instituição', tone: 'gray' },
   { value: 'PhysicianInstitution', label: 'Vínculo institucional', tone: 'gray' },
   { value: 'RefreshToken', label: 'Sessão', tone: 'gray' },
+  { value: 'BetaInvite', label: 'Convite do beta', tone: 'gray' },
+  { value: 'BetaParticipant', label: 'Participante do beta', tone: 'gray' },
+  { value: 'BetaWaitlistEntry', label: 'Lista de espera do beta', tone: 'gray' },
 ];
 
 /** "AiInteraction", "ai_interaction" e "aiinteraction" são a mesma entidade. */

@@ -5,6 +5,7 @@ import { GuidelinesService, type IngestGuidelineInput } from './guidelines.servi
 import { PrismaService } from '../../config/prisma.service';
 import { AiGatewayService } from '../ai-gateway/ai-gateway.service';
 import { AuditService } from '../audit/audit.service';
+import { freeTextHash } from '../audit/audit-payload';
 
 vi.mock('@sentry/node', () => ({ captureMessage: vi.fn() }));
 
@@ -438,39 +439,66 @@ describe('GuidelinesService', () => {
   });
 
   describe('rejectChunk', () => {
-    it('rejects a pending chunk, records the reviewer/reason and audits GUIDELINE_REJECTED', async () => {
-      const chunk = {
-        id: 'chunk-pending-1',
-        source: 'Diretriz X',
-        sourceVersion: '2.0',
-        status: 'pending_review',
-      };
-      prisma.guidelineChunk.findUnique.mockResolvedValue(chunk);
+    const pendingChunk = {
+      id: 'chunk-pending-1',
+      source: 'Diretriz X',
+      sourceVersion: '2.0',
+      status: 'pending_review',
+    };
+
+    it('stores the masked reason in reviewNote and audits GUIDELINE_REJECTED with its hash only', async () => {
+      const reason = '  Texto desatualizado, falar com curadoria@hospital.org  ';
+      const maskedNote = 'Texto desatualizado, falar com [REDACTED_EMAIL]';
+      prisma.guidelineChunk.findUnique.mockResolvedValue(pendingChunk);
       prisma.guidelineChunk.update.mockResolvedValue({
-        ...chunk,
+        ...pendingChunk,
         status: 'rejected',
         reviewedBy: 'curator-1',
         reviewedAt: new Date('2026-06-13'),
+        reviewNote: maskedNote,
       });
 
-      const result = await service.rejectChunk(
-        'chunk-pending-1',
-        'curator-1',
-        'Texto desatualizado',
-      );
+      const result = await service.rejectChunk('chunk-pending-1', 'curator-1', reason);
 
       expect(prisma.guidelineChunk.update).toHaveBeenCalledWith({
         where: { id: 'chunk-pending-1' },
-        data: { status: 'rejected', reviewedBy: 'curator-1', reviewedAt: expect.any(Date) },
+        data: {
+          status: 'rejected',
+          reviewedBy: 'curator-1',
+          reviewedAt: expect.any(Date),
+          reviewNote: maskedNote,
+        },
       });
       expect(result.status).toBe('rejected');
+      expect(result.reviewNote).toBe(maskedNote);
+      expect(auditService.log).toHaveBeenCalledWith({
+        actorId: 'curator-1',
+        action: 'GUIDELINE_REJECTED',
+        entity: 'GuidelineChunk',
+        entityId: 'chunk-pending-1',
+        payload: {
+          source: 'Diretriz X',
+          sourceVersion: '2.0',
+          reasonHash: freeTextHash(maskedNote),
+        },
+      });
+      const auditCalls = JSON.stringify(auditService.log.mock.calls);
+      expect(auditCalls).not.toContain('Texto desatualizado');
+      expect(auditCalls).not.toContain('curadoria@hospital.org');
+    });
+
+    it('stores a null reviewNote and reasonHash when no reason is given', async () => {
+      prisma.guidelineChunk.findUnique.mockResolvedValue(pendingChunk);
+      prisma.guidelineChunk.update.mockResolvedValue({ ...pendingChunk, status: 'rejected' });
+
+      await service.rejectChunk('chunk-pending-1', 'curator-1');
+
+      expect(prisma.guidelineChunk.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ reviewNote: null }) }),
+      );
       expect(auditService.log).toHaveBeenCalledWith(
         expect.objectContaining({
-          actorId: 'curator-1',
-          action: 'GUIDELINE_REJECTED',
-          entity: 'GuidelineChunk',
-          entityId: 'chunk-pending-1',
-          payload: expect.objectContaining({ reason: 'Texto desatualizado' }),
+          payload: expect.objectContaining({ reasonHash: null }),
         }),
       );
     });
@@ -808,7 +836,9 @@ describe('GuidelinesService', () => {
         ])
         .mockResolvedValueOnce([]);
 
-      const results = await service.consult('Paciente CPF 123.456.789-09 picado por escorpião');
+      const results = await service.consult('Paciente CPF 123.456.789-09 picado por escorpião', {
+        semantic: true,
+      });
 
       const embedded = aiGateway.embed.mock.calls[0]![0] as string[];
       expect(embedded[0]).not.toContain('123.456.789-09');
@@ -847,6 +877,7 @@ describe('GuidelinesService', () => {
 
       const results = await service.consult(
         'Criança de 4 anos com dor na perna após picada de escorpião',
+        { semantic: true },
       );
 
       expect(aiGateway.embed).not.toHaveBeenCalled();
@@ -867,12 +898,24 @@ describe('GuidelinesService', () => {
       aiGateway.embed.mockRejectedValue(new Error('AI provider embed error: 429'));
       prisma.$queryRawUnsafe.mockResolvedValueOnce([keywordHit]).mockResolvedValueOnce([]);
 
-      const results = await service.consult('escorpião');
+      const results = await service.consult('escorpião', { semantic: true });
 
       expect(Sentry.captureMessage).toHaveBeenCalledWith(
         expect.stringContaining('GUIDELINE_EMBEDDING_UNAVAILABLE consulta'),
         'error',
       );
+      expect(results.map((result) => result.chunkId)).toEqual(['off-1']);
+    });
+
+    // CC-010 — quem revogou o processamento por IA consulta só por
+    // palavra-chave: o caso não vai ao provedor de embedding.
+    it('sem consentimento de IA, busca por palavra-chave sem chamar o provedor', async () => {
+      prisma.$queryRawUnsafe.mockResolvedValueOnce([keywordHit]).mockResolvedValueOnce([]);
+
+      const results = await service.consult('Picada de escorpião há 1 hora', { semantic: false });
+
+      expect(aiGateway.embed).not.toHaveBeenCalled();
+      expect(Sentry.captureMessage).not.toHaveBeenCalled();
       expect(results.map((result) => result.chunkId)).toEqual(['off-1']);
     });
   });

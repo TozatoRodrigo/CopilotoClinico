@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { ConfigService } from '@nestjs/config';
-import { readBooleanFlag, readChoiceFlag } from './feature-flag';
+import { parseBooleanFlag, readBooleanFlag, readChoiceFlag } from './feature-flag';
 
 function configWith(value: unknown): ConfigService {
   return { get: () => value } as unknown as ConfigService;
@@ -28,6 +28,15 @@ describe('readBooleanFlag', () => {
   it('keeps the default on a typo instead of silently flipping the flag', () => {
     expect(readBooleanFlag(configWith('fasle'), 'FLAG', true)).toBe(true);
     expect(readBooleanFlag(configWith('ture'), 'FLAG', false)).toBe(false);
+  });
+});
+
+describe('parseBooleanFlag', () => {
+  it('applies the same rule to a raw value read from process.env', () => {
+    expect(parseBooleanFlag(undefined, true)).toBe(true);
+    expect(parseBooleanFlag(' OFF ', true)).toBe(false);
+    expect(parseBooleanFlag('on', false)).toBe(true);
+    expect(parseBooleanFlag('desligado', true)).toBe(true);
   });
 });
 

@@ -8,12 +8,20 @@ import type {
   OrchestratorService,
 } from '../../src/modules/copilot/orchestrator/orchestrator.service';
 import type { EncountersService } from '../../src/modules/encounters/encounters.service';
+import type { ConversationService } from '../../src/modules/copilot/intake/conversation.service';
+import type { IntakeService } from '../../src/modules/copilot/intake/intake.service';
+import type { IntakeQuestion, IntakeView } from '../../src/shared/contracts/clinical';
 import { understandingFixture } from '../../tests/fixtures/case-understanding';
 import { strokeCaseFixture } from './case-fixture';
 import { classifyInfraError, runCase, type PipelineServices } from './pipeline';
 import { CompletionRecorder, type RecordedCompletion, type RecordedStopReason } from './recorder';
 import type { Funnel } from './case.schema';
-import type { PhysicianSimulator, SimulatorQuestion } from './simulator';
+import {
+  NOT_INFORMED,
+  type PhysicianSimulator,
+  type SimulatedAnswers,
+  type SimulatorQuestion,
+} from './simulator';
 
 const clinicalCase = strokeCaseFixture();
 
@@ -91,6 +99,8 @@ function servicesWith(
   const analyze = vi.fn((..._args: unknown[]) => next());
   // Gabarito v2 — afunilamento: a resposta às perguntas segue o mesmo roteiro.
   const continueAnalysis = vi.fn((..._args: unknown[]) => next());
+  // CC-106 — o plano da conversa do Copiloto guiado também.
+  const conversationAnalyze = vi.fn((..._args: unknown[]) => next());
   const services: PipelineServices = {
     orchestrator: { analyze, continueAnalysis } as unknown as OrchestratorService,
     encounters: {
@@ -108,12 +118,20 @@ function servicesWith(
           },
         }),
       },
+      caseIntake: {
+        findUnique: vi.fn().mockResolvedValue({
+          reading: { ...understandingFixture(), intakeQuestions: [] },
+          readingModel: 'claude-haiku-5-5',
+          cost: 0.002,
+          latencyMs: 1_500,
+        }),
+      },
     } as unknown as PrismaService,
     recorder,
     physicianId: 'medico-1',
     refusalFallback,
   };
-  return { services, analyze, continueAnalysis };
+  return { services, analyze, continueAnalysis, conversationAnalyze };
 }
 
 function validationFailure(errors: string[], stopReason: RecordedStopReason = null) {
@@ -451,7 +469,8 @@ describe('runCase', () => {
 });
 
 // Gabarito v2 — afunilamento: o Copiloto recebe só a abertura e o médico
-// simulado responde às perguntas pelo roteiro.
+// simulado responde às perguntas pelo roteiro. CC-106 — pela conversa do
+// Copiloto guiado: leitura, portão de perguntas e respostas antes do plano.
 describe('runCase — afunilamento', () => {
   const simulator: PhysicianSimulator = {
     model: 'claude-haiku-5-5',
@@ -478,15 +497,231 @@ describe('runCase — afunilamento', () => {
   });
   const funnelRun = { ...fastRetry, mode: 'funnel' as const };
 
-  it('começa pela abertura, responde às perguntas e avalia o último turno', async () => {
-    const { services, analyze, continueAnalysis } = servicesWith([
+  function intakeQuestion(id: string, overrides: Partial<IntakeQuestion> = {}): IntakeQuestion {
+    return {
+      id,
+      question: 'A fraqueza melhora e piora?',
+      answerType: 'boolean',
+      choices: ['Sim', 'Não', 'Não sei'],
+      unit: null,
+      vitalSigns: [],
+      separates: ['AIT em crescendo', 'AVC estabelecido'],
+      why: 'Flutuação sugere oclusão de grande vaso',
+      ...overrides,
+    };
+  }
+
+  function intakeView(overrides: Partial<IntakeView> = {}): IntakeView {
+    return {
+      intakeId: 'conversa-1',
+      path: 'complete',
+      status: 'closed',
+      closeReason: 'not_needed',
+      caseText: 'M 67a, fraqueza no braço D.',
+      summary: null,
+      instabilityFindings: [],
+      questions: [],
+      answers: [],
+      pendingQuestionId: null,
+      analysisInteractionId: null,
+      analysisInProgress: false,
+      createdAt: '2026-10-14T00:00:00.000Z',
+      ...overrides,
+    };
+  }
+
+  /** A conversa: `start` devolve a leitura; cada resposta devolve o próximo estado. */
+  function guidedWith(
+    scripts: Array<(recorder: CompletionRecorder) => Promise<OrchestratorResult>>,
+    started: IntakeView = intakeView(),
+    afterAnswers: IntakeView[] = [],
+  ) {
+    const built = servicesWith(scripts);
+    const start = vi.fn(async (..._args: unknown[]) => started);
+    const answer = vi.fn(
+      async (..._args: unknown[]) => afterAnswers.shift() ?? intakeView({ path: 'ask' }),
+    );
+    const services: PipelineServices = {
+      ...built.services,
+      simulator,
+      guided: {
+        intake: { start, answer } as unknown as IntakeService,
+        conversation: { analyze: built.conversationAnalyze } as unknown as ConversationService,
+      },
+    };
+    return { ...built, services, start, answer };
+  }
+
+  const asking = intakeView({
+    path: 'ask',
+    status: 'asking',
+    closeReason: null,
+    questions: [
+      intakeQuestion('intake-1'),
+      intakeQuestion('intake-2', {
+        question: 'Usa anticoagulante?',
+        separates: ['AVC isquêmico', 'AVC hemorrágico'],
+        why: 'Muda a reversão e a trombólise',
+      }),
+    ],
+    pendingQuestionId: 'intake-1',
+  });
+
+  function answering(exchanges: SimulatedAnswers['exchanges']) {
+    return vi.fn(async (..._args: unknown[]) => ({
+      exchanges,
+      model: 'claude-haiku-5-5',
+      costUsd: 0.001,
+      latencyMs: 5,
+    }));
+  }
+
+  it('lê a abertura, responde às perguntas da leitura uma a uma e só então pede o plano', async () => {
+    const { services, start, answer, conversationAnalyze } = guidedWith(
+      [async () => turn(0, false)],
+      asking,
+      [
+        { ...asking, pendingQuestionId: 'intake-2' },
+        { ...asking, status: 'closed', closeReason: 'all_answered', pendingQuestionId: null },
+      ],
+    );
+    const intakeAnswers = answering([
+      {
+        questionId: 'intake-1',
+        question: 'A fraqueza melhora e piora?',
+        answer: 'Sim, há 2 horas.',
+        factIds: ['h-flutuacao'],
+      },
+      {
+        questionId: 'intake-2',
+        question: 'Usa anticoagulante?',
+        answer: NOT_INFORMED,
+        factIds: [],
+      },
+    ]);
+
+    const outcome = await runCase(
+      { ...services, simulator: { model: 'claude-haiku-5-5', answer: intakeAnswers } },
+      clinicalCase,
+      key,
+      funnelRun,
+    );
+
+    expect(start).toHaveBeenCalledWith('medico-1', 'atendimento-1', {
+      caseText: 'M 67a, fraqueza no braço D.',
+      context: { hasCT: false, isSus: false, hasLab: false, hasICU: false },
+      redFlags: undefined,
+    });
+    // As opções de toque vão ao médico simulado, para a resposta começar por elas.
+    expect(intakeAnswers).toHaveBeenCalledWith(clinicalCase.input.funnel, [
+      {
+        id: 'intake-1',
+        question: 'A fraqueza melhora e piora?',
+        choices: ['Sim', 'Não', 'Não sei'],
+      },
+      { id: 'intake-2', question: 'Usa anticoagulante?', choices: ['Sim', 'Não', 'Não sei'] },
+    ]);
+    // "Não informado." começaria pela opção "Não": sem fato no roteiro, vale "Não sei".
+    expect(answer.mock.calls.map((call) => call[3])).toEqual([
+      { questionId: 'intake-1', answer: 'Sim, há 2 horas.', channel: 'text' },
+      { questionId: 'intake-2', answer: 'Não sei', channel: 'text' },
+    ]);
+    expect(conversationAnalyze).toHaveBeenCalledWith('medico-1', 'atendimento-1', 'conversa-1');
+    expect(answer.mock.invocationCallOrder.at(-1)).toBeLessThan(
+      conversationAnalyze.mock.invocationCallOrder[0] ?? 0,
+    );
+
+    if (outcome.kind !== 'result') throw new Error('esperava uma linha de resultado');
+    expect(outcome.row).toMatchObject({
+      mode: 'funnel',
+      status: 'ok',
+      intake: {
+        intakeId: 'conversa-1',
+        path: 'ask',
+        closeReason: 'all_answered',
+        understanding: { syndrome: 'deficit-neurologico-focal' },
+        readingModel: 'claude-haiku-5-5',
+        readingMs: 1_500,
+        readingCostUsd: 0.002,
+        exchanges: [
+          { questionId: 'intake-1', factIds: ['h-flutuacao'] },
+          { questionId: 'intake-2', answer: 'Não sei', factIds: [] },
+        ],
+        simulator: { model: 'claude-haiku-5-5', costUsd: 0.001 },
+      },
+    });
+    expect(outcome.row.intake?.questions.map((question) => question.id)).toEqual([
+      'intake-1',
+      'intake-2',
+    ]);
+    expect(outcome.row.intake?.firstQuestionMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it('para de responder quando a resposta urgente fecha a conversa', async () => {
+    const { services, answer } = guidedWith([async () => turn(0, false)], asking, [
+      { ...asking, status: 'closed', closeReason: 'urgent_answer', pendingQuestionId: null },
+    ]);
+
+    const outcome = await runCase(services, clinicalCase, key, funnelRun);
+
+    expect(answer).toHaveBeenCalledTimes(1);
+    if (outcome.kind !== 'result') throw new Error('esperava uma linha de resultado');
+    expect(outcome.row.intake).toMatchObject({ closeReason: 'urgent_answer' });
+    expect(outcome.row.intake?.exchanges).toHaveLength(1);
+  });
+
+  it('vai direto ao plano quando a leitura não pergunta', async () => {
+    const answer = vi.fn();
+    const { services, conversationAnalyze } = guidedWith(
+      [async () => turn(0, false)],
+      intakeView({ path: 'unstable', instabilityFindings: ['PAS 80'] }),
+    );
+
+    const outcome = await runCase(
+      { ...services, simulator: { model: 'claude-haiku-5-5', answer } },
+      clinicalCase,
+      key,
+      funnelRun,
+    );
+
+    expect(answer).not.toHaveBeenCalled();
+    expect(conversationAnalyze).toHaveBeenCalledTimes(1);
+    if (outcome.kind !== 'result') throw new Error('esperava uma linha de resultado');
+    expect(outcome.row.intake).toMatchObject({
+      path: 'unstable',
+      exchanges: [],
+      simulator: null,
+      firstQuestionMs: null,
+    });
+  });
+
+  it('sem leitura gravada, guarda a conversa sem entendimento', async () => {
+    const { services } = guidedWith([async () => turn(0, false)], intakeView({ path: 'disabled' }));
+    vi.mocked(services.prisma.caseIntake.findUnique).mockResolvedValue({
+      reading: null,
+      readingModel: null,
+      cost: 0,
+      latencyMs: 0,
+    } as never);
+
+    const outcome = await runCase(services, clinicalCase, key, funnelRun);
+
+    if (outcome.kind !== 'result') throw new Error('esperava uma linha de resultado');
+    expect(outcome.row.intake).toMatchObject({
+      path: 'disabled',
+      understanding: null,
+      readingModel: null,
+    });
+  });
+
+  it('depois do plano, responde às perguntas dele e avalia o último turno', async () => {
+    const { services, continueAnalysis } = guidedWith([
       async () => turn(0, true),
       async () => turn(1, false),
     ]);
 
-    const outcome = await runCase({ ...services, simulator }, clinicalCase, key, funnelRun);
+    const outcome = await runCase(services, clinicalCase, key, funnelRun);
 
-    expect(analyze.mock.calls[0]?.[2]).toMatchObject({ caseText: 'M 67a, fraqueza no braço D.' });
     expect(continueAnalysis.mock.calls[0]?.[2]).toEqual({
       interactionId: 'interacao-0',
       answers: [{ questionId: 'q1', answer: 'A fraqueza melhora e piora há 2 horas.' }],
@@ -497,6 +732,7 @@ describe('runCase — afunilamento', () => {
       mode: 'funnel',
       status: 'ok',
       interactionId: 'interacao-1',
+      intake: { path: 'complete', exchanges: [] },
     });
     expect(outcome.row.turns.map((item) => item.exchanges.length)).toEqual([1, 0]);
     expect(outcome.row.turns[0]?.exchanges[0]?.factIds).toEqual(['h-flutuacao']);
@@ -528,20 +764,15 @@ describe('runCase — afunilamento', () => {
         ],
       },
     };
-    const answer = vi.fn(async () => ({
-      exchanges: [
-        {
-          questionId: 'correcao-do-entendimento',
-          question: 'Resultado do que o Copiloto mandou fazer: TC de crânio sem contraste agora',
-          answer: 'Resultados: TC sem sangramento.',
-          factIds: ['t-tc'],
-        },
-      ],
-      model: 'claude-haiku-5-5',
-      costUsd: 0.001,
-      latencyMs: 5,
-    }));
-    const { services, continueAnalysis } = servicesWith([
+    const answer = answering([
+      {
+        questionId: 'correcao-do-entendimento',
+        question: 'Resultado do que o Copiloto mandou fazer: TC de crânio sem contraste agora',
+        answer: 'Resultados: TC sem sangramento.',
+        factIds: ['t-tc'],
+      },
+    ]);
+    const { services, continueAnalysis } = guidedWith([
       async () => ordering,
       async () => turn(1, false),
     ]);
@@ -566,41 +797,79 @@ describe('runCase — afunilamento', () => {
   });
 
   it('para no terceiro turno mesmo com pergunta pendente', async () => {
-    const { services, continueAnalysis } = servicesWith([
+    const { services, continueAnalysis } = guidedWith([
       async () => turn(0, true),
       async () => turn(1, true),
       async () => turn(2, true),
     ]);
 
-    const outcome = await runCase({ ...services, simulator }, clinicalCase, key, funnelRun);
+    const outcome = await runCase(services, clinicalCase, key, funnelRun);
 
     expect(continueAnalysis).toHaveBeenCalledTimes(2);
     if (outcome.kind === 'result') expect(outcome.row.turns).toHaveLength(3);
   });
 
-  it('guarda os turnos respondidos quando a reanálise fica sem resposta', async () => {
-    const { services } = servicesWith([
+  it('guarda os turnos e a conversa quando a reanálise fica sem resposta', async () => {
+    const { services } = guidedWith([
       async () => turn(0, true),
       validationFailure(['Output is not valid JSON']),
     ]);
 
-    const outcome = await runCase({ ...services, simulator }, clinicalCase, key, funnelRun);
+    const outcome = await runCase(services, clinicalCase, key, funnelRun);
 
     expect(outcome.kind).toBe('result');
     if (outcome.kind !== 'result') return;
     expect(outcome.row.status).toBe('invalid_output');
     expect(outcome.row.turns).toHaveLength(1);
+    expect(outcome.row.intake).toMatchObject({ intakeId: 'conversa-1' });
+  });
+
+  it('guarda a conversa quando o primeiro plano fica sem resposta', async () => {
+    const { services } = guidedWith([validationFailure(['Output is not valid JSON'])], asking, [
+      { ...asking, status: 'closed', closeReason: 'all_answered' },
+    ]);
+
+    const outcome = await runCase(services, clinicalCase, key, funnelRun);
+
+    if (outcome.kind !== 'result') throw new Error('esperava uma linha de resultado');
+    expect(outcome.row).toMatchObject({ status: 'invalid_output', intake: { path: 'ask' } });
+  });
+
+  it('separa o bloqueio do filtro de injeção na leitura do caso', async () => {
+    const { services, start, conversationAnalyze } = guidedWith([]);
+    start.mockRejectedValueOnce(
+      new BadRequestException({
+        message: 'Input contains potentially unsafe content',
+        reasons: ['ROLE_MANIPULATION_ATTEMPT'],
+      }),
+    );
+
+    const outcome = await runCase(services, clinicalCase, key, funnelRun);
+
+    expect(conversationAnalyze).not.toHaveBeenCalled();
+    expect(outcome).toMatchObject({ kind: 'error', row: { failureClass: 'input_rejected' } });
   });
 
   it('é falha do harness, fora da nota, quando o caso não tem roteiro', async () => {
-    const { services } = servicesWith([]);
+    const { services } = guidedWith([]);
     const withoutFunnel = strokeCaseFixture({
       input: { caseText: clinicalCase.input.caseText },
     });
 
-    const outcome = await runCase({ ...services, simulator }, withoutFunnel, key, funnelRun);
+    const outcome = await runCase(services, withoutFunnel, key, funnelRun);
 
     expect(outcome).toMatchObject({ kind: 'error', row: { failureClass: 'harness' } });
+  });
+
+  it('é falha do harness quando falta a conversa do Copiloto guiado', async () => {
+    const { services } = servicesWith([]);
+
+    const outcome = await runCase({ ...services, simulator }, clinicalCase, key, funnelRun);
+
+    expect(outcome).toMatchObject({
+      kind: 'error',
+      row: { failureClass: 'harness', message: expect.stringContaining('Copiloto guiado') },
+    });
   });
 });
 

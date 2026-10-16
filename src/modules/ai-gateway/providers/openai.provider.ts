@@ -3,8 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import { z } from 'zod';
 import {
   AiCapabilityUnsupportedError,
+  AiProviderError,
   AiRefusalError,
   AiTruncatedError,
+  type AiUnavailabilityReason,
 } from '../ai-gateway.errors';
 import {
   readFlag,
@@ -192,23 +194,45 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+interface ProviderErrorBody {
+  /** Só tipo, código e o começo da mensagem, para o log. */
+  detail: string;
+  code: string | null;
+}
+
 /**
- * Só tipo, código e o começo da mensagem: o corpo de erro de alguns hosts
- * repete trechos da entrada, e a entrada é o caso clínico.
+ * Nunca o corpo inteiro: o corpo de erro de alguns hosts repete trechos da
+ * entrada, e a entrada é o caso clínico.
  */
-async function describeProviderError(response: Response): Promise<string> {
+async function readProviderError(response: Response): Promise<ProviderErrorBody> {
   const text = await response.text().catch(() => '');
   try {
     const parsed = ProviderErrorSchema.safeParse(JSON.parse(text));
     if (parsed.success) {
       const { message, type, code } = parsed.data.error;
       const shortMessage = (message ?? '').slice(0, MAX_LOGGED_ERROR_MESSAGE_CHARS);
-      return `type=${type ?? '-'} code=${code ?? '-'} message="${shortMessage}"`;
+      return {
+        detail: `type=${type ?? '-'} code=${code ?? '-'} message="${shortMessage}"`,
+        code: code === null || code === undefined ? null : String(code),
+      };
     }
   } catch {
     // corpo que não é JSON: só o tamanho vai para o log
   }
-  return `bodyChars=${text.length}`;
+  return { detail: `bodyChars=${text.length}`, code: null };
+}
+
+/**
+ * Quando o status final (já sem novas tentativas) diz que o host está fora, e
+ * não que o pedido está errado. A OpenAI manda cota esgotada como 429 com
+ * `insufficient_quota`; alguns hosts usam 402.
+ */
+function unavailabilityOf(status: number, code: string | null): AiUnavailabilityReason | null {
+  if (status === 402 || code === 'insufficient_quota') return 'usage_limit';
+  if (status === 408) return 'timeout';
+  if (status === 429) return 'rate_limit';
+  if (status >= 500) return 'server_error';
+  return null;
 }
 
 /**
@@ -354,7 +378,12 @@ export class OpenAIProvider implements AIProvider {
       payload = await response.json();
     } catch (error) {
       if (deadline.timedOut) throw this.timeoutError('API', this.requestTimeoutMs, error);
-      throw error;
+      // Conexão cortada no meio do corpo, ou página de erro de um proxy com status 200.
+      throw new AiProviderError(
+        'AI provider error: unreadable response body',
+        { status: null, unavailability: 'network' },
+        { cause: error },
+      );
     } finally {
       deadline.clear();
     }
@@ -389,7 +418,10 @@ export class OpenAIProvider implements AIProvider {
     const { response, deadline } = await this.postChatCompletion(body, 'stream');
     if (!response.body) {
       deadline.clear();
-      throw new Error('AI provider error: empty stream body');
+      throw new AiProviderError('AI provider error: empty stream body', {
+        status: response.status,
+        unavailability: 'server_error',
+      });
     }
 
     let content = '';
@@ -421,7 +453,11 @@ export class OpenAIProvider implements AIProvider {
       }
     } catch (error) {
       if (deadline.timedOut) throw this.timeoutError('stream', this.streamIdleTimeoutMs, error);
-      throw error;
+      throw new AiProviderError(
+        'AI provider error: stream interrupted',
+        { status: null, unavailability: 'network' },
+        { cause: error },
+      );
     } finally {
       deadline.clear();
     }
@@ -446,9 +482,8 @@ export class OpenAIProvider implements AIProvider {
     });
 
     if (!response.ok) {
-      this.logger.error(
-        `AI_PROVIDER_ERROR operation=embed status=${response.status} ${await describeProviderError(response)}`,
-      );
+      const { detail } = await readProviderError(response);
+      this.logger.error(`AI_PROVIDER_ERROR operation=embed status=${response.status} ${detail}`);
       throw new Error(`AI provider embed error: ${response.status}`);
     }
 
@@ -538,7 +573,11 @@ export class OpenAIProvider implements AIProvider {
         deadline.clear();
         const failure = deadline.timedOut
           ? this.timeoutError(operation, this.requestTimeoutMs, error)
-          : new Error('AI provider network error', { cause: error });
+          : new AiProviderError(
+              'AI provider network error',
+              { status: null, unavailability: 'network' },
+              { cause: error },
+            );
         if (attempt >= this.maxRetries) throw failure;
         this.logger.warn(
           `AI_PROVIDER_RETRY operation=${operation} attempt=${attempt + 1} reason="${failure.message}"`,
@@ -550,7 +589,7 @@ export class OpenAIProvider implements AIProvider {
       if (response.ok) return { response, deadline };
       deadline.clear();
 
-      const detail = await describeProviderError(response);
+      const { detail, code } = await readProviderError(response);
       if (RETRYABLE_STATUS.has(response.status) && attempt < this.maxRetries) {
         this.logger.warn(
           `AI_PROVIDER_RETRY operation=${operation} attempt=${attempt + 1} status=${response.status} ${detail}`,
@@ -561,12 +600,23 @@ export class OpenAIProvider implements AIProvider {
       this.logger.error(
         `AI_PROVIDER_ERROR operation=${operation} status=${response.status} ${detail}`,
       );
-      throw new Error(`AI provider error: ${response.status}`);
+      throw new AiProviderError(`AI provider error: ${response.status}`, {
+        status: response.status,
+        unavailability: unavailabilityOf(response.status, code),
+      });
     }
   }
 
-  private timeoutError(operation: 'API' | 'stream', timeoutMs: number, cause: unknown): Error {
-    return new Error(`AI provider ${operation} timeout after ${timeoutMs}ms`, { cause });
+  private timeoutError(
+    operation: 'API' | 'stream',
+    timeoutMs: number,
+    cause: unknown,
+  ): AiProviderError {
+    return new AiProviderError(
+      `AI provider ${operation} timeout after ${timeoutMs}ms`,
+      { status: null, unavailability: 'timeout' },
+      { cause },
+    );
   }
 
   private assertFinished(completion: FinishedCompletion): void {

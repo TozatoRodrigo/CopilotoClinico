@@ -69,6 +69,9 @@ export class EncountersService {
           // S25-QC-01 — rastreável na trilha de auditoria sem expor o valor
           // do identificador (que já é opaco por LGPD-001, mas mesmo assim).
           identified: encounter.patientRef !== null,
+          // CC-602 — métrica "% de casos com contexto preenchido": o caso
+          // nasceu com o local de plantão (perfil salvo ou escolhido).
+          siteDeclared: input.context.site !== undefined,
         },
       })
       .catch(() => undefined);
@@ -234,6 +237,11 @@ export class EncountersService {
    * continuar sinalizando alerta). `rawOutput` é `Prisma.JsonValue` sem
    * schema garantido em runtime (ver mesmo cuidado em sbar.generator.ts),
    * daí a leitura defensiva abaixo.
+   *
+   * CC-207 — duas consultas de tamanho fixo: primeiro só ids e datas de todos
+   * os turnos, depois o `rawOutput` (texto clínico, decifrado ao ler) apenas
+   * da interação mais recente de cada encontro — a lista não mostra o texto,
+   * então não decifra nem trafega a saída dos turnos antigos.
    */
   private async getLatestInteractionSummaries(
     encounterIds: string[],
@@ -243,15 +251,27 @@ export class EncountersService {
     const interactions = await this.prisma.aiInteraction.findMany({
       where: { encounterId: { in: encounterIds } },
       orderBy: { createdAt: 'desc' },
-      select: { encounterId: true, rawOutput: true, createdAt: true },
+      select: { id: true, encounterId: true, createdAt: true },
     });
 
-    const result = new Map<string, LatestInteractionSummary>();
+    // orderBy desc — a primeira ocorrência de cada encounterId já é a mais recente.
+    const latestByEncounter = new Map<string, { id: string; createdAt: Date }>();
     for (const interaction of interactions) {
-      // orderBy desc — a primeira ocorrência de cada encounterId já é a mais recente.
-      if (result.has(interaction.encounterId)) continue;
+      if (!latestByEncounter.has(interaction.encounterId)) {
+        latestByEncounter.set(interaction.encounterId, interaction);
+      }
+    }
+    if (latestByEncounter.size === 0) return new Map();
 
-      const rawOutput = interaction.rawOutput as unknown as {
+    const outputs = await this.prisma.aiInteraction.findMany({
+      where: { id: { in: [...latestByEncounter.values()].map((latest) => latest.id) } },
+      select: { id: true, rawOutput: true },
+    });
+    const rawOutputById = new Map(outputs.map((output) => [output.id, output.rawOutput]));
+
+    const result = new Map<string, LatestInteractionSummary>();
+    for (const [encounterId, latest] of latestByEncounter) {
+      const rawOutput = rawOutputById.get(latest.id) as unknown as {
         redFlags?: Array<{ severity?: string }>;
       } | null;
       const redFlags = Array.isArray(rawOutput?.redFlags) ? rawOutput!.redFlags : [];
@@ -263,10 +283,7 @@ export class EncountersService {
         if (rank > currentRank) highest = flag.severity as RedFlagSeverity;
       }
 
-      result.set(interaction.encounterId, {
-        severity: highest,
-        lastInteractionAt: interaction.createdAt,
-      });
+      result.set(encounterId, { severity: highest, lastInteractionAt: latest.createdAt });
     }
     return result;
   }

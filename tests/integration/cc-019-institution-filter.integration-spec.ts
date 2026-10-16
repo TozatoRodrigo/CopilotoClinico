@@ -32,6 +32,7 @@ import { RetrievalService } from '../../src/modules/copilot/retrieval/retrieval.
 import type { PrismaService } from '../../src/config/prisma.service';
 import type { AiGatewayService } from '../../src/modules/ai-gateway/ai-gateway.service';
 import type { AuditService } from '../../src/modules/audit/audit.service';
+import type { LgpdService } from '../../src/modules/lgpd/lgpd.service';
 import type { RedisService } from '../../src/modules/redis/redis.service';
 
 /** Especialidade só deste teste: a biblioteca não enxerga dado de outro teste. */
@@ -175,9 +176,12 @@ describe('CC-019 — filtro de instituição em diretrizes e protocolos (integra
 
     institutions = new InstitutionsService(db, audit);
     const aiGateway = { embeddingsEnabled: () => false } as unknown as AiGatewayService;
+    // CC-010 — sem embedding no teste, o consentimento de IA não muda a busca.
+    const lgpd = { checkConsent: async () => true } as unknown as LgpdService;
     guidelines = new GuidelinesController(
       new GuidelinesService(db, aiGateway, audit),
       institutions,
+      lgpd,
     );
   });
 
@@ -258,7 +262,9 @@ describe('CC-019 — filtro de instituição em diretrizes e protocolos (integra
 
   describe('POST /guidelines/consult', () => {
     it('só conteúdo global, para qualquer médico', async () => {
-      const { results } = await guidelines.consult({ query: 'lactato antibiótico' });
+      const { results } = await guidelines.consult(asPhysician(physicianB), {
+        query: 'lactato antibiótico',
+      });
       const ids = results.map((result) => result.chunkId);
 
       expect(ids).toContain(chunk.global);
