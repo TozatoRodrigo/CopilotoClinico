@@ -77,7 +77,8 @@ export const NICKNAMES = [
   'Vavá',
 ] as const;
 
-const NAME_WORD = String.raw`\p{Lu}\p{Ll}+(?:[-'’]\p{Lu}?\p{Ll}+)*`;
+/** Palavra com forma de nome: inicial maiúscula e o resto minúsculo ("Ana", "Lima-Barreto"). */
+export const NAME_WORD = String.raw`\p{Lu}\p{Ll}+(?:[-'’]\p{Lu}?\p{Ll}+)*`;
 /** Nome com sobrenome: "João Pedro", "Maria das Dores", "Ana Paula dos Santos". */
 const NAME_SEQUENCE = String.raw`${NAME_WORD}(?:\s+(?:(?:da|de|do|das|dos)\s+)?${NAME_WORD})*`;
 const HONORIFIC = String.raw`Seu|[Dd]ona|[Ss]enhora?|[Dd]outora?|[Ss]rta|[Ss]ra?|[Dd]ra?`;

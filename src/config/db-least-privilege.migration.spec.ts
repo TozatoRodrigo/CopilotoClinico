@@ -131,3 +131,38 @@ describe('CC-402 migration 20261014120000_cc_402_knowledge_cards', () => {
     expect(sql).not.toMatch(/ON DELETE SET NULL/);
   });
 });
+
+/**
+ * CC-012 — a eliminação LGPD desvincula ai_calls do médico e apaga MFA, CRM,
+ * vínculos institucionais e estado de login com a role de runtime.
+ */
+describe('CC-012 erasure privileges migration', () => {
+  const sql = readFileSync(
+    join(
+      process.cwd(),
+      'prisma/migrations/20261016120000_cc_012_lgpd_erasure_privileges/migration.sql',
+    ),
+    'utf8',
+  );
+
+  it('grants UPDATE only on the link columns of ai_calls, never on the whole table', () => {
+    expect(sql).toContain(
+      'GRANT UPDATE ("physician_id", "encounter_id", "request_id") ON TABLE "ai_calls" TO copiloto_app',
+    );
+    expect(sql).not.toMatch(/GRANT\s+UPDATE\s+ON\s+TABLE\s+"ai_calls"/i);
+    expect(sql).not.toMatch(/GRANT\s+ALL/i);
+    expect(sql).not.toMatch(/GRANT[^;]*TRUNCATE/i);
+    expect(sql).toContain("has_column_privilege('copiloto_app', 'ai_calls', 'cost_usd', 'UPDATE')");
+    expect(sql).toContain("has_table_privilege('copiloto_app', 'ai_calls', 'DELETE')");
+  });
+
+  it.each([
+    'mfa_backup_codes',
+    'crm_verification_requests',
+    'physician_institutions',
+    'login_security_states',
+  ])('grants and smoke-checks DELETE on %s', (table) => {
+    expect(sql).toMatch(new RegExp(`GRANT DELETE ON TABLE[^;]*"${table}"[^;]*TO copiloto_app`));
+    expect(sql).toContain(`'${table}'`);
+  });
+});

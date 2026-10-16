@@ -43,10 +43,11 @@ export class PiiLogSanitizerInterceptor implements NestInterceptor {
       method: string;
       url: string;
       body: unknown;
-      ip: string;
     }>();
 
-    const { method, ip } = req;
+    // CC-026 — sem o IP: com o IP real (o do médico), a linha passaria a ter
+    // dado pessoal; o socket (o Traefik) não ajuda a depurar nada.
+    const { method } = req;
     const path = pathForLog(req.url);
     const start = Date.now();
 
@@ -54,14 +55,13 @@ export class PiiLogSanitizerInterceptor implements NestInterceptor {
       tap({
         next: () => {
           const ms = Date.now() - start;
-          this.logger.debug(`${method} ${path} — ${ms}ms [${ip ?? 'unknown'}]`);
+          this.logger.debug(`${method} ${path} — ${ms}ms`);
         },
         error: (err: unknown) => {
           const ms = Date.now() - start;
           const message = err instanceof Error ? err.message : String(err);
           this.logger.warn(
-            `${method} ${path} — ERROR ${ms}ms [${ip ?? 'unknown'}]: ${message} ` +
-              `bodyFields=${bodyFieldsForLog(req.body)}`,
+            `${method} ${path} — ERROR ${ms}ms: ${message} bodyFields=${bodyFieldsForLog(req.body)}`,
           );
         },
       }),

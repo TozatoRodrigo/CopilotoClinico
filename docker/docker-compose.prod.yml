@@ -182,6 +182,14 @@ services:
       # trecho na verificação com fonte (COPILOT_KNOWLEDGE_SOURCE=verify).
       # Mesmo motivo das linhas acima; padrão igual ao do código.
       AI_VERIFY_ATTACH_MODEL: ${AI_VERIFY_ATTACH_MODEL:-claude-sonnet-5-5}
+      # CC-201/CC-206 e CC-203 / ADR-020 — de-identificação. DEID_MODE=model
+      # soma o modelo local (copiloto-deid, abaixo) à regex; fora do ar ou
+      # lento, segue só com a regex (DEID_FALLBACK no log). Mesmo motivo das
+      # linhas acima: sem repassar aqui, a troca no .env.production não chega.
+      DEID_CONTEXT_RULES: ${DEID_CONTEXT_RULES:-on}
+      DEID_MODE: ${DEID_MODE:-regex}
+      DEID_SERVICE_URL: ${DEID_SERVICE_URL:-http://copiloto-deid:8000}
+      DEID_TIMEOUT_MS: ${DEID_TIMEOUT_MS:-1000}
       # CC-005 — alertas de custo do dia e de p95 da decisão (runbook,
       # "Alertas de custo e latência da IA"). Vazio = desligado. Mesmo motivo
       # das linhas acima: sem repassar aqui, o .env.production não chega.
@@ -227,6 +235,30 @@ services:
       - "traefik.http.routers.copiloto-api.entrypoints=websecure"
       - "traefik.http.routers.copiloto-api.tls.certresolver=letsencrypt"
       - "traefik.http.services.copiloto-api.loadbalancer.server.port=3000"
+
+  # ── De-identificação local (CC-203, ADR-020) ─────────────────────────────
+  # OpenMed PII 44M em ONNX int8: acha nome, endereço e documento no texto
+  # antes de qualquer chamada de IA. Só na rede interna (sem Traefik, sem
+  # porta no host). Opcional: sobe com `--profile deid`, e a API não depende
+  # dele — sem o serviço, a máscara segue só com a regex.
+  # A imagem NÃO é construída aqui (o build passa de 3 GB de RAM): vem de
+  # `docker load`, ver runbook. pull_policy never: sem a imagem, o compose
+  # avisa em vez de tentar o Docker Hub.
+  copiloto-deid:
+    image: copiloto-deid:${DEID_IMAGE_TAG:-latest}
+    pull_policy: never
+    profiles: ["deid"]
+    container_name: copiloto-deid
+    restart: unless-stopped
+    environment:
+      DEID_THREADS: ${DEID_THREADS:-2}
+    # Medido em 15/10/2026: ~340 MB de RSS (170 MB de heap + o modelo mapeado
+    # do disco), pico de 392 MB no cgroup. O teto protege os outros apps da VPS.
+    mem_limit: 400m
+    memswap_limit: 400m
+    cpus: 2
+    networks:
+      - copiloto-net
 
   # ── Frontend (Next.js standalone) ────────────────────────────────────────
   copiloto-web:

@@ -2,8 +2,8 @@
 
 Diagnóstico da interface anterior ("Prontuário Vivo", sidebar teal escura),
 direção escolhida e o que mudou em cada tela. A especificação viva do sistema
-está em [design-system.md](design-system.md) e os tokens em
-[design-tokens.md](design-tokens.md).
+está em [design-system.md](../design-system.md) e os tokens em
+[design-tokens.md](../design-tokens.md).
 
 ## 1. Contexto de uso
 

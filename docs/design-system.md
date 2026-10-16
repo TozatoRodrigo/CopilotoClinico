@@ -7,7 +7,7 @@ com significado passa em contraste WCAG AA e as cores clínicas têm
 significado médico-legal fixo.
 
 - Tokens: `web/src/app/globals.css` · tabela de cores: [design-tokens.md](design-tokens.md)
-- Estudo de UX que motivou o redesign: [ux-ui-redesign.md](ux-ui-redesign.md)
+- Estudo de UX que motivou o redesign: [planos/ux-ui-redesign.md](planos/ux-ui-redesign.md)
 
 ## Princípios
 

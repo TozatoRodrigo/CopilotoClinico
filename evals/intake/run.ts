@@ -11,6 +11,7 @@ import { readFlag } from '../../src/modules/ai-gateway/ai-gateway.settings';
 import { DEFAULT_PROFILE } from '../../src/modules/ai-gateway/provider-profiles';
 import { AI_EFFORTS } from '../../src/modules/ai-gateway/providers/provider.interface';
 import { screenClinicalText } from '../../src/modules/copilot/guardrails/clinical-text-screening';
+import { maskPII } from '../../src/modules/copilot/guardrails/pii-filter';
 import { buildIntakeReadingMessages } from '../../src/modules/copilot/intake/intake-reading-prompt';
 import { INTAKE_READING_TIMEOUT_MS } from '../../src/modules/copilot/intake/intake.settings';
 import { readUnderstandingEffort } from '../../src/modules/copilot/understanding/understanding.settings';
@@ -254,7 +255,7 @@ async function main(): Promise<number> {
   const estimateText = `${formatUsd(estimatedTotal)}${unknownEstimate ? ' + modelos sem preço' : ''}`;
   console.log(`  Estimativa da rodada: ${estimateText}`);
   for (const intakeCase of cases) {
-    if (!screenClinicalText(intakeCase.input.caseText, null).injection.safe) {
+    if (!screenClinicalText(maskPII(intakeCase.input.caseText), null).injection.safe) {
       console.warn(
         `  ⚠️ ${intakeCase.id}: em produção, a triagem de injeção recusaria este texto.`,
       );
