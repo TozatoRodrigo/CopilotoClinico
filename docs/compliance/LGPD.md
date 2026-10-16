@@ -38,9 +38,14 @@
   - O texto original nunca é armazenado
 - Output do modelo, incerteza, citações, custo, latência
 
+### Referências anexadas ao atendimento (EncounterAttachment)
+- Nome, tipo e tamanho do arquivo enviado pelo médico
+- `text`: texto extraído **já mascarado de PII** (LGPD-005); o arquivo original nunca é gravado
+
 ### Documentos gerados (Document)
 - Conteúdo SOAP/SBAR/etc. gerado pela IA
 - Edições do médico, confirmação (com hash do conteúdo confirmado)
+- PDF do documento confirmado no object storage (MinIO), referenciado por `pdfObjectKey`
 
 ### Capturas de áudio (AudioCapture)
 
@@ -147,9 +152,12 @@ As notas de verificação de CRM têm o admin como `actor_id`; filtre por
 ### O que a exportação inclui
 
 `data` traz, do médico: cadastro (sem hash de senha nem segredo de MFA),
-`encounters`, `documents`, `aiInteractions`, `caseIntakes`,
-`recommendationDecisions`, `copilotFeedback`, `audioCaptures`, `consents` e
-`auditLog`. Refresh tokens não entram.
+`encounters`, `encounterAttachments`, `documents`, `aiInteractions`,
+`caseIntakes`, `recommendationDecisions`, `copilotFeedback`, `audioCaptures`,
+`consents` e `auditLog`. Refresh tokens não entram.
+
+Os anexos (`encounterAttachments`) vão com o texto redigido inline: é todo o
+conteúdo que guardamos.
 
 As capturas de áudio (`audioCaptures`) vão com metadados (id, atendimento, tipo
 MIME, tamanho, status, `retainUntil`, datas) e a transcrição já mascarada de PII.
@@ -157,6 +165,22 @@ O áudio cifrado (`encryptedContent`) não é exportado: está cifrado com a cha
 servidor, e decifrá-lo poria a voz do paciente, sem máscara, num arquivo baixado
 pelo navegador. Entram todas as capturas, qualquer que seja o status, inclusive
 `deleted`, quando o áudio já foi eliminado na retenção.
+
+### O que a eliminação faz
+
+1. Apaga do MinIO os PDFs dos documentos dos atendimentos do médico. Se o
+   storage falhar, nada é apagado no banco e a resposta é 503 — o pedido pode
+   ser repetido.
+2. Numa transação: apaga decisões por recomendação, reportes do copiloto,
+   anexos, capturas de áudio, atendimentos (e, em cascata, documentos,
+   interações IA e execuções de protocolo), consentimentos e refresh tokens;
+   anonimiza o cadastro do médico.
+3. Registra `DATA_ERASURE` na trilha com as contagens apagadas.
+
+A trilha de auditoria **não** é apagada (append-only, AUD-001): é registro de
+obrigação legal (Art. 16, I). O payload não leva texto livre nem dado pessoal;
+entradas gravadas antes dessa regra podem levar e não mudam — ver "Trilha de
+Auditoria" acima.
 
 ## Política de patientRef
 
