@@ -29,6 +29,11 @@ export interface CompletionParams {
   responseSchema?: JsonResponseSchema;
   /** Só para o rastro (ai_calls); o provedor não envia. */
   stage?: AiCallStage;
+  /**
+   * Só para o rastro: o perfil que ficou indisponível e que esta chamada, no
+   * modelo de reserva, substitui. Quem preenche é o gateway.
+   */
+  fallbackFrom?: string;
 }
 
 /**

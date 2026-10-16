@@ -2,14 +2,18 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   Inject,
   Param,
   ParseUUIDPipe,
   Patch,
   Query,
   Request,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import type { FastifyReply } from 'fastify';
+import type { EvalCaseDraft } from '../../../shared/contracts/clinical';
 import { JwtAuthGuard } from '../../../shared/guards/jwt-auth.guard';
 import { RolesGuard } from '../../../shared/guards/roles.guard';
 import { CuratorGuard } from '../../../shared/guards/curator.guard';
@@ -53,5 +57,22 @@ export class CopilotFeedbackTriageController {
     body: UpdateCopilotFeedbackTriageInput,
   ) {
     return this.feedback.updateTriage(req.user.physicianId, id, body);
+  }
+
+  /**
+   * CC-703 — rascunho do caso do gabarito (formato v2, já válido no schema),
+   * como download `<id>.json`: o curador salva em evals/clinical/cases/,
+   * preenche o que está marcado e abre o PR.
+   */
+  @Get(':id/eval-case-draft')
+  @Header('Cache-Control', 'no-store')
+  async evalCaseDraft(
+    @Request() req: { user: { physicianId: string } },
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res({ passthrough: true }) reply: FastifyReply,
+  ): Promise<EvalCaseDraft> {
+    const draft = await this.feedback.exportEvalCaseDraft(req.user.physicianId, id);
+    reply.header('Content-Disposition', `attachment; filename="${draft.id}.json"`);
+    return draft;
   }
 }

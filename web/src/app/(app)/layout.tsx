@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-store";
 import { AppShell } from "@/components/layout/app-shell";
+import { BetaOnboardingGate } from "@/components/layout/beta-onboarding-gate";
 import { LogoMark } from "@/components/brand/logo";
 import { useLegalTermsGate } from "@/components/layout/legal-terms-gate";
 
@@ -32,5 +33,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return <AppShell>{children}</AppShell>;
+  return (
+    <AppShell>
+      <BetaOnboardingGate />
+      {children}
+    </AppShell>
+  );
 }

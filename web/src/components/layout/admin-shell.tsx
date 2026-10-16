@@ -8,7 +8,8 @@ import { ThemeToggle } from '@/components/layout/theme-toggle';
 import { RouteBreadcrumbs } from '@/components/layout/route-breadcrumbs';
 import { UserAvatarMenu, WorkspaceSwitcher } from '@/components/layout/user-menu';
 import { WorkspaceSidebar } from '@/components/layout/workspace-sidebar';
-import { adminSectionsFor } from '@/components/layout/nav-config';
+import { adminSectionsFor, type AdminFeature } from '@/components/layout/nav-config';
+import { useMentoringEnabled } from '@/lib/mentoring-queries';
 import { LogoMark } from '@/components/brand/logo';
 import { Badge } from '@/components/ui/badge';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
@@ -20,10 +21,13 @@ import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 
 function AdminSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { role } = useAuth();
+  // CC-707 — "Mentoria" só aparece com COPILOT_MENTORING ligada.
+  const mentoring = useMentoringEnabled();
+  const features = new Set<AdminFeature>(mentoring ? ['mentoring'] : []);
   return (
     <WorkspaceSidebar
       header={<WorkspaceSwitcher context="admin" title="Console admin" />}
-      sections={adminSectionsFor(role)}
+      sections={adminSectionsFor(role, features)}
       onNavigate={onNavigate}
       footer={
         <Link

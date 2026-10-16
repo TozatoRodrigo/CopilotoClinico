@@ -6,31 +6,18 @@ import {
   Param,
   UseGuards,
   Request,
-  Query,
-  Sse,
-  MessageEvent,
   Inject,
   Res,
 } from '@nestjs/common';
 import type { FastifyReply } from 'fastify';
-import { Observable } from 'rxjs';
 import { CopilotService } from './copilot.service';
 import { CopilotFeedbackService } from './feedback/copilot-feedback.service';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
-import {
-  analyzeSchema,
-  streamQuerySchema,
-  respondSchema,
-  copilotFeedbackSchema,
-} from './schemas/copilot.schemas';
-import type {
-  AnalyzeInput,
-  StreamQuery,
-  RespondInput,
-  CopilotFeedbackInput,
-} from './schemas/copilot.schemas';
+import { analyzeSchema, respondSchema, copilotFeedbackSchema } from './schemas/copilot.schemas';
+import type { AnalyzeInput, RespondInput, CopilotFeedbackInput } from './schemas/copilot.schemas';
 import { sendEventStream, streamEvents } from './stream-events';
+import { RequiresAiConsent } from '../lgpd/ai-consent.guard';
 
 @Controller('encounters/:encounterId/copilot')
 @UseGuards(JwtAuthGuard)
@@ -41,6 +28,7 @@ export class CopilotController {
   ) {}
 
   @Post('analyze')
+  @RequiresAiConsent()
   async analyze(
     @Request() req: { user: { physicianId: string } },
     @Param('encounterId') encounterId: string,
@@ -49,39 +37,8 @@ export class CopilotController {
     return this.copilotService.analyze(req.user.physicianId, encounterId, body);
   }
 
-  @Sse('stream')
-  stream(
-    @Request() req: { user: { physicianId: string } },
-    @Param('encounterId') encounterId: string,
-    @Query(new ZodValidationPipe(streamQuerySchema)) query: StreamQuery,
-  ): Observable<MessageEvent> {
-    const {
-      caseText,
-      hasCT,
-      isSus,
-      hasLab,
-      hasICU,
-      immunosuppressed,
-      pregnant,
-      anticoagulant,
-      pediatric,
-      elderly65,
-      allergy,
-      demoCase,
-    } = query;
-    const input: AnalyzeInput = {
-      caseText,
-      context: { hasCT, isSus, hasLab, hasICU },
-      // UX-06 — ver comentário em streamQuerySchema: paridade de red flags
-      // com o caminho POST /analyze.
-      redFlags: { immunosuppressed, pregnant, anticoagulant, pediatric, elderly65, allergy },
-      demoCase,
-    };
-
-    return streamEvents(() => this.copilotService.stream(req.user.physicianId, encounterId, input));
-  }
-
   @Post('respond')
+  @RequiresAiConsent()
   async respond(
     @Request() req: { user: { physicianId: string } },
     @Param('encounterId') encounterId: string,
@@ -99,6 +56,7 @@ export class CopilotController {
    * injeção) sai antes de qualquer byte, como o 4xx de sempre.
    */
   @Post('respond/stream')
+  @RequiresAiConsent()
   async respondStream(
     @Request() req: { user: { physicianId: string } },
     @Param('encounterId') encounterId: string,
@@ -133,6 +91,7 @@ export class CopilotController {
   }
 
   @Post('analyze/async')
+  @RequiresAiConsent()
   analyzeAsync(
     @Request() req: { user: { physicianId: string } },
     @Param('encounterId') encounterId: string,

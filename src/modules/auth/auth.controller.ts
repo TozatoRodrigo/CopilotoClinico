@@ -201,6 +201,9 @@ export class AuthController {
   @Patch('me/password')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
+  // Confere a senha atual como o login, então o mesmo teto contra tentativa
+  // em série com um token de acesso roubado.
+  @Throttle({ short: { limit: 5, ttl: 60000 } })
   async changePassword(
     @Request() req: { user: { physicianId: string } },
     @Body(new ZodValidationPipe(changePasswordSchema)) body: ChangePasswordInput,

@@ -1,0 +1,29 @@
+{
+  "id": "fi-003-avc-flutuante-como-hemorragico",
+  "source": {
+    "kind": "clinical_case",
+    "caseId": "fi-003-avc-flutuante-como-hemorragico"
+  },
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Fem, 71a, HAS e DM2. Há ~2h fraqueza em braço e perna D + fala embolada; melhorou totalmente em uns 15 min, voltou há 40 min e desde então melhora e piora. Agora hemiparesia D leve e disartria. PA 182x98, FC 84 regular, glicemia 128. TC crânio s/ contraste: sem sangramento, ASPECTS 10."
+  },
+  "expected": {
+    "sex": "F",
+    "age": 71,
+    "vitals": {
+      "systolicBp": 182,
+      "diastolicBp": 98,
+      "heartRate": 84,
+      "respiratoryRate": null,
+      "spo2": null,
+      "temperature": null,
+      "glucose": 128
+    },
+    "syndrome": ["deficit-neurologico-focal"],
+    "instability": false,
+    "timeCritical": true
+  }
+}

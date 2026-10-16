@@ -1,0 +1,30 @@
+{
+  "id": "rv-2021-est-10",
+  "source": {
+    "kind": "clinical_case",
+    "caseId": "rv-2021-est-10"
+  },
+  "review": {
+    "status": "draft",
+    "notes": "PA no acolhimento, em pé e deitada: vale qualquer uma."
+  },
+  "input": {
+    "caseText": "UBS com apoio laboratorial de urgência; demanda espontânea, classificação de risco amarela. Fem, 43a. Febre, dor no corpo, cefaleia e dor nos olhos há 2 dias. Peso 70 kg, IMC 28. Acolhimento: PA 120x70, FC 98, T 38,5 °C. EF: PA em pé 120x70, deitada 124x72; BEG, hidratada, corada, ativa; pele e conjuntivas normais; ausculta cardiorrespiratória normal; abdome semigloboso, sem visceromegalias, indolor à palpação superficial e profunda, RHA presentes; MMII com pulsos pediosos cheios, sem edema, panturrilhas livres. Prova do laço positiva (petéquias no quadrado de 2,5 cm). Hemograma: Hb 12,3, Ht 36,8%, leucócitos 5.000 sem desvio, plaquetas 152.000."
+  },
+  "expected": {
+    "sex": "F",
+    "age": 43,
+    "vitals": {
+      "systolicBp": [120, 124],
+      "diastolicBp": [70, 72],
+      "heartRate": 98,
+      "respiratoryRate": null,
+      "spo2": null,
+      "temperature": 38.5,
+      "glucose": null
+    },
+    "syndrome": ["febre"],
+    "instability": false,
+    "timeCritical": false
+  }
+}
