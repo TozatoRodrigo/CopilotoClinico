@@ -1,10 +1,8 @@
 import { test, expect } from '@playwright/test';
-import { loginAs, E2E } from './fixtures';
+import { E2E, storageStatePath } from './fixtures';
 
 test.describe('Perfil compliance — CRM e auditoria', () => {
-  test.beforeEach(async ({ page }) => {
-    await loginAs(page, E2E.compliance);
-  });
+  test.use({ storageState: storageStatePath('compliance') });
 
   test('aprova solicitação de CRM pendente e abre a auditoria', async ({ page }) => {
     // Fila de verificações CRM
@@ -23,7 +21,10 @@ test.describe('Perfil compliance — CRM e auditoria', () => {
     // A página tem o h1 e os botões Filtrar/Exportar — `.first()` evita a
     // violação de strict mode do Playwright com mais de um match.
     await expect(
-      page.getByRole('button', { name: /Tentar novamente|Exportar|Filtrar/ }).or(page.locator('h1')).first(),
+      page
+        .getByRole('button', { name: /Tentar novamente|Exportar|Filtrar/ })
+        .or(page.locator('h1'))
+        .first(),
     ).toBeVisible({ timeout: 15_000 });
   });
 });
