@@ -1,0 +1,29 @@
+{
+  "id": "rv-2020-disc-4",
+  "source": {
+    "kind": "clinical_case",
+    "caseId": "rv-2020-disc-4"
+  },
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Unidade de Emergência. Fem, 22a, DM1 há 3 a, em uso de insulina NPH 14 + 7 U e regular com ajuste pré-prandial. Entrada por taquipneia e dor abdominal difusa. Família: deprimida desde o fim do noivado há 1 mês; desde então usa insulina de forma irregular, com omissão de doses. Poliúria com ardência urinária, sem estrangúria ou febre. EF: sonolenta, hálito adocicado, desidratada 2+/4+, corada, acianótica, anictérica, afebril. PA 100x70, FC 121, FR 32, SatO2 99% AA. Abdome plano, flácido, peristáltico, doloroso difusamente à palpação profunda, sem irritação peritoneal, sem massas ou visceromegalias. Restante do exame sem alterações. Glicemia capilar 257 mg/dL. Gasometria venosa: acidose metabólica com ânion gap aumentado. K 3,5 mEq/L (VR 3,5–5,2). Urina: sem piúria; nitrito e esterase leucocitária negativos."
+  },
+  "expected": {
+    "sex": "F",
+    "age": 22,
+    "vitals": {
+      "systolicBp": 100,
+      "diastolicBp": 70,
+      "heartRate": 121,
+      "respiratoryRate": 32,
+      "spo2": 99,
+      "temperature": null,
+      "glucose": 257
+    },
+    "syndrome": ["disturbio-glicemico"],
+    "instability": true,
+    "timeCritical": true
+  }
+}

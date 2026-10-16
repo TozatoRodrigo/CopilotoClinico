@@ -10,6 +10,8 @@ import { Disclosure } from "@/components/ui/disclosure";
 import { Page } from "@/components/layout/page";
 import { useCaseConversation, type CaseConversation as Conversation } from "@/hooks/use-case-conversation";
 import { useMessages } from "@/lib/messages/use-messages";
+import { useEncounterDetail } from "@/lib/clinical-queries";
+import { caseContext } from "@/lib/practice-sites";
 import type { Messages } from "@/lib/messages";
 import {
   COMPLEMENT_QUESTION_ID,
@@ -55,6 +57,9 @@ export function CaseConversation({
   const messages = useMessages();
   const router = useRouter();
   const conversation = useCaseConversation(encounterId);
+  // CC-602 — o relato começa com o contexto com que o caso nasceu (o local
+  // de plantão escolhido ao criar o caso).
+  const encounterQuery = useEncounterDetail(encounterId);
   const [composingNew, setComposingNew] = useState(startNew);
 
   if (conversation.phase === "loading") return <ConversationSkeleton />;
@@ -78,11 +83,15 @@ export function CaseConversation({
 
   const composing = conversation.phase === "compose" || composingNew;
   if (composing && !conversation.pendingCase) {
+    // Sem o caso ainda, o relato não sabe o contexto; caso que não carrega
+    // não trava o relato (começa sem nada marcado, como antes).
+    if (encounterQuery.isPending) return <ConversationSkeleton />;
     return (
       <Page width="narrow" className="gap-6">
         <CaseComposer
           encounterId={encounterId}
           demoPreset={demoPreset}
+          initialContext={caseContext(encounterQuery.data?.context, demoPreset?.context)}
           sending={conversation.startingCase}
           error={conversation.startError}
           onSubmit={async (input) => {

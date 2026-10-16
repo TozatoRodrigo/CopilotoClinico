@@ -1,4 +1,9 @@
-import type { CaseUnderstanding } from '../../../shared/contracts/clinical';
+import type { CaseUnderstanding, EncounterContext } from '../../../shared/contracts/clinical';
+import {
+  buildFacilityContextBlock,
+  declaredSiteContext,
+  FACILITY_TRANSFER_RULE_V1,
+} from './site-context-prompt';
 
 export interface RetrievedContext {
   chunkId: string;
@@ -8,12 +13,8 @@ export interface RetrievedContext {
   score: number;
 }
 
-export interface EncounterContext {
-  hasCT: boolean;
-  isSus: boolean;
-  hasLab: boolean;
-  hasICU: boolean;
-}
+/** CC-602 — o mesmo contexto do caso do contrato, com o local de plantão opcional. */
+export type { EncounterContext };
 
 export interface PromptInput {
   caseText: string;
@@ -73,6 +74,13 @@ export interface PromptInput {
    * digital em prompt-builder.spec.ts.
    */
   understanding?: CaseUnderstanding;
+  /**
+   * CC-602/CC-603 — `COPILOT_SITE_CONTEXT`. Ligado e com local declarado no
+   * caso (`context.site`), o bloco do local substitui "Recursos disponíveis"
+   * e a FACILITY AND TRANSFER RULE entra no fim do system. Desligado, ou sem
+   * local declarado, o prompt fica byte a byte igual.
+   */
+  siteContext?: boolean;
 }
 
 export interface PhysicianAttachment {
@@ -469,13 +477,17 @@ export function buildPrompt(input: PromptInput): BuiltPrompt {
   const redFlagsBlock = buildConfirmedRedFlagsBlock(input.redFlags);
   const understandingBlock = buildUnderstandingBlock(input.understanding);
   const officialChunks = input.officialChunks ?? [];
+  const facility = declaredSiteContext(input.context, input.siteContext);
   const systemInstruction =
     buildSystemInstruction(input.locale) +
     (officialChunks.length > 0
       ? buildOfficialGuidelinesRule(input.unreviewedSourcesPreliminary ?? true)
-      : '');
+      : '') +
+    (facility ? FACILITY_TRANSFER_RULE_V1 : '');
   const officialBlock = buildOfficialBlock(officialChunks);
-  const contextBlock = buildContextBlock(input.context);
+  const contextBlock = facility
+    ? buildFacilityContextBlock(facility)
+    : buildContextBlock(input.context);
   // F4 — os ids de anexo entram aqui porque o validador de saída usa esta
   // lista como conjunto de citações válidas. Sem isso, uma recomendação
   // citando o anexo do médico seria rejeitada como citação inventada. O mesmo
@@ -489,7 +501,7 @@ export function buildPrompt(input: PromptInput): BuiltPrompt {
   if (input.retrievedChunks.length === 0 && officialChunks.length === 0) {
     return {
       system: systemInstruction,
-      user: `${buildCaseOnlyUser(input, redFlagsBlock, understandingBlock)}${instructionsBlock}`,
+      user: `${buildCaseOnlyUser(input, redFlagsBlock, understandingBlock, facility ? contextBlock : '')}${instructionsBlock}`,
       // F4 — mesmo sem cobertura de diretriz, o anexo do médico continua
       // citável: é exatamente o cenário do reporte original (a base não cobre
       // dengue, o médico anexa a diretriz).
@@ -547,11 +559,14 @@ function buildCaseOnlyUser(
   input: PromptInput,
   redFlagsBlock: string = '',
   understandingBlock: string = '',
+  // CC-603 — só com local declarado e a flag ligada: sem evidência, a
+  // transferência para o recurso que falta continua valendo.
+  facilityBlock: string = '',
 ): BuiltPrompt['user'] {
   return `<clinical_case type="UNTRUSTED_INPUT">
 ${input.caseText}
 </clinical_case>
-${redFlagsBlock ? `\n${redFlagsBlock}\n` : ''}${understandingBlock}${buildAttachmentsBlock(input.physicianAttachments)}
+${redFlagsBlock ? `\n${redFlagsBlock}\n` : ''}${understandingBlock}${buildAttachmentsBlock(input.physicianAttachments)}${facilityBlock ? `\n${facilityBlock}\n` : ''}
 WARNING: No relevant guideline evidence was found for this case — most likely because the case description is too brief or too vague for retrieval to match a protocol.
 
 Do NOT simply declare insufficiency and stop. Follow DECISION MATRIX path D: set "uncertainty" to true with a reason describing the missing GUIDELINE coverage (never blame the physician's description), AND emit up to 3 UNIVERSAL-TRIAGE-ANCHORED clarifyingQuestions (see ANTI-INTERROGATION RULE) that would let a follow-up analysis find the right protocol — prioritise, in order: time course (sudden vs progressive), hemodynamic stability / vital signs, and the single most discriminating red flag for this presentation. "recommendations" may be empty here ONLY because you are asking — never leave both recommendations and clarifyingQuestions empty (Rule 7).

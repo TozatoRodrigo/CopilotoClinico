@@ -39,9 +39,11 @@ describe('AUD-002 database least-privilege migration', () => {
 const F0D_MIGRATIONS = [
   { dir: '20261010120000_f0d_recommendation_decisions', table: 'recommendation_decisions' },
   { dir: '20261010120100_f0d_copilot_feedback', table: 'copilot_feedback' },
+  // CC-707 — mesma regra para os pedidos de mentoria.
+  { dir: '20261014120000_cc_707_mentoring_requests', table: 'mentoring_requests' },
 ] as const;
 
-describe.each(F0D_MIGRATIONS)('F0-D migration $dir', ({ dir, table }) => {
+describe.each(F0D_MIGRATIONS)('Table migration $dir', ({ dir, table }) => {
   const sql = readFileSync(join(process.cwd(), `prisma/migrations/${dir}/migration.sql`), 'utf8');
 
   it('grants only DML on the new table to the runtime role', () => {
@@ -64,6 +66,72 @@ describe.each(F0D_MIGRATIONS)('F0-D migration $dir', ({ dir, table }) => {
   });
 });
 
+describe('CC-334 migration external_identities', () => {
+  const sql = readFileSync(
+    join(process.cwd(), 'prisma/migrations/20261014150000_cc334_external_identities/migration.sql'),
+    'utf8',
+  );
+
+  it('grants only DML on the new table and smoke-checks it', () => {
+    expect(sql).toContain(
+      'GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "external_identities" TO copiloto_app',
+    );
+    expect(sql).not.toMatch(/GRANT\s+ALL/i);
+    expect(sql).not.toMatch(/GRANT[^;]*TRUNCATE/i);
+    expect(sql).toContain("has_table_privilege('copiloto_app', 'external_identities', privilege)");
+    expect(sql).toContain("has_table_privilege('copiloto_app', 'external_identities', 'TRUNCATE')");
+  });
+
+  it('cascades physician deletion', () => {
+    expect(sql).toContain(
+      'FOREIGN KEY ("physician_id") REFERENCES "physicians"("id") ON DELETE CASCADE',
+    );
+  });
+});
+
+/**
+ * CC-402 (ADR-019) — cartões revisados: nada se apaga (o cartão sai de uso por
+ * `archived`), o rascunho da IA é escrito uma vez, e o que o revisor assinou
+ * não muda (trigger).
+ */
+describe('CC-402 migration 20261014120000_cc_402_knowledge_cards', () => {
+  const sql = readFileSync(
+    join(process.cwd(), 'prisma/migrations/20261014120000_cc_402_knowledge_cards/migration.sql'),
+    'utf8',
+  );
+
+  it('grants only insert/read on drafts and no delete on cards or versions', () => {
+    expect(sql).toContain('GRANT SELECT, INSERT ON TABLE "knowledge_card_drafts" TO copiloto_app');
+    expect(sql).toContain(
+      'REVOKE UPDATE, DELETE, TRUNCATE ON TABLE "knowledge_card_drafts" FROM copiloto_app',
+    );
+    for (const table of ['knowledge_cards', 'knowledge_card_versions']) {
+      expect(sql).toContain(`GRANT SELECT, INSERT, UPDATE ON TABLE "${table}" TO copiloto_app`);
+      expect(sql).toContain(`REVOKE DELETE, TRUNCATE ON TABLE "${table}" FROM copiloto_app`);
+    }
+    expect(sql).not.toMatch(/GRANT\s+ALL/i);
+    expect(sql).not.toMatch(/GRANT[^;]*(DELETE|TRUNCATE)/i);
+  });
+
+  it('smoke-checks the privileges inside the migration', () => {
+    expect(sql).toContain(
+      "has_table_privilege('copiloto_app', 'knowledge_card_drafts', privilege)",
+    );
+    expect(sql).toContain("has_table_privilege('copiloto_app', card_table, privilege)");
+  });
+
+  it('freezes signed content and the reviewer decision with a trigger', () => {
+    expect(sql).toContain('BEFORE UPDATE ON "knowledge_card_versions"');
+    expect(sql).toContain('NEW.content IS DISTINCT FROM OLD.content');
+    expect(sql).toContain('OLD.review_decision IS NOT NULL');
+  });
+
+  it('never cascades a signed card away', () => {
+    expect(sql).not.toMatch(/ON DELETE CASCADE/);
+    expect(sql).not.toMatch(/ON DELETE SET NULL/);
+  });
+});
+
 /**
  * CC-012 — a eliminação LGPD desvincula ai_calls do médico e apaga MFA, CRM,
  * vínculos institucionais e estado de login com a role de runtime.
@@ -72,7 +140,7 @@ describe('CC-012 erasure privileges migration', () => {
   const sql = readFileSync(
     join(
       process.cwd(),
-      'prisma/migrations/20261015180000_cc_012_lgpd_erasure_privileges/migration.sql',
+      'prisma/migrations/20261016120000_cc_012_lgpd_erasure_privileges/migration.sql',
     ),
     'utf8',
   );

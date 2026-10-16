@@ -18,6 +18,7 @@ import { PrismaClient } from '@prisma/client';
 import { connectTestDb, disconnectTestDb } from './helpers/db';
 import { LgpdService } from '../../src/modules/lgpd/lgpd.service';
 import { AuditService } from '../../src/modules/audit/audit.service';
+import { PhysicianErasureCheck } from '../../src/modules/auth/physician-erasure-check.service';
 import type { PrismaService } from '../../src/config/prisma.service';
 import type { StorageService } from '../../src/modules/storage/storage.service';
 
@@ -121,7 +122,12 @@ describe('LGPD-003 — anexos e áudio na exportação e no apagamento (integrat
   });
 
   it('exporta anexos com texto redigido e áudio com transcrição, sem o áudio cifrado', async () => {
-    const service = new LgpdService(prisma as unknown as PrismaService, auditService, storage);
+    const service = new LgpdService(
+      prisma as unknown as PrismaService,
+      auditService,
+      new PhysicianErasureCheck(prisma as unknown as PrismaService),
+      storage,
+    );
 
     const exported = await service.exportPhysicianData(physicianId);
 
@@ -135,7 +141,12 @@ describe('LGPD-003 — anexos e áudio na exportação e no apagamento (integrat
   });
 
   it('apaga anexos, áudio e PDFs do médico, preserva os de outro médico e a trilha de auditoria', async () => {
-    const service = new LgpdService(prisma as unknown as PrismaService, auditService, storage);
+    const service = new LgpdService(
+      prisma as unknown as PrismaService,
+      auditService,
+      new PhysicianErasureCheck(prisma as unknown as PrismaService),
+      storage,
+    );
 
     const result = await service.requestErasure(physicianId);
 

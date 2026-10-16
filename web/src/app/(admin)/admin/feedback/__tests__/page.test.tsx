@@ -31,6 +31,9 @@ vi.mock("sonner", () => ({
 
 const { ApiError } = await import("@/lib/api-client");
 
+/** Nomes dos arquivos que a tela mandou baixar (jsdom não baixa nem cria blob URL). */
+let clickedDownloads: string[] = [];
+
 const CASE_TEXT = "Febre há 4 dias, plaquetas 90 mil, dor retro-orbitária. Nome: [REDACTED_CPF].";
 
 function item(overrides: Partial<CopilotFeedbackTriageItem> = {}): CopilotFeedbackTriageItem {
@@ -101,8 +104,23 @@ describe("Console admin — fila de triagem do feedback (F0-D)", () => {
     );
   });
 
+  beforeEach(() => {
+    clickedDownloads = [];
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      clickedDownloads.push(this.download);
+    });
+    Object.defineProperty(URL, "createObjectURL", {
+      value: vi.fn().mockReturnValue("blob:draft"),
+      configurable: true,
+    });
+    Object.defineProperty(URL, "revokeObjectURL", { value: vi.fn(), configurable: true });
+  });
+
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it("opens on the new reports, showing kind, comment and the copilot hypothesis", async () => {
@@ -171,69 +189,70 @@ describe("Console admin — fila de triagem do feedback (F0-D)", () => {
     expect(await within(dialog).findByRole("button", { name: "Reabrir" })).toBeInTheDocument();
   });
 
-  describe("Copiar como caso do gabarito", () => {
-    it("copies a gold-case JSON skeleton with the redacted case text", async () => {
+  // CC-703 — o rascunho vem pronto do servidor (formato v2, texto
+  // mascarado); a tela só o baixa como <id>.json.
+  describe("rascunho do caso do gabarito", () => {
+    const DRAFT_PATH = "/admin/copilot-feedback/1a2b3c4d-5555-4555-8555-555555555555/eval-case-draft";
+    const draft = { schemaVersion: 2, id: "campo-1a2b3c4d", title: "A PREENCHER: título do caso" };
+
+    beforeEach(() => {
+      apiGetMock.mockImplementation((path: string) =>
+        Promise.resolve(path === DRAFT_PATH ? draft : page([item()])),
+      );
+    });
+
+    it("downloads the server draft as <id>.json", async () => {
       const user = userEvent.setup();
-      const writeText = vi.fn().mockResolvedValue(undefined);
       renderPage();
       const dialog = await openFirstReport(user);
-      vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
 
-      await user.click(within(dialog).getByRole("button", { name: "Copiar como caso do gabarito" }));
+      await user.click(within(dialog).getByRole("button", { name: "Baixar rascunho do caso" }));
 
-      expect(writeText).toHaveBeenCalledTimes(1);
-      expect(JSON.parse(writeText.mock.calls[0]![0] as string)).toEqual({
-        id: "campo-1a2b3c4d",
-        title: "",
-        tags: [],
-        critical: false,
-        goldSource: "field_incident",
-        review: { status: "draft" },
-        input: { caseText: CASE_TEXT },
-        expected: {
-          syndrome: "",
-          cannotMiss: [],
-          mustRequest: [],
-          requiredActions: [],
-          forbiddenDefinitiveActions: [],
-          expectedPath: "any",
-        },
-      });
+      await waitFor(() => expect(clickedDownloads).toEqual(["campo-1a2b3c4d.json"]));
+      expect(apiGetMock).toHaveBeenCalledWith(DRAFT_PATH);
+      expect(toastSuccessMock).toHaveBeenCalledWith(expect.stringContaining("campo-1a2b3c4d.json"));
+    });
+
+    it("downloads the draft right after the report is marked as a gold case", async () => {
+      const user = userEvent.setup();
+      renderPage();
+      const dialog = await openFirstReport(user);
+
+      await user.click(within(dialog).getByRole("button", { name: "Virou caso do gabarito" }));
+
+      await waitFor(() => expect(clickedDownloads).toEqual(["campo-1a2b3c4d.json"]));
+      expect(apiPatchMock).toHaveBeenCalledWith(
+        "/admin/copilot-feedback/1a2b3c4d-5555-4555-8555-555555555555",
+        { status: "converted_to_eval_case", triageNote: null },
+      );
+    });
+
+    it("does not download anything for the other triage decisions", async () => {
+      const user = userEvent.setup();
+      renderPage();
+      const dialog = await openFirstReport(user);
+
+      await user.click(within(dialog).getByRole("button", { name: "Marcar como triado" }));
+
       await waitFor(() => expect(toastSuccessMock).toHaveBeenCalled());
+      expect(apiGetMock).not.toHaveBeenCalledWith(DRAFT_PATH);
+      expect(clickedDownloads).toEqual([]);
     });
 
-    it("falls back to execCommand when the Clipboard API is refused", async () => {
-      const user = userEvent.setup();
-      const execCommand = vi.fn().mockReturnValue(true);
-      renderPage();
-      const dialog = await openFirstReport(user);
-      vi.stubGlobal("navigator", {
-        ...navigator,
-        clipboard: { writeText: vi.fn().mockRejectedValue(new Error("NotAllowedError")) },
-      });
-      Object.defineProperty(document, "execCommand", { value: execCommand, configurable: true });
-
-      await user.click(within(dialog).getByRole("button", { name: "Copiar como caso do gabarito" }));
-
-      await waitFor(() => expect(execCommand).toHaveBeenCalledWith("copy"));
-      expect(toastSuccessMock).toHaveBeenCalled();
-    });
-
-    it("shows the JSON for manual copy when every clipboard path fails", async () => {
+    it("explains a failed export instead of downloading", async () => {
+      apiGetMock.mockImplementation((path: string) =>
+        path === DRAFT_PATH
+          ? Promise.reject(new ApiError(404, "Feedback not found"))
+          : Promise.resolve(page([item()])),
+      );
       const user = userEvent.setup();
       renderPage();
       const dialog = await openFirstReport(user);
-      vi.stubGlobal("navigator", { ...navigator, clipboard: undefined });
-      Object.defineProperty(document, "execCommand", {
-        value: vi.fn().mockReturnValue(false),
-        configurable: true,
-      });
 
-      await user.click(within(dialog).getByRole("button", { name: "Copiar como caso do gabarito" }));
+      await user.click(within(dialog).getByRole("button", { name: "Baixar rascunho do caso" }));
 
-      const manual = await within(dialog).findByLabelText("Caso do gabarito (copie manualmente)");
-      expect((manual as HTMLTextAreaElement).value).toContain('"id": "campo-1a2b3c4d"');
-      expect(toastErrorMock).toHaveBeenCalled();
+      await waitFor(() => expect(toastErrorMock).toHaveBeenCalledWith("Feedback not found"));
+      expect(clickedDownloads).toEqual([]);
     });
   });
 

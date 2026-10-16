@@ -25,7 +25,8 @@ import { connectTestDb, disconnectTestDb } from './helpers/db';
 import { LgpdService } from '../../src/modules/lgpd/lgpd.service';
 import { ERASURE_POLICY } from '../../src/modules/lgpd/erasure-policy';
 import { AuditService } from '../../src/modules/audit/audit.service';
-import { loginIdentifierHash } from '../../src/modules/auth/login-identifier';
+import { loginLockoutKey } from '../../src/modules/auth/account-lockout.service';
+import { PhysicianErasureCheck } from '../../src/modules/auth/physician-erasure-check.service';
 import type { PrismaService } from '../../src/config/prisma.service';
 import type { StorageService } from '../../src/modules/storage/storage.service';
 
@@ -44,6 +45,7 @@ interface SeededPhysician {
   loginStateIds: string[];
   /** Com o médico no contexto, e sem (só o atendimento). */
   aiCallIds: string[];
+  legalDocumentId: string;
 }
 
 /** Uma linha em cada tabela da política, mais as variações do CC-012. */
@@ -66,6 +68,7 @@ async function seedPhysician(prisma: PrismaClient, label: string): Promise<Seede
       mfaSecret,
       passwordHash: 'hash',
       locale: 'es',
+      specialty: 'medicina_de_emergencia',
     },
   });
 
@@ -141,6 +144,66 @@ async function seedPhysician(prisma: PrismaClient, label: string): Promise<Seede
     },
   });
 
+  // Tabelas que entraram depois do CC-012 (a eliminação da base já as apaga):
+  // contas externas (CC-334), aceites (CC-905), mentoria pedida (CC-707),
+  // locais de plantão (CC-602) e revisão do plantão (CC-801).
+  await prisma.externalIdentity.create({
+    data: { physicianId: id, provider: 'google', subject: `google-${id}`, emailAtLink: email },
+  });
+  const legalDocument = await prisma.legalDocument.create({
+    data: {
+      type: 'terms_of_use',
+      version: `cc-012-${id}`,
+      title: 'Termos de Uso',
+      sections: [],
+      changeSummary: [],
+      contentHash: 'c'.repeat(64),
+      provisional: true,
+      publishedById: id,
+    },
+  });
+  await prisma.legalAcceptance.create({
+    data: { physicianId: id, documentId: legalDocument.id },
+  });
+  await prisma.mentoringRequest.create({
+    data: {
+      encounterId,
+      requesterId: id,
+      caseSnapshot: { caseText: 'Febre há 3 dias.' },
+      termsVersion: 'teste',
+      termsAcceptedAt: new Date(),
+    },
+  });
+  await prisma.practiceSite.create({
+    data: { physicianId: id, name: `UPA ${label}`, facilityType: 'upa_porte_1' },
+  });
+  const shiftReview = await prisma.shiftReview.create({
+    data: {
+      physicianId: id,
+      periodStart: new Date('2026-10-12'),
+      status: 'ready',
+      trigger: 'on_demand',
+      windowStart: new Date('2026-10-12T00:00:00Z'),
+      windowEnd: new Date('2026-10-19T00:00:00Z'),
+    },
+  });
+  await prisma.shiftReviewQuestion.create({
+    data: {
+      reviewId: shiftReview.id,
+      physicianId: id,
+      encounterId,
+      interactionId: interaction.id,
+      position: 0,
+      format: 'true_false',
+      stem: 'Hidratação venosa é a primeira conduta?',
+      options: ['Verdadeiro', 'Falso'],
+      correctOption: 0,
+      explanation: 'Segundo a diretriz citada.',
+      topic: 'Desidratação',
+      source: {},
+    },
+  });
+
   // CC-012 — o que ficava para trás.
   await prisma.mfaBackupCode.createMany({
     data: ['1', '2'].map((digit) => ({ physicianId: id, codeHash: digit.repeat(64) })),
@@ -159,7 +222,7 @@ async function seedPhysician(prisma: PrismaClient, label: string): Promise<Seede
   // e-mail digitado em outra caixa, que não acha o médico.
   const loginStateLinked = await prisma.loginSecurityState.create({
     data: {
-      identifierHash: loginIdentifierHash(`antigo-${email}`),
+      identifierHash: loginLockoutKey(`antigo-${email}`),
       physicianId: id,
       failedCount: 2,
       lastFailedAt: new Date(),
@@ -167,7 +230,7 @@ async function seedPhysician(prisma: PrismaClient, label: string): Promise<Seede
   });
   const loginStateByEmail = await prisma.loginSecurityState.create({
     data: {
-      identifierHash: loginIdentifierHash(email.toUpperCase()),
+      identifierHash: loginLockoutKey(email.toUpperCase()),
       physicianId: null,
       failedCount: 1,
       lastFailedAt: new Date(),
@@ -202,6 +265,7 @@ async function seedPhysician(prisma: PrismaClient, label: string): Promise<Seede
     loginStateByEmailId: loginStateByEmail.id,
     loginStateIds: [loginStateLinked.id, loginStateByEmail.id],
     aiCallIds,
+    legalDocumentId: legalDocument.id,
   };
 }
 
@@ -267,7 +331,12 @@ describe('CC-012 — eliminação LGPD completa (integration)', () => {
 
     const storage = { deleteObjects: async () => undefined } as unknown as StorageService;
     const runtimeService = runtimePrisma as unknown as PrismaService;
-    const service = new LgpdService(runtimeService, new AuditService(runtimeService), storage);
+    const service = new LgpdService(
+      runtimeService,
+      new AuditService(runtimeService),
+      new PhysicianErasureCheck(runtimeService),
+      storage,
+    );
     await service.requestErasure(subject.id);
   });
 
@@ -281,6 +350,9 @@ describe('CC-012 — eliminação LGPD completa (integration)', () => {
       where: { id: { in: [...subject.loginStateIds, ...other.loginStateIds] } },
     });
     await prisma.physician.deleteMany({ where: { id: { in: ids } } });
+    await prisma.legalDocument.deleteMany({
+      where: { id: { in: [subject.legalDocumentId, other.legalDocumentId] } },
+    });
     await prisma.institution.deleteMany({
       where: { id: { in: [subject.institutionId, other.institutionId] } },
     });
@@ -327,7 +399,14 @@ describe('CC-012 — eliminação LGPD completa (integration)', () => {
     expect(
       await prisma.physician.findUniqueOrThrow({
         where: { id: subject.id },
-        select: { crmUf: true, crmNumber: true, crmVerified: true, name: true, email: true },
+        select: {
+          crmUf: true,
+          crmNumber: true,
+          crmVerified: true,
+          name: true,
+          email: true,
+          specialty: true,
+        },
       }),
     ).toEqual({
       crmUf: 'XX',
@@ -335,6 +414,7 @@ describe('CC-012 — eliminação LGPD completa (integration)', () => {
       crmVerified: false,
       name: 'ERASED',
       email: `erased-${subject.id}@erased.com`,
+      specialty: null,
     });
     expect(await prisma.crmVerificationRequest.count({ where: { physicianId: subject.id } })).toBe(
       0,

@@ -18,6 +18,8 @@ import { Roles } from '../../shared/decorators/roles.decorator';
 import { InternalServiceGuard } from '../../shared/guards/internal-service.guard';
 import { CuratorGuard } from '../../shared/guards/curator.guard';
 import { GuidelinesService } from './guidelines.service';
+import { InstitutionsService } from '../institutions/institutions.service';
+import { LgpdService } from '../lgpd/lgpd.service';
 import type { GuidelineConsultResponse } from '../../shared/contracts/clinical';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import {
@@ -37,37 +39,65 @@ import {
 
 @Controller('guidelines')
 export class GuidelinesController {
-  constructor(@Inject(GuidelinesService) private readonly guidelinesService: GuidelinesService) {}
+  constructor(
+    @Inject(GuidelinesService) private readonly guidelinesService: GuidelinesService,
+    @Inject(InstitutionsService) private readonly institutionsService: InstitutionsService,
+    @Inject(LgpdService) private readonly lgpd: LgpdService,
+  ) {}
 
+  /**
+   * Catálogo de fontes do console administrativo (todas as instituições,
+   * inclusive pendentes). CC-019 — antes aberto a qualquer médico, e o nome
+   * do protocolo de um hospital aparecia para os outros; o console já é só
+   * de Compliance e Admin.
+   */
   @Get()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('COMPLIANCE', 'ADMIN')
   async listSources() {
     return this.guidelinesService.listSources();
   }
 
+  /**
+   * Busca e biblioteca de diretrizes. CC-019 — trechos globais e os das
+   * instituições de vínculo ativo do médico (ADR-009), filtrados no banco.
+   * Antes, o trecho institucional aparecia para qualquer médico autenticado.
+   */
   @Get('search')
   @UseGuards(JwtAuthGuard)
   async search(
-    @Query('q') q: string,
+    @Request() req: { user: { physicianId: string } },
+    @Query('q') q?: string,
     @Query('specialty') specialty?: string,
     @Query('limit') limit?: string,
   ) {
     const maxLimit = Math.min(parseInt(limit ?? '20', 10) || 20, 50);
-    return this.guidelinesService.searchChunks(q, specialty, maxLimit);
+    const institutionIds = await this.institutionsService.activeInstitutionIds(
+      req.user.physicianId,
+    );
+    return this.guidelinesService.searchChunks(q ?? '', specialty, maxLimit, institutionIds);
   }
 
   /**
    * Consulta de diretrizes dentro do caso (curada + oficial). POST porque o
    * texto pode ser o caso inteiro — em query string ele iria para o log de
    * acesso.
+   *
+   * CC-010 — sem consentimento de IA, a consulta continua, só por
+   * palavra-chave: buscar diretriz não depende de IA, e recusar com 403 só
+   * tiraria do médico a biblioteca.
    */
   @Post('consult')
   @HttpCode(200)
   @UseGuards(JwtAuthGuard)
   async consult(
+    @Request() req: { user: { physicianId: string } },
     @Body(new ZodValidationPipe(consultGuidelinesSchema)) body: ConsultGuidelinesBody,
   ): Promise<GuidelineConsultResponse> {
-    return { results: await this.guidelinesService.consult(body.query, body.limit) };
+    const semantic = await this.lgpd.checkConsent(req.user.physicianId, 'ai_processing');
+    return {
+      results: await this.guidelinesService.consult(body.query, { limit: body.limit, semantic }),
+    };
   }
 
   @Get('pending')
@@ -79,8 +109,14 @@ export class GuidelinesController {
 
   @Get('chunks/:chunkId')
   @UseGuards(JwtAuthGuard)
-  async getChunk(@Param('chunkId') chunkId: string) {
-    const chunk = await this.guidelinesService.getChunkById(chunkId);
+  async getChunk(
+    @Request() req: { user: { physicianId: string } },
+    @Param('chunkId') chunkId: string,
+  ) {
+    const institutionIds = await this.institutionsService.activeInstitutionIds(
+      req.user.physicianId,
+    );
+    const chunk = await this.guidelinesService.getChunkById(chunkId, institutionIds);
     if (!chunk) throw new NotFoundException('Guideline chunk not found');
     return chunk;
   }

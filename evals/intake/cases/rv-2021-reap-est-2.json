@@ -1,0 +1,29 @@
+{
+  "id": "rv-2021-reap-est-2",
+  "source": {
+    "kind": "clinical_case",
+    "caseId": "rv-2021-reap-est-2"
+  },
+  "review": {
+    "status": "draft",
+    "notes": "Febre referida de 38,3 e T 37,9 no exame: vale qualquer uma."
+  },
+  "input": {
+    "caseText": "PS de hospital universitário (RX, US, TC, laboratório, internação, centro cirúrgico, banco de sangue); interconsulta. Masc, 30a. Dor lombar intensa, tipo cólica, há 24 h, com febre de 38,3 °C, náuseas e hematúria macroscópica; já recebeu analgésicos EV da clínica médica. EF: REG, desidratado 1+/4+, normocorado, acianótico, febril, T 37,9 °C, PA 110x70, FC 96, FR 20. Abdome plano, normotenso, dor à palpação profunda em flanco D, sem dor à descompressão brusca; punho-percussão dolorosa à D; RHA normais. AR e ACV sem alterações. Lab: ureia 58, creatinina 1,65, K 4,9; leucócitos 16.000, bastões 2%. US de vias urinárias: hidronefrose à D, sem fator obstrutivo identificável pelo método. TC de abdome sem contraste: hidronefrose moderada à D, com cálculo de 0,5 cm na junção ureteropélvica."
+  },
+  "expected": {
+    "sex": "M",
+    "age": 30,
+    "vitals": {
+      "systolicBp": 110,
+      "diastolicBp": 70,
+      "heartRate": 96,
+      "respiratoryRate": 20,
+      "spo2": null,
+      "temperature": [38.3, 37.9],
+      "glucose": null
+    },
+    "syndrome": ["dor-lombar-flanco"],
+    "instability": false
+  }
+}

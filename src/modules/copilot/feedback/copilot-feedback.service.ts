@@ -1,8 +1,8 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { createHash } from 'crypto';
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { z } from 'zod';
 import type { CopilotFeedbackKind, CopilotFeedbackStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../../config/prisma.service';
+import { freeTextHash } from '../../audit/audit-payload';
 import { AuditService } from '../../audit/audit.service';
 import { maskFreeText } from '../guardrails/pii-filter';
 import { extractCitedChunkIds, extractRetrievalCoverage } from '../interaction-trace';
@@ -10,12 +10,14 @@ import type {
   CopilotFeedbackOutputSummary,
   CopilotFeedbackTriageItem,
   CopilotFeedbackTriagePage,
+  EvalCaseDraft,
 } from '../../../shared/contracts/clinical';
 import type {
   CopilotFeedbackInput,
   ListCopilotFeedbackQuery,
   UpdateCopilotFeedbackTriageInput,
 } from '../schemas/copilot.schemas';
+import { buildEvalCaseDraft } from './eval-case-draft';
 
 const TRIAGE_SELECT = {
   id: true,
@@ -44,6 +46,25 @@ const TRIAGE_SELECT = {
 } as const satisfies Prisma.CopilotFeedbackSelect;
 
 type TriageRow = Prisma.CopilotFeedbackGetPayload<{ select: typeof TRIAGE_SELECT }>;
+
+/** CC-703 — o que o rascunho de caso do gabarito precisa do reporte e da análise. */
+const EVAL_CASE_DRAFT_SELECT = {
+  id: true,
+  kind: true,
+  comment: true,
+  createdAt: true,
+  encounter: { select: { context: true } },
+  interaction: {
+    select: {
+      model: true,
+      turnIndex: true,
+      inputRedacted: true,
+      answeredQuestions: true,
+      params: true,
+      rawOutput: true,
+    },
+  },
+} as const satisfies Prisma.CopilotFeedbackSelect;
 
 /**
  * Leitura defensiva do `rawOutput` (JSON gravado sem re-validação): cada
@@ -131,10 +152,6 @@ function countsByStatus(
   };
 }
 
-function sha256(text: string): string {
-  return createHash('sha256').update(text).digest('hex');
-}
-
 /**
  * F7 + F0-D — feedback do médico sobre uma análise e a fila de triagem.
  *
@@ -146,6 +163,8 @@ function sha256(text: string): string {
  */
 @Injectable()
 export class CopilotFeedbackService {
+  private readonly logger = new Logger(CopilotFeedbackService.name);
+
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(AuditService) private readonly auditService: AuditService,
@@ -156,11 +175,13 @@ export class CopilotFeedbackService {
    * 1. trilha de auditoria (COPILOT_FEEDBACK) — registro médico-legal do
    *    atendimento, append-only, com o rastro técnico para reproduzir o caso;
    * 2. fila de triagem (`copilot_feedback`), ligada à entrada da trilha.
-   * Se (2) falhar depois de (1), a linha é recuperável pelo backfill
-   * idempotente (scripts/backfill-copilot-feedback.ts).
+   * Se (2) falhar depois de (1), o backfill idempotente
+   * (scripts/backfill-copilot-feedback.ts) recupera a linha — sem o
+   * comentário, que a trilha não guarda.
    *
-   * O comentário é mascarado ANTES de ir para a trilha: ela não é apagada no
-   * pedido de eliminação (LGPD), então PII ali ficaria para sempre.
+   * A trilha leva só o hash do comentário (ver `freeTextHash`): ela não é
+   * apagada no pedido de eliminação (LGPD), e `maskFreeText` não pega nome de
+   * paciente.
    */
   async submit(
     physicianId: string,
@@ -194,7 +215,7 @@ export class CopilotFeedbackService {
       payload: {
         encounterId,
         kind,
-        comment,
+        commentHash: freeTextHash(comment),
         model: interaction.model,
         turnIndex: interaction.turnIndex,
         retrievedChunkIds: interaction.retrievedChunkIds,
@@ -278,10 +299,40 @@ export class CopilotFeedbackService {
       payload: {
         from: current.status,
         to: status,
-        triageNoteHash: triageNote ? sha256(triageNote) : null,
+        triageNoteHash: freeTextHash(triageNote),
       },
     });
 
     return toTriageItem(updated);
+  }
+
+  /**
+   * CC-703 — rascunho do caso do gabarito para o curador baixar e levar ao
+   * repositório por PR (a API não escreve em evals/). Sai do sistema com o
+   * texto do caso (mascarado), então fica na trilha quem exportou e quando.
+   */
+  async exportEvalCaseDraft(curatorId: string, feedbackId: string): Promise<EvalCaseDraft> {
+    const row = await this.prisma.copilotFeedback.findUnique({
+      where: { id: feedbackId },
+      select: EVAL_CASE_DRAFT_SELECT,
+    });
+    if (!row) throw new NotFoundException('Feedback not found');
+
+    const draft = buildEvalCaseDraft({
+      feedback: { id: row.id, kind: row.kind, comment: row.comment, createdAt: row.createdAt },
+      interaction: row.interaction,
+      encounterContext: row.encounter.context,
+    });
+
+    await this.auditService.log({
+      actorId: curatorId,
+      action: 'COPILOT_FEEDBACK_EVAL_CASE_EXPORTED',
+      entity: 'CopilotFeedback',
+      entityId: feedbackId,
+      payload: { draftId: draft.id },
+    });
+    this.logger.log(`EVAL_CASE_DRAFT_EXPORTED feedbackId=${feedbackId} draftId=${draft.id}`);
+
+    return draft;
   }
 }

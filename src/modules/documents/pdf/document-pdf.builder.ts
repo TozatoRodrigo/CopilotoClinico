@@ -47,7 +47,7 @@ interface FieldDef {
   mono?: boolean;
 }
 
-// Espelha SECTION_FIELDS em web/src/app/(app)/encounters/[id]/documents/[docId]/edit/page.tsx
+// Espelha SECTION_FIELDS em web/src/app/(app)/encounters/[id]/documents/_components/document-content.ts
 // — o PDF deve mostrar as mesmas seções, na mesma ordem, que o médico revisou na tela.
 const SECTION_FIELDS: Record<string, FieldDef[]> = {
   soap: [
@@ -97,7 +97,9 @@ function extractString(value: unknown): string {
 }
 
 /** Uma linha por item, aceitando tanto `${key}_raw` (edição manual em texto livre,
- * ver MedicamentosSection/ListSection no frontend) quanto o array estruturado original. */
+ * ver ListBlock no editor do frontend) quanto o array estruturado original. A
+ * lista editada vale mesmo vazia: o médico a apagou, então o PDF não volta a
+ * imprimir a da IA. */
 function extractListLines(
   content: Record<string, unknown>,
   rawKey: string,
@@ -105,7 +107,7 @@ function extractListLines(
   formatItem: (item: unknown) => string = extractString,
 ): string[] {
   const raw = content[rawKey];
-  if (typeof raw === 'string' && raw.trim()) {
+  if (typeof raw === 'string') {
     return raw
       .split('\n')
       .map((line) => line.trim())

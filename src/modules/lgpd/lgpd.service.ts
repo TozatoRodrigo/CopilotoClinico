@@ -8,32 +8,60 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../config/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { PhysicianErasureCheck } from '../auth/physician-erasure-check.service';
 import { StorageService } from '../storage/storage.service';
-import { loginIdentifierHash } from '../auth/login-identifier';
-import { consentScopes, type ConsentScope } from './schemas/lgpd.schemas';
+import { loginLockoutKey } from '../auth/account-lockout.service';
+import { AiConsentRevokedException } from './ai-consent.exception';
+import { consentDefaults, consentScopes, type ConsentScope } from './schemas/lgpd.schemas';
 import { anonymizedPhysician } from './erasure-policy';
 import type {
+  Prisma,
   Physician,
   Consent,
+  LegalDocument,
   Encounter,
   EncounterAttachment,
-  AudioCapture,
   Document as DocumentRecord,
   AiInteraction,
   CaseIntake,
   AuditLog,
   RecommendationDecision,
   CopilotFeedback,
+  PracticeSite,
+  KnowledgeGap,
+  MentoringRequest,
+  ShiftReview,
+  ShiftReviewQuestion,
+  ExternalIdentity,
 } from '@prisma/client';
+import type { BetaParticipant, BetaWaitlistEntry } from '@prisma/client';
+
+type BetaParticipantExport = Omit<BetaParticipant, 'id' | 'inviteId'> & {
+  invite: { batchLabel: string };
+};
 
 /**
  * Captura de áudio na exportação: metadados e transcrição (já mascarada de
- * PII), sem o áudio. `encryptedContent` é cifrado com a chave do servidor —
- * inútil para o titular — e decifrá-lo poria a voz do paciente, sem máscara
- * nenhuma, num JSON baixado pelo navegador. O resto da exportação segue a
- * mesma regra: só texto redigido.
+ * PII). `encryptedContent` fica de fora: é o áudio bruto cifrado com a chave do
+ * servidor, inútil para o titular, e decifrá-lo poria a voz do paciente, sem
+ * máscara, num JSON baixado pelo navegador. Allowlist em vez de `omit`: coluna
+ * nova em `audio_captures` só entra na exportação se for listada aqui.
  */
-export type ExportedAudioCapture = Omit<AudioCapture, 'encryptedContent'>;
+const EXPORTED_AUDIO_CAPTURE_SELECT = {
+  id: true,
+  encounterId: true,
+  mimeType: true,
+  sizeBytes: true,
+  status: true,
+  transcribedText: true,
+  retainUntil: true,
+  createdAt: true,
+  updatedAt: true,
+} as const satisfies Prisma.AudioCaptureSelect;
+
+export type ExportedAudioCapture = Prisma.AudioCaptureGetPayload<{
+  select: typeof EXPORTED_AUDIO_CAPTURE_SELECT;
+}>;
 
 export interface PhysicianDataExport {
   exportVersion: 'lgpd-portability-v1';
@@ -43,7 +71,17 @@ export interface PhysicianDataExport {
     id: string;
   };
   data: {
-    physician: Omit<Physician, 'passwordHash' | 'mfaSecret' | 'mfaEnabled'>;
+    // CC-018 — erasedAt fica de fora: é sempre null para quem ainda consegue
+    // pedir a exportação (o cadastro eliminado não tem mais sessão).
+    physician: Omit<Physician, 'passwordHash' | 'mfaSecret' | 'mfaEnabled' | 'erasedAt'>;
+    /**
+     * CC-702 — o beta: de qual lote de convite a conta veio, o aceite do termo
+     * e o perfil; e a entrada da lista de espera com o mesmo e-mail.
+     */
+    beta: {
+      participant: BetaParticipantExport | null;
+      waitlist: BetaWaitlistEntry[];
+    };
     encounters: Encounter[];
     /**
      * O arquivo original nunca é gravado (LGPD-005, ver AttachmentsService):
@@ -51,7 +89,6 @@ export interface PhysicianDataExport {
      * inline — não há objeto no storage para referenciar.
      */
     encounterAttachments: EncounterAttachment[];
-    audioCaptures: ExportedAudioCapture[];
     documents: DocumentRecord[];
     aiInteractions: AiInteraction[];
     /** ADR-014 — conversas antes do plano (caso e respostas já redigidos). */
@@ -60,7 +97,37 @@ export interface PhysicianDataExport {
     recommendationDecisions: RecommendationDecision[];
     /** F0-D — reportes do médico sobre análises (comentário já mascarado). */
     copilotFeedback: CopilotFeedback[];
+    /** Capturas de áudio, inclusive as com o áudio já eliminado (`status: deleted`). */
+    audioCaptures: ExportedAudioCapture[];
+    /** CC-602 — locais onde o médico dá plantão. */
+    practiceSites: PracticeSite[];
+    /**
+     * CC-703 — "não encontrei o que precisava" nas análises do médico (nota
+     * já mascarada). Sem coluna de médico: sai pelas análises dele, e a
+     * eliminação o leva junto, por cascata, com os atendimentos.
+     */
+    knowledgeGaps: KnowledgeGap[];
+    /**
+     * CC-707 — pedidos de mentoria que o médico fez e os que respondeu como
+     * mentor (caso, dúvida e resposta já mascarados).
+     */
+    mentoringRequests: MentoringRequest[];
+    /** CC-801 — revisões do plantão com as perguntas, respostas e grau de certeza. */
+    shiftReviews: Array<ShiftReview & { questions: ShiftReviewQuestion[] }>;
+    /** CC-334 — contas Google/Microsoft vinculadas (e-mail no momento do vínculo). */
+    externalIdentities: Pick<
+      ExternalIdentity,
+      'provider' | 'subject' | 'emailAtLink' | 'createdAt' | 'lastLoginAt'
+    >[];
     consents: Consent[];
+    /** CC-905 — versões dos termos e da política que o médico aceitou, e quando. */
+    legalAcceptances: Array<{
+      acceptedAt: Date;
+      document: Pick<
+        LegalDocument,
+        'type' | 'version' | 'contentHash' | 'provisional' | 'publishedAt'
+      >;
+    }>;
     auditLog: AuditLog[];
   };
 }
@@ -69,19 +136,34 @@ export interface ErasureResult {
   status: 'completed';
   estimatedCompletion: Date;
   erased: {
+    /** CC-702 — entradas da lista de espera com o e-mail da conta. */
+    betaWaitlistEntries: number;
+    /** CC-702 — participação no beta com termo e perfil apagados (ficam os ids). */
+    betaParticipantProfile: number;
     recommendationDecisions: number;
     copilotFeedback: number;
+    /** CC-707 — pedidos de mentoria que o médico fez. */
+    mentoringRequests: number;
+    /** CC-801 — perguntas e revisões do plantão. */
+    shiftReviewQuestions: number;
+    shiftReviews: number;
     encounters: number;
     encounterAttachments: number;
     audioCaptures: number;
+    /** CC-602 — locais de plantão do médico. */
+    practiceSites: number;
     consents: number;
+    /** CC-905 — aceites dos termos e da política. */
+    legalAcceptances: number;
     refreshTokens: number;
+    /** CC-334 — contas Google/Microsoft vinculadas. */
+    externalIdentities: number;
     /** CC-012 — códigos de recuperação do MFA. */
     mfaBackupCodes: number;
     crmVerificationRequests: number;
     /** CC-012 — vínculos com instituições. */
     physicianInstitutions: number;
-    /** CC-012 — estado do bloqueio por tentativas de login. */
+    /** CC-012 — contadores do bloqueio por tentativas (login, MFA, troca de senha). */
     loginSecurityStates: number;
     /** PDFs de documentos confirmados apagados do MinIO. */
     storageObjects: number;
@@ -109,6 +191,7 @@ export class LgpdService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(PhysicianErasureCheck) private readonly erasureCheck: PhysicianErasureCheck,
     @Inject(StorageService) private readonly storage: StorageService,
   ) {}
 
@@ -148,7 +231,9 @@ export class LgpdService {
 
       return {
         scope,
-        granted: latestConsent?.revokedAt === null,
+        // Sem registro, vale o padrão do escopo: `grantedAt` nulo com
+        // `granted` verdadeiro é o processamento por IA ativo desde o cadastro.
+        granted: latestConsent ? latestConsent.revokedAt === null : consentDefaults[scope],
         grantedAt: latestConsent?.grantedAt ?? null,
         revokedAt: latestConsent?.revokedAt ?? null,
       };
@@ -162,7 +247,7 @@ export class LgpdService {
     });
 
     if (!consent) {
-      throw new NotFoundException('Active consent not found');
+      return this.revokeDefaultConsent(physicianId, consentScope);
     }
 
     const revokedConsent = await this.prisma.consent.update({
@@ -181,12 +266,65 @@ export class LgpdService {
     return revokedConsent;
   }
 
+  /**
+   * CC-010 — escopo ativo por padrão e sem nenhum registro: a revogação grava
+   * a primeira linha já revogada. A concessão é a data do cadastro, quando o
+   * padrão passou a valer; não há outra data a registrar.
+   */
+  private async revokeDefaultConsent(physicianId: string, scope: ConsentScope): Promise<Consent> {
+    if (!consentDefaults[scope]) {
+      throw new NotFoundException('Active consent not found');
+    }
+    const [recorded, physician] = await Promise.all([
+      this.prisma.consent.findFirst({ where: { physicianId, scope }, select: { id: true } }),
+      this.prisma.physician.findUnique({
+        where: { id: physicianId },
+        select: { createdAt: true },
+      }),
+    ]);
+    // Com registro, a última linha já está revogada: não há o que revogar.
+    if (recorded || !physician) {
+      throw new NotFoundException('Active consent not found');
+    }
+
+    const revokedConsent = await this.prisma.consent.create({
+      data: { physicianId, scope, grantedAt: physician.createdAt, revokedAt: new Date() },
+    });
+
+    await this.auditService.log({
+      actorId: physicianId,
+      action: 'CONSENT_REVOKED',
+      entity: 'Consent',
+      entityId: revokedConsent.id,
+      payload: { scope, fromDefault: true },
+    });
+
+    return revokedConsent;
+  }
+
+  /**
+   * O registro mais recente do escopo decide; sem nenhum, o padrão
+   * (`consentDefaults`). Há no máximo uma linha ativa por escopo: conceder
+   * com uma ativa devolve a mesma, e revogar fecha a ativa.
+   */
   async checkConsent(physicianId: string, scope: string): Promise<boolean> {
     const consentScope = this.parseConsentScope(scope);
-    const consent = await this.prisma.consent.findFirst({
-      where: { physicianId, scope: consentScope, revokedAt: null },
+    const latest = await this.prisma.consent.findFirst({
+      where: { physicianId, scope: consentScope },
+      orderBy: { grantedAt: 'desc' },
+      select: { revokedAt: true },
     });
-    return consent !== null;
+    return latest ? latest.revokedAt === null : consentDefaults[consentScope];
+  }
+
+  /**
+   * CC-010 — a única checagem de consentimento antes de IA com o caso do
+   * médico: o `AiConsentGuard` das rotas e o worker da fila chamam aqui.
+   */
+  async assertAiProcessingAllowed(physicianId: string): Promise<void> {
+    if (await this.checkConsent(physicianId, 'ai_processing')) return;
+    this.logger.warn(`AI_CONSENT_REVOKED physicianId=${physicianId}: pedido de IA recusado`);
+    throw new AiConsentRevokedException();
   }
 
   private parseConsentScope(scope: string): ConsentScope {
@@ -209,8 +347,10 @@ export class LgpdService {
         name: true,
         crmVerified: true,
         isCurator: true,
+        isMentor: true,
         subscriptionStatus: true,
         locale: true,
+        specialty: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -219,6 +359,28 @@ export class LgpdService {
     if (!physician) {
       throw new NotFoundException('Physician not found');
     }
+
+    // CC-702 — a lista de espera não tem vínculo com a conta: entra pelo e-mail.
+    const [betaParticipant, betaWaitlist] = await Promise.all([
+      this.prisma.betaParticipant.findUnique({
+        where: { physicianId },
+        select: {
+          physicianId: true,
+          joinedAt: true,
+          termsVersion: true,
+          termsAcceptedAt: true,
+          training: true,
+          facilityType: true,
+          uf: true,
+          cityType: true,
+          profileUpdatedAt: true,
+          invite: { select: { batchLabel: true } },
+        },
+      }),
+      this.prisma.betaWaitlistEntry.findMany({
+        where: { email: { equals: physician.email, mode: 'insensitive' } },
+      }),
+    ]);
 
     const encounters = await this.prisma.encounter.findMany({
       where: { physicianId },
@@ -231,6 +393,7 @@ export class LgpdService {
     const [
       documents,
       consents,
+      legalAcceptances,
       auditLog,
       aiInteractions,
       recommendationDecisions,
@@ -238,9 +401,30 @@ export class LgpdService {
       caseIntakes,
       encounterAttachments,
       audioCaptures,
+      practiceSites,
+      knowledgeGaps,
+      mentoringRequests,
+      shiftReviews,
+      externalIdentities,
     ] = await Promise.all([
       this.prisma.document.findMany({ where: { physicianId } }),
       this.prisma.consent.findMany({ where: { physicianId } }),
+      this.prisma.legalAcceptance.findMany({
+        where: { physicianId },
+        orderBy: { acceptedAt: 'asc' },
+        select: {
+          acceptedAt: true,
+          document: {
+            select: {
+              type: true,
+              version: true,
+              contentHash: true,
+              provisional: true,
+              publishedAt: true,
+            },
+          },
+        },
+      }),
       this.prisma.auditLog.findMany({ where: { actorId: physicianId } }),
       hasEncounters
         ? this.prisma.aiInteraction.findMany({ where: ofEncounters })
@@ -252,12 +436,32 @@ export class LgpdService {
       hasEncounters
         ? this.prisma.encounterAttachment.findMany({ where: ofEncounters })
         : Promise.resolve([]),
-      hasEncounters
-        ? this.prisma.audioCapture.findMany({
-            where: ofEncounters,
-            omit: { encryptedContent: true },
-          })
-        : Promise.resolve([]),
+      this.prisma.audioCapture.findMany({
+        where: { physicianId },
+        select: EXPORTED_AUDIO_CAPTURE_SELECT,
+      }),
+      this.prisma.practiceSite.findMany({ where: { physicianId } }),
+      this.prisma.knowledgeGap.findMany({
+        where: { interaction: { encounter: { physicianId } } },
+      }),
+      this.prisma.mentoringRequest.findMany({
+        where: { OR: [{ requesterId: physicianId }, { mentorId: physicianId }] },
+      }),
+      // CC-801 — revisões do plantão (perguntas já mascaradas, sem dado do paciente).
+      this.prisma.shiftReview.findMany({
+        where: { physicianId },
+        include: { questions: { orderBy: { position: 'asc' } } },
+      }),
+      this.prisma.externalIdentity.findMany({
+        where: { physicianId },
+        select: {
+          provider: true,
+          subject: true,
+          emailAtLink: true,
+          createdAt: true,
+          lastLoginAt: true,
+        },
+      }),
     ]);
 
     return {
@@ -269,15 +473,22 @@ export class LgpdService {
       },
       data: {
         physician,
+        beta: { participant: betaParticipant, waitlist: betaWaitlist },
         encounters,
         encounterAttachments,
-        audioCaptures,
         documents,
         aiInteractions,
         caseIntakes,
         recommendationDecisions,
         copilotFeedback,
+        audioCaptures,
+        practiceSites,
+        knowledgeGaps,
+        mentoringRequests,
+        shiftReviews,
+        externalIdentities,
         consents,
+        legalAcceptances,
         auditLog,
       },
     };
@@ -301,6 +512,25 @@ export class LgpdService {
     const physicianData = anonymizedPhysician(physicianId);
 
     const { aiCalls, ...erasedRows } = await this.prisma.$transaction(async (tx) => {
+      // CC-702 — a lista de espera com o e-mail da conta sai (antes da
+      // anonimização, que troca o e-mail). Do participante do beta saem o
+      // termo e o perfil; ficam só os ids, para a contagem do lote.
+      const betaWaitlistEntries = await tx.betaWaitlistEntry.deleteMany({
+        where: { email: { equals: physician.email, mode: 'insensitive' } },
+      });
+      const betaParticipantProfile = await tx.betaParticipant.updateMany({
+        where: { physicianId },
+        data: {
+          termsVersion: null,
+          termsAcceptedAt: null,
+          training: null,
+          facilityType: null,
+          uf: null,
+          cityType: null,
+          profileUpdatedAt: null,
+        },
+      });
+
       // CC-012 — ai_calls fica no custo agregado, sem vínculo com o médico. Vai
       // antes dos atendimentos porque a chamada gravada sem médico no contexto
       // só tem o encounter_id para ser achada.
@@ -328,9 +558,28 @@ export class LgpdService {
       const audioCaptures = await tx.audioCapture.deleteMany({
         where: { encounter: { physicianId } },
       });
+      // CC-707 — pedidos de mentoria do médico (o CASCADE do encontro também
+      // levaria). As respostas que ele deu como mentor ficam no caso de quem
+      // pediu, com o nome anonimizado abaixo.
+      const mentoringRequests = await tx.mentoringRequest.deleteMany({
+        where: { requesterId: physicianId },
+      });
+      // CC-801 — as revisões não pendem do encontro (só as perguntas): sem
+      // apagar explicitamente, a revisão vazia ficaria no médico anonimizado.
+      const shiftReviewQuestions = await tx.shiftReviewQuestion.deleteMany({
+        where: { physicianId },
+      });
+      const shiftReviews = await tx.shiftReview.deleteMany({ where: { physicianId } });
       const encounters = await tx.encounter.deleteMany({ where: { physicianId } });
+      // CC-602 — onde o médico trabalha também é dado dele.
+      const practiceSites = await tx.practiceSite.deleteMany({ where: { physicianId } });
       const consents = await tx.consent.deleteMany({ where: { physicianId } });
+      // CC-905 — o aceite sai com a conta; o evento continua na trilha.
+      const legalAcceptances = await tx.legalAcceptance.deleteMany({ where: { physicianId } });
       const refreshTokens = await tx.refreshToken.deleteMany({ where: { physicianId } });
+      // CC-334 — o médico é anonimizado, não apagado: sem isto a conta
+      // Google/Microsoft continuaria entrando na conta anonimizada.
+      const externalIdentities = await tx.externalIdentity.deleteMany({ where: { physicianId } });
       // CC-012 — credenciais, CRM e vínculos, que ficavam para trás. O porquê
       // de cada tabela está em erasure-policy.ts.
       const mfaBackupCodes = await tx.mfaBackupCode.deleteMany({ where: { physicianId } });
@@ -342,9 +591,10 @@ export class LgpdService {
       });
       // A tentativa com o e-mail digitado de outro jeito grava a linha sem
       // physician_id; só o hash do e-mail (lido antes da anonimização) a acha.
+      // Os contadores do MFA e da troca de senha (CC-025) têm physician_id.
       const loginSecurityStates = await tx.loginSecurityState.deleteMany({
         where: {
-          OR: [{ physicianId }, { identifierHash: loginIdentifierHash(physician.email) }],
+          OR: [{ physicianId }, { identifierHash: loginLockoutKey(physician.email) }],
         },
       });
 
@@ -352,19 +602,31 @@ export class LgpdService {
 
       return {
         aiCalls: aiCalls.count,
+        betaWaitlistEntries: betaWaitlistEntries.count,
+        betaParticipantProfile: betaParticipantProfile.count,
         recommendationDecisions: recommendationDecisions.count,
         copilotFeedback: copilotFeedback.count,
+        mentoringRequests: mentoringRequests.count,
+        shiftReviewQuestions: shiftReviewQuestions.count,
+        shiftReviews: shiftReviews.count,
         encounters: encounters.count,
         encounterAttachments: encounterAttachments.count,
         audioCaptures: audioCaptures.count,
+        practiceSites: practiceSites.count,
         consents: consents.count,
+        legalAcceptances: legalAcceptances.count,
         refreshTokens: refreshTokens.count,
+        externalIdentities: externalIdentities.count,
         mfaBackupCodes: mfaBackupCodes.count,
         crmVerificationRequests: crmVerificationRequests.count,
         physicianInstitutions: physicianInstitutions.count,
         loginSecurityStates: loginSecurityStates.count,
       };
     });
+
+    // CC-018 — só depois do commit: marcar antes trancaria o médico fora de uma
+    // conta que continua dele quando a transação falha.
+    this.erasureCheck.markErased(physicianId);
 
     const erased = { ...erasedRows, storageObjects };
     const anonymized = { aiCalls, physicianColumns: Object.keys(physicianData).sort() };
