@@ -2,8 +2,9 @@
 
 **Versão:** R1  
 **Data:** 2026-10-14  
-**Conferido contra:** `codex/production-readiness` (fa829a46). O que está só em
-PR aberto aparece marcado como **em PR aberto (#N)**.
+**Conferido contra:** `codex/production-readiness` (fa829a46), com o que os PRs
+#142, #143, #146, #147, #148, #149, #168, #170, #181, #187 e #196 mudaram. O que
+está só em PR aberto aparece marcado como **em PR aberto (#N)**.
 
 O Copiloto recebe o caso clínico do plantonista, redige dado pessoal, entende o
 caso, busca evidência e devolve um plano com conduta, perguntas e fontes. O
@@ -67,12 +68,12 @@ graph TB
   `copiloto-api` e `copiloto-web`. O Traefik vive fora deste compose (rede
   `proxy`).
 - O worker BullMQ e os crons rodam **dentro** do processo da API. Não há
-  container de worker separado: `docker/worker.Dockerfile` aponta para
-  `dist/workers/main.js`, que não existe.
+  container de worker separado (o runbook, em "Containers de produção", diz
+  por quê e o que seria preciso para separar).
 - O compose repassa à API só as variáveis que lista. Ele **não** repassa
-  `MINIO_*` nem `SENTRY_DSN`: em produção o PDF do documento é gerado sob
-  demanda no download, e o Sentry fica desligado. Repassar o `SENTRY_DSN` está
-  **em PR aberto (#168)**.
+  `MINIO_*`, de propósito: em produção o PDF do documento é gerado sob demanda
+  no download, e nada do documento clínico fica fora do banco. O `SENTRY_DSN`
+  é repassado; o Sentry liga quando o valor está no `.env.production`.
 - A configuração real de produção fica em `docker/.env.production`, fora do
   repositório. Os padrões abaixo são os do código e do compose.
 
@@ -244,8 +245,7 @@ linha em `ai_calls` com o mesmo `request_id`. Embeddings não entram no rastro.
 | -------------------------------------------------------- | ------------------------------------------------- | --------------------------------------------------------------------- |
 | `POST .../copilot/intake/:intakeId/analyze`              | Reserva da conversa quando o SSE cai              | Mesmo pipeline, sem streaming                                         |
 | `POST .../copilot/analyze`                               | Fila offline do web e clientes antigos            | Faz os passos 2 e 5–12                                                |
-| `GET .../copilot/stream`                                 | Clientes PWA antigos                              | Leva o texto do caso na query string. Remoção **em PR aberto (#168)** |
-| `POST .../copilot/analyze/async`                         | Análise pela fila BullMQ                          | O job guarda o pedido no Redis antes da redação                       |
+| `POST .../copilot/analyze/async`                         | Análise pela fila BullMQ                          | Grava o caso já redigido numa conversa (`case_intakes`) e enfileira só ids (CC-011) |
 | `POST .../copilot/respond`                               | Reanálise sem streaming                           | Mesmo caminho de `respond/stream`                                     |
 | `GET .../copilot/latest`, `GET .../copilot/conversation` | Recarregar a última análise ou a conversa inteira | Leitura                                                               |
 
@@ -262,7 +262,8 @@ Médico gera o documento (exige patientRef no atendimento)
   1. Idempotente por (encounterId, type): devolve o existente
   2. Gera a partir do rawOutput da AiInteraction informada (ou da última)
   3. SOAP, SBAR e alta recebem o registro de uso de IA (Res. CFM 2.454/2026)
-  4. contentHash = canonicalHash(content) + DOCUMENT_GENERATED (com o hash)
+  4. Selo: sealContent(content) → JSON canônico RFC 8785 → SHA-256
+     (contentHash v2, ADR-018) + DOCUMENT_GENERATED (com o selo)
         ↓
 [FE] PATCH .../documents/:docId  { physicianEdits }  (DOCUMENT_EDITED)
         ↓
@@ -272,27 +273,34 @@ Médico gera o documento (exige patientRef no atendimento)
   1. Autor confirma; outro médico só se for da mesma instituição do
      atendimento (cobertura de plantão)
   2. Já confirmado → 409
-  3. contentHash = canonicalHash(physicianEdits ?? content)
-  4. Grava confirmedBy, confirmedAt, contentHash; encounter → finalized
-  5. DOCUMENT_CONFIRMED com encounterId, autor, uncertain e
-     uncertaintyReason da última análise
-  6. Com storage configurado, sobe o PDF em segundo plano (pdfObjectKey)
+  3. Edição salva sem a estrutura da geração (lista achatada em texto) tem os
+     campos estruturados restaurados (restoreStructuredFields)
+  4. Selo: sealContent(physicianEdits ?? content) → contentHash v2
+  5. Grava confirmedBy, confirmedAt, contentHash, contentHashVersion (e as
+     edições restauradas, quando houve); encounter → finalized
+  6. DOCUMENT_CONFIRMED com o selo, encounterId, autor, uncertain,
+     uncertaintyReason da última análise e restoredFields, se houve
+  7. Com storage configurado, sobe o PDF em segundo plano (pdfObjectKey)
         ↓
 [FE] GET .../documents/:docId/download
      URL pré-assinada (15 min) ou, sem storage, PDF gerado na hora
+
+GET .../documents/:docId/integrity
+  → recalcula o selo com o algoritmo da versão gravada (v1 legado ou v2)
+  → intact | mismatch | unconfirmed; mismatch vai para o Sentry só com ids
 ```
 
-Limites conhecidos do selo atual:
+Limites conhecidos do selo (ADR-018):
 
-- `canonicalHash` ordena só as chaves da raiz e as usa como filtro do
-  `JSON.stringify`, que vale em todos os níveis. Os itens de `medicamentos` da
-  prescrição entram no hash como `{}`. O selo v2 (JSON canônico RFC 8785,
-  `content_hash_version`, `GET .../documents/:docId/integrity`) está **em PR
-  aberto (#143)**.
-- O `afterHash` que `confirm()` passa ao `AuditService` é descartado: o
-  serviço calcula o hash do próprio evento. O hash do conteúdo confirmado fica
-  em `documents.content_hash`, não no payload de `DOCUMENT_CONFIRMED`. Também
-  corrigido **em PR aberto (#143)**.
+- Documentos confirmados antes do v2 seguem verificáveis pelo algoritmo v1,
+  congelado só para verificação. Nele, os itens de `medicamentos` da
+  prescrição entraram no hash como `{}`: prescrições v1 confirmadas sem edição
+  não têm os campos dos medicamentos no selo.
+- O selo é calculado sobre o texto em claro. Com `CLINICAL_TEXT_ENCRYPTION=on`
+  (CC-207, ADR-021), a extensão do Prisma decifra o conteúdo antes da
+  verificação.
+- `/integrity` atende só o autor do documento; o PDF imprime o hash sem a
+  versão.
 
 ---
 
@@ -335,7 +343,8 @@ Tudo roda no processo da API.
 
 | Componente                                          | Agenda                                               | O que faz                                                                                                                                                                                               |
 | --------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `InferenceWorkerService` (BullMQ, fila `inference`) | contínuo; `INFERENCE_QUEUE_CONCURRENCY=2`, 10 jobs/s | `analyze`: roda o orquestrador. `transcribe`: lê a transcrição já gravada da `AudioCapture` e enfileira um `analyze` com ela. 3 tentativas com backoff; job concluído fica 24 h e falho 7 dias no Redis |
+| `InferenceWorkerService` (BullMQ, fila `inference`) | contínuo; `INFERENCE_QUEUE_CONCURRENCY=2`, 10 jobs/s | `analyze`: confere o consentimento de IA e analisa pela conversa do `intakeId` (o mesmo plano sem streaming da tela). `transcribe`: lê a transcrição já gravada da `AudioCapture` e segue o mesmo caminho. Pedido e resultado só com ids. 3 tentativas com backoff (recusa 4xx sem retry); job concluído fica 24 h e falho 7 dias no Redis |
+| `AudioRetentionCronService`                         | de hora em hora (minuto 15, UTC)                     | Apaga o áudio das capturas com `retain_until` vencido (30 dias) e grava `AUDIO_RETENTION_PURGE` na mesma transação                                                                                    |
 | `AuditChainCronService`                             | 02:00 UTC                                            | Verifica a cadeia inteira (ADR-015)                                                                                                                                                                     |
 | `BackupHealthCronService`                           | 03:00 UTC                                            | Ping e contagem das tabelas críticas. Não faz backup                                                                                                                                                    |
 | `FunnelAbandonmentCronService`                      | de hora em hora                                      | Taxa de abandono do loop de decisão em 24 h; acima de 30%, WARN e alerta no Sentry só com números                                                                                                       |
@@ -373,18 +382,16 @@ em lote (`pnpm ingest:guidelines`) são scripts manuais, sem agenda.
 ## Observabilidade
 
 - **Logs:** `Logger` do NestJS no stdout do container. O log de acesso
-  (`HttpAccess`) tira a query string do caminho. Em erro, ele registra o corpo
-  da requisição só sem os campos de credencial: o texto do caso pode aparecer
-  nessa linha. Registrar só os nomes dos campos está **em PR aberto (#168)**.
+  (`HttpAccess`) tira a query string do caminho. Em erro, ele registra só os
+  nomes dos campos do corpo (`bodyFields=…`), nunca os valores.
 - **Linhas estruturadas sem texto clínico:** `AI_CALL`, `DECISION_MODEL`,
   `INTAKE_READING`, `INTAKE_STARTED`, `INTAKE_CLOSED`,
   `DECISION_PIPELINE_DOWNGRADE`, `WEB_RESEARCH*`, `OUTPUT_VALIDATION_WARNING`.
   O catálogo com ações fica no runbook.
 - **Sentry (API e web):** só liga com `SENTRY_DSN`; captura exceções 5xx e
   alertas pontuais (crons, pesquisa web, verificação, embedding fora do ar).
-  Hoje não há `beforeSend`: o evento leva o que o SDK anexa por padrão. Limpar
-  corpo, query, cookies e cabeçalhos de credencial (`scrubSentryEvent`,
-  `sendDefaultPii: false`) está **em PR aberto (#168)**.
+  O `beforeSend` (`scrubSentryEvent`, `sendDefaultPii: false`) tira corpo,
+  query, cookies e cabeçalhos de credencial do evento.
 - **`ai_calls` + `x-request-id`:** custo, latência e desfecho por etapa e
   modelo; consultas prontas no runbook ("Rastro das chamadas de IA").
 - **Analytics de produto:** Umami autoalojado (script cookieless, configurado
@@ -490,7 +497,8 @@ Em `docs/decisions/`.
 | 014              | Copiloto guiado                                            | Aceito; atrás de `COPILOT_INTAKE`            |
 | 015              | Hash canônico da trilha de auditoria                       | Aceito                                       |
 | 016              | Modelo da decisão por gravidade                            | Aceito; sem efeito sem `AI_DECISION_*`       |
-| 012 (documentos) | Selo v2 do `contentHash`                                   | **Em PR aberto (#143)**; repete o número 012 |
+| 018              | Selo v2 do `contentHash` dos documentos                    | Aceito                                       |
+| 021              | Texto clínico cifrado em repouso                           | Aceito; atrás de `CLINICAL_TEXT_ENCRYPTION`  |
 
 ---
 
@@ -500,13 +508,6 @@ Situação em 14/10/2026. Ao mergear um deles, atualize a seção que o cita.
 
 | PR   | Muda                                                                                  |
 | ---- | ------------------------------------------------------------------------------------- |
-| #142 | Anexos e capturas de áudio na exportação LGPD; PDFs apagados do storage na eliminação |
-| #143 | Selo v2 do documento, coluna `content_hash_version`, endpoint de integridade          |
-| #146 | Cron que elimina o áudio das capturas após os 30 dias de retenção                     |
-| #147 | Texto livre e dado pessoal fora do payload da trilha                                  |
-| #149 | Capturas de áudio na exportação, sem o áudio cifrado                                  |
-| #168 | Texto clínico fora do log, da URL e do Sentry; `SENTRY_DSN` no compose                |
-| #170 | Injeção de comandos em português e teto para o texto livre                            |
 | #172 | De-identificação com OpenMed (só no harness `eval:deid`)                              |
 
 ---
