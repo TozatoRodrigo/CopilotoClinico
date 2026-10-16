@@ -4,12 +4,18 @@ import userEvent from "@testing-library/user-event";
 import { CopilotFeedback } from "../copilot-feedback";
 
 const mutateAsync = vi.fn();
+const reportGap = vi.fn();
+const toastError = vi.fn();
+const trackEvent = vi.fn();
 
 vi.mock("@/lib/clinical-queries", () => ({
   useCopilotFeedback: () => ({ mutateAsync, isPending: false }),
+  useReportKnowledgeGap: () => ({ mutateAsync: reportGap, isPending: false }),
 }));
 
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: (...args: unknown[]) => toastError(...args) } }));
+
+vi.mock("@/lib/analytics", () => ({ trackEvent: (...args: unknown[]) => trackEvent(...args) }));
 
 /**
  * F7 — o botão existe para que um erro clínico chegue com o rastro técnico
@@ -20,6 +26,7 @@ describe("CopilotFeedback", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mutateAsync.mockResolvedValue({ recorded: true });
+    reportGap.mockResolvedValue({ recorded: true });
   });
 
   it("envia 'foi útil' direto, sem pedir comentário", async () => {
@@ -54,6 +61,9 @@ describe("CopilotFeedback", () => {
         comment: "Era dengue, foi para sepse.",
       }),
     );
+    // CC-704 — o tipo do reporte vai para o Umami; o comentário, nunca.
+    expect(trackEvent).toHaveBeenCalledWith("feedback_enviado", { tipo: "wrong_scenario" });
+    expect(JSON.stringify(trackEvent.mock.calls)).not.toContain("dengue");
   });
 
   it("confirma o registro e não deixa o médico reenviar o mesmo reporte", async () => {
@@ -64,5 +74,87 @@ describe("CopilotFeedback", () => {
 
     expect(await screen.findByText(/Reporte registrado/i)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Foi útil/i })).not.toBeInTheDocument();
+  });
+
+  /**
+   * CC-703 — "não encontrei o que precisava" não diz que a análise errou,
+   * diz o que faltou: vai para o registro de lacunas, não para a triagem.
+   */
+  describe("não encontrei o que precisava", () => {
+    it("registra a lacuna com a frase curta do que faltou", async () => {
+      const user = userEvent.setup();
+      render(<CopilotFeedback encounterId="enc-1" interactionId="int-1" />);
+
+      await user.click(screen.getByRole("button", { name: /Não encontrei o que precisava/i }));
+      await user.type(
+        screen.getByRole("textbox", { name: "O que faltou (opcional)" }),
+        "Dose de ceftriaxona na meningite",
+      );
+      await user.click(screen.getByRole("button", { name: "Registrar" }));
+
+      await waitFor(() =>
+        expect(reportGap).toHaveBeenCalledWith({
+          interactionId: "int-1",
+          note: "Dose de ceftriaxona na meningite",
+        }),
+      );
+      expect(mutateAsync).not.toHaveBeenCalled();
+      expect(await screen.findByText(/O que faltou entra na lista/i)).toBeInTheDocument();
+      expect(trackEvent).toHaveBeenCalledWith("nao_encontrei", { com_nota: true });
+      expect(JSON.stringify(trackEvent.mock.calls)).not.toContain("ceftriaxona");
+      expect(
+        screen.queryByRole("button", { name: /Não encontrei o que precisava/i }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("aceita registrar sem dizer o que faltou", async () => {
+      const user = userEvent.setup();
+      render(<CopilotFeedback encounterId="enc-1" interactionId="int-1" />);
+
+      await user.click(screen.getByRole("button", { name: /Não encontrei o que precisava/i }));
+      await user.click(screen.getByRole("button", { name: "Registrar" }));
+
+      await waitFor(() =>
+        expect(reportGap).toHaveBeenCalledWith({ interactionId: "int-1", note: undefined }),
+      );
+      expect(trackEvent).toHaveBeenCalledWith("nao_encontrei", { com_nota: false });
+    });
+
+    it("limita a frase ao teto do contrato", async () => {
+      const user = userEvent.setup();
+      render(<CopilotFeedback encounterId="enc-1" interactionId="int-1" />);
+
+      await user.click(screen.getByRole("button", { name: /Não encontrei o que precisava/i }));
+
+      expect(screen.getByRole("textbox", { name: "O que faltou (opcional)" })).toHaveAttribute(
+        "maxlength",
+        "280",
+      );
+    });
+
+    it("continua disponível depois de um reporte", async () => {
+      const user = userEvent.setup();
+      render(<CopilotFeedback encounterId="enc-1" interactionId="int-1" />);
+
+      await user.click(screen.getByRole("button", { name: /Foi útil/i }));
+      await screen.findByText(/Reporte registrado/i);
+
+      expect(
+        screen.getByRole("button", { name: /Não encontrei o que precisava/i }),
+      ).toBeInTheDocument();
+    });
+
+    it("mantém o campo aberto e avisa quando não consegue registrar", async () => {
+      reportGap.mockRejectedValue(new Error("rede"));
+      const user = userEvent.setup();
+      render(<CopilotFeedback encounterId="enc-1" interactionId="int-1" />);
+
+      await user.click(screen.getByRole("button", { name: /Não encontrei o que precisava/i }));
+      await user.click(screen.getByRole("button", { name: "Registrar" }));
+
+      await waitFor(() => expect(toastError).toHaveBeenCalled());
+      expect(screen.getByRole("textbox", { name: "O que faltou (opcional)" })).toBeInTheDocument();
+      expect(trackEvent).not.toHaveBeenCalled();
+    });
   });
 });

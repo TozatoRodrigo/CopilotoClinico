@@ -6,6 +6,7 @@ import {
   ArrowElbowDownLeft,
   ClipboardText,
   Gear,
+  Hospital,
   MagnifyingGlass,
   Microphone,
   MoonStars,
@@ -107,6 +108,14 @@ function PaletteBody({ onClose }: { onClose: () => void }) {
         group: 'Páginas',
         keywords: 'seguranca privacidade mfa senha',
         run: () => go('/settings?tab=seguranca'),
+      },
+      {
+        id: 'page-practice-sites',
+        label: 'Locais de plantão',
+        icon: Hospital,
+        group: 'Páginas',
+        keywords: 'upa hospital tomografia uti regulacao transferencia porte especialistas',
+        run: () => go('/settings?tab=locais'),
       },
       {
         id: 'page-profile',

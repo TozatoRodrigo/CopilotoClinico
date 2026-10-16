@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ConfigService } from '@nestjs/config';
 import { OpenAIProvider } from './openai.provider';
-import { AiRefusalError, AiTruncatedError } from '../ai-gateway.errors';
+import { AiProviderError, AiRefusalError, AiTruncatedError } from '../ai-gateway.errors';
 import type { CompletionParams, JsonResponseSchema } from './provider.interface';
 
 const RESPONSE_SCHEMA: JsonResponseSchema = {
@@ -283,7 +283,11 @@ describe('OpenAIProvider', () => {
         await vi.advanceTimersByTimeAsync(1000);
         const error = await pending;
 
-        expect(error).toEqual(new Error('AI provider error: 503'));
+        expect(error).toBeInstanceOf(AiProviderError);
+        expect(error).toMatchObject({
+          message: 'AI provider error: 503',
+          details: { status: 503, unavailability: 'server_error' },
+        });
         expect(fetchMock).toHaveBeenCalledTimes(2);
         expect(logged.at(-1)).toMatch(/^AI_PROVIDER_ERROR operation=API status=503 type=x/);
       } finally {
@@ -291,11 +295,44 @@ describe('OpenAIProvider', () => {
       }
     });
 
-    it('does not retry a 400', async () => {
+    it('does not retry a 400, and marks it as a request error, not an outage', async () => {
       const fetchMock = sequence([status(400)]);
 
-      await expect(createProvider().complete(params())).rejects.toThrow('AI provider error: 400');
+      await expect(createProvider().complete(params())).rejects.toMatchObject({
+        message: 'AI provider error: 400',
+        details: { status: 400, unavailability: null },
+      });
       expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    // CC-107 — o motivo decide se a etapa vai para o modelo de reserva.
+    it.each([
+      [429, 'rate_limit_exceeded', 'rate_limit'],
+      [429, 'insufficient_quota', 'usage_limit'],
+      [402, 'payment_required', 'usage_limit'],
+      [500, 'internal', 'server_error'],
+      [404, 'model_not_found', null],
+    ])('classifies a final %i (%s) as %s', async (code, errorCode, unavailability) => {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response(JSON.stringify({ error: { message: 'x', type: 'x', code: errorCode } }), {
+          status: code,
+        }),
+      );
+
+      await expect(
+        createProvider({ AI_REQUEST_MAX_RETRIES: '0' }).complete(params()),
+      ).rejects.toMatchObject({ details: { status: code, unavailability } });
+    });
+
+    it('classifies a network failure as an outage', async () => {
+      vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('fetch failed'));
+
+      await expect(
+        createProvider({ AI_REQUEST_MAX_RETRIES: '0' }).complete(params()),
+      ).rejects.toMatchObject({
+        name: 'AiProviderError',
+        details: { status: null, unavailability: 'network' },
+      });
     });
 
     it('aborts a request that passes AI_REQUEST_TIMEOUT_MS', async () => {
@@ -315,7 +352,11 @@ describe('OpenAIProvider', () => {
           .catch((caught: unknown) => caught);
         await vi.advanceTimersByTimeAsync(500);
 
-        expect(await pending).toEqual(new Error('AI provider API timeout after 500ms'));
+        expect(await pending).toMatchObject({
+          name: 'AiProviderError',
+          message: 'AI provider API timeout after 500ms',
+          details: { status: null, unavailability: 'timeout' },
+        });
       } finally {
         vi.useRealTimers();
       }

@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { CopilotOutputSchema } from '../guardrails/output-validator';
-import { CopilotOutputV2Schema } from '../guardrails/output-validator-v2';
+import { CopilotOutputV2Schema, CopilotOutputV2WhySchema } from '../guardrails/output-validator-v2';
 import {
   COPILOT_OUTPUT_JSON_SCHEMA,
   COPILOT_OUTPUT_V2_JSON_SCHEMA,
+  COPILOT_OUTPUT_V2_WHY_JSON_SCHEMA,
 } from './copilot-output.json-schema';
+import type { JsonObjectSchema, JsonSchemaNode } from './json-schema';
 import {
   collectObjects,
   jsonShape,
@@ -65,6 +67,62 @@ describe('COPILOT_OUTPUT_V2_JSON_SCHEMA', () => {
     for (const field of ['layer', 'dependsOn', 'basis', 'separates']) {
       expect(serialized).not.toContain(`"${field}"`);
     }
+  });
+});
+
+// CC-601 — linha de "por quê": as mesmas garantias, contra o zod com `why`.
+describe('COPILOT_OUTPUT_V2_WHY_JSON_SCHEMA', () => {
+  function recommendationFields(schema: JsonObjectSchema): string[] {
+    const recommendations = schema.properties.recommendations as JsonSchemaNode;
+    if (!('type' in recommendations) || recommendations.type !== 'array') throw new Error('array');
+    const item = recommendations.items;
+    if (!('type' in item) || item.type !== 'object') throw new Error('object');
+    return Object.keys(item.properties);
+  }
+
+  it('mirrors the zod schema with the why line', () => {
+    expect(jsonShape(COPILOT_OUTPUT_V2_WHY_JSON_SCHEMA.schema)).toEqual(
+      zodShape(CopilotOutputV2WhySchema),
+    );
+  });
+
+  it('closes every object and uses only keywords supported by both providers', () => {
+    for (const object of collectObjects(COPILOT_OUTPUT_V2_WHY_JSON_SCHEMA.schema)) {
+      expect(object.additionalProperties).toBe(false);
+      expect(object.required).toEqual(Object.keys(object.properties));
+    }
+    const serialized = JSON.stringify(COPILOT_OUTPUT_V2_WHY_JSON_SCHEMA.schema);
+    for (const keyword of UNSUPPORTED_KEYWORDS) {
+      expect(serialized).not.toContain(`"${keyword}"`);
+    }
+  });
+
+  it('asks for the line after the layer and dependsOn, before the source', () => {
+    expect(recommendationFields(COPILOT_OUTPUT_V2_WHY_JSON_SCHEMA.schema)).toEqual([
+      'action',
+      'rationale',
+      'category',
+      'layer',
+      'dependsOn',
+      'why',
+      'basis',
+      'citationChunkId',
+      'confidence',
+    ]);
+  });
+
+  it('leaves the v2 schema, used with the flag off, without the line', () => {
+    expect(recommendationFields(COPILOT_OUTPUT_V2_JSON_SCHEMA.schema)).toEqual([
+      'action',
+      'rationale',
+      'category',
+      'layer',
+      'dependsOn',
+      'basis',
+      'citationChunkId',
+      'confidence',
+    ]);
+    expect(COPILOT_OUTPUT_V2_JSON_SCHEMA.name).toBe('copilot_output_v2');
   });
 });
 

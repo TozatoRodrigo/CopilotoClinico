@@ -1,0 +1,29 @@
+{
+  "id": "rv-2022-2-est-1",
+  "source": {
+    "kind": "clinical_case",
+    "caseId": "rv-2022-2-est-1"
+  },
+  "review": {
+    "status": "draft",
+    "notes": "FC 84 no exame e 64 no ECG: vale qualquer uma."
+  },
+  "input": {
+    "caseText": "UPA (Rx, ECG, laboratório). Masc, 19a, estudante universitário. Desmaio há ~20 min. EF: FC 84, PA 125x65, FR 16, Tax 36,4 °C, SpO2 99% AA, IMC 23. BEG, afebril, acianótico, anictérico, hidratado, alerta e orientado. MV presente bilateral, sem RA; RCR 2T, BNF, sem sopros; abdome flácido, indolor, sem visceromegalias. Neuro: sem alterações focais; marcha, equilíbrio, motricidade, coordenação, força, reflexos, 12 pares cranianos e sensibilidade normais. ECG: ritmo sinusal, FC 64, PR < 120 ms, onda delta presente, QRS 120 ms (com onda delta), eixo −30°."
+  },
+  "expected": {
+    "sex": "M",
+    "age": 19,
+    "vitals": {
+      "systolicBp": 125,
+      "diastolicBp": 65,
+      "heartRate": [84, 64],
+      "respiratoryRate": 16,
+      "spo2": 99,
+      "temperature": 36.4,
+      "glucose": null
+    },
+    "syndrome": ["rebaixamento-consciencia", "outro"],
+    "instability": false
+  }
+}
