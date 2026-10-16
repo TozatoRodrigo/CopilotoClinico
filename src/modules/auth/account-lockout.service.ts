@@ -5,10 +5,14 @@ import { PrismaService } from '../../config/prisma.service';
 
 /**
  * Segredos que a conta já identificada prova e que dá para chutar: o código
- * do MFA (6 dígitos, 10^6 combinações) e a senha atual na troca de senha. O
- * login tem caminho próprio em AuthService, por e-mail.
+ * do MFA (6 dígitos, 10^6 combinações) e a senha atual na troca de senha. A
+ * senha do login também tem contador aqui, mas por e-mail
+ * (`reserveLoginAttempt`): no login a conta pode nem existir.
  */
 export type LockoutScope = 'mfa' | 'password_change';
+
+/** Cada contador da tabela; aparece como `scope=` nos logs. */
+type LockoutCounter = LockoutScope | 'login';
 
 export interface LockoutPolicy {
   maxAttempts: number;
@@ -53,7 +57,7 @@ export function subjectTag(id: string | null | undefined): string {
 }
 
 export function accountRateLimitedLog(
-  scope: LockoutScope | 'login',
+  scope: LockoutCounter,
   subjectId: string | null | undefined,
 ): string {
   return `AUTH_RATE_LIMITED reason=account scope=${scope} subject=${subjectTag(subjectId)}`;
@@ -74,19 +78,20 @@ export class AccountLockedException extends HttpException {
 }
 
 /**
- * CC-025 — limite de tentativas por conta para os segredos de `LockoutScope`.
+ * CC-025 — limite de tentativas por conta para os segredos de `LockoutScope`;
+ * CC-026 — e para a senha do login.
  *
- * Reaproveita a tabela e a política do bloqueio do login
- * (`login_security_states`, `AUTH_LOCKOUT_*`), mas com contador próprio por
- * escopo: a linha é `sha256("<escopo>:<physicianId>")`. Dividir o contador do
- * login abriria um atalho: o login certo zera o contador, e quem ataca o MFA
- * já tem a senha, então zeraria o bloqueio do MFA a cada 5 chutes.
+ * Uma tabela e uma política (`login_security_states`, `AUTH_LOCKOUT_*`), com
+ * um contador por segredo: o login usa a linha do e-mail, como sempre usou;
+ * MFA e troca de senha, `sha256("<escopo>:<physicianId>")`. Dividir o
+ * contador do login abriria um atalho: o login certo zera o contador, e quem
+ * ataca o MFA já tem a senha, então zeraria o bloqueio do MFA a cada 5 chutes.
  *
- * Diferente do login, que lê e depois grava, a tentativa é RESERVADA antes de
- * conferir o segredo, num UPDATE condicional (`failed_count < max`). No
- * Postgres, UPDATEs simultâneos na mesma linha se enfileiram e cada um
- * reavalia o WHERE: mil requisições em paralelo não passam de `maxAttempts`
- * conferências. Lendo antes, todas leriam 0 antes da primeira gravação.
+ * A tentativa é RESERVADA antes de conferir o segredo, num UPDATE condicional
+ * (`failed_count < max`). No Postgres, UPDATEs simultâneos na mesma linha se
+ * enfileiram e cada um reavalia o WHERE: mil requisições em paralelo não
+ * passam de `maxAttempts` conferências. Lendo antes e gravando depois (como o
+ * login fazia até o CC-026), todas leriam 0 antes da primeira gravação.
  *
  * Por isso aqui `failed_count` conta as tentativas desde o último acerto
  * (inclusive as em andamento) e `last_failed_at` é a hora da última tentativa.
@@ -110,7 +115,37 @@ export class AccountLockoutService {
    * `AccountLockedException` (429) se a conta está bloqueada ou no teto.
    */
   async reserveAttempt(scope: LockoutScope, physicianId: string): Promise<void> {
-    const identifierHash = lockoutKey(scope, physicianId);
+    if (!(await this.reserve(scope, lockoutKey(scope, physicianId), physicianId))) {
+      throw new AccountLockedException();
+    }
+  }
+
+  /**
+   * CC-026 — a mesma reserva para a senha do login, no contador por e-mail.
+   * `physicianId` é `null` quando o e-mail não tem cadastro (a tentativa conta
+   * igual). Devolve `false` com a conta bloqueada, sem lançar: o login
+   * responde 401 como a senha errada, para não revelar que o e-mail existe.
+   */
+  async reserveLoginAttempt(email: string, physicianId: string | null): Promise<boolean> {
+    return this.reserve('login', loginLockoutKey(email), physicianId);
+  }
+
+  /** O segredo conferiu: zera o contador do escopo. */
+  async clear(scope: LockoutScope, physicianId: string): Promise<void> {
+    await this.reset(lockoutKey(scope, physicianId));
+  }
+
+  /** A senha do login conferiu: zera só o contador do login, não o do MFA. */
+  async clearLogin(email: string): Promise<void> {
+    await this.reset(loginLockoutKey(email));
+  }
+
+  /** `true` = tentativa reservada; `false` = conta bloqueada ou no teto. */
+  private async reserve(
+    counter: LockoutCounter,
+    identifierHash: string,
+    physicianId: string | null,
+  ): Promise<boolean> {
     const now = new Date();
 
     await this.prisma.loginSecurityState.createMany({
@@ -137,9 +172,15 @@ export class AccountLockoutService {
 
     const reserved = await this.prisma.loginSecurityState.updateMany({
       where: { identifierHash, lockedUntil: null, failedCount: { lt: this.policy.maxAttempts } },
-      data: { failedCount: { increment: 1 }, lastFailedAt: now },
+      // A linha do login pode ter nascido de um e-mail ainda sem cadastro: o
+      // id entra quando aparece, para o runbook achar a linha pelo médico.
+      data: {
+        failedCount: { increment: 1 },
+        lastFailedAt: now,
+        ...(physicianId === null ? {} : { physicianId }),
+      },
     });
-    if (reserved.count === 1) return;
+    if (reserved.count === 1) return true;
 
     // No teto e ainda sem bloqueio: esta é a primeira recusa, bloqueia agora.
     const locked = await this.prisma.loginSecurityState.updateMany({
@@ -148,17 +189,16 @@ export class AccountLockoutService {
     });
     if (locked.count > 0) {
       this.logger.warn(
-        `AUTH_ACCOUNT_LOCKED scope=${scope} subject=${subjectTag(physicianId)} durationMs=${this.policy.durationMs}`,
+        `AUTH_ACCOUNT_LOCKED scope=${counter} subject=${subjectTag(physicianId)} durationMs=${this.policy.durationMs}`,
       );
     }
-    this.logger.warn(accountRateLimitedLog(scope, physicianId));
-    throw new AccountLockedException();
+    this.logger.warn(accountRateLimitedLog(counter, physicianId));
+    return false;
   }
 
-  /** O segredo conferiu: zera o contador do escopo. */
-  async clear(scope: LockoutScope, physicianId: string): Promise<void> {
+  private async reset(identifierHash: string): Promise<void> {
     await this.prisma.loginSecurityState.updateMany({
-      where: { identifierHash: lockoutKey(scope, physicianId) },
+      where: { identifierHash },
       data: { failedCount: 0, lockedUntil: null, lastFailedAt: null },
     });
   }

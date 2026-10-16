@@ -1,0 +1,70 @@
+name: Revisão clínica
+description: Reportar ou revisar conteúdo clínico — ferramenta, cartão, protocolo, diretriz, caso do gabarito ou resposta do Copiloto.
+title: 'revisão clínica: '
+labels: ['conteúdo clínico', 'revisão clínica']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Para o médico que encontrou um erro ou revisa um conteúdo.
+        Não cole dado de paciente nem o texto de um caso real. Se o erro apareceu num
+        atendimento, informe o id do atendimento: ele basta para achar o resto.
+  - type: dropdown
+    id: tipo
+    attributes:
+      label: O que está sendo revisado
+      options:
+        - Ferramenta ou calculadora
+        - Cartão revisado
+        - Protocolo
+        - Diretriz da base de conhecimento
+        - Caso do gabarito clínico
+        - Resposta do Copiloto num atendimento
+        - Outro
+    validations:
+      required: true
+  - type: input
+    id: onde
+    attributes:
+      label: Qual
+      description: Nome da ferramenta, título do cartão ou do protocolo, id do caso do gabarito ou do atendimento.
+    validations:
+      required: true
+  - type: textarea
+    id: aparece
+    attributes:
+      label: O que aparece
+      description: O texto, a dose, o escore ou a conduta como estão hoje.
+    validations:
+      required: true
+  - type: textarea
+    id: deveria
+    attributes:
+      label: O que deveria aparecer
+      description: A versão correta.
+    validations:
+      required: true
+  - type: textarea
+    id: fonte
+    attributes:
+      label: Fonte
+      description: Diretriz, PCDT, consenso ou artigo que embasa a correção, com ano e, se possível, página ou link.
+    validations:
+      required: true
+  - type: dropdown
+    id: gravidade
+    attributes:
+      label: Gravidade
+      description: O que pode acontecer com o paciente se o conteúdo ficar como está.
+      options:
+        - Crítica — pode causar dano grave (dose errada, conduta contraindicada, diagnóstico grave perdido)
+        - Alta — conduta inadequada, sem dano grave provável
+        - Média — informação incompleta ou imprecisa
+        - Baixa — redação, clareza ou formatação
+    validations:
+      required: true
+  - type: textarea
+    id: observacoes
+    attributes:
+      label: Observações
+      description: Contexto clínico, exceções, populações especiais.

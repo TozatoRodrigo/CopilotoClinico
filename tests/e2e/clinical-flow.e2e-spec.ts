@@ -99,11 +99,11 @@ function buildPrismaMock() {
       ),
     },
 
+    // CC-026 — o contador do login é reservado com UPDATE condicional
+    // (AccountLockoutService): count 1 = tentativa reservada.
     loginSecurityState: {
-      findUnique: vi.fn().mockResolvedValue(null),
-      findFirst: vi.fn().mockResolvedValue(null),
-      upsert: vi.fn().mockResolvedValue({}),
-      update: vi.fn().mockResolvedValue({}),
+      createMany: vi.fn().mockResolvedValue({ count: 1 }),
+      updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
 
     refreshToken: {

@@ -136,7 +136,7 @@ feedback estruturado (F7) — é o dado que calibra o roteamento.
 ## Pré-requisitos
 
 1. Fase A em produção com a base sincronizada (`pnpm sync:official-guidelines`).
-2. Medição da fase A (passo 8 do `docs/plano-fontes-oficiais-pcdt.md`): diz em
+2. Medição da fase A (passo 8 do `docs/planos/plano-fontes-oficiais-pcdt.md`): diz em
    quais casos os PCDTs de fato aparecem e ajudam, e calibra os limiares que o
    roteador herda.
 3. `text_tsv` populado (busca lexical) — CID e nome de medicamento são o que

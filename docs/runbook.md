@@ -13,7 +13,7 @@ avance sem o resultado esperado**. Executar na VPS (Hostinger), no diretório do
 
 > Origem: reportes de campo de 03/09/2026 — caso de dengue conduzido como
 > sepse, cefaleia em salvas apontada como hemorragia, e erro ao anexar arquivo.
-> Diagnóstico completo em `docs/plano-base-contexto.md`.
+> Diagnóstico completo em `docs/planos/plano-base-contexto.md`.
 
 ### Passo 0 — Pré-voo (antes de tocar em qualquer coisa)
 
@@ -322,6 +322,12 @@ Duas camadas, independentes:
   MFA, gerar novos códigos de backup) e senha atual na troca de senha. Login
   bloqueado responde 401, igual a senha errada; MFA e troca de senha
   respondem 429 "Muitas tentativas".
+- Os três contadores **reservam a tentativa antes** de conferir o segredo,
+  num `UPDATE` condicional: tentativas em paralelo não passam de 5. O login
+  passou a fazer isso no CC-026; antes lia o contador e gravava depois, e 50
+  logins simultâneos conferiam 50 senhas.
+- **Código de backup do MFA** (CC-026): gasto num `UPDATE … WHERE used_at IS
+  NULL`. Dois pedidos simultâneos com o mesmo código: só um entra.
 
 #### `TRUSTED_PROXY_HOPS` e o Traefik
 
@@ -349,6 +355,12 @@ internet e a API:
   dividem os mesmos 5 logins por minuto.
 - Valor inválido na env: a API usa 1 e loga `TRUSTED_PROXY_HOPS inválido`
   na subida.
+- **O IP gravado na trilha de auditoria** (`audit_log.ip`, CC-026) sai da
+  mesma regra. Antes do CC-026 os registros com IP (cadastro, login,
+  login com Google/Microsoft, refresh, logout, MFA, pedido de verificação de
+  CRM, lista de espera e aceite dos termos do beta) gravavam o IP do
+  Traefik; os antigos continuam assim. O log de acesso HTTP (`HttpAccess`)
+  não grava IP.
 
 Conferir na VPS (a configuração estática do Traefik não está neste repo):
 
@@ -381,7 +393,7 @@ done
 | `AUTH_RATE_LIMITED reason=ip route=AuthController.<rota> limit=… ttlMs=… blockedForS=…` | Um IP passou do limite numa rota de `/auth`. Uma linha por bloqueio, não por requisição recusada; sem o IP |
 | `RATE_LIMITED reason=ip route=…` | O mesmo fora de `/auth` |
 | `AUTH_RATE_LIMITED reason=account scope=login\|mfa\|password_change subject=<hash>` | Tentativa recusada porque a conta está bloqueada |
-| `AUTH_ACCOUNT_LOCKED scope=mfa\|password_change subject=<hash> durationMs=…` | Começo de um bloqueio por conta |
+| `AUTH_ACCOUNT_LOCKED scope=login\|mfa\|password_change subject=<hash> durationMs=…` | Começo de um bloqueio por conta |
 
 `subject` são os 12 primeiros hex do sha256 do id do médico (`unknown` no
 login de e-mail sem cadastro). Bloqueios seguidos de `scope=mfa` para o mesmo
@@ -438,7 +450,8 @@ docker compose --env-file .env.production -f docker-compose.prod.yml up -d --no-
   O antigo `docker/api.Dockerfile` foi removido na CC-014: nenhum compose,
   script, workflow ou documento o usava, e ele divergia da imagem de produção
   (pnpm sem versão fixa, sem `pnpm-workspace.yaml` e sem `tini`). A demo
-  (`scripts/demo.sh`) usa o `Dockerfile` da raiz.
+  (`scripts/demo.sh`) usa o `docker/demo.Dockerfile`, que até 16/10/2026
+  ficava na raiz como `Dockerfile`.
 - A imagem de runtime não tem `pnpm` (`sh: pnpm: not found`): use
   `npx --no-install prisma`, que usa o CLI já instalado em `node_modules` e
   nunca baixa nada. Corrigido em 24/09/2026, no deploy da ADR-010.
@@ -1018,6 +1031,14 @@ banco:
 ```sql
 UPDATE physicians SET is_curator = true WHERE email = 'curador@exemplo.com';
 ```
+
+A mesma flag autoriza escrever protocolo (CC-020): criar
+(`POST /v1/protocols`), publicar (`POST /v1/protocols/:id/publish`) e criar
+versão nova (`POST /v1/protocols/:id/revise`) são de curador ou ADMIN; os
+demais médicos recebem `403` e só leem e rodam. Vale na hora, sem novo login
+(a flag é lida do banco a cada pedido). Recusas aparecem no log como
+`PROTOCOL_WRITE_DENIED action=<create|publish|revise>`. Protocolo institucional
+exige, além do papel, vínculo ativo com a instituição (ADR-009, adendo CC-020).
 
 ### Cartões revisados (CC-402/CC-403/CC-412, ADR-019)
 
@@ -2015,7 +2036,7 @@ credencial vêm do PR #168 (seção "Sentry" em Monitoramento).
 |---|---|
 | `JWT_ACCESS_SECRET` | Todos os tokens são inválidos ou forjáveis |
 | `JWT_REFRESH_SECRET` | Refresh tokens inválidos |
-| `TRUSTED_PROXY_HOPS` | Proxies confiáveis à frente da API (padrão 1 = Traefik). Alto demais (2 sem Cloudflare) deixa o cliente escolher o IP do limite de tentativas; baixo demais (1 com Cloudflare) junta médicos no mesmo limite. Ver "Limite de tentativas" |
+| `TRUSTED_PROXY_HOPS` | Proxies confiáveis à frente da API (padrão 1 = Traefik). Define o IP do limite de tentativas e o gravado na trilha de auditoria. Alto demais (2 sem Cloudflare) deixa o cliente escolher esse IP; baixo demais (1 com Cloudflare) junta médicos no mesmo limite e grava o IP da Cloudflare. Ver "Limite de tentativas" |
 | `INTERNAL_SERVICE_TOKEN` | Endpoint `/audit/verify-chain` inacessível |
 | `BETA_INVITE_REQUIRED` | `on` fecha o cadastro para quem não tem convite do beta (CC-702): sem código válido, `403 BETA_INVITE_REQUIRED` e o web abre a lista de espera. `off` (padrão) = cadastro aberto, como antes. Ausente ou irreconhecível = `off`. Ver "Beta por convite (CC-702)". Exige a migration `20261015120000_cc702_beta_convites` |
 | `AI_API_KEY` | Análise clínica indisponível |

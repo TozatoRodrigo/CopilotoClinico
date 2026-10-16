@@ -1,12 +1,17 @@
 name: E2E (UI)
 
 # F4 — Suites Playwright por perfil contra backend real (IA determinística).
-# Workflow separado do ci.yml; falha de teste reprova o job (CC-023). Roda só
-# em PR para codex/production-readiness, que é o branch de integração.
+# Workflow separado do ci.yml; falha de teste reprova o job (CC-023). Roda em
+# PR para a main e à mão (workflow_dispatch).
 on:
   pull_request:
-    branches: [codex/production-readiness]
+    branches: [main]
   workflow_dispatch:
+
+# Push novo no mesmo PR cancela a execução anterior.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   NODE_ENV: test
@@ -21,7 +26,7 @@ env:
   AI_EMBEDDING_MODEL: test
   REDIS_URL: redis://localhost:6379
   INTERNAL_SERVICE_TOKEN: ci-internal-service-token-at-least-32-characters
-  FIELD_ENCRYPTION_KEY: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  FIELD_ENCRYPTION_KEY: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
   NEXT_PUBLIC_API_URL: http://localhost:3000/v1
 
 jobs:

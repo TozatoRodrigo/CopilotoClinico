@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
+import { clientIpForAudit, type ClientIpRequest } from '../../shared/http/client-ip';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import { BetaInviteService } from './beta-invite.service';
 import { BetaParticipantService } from './beta-participant.service';
@@ -29,16 +30,7 @@ import {
   type WaitlistRequestInput,
 } from './schemas/beta.schemas';
 
-interface RequestWithIp {
-  ip?: string;
-  ips?: string[];
-}
-
-function extractIp(req: RequestWithIp): string | undefined {
-  return (req.ips?.[0] ?? req.ip) || undefined;
-}
-
-type AuthenticatedRequest = RequestWithIp & { user: { physicianId: string } };
+type AuthenticatedRequest = ClientIpRequest & { user: { physicianId: string } };
 
 /**
  * CC-702 — o lado do médico no beta: o que a tela de cadastro consulta antes
@@ -68,9 +60,11 @@ export class BetaController {
   @Throttle({ short: { limit: 5, ttl: 60000 } })
   joinWaitlist(
     @Body(new ZodValidationPipe(waitlistRequestSchema)) body: WaitlistRequestInput,
-    @Req() req: RequestWithIp,
+    @Req() req: ClientIpRequest,
   ) {
-    return this.waitlist.join(body, extractIp(req));
+    // CC-026 — o IP da trilha é o do médico, não o do Traefik (`req.ips` só
+    // existe com trustProxy, que a API não liga).
+    return this.waitlist.join(body, clientIpForAudit(req));
   }
 
   @Get('me')
@@ -86,7 +80,7 @@ export class BetaController {
     @Request() req: AuthenticatedRequest,
     @Body(new ZodValidationPipe(acceptTermsSchema)) body: AcceptTermsInput,
   ) {
-    return this.participants.acceptTerms(req.user.physicianId, body.version, extractIp(req));
+    return this.participants.acceptTerms(req.user.physicianId, body.version, clientIpForAudit(req));
   }
 
   @Put('me/profile')
