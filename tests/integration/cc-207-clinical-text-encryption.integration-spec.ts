@@ -207,6 +207,21 @@ describe('CC-207 — texto clínico cifrado em repouso (integration)', () => {
         abandonReason: `${MARKER} paciente transferido`,
       },
     });
+    // CC-707 — caso e plano enviados ao mentor, dúvida e resposta.
+    await client.mentoringRequest.create({
+      data: {
+        encounterId: encounter.id,
+        requesterId: physicianId,
+        interactionId: interaction.id,
+        status: 'answered',
+        caseSnapshot: { caseText: `${MARKER} caso mascarado` },
+        question: `${MARKER} transfiro agora?`,
+        termsVersion: 'cc207-teste',
+        termsAcceptedAt: new Date(),
+        answer: `${MARKER} sim, com a regulação`,
+        answeredAt: new Date(),
+      },
+    });
     return { encounterId: encounter.id, interactionId: interaction.id };
   }
 

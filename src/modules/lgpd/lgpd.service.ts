@@ -26,6 +26,7 @@ import type {
   CopilotFeedback,
   PracticeSite,
   KnowledgeGap,
+  MentoringRequest,
 } from '@prisma/client';
 
 /**
@@ -87,6 +88,11 @@ export interface PhysicianDataExport {
      * eliminação o leva junto, por cascata, com os atendimentos.
      */
     knowledgeGaps: KnowledgeGap[];
+    /**
+     * CC-707 — pedidos de mentoria que o médico fez e os que respondeu como
+     * mentor (caso, dúvida e resposta já mascarados).
+     */
+    mentoringRequests: MentoringRequest[];
     consents: Consent[];
     auditLog: AuditLog[];
   };
@@ -98,6 +104,8 @@ export interface ErasureResult {
   erased: {
     recommendationDecisions: number;
     copilotFeedback: number;
+    /** CC-707 — pedidos de mentoria que o médico fez. */
+    mentoringRequests: number;
     encounters: number;
     encounterAttachments: number;
     audioCaptures: number;
@@ -280,6 +288,7 @@ export class LgpdService {
         name: true,
         crmVerified: true,
         isCurator: true,
+        isMentor: true,
         subscriptionStatus: true,
         locale: true,
         specialty: true,
@@ -312,6 +321,7 @@ export class LgpdService {
       audioCaptures,
       practiceSites,
       knowledgeGaps,
+      mentoringRequests,
     ] = await Promise.all([
       this.prisma.document.findMany({ where: { physicianId } }),
       this.prisma.consent.findMany({ where: { physicianId } }),
@@ -334,6 +344,9 @@ export class LgpdService {
       this.prisma.knowledgeGap.findMany({
         where: { interaction: { encounter: { physicianId } } },
       }),
+      this.prisma.mentoringRequest.findMany({
+        where: { OR: [{ requesterId: physicianId }, { mentorId: physicianId }] },
+      }),
     ]);
 
     return {
@@ -355,6 +368,7 @@ export class LgpdService {
         audioCaptures,
         practiceSites,
         knowledgeGaps,
+        mentoringRequests,
         consents,
         auditLog,
       },
@@ -393,6 +407,12 @@ export class LgpdService {
       const audioCaptures = await tx.audioCapture.deleteMany({
         where: { encounter: { physicianId } },
       });
+      // CC-707 — pedidos de mentoria do médico (o CASCADE do encontro também
+      // levaria). As respostas que ele deu como mentor ficam no caso de quem
+      // pediu, com o nome anonimizado abaixo.
+      const mentoringRequests = await tx.mentoringRequest.deleteMany({
+        where: { requesterId: physicianId },
+      });
       const encounters = await tx.encounter.deleteMany({ where: { physicianId } });
       // CC-602 — onde o médico trabalha também é dado dele.
       const practiceSites = await tx.practiceSite.deleteMany({ where: { physicianId } });
@@ -414,6 +434,7 @@ export class LgpdService {
       return {
         recommendationDecisions: recommendationDecisions.count,
         copilotFeedback: copilotFeedback.count,
+        mentoringRequests: mentoringRequests.count,
         encounters: encounters.count,
         encounterAttachments: encounterAttachments.count,
         audioCaptures: audioCaptures.count,

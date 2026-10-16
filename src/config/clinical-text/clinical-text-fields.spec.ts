@@ -42,6 +42,9 @@ describe('CC-207 — inventário do texto clínico cifrado', () => {
       'copilot_feedback.triage_note',
       'protocol_runs.abandon_reason',
       'protocol_runs.answers',
+      'mentoring_requests.question',
+      'mentoring_requests.answer',
+      'mentoring_requests.case_snapshot',
     ]);
   });
 

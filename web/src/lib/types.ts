@@ -81,6 +81,23 @@ export type {
   RedFlag,
   RedFlagSeverity,
   ResolveCrmVerificationRequest,
+  AnswerMentoringRequest,
+  CreateMentoringRequest,
+  MentorQueueItem,
+  MentorQueueResponse,
+  MentorQueueScope,
+  MentorRequestDetail,
+  MentoringAdminItem,
+  MentoringAdminMetrics,
+  MentoringAdminResponse,
+  MentoringCaseSnapshot,
+  MentoringConfigResponse,
+  MentoringNotificationsResponse,
+  MentoringRequestStatus,
+  MentoringRequestView,
+  MentoringTerms,
+  MentoringTermsDocument,
+  RateMentoringRequest,
 } from '@contracts/clinical';
 
 // CC-602 — locais de plantão do médico.

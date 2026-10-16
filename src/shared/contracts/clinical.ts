@@ -1159,3 +1159,187 @@ export interface AiConsentRevokedError {
   code: typeof AI_CONSENT_REVOKED;
   message: string;
 }
+
+// ── Mentoria em modo concierge (CC-707) ────────────────────────────────────
+//
+// "Discutir este caso com um médico da equipe": assíncrona, não serve para
+// urgência. O médico aceita o termo (CC-708) e manda o caso mascarado com o
+// plano da IA; um mentor da equipe assume e responde no próprio caso.
+
+export const MENTORING_REQUEST_STATUSES = ['pending', 'claimed', 'answered', 'cancelled'] as const;
+export type MentoringRequestStatus = (typeof MENTORING_REQUEST_STATUSES)[number];
+
+/** Nota de satisfação depois da resposta. */
+export const MENTORING_SATISFACTION_MIN = 1;
+export const MENTORING_SATISFACTION_MAX = 5;
+
+/** Tetos dos textos livres (dúvida do médico e resposta do mentor). */
+export const MENTORING_QUESTION_MAX_LENGTH = 1000;
+export const MENTORING_ANSWER_MAX_LENGTH = 4000;
+
+export interface MentoringTermsDocument {
+  title: string;
+  paragraphs: string[];
+}
+
+/**
+ * CC-708 — termo da mentoria. Um texto para quem pede e outro para o mentor,
+ * com a mesma versão; `provisional` fica `true` até o parecer jurídico.
+ */
+export interface MentoringTerms {
+  version: string;
+  provisional: boolean;
+  requester: MentoringTermsDocument;
+  mentor: MentoringTermsDocument;
+}
+
+/** GET /mentoring/config — desligada (`COPILOT_MENTORING=off`), só `enabled: false`. */
+export type MentoringConfigResponse =
+  | { enabled: false }
+  | { enabled: true; isMentor: boolean; terms: MentoringTerms };
+
+/**
+ * O que os mentores recebem: o caso e o plano da IA, mascarados no servidor
+ * (PII e patientRef). Gravado no pedido: o mentor lê exatamente o que foi
+ * enviado, mesmo que o caso ganhe outra análise depois.
+ */
+export interface MentoringCaseSnapshot {
+  vertical: string;
+  context: EncounterContext | null;
+  caseText: string | null;
+  analysisCreatedAt: string | null;
+  plan: {
+    mainHypothesis: string | null;
+    differentials: Array<{ hypothesis: string; cannotMiss: boolean }>;
+    redFlags: Array<{ finding: string; severity: string }>;
+    recommendations: Array<{ action: string; preliminary: boolean }>;
+    pendingQuestions: string[];
+    uncertainty: boolean;
+  };
+}
+
+/** POST /encounters/:id/mentoring */
+export interface CreateMentoringRequest {
+  /** Versão do termo que o médico leu e aceitou (a de GET /mentoring/config). */
+  termsVersion: string;
+  /** O médico confirmou que não é urgência e que segue responsável pelo paciente. */
+  acknowledgedNotUrgent: true;
+  /** O que o médico quer discutir. O servidor mascara PII. */
+  question?: string;
+}
+
+/** POST /mentoring/requests/:id/rating */
+export interface RateMentoringRequest {
+  satisfaction: number;
+}
+
+/** POST /mentoring/queue/:id/answer */
+export interface AnswerMentoringRequest {
+  answer: string;
+  /** Versão do termo que o mentor aceitou ao responder. */
+  termsVersion: string;
+}
+
+/** O pedido visto por quem pediu, no próprio caso. */
+export interface MentoringRequestView {
+  id: string;
+  encounterId: string;
+  status: MentoringRequestStatus;
+  question: string | null;
+  termsVersion: string;
+  createdAt: string;
+  claimedAt: string | null;
+  mentorName: string | null;
+  answer: string | null;
+  answeredAt: string | null;
+  answerSeenAt: string | null;
+  cancelledAt: string | null;
+  satisfaction: number | null;
+}
+
+/** GET /mentoring/notifications — respostas que o médico ainda não abriu. */
+export interface MentoringNotificationsResponse {
+  unreadAnswers: Array<{
+    requestId: string;
+    encounterId: string;
+    /** Queixa principal do caso (nunca o patientRef). */
+    caseTitle: string | null;
+    mentorName: string | null;
+    answeredAt: string;
+  }>;
+}
+
+export const MENTOR_QUEUE_SCOPES = ['open', 'mine'] as const;
+export type MentorQueueScope = (typeof MENTOR_QUEUE_SCOPES)[number];
+
+/** Um pedido na fila do mentor (sem o caso; o caso vem no detalhe). */
+export interface MentorQueueItem {
+  id: string;
+  status: MentoringRequestStatus;
+  createdAt: string;
+  claimedAt: string | null;
+  answeredAt: string | null;
+  /** O pedido está com o mentor que consulta. */
+  assignedToMe: boolean;
+  mentorName: string | null;
+  vertical: string;
+  mainHypothesis: string | null;
+  question: string | null;
+}
+
+/** GET /mentoring/queue */
+export interface MentorQueueResponse {
+  items: MentorQueueItem[];
+  /** Pendentes sem mentor, visíveis a quem consulta (contador do menu). */
+  pendingCount: number;
+}
+
+/** GET /mentoring/queue/:id */
+export interface MentorRequestDetail extends MentorQueueItem {
+  caseSnapshot: MentoringCaseSnapshot;
+  answer: string | null;
+  satisfaction: number | null;
+}
+
+/** Uma linha do painel admin: só metadados, nenhum texto clínico. */
+export interface MentoringAdminItem {
+  id: string;
+  status: MentoringRequestStatus;
+  createdAt: string;
+  claimedAt: string | null;
+  answeredAt: string | null;
+  cancelledAt: string | null;
+  /** Do pedido à resposta, em minutos. */
+  responseMinutes: number | null;
+  satisfaction: number | null;
+  requesterName: string | null;
+  mentorName: string | null;
+  institutionName: string | null;
+  termsVersion: string;
+}
+
+export interface MentoringAdminMetrics {
+  periodDays: number;
+  total: number;
+  byStatus: Record<MentoringRequestStatus, number>;
+  /** Médicos distintos que pediram mentoria no período. */
+  requesters: number;
+  /** Médicos com ao menos uma análise do copiloto no período. */
+  activePhysicians: number;
+  /** Métrica de sucesso da CC-707; `null` sem médico ativo. */
+  requestsPerActivePhysician: number | null;
+  /** Do pedido à resposta, em minutos; `null` sem resposta no período. */
+  responseMinutes: { median: number | null; p90: number | null };
+  satisfaction: {
+    average: number | null;
+    rated: number;
+    /** Contagem por nota: índice 0 = nota 1 … índice 4 = nota 5. */
+    distribution: [number, number, number, number, number];
+  };
+}
+
+/** GET /admin/mentoring */
+export interface MentoringAdminResponse {
+  metrics: MentoringAdminMetrics;
+  items: MentoringAdminItem[];
+}

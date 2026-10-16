@@ -67,6 +67,10 @@ describe('LgpdService', () => {
       deleteMany: ReturnType<typeof vi.fn>;
     };
     knowledgeGap: { findMany: ReturnType<typeof vi.fn> };
+    mentoringRequest: {
+      findMany: ReturnType<typeof vi.fn>;
+      deleteMany: ReturnType<typeof vi.fn>;
+    };
     $transaction: ReturnType<typeof vi.fn>;
   };
   let auditService: {
@@ -133,6 +137,10 @@ describe('LgpdService', () => {
         deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
       knowledgeGap: { findMany: vi.fn().mockResolvedValue([]) },
+      mentoringRequest: {
+        findMany: vi.fn().mockResolvedValue([]),
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+      },
       $transaction: vi.fn(),
     };
     auditService = {
@@ -560,12 +568,17 @@ describe('LgpdService', () => {
           audioCaptures,
           practiceSites,
           knowledgeGaps,
+          mentoringRequests: [],
           consents,
           auditLog,
         },
       });
       // CC-602 — os locais de plantão são dado do médico.
       expect(prisma.practiceSite.findMany).toHaveBeenCalledWith({ where: { physicianId } });
+      // CC-707 — pedidos que fez e respostas que deu como mentor.
+      expect(prisma.mentoringRequest.findMany).toHaveBeenCalledWith({
+        where: { OR: [{ requesterId: physicianId }, { mentorId: physicianId }] },
+      });
       expect(prisma.caseIntake.findMany).toHaveBeenCalledWith({ where: { physicianId } });
       // CC-703 — a lacuna não guarda o médico: sai pelas análises dele.
       expect(prisma.knowledgeGap.findMany).toHaveBeenCalledWith({
@@ -724,6 +737,7 @@ describe('LgpdService', () => {
       prisma.copilotFeedback.deleteMany.mockResolvedValue({ count: 3 });
       prisma.encounterAttachment.deleteMany.mockResolvedValue({ count: 0 });
       prisma.audioCapture.deleteMany.mockResolvedValue({ count: 0 });
+      prisma.mentoringRequest.deleteMany.mockResolvedValue({ count: 2 });
       prisma.encounter.deleteMany.mockResolvedValue({ count: 2 });
       prisma.practiceSite.deleteMany.mockResolvedValue({ count: 2 });
       prisma.consent.deleteMany.mockResolvedValue({ count: 1 });
@@ -749,6 +763,7 @@ describe('LgpdService', () => {
       expect(result.erased).toEqual({
         recommendationDecisions: 4,
         copilotFeedback: 3,
+        mentoringRequests: 2,
         encounters: 2,
         encounterAttachments: 0,
         audioCaptures: 0,
@@ -761,6 +776,9 @@ describe('LgpdService', () => {
         where: { physicianId },
       });
       expect(prisma.copilotFeedback.deleteMany).toHaveBeenCalledWith({ where: { physicianId } });
+      expect(prisma.mentoringRequest.deleteMany).toHaveBeenCalledWith({
+        where: { requesterId: physicianId },
+      });
       expect(prisma.encounter.deleteMany).toHaveBeenCalledWith({
         where: { physicianId },
       });

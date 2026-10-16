@@ -108,6 +108,15 @@ enum CopilotFeedbackStatus {
   dismissed
 }
 
+/// CC-707 — estado do pedido de mentoria. As transições válidas estão em
+/// src/modules/mentoring/mentoring-transitions.ts.
+enum MentoringRequestStatus {
+  pending
+  claimed
+  answered
+  cancelled
+}
+
 model Physician {
   id                 String             @id @default(uuid()) @db.Uuid
   crmUf              String             @map("crm_uf") @db.Char(2)
@@ -136,6 +145,9 @@ model Physician {
   // CC-014 — slug de physicianSpecialtyValues (src/shared/contracts/clinical.ts),
   // validado na aplicação pelo mesmo motivo do locale. Nulo até o médico escolher.
   specialty String?   @db.VarChar(64)
+  // CC-707 — médico da equipe que responde pedidos de mentoria. Flag
+  // operacional, como `isCurator`: ligada por SQL (ver docs/runbook.md).
+  isMentor  Boolean   @default(false) @map("is_mentor")
 
   encounters              Encounter[]
   documents               Document[]
@@ -147,6 +159,8 @@ model Physician {
   recommendationDecisions RecommendationDecision[]
   copilotFeedback         CopilotFeedback[]
   practiceSites           PracticeSite[]
+  mentoringRequests       MentoringRequest[]       @relation("MentoringRequester")
+  mentoringAnswers        MentoringRequest[]       @relation("MentoringMentor")
 
   @@map("physicians")
 }
@@ -204,6 +218,8 @@ model Institution {
   guidelineChunks GuidelineChunk[]
   encounters      Encounter[]
   protocols       Protocol[]
+
+  mentoringRequests MentoringRequest[]
 
   @@map("institutions")
 }
@@ -271,6 +287,7 @@ model Encounter {
   recommendationDecisions RecommendationDecision[]
   copilotFeedback         CopilotFeedback[]
   caseIntakes             CaseIntake[]
+  mentoringRequests       MentoringRequest[]
 
   @@index([physicianId])
   @@index([institutionId])
@@ -333,6 +350,7 @@ model AiInteraction {
   copilotFeedback         CopilotFeedback[]
   caseIntake              CaseIntake?
   knowledgeGaps           KnowledgeGap[]
+  mentoringRequests       MentoringRequest[]
 
   @@index([encounterId])
   @@index([parentInteractionId])
@@ -573,6 +591,65 @@ model KnowledgeGap {
   @@index([createdAt])
   @@index([syndrome, createdAt])
   @@map("knowledge_gaps")
+}
+
+/// CC-707 — "Discutir este caso com um médico da equipe" (mentoria em modo
+/// concierge, teleinterconsulta da Res. CFM 2.314/2022).
+///
+/// Assíncrona, não serve para urgência: o objetivo é medir a demanda antes de
+/// construir produto pago. O médico aceita um termo versionado (CC-708) e
+/// manda o caso MASCARADO com o plano da IA (`case_snapshot`), nunca dado do
+/// paciente; um mentor (`physicians.is_mentor`) assume, responde, e a resposta
+/// aparece no próprio caso. Texto livre (pergunta e resposta) é gravado já
+/// mascarado.
+///
+/// `institution_id` é a do caso no momento do pedido (ADR-009): o mentor só
+/// enxerga pedidos sem instituição ou de uma instituição a que pertence.
+model MentoringRequest {
+  id                    String                 @id @default(uuid()) @db.Uuid
+  encounterId           String                 @map("encounter_id") @db.Uuid
+  requesterId           String                 @map("requester_id") @db.Uuid
+  institutionId         String?                @map("institution_id") @db.Uuid
+  /// Análise cujo plano foi enviado.
+  interactionId         String?                @map("interaction_id") @db.Uuid
+  status                MentoringRequestStatus @default(pending)
+  /// MentoringCaseSnapshot — o que os mentores recebem, já mascarado.
+  caseSnapshot          Json                   @map("case_snapshot")
+  /// Pergunta do médico ao mentor, já mascarada.
+  question              String?                @db.Text
+  termsVersion          String                 @map("terms_version") @db.VarChar(64)
+  termsAcceptedAt       DateTime               @map("terms_accepted_at")
+  mentorId              String?                @map("mentor_id") @db.Uuid
+  claimedAt             DateTime?              @map("claimed_at")
+  /// Resposta do mentor, já mascarada.
+  answer                String?                @db.Text
+  answeredAt            DateTime?              @map("answered_at")
+  mentorTermsVersion    String?                @map("mentor_terms_version") @db.VarChar(64)
+  mentorTermsAcceptedAt DateTime?              @map("mentor_terms_accepted_at")
+  /// Quando o médico abriu a resposta: sem valor, a resposta é "nova" no app.
+  answerSeenAt          DateTime?              @map("answer_seen_at")
+  cancelledAt           DateTime?              @map("cancelled_at")
+  /// Nota de 1 a 5 do médico depois da resposta (CHECK na migration).
+  satisfaction          Int?                   @db.SmallInt
+  ratedAt               DateTime?              @map("rated_at")
+  createdAt             DateTime               @default(now()) @map("created_at")
+  updatedAt             DateTime               @updatedAt @map("updated_at")
+
+  encounter   Encounter      @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  requester   Physician      @relation("MentoringRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  mentor      Physician?     @relation("MentoringMentor", fields: [mentorId], references: [id], onDelete: SetNull)
+  /// Restrict (CC-021): com SetNull, apagar a instituição tornaria o pedido
+  /// visível a todos os mentores.
+  institution Institution?   @relation(fields: [institutionId], references: [id], onDelete: Restrict)
+  interaction AiInteraction? @relation(fields: [interactionId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([encounterId])
+  @@index([requesterId])
+  @@index([mentorId])
+  @@index([institutionId])
+  @@index([createdAt])
+  @@map("mentoring_requests")
 }
 
 model GuidelineChunk {

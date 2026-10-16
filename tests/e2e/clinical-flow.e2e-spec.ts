@@ -246,6 +246,10 @@ function buildPrismaMock() {
     physicianInstitution: {
       findMany: vi.fn().mockResolvedValue([]),
     },
+    // CC-707 — o export LGPD traz os pedidos de mentoria feitos e respondidos.
+    mentoringRequest: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
 
     document: {
       create: vi.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) =>
@@ -963,6 +967,7 @@ describe('CC-018 — LGPD erasure ends the session (E2E)', () => {
     const erasureTx = {
       recommendationDecision: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
       copilotFeedback: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
+      mentoringRequest: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
       encounterAttachment: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
       audioCapture: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
       encounter: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },

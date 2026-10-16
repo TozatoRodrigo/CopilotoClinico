@@ -57,6 +57,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { DecisionThread, type DecisionThreadItem } from '@/components/domain/decision-thread';
+import { CaseMentoring } from '@/components/domain/mentoring/case-mentoring';
 import { messages } from '@/lib/messages';
 import { describeSite } from '@/lib/practice-sites';
 import type { EncounterContext, EncounterDetail, EncounterVertical } from '@/lib/types';
@@ -371,6 +372,13 @@ export default function EncounterDetailPage({ params }: { params: Promise<{ id: 
         />
         <DecisionThread items={timelineItems} mode="history" />
       </section>
+
+      {/* CC-707 — some por inteiro com COPILOT_MENTORING desligada. */}
+      <CaseMentoring
+        encounterId={id}
+        hasAnalysis={Boolean(latestInteraction)}
+        closed={isCancelled}
+      />
 
       <section aria-labelledby="documents-title" className="flex flex-col gap-3">
         <SectionHeader

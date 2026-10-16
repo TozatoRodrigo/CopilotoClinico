@@ -685,6 +685,61 @@ SELECT created_at, syndrome, note FROM knowledge_gaps
 WHERE note IS NOT NULL ORDER BY created_at DESC LIMIT 50;
 ```
 
+### Mentoria em modo concierge (CC-707)
+
+"Discutir com um médico da equipe": o médico pede no próprio caso, aceita o
+termo (CC-708) e o caso vai **mascarado** (máscara de PII do projeto +
+patientRef), com o plano da IA, para os médicos marcados como mentores. A
+resposta aparece no caso e o médico vê um aviso no Plantão. Assíncrona, não
+serve para urgência. Atrás de `COPILOT_MENTORING` (padrão `off`: nada aparece e
+as rotas respondem 404). Exige a migration
+`20261014120000_cc_707_mentoring_requests`.
+
+**Termo provisório.** O texto em `src/modules/mentoring/mentoring-terms.ts` foi
+escrito para o piloto e aparece marcado como provisório até o parecer jurídico
+(CC-708). Ao receber o texto final: troque os parágrafos, crie uma **versão
+nova** (cada pedido grava a versão aceita, pelo médico e pelo mentor) e mude
+`provisional` para `false`. O servidor recusa aceite de versão diferente da
+vigente.
+
+**Marcar os mentores** (como `is_curator`, sem tela):
+
+```bash
+docker compose -f docker-compose.prod.yml exec copiloto-db \
+  psql -U "$POSTGRES_OWNER_USER" -d copiloto_clinico -c \
+  "UPDATE physicians SET is_mentor = true WHERE email IN ('mentor@exemplo.com');"
+```
+
+O mentor vê "Mentoria" no menu do Plantão. Ele só enxerga pedidos de casos sem
+instituição ou de uma instituição a que está vinculado (ADR-009): para atender
+um hospital cliente, vincule o mentor à instituição (seção "Multi-tenancy
+institucional"). Pedido já respondido só fica visível para quem pediu e para o
+mentor que respondeu. Pedido sem mentor elegível fica no painel e gera
+`MENTORING_NO_ELIGIBLE_MENTOR` (WARN) no log.
+
+**Aviso por e-mail ainda não existe.** O projeto não tem provedor de e-mail;
+o aviso é uma linha `MENTORING_NOTIFY event=new_request|answer` no log, só com
+ids e contagem. No concierge, a equipe acompanha a fila em `/mentoria` e o
+painel em `/admin/mentoria`. Para ligar e-mail, implemente `MentoringNotifier`
+(`src/modules/mentoring/mentoring.notifier.ts`) e troque o provider no módulo;
+o aviso leva só o link, nunca o texto do caso. Falha do aviso vira
+`MENTORING_NOTIFY_FAILED` (WARN + Sentry) e não desfaz o pedido.
+
+**Trilha de auditoria.** Cada transição grava uma entrada na entidade
+`MentoringRequest`: `MENTORING_REQUESTED`, `MENTORING_CLAIMED`,
+`MENTORING_RELEASED`, `MENTORING_ANSWERED`, `MENTORING_CANCELLED` e
+`MENTORING_RATED`, com status de/para, versões do termo, nota e hashes do caso,
+da dúvida e da resposta. Nenhum texto clínico.
+
+```sql
+-- Pedidos por médico ativo e tempo de resposta (métrica de sucesso da CC-707)
+SELECT count(*) AS pedidos,
+       count(DISTINCT requester_id) AS medicos_que_pediram,
+       percentile_cont(0.5) WITHIN GROUP (ORDER BY answered_at - created_at) AS mediana_resposta,
+       round(avg(satisfaction), 1) AS satisfacao_media
+FROM mentoring_requests WHERE created_at > now() - interval '30 days';
+```
+
 ### Triar sugestões de diretriz enviadas por médicos (F4)
 
 Qualquer médico autenticado pode enviar material pela tela de Diretrizes
@@ -1339,6 +1394,7 @@ regra das três FKs: não depende de código novo e entra pelo passo 2 de
 | `20260924180000_f9_guideline_chunks_text_tsv_generated` | `guideline_chunks.text_tsv` vira coluna gerada + índice GIN — liga a busca lexical (ver "Busca lexical (`text_tsv`) — F9") |
 | `20260924220000_ivfflat_probes_exact` | `ivfflat.probes = 100` no banco: busca vetorial exata (incidente de 24/09/2026) |
 | `20261012180000_aud_007_audit_log_hash_version` | `audit_log.hash_version` (NULL = hash legado, 2 = JSON canônico) — ADR-015; só adiciona coluna nula |
+| `20261014120000_cc_707_mentoring_requests` | Tabela `mentoring_requests` (pedidos de mentoria, um em aberto por caso) e `physicians.is_mentor` — CC-707 |
 | `20261014180000_ai_calls_fallback_from` | `ai_calls.fallback_from` (perfil que caiu, na chamada feita no modelo de reserva) — CC-107; só adiciona coluna nula |
 | `20261014180000_cc_703_knowledge_gaps` | Tabela `knowledge_gaps` (registro de lacunas, CC-703); só cria tabela e tipo, sem tocar nas existentes |
 | `20261014200100_audio_capture_retention` | `audio_captures.encrypted_content` anulável + CHECK `deleted` ⇔ sem áudio (retenção de 30 dias). Só metadado de coluna e CHECK: a versão anterior da API roda sobre o schema novo |
@@ -1406,6 +1462,7 @@ credencial vêm do PR #168 (seção "Sentry" em Monitoramento).
 | `AI_FALLBACK_MODEL` | CC-107: modelo de reserva quando o provedor de uma etapa fica fora do ar (prazo, rede, 5xx, 429, limite de uso); uma nova tentativa nele. Vazio = sem reserva. Por etapa: `AI_<ETAPA>_FALLBACK_MODEL` (`none` desliga). Ver "Reserva de provedor (CC-107)". No log: `AI_FALLBACK`, `AI_FALLBACK_SKIPPED`, `AI_FALLBACK_FAILED` |
 | `WHISPER_MODEL` | CC-205: modelo da transcrição do ditado, `whisper-large-v3` (padrão) ou `whisper-large-v3-turbo`. Ausente ou irreconhecível = `whisper-large-v3`. Ver "Modelo da transcrição" e docs/evals/transcricao.md |
 | `DEID_CONTEXT_RULES` | CC-201/CC-202/CC-206: `on` (padrão) faz a máscara de PII tirar também o número de prontuário pelo rótulo ("prontuário", "RH", "registro", "matrícula", "BE", "nº de atendimento" → `[REDACTED_RECORD]`) e o nome depois de tratamento ou apelido ("Seu Zé", "Dona Cida", "Sr. João", "Tião" → `[NOME]`), sem tocar a lista de epônimos protegidos (`src/modules/copilot/guardrails/protected-clinical-terms.list.ts`, revisão médica pendente). `off` volta à regex anterior, sem redeploy, se aparecer máscara indevida em texto clínico. Ausente ou irreconhecível = `on`. Vale para o caso, as respostas do afunilamento, áudio, anexos, busca de diretrizes e notas livres. No log (debug): `PII detection ... {"record":1,"name":2}`, só a contagem por tipo |
+| `COPILOT_MENTORING` | `on` liga "Discutir com um médico da equipe" (CC-707): o caso vai mascarado, com o plano da IA, para os médicos com `is_mentor`; a resposta aparece no caso. `off` (padrão): nada aparece e as rotas da mentoria respondem 404. Ausente ou irreconhecível = `off`. Termo provisório até o parecer (CC-708). No log: `MENTORING_REQUESTED`, `MENTORING_NOTIFY`, `MENTORING_NO_ELIGIBLE_MENTOR`, `MENTORING_NOTIFY_FAILED` e uma linha por transição. Ver "Mentoria em modo concierge (CC-707)" |
 | `AI_DECISION_MODEL` / `AI_DECISION_CRITICAL_MODEL` | ADR-016: modelo da decisão no caso comum e no caso grave (instável ou tempo-crítico pela Etapa 1, ou sem entendimento). Vazios = `AI_MODEL` nas duas rotas. Crítico vazio = o comum nas duas. Aceitam `perfil:modelo`. No log: `DECISION_MODEL route=critical\|standard model=...`; a interação grava `params.decisionRoute` |
 | `COPILOT_KNOWLEDGE_SOURCE` | `internal_kb` (padrão) é a busca de sempre (embedding na OpenAI); `model_only` não busca nada; `web` pesquisa em fontes oficiais (`AI_RESEARCH_MODEL`, padrão `claude-sonnet-5-5`; `AI_RESEARCH_EFFORT`, padrão `low`; `WEB_RESEARCH_MAX_SEARCHES`, padrão 5; `WEB_RESEARCH_ALLOWED_DOMAINS`, vazio = 32 fontes padrão). `model_only` e `web` nunca chamam o provedor de embedding. `web` exige `stages` e `COPILOT_DECISION_PROMPT=v2` (sem eles vira `model_only`, com `DECISION_PIPELINE_DOWNGRADE` no log) e Anthropic como `AI_PROVIDER`; pesquisa que falha aparece como `WEB_RESEARCH_FALLBACK` e a análise segue só com o conhecimento do modelo |
 | `AI_DAILY_COST_ALERT_USD` / `AI_P95_ALERT_MS` | CC-005: teto do custo do dia (UTC, em USD) e meta do p95 da decisão na última hora (ms). Vazios ou inválidos = alerta desligado (inválido avisa `AI_CALL_ALERT_THRESHOLD_INVALID` no log). Ver "Alertas de custo e latência da IA" |
