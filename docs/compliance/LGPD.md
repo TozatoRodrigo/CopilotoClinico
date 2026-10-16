@@ -1,11 +1,10 @@
 # LGPD — Política de Dados do Copiloto Clínico
 
 **Versão:** 1.1  
-**Data:** 2026-10-14  
+**Data:** 2026-10-16  
 **Base legal:** LGPD (Lei 13.709/2018), CFM Resolução 2.217/2018  
-**Conferido contra:** `codex/production-readiness` (fa829a46), com o que os PRs
-#142, #146, #147, #149, #168, #181, #187 e #196 mudaram. O que está só em PR
-aberto aparece marcado como **em PR aberto (#N)**: ainda não vale em produção.
+**Conferido contra:** `main` em 16/10/2026. O que está só em PR aberto aparece
+marcado como **em PR aberto (#N)**: ainda não vale em produção.
 
 O sistema trata dados de dois titulares:
 
@@ -78,11 +77,14 @@ até a eliminação pedida pelo médico. As exceções estão na coluna "Retenç
 | `login_security_states`                        | SHA-256 do identificador do contador, id do médico, tentativas falhas, bloqueio (CC-025)                      | Sem limpeza                                                                                                                                    |
 | `crm_verification_requests`                    | Status, notas do admin ou da checagem automática                                                              | Não são apagados na eliminação                                                                                                                 |
 | `physician_institutions`                       | Vínculo médico↔instituição                                                                                    | Não são apagados na eliminação                                                                                                                 |
+| `practice_sites`                               | Nome e recursos dos locais de plantão do médico (CC-602)                                                      | Apagados na eliminação                                                                                                                         |
 | `consents`                                     | Escopo, concessão, revogação                                                                                  | Apagados na eliminação                                                                                                                         |
 | `encounters`                                   | `patientRef` opaco, recursos disponíveis, queixa principal derivada da 1ª análise                             | Até a eliminação                                                                                                                               |
 | `case_intakes`                                 | Caso e respostas **já redigidos**, leitura do caso, perguntas                                                 | Cascata do atendimento                                                                                                                         |
 | `ai_interactions`                              | `input_redacted` (caso redigido), saída do modelo, respostas às perguntas, `request_id`                       | Cascata do atendimento                                                                                                                         |
 | `recommendation_decisions`, `copilot_feedback` | Nota, comentário e nota de triagem já mascarados                                                              | Apagados na eliminação                                                                                                                         |
+| `knowledge_gaps`                               | "Não encontrei o que precisava" (CC-703): síndrome, consultas da busca e nota já mascarada; sem coluna de médico | Cascata da análise, na eliminação                                                                                                           |
+| `mentoring_requests`                           | Caso e plano já mascarados, dúvida e resposta da mentoria (CC-707)                                            | Os pedidos do médico são apagados na eliminação. As respostas que ele deu como mentor ficam no caso de quem pediu, com o nome anonimizado     |
 | `documents`                                    | Conteúdo gerado e editado; prescrição, alta e atestado levam o `patientRef`. O PDF leva nome e CRM do médico  | Cascata do atendimento                                                                                                                         |
 | `encounter_attachments`                        | Nome do arquivo e texto extraído **já mascarado**; o arquivo original nunca é gravado                         | Apagados na eliminação                                                                                                                         |
 | `audio_captures`                               | Áudio cifrado (AES-256-GCM), transcrição mascarada, `retain_until` = upload + 30 dias                         | O áudio sai 30 dias após o upload (ver "Capturas de áudio"); a linha fica como lápide até a eliminação                                       |
@@ -240,6 +242,7 @@ As notas de verificação de CRM têm o admin como `actor_id`; filtre por
 | **OpenAI**                                                  | Texto para embedding: as consultas do entendimento (`stages`) ou o caso redigido (`legacy`); a consulta de diretrizes com `maskPII`; texto de diretrizes na ingestão | `EMBEDDING_PROVIDER=openai` (padrão do compose) com `COPILOT_KNOWLEDGE_SOURCE=internal_kb`, consulta e ingestão de diretrizes. O runbook registra a conta sem crédito desde 11/10/2026 e documenta `EMBEDDING_PROVIDER=none` |
 | **Sentry**                                                  | Exceção e pilha; `beforeSend` tira corpo, query, cookies e cabeçalhos de credencial                                                                                  | Só com `SENTRY_DSN`, que o compose de produção repassa do `.env.production`                                                                                                                                                  |
 | **Umami** (autoalojado em `analytics.servidortozato.cloud`) | Visitas por página, sem cookie; as URLs levam só ids opacos                                                                                                          | Toda página do web em produção (`NEXT_PUBLIC_UMAMI_*` na imagem). Para médico logado, só se o último registro de `analytics` não estiver revogado                                                                           |
+| **Provedor de e-mail** (SMTP, CC-015)                       | E-mail do destinatário e o texto do template; nenhum texto clínico nem identificador de paciente, no máximo um link que exige login | Só com `SMTP_HOST`; sem ele nada sai e o envio vira só uma linha de log |
 | **Hostinger** (VPS)                                         | Hospeda banco, Redis, API, web e logs                                                                                                                                | Sempre (comentário de `docker/docker-compose.prod.yml`)                                                                                                                                                                      |
 | Verificação de CRM                                          | UF e número do CRM                                                                                                                                                   | Só com `CRM_VERIFICATION_URL`, que o compose de produção não repassa                                                                                                                                                         |
 
@@ -278,8 +281,15 @@ instituição ou pelo médico.
   navegador. Entram todas as capturas, inclusive `deleted`, quando o áudio já
   foi eliminado na retenção;
 - `recommendationDecisions` e `copilotFeedback`;
+- `beta`, a participação no beta (lote do convite, termo e perfil) e a entrada
+  da lista de espera com o mesmo e-mail;
+- `practiceSites`, os locais de plantão;
+- `knowledgeGaps`, os "não encontrei" das análises do médico;
+- `mentoringRequests`, os pedidos de mentoria que ele fez e os que respondeu
+  como mentor;
+- `shiftReviews`, as revisões do plantão com as perguntas;
 - `externalIdentities`, as contas Google/Microsoft vinculadas;
-- `consents`;
+- `consents` e `legalAcceptances`;
 - `auditLog`, só as entradas em que o médico é o ator.
 
 Ficam de fora: execuções de protocolo, pedidos de verificação de CRM, vínculos
@@ -290,12 +300,15 @@ com instituições, refresh tokens, códigos de backup do MFA e `ai_calls`.
 1. Apaga do MinIO os PDFs dos documentos dos atendimentos do médico. Se o
    storage falhar, nada é apagado no banco e a resposta é 503 — o pedido pode
    ser repetido.
-2. Numa transação: apaga decisões por recomendação, reportes do copiloto,
-   anexos, capturas de áudio, atendimentos (e, em cascata, conversas do
-   copiloto guiado, documentos, interações de IA e execuções de protocolo),
-   consentimentos, refresh tokens e contas Google/Microsoft vinculadas; anonimiza o cadastro (nome `ERASED`,
-   e-mail `erased-<id>@erased.com`, senha inutilizada, especialidade apagada) e
-   grava `erased_at`, que derruba a sessão.
+2. Numa transação: apaga a entrada da lista de espera do beta com o e-mail da
+   conta e o termo e o perfil do participante do beta; decisões por
+   recomendação, reportes do copiloto, anexos, capturas de áudio, pedidos de
+   mentoria, revisões do plantão, atendimentos (e, em cascata, conversas do
+   copiloto guiado, documentos, interações de IA, "não encontrei" e execuções
+   de protocolo), locais de plantão, consentimentos, aceites dos termos,
+   refresh tokens e contas Google/Microsoft vinculadas; anonimiza o cadastro
+   (nome `ERASED`, e-mail `erased-<id>@erased.com`, senha inutilizada,
+   especialidade apagada) e grava `erased_at`, que derruba a sessão.
 3. Registra `DATA_ERASURE` na trilha com as contagens e responde
    `{ status: "completed", erased: { … } }`.
 
@@ -306,6 +319,8 @@ Continuam depois da eliminação:
   gravadas antes dessa regra podem levar e não mudam — ver "Trilha de
   auditoria" acima. O IP fica;
 - `ai_calls`, com os ids do médico e dos atendimentos;
+- as respostas que o médico deu como mentor, no caso de quem pediu, com o nome
+  anonimizado, e os ids da participação no beta, para a contagem do lote;
 - CRM e segredo de MFA no cadastro, códigos de backup, pedidos de verificação
   de CRM, vínculos com instituições e o estado de bloqueio de login;
 - jobs da fila no Redis até expirarem (24 h ou 7 dias), só com ids;

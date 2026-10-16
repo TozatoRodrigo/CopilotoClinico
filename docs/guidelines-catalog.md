@@ -401,7 +401,7 @@ redação dos rascunhos:
   risco, dos critérios de internação e de UTI, da escolha de cristaloide/Ringer
   lactato, da noradrenalina como vasopressor de 1ª escolha e da conduta de não
   transfundir plaquetas profilaticamente. **Este é o artigo que o médico piloto
-  tentou anexar e não conseguiu** — ver plano em `docs/plano-base-contexto.md`.
+  tentou anexar e não conseguiu** — ver plano em `docs/planos/plano-base-contexto.md`.
 
 Como no KB-001/003/004, o conteúdo é paráfrase e síntese de pontos-chave; os
 limiares numéricos foram conferidos contra o documento de origem e nenhum
