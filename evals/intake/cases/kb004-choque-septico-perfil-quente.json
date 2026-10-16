@@ -1,0 +1,29 @@
+{
+  "id": "kb004-choque-septico-perfil-quente",
+  "source": {
+    "kind": "clinical_case",
+    "caseId": "kb004-choque-septico-perfil-quente"
+  },
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Fem, 58a, febre e calafrios há 2 dias, disúria, hoje confusa. PA 76x40, FC 128, extremidades quentes, TEC 2s, pulmões limpos, sem turgência jugular. Lactato 5,1."
+  },
+  "expected": {
+    "sex": "F",
+    "age": 58,
+    "vitals": {
+      "systolicBp": 76,
+      "diastolicBp": 40,
+      "heartRate": 128,
+      "respiratoryRate": null,
+      "spo2": null,
+      "temperature": null,
+      "glucose": null
+    },
+    "syndrome": ["febre-hipotensao", "choque"],
+    "instability": true,
+    "timeCritical": true
+  }
+}

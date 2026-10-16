@@ -85,7 +85,7 @@ export const GOLD_SOURCES = [
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-const ReviewerSchema = z
+export const ReviewerSchema = z
   .object({
     name: z.string().trim().min(3),
     crm: z

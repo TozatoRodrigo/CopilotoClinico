@@ -1,0 +1,28 @@
+{
+  "id": "kb004-hipoglicemia-por-sulfonilureia",
+  "source": {
+    "kind": "clinical_case",
+    "caseId": "kb004-hipoglicemia-por-sulfonilureia"
+  },
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Masc, 72a, DM2 em uso de glibenclamida, trazido pela filha por confusão e sudorese há 1h. Sem déficit motor. PA 150x90, FC 102, SpO2 97%. Glicemia capilar 36 mg/dL."
+  },
+  "expected": {
+    "sex": "M",
+    "age": 72,
+    "vitals": {
+      "systolicBp": 150,
+      "diastolicBp": 90,
+      "heartRate": 102,
+      "respiratoryRate": null,
+      "spo2": 97,
+      "temperature": null,
+      "glucose": 36
+    },
+    "syndrome": ["disturbio-glicemico", "rebaixamento-consciencia"],
+    "timeCritical": true
+  }
+}
