@@ -73,6 +73,7 @@ até a eliminação pedida pelo médico. As exceções estão na coluna "Retenç
 | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `physicians`                                   | Nome, e-mail, CRM (UF + número), hash bcrypt da senha, segredo de MFA cifrado, idioma, especialidade, papel   | Até a eliminação, que anonimiza nome, e-mail e senha, apaga a especialidade e grava `erased_at` (a sessão cai). CRM e segredo de MFA ficam |
 | `refresh_tokens`                               | SHA-256 do token, validade (7 dias no compose)                                                                | Apagados na eliminação                                                                                                                         |
+| `external_identities`                          | Conta Google/Microsoft vinculada (CC-334): provedor, `sub`, e-mail no momento do vínculo e datas. Conta criada pelo login social não tem senha (`password_hash` nulo) | Apagadas na eliminação: a conta externa deixa de entrar. Na trilha, login social e vínculo levam só o provedor e o motivo da falha |
 | `mfa_backup_codes`                             | SHA-256 dos códigos                                                                                           | Não são apagados na eliminação                                                                                                                 |
 | `login_security_states`                        | SHA-256 do identificador do contador, id do médico, tentativas falhas, bloqueio (CC-025)                      | Sem limpeza                                                                                                                                    |
 | `crm_verification_requests`                    | Status, notas do admin ou da checagem automática                                                              | Não são apagados na eliminação                                                                                                                 |
@@ -277,6 +278,7 @@ instituição ou pelo médico.
   navegador. Entram todas as capturas, inclusive `deleted`, quando o áudio já
   foi eliminado na retenção;
 - `recommendationDecisions` e `copilotFeedback`;
+- `externalIdentities`, as contas Google/Microsoft vinculadas;
 - `consents`;
 - `auditLog`, só as entradas em que o médico é o ator.
 
@@ -291,7 +293,7 @@ com instituições, refresh tokens, códigos de backup do MFA e `ai_calls`.
 2. Numa transação: apaga decisões por recomendação, reportes do copiloto,
    anexos, capturas de áudio, atendimentos (e, em cascata, conversas do
    copiloto guiado, documentos, interações de IA e execuções de protocolo),
-   consentimentos e refresh tokens; anonimiza o cadastro (nome `ERASED`,
+   consentimentos, refresh tokens e contas Google/Microsoft vinculadas; anonimiza o cadastro (nome `ERASED`,
    e-mail `erased-<id>@erased.com`, senha inutilizada, especialidade apagada) e
    grava `erased_at`, que derruba a sessão.
 3. Registra `DATA_ERASURE` na trilha com as contagens e responde

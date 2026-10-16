@@ -53,6 +53,7 @@ interface ErasureResponse {
     consents: number;
     legalAcceptances: number;
     refreshTokens: number;
+    externalIdentities: number;
     storageObjects: number;
   };
 }

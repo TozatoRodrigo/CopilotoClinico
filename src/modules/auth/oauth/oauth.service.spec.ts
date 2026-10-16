@@ -195,7 +195,11 @@ describe('OAuthService (CC-334)', () => {
       jwt,
       config,
       audit as unknown as AuditService,
+      // CC-025 — os testes do limite por conta estão em auth.service.lockout.spec.ts.
+      { reserveAttempt: vi.fn(), clear: vi.fn() } as never,
       mfa as unknown as MfaService,
+      // CC-702 — o beta só entra no cadastro por senha.
+      { admit: vi.fn(), createAccount: vi.fn() } as never,
       {} as CrmVerificationService,
       {
         check: vi.fn().mockResolvedValue({ valid: false, source: 'unavailable' }),

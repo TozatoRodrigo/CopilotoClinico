@@ -514,12 +514,20 @@ export class AuthService {
 
     if (!physician) throw new UnauthorizedException('Physician not found');
 
+    // CC-334 — o vínculo pedido no login social só existe depois do 2º fator
+    // (e, CC-018, só para quem não foi eliminado).
+    if (claims.oauthLink) {
+      await this.externalIdentities.link(physicianId, claims.oauthLink, ip);
+    }
+
     await this.auditSilently({
       actorId: physicianId,
       action: 'AUTH_LOGIN',
       entity: 'Physician',
       entityId: physicianId,
-      payload: { mfa: true },
+      payload: claims.provider
+        ? { mfa: true, method: 'oauth', provider: claims.provider }
+        : { mfa: true },
       ip,
     });
 

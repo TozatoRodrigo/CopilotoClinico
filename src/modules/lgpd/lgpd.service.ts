@@ -154,6 +154,8 @@ export interface ErasureResult {
     /** CC-905 — aceites dos termos e da política. */
     legalAcceptances: number;
     refreshTokens: number;
+    /** CC-334 — contas Google/Microsoft vinculadas. */
+    externalIdentities: number;
     /** PDFs de documentos confirmados apagados do MinIO. */
     storageObjects: number;
   };
