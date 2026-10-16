@@ -336,7 +336,6 @@ describe('AuthService', () => {
 
     it('tells the web whether the physician reviews knowledge cards (CC-404)', async () => {
       prisma.physician.findUnique.mockResolvedValue({ ...mockPhysician, isCardReviewer: true });
-      prisma.loginSecurityState.findUnique.mockResolvedValue(null);
       vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
 
       const result = await service.login({
