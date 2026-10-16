@@ -63,3 +63,25 @@ DEID_CONTEXT_RULES=off pnpm eval:deid
 
 Arquivo de predições gerado antes dos relatos à mão não tem os ids `deid-m*`:
 rode o script do modelo de novo sobre o `corpus.jsonl` atual.
+
+## O pipeline de produção com o modelo local (CC-203, ADR-020)
+
+`--deid-url` mede o que a API faz com `DEID_MODE=model`: regex, depois o
+serviço `services/deid` (OpenMed 44M em ONNX), depois os epônimos protegidos.
+Sem chamada paga; queda para a regex é erro, não resultado.
+
+```bash
+docker compose -f docker/docker-compose.yml --profile deid up -d deid   # porta 8099
+pnpm eval:deid --deid-url http://127.0.0.1:8099
+```
+
+Sem Docker, com um Python que tenha `requirements.txt` e
+`requirements-export.txt` instalados (e o torch de CPU):
+
+```bash
+python services/deid/export_onnx.py --out /tmp/deid-model
+(cd services/deid && DEID_MODEL_DIR=/tmp/deid-model uvicorn app:app --port 8099)
+```
+
+Resultado de 15/10/2026 no container Linux: nomes 98%, parentes 100%,
+endereços 95%, termos clínicos 100% (tabela completa na ADR-020).

@@ -14,6 +14,10 @@ import { BetaInviteRequiredException } from './beta.errors';
 
 const adminId = '99999999-9999-4999-8999-999999999999';
 const entryId = '33333333-3333-4333-8333-333333333333';
+// CC-026 — a trilha grava o IP que o Traefik acrescentou ao X-Forwarded-For
+// (o último, com TRUSTED_PROXY_HOPS=1), não o que o cliente pôs à esquerda.
+const CLIENT_IP = '203.0.113.7';
+const FORGED_IP = '6.6.6.6';
 
 /**
  * Simula o JwtAuthGuard com o usuário do header `x-test-user` (JSON); sem o
@@ -47,7 +51,10 @@ describe('Beta controllers (HTTP, CC-702)', () => {
   const participants = { me: vi.fn(), acceptTerms: vi.fn(), saveProfile: vi.fn() };
   const activation = { report: vi.fn() };
 
+  const originalHops = process.env.TRUSTED_PROXY_HOPS;
+
   beforeAll(async () => {
+    delete process.env.TRUSTED_PROXY_HOPS;
     const moduleRef = await Test.createTestingModule({
       controllers: [BetaController, BetaAdminController],
       providers: [
@@ -68,6 +75,8 @@ describe('Beta controllers (HTTP, CC-702)', () => {
 
   afterAll(async () => {
     await app.close();
+    if (originalHops === undefined) delete process.env.TRUSTED_PROXY_HOPS;
+    else process.env.TRUSTED_PROXY_HOPS = originalHops;
   });
 
   beforeEach(() => {
@@ -91,6 +100,7 @@ describe('Beta controllers (HTTP, CC-702)', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/beta/waitlist',
+        headers: { 'x-forwarded-for': `${FORGED_IP}, ${CLIENT_IP}` },
         payload: { email: 'Dra.Ana@Example.com', contactConsent: true, profile: { uf: 'MG' } },
       });
 
@@ -98,7 +108,7 @@ describe('Beta controllers (HTTP, CC-702)', () => {
       expect(res.json()).toEqual({ status: 'received' });
       expect(waitlist.join).toHaveBeenCalledWith(
         { email: 'dra.ana@example.com', contactConsent: true, profile: { uf: 'MG' } },
-        expect.anything(),
+        CLIENT_IP,
       );
     });
 
@@ -135,14 +145,14 @@ describe('Beta controllers (HTTP, CC-702)', () => {
       const terms = await app.inject({
         method: 'POST',
         url: '/beta/me/terms',
-        headers,
+        headers: { ...headers, 'x-forwarded-for': `${FORGED_IP}, ${CLIENT_IP}` },
         payload: { version: '2026-10-15-provisorio' },
       });
       expect(terms.statusCode).toBe(200);
       expect(participants.acceptTerms).toHaveBeenCalledWith(
         'physician-1',
         '2026-10-15-provisorio',
-        expect.anything(),
+        CLIENT_IP,
       );
 
       const profile = {

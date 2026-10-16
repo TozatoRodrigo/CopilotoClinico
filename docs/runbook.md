@@ -13,7 +13,7 @@ avance sem o resultado esperado**. Executar na VPS (Hostinger), no diretório do
 
 > Origem: reportes de campo de 03/09/2026 — caso de dengue conduzido como
 > sepse, cefaleia em salvas apontada como hemorragia, e erro ao anexar arquivo.
-> Diagnóstico completo em `docs/plano-base-contexto.md`.
+> Diagnóstico completo em `docs/planos/plano-base-contexto.md`.
 
 ### Passo 0 — Pré-voo (antes de tocar em qualquer coisa)
 
@@ -322,6 +322,12 @@ Duas camadas, independentes:
   MFA, gerar novos códigos de backup) e senha atual na troca de senha. Login
   bloqueado responde 401, igual a senha errada; MFA e troca de senha
   respondem 429 "Muitas tentativas".
+- Os três contadores **reservam a tentativa antes** de conferir o segredo,
+  num `UPDATE` condicional: tentativas em paralelo não passam de 5. O login
+  passou a fazer isso no CC-026; antes lia o contador e gravava depois, e 50
+  logins simultâneos conferiam 50 senhas.
+- **Código de backup do MFA** (CC-026): gasto num `UPDATE … WHERE used_at IS
+  NULL`. Dois pedidos simultâneos com o mesmo código: só um entra.
 
 #### `TRUSTED_PROXY_HOPS` e o Traefik
 
@@ -349,6 +355,12 @@ internet e a API:
   dividem os mesmos 5 logins por minuto.
 - Valor inválido na env: a API usa 1 e loga `TRUSTED_PROXY_HOPS inválido`
   na subida.
+- **O IP gravado na trilha de auditoria** (`audit_log.ip`, CC-026) sai da
+  mesma regra. Antes do CC-026 os registros com IP (cadastro, login,
+  login com Google/Microsoft, refresh, logout, MFA, pedido de verificação de
+  CRM, lista de espera e aceite dos termos do beta) gravavam o IP do
+  Traefik; os antigos continuam assim. O log de acesso HTTP (`HttpAccess`)
+  não grava IP.
 
 Conferir na VPS (a configuração estática do Traefik não está neste repo):
 
@@ -381,7 +393,7 @@ done
 | `AUTH_RATE_LIMITED reason=ip route=AuthController.<rota> limit=… ttlMs=… blockedForS=…` | Um IP passou do limite numa rota de `/auth`. Uma linha por bloqueio, não por requisição recusada; sem o IP |
 | `RATE_LIMITED reason=ip route=…` | O mesmo fora de `/auth` |
 | `AUTH_RATE_LIMITED reason=account scope=login\|mfa\|password_change subject=<hash>` | Tentativa recusada porque a conta está bloqueada |
-| `AUTH_ACCOUNT_LOCKED scope=mfa\|password_change subject=<hash> durationMs=…` | Começo de um bloqueio por conta |
+| `AUTH_ACCOUNT_LOCKED scope=login\|mfa\|password_change subject=<hash> durationMs=…` | Começo de um bloqueio por conta |
 
 `subject` são os 12 primeiros hex do sha256 do id do médico (`unknown` no
 login de e-mail sem cadastro). Bloqueios seguidos de `scope=mfa` para o mesmo
@@ -438,7 +450,8 @@ docker compose --env-file .env.production -f docker-compose.prod.yml up -d --no-
   O antigo `docker/api.Dockerfile` foi removido na CC-014: nenhum compose,
   script, workflow ou documento o usava, e ele divergia da imagem de produção
   (pnpm sem versão fixa, sem `pnpm-workspace.yaml` e sem `tini`). A demo
-  (`scripts/demo.sh`) usa o `Dockerfile` da raiz.
+  (`scripts/demo.sh`) usa o `docker/demo.Dockerfile`, que até 16/10/2026
+  ficava na raiz como `Dockerfile`.
 - A imagem de runtime não tem `pnpm` (`sh: pnpm: not found`): use
   `npx --no-install prisma`, que usa o CLI já instalado em `node_modules` e
   nunca baixa nada. Corrigido em 24/09/2026, no deploy da ADR-010.
@@ -1019,6 +1032,14 @@ banco:
 UPDATE physicians SET is_curator = true WHERE email = 'curador@exemplo.com';
 ```
 
+A mesma flag autoriza escrever protocolo (CC-020): criar
+(`POST /v1/protocols`), publicar (`POST /v1/protocols/:id/publish`) e criar
+versão nova (`POST /v1/protocols/:id/revise`) são de curador ou ADMIN; os
+demais médicos recebem `403` e só leem e rodam. Vale na hora, sem novo login
+(a flag é lida do banco a cada pedido). Recusas aparecem no log como
+`PROTOCOL_WRITE_DENIED action=<create|publish|revise>`. Protocolo institucional
+exige, além do papel, vínculo ativo com a instituição (ADR-009, adendo CC-020).
+
 ### Cartões revisados (CC-402/CC-403/CC-412, ADR-019)
 
 Um cartão é uma situação clínica com pergunta e resposta curta, em que cada
@@ -1199,6 +1220,94 @@ SELECT kind, care_setting, count(*), sum(chunk_count)
 FROM official_guideline_documents WHERE status = 'active'
 GROUP BY 1, 2 ORDER BY 1, 2;
 ```
+
+### De-identificação com o modelo local (CC-203, ADR-020)
+
+`DEID_MODE=model` soma à regex o serviço `copiloto-deid` (OpenMed PII 44M em
+ONNX, CPU): nome solto, parente e endereço saem do caso, das respostas, do
+anexo, da transcrição e da consulta de diretrizes antes da IA e do banco. O
+padrão é `regex`. Serviço fora do ar ou lento: o texto segue só com a regex e a
+API loga `DEID_FALLBACK stage=<etapa> reason=<timeout|unavailable|bad_status|bad_response>`
+(nunca o texto). A análise não falha por causa dele.
+
+**1. Construir a imagem fora da VPS.** O estágio que exporta o modelo passa de
+3 GB de RAM: na VPS compartilhada isso derruba os outros apps. Na máquina de
+desenvolvimento (Docker com ≥ 4 GB e ~3 GB de disco livres):
+
+```bash
+TAG=$(date +%Y%m%d)
+docker buildx build --platform linux/amd64 -f docker/Dockerfile.deid \
+  -t copiloto-deid:$TAG --load .
+docker save copiloto-deid:$TAG | gzip | ssh rodrigo@76.13.173.181 'gunzip | docker load'
+docker builder prune -f
+```
+
+O build confere o sha256 dos pesos baixados do Hugging Face (revisão fixa em
+`services/deid/export_onnx.py`) e para se o ONNX não concordar com o modelo
+original. Para medir em casa sem a imagem: `docker compose --profile deid up -d deid`
+(`docker/docker-compose.yml`, porta 8099).
+
+**2. Subir na VPS (ainda sem ligar).**
+
+```bash
+cd ~/apps/copiloto-clinico/docker
+TAG=<a mesma do passo 1>
+docker tag copiloto-deid:$TAG copiloto-deid:latest
+docker compose --env-file .env.production -f docker-compose.prod.yml --profile deid up -d copiloto-deid
+docker logs copiloto-deid 2>&1 | grep DEID_READY     # revisão do modelo e tempo de carga
+```
+
+O serviço só existe na rede `copiloto-net` (sem Traefik, sem porta no host),
+com `mem_limit: 400m` e `cpus: 2`. `--profile deid` é obrigatório: o `up -d`
+de sempre não o toca, nem o reconstrói.
+
+**3. Medir na VPS antes de ligar** (critério 3 da CC-203: p95 ≤ 300 ms e
+memória ≤ 400 MB). O corpus é sintético (`pnpm eval:deid` gera
+`evals/deid/out/corpus.jsonl` na máquina de desenvolvimento):
+
+```bash
+scp evals/deid/out/corpus.jsonl rodrigo@76.13.173.181:/tmp/deid-corpus.jsonl
+# na VPS
+docker cp /tmp/deid-corpus.jsonl copiloto-deid:/tmp/corpus.jsonl
+docker exec copiloto-deid python bench.py --url http://127.0.0.1:8000 --corpus /tmp/corpus.jsonl --count 100
+docker exec copiloto-deid python bench.py --url http://127.0.0.1:8000 --corpus /tmp/corpus.jsonl --count 100 --join 6
+docker stats --no-stream copiloto-deid
+```
+
+A segunda linha junta 6 relatos (~1.000 caracteres, um caso de plantão). Na
+máquina de desenvolvimento deu p95 de 25 ms e 180 ms com 2 CPUs, ~340 MB.
+Qualidade, com o mesmo modelo da VPS (a quantização muda com a CPU):
+
+```bash
+IP=$(ssh rodrigo@76.13.173.181 "docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' copiloto-deid")
+ssh -N -L 8099:$IP:8000 rodrigo@76.13.173.181 &
+pnpm eval:deid --deid-url http://127.0.0.1:8099
+```
+
+Meta: nomes ≥ 95% e termos clínicos 100% (ADR-020 tem a medição de referência).
+
+**4. Ligar e acompanhar.**
+
+```bash
+# docker/.env.production
+DEID_MODE=model
+DEID_TIMEOUT_MS=1000      # a cada 2.000 caracteres; anexo de 20 mil espera até 10 s
+
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d copiloto-api
+docker logs --since 1h copiloto-api 2>&1 | grep -cE "DEID stage="      # textos com o modelo
+docker logs --since 1h copiloto-api 2>&1 | grep -E "DEID_FALLBACK"     # quedas para a regex
+docker logs --since 1h copiloto-deid 2>&1 | grep -E "DEID_BUSY"        # fila cheia
+```
+
+`DEID stage=case ... latencyMs=… entities=… masked=…` diz quanto o modelo
+marcou e quanto sobrou depois dos epônimos protegidos. `DEID_FALLBACK
+reason=timeout` frequente: subir `DEID_TIMEOUT_MS` ou `DEID_THREADS` (serviço,
+padrão 2). `reason=unavailable`: o container caiu (`docker ps`, `docker inspect
+copiloto-deid --format '{{.State.OOMKilled}}'`).
+
+**Rollback:** `DEID_MODE=regex` e `up -d copiloto-api` (a regex é a de
+sempre). Para liberar a memória: `docker compose --env-file .env.production -f
+docker-compose.prod.yml --profile deid stop copiloto-deid`.
 
 ### Trocar o provider ou o modelo de IA
 
@@ -2011,6 +2120,7 @@ regra das três FKs: não depende de código novo e entra pelo passo 2 de
 | `20261014200100_audio_capture_retention` | `audio_captures.encrypted_content` anulável + CHECK `deleted` ⇔ sem áudio (retenção de 30 dias). Só metadado de coluna e CHECK: a versão anterior da API roda sobre o schema novo |
 | `20261015130000_cc_801_shift_reviews` | Tabelas `shift_reviews` e `shift_review_questions` (CC-801, "Revise seu plantão"); só cria tabelas e enums, com GRANT de DML para `copiloto_app` |
 | `20261015180000_cc207_chief_complaint_text` | `encounters.chief_complaint` de `VARCHAR(140)` para `TEXT`, para caber o valor cifrado — CC-207/ADR-021; sem reescrever a tabela |
+| `20261016120000_cc_012_lgpd_erasure_privileges` | CC-012: `copiloto_app` ganha `UPDATE` só em `ai_calls.physician_id`/`encounter_id`/`request_id` e `DELETE` explícito em `mfa_backup_codes`, `crm_verification_requests`, `physician_institutions` e `login_security_states`. Só GRANT; sem ela, `POST /lgpd/erasure` falha com `permission denied for table ai_calls` e nada é apagado |
 
 ### Rollback de Migration
 
@@ -2057,7 +2167,7 @@ credencial vêm do PR #168 (seção "Sentry" em Monitoramento).
 |---|---|
 | `JWT_ACCESS_SECRET` | Todos os tokens são inválidos ou forjáveis |
 | `JWT_REFRESH_SECRET` | Refresh tokens inválidos |
-| `TRUSTED_PROXY_HOPS` | Proxies confiáveis à frente da API (padrão 1 = Traefik). Alto demais (2 sem Cloudflare) deixa o cliente escolher o IP do limite de tentativas; baixo demais (1 com Cloudflare) junta médicos no mesmo limite. Ver "Limite de tentativas" |
+| `TRUSTED_PROXY_HOPS` | Proxies confiáveis à frente da API (padrão 1 = Traefik). Define o IP do limite de tentativas e o gravado na trilha de auditoria. Alto demais (2 sem Cloudflare) deixa o cliente escolher esse IP; baixo demais (1 com Cloudflare) junta médicos no mesmo limite e grava o IP da Cloudflare. Ver "Limite de tentativas" |
 | `INTERNAL_SERVICE_TOKEN` | Endpoint `/audit/verify-chain` inacessível |
 | `BETA_INVITE_REQUIRED` | `on` fecha o cadastro para quem não tem convite do beta (CC-702): sem código válido, `403 BETA_INVITE_REQUIRED` e o web abre a lista de espera. `off` (padrão) = cadastro aberto, como antes. Ausente ou irreconhecível = `off`. Ver "Beta por convite (CC-702)". Exige a migration `20261015120000_cc702_beta_convites` |
 | `AI_API_KEY` | Análise clínica indisponível |
@@ -2076,6 +2186,7 @@ credencial vêm do PR #168 (seção "Sentry" em Monitoramento).
 | `AI_FALLBACK_MODEL` | CC-107: modelo de reserva quando o provedor de uma etapa fica fora do ar (prazo, rede, 5xx, 429, limite de uso); uma nova tentativa nele. Vazio = sem reserva. Por etapa: `AI_<ETAPA>_FALLBACK_MODEL` (`none` desliga). Ver "Reserva de provedor (CC-107)". No log: `AI_FALLBACK`, `AI_FALLBACK_SKIPPED`, `AI_FALLBACK_FAILED` |
 | `WHISPER_MODEL` | CC-205: modelo da transcrição do ditado, `whisper-large-v3` (padrão) ou `whisper-large-v3-turbo`. Ausente ou irreconhecível = `whisper-large-v3`. Ver "Modelo da transcrição" e docs/evals/transcricao.md |
 | `DEID_CONTEXT_RULES` | CC-201/CC-202/CC-206: `on` (padrão) faz a máscara de PII tirar também o número de prontuário pelo rótulo ("prontuário", "RH", "registro", "matrícula", "BE", "nº de atendimento" → `[REDACTED_RECORD]`) e o nome depois de tratamento ou apelido ("Seu Zé", "Dona Cida", "Sr. João", "Tião" → `[NOME]`), sem tocar a lista de epônimos protegidos (`src/modules/copilot/guardrails/protected-clinical-terms.list.ts`, revisão médica pendente). `off` volta à regex anterior, sem redeploy, se aparecer máscara indevida em texto clínico. Ausente ou irreconhecível = `on`. Vale para o caso, as respostas do afunilamento, áudio, anexos, busca de diretrizes e notas livres. No log (debug): `PII detection ... {"record":1,"name":2}`, só a contagem por tipo |
+| `DEID_MODE` / `DEID_TIMEOUT_MS` / `DEID_SERVICE_URL` | CC-203 / ADR-020: `model` soma à regex o modelo local (`copiloto-deid`, sobe com `--profile deid`) para nome solto, parente e endereço no caso, respostas, anexo, transcrição e consulta de diretrizes; `regex` (padrão) é só a regex. Ausente ou irreconhecível = `regex`. Serviço fora do ar ou mais lento que `DEID_TIMEOUT_MS` (padrão 1000, a cada 2.000 caracteres): segue só com a regex e loga `DEID_FALLBACK`. Ver "De-identificação com o modelo local" |
 | `COPILOT_MENTORING` | `on` liga "Discutir com um médico da equipe" (CC-707): o caso vai mascarado, com o plano da IA, para os médicos com `is_mentor`; a resposta aparece no caso. `off` (padrão): nada aparece e as rotas da mentoria respondem 404. Ausente ou irreconhecível = `off`. Termo provisório até o parecer (CC-708). No log: `MENTORING_REQUESTED`, `MENTORING_NOTIFY`, `MENTORING_NO_ELIGIBLE_MENTOR`, `MENTORING_NOTIFY_FAILED` e uma linha por transição. Ver "Mentoria em modo concierge (CC-707)" |
 | `AI_DECISION_MODEL` / `AI_DECISION_CRITICAL_MODEL` | ADR-016: modelo da decisão no caso comum e no caso grave (instável ou tempo-crítico pela Etapa 1, ou sem entendimento). Vazios = `AI_MODEL` nas duas rotas. Crítico vazio = o comum nas duas. Aceitam `perfil:modelo`. No log: `DECISION_MODEL route=critical\|standard model=...`; a interação grava `params.decisionRoute` |
 | `SMTP_HOST` e demais `SMTP_*`, `WEB_PUBLIC_URL` | Vazio: nenhum e-mail sai, cada envio vira `MAIL_LOGGED` no log e o fluxo segue. Preenchido com alguma variável errada: `MAIL_SMTP_CONFIG_INVALID` no boot e também nada sai. Ver "E-mail transacional (CC-015)" |
@@ -2114,6 +2225,9 @@ e nunca para a análise. Quando o provedor recusa por cota esgotada (limite de
 uso do workspace da Anthropic, falta de crédito, `insufficient_quota` da
 OpenAI), `error_type` termina em `:usage_limit` (ex.:
 `BadRequestError:400:usage_limit`); a mensagem do provedor não é gravada.
+A eliminação LGPD (CC-012) mantém as linhas no custo agregado, mas zera
+`physician_id`, `encounter_id` e `request_id`: depois dela o `x-request-id`
+daquele médico não acha mais nada.
 
 **Painel (CC-004).** `/admin/analytics`, aba "Etapas e modelos" (ADMIN e
 COMPLIANCE; o médico comum recebe 403 da API). Em 24 h, 7 ou 30 dias: por
@@ -2216,6 +2330,7 @@ aceita texto livre) e nesta tabela.
 | `AI_DAILY_COST_ALERT day=...` (também no Sentry) | Custo estimado do dia passou de `AI_DAILY_COST_ALERT_USD` | Abrir `/admin/analytics` → "Etapas e modelos" (24 h) e ver a etapa, o modelo e as requisições mais caras. Avaliação rodando com a chave de produção é o suspeito de sempre |
 | `AI_DECISION_P95_ALERT p95Ms=...` (também no Sentry) | A decisão está mais lenta que `AI_P95_ALERT_MS` na última hora | Ver p95 por modelo no painel (24 h) e o status do provedor; se persistir, trocar `AI_DECISION_MODEL` ou baixar o esforço |
 | `AI_CALL_ALERT_CHECK_FAILED check=...` | A verificação dos alertas falhou (banco fora, por exemplo) | Verificar conectividade com o banco; os outros alertas seguem |
+| `DEID_FALLBACK` (WARN, frequente) | Com `DEID_MODE=model`, o serviço `copiloto-deid` caiu, está lento ou respondeu fora do contrato; o texto seguiu só com a regex (nome solto passa) | Ver `reason=` e a seção "De-identificação com o modelo local"; se persistir, `DEID_MODE=regex` |
 
 ---
 

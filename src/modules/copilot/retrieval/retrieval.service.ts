@@ -493,7 +493,7 @@ export class RetrievalService {
    * ADR-010 — busca na base oficial. Só semântica: a busca lexical
    * (`keywordSearch`) filtra `status = 'approved'` e não enxerga estes chunks;
    * levar a busca lexical à base oficial é decisão da medição (passo 8 do
-   * docs/plano-fontes-oficiais-pcdt.md). Conteúdo oficial é sempre global.
+   * docs/planos/plano-fontes-oficiais-pcdt.md). Conteúdo oficial é sempre global.
    */
   private async searchOfficial(embedding: number[]): Promise<OfficialRetrieval> {
     const options = this.officialOptions();

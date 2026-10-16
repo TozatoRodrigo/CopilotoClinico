@@ -1,18 +1,26 @@
 name: CI
 
-# OPS-002: Gates de CI — bloqueia merge sem lint/typecheck/test/cobertura
-# e com vulnerabilidade de dependência.
+# OPS-002: Gates de CI — lint, typecheck, testes com cobertura e auditoria de
+# dependências.
 #
-# Branch protection rules (configuradas via GitHub API, ver runbook):
-#   - Todos os jobs deste workflow são required status checks
-#   - Merges diretos bloqueados sem PR + CI verde
+# Repositório privado no plano gratuito do GitHub: branch protection e
+# rulesets não valem (a API responde 403). Até isso mudar, "merge só com CI
+# verde" é regra do CONTRIBUTING.md, não da plataforma.
 #
-# Triggers: PRs e pushes para os branches principais do projeto.
+# Triggers: PRs e pushes para a main; workflow_dispatch roda o CI à mão em
+# qualquer branch.
 on:
   push:
-    branches: [main, dev, codex/production-readiness]
+    branches: [main, dev]
   pull_request:
-    branches: [main, codex/production-readiness]
+    branches: [main]
+  workflow_dispatch:
+
+# Push novo no mesmo PR cancela a execução anterior. Na main, cada push roda
+# até o fim.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   NODE_ENV: test
@@ -28,12 +36,12 @@ env:
   REDIS_HOST: localhost
   REDIS_PORT: 6379
   INTERNAL_SERVICE_TOKEN: ci-internal-service-token-at-least-32-characters
-  FIELD_ENCRYPTION_KEY: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  FIELD_ENCRYPTION_KEY: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 
 jobs:
   # ──────────────────────────────────────────────────────────
   # Job 1: Backend Quality Gates
-  # Lint → typecheck → testes com cobertura (threshold 80%)
+  # Lint → typecheck → testes com cobertura (limites em vitest.config.ts)
   # Não requer banco — usa mocks de Prisma.
   # ──────────────────────────────────────────────────────────
   quality:
@@ -85,13 +93,31 @@ jobs:
         run: pnpm exec prisma validate
 
       # Unit Tests WITH coverage — thresholds definidos em vitest.config.ts
-      # (branches: 80, functions: 80, lines: 80, statements: 80)
+      # (hoje 70% em branches, functions, lines e statements).
       # Falha se qualquer threshold não for atingido.
       - name: Unit Tests + Coverage
         run: pnpm test:cov
 
       - name: E2E Tests
         run: pnpm test:e2e
+
+  # ──────────────────────────────────────────────────────────
+  # CC-203 / ADR-020: regras do serviço de de-identificação
+  # (services/deid/spans.py). Só biblioteca padrão: sem o modelo.
+  # ──────────────────────────────────────────────────────────
+  deid-service:
+    name: De-identification Service
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Unit Tests
+        working-directory: services/deid
+        run: python -m unittest -v test_spans
 
   # ──────────────────────────────────────────────────────────
   # Job 2: Frontend Quality Gates

@@ -14,9 +14,10 @@ dist/
 *.key
 *.p12
 
-# IDE
+# IDE e ferramentas locais
 .idea/
 .vscode/
+.claude/
 *.swp
 *.swo
 
@@ -49,3 +50,7 @@ evals/intake/cases-local/
 # CC-205 — ditados (áudio é dado sensível) e relatórios da transcrição
 evals/transcription/audio-local/
 evals/transcription/out/
+
+# Python (services/deid)
+__pycache__/
+*.pyc
