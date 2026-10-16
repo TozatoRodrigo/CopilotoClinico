@@ -10,6 +10,7 @@ import { AiGatewayModule } from '../ai-gateway/ai-gateway.module';
 import { AuthModule } from '../auth/auth.module';
 import { EncountersModule } from '../encounters/encounters.module';
 import { QueueModule } from '../queue/queue.module';
+import { LgpdModule } from '../lgpd/lgpd.module';
 import { RecommendationDecisionsController } from './decisions/recommendation-decisions.controller';
 import { RecommendationDecisionsService } from './decisions/recommendation-decisions.service';
 import { CopilotFeedbackService } from './feedback/copilot-feedback.service';
@@ -23,6 +24,8 @@ import { ConversationService } from './intake/conversation.service';
     AiGatewayModule,
     AuthModule,
     EncountersModule,
+    // CC-010 — AiConsentGuard nas rotas que chamam IA.
+    LgpdModule,
     ProtocolEngineModule,
     forwardRef(() => QueueModule),
   ],
@@ -43,6 +46,7 @@ import { ConversationService } from './intake/conversation.service';
     IntakeService,
     ConversationService,
   ],
-  exports: [CopilotService, OrchestratorService],
+  // CC-011 — o worker da fila abre e analisa a conversa como a tela faz.
+  exports: [CopilotService, OrchestratorService, IntakeService, ConversationService],
 })
 export class CopilotModule {}

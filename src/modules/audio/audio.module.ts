@@ -8,9 +8,10 @@ import { AuthModule } from '../auth/auth.module';
 import { AuditModule } from '../audit/audit.module';
 import { CryptoModule } from '../../shared/crypto/crypto.module';
 import { AudioRetentionCronService } from '../../workers/audio-retention-cron.service';
+import { LgpdModule } from '../lgpd/lgpd.module';
 
 @Module({
-  imports: [QueueModule, AuthModule, AuditModule, CryptoModule],
+  imports: [QueueModule, AuthModule, AuditModule, CryptoModule, LgpdModule],
   controllers: [AudioController],
   providers: [AudioService, WhisperService, AudioRetentionService, AudioRetentionCronService],
   exports: [AudioService],

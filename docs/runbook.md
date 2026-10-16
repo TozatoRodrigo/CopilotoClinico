@@ -960,6 +960,44 @@ Antes de ligar:
 O custo gravado em `ai_interactions.cost` considera leitura e escrita de cache
 e, desde a Fase 0-B, também as análises em stream (antes gravavam 0).
 
+### Consentimento de IA (CC-010)
+
+Quem revoga "Processamento por IA" em Configurações → Privacidade recebe 403
+com `code: "AI_CONSENT_REVOKED"` na leitura do caso, análise (POST, streaming
+e fila), reanálise e ditado, antes de qualquer chamada ao gateway ou ao
+Whisper (`AiConsentGuard`). Análise que já estava na fila falha sem retry. A
+consulta de diretrizes segue só por palavra-chave. O histórico e os documentos
+continuam abertos. No log: `AI_CONSENT_REVOKED physicianId=...` (WARN).
+
+Vale o registro mais recente de `consents` para o escopo; sem nenhum, o
+processamento por IA está ativo (padrão desde o cadastro). Não há flag: para
+liberar, o próprio médico concede de novo na mesma tela.
+
+```sql
+-- Antes do deploy: quem ficará bloqueado (última linha de ai_processing revogada)
+SELECT DISTINCT ON (physician_id) physician_id, granted_at, revoked_at
+FROM consents WHERE scope = 'ai_processing'
+ORDER BY physician_id, granted_at DESC;
+-- bloqueados = linhas com revoked_at preenchido
+```
+
+### Fila de análise assíncrona (CC-011)
+
+`POST .../copilot/analyze/async` e o áudio gravado (`POST
+/encounters/:id/audio`) gravam o caso já redigido numa conversa sem leitura
+(`case_intakes`, `path = disabled`) e enfileiram só ids: `{ physicianId,
+encounterId, intakeId }`. O worker analisa pela conversa, como o plano sem
+streaming da tela. O resultado no Redis também são só ids (`intakeId`,
+`interactionId`); o plano sai por `GET .../copilot/conversation` ou
+`.../latest`. Retenção da fila: concluído 24 h, falho 7 dias.
+
+Deploy: job enfileirado antes da versão nova ainda leva o caso sem redação. O
+worker tira o texto do Redis antes de tudo (`INFERENCE_LEGACY_JOB jobId=...`,
+WARN), abre a conversa e segue como um job novo; se a conversa for recusada
+(injeção, caso encerrado), o job falha sem o texto. Esse caminho pode sair
+depois de 7 dias da versão no ar. Recusa 4xx (consentimento, posse, injeção,
+plano já feito) falha sem retry.
+
 ---
 
 ## Multi-tenancy institucional (PROT-004)
@@ -1081,6 +1119,36 @@ Prisma não suporta rollback automático. Para reverter:
 1. Criar nova migration com o `ALTER TABLE` inverso
 2. Aplicar normalmente via `prisma migrate deploy`
 3. Nunca deletar migrations já aplicadas em produção
+
+---
+
+## Containers de produção (CC-013)
+
+`docker/docker-compose.prod.yml` sobe `copiloto-db`, `copiloto-redis`,
+`copiloto-api` (`docker/Dockerfile.api`) e `copiloto-web`
+(`docker/Dockerfile.web`). Não há container de worker:
+
+- **Worker da fila e crons rodam dentro da API.** `InferenceWorkerService`
+  (BullMQ, fila `inference`) sobe no `onModuleInit` do `QueueModule`, e os
+  crons de `src/workers/` (cadeia de auditoria, saúde do banco, abandono do
+  funil) vêm do `ScheduleModule`, no mesmo processo. Concorrência e ritmo:
+  `INFERENCE_QUEUE_CONCURRENCY` e `INFERENCE_QUEUE_RATE_PER_SEC`.
+- **`docker/worker.Dockerfile` foi removido.** Ele rodava `dist/workers/main.js`,
+  que nunca existiu, e copiava de uma imagem `copiloto-api:latest` que nenhum
+  compose gera. Separar o worker exige um entrypoint próprio que suba só a
+  fila, sem HTTP e sem os crons (senão os crons rodam duas vezes); só vale a
+  pena se a análise pela fila competir com a API por CPU.
+
+**Object storage (MinIO/S3): desligado em produção, de propósito.** O
+compose não repassa `MINIO_*`, então `StorageService.isAvailable()` é falso:
+o PDF do documento confirmado é montado na hora do download
+(`DocumentsService`, "PDF sob demanda") e nada fica gravado fora do banco.
+Ligar exige subir um MinIO (ou usar S3) com backup e retenção próprios e
+resolver o PDF que fica órfão na eliminação da conta (em PR aberto, #142).
+Até lá, nenhum ganho justifica guardar mais uma cópia do documento clínico.
+
+**Sentry:** o `SENTRY_DSN` no compose e o evento sem corpo nem cabeçalhos de
+credencial vêm do PR #168 (seção "Sentry" em Monitoramento).
 
 ---
 

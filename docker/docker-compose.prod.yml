@@ -164,6 +164,9 @@ services:
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
       AI_EMBEDDING_MODEL: ${AI_EMBEDDING_MODEL:-text-embedding-3-small}
       LOG_LEVEL: info
+      # MINIO_* fica de fora de propósito: sem object storage, o PDF do
+      # documento é montado no download. Ver docs/runbook.md, "Containers de
+      # produção".
     networks:
       - copiloto-net
       - proxy

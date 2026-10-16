@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { OrchestratorService } from './orchestrator/orchestrator.service';
 import { InferenceQueueService } from '../queue/inference-queue.service';
 import { PrismaService } from '../../config/prisma.service';
+import { IntakeService } from './intake/intake.service';
 import { extractRetrievalCoverage } from './interaction-trace';
 import type { AnalyzeInput, RespondInput } from './schemas/copilot.schemas';
 import type { OrchestratorResult, StreamEvent } from './orchestrator/orchestrator.service';
@@ -20,6 +21,7 @@ export class CopilotService {
     @Inject(InferenceQueueService) private readonly queue: InferenceQueueService,
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(ConfigService) private readonly config: ConfigService,
+    @Inject(IntakeService) private readonly intakes: IntakeService,
   ) {}
 
   async analyze(
@@ -52,13 +54,23 @@ export class CopilotService {
     return this.orchestrator.continueAnalysisStream(physicianId, encounterId, input);
   }
 
+  /**
+   * CC-011 — o caso entra redigido no banco (uma conversa sem leitura, ver
+   * `IntakeService.openForQueue`) e o job leva só ids: o Redis não guarda o
+   * texto clínico. Posse do caso e injeção recusam aqui, antes da fila.
+   */
   async analyzeAsync(
     physicianId: string,
     encounterId: string,
     input: AnalyzeInput,
-  ): Promise<{ jobId: string }> {
-    const jobId = await this.queue.enqueueAnalyze({ physicianId, encounterId, input });
-    return { jobId };
+  ): Promise<{ jobId: string; intakeId: string }> {
+    const intake = await this.intakes.openForQueue(physicianId, encounterId, input);
+    const jobId = await this.queue.enqueueAnalyze({
+      physicianId,
+      encounterId,
+      intakeId: intake.id,
+    });
+    return { jobId, intakeId: intake.id };
   }
 
   async getJobStatus(physicianId: string, jobId: string) {

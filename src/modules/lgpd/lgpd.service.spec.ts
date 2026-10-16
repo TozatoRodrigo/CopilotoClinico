@@ -7,6 +7,7 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { AiConsentRevokedException } from './ai-consent.exception';
 
 const physicianId = '550e8400-e29b-41d4-a716-446655440000';
 const consentId = '660e8400-e29b-41d4-a716-446655440001';
@@ -233,12 +234,50 @@ describe('LgpdService', () => {
       expect(result.revokedAt).not.toBeNull();
     });
 
-    it('throws NotFoundException when no active consent exists', async () => {
-      prisma.consent.findFirst.mockResolvedValue(null);
+    it('throws NotFoundException when the latest consent is already revoked', async () => {
+      prisma.consent.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: consentId });
+      prisma.physician.findUnique.mockResolvedValue({ createdAt: new Date() });
 
       await expect(service.revokeConsent(physicianId, 'ai_processing')).rejects.toThrow(
         NotFoundException,
       );
+      expect(prisma.consent.create).not.toHaveBeenCalled();
+    });
+
+    // CC-010 — o processamento por IA vale desde o cadastro sem nenhuma linha
+    // em `consents`: revogar precisa funcionar com um clique, sem conceder antes.
+    it('records the revocation of ai_processing that was only active by default', async () => {
+      const signedUpAt = new Date('2026-06-01T00:00:00.000Z');
+      prisma.consent.findFirst.mockResolvedValue(null);
+      prisma.physician.findUnique.mockResolvedValue({ createdAt: signedUpAt });
+      prisma.consent.create.mockResolvedValue({ id: consentId, revokedAt: new Date() });
+
+      await service.revokeConsent(physicianId, 'ai_processing');
+
+      expect(prisma.consent.create).toHaveBeenCalledWith({
+        data: {
+          physicianId,
+          scope: 'ai_processing',
+          grantedAt: signedUpAt,
+          revokedAt: expect.any(Date),
+        },
+      });
+      expect(auditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'CONSENT_REVOKED',
+          entityId: consentId,
+          payload: { scope: 'ai_processing', fromDefault: true },
+        }),
+      );
+    });
+
+    it('throws NotFoundException for a scope that is off by default and never granted', async () => {
+      prisma.consent.findFirst.mockResolvedValue(null);
+
+      await expect(service.revokeConsent(physicianId, 'analytics')).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(prisma.consent.create).not.toHaveBeenCalled();
     });
 
     it('rejects unsupported consent scopes before revoking data', async () => {
@@ -253,26 +292,31 @@ describe('LgpdService', () => {
   });
 
   describe('checkConsent', () => {
-    it('returns true when active consent exists', async () => {
-      prisma.consent.findFirst.mockResolvedValue({
-        id: consentId,
-        physicianId,
-        scope: 'ai_processing',
-        grantedAt: new Date(),
-        revokedAt: null,
-      });
+    it('reads the latest record of the scope', async () => {
+      prisma.consent.findFirst.mockResolvedValue({ revokedAt: null });
 
       const result = await service.checkConsent(physicianId, 'ai_processing');
 
       expect(result).toBe(true);
+      expect(prisma.consent.findFirst).toHaveBeenCalledWith({
+        where: { physicianId, scope: 'ai_processing' },
+        orderBy: { grantedAt: 'desc' },
+        select: { revokedAt: true },
+      });
     });
 
-    it('returns false when no active consent exists', async () => {
+    it('returns false when the latest record is revoked', async () => {
+      prisma.consent.findFirst.mockResolvedValue({ revokedAt: new Date() });
+
+      expect(await service.checkConsent(physicianId, 'ai_processing')).toBe(false);
+    });
+
+    it('falls back to the scope default when nothing was recorded', async () => {
       prisma.consent.findFirst.mockResolvedValue(null);
 
-      const result = await service.checkConsent(physicianId, 'ai_processing');
-
-      expect(result).toBe(false);
+      expect(await service.checkConsent(physicianId, 'ai_processing')).toBe(true);
+      expect(await service.checkConsent(physicianId, 'data_sharing')).toBe(false);
+      expect(await service.checkConsent(physicianId, 'analytics')).toBe(false);
     });
 
     it('rejects unsupported consent scopes before checking data', async () => {
@@ -281,6 +325,25 @@ describe('LgpdService', () => {
       );
 
       expect(prisma.consent.findFirst).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('assertAiProcessingAllowed', () => {
+    it('lets the request through while ai_processing is active', async () => {
+      prisma.consent.findFirst.mockResolvedValue(null);
+
+      await expect(service.assertAiProcessingAllowed(physicianId)).resolves.toBeUndefined();
+    });
+
+    it('refuses with the AI_CONSENT_REVOKED 403 once ai_processing is revoked', async () => {
+      prisma.consent.findFirst.mockResolvedValue({ revokedAt: new Date() });
+
+      const refusal = service.assertAiProcessingAllowed(physicianId);
+
+      await expect(refusal).rejects.toBeInstanceOf(AiConsentRevokedException);
+      await expect(refusal).rejects.toMatchObject({
+        response: { statusCode: 403, code: 'AI_CONSENT_REVOKED' },
+      });
     });
   });
 
@@ -332,6 +395,18 @@ describe('LgpdService', () => {
           grantedAt: analyticsGrantedAt,
           revokedAt: analyticsRevokedAt,
         },
+      ]);
+    });
+
+    it('shows ai_processing active by default when nothing was recorded', async () => {
+      prisma.consent.findMany.mockResolvedValue([]);
+
+      const result = await service.listConsentScopes(physicianId);
+
+      expect(result).toEqual([
+        { scope: 'ai_processing', granted: true, grantedAt: null, revokedAt: null },
+        { scope: 'data_sharing', granted: false, grantedAt: null, revokedAt: null },
+        { scope: 'analytics', granted: false, grantedAt: null, revokedAt: null },
       ]);
     });
   });

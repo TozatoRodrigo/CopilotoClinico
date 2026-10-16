@@ -689,7 +689,8 @@ export interface IntakeAnswer {
  * - `unstable`: paciente instável, plano direto;
  * - `complete`: nada que falte muda a conduta agora;
  * - `reading_failed`: a leitura falhou ou demorou; plano direto;
- * - `disabled`: `COPILOT_INTAKE=off`; plano direto, sem leitura.
+ * - `disabled`: sem leitura, plano direto — `COPILOT_INTAKE=off` ou análise
+ *   pela fila (`POST .../analyze/async`, áudio gravado; CC-011).
  */
 export const INTAKE_PATHS = ['ask', 'unstable', 'complete', 'reading_failed', 'disabled'] as const;
 export type IntakePath = (typeof INTAKE_PATHS)[number];
@@ -1034,4 +1035,19 @@ export interface GuidelineSearchResult {
   institutionId: string | null;
   reviewerName: string | null;
   rank: number;
+}
+
+/**
+ * CC-010 — `code` do 403 de quem revogou o consentimento `ai_processing`
+ * (Configurações → Privacidade). A recusa sai antes de qualquer chamada de IA:
+ * leitura do caso, análise, reanálise e transcrição do ditado. A mensagem já
+ * vem escrita para o médico; o web a mostra como qualquer outro erro.
+ */
+export const AI_CONSENT_REVOKED = 'AI_CONSENT_REVOKED' as const;
+
+export interface AiConsentRevokedError {
+  statusCode: 403;
+  error: 'Forbidden';
+  code: typeof AI_CONSENT_REVOKED;
+  message: string;
 }

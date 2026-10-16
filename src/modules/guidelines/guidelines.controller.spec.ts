@@ -4,6 +4,7 @@ import { GuidelinesController } from './guidelines.controller';
 import { GuidelinesService } from './guidelines.service';
 import { InstitutionsService } from '../institutions/institutions.service';
 import { ROLES_KEY } from '../../shared/decorators/roles.decorator';
+import type { LgpdService } from '../lgpd/lgpd.service';
 
 describe('GuidelinesController', () => {
   let controller: GuidelinesController;
@@ -14,8 +15,10 @@ describe('GuidelinesController', () => {
     rejectChunk: ReturnType<typeof vi.fn>;
     suggestGuideline: ReturnType<typeof vi.fn>;
     searchChunks: ReturnType<typeof vi.fn>;
+    consult: ReturnType<typeof vi.fn>;
   };
   let institutionsServiceMock: { activeInstitutionIds: ReturnType<typeof vi.fn> };
+  let lgpdMock: { checkConsent: ReturnType<typeof vi.fn> };
 
   const req = { user: { physicianId: 'curator-1' } };
 
@@ -28,13 +31,16 @@ describe('GuidelinesController', () => {
       rejectChunk: vi.fn(),
       suggestGuideline: vi.fn(),
       searchChunks: vi.fn().mockResolvedValue([]),
+      consult: vi.fn().mockResolvedValue([]),
     };
     institutionsServiceMock = {
       activeInstitutionIds: vi.fn().mockResolvedValue(['inst-a']),
     };
+    lgpdMock = { checkConsent: vi.fn().mockResolvedValue(true) };
     controller = new GuidelinesController(
       guidelinesServiceMock as unknown as GuidelinesService,
       institutionsServiceMock as unknown as InstitutionsService,
+      lgpdMock as unknown as LgpdService,
     );
   });
 
@@ -92,6 +98,23 @@ describe('GuidelinesController', () => {
 
       expect(guards.map((guard) => guard.name)).toEqual(['JwtAuthGuard', 'RolesGuard']);
       expect(roles).toEqual(['COMPLIANCE', 'ADMIN']);
+    });
+  });
+
+  describe('consult', () => {
+    it.each([
+      [true, 'com'],
+      [false, 'sem'],
+    ])('busca por significado só com o consentimento de IA (%s: %s)', async (granted) => {
+      lgpdMock.checkConsent.mockResolvedValue(granted);
+
+      await controller.consult(req, { query: 'picada de escorpião', limit: 5 });
+
+      expect(lgpdMock.checkConsent).toHaveBeenCalledWith('curator-1', 'ai_processing');
+      expect(guidelinesServiceMock.consult).toHaveBeenCalledWith('picada de escorpião', {
+        limit: 5,
+        semantic: granted,
+      });
     });
   });
 
