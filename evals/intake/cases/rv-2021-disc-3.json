@@ -1,0 +1,29 @@
+{
+  "id": "rv-2021-disc-3",
+  "source": {
+    "kind": "clinical_case",
+    "caseId": "rv-2021-disc-3"
+  },
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Pronto atendimento. Fem, 50a, trazida pela família às 7h por confusão mental. Boa saúde até 3 dias; há meses dores abdominais episódicas (família não sabe caracterizar), aliviadas com escopolamina, sem atendimento médico prévio. Há 3 dias dor mais frequente, sem alívio com escopolamina; iniciou cetoprofeno por conta própria. Ontem pele amarelada e início de febre. De madrugada agitada, sem reconhecer os familiares nem a própria casa. EF: obesa, icterícia cutaneomucosa, confusão mental evidente, sem sinais focais; reage com movimentos de defesa à tentativa de palpação abdominal. PA 80x60, T 39,7 °C, FC 106. US de abdome superior de 1 ano atrás: cálculos na vesícula biliar."
+  },
+  "expected": {
+    "sex": "F",
+    "age": 50,
+    "vitals": {
+      "systolicBp": 80,
+      "diastolicBp": 60,
+      "heartRate": 106,
+      "respiratoryRate": null,
+      "spo2": null,
+      "temperature": 39.7,
+      "glucose": null
+    },
+    "syndrome": ["febre-hipotensao"],
+    "instability": true,
+    "timeCritical": true
+  }
+}

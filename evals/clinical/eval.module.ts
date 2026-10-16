@@ -3,6 +3,8 @@ import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from '../../src/config/prisma.module';
 import { AiGatewayService } from '../../src/modules/ai-gateway/ai-gateway.service';
 import { AuditModule } from '../../src/modules/audit/audit.module';
+import { ConversationService } from '../../src/modules/copilot/intake/conversation.service';
+import { IntakeService } from '../../src/modules/copilot/intake/intake.service';
 import { OrchestratorService } from '../../src/modules/copilot/orchestrator/orchestrator.service';
 import { RetrievalService } from '../../src/modules/copilot/retrieval/retrieval.service';
 import { UnderstandingService } from '../../src/modules/copilot/understanding/understanding.service';
@@ -18,8 +20,8 @@ import { CompletionRecorder, RecordingAiGatewayService } from './recorder';
 import { ENV_FILE_PATHS } from './variants';
 
 /**
- * F0-A — Contexto Nest mínimo para chamar `OrchestratorService.analyze` de
- * verdade. Não importa AppModule nem CopilotModule porque eles trazem o que
+ * F0-A — Contexto Nest mínimo para chamar `OrchestratorService.analyze` (e,
+ * no afunilamento, a conversa do Copiloto guiado) de verdade. Não importa AppModule nem CopilotModule porque eles trazem o que
  * só existe no servidor HTTP: JWT/Passport (AuthModule, que exige segredos de
  * token), fila BullMQ (QueueModule), throttler e interceptors. Os serviços do
  * caminho da análise são os mesmos de produção: orquestrador, retrieval
@@ -61,6 +63,9 @@ export class EvalModule {
         ...CARD_INDEX_PROVIDERS,
         ...REVIEWED_CARD_RETRIEVAL_PROVIDERS,
         OrchestratorService,
+        // CC-106 — a conversa do Copiloto guiado, do jeito que a tela a usa.
+        IntakeService,
+        ConversationService,
       ],
     };
   }

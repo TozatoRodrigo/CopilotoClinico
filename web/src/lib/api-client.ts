@@ -1,4 +1,9 @@
 import { messages } from "@/lib/messages";
+import {
+  LEGAL_ACCEPTANCE_PATH,
+  TERMS_ACCEPTANCE_REQUIRED_STATUS,
+  legalAcceptanceHref,
+} from "@/lib/legal-paths";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000/v1";
 
@@ -13,6 +18,8 @@ export const API_BASE_URL = BASE_URL;
 // against each other and producing the flapping/looping reload the browser
 // shows while none of them settle.
 let redirectingToLogin = false;
+// CC-905 — mesmo cuidado para a tela de aceite dos termos (428).
+let redirectingToTermsAcceptance = false;
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
@@ -73,12 +80,34 @@ class ApiClient {
       }
       throw new ApiError(401, messages.errors.sessionExpired);
     }
-
-    if (!response.ok) {
-      const errorBody = await response.json().catch(() => ({}));
+    // CC-905 — a conta não aceitou a versão vigente dos termos e da política
+    // (LEGAL_TERMS_V2): toda rota protegida responde 428 até o aceite. Leva à
+    // tela de aceite, que devolve o médico para onde ele estava.
+    if (response.status === TERMS_ACCEPTANCE_REQUIRED_STATUS) {
+      if (
+        typeof window !== "undefined" &&
+        !window.location.pathname.startsWith(LEGAL_ACCEPTANCE_PATH) &&
+        !redirectingToTermsAcceptance
+      ) {
+        redirectingToTermsAcceptance = true;
+        window.location.href = legalAcceptanceHref(window.location.pathname);
+      }
+      const termsBody = (await response.json().catch(() => ({}))) as { message?: string };
       throw new ApiError(
         response.status,
-        (errorBody as { message?: string }).message ?? messages.errors.httpError(response.status),
+        termsBody.message ?? messages.errors.httpError(response.status),
+      );
+    }
+
+    if (!response.ok) {
+      const errorBody = (await response.json().catch(() => ({}))) as {
+        message?: string;
+        code?: unknown;
+      };
+      throw new ApiError(
+        response.status,
+        errorBody.message ?? messages.errors.httpError(response.status),
+        typeof errorBody.code === "string" ? errorBody.code : undefined,
       );
     }
 
@@ -112,11 +141,17 @@ class ApiClient {
 
 export class ApiError extends Error {
   status: number;
+  /**
+   * `code` do corpo do erro, quando a API manda um (ex.: `BETA_INVITE_REQUIRED`,
+   * CC-702): distingue recusas com o mesmo status sem comparar a mensagem.
+   */
+  code: string | undefined;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, code?: string) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.code = code;
   }
 }
 

@@ -19,7 +19,11 @@ import type { ResearchOutcome, WebResearchService } from '../research/web-resear
 import { cardRetrievalNeverCalled } from '../../../../tests/fixtures/reviewed-cards';
 import { DECISION_V3_SYSTEM_PROMPT } from './decision-prompt-v3';
 import { DECISION_V4_SYSTEM_PROMPT } from './decision-prompt-v4';
-import { COPILOT_OUTPUT_V2_JSON_SCHEMA } from '../schemas/copilot-output.json-schema';
+import {
+  COPILOT_OUTPUT_V2_JSON_SCHEMA,
+  COPILOT_OUTPUT_V2_WHY_JSON_SCHEMA,
+} from '../schemas/copilot-output.json-schema';
+import { DECISION_V3_WHY_SYSTEM_PROMPT, DECISION_V4_WHY_SYSTEM_PROMPT } from './decision-why-line';
 import { understandingFixture } from '../../../../tests/fixtures/case-understanding';
 
 /**
@@ -205,6 +209,7 @@ describe('OrchestratorService — decisão v3', () => {
     expect(responseSchema).toBe(COPILOT_OUTPUT_V2_JSON_SCHEMA);
     expect(result.metadata).toMatchObject({ decisionPrompt: 'v3', knowledgeSource: 'model_only' });
     expect(persisted().data.params).toMatchObject({ decisionPrompt: 'v3' });
+    expect(persisted().data.params).not.toHaveProperty('whyLine');
     expect(result.output.recommendations[0]).toMatchObject({
       layer: 'now',
       origin: 'model_knowledge',
@@ -376,5 +381,95 @@ describe('OrchestratorService — decisão v3', () => {
     const { messages } = sentRequest();
     expect(messages[0]?.content).toBe(DECISION_V3_SYSTEM_PROMPT);
     expect(messages[1]?.content).toContain('camada "depends"');
+  });
+
+  // CC-601 — linha de "por quê" em cada conduta "agora" (`COPILOT_WHY_LINE`).
+  describe('COPILOT_WHY_LINE', () => {
+    const why =
+      'Só a tomografia separa sangramento de entupimento, e o tratamento de um piora o outro';
+
+    beforeEach(() => {
+      env = { ...env, COPILOT_WHY_LINE: 'on' };
+      gateway.complete.mockResolvedValue(
+        completion(v3Output({ recommendations: [recommendation({ why })] })),
+      );
+    });
+
+    it('asks for the line with its prompt and schema, and records it', async () => {
+      const result = await service.analyze(physicianId, encounterId, input);
+
+      const { messages, responseSchema } = sentRequest();
+      expect(messages[0]).toEqual({ role: 'system', content: DECISION_V3_WHY_SYSTEM_PROMPT });
+      expect(responseSchema).toBe(COPILOT_OUTPUT_V2_WHY_JSON_SCHEMA);
+      expect(gateway.complete).toHaveBeenCalledTimes(1);
+      expect(result.output.recommendations[0]).toMatchObject({
+        why,
+        rationale: 'Separa AVC isquêmico de hemorrágico',
+      });
+      expect(persisted().data.params).toMatchObject({ decisionPrompt: 'v3', whyLine: true });
+    });
+
+    it('uses the v4 instructions with the same line', async () => {
+      env = { ...env, COPILOT_DECISION_PROMPT: 'v4' };
+
+      await service.analyze(physicianId, encounterId, input);
+
+      expect(sentRequest().messages[0]?.content).toBe(DECISION_V4_WHY_SYSTEM_PROMPT);
+      expect(sentRequest().responseSchema).toBe(COPILOT_OUTPUT_V2_WHY_JSON_SCHEMA);
+    });
+
+    it('takes out a line over the limit without a second call, keeping the rationale', async () => {
+      gateway.complete.mockResolvedValue(
+        completion(v3Output({ recommendations: [recommendation({ why: 'x'.repeat(121) })] })),
+      );
+
+      const result = await service.analyze(physicianId, encounterId, input);
+
+      expect(gateway.complete).toHaveBeenCalledTimes(1);
+      expect(result.output.recommendations[0]?.why).toBeUndefined();
+      expect(result.output.recommendations[0]?.rationale).toBe(
+        'Separa AVC isquêmico de hemorrágico',
+      );
+    });
+
+    it('streams with the prompt and schema of the line', async () => {
+      async function* fakeStream(content: string): AsyncGenerator<string, StreamCompletionResult> {
+        yield content;
+        return {
+          content,
+          model: 'claude-3-sonnet',
+          usage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 },
+          stopReason: 'end_turn',
+        };
+      }
+      gateway.completeStream.mockImplementation(() =>
+        fakeStream(v3Output({ recommendations: [recommendation({ why })] })),
+      );
+
+      const events: StreamEvent[] = [];
+      for await (const event of service.analyzeStream(physicianId, encounterId, input)) {
+        events.push(event);
+      }
+
+      const request = gateway.completeStream.mock.calls[0]![0] as {
+        messages: ChatMessage[];
+        responseSchema: unknown;
+      };
+      expect(request.messages[0]?.content).toBe(DECISION_V3_WHY_SYSTEM_PROMPT);
+      expect(request.responseSchema).toBe(COPILOT_OUTPUT_V2_WHY_JSON_SCHEMA);
+      const done = events.find((event) => event.type === 'done');
+      expect(done?.type === 'done' && done.result.output.recommendations[0]?.why).toBe(why);
+    });
+
+    it("keeps today's prompt, schema and output when the flag is off", async () => {
+      env = { ...env, COPILOT_WHY_LINE: 'off' };
+
+      const result = await service.analyze(physicianId, encounterId, input);
+
+      expect(sentRequest().messages[0]?.content).toBe(DECISION_V3_SYSTEM_PROMPT);
+      expect(sentRequest().responseSchema).toBe(COPILOT_OUTPUT_V2_JSON_SCHEMA);
+      expect(result.output.recommendations[0]).not.toHaveProperty('why');
+      expect(persisted().data.params).not.toHaveProperty('whyLine');
+    });
   });
 });

@@ -17,6 +17,7 @@ const trace: AiCallTrace = {
   latencyMs: 4200,
   outcome: 'ok',
   errorType: null,
+  fallbackFrom: null,
 };
 
 function service(create = vi.fn().mockResolvedValue({})) {
@@ -61,6 +62,21 @@ describe('AiCallLogService', () => {
     });
   });
 
+  it('marks a call on the fallback model with the profile that went down', () => {
+    const { create, log } = service();
+    const info = vi.spyOn(
+      (log as unknown as { logger: { log: (message: string) => void } }).logger,
+      'log',
+    );
+
+    log.record({ ...trace, fallbackFrom: 'groq' });
+
+    expect(create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ fallbackFrom: 'groq' }),
+    });
+    expect(info).toHaveBeenCalledWith(expect.stringContaining('fallbackFrom=groq'));
+  });
+
   it('only warns when the database write fails', async () => {
     const { log } = service(vi.fn().mockRejectedValue(new Error('db down')));
     const warn = vi.spyOn(
@@ -69,6 +85,8 @@ describe('AiCallLogService', () => {
     );
 
     expect(() => log.record(trace)).not.toThrow();
-    await vi.waitFor(() => expect(warn).toHaveBeenCalledWith(expect.stringContaining('AI_CALL_LOG_FAILED')));
+    await vi.waitFor(() =>
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('AI_CALL_LOG_FAILED')),
+    );
   });
 });

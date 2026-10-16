@@ -22,6 +22,9 @@ import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { getDemoCasePreset } from "@/lib/demo-case-presets";
+import { prefilledContext } from "@/lib/practice-sites";
+import { usePracticeSites } from "@/hooks/use-practice-sites";
+import { PracticeSiteSelect } from "@/components/domain/practice-site-select";
 import { cn } from "@/lib/utils";
 import type {
   CreateEncounterRequest,
@@ -30,8 +33,10 @@ import type {
 } from "@/lib/types";
 import { VerticalTag } from "../_components/encounter-tags";
 
+type ResourceKey = "hasCT" | "isSus" | "hasLab" | "hasICU";
+
 interface ContextChip {
-  key: keyof EncounterContext;
+  key: ResourceKey;
   label: string;
 }
 
@@ -41,13 +46,6 @@ const CONTEXT_CHIPS: ContextChip[] = [
   { key: "hasLab", label: "Laboratório" },
   { key: "hasICU", label: "UTI" },
 ];
-
-const DEFAULT_CONTEXT: EncounterContext = {
-  hasCT: false,
-  isSus: false,
-  hasLab: false,
-  hasICU: false,
-};
 
 const CPF_UNFORMATTED = /^\d{11}$/;
 const CPF_FORMATTED = /^\d{3}\.\d{3}\.\d{3}-\d{2}$/;
@@ -83,9 +81,14 @@ export default function NewEncounterPage() {
       (demoPreset?.vertical as CreateEncounterRequest["vertical"] | undefined) ??
       "general",
   );
-  const [context, setContext] = useState<EncounterContext>(
-    () => demoPreset?.context ?? DEFAULT_CONTEXT,
+  // CC-602 — o caso nasce com o local padrão das Configurações (quando
+  // houver) e o médico troca o local ou os recursos aqui. Enquanto ele não
+  // mexe, o contexto acompanha a lista de locais quando ela chega.
+  const sitesQuery = usePracticeSites();
+  const [chosenContext, setChosenContext] = useState<EncounterContext | null>(
+    () => demoPreset?.context ?? null,
   );
+  const context = chosenContext ?? prefilledContext(sitesQuery.data);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -97,8 +100,8 @@ export default function NewEncounterPage() {
   // bloqueando — nunca aceitar CPF/nome mesmo num campo agora opcional.
   const canSubmit = !piiWarning && !submitting;
 
-  function toggleContext(key: keyof EncounterContext) {
-    setContext((prev) => ({ ...prev, [key]: !prev[key] }));
+  function toggleContext(key: ResourceKey) {
+    setChosenContext({ ...context, [key]: !context[key] });
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -215,6 +218,13 @@ export default function NewEncounterPage() {
           <legend className="mb-2 text-[0.8125rem] leading-none font-medium text-muted-foreground">
             Contexto do atendimento
           </legend>
+          <PracticeSiteSelect
+            id="encounter-site"
+            sites={sitesQuery.data ?? []}
+            context={context}
+            onChange={setChosenContext}
+            disabled={sitesQuery.isPending}
+          />
           <div className="flex flex-wrap gap-1.5">
             {CONTEXT_CHIPS.map((chip) => {
               const selected = context[chip.key];
@@ -242,7 +252,8 @@ export default function NewEncounterPage() {
             })}
           </div>
           <p className="text-[0.8125rem] text-muted-foreground">
-            Marque os recursos disponíveis agora — a análise leva isso em conta.
+            Recursos disponíveis agora — ajuste o que mudou hoje (ex.: tomógrafo
+            parado). A análise leva isso em conta.
           </p>
         </fieldset>
 

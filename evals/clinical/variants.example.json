@@ -206,6 +206,23 @@
       }
     },
     {
+      "name": "claude-opus-5-5-v4-contexto-plantao",
+      "description": "CC-603: igual a claude-opus-5-5-v4-modelo, com o local de plantão declarado no caso e a regra de transferência (COPILOT_SITE_CONTEXT=on). Nos casos sem local declarado o prompt é o mesmo da v4; compare as duas nos casos cc603-* e cm-dengue-com-sinais-de-alarme.",
+      "env": {
+        "AI_PROVIDER": "anthropic",
+        "AI_MODEL": "claude-opus-5-5",
+        "AI_BASE_URL": "https://api.anthropic.com",
+        "AI_API_KEY": "${ANTHROPIC_API_KEY}",
+        "AI_MAX_OUTPUT_TOKENS": "32000",
+        "AI_EFFORT": "high",
+        "COPILOT_REASONING": "stages",
+        "AI_UNDERSTANDING_EFFORT": "low",
+        "COPILOT_DECISION_PROMPT": "v4",
+        "COPILOT_KNOWLEDGE_SOURCE": "model_only",
+        "COPILOT_SITE_CONTEXT": "on"
+      }
+    },
+    {
       "name": "claude-opus-5-5-v3-verifica",
       "description": "Regras v3 com verificação com fonte DEPOIS da decisão (COPILOT_KNOWLEDGE_SOURCE=verify): o plano sai do conhecimento do Opus 5.5; a pesquisa (Sonnet 5.5, effort low, até 5 buscas, domínios oficiais) confere as condutas e o vínculo (Sonnet 5.5) anexa fonte e dose literal ou aponta divergência.",
       "env": {
@@ -223,6 +240,23 @@
         "AI_RESEARCH_EFFORT": "low",
         "WEB_RESEARCH_MAX_SEARCHES": "5",
         "AI_VERIFY_ATTACH_MODEL": "claude-sonnet-5-5"
+      }
+    },
+    {
+      "name": "claude-opus-5-5-v3-por-que",
+      "description": "CC-601: igual a claude-opus-5-5-v3-modelo, a configuração de produção, com a linha de \"por quê\" em cada conduta \"agora\" (COPILOT_WHY_LINE=on). Rodar ao lado de claude-opus-5-5-v3-modelo: a linha só entra se não aumentar os erros críticos nem a latência em mais de 10%.",
+      "env": {
+        "AI_PROVIDER": "anthropic",
+        "AI_MODEL": "claude-opus-5-5",
+        "AI_BASE_URL": "https://api.anthropic.com",
+        "AI_API_KEY": "${ANTHROPIC_API_KEY}",
+        "AI_MAX_OUTPUT_TOKENS": "32000",
+        "AI_EFFORT": "high",
+        "COPILOT_REASONING": "stages",
+        "AI_UNDERSTANDING_EFFORT": "low",
+        "COPILOT_DECISION_PROMPT": "v3",
+        "COPILOT_KNOWLEDGE_SOURCE": "model_only",
+        "COPILOT_WHY_LINE": "on"
       }
     },
     {

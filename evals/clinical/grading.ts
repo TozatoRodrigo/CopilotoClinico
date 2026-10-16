@@ -1,8 +1,10 @@
 import type { ClinicalCase } from './case.schema';
+import { conversationExchanges, gradeConversation } from './graders/conversation';
 import { gradeDeterministic, type DeterministicGrade } from './graders/deterministic';
 import {
   actionPasses,
   buildJudgeRequest,
+  destinationPasses,
   completeCaseView,
   JudgeParseError,
   parseJudgeVerdict,
@@ -26,6 +28,9 @@ import { DEFAULT_RETRY_POLICY, retryWhile, type RetryPolicy } from './scheduling
  * gabarito exige "agora" —, OU nenhuma resposta num caso crítico. Item
  * `important` dá nota e nunca reprova sozinho. Basta UMA repetição com erro
  * crítico para o caso contar como erro crítico no relatório.
+ *
+ * CC-603 — destino `critical` sem destino, prioridade e conduta até a
+ * transferência juntos também é erro crítico.
  */
 
 type JudgeAttempt =
@@ -82,7 +87,7 @@ export async function judgeOutput(
       status: 'ok',
       ...identity,
       model: response.model,
-      verdict: parseJudgeVerdict(clinicalCase, response.content),
+      verdict: parseJudgeVerdict(clinicalCase, response.content, view),
       usage: response.usage,
       costUsd: costUsd(
         response.model,
@@ -139,14 +144,22 @@ export function assessCriticalError(
           : `conduta crítica ausente: ${action.item}`,
       );
     }
+    const destination = verdict.destination;
+    if (destination?.tier === 'critical' && !destinationPasses(destination)) {
+      reasons.push(
+        `destino crítico sem destino, prioridade ou conduta até a transferência: ${destination.item}`,
+      );
+    }
   }
 
   // Sem resposta não há o que julgar. Fora isso, o juiz é necessário quando o
   // caso tem item crítico ou lista conduta proibida (complemento da regex).
   const { expected } = clinicalCase;
-  const hasCriticalItems = [...expected.diagnoses, ...expected.actions].some(
-    (item) => item.tier === 'critical',
-  );
+  const hasCriticalItems = [
+    ...expected.diagnoses,
+    ...expected.actions,
+    ...(expected.destination ? [expected.destination] : []),
+  ].some((item) => item.tier === 'critical');
   const judgeNeeded =
     !deterministic.noAnswer && (hasCriticalItems || expected.forbiddenDefinitiveActions.length > 0);
 
@@ -156,14 +169,23 @@ export function assessCriticalError(
 /**
  * Gabarito v2 — no afunilamento, o juiz vê a abertura e as perguntas e
  * respostas acumuladas até o último turno; no caso completo, o `caseText`.
+ *
+ * CC-106 — as respostas dadas antes do plano entram no diálogo, e as
+ * perguntas que a tela mostrou viram itens do juiz (pertinente? já dado?).
  */
 export function judgedCaseView(row: ResultRow, clinicalCase: ClinicalCase): JudgedCaseView {
   if (row.mode !== 'funnel' || !clinicalCase.input.funnel) return completeCaseView(clinicalCase);
+  const answered = new Set(row.intake?.exchanges.map((exchange) => exchange.questionId));
+  const intakeQuestions = (row.intake?.questions ?? [])
+    .filter((question) => answered.has(question.id))
+    .map((question) => ({ question: question.question, why: question.why }));
   return {
     caseText: clinicalCase.input.funnel.opening,
-    dialogue: row.turns.flatMap((turn) =>
-      turn.exchanges.map((exchange) => ({ question: exchange.question, answer: exchange.answer })),
-    ),
+    dialogue: conversationExchanges(row).map((exchange) => ({
+      question: exchange.question,
+      answer: exchange.answer,
+    })),
+    ...(intakeQuestions.length > 0 ? { intakeQuestions } : {}),
   };
 }
 
@@ -208,5 +230,6 @@ export async function gradeResult(
     deterministic,
     judge,
     criticalError: assessCriticalError(clinicalCase, deterministic, judge),
+    conversation: gradeConversation(clinicalCase, row),
   };
 }

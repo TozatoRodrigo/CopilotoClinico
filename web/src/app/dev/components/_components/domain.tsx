@@ -18,11 +18,15 @@ import { ShowcaseSection, Specimen } from './showcase';
 
 const GRIPAL_CASE = DEMO_CASE_PRESETS.find((preset) => preset.slug === 'sindrome-gripal');
 
-/** F1 — plano da decisão v2: agora (conhecimento geral), depende (fonte web), dose sem fonte. */
+/**
+ * F1 — plano da decisão v2: agora (conhecimento geral, com a linha de "por
+ * quê" da CC-601), depende (fonte web), dose sem fonte.
+ */
 const LAYERED_RECOMMENDATIONS: CopilotRecommendation[] = [
   {
     action: 'TC de crânio sem contraste imediata, com angio-TC de crânio e pescoço',
     rationale: 'Separa isquemia de hemorragia e mostra oclusão de grande vaso.',
+    why: 'Só a tomografia separa sangramento de entupimento, e o tratamento de um piora o outro',
     citationChunkId: null,
     confidence: 0.9,
     preliminary: false,

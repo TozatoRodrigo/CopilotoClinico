@@ -14,8 +14,11 @@ export interface RequestContext {
 
 const storage = new AsyncLocalStorage<RequestContext>();
 
-/** Id que o cliente ou o proxy mandam em `x-request-id`, se tiver forma segura de logar. */
-const FORWARDED_REQUEST_ID = /^[A-Za-z0-9._-]{8,64}$/;
+/**
+ * Id que o cliente ou o proxy mandam em `x-request-id`, se tiver forma segura
+ * de logar. Exportado para a busca por requisição no painel de `ai_calls`.
+ */
+export const FORWARDED_REQUEST_ID = /^[A-Za-z0-9._-]{8,64}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function runWithRequestContext<T>(context: RequestContext, run: () => T): T {

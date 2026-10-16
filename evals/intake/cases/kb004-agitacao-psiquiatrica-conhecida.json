@@ -1,0 +1,29 @@
+{
+  "id": "kb004-agitacao-psiquiatrica-conhecida",
+  "source": {
+    "kind": "clinical_case",
+    "caseId": "kb004-agitacao-psiquiatrica-conhecida"
+  },
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Fem, 29a, esquizofrenia acompanhada no CAPS, parou risperidona há 3 sem. Trazida pela mãe: insone, fala acelerada, ouvindo vozes, ameaçando vizinhos — igual às 2 internações anteriores. Orientada, atenção preservada. PA 128x82, FC 92, T 36,7, SpO2 98%, glicemia 96. Nega álcool/drogas; mãe confirma."
+  },
+  "expected": {
+    "sex": "F",
+    "age": 29,
+    "vitals": {
+      "systolicBp": 128,
+      "diastolicBp": 82,
+      "heartRate": 92,
+      "respiratoryRate": null,
+      "spo2": 98,
+      "temperature": 36.7,
+      "glucose": 96
+    },
+    "syndrome": ["agitacao-psicomotora"],
+    "instability": false,
+    "timeCritical": false
+  }
+}

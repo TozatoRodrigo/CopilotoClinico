@@ -500,6 +500,108 @@ describe("RecommendationItem — plano em uma tela", () => {
   });
 });
 
+// CC-601 — a linha de "por quê" em linguagem simples, para o médico sem
+// residência, recolhida até o toque.
+describe("RecommendationItem — CC-601: linha de por quê", () => {
+  const why = "Hipoglicemia imita AVC e se corrige em minutos, à beira do leito";
+  const nowRec: CopilotRecommendation = {
+    ...baseRec,
+    action: "Glicemia capilar agora",
+    rationale: "Hipoglicemia mimetiza AVC e se corrige à beira do leito",
+    citationChunkId: null,
+    layer: "now",
+    dependsOn: null,
+    basis: "model_knowledge",
+    source: "Conhecimento geral do modelo",
+    sourceVersion: "",
+    sourceText: "",
+    sourceUrl: "",
+    origin: "model_knowledge",
+    why,
+  };
+
+  function renderRec(rec: CopilotRecommendation) {
+    render(
+      <RecommendationItem
+        rec={rec}
+        index={0}
+        footnote={null}
+        decision={undefined}
+        onAdopt={vi.fn()}
+        onReject={vi.fn()}
+        onNote={vi.fn()}
+      />,
+    );
+    return screen.getByRole("button", { name: /Por quê/ });
+  }
+
+  it("começa recolhida e abre e fecha ao tocar, com aria-expanded", async () => {
+    const user = userEvent.setup();
+    const toggle = renderRec(nowRec);
+
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText(why)).not.toBeInTheDocument();
+
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText(why)).toBeInTheDocument();
+
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText(why)).not.toBeInTheDocument();
+  });
+
+  it("abre pelo teclado e aponta para a linha que controla", async () => {
+    const user = userEvent.setup();
+    const toggle = renderRec(nowRec);
+
+    await user.tab();
+    expect(toggle).toHaveFocus();
+    await user.keyboard("{Enter}");
+
+    const panel = screen.getByText(why).parentElement;
+    expect(panel).toHaveAttribute("id", toggle.getAttribute("aria-controls"));
+
+    await user.keyboard(" ");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("mostra a linha no lugar da justificativa técnica", async () => {
+    const user = userEvent.setup();
+    await user.click(renderRec(nowRec));
+
+    expect(screen.getByText(why)).toBeInTheDocument();
+    expect(screen.queryByText(nowRec.rationale)).not.toBeInTheDocument();
+  });
+
+  it("mantém a justificativa quando a fonte oficial diverge: é ela que diz no quê", async () => {
+    const user = userEvent.setup();
+    const rationale = `${nowRec.rationale} Fonte oficial diverge: outra via de administração`;
+    await user.click(
+      renderRec({
+        ...nowRec,
+        rationale,
+        preliminary: true,
+        preliminaryReason: "source_conflict",
+      }),
+    );
+
+    expect(screen.getByText(why)).toBeInTheDocument();
+    expect(screen.getByText(rationale)).toBeInTheDocument();
+  });
+
+  it.each([
+    ["sem a flag", { ...nowRec, why: undefined }],
+    ["linha vazia", { ...nowRec, why: "  " }],
+    ["linha nula", { ...nowRec, why: null }],
+  ])("volta à justificativa de sempre (%s)", async (_label, rec) => {
+    const user = userEvent.setup();
+    await user.click(renderRec(rec));
+
+    expect(screen.getByText(nowRec.rationale)).toBeInTheDocument();
+  });
+});
+
 describe("conditionText — o depende de como condição", () => {
   it("mantém a sigla do começo", () => {
     expect(conditionText("TC sem sangramento")).toBe("TC sem sangramento");

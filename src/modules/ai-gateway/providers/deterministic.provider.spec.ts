@@ -4,6 +4,15 @@ import { validateOutput } from '../../copilot/guardrails/output-validator';
 import { INTAKE_READING_JSON_SCHEMA } from '../../copilot/intake/intake-reading.json-schema';
 import { validateIntakeReading } from '../../copilot/intake/intake-reading.schema';
 import { decideIntake } from '../../copilot/intake/intake-gate';
+import { analysisRow, sepsisAnalysis } from '../../../../tests/fixtures/shift-review';
+import { buildReviewMaterial } from '../../shift-review/review-material';
+import { buildReviewQuestionsMessages } from '../../shift-review/review-questions-prompt';
+import {
+  checkReviewQuestions,
+  REVIEW_QUESTIONS_JSON_SCHEMA,
+  ReviewQuestionsOutputSchema,
+} from '../../shift-review/review-questions.schema';
+import { validateStructured } from '../../copilot/understanding/case-understanding.schema';
 import {
   buildCardDraftPrompt,
   CARD_DRAFT_JSON_SCHEMA,
@@ -125,6 +134,28 @@ describe('DeterministicProvider', () => {
 
     it('reads an unstable patient for [instavel]', async () => {
       expect(decideIntake(await readingFor('Rebaixado [instavel]')).path).toBe('unstable');
+    });
+  });
+
+  describe('CC-801 — shift review questions', () => {
+    it('cites the listed sources, so the review runs offline end to end', async () => {
+      const material = buildReviewMaterial([
+        analysisRow(),
+        analysisRow({ rawOutput: sepsisAnalysis(), createdAt: new Date('2026-10-13T12:00:00Z') }),
+      ]);
+
+      const result = await provider.complete({
+        model: 'test-model',
+        messages: buildReviewQuestionsMessages(material, 3),
+        responseSchema: REVIEW_QUESTIONS_JSON_SCHEMA,
+      });
+      const validation = validateStructured(ReviewQuestionsOutputSchema, result.content);
+
+      expect(validation.valid).toBe(true);
+      if (!validation.valid) return;
+      const { accepted, errors } = checkReviewQuestions(validation.value, material);
+      expect(errors).toEqual([]);
+      expect(accepted.map(({ source }) => source.key)).toEqual(['F1', 'F2', 'F1']);
     });
   });
 

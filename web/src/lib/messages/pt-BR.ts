@@ -20,6 +20,7 @@
 
 import type { CitationOrigin, PreliminaryReason, PsSyndrome } from '@contracts/clinical';
 import type { KnowledgeCardClaimKind } from '@contracts/knowledge-cards';
+import type { ShiftReviewConfidence } from '@contracts/shift-review';
 
 export interface Messages {
   common: {
@@ -377,6 +378,65 @@ export interface Messages {
     signing: string;
     error: string;
     confirmed: string;
+  };
+
+  /**
+   * CC-801 — "Revise seu plantão". O guard de tom proíbe a palavra "certeza"
+   * no dicionário inteiro: aqui o grau de segurança é do médico, nunca do
+   * Copiloto, e a tela fala em "o quanto você sabia".
+   */
+  shiftReview: {
+    title: string;
+    entry: {
+      title: string;
+      description: string;
+      remaining: (count: number) => string;
+      preparing: string;
+      action: string;
+      resume: string;
+    };
+    page: {
+      description: string;
+      progress: (current: number, total: number) => string;
+      preparingTitle: string;
+      preparingDescription: string;
+      unavailableTitle: string;
+      unavailableDescription: string;
+      errorTitle: string;
+      backToShift: string;
+    };
+    question: {
+      trueFalse: string;
+      multipleChoice: string;
+      optionsLabel: string;
+      confidenceHeading: string;
+      confidenceHint: string;
+      sending: string;
+    };
+    confidence: Record<ShiftReviewConfidence, string>;
+    feedback: {
+      correct: string;
+      incorrect: string;
+      correctAnswer: (option: string) => string;
+      yourConfidence: (label: string) => string;
+      explanation: string;
+      source: string;
+      openSource: string;
+      openCase: string;
+      next: string;
+      seeSummary: string;
+      answerError: string;
+    };
+    summary: {
+      title: string;
+      score: (correct: number, total: number) => string;
+      byConfidence: string;
+      tally: (correct: number, answered: number) => string;
+      knewButMissed: string;
+      guessedRight: string;
+      calibrated: string;
+      done: string;
+    };
   };
 
   errors: {
@@ -831,6 +891,68 @@ export const ptBR: Messages = {
     signing: 'Assinando conduta…',
     error: 'Não foi possível assinar a conduta. Tente novamente.',
     confirmed: 'Conduta confirmada e assinada',
+  },
+
+  shiftReview: {
+    title: 'Revise seu plantão',
+    entry: {
+      title: 'Revise seu plantão',
+      description: '3 perguntas dos seus casos da semana, com a fonte de cada resposta.',
+      remaining: (count: number) =>
+        count === 1 ? 'Falta 1 pergunta' : `Faltam ${count} perguntas`,
+      preparing: 'Preparando as perguntas dos seus casos…',
+      action: 'Revisar',
+      resume: 'Continuar',
+    },
+    page: {
+      description:
+        'Perguntas geradas das análises dos seus casos dos últimos 7 dias. Responda e diga o quanto sabia.',
+      progress: (current: number, total: number) => `Pergunta ${current} de ${total}`,
+      preparingTitle: 'Preparando suas perguntas',
+      preparingDescription: 'Lendo as análises e as fontes dos seus casos da semana.',
+      unavailableTitle: 'Nada para revisar agora',
+      unavailableDescription:
+        'A revisão aparece quando seus casos da semana têm análise com fonte citada.',
+      errorTitle: 'Não foi possível carregar a revisão',
+      backToShift: 'Voltar ao Plantão',
+    },
+    question: {
+      trueFalse: 'Verdadeiro ou falso',
+      multipleChoice: 'Escolha uma',
+      optionsLabel: 'Alternativas',
+      confidenceHeading: 'Quanto você sabia?',
+      confidenceHint: 'Escolha uma alternativa e responda dizendo o quanto sabia.',
+      sending: 'Enviando…',
+    },
+    confidence: {
+      know: 'Sei',
+      unsure: 'Tenho dúvida',
+      guessed: 'Chutei',
+    },
+    feedback: {
+      correct: 'Você acertou',
+      incorrect: 'Não foi dessa vez',
+      correctAnswer: (option: string) => `Resposta: ${option}`,
+      yourConfidence: (label: string) => `Você marcou: ${label}`,
+      explanation: 'Por quê',
+      source: 'Fonte citada na análise',
+      openSource: 'Abrir a fonte',
+      openCase: 'Ver o caso',
+      next: 'Próxima pergunta',
+      seeSummary: 'Ver resumo',
+      answerError: 'Não foi possível enviar a resposta. Tente novamente.',
+    },
+    summary: {
+      title: 'Resumo da revisão',
+      score: (correct: number, total: number) => `Você acertou ${correct} de ${total}`,
+      byConfidence: 'Acertos × o quanto você sabia',
+      tally: (correct: number, answered: number) =>
+        answered === 0 ? '—' : `${correct} de ${answered}`,
+      knewButMissed: 'Errou marcando "Sei": vale rever esses temas antes do próximo plantão.',
+      guessedRight: 'Acertou chutando: o acerto ainda não é seu, revise a fonte.',
+      calibrated: 'O que você marcou bateu com o resultado.',
+      done: 'Revisão da semana concluída. A próxima sai na segunda-feira.',
+    },
   },
 
   errors: {
