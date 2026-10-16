@@ -1,48 +1,57 @@
 # LGPD — Política de Dados do Copiloto Clínico
 
 **Versão:** 1.1  
-**Data:** 2026-10-10  
-**Base legal:** LGPD (Lei 13.709/2018), CFM Resolução 2.217/2018
+**Data:** 2026-10-14  
+**Base legal:** LGPD (Lei 13.709/2018), CFM Resolução 2.217/2018  
+**Conferido contra:** `codex/production-readiness` (fa829a46), com o que os PRs
+#142, #146, #147, #149, #168, #181, #187 e #196 mudaram. O que está só em PR
+aberto aparece marcado como **em PR aberto (#N)**: ainda não vale em produção.
+
+O sistema trata dados de dois titulares:
+
+- **Médico usuário:** cadastro, sessões, uso do sistema e trilha de auditoria.
+- **Paciente:** identificado só por um `patientRef` opaco. O texto clínico que o
+  médico escreve ou dita pode conter dado pessoal, e o sistema o mascara antes
+  de gravar ou enviar a um modelo.
 
 ## Princípios aplicados
 
-| Princípio LGPD (Art. 6) | Como implementado |
-|---|---|
-| **Finalidade** | Dados clínicos usados exclusivamente para assistência ao médico no atendimento |
-| **Adequação** | Apenas dados necessários ao atendimento são coletados |
-| **Necessidade** | `patientRef` é identificador opaco — não armazenamos identidade do paciente; áudio de captura eliminado 30 dias após o upload |
-| **Livre acesso** | `GET /lgpd/export` — exportação completa dos dados do médico |
-| **Qualidade** | Hash encadeado na auditoria garante integridade dos dados |
-| **Transparência** | Banner de status do CRM no dashboard |
-| **Segurança** | Audit log append-only (AUD-001), verificação de cadeia (AUD-003), texto clínico cifrado em repouso (AES-256-GCM, CC-207/ADR-021) |
-| **Prevenção** | Sem coleta de PII de pacientes — pseudonimização via `patientRef` |
-| **Não discriminação** | N/A |
-| **Responsabilização** | Auditoria completa de todas as ações (AUD-005) |
+| Princípio LGPD (Art. 6) | Como implementado                                                                                                                                                                                                           |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Finalidade**          | Dados clínicos usados para assistir o médico no atendimento                                                                                                                                                                 |
+| **Adequação**           | O caso clínico entra no prompt já redigido; a pesquisa web recebe só o entendimento do caso                                                                                                                                 |
+| **Necessidade**         | `patientRef` é identificador opaco; o arquivo anexado não é gravado, só o texto mascarado; a transcrição direta não grava o áudio; o áudio de captura é eliminado 30 dias após o upload                                    |
+| **Livre acesso**        | `GET /v1/lgpd/export` — exportação em JSON dos dados do médico                                                                                                                                                              |
+| **Qualidade**           | Hash encadeado na auditoria (ADR-015) e `contentHash` nos documentos confirmados                                                                                                                                            |
+| **Transparência**       | Página pública `/privacidade` e aba Privacidade em Configurações (exportar, eliminar, consentimentos)                                                                                                                       |
+| **Segurança**           | Trilha append-only (AUD-001), verificação diária da cadeia, role de banco com menor privilégio, áudio e segredo de MFA cifrados (AES-256-GCM), texto clínico cifrado em repouso (CC-207, ADR-021), cookies httpOnly |
+| **Prevenção**           | Máscara de PII e redação do `patientRef` antes de qualquer gravação de texto clínico ou chamada a modelo; barreira de injeção                                                                                               |
+| **Não discriminação**   | N/A                                                                                                                                                                                                                         |
+| **Responsabilização**   | Trilha de auditoria das ações clínicas e de conta; `ai_calls` registra cada chamada de IA sem texto                                                                                                                         |
 
-## Dados armazenados
+## Como o texto clínico é protegido
 
-### Dados do Médico (Physician)
-- ID, CRM (UF + número), email, nome, status de verificação CRM
-- Tokens de refresh (hash SHA-256 — não o token original)
-- Consentimentos LGPD
+Todo caso e toda resposta do médico passam por três passos antes de gravar e
+antes do modelo (`screenClinicalText` em
+`src/modules/copilot/guardrails/clinical-text-screening.ts`, e o mesmo
+encadeamento no orquestrador):
 
-### Dados de Atendimento (Encounter)
-- `patientRef`: **identificador opaco** fornecido pelo HIS/EMR do hospital (LGPD-001)
-  - Não pode ser CPF, nome ou outro dado pessoal direto
-  - Validado via regex no momento da criação
-- Contexto clínico: disponibilidade de CT, laboratório, UTI, tipo de convênio
+1. `maskPII` troca por marcador: e-mail, CNPJ, CNS, CPF válido, telefone, CEP,
+   data com contexto de nascimento e RG.
+2. `redactPatientRef` troca o `patientRef` do atendimento por
+   `[PATIENT_REF_REDACTED]`, mesmo que o médico o tenha digitado no texto.
+3. `scanForInjection` recusa o pedido antes do modelo e audita só tamanho e
+   sinais (`PROMPT_INJECTION_DETECTED`).
 
-### Interações com IA (AiInteraction)
-- `inputRedacted`: texto clínico com PII removido (CPF, telefone, email, etc.)
-  - O `patientRef` também é substituído por `[PATIENT_REF_REDACTED]` (LGPD-005)
-  - O texto original nunca é armazenado
-- Output do modelo, incerteza, citações, custo, latência
+Limite conhecido: **nomes de pessoas não são detectados**. Um nome digitado no
+caso chega ao banco e ao provedor de IA. A medição está em `pnpm eval:deid`; um
+filtro com OpenMed está **em PR aberto (#172)**, só no harness de avaliação.
 
-### Referências anexadas ao atendimento (EncounterAttachment)
-- Nome, tipo e tamanho do arquivo enviado pelo médico
-- `text`: texto extraído **já mascarado de PII** (LGPD-005); o arquivo original nunca é gravado
+Notas de decisão, comentários de feedback e notas de triagem passam por
+`maskFreeText` (a mesma máscara) antes de gravar.
 
 ### Cifra em repouso do texto clínico (CC-207, ADR-021)
+
 Com `CLINICAL_TEXT_ENCRYPTION=on`, o texto clínico já mascarado é gravado
 cifrado (AES-256-GCM, chave `FIELD_ENCRYPTION_KEY` fora do banco): caso,
 saída do modelo, citações, respostas, motivo da incerteza, conversa antes do
@@ -50,12 +59,35 @@ plano, anexos, transcrições, queixa principal, documentos, notas de decisão,
 comentários de feedback e respostas de protocolo. Um dump do banco lido sem a
 chave não mostra esse texto. Ficam em claro, com o motivo na ADR-021: o
 `patientRef` (identificador opaco, usado na busca), metadados e a trilha de
-auditoria (append-only).
+auditoria (append-only). O padrão da flag é `off`: até alguém ligá-la e rodar
+`pnpm crypto:encrypt-clinical-text`, o texto continua em claro no banco.
 
-### Documentos gerados (Document)
-- Conteúdo SOAP/SBAR/etc. gerado pela IA
-- Edições do médico, confirmação (com hash do conteúdo confirmado)
-- PDF do documento confirmado no object storage (MinIO), referenciado por `pdfObjectKey`
+## Onde há dado pessoal e por quanto tempo
+
+O código não tem prazo automático de retenção para dados clínicos: eles ficam
+até a eliminação pedida pelo médico. As exceções estão na coluna "Retenção".
+
+### Banco (PostgreSQL)
+
+| Tabela                                         | Dado pessoal                                                                                                  | Retenção                                                                                                                                       |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `physicians`                                   | Nome, e-mail, CRM (UF + número), hash bcrypt da senha, segredo de MFA cifrado, idioma, especialidade, papel   | Até a eliminação, que anonimiza nome, e-mail e senha, apaga a especialidade e grava `erased_at` (a sessão cai). CRM e segredo de MFA ficam |
+| `refresh_tokens`                               | SHA-256 do token, validade (7 dias no compose)                                                                | Apagados na eliminação                                                                                                                         |
+| `mfa_backup_codes`                             | SHA-256 dos códigos                                                                                           | Não são apagados na eliminação                                                                                                                 |
+| `login_security_states`                        | SHA-256 do identificador do contador, id do médico, tentativas falhas, bloqueio (CC-025)                      | Sem limpeza                                                                                                                                    |
+| `crm_verification_requests`                    | Status, notas do admin ou da checagem automática                                                              | Não são apagados na eliminação                                                                                                                 |
+| `physician_institutions`                       | Vínculo médico↔instituição                                                                                    | Não são apagados na eliminação                                                                                                                 |
+| `consents`                                     | Escopo, concessão, revogação                                                                                  | Apagados na eliminação                                                                                                                         |
+| `encounters`                                   | `patientRef` opaco, recursos disponíveis, queixa principal derivada da 1ª análise                             | Até a eliminação                                                                                                                               |
+| `case_intakes`                                 | Caso e respostas **já redigidos**, leitura do caso, perguntas                                                 | Cascata do atendimento                                                                                                                         |
+| `ai_interactions`                              | `input_redacted` (caso redigido), saída do modelo, respostas às perguntas, `request_id`                       | Cascata do atendimento                                                                                                                         |
+| `recommendation_decisions`, `copilot_feedback` | Nota, comentário e nota de triagem já mascarados                                                              | Apagados na eliminação                                                                                                                         |
+| `documents`                                    | Conteúdo gerado e editado; prescrição, alta e atestado levam o `patientRef`. O PDF leva nome e CRM do médico  | Cascata do atendimento                                                                                                                         |
+| `encounter_attachments`                        | Nome do arquivo e texto extraído **já mascarado**; o arquivo original nunca é gravado                         | Apagados na eliminação                                                                                                                         |
+| `audio_captures`                               | Áudio cifrado (AES-256-GCM), transcrição mascarada, `retain_until` = upload + 30 dias                         | O áudio sai 30 dias após o upload (ver "Capturas de áudio"); a linha fica como lápide até a eliminação                                       |
+| `protocol_runs`                                | Respostas do passo a passo, motivo de abandono                                                                | Cascata do atendimento                                                                                                                         |
+| `audit_log`                                    | `actor_id`, ação, ids, **IP**, payload                                                                        | **Permanente** (append-only). Sobrevive à eliminação                                                                                           |
+| `ai_calls`                                     | Ids do médico e do atendimento; só metadados, nenhum texto                                                    | **Permanente**, sem FK. Sobrevive à eliminação                                                                                                 |
 
 ### Capturas de áudio (AudioCapture)
 
@@ -80,8 +112,7 @@ Gravadas por `POST /encounters/:encounterId/audio` para transcrição (Whisper).
     `AUDIO_RETENTION_PURGE`) aponta para o id da captura. Com a lápide, a trilha
     continua resolvível e dá para provar por consulta que nenhum áudio passou do
     prazo;
-  - a lápide sai junto com o atendimento (`ON DELETE CASCADE`) no direito de
-    eliminação (`POST /lgpd/erasure`).
+  - a lápide sai no direito de eliminação (`POST /lgpd/erasure`).
 - **Garantias**:
   - CHECK no banco (`audio_captures_content_matches_status`):
     `status = 'deleted'` ⇔ `encrypted_content IS NULL`. Nenhuma captura
@@ -95,8 +126,8 @@ Gravadas por `POST /encounters/:encounterId/audio` para transcrição (Whisper).
 - **Transcrição direta** (`POST /audio/transcribe`, tela de Captura): o áudio
   não é persistido; só o hash SHA-256 vai para a trilha (`AUDIO_TRANSCRIBE`).
 
-### Trilha de Auditoria (AuditLog)
-- Todas as ações do sistema (login, geração, confirmação, etc.)
+### Trilha de auditoria (AuditLog)
+
 - Append-only (AUD-001): o trigger bloqueia UPDATE e DELETE; o REVOKE,
   TRUNCATE. A eliminação não alcança a trilha.
 - Por isso o payload leva só IDs, enums, contagens, hashes e rótulos de
@@ -109,21 +140,23 @@ Gravadas por `POST /encounters/:encounterId/audio` para transcrição (Whisper).
   - **Comentário, nota e motivo vão como SHA-256** (`freeTextHash`, em
     `src/modules/audit/audit-payload.ts`). O texto fica na tabela do domínio;
     o hash prova que ele não foi trocado depois.
+- As decisões por recomendação e as respostas do copiloto guiado também vão
+  para a trilha só como hash.
 
 #### Entradas antigas não mudam
 
 Antes desta regra entrar em produção, estes eventos gravaram texto livre ou
 dado pessoal no payload:
 
-| Ação | Campo | Conteúdo |
-|---|---|---|
-| `ENCOUNTER_ATTACHMENT_ADDED`, `ENCOUNTER_ATTACHMENT_REMOVED`, `PROMPT_INJECTION_DETECTED` (entity `EncounterAttachment`) | `filename` | nome do arquivo anexado |
-| `COPILOT_FEEDBACK` | `comment` | comentário do médico (sem máscara antes do F0-D; com `maskFreeText` depois, que não pega nomes) |
-| `CRM_VERIFICATION_APPROVED`, `CRM_VERIFICATION_REJECTED` | `notes` | nota do admin ou resposta crua da verificação automática |
-| `PROTOCOL_RUN_ABANDONED` | `reason` | motivo digitado pelo médico |
-| `GUIDELINE_REJECTED` | `reason` | motivo do curador ao rejeitar um trecho de diretriz (as telas de curadoria mandam um texto fixo; a API aceita texto livre) |
-| `AUTH_REGISTER` | `email` | email do médico |
-| `CRM_VERIFICATION_REQUESTED` | `crmNumber` | número do CRM do médico (com a UF, identifica o médico no cadastro público do CFM) |
+| Ação                                                                                                                    | Campo       | Conteúdo                                                                                                                   |
+| ----------------------------------------------------------------------------------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `ENCOUNTER_ATTACHMENT_ADDED`, `ENCOUNTER_ATTACHMENT_REMOVED`, `PROMPT_INJECTION_DETECTED` (entity `EncounterAttachment`) | `filename`  | nome do arquivo anexado                                                                                                    |
+| `COPILOT_FEEDBACK`                                                                                                      | `comment`   | comentário do médico (sem máscara antes do F0-D; com `maskFreeText` depois, que não pega nomes)                            |
+| `CRM_VERIFICATION_APPROVED`, `CRM_VERIFICATION_REJECTED`                                                                | `notes`     | nota do admin ou resposta crua da verificação automática                                                                   |
+| `PROTOCOL_RUN_ABANDONED`                                                                                                | `reason`    | motivo digitado pelo médico                                                                                                |
+| `GUIDELINE_REJECTED`                                                                                                    | `reason`    | motivo do curador ao rejeitar um trecho de diretriz (as telas de curadoria mandam um texto fixo; a API aceita texto livre) |
+| `AUTH_REGISTER`                                                                                                         | `email`     | email do médico                                                                                                            |
+| `CRM_VERIFICATION_REQUESTED`                                                                                            | `crmNumber` | número do CRM do médico (com a UF, identifica o médico no cadastro público do CFM)                                         |
 
 Essas linhas ficam como estão. Corrigi-las exigiria desligar o trigger por
 DDL, e reescrever um payload quebra a cadeia de hashes (AUD-003) dali em
@@ -150,31 +183,70 @@ WHERE actor_id = '<physician-id>'
 As notas de verificação de CRM têm o admin como `actor_id`; filtre por
 `payload->>'physicianId'`.
 
-## Direitos do Titular (Médico)
+### Fora do banco
 
-| Direito (Art. 18) | Endpoint |
-|---|---|
-| Acesso | `GET /lgpd/export` |
-| Portabilidade | `GET /lgpd/export` (formato JSON) |
-| Eliminação | `POST /lgpd/erasure` |
-| Revogação de consentimento | `DELETE /lgpd/consent/:scope` |
+| Onde                       | Dado                                                                                                                                                                                                                                                           | Retenção                                                                                                                                                                       |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Redis — fila `inference`   | Só ids (`physicianId`, `encounterId`, `intakeId`) no pedido e no resultado: o caso de `POST .../copilot/analyze/async` e a transcrição da captura de áudio ficam redigidos em `case_intakes`. Job enfileirado antes do CC-011 tem o texto tirado do Redis pelo worker | Job concluído 24 h, falho 7 dias (`removeOnComplete`/`removeOnFail`)                                                                                                           |
+| Redis — cache da busca     | Chave = SHA-256 da consulta; valor = trechos de diretriz                                                                                                                                                                                                       | 60 s                                                                                                                                                                           |
+| Logs do container (stdout) | A linha de erro do log de acesso leva só os nomes dos campos do corpo (`bodyFields=…`). O log da checagem automática de CRM leva UF e número                                                                                                                   | Sem rotação configurada no compose                                                                                                                                             |
+| Object storage (MinIO/S3)  | PDF do documento confirmado                                                                                                                                                                                                                                    | Só com `MINIO_*`, que o compose de produção não repassa de propósito (o PDF é montado no download; ver o runbook). Na eliminação, os PDFs são apagados antes da transação     |
+| Navegador do médico        | Rascunho do caso (`sessionStorage`), fila offline com o caso **sem máscara** (IndexedDB, até reenviar), perfil do médico (`localStorage`), cookies httpOnly `access_token` e `refresh_token`                                                                   | Até enviar, fechar a aba ou sair                                                                                                                                               |
+
+## Suboperadores e o que cada um recebe
+
+| Suboperador                                                 | O que recebe                                                                                                                                                         | Quando                                                                                                                                                                                                                       |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Anthropic** (`AI_PROVIDER=anthropic`, padrão do compose)  | Caso e respostas **já redigidos**, texto mascarado dos anexos, entendimento do caso; trechos de PCDT na classificação                                                | Leitura do caso, entendimento, decisão, verificação, sync da base oficial. Nada com o consentimento `ai_processing` revogado                                                                                                 |
+| **Anthropic — pesquisa web** (`web_search`, `web_fetch`)    | Só o entendimento (síndrome, hipóteses, dados que faltam), nunca o texto do caso                                                                                     | `COPILOT_KNOWLEDGE_SOURCE=web` ou `verify`                                                                                                                                                                                   |
+| **Groq**                                                    | **Áudio do ditado, sem máscara** (Whisper `whisper-large-v3`, ou o de `WHISPER_MODEL`; o compose fixa `WHISPER_BASE_URL` na Groq). A máscara só roda no texto que volta | Todo ditado (`POST /audio/transcribe`) e captura (`POST /encounters/:id/audio`), se o consentimento `ai_processing` não estiver revogado                                                                                     |
+| **Groq — perfil de etapa**                                  | Caso **já redigido**, se uma etapa usar `groq:<modelo>`                                                                                                              | Só com `AI_PROVIDER_PROFILES=groq` e um `AI_*_MODEL` apontando para o perfil                                                                                                                                                 |
+| **OpenAI**                                                  | Texto para embedding: as consultas do entendimento (`stages`) ou o caso redigido (`legacy`); a consulta de diretrizes com `maskPII`; texto de diretrizes na ingestão | `EMBEDDING_PROVIDER=openai` (padrão do compose) com `COPILOT_KNOWLEDGE_SOURCE=internal_kb`, consulta e ingestão de diretrizes. O runbook registra a conta sem crédito desde 11/10/2026 e documenta `EMBEDDING_PROVIDER=none` |
+| **Sentry**                                                  | Exceção e pilha; `beforeSend` tira corpo, query, cookies e cabeçalhos de credencial                                                                                  | Só com `SENTRY_DSN`, que o compose de produção repassa do `.env.production`                                                                                                                                                  |
+| **Umami** (autoalojado em `analytics.servidortozato.cloud`) | Visitas por página, sem cookie; as URLs levam só ids opacos                                                                                                          | Toda página do web em produção (`NEXT_PUBLIC_UMAMI_*` na imagem). Para médico logado, só se o último registro de `analytics` não estiver revogado                                                                           |
+| **Hostinger** (VPS)                                         | Hospeda banco, Redis, API, web e logs                                                                                                                                | Sempre (comentário de `docker/docker-compose.prod.yml`)                                                                                                                                                                      |
+| Verificação de CRM                                          | UF e número do CRM                                                                                                                                                   | Só com `CRM_VERIFICATION_URL`, que o compose de produção não repassa                                                                                                                                                         |
+
+A Conitec/gov.br só fornece PDFs públicos: o sync não envia dado pessoal.
+Requisitos de DPA, retenção e região de cada provedor (Anthropic, OpenAI, Groq
+e Sentry): `docs/compliance/DPA_PROVIDER.md`.
+
+## Direitos do titular (médico)
+
+| Direito (Art. 18)              | Endpoint (prefixo `/v1`, médico logado)                                                  |
+| ------------------------------ | ---------------------------------------------------------------------------------------- |
+| Confirmação e acesso           | `GET /lgpd/export`                                                                       |
+| Portabilidade                  | `GET /lgpd/export` (JSON, `exportVersion: lgpd-portability-v1`)                          |
+| Correção                       | `PATCH /auth/me` (nome, idioma e especialidade). E-mail e CRM não mudam pela API         |
+| Eliminação                     | `POST /lgpd/erasure` (corpo `{ "reason"?: string }`; o motivo não é gravado)             |
+| Informação sobre consentimento | `GET /lgpd/consent`                                                                      |
+| Consentimento                  | `POST /lgpd/consent` com `{ "scope": "ai_processing" \| "data_sharing" \| "analytics" }` |
+| Revogação de consentimento     | `DELETE /lgpd/consent/:scope`                                                            |
+
+O sistema não tem endpoint por `patientRef`: pedidos do paciente chegam pela
+instituição ou pelo médico.
 
 ### O que a exportação inclui
 
-`data` traz, do médico: cadastro (sem hash de senha nem segredo de MFA),
-`encounters`, `encounterAttachments`, `documents`, `aiInteractions`,
-`caseIntakes`, `recommendationDecisions`, `copilotFeedback`, `audioCaptures`,
-`consents` e `auditLog`. Refresh tokens não entram.
+`data` traz:
 
-Os anexos (`encounterAttachments`) vão com o texto redigido inline: é todo o
-conteúdo que guardamos.
+- o cadastro do médico, sem hash de senha, segredo de MFA, `mfaEnabled` nem
+  `erasedAt`;
+- `encounters`, `documents`, `aiInteractions` e `caseIntakes`;
+- `encounterAttachments`, com o texto redigido inline: é todo o conteúdo que
+  guardamos;
+- `audioCaptures`, com metadados (id, atendimento, tipo MIME, tamanho, status,
+  `retainUntil`, datas) e a transcrição já mascarada. O áudio cifrado
+  (`encryptedContent`) não é exportado: está cifrado com a chave do servidor,
+  e decifrá-lo poria a voz do paciente, sem máscara, num arquivo baixado pelo
+  navegador. Entram todas as capturas, inclusive `deleted`, quando o áudio já
+  foi eliminado na retenção;
+- `recommendationDecisions` e `copilotFeedback`;
+- `consents`;
+- `auditLog`, só as entradas em que o médico é o ator.
 
-As capturas de áudio (`audioCaptures`) vão com metadados (id, atendimento, tipo
-MIME, tamanho, status, `retainUntil`, datas) e a transcrição já mascarada de PII.
-O áudio cifrado (`encryptedContent`) não é exportado: está cifrado com a chave do
-servidor, e decifrá-lo poria a voz do paciente, sem máscara, num arquivo baixado
-pelo navegador. Entram todas as capturas, qualquer que seja o status, inclusive
-`deleted`, quando o áudio já foi eliminado na retenção.
+Ficam de fora: execuções de protocolo, pedidos de verificação de CRM, vínculos
+com instituições, refresh tokens, códigos de backup do MFA e `ai_calls`.
 
 ### O que a eliminação faz
 
@@ -182,30 +254,73 @@ pelo navegador. Entram todas as capturas, qualquer que seja o status, inclusive
    storage falhar, nada é apagado no banco e a resposta é 503 — o pedido pode
    ser repetido.
 2. Numa transação: apaga decisões por recomendação, reportes do copiloto,
-   anexos, capturas de áudio, atendimentos (e, em cascata, documentos,
-   interações IA e execuções de protocolo), consentimentos e refresh tokens;
-   anonimiza o cadastro do médico.
-3. Registra `DATA_ERASURE` na trilha com as contagens apagadas.
+   anexos, capturas de áudio, atendimentos (e, em cascata, conversas do
+   copiloto guiado, documentos, interações de IA e execuções de protocolo),
+   consentimentos e refresh tokens; anonimiza o cadastro (nome `ERASED`,
+   e-mail `erased-<id>@erased.com`, senha inutilizada, especialidade apagada) e
+   grava `erased_at`, que derruba a sessão.
+3. Registra `DATA_ERASURE` na trilha com as contagens e responde
+   `{ status: "completed", erased: { … } }`.
 
-A trilha de auditoria **não** é apagada (append-only, AUD-001): é registro de
-obrigação legal (Art. 16, I). O payload não leva texto livre nem dado pessoal;
-entradas gravadas antes dessa regra podem levar e não mudam — ver "Trilha de
-Auditoria" acima.
+Continuam depois da eliminação:
+
+- a trilha de auditoria (append-only, AUD-001): é registro de obrigação legal
+  (Art. 16, I). O payload não leva texto livre nem dado pessoal; entradas
+  gravadas antes dessa regra podem levar e não mudam — ver "Trilha de
+  auditoria" acima. O IP fica;
+- `ai_calls`, com os ids do médico e dos atendimentos;
+- CRM e segredo de MFA no cadastro, códigos de backup, pedidos de verificação
+  de CRM, vínculos com instituições e o estado de bloqueio de login;
+- jobs da fila no Redis até expirarem (24 h ou 7 dias), só com ids;
+- linhas de log já escritas.
+
+### Consentimento
+
+O consentimento é registrado e auditado (`CONSENT_GRANTED`,
+`CONSENT_REVOKED`). Vale o registro mais recente de cada escopo:
+
+- **`ai_processing`**: sem nenhum registro, fica ativo por padrão
+  (`consentDefaults`). Revogado, o `AiConsentGuard` recusa com 403
+  `AI_CONSENT_REVOKED` as rotas que mandam o caso a um modelo (conversa,
+  análise, reanálise, fila, ditado e captura de áudio), e o worker confere de
+  novo antes de analisar. A consulta de diretrizes continua, só por
+  palavra-chave. Histórico, documentos e feedback continuam abertos.
+- **`analytics`**: revogado, o web não carrega o Umami e grava
+  `umami.disabled` no navegador.
+- **`data_sharing`**: só registrado. Hoje nenhum dado vai à instituição nem a
+  terceiros além dos suboperadores acima.
+
+## Página pública `/privacidade`
+
+A página (`web/src/app/privacidade/page.tsx`) foi reescrita para descrever o
+que o código faz (CC-010 e CC-014). O texto depende de revisão jurídica antes
+de ir para produção: a base legal, o consentimento de IA ativo por padrão, a
+resolução do CFM citada, se os suboperadores são nomeados, o prazo da trilha
+com IP e o CNPJ do rodapé.
 
 ## Política de patientRef
 
-O `patientRef` NUNCA deve ser:
-- CPF do paciente (validação rejeita `^\d{11}$` e `\d{3}\.\d{3}\.\d{3}-\d{2}`)
-- Nome completo (validação rejeita dois+ tokens capitalizados)
+O `patientRef` é opcional na criação do atendimento (consulta rápida). Para
+gerar documento, o atendimento precisa dele. Quando preenchido, a validação
+(`src/modules/encounters/schemas/encounter.schemas.ts`) rejeita:
+
+- CPF: `^\d{11}$` e `^\d{3}\.\d{3}\.\d{3}-\d{2}$`;
+- nome completo: duas ou mais palavras com inicial maiúscula (com acentos);
+- mais de 50 caracteres.
 
 O `patientRef` DEVE ser:
+
 - Número de prontuário do HIS: `PRN-2024-00123`
 - UUID interno do hospital: `550e8400-e29b-41d4-a716-446655440000`
-- Hash de CPF com salt por tenant (recomendado para R1/R2)
+- Hash de CPF com salt por instituição
 - Código opaco do sistema: `HOSP-XK9L-2024`
+
+A trilha registra só se o atendimento está identificado (`identified`), nunca
+o valor.
 
 **Refs:** `docs/decisions/ADR-004-patient-ref-pseudonymization.md`
 
 ## Provider de IA
 
-Ver `docs/compliance/DPA_PROVIDER.md` para requisitos de DPA com o provider externo.
+Ver `docs/compliance/DPA_PROVIDER.md` para requisitos de DPA com os provedores
+externos.
