@@ -1,29 +1,45 @@
 import { Injectable, Logger, InternalServerErrorException, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { readWhisperModel, type WhisperModel } from './whisper.settings';
+
+const TRANSCRIPTION_PATH = '/audio/transcriptions';
 
 /**
- * Padrão large-v3 (US$ 0,111/h na Groq). O turbo custa US$ 0,04/h; a troca
- * espera o teste com ditados reais em português.
+ * Falha do provedor de transcrição. Continua sendo um 500 para o cliente; o
+ * status do provedor fica disponível para quem precisa distinguir limite de
+ * uso (429) de outras falhas, como o `pnpm eval:transcription`.
  */
-const DEFAULT_WHISPER_MODEL = 'whisper-large-v3';
-const TRANSCRIPTION_PATH = '/audio/transcriptions';
+export class WhisperApiError extends InternalServerErrorException {
+  constructor(readonly upstreamStatus: number) {
+    super(`Whisper transcription failed (${upstreamStatus})`);
+  }
+}
+
+export interface TranscribeOptions {
+  /** Nome do arquivo enviado ao provedor, sem extensão. */
+  filename?: string;
+  /** Padrão: `WHISPER_MODEL` (whisper.settings.ts). */
+  model?: WhisperModel;
+}
 
 @Injectable()
 export class WhisperService implements OnModuleInit {
   private readonly logger = new Logger(WhisperService.name);
   private baseUrl!: string;
   private apiKey!: string;
-  private model!: string;
 
   constructor(private readonly config: ConfigService) {}
 
   onModuleInit(): void {
     this.baseUrl = this.config.get<string>('WHISPER_BASE_URL', 'https://api.groq.com/openai/v1');
     this.apiKey = this.config.getOrThrow<string>('WHISPER_API_KEY');
-    this.model = this.config.get<string>('WHISPER_MODEL')?.trim() || DEFAULT_WHISPER_MODEL;
   }
 
-  async transcribe(audioBuffer: Buffer, mimeType: string, filename = 'audio'): Promise<string> {
+  async transcribe(
+    audioBuffer: Buffer,
+    mimeType: string,
+    { filename = 'audio', model = readWhisperModel(this.config) }: TranscribeOptions = {},
+  ): Promise<string> {
     const ext = this.extFromMime(mimeType);
     const formData = new FormData();
     const slice = audioBuffer.buffer.slice(
@@ -31,7 +47,7 @@ export class WhisperService implements OnModuleInit {
       audioBuffer.byteOffset + audioBuffer.byteLength,
     ) as ArrayBuffer;
     formData.append('file', new Blob([slice], { type: mimeType }), `${filename}.${ext}`);
-    formData.append('model', this.model);
+    formData.append('model', model);
     formData.append('response_format', 'text');
     formData.append('language', 'pt');
 
@@ -44,8 +60,8 @@ export class WhisperService implements OnModuleInit {
 
     if (!res.ok) {
       const body = await res.text().catch(() => '');
-      this.logger.error(`Whisper API error ${res.status}: ${body}`);
-      throw new InternalServerErrorException(`Whisper transcription failed (${res.status})`);
+      this.logger.error(`Whisper API error ${res.status} model=${model}: ${body}`);
+      throw new WhisperApiError(res.status);
     }
 
     const transcript = await res.text();

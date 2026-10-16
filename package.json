@@ -34,7 +34,8 @@
     "eval:clinical": "tsx evals/clinical/run.ts",
     "eval:clinical:compare": "tsx evals/clinical/compare.ts",
     "eval:deid": "tsx evals/deid/run.ts",
-    "eval:intake": "tsx evals/intake/run.ts"
+    "eval:intake": "tsx evals/intake/run.ts",
+    "eval:transcription": "tsx evals/transcription/run.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.133.0",
