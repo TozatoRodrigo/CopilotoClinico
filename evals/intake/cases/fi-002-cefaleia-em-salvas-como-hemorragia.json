@@ -1,0 +1,29 @@
+{
+  "id": "fi-002-cefaleia-em-salvas-como-hemorragia",
+  "source": {
+    "kind": "clinical_case",
+    "caseId": "fi-002-cefaleia-em-salvas-como-hemorragia"
+  },
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Homem de 38 anos com crises de dor periorbitária esquerda de forte intensidade, cada uma durando cerca de uma hora e cedendo sozinha, repetindo três a quatro vezes por dia há dez dias, várias delas acordando o paciente de madrugada. Durante a crise fica agitado, andando pela sala, com lacrimejamento e rinorreia do lado esquerdo. Exame neurológico normal fora da crise."
+  },
+  "expected": {
+    "sex": "M",
+    "age": 38,
+    "vitals": {
+      "systolicBp": null,
+      "diastolicBp": null,
+      "heartRate": null,
+      "respiratoryRate": null,
+      "spo2": null,
+      "temperature": null,
+      "glucose": null
+    },
+    "syndrome": ["cefaleia"],
+    "instability": false,
+    "timeCritical": false
+  }
+}

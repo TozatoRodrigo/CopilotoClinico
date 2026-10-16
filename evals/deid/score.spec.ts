@@ -41,8 +41,9 @@ describe('scoreMasker', () => {
     const masked = new Map(notes.map((note) => [note.id, note.keep.join(' ')]));
 
     const score = scoreMasker('tudo mascarado', notes, masked);
+    const keepTotal = notes.reduce((total, note) => total + note.keep.length, 0);
 
-    expect(score.fullyClean).toBe(6);
-    expect(score.clinicalKept).toEqual({ kept: 6, total: 6 });
+    expect(score.fullyClean).toBe(notes.length);
+    expect(score.clinicalKept).toEqual({ kept: keepTotal, total: keepTotal });
   });
 });

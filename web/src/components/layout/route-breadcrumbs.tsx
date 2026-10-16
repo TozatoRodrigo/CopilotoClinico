@@ -7,13 +7,16 @@ import {
   ChatCircleText,
   ClipboardText,
   Database,
+  EnvelopeSimple,
   FileText,
   Gear,
   GraduationCap,
   House,
   IdentificationCard,
+  Scales,
   ShieldCheck,
   SquaresFour,
+  Stethoscope,
   UserCircle,
   Users,
 } from '@phosphor-icons/react';
@@ -36,13 +39,17 @@ const STATIC: Record<string, BreadcrumbItem> = {
   'verificacao-crm': { label: 'Verificação de CRM', icon: IdentificationCard },
   'revise-seu-plantao': { label: 'Revisão do plantão', icon: GraduationCap },
   admin: { label: 'Console', icon: SquaresFour },
+  mentoria: { label: 'Mentoria', icon: Stethoscope },
 };
 
 const ADMIN_CHILDREN: Record<string, BreadcrumbItem> = {
   'crm-verifications': { label: 'Verificações CRM', icon: ShieldCheck },
+  termos: { label: 'Termos', icon: Scales },
   diretrizes: { label: 'Diretrizes', icon: Database },
+  beta: { label: 'Beta', icon: EnvelopeSimple },
   feedback: { label: 'Feedback', icon: ChatCircleText },
   analytics: { label: 'Analytics', icon: ChartBar },
+  mentoria: { label: 'Mentoria', icon: Stethoscope },
   users: { label: 'Usuários', icon: Users },
   sistema: { label: 'Sistema', icon: Gear },
 };
@@ -93,6 +100,7 @@ export function RouteBreadcrumbs() {
 
   const items: BreadcrumbItem[] = [{ ...root, href: segments.length > 1 ? `/${first}` : undefined }];
   if (first === 'encounters' && second === 'new') items.push({ label: 'Novo caso' });
+  if (first === 'mentoria' && second) items.push({ label: 'Pedido' });
   if (first === 'admin' && second) {
     const child = ADMIN_CHILDREN[second];
     if (child) items.push({ ...child, href: undefined });

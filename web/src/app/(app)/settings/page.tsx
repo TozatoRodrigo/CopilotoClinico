@@ -9,8 +9,9 @@ import { useAuth } from '@/lib/auth-store';
 import { ProfileTab } from './_tabs/profile-tab';
 import { SecurityTab } from './_tabs/security-tab';
 import { PrivacyTab } from './_tabs/privacy-tab';
+import { SitesTab } from './_tabs/sites-tab';
 import SettingsLoading from './loading';
-import { Gear, UserCircle, ShieldCheck, Lock } from '@phosphor-icons/react';
+import { Gear, Hospital, UserCircle, ShieldCheck, Lock } from '@phosphor-icons/react';
 import type { ComponentType, SVGProps } from 'react';
 
 type IconType = ComponentType<SVGProps<SVGSVGElement>>;
@@ -26,6 +27,8 @@ type IconType = ComponentType<SVGProps<SVGSVGElement>>;
  */
 const TABS: { id: string; label: string; icon: IconType }[] = [
   { id: 'perfil', label: 'Perfil', icon: UserCircle },
+  // CC-602 — o local padrão preenche o contexto de cada caso novo.
+  { id: 'locais', label: 'Locais de plantão', icon: Hospital },
   { id: 'seguranca', label: 'Segurança', icon: ShieldCheck },
   { id: 'privacidade', label: 'Privacidade', icon: Lock },
 ];
@@ -76,7 +79,7 @@ function SettingsShell() {
       <PageHeader
         icon={Gear}
         title="Configurações"
-        description="Gerencie sua conta, segurança e privacidade."
+        description="Gerencie sua conta, seus locais de plantão, segurança e privacidade."
       />
 
       <Tabs
@@ -115,6 +118,9 @@ function SettingsShell() {
         <div className="min-w-0 flex-1">
           <TabsContent value="perfil">
             <ProfileTab physician={physician} />
+          </TabsContent>
+          <TabsContent value="locais">
+            <SitesTab />
           </TabsContent>
           <TabsContent value="seguranca">
             <SecurityTab />

@@ -10,6 +10,7 @@ import {
   loadRun,
   summarizeRun,
   type CaseSummary,
+  type ConversationSummary,
   type LoadedRun,
   type RunSummary,
 } from './report';
@@ -39,6 +40,10 @@ const CASE_FLAGS: Array<[string, (summary: CaseSummary) => Flag]> = [
   ['dados pedidos', (summary) => allPassed(summary.questions)],
   ['sem conduta proibida', (summary) => allPassed(summary.noForbiddenAction)],
   ['próximo passo seguro', (summary) => allPassed(summary.safeNextStep)],
+  // CC-106 — a conversa antes do plano; só conta onde as duas execuções a têm.
+  ['leitura: síndrome', (summary) => allPassed(summary.readingSyndrome)],
+  ['leitura: gravidade', (summary) => allPassed(summary.readingSeverity)],
+  ['pergunta essencial feita', (summary) => allPassed(summary.essentialQuestions)],
 ];
 
 interface Flip {
@@ -106,6 +111,48 @@ const CRITERIA: Array<[keyof RunSummary['criteria'], string]> = [
   ['questions', 'Dados ausentes pedidos (itens)'],
   ['noForbiddenAction', 'Sem conduta proibida'],
   ['safeNextStep', 'Próximo passo seguro'],
+  ['destination', 'Destino com prioridade e conduta até a transferência'],
+];
+
+/** CC-106 — a conversa antes do plano (Copiloto guiado), lado a lado. */
+const CONVERSATION_ROWS: Array<[string, (conversation: ConversationSummary) => string]> = [
+  [
+    'Conversa: perguntou / completo / instável / leitura falhou / desligada',
+    ({ paths }) =>
+      [paths.ask, paths.complete, paths.unstable, paths.reading_failed, paths.disabled]
+        .map((count) => String(count ?? 0))
+        .join(' / '),
+  ],
+  ['Leitura: síndrome de PS esperada', ({ readingSyndrome }) => formatRate(readingSyndrome)],
+  [
+    'Leitura: gravidade não subestimada',
+    ({ readingSeverity, overTriage }) =>
+      `${formatRate(readingSeverity)} · superestimada ${overTriage}`,
+  ],
+  [
+    'Perguntas antes do plano / voltas até o plano (médias)',
+    ({ questionsBeforePlanMean, roundsToFinalPlanMean }) =>
+      `${questionsBeforePlanMean?.toFixed(2) ?? '—'} / ${roundsToFinalPlanMean?.toFixed(2) ?? '—'}`,
+  ],
+  [
+    'Tempo até a 1ª pergunta p50 / p90',
+    ({ firstQuestionP50, firstQuestionP90 }) =>
+      `${formatMs(firstQuestionP50)} / ${formatMs(firstQuestionP90)}`,
+  ],
+  [
+    'Perguntas que alcançaram fato do roteiro',
+    ({ questionsWithScriptFact }) => formatRate(questionsWithScriptFact),
+  ],
+  ['Perguntas pertinentes (juiz)', ({ pertinentQuestions }) => formatRate(pertinentQuestions)],
+  [
+    'Perguntas que pediram dado já dado (juiz)',
+    ({ alreadyGivenQuestions }) => formatRate(alreadyGivenQuestions),
+  ],
+  [
+    'Fatos decisivos revelados antes do plano',
+    ({ keyFactsBeforePlan }) => formatRate(keyFactsBeforePlan),
+  ],
+  ['Sem pergunta essencial faltando', ({ essentialQuestions }) => formatRate(essentialQuestions)],
 ];
 
 export function renderComparison(runs: LoadedRun[], casesById: Map<string, ClinicalCase>): string {
@@ -168,6 +215,11 @@ export function renderComparison(runs: LoadedRun[], casesById: Map<string, Clini
     row('Afunilamento: fatos decisivos revelados', (summary) =>
       summary.funnel ? formatRate(summary.funnel.allKeyFactsRevealed) : '—',
     );
+  }
+  if (summaries.some((summary) => summary.conversation)) {
+    for (const [label, render] of CONVERSATION_ROWS) {
+      row(label, (summary) => (summary.conversation ? render(summary.conversation) : '—'));
+    }
   }
   row(
     'Latência p50 / p90',

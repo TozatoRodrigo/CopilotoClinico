@@ -18,7 +18,11 @@ import type {
   TextCitation,
   ToolUnion,
 } from '@anthropic-ai/sdk/resources/messages/messages';
-import { AiRefusalError, AiTruncatedError } from '../ai-gateway.errors';
+import {
+  AiRefusalError,
+  AiTruncatedError,
+  type AiUnavailabilityReason,
+} from '../ai-gateway.errors';
 import { readChoice, readMaxOutputTokens } from '../ai-gateway.settings';
 import { claudeCapabilities } from './claude-models';
 import {
@@ -166,6 +170,38 @@ function researchCitations(content: readonly ContentBlock[]): ResearchCitation[]
         })
       : [],
   );
+}
+
+/**
+ * O limite de uso do workspace (e o crédito esgotado) volta como 400, não
+ * como 429: "You have reached your specified workspace API usage limits".
+ * Foi o que parou a produção em 11/10 e 14/10/2026.
+ */
+const USAGE_LIMIT_MESSAGE = /usage limits?|credit balance/i;
+
+/**
+ * Quando a falha é da Anthropic e não do pedido. O SDK já tentou de novo
+ * (2x em 408, 409, 429, 5xx e rede) antes de o erro chegar aqui. Um erro no
+ * meio do stream (`event: error`) chega sem status, só com o tipo.
+ */
+export function anthropicUnavailabilityOf(error: unknown): AiUnavailabilityReason | null {
+  if (error instanceof Anthropic.APIUserAbortError) return null;
+  if (error instanceof Anthropic.APIConnectionTimeoutError) return 'timeout';
+  if (error instanceof Anthropic.APIConnectionError) return 'network';
+  if (!(error instanceof Anthropic.APIError)) return null;
+  if (error.type === 'billing_error' || USAGE_LIMIT_MESSAGE.test(error.message)) {
+    return 'usage_limit';
+  }
+  if (error.status === 429 || error.type === 'rate_limit_error') return 'rate_limit';
+  if (error.status === 408 || error.type === 'timeout_error') return 'timeout';
+  if (
+    (error.status !== undefined && error.status >= 500) ||
+    error.type === 'overloaded_error' ||
+    error.type === 'api_error'
+  ) {
+    return 'server_error';
+  }
+  return null;
 }
 
 @Injectable()

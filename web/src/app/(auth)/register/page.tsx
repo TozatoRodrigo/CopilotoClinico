@@ -6,6 +6,12 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-store';
 import { apiClient, ApiError } from '@/lib/api-client';
 import type { AuthResponse } from '@/lib/types';
+import { LogoMark } from '@/components/brand/logo';
+import {
+  BetaInviteField,
+  BetaWaitlistPanel,
+  useBetaRegistration,
+} from '../_components/beta-registration';
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -88,6 +94,8 @@ function getPasswordStrength(password: string): { score: number; label: string; 
 export default function RegisterPage() {
   const { login } = useAuth();
   const router = useRouter();
+  // CC-702 — convite do beta (BETA_INVITE_REQUIRED) e lista de espera.
+  const beta = useBetaRegistration();
   const [form, setForm] = useState<FormState>({
     name: '',
     email: '',
@@ -103,6 +111,19 @@ export default function RegisterPage() {
   const [formError, setFormError] = useState('');
 
   const strength = useMemo(() => getPasswordStrength(form.password), [form.password]);
+
+  // Depois dos hooks: o beta decide a tela (lista de espera ou cadastro).
+  if (beta.loading) {
+    return (
+      <div className="flex justify-center pt-16" role="status" aria-label="Carregando">
+        <LogoMark size="lg" className="animate-pulse" />
+      </div>
+    );
+  }
+
+  if (beta.view === 'waitlist') {
+    return <BetaWaitlistPanel onHaveInvite={beta.showForm} />;
+  }
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -130,8 +151,9 @@ export default function RegisterPage() {
     e.preventDefault();
     setFormError('');
     const errors = validate();
-    if (errors) {
-      setFieldErrors(errors);
+    const inviteOk = beta.validateInvite();
+    if (errors || !inviteOk) {
+      if (errors) setFieldErrors(errors);
       return;
     }
 
@@ -143,11 +165,14 @@ export default function RegisterPage() {
         password: form.password,
         crmUf: form.crmUf,
         crmNumber: form.crmNumber,
+        inviteCode: beta.inviteCodeForRequest,
       });
       login(data.physician);
       toast.success('Conta criada com sucesso!');
-      router.push('/onboarding');
+      // Quem entrou por convite segue para o onboarding do beta.
+      router.push(beta.inviteCodeForRequest ? '/onboarding/beta' : '/onboarding');
     } catch (err) {
+      if (beta.handleRegisterError(err)) return;
       if (err instanceof ApiError) {
         if (
           err.message.toLowerCase().includes('email') &&
@@ -176,6 +201,18 @@ export default function RegisterPage() {
       />
 
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
+        {beta.showInviteField && (
+          <BetaInviteField
+            value={beta.inviteCode}
+            onChange={beta.setInviteCode}
+            error={beta.inviteError}
+            validFromLink={beta.inviteValidFromLink}
+            required={beta.inviteRequired}
+            disabled={loading}
+            onJoinWaitlist={beta.inviteRequired ? beta.showWaitlist : undefined}
+          />
+        )}
+
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="name">Nome (opcional)</Label>
           <Input
