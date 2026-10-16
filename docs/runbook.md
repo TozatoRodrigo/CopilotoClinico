@@ -1283,6 +1283,216 @@ plano já feito) falha sem retry.
 
 ---
 
+## E-mail transacional (CC-015)
+
+O `MailService` (`src/modules/mail`) envia e-mail por SMTP, então serve
+qualquer provedor (SES, Resend, Postmark, Brevo). Sem `SMTP_HOST` nada sai:
+cada envio vira uma linha `MAIL_LOGGED` (INFO) e o fluxo segue como antes.
+Falha do provedor vira `MAIL_SEND_FAILED` (WARN, e aviso no Sentry) e também
+não para o fluxo que pediu o envio.
+
+Todo e-mail sai de um template de `mail-templates.ts`. Nenhum leva texto
+clínico nem identificador de paciente: no máximo um link para a tela, que
+exige login. Templates de hoje: o teste de envio e os dois avisos da mentoria
+(pedido novo, resposta), prontos para a CC-707 ligar (ver "Usos previstos").
+
+### Variáveis
+
+| Variável | Padrão | Uso |
+|---|---|---|
+| `SMTP_HOST` | vazio | Vazio = nenhum e-mail sai (só log) |
+| `SMTP_PORT` | `587` | `587` = STARTTLS; `465` = TLS desde a conexão |
+| `SMTP_SECURE` | conforme a porta | Vazio: `465` liga e as outras não. `true`/`false` força |
+| `SMTP_USER` / `SMTP_PASSWORD` | vazios | Os dois ou nenhum. Com credencial, o envio exige TLS: a senha nunca trafega aberta |
+| `SMTP_FROM` | — | Obrigatório com SMTP: `Copiloto Clínico <nao-responda@dominio>` |
+| `WEB_PUBLIC_URL` | `https://copiloto.servidortozato.cloud` no compose | Base dos links dos e-mails. Obrigatório com SMTP |
+
+Com `SMTP_HOST` preenchido e alguma outra variável errada, o boot registra
+`MAIL_SMTP_CONFIG_INVALID invalid=<nomes das variáveis>` (WARN, sem os
+valores) e nada sai até corrigir. Os prazos são curtos e fixos no código: 5 s
+para conectar e para a saudação, 10 s de silêncio no socket e 10 s para o
+envio inteiro.
+
+### Configurar o provedor
+
+| Provedor | `SMTP_HOST` | `SMTP_PORT` | `SMTP_USER` | `SMTP_PASSWORD` |
+|---|---|---|---|---|
+| Amazon SES (São Paulo) | `email-smtp.sa-east-1.amazonaws.com` | `587` | usuário SMTP gerado no console do SES (não é a access key do IAM) | senha SMTP gerada junto |
+| Resend | `smtp.resend.com` | `587` | `resend` | a API key (`re_...`) |
+| Postmark | `smtp.postmarkapp.com` | `587` | o Server API Token | o mesmo token |
+| Brevo | `smtp-relay.brevo.com` | `587` | o login SMTP da página "SMTP & API" | a chave SMTP (não a API key) |
+
+- **SES começa em sandbox**: só entrega para endereços verificados. Peça a
+  saída do sandbox no console antes do primeiro uso real.
+- O provedor recebe o endereço do médico, que é dado pessoal (nunca dado de
+  paciente). Antes de ligar, confirme o DPA do provedor e registre-o como
+  operador em `docs/compliance/LGPD.md`.
+
+```bash
+# docker/.env.production — aspas no remetente (tem espaço e <>); aspas
+# simples na senha se ela tiver "$" (o compose interpolaria)
+SMTP_HOST=smtp.resend.com
+SMTP_PORT=587
+SMTP_USER=resend
+SMTP_PASSWORD='re_xxxxxxxx'
+SMTP_FROM="Copiloto Clínico <nao-responda@seu-dominio.com.br>"
+
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d copiloto-api
+docker logs copiloto-api 2>&1 | grep MAIL_TRANSPORT
+# Esperado: MAIL_TRANSPORT channel=smtp host=smtp.resend.com port=587 secure=false auth=on
+```
+
+### Domínio remetente: SPF, DKIM e DMARC
+
+Sem os três, o e-mail cai no spam ou é recusado (Gmail e Outlook exigem
+autenticação de quem envia volume). O domínio de `SMTP_FROM` precisa estar
+verificado no provedor; o painel dele mostra os registros exatos ao verificar
+o domínio, e são esses que valem. A forma geral:
+
+| Registro | Nome | Valor (exemplo) |
+|---|---|---|
+| SPF (TXT) | o domínio, ou o subdomínio de retorno que o provedor indicar | `v=spf1 include:<o do provedor> ~all` |
+| DKIM (TXT ou CNAME) | `<seletor>._domainkey.<domínio>` | a chave ou o CNAME que o provedor gerar |
+| DMARC (TXT) | `_dmarc.<domínio>` | `v=DMARC1; p=none; rua=mailto:dmarc@<domínio>` |
+
+- **Um SPF só por nome.** Se o domínio já tem SPF (ex.: o do e-mail
+  corporativo), acrescente o `include:` do provedor ao registro existente;
+  dois registros `v=spf1` invalidam os dois.
+- **DMARC em etapas**: comece com `p=none` e leia os relatórios do `rua` por
+  duas semanas; sem falha de alinhamento, suba para `p=quarantine` e depois
+  `p=reject`.
+- Conferir: mande o e-mail de teste (abaixo) para uma conta Gmail e abra
+  "Mostrar original". SPF, DKIM e DMARC devem aparecer como `PASS`.
+
+### Enviar o e-mail de teste
+
+`POST /v1/admin/mail/test`, só para `ADMIN`, até 3 por minuto. O e-mail vai
+para o endereço da conta do próprio admin (o endpoint não aceita destino:
+não pode virar relay). O jeito mais simples é o console do navegador, logado
+como admin em `https://copiloto.servidortozato.cloud`:
+
+```js
+await (await fetch('/v1/admin/mail/test', { method: 'POST', credentials: 'include' })).json()
+```
+
+Ou com o token de acesso:
+
+```bash
+curl -X POST https://copiloto.servidortozato.cloud/v1/admin/mail/test \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
+```
+
+A resposta é sempre 200; o corpo diz o resultado:
+
+| Resposta | Significado e ação |
+|---|---|
+| `{"status":"sent","messageId":...}` | O provedor aceitou. Procure o `messageId` no painel dele se não chegar |
+| `{"status":"logged","channel":"log"}` | Sem SMTP (ou config inválida): veja `MAIL_TRANSPORT`/`MAIL_SMTP_CONFIG_INVALID` no boot |
+| `reason: "EAUTH"` (`responseCode` 535) | Usuário ou senha SMTP errados. No SES e na Brevo, a credencial SMTP é diferente da chave de API |
+| `reason: "ETLS"` | Há credencial e o servidor não ofereceu STARTTLS. Confira a porta, ou use `465` com `SMTP_SECURE=true` |
+| `reason: "ETIMEDOUT"`, `"ECONNECTION"`, `"EDNS"` | Host ou porta errados, ou a VPS bloqueia a porta de saída. Teste `587` e `465`; a `25` costuma ser bloqueada |
+| `reason: "EENVELOPE"` (`responseCode` 550/554) | Remetente não verificado no provedor, ou SES em sandbox com destinatário não verificado |
+| `reason: "invalid_recipient"` | O e-mail da conta do admin não é um endereço válido |
+
+### No log
+
+| Linha | Nível | Significado |
+|---|---|---|
+| `MAIL_TRANSPORT channel=smtp host=... port=... secure=... auth=on\|off` | INFO, no boot | SMTP ativo |
+| `MAIL_TRANSPORT channel=log reason=smtp_not_configured` | INFO, no boot | Sem `SMTP_HOST`: nada sai |
+| `MAIL_SMTP_CONFIG_INVALID invalid=SMTP_FROM,...` | WARN, no boot | `SMTP_HOST` preenchido e as variáveis listadas erradas: nada sai |
+| `MAIL_SENT template=... to=r***@s***.com.br durationMs=... messageId=...` | INFO | O provedor aceitou |
+| `MAIL_LOGGED template=... to=...` | INFO | Sem SMTP: nada saiu, o fluxo seguiu |
+| `MAIL_SEND_FAILED template=... reason=... responseCode=...` | WARN, e aviso no Sentry | O provedor recusou, estourou o prazo, ou destinatário/template inválido. O fluxo seguiu |
+
+Nenhuma linha leva assunto, corpo ou endereço completo: o destinatário sai
+mascarado e o erro do provedor só pelo código (a mensagem dele costuma repetir
+o endereço). Todas levam `requestId` quando o envio acontece numa requisição.
+
+### Para quem desenvolve
+
+```ts
+// O módulo que envia importa MailModule e injeta MailService.
+const result = await this.mail.send({
+  to: physician.email,
+  template: { name: 'mentoring_answer', params: { path: `/encounters/${id}` } },
+});
+```
+
+- `send` nunca rejeita. Numa requisição do médico, chame sem `await`
+  (`void this.mail.send(...)`) para não somar até 10 s de um provedor lento;
+  num cron, `await` serve.
+- Um destinatário por envio: aviso para vários vira vários `send`, e ninguém
+  vê o endereço do outro.
+- Template novo: um membro na união `MailTemplate`, um `case` em
+  `renderBlocks` e um teste. Parâmetro só do que pode sair por e-mail (link
+  validado, código de convite, números); nada do texto do caso.
+- Sem fila: o envio é direto, com prazo curto. Uma fila poria endereço e corpo
+  no Redis em troca de retry, o que ainda não compensa com poucos e-mails por
+  dia; se o volume crescer, ela entra atrás do mesmo `MailService`.
+- Testar localmente com o Mailpit, sem credencial:
+  `docker run --rm -p 1025:1025 -p 8025:8025 axllent/mailpit` e, no `.env`,
+  `SMTP_HOST=localhost`, `SMTP_PORT=1025`, `SMTP_FROM=dev@copiloto.local`,
+  `WEB_PUBLIC_URL=http://localhost:3001`. Os e-mails aparecem em
+  `http://localhost:8025`.
+
+### Usos previstos
+
+**Mentoria (CC-707, PR #186).** O `MentoringNotifier` do #186 recebe só ids,
+destinatários e o `path`. O adaptador fica em
+`src/modules/mentoring/mail-mentoring.notifier.ts`:
+
+```ts
+@Injectable()
+export class MailMentoringNotifier implements MentoringNotifier {
+  private readonly logger = new Logger('MentoringNotifier');
+
+  constructor(@Inject(MailService) private readonly mail: MailService) {}
+
+  async notifyNewRequest(notice: NewMentoringRequestNotice): Promise<void> {
+    this.logger.log(
+      `MENTORING_NOTIFY event=new_request requestId=${notice.requestId} ` +
+        `recipients=${notice.recipients.length} channel=${this.mail.channel}`,
+    );
+    // Sem await: o pedido do médico não espera o SMTP. Um e-mail por mentor.
+    for (const recipient of notice.recipients) {
+      void this.mail.send({
+        to: recipient.email,
+        template: { name: 'mentoring_new_request', params: { path: notice.path } },
+      });
+    }
+  }
+
+  async notifyAnswer(notice: MentoringAnswerNotice): Promise<void> {
+    this.logger.log(
+      `MENTORING_NOTIFY event=answer requestId=${notice.requestId} ` +
+        `encounterId=${notice.encounterId} channel=${this.mail.channel}`,
+    );
+    void this.mail.send({
+      to: notice.recipient.email,
+      template: { name: 'mentoring_answer', params: { path: notice.path } },
+    });
+  }
+}
+```
+
+No `mentoring.module.ts`: `imports: [MailModule]` e
+`{ provide: MENTORING_NOTIFIER, useClass: MailMentoringNotifier }` no lugar do
+`LogMentoringNotifier`. Sem SMTP, o comportamento é o de hoje mais uma linha
+`MAIL_LOGGED` por destinatário.
+
+**Convite do beta (CC-702).** Template `beta_invite` com `{ inviteCode }`
+(validado por formato, como o `path`) e link fixo para o cadastro; o código
+vai no corpo, não na URL. Convites em lote são o caso que pode pedir a fila.
+
+**Alertas de custo e latência (CC-005, PR #176).** Hoje saem como log ERROR e
+Sentry. Para também mandar e-mail: um template `ai_cost_alert` só com números
+(dia, custo, teto, chamadas, ou p95 e limite), enviado aos `ADMIN` ativos no
+`notify` do `AiCallAlertsCronService`, que já garante uma vez por dia ou por
+hora. Em cron, `await this.mail.send(...)`.
+
+---
+
 ## Multi-tenancy institucional (PROT-004)
 
 Hospitais clientes podem ter protocolos e diretrizes próprios, isolados de
@@ -1464,6 +1674,7 @@ credencial vêm do PR #168 (seção "Sentry" em Monitoramento).
 | `DEID_CONTEXT_RULES` | CC-201/CC-202/CC-206: `on` (padrão) faz a máscara de PII tirar também o número de prontuário pelo rótulo ("prontuário", "RH", "registro", "matrícula", "BE", "nº de atendimento" → `[REDACTED_RECORD]`) e o nome depois de tratamento ou apelido ("Seu Zé", "Dona Cida", "Sr. João", "Tião" → `[NOME]`), sem tocar a lista de epônimos protegidos (`src/modules/copilot/guardrails/protected-clinical-terms.list.ts`, revisão médica pendente). `off` volta à regex anterior, sem redeploy, se aparecer máscara indevida em texto clínico. Ausente ou irreconhecível = `on`. Vale para o caso, as respostas do afunilamento, áudio, anexos, busca de diretrizes e notas livres. No log (debug): `PII detection ... {"record":1,"name":2}`, só a contagem por tipo |
 | `COPILOT_MENTORING` | `on` liga "Discutir com um médico da equipe" (CC-707): o caso vai mascarado, com o plano da IA, para os médicos com `is_mentor`; a resposta aparece no caso. `off` (padrão): nada aparece e as rotas da mentoria respondem 404. Ausente ou irreconhecível = `off`. Termo provisório até o parecer (CC-708). No log: `MENTORING_REQUESTED`, `MENTORING_NOTIFY`, `MENTORING_NO_ELIGIBLE_MENTOR`, `MENTORING_NOTIFY_FAILED` e uma linha por transição. Ver "Mentoria em modo concierge (CC-707)" |
 | `AI_DECISION_MODEL` / `AI_DECISION_CRITICAL_MODEL` | ADR-016: modelo da decisão no caso comum e no caso grave (instável ou tempo-crítico pela Etapa 1, ou sem entendimento). Vazios = `AI_MODEL` nas duas rotas. Crítico vazio = o comum nas duas. Aceitam `perfil:modelo`. No log: `DECISION_MODEL route=critical\|standard model=...`; a interação grava `params.decisionRoute` |
+| `SMTP_HOST` e demais `SMTP_*`, `WEB_PUBLIC_URL` | Vazio: nenhum e-mail sai, cada envio vira `MAIL_LOGGED` no log e o fluxo segue. Preenchido com alguma variável errada: `MAIL_SMTP_CONFIG_INVALID` no boot e também nada sai. Ver "E-mail transacional (CC-015)" |
 | `COPILOT_KNOWLEDGE_SOURCE` | `internal_kb` (padrão) é a busca de sempre (embedding na OpenAI); `model_only` não busca nada; `web` pesquisa em fontes oficiais (`AI_RESEARCH_MODEL`, padrão `claude-sonnet-5-5`; `AI_RESEARCH_EFFORT`, padrão `low`; `WEB_RESEARCH_MAX_SEARCHES`, padrão 5; `WEB_RESEARCH_ALLOWED_DOMAINS`, vazio = 32 fontes padrão). `model_only` e `web` nunca chamam o provedor de embedding. `web` exige `stages` e `COPILOT_DECISION_PROMPT=v2` (sem eles vira `model_only`, com `DECISION_PIPELINE_DOWNGRADE` no log) e Anthropic como `AI_PROVIDER`; pesquisa que falha aparece como `WEB_RESEARCH_FALLBACK` e a análise segue só com o conhecimento do modelo |
 | `AI_DAILY_COST_ALERT_USD` / `AI_P95_ALERT_MS` | CC-005: teto do custo do dia (UTC, em USD) e meta do p95 da decisão na última hora (ms). Vazios ou inválidos = alerta desligado (inválido avisa `AI_CALL_ALERT_THRESHOLD_INVALID` no log). Ver "Alertas de custo e latência da IA" |
 | `COPILOT_SITE_CONTEXT` | CC-602/CC-603: `on` leva à decisão o local de plantão declarado no caso (porte, o que o serviço tem e **não** tem, especialistas, tempo até a referência) e a regra de transferência (destino, prioridade e conduta até a transferência; nada que exija recurso ausente no próprio serviço). Vale nos prompts v1 e v2/v3/v4. `off` (padrão), ou caso sem local declarado, mantém o prompt byte a byte igual. Ausente ou irreconhecível = `off`. No log: `SITE_CONTEXT facilityType=… missing=hasCT,hasICU specialists=n referenceMinutes=…` (sem texto do caso); a interação grava `params.siteContext: true`. Os locais do médico (Configurações → Locais de plantão) exigem a migration `20261014120000_cc_602_practice_sites`; o caso guarda uma cópia do local em `encounters.context.site` |
