@@ -16,6 +16,7 @@ import type {
   Prisma,
   Physician,
   Consent,
+  LegalDocument,
   Encounter,
   EncounterAttachment,
   Document as DocumentRecord,
@@ -107,6 +108,14 @@ export interface PhysicianDataExport {
      */
     mentoringRequests: MentoringRequest[];
     consents: Consent[];
+    /** CC-905 — versões dos termos e da política que o médico aceitou, e quando. */
+    legalAcceptances: Array<{
+      acceptedAt: Date;
+      document: Pick<
+        LegalDocument,
+        'type' | 'version' | 'contentHash' | 'provisional' | 'publishedAt'
+      >;
+    }>;
     auditLog: AuditLog[];
   };
 }
@@ -129,6 +138,8 @@ export interface ErasureResult {
     /** CC-602 — locais de plantão do médico. */
     practiceSites: number;
     consents: number;
+    /** CC-905 — aceites dos termos e da política. */
+    legalAcceptances: number;
     refreshTokens: number;
     /** PDFs de documentos confirmados apagados do MinIO. */
     storageObjects: number;
@@ -351,6 +362,7 @@ export class LgpdService {
     const [
       documents,
       consents,
+      legalAcceptances,
       auditLog,
       aiInteractions,
       recommendationDecisions,
@@ -364,6 +376,22 @@ export class LgpdService {
     ] = await Promise.all([
       this.prisma.document.findMany({ where: { physicianId } }),
       this.prisma.consent.findMany({ where: { physicianId } }),
+      this.prisma.legalAcceptance.findMany({
+        where: { physicianId },
+        orderBy: { acceptedAt: 'asc' },
+        select: {
+          acceptedAt: true,
+          document: {
+            select: {
+              type: true,
+              version: true,
+              contentHash: true,
+              provisional: true,
+              publishedAt: true,
+            },
+          },
+        },
+      }),
       this.prisma.auditLog.findMany({ where: { actorId: physicianId } }),
       hasEncounters
         ? this.prisma.aiInteraction.findMany({ where: ofEncounters })
@@ -410,6 +438,7 @@ export class LgpdService {
         knowledgeGaps,
         mentoringRequests,
         consents,
+        legalAcceptances,
         auditLog,
       },
     };
@@ -476,6 +505,8 @@ export class LgpdService {
       // CC-602 — onde o médico trabalha também é dado dele.
       const practiceSites = await tx.practiceSite.deleteMany({ where: { physicianId } });
       const consents = await tx.consent.deleteMany({ where: { physicianId } });
+      // CC-905 — o aceite sai com a conta; o evento continua na trilha.
+      const legalAcceptances = await tx.legalAcceptance.deleteMany({ where: { physicianId } });
       const refreshTokens = await tx.refreshToken.deleteMany({ where: { physicianId } });
 
       await tx.physician.update({
@@ -501,6 +532,7 @@ export class LgpdService {
         audioCaptures: audioCaptures.count,
         practiceSites: practiceSites.count,
         consents: consents.count,
+        legalAcceptances: legalAcceptances.count,
         refreshTokens: refreshTokens.count,
       };
     });

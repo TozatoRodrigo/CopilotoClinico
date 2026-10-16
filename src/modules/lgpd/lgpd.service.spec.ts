@@ -49,6 +49,10 @@ describe('LgpdService', () => {
       deleteMany: ReturnType<typeof vi.fn>;
       updateMany: ReturnType<typeof vi.fn>;
     };
+    legalAcceptance: {
+      findMany: ReturnType<typeof vi.fn>;
+      deleteMany: ReturnType<typeof vi.fn>;
+    };
     refreshToken: {
       findMany: ReturnType<typeof vi.fn>;
       deleteMany: ReturnType<typeof vi.fn>;
@@ -126,6 +130,10 @@ describe('LgpdService', () => {
         findMany: vi.fn(),
         deleteMany: vi.fn(),
         updateMany: vi.fn(),
+      },
+      legalAcceptance: {
+        findMany: vi.fn().mockResolvedValue([]),
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
       refreshToken: {
         findMany: vi.fn(),
@@ -587,6 +595,7 @@ describe('LgpdService', () => {
           knowledgeGaps,
           mentoringRequests: [],
           consents,
+          legalAcceptances: [],
           auditLog,
         },
       });
@@ -672,6 +681,48 @@ describe('LgpdService', () => {
         where: { encounterId: { in: ['enc-1', 'enc-2'] } },
       });
       expect(result.data.encounterAttachments).toEqual([attachment]);
+    });
+
+    it('exports which versions of the terms and the privacy policy were accepted (CC-905)', async () => {
+      const legalAcceptances = [
+        {
+          acceptedAt: new Date('2026-10-16T10:00:00.000Z'),
+          document: {
+            type: 'terms_of_use',
+            version: '2026-10-15-v2-provisorio',
+            contentHash: 'a'.repeat(64),
+            provisional: true,
+            publishedAt: new Date('2026-10-15T18:00:00.000Z'),
+          },
+        },
+      ];
+      prisma.physician.findUnique.mockResolvedValue({ id: physicianId, email: 'test@test.com' });
+      prisma.encounter.findMany.mockResolvedValue([]);
+      prisma.document.findMany.mockResolvedValue([]);
+      prisma.consent.findMany.mockResolvedValue([]);
+      prisma.auditLog.findMany.mockResolvedValue([]);
+      prisma.legalAcceptance.findMany.mockResolvedValue(legalAcceptances);
+
+      const result = await service.exportPhysicianData(physicianId);
+
+      expect(result.data.legalAcceptances).toEqual(legalAcceptances);
+      // Só o vínculo e a data: nada de id interno do aceite.
+      expect(prisma.legalAcceptance.findMany).toHaveBeenCalledWith({
+        where: { physicianId },
+        orderBy: { acceptedAt: 'asc' },
+        select: {
+          acceptedAt: true,
+          document: {
+            select: {
+              type: true,
+              version: true,
+              contentHash: true,
+              provisional: true,
+              publishedAt: true,
+            },
+          },
+        },
+      });
     });
 
     it('does not query refresh tokens for portability exports', async () => {
@@ -798,6 +849,7 @@ describe('LgpdService', () => {
       prisma.encounter.deleteMany.mockResolvedValue({ count: 2 });
       prisma.practiceSite.deleteMany.mockResolvedValue({ count: 2 });
       prisma.consent.deleteMany.mockResolvedValue({ count: 1 });
+      prisma.legalAcceptance.deleteMany.mockResolvedValue({ count: 2 });
       prisma.refreshToken.deleteMany.mockResolvedValue({ count: 1 });
       prisma.physician.update.mockResolvedValue({
         ...physician,
@@ -828,6 +880,7 @@ describe('LgpdService', () => {
         audioCaptures: 0,
         practiceSites: 2,
         consents: 1,
+        legalAcceptances: 2,
         refreshTokens: 1,
         storageObjects: 0,
       });
@@ -845,6 +898,7 @@ describe('LgpdService', () => {
       expect(prisma.consent.deleteMany).toHaveBeenCalledWith({
         where: { physicianId },
       });
+      expect(prisma.legalAcceptance.deleteMany).toHaveBeenCalledWith({ where: { physicianId } });
       expect(prisma.refreshToken.deleteMany).toHaveBeenCalledWith({
         where: { physicianId },
       });

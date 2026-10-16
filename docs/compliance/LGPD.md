@@ -200,6 +200,13 @@ As notas de verificação de CRM têm o admin como `actor_id`; filtre por
 - Pendente: prazo de retenção da lista de espera e menção na Política de
   Privacidade (revisão jurídica, junto com o texto final do termo do beta).
 
+### Aceite dos termos e da política (CC-905)
+
+- `legal_acceptances`: só o vínculo (médico, versão do documento) e a data — sem IP nem navegador
+- `legal_documents`: cada versão publicada dos Termos de Uso e da Política de Privacidade, com hash do texto e a marca de texto provisório; imutável
+- Entra na exportação (`legalAcceptances`) e sai na eliminação; o evento continua na trilha (`LEGAL_DOCUMENT_ACCEPTED`)
+- Com `LEGAL_TERMS_V2` ligada, quem não aceitou a versão vigente continua podendo exportar, eliminar, revogar consentimento e sair
+
 ### Fora do banco
 
 | Onde                       | Dado                                                                                                                                                                                                                                                           | Retenção                                                                                                                                                                       |

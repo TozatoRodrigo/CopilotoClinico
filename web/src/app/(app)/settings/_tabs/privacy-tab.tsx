@@ -49,6 +49,7 @@ interface ErasureResponse {
     audioCaptures: number;
     practiceSites: number;
     consents: number;
+    legalAcceptances: number;
     refreshTokens: number;
     storageObjects: number;
   };

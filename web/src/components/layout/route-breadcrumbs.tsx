@@ -12,6 +12,7 @@ import {
   Gear,
   House,
   IdentificationCard,
+  Scales,
   ShieldCheck,
   SquaresFour,
   Stethoscope,
@@ -41,6 +42,7 @@ const STATIC: Record<string, BreadcrumbItem> = {
 
 const ADMIN_CHILDREN: Record<string, BreadcrumbItem> = {
   'crm-verifications': { label: 'Verificações CRM', icon: ShieldCheck },
+  termos: { label: 'Termos', icon: Scales },
   diretrizes: { label: 'Diretrizes', icon: Database },
   beta: { label: 'Beta', icon: EnvelopeSimple },
   feedback: { label: 'Feedback', icon: ChatCircleText },

@@ -899,6 +899,53 @@ duas opções:** reativa o atalho do `ts_rank` descrito acima. Atenção também
 com `RETRIEVAL_MIN_SEMANTIC_SCORE=0`: desliga o piso inteiro, inclusive para
 os hits lexicais.
 
+### Termos de uso e política de privacidade (CC-905)
+
+Termos de Uso e Política de Privacidade versionados, com aceite por médico.
+O texto vive no código (`src/modules/legal/legal-document-catalog.ts`); uma
+versão vale quando um ADMIN a publica em **Console → Termos**
+(`/admin/termos`). A vigente de cada tipo é a publicada por último.
+
+Com `LEGAL_TERMS_V2=on`, quem não aceitou a vigente dos dois documentos vê a
+tela de aceite (`/aceite-termos`) ao entrar e a API responde **428**
+`TERMS_ACCEPTANCE_REQUIRED` em toda rota autenticada, exceto `/legal/*`,
+`/admin/legal/*`, `POST /auth/logout` e `/lgpd/*` (exportação, eliminação e
+consentimentos). Desligada (padrão), nada muda, e publicar só deixa a versão
+pronta. Sem versão publicada, nada é exigido mesmo com a flag ligada.
+
+**Ligar (primeira vez):**
+
+1. Migration `20261015180000_cc_905_legal_documents` aplicada.
+2. Console → Termos: publicar os Termos de Uso e a Política de Privacidade.
+3. `LEGAL_TERMS_V2=on` no `docker/.env.production` e reiniciar só a API.
+4. Acompanhar o % de aceite no console.
+
+**Versão nova (ex.: texto final do advogado, CC-006):** acrescentar ao
+catálogo uma versão nova com `provisional: false` (nunca editar uma versão já
+publicada: o publish recusa texto diferente com a mesma versão e o teste de
+hash do catálogo falha), fazer o deploy e publicar pelo console. Todas as
+contas voltam à tela de aceite no próximo acesso, vendo o resumo do que
+mudou. Outras instâncias da API passam a exigir a versão nova em até 30 s.
+
+**No log:** `LEGAL_DOCUMENT_PUBLISHED` (tipo, versão, hash, quem publicou),
+`LEGAL_DOCUMENTS_ACCEPTED` (médico e versões) e `LEGAL_TERMS_REQUIRED`
+(médico e handler bloqueado, sem URL). `LEGAL_AUDIT_FAILED` (ERROR) indica
+que o aceite ou a publicação foi gravado, mas a entrada da trilha falhou. Na
+trilha: `LEGAL_DOCUMENT_PUBLISHED` e `LEGAL_DOCUMENT_ACCEPTED`, entidade
+`LegalDocument`.
+
+```sql
+-- Aceites por versão (a eliminação LGPD apaga os aceites da conta)
+SELECT d.type, d.version, d.provisional, d.published_at, count(a.id) AS accepted
+FROM legal_documents d
+LEFT JOIN legal_acceptances a ON a.document_id = d.id
+GROUP BY d.id ORDER BY d.type, d.published_at DESC;
+```
+
+**Rollback:** `LEGAL_TERMS_V2=off` libera todo mundo na hora, sem redeploy.
+Versão publicada não se apaga (a API não tem `DELETE` em `legal_documents`):
+para corrigir um texto, publique uma versão nova.
+
 ### Ingestão e revisão de diretrizes (KB-002)
 
 A ingestão em lote de diretrizes clínicas usa um pipeline de curadoria: nenhum
@@ -1723,6 +1770,7 @@ credencial vêm do PR #168 (seção "Sentry" em Monitoramento).
 | `COPILOT_KNOWLEDGE_SOURCE` | `internal_kb` (padrão) é a busca de sempre (embedding na OpenAI); `model_only` não busca nada; `web` pesquisa em fontes oficiais (`AI_RESEARCH_MODEL`, padrão `claude-sonnet-5-5`; `AI_RESEARCH_EFFORT`, padrão `low`; `WEB_RESEARCH_MAX_SEARCHES`, padrão 5; `WEB_RESEARCH_ALLOWED_DOMAINS`, vazio = 32 fontes padrão). `model_only` e `web` nunca chamam o provedor de embedding. `web` exige `stages` e `COPILOT_DECISION_PROMPT=v2` (sem eles vira `model_only`, com `DECISION_PIPELINE_DOWNGRADE` no log) e Anthropic como `AI_PROVIDER`; pesquisa que falha aparece como `WEB_RESEARCH_FALLBACK` e a análise segue só com o conhecimento do modelo |
 | `AI_DAILY_COST_ALERT_USD` / `AI_P95_ALERT_MS` | CC-005: teto do custo do dia (UTC, em USD) e meta do p95 da decisão na última hora (ms). Vazios ou inválidos = alerta desligado (inválido avisa `AI_CALL_ALERT_THRESHOLD_INVALID` no log). Ver "Alertas de custo e latência da IA" |
 | `COPILOT_SITE_CONTEXT` | CC-602/CC-603: `on` leva à decisão o local de plantão declarado no caso (porte, o que o serviço tem e **não** tem, especialistas, tempo até a referência) e a regra de transferência (destino, prioridade e conduta até a transferência; nada que exija recurso ausente no próprio serviço). Vale nos prompts v1 e v2/v3/v4. `off` (padrão), ou caso sem local declarado, mantém o prompt byte a byte igual. Ausente ou irreconhecível = `off`. No log: `SITE_CONTEXT facilityType=… missing=hasCT,hasICU specialists=n referenceMinutes=…` (sem texto do caso); a interação grava `params.siteContext: true`. Os locais do médico (Configurações → Locais de plantão) exigem a migration `20261014120000_cc_602_practice_sites`; o caso guarda uma cópia do local em `encounters.context.site` |
+| `LEGAL_TERMS_V2` | CC-905: `on` exige o aceite da versão vigente dos Termos de Uso e da Política de Privacidade (tela de aceite no web, 428 `TERMS_ACCEPTANCE_REQUIRED` na API, exceto aceite, logout e LGPD). `off` (padrão) não muda nada. Ausente ou irreconhecível = `off`. Sem versão publicada no console, nada é exigido. Ver "Termos de uso e política de privacidade (CC-905)" |
 
 ---
 

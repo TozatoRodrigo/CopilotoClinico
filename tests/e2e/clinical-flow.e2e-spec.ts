@@ -329,6 +329,11 @@ function buildPrismaMock() {
       update: vi.fn().mockResolvedValue({}),
     },
 
+    // CC-905 — aceites dos termos e da política entram no export LGPD.
+    legalAcceptance: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
+
     erasureRequest: {
       findFirst: vi.fn().mockResolvedValue(null),
       create: vi.fn().mockResolvedValue({ id: 'erasure-001', status: 'pending' }),
@@ -983,6 +988,7 @@ describe('CC-018 — LGPD erasure ends the session (E2E)', () => {
       encounter: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
       practiceSite: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
       consent: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
+      legalAcceptance: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
       refreshToken: { deleteMany: vi.fn().mockResolvedValue({ count: 1 }) },
       physician: { update: vi.fn().mockResolvedValue({}) },
     };
