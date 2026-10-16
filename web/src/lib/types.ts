@@ -65,6 +65,7 @@ export type {
   SuggestGuidelineResponse,
   Physician,
   PhysicianRole,
+  PhysicianSpecialty,
   PendingGuidelineChunk,
   PreliminaryReason,
   PsSyndrome,

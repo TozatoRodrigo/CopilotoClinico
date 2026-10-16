@@ -12,6 +12,7 @@ import {
   resolveVariantEnv,
   SECRET_KEY,
   VariantError,
+  withGuidedIntake,
   type Variant,
 } from './variants';
 
@@ -121,6 +122,14 @@ describe('resolveVariantEnv', () => {
 
   it('falha nomeando a variável ausente', () => {
     expect(() => resolveVariantEnv(claude, {})).toThrow(/ANTHROPIC_API_KEY/);
+  });
+});
+
+// CC-106 — o afunilamento mede a conversa do Copiloto guiado como em produção.
+describe('withGuidedIntake', () => {
+  it('liga a leitura do caso, a menos que a variante fixe COPILOT_INTAKE', () => {
+    expect(withGuidedIntake({ AI_MODEL: 'm' })).toEqual({ AI_MODEL: 'm', COPILOT_INTAKE: 'on' });
+    expect(withGuidedIntake({ COPILOT_INTAKE: 'off' })).toEqual({ COPILOT_INTAKE: 'off' });
   });
 });
 

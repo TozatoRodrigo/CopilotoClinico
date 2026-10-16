@@ -48,7 +48,34 @@ export interface Physician {
   // web/src/lib/messages/use-messages.ts é quem valida contra os locales
   // suportados antes de resolver o dicionário.
   locale?: string;
+  // CC-014 — escolhida no onboarding ou no perfil; null até o médico escolher.
+  specialty?: PhysicianSpecialty | null;
 }
+
+/**
+ * CC-014 — especialidades que o onboarding e o perfil oferecem. Lista fechada
+ * e validada no PATCH /auth/me. Os slugs são os da base de diretrizes
+ * (`SPECIALTIES` em clinical-vocabulary.ts) quando existem lá, para a
+ * especialidade do médico poder priorizar diretrizes sem tabela de tradução.
+ * Espelhado em web/src/lib/clinical-contract.ts (a imagem do web não tem
+ * ../src); tests/web-mirrors/clinical.spec.ts confere.
+ */
+export const physicianSpecialtyValues = [
+  'medicina_de_emergencia',
+  'clinica_medica',
+  'cardiologia',
+  'pneumologia',
+  'pediatria',
+  'neurologia',
+  'cirurgia_geral',
+  'ortopedia',
+  'ginecologia_obstetricia',
+  'psiquiatria',
+  'anestesiologia',
+  'outra',
+] as const;
+
+export type PhysicianSpecialty = (typeof physicianSpecialtyValues)[number];
 
 export interface AuthResponse {
   physician: Physician;
@@ -164,8 +191,18 @@ export interface Document {
   confirmedBy: string | null;
   confirmedAt: string | null;
   contentHash: string | null;
+  // ADR-018 — algoritmo do contentHash: 1 = legado, 2 = JSON canônico.
+  contentHashVersion: number | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export type DocumentIntegrityStatus = 'unconfirmed' | 'intact' | 'mismatch';
+
+export interface DocumentIntegrity {
+  documentId: string;
+  status: DocumentIntegrityStatus;
+  contentHashVersion: number | null;
 }
 
 export interface AuditEntry {
@@ -581,7 +618,7 @@ export interface CopilotAnalyzeResponse {
 export type RetrievalCoverage = 'full' | 'partial' | 'none';
 
 /**
- * UX-06 — eventos do stream SSE de GET /encounters/:id/copilot/stream e,
+ * UX-06 — eventos do stream SSE da conversa (GET .../intake/:id/stream) e,
  * na reanálise, do corpo de POST /encounters/:id/copilot/respond/stream.
  * Espelha `StreamEvent` de orchestrator.service.ts, mas com `result`
  * tipado como `CopilotAnalyzeResponse` (o formato de wire real que a HTTP
@@ -690,7 +727,8 @@ export interface IntakeAnswer {
  * - `unstable`: paciente instável, plano direto;
  * - `complete`: nada que falte muda a conduta agora;
  * - `reading_failed`: a leitura falhou ou demorou; plano direto;
- * - `disabled`: `COPILOT_INTAKE=off`; plano direto, sem leitura.
+ * - `disabled`: sem leitura, plano direto — `COPILOT_INTAKE=off` ou análise
+ *   pela fila (`POST .../analyze/async`, áudio gravado; CC-011).
  */
 export const INTAKE_PATHS = ['ask', 'unstable', 'complete', 'reading_failed', 'disabled'] as const;
 export type IntakePath = (typeof INTAKE_PATHS)[number];
@@ -1035,4 +1073,19 @@ export interface GuidelineSearchResult {
   institutionId: string | null;
   reviewerName: string | null;
   rank: number;
+}
+
+/**
+ * CC-010 — `code` do 403 de quem revogou o consentimento `ai_processing`
+ * (Configurações → Privacidade). A recusa sai antes de qualquer chamada de IA:
+ * leitura do caso, análise, reanálise e transcrição do ditado. A mensagem já
+ * vem escrita para o médico; o web a mostra como qualquer outro erro.
+ */
+export const AI_CONSENT_REVOKED = 'AI_CONSENT_REVOKED' as const;
+
+export interface AiConsentRevokedError {
+  statusCode: 403;
+  error: 'Forbidden';
+  code: typeof AI_CONSENT_REVOKED;
+  message: string;
 }

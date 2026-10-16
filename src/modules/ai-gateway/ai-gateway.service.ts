@@ -15,10 +15,12 @@ import { AnthropicProvider } from './providers/anthropic.provider';
 import { OpenAIProvider } from './providers/openai.provider';
 import { DeterministicProvider } from './providers/deterministic.provider';
 import { readFlag } from './ai-gateway.settings';
-import { AiEmbeddingsDisabledError } from './ai-gateway.errors';
+import { AiEmbeddingsDisabledError, errorTypeOf } from './ai-gateway.errors';
 import { AI_CALL_SINK, type AiCallSink } from './ai-call-trace';
 import { TracingAiProvider } from './tracing-provider';
 import { DEFAULT_PROFILE, parseModelRef, readProviderProfiles } from './provider-profiles';
+import { errorAfterFailedFallback, readFallbackModel, unavailabilityOf } from './provider-fallback';
+import { currentRequestContext } from '../../shared/request-context/request-context';
 
 /** Valor de `EMBEDDING_PROVIDER` que desliga os embeddings. */
 export const EMBEDDINGS_DISABLED = 'none';
@@ -44,6 +46,44 @@ export interface ModelRoute {
   profile: string;
   provider: AIProvider;
   model: string;
+}
+
+/** O que quem chama passa: o modelo é opcional, e a marca da reserva é só do gateway. */
+export type GatewayCompletionParams = Omit<CompletionParams, 'model' | 'fallbackFrom'> & {
+  model?: string;
+};
+
+interface PreparedCall {
+  route: ModelRoute;
+  params: CompletionParams;
+}
+
+/**
+ * Repassa os deltas e marca o primeiro: depois dele a etapa não troca de
+ * modelo. Fecha a fonte se quem consome sair no meio, como o `yield*` faria,
+ * para o modelo parar de gerar.
+ */
+async function* trackFirstDelta<Result>(
+  source: AsyncIterator<string, Result>,
+  progress: { started: boolean },
+): AsyncGenerator<string, Result> {
+  let settled = false;
+  try {
+    for (;;) {
+      const next = await source.next();
+      if (next.done) {
+        settled = true;
+        return next.value;
+      }
+      progress.started = true;
+      yield next.value;
+    }
+  } catch (error) {
+    settled = true;
+    throw error;
+  } finally {
+    if (!settled) await source.return?.();
+  }
 }
 
 @Injectable()
@@ -128,19 +168,30 @@ export class AiGatewayService {
 
     const profileSummary = profiles.map(({ name, kind }) => `${name}=${kind}`).join(',');
     this.logger.log(
-      `AI Gateway: completion=${this.getProviderName()}, profiles=${profileSummary || '-'}, embedding=${this.getEmbeddingProviderName()}`,
+      `AI Gateway: completion=${this.getProviderName()}, profiles=${profileSummary || '-'}, ` +
+        `embedding=${this.getEmbeddingProviderName()}, fallback=${readFallbackModel(this.config, 'other') ?? '-'}`,
     );
   }
 
-  async complete(
-    params: Omit<CompletionParams, 'model'> & { model?: string },
-  ): Promise<CompletionResponse> {
-    const { provider, fullParams } = this.prepare(params);
+  /** Com reserva configurada, uma falha por indisponibilidade repete a chamada no modelo dela. */
+  async complete(params: GatewayCompletionParams): Promise<CompletionResponse> {
+    const call = this.prepare(params);
 
     this.logger.debug(
-      `Completion request: model=${fullParams.model}, messages=${fullParams.messages.length}`,
+      `Completion request: model=${call.params.model}, messages=${call.params.messages.length}`,
     );
-    const result = await provider.complete(fullParams);
+    let result: CompletionResponse;
+    try {
+      result = await call.route.provider.complete(call.params);
+    } catch (error) {
+      const fallback = this.fallbackFor(call, error);
+      if (!fallback) throw error;
+      try {
+        result = await fallback.route.provider.complete(fallback.params);
+      } catch (fallbackError) {
+        throw this.fallbackFailed(fallback, error, fallbackError);
+      }
+    }
     this.logger.debug(
       `Completion response: latency=${result.latencyMs}ms, tokens=${result.usage.totalTokens}`,
     );
@@ -151,16 +202,31 @@ export class AiGatewayService {
    * Emite os deltas de texto e devolve, como valor de retorno do gerador,
    * texto final, modelo, usage e stop reason — `for await` continua
    * funcionando; quem precisa do custo itera com `next()` até `done`.
+   *
+   * A reserva só entra se o stream cair antes do primeiro delta: depois dele,
+   * trocar de modelo misturaria duas respostas.
    */
   async *completeStream(
-    params: Omit<CompletionParams, 'model'> & { model?: string },
+    params: GatewayCompletionParams,
   ): AsyncGenerator<string, StreamCompletionResult> {
-    const { provider, fullParams } = this.prepare(params);
+    const call = this.prepare(params);
 
     this.logger.debug(
-      `Stream request: model=${fullParams.model}, messages=${fullParams.messages.length}`,
+      `Stream request: model=${call.params.model}, messages=${call.params.messages.length}`,
     );
-    const result = yield* provider.completeStream(fullParams);
+    const progress = { started: false };
+    let result: StreamCompletionResult;
+    try {
+      result = yield* trackFirstDelta(call.route.provider.completeStream(call.params), progress);
+    } catch (error) {
+      const fallback = this.fallbackFor(call, error, progress.started);
+      if (!fallback) throw error;
+      try {
+        result = yield* fallback.route.provider.completeStream(fallback.params);
+      } catch (fallbackError) {
+        throw this.fallbackFailed(fallback, error, fallbackError);
+      }
+    }
     this.logger.debug(
       `Stream response: model=${result.model}, tokens=${result.usage.totalTokens}, stop=${result.stopReason ?? '-'}`,
     );
@@ -216,19 +282,70 @@ export class AiGatewayService {
     return { profile, provider, model };
   }
 
-  private prepare(params: Omit<CompletionParams, 'model'> & { model?: string }): {
-    provider: AIProvider;
-    fullParams: CompletionParams;
-  } {
-    const { provider, model } = this.route(params.model);
+  private prepare(params: GatewayCompletionParams): PreparedCall {
+    const route = this.route(params.model);
     return {
-      provider,
-      fullParams: {
+      route,
+      params: {
         ...params,
-        model,
+        model: route.model,
         responseSchema: this.structuredOutputEnabled ? params.responseSchema : undefined,
       },
     };
+  }
+
+  /**
+   * A chamada no modelo de reserva, quando cabe: reserva configurada para a
+   * etapa, falha por indisponibilidade, nenhum delta emitido e reserva em
+   * outro perfil — no mesmo, o host que caiu responderia de novo. O log não
+   * leva texto do caso: só etapa, perfis, modelos, motivo e classe do erro.
+   */
+  private fallbackFor(
+    call: PreparedCall,
+    error: unknown,
+    streamStarted = false,
+  ): PreparedCall | null {
+    const stage = call.params.stage ?? 'other';
+    const fallbackRef = readFallbackModel(this.config, stage);
+    if (!fallbackRef) return null;
+    const reason = unavailabilityOf(error);
+    if (!reason) return null;
+
+    const route = this.route(fallbackRef);
+    const fields =
+      `stage=${stage} from=${call.route.profile} fromModel=${call.route.model} ` +
+      `to=${route.profile} toModel=${route.model} reason=${reason} error=${errorTypeOf(error)} ` +
+      `requestId=${currentRequestContext()?.requestId ?? '-'}`;
+    const skipped =
+      route.profile === call.route.profile
+        ? 'reserva no mesmo perfil que caiu'
+        : streamStarted
+          ? 'o stream já tinha começado'
+          : null;
+    if (skipped) {
+      this.logger.warn(`AI_FALLBACK_SKIPPED ${fields}: ${skipped}`);
+      return null;
+    }
+
+    this.logger.warn(`AI_FALLBACK ${fields}`);
+    return {
+      route,
+      params: { ...call.params, model: route.model, fallbackFrom: call.route.profile },
+    };
+  }
+
+  /** A reserva também falhou: fica no log e volta o erro que explica a falha (provider-fallback.ts). */
+  private fallbackFailed(
+    fallback: PreparedCall,
+    original: unknown,
+    fallbackError: unknown,
+  ): unknown {
+    this.logger.error(
+      `AI_FALLBACK_FAILED stage=${fallback.params.stage ?? 'other'} from=${fallback.params.fallbackFrom ?? '-'} ` +
+        `to=${fallback.route.profile} toModel=${fallback.route.model} original=${errorTypeOf(original)} ` +
+        `error=${errorTypeOf(fallbackError)} requestId=${currentRequestContext()?.requestId ?? '-'}`,
+    );
+    return errorAfterFailedFallback(original, fallbackError);
   }
 
   /** Nome do provedor (`anthropic`, `openai`, `test`) que atende a referência; sem ela, o de `AI_MODEL`. */

@@ -2,7 +2,7 @@
 
 **Status:** ⚠️ PENDENTE — Verificação manual necessária antes de produção  
 **Tarefa:** LGPD-005 — https://app.clickup.com/t/90132565680/86ahx6fkc  
-**Data de revisão:** 2026-06-05
+**Data de revisão:** 2026-10-13 (Groq, Sentry e modelos abertos)
 
 ## O que é este documento
 
@@ -35,6 +35,21 @@ Antes de colocar em produção com dados reais de pacientes, verificar:
 - DPA disponível: https://openai.com/policies/data-processing-addendum
 - Zero-retenção: `"training": false` na API (verificar headers da requisição)
 - Ação requerida: confirmar DPA assinado com cliente empresarial
+- Em produção desde 12/10/2026: nenhuma chamada (`EMBEDDING_PROVIDER=none`, decisão na Anthropic)
+
+### Groq (já em uso: ditado por voz; candidata a modelo de etapa)
+- O que recebe hoje: **o áudio do ditado, antes de qualquer máscara** (`WHISPER_PROVIDER=groq`, `whisper-large-v3`). O texto transcrito passa pelo `maskPII()` só depois de voltar.
+- O que pode receber: texto do caso já redigido, se um perfil `groq` for usado numa etapa (`AI_PROVIDER_PROFILES`, runbook "Um provedor por etapa").
+- Retenção: a documentação diz que entradas e saídas de inferência não são guardadas por padrão, mas podem ficar até 30 dias para confiabilidade e abuso. **Zero Data Retention** (ZDR) se liga no console (Data Controls) e desliga batch e fine-tuning, que não usamos. https://console.groq.com/docs/your-data
+- Região: dados guardados em buckets do Google Cloud nos EUA. É transferência internacional (LGPD Art. 33).
+- Ação requerida: ligar ZDR na organização, guardar evidência (captura do Data Controls com data), confirmar os termos de uso para treino e listar a Groq entre os suboperadores da política de privacidade.
+
+### Sentry (monitoramento de erros)
+- Recebe a exceção e a pilha de chamadas dos erros 5xx e alertas por mensagem, quando `SENTRY_DSN` está configurado. O corpo da requisição não é enviado (`sendDefaultPii` desligado), e os logs de acesso só registram os nomes dos campos do corpo.
+- Ação requerida: confirmar região e retenção do projeto no Sentry antes de ligar o DSN em produção.
+
+### Modelos abertos de empresas chinesas (GLM, Qwen, DeepSeek, Kimi)
+- Só por provedores nos EUA ou na UE com retenção zero (ex.: Groq). Nunca pelas APIs próprias das empresas de origem com texto clínico.
 
 ## Proteções implementadas no código (independentes do DPA)
 
