@@ -23,6 +23,7 @@ import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { InternalServiceGuard } from '../../shared/guards/internal-service.guard';
 import { RolesGuard } from '../../shared/guards/roles.guard';
 import { Roles } from '../../shared/decorators/roles.decorator';
+import { AllowWithoutLegalAcceptance } from '../../shared/decorators/legal-acceptance.decorator';
 import {
   registerSchema,
   loginSchema,
@@ -106,6 +107,8 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
+  // CC-905 — quem não aceitou os termos novos precisa conseguir sair.
+  @AllowWithoutLegalAcceptance()
   async logout(
     @Request()
     req: {
@@ -141,6 +144,9 @@ export class AuthController {
   @Patch('me/password')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
+  // Confere a senha atual como o login, então o mesmo teto contra tentativa
+  // em série com um token de acesso roubado.
+  @Throttle({ short: { limit: 5, ttl: 60000 } })
   async changePassword(
     @Request() req: { user: { physicianId: string } },
     @Body(new ZodValidationPipe(changePasswordSchema)) body: ChangePasswordInput,

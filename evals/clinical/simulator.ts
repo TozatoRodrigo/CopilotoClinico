@@ -21,6 +21,9 @@ import type { FunnelExchange } from './records';
  * decisivo — o que a entrega só da abertura, no gabarito v1, cobrava como se
  * o Copiloto devesse adivinhar.
  *
+ * CC-106 — responde também às perguntas da leitura do caso, antes do plano
+ * (Copiloto guiado), com as opções de toque que a tela mostraria.
+ *
  * O roteiro e as perguntas vêm de fora (PDF oficial, saída do Copiloto):
  * entram como dados, com `<` escapado, e os ids de fato devolvidos são
  * conferidos contra o roteiro.
@@ -39,10 +42,22 @@ REGRAS
 export interface SimulatorQuestion {
   id: string;
   question: string;
+  /**
+   * CC-106 — opções de toque da pergunta da leitura do caso. A resposta
+   * começa pela opção, como o médico tocaria na tela: é o que a conversa usa
+   * para reconhecer a resposta urgente ("Sim, há 2 h" → "Sim").
+   */
+  choices?: readonly string[];
 }
 
 function escapeTag(text: string): string {
   return text.replace(/</g, '&lt;');
+}
+
+function choicesHint(choices: readonly string[] | undefined): string {
+  if (!choices || choices.length === 0) return '';
+  const options = choices.map((choice) => `"${escapeTag(choice)}"`).join(' | ');
+  return ` (opções: ${options} — comece a resposta pela opção que o roteiro sustenta; se o roteiro não responde, use a opção de quem não sabe, quando houver)`;
 }
 
 export function buildSimulatorUserPrompt(
@@ -54,7 +69,10 @@ export function buildSimulatorUserPrompt(
     .map((fact) => `[${fact.id}] (${fact.kind}) ${escapeTag(fact.text)}`)
     .join('\n');
   const asked = questions
-    .map((question) => `[${question.id}] ${escapeTag(question.question)}`)
+    .map(
+      (question) =>
+        `[${question.id}] ${escapeTag(question.question)}${choicesHint(question.choices)}`,
+    )
     .join('\n');
   const ordered = orders.map((order) => `- ${escapeTag(order)}`).join('\n');
   return `<abertura>\n${escapeTag(funnel.opening)}\n</abertura>

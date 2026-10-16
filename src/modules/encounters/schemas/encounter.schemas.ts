@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { encounterStatusValues, encounterVerticalValues } from '../../../shared/contracts/clinical';
+import { encounterContextSchema, encounterContextUpdateSchema } from './encounter-context.schema';
 
 /**
  * Validação LGPD-001: patientRef deve ser um identificador opaco.
@@ -54,14 +55,8 @@ export const createEncounterSchema = z.object({
   patientRef: patientRefSchema.optional(),
   vertical: z.string().min(1).default('trauma'),
   institutionId: z.string().uuid().optional(),
-  context: z
-    .object({
-      hasCT: z.boolean().default(false),
-      isSus: z.boolean().default(false),
-      hasLab: z.boolean().default(false),
-      hasICU: z.boolean().default(false),
-    })
-    .default({}),
+  // CC-602 — recursos e, quando o médico escolheu um, o local de plantão.
+  context: encounterContextSchema.default({}),
 });
 
 export type CreateEncounterInput = z.infer<typeof createEncounterSchema>;
@@ -72,14 +67,7 @@ export const updateEncounterSchema = z.object({
   // rápida, "promovendo" o encontro para a fila do Plantão. Mesma validação
   // de LGPD-001 do campo na criação (nunca CPF ou nome completo).
   patientRef: patientRefSchema.optional(),
-  context: z
-    .object({
-      hasCT: z.boolean(),
-      isSus: z.boolean(),
-      hasLab: z.boolean(),
-      hasICU: z.boolean(),
-    })
-    .optional(),
+  context: encounterContextUpdateSchema.optional(),
   // UX-04 — vertical deixa de ser obrigatória na criação do caso (passa a
   // default silenciosamente para 'general'); o médico pode confirmar ou
   // corrigi-la depois, sem bloquear a captura. Ver encounters/new/page.tsx.

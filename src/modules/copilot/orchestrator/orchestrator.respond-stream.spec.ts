@@ -171,6 +171,8 @@ describe('OrchestratorService — reanálise por streaming', () => {
     const prisma = {
       aiInteraction: { create: interactionCreate, findFirst: interactionFindFirst },
       physician: { findUnique: vi.fn().mockResolvedValue(null) },
+      // CC-019 — o médico segue com vínculo ativo com a instituição do caso.
+      physicianInstitution: { findMany: vi.fn().mockResolvedValue([{ institutionId: 'inst-1' }]) },
     };
     const encounters = {
       findById: vi.fn().mockResolvedValue({

@@ -1,0 +1,33 @@
+{
+  "id": "cm-avc-hemorragico-anticoagulado",
+  "source": {
+    "kind": "clinical_case",
+    "caseId": "cm-avc-hemorragico-anticoagulado"
+  },
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Fem, 78a, FA em uso de varfarina. Cefaleia súbita seguida de hemiparesia E e sonolência há 1h. Glasgow 13, PA 204x112, FC 92 irregular. TC crânio s/ contraste: hematoma talâmico D ~20 mL com inundação ventricular. INR ainda não saiu.",
+    "redFlags": {
+      "anticoagulant": true,
+      "elderly65": true
+    }
+  },
+  "expected": {
+    "sex": "F",
+    "age": 78,
+    "vitals": {
+      "systolicBp": 204,
+      "diastolicBp": 112,
+      "heartRate": 92,
+      "respiratoryRate": null,
+      "spo2": null,
+      "temperature": null,
+      "glucose": null
+    },
+    "syndrome": ["deficit-neurologico-focal"],
+    "instability": true,
+    "timeCritical": true
+  }
+}

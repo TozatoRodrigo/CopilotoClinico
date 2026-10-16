@@ -88,9 +88,10 @@ export function SecurityTab() {
     queryFn: () => apiClient.get<Session[]>('/auth/me/sessions'),
   });
 
+  // CC-014 — a rota é PATCH (AuthController); com POST a troca dava 404.
   const changePasswordMutation = useMutation({
     mutationFn: () =>
-      apiClient.post('/auth/me/password', {
+      apiClient.patch('/auth/me/password', {
         currentPassword,
         newPassword,
       }),

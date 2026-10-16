@@ -1,0 +1,30 @@
+{
+  "id": "kb001-ch-001",
+  "source": {
+    "kind": "clinical_case",
+    "caseId": "kb001-ch-001"
+  },
+  "review": {
+    "status": "draft",
+    "notes": "PA medida duas vezes: vale qualquer uma das duas."
+  },
+  "input": {
+    "caseText": "F 34a, PA 220x120 na triagem, repetida após 10 min: 218x122. FC 90."
+  },
+  "expected": {
+    "sex": "F",
+    "age": 34,
+    "vitals": {
+      "systolicBp": [220, 218],
+      "diastolicBp": [120, 122],
+      "heartRate": 90,
+      "respiratoryRate": null,
+      "spo2": null,
+      "temperature": null,
+      "glucose": null
+    },
+    "syndrome": ["pressao-arterial-elevada"],
+    "instability": false,
+    "timeCritical": false
+  }
+}

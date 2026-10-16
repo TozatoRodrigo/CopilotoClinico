@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { physicianSpecialtyValues } from '../../../shared/contracts/clinical';
 
 export const registerSchema = z.object({
   email: z.string().email(),
@@ -15,6 +16,9 @@ export const registerSchema = z.object({
     .regex(/^[A-Z]{2}$/, 'CRM UF must be 2 uppercase letters'),
   crmNumber: z.string().min(1, 'CRM number is required'),
   name: z.string().min(1).optional(),
+  // CC-702 — código de convite do beta, como o médico digitou (o serviço
+  // normaliza). Obrigatório só com BETA_INVITE_REQUIRED ligada.
+  inviteCode: z.string().trim().max(32).optional(),
 });
 
 export const loginSchema = z.object({
@@ -92,6 +96,9 @@ export const updateProfileSchema = z.object({
   // model Physician): validação de locale suportado fica na aplicação para
   // não exigir migração a cada novo idioma.
   locale: z.enum(['pt-BR', 'es']).optional(),
+  // CC-014 — o onboarding mandava a especialidade e o z.object a descartava
+  // sem erro. Lista fechada: valor fora dela é 400, não some calado.
+  specialty: z.enum(physicianSpecialtyValues).optional(),
 });
 
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;

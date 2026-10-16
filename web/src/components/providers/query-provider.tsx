@@ -13,6 +13,8 @@ function createQueryClient() {
         // page (e.g. the dashboard's 3 parallel fetches) expire together.
         retry: (failureCount, error) => {
           if (error instanceof ApiError && error.status === 401) return false;
+          // CC-905 — 428 só passa com o aceite dos termos; repetir não adianta.
+          if (error instanceof ApiError && error.status === 428) return false;
           return failureCount < 1;
         },
         staleTime: 30_000,

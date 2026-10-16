@@ -5,6 +5,7 @@ import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import { uploadAudioSchema, transcribeDirectSchema } from './schemas/audio.schemas';
 import type { UploadAudioInput, TranscribeDirectInput } from './schemas/audio.schemas';
+import { RequiresAiConsent } from '../lgpd/ai-consent.guard';
 
 @Controller()
 @UseGuards(JwtAuthGuard)
@@ -17,6 +18,7 @@ export class AudioController {
    * clínico permanente do encontro.
    */
   @Post('encounters/:encounterId/audio')
+  @RequiresAiConsent()
   @HttpCode(202)
   upload(
     @Request() req: { user: { physicianId: string } },
@@ -34,6 +36,7 @@ export class AudioController {
    * contínuo sem abuso.
    */
   @Post('audio/transcribe')
+  @RequiresAiConsent()
   @HttpCode(200)
   @Throttle({ short: { limit: 20, ttl: 60000 } })
   transcribe(
