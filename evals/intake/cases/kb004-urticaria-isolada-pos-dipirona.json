@@ -1,0 +1,29 @@
+{
+  "id": "kb004-urticaria-isolada-pos-dipirona",
+  "source": {
+    "kind": "clinical_case",
+    "caseId": "kb004-urticaria-isolada-pos-dipirona"
+  },
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Masc, 25a, placas urticariformes pruriginosas em tronco e braços 1h após dipirona. Nega falta de ar, rouquidão, tontura, vômitos ou dor abdominal. Sem edema de lábios ou língua. PA 124x78, FC 84, SpO2 99%."
+  },
+  "expected": {
+    "sex": "M",
+    "age": 25,
+    "vitals": {
+      "systolicBp": 124,
+      "diastolicBp": 78,
+      "heartRate": 84,
+      "respiratoryRate": null,
+      "spo2": 99,
+      "temperature": null,
+      "glucose": null
+    },
+    "syndrome": ["reacao-alergica"],
+    "instability": false,
+    "timeCritical": false
+  }
+}

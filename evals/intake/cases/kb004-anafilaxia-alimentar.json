@@ -1,0 +1,29 @@
+{
+  "id": "kb004-anafilaxia-alimentar",
+  "source": {
+    "kind": "clinical_case",
+    "caseId": "kb004-anafilaxia-alimentar"
+  },
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Fem, 32a, 20 min após comer camarão: urticária generalizada, rouquidão, sibilos difusos, vomitou 2x. PA 84x50, FC 128, SpO2 91%."
+  },
+  "expected": {
+    "sex": "F",
+    "age": 32,
+    "vitals": {
+      "systolicBp": 84,
+      "diastolicBp": 50,
+      "heartRate": 128,
+      "respiratoryRate": null,
+      "spo2": 91,
+      "temperature": null,
+      "glucose": null
+    },
+    "syndrome": ["reacao-alergica"],
+    "instability": true,
+    "timeCritical": true
+  }
+}

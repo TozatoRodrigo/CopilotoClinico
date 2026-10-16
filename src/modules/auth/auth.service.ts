@@ -12,8 +12,14 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
 import { createHash, createHmac } from 'crypto';
 import { PrismaService } from '../../config/prisma.service';
+import { AccountLockoutService, accountRateLimitedLog } from './account-lockout.service';
 import { AuditService } from '../audit/audit.service';
-import { RegisterInput, LoginInput, RefreshInput } from './schemas/auth.schemas';
+import {
+  RegisterInput,
+  LoginInput,
+  RefreshInput,
+  UpdateProfileInput,
+} from './schemas/auth.schemas';
 import { MfaService } from './mfa.service';
 import { BetaInviteService } from '../beta/beta-invite.service';
 import { CrmVerificationService } from '../physicians/crm-verification.service';
@@ -45,6 +51,7 @@ export class AuthService {
     @Inject(JwtService) private readonly jwt: JwtService,
     @Inject(ConfigService) private readonly config: ConfigService,
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(AccountLockoutService) private readonly lockout: AccountLockoutService,
     @Inject(MfaService) private readonly mfaService: MfaService,
     @Inject(BetaInviteService) private readonly betaInvites: BetaInviteService,
     @Inject(CrmVerificationService) private readonly crmVerification: CrmVerificationService,
@@ -129,7 +136,9 @@ export class AuthService {
       action: 'AUTH_REGISTER',
       entity: 'Physician',
       entityId: physician.id,
-      payload: { email: physician.email, crmUf: physician.crmUf },
+      // Sem o email: a trilha sobrevive à eliminação LGPD, que anonimiza o
+      // email no cadastro. O entityId já identifica o médico.
+      payload: { crmUf: physician.crmUf },
       ip,
     });
 
@@ -153,6 +162,7 @@ export class AuthService {
     });
 
     if (securityState?.lockedUntil && securityState.lockedUntil > new Date()) {
+      this.logger.warn(accountRateLimitedLog('login', securityState.physicianId));
       await this.auditSilently({
         actorId: securityState.physicianId ?? 'unknown',
         action: 'AUTH_LOGIN_FAILED',
@@ -268,17 +278,10 @@ export class AuthService {
 
     await this.mfaService.verifyMfaCode(physicianId, code, ip);
 
-    await this.auditSilently({
-      actorId: physicianId,
-      action: 'AUTH_LOGIN',
-      entity: 'Physician',
-      entityId: physicianId,
-      payload: { mfa: true },
-      ip,
-    });
-
+    // CC-018 — `erasedAt: null`: o token de MFA pendente (5 min) emitido antes
+    // da eliminação LGPD não vira sessão depois dela.
     const physician = await this.prisma.physician.findUnique({
-      where: { id: physicianId },
+      where: { id: physicianId, erasedAt: null },
       select: {
         id: true,
         email: true,
@@ -292,6 +295,15 @@ export class AuthService {
     });
 
     if (!physician) throw new UnauthorizedException('Physician not found');
+
+    await this.auditSilently({
+      actorId: physicianId,
+      action: 'AUTH_LOGIN',
+      entity: 'Physician',
+      entityId: physicianId,
+      payload: { mfa: true },
+      ip,
+    });
 
     const tokens = await this.generateTokens(physicianId, email, physician.role);
     return { mfaRequired: false, physician, ...tokens };
@@ -319,6 +331,16 @@ export class AuthService {
     });
 
     if (!storedToken || storedToken.revoked || storedToken.expiresAt < new Date()) {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
+
+    // CC-018 — a eliminação apaga os refresh tokens, mas um refresh que leu o
+    // token antes dela pode gravar um novo depois. O cadastro já vem no
+    // include: checar aqui não custa consulta.
+    if (storedToken.physician.erasedAt) {
+      this.logger.warn(
+        `AUTH_ERASED_PHYSICIAN_TOKEN_REJECTED: physician ${storedToken.physician.id} (refresh)`,
+      );
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
 
@@ -400,6 +422,7 @@ export class AuthService {
         crmUf: true,
         crmNumber: true,
         name: true,
+        specialty: true,
         crmVerified: true,
         role: true,
         mfaEnabled: true,
@@ -512,9 +535,15 @@ export class AuthService {
 
     if (!physician) throw new UnauthorizedException('Physician not found');
 
+    // CC-025 — com uma sessão roubada, chutar a senha atual aqui tomaria a
+    // conta. A reserva conta a tentativa; só o acerto zera o contador.
+    await this.lockout.reserveAttempt('password_change', physicianId);
     const valid = await bcrypt.compare(currentPassword, physician.passwordHash);
-    if (!valid) throw new UnauthorizedException('Current password is incorrect');
+    // CC-014 — 400, não 401: o web trata todo 401 como sessão expirada e leva
+    // ao login, então errar a senha atual tirava o médico da tela.
+    if (!valid) throw new BadRequestException('Senha atual incorreta');
 
+    await this.lockout.clear('password_change', physicianId);
     const newHash = await bcrypt.hash(newPassword, 12);
     await this.prisma.physician.update({
       where: { id: physicianId },
@@ -576,19 +605,16 @@ export class AuthService {
     await this.auditService.log(params).catch(() => undefined);
   }
 
-  async updateProfile(physicianId: string, data: { name?: string; locale?: string }) {
-    const physician = await this.prisma.physician.update({
+  /**
+   * Devolve o mesmo perfil de GET /auth/me. O web troca o médico da sessão
+   * por esta resposta (aba Perfil): um recorte sem `role` rebaixava o
+   * administrador na tela até o próximo login.
+   */
+  async updateProfile(physicianId: string, data: UpdateProfileInput) {
+    await this.prisma.physician.update({
       where: { id: physicianId },
-      data: { name: data.name, locale: data.locale },
-      select: {
-        id: true,
-        email: true,
-        crmUf: true,
-        crmNumber: true,
-        name: true,
-        crmVerified: true,
-        locale: true,
-      },
+      data: { name: data.name, locale: data.locale, specialty: data.specialty },
+      select: { id: true },
     });
 
     await this.auditSilently({
@@ -599,6 +625,6 @@ export class AuthService {
       payload: { fields: Object.keys(data) },
     });
 
-    return physician;
+    return this.getMe(physicianId);
   }
 }

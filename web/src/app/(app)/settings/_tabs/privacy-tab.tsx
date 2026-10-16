@@ -21,7 +21,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Lock, Download, Trash, Warning, ShieldCheck } from '@phosphor-icons/react';
 import { SettingsPane, SettingsRow, SettingsSection } from '../_components/settings-layout';
 
-interface ConsentScopeStatus {
+export interface ConsentScopeStatus {
   scope: string;
   granted: boolean;
   grantedAt: string | null;
@@ -38,23 +38,62 @@ interface ExportData {
 interface ErasureResponse {
   status: string;
   estimatedCompletion: string;
-  erased: { encounters: number; consents: number; refreshTokens: number };
+  erased: {
+    recommendationDecisions: number;
+    copilotFeedback: number;
+    mentoringRequests: number;
+    encounters: number;
+    encounterAttachments: number;
+    audioCaptures: number;
+    practiceSites: number;
+    consents: number;
+    refreshTokens: number;
+    storageObjects: number;
+  };
 }
 
+// CC-010 — cada descrição diz o que o consentimento muda hoje no código.
 const SCOPE_LABELS: Record<string, { label: string; description: string }> = {
   ai_processing: {
     label: 'Processamento por IA',
-    description: 'Permite que a IA analise dados clínicos para gerar recomendações e documentos.',
+    description:
+      'Leitura do caso, perguntas, análise, reanálise e transcrição do ditado por IA. Revogar bloqueia novos pedidos; o histórico continua disponível.',
   },
   data_sharing: {
     label: 'Compartilhamento de dados',
-    description: 'Compartilha dados com a instituição de saúde vinculada (quando aplicável).',
+    // CC-014 — nenhum fluxo compartilha dados hoje: o texto não promete o que não existe.
+    description:
+      'Hoje nenhum dado seu vai à instituição de saúde nem a outros terceiros, além dos fornecedores que operam o serviço em nosso nome: modelos de IA, transcrição do ditado, hospedagem e monitoramento de erros. Nada depende deste consentimento por enquanto.',
   },
   analytics: {
     label: 'Analytics',
-    description: 'Coleta métricas de uso anônimas para melhorar o produto.',
+    // CC-014 — aplicado em web/src/hooks/use-analytics-consent.ts.
+    description:
+      'Contagem de visitas por página e de uso das funções, sem cookie e sem texto clínico. Fica ligada até você revogar; revogada, o Copiloto deixa de carregar o contador nos navegadores em que você entrar.',
   },
 };
+
+const DATE_FORMAT: Intl.DateTimeFormatOptions = {
+  day: '2-digit',
+  month: 'long',
+  year: 'numeric',
+};
+
+/**
+ * Sem registro nenhum, o escopo vale o padrão do servidor: o processamento
+ * por IA chega `granted` sem data de concessão (ativo desde o cadastro); os
+ * outros chegam não concedidos e sem data de revogação.
+ */
+export function consentNote(consent: ConsentScopeStatus): string | null {
+  if (consent.granted) {
+    return consent.grantedAt
+      ? `Concedido em ${new Date(consent.grantedAt).toLocaleDateString('pt-BR', DATE_FORMAT)}`
+      : 'Ativo por padrão desde o cadastro.';
+  }
+  return consent.revokedAt
+    ? `Revogado em ${new Date(consent.revokedAt).toLocaleDateString('pt-BR', DATE_FORMAT)}`
+    : null;
+}
 
 export function PrivacyTab() {
   const queryClient = useQueryClient();
@@ -130,7 +169,7 @@ export function PrivacyTab() {
       <SettingsSection title="Seus dados">
         <SettingsRow
           title="Exportar meus dados"
-          description="Baixe todos os seus dados em formato JSON (Art. 18, V — Portabilidade). Inclui atendimentos, documentos, interações IA, consentimentos e auditoria."
+          description="Baixe todos os seus dados em formato JSON (Art. 18, V — Portabilidade). Inclui atendimentos, referências anexadas, transcrições de áudio, documentos, interações IA, consentimentos e auditoria."
           control={
             <Button
               variant="outline"
@@ -165,6 +204,7 @@ export function PrivacyTab() {
               label: consent.scope,
               description: '',
             };
+            const note = consentNote(consent);
             return (
               <SettingsRow
                 key={consent.scope}
@@ -176,8 +216,10 @@ export function PrivacyTab() {
                         <ShieldCheck weight="fill" aria-hidden="true" />
                         Ativo
                       </Badge>
-                    ) : (
+                    ) : consent.revokedAt ? (
                       <Badge variant="secondary">Revogado</Badge>
+                    ) : (
+                      <Badge variant="outline">Não concedido</Badge>
                     )}
                   </>
                 }
@@ -206,16 +248,7 @@ export function PrivacyTab() {
                   )
                 }
               >
-                {consent.grantedAt && (
-                  <p className="text-xs text-muted-foreground">
-                    Concedido em{' '}
-                    {new Date(consent.grantedAt).toLocaleDateString('pt-BR', {
-                      day: '2-digit',
-                      month: 'long',
-                      year: 'numeric',
-                    })}
-                  </p>
-                )}
+                {note && <p className="text-xs text-muted-foreground">{note}</p>}
               </SettingsRow>
             );
           })

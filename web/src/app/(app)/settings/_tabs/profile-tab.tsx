@@ -5,6 +5,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { apiClient, ApiError } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-store";
 import type { Physician } from "@/lib/types";
+import {
+  isPhysicianSpecialty,
+  PHYSICIAN_SPECIALTY_OPTIONS,
+} from "@/lib/physician-specialty";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,6 +66,9 @@ export function ProfileTab({ physician }: { physician: Physician | null }) {
   // uma preferência de exibição, não um dado que justifique um botão
   // "Salvar" separado como o nome.
   const [localeSaving, setLocaleSaving] = useState(false);
+  // CC-014 — a especialidade escolhida no onboarding; trocar aqui salva na
+  // hora, como o idioma.
+  const [specialtySaving, setSpecialtySaving] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -102,12 +109,29 @@ export function ProfileTab({ physician }: { physician: Physician | null }) {
     }
   }
 
+  async function handleSpecialtyChange(value: string) {
+    if (!isPhysicianSpecialty(value)) return;
+    setSpecialtySaving(true);
+    try {
+      const updated = await apiClient.patch<Physician>("/auth/me", { specialty: value });
+      login(updated);
+      queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
+      toast.success("Especialidade atualizada.");
+    } catch (err) {
+      const msg =
+        err instanceof ApiError ? err.message : "Erro ao atualizar especialidade.";
+      toast.error(msg);
+    } finally {
+      setSpecialtySaving(false);
+    }
+  }
+
   const hasChanges = name.trim() !== (physician?.name ?? "").trim();
 
   return (
     <SettingsPane
       title="Perfil"
-      description="Edite seu nome. E-mail e CRM são fixos por segurança."
+      description="Edite seu nome e sua especialidade. E-mail e CRM são fixos por segurança."
     >
       <SettingsSection title="Identificação">
         {/* Cartão de identidade do Notion: avatar + nome + e-mail. */}
@@ -141,6 +165,31 @@ export function ProfileTab({ physician }: { physician: Physician | null }) {
             </Button>
           </div>
         </form>
+
+        <SettingsRow
+          title="Especialidade"
+          htmlFor="profile-specialty"
+          description="Sua área de atuação."
+          control={
+            <Select
+              // "" mostra o placeholder sem trocar o Select de não controlado para controlado.
+              value={physician?.specialty ?? ""}
+              onValueChange={handleSpecialtyChange}
+              disabled={specialtySaving}
+            >
+              <SelectTrigger id="profile-specialty" className="w-full sm:w-52">
+                <SelectValue placeholder="Não informada" />
+              </SelectTrigger>
+              <SelectContent>
+                {PHYSICIAN_SPECIALTY_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          }
+        />
       </SettingsSection>
 
       {/*

@@ -14,6 +14,7 @@ import {
   IdentificationCard,
   ShieldCheck,
   SquaresFour,
+  Stethoscope,
   UserCircle,
   Users,
 } from '@phosphor-icons/react';
@@ -35,6 +36,7 @@ const STATIC: Record<string, BreadcrumbItem> = {
   profile: { label: 'Perfil', icon: UserCircle },
   'verificacao-crm': { label: 'Verificação de CRM', icon: IdentificationCard },
   admin: { label: 'Console', icon: SquaresFour },
+  mentoria: { label: 'Mentoria', icon: Stethoscope },
 };
 
 const ADMIN_CHILDREN: Record<string, BreadcrumbItem> = {
@@ -43,6 +45,7 @@ const ADMIN_CHILDREN: Record<string, BreadcrumbItem> = {
   beta: { label: 'Beta', icon: EnvelopeSimple },
   feedback: { label: 'Feedback', icon: ChatCircleText },
   analytics: { label: 'Analytics', icon: ChartBar },
+  mentoria: { label: 'Mentoria', icon: Stethoscope },
   users: { label: 'Usuários', icon: Users },
   sistema: { label: 'Sistema', icon: Gear },
 };
@@ -93,6 +96,7 @@ export function RouteBreadcrumbs() {
 
   const items: BreadcrumbItem[] = [{ ...root, href: segments.length > 1 ? `/${first}` : undefined }];
   if (first === 'encounters' && second === 'new') items.push({ label: 'Novo caso' });
+  if (first === 'mentoria' && second) items.push({ label: 'Pedido' });
   if (first === 'admin' && second) {
     const child = ADMIN_CHILDREN[second];
     if (child) items.push({ ...child, href: undefined });

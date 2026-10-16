@@ -297,3 +297,32 @@ aparece; sem o dado do destino, observação, nunca alta, e transferência para
 recurso que falta no serviço já. Mesmo contrato e validador da v3. As regras
 nasceram dos erros deste gabarito: liberar só depois de medir também em casos
 que não entraram no ajuste.
+
+## Emenda 14/10/2026 — linha de "por quê" (CC-601)
+
+**Contexto.** O médico de UPA sem residência precisa entender por que cada
+conduta do "Fazer agora" está no plano, para aprender e confiar sem abrir
+outra fonte. O `rationale` não serve como está: é a justificativa técnica e
+tem outros donos — nomeia o documento oficial e o anexo do médico, recebe a
+divergência da verificação com fonte depois da decisão, entra no SOAP e é o
+que o juiz do gabarito lê. Encurtá-lo mudaria tudo isso.
+
+**Decisão.** `COPILOT_WHY_LINE` (padrão `off`; exige v3 ou v4) acrescenta à
+decisão o campo `why`: em cada conduta "now", uma frase de até 120 caracteres
+em linguagem simples, sem dose, com termo de especialista explicado; `null`
+em "depends". O prompt é o da v3 (ou v4) com a regra da linha depois das
+instruções aprovadas, o campo no formato e o mesmo exemplo com as linhas; o
+JSON Schema ganha `why`. Com a flag desligada, prompt, schema e saída ficam
+byte a byte os de antes. A linha nunca pede retry sozinha (um retry custa
+cerca de 27 s): acima do teto ela sai da resposta, sem corte com reticências;
+faltando, fica o `rationale`; os dois achados viram aviso, ou entram no
+feedback quando outra regra já vai pedir o retry. Dose sem fonte na linha
+conta como dose na conduta. Na tela, "Por quê" abre a linha; sem ela, o
+`rationale` de sempre (que continua aparecendo quando a fonte oficial
+diverge, porque é ele que diz no quê).
+
+**Medição (pendente).** Liberar só depois de rodar o gabarito com
+`claude-opus-5-5-v3-modelo` e `claude-opus-5-5-v3-por-que` (iguais exceto pela
+flag): sem aumento de erro crítico nem de latência acima de 10%. A história
+chama esta variante de "prompt v3.1"; não confundir com o "Pendente (v3.1)"
+acima, que virou a v4.

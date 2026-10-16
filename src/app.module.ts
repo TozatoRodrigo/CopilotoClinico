@@ -18,11 +18,14 @@ import { GuidelinesModule } from './modules/guidelines/guidelines.module';
 import { ProtocolsModule } from './modules/protocols/protocols.module';
 import { InstitutionsModule } from './modules/institutions/institutions.module';
 import { PhysiciansModule } from './modules/physicians/physicians.module';
+import { PracticeSitesModule } from './modules/practice-sites/practice-sites.module';
 import { ObservabilityModule } from './modules/observability/observability.module';
 import { AudioModule } from './modules/audio/audio.module';
 import { RedisModule } from './modules/redis/redis.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { MentoringModule } from './modules/mentoring/mentoring.module';
+import { MailModule } from './modules/mail/mail.module';
 import { PiiLogSanitizerInterceptor } from './shared/interceptors/pii-log-sanitizer.interceptor';
 import { RequestContextInterceptor } from './shared/request-context/request-context.interceptor';
 
@@ -48,11 +51,14 @@ import { RequestContextInterceptor } from './shared/request-context/request-cont
     AuditModule,
     LgpdModule,
     PhysiciansModule,
+    PracticeSitesModule,
     ObservabilityModule,
     AudioModule,
     RedisModule,
     StorageModule,
     AnalyticsModule,
+    MentoringModule,
+    MailModule,
   ],
   providers: [
     {
