@@ -2,9 +2,16 @@ import { BadRequestException, Inject, Injectable, Logger, NotFoundException } fr
 import { PrismaService } from '../../../config/prisma.service';
 import { AuditService } from '../../audit/audit.service';
 import { GuidelinesService } from '../../guidelines/guidelines.service';
-import { maskPII } from '../../copilot/guardrails/pii-filter';
+import {
+  DeidentificationService,
+  REGEX_ONLY_DEIDENTIFIER,
+  type Deidentifier,
+} from '../../deid/deidentification.service';
 import { scanForInjection } from '../../copilot/guardrails/injection-defense';
 import type { CreateAttachmentInput } from './schemas/attachments.schemas';
+
+/** Folga além de MAX_TEXT_CHARS para o trecho cortado na borda ainda ser mascarado inteiro. */
+const DEID_SLACK_CHARS = 2_000;
 
 /**
  * F4 — Referência anexada pelo médico a UM atendimento.
@@ -51,6 +58,8 @@ export class AttachmentsService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(GuidelinesService) private readonly guidelines: GuidelinesService,
+    // CC-203 — obrigatório no Nest; o padrão (só regex) é para quem constrói à mão.
+    @Inject(DeidentificationService) private readonly deid: Deidentifier = REGEX_ONLY_DEIDENTIFIER,
   ) {}
 
   async list(physicianId: string, encounterId: string) {
@@ -110,8 +119,13 @@ export class AttachmentsService {
     }
 
     // LGPD-005 — o texto persistido já vai mascarado; o arquivo original nunca
-    // é gravado.
-    const redacted = maskPII(extracted.text);
+    // é gravado. CC-203 — só o que pode ir ao prompt passa pela máscara (com
+    // folga, porque o rótulo não tem o tamanho do trecho): o modelo local não
+    // gasta o DEID_TIMEOUT_MS em páginas que o corte jogaria fora.
+    const redacted = await this.deid.deidentify(
+      extracted.text.slice(0, AttachmentsService.MAX_TEXT_CHARS + DEID_SLACK_CHARS),
+      'attachment',
+    );
     const text = redacted.redacted.slice(0, AttachmentsService.MAX_TEXT_CHARS);
 
     const attachment = await this.prisma.encounterAttachment.create({
