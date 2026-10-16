@@ -44,7 +44,7 @@ const SECTIONS: PolicySection[] = [
     items: [
       {
         term: 'Dados de cadastro',
-        text: 'nome, e-mail, CRM (UF e número), idioma e senha, guardada só como hash. Com o segundo fator ativo, o segredo dele fica cifrado. Os dados servem à verificação profissional e ao cumprimento da Resolução CFM nº 2.314/2022 sobre responsabilidade médica em sistemas digitais.',
+        text: 'nome, e-mail, CRM (UF e número), especialidade, idioma e senha, guardada só como hash. Com o segundo fator ativo, o segredo dele fica cifrado. Os dados servem à verificação profissional e ao cumprimento da Resolução CFM nº 2.314/2022 sobre responsabilidade médica em sistemas digitais.',
       },
       {
         term: 'Dados clínicos operacionais',
@@ -106,7 +106,7 @@ const SECTIONS: PolicySection[] = [
       },
       {
         term: 'Correção',
-        text: 'atualize nome e idioma no perfil. Para corrigir e-mail ou CRM, escreva ao Encarregado (seção 6).',
+        text: 'atualize nome, especialidade e idioma no perfil. Para corrigir e-mail ou CRM, escreva ao Encarregado (seção 6).',
       },
       {
         term: 'Portabilidade (Art. 18, V)',
@@ -114,7 +114,7 @@ const SECTIONS: PolicySection[] = [
       },
       {
         term: 'Revogação de consentimento',
-        text: 'revogue ou conceda de novo o processamento por IA em Configurações → Privacidade. Os escopos "Compartilhamento de dados" e "Analytics" ficam registrados, mas hoje nenhum recurso depende deles.',
+        text: 'revogue ou conceda de novo o processamento por IA e o Analytics em Configurações → Privacidade. Com o Analytics revogado, o contador de visitas deixa de carregar nos navegadores em que você entrar. O escopo "Compartilhamento de dados" fica registrado, mas hoje nenhum recurso depende dele.',
       },
       {
         term: 'Eliminação (Art. 18, VI — direito ao esquecimento)',
