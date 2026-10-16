@@ -46,7 +46,7 @@ services:
   backend:
     build:
       context: ..
-      dockerfile: Dockerfile
+      dockerfile: docker/demo.Dockerfile
     container_name: copiloto-demo-backend
     ports:
       - "3000:3000"
