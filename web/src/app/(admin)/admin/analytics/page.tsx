@@ -4,12 +4,12 @@ import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import {
-  ArrowClockwise,
   ChartBar,
   Coins,
   CurrencyDollar,
   DownloadSimple,
   Funnel,
+  Timer,
   Warning,
 } from '@phosphor-icons/react';
 import { apiClient, ApiError } from '@/lib/api-client';
@@ -19,7 +19,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Callout } from '@/components/ui/callout';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Disclosure } from '@/components/ui/disclosure';
 import { DataTable, type DataTableColumn } from '@/components/ui/data-table';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -47,6 +46,8 @@ import { ColumnChart, FunnelBars, RateMeter, ShareMeter } from '../_components/c
 import { formatDay } from '../_lib/format';
 import { Metric } from '../_components/metric';
 import { PeriodToggle } from '../_components/period-toggle';
+import { LoadError } from '../_components/load-error';
+import { AiCallsPanel } from '../_components/ai-calls-panel';
 
 interface DecisionLoopFunnel {
   analysesStarted: number;
@@ -83,7 +84,7 @@ interface ProductFunnel {
 
 const ABANDONMENT_ALERT_THRESHOLD = 0.3;
 
-type AnalyticsTab = 'funil' | 'custo';
+type AnalyticsTab = 'funil' | 'custo' | 'chamadas';
 
 export default function AnalyticsPage() {
   const [tab, setTab] = useState<AnalyticsTab>('funil');
@@ -93,7 +94,7 @@ export default function AnalyticsPage() {
       <PageHeader
         icon={ChartBar}
         title="Analytics"
-        description="Funil de produto e custo de IA — agregados LGPD-safe (nenhum dado de paciente)."
+        description="Funil de produto, custo de IA e chamadas por etapa e modelo — agregados LGPD-safe (nenhum dado de paciente)."
       />
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as AnalyticsTab)} className="gap-0">
@@ -106,6 +107,10 @@ export default function AnalyticsPage() {
             <Coins aria-hidden="true" />
             Custo de IA
           </TabsTrigger>
+          <TabsTrigger value="chamadas">
+            <Timer aria-hidden="true" />
+            Etapas e modelos
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="funil" className="pt-6">
           <FunnelPanel />
@@ -113,23 +118,11 @@ export default function AnalyticsPage() {
         <TabsContent value="custo" className="pt-6">
           <CostPanel />
         </TabsContent>
+        <TabsContent value="chamadas" className="pt-6">
+          <AiCallsPanel />
+        </TabsContent>
       </Tabs>
     </Page>
-  );
-}
-
-function LoadError({ title, message, onRetry }: { title: string; message: string; onRetry: () => void }) {
-  return (
-    <Alert variant="destructive">
-      <AlertTitle>{title}</AlertTitle>
-      <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
-        <span>{message}</span>
-        <Button variant="outline" size="sm" onClick={onRetry}>
-          <ArrowClockwise aria-hidden="true" />
-          Tentar novamente
-        </Button>
-      </AlertDescription>
-    </Alert>
   );
 }
 

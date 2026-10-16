@@ -4,9 +4,11 @@
  *   pnpm eval:deid                          # gera o corpus e mede a regex de hoje
  *   pnpm eval:deid --predictions a.jsonl    # mede também outro mascarador
  *
- * O corpus vai para evals/deid/out/corpus.jsonl. Outro mascarador (o OpenMed,
- * via openmed_redact.py) lê esse arquivo e escreve um JSONL com
- * {"id": ..., "redacted": ...} por nota; o nome do arquivo vira o nome da coluna.
+ * O corpus vai para evals/deid/out/corpus.jsonl, e já mascarado pela regex
+ * para corpus-regex.jsonl (a ordem do pipeline: regex, depois o modelo). Outro
+ * mascarador (o OpenMed, via openmed_redact.py) lê um desses arquivos e
+ * escreve um JSONL com {"id": ..., "redacted": ...} por nota; o nome do
+ * arquivo vira o nome da coluna.
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, resolve } from 'node:path';
@@ -44,6 +46,13 @@ function main(): void {
   writeFileSync(
     resolve(OUT_DIR, 'corpus.jsonl'),
     notes.map(({ id, text }) => JSON.stringify({ id, text })).join('\n') + '\n',
+  );
+  // O mesmo corpus já passado pela regex: é o que um modelo receberia no
+  // pipeline, onde a regex roda primeiro e pega os números estruturados.
+  writeFileSync(
+    resolve(OUT_DIR, 'corpus-regex.jsonl'),
+    notes.map(({ id, text }) => JSON.stringify({ id, text: maskPII(text).redacted })).join('\n') +
+      '\n',
   );
 
   const scores: DeidScore[] = [

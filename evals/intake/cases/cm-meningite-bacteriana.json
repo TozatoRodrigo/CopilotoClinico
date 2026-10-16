@@ -1,0 +1,29 @@
+{
+  "id": "cm-meningite-bacteriana",
+  "source": {
+    "kind": "clinical_case",
+    "caseId": "cm-meningite-bacteriana"
+  },
+  "review": {
+    "status": "draft"
+  },
+  "input": {
+    "caseText": "Masc, 22a, febre alta, cefaleia intensa e vômitos há 18h, ficou confuso nas últimas horas. Rigidez de nuca, petéquias em MMII. PA 92x54, FC 124, T 39,4, Glasgow 13."
+  },
+  "expected": {
+    "sex": "M",
+    "age": 22,
+    "vitals": {
+      "systolicBp": 92,
+      "diastolicBp": 54,
+      "heartRate": 124,
+      "respiratoryRate": null,
+      "spo2": null,
+      "temperature": 39.4,
+      "glucose": null
+    },
+    "syndrome": ["febre-hipotensao", "febre"],
+    "instability": true,
+    "timeCritical": true
+  }
+}

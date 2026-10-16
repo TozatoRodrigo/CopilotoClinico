@@ -111,4 +111,21 @@ describe('WhisperService', () => {
     await customService.transcribe(Buffer.from('a'), 'audio/flac');
     expect(fetch).toHaveBeenCalledWith('https://custom.api/v1/audio/transcriptions', expect.anything());
   });
+
+  it.each([
+    ['whisper-large-v3', {}],
+    ['whisper-large-v3-turbo', { WHISPER_MODEL: 'whisper-large-v3-turbo' }],
+  ])('sends the model %s', async (model, env: Record<string, string>) => {
+    const configured = new WhisperService(makeConfig(env));
+    configured.onModuleInit();
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      text: vi.fn().mockResolvedValue('ok'),
+    } as unknown as Response);
+
+    await configured.transcribe(Buffer.from('a'), 'audio/webm');
+
+    const form = vi.mocked(fetch).mock.calls[0]?.[1]?.body as FormData;
+    expect(form.get('model')).toBe(model);
+  });
 });
