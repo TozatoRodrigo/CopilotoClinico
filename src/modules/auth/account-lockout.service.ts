@@ -205,8 +205,9 @@ export class AccountLockoutService {
 }
 
 /**
- * Linha do contador do login: sha256 do e-mail normalizado, a mesma de antes
- * do CC-026, então os contadores já gravados continuam valendo.
+ * Linha do contador do login: sha256 do e-mail normalizado. É também por ela
+ * que se acha a linha gravada sem `physician_id` (e-mail sem cadastro, ou
+ * digitado com outra caixa), que só se encontra pelo hash.
  */
 export function loginLockoutKey(email: string): string {
   return createHash('sha256').update(email.trim().toLowerCase()).digest('hex');
