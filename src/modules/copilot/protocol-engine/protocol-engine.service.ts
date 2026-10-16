@@ -12,6 +12,7 @@ import { EncountersService } from '../../encounters/encounters.service';
 import { ProtocolsService } from '../../protocols/protocols.service';
 import { freeTextHash } from '../../audit/audit-payload';
 import { AuditService } from '../../audit/audit.service';
+import { activeInstitutionIds } from '../../institutions/institution-visibility';
 import type { ProtocolGraphNode } from '../../protocols/protocol-graph-validator';
 
 type ProtocolWithGraph = Awaited<ReturnType<ProtocolsService['findById']>>;
@@ -134,7 +135,7 @@ export class ProtocolEngineService {
   async startRun(physicianId: string, encounterId: string, protocolId: string) {
     await this.encounters.findById(physicianId, encounterId);
 
-    const protocol = await this.protocolsService.findById(protocolId);
+    const protocol = await this.visibleProtocol(physicianId, protocolId);
     if (protocol.status !== 'published') {
       throw new ConflictException('Apenas protocolos publicados podem ser executados');
     }
@@ -178,7 +179,7 @@ export class ProtocolEngineService {
     const run = await this.findRunOrThrow(runId);
     await this.encounters.findById(physicianId, run.encounterId);
 
-    const protocol = await this.protocolsService.findById(run.protocolId);
+    const protocol = await this.visibleProtocol(physicianId, run.protocolId);
     return this.toRunView(run, protocol);
   }
 
@@ -190,7 +191,7 @@ export class ProtocolEngineService {
       throw new ConflictException('Este protocolo não está mais em andamento');
     }
 
-    const protocol = await this.protocolsService.findById(run.protocolId);
+    const protocol = await this.visibleProtocol(physicianId, run.protocolId);
     const currentNode = protocol.nodes.find((n) => n.id === run.currentNodeId);
     if (!currentNode) {
       throw new NotFoundException('Nó atual do protocolo não encontrado');
@@ -268,6 +269,7 @@ export class ProtocolEngineService {
       throw new ConflictException('Este protocolo não está mais em andamento');
     }
 
+    const protocol = await this.visibleProtocol(physicianId, run.protocolId);
     const updated = await this.prisma.protocolRun.update({
       where: { id: run.id },
       data: { status: 'abandoned', abandonReason: reason },
@@ -283,8 +285,20 @@ export class ProtocolEngineService {
       })
       .catch(() => undefined);
 
-    const protocol = await this.protocolsService.findById(run.protocolId);
     return this.toRunView(updated, protocol);
+  }
+
+  /**
+   * CC-019 — o protocolo do roteiro: global ou de instituição com vínculo
+   * ativo do médico (ADR-009). Antes, o médico rodava no próprio caso o
+   * protocolo publicado de outro hospital e lia o roteiro inteiro.
+   */
+  private async visibleProtocol(
+    physicianId: string,
+    protocolId: string,
+  ): Promise<ProtocolWithGraph> {
+    const institutionIds = await activeInstitutionIds(this.prisma, physicianId);
+    return this.protocolsService.findVisibleById(protocolId, institutionIds);
   }
 
   private async findRunOrThrow(runId: string): Promise<ProtocolRun> {

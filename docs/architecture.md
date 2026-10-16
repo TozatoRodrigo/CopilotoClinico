@@ -88,13 +88,18 @@ Médico revisa documento e clica "Confirmar"
         ↓
 [documents/service]
   1. Verifica: documento existe + não confirmado (409 se já confirmado)
-  2. Recomputa contentHash via canonicalHash(physicianEdits ?? content)
-     → JSON com chaves ordenadas → SHA-256 → hash reproduzível
-  3. Atualiza: confirmedBy, confirmedAt, contentHash
+  2. Sela via sealContent(physicianEdits ?? content)
+     → JSON canônico RFC 8785 → SHA-256 → contentHash v2 (ADR-018)
+  3. Atualiza: confirmedBy, confirmedAt, contentHash, contentHashVersion
   4. Finaliza encounter (status = 'finalized')
   5. Busca uncertainty da última aiInteraction do encounter
-  6. auditService.log(DOCUMENT_CONFIRMED, afterHash=contentHash,
-       payload={uncertain, uncertaintyReason, authorPhysicianId})
+  6. auditService.log(DOCUMENT_CONFIRMED,
+       payload={contentHash, contentHashVersion, uncertain,
+                uncertaintyReason, authorPhysicianId})
+
+GET /v1/encounters/:id/documents/:docId/integrity
+  → recalcula o selo com o algoritmo da versão gravada (v1 legado ou v2)
+  → intact | mismatch | unconfirmed; mismatch vai para o Sentry
 ```
 
 ---

@@ -1,9 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import {
-  ConflictException,
-  NotFoundException,
-  UnprocessableEntityException,
-} from '@nestjs/common';
+import { ConflictException, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { ProtocolEngineService } from './protocol-engine.service';
 import { PrismaService } from '../../../config/prisma.service';
 import { EncountersService } from '../../encounters/encounters.service';
@@ -49,7 +45,15 @@ function node(
   order: number,
   outgoingEdges: NodeFixture['outgoingEdges'] = [],
 ): NodeFixture {
-  return { id, protocolId, nodeType, content, order, createdAt: new Date('2026-01-01'), outgoingEdges };
+  return {
+    id,
+    protocolId,
+    nodeType,
+    content,
+    order,
+    createdAt: new Date('2026-01-01'),
+    outgoingEdges,
+  };
 }
 
 /**
@@ -81,7 +85,9 @@ function buildProtocol(overrides: Partial<{ status: string; version: number }> =
         edge('q1', 'a1', { answer: true }),
         edge('q1', 'o1', { answer: false }),
       ]),
-      node('a1', 'action', { action: 'Coletar lactato e hemoculturas' }, 1, [edge('a1', 'q2', null)]),
+      node('a1', 'action', { action: 'Coletar lactato e hemoculturas' }, 1, [
+        edge('a1', 'q2', null),
+      ]),
       node(
         'q2',
         'question',
@@ -104,9 +110,10 @@ describe('ProtocolEngineService', () => {
       findUnique: ReturnType<typeof vi.fn>;
       update: ReturnType<typeof vi.fn>;
     };
+    physicianInstitution: { findMany: ReturnType<typeof vi.fn> };
   };
   let encountersService: { findById: ReturnType<typeof vi.fn> };
-  let protocolsService: { findById: ReturnType<typeof vi.fn> };
+  let protocolsService: { findVisibleById: ReturnType<typeof vi.fn> };
   let auditService: { log: ReturnType<typeof vi.fn> };
 
   /** Estado simulado da tabela protocol_runs (uma linha). */
@@ -130,9 +137,16 @@ describe('ProtocolEngineService', () => {
         }),
         findUnique: vi.fn().mockImplementation(() => Promise.resolve(runStore)),
         update: vi.fn().mockImplementation(({ data }) => {
-          runStore = { ...(runStore as Record<string, unknown>), ...data, updatedAt: new Date('2026-06-12') };
+          runStore = {
+            ...(runStore as Record<string, unknown>),
+            ...data,
+            updatedAt: new Date('2026-06-12'),
+          };
           return Promise.resolve(runStore);
         }),
+      },
+      physicianInstitution: {
+        findMany: vi.fn().mockResolvedValue([{ institutionId: 'inst-1' }]),
       },
     };
 
@@ -140,7 +154,7 @@ describe('ProtocolEngineService', () => {
       findById: vi.fn().mockResolvedValue({ id: encounterId, physicianId }),
     };
     protocolsService = {
-      findById: vi.fn().mockResolvedValue(buildProtocol()),
+      findVisibleById: vi.fn().mockResolvedValue(buildProtocol()),
     };
     auditService = { log: vi.fn().mockResolvedValue(undefined) };
 
@@ -166,7 +180,7 @@ describe('ProtocolEngineService', () => {
     });
 
     it('rejects starting a run for a protocol that is not published', async () => {
-      protocolsService.findById.mockResolvedValue(buildProtocol({ status: 'draft' }));
+      protocolsService.findVisibleById.mockResolvedValue(buildProtocol({ status: 'draft' }));
 
       await expect(service.startRun(physicianId, encounterId, protocolId)).rejects.toThrow(
         ConflictException,
@@ -279,6 +293,40 @@ describe('ProtocolEngineService', () => {
     });
   });
 
+  describe('CC-019 — protocolo de outra instituição', () => {
+    it('só roda protocolo global ou de instituição com vínculo ativo do médico', async () => {
+      await service.startRun(physicianId, encounterId, protocolId);
+
+      expect(prisma.physicianInstitution.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { physicianId, institution: { status: 'active' } } }),
+      );
+      expect(protocolsService.findVisibleById).toHaveBeenCalledWith(protocolId, ['inst-1']);
+    });
+
+    it('protocolo invisível ao médico: 404 e nenhum roteiro criado', async () => {
+      protocolsService.findVisibleById.mockRejectedValue(
+        new NotFoundException('Protocol not found'),
+      );
+
+      await expect(service.startRun(physicianId, encounterId, protocolId)).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(prisma.protocolRun.create).not.toHaveBeenCalled();
+    });
+
+    it('abandonar o roteiro de protocolo que deixou de ser visível: 404 sem mudar o roteiro', async () => {
+      await service.startRun(physicianId, encounterId, protocolId);
+      protocolsService.findVisibleById.mockRejectedValue(
+        new NotFoundException('Protocol not found'),
+      );
+
+      await expect(service.abandonRun(physicianId, runId, 'motivo')).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(prisma.protocolRun.update).not.toHaveBeenCalled();
+    });
+  });
+
   describe('versionamento do run', () => {
     it('pins the protocol id/version at start; publishing a new version does not affect the run', async () => {
       const run = await service.startRun(physicianId, encounterId, protocolId);
@@ -286,11 +334,11 @@ describe('ProtocolEngineService', () => {
 
       // Simula uma nova versão publicada (Protocol v2 é uma linha diferente);
       // o run continua referenciando o mesmo protocolId/version (v1).
-      protocolsService.findById.mockResolvedValue(buildProtocol({ version: 1 }));
+      protocolsService.findVisibleById.mockResolvedValue(buildProtocol({ version: 1 }));
 
       const updated = await service.answerNode(physicianId, runId, false);
 
-      expect(protocolsService.findById).toHaveBeenLastCalledWith(protocolId);
+      expect(protocolsService.findVisibleById).toHaveBeenLastCalledWith(protocolId, ['inst-1']);
       expect(updated.protocolVersion).toBe(1);
     });
   });

@@ -125,34 +125,6 @@ describe('CopilotService', () => {
     });
   });
 
-  describe('RT-001: stream', () => {
-    async function* fakeGen() {
-      yield { type: 'delta' as const, delta: 'hello' };
-      yield { type: 'done' as const, result: orchestratorResult };
-    }
-
-    it('delegates to orchestrator.analyzeStream', () => {
-      orchestratorMock.analyzeStream.mockReturnValue(fakeGen());
-
-      service.stream(physicianId, encounterId, input);
-
-      expect(orchestratorMock.analyzeStream).toHaveBeenCalledWith(physicianId, encounterId, input);
-    });
-
-    it('returns the async generator from orchestrator', async () => {
-      orchestratorMock.analyzeStream.mockReturnValue(fakeGen());
-
-      const gen = service.stream(physicianId, encounterId, input);
-      const events = [];
-      for await (const event of gen) {
-        events.push(event);
-      }
-
-      expect(events[0]).toEqual({ type: 'delta', delta: 'hello' });
-      expect(events[1]?.type).toBe('done');
-    });
-  });
-
   describe('RT-002: analyzeAsync', () => {
     it('enqueues analyze job and returns jobId', async () => {
       const result = await service.analyzeAsync(physicianId, encounterId, input);

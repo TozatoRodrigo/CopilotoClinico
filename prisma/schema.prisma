@@ -123,12 +123,16 @@ model Physician {
   createdAt          DateTime           @default(now()) @map("created_at")
   updatedAt          DateTime           @updatedAt @map("updated_at")
 
-  isCurator Boolean @default(false) @map("is_curator")
+  isCurator Boolean   @default(false) @map("is_curator")
   // PI-05 — preferência de idioma persistida na conta (não só localStorage
   // do dispositivo): o médico troca de terminal no hospital e a UI/análise
   // precisam seguir com ele. 'pt-BR' | 'es' — validado na aplicação, não
   // como enum do banco, para não exigir migração a cada novo idioma.
-  locale    String  @default("pt-BR")
+  locale    String    @default("pt-BR")
+  // CC-018 — quando a eliminação LGPD anonimizou o cadastro. A estratégia JWT
+  // e o refresh recusam sessão de quem tem esta data: o access token é
+  // stateless e, sem isso, seguia valendo até expirar (15 min).
+  erasedAt  DateTime? @map("erased_at")
 
   encounters              Encounter[]
   documents               Document[]
@@ -149,6 +153,9 @@ model Physician {
  * PhysicianInstitution. institutionId em GuidelineChunk/Encounter/Protocol é
  * nullable — NULL representa conteúdo/atendimento global, visível a todas as
  * instituições.
+ * CC-021: por isso essas três FKs são `onDelete: Restrict`. Com SetNull, apagar
+ * a instituição tornava global o protocolo e a diretriz internos dela. Para
+ * tirar uma instituição de uso, desative (`status = inactive`); ver ADR-009.
  */
 model Institution {
   id        String            @id @default(uuid()) @db.Uuid
@@ -218,7 +225,7 @@ model Encounter {
   updatedAt      DateTime        @updatedAt @map("updated_at")
 
   physician      Physician             @relation(fields: [physicianId], references: [id], onDelete: Cascade)
-  institution    Institution?          @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  institution    Institution?          @relation(fields: [institutionId], references: [id], onDelete: Restrict)
   aiInteractions AiInteraction[]
   documents      Document[]
   audioCaptures  AudioCapture[]
@@ -429,18 +436,21 @@ model RecommendationDecision {
 }
 
 model Document {
-  id             String       @id @default(uuid()) @db.Uuid
-  encounterId    String       @map("encounter_id") @db.Uuid
-  physicianId    String       @map("physician_id") @db.Uuid
-  type           DocumentType
-  content        Json
-  physicianEdits Json?        @map("physician_edits")
-  confirmedBy    String?      @map("confirmed_by") @db.Uuid
-  confirmedAt    DateTime?    @map("confirmed_at")
-  pdfObjectKey   String?      @map("pdf_object_key")
-  contentHash    String?      @map("content_hash") @db.Char(64)
-  createdAt      DateTime     @default(now()) @map("created_at")
-  updatedAt      DateTime     @updatedAt @map("updated_at")
+  id                 String       @id @default(uuid()) @db.Uuid
+  encounterId        String       @map("encounter_id") @db.Uuid
+  physicianId        String       @map("physician_id") @db.Uuid
+  type               DocumentType
+  content            Json
+  physicianEdits     Json?        @map("physician_edits")
+  confirmedBy        String?      @map("confirmed_by") @db.Uuid
+  confirmedAt        DateTime?    @map("confirmed_at")
+  pdfObjectKey       String?      @map("pdf_object_key")
+  contentHash        String?      @map("content_hash") @db.Char(64)
+  /// ADR-018 — algoritmo do content_hash (1 = legado, 2 = JSON canônico).
+  /// CHECK no banco: preenchido se e somente se content_hash estiver.
+  contentHashVersion Int?         @map("content_hash_version") @db.SmallInt
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
 
   encounter Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
   physician Physician @relation(fields: [physicianId], references: [id], onDelete: Cascade)
@@ -513,7 +523,7 @@ model GuidelineChunk {
   /// ADR-010 — versão do documento oficial de onde o chunk saiu.
   documentId String? @map("document_id") @db.Uuid
 
-  institution Institution?               @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  institution Institution?               @relation(fields: [institutionId], references: [id], onDelete: Restrict)
   document    OfficialGuidelineDocument? @relation(fields: [documentId], references: [id], onDelete: Restrict)
 
   @@index([source, sourceVersion])
@@ -673,7 +683,7 @@ model Protocol {
   createdAt     DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
 
-  institution Institution?   @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  institution Institution?   @relation(fields: [institutionId], references: [id], onDelete: Restrict)
   nodes       ProtocolNode[]
   runs        ProtocolRun[]
 

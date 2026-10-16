@@ -17,6 +17,7 @@ import { InferenceQueueService } from '../../src/modules/queue/inference-queue.s
 import { InferenceWorkerService } from '../../src/modules/queue/inference-worker.service';
 import { WhisperService } from '../../src/modules/audio/whisper.service';
 import { createHash } from 'crypto';
+import { JwtService } from '@nestjs/jwt';
 
 process.env.JWT_ACCESS_SECRET =
   process.env.JWT_ACCESS_SECRET ?? 'test-access-secret-min-32-characters-long!!';
@@ -79,6 +80,9 @@ function buildPrismaMock() {
 
     physician: {
       findUnique: vi.fn().mockResolvedValue(null),
+      // CC-018 — a estratégia JWT pergunta se o médico foi eliminado; null = não.
+      findFirst: vi.fn().mockResolvedValue(null),
+      update: vi.fn().mockResolvedValue({}),
       create: vi.fn().mockImplementation(({ data }: { data: Record<string, unknown> }) =>
         Promise.resolve({
           id: PHYSICIAN_ID,
@@ -368,7 +372,9 @@ async function buildClinicalApp() {
     .useValue({
       enqueueAnalyze: vi.fn().mockResolvedValue('mock-job-id'),
       enqueueTranscribe: vi.fn().mockResolvedValue('mock-job-id'),
-      getJobStatus: vi.fn().mockResolvedValue({ jobId: 'mock-job-id', status: 'unknown', progress: 0 }),
+      getJobStatus: vi
+        .fn()
+        .mockResolvedValue({ jobId: 'mock-job-id', status: 'unknown', progress: 0 }),
       getQueue: () => ({}),
       onModuleInit: () => undefined,
       onModuleDestroy: () => Promise.resolve(),
@@ -376,7 +382,10 @@ async function buildClinicalApp() {
     .overrideProvider(InferenceWorkerService)
     .useValue({ onModuleInit: () => undefined, onModuleDestroy: () => Promise.resolve() })
     .overrideProvider(WhisperService)
-    .useValue({ transcribe: vi.fn().mockResolvedValue('mock transcript'), onModuleInit: () => undefined })
+    .useValue({
+      transcribe: vi.fn().mockResolvedValue('mock transcript'),
+      onModuleInit: () => undefined,
+    })
     .compile();
 
   const app = moduleFixture.createNestApplication<NestFastifyApplication>(new FastifyAdapter());
@@ -415,6 +424,7 @@ describe('Clinical Flow E2E', () => {
   let app: NestFastifyApplication;
   let prismaMock: ReturnType<typeof buildPrismaMock>;
   let accessToken: string;
+  let confirmedSeal: { contentHash: string; contentHashVersion: number };
   let refreshToken: string;
   let cookies: Record<string, string>;
 
@@ -474,7 +484,9 @@ describe('Clinical Flow E2E', () => {
     expect(loginRes.statusCode).toBe(200);
     const body = loginRes.json<{ physician?: { id: string } }>();
     expect(body).not.toHaveProperty('accessToken');
-    const loginCookies = extractCookies(loginRes as unknown as { headers: Record<string, string | string[]> });
+    const loginCookies = extractCookies(
+      loginRes as unknown as { headers: Record<string, string | string[]> },
+    );
     expect(loginCookies).toHaveProperty('access_token');
     accessToken = loginCookies['access_token']!;
     refreshToken = loginCookies['refresh_token']!;
@@ -518,7 +530,9 @@ describe('Clinical Flow E2E', () => {
     });
 
     expect(res.statusCode).toBe(200);
-    const newCookies = extractCookies(res as unknown as { headers: Record<string, string | string[]> });
+    const newCookies = extractCookies(
+      res as unknown as { headers: Record<string, string | string[]> },
+    );
     if (newCookies['access_token']) {
       accessToken = newCookies['access_token']!;
       cookies = { ...cookies, ...newCookies };
@@ -561,7 +575,10 @@ describe('Clinical Flow E2E', () => {
   // mesmo schema do POST /respond antes de qualquer byte da resposta.
   it.each([
     ['an empty list', { interactionId: INTERACTION_ID, answers: [] }],
-    ['an interactionId that is not a UUID', { interactionId: 'abc', answers: [{ questionId: 'q1', answer: 'sim' }] }],
+    [
+      'an interactionId that is not a UUID',
+      { interactionId: 'abc', answers: [{ questionId: 'q1', answer: 'sim' }] },
+    ],
   ])('POST /copilot/respond/stream returns 400 for %s', async (_label, payload) => {
     const res = await app.inject({
       method: 'POST',
@@ -620,7 +637,12 @@ describe('Clinical Flow E2E', () => {
         headers: { cookie: `access_token=${accessToken}` },
         payload: {
           interactionId: INTERACTION_ID,
-          answers: [{ questionId: 'Informações adicionais fornecidas pelo médico', answer: 'Troponina positiva' }],
+          answers: [
+            {
+              questionId: 'Informações adicionais fornecidas pelo médico',
+              answer: 'Troponina positiva',
+            },
+          ],
         },
       });
 
@@ -629,7 +651,13 @@ describe('Clinical Flow E2E', () => {
       const events = res.payload
         .split('\n\n')
         .filter((frame) => frame.startsWith('data: '))
-        .map((frame) => JSON.parse(frame.slice('data: '.length)) as { type: string; result?: { interactionId: string } });
+        .map(
+          (frame) =>
+            JSON.parse(frame.slice('data: '.length)) as {
+              type: string;
+              result?: { interactionId: string };
+            },
+        );
       expect(events.map((event) => event.type)).toEqual(['delta', 'delta', 'done']);
       expect(events.at(-1)?.result?.interactionId).toBe(INTERACTION_ID);
     } finally {
@@ -675,9 +703,39 @@ describe('Clinical Flow E2E', () => {
     });
 
     expect([200, 201]).toContain(res.statusCode);
-    const body = res.json<{ confirmedBy: string; contentHash: string }>();
+    const body = res.json<{
+      confirmedBy: string;
+      contentHash: string;
+      contentHashVersion: number;
+    }>();
     expect(body.confirmedBy).toBe(PHYSICIAN_ID);
-    expect(body.contentHash).toBeTruthy();
+    expect(body.contentHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(body.contentHashVersion).toBe(2);
+    confirmedSeal = { contentHash: body.contentHash, contentHashVersion: body.contentHashVersion };
+  });
+
+  // ── 8b. Verify the confirmation seal (ADR-018) ──────────────────────────────
+  it('GET /documents/:id/integrity verifies the seal written by confirm', async () => {
+    prismaMock.document.findUnique.mockResolvedValueOnce({
+      physicianId: PHYSICIAN_ID,
+      confirmedBy: PHYSICIAN_ID,
+      content: MOCK_COPILOT_OUTPUT,
+      physicianEdits: null,
+      ...confirmedSeal,
+    });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/v1/encounters/${ENCOUNTER_ID}/documents/${DOCUMENT_ID}/integrity`,
+      headers: { cookie: `access_token=${accessToken}` },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({
+      documentId: DOCUMENT_ID,
+      status: 'intact',
+      contentHashVersion: 2,
+    });
   });
 
   // ── 9. LGPD export ──────────────────────────────────────────────────────────
@@ -716,7 +774,9 @@ describe('Clinical Flow E2E', () => {
     });
 
     expect(res.statusCode).toBe(200);
-    const responseCookies = extractCookies(res as unknown as { headers: Record<string, string | string[]> });
+    const responseCookies = extractCookies(
+      res as unknown as { headers: Record<string, string | string[]> },
+    );
     // Cleared cookies have empty values
     if (responseCookies.access_token !== undefined) {
       expect(responseCookies.access_token).toBe('');
@@ -734,5 +794,168 @@ describe('Clinical Flow E2E', () => {
     expect(body.dependencies).toHaveProperty('ai');
     expect(body.dependencies).toHaveProperty('redis');
     delete process.env.AI_PROVIDER;
+  });
+});
+
+// ── CC-018 — eliminação LGPD encerra a sessão ─────────────────────────────────
+describe('CC-018 — LGPD erasure ends the session (E2E)', () => {
+  const OTHER_PHYSICIAN_ID = 'aa0e8400-e29b-41d4-a716-446655440005';
+  let app: NestFastifyApplication;
+  let prismaMock: ReturnType<typeof buildPrismaMock>;
+  let accessToken: string;
+  let refreshToken: string;
+
+  function profile(id: string, email: string) {
+    return {
+      id,
+      email,
+      crmUf: 'SP',
+      crmNumber: '12345',
+      name: 'Dr. Test',
+      crmVerified: false,
+      mfaEnabled: false,
+      subscriptionStatus: 'trial',
+      createdAt: new Date(),
+    };
+  }
+
+  function getMe(token: string) {
+    return app.inject({
+      method: 'GET',
+      url: '/v1/auth/me',
+      headers: { cookie: `access_token=${token}` },
+    });
+  }
+
+  beforeAll(async () => {
+    // App novo: o cache da checagem de eliminação começa vazio.
+    ({ app, prismaMock } = await buildClinicalApp());
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/register',
+      payload: {
+        email: 'dr@test.com',
+        password: 'Senha@123',
+        crmUf: 'SP',
+        crmNumber: '12345',
+        name: 'Dr. Test',
+      },
+    });
+    const cookies = extractCookies(
+      res as unknown as { headers: Record<string, string | string[]> },
+    );
+    accessToken = cookies['access_token']!;
+    refreshToken = cookies['refresh_token']!;
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('the access token works before the erasure (and the check caches "not erased")', async () => {
+    prismaMock.physician.findUnique.mockResolvedValueOnce(profile(PHYSICIAN_ID, 'dr@test.com'));
+
+    const res = await getMe(accessToken);
+
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('POST /lgpd/erasure anonymizes the physician and writes erasedAt', async () => {
+    prismaMock.physician.findUnique.mockResolvedValueOnce(profile(PHYSICIAN_ID, 'dr@test.com'));
+    const erasureTx = {
+      recommendationDecision: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
+      copilotFeedback: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
+      encounter: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
+      consent: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
+      refreshToken: { deleteMany: vi.fn().mockResolvedValue({ count: 1 }) },
+      physician: { update: vi.fn().mockResolvedValue({}) },
+    };
+    // A trilha da eliminação não é silenciosa: a transação da cadeia de
+    // auditoria (lock + último hash + insert) também precisa responder.
+    const auditTx = {
+      $executeRaw: vi.fn().mockResolvedValue(1),
+      auditLog: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue({ id: 'audit-erasure-001' }),
+      },
+    };
+    prismaMock.$transaction
+      .mockImplementationOnce((cb: (tx: unknown) => Promise<unknown>) => cb(erasureTx))
+      .mockImplementationOnce((cb: (tx: unknown) => Promise<unknown>) => cb(auditTx));
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/lgpd/erasure',
+      headers: { cookie: `access_token=${accessToken}` },
+      payload: {},
+    });
+
+    expect([200, 201]).toContain(res.statusCode);
+    expect(erasureTx.physician.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ erasedAt: expect.any(Date) }) }),
+    );
+  });
+
+  it('the same access token, still signed and within exp, now gets 401', async () => {
+    // Se a sessão passasse, /auth/me acharia o cadastro e responderia 200.
+    prismaMock.physician.findUnique.mockClear();
+    prismaMock.physician.findUnique.mockResolvedValueOnce(profile(PHYSICIAN_ID, 'dr@test.com'));
+
+    const res = await getMe(accessToken);
+
+    expect(res.statusCode).toBe(401);
+    expect(prismaMock.physician.findUnique).not.toHaveBeenCalled();
+    // Descarta o cadastro que ficou na fila sem uso.
+    prismaMock.physician.findUnique.mockReset();
+    prismaMock.physician.findUnique.mockResolvedValue(null);
+  });
+
+  it('POST /auth/refresh refuses a refresh token of the erased physician', async () => {
+    // A eliminação apaga os refresh tokens; aqui a linha ainda existe, como no
+    // refresh que corre junto com a eliminação e grava um token novo depois.
+    prismaMock.refreshToken.create.mockClear();
+    prismaMock.refreshToken.findFirst.mockResolvedValueOnce({
+      id: REFRESH_TOKEN_ID,
+      tokenHash: hashToken(refreshToken),
+      revoked: false,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      physician: {
+        ...profile(PHYSICIAN_ID, 'dr@test.com'),
+        role: 'PHYSICIAN',
+        erasedAt: new Date(),
+      },
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/refresh',
+      headers: { cookie: `refresh_token=${refreshToken}` },
+      payload: {},
+    });
+
+    expect(res.statusCode).toBe(401);
+    expect(prismaMock.refreshToken.create).not.toHaveBeenCalled();
+  });
+
+  it('another physician keeps working after the erasure', async () => {
+    const jwt = new JwtService({});
+    const otherToken = await jwt.signAsync(
+      {
+        sub: OTHER_PHYSICIAN_ID,
+        email: 'outra@test.com',
+        physicianId: OTHER_PHYSICIAN_ID,
+        role: 'PHYSICIAN',
+      },
+      { secret: process.env.JWT_ACCESS_SECRET!, expiresIn: '15m' },
+    );
+    prismaMock.physician.findUnique.mockResolvedValueOnce(
+      profile(OTHER_PHYSICIAN_ID, 'outra@test.com'),
+    );
+
+    const res = await getMe(otherToken);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json<{ id: string }>().id).toBe(OTHER_PHYSICIAN_ID);
   });
 });

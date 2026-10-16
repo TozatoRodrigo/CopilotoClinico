@@ -16,6 +16,7 @@ import type { RetrievalCoverage, RetrievedChunk } from '../retrieval/hybrid-sear
 import { EncountersService } from '../../encounters/encounters.service';
 import { AttachmentsService } from '../../encounters/attachments/attachments.service';
 import { AuditService } from '../../audit/audit.service';
+import { activeInstitutionIds } from '../../institutions/institution-visibility';
 import { maskPII } from '../guardrails/pii-filter';
 import { scanForInjection, type InjectionScanResult } from '../guardrails/injection-defense';
 import {
@@ -779,6 +780,12 @@ interface GatheredEvidence {
 }
 
 /** Turno 0 depois da redação de PII e da barreira de injeção. */
+/** CC-019 — de quem é a busca: a instituição do caso só vale com vínculo ativo. */
+interface EvidenceScope {
+  physicianId: string;
+  institutionId: string | null;
+}
+
 interface ScreenedCase {
   startedAt: number;
   maxTurns: number;
@@ -959,11 +966,12 @@ export class OrchestratorService {
   private async gatherEvidence(
     caseText: string,
     stage: UnderstandingOutcome | null,
-    institutionId: string | null | undefined,
+    scope: EvidenceScope,
     pipeline: DecisionPipeline,
     logLabel: string,
   ): Promise<GatheredEvidence> {
     if (pipeline.knowledgeSource === 'internal_kb') {
+      const institutionId = await this.retrievalInstitution(scope, logLabel);
       return {
         retrievalResult: await this.retrieveEvidence(caseText, stage, institutionId, logLabel),
         research: null,
@@ -986,13 +994,32 @@ export class OrchestratorService {
   }
 
   /**
+   * CC-019 — a instituição do caso só abre o conteúdo institucional na busca
+   * enquanto o médico tem vínculo ativo com ela (ADR-009). O caso guarda a
+   * instituição de quando foi aberto; se o vínculo acabou ou a instituição
+   * foi desativada depois, a busca fica só no conteúdo global.
+   */
+  private async retrievalInstitution(
+    { physicianId, institutionId }: EvidenceScope,
+    logLabel: string,
+  ): Promise<string | null> {
+    if (!institutionId) return null;
+    const active = await activeInstitutionIds(this.prisma, physicianId);
+    if (active.includes(institutionId)) return institutionId;
+    this.logger.warn(
+      `RETRIEVAL_INSTITUTION_DROPPED${logLabel}: médico sem vínculo ativo com a instituição do caso — busca só no conteúdo global`,
+    );
+    return null;
+  }
+
+  /**
    * F1 — Etapa 2 (ADR-013): com entendimento, busca pelas consultas dele;
    * sem (legacy ou etapa que falhou), a busca de sempre pelo texto do caso.
    */
   private async retrieveEvidence(
     caseText: string,
     stage: UnderstandingOutcome | null,
-    institutionId: string | null | undefined,
+    institutionId: string | null,
     logLabel: string,
   ): Promise<RetrievalResult> {
     if (stage?.understanding) {
@@ -1428,7 +1455,7 @@ export class OrchestratorService {
     const evidence = await this.gatherEvidence(
       caseText,
       stage,
-      screened.institutionId,
+      { physicianId, institutionId: screened.institutionId },
       pipeline,
       logLabel,
     );
@@ -1610,7 +1637,7 @@ export class OrchestratorService {
     const evidence = await this.gatherEvidence(
       screened.augmentedCaseText,
       stage,
-      screened.institutionId,
+      { physicianId, institutionId: screened.institutionId },
       pipeline,
       logLabel,
     );
