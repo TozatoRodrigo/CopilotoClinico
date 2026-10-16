@@ -7,6 +7,7 @@ import { JwtService } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { PrismaService } from '../../config/prisma.service';
 import { JwtStrategy } from '../auth/strategies/jwt.strategy';
+import { PhysicianErasureCheck } from '../auth/physician-erasure-check.service';
 import { MailAdminController } from './mail-admin.controller';
 import { MailService } from './mail.service';
 
@@ -44,6 +45,8 @@ describe('MailAdminController (HTTP)', () => {
       controllers: [MailAdminController],
       providers: [
         JwtStrategy,
+        // CC-018 — a estratégia JWT recusa médico eliminado; aqui ninguém foi.
+        { provide: PhysicianErasureCheck, useValue: { isErased: async () => false } },
         { provide: MailService, useValue: mail },
         { provide: PrismaService, useValue: prisma },
       ],
