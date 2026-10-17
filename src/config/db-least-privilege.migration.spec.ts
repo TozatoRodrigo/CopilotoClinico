@@ -208,3 +208,42 @@ describe('CC-012 erasure privileges migration', () => {
     expect(sql).toContain(`'${table}'`);
   });
 });
+
+/**
+ * CC-406 — o índice semântico é derivado dos cartões: a API apaga linhas dele
+ * (arquivar, vencer), e apagar o índice nunca apaga nada assinado.
+ */
+describe('CC-406 migration 20261015120000_cc_406_knowledge_card_index', () => {
+  const sql = readFileSync(
+    join(
+      process.cwd(),
+      'prisma/migrations/20261015120000_cc_406_knowledge_card_index/migration.sql',
+    ),
+    'utf8',
+  );
+
+  it('grants only DML on the derived index and smoke-checks it', () => {
+    expect(sql).toContain(
+      'GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "knowledge_card_index" TO copiloto_app',
+    );
+    expect(sql).toContain('REVOKE TRUNCATE ON TABLE "knowledge_card_index" FROM copiloto_app');
+    expect(sql).not.toMatch(/GRANT\s+ALL/i);
+    expect(sql).not.toMatch(/GRANT[^;]*TRUNCATE/i);
+    expect(sql).toContain("has_table_privilege('copiloto_app', 'knowledge_card_index', privilege)");
+  });
+
+  it('cascades only from the card to its index row, never the other way', () => {
+    expect(sql).toContain(
+      'FOREIGN KEY ("card_id") REFERENCES "knowledge_cards"("id") ON DELETE CASCADE',
+    );
+    expect(sql).toContain(
+      'FOREIGN KEY ("version_id") REFERENCES "knowledge_card_versions"("id") ON DELETE CASCADE',
+    );
+    expect(sql).not.toMatch(/ALTER TABLE "knowledge_card(s|_versions)"/);
+  });
+
+  it('keeps the vector dimension open so a provider change is a reindex, not a migration', () => {
+    expect(sql).toMatch(/"embedding" vector,/);
+    expect(sql).toContain('knowledge_card_index_embedding_model_check');
+  });
+});

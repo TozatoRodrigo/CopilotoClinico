@@ -101,6 +101,10 @@ export function RouteBreadcrumbs() {
   if (first === 'encounters' && second && second !== 'new') {
     return <EncounterCrumbs segments={segments} />;
   }
+  // CC-408 — o cartão abre pelo "Revisado por" do plano; não há lista de cartões.
+  if (first === 'cartoes') {
+    return <Breadcrumb items={[{ label: 'Cartão revisado', icon: Cards }]} />;
+  }
 
   const root = STATIC[first];
   if (!root) return null;

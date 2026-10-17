@@ -20,6 +20,7 @@ import { KnowledgeGapService } from './gaps/knowledge-gap.service';
 import { IntakeController } from './intake/intake.controller';
 import { IntakeService } from './intake/intake.service';
 import { ConversationService } from './intake/conversation.service';
+import { KnowledgeCardRetrievalModule } from '../knowledge-cards/card-retrieval/knowledge-card-retrieval.module';
 
 @Module({
   imports: [
@@ -29,6 +30,8 @@ import { ConversationService } from './intake/conversation.service';
     // CC-010 — AiConsentGuard nas rotas que chamam IA.
     LgpdModule,
     ProtocolEngineModule,
+    // CC-408 — cartões revisados na decisão (COPILOT_REVIEWED_CARDS).
+    KnowledgeCardRetrievalModule,
     forwardRef(() => QueueModule),
   ],
   controllers: [

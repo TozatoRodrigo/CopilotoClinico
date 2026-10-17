@@ -16,6 +16,7 @@ import { COPILOT_OUTPUT_JSON_SCHEMA } from '../schemas/copilot-output.json-schem
 import { ConfigService } from '@nestjs/config';
 import type { UnderstandingService } from '../understanding/understanding.service';
 import type { WebResearchService } from '../research/web-research.service';
+import { cardRetrievalNeverCalled } from '../../../../tests/fixtures/reviewed-cards';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { REGEX_ONLY_DEIDENTIFIER, type Deidentifier } from '../../deid/deidentification.service';
 import { modelDeidentifier } from '../../../../tests/helpers/fake-deid';
@@ -165,6 +166,7 @@ describe('OrchestratorService', () => {
           throw new Error('internal_kb não chama a pesquisa web');
         },
       } as unknown as WebResearchService,
+      cardRetrievalNeverCalled(),
       deid,
     );
   }

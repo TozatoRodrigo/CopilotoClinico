@@ -1096,8 +1096,8 @@ exige, além do papel, vínculo ativo com a instituição (ADR-009, adendo CC-02
 Um cartão é uma situação clínica com pergunta e resposta curta, em que cada
 afirmação e cada dose citam um trecho literal de uma diretriz já ingerida
 (base curada `approved` ou base oficial `official_unreviewed`). A IA rascunha;
-um médico com **CRM verificado** aprova. Por ora os cartões só existem no
-console: a decisão do Copiloto ainda não os usa (CC-408).
+um médico com **CRM verificado** aprova. A decisão do Copiloto só os usa com
+`COPILOT_REVIEWED_CARDS` ligada (CC-408, abaixo).
 
 **Rascunho por IA** — desligado por padrão (`KNOWLEDGE_CARDS_DRAFT_ENABLED`):
 cada pedido é uma chamada ao modelo (estimativa do CC-403: US$ 0,20–0,30 por
@@ -1233,6 +1233,128 @@ SELECT review_decision, count(*) AS decisoes,
        round(percentile_cont(0.9) WITHIN GROUP (ORDER BY review_duration_ms) / 1000) AS p90_s
 FROM knowledge_card_versions WHERE review_duration_ms IS NOT NULL GROUP BY 1;
 ```
+
+**Índice semântico (CC-406, emenda de 15/10/2026 à ADR-019)** — tabela
+`knowledge_card_index`, uma linha por cartão publicado, aprovado, válido e
+assinado por médico com CRM verificado. Aprovar indexa (ou reindexa a versão
+nova), arquivar tira, e a varredura diária das 04:00 UTC tira o vencido e
+completa o vetor que faltou. A busca confere tudo de novo na consulta: cartão
+vencido, arquivado ou de revisor que perdeu a verificação nunca volta, mesmo
+antes da varredura.
+
+O vetor vem do provedor de embedding configurado (`EMBEDDING_PROVIDER`,
+`AI_EMBEDDING_MODEL`, `EMBEDDING_BASE_URL` — os mesmos das diretrizes). Com
+`EMBEDDING_PROVIDER=none` (produção hoje), o cartão entra sem vetor e a busca
+não roda. A coluna não fixa dimensão: trocar provedor ou modelo é reindexar.
+
+```bash
+pnpm cards:reindex   # indexa o que falta, reembute o que mudou, tira o que venceu
+                     # código 1 se algum cartão ficou sem vetor com o provedor ligado
+```
+
+No log: `CARD_INDEX_SYNC` (com vetor novo, sem mudança, sem vetor, fora do
+índice por motivo, linhas apagadas), `CARD_SEARCH` (consultas, candidatos,
+melhor similaridade), `CARD_EMBEDDING_UNAVAILABLE` (provedor falhou — também
+no Sentry), `CARD_INDEX_SYNC_FAILED` e `CARD_INDEX_SWEEP_FAILED`. Nada do
+texto do cartão ou da consulta.
+
+```sql
+-- O que está no índice, por modelo; linhas sem vetor esperam o reindex
+SELECT coalesce(embedding_model, '(sem vetor)') AS model, count(*),
+       min(valid_until) AS vence_primeiro
+FROM knowledge_card_index GROUP BY 1;
+```
+
+**Escolher o provedor dos cartões** — `pnpm eval:card-retrieval` mede o
+acerto top-1/top-3, o MRR e a latência da consulta com o provedor do
+ambiente, embutindo em memória os cartões publicados e as perguntas de
+`evals/cards/retrieval-questions.json` (formato em
+`retrieval-questions.example.json`: `id`, `question`, `expected` = tema ou id
+do cartão). Só leitura; o índice não muda. Código 1 abaixo de 85% no top-3.
+
+```bash
+# Base: o provedor atual
+pnpm eval:card-retrieval --json openai.json
+# Voyage (formato compatível com a API da OpenAI)
+EMBEDDING_PROVIDER=openai EMBEDDING_BASE_URL=https://api.voyageai.com/v1 \
+  AI_EMBEDDING_MODEL=voyage-3.5 EMBEDDING_API_KEY=$VOYAGE_API_KEY \
+  pnpm eval:card-retrieval --json voyage.json
+# Qwen3-Embedding na DeepInfra; modelo local pelo text-embeddings-inference
+EMBEDDING_PROVIDER=openai EMBEDDING_BASE_URL=https://api.deepinfra.com/v1/openai \
+  AI_EMBEDDING_MODEL=Qwen/Qwen3-Embedding-8B EMBEDDING_API_KEY=$DEEPINFRA_API_KEY \
+  pnpm eval:card-retrieval --json qwen3.json
+EMBEDDING_PROVIDER=openai EMBEDDING_BASE_URL=http://localhost:8080/v1 \
+  AI_EMBEDDING_MODEL=BAAI/bge-m3 EMBEDDING_API_KEY=local pnpm eval:card-retrieval --json local.json
+```
+
+Escolhido o provedor (critério na ADR-019), ligue-o no ambiente e rode
+`pnpm cards:reindex`. Atenção: `EMBEDDING_PROVIDER`/`AI_EMBEDDING_MODEL` são os
+mesmos das diretrizes — trocar o modelo com a base interna em uso
+(`COPILOT_KNOWLEDGE_SOURCE=internal_kb`) exige reembutir os trechos
+(`vector(1536)`) também. Se só os cartões devem mudar, a troca é um
+`CardEmbedder` próprio (`CARD_EMBEDDER` no `KnowledgeCardIndexModule`).
+
+**Cartões na decisão (CC-408, `COPILOT_REVIEWED_CARDS`)** — desligada por
+padrão. Com ela desligada, nada muda: nenhuma busca de cartão, e prompt e
+saída da decisão byte a byte iguais. Ligada, só na decisão em etapas (v2, v3,
+v4) e em qualquer `COPILOT_KNOWLEDGE_SOURCE`:
+
+1. com o entendimento do caso, busca no índice pelas `searchQueries` (nunca o
+   texto do caso), na instituição do atendimento se o médico tem vínculo
+   ativo com ela (CC-019; senão, só nos globais) — **é uma chamada de
+   embedding a mais por análise**, inclusive em `model_only`;
+2. o portão de relevância aceita o cartão com similaridade ≥
+   `REVIEWED_CARDS_MIN_SIMILARITY` (padrão 0,50) e do mesmo tema (mesma
+   síndrome, ou o tema do cartão nas hipóteses do caso); até
+   `REVIEWED_CARDS_MAX` cartões (padrão 3, até 5);
+3. o cartão entra no prompt com "Revisado por Dr(a). X, CRM Y/UF, em data";
+   a conduta que o cita pode trazer **só a dose estruturada do cartão**, do
+   mesmo fármaco — outra dose vale um retry (`CARD DOSE NOT IN CARD`) e, se
+   sobrar, a conduta perde a citação e sai como conhecimento do modelo,
+   marcada "Dose sem fonte citada";
+4. na tela, a conduta mostra o rótulo verde "Cartão revisado por médico",
+   "Revisado por … · CRM … · em …" e "Ver cartão" (`/cartoes/:id`, que lê
+   `GET /v1/knowledge-cards/:id`).
+
+Pré-requisitos para ligar: cartões publicados, provedor de embedding ligado
+e índice com vetor (`pnpm cards:reindex` sai com código 0), e o gabarito com
+a variante de cartões sem aumento de erro crítico (abaixo). Sem embedding, a
+flag ligada não quebra nada: a busca não roda e a análise segue sem cartões.
+
+No log: `REVIEWED_CARDS` (status, portão, síndrome, candidatos, aceitos,
+rejeitados por motivo, `cardId:versão:similaridade`), `REVIEWED_CARDS_GAP`
+(nenhum cartão aplicável — a lacuna da CC-409), `REVIEWED_CARDS_SKIPPED`
+(decisão v1 ou sem entendimento), `REVIEWED_CARDS_FAILED` e
+`REVIEWED_CARDS_GATE_FAILED` (também no Sentry; a análise segue sem cartões)
+e `REVIEWED_CARD_DOSE_DEMOTED` (dose fora do cartão depois do retry). Na
+interação: `params.reviewedCards` (o que a busca fez) e
+`rawOutput.reviewedCards` (cartão, versão, hash assinado, revisor,
+similaridade).
+
+```sql
+-- Análises com a flag ligada que receberam cartão (métrica da CC-408)
+SELECT count(*) FILTER (WHERE jsonb_array_length(raw_output->'reviewedCards') > 0) AS com_cartao,
+       count(*) AS com_flag
+FROM ai_interactions WHERE raw_output ? 'reviewedCards';
+```
+
+**Medir antes de ligar (critério 3 da CC-408)** — sem chamada paga nos
+testes; a rodada é manual, com o banco do gabarito tendo os cartões
+publicados e o índice feito:
+
+```bash
+pnpm cards:reindex
+EMBEDDING_BASE_URL=https://api.openai.com/v1 AI_EMBEDDING_MODEL=text-embedding-3-small \
+  EMBEDDING_API_KEY=$OPENAI_API_KEY \
+  pnpm eval:clinical --variant claude-opus-5-5-v3-modelo --variant claude-opus-5-5-v3-modelo-cartoes \
+  --cases critical --judge anthropic
+# caso a caso: nenhum erro crítico novo com cartões
+pnpm eval:clinical:compare evals/clinical/runs/<v3-modelo> evals/clinical/runs/<v3-modelo-cartoes>
+```
+
+O relatório ganha "… citando cartão revisado (com a dose do cartão)" na
+seção "Base das condutas". O workspace da Anthropic é o da produção:
+confirme o limite antes de rodar.
 
 ### Sincronizar a base oficial da Conitec (ADR-010)
 
@@ -2240,6 +2362,7 @@ regra das três FKs: não depende de código novo e entra pelo passo 2 de
 | `20261014180000_cc_703_knowledge_gaps` | Tabela `knowledge_gaps` (registro de lacunas, CC-703); só cria tabela e tipo, sem tocar nas existentes |
 | `20261014200100_audio_capture_retention` | `audio_captures.encrypted_content` anulável + CHECK `deleted` ⇔ sem áudio (retenção de 30 dias). Só metadado de coluna e CHECK: a versão anterior da API roda sobre o schema novo |
 | `20261015120000_cc_404_card_reviewer` | `physicians.is_card_reviewer` (padrão `false`): acesso só à fila de revisão de cartões (CC-404); só adiciona coluna |
+| `20261015120000_cc_406_knowledge_card_index` | Índice semântico dos cartões (CC-406): `knowledge_card_index`, derivado (CASCADE a partir do cartão, GRANT com DELETE), `embedding vector` sem dimensão fixa; só cria tabela — depois do deploy, `pnpm cards:reindex` |
 | `20261015120100_cc_411_card_cross_reviews` | Revisão cruzada (CC-411): `knowledge_card_cross_reviews`, CHECK de segundo médico, trigger que congela sorteio e decisão, GRANT sem DELETE; só cria tabela |
 | `20261015130000_cc_801_shift_reviews` | Tabelas `shift_reviews` e `shift_review_questions` (CC-801, "Revise seu plantão"); só cria tabelas e enums, com GRANT de DML para `copiloto_app` |
 | `20261015180000_cc207_chief_complaint_text` | `encounters.chief_complaint` de `VARCHAR(140)` para `TEXT`, para caber o valor cifrado — CC-207/ADR-021; sem reescrever a tabela |
@@ -2301,6 +2424,7 @@ credencial vêm do PR #168 (seção "Sentry" em Monitoramento).
 | `FIELD_ENCRYPTION_KEY_PREVIOUS` | Só durante uma rotação: a chave anterior, para decifrar. Vazia = sem rotação |
 | `OFFICIAL_GUIDELINES_ENABLED` | `false` tira PCDT/DDT/DB/PU do retrieval (válvula de escape da ADR-010); ausente = ligada. Os limiares `OFFICIAL_*` estão em `.env.example` |
 | `KNOWLEDGE_CARDS_DRAFT_ENABLED` | `true` liga o rascunho de cartões por IA (CC-403: `pnpm cards:draft` e `POST /v1/admin/knowledge-cards/drafts`). Ausente ou irreconhecível = desligado (503). Modelo em `AI_CARD_DRAFT_MODEL` (vazio = `AI_MODEL`; aceita `perfil:modelo`). Não muda a análise do Copiloto |
+| `COPILOT_REVIEWED_CARDS` | CC-408: `on` põe os cartões revisados publicados na decisão em etapas (v2/v3/v4), com "Revisado por" e a dose estruturada do cartão liberada. Ausente ou irreconhecível = desligada: nenhuma busca de cartão, prompt e saída iguais. Ligada, uma chamada de embedding a mais por análise; sem embedding, segue sem cartões. Limiares em `REVIEWED_CARDS_MIN_SIMILARITY` (padrão 0,5) e `REVIEWED_CARDS_MAX` (padrão 3). Ver "Cartões na decisão" |
 | `UNREVIEWED_SOURCES_PRELIMINARY` | `false` desliga a contenção da ADR-012: PCDT e chunk curado sem assinatura voltam a embasar conduta definitiva. Ausente ou irreconhecível = ligada |
 | `COPILOT_REASONING` | `stages` liga o raciocínio em etapas da ADR-013 (entendimento do caso antes da busca, busca dirigida, card "O que eu entendi"); `legacy` (padrão) volta ao pipeline de sempre. Ausente ou irreconhecível = `legacy`. Etapa 1 com `AI_UNDERSTANDING_MODEL` (vazio = `AI_MODEL`) e `AI_UNDERSTANDING_EFFORT` (padrão `low`). Falha da Etapa 1 aparece como `UNDERSTANDING_FAILED`/`UNDERSTANDING_FALLBACK` no log e a análise segue pela busca de sempre |
 | `COPILOT_DECISION_PROMPT` | `v2` liga a decisão em duas camadas da ADR-013 ("Fazer agora" × "Depende de…", perguntas que separam hipóteses, conhecimento geral do modelo rotulado e sem dose); `v1` (padrão) é o prompt de sempre. Exige `COPILOT_REASONING=stages`: sem ele fica `v1` e o log mostra `DECISION_PIPELINE_DOWNGRADE`. Regra da v2 que sobra depois do retry vira `OUTPUT_VALIDATION_WARNING`, nunca bloqueio |

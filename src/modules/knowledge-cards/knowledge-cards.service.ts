@@ -18,7 +18,13 @@ import {
   type KnowledgeCardDetail,
   type KnowledgeCardDisplayStatus,
   type KnowledgeCardListPage,
+  type PublishedKnowledgeCard,
 } from '../../shared/contracts/knowledge-cards';
+import {
+  REVIEWED_CARD_SELECT,
+  toPublishedCard,
+  toReviewedCard,
+} from './card-retrieval/reviewed-card-view';
 import { crossReviewBucket, isSampledForCrossReview } from './domain/cross-review';
 import {
   DEFAULT_VALIDITY_MONTHS,
@@ -26,6 +32,11 @@ import {
   validUntilFrom,
   type KnowledgeCardAction,
 } from './domain/card-lifecycle';
+import { CardIndexService } from './card-index/card-index.service';
+import {
+  activeInstitutionIds,
+  isVisibleToInstitutions,
+} from '../institutions/institution-visibility';
 import { prepareCorrection } from './card-sources';
 import { KNOWLEDGE_CARD_AUDIT_ACTIONS, KNOWLEDGE_CARD_AUDIT_ENTITY } from './knowledge-card-audit';
 import {
@@ -97,6 +108,10 @@ function displayStatusWhere(
  *
  * Toda transição recebe a versão que a pessoa viu: se outra versão entrou no
  * meio (ou outra pessoa decidiu antes), 409 — ninguém assina o que não leu.
+ *
+ * CC-406 — aprovar e arquivar atualizam o índice semântico, depois da trilha:
+ * são as duas transições que mudam a versão publicada ou tiram o cartão de
+ * uso. Corrigir e rejeitar não mexem na versão publicada.
  */
 @Injectable()
 export class KnowledgeCardsService {
@@ -105,6 +120,7 @@ export class KnowledgeCardsService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(CardIndexService) private readonly cardIndex: CardIndexService,
   ) {}
 
   async list(query: ListKnowledgeCardsQueryInput): Promise<KnowledgeCardListPage> {
@@ -153,6 +169,36 @@ export class KnowledgeCardsService {
     });
     if (!row) throw new NotFoundException('Cartão não encontrado');
     return toCardDetail(row, new Date());
+  }
+
+  /**
+   * CC-408 — o cartão publicado, aberto pelo "Revisado por" da tela do plano.
+   * Só a versão assinada por médico com CRM verificado; arquivado, sem versão
+   * publicada ou de outra instituição (ADR-009) é 404 — a existência do
+   * cartão de outra instituição não vaza. Vencido aparece como "revisar".
+   */
+  async getPublished(physicianId: string, cardId: string): Promise<PublishedKnowledgeCard> {
+    const row = await this.prisma.knowledgeCard.findUnique({
+      where: { id: cardId },
+      select: REVIEWED_CARD_SELECT,
+    });
+    const card = row ? toReviewedCard(row) : null;
+    if (!card || !(await this.belongsToInstitution(physicianId, card.institutionId))) {
+      throw new NotFoundException('Cartão não encontrado');
+    }
+    return toPublishedCard(card, new Date());
+  }
+
+  /** CC-019 — a regra das diretrizes: institucional só com vínculo ativo. */
+  private async belongsToInstitution(
+    physicianId: string,
+    institutionId: string | null,
+  ): Promise<boolean> {
+    if (!institutionId) return true;
+    return isVisibleToInstitutions(
+      institutionId,
+      await activeInstitutionIds(this.prisma, physicianId),
+    );
   }
 
   /**
@@ -292,6 +338,7 @@ export class KnowledgeCardsService {
       commentSha256: textSha256(comment),
       crossReviewSampled,
     });
+    await this.cardIndex.syncCard(cardId);
     return this.get(cardId);
   }
 
@@ -357,6 +404,7 @@ export class KnowledgeCardsService {
       to,
       reasonSha256: textSha256(reason),
     });
+    await this.cardIndex.syncCard(cardId);
     return this.get(cardId);
   }
 

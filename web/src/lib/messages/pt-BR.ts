@@ -19,6 +19,7 @@
  */
 
 import type { CitationOrigin, PreliminaryReason, PsSyndrome } from '@contracts/clinical';
+import type { KnowledgeCardClaimKind } from '@contracts/knowledge-cards';
 import type { ShiftReviewConfidence, ShiftReviewQuadrant } from '@contracts/shift-review';
 
 export interface Messages {
@@ -133,6 +134,27 @@ export interface Messages {
     why: string;
     /** F1 — link para a página da fonte oficial externa (pesquisa web). */
     openSourcePage: string;
+    /** CC-408 — autoria da conduta que segue um cartão revisado; sem nome, só o CRM. */
+    reviewedBy: (reviewer: string | null, crm: string, date: string) => string;
+    /** CC-408 — link para o cartão revisado. */
+    openCard: string;
+  };
+
+  /** CC-408 — página do cartão revisado, aberta pelo "Revisado por". */
+  reviewedCard: {
+    title: string;
+    loading: string;
+    notFound: string;
+    needsReview: string;
+    population: string;
+    answer: string;
+    claims: string;
+    sources: string;
+    dose: string;
+    reviewedBy: (reviewer: string | null, crm: string, date: string) => string;
+    validUntil: (date: string) => string;
+    version: (version: number) => string;
+    claimKind: Record<KnowledgeCardClaimKind, string>;
   };
 
   /** O plano de uma rodada da conversa: cabeçalho, pendências e rodapé. */
@@ -613,6 +635,34 @@ export const ptBR: Messages = {
     dependsOnMissing: 'Depende de dado ainda não informado',
     why: 'Por quê',
     openSourcePage: 'Abrir página da fonte',
+    reviewedBy: (reviewer: string | null, crm: string, date: string) =>
+      `Revisado por ${reviewer ? `${reviewer} · ` : ''}CRM ${crm} · em ${date}`,
+    openCard: 'Ver cartão',
+  },
+
+  reviewedCard: {
+    title: 'Cartão revisado',
+    loading: 'Carregando o cartão…',
+    notFound: 'Cartão não encontrado ou fora de uso.',
+    needsReview:
+      'A aprovação deste cartão venceu: ele não entra mais nas análises até ser revisado de novo.',
+    population: 'Para quem',
+    answer: 'Resposta',
+    claims: 'O que fazer',
+    sources: 'Fontes',
+    dose: 'Dose',
+    reviewedBy: (reviewer: string | null, crm: string, date: string) =>
+      `Revisado por ${reviewer ? `${reviewer} · ` : ''}CRM ${crm} · em ${date}`,
+    validUntil: (date: string) => `Válido até ${date}`,
+    version: (version: number) => `Versão ${version}`,
+    claimKind: {
+      conduct: 'Conduta',
+      criterion: 'Critério',
+      alarm_sign: 'Sinal de alarme',
+      disposition: 'Destino',
+      notification: 'Notificação',
+      pitfall: 'Armadilha',
+    },
   },
 
   plan: {
@@ -638,6 +688,7 @@ export const ptBR: Messages = {
     curated_unsigned: 'Base curada · sem assinatura médica',
     model_knowledge: 'Conhecimento geral do modelo — confirme no protocolo local',
     web_official: 'Fonte oficial externa',
+    reviewed_card: 'Cartão revisado por médico',
   },
 
   redFlags: {

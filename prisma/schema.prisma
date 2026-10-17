@@ -998,6 +998,7 @@ model KnowledgeCard {
   publishedVersion KnowledgeCardVersion?      @relation("KnowledgeCardPublishedVersion", fields: [publishedVersionId], references: [id], onDelete: Restrict)
   versions         KnowledgeCardVersion[]     @relation("KnowledgeCardVersions")
   crossReviews     KnowledgeCardCrossReview[]
+  indexEntry       KnowledgeCardIndexEntry?
 
   @@index([status, updatedAt])
   @@index([institutionId])
@@ -1041,11 +1042,42 @@ model KnowledgeCardVersion {
   crossReview     KnowledgeCardCrossReview? @relation("CrossReviewedVersion")
   /// CC-411 — a revisão cruzada que divergiu e gerou esta versão.
   crossReviewOf   KnowledgeCardCrossReview? @relation("CrossReviewCorrection")
+  indexEntry      KnowledgeCardIndexEntry?
 
   @@unique([cardId, version])
   @@index([draftId])
   @@index([reviewerId])
   @@map("knowledge_card_versions")
+}
+
+/// CC-406 (ADR-019) — índice semântico dos cartões: uma linha por cartão que
+/// pode ser usado agora (versão publicada, aprovada, válida, revisor com CRM
+/// verificado). Derivado dos cartões e refeito por `CardIndexService`
+/// (`pnpm cards:reindex`): a API pode apagar linhas daqui sem apagar nada
+/// assinado. `embedding` é `vector` sem dimensão fixa — trocar o provedor é
+/// reindexar, não migrar; a busca só compara vetores do modelo atual.
+model KnowledgeCardIndexEntry {
+  cardId            String                 @id @map("card_id") @db.Uuid
+  /// A versão publicada que o vetor representa.
+  versionId         String                 @unique @map("version_id") @db.Uuid
+  /// Cópia do cartão para o filtro de instituição (ADR-009).
+  institutionId     String?                @map("institution_id") @db.Uuid
+  syndrome          String?                @db.VarChar(40)
+  /// Validade da aprovação: a busca ignora a linha vencida mesmo antes da varredura.
+  validUntil        DateTime               @map("valid_until")
+  contentSha256     String                 @map("content_sha256") @db.Char(64)
+  /// SHA-256 do texto embutido (`cardEmbeddingText`): mudou, reembute.
+  textSha256        String                 @map("text_sha256") @db.Char(64)
+  embedding         Unsupported("vector")?
+  embeddingProvider String?                @map("embedding_provider") @db.VarChar(40)
+  embeddingModel    String?                @map("embedding_model") @db.VarChar(128)
+  indexedAt         DateTime               @default(now()) @map("indexed_at")
+
+  card    KnowledgeCard        @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  version KnowledgeCardVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@index([embeddingModel])
+  @@map("knowledge_card_index")
 }
 
 /// CC-411 — decisão do segundo médico sobre uma aprovação sorteada.

@@ -256,6 +256,7 @@ export function DomainSection() {
             <SourceOriginBadge origin="physician_attachment" />
             <SourceOriginBadge origin="model_knowledge" />
             <SourceOriginBadge origin="web_official" domain="ahajournals.org" />
+            <SourceOriginBadge origin="reviewed_card" />
           </div>
         </div>
       </Specimen>
