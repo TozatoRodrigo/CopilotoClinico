@@ -25,6 +25,8 @@ describe('transition', () => {
     ['in_review', 'edit', false, 'in_review'],
     // Corrigir o publicado abre revisão da versão nova.
     ['published', 'edit', true, 'in_review'],
+    // CC-411 — a revisão cruzada divergiu: o cartão sai do ar e volta à fila.
+    ['published', 'reopen', true, 'in_review'],
   ])('%s --%s--> (publicado antes: %s) %s', (status, action, hasPublishedVersion, to) => {
     expect(transition({ status, hasPublishedVersion }, action)).toEqual({ ok: true, to });
   });
@@ -36,6 +38,8 @@ describe('transition', () => {
     ['published', 'approve'],
     ['draft', 'reject'],
     ['published', 'reject'],
+    ['draft', 'reopen'],
+    ['in_review', 'reopen'],
   ])('recusa %s --%s-->', (status, action) => {
     const result = transition({ status, hasPublishedVersion: status === 'published' }, action);
     expect(result.ok).toBe(false);

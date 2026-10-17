@@ -13,6 +13,8 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useAuth } from '@/lib/auth-store';
 import { apiClient, ApiError } from '@/lib/api-client';
+import { PHYSICIAN_SPECIALTY_OPTIONS } from '@/lib/physician-specialty';
+import type { Physician, PhysicianSpecialty } from '@/lib/types';
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -37,6 +39,7 @@ import {
 } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 import { AuthHeading } from '../_components/auth-ui';
+import { OptionCard } from '../_components/option-card';
 
 interface MfaSetupResponse {
   otpauthUri: string;
@@ -70,25 +73,6 @@ const STEP_LABELS: Record<Step, string> = {
  */
 const BACKUP_CODES_KEY = 'copiloto:onboarding:backup-codes';
 
-/**
- * S24-ONBOARD-01 — lista de especialidades para o step de perfil.
- * Permite segmentação clínica (qual diretriz priorizar, analytics por área).
- */
-const SPECIALTIES = [
-  'Emergência',
-  'Clínica Médica',
-  'Cardiologia',
-  'Pneumologia',
-  'Pediatria',
-  'Neurologia',
-  'Cirurgia Geral',
-  'Ortopedia',
-  'Ginecologia/Obstetrícia',
-  'Psiquiatria',
-  'Anestesiologia',
-  'Outra',
-] as const;
-
 export default function OnboardingPage() {
   const { physician, updatePhysician } = useAuth();
   const router = useRouter();
@@ -115,7 +99,7 @@ export default function OnboardingPage() {
   const [backupCopied, setBackupCopied] = useState(false);
 
   const [profileName, setProfileName] = useState(physician?.name ?? '');
-  const [profileSpecialty, setProfileSpecialty] = useState<string>('');
+  const [profileSpecialty, setProfileSpecialty] = useState<PhysicianSpecialty | null>(null);
 
   const digitRefs = useRef<(HTMLInputElement | null)[]>([]);
   const setDigitRef = useCallback(
@@ -278,7 +262,9 @@ export default function OnboardingPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const payload: Record<string, string> = {};
+      // CC-014 — vai o slug do contrato (`medicina_de_emergencia`), não o
+      // rótulo da tela: o PATCH recusa valor fora da lista em vez de descartar.
+      const payload: Pick<Partial<Physician>, 'name' | 'specialty'> = {};
       if (profileName.trim() && profileName !== physician?.name) {
         payload.name = profileName.trim();
       }
@@ -539,16 +525,16 @@ export default function OnboardingPage() {
                 Especialidade
               </legend>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {SPECIALTIES.map((spec) => (
+                {PHYSICIAN_SPECIALTY_OPTIONS.map((option) => (
                   <OptionCard
-                    key={spec}
+                    key={option.value}
                     name="specialty"
-                    value={spec}
-                    checked={profileSpecialty === spec}
-                    onSelect={setProfileSpecialty}
+                    value={option.value}
+                    checked={profileSpecialty === option.value}
+                    onSelect={() => setProfileSpecialty(option.value)}
                   >
                     {/* Espaço de largura zero após "/" para quebrar "Ginecologia/Obstetrícia". */}
-                    {spec.replace('/', '/\u200B')}
+                    {option.label.replace('/', '/\u200B')}
                   </OptionCard>
                 ))}
               </div>
@@ -662,46 +648,5 @@ function BackButton({ onClick, children }: { onClick: () => void; children: Reac
       <ArrowLeft aria-hidden="true" />
       {children}
     </Button>
-  );
-}
-
-/**
- * Cartão de opção selecionável (rádio nativo escondido): borda sutil, hover
- * cinza, selecionado = anel azul + check. Setas do teclado navegam entre as
- * opções como em qualquer grupo de rádio.
- */
-function OptionCard({
-  name,
-  value,
-  checked,
-  onSelect,
-  children,
-}: {
-  name: string;
-  value: string;
-  checked: boolean;
-  onSelect: (value: string) => void;
-  children: ReactNode;
-}) {
-  return (
-    <label
-      className={cn(
-        'flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm leading-snug transition-colors duration-100 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-60 has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring/40',
-        checked
-          ? 'border-primary bg-tone-blue-bg font-medium text-foreground ring-1 ring-primary'
-          : 'border-border text-foreground hover:bg-hover',
-      )}
-    >
-      <input
-        type="radio"
-        name={name}
-        value={value}
-        checked={checked}
-        onChange={() => onSelect(value)}
-        className="sr-only"
-      />
-      <span className="min-w-0 flex-1">{children}</span>
-      {checked && <Check className="size-4 shrink-0 text-primary" weight="bold" aria-hidden="true" />}
-    </label>
   );
 }

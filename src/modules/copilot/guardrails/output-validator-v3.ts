@@ -8,6 +8,7 @@ import {
 import {
   cardDoseNotInCard,
   CopilotOutputV2Schema,
+  CopilotOutputV2WhySchema,
   dependsWithoutData,
   describeKnownDataQuestions,
   findQuestionsForKnownData,
@@ -21,6 +22,7 @@ import {
   type DecisionV2Context,
   type KnownDataQuestion,
 } from './output-validator-v2';
+import { checkWhyLines } from './why-line';
 
 /**
  * Validador da decisão v3 (emenda de 11/10/2026 ao ADR-013). Mesmo contrato
@@ -40,29 +42,43 @@ import {
  *   determinística, sem retry — a pergunta sai da resposta e vira aviso;
  * - hipótese grave não citada e passar dos tetos da v3: só aviso. O card "O
  *   que eu entendi" já mostra ao médico todas as hipóteses graves.
+ *
+ * CC-601 — com `COPILOT_WHY_LINE`, o contrato ganha a linha de "por quê" e
+ * as regras dela (why-line.ts), que nunca pedem um retry sozinhas.
  */
 
 /** Tetos da v3 (regras 3 e 5 do prompt). O schema mantém o teto rígido de 3 perguntas da v2. */
 export const DECISION_V3_LIMITS = { clarifyingQuestions: 2, now: 6, depends: 5 } as const;
 
-export type DecisionV3Context = DecisionV2Context;
+export interface DecisionV3Context extends DecisionV2Context {
+  /** CC-601 — `COPILOT_WHY_LINE` efetiva neste turno; ausente = desligada. */
+  whyLine?: boolean;
+}
 
 export function validateOutputV3(
   rawOutput: string,
   validChunkIds: readonly string[],
   context: DecisionV3Context,
 ): ValidationResult {
-  const parsed = parseModelOutput(rawOutput, CopilotOutputV2Schema);
+  const parsed = context.whyLine
+    ? parseModelOutput(rawOutput, CopilotOutputV2WhySchema)
+    : parseModelOutput(rawOutput, CopilotOutputV2Schema);
   if (!parsed.success) return parsed.failure;
 
   // `written` é a resposta como o modelo a escreveu: os achados citam os
   // índices dela, que é a que ele vê num eventual retry. `output` é a que segue
-  // para o médico, já sem as perguntas sobre dado informado.
-  const written = parsed.output;
+  // para o médico, já sem as perguntas sobre dado informado e sem as linhas de
+  // "por quê" acima do teto.
+  const written: CopilotOutputV2 = parsed.output;
   const knownData = context.understanding
     ? findQuestionsForKnownData(written, context.understanding)
     : [];
-  const { output, removed, warning } = dropQuestionsForKnownData(written, knownData);
+  const known = dropQuestionsForKnownData(written, knownData);
+  const whyLines = context.whyLine
+    ? checkWhyLines(known.output)
+    : { output: known.output, findings: [] };
+  const { output } = whyLines;
+  const { removed, warning } = known;
   const citableIds = new Set(validChunkIds);
 
   const errors = [deadEndError(output), answerTypeMismatchError(written, removed)].filter(
@@ -79,11 +95,14 @@ export function validateOutputV3(
     ...(context.reviewedCards ? cardDoseNotInCard(written, context.reviewedCards) : []),
     ...questionsWithoutSeparates(written, removed),
   ];
+  // A linha de "por quê" só pega carona num retry que já vai acontecer.
+  const retrying = errors.length > 0 || correctable.length > 0;
 
   const warnings = [
     ...(warning ? [warning] : []),
     ...(context.understanding ? uncoveredCannotMiss(written, context.understanding) : []),
     ...overTheLimits(output),
+    ...(retrying ? [] : whyLines.findings),
   ];
 
   return {
@@ -94,7 +113,7 @@ export function validateOutputV3(
       rec.basis === 'source' && !isCitable(rec.citationChunkId, citableIds) ? [index] : [],
     ),
     warnings,
-    correctable,
+    correctable: retrying ? [...correctable, ...whyLines.findings] : correctable,
   };
 }
 

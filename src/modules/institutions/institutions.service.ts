@@ -2,6 +2,7 @@ import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../config/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CreateInstitutionInput } from './schemas/institutions.schemas';
+import { activeInstitutionIds } from './institution-visibility';
 
 @Injectable()
 export class InstitutionsService {
@@ -76,5 +77,10 @@ export class InstitutionsService {
     });
 
     return links.map((link) => link.institution);
+  }
+
+  /** CC-019 — instituições cujo conteúdo institucional o médico vê (ver institution-visibility.ts). */
+  async activeInstitutionIds(physicianId: string): Promise<string[]> {
+    return activeInstitutionIds(this.prisma, physicianId);
   }
 }

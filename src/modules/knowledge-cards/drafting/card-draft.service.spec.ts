@@ -393,7 +393,7 @@ describe('KnowledgeCardDraftService', () => {
 
     expect(guidelines.consult).toHaveBeenCalledWith(
       'Meningite bacteriana: antibiótico empírico no adulto',
-      8,
+      { limit: 8, semantic: true },
     );
     expect(draftRow().sourceChunkIds).toEqual([TREATMENT_CHUNK_ID, DIAGNOSIS_CHUNK_ID]);
   });

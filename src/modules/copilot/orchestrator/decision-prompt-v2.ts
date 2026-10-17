@@ -13,6 +13,11 @@ import {
   type PhysicianAttachment,
   type RetrievedContext,
 } from './prompt-builder';
+import {
+  buildFacilityContextBlock,
+  declaredSiteContext,
+  FACILITY_TRANSFER_RULE_STAGED,
+} from './site-context-prompt';
 
 /**
  * F1 — prompt da decisão v2 (ADR-013, Etapa 3), com
@@ -155,6 +160,12 @@ export interface DecisionV2PromptInput {
    */
   reviewedCards?: readonly ReviewedCardEvidence[];
   additionalInstructions?: string;
+  /**
+   * CC-602/CC-603 — `COPILOT_SITE_CONTEXT`: com local declarado no caso, o
+   * bloco do local no lugar de "Recursos disponíveis" e a FACILITY AND
+   * TRANSFER RULE no fim do system. Sem isso, nada muda.
+   */
+  siteContext?: boolean;
 }
 
 /**
@@ -272,7 +283,10 @@ export function buildStagedDecisionPrompt(
   ].join('');
 
   const redFlagsBlock = buildConfirmedRedFlagsBlock(input.redFlags);
-  const contextBlock = buildContextBlock(input.context);
+  const facility = declaredSiteContext(input.context, input.siteContext);
+  const contextBlock = facility
+    ? buildFacilityContextBlock(facility)
+    : buildContextBlock(input.context);
   const instructionsBlock = input.additionalInstructions
     ? `\n\n${input.additionalInstructions}`
     : '';
@@ -283,5 +297,7 @@ ${input.caseText}
 ${redFlagsBlock ? `\n${redFlagsBlock}\n` : ''}${buildUnderstandingBlock(input.understanding)}${evidence || NO_EVIDENCE_NOTE}${contextBlock ? `\n${contextBlock}\n` : ''}
 Decide now: what to do now, what depends on missing data, and what to ask.${instructionsBlock}`;
 
-  return { system: withLanguageRule(systemPrompt, input.locale), user, retrievedChunkIds };
+  const system =
+    withLanguageRule(systemPrompt, input.locale) + (facility ? FACILITY_TRANSFER_RULE_STAGED : '');
+  return { system, user, retrievedChunkIds };
 }

@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { ProtocolsService } from './protocols.service';
 import { PrismaService } from '../../config/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -41,7 +47,12 @@ function validInput(overrides: Partial<CreateProtocolInput> = {}): CreateProtoco
   };
 }
 
-function dbNode(id: string, nodeType: 'question' | 'action' | 'outcome', content: unknown, order: number) {
+function dbNode(
+  id: string,
+  nodeType: 'question' | 'action' | 'outcome',
+  content: unknown,
+  order: number,
+) {
   return {
     id,
     protocolId,
@@ -75,6 +86,9 @@ describe('ProtocolsService', () => {
     protocolEdge: {
       create: ReturnType<typeof vi.fn>;
     };
+    physician: {
+      findUnique: ReturnType<typeof vi.fn>;
+    };
   };
   let auditService: { log: ReturnType<typeof vi.fn> };
 
@@ -94,6 +108,10 @@ describe('ProtocolsService', () => {
       },
       protocolEdge: {
         create: vi.fn(),
+      },
+      // CC-020 — por padrão quem chama é curador; o bloco do CC-020 cobre os outros papéis.
+      physician: {
+        findUnique: vi.fn().mockResolvedValue({ role: 'PHYSICIAN', isCurator: true }),
       },
     };
 
@@ -268,40 +286,66 @@ describe('ProtocolsService', () => {
     it('throws NotFoundException when the protocol does not exist', async () => {
       prisma.protocol.findUnique.mockResolvedValue(null);
 
-      await expect(service.publish(physicianId, protocolId)).rejects.toThrow(NotFoundException);
+      await expect(service.publish(physicianId, protocolId, [])).rejects.toThrow(NotFoundException);
     });
 
     it('throws ConflictException when the protocol is not a draft', async () => {
       prisma.protocol.findUnique.mockResolvedValue({
         id: protocolId,
+        institutionId: null,
         status: 'published',
         nodes: [],
       });
 
-      await expect(service.publish(physicianId, protocolId)).rejects.toThrow(ConflictException);
+      await expect(service.publish(physicianId, protocolId, [])).rejects.toThrow(ConflictException);
       expect(prisma.protocol.update).not.toHaveBeenCalled();
     });
 
     it('rejects publishing a draft whose graph is invalid', async () => {
       prisma.protocol.findUnique.mockResolvedValue({
         id: protocolId,
+        institutionId: null,
         status: 'draft',
         nodes: [
-          dbNode('q1', 'question', { question: 'Sintomas há mais de 48h?', answerType: 'boolean' }, 0),
+          dbNode(
+            'q1',
+            'question',
+            { question: 'Sintomas há mais de 48h?', answerType: 'boolean' },
+            0,
+          ),
         ],
       });
 
-      await expect(service.publish(physicianId, protocolId)).rejects.toThrow(BadRequestException);
+      await expect(service.publish(physicianId, protocolId, [])).rejects.toThrow(
+        BadRequestException,
+      );
       expect(prisma.protocol.update).not.toHaveBeenCalled();
     });
 
     it('publishes a draft with a valid graph and audits PROTOCOL_PUBLISHED', async () => {
-      const q1 = dbNode('q1', 'question', { question: 'Sintomas há mais de 48h?', answerType: 'boolean' }, 0);
+      const q1 = dbNode(
+        'q1',
+        'question',
+        { question: 'Sintomas há mais de 48h?', answerType: 'boolean' },
+        0,
+      );
       const a1 = dbNode('a1', 'action', { action: 'Considerar oseltamivir' }, 1);
       const o1 = dbNode('o1', 'outcome', { outcome: 'Conduta sintomática' }, 2);
       q1.outgoingEdges = [
-        { id: 'e1', fromNodeId: 'q1', toNodeId: 'a1', condition: { answer: true }, createdAt: new Date() },
-        { id: 'e2', fromNodeId: 'q1', toNodeId: 'o1', condition: { answer: false }, createdAt: new Date() },
+        {
+          id: 'e1',
+          fromNodeId: 'q1',
+          toNodeId: 'a1',
+          condition: { answer: true },
+          createdAt: new Date(),
+        },
+        {
+          id: 'e2',
+          fromNodeId: 'q1',
+          toNodeId: 'o1',
+          condition: { answer: false },
+          createdAt: new Date(),
+        },
       ];
       a1.outgoingEdges = [
         { id: 'e3', fromNodeId: 'a1', toNodeId: 'o1', condition: null, createdAt: new Date() },
@@ -311,6 +355,7 @@ describe('ProtocolsService', () => {
         id: protocolId,
         name: 'Síndrome gripal',
         specialty: 'clinica_geral',
+        institutionId: null,
         version: 1,
         status: 'draft',
         nodes: [q1, a1, o1],
@@ -322,7 +367,7 @@ describe('ProtocolsService', () => {
         nodes: [q1, a1, o1],
       });
 
-      const result = await service.publish(physicianId, protocolId);
+      const result = await service.publish(physicianId, protocolId, []);
 
       expect(prisma.protocol.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -337,13 +382,56 @@ describe('ProtocolsService', () => {
     });
   });
 
+  describe('CC-019 — protocolo de outra instituição', () => {
+    const draftOfOtherHospital = {
+      id: protocolId,
+      institutionId: 'inst-outro-hospital',
+      status: 'draft',
+      nodes: [],
+    };
+
+    it('findVisibleById: devolve o da instituição de vínculo ativo', async () => {
+      prisma.protocol.findUnique.mockResolvedValue(draftOfOtherHospital);
+
+      await expect(
+        service.findVisibleById(protocolId, ['inst-outro-hospital']),
+      ).resolves.toMatchObject({ id: protocolId });
+    });
+
+    it('publicar o rascunho de outra instituição é 404, sem publicar nem devolver o protocolo', async () => {
+      prisma.protocol.findUnique.mockResolvedValue(draftOfOtherHospital);
+
+      await expect(service.publish(physicianId, protocolId, ['inst-meu'])).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(prisma.protocol.update).not.toHaveBeenCalled();
+    });
+
+    it('revisar o protocolo de outra instituição é 404, sem criar versão', async () => {
+      prisma.protocol.findUnique.mockResolvedValue({
+        ...draftOfOtherHospital,
+        status: 'published',
+      });
+
+      await expect(
+        service.reviseAsNewVersion(physicianId, protocolId, validInput(), []),
+      ).rejects.toThrow(NotFoundException);
+      expect(prisma.protocol.create).not.toHaveBeenCalled();
+    });
+  });
+
   describe('reviseAsNewVersion', () => {
     it('throws ConflictException when revising a draft protocol', async () => {
-      prisma.protocol.findUnique.mockResolvedValue({ id: protocolId, status: 'draft', nodes: [] });
+      prisma.protocol.findUnique.mockResolvedValue({
+        id: protocolId,
+        institutionId: null,
+        status: 'draft',
+        nodes: [],
+      });
 
-      await expect(service.reviseAsNewVersion(physicianId, protocolId, validInput())).rejects.toThrow(
-        ConflictException,
-      );
+      await expect(
+        service.reviseAsNewVersion(physicianId, protocolId, validInput(), []),
+      ).rejects.toThrow(ConflictException);
     });
 
     it('creates a new version from a published protocol without mutating the previous one', async () => {
@@ -384,7 +472,7 @@ describe('ProtocolsService', () => {
       prisma.protocolNode.create.mockResolvedValue({ id: 'node-x' });
       prisma.protocolEdge.create.mockResolvedValue({});
 
-      const result = await service.reviseAsNewVersion(physicianId, protocolId, validInput());
+      const result = await service.reviseAsNewVersion(physicianId, protocolId, validInput(), []);
 
       expect(result.id).toBe('new-protocol-id');
       expect(result.version).toBe(2);
@@ -393,9 +481,219 @@ describe('ProtocolsService', () => {
       expect(auditService.log).toHaveBeenCalledWith(
         expect.objectContaining({
           action: 'PROTOCOL_REVISED',
-          payload: expect.objectContaining({ previousProtocolId: protocolId, previousVersion: 1, newVersion: 2 }),
+          payload: expect.objectContaining({
+            previousProtocolId: protocolId,
+            previousVersion: 1,
+            newVersion: 2,
+          }),
         }),
       );
+    });
+  });
+  describe('CC-020 — só curador ou ADMIN escreve protocolo', () => {
+    const plainPhysician = { role: 'PHYSICIAN', isCurator: false };
+
+    function publishableDraft(institutionId: string | null = null) {
+      const q1 = dbNode(
+        'q1',
+        'question',
+        { question: 'Sintomas há mais de 48h?', answerType: 'boolean' },
+        0,
+      );
+      const a1 = dbNode('a1', 'action', { action: 'Considerar oseltamivir' }, 1);
+      const o1 = dbNode('o1', 'outcome', { outcome: 'Conduta sintomática' }, 2);
+      q1.outgoingEdges = [
+        {
+          id: 'e1',
+          fromNodeId: 'q1',
+          toNodeId: 'a1',
+          condition: { answer: true },
+          createdAt: new Date(),
+        },
+        {
+          id: 'e2',
+          fromNodeId: 'q1',
+          toNodeId: 'o1',
+          condition: { answer: false },
+          createdAt: new Date(),
+        },
+      ];
+      a1.outgoingEdges = [
+        { id: 'e3', fromNodeId: 'a1', toNodeId: 'o1', condition: null, createdAt: new Date() },
+      ];
+      return {
+        id: protocolId,
+        name: 'Síndrome gripal',
+        specialty: 'clinica_geral',
+        institutionId,
+        version: 1,
+        status: 'draft',
+        nodes: [q1, a1, o1],
+      };
+    }
+
+    function mockCreatedVersion(version: number) {
+      prisma.protocol.findFirst.mockResolvedValue(version > 1 ? { version: version - 1 } : null);
+      prisma.protocol.create.mockResolvedValue({
+        id: 'new-protocol-id',
+        name: 'Síndrome gripal',
+        specialty: 'clinica_geral',
+        version,
+        institutionId: null,
+      });
+      prisma.protocolNode.create.mockResolvedValue({ id: 'node-x' });
+      prisma.protocolEdge.create.mockResolvedValue({});
+    }
+
+    it('lê papel e flag do banco, não do token', async () => {
+      prisma.physician.findUnique.mockResolvedValue(plainPhysician);
+
+      await expect(service.create(physicianId, validInput())).rejects.toThrow(ForbiddenException);
+      expect(prisma.physician.findUnique).toHaveBeenCalledWith({
+        where: { id: physicianId },
+        select: { role: true, isCurator: true },
+      });
+    });
+
+    it.each([
+      ['global', undefined],
+      ['institucional', 'inst-a'],
+    ])(
+      'médico sem papel não cria protocolo %s: 403 e nada gravado',
+      async (_scope, institutionId) => {
+        prisma.physician.findUnique.mockResolvedValue(plainPhysician);
+
+        await expect(service.create(physicianId, validInput({ institutionId }))).rejects.toThrow(
+          ForbiddenException,
+        );
+        expect(prisma.protocol.create).not.toHaveBeenCalled();
+        expect(prisma.protocolNode.create).not.toHaveBeenCalled();
+        expect(auditService.log).not.toHaveBeenCalled();
+      },
+    );
+
+    it('médico sem papel não publica: 403 antes de ler o protocolo (não confirma que ele existe)', async () => {
+      prisma.physician.findUnique.mockResolvedValue(plainPhysician);
+      prisma.protocol.findUnique.mockResolvedValue(publishableDraft());
+      const warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+
+      await expect(service.publish(physicianId, protocolId, [])).rejects.toThrow(
+        ForbiddenException,
+      );
+      expect(prisma.protocol.findUnique).not.toHaveBeenCalled();
+      expect(prisma.protocol.update).not.toHaveBeenCalled();
+      expect(auditService.log).not.toHaveBeenCalled();
+      // A recusa aparece no log, sem identificar o médico.
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('PROTOCOL_WRITE_DENIED action=publish'),
+      );
+      expect(JSON.stringify(warn.mock.calls)).not.toContain(physicianId);
+      warn.mockRestore();
+    });
+
+    it('médico sem papel não cria versão nova: 403 e nada gravado', async () => {
+      prisma.physician.findUnique.mockResolvedValue(plainPhysician);
+
+      await expect(
+        service.reviseAsNewVersion(physicianId, protocolId, validInput(), []),
+      ).rejects.toThrow(ForbiddenException);
+      expect(prisma.protocol.findUnique).not.toHaveBeenCalled();
+      expect(prisma.protocol.create).not.toHaveBeenCalled();
+      expect(auditService.log).not.toHaveBeenCalled();
+    });
+
+    it('COMPLIANCE sem a flag de curador também não escreve', async () => {
+      prisma.physician.findUnique.mockResolvedValue({ role: 'COMPLIANCE', isCurator: false });
+
+      await expect(service.publish(physicianId, protocolId, [])).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('médico que não existe mais não escreve', async () => {
+      prisma.physician.findUnique.mockResolvedValue(null);
+
+      await expect(service.create(physicianId, validInput())).rejects.toThrow(ForbiddenException);
+      expect(prisma.protocol.create).not.toHaveBeenCalled();
+    });
+
+    it('ADMIN publica protocolo global, e a auditoria registra o papel que autorizou', async () => {
+      prisma.physician.findUnique.mockResolvedValue({ role: 'ADMIN', isCurator: false });
+      prisma.protocol.findUnique.mockResolvedValue(publishableDraft());
+      prisma.protocol.update.mockResolvedValue({ id: protocolId, status: 'published', nodes: [] });
+
+      await expect(service.publish(physicianId, protocolId, [])).resolves.toMatchObject({
+        status: 'published',
+      });
+      expect(auditService.log).toHaveBeenCalledWith({
+        actorId: physicianId,
+        action: 'PROTOCOL_PUBLISHED',
+        entity: 'Protocol',
+        entityId: protocolId,
+        payload: {
+          name: 'Síndrome gripal',
+          specialty: 'clinica_geral',
+          version: 1,
+          authorizedAs: 'admin',
+        },
+      });
+    });
+
+    it('curador cria protocolo global e a auditoria registra o papel', async () => {
+      mockCreatedVersion(1);
+      prisma.protocol.findUnique.mockResolvedValue({ id: 'new-protocol-id', nodes: [] });
+
+      await service.create(physicianId, validInput());
+
+      expect(auditService.log).toHaveBeenCalledWith({
+        actorId: physicianId,
+        action: 'PROTOCOL_CREATED',
+        entity: 'Protocol',
+        entityId: 'new-protocol-id',
+        payload: {
+          name: 'Síndrome gripal',
+          specialty: 'clinica_geral',
+          version: 1,
+          authorizedAs: 'curator',
+        },
+      });
+    });
+
+    it('curador cria versão nova: papel conferido uma vez, e nas duas linhas da auditoria', async () => {
+      mockCreatedVersion(2);
+      prisma.protocol.findUnique
+        .mockResolvedValueOnce({ ...publishableDraft(), status: 'published' })
+        .mockResolvedValueOnce({ id: 'new-protocol-id', version: 2, nodes: [] });
+
+      await service.reviseAsNewVersion(physicianId, protocolId, validInput(), []);
+
+      expect(prisma.physician.findUnique).toHaveBeenCalledTimes(1);
+      const actions = auditService.log.mock.calls.map(([entry]) => [
+        entry.action,
+        entry.payload.authorizedAs,
+      ]);
+      expect(actions).toEqual([
+        ['PROTOCOL_CREATED', 'curator'],
+        ['PROTOCOL_REVISED', 'curator'],
+      ]);
+    });
+
+    it('curador sem vínculo com a instituição do protocolo continua recebendo 404 (CC-019)', async () => {
+      prisma.protocol.findUnique.mockResolvedValue(publishableDraft('inst-outro-hospital'));
+
+      await expect(service.publish(physicianId, protocolId, ['inst-meu'])).rejects.toThrow(
+        NotFoundException,
+      );
+      expect(prisma.protocol.update).not.toHaveBeenCalled();
+    });
+
+    it('curador com vínculo publica o protocolo institucional', async () => {
+      prisma.protocol.findUnique.mockResolvedValue(publishableDraft('inst-meu'));
+      prisma.protocol.update.mockResolvedValue({ id: protocolId, status: 'published', nodes: [] });
+
+      await expect(service.publish(physicianId, protocolId, ['inst-meu'])).resolves.toMatchObject({
+        status: 'published',
+      });
     });
   });
 });

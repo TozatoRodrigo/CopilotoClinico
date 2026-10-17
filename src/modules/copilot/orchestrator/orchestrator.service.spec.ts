@@ -18,6 +18,8 @@ import type { UnderstandingService } from '../understanding/understanding.servic
 import type { WebResearchService } from '../research/web-research.service';
 import { cardRetrievalNeverCalled } from '../../../../tests/fixtures/reviewed-cards';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { REGEX_ONLY_DEIDENTIFIER, type Deidentifier } from '../../deid/deidentification.service';
+import { modelDeidentifier } from '../../../../tests/helpers/fake-deid';
 
 /** ADR-010 — busca sem trechos da base oficial do MS. */
 const NO_OFFICIAL = { enabled: true, chunks: [], bestSemanticScore: 0, discardedByFloor: 0 };
@@ -31,6 +33,9 @@ describe('OrchestratorService', () => {
     };
     physician: {
       findUnique: ReturnType<typeof vi.fn>;
+    };
+    physicianInstitution: {
+      findMany: ReturnType<typeof vi.fn>;
     };
   };
   let aiGatewayMock: {
@@ -114,6 +119,11 @@ describe('OrchestratorService', () => {
       // comportamento pt-BR padrão anterior à PI-05 em todos os testes que
       // não mockam explicitamente um locale diferente.
       physician: { findUnique: vi.fn().mockResolvedValue(null) },
+      // CC-019 — vínculos ativos do médico; a instituição do caso só filtra a
+      // busca com vínculo ativo.
+      physicianInstitution: {
+        findMany: vi.fn().mockResolvedValue([{ institutionId: 'institution-a' }]),
+      },
     };
     aiGatewayMock = {
       complete: vi.fn(),
@@ -131,7 +141,7 @@ describe('OrchestratorService', () => {
     configMock = { get: vi.fn((_key: string, defaultValue?: unknown) => defaultValue) };
   }
 
-  function createService(): OrchestratorService {
+  function createService(deid: Deidentifier = REGEX_ONLY_DEIDENTIFIER): OrchestratorService {
     return new OrchestratorService(
       prismaMock as unknown as PrismaService,
       aiGatewayMock as unknown as AiGatewayService,
@@ -157,6 +167,7 @@ describe('OrchestratorService', () => {
         },
       } as unknown as WebResearchService,
       cardRetrievalNeverCalled(),
+      deid,
     );
   }
 
@@ -572,6 +583,52 @@ describe('OrchestratorService', () => {
       expect(savedInputRedacted).toContain('[PATIENT_REF_REDACTED]');
     });
 
+    // CC-203 — com DEID_MODE=model, o nome sem tratamento (que a regex não
+    // pega) some antes do provedor de IA e do banco.
+    it('CC-203: masks the name found by the local model before the AI call and the DB', async () => {
+      const deid = modelDeidentifier(['Maria da Silva']);
+      service = createService(deid);
+      encountersMock.findById.mockResolvedValue({
+        id: encounterId,
+        physicianId,
+        patientRef: 'PRN-001',
+      });
+      retrievalMock.search.mockResolvedValue({
+        chunks: mockChunks,
+        totalRetrieved: 2,
+        coverage: 'full',
+        bestSemanticScore: 0.8,
+        discardedByFloor: 0,
+        official: NO_OFFICIAL,
+      });
+      aiGatewayMock.complete.mockResolvedValue({
+        content: validLLMOutput,
+        model: 'claude-3-sonnet',
+        usage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 },
+        latencyMs: 1500,
+      });
+      prismaMock.aiInteraction.create.mockResolvedValue({ id: 'interaction-001' });
+      encountersMock.update.mockResolvedValue({});
+
+      const result = await service.analyze(physicianId, encounterId, {
+        ...validInput,
+        caseText: 'Maria da Silva, 54 anos, com dor torácica aguda e dispneia há 2 horas',
+      });
+
+      const request = aiGatewayMock.complete.mock.calls[0]![0] as {
+        messages: Array<{ content: string }>;
+      };
+      expect(JSON.stringify(request.messages)).not.toContain('Maria');
+      const saved = prismaMock.aiInteraction.create.mock.calls[0]![0] as {
+        data: { inputRedacted: string };
+      };
+      expect(saved.data.inputRedacted).toBe(
+        '[NOME], 54 anos, com dor torácica aguda e dispneia há 2 horas',
+      );
+      expect(result.metadata.piiDetected).toBe(true);
+      expect(deid.model.received).toHaveLength(1);
+    });
+
     it('returns citations from retrieved chunks', async () => {
       encountersMock.findById.mockResolvedValue({
         id: encounterId,
@@ -778,6 +835,66 @@ describe('OrchestratorService', () => {
           origin: 'institutional',
         }),
       );
+    });
+
+    describe('CC-019 — a instituição do caso só filtra a busca com vínculo ativo', () => {
+      function encounterOf(institutionId: string | null) {
+        encountersMock.findById.mockResolvedValue({
+          id: encounterId,
+          physicianId,
+          institutionId,
+          patientRef: 'PRN-001',
+        });
+        retrievalMock.search.mockResolvedValue({
+          chunks: mockChunks,
+          totalRetrieved: 2,
+          coverage: 'full',
+          bestSemanticScore: 0.8,
+          discardedByFloor: 0,
+          official: NO_OFFICIAL,
+        });
+        aiGatewayMock.complete.mockResolvedValue({
+          content: validLLMOutput,
+          model: 'claude-3-sonnet',
+          usage: { promptTokens: 100, completionTokens: 200, totalTokens: 300 },
+          latencyMs: 1500,
+        });
+        prismaMock.aiInteraction.create.mockResolvedValue({ id: 'interaction-001' });
+        encountersMock.update.mockResolvedValue({});
+      }
+
+      it('com vínculo ativo, busca no global e no da instituição do caso', async () => {
+        encounterOf('institution-a');
+
+        await service.analyze(physicianId, encounterId, validInput);
+
+        expect(prismaMock.physicianInstitution.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({
+            where: { physicianId, institution: { status: 'active' } },
+          }),
+        );
+        expect(retrievalMock.search).toHaveBeenCalledWith(expect.any(String), 5, 'institution-a');
+      });
+
+      it('sem vínculo ativo (desfeito ou instituição desativada), busca só no global', async () => {
+        encounterOf('institution-a');
+        prismaMock.physicianInstitution.findMany.mockResolvedValue([
+          { institutionId: 'institution-b' },
+        ]);
+
+        await service.analyze(physicianId, encounterId, validInput);
+
+        expect(retrievalMock.search).toHaveBeenCalledWith(expect.any(String), 5, null);
+      });
+
+      it('caso sem instituição não consulta vínculo nenhum', async () => {
+        encounterOf(null);
+
+        await service.analyze(physicianId, encounterId, validInput);
+
+        expect(prismaMock.physicianInstitution.findMany).not.toHaveBeenCalled();
+        expect(retrievalMock.search).toHaveBeenCalledWith(expect.any(String), 5, null);
+      });
     });
 
     it('RT-001: enriches each recommendation with confidence, source version, and chunk link', async () => {
@@ -1687,6 +1804,30 @@ describe('OrchestratorService', () => {
       prismaMock.aiInteraction.create.mockResolvedValue({ id: 'interaction-002' });
       encountersMock.update.mockResolvedValue({});
     }
+
+    it('CC-203: masks the name found by the local model in the answers', async () => {
+      const deid = modelDeidentifier(['Maria da Silva']);
+      service = createService(deid);
+      setupHappyPath();
+      prismaMock.aiInteraction.findFirst.mockResolvedValue(makeParentInteraction());
+
+      await service.continueAnalysis(physicianId, encounterId, {
+        interactionId: parentInteractionId,
+        answers: [{ questionId: 'q1', answer: 'sim, segundo a filha Maria da Silva' }],
+      });
+
+      expect(prismaMock.aiInteraction.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            answeredQuestions: [expect.objectContaining({ answer: 'sim, segundo a filha [NOME]' })],
+          }),
+        }),
+      );
+      const request = aiGatewayMock.complete.mock.calls[0]![0] as {
+        messages: Array<{ content: string }>;
+      };
+      expect(JSON.stringify(request.messages)).not.toContain('Maria');
+    });
 
     it('throws NotFoundException when interactionId does not belong to the encounter', async () => {
       encountersMock.findById.mockResolvedValue({

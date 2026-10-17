@@ -1,6 +1,5 @@
 import { BadRequestException, type Logger } from '@nestjs/common';
 import type { AuditService } from '../../audit/audit.service';
-import { maskPII } from './pii-filter';
 import { scanForInjection, type InjectionScanResult } from './injection-defense';
 
 /**
@@ -11,7 +10,7 @@ import { scanForInjection, type InjectionScanResult } from './injection-defense'
  * garante que o valor nunca chegue ao provider de IA, independente da camada
  * de pseudonimização da integração hospitalar.
  *
- * Defense-in-depth: opera APÓS maskPII() para cobrir casos que o filtro
+ * Defense-in-depth: opera APÓS a de-identificação (regex e modelo) para cobrir casos que o filtro
  * geral de PII não captura (ex: identificadores de prontuário específicos).
  */
 // S25-QC-01 — patientRef agora é opcional (consulta rápida); o `!patientRef`
@@ -30,14 +29,22 @@ export interface ScreenedClinicalText {
   injection: InjectionScanResult;
 }
 
-/** Camadas 1 e 2 (PII e patientRef) e a varredura de injeção, nesta ordem. */
-export function screenClinicalText(text: string, patientRef: string | null): ScreenedClinicalText {
-  const pii = maskPII(text);
-  const redacted = redactPatientRef(pii.redacted, patientRef);
+/** Texto já de-identificado (camada 1: DeidentificationService, CC-203). */
+export interface MaskedClinicalText {
+  redacted: string;
+  hasPII: boolean;
+}
+
+/** Camada 2 (patientRef) e a varredura de injeção, sobre o texto que a camada 1 mascarou. */
+export function screenClinicalText(
+  masked: MaskedClinicalText,
+  patientRef: string | null,
+): ScreenedClinicalText {
+  const redacted = redactPatientRef(masked.redacted, patientRef);
   return {
     redacted,
-    piiDetected: pii.hasPII,
-    patientRefRedacted: pii.redacted !== redacted,
+    piiDetected: masked.hasPII,
+    patientRefRedacted: masked.redacted !== redacted,
     injection: scanForInjection(redacted),
   };
 }

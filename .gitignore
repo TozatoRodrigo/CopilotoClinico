@@ -14,9 +14,10 @@ dist/
 *.key
 *.p12
 
-# IDE
+# IDE e ferramentas locais
 .idea/
 .vscode/
+.claude/
 *.swp
 *.swo
 
@@ -32,6 +33,7 @@ coverage/
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+/playwright/.auth/
 
 # Misc
 *.log
@@ -41,3 +43,14 @@ coverage/
 evals/clinical/runs/
 evals/deid/out/
 evals/clinical/variants.json
+# Leitura do caso (CC-104) — saídas e os casos reais anonimizados, que nunca vão ao git
+evals/intake/runs/
+evals/intake/cases-local/
+
+# CC-205 — ditados (áudio é dado sensível) e relatórios da transcrição
+evals/transcription/audio-local/
+evals/transcription/out/
+
+# Python (services/deid)
+__pycache__/
+*.pyc

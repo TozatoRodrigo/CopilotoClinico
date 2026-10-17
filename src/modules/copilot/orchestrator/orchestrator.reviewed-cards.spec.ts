@@ -146,6 +146,7 @@ describe('OrchestratorService — cartões revisados na decisão (CC-408)', () =
   let findApplicable: ReturnType<typeof vi.fn>;
   let gateway: { complete: ReturnType<typeof vi.fn>; completeStream: ReturnType<typeof vi.fn> };
   let interactionCreate: ReturnType<typeof vi.fn>;
+  let activeLinks: ReturnType<typeof vi.fn>;
   let service: OrchestratorService;
 
   beforeEach(() => {
@@ -162,6 +163,7 @@ describe('OrchestratorService — cartões revisados na decisão (CC-408)', () =
       completeStream: vi.fn(() => fakeStream(decision([recommendation(), destination]))),
     };
     interactionCreate = vi.fn().mockResolvedValue({ id: 'interaction-001' });
+    activeLinks = vi.fn().mockResolvedValue([{ institutionId: 'inst-1' }]);
 
     const forbidden = (what: string) =>
       vi.fn(() => {
@@ -171,6 +173,7 @@ describe('OrchestratorService — cartões revisados na decisão (CC-408)', () =
       {
         aiInteraction: { create: interactionCreate },
         physician: { findUnique: vi.fn().mockResolvedValue(null) },
+        physicianInstitution: { findMany: activeLinks },
       } as unknown as PrismaService,
       gateway as unknown as AiGatewayService,
       {
@@ -250,6 +253,14 @@ describe('OrchestratorService — cartões revisados na decisão (CC-408)', () =
       problemRepresentation: understanding.problemRepresentation,
     });
     expect(JSON.stringify(findApplicable.mock.calls[0])).not.toContain('PA 118x72');
+  });
+
+  it('sem vínculo ativo com a instituição do atendimento, busca só os cartões globais (CC-019)', async () => {
+    activeLinks.mockResolvedValue([]);
+
+    await service.analyze(physicianId, encounterId, input);
+
+    expect(findApplicable).toHaveBeenCalledWith(expect.objectContaining({ institutionId: null }));
   });
 
   it('entrega o cartão com autoria e mostra a conduta com a dose do cartão e "Revisado por"', async () => {

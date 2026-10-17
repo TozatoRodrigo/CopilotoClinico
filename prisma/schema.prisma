@@ -108,12 +108,23 @@ enum CopilotFeedbackStatus {
   dismissed
 }
 
+/// CC-707 — estado do pedido de mentoria. As transições válidas estão em
+/// src/modules/mentoring/mentoring-transitions.ts.
+enum MentoringRequestStatus {
+  pending
+  claimed
+  answered
+  cancelled
+}
+
 model Physician {
   id                 String             @id @default(uuid()) @db.Uuid
   crmUf              String             @map("crm_uf") @db.Char(2)
   crmNumber          String             @map("crm_number")
   email              String             @unique @db.VarChar(255)
-  passwordHash       String             @map("password_hash")
+  // CC-334 — nulo em conta criada pelo login com Google/Microsoft: ela não
+  // tem senha (login() recusa como senha errada; changePassword() explica).
+  passwordHash       String?            @map("password_hash")
   name               String?            @db.VarChar(255)
   crmVerified        Boolean            @default(false) @map("crm_verified")
   mfaEnabled         Boolean            @default(false) @map("mfa_enabled")
@@ -123,26 +134,110 @@ model Physician {
   createdAt          DateTime           @default(now()) @map("created_at")
   updatedAt          DateTime           @updatedAt @map("updated_at")
 
-  isCurator Boolean @default(false) @map("is_curator")
+  isCurator      Boolean   @default(false) @map("is_curator")
+  // CC-404 — acesso só à fila de revisão de cartões (ADR-019, adendo); não
+  // dá acesso ao console admin. A fila também exige CRM verificado.
+  isCardReviewer Boolean   @default(false) @map("is_card_reviewer")
   // PI-05 — preferência de idioma persistida na conta (não só localStorage
   // do dispositivo): o médico troca de terminal no hospital e a UI/análise
   // precisam seguir com ele. 'pt-BR' | 'es' — validado na aplicação, não
   // como enum do banco, para não exigir migração a cada novo idioma.
-  locale    String  @default("pt-BR")
+  locale         String    @default("pt-BR")
+  // CC-018 — quando a eliminação LGPD anonimizou o cadastro. A estratégia JWT
+  // e o refresh recusam sessão de quem tem esta data: o access token é
+  // stateless e, sem isso, seguia valendo até expirar (15 min).
+  erasedAt       DateTime? @map("erased_at")
+  // CC-014 — slug de physicianSpecialtyValues (src/shared/contracts/clinical.ts),
+  // validado na aplicação pelo mesmo motivo do locale. Nulo até o médico escolher.
+  specialty      String?   @db.VarChar(64)
+  // CC-707 — médico da equipe que responde pedidos de mentoria. Flag
+  // operacional, como `isCurator`: ligada por SQL (ver docs/runbook.md).
+  isMentor       Boolean   @default(false) @map("is_mentor")
 
   encounters              Encounter[]
   documents               Document[]
+  legalAcceptances        LegalAcceptance[]
   consents                Consent[]
+  betaParticipant         BetaParticipant?
   refreshTokens           RefreshToken[]
   mfaBackupCodes          MfaBackupCode[]
   crmVerificationRequests CrmVerificationRequest[]
   institutions            PhysicianInstitution[]
   recommendationDecisions RecommendationDecision[]
   copilotFeedback         CopilotFeedback[]
-  knowledgeCardVersions   KnowledgeCardVersion[]   @relation("KnowledgeCardVersionAuthor")
-  knowledgeCardReviews    KnowledgeCardVersion[]   @relation("KnowledgeCardVersionReviewer")
+  practiceSites           PracticeSite[]
+  mentoringRequests       MentoringRequest[]         @relation("MentoringRequester")
+  mentoringAnswers        MentoringRequest[]         @relation("MentoringMentor")
+  shiftReviews            ShiftReview[]
+  shiftReviewQuestions    ShiftReviewQuestion[]
+  externalIdentities      ExternalIdentity[]
+  knowledgeCardVersions   KnowledgeCardVersion[]     @relation("KnowledgeCardVersionAuthor")
+  knowledgeCardReviews    KnowledgeCardVersion[]     @relation("KnowledgeCardVersionReviewer")
+  crossReviewsAsFirst     KnowledgeCardCrossReview[] @relation("CrossReviewFirstReviewer")
+  crossReviewsAsAuthor    KnowledgeCardCrossReview[] @relation("CrossReviewVersionAuthor")
+  crossReviewsAsSecond    KnowledgeCardCrossReview[] @relation("CrossReviewReviewer")
 
   @@map("physicians")
+}
+
+/// CC-602 — local onde o médico dá plantão: recursos (TC, laboratório, UTI),
+/// porte do serviço, especialistas e distância até a referência. Preenche o
+/// contexto do caso novo; o médico troca no caso. Sem dado de paciente.
+///
+/// Um padrão por médico: garantido pelo índice único parcial
+/// `practice_sites_one_default_per_physician` (só na migration — o Prisma não
+/// descreve índice parcial) e pela transação do serviço.
+model PracticeSite {
+  id                     String   @id @default(uuid()) @db.Uuid
+  physicianId            String   @map("physician_id") @db.Uuid
+  name                   String   @db.VarChar(80)
+  /// FacilityType (src/shared/contracts/practice-site.ts), validado na aplicação.
+  facilityType           String   @map("facility_type") @db.VarChar(32)
+  hasCT                  Boolean  @default(false) @map("has_ct")
+  hasLab                 Boolean  @default(false) @map("has_lab")
+  hasICU                 Boolean  @default(false) @map("has_icu")
+  isSus                  Boolean  @default(false) @map("is_sus")
+  /// SiteSpecialist[], validado na aplicação.
+  specialists            String[] @default([])
+  referenceTravelMinutes Int?     @map("reference_travel_minutes")
+  referenceDistanceKm    Int?     @map("reference_distance_km")
+  isDefault              Boolean  @default(false) @map("is_default")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  physician Physician @relation(fields: [physicianId], references: [id], onDelete: Cascade)
+
+  @@index([physicianId])
+  @@map("practice_sites")
+}
+
+enum ExternalIdentityProvider {
+  google
+  microsoft
+}
+
+/**
+ * CC-334 — conta Google ou Microsoft vinculada a um médico (login social).
+ * A chave é (provider, subject): o `sub` do id_token é estável, o e-mail não
+ * (o usuário troca, o administrador do tenant troca). `emailAtLink` guarda o
+ * e-mail que o provedor garantiu no momento do vínculo, só para suporte.
+ * Nunca se vincula só porque o e-mail bate: o vínculo com conta existente
+ * exige a senha (e o 2º fator, se ligado) — ver OAuthService.
+ */
+model ExternalIdentity {
+  id          String                   @id @default(uuid()) @db.Uuid
+  physicianId String                   @map("physician_id") @db.Uuid
+  provider    ExternalIdentityProvider
+  subject     String                   @db.VarChar(255)
+  emailAtLink String                   @map("email_at_link") @db.VarChar(255)
+  createdAt   DateTime                 @default(now()) @map("created_at")
+  lastLoginAt DateTime?                @map("last_login_at")
+
+  physician Physician @relation(fields: [physicianId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, subject])
+  @@index([physicianId])
+  @@map("external_identities")
 }
 
 /**
@@ -151,6 +246,9 @@ model Physician {
  * PhysicianInstitution. institutionId em GuidelineChunk/Encounter/Protocol é
  * nullable — NULL representa conteúdo/atendimento global, visível a todas as
  * instituições.
+ * CC-021: por isso essas três FKs são `onDelete: Restrict`. Com SetNull, apagar
+ * a instituição tornava global o protocolo e a diretriz internos dela. Para
+ * tirar uma instituição de uso, desative (`status = inactive`); ver ADR-009.
  */
 model Institution {
   id        String            @id @default(uuid()) @db.Uuid
@@ -165,6 +263,8 @@ model Institution {
   encounters      Encounter[]
   protocols       Protocol[]
   knowledgeCards  KnowledgeCard[]
+
+  mentoringRequests MentoringRequest[]
 
   @@map("institutions")
 }
@@ -214,14 +314,15 @@ model Encounter {
   // paciente via PATCH). Ver EncountersService.findByPhysician.
   patientRef     String?         @map("patient_ref") @db.VarChar(50)
   // RD-E7 — queixa principal derivada da 1ª análise de IA (nunca digitada
-  // manualmente); título das listas de casos no lugar de patientRef.
-  chiefComplaint String?         @map("chief_complaint") @db.VarChar(140)
+  // manualmente); título das listas de casos no lugar de patientRef. Até 140
+  // caracteres na aplicação; TEXT porque o valor cifrado (CC-207) é maior.
+  chiefComplaint String?         @map("chief_complaint") @db.Text
   status         EncounterStatus @default(draft)
   createdAt      DateTime        @default(now()) @map("created_at")
   updatedAt      DateTime        @updatedAt @map("updated_at")
 
   physician      Physician             @relation(fields: [physicianId], references: [id], onDelete: Cascade)
-  institution    Institution?          @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  institution    Institution?          @relation(fields: [institutionId], references: [id], onDelete: Restrict)
   aiInteractions AiInteraction[]
   documents      Document[]
   audioCaptures  AudioCapture[]
@@ -231,6 +332,8 @@ model Encounter {
   recommendationDecisions RecommendationDecision[]
   copilotFeedback         CopilotFeedback[]
   caseIntakes             CaseIntake[]
+  mentoringRequests       MentoringRequest[]
+  shiftReviewQuestions    ShiftReviewQuestion[]
 
   @@index([physicianId])
   @@index([institutionId])
@@ -292,6 +395,9 @@ model AiInteraction {
   recommendationDecisions RecommendationDecision[]
   copilotFeedback         CopilotFeedback[]
   caseIntake              CaseIntake?
+  knowledgeGaps           KnowledgeGap[]
+  mentoringRequests       MentoringRequest[]
+  shiftReviewQuestions    ShiftReviewQuestion[]
 
   @@index([encounterId])
   @@index([parentInteractionId])
@@ -303,7 +409,9 @@ model AiInteraction {
 /// provedor, modelo, versão do prompt (hash do system prompt), tokens, custo,
 /// latência e desfecho. Só metadados: nenhum texto do caso, do prompt ou da
 /// resposta. Sem FK de propósito: a gravação não pode falhar a análise, e
-/// apagar o atendimento não apaga o custo agregado.
+/// apagar o atendimento não apaga o custo agregado. A eliminação LGPD zera
+/// physician_id, encounter_id e request_id (CC-012) — as únicas colunas em que
+/// a API tem UPDATE.
 model AiCall {
   id               String   @id @default(uuid()) @db.Uuid
   requestId        String?  @map("request_id") @db.VarChar(64)
@@ -325,6 +433,8 @@ model AiCall {
   latencyMs        Int      @map("latency_ms")
   outcome          String   @db.VarChar(16)
   errorType        String?  @map("error_type") @db.VarChar(64)
+  /// CC-107 — perfil que ficou indisponível e que esta chamada, no modelo de reserva, substituiu.
+  fallbackFrom     String?  @map("fallback_from") @db.VarChar(32)
   createdAt        DateTime @default(now()) @map("created_at")
 
   @@index([requestId])
@@ -431,19 +541,136 @@ model RecommendationDecision {
   @@map("recommendation_decisions")
 }
 
+/// CC-801 — "Revise seu plantão": estado da revisão da semana.
+enum ShiftReviewStatus {
+  generating
+  ready
+  failed
+}
+
+/// CC-801 — quem pediu a revisão: o médico ao abrir a tela ou o job semanal.
+enum ShiftReviewTrigger {
+  on_demand
+  weekly_job
+}
+
+enum ShiftReviewQuestionFormat {
+  multiple_choice
+  true_false
+}
+
+/// CC-801 — o quanto o médico sabia ao responder: "sei", "tenho dúvida" ou
+/// "chutei" (método de avaliação por grau de certeza do Dr. Luiz).
+enum ShiftReviewConfidence {
+  know
+  unsure
+  guessed
+}
+
+/// CC-801 — revisão da semana: até 3 perguntas geradas das análises do
+/// próprio médico. Uma por médico por semana (segunda-feira no horário de
+/// Brasília): é o cache da geração, e o índice único segura o job semanal e o
+/// pedido do médico chegando juntos.
+model ShiftReview {
+  id            String             @id @default(uuid()) @db.Uuid
+  physicianId   String             @map("physician_id") @db.Uuid
+  /// Segunda-feira (America/Sao_Paulo) da semana a que a revisão pertence.
+  periodStart   DateTime           @map("period_start") @db.Date
+  status        ShiftReviewStatus
+  trigger       ShiftReviewTrigger
+  /// Janela das análises lidas na geração (os 7 dias antes do pedido).
+  windowStart   DateTime           @map("window_start")
+  windowEnd     DateTime           @map("window_end")
+  /// Análises que entraram no prompt; 0 quando não havia material.
+  analysisCount Int                @default(0) @map("analysis_count")
+  /// Gerações tentadas nesta semana (teto em shift-review.settings.ts).
+  attempts      Int                @default(1)
+  model         String?            @db.VarChar(128)
+  cost          Float              @default(0)
+  latencyMs     Int                @default(0) @map("latency_ms")
+  /// Código curto da falha (`no_material`, `no_valid_questions`, classe do
+  /// erro); nunca texto do modelo ou do caso.
+  failureReason String?            @map("failure_reason") @db.VarChar(64)
+  generatedAt   DateTime?          @map("generated_at")
+  /// Quando a última pergunta foi respondida.
+  completedAt   DateTime?          @map("completed_at")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+
+  physician Physician             @relation(fields: [physicianId], references: [id], onDelete: Cascade)
+  questions ShiftReviewQuestion[]
+
+  @@unique([physicianId, periodStart])
+  @@map("shift_reviews")
+}
+
+/// CC-801 — uma pergunta da revisão e a resposta do médico.
+///
+/// A fonte é copiada da análise de origem pelo servidor (o modelo só aponta
+/// a chave de uma fonte que a análise citou): nunca é escrita pelo modelo.
+/// Texto já mascarado (PII + patientRef) e sem dado do paciente — ver
+/// review-question-check.ts.
+///
+/// CC-802 (mapa de calibração) lê daqui: `physician_id`, `syndrome`, `topic`,
+/// `confidence`, `correct` e `answered_at`, sem precisar abrir a revisão.
+model ShiftReviewQuestion {
+  id            String                    @id @default(uuid()) @db.Uuid
+  reviewId      String                    @map("review_id") @db.Uuid
+  physicianId   String                    @map("physician_id") @db.Uuid
+  encounterId   String                    @map("encounter_id") @db.Uuid
+  /// Análise de onde saíram a pergunta e a fonte.
+  interactionId String                    @map("interaction_id") @db.Uuid
+  position      Int
+  format        ShiftReviewQuestionFormat
+  stem          String                    @db.Text
+  /// string[] — "Verdadeiro"/"Falso" no formato verdadeiro ou falso.
+  options       Json
+  correctOption Int                       @map("correct_option")
+  explanation   String                    @db.Text
+  /// Tema curto escrito pelo modelo (ex.: "Hemorragia subaracnóidea").
+  topic         String                    @db.VarChar(80)
+  /// Síndrome de PS do entendimento da análise (lista fechada `PS_SYNDROMES`);
+  /// null quando a análise não tinha entendimento.
+  syndrome      String?                   @db.VarChar(40)
+  /// ShiftReviewStoredSource — a fonte citada, copiada da análise.
+  source        Json
+  /// CC-402 — cartão revisado de onde veio a pergunta, quando a análise
+  /// passar a citar cartões (CC-408). Sem FK até a tabela existir na base.
+  cardId        String?                   @map("card_id") @db.Uuid
+  chosenOption  Int?                      @map("chosen_option")
+  confidence    ShiftReviewConfidence?
+  correct       Boolean?
+  answeredAt    DateTime?                 @map("answered_at")
+  createdAt     DateTime                  @default(now()) @map("created_at")
+
+  review      ShiftReview   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  physician   Physician     @relation(fields: [physicianId], references: [id], onDelete: Cascade)
+  encounter   Encounter     @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  interaction AiInteraction @relation(fields: [interactionId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewId, position])
+  @@index([physicianId, answeredAt])
+  @@index([encounterId])
+  @@index([interactionId])
+  @@map("shift_review_questions")
+}
+
 model Document {
-  id             String       @id @default(uuid()) @db.Uuid
-  encounterId    String       @map("encounter_id") @db.Uuid
-  physicianId    String       @map("physician_id") @db.Uuid
-  type           DocumentType
-  content        Json
-  physicianEdits Json?        @map("physician_edits")
-  confirmedBy    String?      @map("confirmed_by") @db.Uuid
-  confirmedAt    DateTime?    @map("confirmed_at")
-  pdfObjectKey   String?      @map("pdf_object_key")
-  contentHash    String?      @map("content_hash") @db.Char(64)
-  createdAt      DateTime     @default(now()) @map("created_at")
-  updatedAt      DateTime     @updatedAt @map("updated_at")
+  id                 String       @id @default(uuid()) @db.Uuid
+  encounterId        String       @map("encounter_id") @db.Uuid
+  physicianId        String       @map("physician_id") @db.Uuid
+  type               DocumentType
+  content            Json
+  physicianEdits     Json?        @map("physician_edits")
+  confirmedBy        String?      @map("confirmed_by") @db.Uuid
+  confirmedAt        DateTime?    @map("confirmed_at")
+  pdfObjectKey       String?      @map("pdf_object_key")
+  contentHash        String?      @map("content_hash") @db.Char(64)
+  /// ADR-018 — algoritmo do content_hash (1 = legado, 2 = JSON canônico).
+  /// CHECK no banco: preenchido se e somente se content_hash estiver.
+  contentHashVersion Int?         @map("content_hash_version") @db.SmallInt
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
 
   encounter Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
   physician Physician @relation(fields: [physicianId], references: [id], onDelete: Cascade)
@@ -489,6 +716,105 @@ model CopilotFeedback {
   @@map("copilot_feedback")
 }
 
+/// CC-703 — de onde veio a lacuna. A CC-409 acrescenta a da análise sem cartão
+/// aplicável; a CC-501, a da pergunta rápida sem cartão.
+enum KnowledgeGapSource {
+  /// O médico tocou "não encontrei o que precisava" na análise.
+  physician_not_found
+}
+
+/// CC-703 — registro de lacunas: o que o médico procurou e o Copiloto não
+/// tinha. É a entrada da fila de criação de cartões (CC-409: lacunas mais
+/// frequentes da semana) e do painel do beta (CC-705).
+///
+/// Sem texto do caso: a síndrome de PS e as consultas da busca dirigida vêm
+/// do entendimento da análise (`extractUnderstandingSignals`), e a nota é a
+/// frase curta do médico, mascarada. Sem `physician_id`: a lacuna é do
+/// conteúdo, não de quem a encontrou; apagar o atendimento (LGPD) apaga a
+/// análise e, por cascata, a lacuna.
+model KnowledgeGap {
+  id            String             @id @default(uuid()) @db.Uuid
+  source        KnowledgeGapSource
+  /// Análise em que a lacuna apareceu; null para fontes sem análise (CC-501).
+  interactionId String?            @map("interaction_id") @db.Uuid
+  /// `PS_SYNDROMES`; null quando a análise não registrou o entendimento.
+  syndrome      String?            @db.VarChar(40)
+  /// Consultas da busca dirigida (até 4), mascaradas.
+  searchQueries String[]           @map("search_queries")
+  /// O que faltou, nas palavras do médico — já mascarado de PII.
+  note          String?            @db.Text
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+
+  interaction AiInteraction? @relation(fields: [interactionId], references: [id], onDelete: Cascade)
+
+  /// Uma lacuna por análise e fonte: tocar de novo atualiza a nota em vez de
+  /// contar duas vezes. Lacunas sem análise (NULL) não colidem entre si.
+  @@unique([interactionId, source])
+  @@index([createdAt])
+  @@index([syndrome, createdAt])
+  @@map("knowledge_gaps")
+}
+
+/// CC-707 — "Discutir este caso com um médico da equipe" (mentoria em modo
+/// concierge, teleinterconsulta da Res. CFM 2.314/2022).
+///
+/// Assíncrona, não serve para urgência: o objetivo é medir a demanda antes de
+/// construir produto pago. O médico aceita um termo versionado (CC-708) e
+/// manda o caso MASCARADO com o plano da IA (`case_snapshot`), nunca dado do
+/// paciente; um mentor (`physicians.is_mentor`) assume, responde, e a resposta
+/// aparece no próprio caso. Texto livre (pergunta e resposta) é gravado já
+/// mascarado.
+///
+/// `institution_id` é a do caso no momento do pedido (ADR-009): o mentor só
+/// enxerga pedidos sem instituição ou de uma instituição a que pertence.
+model MentoringRequest {
+  id                    String                 @id @default(uuid()) @db.Uuid
+  encounterId           String                 @map("encounter_id") @db.Uuid
+  requesterId           String                 @map("requester_id") @db.Uuid
+  institutionId         String?                @map("institution_id") @db.Uuid
+  /// Análise cujo plano foi enviado.
+  interactionId         String?                @map("interaction_id") @db.Uuid
+  status                MentoringRequestStatus @default(pending)
+  /// MentoringCaseSnapshot — o que os mentores recebem, já mascarado.
+  caseSnapshot          Json                   @map("case_snapshot")
+  /// Pergunta do médico ao mentor, já mascarada.
+  question              String?                @db.Text
+  termsVersion          String                 @map("terms_version") @db.VarChar(64)
+  termsAcceptedAt       DateTime               @map("terms_accepted_at")
+  mentorId              String?                @map("mentor_id") @db.Uuid
+  claimedAt             DateTime?              @map("claimed_at")
+  /// Resposta do mentor, já mascarada.
+  answer                String?                @db.Text
+  answeredAt            DateTime?              @map("answered_at")
+  mentorTermsVersion    String?                @map("mentor_terms_version") @db.VarChar(64)
+  mentorTermsAcceptedAt DateTime?              @map("mentor_terms_accepted_at")
+  /// Quando o médico abriu a resposta: sem valor, a resposta é "nova" no app.
+  answerSeenAt          DateTime?              @map("answer_seen_at")
+  cancelledAt           DateTime?              @map("cancelled_at")
+  /// Nota de 1 a 5 do médico depois da resposta (CHECK na migration).
+  satisfaction          Int?                   @db.SmallInt
+  ratedAt               DateTime?              @map("rated_at")
+  createdAt             DateTime               @default(now()) @map("created_at")
+  updatedAt             DateTime               @updatedAt @map("updated_at")
+
+  encounter   Encounter      @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  requester   Physician      @relation("MentoringRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  mentor      Physician?     @relation("MentoringMentor", fields: [mentorId], references: [id], onDelete: SetNull)
+  /// Restrict (CC-021): com SetNull, apagar a instituição tornaria o pedido
+  /// visível a todos os mentores.
+  institution Institution?   @relation(fields: [institutionId], references: [id], onDelete: Restrict)
+  interaction AiInteraction? @relation(fields: [interactionId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([encounterId])
+  @@index([requesterId])
+  @@index([mentorId])
+  @@index([institutionId])
+  @@index([createdAt])
+  @@map("mentoring_requests")
+}
+
 model GuidelineChunk {
   id            String                       @id @default(uuid()) @db.Uuid
   source        String
@@ -506,6 +832,9 @@ model GuidelineChunk {
   institutionId String?                      @map("institution_id") @db.Uuid
   reviewedBy    String?                      @map("reviewed_by") @db.Uuid
   reviewedAt    DateTime?                    @map("reviewed_at")
+  /// Motivo da rejeição escrito pelo curador, já mascarado (`maskFreeText`).
+  /// A trilha (GUIDELINE_REJECTED) leva só o hash — ver docs/compliance/LGPD.md.
+  reviewNote    String?                      @map("review_note") @db.Text
   validFrom     DateTime                     @default(now()) @map("valid_from")
   validTo       DateTime?                    @map("valid_to")
   createdAt     DateTime                     @default(now()) @map("created_at")
@@ -513,7 +842,7 @@ model GuidelineChunk {
   /// ADR-010 — versão do documento oficial de onde o chunk saiu.
   documentId String? @map("document_id") @db.Uuid
 
-  institution Institution?               @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  institution Institution?               @relation(fields: [institutionId], references: [id], onDelete: Restrict)
   document    OfficialGuidelineDocument? @relation(fields: [documentId], references: [id], onDelete: Restrict)
 
   @@index([source, sourceVersion])
@@ -645,7 +974,8 @@ model KnowledgeCardDraft {
 ///
 /// O cartão é a identidade estável; o conteúdo vive nas versões. Editar cria
 /// versão nova e não mexe na versão publicada: `published_version_id` só muda
-/// quando outra versão é aprovada. Nunca é apagado: sai de uso por `archived`.
+/// quando outra versão é aprovada — ou volta a null quando a revisão cruzada
+/// diverge (CC-411). Nunca é apagado: sai de uso por `archived`.
 model KnowledgeCard {
   id                 String              @id @default(uuid()) @db.Uuid
   /// ADR-009 — null = cartão global; preenchido = só daquela instituição.
@@ -664,9 +994,10 @@ model KnowledgeCard {
   createdAt          DateTime            @default(now()) @map("created_at")
   updatedAt          DateTime            @updatedAt @map("updated_at")
 
-  institution      Institution?             @relation(fields: [institutionId], references: [id], onDelete: Restrict)
-  publishedVersion KnowledgeCardVersion?    @relation("KnowledgeCardPublishedVersion", fields: [publishedVersionId], references: [id], onDelete: Restrict)
-  versions         KnowledgeCardVersion[]   @relation("KnowledgeCardVersions")
+  institution      Institution?               @relation(fields: [institutionId], references: [id], onDelete: Restrict)
+  publishedVersion KnowledgeCardVersion?      @relation("KnowledgeCardPublishedVersion", fields: [publishedVersionId], references: [id], onDelete: Restrict)
+  versions         KnowledgeCardVersion[]     @relation("KnowledgeCardVersions")
+  crossReviews     KnowledgeCardCrossReview[]
   indexEntry       KnowledgeCardIndexEntry?
 
   @@index([status, updatedAt])
@@ -702,11 +1033,15 @@ model KnowledgeCardVersion {
   validUntil        DateTime?                    @map("valid_until")
   createdAt         DateTime                     @default(now()) @map("created_at")
 
-  card            KnowledgeCard            @relation("KnowledgeCardVersions", fields: [cardId], references: [id], onDelete: Restrict)
-  publishedOf     KnowledgeCard?           @relation("KnowledgeCardPublishedVersion")
-  draft           KnowledgeCardDraft?      @relation(fields: [draftId], references: [id], onDelete: Restrict)
-  authorPhysician Physician?               @relation("KnowledgeCardVersionAuthor", fields: [authorPhysicianId], references: [id], onDelete: Restrict)
-  reviewer        Physician?               @relation("KnowledgeCardVersionReviewer", fields: [reviewerId], references: [id], onDelete: Restrict)
+  card            KnowledgeCard             @relation("KnowledgeCardVersions", fields: [cardId], references: [id], onDelete: Restrict)
+  publishedOf     KnowledgeCard?            @relation("KnowledgeCardPublishedVersion")
+  draft           KnowledgeCardDraft?       @relation(fields: [draftId], references: [id], onDelete: Restrict)
+  authorPhysician Physician?                @relation("KnowledgeCardVersionAuthor", fields: [authorPhysicianId], references: [id], onDelete: Restrict)
+  reviewer        Physician?                @relation("KnowledgeCardVersionReviewer", fields: [reviewerId], references: [id], onDelete: Restrict)
+  /// CC-411 — a revisão cruzada desta aprovação, quando sorteada.
+  crossReview     KnowledgeCardCrossReview? @relation("CrossReviewedVersion")
+  /// CC-411 — a revisão cruzada que divergiu e gerou esta versão.
+  crossReviewOf   KnowledgeCardCrossReview? @relation("CrossReviewCorrection")
   indexEntry      KnowledgeCardIndexEntry?
 
   @@unique([cardId, version])
@@ -745,6 +1080,52 @@ model KnowledgeCardIndexEntry {
   @@map("knowledge_card_index")
 }
 
+/// CC-411 — decisão do segundo médico sobre uma aprovação sorteada.
+enum KnowledgeCardCrossReviewStatus {
+  pending
+  agreed
+  /// Divergiu: a correção virou versão nova e o cartão voltou para a fila.
+  diverged
+}
+
+/// CC-411 (ADR-019, adendo) — revisão cruzada: 10% das aprovações, sorteadas
+/// pelo SHA-256 do id da versão aprovada (domain/cross-review-sampling.ts), são
+/// revistas por um segundo médico, diferente de quem aprovou e de quem escreveu
+/// a versão (CHECK na migration). Criada `pending` na transação da aprovação; o
+/// sorteio e a decisão não mudam depois de gravados (trigger).
+model KnowledgeCardCrossReview {
+  id                  String                         @id @default(uuid()) @db.Uuid
+  cardId              String                         @map("card_id") @db.Uuid
+  /// Versão aprovada que caiu no sorteio.
+  versionId           String                         @unique @map("version_id") @db.Uuid
+  /// Quem aprovou a versão sorteada.
+  firstReviewerId     String                         @map("first_reviewer_id") @db.Uuid
+  /// Médico que escreveu a versão (correção); null quando foi a IA.
+  versionAuthorId     String?                        @map("version_author_id") @db.Uuid
+  /// Balde do sorteio (0–99); entra quem fica abaixo da porcentagem.
+  sampleBucket        Int                            @map("sample_bucket") @db.SmallInt
+  status              KnowledgeCardCrossReviewStatus @default(pending)
+  reviewerId          String?                        @map("reviewer_id") @db.Uuid
+  reviewedAt          DateTime?                      @map("reviewed_at")
+  /// Motivo da divergência (obrigatório) ou comentário da concordância, já mascarado de PII.
+  comment             String?                        @db.Text
+  reviewDurationMs    Int?                           @map("review_duration_ms")
+  /// Versão nova que a divergência gerou.
+  correctionVersionId String?                        @unique @map("correction_version_id") @db.Uuid
+  createdAt           DateTime                       @default(now()) @map("created_at")
+
+  card              KnowledgeCard         @relation(fields: [cardId], references: [id], onDelete: Restrict)
+  version           KnowledgeCardVersion  @relation("CrossReviewedVersion", fields: [versionId], references: [id], onDelete: Restrict)
+  correctionVersion KnowledgeCardVersion? @relation("CrossReviewCorrection", fields: [correctionVersionId], references: [id], onDelete: Restrict)
+  firstReviewer     Physician             @relation("CrossReviewFirstReviewer", fields: [firstReviewerId], references: [id], onDelete: Restrict)
+  versionAuthor     Physician?            @relation("CrossReviewVersionAuthor", fields: [versionAuthorId], references: [id], onDelete: Restrict)
+  reviewer          Physician?            @relation("CrossReviewReviewer", fields: [reviewerId], references: [id], onDelete: Restrict)
+
+  @@index([status, createdAt])
+  @@index([cardId])
+  @@map("knowledge_card_cross_reviews")
+}
+
 model AuditLog {
   id          String   @id @default(uuid()) @db.Uuid
   actorId     String   @map("actor_id")
@@ -776,6 +1157,55 @@ model Consent {
 
   @@index([physicianId])
   @@map("consents")
+}
+
+/// CC-905 — versão publicada de um documento legal (termos de uso, política
+/// de privacidade). Imutável: texto novo é versão nova (a role da API só lê e
+/// insere). O texto vem do catálogo versionado no código
+/// (src/modules/legal/legal-document-catalog.ts) e é copiado aqui na
+/// publicação, com o hash, para o aceite apontar sempre para o texto exato
+/// que o médico leu. A vigente de cada tipo é a publicada por último.
+/// `type` é validado na aplicação, como `locale`: um tipo novo (termo do beta,
+/// da mentoria) não exige migração.
+model LegalDocument {
+  id            String   @id @default(uuid()) @db.Uuid
+  type          String   @db.VarChar(40)
+  version       String   @db.VarChar(64)
+  title         String   @db.VarChar(200)
+  /// LegalDocumentSection[] (src/shared/contracts/legal.ts).
+  sections      Json
+  /// O que mudou desde a versão anterior, mostrado na tela de aceite.
+  changeSummary String[] @map("change_summary")
+  /// sha256 (hex) do texto: título e seções (legal-document-hash.ts).
+  contentHash   String   @map("content_hash") @db.Char(64)
+  /// Texto ainda sem parecer jurídico (CC-006): a tela diz isso.
+  provisional   Boolean
+  publishedAt   DateTime @default(now()) @map("published_at")
+  /// Admin que publicou (sem FK, como `triagedBy`).
+  publishedById String   @map("published_by_id") @db.Uuid
+
+  acceptances LegalAcceptance[]
+
+  @@unique([type, version])
+  @@index([type, publishedAt])
+  @@map("legal_documents")
+}
+
+/// CC-905 — aceite de uma versão por um médico: só o vínculo e a data, sem IP
+/// nem navegador. Um por (médico, versão). Entra na exportação LGPD e sai na
+/// eliminação; a trilha de auditoria guarda o evento LEGAL_DOCUMENT_ACCEPTED.
+model LegalAcceptance {
+  id          String   @id @default(uuid()) @db.Uuid
+  physicianId String   @map("physician_id") @db.Uuid
+  documentId  String   @map("document_id") @db.Uuid
+  acceptedAt  DateTime @default(now()) @map("accepted_at")
+
+  physician Physician     @relation(fields: [physicianId], references: [id], onDelete: Cascade)
+  document  LegalDocument @relation(fields: [documentId], references: [id], onDelete: Restrict)
+
+  @@unique([physicianId, documentId])
+  @@index([documentId])
+  @@map("legal_acceptances")
 }
 
 model RefreshToken {
@@ -818,7 +1248,9 @@ model AudioCapture {
   id               String             @id @default(uuid()) @db.Uuid
   encounterId      String             @map("encounter_id") @db.Uuid
   physicianId      String             @map("physician_id") @db.Uuid
-  encryptedContent String             @map("encrypted_content") @db.Text
+  /// Nulo só depois da eliminação por retenção (status `deleted`); a CHECK
+  /// `audio_captures_content_matches_status` garante os dois sentidos.
+  encryptedContent String?            @map("encrypted_content") @db.Text
   mimeType         String             @map("mime_type") @db.VarChar(100)
   sizeBytes        Int                @map("size_bytes")
   status           AudioCaptureStatus @default(pending)
@@ -849,7 +1281,7 @@ model Protocol {
   createdAt     DateTime       @default(now()) @map("created_at")
   updatedAt     DateTime       @updatedAt @map("updated_at")
 
-  institution Institution?   @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  institution Institution?   @relation(fields: [institutionId], references: [id], onDelete: Restrict)
   nodes       ProtocolNode[]
   runs        ProtocolRun[]
 
@@ -930,4 +1362,88 @@ model CrmVerificationRequest {
   @@index([physicianId])
   @@index([status])
   @@map("crm_verification_requests")
+}
+
+/// CC-702 — situação de quem pediu para entrar no beta sem convite.
+enum BetaWaitlistStatus {
+  waiting
+  invited
+  registered
+}
+
+/// CC-702 — convite do beta. O código é aleatório (nada de nome, e-mail ou
+/// CRM) e fica em claro: não dá acesso a dado nenhum, só deixa criar uma
+/// conta, e o admin precisa copiá-lo de novo para enviar. `batchLabel` é o
+/// lote ou a origem ("rede Ripardo", "base ANY"). Uso único = `maxUses` 1.
+/// `usesCount <= maxUses` também é CHECK no banco (só na migration).
+model BetaInvite {
+  id              String    @id @default(uuid()) @db.Uuid
+  /// Normalizado: maiúsculas, sem hífen (src/shared/contracts/beta.ts).
+  code            String    @unique @db.VarChar(16)
+  batchLabel      String    @map("batch_label") @db.VarChar(60)
+  maxUses         Int       @default(1) @map("max_uses")
+  usesCount       Int       @default(0) @map("uses_count")
+  expiresAt       DateTime  @map("expires_at")
+  revokedAt       DateTime? @map("revoked_at")
+  /// Admin que gerou (sem FK, como `triagedBy`).
+  createdById     String    @map("created_by_id") @db.Uuid
+  /// Convite gerado ao aprovar alguém da lista de espera.
+  waitlistEntryId String?   @map("waitlist_entry_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  waitlistEntry BetaWaitlistEntry? @relation(fields: [waitlistEntryId], references: [id], onDelete: SetNull)
+  participants  BetaParticipant[]
+
+  @@index([batchLabel])
+  @@index([waitlistEntryId])
+  @@index([createdAt])
+  @@map("beta_invites")
+}
+
+/// CC-702 — médico que entrou no beta por convite: de qual convite, o aceite
+/// do termo do beta (versão e data) e o perfil mínimo que a CC-701 registra
+/// (formação, local e porte, UF e capital/interior). Criada na mesma
+/// transação do cadastro. A eliminação LGPD apaga termo e perfil e mantém o
+/// vínculo com o convite (só ids), para a contagem do lote.
+model BetaParticipant {
+  id               String    @id @default(uuid()) @db.Uuid
+  physicianId      String    @unique @map("physician_id") @db.Uuid
+  inviteId         String    @map("invite_id") @db.Uuid
+  joinedAt         DateTime  @default(now()) @map("joined_at")
+  termsVersion     String?   @map("terms_version") @db.VarChar(40)
+  termsAcceptedAt  DateTime? @map("terms_accepted_at")
+  /// Valores de src/shared/contracts/beta.ts, validados na aplicação.
+  training         String?   @db.VarChar(32)
+  facilityType     String?   @map("facility_type") @db.VarChar(32)
+  uf               String?   @db.Char(2)
+  cityType         String?   @map("city_type") @db.VarChar(32)
+  profileUpdatedAt DateTime? @map("profile_updated_at")
+
+  physician Physician  @relation(fields: [physicianId], references: [id], onDelete: Cascade)
+  invite    BetaInvite @relation(fields: [inviteId], references: [id], onDelete: Restrict)
+
+  @@index([inviteId])
+  @@map("beta_participants")
+}
+
+/// CC-702 — quem tentou se cadastrar no beta sem convite: e-mail (minúsculo,
+/// único), perfil mínimo opcional e o consentimento explícito para contato.
+/// Apagável a pedido (console admin); a eliminação e a exportação LGPD da
+/// conta com o mesmo e-mail também a alcançam.
+model BetaWaitlistEntry {
+  id               String             @id @default(uuid()) @db.Uuid
+  email            String             @unique @db.VarChar(255)
+  training         String?            @db.VarChar(32)
+  facilityType     String?            @map("facility_type") @db.VarChar(32)
+  uf               String?            @db.Char(2)
+  cityType         String?            @map("city_type") @db.VarChar(32)
+  contactConsentAt DateTime           @map("contact_consent_at")
+  status           BetaWaitlistStatus @default(waiting)
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+
+  invites BetaInvite[]
+
+  @@index([status, createdAt])
+  @@map("beta_waitlist_entries")
 }

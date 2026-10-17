@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { PS_SYNDROMES } from '../../src/shared/contracts/clinical';
+import { encounterSiteSchema } from '../../src/modules/encounters/schemas/encounter-context.schema';
 
 /**
  * F0-A — Gabarito clínico: formato de um caso.
@@ -27,6 +28,14 @@ import { PS_SYNDROMES } from '../../src/shared/contracts/clinical';
  *   orientar a família) fica em `outOfScope`, fora da nota;
  * - o "caminho esperado" saiu: a decisão em duas camadas sempre traz conduta
  *   e perguntas juntas, e o critério media o formato antigo.
+ *
+ * CC-106 acrescentou, opcional, `expected.conversation`: o que se espera da
+ * conversa do Copiloto guiado antes do plano (leitura do caso e perguntas).
+ *
+ * CC-603 (14/10/2026), opcionais: `input.context.site` (o local de plantão
+ * declarado, como o caso real recebe do perfil do médico) e
+ * `expected.destination` (destino, prioridade e conduta até a transferência
+ * quando falta recurso no serviço).
  */
 
 export const CASE_SCHEMA_VERSION = 2;
@@ -119,7 +128,7 @@ const DraftOriginSchema = z
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-const ReviewerSchema = z
+export const ReviewerSchema = z
   .object({
     name: z.string().trim().min(3),
     crm: z
@@ -154,13 +163,18 @@ const ReviewSchema = z
     message: 'caso revisado precisa de reviewer (nome e CRM) e date',
   });
 
-/** Mesmas quatro chaves do `context` de POST /copilot/analyze. */
+/**
+ * Mesmas chaves do `context` de POST /copilot/analyze. `site` (CC-602): o
+ * local de plantão declarado — sem ele, um recurso `false` é "não marcado", e
+ * a decisão não o trata como ausente.
+ */
 const EncounterContextSchema = z
   .object({
     hasCT: z.boolean(),
     isSus: z.boolean(),
     hasLab: z.boolean(),
     hasICU: z.boolean(),
+    site: encounterSiteSchema.optional(),
   })
   .strict();
 
@@ -274,6 +288,8 @@ const SourceSchema = z
   })
   .strict();
 
+const FEEDBACK_ORIGIN = /^feedback:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
 /** De onde o caso veio e o que mudou nele. */
 const ProvenanceSchema = z
   .object({
@@ -288,6 +304,14 @@ const ProvenanceSchema = z
     originalCaseText: nonEmptyText.optional(),
     /** O que mudou no caso e por quê. */
     notes: nonEmptyText.optional(),
+    /**
+     * CC-703 — de onde o caso nasceu dentro do sistema: `feedback:<id>` é o
+     * reporte da fila de triagem que gerou o rascunho.
+     */
+    origin: z
+      .string()
+      .regex(FEEDBACK_ORIGIN, 'origem no formato "feedback:<uuid do reporte>"')
+      .optional(),
   })
   .strict();
 
@@ -358,6 +382,85 @@ const ExpectedActionSchema = ExpectedItemSchema.extend({
 
 export type ExpectedAction = z.infer<typeof ExpectedActionSchema>;
 
+/**
+ * CC-106 — gravidade que a leitura do caso dá ao paciente, da menor para a
+ * maior. É o que decide a conversa (ADR-014): `unstable` vai direto ao plano,
+ * sem pergunta; `time_critical` pergunta uma vez, no máximo.
+ */
+export const READING_SEVERITIES = ['stable', 'time_critical', 'unstable'] as const;
+
+export type ReadingSeverity = (typeof READING_SEVERITIES)[number];
+
+/**
+ * CC-106 — pergunta que não pode faltar antes do plano: o dado de beira de
+ * leito que muda o que fazer agora. Feita quando uma pergunta antes do plano
+ * revela QUALQUER um dos fatos (a hérnia irredutível vem da história ou do
+ * exame da virilha).
+ */
+const EssentialQuestionSchema = z
+  .object({
+    /** O dado, em uma linha: é o que o relatório mostra quando falta. */
+    about: nonEmptyText,
+    /** Fatos do roteiro (`input.funnel.script[].id`) que respondem à pergunta; basta um. */
+    factIds: z.array(kebabId).min(1),
+  })
+  .strict();
+
+export type EssentialQuestion = z.infer<typeof EssentialQuestionSchema>;
+
+/**
+ * CC-106 — o que se espera da conversa antes do plano (Copiloto guiado,
+ * ADR-014), medido no modo afunilamento. A leitura do caso vê só a abertura.
+ * Sem este bloco, a síndrome esperada da leitura é `tags[0]` e a gravidade
+ * que ela não pode subestimar é `time_critical` no caso crítico.
+ */
+const ConversationExpectationsSchema = z
+  .object({
+    /**
+     * Síndromes de PS aceitas na leitura, quando a abertura não basta para a
+     * de `tags[0]` (ex.: escorpião que chega como "dor na perna").
+     */
+    syndromes: z.array(z.enum(PS_SYNDROMES)).min(1).optional(),
+    /** Gravidade que a leitura não pode subestimar. */
+    severity: z.enum(READING_SEVERITIES).optional(),
+    /** Perguntas que as perguntas ANTES do plano precisam fazer. */
+    essentialQuestions: z.array(EssentialQuestionSchema).min(1).optional(),
+  })
+  .strict();
+
+export type ConversationExpectations = z.infer<typeof ConversationExpectationsSchema>;
+
+export const TRANSFER_PRIORITIES = [
+  /** Pedir a vaga agora, junto da estabilização, sem esperar exame: o tratamento que falta é tempo-dependente. */
+  'immediate',
+  /** Nas próximas horas, depois de estabilizar ou de um dado que o próprio serviço obtém. */
+  'urgent',
+  /** Sem pressa: internação ou avaliação programada. */
+  'elective',
+] as const;
+
+export type TransferPriority = (typeof TRANSFER_PRIORITIES)[number];
+
+/**
+ * CC-603 — quando falta no serviço o recurso que o caso pede (TC, UTI,
+ * hemodinâmica, especialista), o plano precisa dizer para onde e como o
+ * paciente vai, com que prioridade, e o que fazer no local até a
+ * transferência. Os três contam juntos: destino sem prioridade, ou sem
+ * conduta até a vaga sair, deixa o médico de UPA travado do mesmo jeito.
+ */
+const ExpectedDestinationSchema = z
+  .object({
+    /** Para onde e como: o tipo de serviço, o recurso que ele precisa ter e o meio (regulação, SAMU). */
+    text: nonEmptyText,
+    tier: z.enum(ITEM_TIERS),
+    priority: z.enum(TRANSFER_PRIORITIES),
+    /** O que fazer no local até a transferência, em substância. */
+    untilTransfer: z.array(nonEmptyText).min(1),
+  })
+  .strict();
+
+export type ExpectedDestination = z.infer<typeof ExpectedDestinationSchema>;
+
 const CaseExpectationsSchema = z
   .object({
     /** Síndrome de PS em que o caso deve ser enquadrado. */
@@ -374,6 +477,8 @@ const CaseExpectationsSchema = z
     questions: z.array(nonEmptyText),
     /** Sempre crítica: sair como conduta para agora reprova o portão. */
     forbiddenDefinitiveActions: z.array(ForbiddenActionSchema),
+    /** CC-603 — destino, prioridade e conduta até a transferência (recurso ausente). */
+    destination: ExpectedDestinationSchema.optional(),
     /**
      * Itens do gabarito oficial que não são papel do Copiloto (apresentar-se,
      * explicar o diagnóstico à família, orientar prevenção). Ficam para
@@ -382,6 +487,8 @@ const CaseExpectationsSchema = z
     outOfScope: z.array(nonEmptyText).optional(),
     /** Por que o gabarito é este — fonte, protocolo do MS, raciocínio. */
     rationale: z.string().trim().min(10).optional(),
+    /** CC-106 — a conversa antes do plano, no modo afunilamento. */
+    conversation: ConversationExpectationsSchema.optional(),
   })
   .strict();
 
@@ -436,6 +543,18 @@ export const ClinicalCaseSchema = z
       message:
         'gabarito oficial de prova precisa de provenance.exam, provenance.url e provenance.originalCaseText',
       path: ['provenance'],
+    },
+  )
+  .refine(
+    (clinicalCase) => {
+      const essential = clinicalCase.expected.conversation?.essentialQuestions ?? [];
+      const scriptIds = new Set(clinicalCase.input.funnel?.script.map((fact) => fact.id) ?? []);
+      return essential.every((question) => question.factIds.every((id) => scriptIds.has(id)));
+    },
+    {
+      message:
+        'expected.conversation.essentialQuestions precisa de input.funnel e de factIds que existam em funnel.script',
+      path: ['expected', 'conversation', 'essentialQuestions'],
     },
   );
 

@@ -1,15 +1,19 @@
 import {
   Injectable,
   Inject,
+  Logger,
   NotFoundException,
   ConflictException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { Prisma, ProtocolStatus } from '@prisma/client';
 import { PrismaService } from '../../config/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { isVisibleToInstitutions } from '../institutions/institution-visibility';
 import { CreateProtocolInput } from './schemas/protocol.schemas';
 import { validateProtocolGraph, type ProtocolGraphNode } from './protocol-graph-validator';
+import { protocolAuthority, type ProtocolAuthority } from './protocol-authoring';
 
 const PROTOCOL_WITH_GRAPH_INCLUDE = {
   nodes: {
@@ -20,14 +24,33 @@ const PROTOCOL_WITH_GRAPH_INCLUDE = {
   },
 } as const;
 
+type ProtocolWriteAction = 'create' | 'publish' | 'revise';
+
 @Injectable()
 export class ProtocolsService {
+  private readonly logger = new Logger(ProtocolsService.name);
+
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(AuditService) private readonly auditService: AuditService,
   ) {}
 
+  /**
+   * CC-020 — antes, qualquer médico autenticado criava, publicava ou criava
+   * versão nova de protocolo global. Só curador ou ADMIN escreve (ver
+   * protocol-authoring.ts); no institucional, o vínculo ativo do CC-019 é
+   * checado à parte.
+   */
   async create(physicianId: string, input: CreateProtocolInput) {
+    const authority = await this.requireAuthority(physicianId, 'create');
+    return this.createVersion(physicianId, input, authority);
+  }
+
+  private async createVersion(
+    physicianId: string,
+    input: CreateProtocolInput,
+    authority: ProtocolAuthority,
+  ) {
     const graphValidation = validateProtocolGraph(
       input.nodes.map((n) => ({ id: n.id, nodeType: n.nodeType, content: n.content })),
       input.edges,
@@ -91,7 +114,12 @@ export class ProtocolsService {
         action: 'PROTOCOL_CREATED',
         entity: 'Protocol',
         entityId: protocol.id,
-        payload: { name: protocol.name, specialty: protocol.specialty, version: protocol.version },
+        payload: {
+          name: protocol.name,
+          specialty: protocol.specialty,
+          version: protocol.version,
+          authorizedAs: authority,
+        },
       })
       .catch(() => undefined);
 
@@ -147,8 +175,28 @@ export class ProtocolsService {
     return protocol;
   }
 
-  async publish(physicianId: string, id: string) {
+  /**
+   * CC-019 — protocolo pedido por um médico: global, ou de instituição com a
+   * qual ele tem vínculo ativo (`institutionIds`). O de outra instituição é
+   * tratado como inexistente, como em `findById`.
+   */
+  async findVisibleById(id: string, institutionIds: readonly string[]) {
     const protocol = await this.findById(id);
+    if (!isVisibleToInstitutions(protocol.institutionId, institutionIds)) {
+      throw new NotFoundException('Protocol not found');
+    }
+    return protocol;
+  }
+
+  /**
+   * CC-019 — antes, qualquer médico publicava o rascunho de outra instituição
+   * e recebia o protocolo inteiro na resposta. CC-020 — o papel vem antes da
+   * visibilidade: quem não escreve recebe 403 para qualquer id, sem saber se
+   * o protocolo existe.
+   */
+  async publish(physicianId: string, id: string, institutionIds: readonly string[]) {
+    const authority = await this.requireAuthority(physicianId, 'publish');
+    const protocol = await this.findVisibleById(id, institutionIds);
 
     if (protocol.status !== 'draft') {
       throw new ConflictException('Apenas protocolos em rascunho (draft) podem ser publicados');
@@ -184,7 +232,12 @@ export class ProtocolsService {
         action: 'PROTOCOL_PUBLISHED',
         entity: 'Protocol',
         entityId: protocol.id,
-        payload: { name: protocol.name, specialty: protocol.specialty, version: protocol.version },
+        payload: {
+          name: protocol.name,
+          specialty: protocol.specialty,
+          version: protocol.version,
+          authorizedAs: authority,
+        },
       })
       .catch(() => undefined);
 
@@ -196,8 +249,14 @@ export class ProtocolsService {
    * A versão anterior não é alterada e permanece consultável (imutabilidade
    * de versões publicadas, mesmo princípio do audit_log).
    */
-  async reviseAsNewVersion(physicianId: string, id: string, input: CreateProtocolInput) {
-    const previous = await this.findById(id);
+  async reviseAsNewVersion(
+    physicianId: string,
+    id: string,
+    input: CreateProtocolInput,
+    institutionIds: readonly string[],
+  ) {
+    const authority = await this.requireAuthority(physicianId, 'revise');
+    const previous = await this.findVisibleById(id, institutionIds);
 
     if (previous.status === 'draft') {
       throw new ConflictException(
@@ -205,12 +264,16 @@ export class ProtocolsService {
       );
     }
 
-    const created = await this.create(physicianId, {
-      ...input,
-      name: previous.name,
-      specialty: previous.specialty,
-      institutionId: previous.institutionId ?? input.institutionId,
-    });
+    const created = await this.createVersion(
+      physicianId,
+      {
+        ...input,
+        name: previous.name,
+        specialty: previous.specialty,
+        institutionId: previous.institutionId ?? input.institutionId,
+      },
+      authority,
+    );
 
     await this.auditService
       .log({
@@ -222,10 +285,33 @@ export class ProtocolsService {
           previousProtocolId: previous.id,
           previousVersion: previous.version,
           newVersion: created.version,
+          authorizedAs: authority,
         },
       })
       .catch(() => undefined);
 
     return created;
+  }
+
+  /**
+   * Papel e flag lidos do banco a cada pedido (o token pode estar velho). A
+   * recusa vai para o log sem identificar o médico; rota e IP já estão no log
+   * de acesso HTTP.
+   */
+  private async requireAuthority(
+    physicianId: string,
+    action: ProtocolWriteAction,
+  ): Promise<ProtocolAuthority> {
+    const physician = await this.prisma.physician.findUnique({
+      where: { id: physicianId },
+      select: { role: true, isCurator: true },
+    });
+    const authority = protocolAuthority(physician);
+    if (authority) return authority;
+
+    this.logger.warn(`PROTOCOL_WRITE_DENIED action=${action}: sem papel de curador nem ADMIN`);
+    throw new ForbiddenException(
+      'Apenas curadores clínicos ou administradores escrevem protocolos',
+    );
   }
 }

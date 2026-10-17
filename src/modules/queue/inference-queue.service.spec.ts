@@ -52,10 +52,15 @@ describe('InferenceQueueService', () => {
     const jobId = await service.enqueueAnalyze({
       physicianId: 'phy-1',
       encounterId: 'enc-1',
-      input: { caseText: 'test', context: { hasCT: false, isSus: false, hasLab: false, hasICU: false } },
+      intakeId: 'intake-1',
     });
     expect(jobId).toBe('job-1');
-    expect(mockQueue.add).toHaveBeenCalledWith('analyze', expect.objectContaining({ type: 'analyze' }));
+    expect(mockQueue.add).toHaveBeenCalledWith('analyze', {
+      type: 'analyze',
+      physicianId: 'phy-1',
+      encounterId: 'enc-1',
+      intakeId: 'intake-1',
+    });
   });
 
   it('enqueueTranscribe returns jobId', async () => {
@@ -82,7 +87,7 @@ describe('InferenceQueueService', () => {
   });
 
   it('getJobStatus returns completed with result for the job owner', async () => {
-    const fakeResult = { type: 'analyze', assessment: 'ok' };
+    const fakeResult = { type: 'analyze', intakeId: 'intake-1', interactionId: 'int-1' };
     mockJob.getState.mockResolvedValueOnce('completed');
     mockJob.returnvalue = fakeResult;
     const result = await service.getJobStatus('job-1', 'phy-1');
@@ -104,7 +109,7 @@ describe('InferenceQueueService', () => {
   // incrementando o jobId no path da requisição.
   it('getJobStatus returns unknown (not the real state) when the job belongs to another physician', async () => {
     mockJob.getState.mockResolvedValueOnce('completed');
-    mockJob.returnvalue = { type: 'analyze', assessment: 'dados de outro paciente' };
+    mockJob.returnvalue = { type: 'analyze', intakeId: 'intake-1', interactionId: 'int-1' };
     const result = await service.getJobStatus('job-1', 'attacker-phy-id');
     expect(result.status).toBe('unknown');
     expect(result.result).toBeUndefined();

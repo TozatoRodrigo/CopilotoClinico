@@ -1,15 +1,19 @@
 import type { ElementType } from 'react';
 import {
   BookOpen,
+  Cards,
   ChartBar,
   ChatCircleText,
   ClipboardText,
   Database,
+  EnvelopeSimple,
   Gear,
   House,
+  Scales,
   ShieldCheck,
   ShieldWarning,
   SquaresFour,
+  Stethoscope,
 } from '@phosphor-icons/react';
 import type { AppRole } from '@/lib/auth-store';
 
@@ -56,7 +60,33 @@ export const APP_SECTIONS_BY_ROLE: Record<AppRole, NavSection[]> = {
   ],
 };
 
+/**
+ * CC-404 — fila de revisão de cartões. Não é por papel: o médico revisor
+ * (`isCardReviewer` na conta) costuma ter papel PHYSICIAN e não vê o console.
+ */
+export const CARD_REVIEW_ITEM: NavItem = {
+  href: '/revisao',
+  label: 'Revisão de cartões',
+  icon: Cards,
+};
+
+/** Seções do sidebar clínico: as do papel e, para o revisor de cartões, a fila de revisão. */
+export function appSectionsFor(
+  role: AppRole,
+  options: { isCardReviewer?: boolean } = {},
+): NavSection[] {
+  const sections = APP_SECTIONS_BY_ROLE[role];
+  if (!options.isCardReviewer) return sections;
+  return [...sections, { label: 'Curadoria', items: [CARD_REVIEW_ITEM] }];
+}
+
 export const HOME_ITEM: NavItem = { href: '/dashboard', label: 'Plantão', icon: House };
+
+/**
+ * CC-707 — fila de mentoria dos médicos da equipe. Não depende do papel: só
+ * aparece com `COPILOT_MENTORING` ligada e `is_mentor` (ver app-shell.tsx).
+ */
+export const MENTOR_ITEM: NavItem = { href: '/mentoria', label: 'Mentoria', icon: Stethoscope };
 
 export const SETTINGS_ITEM: NavItem = {
   href: '/settings',
@@ -65,7 +95,10 @@ export const SETTINGS_ITEM: NavItem = {
   matchPrefixes: ['/profile'],
 };
 
-type AdminNavItem = NavItem & { roles: AppRole[]; enabled?: boolean };
+/** Funcionalidades atrás de flag que somem do menu quando desligadas. */
+export type AdminFeature = 'mentoring';
+
+type AdminNavItem = NavItem & { roles: AppRole[]; enabled?: boolean; feature?: AdminFeature };
 
 /**
  * S20-UX-01 — `enabled: false` remove placeholders não prontos do nav
@@ -80,6 +113,8 @@ const ADMIN_ITEMS: AdminNavItem[] = [
     icon: ShieldCheck,
     roles: ['compliance', 'admin'],
   },
+  // CC-905 — versões dos termos e da política e o % de aceite (publicar é só do ADMIN).
+  { href: '/admin/termos', label: 'Termos', icon: Scales, roles: ['compliance', 'admin'] },
   { href: '/admin/diretrizes', label: 'Diretrizes', icon: Database, roles: ['compliance', 'admin'] },
   // F0-D — fila de triagem do feedback dos médicos (curadoria).
   {
@@ -88,17 +123,35 @@ const ADMIN_ITEMS: AdminNavItem[] = [
     icon: ChatCircleText,
     roles: ['compliance', 'admin'],
   },
+  // CC-707 — pedidos, tempo de resposta e satisfação da mentoria.
+  {
+    href: '/admin/mentoria',
+    label: 'Mentoria',
+    icon: Stethoscope,
+    roles: ['compliance', 'admin'],
+    feature: 'mentoring',
+  },
   { href: '/audit', label: 'Auditoria', icon: ShieldWarning, roles: ['compliance', 'admin'] },
   { href: '/admin/analytics', label: 'Analytics', icon: ChartBar, roles: ['compliance', 'admin'] },
+  // CC-702 — convites, lista de espera e ativação do beta (Compliance só vê a ativação).
+  { href: '/admin/beta', label: 'Beta', icon: EnvelopeSimple, roles: ['compliance', 'admin'] },
   { href: '/admin/users', label: 'Usuários', icon: House, roles: ['admin'], enabled: false },
   { href: '/admin/sistema', label: 'Sistema', icon: Gear, roles: ['admin'], enabled: false },
 ];
 
-export function adminSectionsFor(role: AppRole): NavSection[] {
+export function adminSectionsFor(
+  role: AppRole,
+  features: ReadonlySet<AdminFeature> = new Set(),
+): NavSection[] {
   return [
     {
       label: 'Operação',
-      items: ADMIN_ITEMS.filter((item) => item.roles.includes(role) && item.enabled !== false),
+      items: ADMIN_ITEMS.filter(
+        (item) =>
+          item.roles.includes(role) &&
+          item.enabled !== false &&
+          (item.feature === undefined || features.has(item.feature)),
+      ),
     },
   ];
 }

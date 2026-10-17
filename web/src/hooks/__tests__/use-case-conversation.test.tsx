@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -12,6 +12,7 @@ const apiGetMock = vi.fn();
 const apiPostMock = vi.fn();
 const startFromIntakeMock = vi.fn();
 const addToQueueMock = vi.fn();
+const trackEventMock = vi.fn();
 let online = true;
 
 vi.mock("@/lib/api-client", async (importOriginal) => {
@@ -44,9 +45,14 @@ vi.mock("@/components/domain/install-prompt-banner", () => ({
   markFirstAnalysisDone: vi.fn(),
 }));
 vi.mock("sonner", () => ({ toast: { info: vi.fn(), error: vi.fn(), success: vi.fn() } }));
+vi.mock("@/lib/analytics", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/analytics")>();
+  return { ...actual, trackEvent: (...args: unknown[]) => trackEventMock(...args) };
+});
 
 const { useCaseConversation } = await import("../use-case-conversation");
 const { ApiError } = await import("@/lib/api-client");
+const { validateEventProps } = await import("@/lib/analytics");
 
 const ENCOUNTER_ID = "enc-guiado-1";
 const INTAKE_ID = "00000000-0000-4000-8000-000000000001";
@@ -419,6 +425,129 @@ describe("useCaseConversation", () => {
 
       await waitFor(() => expect(result.current.phase).toBe("plan"));
       expect(result.current.canRespond).toBe(false);
+    });
+  });
+
+  // CC-704 — o funil do caso no Umami: enviado → perguntas → plano entregue.
+  describe("eventos de produto", () => {
+    const closed = intakeView({
+      path: "complete",
+      status: "closed",
+      closeReason: "not_needed",
+      pendingQuestionId: null,
+    });
+
+    function trackedEvents(): string[] {
+      return trackEventMock.mock.calls.map(([event]) => event as string);
+    }
+
+    afterEach(() => {
+      // Todo evento que a conversa manda passa na lista fechada: nada do caso.
+      for (const [event, props] of trackEventMock.mock.calls) {
+        expect(validateEventProps(event as string, props), event as string).not.toBeNull();
+      }
+    });
+
+    it("registra o caso enviado e o plano entregue, com a duração da montagem", async () => {
+      apiPostMock.mockResolvedValue(closed);
+      const { result } = renderConversation();
+      await waitFor(() => expect(result.current.phase).toBe("compose"));
+
+      await act(async () => {
+        await result.current.startCase(caseInput);
+      });
+
+      await waitFor(() => expect(trackedEvents()).toContain("analise_concluida"));
+      expect(trackEventMock).toHaveBeenCalledWith("analise_iniciada", { rodada: "inicial" });
+      expect(trackEventMock).toHaveBeenCalledWith("analise_concluida", {
+        rodada: "inicial",
+        duracao_s: expect.any(Number),
+      });
+    });
+
+    it("não registra caso que ficou na fila sem conexão", async () => {
+      online = false;
+      const { result } = renderConversation();
+      await waitFor(() => expect(result.current.phase).toBe("compose"));
+
+      await act(async () => {
+        await result.current.startCase(caseInput);
+      });
+
+      expect(trackEventMock).not.toHaveBeenCalled();
+    });
+
+    it("não conta como entregue o plano que outra aba está montando", async () => {
+      apiGetMock
+        .mockResolvedValueOnce(conversation({ intake: closed }))
+        .mockResolvedValue(conversation({ intake: { ...closed, analysisInProgress: true } }));
+      startFromIntakeMock.mockRejectedValue(new Error("Conexão de streaming perdida."));
+      const { result } = renderConversation();
+
+      await waitFor(() => expect(result.current.phase).toBe("planning"));
+      expect(trackedEvents()).not.toContain("analise_concluida");
+    });
+
+    it("registra a resposta de antes do plano com o canal, mas não a correção do entendimento", async () => {
+      apiGetMock.mockResolvedValue(conversation({ intake: intakeView() }));
+      apiPostMock.mockResolvedValue(intakeView());
+      const { result } = renderConversation();
+      await waitFor(() => expect(result.current.phase).toBe("asking"));
+
+      await act(async () => {
+        await result.current.answerIntake("intake-1", "Não", "Não", "voice");
+      });
+      await act(async () => {
+        await result.current.correctIntake("Na verdade são 2 dias", "text");
+      });
+
+      expect(trackEventMock).toHaveBeenCalledTimes(1);
+      expect(trackEventMock).toHaveBeenCalledWith("pergunta_respondida", {
+        fase: "antes_do_plano",
+        canal: "voice",
+      });
+    });
+
+    it("registra as respostas de depois do plano e a reanálise", async () => {
+      apiGetMock.mockResolvedValue(
+        conversation({
+          turns: [
+            turn({
+              output: {
+                reasoning: "Cefaleia; falta excluir meningite.",
+                redFlags: [],
+                recommendations: [],
+                differentials: [],
+                clarifyingQuestions: [
+                  {
+                    id: "q-febre",
+                    question: "Tem febre?",
+                    why: "Febre com cefaleia pede punção.",
+                    criticality: "blocker",
+                    expectedAnswerType: "boolean",
+                  },
+                ],
+              },
+            }),
+          ],
+        }),
+      );
+      apiPostMock.mockResolvedValue({ interactionId: "interaction-2" });
+      const { result } = renderConversation();
+      await waitFor(() => expect(result.current.followUps.pending?.id).toBe("q-febre"));
+
+      act(() => result.current.answerFollowUp("q-febre", "Sim", "Sim"));
+
+      await waitFor(() => expect(trackedEvents()).toContain("analise_concluida"));
+      expect(trackedEvents()).toEqual([
+        "pergunta_respondida",
+        "analise_iniciada",
+        "analise_concluida",
+      ]);
+      expect(trackEventMock).toHaveBeenCalledWith("pergunta_respondida", {
+        fase: "depois_do_plano",
+      });
+      expect(trackEventMock).toHaveBeenCalledWith("analise_iniciada", { rodada: "reanalise" });
     });
   });
 });

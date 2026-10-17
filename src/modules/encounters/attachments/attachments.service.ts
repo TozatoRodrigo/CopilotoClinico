@@ -2,9 +2,16 @@ import { BadRequestException, Inject, Injectable, Logger, NotFoundException } fr
 import { PrismaService } from '../../../config/prisma.service';
 import { AuditService } from '../../audit/audit.service';
 import { GuidelinesService } from '../../guidelines/guidelines.service';
-import { maskPII } from '../../copilot/guardrails/pii-filter';
+import {
+  DeidentificationService,
+  REGEX_ONLY_DEIDENTIFIER,
+  type Deidentifier,
+} from '../../deid/deidentification.service';
 import { scanForInjection } from '../../copilot/guardrails/injection-defense';
 import type { CreateAttachmentInput } from './schemas/attachments.schemas';
+
+/** Folga além de MAX_TEXT_CHARS para o trecho cortado na borda ainda ser mascarado inteiro. */
+const DEID_SLACK_CHARS = 2_000;
 
 /**
  * F4 — Referência anexada pelo médico a UM atendimento.
@@ -14,7 +21,7 @@ import type { CreateAttachmentInput } from './schemas/attachments.schemas';
  * diferente de `POST /guidelines/suggest`: vale só para este atendimento, não
  * passa por curadoria e não afeta nenhum outro médico.
  *
- * Três propriedades que o resto do sistema depende:
+ * Quatro propriedades de que o resto do sistema depende:
  * 1. O anexo é UNTRUSTED. Passa por `scanForInjection` no upload e entra no
  *    prompt em bloco próprio, NUNCA dentro de `<guideline_evidence
  *    type="TRUSTED_CURATED_SOURCE">`.
@@ -22,6 +29,12 @@ import type { CreateAttachmentInput } from './schemas/attachments.schemas';
  *    minimização LGPD; depois da extração o binário não tem utilidade.
  * 3. Escopo por médico dono do encontro em toda operação (defesa contra IDOR,
  *    na linha do que a auditoria de segurança já apontou neste projeto).
+ * 4. O nome do arquivo NUNCA vai para a trilha de auditoria. Médico nomeia o
+ *    arquivo com o nome do paciente ("laudo_maria_silva.pdf") e a trilha é
+ *    append-only: a eliminação LGPD não a alcança. Nem como hash — nome de
+ *    arquivo é curto e previsível, reverte por dicionário. A trilha leva o id
+ *    do anexo (entityId, que liga ADDED a REMOVED), o tipo e o tamanho; o nome
+ *    fica só em `encounter_attachments`, que a eliminação apaga.
  */
 @Injectable()
 export class AttachmentsService {
@@ -45,6 +58,8 @@ export class AttachmentsService {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(AuditService) private readonly auditService: AuditService,
     @Inject(GuidelinesService) private readonly guidelines: GuidelinesService,
+    // CC-203 — obrigatório no Nest; o padrão (só regex) é para quem constrói à mão.
+    @Inject(DeidentificationService) private readonly deid: Deidentifier = REGEX_ONLY_DEIDENTIFIER,
   ) {}
 
   async list(physicianId: string, encounterId: string) {
@@ -91,7 +106,8 @@ export class AttachmentsService {
           payload: {
             reasons: injection.reasons,
             confidence: injection.confidence,
-            filename: input.filename,
+            mimeType: input.mimeType,
+            sizeBytes: input.sizeBytes,
             source: 'encounter_attachment',
           },
         })
@@ -103,8 +119,13 @@ export class AttachmentsService {
     }
 
     // LGPD-005 — o texto persistido já vai mascarado; o arquivo original nunca
-    // é gravado.
-    const redacted = maskPII(extracted.text);
+    // é gravado. CC-203 — só o que pode ir ao prompt passa pela máscara (com
+    // folga, porque o rótulo não tem o tamanho do trecho): o modelo local não
+    // gasta o DEID_TIMEOUT_MS em páginas que o corte jogaria fora.
+    const redacted = await this.deid.deidentify(
+      extracted.text.slice(0, AttachmentsService.MAX_TEXT_CHARS + DEID_SLACK_CHARS),
+      'attachment',
+    );
     const text = redacted.redacted.slice(0, AttachmentsService.MAX_TEXT_CHARS);
 
     const attachment = await this.prisma.encounterAttachment.create({
@@ -127,7 +148,6 @@ export class AttachmentsService {
         entityId: attachment.id,
         payload: {
           encounterId,
-          filename: input.filename,
           mimeType: input.mimeType,
           sizeBytes: input.sizeBytes,
           extractedChars: extracted.text.length,
@@ -151,7 +171,7 @@ export class AttachmentsService {
 
     const attachment = await this.prisma.encounterAttachment.findFirst({
       where: { id: attachmentId, encounterId },
-      select: { id: true, filename: true },
+      select: { id: true },
     });
     if (!attachment) throw new NotFoundException('Attachment not found');
 
@@ -163,7 +183,7 @@ export class AttachmentsService {
         action: 'ENCOUNTER_ATTACHMENT_REMOVED',
         entity: 'EncounterAttachment',
         entityId: attachment.id,
-        payload: { encounterId, filename: attachment.filename },
+        payload: { encounterId },
       })
       .catch(() => undefined);
 

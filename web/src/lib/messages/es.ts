@@ -516,6 +516,130 @@ export const es: Messages = {
     confirmed: 'Conducta confirmada y firmada',
   },
 
+  shiftReview: {
+    title: 'Revise su guardia',
+    entry: {
+      title: 'Revise su guardia',
+      description: '3 preguntas de sus casos de la semana, con la fuente de cada respuesta.',
+      remaining: (count: number) =>
+        count === 1 ? 'Falta 1 pregunta' : `Faltan ${count} preguntas`,
+      preparing: 'Preparando las preguntas de sus casos…',
+      action: 'Revisar',
+      resume: 'Continuar',
+    },
+    page: {
+      description:
+        'Preguntas generadas de los análisis de sus casos de los últimos 7 días. Responda y diga cuánto sabía.',
+      progress: (current: number, total: number) => `Pregunta ${current} de ${total}`,
+      preparingTitle: 'Preparando sus preguntas',
+      preparingDescription: 'Leyendo los análisis y las fuentes de sus casos de la semana.',
+      unavailableTitle: 'Nada para revisar ahora',
+      unavailableDescription:
+        'La revisión aparece cuando sus casos de la semana tienen análisis con fuente citada.',
+      errorTitle: 'No fue posible cargar la revisión',
+      backToShift: 'Volver a la guardia',
+    },
+    question: {
+      trueFalse: 'Verdadero o falso',
+      multipleChoice: 'Elija una',
+      optionsLabel: 'Alternativas',
+      confidenceHeading: '¿Cuánto sabía?',
+      confidenceHint: 'Elija una alternativa y responda diciendo cuánto sabía.',
+      sending: 'Enviando…',
+    },
+    confidence: {
+      know: 'Lo sé',
+      unsure: 'Tengo dudas',
+      guessed: 'Adiviné',
+    },
+    feedback: {
+      correct: 'Acertó',
+      incorrect: 'Esta vez no',
+      correctAnswer: (option: string) => `Respuesta: ${option}`,
+      yourConfidence: (label: string) => `Usted marcó: ${label}`,
+      explanation: 'Por qué',
+      source: 'Fuente citada en el análisis',
+      openSource: 'Abrir la fuente',
+      openCase: 'Ver el caso',
+      next: 'Siguiente pregunta',
+      seeSummary: 'Ver resumen',
+      answerError: 'No fue posible enviar la respuesta. Intente de nuevo.',
+    },
+    summary: {
+      title: 'Resumen de la revisión',
+      score: (correct: number, total: number) => `Acertó ${correct} de ${total}`,
+      byConfidence: 'Aciertos × cuánto sabía',
+      tally: (correct: number, answered: number) =>
+        answered === 0 ? '—' : `${correct} de ${answered}`,
+      knewButMissed:
+        'Falló marcando "Lo sé": conviene repasar estos temas antes de la próxima guardia.',
+      guessedRight: 'Acertó adivinando: el acierto aún no es suyo, revise la fuente.',
+      calibrated: 'Lo que marcó coincidió con el resultado.',
+      done: 'Revisión de la semana concluida. La próxima sale el lunes.',
+    },
+    tabs: {
+      label: 'Secciones de la revisión',
+      review: 'Revisión de la semana',
+      map: 'Su mapa',
+    },
+    map: {
+      description:
+        'Por tema, dónde acierta sabiendo, acierta adivinando y falla creyendo que sabe. Solo con sus respuestas.',
+      loading: 'Cargando su mapa',
+      errorTitle: 'No fue posible cargar su mapa',
+      disabledTitle: 'Mapa no disponible',
+      disabledDescription: 'El mapa aparece junto con la revisión de la guardia.',
+      insufficientTitle: 'Su mapa todavía se está formando',
+      insufficientDescription: (required: number) =>
+        `El mapa aparece con ${required} respuestas: con menos, no se puede sacar conclusiones.`,
+      insufficientProgress: (answered: number, required: number) =>
+        `${answered} de ${required} respuestas`,
+      goToReview: 'Ir a la revisión de la semana',
+      overviewTitle: 'Todas las respuestas',
+      overviewDescription: (answered: number) =>
+        `Sus últimas ${answered} respuestas, de todos los temas.`,
+      quadrants: {
+        knew_right: 'Sabe y sabe que sabe',
+        guessed_right: 'Acierta adivinando',
+        knew_wrong: 'Falla creyendo que sabe',
+        guessed_wrong: 'Falla y sabe que no sabe',
+      },
+      quadrantHints: {
+        knew_right: 'Marcó "Lo sé" y acertó',
+        guessed_right: 'Marcó "Tengo dudas" o "Adiviné" y acertó',
+        knew_wrong: 'Marcó "Lo sé" y falló',
+        guessed_wrong: 'Marcó "Tengo dudas" o "Adiviné" y falló',
+      },
+      accuracy: (correct: number, answered: number) => `Acertó ${correct} de ${answered}`,
+      calibration: (percent: number) => `Calibración ${percent}%`,
+      calibrationHint: (calibrated: number, answered: number) =>
+        `En ${calibrated} de ${answered} respuestas, lo que marcó predijo el resultado.`,
+      answers: (count: number) => (count === 1 ? '1 respuesta' : `${count} respuestas`),
+      noneToStudy: 'Ningún fallo marcando "Lo sé" en los temas con respuestas suficientes.',
+      themesTitle: 'Por tema',
+      themesDescription:
+        'Los temas en que falló marcando "Lo sé" van primero, con lo que conviene estudiar.',
+      fewAnswersTitle: 'Pocos datos',
+      fewAnswersDescription: (min: number) =>
+        `Con menos de ${min} respuestas en el tema, todavía no se puede sacar conclusiones.`,
+      studyTitle: (misses: number) =>
+        misses === 1
+          ? 'Falló 1 vez marcando "Lo sé". Para estudiar:'
+          : `Falló ${misses} veces marcando "Lo sé". Para estudiar:`,
+      studyEmpty: 'Repase la explicación y la fuente de las preguntas de este tema.',
+      knowledgeCard: 'Tarjeta revisada',
+      openSource: 'Abrir la fuente',
+      tableToggle: 'Ver el mapa en tabla',
+      tableCaption: 'Respuestas por tema: acierto × cuánto sabía',
+      tableTheme: 'Tema',
+      tableAnswers: 'Respuestas',
+      tableCorrect: 'Aciertos',
+      tableCalibration: 'Calibración',
+      tableAll: 'Todos los temas',
+      fewAnswers: 'Pocos datos',
+    },
+  },
+
   errors: {
     title: 'Error',
     sessionExpired: 'Sesión expirada. Inicie sesión nuevamente.',

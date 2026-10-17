@@ -135,6 +135,8 @@ export const StoredRecommendationSchema = RecommendationSchema.extend({
   layer: RecommendationLayerSchema.optional(),
   dependsOn: z.string().nullable().optional(),
   basis: RecommendationBasisSchema.optional(),
+  /** CC-601 — linha de "por quê" (`COPILOT_WHY_LINE`); ausente sem a flag. */
+  why: z.string().nullable().optional(),
 });
 
 export const StoredClarifyingQuestionSchema = ClarifyingQuestionSchema.extend({

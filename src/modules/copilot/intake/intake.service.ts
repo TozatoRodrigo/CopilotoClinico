@@ -13,6 +13,11 @@ import { createHash } from 'crypto';
 import { PrismaService } from '../../../config/prisma.service';
 import { AuditService } from '../../audit/audit.service';
 import {
+  DeidentificationService,
+  REGEX_ONLY_DEIDENTIFIER,
+  type Deidentifier,
+} from '../../deid/deidentification.service';
+import {
   UNDERSTANDING_CORRECTION_QUESTION_ID,
   type IntakeAnswer,
   type IntakePath,
@@ -20,6 +25,7 @@ import {
 } from '../../../shared/contracts/clinical';
 import { rejectInjection, screenClinicalText } from '../guardrails/clinical-text-screening';
 import type { AnalyzeInput } from '../schemas/copilot.schemas';
+import { readStoredEncounterContext } from '../../encounters/schemas/encounter-context.schema';
 import type { AnsweredQuestion, ScreenedAnalysisInput } from '../orchestrator/orchestrator.service';
 import { UnderstandingService } from '../understanding/understanding.service';
 import { intakeAnswerText } from './intake-answer-text';
@@ -56,6 +62,16 @@ interface ReadingResult {
   cost: number;
   latencyMs: number;
 }
+
+/** Conversa sem leitura do caso: `COPILOT_INTAKE=off` ou análise pela fila. */
+const NO_READING: ReadingResult = {
+  path: 'disabled',
+  questions: [],
+  reading: null,
+  model: null,
+  cost: 0,
+  latencyMs: 0,
+};
 
 const READING_TIMED_OUT = Symbol('intake-reading-timed-out');
 
@@ -132,11 +148,52 @@ export class IntakeService {
     @Inject(UnderstandingService) private readonly understanding: UnderstandingService,
     @Inject(AuditService) private readonly audit: AuditService,
     @Inject(ConfigService) private readonly config: ConfigService,
+    // CC-203 — obrigatório no Nest; o padrão (só regex) é para quem constrói à mão.
+    @Inject(DeidentificationService) private readonly deid: Deidentifier = REGEX_ONLY_DEIDENTIFIER,
   ) {}
 
   async start(physicianId: string, encounterId: string, input: AnalyzeInput): Promise<IntakeView> {
+    const intake = await this.open(physicianId, encounterId, input, (caseText, redFlags) =>
+      this.read(caseText, redFlags),
+    );
+    // Os recursos marcados na captura valem para as reanálises seguintes,
+    // que leem o contexto do encontro.
+    await this.prisma.encounter.update({
+      where: { id: encounterId },
+      data: { context: input.context },
+      select: { id: true },
+    });
+    return toIntakeView(intake);
+  }
+
+  /**
+   * CC-011 — a análise pela fila (`POST .../analyze/async` e o áudio gravado):
+   * o caso entra redigido numa conversa, e o job leva só o id dela — nenhum
+   * texto clínico no Redis. Ninguém está na tela para responder perguntas:
+   * sem leitura do caso, a conversa nasce fechada, como com
+   * `COPILOT_INTAKE=off`. O contexto do encontro não muda, como a análise pela
+   * fila sempre fez.
+   */
+  async openForQueue(
+    physicianId: string,
+    encounterId: string,
+    input: AnalyzeInput,
+  ): Promise<CaseIntake> {
+    return this.open(physicianId, encounterId, input, () => Promise.resolve(NO_READING));
+  }
+
+  /** Posse do caso, redação, barreira de injeção, leitura e a conversa gravada. */
+  private async open(
+    physicianId: string,
+    encounterId: string,
+    input: AnalyzeInput,
+    read: (caseText: string, redFlags: Record<string, boolean>) => Promise<ReadingResult>,
+  ): Promise<CaseIntake> {
     const encounter = await this.loadEncounter(physicianId, encounterId);
-    const screened = screenClinicalText(input.caseText, encounter.patientRef);
+    const screened = screenClinicalText(
+      await this.deid.deidentify(input.caseText, 'case'),
+      encounter.patientRef,
+    );
     await rejectInjection(
       { audit: this.audit, logger: this.logger },
       { physicianId, encounterId, logLabel: LOG_LABEL },
@@ -149,7 +206,7 @@ export class IntakeService {
     );
 
     const redFlags = input.redFlags ?? {};
-    const reading = await this.read(screened.redacted, redFlags);
+    const reading = await read(screened.redacted, redFlags);
     const asking = reading.path === 'ask';
     const now = new Date();
 
@@ -174,13 +231,6 @@ export class IntakeService {
         latencyMs: reading.latencyMs,
       },
     });
-    // Os recursos marcados na captura valem para as reanálises seguintes,
-    // que leem o contexto do encontro.
-    await this.prisma.encounter.update({
-      where: { id: encounterId },
-      data: { context: input.context },
-      select: { id: true },
-    });
 
     this.logger.log(
       `INTAKE_STARTED intakeId=${intake.id} path=${reading.path} questions=${reading.questions.length} ` +
@@ -199,7 +249,7 @@ export class IntakeService {
         cost: reading.cost,
       },
     });
-    return toIntakeView(intake);
+    return intake;
   }
 
   async answer(
@@ -225,7 +275,7 @@ export class IntakeService {
     }
 
     const text = intakeAnswerText(question, input.answer);
-    const screened = screenClinicalText(text, patientRef);
+    const screened = screenClinicalText(await this.deid.deidentify(text, 'answer'), patientRef);
     await rejectInjection(
       { audit: this.audit, logger: this.logger },
       { physicianId, encounterId, logLabel: LOG_LABEL },
@@ -378,7 +428,8 @@ export class IntakeService {
           turnIndex: BEFORE_FIRST_PLAN_TURN,
         }),
       ),
-      context: this.readContext(intake.context),
+      // CC-602 — o local de plantão escolhido na captura segue para o plano.
+      context: readStoredEncounterContext(intake.context),
       redFlags: this.readRedFlags(intake.redFlags),
       demoCase: intake.demoCase ?? undefined,
       piiDetected: intake.piiDetected,
@@ -389,8 +440,7 @@ export class IntakeService {
   }
 
   private async read(caseText: string, redFlags: Record<string, boolean>): Promise<ReadingResult> {
-    const skipped = { questions: [], reading: null, model: null, cost: 0, latencyMs: 0 };
-    if (readIntakeMode(this.config) === 'off') return { path: 'disabled', ...skipped };
+    if (readIntakeMode(this.config) === 'off') return NO_READING;
 
     const startedAt = Date.now();
     const pending = this.understanding.readForIntake({ caseText, redFlags, logLabel: LOG_LABEL });
@@ -404,7 +454,7 @@ export class IntakeService {
           `INTAKE_READING_LATE latencyMs=${late.latencyMs} cost=${late.cost.toFixed(4)}`,
         ),
       );
-      return { path: 'reading_failed', ...skipped, latencyMs: Date.now() - startedAt };
+      return { ...NO_READING, path: 'reading_failed', latencyMs: Date.now() - startedAt };
     }
 
     const base = {
@@ -486,17 +536,6 @@ export class IntakeService {
     const intake = await this.prisma.caseIntake.findFirst({ where: { id: intakeId, encounterId } });
     if (!intake) throw new NotFoundException('Conversa não encontrada');
     return { intake, patientRef: encounter.patientRef };
-  }
-
-  private readContext(value: Prisma.JsonValue): AnalyzeInput['context'] {
-    const record: Prisma.JsonObject =
-      value && typeof value === 'object' && !Array.isArray(value) ? value : {};
-    return {
-      hasCT: record.hasCT === true,
-      isSus: record.isSus === true,
-      hasLab: record.hasLab === true,
-      hasICU: record.hasICU === true,
-    };
   }
 
   private readRedFlags(value: Prisma.JsonValue): Record<string, boolean> {

@@ -19,6 +19,9 @@ export type {
   CopilotFeedbackTriageItem,
   CopilotFeedbackTriagePage,
   UpdateCopilotFeedbackTriageRequest,
+  EvalCaseDraft,
+  KnowledgeGapReportRequest,
+  KnowledgeGapReportResponse,
   ExtractDocumentTextRequest,
   ExtractDocumentTextResponse,
   ExtractableDocumentMime,
@@ -65,6 +68,7 @@ export type {
   SuggestGuidelineResponse,
   Physician,
   PhysicianRole,
+  PhysicianSpecialty,
   PendingGuidelineChunk,
   PreliminaryReason,
   PsSyndrome,
@@ -79,6 +83,23 @@ export type {
   RedFlag,
   RedFlagSeverity,
   ResolveCrmVerificationRequest,
+  AnswerMentoringRequest,
+  CreateMentoringRequest,
+  MentorQueueItem,
+  MentorQueueResponse,
+  MentorQueueScope,
+  MentorRequestDetail,
+  MentoringAdminItem,
+  MentoringAdminMetrics,
+  MentoringAdminResponse,
+  MentoringCaseSnapshot,
+  MentoringConfigResponse,
+  MentoringNotificationsResponse,
+  MentoringRequestStatus,
+  MentoringRequestView,
+  MentoringTerms,
+  MentoringTermsDocument,
+  RateMentoringRequest,
 } from '@contracts/clinical';
 
 export type {
@@ -87,6 +108,26 @@ export type {
   PublishedKnowledgeCard,
 } from '@contracts/knowledge-cards';
 
+// CC-602 — locais de plantão do médico.
+export type {
+  EncounterSite,
+  FacilityType,
+  PracticeSite,
+  PracticeSiteInput,
+  SiteSpecialist,
+} from '@contracts/practice-site';
+
+// CC-334 — login com Google ou Microsoft.
+export type {
+  OAuthCallbackStatus,
+  OAuthErrorReason,
+  OAuthLinkRequest,
+  OAuthLinkResponse,
+  OAuthPendingResponse,
+  OAuthProviderId,
+  OAuthProvidersResponse,
+  OAuthSignupRequest,
+} from '@contracts/oauth';
 export type {
   AskQuickQuestionRequest,
   QuickQuestionAvailability,

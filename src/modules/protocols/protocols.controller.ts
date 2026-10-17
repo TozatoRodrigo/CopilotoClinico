@@ -17,6 +17,11 @@ import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import { createProtocolSchema, type CreateProtocolInput } from './schemas/protocol.schemas';
 
+/**
+ * Ler e rodar protocolo é de todo médico (com o filtro de instituição do
+ * CC-019). Criar, publicar e revisar exige curador ou ADMIN (CC-020),
+ * conferido em `ProtocolsService` para valer em qualquer chamador.
+ */
 @Controller('protocols')
 @UseGuards(JwtAuthGuard)
 export class ProtocolsController {
@@ -30,6 +35,7 @@ export class ProtocolsController {
     @Request() req: { user: { physicianId: string } },
     @Body(new ZodValidationPipe(createProtocolSchema)) body: CreateProtocolInput,
   ) {
+    await this.assertMember(req.user.physicianId, body.institutionId);
     return this.protocolsService.create(req.user.physicianId, body);
   }
 
@@ -66,7 +72,10 @@ export class ProtocolsController {
 
   @Post(':id/publish')
   async publish(@Request() req: { user: { physicianId: string } }, @Param('id') id: string) {
-    return this.protocolsService.publish(req.user.physicianId, id);
+    const institutionIds = await this.institutionsService.activeInstitutionIds(
+      req.user.physicianId,
+    );
+    return this.protocolsService.publish(req.user.physicianId, id, institutionIds);
   }
 
   @Post(':id/revise')
@@ -75,7 +84,11 @@ export class ProtocolsController {
     @Param('id') id: string,
     @Body(new ZodValidationPipe(createProtocolSchema)) body: CreateProtocolInput,
   ) {
-    return this.protocolsService.reviseAsNewVersion(req.user.physicianId, id, body);
+    await this.assertMember(req.user.physicianId, body.institutionId);
+    const institutionIds = await this.institutionsService.activeInstitutionIds(
+      req.user.physicianId,
+    );
+    return this.protocolsService.reviseAsNewVersion(req.user.physicianId, id, body, institutionIds);
   }
 
   /**
@@ -83,21 +96,31 @@ export class ProtocolsController {
    * - Se informada explicitamente, o médico precisa pertencer a ela.
    * - Caso contrário, usa a instituição única do médico (default), ou
    *   permanece global (null) se ele não tiver vínculo ou tiver mais de um.
+   * CC-019 — só vínculos ativos contam (ver institution-visibility.ts).
    */
   private async resolveInstitutionId(
     physicianId: string,
     requestedInstitutionId?: string,
   ): Promise<string | null> {
-    const institutions = await this.institutionsService.listForPhysician(physicianId);
+    const institutionIds = await this.institutionsService.activeInstitutionIds(physicianId);
 
     if (requestedInstitutionId) {
-      const belongs = institutions.some((i) => i.id === requestedInstitutionId);
-      if (!belongs) {
+      if (!institutionIds.includes(requestedInstitutionId)) {
         throw new ForbiddenException('Médico não pertence à instituição informada');
       }
       return requestedInstitutionId;
     }
 
-    return institutions.length === 1 ? institutions[0]!.id : null;
+    return institutionIds.length === 1 ? institutionIds[0]! : null;
+  }
+
+  /**
+   * CC-019 — protocolo institucional só nasce de quem tem vínculo ativo com a
+   * instituição. Antes, qualquer médico criava (ou revisava) protocolo em
+   * nome de outro hospital informando o `institutionId` dele.
+   */
+  private async assertMember(physicianId: string, institutionId: string | undefined) {
+    if (!institutionId) return;
+    await this.resolveInstitutionId(physicianId, institutionId);
   }
 }

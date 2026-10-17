@@ -35,6 +35,9 @@ import type {
   CopilotFeedbackTriageItem,
   CopilotFeedbackTriagePage,
   UpdateCopilotFeedbackTriageRequest,
+  EvalCaseDraft,
+  KnowledgeGapReportRequest,
+  KnowledgeGapReportResponse,
   CreateAttachmentRequest,
   CreateAttachmentResponse,
   EncounterAttachment,
@@ -347,6 +350,18 @@ export function useTriageCopilotFeedback() {
   });
 }
 
+/**
+ * CC-703 — rascunho do caso do gabarito de um reporte (formato v2, texto
+ * mascarado). Mutation, não query: cada pedido fica na trilha de auditoria
+ * como exportação, e só acontece quando o curador pede.
+ */
+export function useEvalCaseDraft() {
+  return useMutation({
+    mutationFn: (feedbackId: string) =>
+      apiClient.get<EvalCaseDraft>(`/admin/copilot-feedback/${feedbackId}/eval-case-draft`),
+  });
+}
+
 // ── Admin: Guidelines (E5) ─────────────────────────────────────────────────
 
 export function useGuidelineSources() {
@@ -425,6 +440,20 @@ export function useCopilotFeedback(encounterId: string) {
     mutationFn: (input: CopilotFeedbackRequest) =>
       apiClient.post<CopilotFeedbackResponse>(
         `/encounters/${encounterId}/copilot/feedback`,
+        input,
+      ),
+  });
+}
+
+/**
+ * CC-703 — "não encontrei o que precisava": alimenta o registro de lacunas
+ * (o que escrever primeiro), não a fila de triagem.
+ */
+export function useReportKnowledgeGap(encounterId: string) {
+  return useMutation({
+    mutationFn: (input: KnowledgeGapReportRequest) =>
+      apiClient.post<KnowledgeGapReportResponse>(
+        `/encounters/${encounterId}/copilot/knowledge-gaps`,
         input,
       ),
   });

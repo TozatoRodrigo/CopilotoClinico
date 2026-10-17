@@ -7,6 +7,7 @@ import { PrismaService } from '../../config/prisma.service';
 import { CryptoService } from '../../shared/crypto/crypto.service';
 import { AuditService } from '../audit/audit.service';
 import { InferenceQueueService } from '../queue/inference-queue.service';
+import { modelDeidentifier } from '../../../tests/helpers/fake-deid';
 
 describe('AudioService', () => {
   let service: AudioService;
@@ -87,8 +88,67 @@ describe('AudioService', () => {
     await expect(service.upload('phy-1', 'enc-1', validInput)).rejects.toThrow(NotFoundException);
   });
 
+  // CC-203 — com DEID_MODE=model, o nome ditado (sem tratamento) não fica na
+  // transcrição gravada nem na devolvida para a tela.
+  describe('CC-203 — de-identificação com o modelo local', () => {
+    function withModel() {
+      return new AudioService(
+        prismaMock as unknown as PrismaService,
+        cryptoMock as unknown as CryptoService,
+        auditMock as unknown as AuditService,
+        queueMock as unknown as InferenceQueueService,
+        whisperMock as unknown as WhisperService,
+        new ConfigService({}),
+        modelDeidentifier(['Maria da Silva']),
+      );
+    }
+
+    beforeEach(() => {
+      whisperMock.transcribe.mockResolvedValue('Maria da Silva, 54 anos, febre há 3 dias');
+    });
+
+    it('grava a transcrição já mascarada', async () => {
+      await withModel().upload('phy-1', 'enc-1', validInput);
+
+      expect(prismaMock.audioCapture.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ transcribedText: '[NOME], 54 anos, febre há 3 dias' }),
+        }),
+      );
+    });
+
+    it('devolve a transcrição direta já mascarada', async () => {
+      const result = await withModel().transcribeDirect('phy-1', validInput);
+
+      expect(result.text).toBe('[NOME], 54 anos, febre há 3 dias');
+    });
+  });
+
   // ──── S21-VOICE-02 — transcribeDirect (síncrono, sem persistir áudio) ────
   describe('S21-VOICE-02 — transcribeDirect', () => {
+    it('transcribes with WHISPER_MODEL and records that model (CC-205)', async () => {
+      const turboService = new AudioService(
+        prismaMock as unknown as PrismaService,
+        cryptoMock as unknown as CryptoService,
+        auditMock as unknown as AuditService,
+        queueMock as unknown as InferenceQueueService,
+        whisperMock as unknown as WhisperService,
+        new ConfigService({ WHISPER_MODEL: 'whisper-large-v3-turbo' }),
+      );
+
+      const result = await turboService.transcribeDirect('phy-1', validInput);
+
+      expect(whisperMock.transcribe).toHaveBeenCalledWith(expect.any(Buffer), 'audio/webm', {
+        model: 'whisper-large-v3-turbo',
+      });
+      expect(result.model).toBe('whisper-large-v3-turbo');
+      expect(auditMock.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          payload: expect.objectContaining({ model: 'whisper-large-v3-turbo' }),
+        }),
+      );
+    });
+
     it('returns transcribed text with model + audioHash + durationMs', async () => {
       const result = await service.transcribeDirect('phy-1', validInput);
 

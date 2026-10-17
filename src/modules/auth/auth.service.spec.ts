@@ -5,10 +5,14 @@ import { PrismaService } from '../../config/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { CrmVerificationService } from '../physicians/crm-verification.service';
 import { CrmCheckerService } from '../physicians/crm-checker.service';
+import { ExternalIdentityService } from './oauth/external-identity.service';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
+import { createHmac } from 'crypto';
+import { BetaInviteService, type BetaAdmission } from '../beta/beta-invite.service';
+import { BetaInviteRequiredException } from '../beta/beta.errors';
 
 vi.mock('bcryptjs', () => ({
   hash: vi.fn(),
@@ -42,6 +46,7 @@ describe('AuthService', () => {
     physician: {
       findUnique: ReturnType<typeof vi.fn>;
       create: ReturnType<typeof vi.fn>;
+      update: ReturnType<typeof vi.fn>;
     };
     refreshToken: {
       findFirst: ReturnType<typeof vi.fn>;
@@ -49,13 +54,19 @@ describe('AuthService', () => {
       updateMany: ReturnType<typeof vi.fn>;
       create: ReturnType<typeof vi.fn>;
     };
-    loginSecurityState: {
-      findUnique: ReturnType<typeof vi.fn>;
-      upsert: ReturnType<typeof vi.fn>;
-      update: ReturnType<typeof vi.fn>;
-    };
+  };
+  let lockout: {
+    reserveAttempt: ReturnType<typeof vi.fn>;
+    clear: ReturnType<typeof vi.fn>;
+    reserveLoginAttempt: ReturnType<typeof vi.fn>;
+    clearLogin: ReturnType<typeof vi.fn>;
   };
   let jwt: JwtService;
+  let auditService: { log: ReturnType<typeof vi.fn> };
+  let betaInvites: {
+    admit: ReturnType<typeof vi.fn>;
+    createAccount: ReturnType<typeof vi.fn>;
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -64,6 +75,7 @@ describe('AuthService', () => {
       physician: {
         findUnique: vi.fn(),
         create: vi.fn(),
+        update: vi.fn(),
       },
       refreshToken: {
         findFirst: vi.fn(),
@@ -71,11 +83,12 @@ describe('AuthService', () => {
         updateMany: vi.fn().mockResolvedValue({ count: 0 }),
         create: vi.fn(),
       },
-      loginSecurityState: {
-        findUnique: vi.fn(),
-        upsert: vi.fn(),
-        update: vi.fn(),
-      },
+    };
+    lockout = {
+      reserveAttempt: vi.fn().mockResolvedValue(undefined),
+      clear: vi.fn().mockResolvedValue(undefined),
+      reserveLoginAttempt: vi.fn().mockResolvedValue(true),
+      clearLogin: vi.fn().mockResolvedValue(undefined),
     };
 
     jwt = new JwtService({});
@@ -89,9 +102,7 @@ describe('AuthService', () => {
       JWT_REFRESH_EXPIRY: '7d',
     });
 
-    const auditService = {
-      log: vi.fn().mockResolvedValue(undefined),
-    } as unknown as AuditService;
+    auditService = { log: vi.fn().mockResolvedValue(undefined) };
 
     const mfaService = {
       setupMfa: vi.fn(),
@@ -110,14 +121,26 @@ describe('AuthService', () => {
       check: vi.fn().mockResolvedValue({ valid: false, source: 'unavailable' }),
     } as unknown as CrmCheckerService;
 
+    // CC-702 — cadastro aberto por padrão; a regra do convite tem spec própria.
+    betaInvites = {
+      admit: vi.fn().mockResolvedValue({ kind: 'open' } satisfies BetaAdmission),
+      createAccount: vi.fn((_admission: BetaAdmission, create: (db: unknown) => unknown) =>
+        create(prisma),
+      ),
+    };
+
     service = new AuthService(
       prisma as unknown as PrismaService,
       jwt,
       config,
-      auditService,
+      auditService as unknown as AuditService,
+      // CC-025/CC-026 — os testes do limite por conta estão em auth.service.lockout.spec.ts.
+      lockout as never,
       mfaService,
+      betaInvites as unknown as BetaInviteService,
       crmVerificationService,
       crmCheckerService,
+      { link: vi.fn() } as unknown as ExternalIdentityService,
     );
   });
 
@@ -167,6 +190,30 @@ describe('AuthService', () => {
       expect(result.physician).toEqual(mockPhysicianCreateResult);
     });
 
+    // A trilha sobrevive à eliminação LGPD, que anonimiza o email no cadastro.
+    it('audits AUTH_REGISTER without the email', async () => {
+      prisma.physician.findUnique.mockResolvedValue(null);
+      prisma.physician.create.mockResolvedValue(mockPhysicianCreateResult);
+      vi.mocked(bcrypt.hash).mockResolvedValue('hashed-password' as never);
+
+      await service.register({
+        email: 'doctor@example.com',
+        password: 'StrongP@ss1',
+        crmUf: 'SP',
+        crmNumber: '123456',
+        name: 'Dr. Test',
+      });
+
+      expect(auditService.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'AUTH_REGISTER',
+          entityId: mockPhysician.id,
+          payload: { crmUf: 'SP' },
+        }),
+      );
+      expect(JSON.stringify(auditService.log.mock.calls)).not.toContain('doctor@example.com');
+    });
+
     it('creates a physician without optional name', async () => {
       prisma.physician.findUnique.mockResolvedValue(null);
       prisma.physician.create.mockResolvedValue({
@@ -201,12 +248,68 @@ describe('AuthService', () => {
 
       expect(prisma.physician.create).not.toHaveBeenCalled();
     });
+
+    describe('beta por convite (CC-702)', () => {
+      const input = {
+        email: 'doctor@example.com',
+        password: 'StrongP@ss1',
+        crmUf: 'SP',
+        crmNumber: '123456',
+        inviteCode: 'k3mq-9xpt',
+      };
+
+      it('checks the invite before hashing the password and creates the account through it', async () => {
+        const admission: BetaAdmission = {
+          kind: 'invite',
+          inviteId: 'invite-1',
+          batchLabel: 'rede Ripardo',
+          waitlistEntryId: null,
+        };
+        prisma.physician.findUnique.mockResolvedValue(null);
+        prisma.physician.create.mockResolvedValue(mockPhysicianCreateResult);
+        betaInvites.admit.mockResolvedValue(admission);
+        vi.mocked(bcrypt.hash).mockResolvedValue('hashed-password' as never);
+
+        await service.register(input, '10.0.0.1');
+
+        expect(betaInvites.admit).toHaveBeenCalledWith('k3mq-9xpt');
+        expect(betaInvites.admit.mock.invocationCallOrder[0]).toBeLessThan(
+          vi.mocked(bcrypt.hash).mock.invocationCallOrder[0]!,
+        );
+        expect(betaInvites.createAccount).toHaveBeenCalledWith(
+          admission,
+          expect.any(Function),
+          '10.0.0.1',
+        );
+        expect(prisma.physician.create).toHaveBeenCalledTimes(1);
+      });
+
+      it('creates nothing when the invite is refused', async () => {
+        prisma.physician.findUnique.mockResolvedValue(null);
+        betaInvites.admit.mockRejectedValue(new BetaInviteRequiredException());
+
+        await expect(service.register({ ...input, inviteCode: undefined })).rejects.toThrow(
+          BetaInviteRequiredException,
+        );
+
+        expect(bcrypt.hash).not.toHaveBeenCalled();
+        expect(betaInvites.createAccount).not.toHaveBeenCalled();
+        expect(prisma.physician.create).not.toHaveBeenCalled();
+      });
+
+      it('reports a duplicate email before looking at the invite', async () => {
+        prisma.physician.findUnique.mockResolvedValue(mockPhysician);
+
+        await expect(service.register(input)).rejects.toThrow(ConflictException);
+
+        expect(betaInvites.admit).not.toHaveBeenCalled();
+      });
+    });
   });
 
   describe('login', () => {
     it('returns tokens for valid credentials', async () => {
       prisma.physician.findUnique.mockResolvedValue(mockPhysician);
-      prisma.loginSecurityState.findUnique.mockResolvedValue(null);
       vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
 
       const result = await service.login({
@@ -218,7 +321,7 @@ describe('AuthService', () => {
       expect(result).toHaveProperty('physician');
       expect(result).toHaveProperty('accessToken');
       expect(result).toHaveProperty('refreshToken');
-      expect(prisma.loginSecurityState.update).not.toHaveBeenCalled();
+      expect(lockout.clearLogin).toHaveBeenCalledWith('doctor@example.com');
       if (!('physician' in result)) throw new Error('Expected non-MFA login result');
       expect(result.physician).toEqual({
         id: mockPhysician.id,
@@ -227,12 +330,25 @@ describe('AuthService', () => {
         crmNumber: mockPhysician.crmNumber,
         name: mockPhysician.name,
         crmVerified: mockPhysician.crmVerified,
+        hasPassword: true,
       });
+    });
+
+    it('tells the web whether the physician reviews knowledge cards (CC-404)', async () => {
+      prisma.physician.findUnique.mockResolvedValue({ ...mockPhysician, isCardReviewer: true });
+      vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
+
+      const result = await service.login({
+        email: 'doctor@example.com',
+        password: 'StrongP@ss1',
+      });
+
+      if (!('physician' in result)) throw new Error('Expected non-MFA login result');
+      expect(result.physician.isCardReviewer).toBe(true);
     });
 
     it('rejects wrong password with UnauthorizedException', async () => {
       prisma.physician.findUnique.mockResolvedValue(mockPhysician);
-      prisma.loginSecurityState.findUnique.mockResolvedValue(null);
       vi.mocked(bcrypt.compare).mockResolvedValue(false as never);
 
       await expect(
@@ -242,23 +358,15 @@ describe('AuthService', () => {
         }),
       ).rejects.toThrow(UnauthorizedException);
 
-      expect(prisma.loginSecurityState.upsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: {
-            identifierHash: expect.any(String),
-          },
-          create: expect.objectContaining({
-            failedCount: 1,
-            physicianId: mockPhysician.id,
-            lockedUntil: null,
-          }),
-        }),
+      expect(lockout.reserveLoginAttempt).toHaveBeenCalledWith(
+        'doctor@example.com',
+        mockPhysician.id,
       );
+      expect(lockout.clearLogin).not.toHaveBeenCalled();
     });
 
     it('rejects non-existent email with UnauthorizedException', async () => {
       prisma.physician.findUnique.mockResolvedValue(null);
-      prisma.loginSecurityState.findUnique.mockResolvedValue(null);
 
       await expect(
         service.login({
@@ -268,104 +376,42 @@ describe('AuthService', () => {
       ).rejects.toThrow(UnauthorizedException);
 
       expect(bcrypt.compare).not.toHaveBeenCalled();
-      expect(prisma.loginSecurityState.upsert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          create: expect.objectContaining({
-            failedCount: 1,
-            physicianId: null,
-            lockedUntil: null,
-          }),
-        }),
+      expect(lockout.reserveLoginAttempt).toHaveBeenCalledWith('nonexistent@example.com', null);
+    });
+  });
+
+  // CC-334 — conta criada pelo login com Google/Microsoft não tem senha.
+  describe('account without password', () => {
+    it('refuses password login like a wrong password, counting the attempt', async () => {
+      prisma.physician.findUnique.mockResolvedValue({ ...mockPhysician, passwordHash: null });
+
+      await expect(
+        service.login({ email: 'doctor@example.com', password: 'StrongP@ss1' }),
+      ).rejects.toThrow(UnauthorizedException);
+
+      expect(bcrypt.compare).not.toHaveBeenCalled();
+      expect(lockout.reserveLoginAttempt).toHaveBeenCalledWith(
+        'doctor@example.com',
+        mockPhysician.id,
       );
+      expect(lockout.clearLogin).not.toHaveBeenCalled();
     });
 
-    it('locks login after the configured number of failed attempts', async () => {
-      vi.useFakeTimers();
-      vi.setSystemTime(new Date('2026-06-06T12:00:00.000Z'));
+    it('reports hasPassword on /auth/me without leaking the hash', async () => {
+      prisma.physician.findUnique.mockResolvedValue({ ...mockPhysician, passwordHash: null });
 
-      try {
-        prisma.physician.findUnique.mockResolvedValue(mockPhysician);
-        prisma.loginSecurityState.findUnique.mockResolvedValue({
-          identifierHash: 'hash',
-          physicianId: mockPhysician.id,
-          failedCount: 4,
-          lockedUntil: null,
-          lastFailedAt: new Date('2026-06-06T11:59:00.000Z'),
-        });
-        vi.mocked(bcrypt.compare).mockResolvedValue(false as never);
+      const me = await service.getMe(mockPhysician.id);
 
-        await expect(
-          service.login({
-            email: 'doctor@example.com',
-            password: 'WrongPassword1!',
-          }),
-        ).rejects.toThrow(UnauthorizedException);
-
-        expect(prisma.loginSecurityState.upsert).toHaveBeenCalledWith(
-          expect.objectContaining({
-            update: expect.objectContaining({
-              failedCount: 5,
-              lockedUntil: new Date('2026-06-06T12:15:00.000Z'),
-            }),
-          }),
-        );
-      } finally {
-        vi.useRealTimers();
-      }
+      expect(me).toMatchObject({ id: mockPhysician.id, hasPassword: false });
+      expect(me).not.toHaveProperty('passwordHash');
     });
 
-    it('rejects locked accounts before comparing passwords', async () => {
-      vi.useFakeTimers();
-      vi.setSystemTime(new Date('2026-06-06T12:00:00.000Z'));
+    it('explains that there is no password to change', async () => {
+      prisma.physician.findUnique.mockResolvedValue({ id: mockPhysician.id, passwordHash: null });
 
-      try {
-        prisma.loginSecurityState.findUnique.mockResolvedValue({
-          identifierHash: 'hash',
-          physicianId: mockPhysician.id,
-          failedCount: 5,
-          lockedUntil: new Date('2026-06-06T12:10:00.000Z'),
-          lastFailedAt: new Date('2026-06-06T11:59:00.000Z'),
-        });
-
-        await expect(
-          service.login({
-            email: 'doctor@example.com',
-            password: 'StrongP@ss1',
-          }),
-        ).rejects.toThrow(UnauthorizedException);
-
-        expect(bcrypt.compare).not.toHaveBeenCalled();
-        expect(prisma.physician.findUnique).not.toHaveBeenCalled();
-      } finally {
-        vi.useRealTimers();
-      }
-    });
-
-    it('clears failed login state after a successful login', async () => {
-      prisma.physician.findUnique.mockResolvedValue(mockPhysician);
-      prisma.loginSecurityState.findUnique.mockResolvedValue({
-        identifierHash: 'hash',
-        physicianId: mockPhysician.id,
-        failedCount: 2,
-        lockedUntil: null,
-        lastFailedAt: new Date('2026-06-06T11:59:00.000Z'),
-      });
-      vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
-
-      await service.login({
-        email: 'doctor@example.com',
-        password: 'StrongP@ss1',
-      });
-
-      expect(prisma.loginSecurityState.update).toHaveBeenCalledWith({
-        where: { identifierHash: expect.any(String) },
-        data: {
-          failedCount: 0,
-          lockedUntil: null,
-          lastFailedAt: null,
-          physicianId: mockPhysician.id,
-        },
-      });
+      await expect(
+        service.changePassword(mockPhysician.id, 'qualquer', 'NovaSenha@1'),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -454,6 +500,35 @@ describe('AuthService', () => {
         UnauthorizedException,
       );
     });
+
+    // CC-018 — a eliminação apaga os refresh tokens, mas um refresh que leu o
+    // token antes dela pode ter gravado um novo depois.
+    it('rejects a valid refresh token of an erased physician without issuing tokens', async () => {
+      prisma.refreshToken.findFirst.mockResolvedValue({
+        ...mockRefreshToken,
+        physician: { ...mockPhysician, erasedAt: new Date('2026-10-15T12:00:00Z') },
+      });
+
+      await expect(service.refresh({ refreshToken: 'valid-refresh-token' })).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(prisma.refreshToken.update).not.toHaveBeenCalled();
+      expect(prisma.refreshToken.create).not.toHaveBeenCalled();
+      expect(jwt.signAsync).not.toHaveBeenCalled();
+    });
+
+    it('keeps rotating for a physician who was never erased (erasedAt null)', async () => {
+      prisma.refreshToken.findFirst.mockResolvedValue({
+        ...mockRefreshToken,
+        physician: { ...mockPhysician, erasedAt: null },
+      });
+      prisma.refreshToken.update.mockResolvedValue({});
+      prisma.refreshToken.create.mockResolvedValue({});
+
+      await expect(
+        service.refresh({ refreshToken: 'valid-refresh-token' }),
+      ).resolves.toHaveProperty('accessToken');
+    });
   });
 
   // SEC-01 — regression test for the MFA-bypass fix: the mfa_pending token
@@ -472,25 +547,30 @@ describe('AuthService', () => {
       const realPrisma = {
         physician: { findUnique: vi.fn(), create: vi.fn() },
         refreshToken: { findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn(), create: vi.fn() },
-        loginSecurityState: { findUnique: vi.fn(), upsert: vi.fn(), update: vi.fn() },
       };
       const realConfig = new ConfigService({
         JWT_ACCESS_SECRET: accessSecret,
         JWT_REFRESH_SECRET: refreshSecret,
       });
       const realAudit = { log: vi.fn().mockResolvedValue(undefined) } as unknown as AuditService;
-      const realMfa = { verifyMfaCode: vi.fn().mockResolvedValue(undefined) } as unknown as MfaService;
+      const realMfa = {
+        verifyMfaCode: vi.fn().mockResolvedValue(undefined),
+      } as unknown as MfaService;
       const crmVerification = {} as unknown as CrmVerificationService;
       const crmChecker = {} as unknown as CrmCheckerService;
+      const betaInviteService = {} as unknown as BetaInviteService;
 
       const authService = new AuthService(
         realPrisma as unknown as PrismaService,
         realJwt,
         realConfig,
         realAudit,
+        { reserveLoginAttempt: vi.fn().mockResolvedValue(true), clearLogin: vi.fn() } as never,
         realMfa,
+        betaInviteService,
         crmVerification,
         crmChecker,
+        { link: vi.fn() } as unknown as ExternalIdentityService,
       );
 
       return { authService, realJwt, realPrisma };
@@ -498,7 +578,6 @@ describe('AuthService', () => {
 
     it('signs the mfaToken with a secret that is NOT JWT_ACCESS_SECRET', async () => {
       const { authService, realJwt, realPrisma } = buildServiceWithRealJwt();
-      realPrisma.loginSecurityState.findUnique.mockResolvedValue(null);
       realPrisma.physician.findUnique.mockResolvedValue({ ...mockPhysician, mfaEnabled: true });
       vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
 
@@ -526,6 +605,33 @@ describe('AuthService', () => {
       );
     });
 
+    // CC-018 — o token de MFA pendente (5 min) emitido antes da eliminação
+    // não vira sessão depois dela: a busca do cadastro exige erasedAt null.
+    it('does not open a session for an erased physician holding an mfaToken', async () => {
+      const { authService, realJwt, realPrisma } = buildServiceWithRealJwt();
+      const mfaToken = await realJwt.signAsync(
+        {
+          sub: mockPhysician.id,
+          email: mockPhysician.email,
+          physicianId: mockPhysician.id,
+          scope: 'mfa_pending',
+        },
+        {
+          secret: createHmac('sha256', accessSecret).update('mfa_pending_token').digest('hex'),
+          expiresIn: '5m',
+        },
+      );
+      realPrisma.physician.findUnique.mockResolvedValue(null);
+
+      await expect(authService.verifyMfaLogin(mfaToken, '123456')).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(realPrisma.physician.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: mockPhysician.id, erasedAt: null } }),
+      );
+      expect(realPrisma.refreshToken.create).not.toHaveBeenCalled();
+    });
+
     it('rejects an mfaToken signed with JWT_ACCESS_SECRET instead of the dedicated secret', async () => {
       const { authService, realJwt } = buildServiceWithRealJwt();
 
@@ -543,6 +649,92 @@ describe('AuthService', () => {
       await expect(authService.verifyMfaLogin(forgedMfaToken, '123456')).rejects.toThrow(
         UnauthorizedException,
       );
+    });
+  });
+
+  // CC-014 — o onboarding manda a especialidade no PATCH /auth/me; antes ela
+  // era descartada sem erro e GET /auth/me nunca a devolvia.
+  describe('profile specialty', () => {
+    it('saves the specialty and answers with the same profile as GET /auth/me', async () => {
+      prisma.physician.update.mockResolvedValue({ id: mockPhysician.id });
+      prisma.physician.findUnique.mockResolvedValue({
+        id: mockPhysician.id,
+        email: mockPhysician.email,
+        crmUf: mockPhysician.crmUf,
+        crmNumber: mockPhysician.crmNumber,
+        name: mockPhysician.name,
+        specialty: 'medicina_de_emergencia',
+        crmVerified: false,
+        role: 'ADMIN',
+        mfaEnabled: true,
+        subscriptionStatus: 'trial',
+        locale: 'pt-BR',
+        createdAt: mockPhysician.createdAt,
+      });
+
+      const updated = await service.updateProfile(mockPhysician.id, {
+        name: 'Dra. Ana',
+        specialty: 'medicina_de_emergencia',
+      });
+
+      expect(prisma.physician.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: mockPhysician.id },
+          data: { name: 'Dra. Ana', locale: undefined, specialty: 'medicina_de_emergencia' },
+        }),
+      );
+      // A aba Perfil troca o médico da sessão por esta resposta: sem `role`,
+      // o administrador virava médico na tela até o próximo login.
+      expect(updated).toMatchObject({ specialty: 'medicina_de_emergencia', role: 'ADMIN' });
+    });
+
+    it('returns the specialty on GET /auth/me', async () => {
+      prisma.physician.findUnique.mockResolvedValue({
+        id: mockPhysician.id,
+        specialty: 'pediatria',
+      });
+
+      const me = await service.getMe(mockPhysician.id);
+
+      expect(prisma.physician.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ select: expect.objectContaining({ specialty: true }) }),
+      );
+      expect(me).toMatchObject({ specialty: 'pediatria' });
+    });
+  });
+
+  // CC-014 — a tela de segurança passou a alcançar a troca de senha (chamava
+  // POST, a rota é PATCH). Senha atual errada não pode ser 401: o web trata
+  // 401 como sessão expirada e manda o médico para o login.
+  describe('changePassword', () => {
+    it('answers a wrong current password with 400, not 401', async () => {
+      prisma.physician.findUnique.mockResolvedValue({
+        id: mockPhysician.id,
+        passwordHash: 'hashed-password',
+      });
+      vi.mocked(bcrypt.compare).mockResolvedValue(false as never);
+
+      const attempt = service.changePassword(mockPhysician.id, 'errada', 'NovaSenha@1');
+
+      await expect(attempt).rejects.toThrow(BadRequestException);
+      await expect(attempt).rejects.not.toThrow(UnauthorizedException);
+      expect(prisma.physician.update).not.toHaveBeenCalled();
+    });
+
+    it('stores the new hash when the current password matches', async () => {
+      prisma.physician.findUnique.mockResolvedValue({
+        id: mockPhysician.id,
+        passwordHash: 'hashed-password',
+      });
+      vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
+      vi.mocked(bcrypt.hash).mockResolvedValue('new-hash' as never);
+
+      await service.changePassword(mockPhysician.id, 'Atual@123', 'NovaSenha@1');
+
+      expect(prisma.physician.update).toHaveBeenCalledWith({
+        where: { id: mockPhysician.id },
+        data: { passwordHash: 'new-hash' },
+      });
     });
   });
 });
