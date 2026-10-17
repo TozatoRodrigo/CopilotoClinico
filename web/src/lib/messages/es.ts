@@ -188,6 +188,11 @@ export const es: Messages = {
     privacyHint:
       'No escriba el nombre ni el documento del paciente. Para la dosis por peso, incluya el peso (ej.: 20 kg).',
     error: 'No fue posible preguntar ahora. Intente de nuevo.',
+    consentRevoked: {
+      title: 'Pregunta rápida en pausa',
+      body: 'Usted revocó el consentimiento para el procesamiento por IA, y la búsqueda en las tarjetas usa IA. Para preguntar, vuelva a concederlo en Configuración → Privacidad.',
+      action: 'Abrir Privacidad',
+    },
     cardAnswers: 'La tarjeta responde',
     population: 'Para quién',
     doses: 'Dosis de la tarjeta',

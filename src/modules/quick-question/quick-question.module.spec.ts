@@ -4,6 +4,7 @@ import { Test } from '@nestjs/testing';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from '../../config/prisma.module';
 import { AuditModule } from '../audit/audit.module';
+import { DeidModule } from '../deid/deid.module';
 import { QuickQuestionController } from './quick-question.controller';
 import { QuickQuestionModule } from './quick-question.module';
 import { QuickQuestionService } from './quick-question.service';
@@ -26,6 +27,7 @@ describe('QuickQuestionModule (CC-501)', () => {
         }),
         PrismaModule,
         AuditModule,
+        DeidModule,
         QuickQuestionModule,
       ],
     }).compile();

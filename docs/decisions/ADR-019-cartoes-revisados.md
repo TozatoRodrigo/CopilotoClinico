@@ -329,8 +329,10 @@ no Plantão e `POST /v1/quick-questions`:
    pergunta e se a máscara achou PII. Falhar a trilha não tira a resposta
    (vai para o Sentry).
 
-**Retenção da pergunta.** A máscara (`maskPII`) é o primeiro passo; o texto
-bruto não sai da requisição.
+**Retenção da pergunta.** A de-identificação do servidor (CC-203: regex e,
+com `DEID_MODE=model`, o modelo local) é o primeiro passo; o texto bruto não
+sai da requisição. A rota exige o consentimento `ai_processing` (CC-010),
+como as outras que mandam texto a um provedor de IA.
 
 | Onde | O quê | Por quanto tempo |
 | --- | --- | --- |

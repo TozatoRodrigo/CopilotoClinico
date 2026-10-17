@@ -11,10 +11,12 @@ import {
   MagnifyingGlass,
   SealCheck,
 } from '@phosphor-icons/react';
+import type { AI_CONSENT_REVOKED } from '@contracts/clinical';
 import type {
   QUICK_QUESTION_MAX_LENGTH,
   QUICK_QUESTION_MIN_LENGTH,
 } from '@contracts/quick-question';
+import { ApiError } from '@/lib/api-client';
 import { useAskQuickQuestion } from '@/lib/clinical-queries';
 import { useMessages } from '@/lib/messages/use-messages';
 import type { Messages } from '@/lib/messages';
@@ -42,6 +44,7 @@ import { SourceOriginBadge } from '@/components/domain/source-origin-badge';
 // `@contracts` são só de tipo): o tipo literal quebra o build se mudarem lá.
 const MIN_LENGTH: typeof QUICK_QUESTION_MIN_LENGTH = 3;
 const MAX_LENGTH: typeof QUICK_QUESTION_MAX_LENGTH = 300;
+const CONSENT_REVOKED: typeof AI_CONSENT_REVOKED = 'AI_CONSENT_REVOKED';
 
 type QuickQuestionCopy = Messages['quickQuestion'];
 
@@ -270,6 +273,9 @@ export function QuickQuestion() {
 
   const trimmed = question.trim();
   const canSubmit = trimmed.length >= MIN_LENGTH && !ask.isPending;
+  // CC-010 — quem revogou o consentimento de IA recebe 403: a tela diz onde
+  // conceder de novo, em vez do "tente de novo" de uma falha de rede.
+  const consentRevoked = ask.error instanceof ApiError && ask.error.code === CONSENT_REVOKED;
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -309,6 +315,19 @@ export function QuickQuestion() {
             <Skeleton className="h-5 w-2/3" />
             <Skeleton className="h-20 w-full" />
           </div>
+        ) : consentRevoked ? (
+          <Callout
+            tone="gray"
+            icon={<Info />}
+            title={copy.consentRevoked.title}
+            action={
+              <Button asChild variant="outline" size="sm">
+                <Link href="/settings?tab=privacidade">{copy.consentRevoked.action}</Link>
+              </Button>
+            }
+          >
+            {copy.consentRevoked.body}
+          </Callout>
         ) : ask.isError ? (
           <Alert variant="destructive">
             <AlertDescription>{copy.error}</AlertDescription>

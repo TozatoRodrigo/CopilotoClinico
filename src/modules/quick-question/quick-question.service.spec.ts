@@ -3,6 +3,7 @@ import { NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { PrismaService } from '../../config/prisma.service';
 import type { AuditService } from '../audit/audit.service';
+import type { Deidentifier } from '../deid/deidentification.service';
 import type { InstitutionsService } from '../institutions/institutions.service';
 import type { CardEmbedder } from '../knowledge-cards/card-index/card-embedder';
 import { CardIndexService } from '../knowledge-cards/card-index/card-index.service';
@@ -52,6 +53,7 @@ describe('QuickQuestionService (CC-501)', () => {
   let recorder: KnowledgeGapRecorder;
   let jevFetch: ReturnType<typeof vi.fn>;
   let guard: QuickQuestionScopeGuard | null;
+  let deid: Deidentifier | undefined;
 
   /** A guarda de verdade (heurística ou Jev, pela flag), com o `fetch` do Jev falso. */
   function configuredGuard(config: ConfigService): QuickQuestionScopeGuard {
@@ -71,6 +73,7 @@ describe('QuickQuestionService (CC-501)', () => {
       { log: auditLog } as unknown as AuditService,
       recorder,
       guard ?? configuredGuard(config),
+      deid,
     );
   }
 
@@ -82,6 +85,7 @@ describe('QuickQuestionService (CC-501)', () => {
     gaps = [];
     jevFetch = vi.fn().mockRejectedValue(new Error('nenhum teste chama a TypeSafe'));
     guard = null;
+    deid = undefined;
     recorder = {
       name: 'memory',
       record: vi.fn(async (gap: QuickQuestionGap) => {
@@ -339,6 +343,43 @@ describe('QuickQuestionService (CC-501)', () => {
         scopeSignals: ['not_clinical_terms', 'jev_unconfigured'],
       });
     });
+  });
+
+  it('CC-203: a de-identificação do servidor (regex + modelo local) vale para a guarda, a busca e a lacuna', async () => {
+    // O modelo local acha o nome solto que a regex não pega.
+    const deidentify = vi.fn(async (text: string) => ({
+      redacted: text.replace('Maria Lima', '[NOME]'),
+      hasPII: true,
+      counts: { name: 1 },
+      mode: 'model' as const,
+      fallback: null,
+    }));
+    deid = { deidentify };
+    const classify = vi.fn().mockResolvedValue({
+      inScope: true,
+      scope: 'clinical',
+      reason: null,
+      confidence: null,
+      guard: 'spy',
+      signals: [],
+    });
+    guard = { name: 'spy', classify };
+    findApplicable.mockResolvedValue({ cards: [], trace: okTrace({ candidates: 1 }) });
+
+    await service().ask(PHYSICIAN_ID, { question: 'antídoto do paracetamol para Maria Lima?' });
+
+    const masked = 'antídoto do paracetamol para [NOME]?';
+    expect(deidentify).toHaveBeenCalledWith(
+      'antídoto do paracetamol para Maria Lima?',
+      'quick_question',
+    );
+    expect(classify).toHaveBeenCalledWith(masked);
+    expect(findApplicable).toHaveBeenCalledWith(
+      expect.objectContaining({ queries: [masked], hypotheses: [masked] }),
+    );
+    expect(gaps[0]?.maskedQuestion).toBe(masked);
+    expect(auditLog.mock.calls[0]?.[0].payload).toMatchObject({ piiDetected: true });
+    expect(JSON.stringify(auditLog.mock.calls)).not.toContain('Maria Lima');
   });
 
   describe('máscara antes de qualquer embedding (busca de verdade, provedor falso)', () => {

@@ -17,7 +17,13 @@ import {
 import { deidTimeoutFor, readDeidMode, type DeidMode } from './deid.settings';
 
 /** Onde o texto entrou: vai para o log, para ver qual etapa cai na regex. */
-export type DeidStage = 'case' | 'answer' | 'attachment' | 'transcription' | 'consult';
+export type DeidStage =
+  | 'case'
+  | 'answer'
+  | 'attachment'
+  | 'transcription'
+  | 'consult'
+  | 'quick_question';
 
 export interface DeidResult {
   /** O único texto que segue adiante: para o modelo de IA e para o banco. */

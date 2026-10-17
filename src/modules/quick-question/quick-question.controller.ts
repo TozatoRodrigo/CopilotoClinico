@@ -2,6 +2,7 @@ import { Body, Controller, Get, HttpCode, Inject, Post, Request, UseGuards } fro
 import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
+import { RequiresAiConsent } from '../lgpd/ai-consent.guard';
 import type {
   QuickQuestionAvailability,
   QuickQuestionResponse,
@@ -21,7 +22,10 @@ interface AuthenticatedRequest {
 export class QuickQuestionController {
   constructor(@Inject(QuickQuestionService) private readonly service: QuickQuestionService) {}
 
-  /** A tela só mostra o campo com `COPILOT_QUICK_QUESTION` ligada. */
+  /**
+   * A tela só mostra o campo com `COPILOT_QUICK_QUESTION` ligada. Fica aberta
+   * a quem revogou o consentimento de IA: ela não manda texto a lugar nenhum.
+   */
   @Get('availability')
   availability(): QuickQuestionAvailability {
     return this.service.availability();
@@ -30,10 +34,15 @@ export class QuickQuestionController {
   /**
    * Consulta, não criação: 200. O teto por minuto é o de uma pessoa
    * perguntando (cada pergunta é uma chamada de embedding).
+   *
+   * CC-010 — a pergunta mascarada vai ao provedor de embedding (e ao Jev,
+   * com `QUICK_QUESTION_SCOPE_GUARD=jev`): sem o consentimento
+   * `ai_processing`, 403 `AI_CONSENT_REVOKED` antes do handler.
    */
   @Post()
   @HttpCode(200)
   @Throttle({ short: { limit: 30, ttl: 60000 } })
+  @RequiresAiConsent()
   ask(
     @Request() req: AuthenticatedRequest,
     @Body(new ZodValidationPipe(askQuickQuestionSchema)) body: AskQuickQuestionInput,

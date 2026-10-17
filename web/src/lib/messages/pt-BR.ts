@@ -174,6 +174,8 @@ export interface Messages {
     pending: string;
     privacyHint: string;
     error: string;
+    /** CC-010 — 403 `AI_CONSENT_REVOKED`: o médico revogou o processamento por IA. */
+    consentRevoked: { title: string; body: string; action: string };
     cardAnswers: string;
     population: string;
     doses: string;
@@ -712,6 +714,11 @@ export const ptBR: Messages = {
     privacyHint:
       'Não escreva nome nem documento do paciente. Para a dose por peso, inclua o peso (ex.: 20 kg).',
     error: 'Não foi possível perguntar agora. Tente de novo.',
+    consentRevoked: {
+      title: 'Pergunta rápida pausada',
+      body: 'Você revogou o consentimento para processamento por IA, e a busca nos cartões usa IA. Para perguntar, conceda de novo em Configurações → Privacidade.',
+      action: 'Abrir Privacidade',
+    },
     cardAnswers: 'O cartão responde',
     population: 'Para quem',
     doses: 'Dose do cartão',

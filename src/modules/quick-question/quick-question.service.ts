@@ -3,7 +3,11 @@ import { randomUUID } from 'node:crypto';
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AuditService } from '../audit/audit.service';
-import { maskPII } from '../copilot/guardrails/pii-filter';
+import {
+  DeidentificationService,
+  REGEX_ONLY_DEIDENTIFIER,
+  type Deidentifier,
+} from '../deid/deidentification.service';
 import { InstitutionsService } from '../institutions/institutions.service';
 import {
   ReviewedCardRetrievalService,
@@ -62,9 +66,9 @@ interface QuestionRun {
  * CC-501 (ADR-019, emenda da pergunta rápida) — uma dúvida curta respondida
  * só por cartões revisados publicados.
  *
- * 1. A pergunta passa pela máscara (`maskPII`) antes de qualquer outra
- *    coisa: o texto bruto não vai para a guarda, embedding, log, auditoria
- *    nem banco.
+ * 1. A pergunta passa pela de-identificação (CC-203: regex e, com
+ *    `DEID_MODE=model`, o modelo local) antes de qualquer outra coisa: o
+ *    texto bruto não vai para a guarda, embedding, log, auditoria nem banco.
  * 2. CC-503 — a guarda de escopo (`QUICK_QUESTION_SCOPE_GUARD`) recusa com
  *    educação o que não é dúvida clínica de PS, antes de qualquer busca: sem
  *    embedding e sem lacuna.
@@ -89,6 +93,7 @@ export class QuickQuestionService {
     @Inject(AuditService) private readonly audit: AuditService,
     @Inject(KNOWLEDGE_GAP_RECORDER) private readonly gaps: KnowledgeGapRecorder,
     @Inject(QUICK_QUESTION_SCOPE_GUARD) private readonly scopeGuard: QuickQuestionScopeGuard,
+    @Inject(DeidentificationService) private readonly deid: Deidentifier = REGEX_ONLY_DEIDENTIFIER,
   ) {}
 
   availability(): QuickQuestionAvailability {
@@ -101,7 +106,7 @@ export class QuickQuestionService {
     }
     const startedAt = Date.now();
     const questionId = randomUUID();
-    const masked = maskPII(input.question);
+    const masked = await this.deid.deidentify(input.question, 'quick_question');
     const question = masked.redacted;
     const run = {
       physicianId,

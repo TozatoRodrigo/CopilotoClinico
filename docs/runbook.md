@@ -1362,8 +1362,10 @@ padrão: o campo não aparece no Plantão e `POST /v1/quick-questions` responde
 resposta vem **só** de cartões publicados — nenhum modelo de linguagem é
 chamado, só o embedding da busca:
 
-1. a pergunta passa por `maskPII` antes de tudo; o texto bruto não vai para
-   embedding, log, trilha nem banco;
+1. a pergunta passa pela de-identificação do servidor antes de tudo
+   (`DeidentificationService`, CC-203: a regex e, com `DEID_MODE=model`, o
+   modelo local); o texto bruto não vai para embedding, log, trilha nem
+   banco;
 2. a mesma busca e o mesmo portão da decisão (acima), com a pergunta
    mascarada como consulta e hipótese, na instituição única do médico (ou só
    cartões globais);
@@ -1375,10 +1377,14 @@ chamado, só o embedding da busca:
 
 Pré-requisitos para ligar: os mesmos dos cartões na decisão (cartões
 publicados, embedding ligado, `pnpm cards:reindex` com código 0), a revisão
-clínica da conta por peso (ADR-019, emenda da pergunta rápida) e o PR #168
-(sem ele, um 400/404 desta rota grava o corpo — a pergunta — na linha de
-erro do acesso HTTP). `GET /v1/quick-questions/availability` diz à tela se a
-flag está ligada.
+clínica da conta por peso (ADR-019, emenda da pergunta rápida). O PR #168,
+já na main, tira o corpo — a pergunta — da linha de erro do acesso HTTP.
+`GET /v1/quick-questions/availability` diz à tela se a flag está ligada.
+
+Consentimento (CC-010): a pergunta mascarada vai ao provedor de embedding,
+então quem revogou `ai_processing` recebe 403 `AI_CONSENT_REVOKED` antes de
+qualquer busca, e a tela diz onde conceder de novo. A disponibilidade fica
+aberta: ela não manda texto a lugar nenhum.
 
 No log: `QUICK_QUESTION` (id, desfecho, estado da busca, candidatos,
 `cardId:versão:similaridade`, PII detectada, latência — o p50 alvo é ≤ 5 s),

@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QuickQuestion } from '../quick-question';
+import { ApiError } from '@/lib/api-client';
 import type { QuickQuestionCardAnswer, QuickQuestionResponse } from '@/lib/types';
 
 const mutate = vi.fn();
@@ -9,6 +10,7 @@ let mutation: {
   mutate: typeof mutate;
   isPending: boolean;
   isError: boolean;
+  error: unknown;
   data: QuickQuestionResponse | undefined;
 };
 
@@ -65,7 +67,7 @@ const anaphylaxis: QuickQuestionCardAnswer = {
 describe('QuickQuestion', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mutation = { mutate, isPending: false, isError: false, data: undefined };
+    mutation = { mutate, isPending: false, isError: false, error: null, data: undefined };
   });
 
   it('envia a pergunta sem espaços sobrando e só a partir de 3 letras', async () => {
@@ -155,9 +157,23 @@ describe('QuickQuestion', () => {
 
   it('erro de rede vira aviso, não resposta', () => {
     mutation.isError = true;
+    mutation.error = new ApiError(503, 'Service Unavailable');
     render(<QuickQuestion />);
 
     expect(screen.getByText(/Não foi possível perguntar agora/i)).toBeInTheDocument();
+  });
+
+  it('consentimento de IA revogado (CC-010): diz onde conceder de novo, não "tente de novo"', () => {
+    mutation.isError = true;
+    mutation.error = new ApiError(403, 'revogado', 'AI_CONSENT_REVOKED');
+    render(<QuickQuestion />);
+
+    expect(screen.getByText('Pergunta rápida pausada')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Abrir Privacidade/i })).toHaveAttribute(
+      'href',
+      '/settings?tab=privacidade',
+    );
+    expect(screen.queryByText(/Não foi possível perguntar agora/i)).not.toBeInTheDocument();
   });
 
   describe('fora do escopo (CC-503)', () => {
