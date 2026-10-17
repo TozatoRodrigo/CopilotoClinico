@@ -98,4 +98,25 @@ describe('ativação do beta (CC-702)', () => {
     const values = queryRaw.mock.calls[0]!.slice(1);
     expect(values).toContain('2026-09-20T12:00:00.000Z');
   });
+
+  it('closes the window when the weekly panel asks for one cohort (CC-705)', async () => {
+    const queryRaw = vi.fn().mockResolvedValue([row(48, 1, { batch: 'rede Ripardo' })]);
+    const service = new BetaActivationService({ $queryRaw: queryRaw } as unknown as PrismaService);
+    const since = new Date('2026-10-12T03:00:00.000Z');
+    const until = new Date('2026-10-19T03:00:00.000Z');
+
+    const window = await service.reportBetween(since, until, now);
+
+    expect(window.overall).toMatchObject({ registered: 1, activated24h: 1 });
+    expect(window.byBatch).toHaveLength(1);
+    const [strings, ...values] = queryRaw.mock.calls[0]! as [TemplateStringsArray, ...unknown[]];
+    expect(values).toContain('2026-10-12T03:00:00.000Z');
+    const untilFragment = values.find(
+      (value): value is { strings: string[]; values: unknown[] } =>
+        typeof value === 'object' && value !== null && 'strings' in value,
+    );
+    expect(untilFragment?.strings.join('?')).toContain('AND p.created_at <');
+    expect(untilFragment?.values).toEqual(['2026-10-19T03:00:00.000Z']);
+    expect(strings.join('?')).toContain('p.created_at >=');
+  });
 });

@@ -6,6 +6,7 @@ import { PrismaService } from '../../config/prisma.service';
 import { AiGatewayService } from '../ai-gateway/ai-gateway.service';
 import { AuditService } from '../audit/audit.service';
 import { freeTextHash } from '../audit/audit-payload';
+import { modelDeidentifier } from '../../../tests/helpers/fake-deid';
 
 vi.mock('@sentry/node', () => ({ captureMessage: vi.fn() }));
 
@@ -814,6 +815,23 @@ describe('GuidelinesService', () => {
   });
 
   describe('consult', () => {
+    // CC-203 — a consulta abre com o caso escrito: o nome que só o modelo
+    // local acha também não vai ao provedor de embedding.
+    it('mascara o nome achado pelo modelo local antes do embedding', async () => {
+      aiGateway.embed.mockResolvedValue({ embeddings: [[0.1, 0.2]] });
+      const withModel = new GuidelinesService(
+        prisma as unknown as PrismaService,
+        aiGateway as unknown as AiGatewayService,
+        auditService as unknown as AuditService,
+        modelDeidentifier(['Maria da Silva']),
+      );
+
+      await withModel.consult('Maria da Silva picada por escorpião há 1 hora', { semantic: true });
+
+      const embedded = aiGateway.embed.mock.calls[0]![0] as string[];
+      expect(embedded[0]).toBe('[NOME] picada por escorpião há 1 hora');
+    });
+
     it('mascara PII antes do embedding e junta as duas buscas', async () => {
       aiGateway.embed.mockResolvedValue({ embeddings: [[0.1, 0.2]] });
       prisma.$queryRawUnsafe

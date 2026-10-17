@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/node';
 import { Injectable, Inject, Logger, BadRequestException, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHash } from 'crypto';
@@ -16,8 +17,12 @@ import type { RetrievalCoverage, RetrievedChunk } from '../retrieval/hybrid-sear
 import { EncountersService } from '../../encounters/encounters.service';
 import { AttachmentsService } from '../../encounters/attachments/attachments.service';
 import { AuditService } from '../../audit/audit.service';
+import {
+  DeidentificationService,
+  REGEX_ONLY_DEIDENTIFIER,
+  type Deidentifier,
+} from '../../deid/deidentification.service';
 import { activeInstitutionIds } from '../../institutions/institution-visibility';
-import { countDetectionsByType, maskPII } from '../guardrails/pii-filter';
 import { scanForInjection, type InjectionScanResult } from '../guardrails/injection-defense';
 import {
   redactPatientRef,
@@ -61,6 +66,8 @@ import {
   type DecisionPromptVersion,
   type KnowledgeSource,
   type PreliminaryReason,
+  type RecommendationReviewedCard,
+  type ReviewedCardRecord,
   type WebEvidenceItem,
 } from '../../../shared/contracts/clinical';
 import {
@@ -86,6 +93,20 @@ import {
   type DecisionModelChoice,
   type DecisionPipeline,
 } from './decision.settings';
+import {
+  ReviewedCardRetrievalService,
+  type ApplicableCardsTrace,
+} from '../../knowledge-cards/card-retrieval/reviewed-card-retrieval.service';
+import { isReviewedCardsEnabled } from '../reviewed-cards/reviewed-cards.settings';
+import {
+  cardPagePath,
+  isCardCitationId,
+  toCardEvidence,
+  toRecommendationReviewedCard,
+  toReviewedCardRecord,
+  unsupportedCardDoses,
+  type ReviewedCardEvidence,
+} from '../reviewed-cards/reviewed-card-evidence';
 import { withAnsweredQuestions } from './answered-questions';
 
 const DEFAULT_MAX_TURNS = 5;
@@ -162,6 +183,8 @@ export type EnrichedRecommendation = CopilotOutput['recommendations'][number] &
   RecommendationSource & {
     /** F0-C — presente sempre que `preliminary` é true. */
     preliminaryReason?: PreliminaryReason;
+    /** CC-408 — quem assinou o cartão que sustenta a conduta (`origin: 'reviewed_card'`). */
+    reviewedCard?: RecommendationReviewedCard;
   };
 
 export type EnrichedCopilotOutput = Omit<CopilotOutput, 'recommendations'> & {
@@ -179,6 +202,11 @@ export type EnrichedCopilotOutput = Omit<CopilotOutput, 'recommendations'> & {
    * conhecimento do modelo.
    */
   webEvidence?: WebEvidenceItem[];
+  /**
+   * CC-408 — cartões revisados entregues à decisão: versão, hash assinado e
+   * revisor, para a trilha. Ausente com `COPILOT_REVIEWED_CARDS` desligada.
+   */
+  reviewedCards?: ReviewedCardRecord[];
 };
 
 const CHIEF_COMPLAINT_MAX_LENGTH = 140;
@@ -311,13 +339,36 @@ const MODEL_KNOWLEDGE_SOURCE: ResolvedSource = {
   sourceUrl: '',
 };
 
+/**
+ * CC-408 — cartão revisado: a fonte é o cartão (tema e versão), o trecho é a
+ * resposta dele e o link leva à página do cartão, com quem assinou.
+ */
+function reviewedCardSource({ card }: ReviewedCardEvidence): ResolvedSource {
+  return {
+    source: `Cartão revisado — ${card.topic}`,
+    sourceVersion: `v${card.version}`,
+    text: card.content.answer,
+    institutionId: card.institutionId,
+    origin: 'reviewed_card',
+    sourceUrl: cardPagePath(card.cardId),
+  };
+}
+
+const NO_REVIEWED_CARDS: ReadonlyMap<string, ReviewedCardEvidence> = new Map();
+
 function resolveCitationSource(
   citationChunkId: string | null,
   chunks: RetrievedChunk[],
   attachments: AttachmentForCitation[],
   webEvidence: readonly WebEvidenceItem[] = [],
+  reviewedCards: ReadonlyMap<string, ReviewedCardEvidence> = NO_REVIEWED_CARDS,
 ): ResolvedSource {
   if (citationChunkId === null) return MODEL_KNOWLEDGE_SOURCE;
+
+  const cardEvidence = isCardCitationId(citationChunkId)
+    ? reviewedCards.get(citationChunkId)
+    : undefined;
+  if (cardEvidence) return reviewedCardSource(cardEvidence);
 
   // F1 — página oficial achada pela pesquisa web: o link leva à página.
   const webItem = isWebEvidenceId(citationChunkId)
@@ -781,12 +832,37 @@ interface PreparedAnalysis {
    * os mesmos do modo web.
    */
   research: ResearchOutcome | null;
+  /** CC-408 — cartões revisados do turno; `null` com a flag desligada ou na decisão v1. */
+  reviewedCards: ReviewedCardsOutcome | null;
+}
+
+/**
+ * CC-408 — o que a busca de cartões fez neste turno, para `params`. Além dos
+ * status da busca, a decisão pode nem buscar (sem entendimento) ou a busca
+ * pode falhar — e a análise segue sem cartões.
+ */
+type ReviewedCardsTrace =
+  | ApplicableCardsTrace
+  | { status: 'no_understanding' | 'retrieval_failed'; candidates: 0; accepted: 0 };
+
+/** CC-408 — cartões revisados entregues à decisão e o rastro da busca. */
+interface ReviewedCardsOutcome {
+  evidence: ReviewedCardEvidence[];
+  trace: ReviewedCardsTrace;
 }
 
 /** F1 — evidência de um turno: busca na base interna e/ou pesquisa web. */
 interface GatheredEvidence {
   retrievalResult: RetrievalResult;
   research: ResearchOutcome | null;
+  /** CC-408 — `null` com `COPILOT_REVIEWED_CARDS` desligada: nenhuma busca de cartão. */
+  reviewedCards: ReviewedCardsOutcome | null;
+}
+
+function cardsByCitationId(
+  outcome: ReviewedCardsOutcome | null,
+): ReadonlyMap<string, ReviewedCardEvidence> {
+  return new Map((outcome?.evidence ?? []).map((item) => [item.citationId, item]));
 }
 
 /** Turno 0 depois da redação de PII e da barreira de injeção. */
@@ -874,6 +950,10 @@ export class OrchestratorService {
     @Inject(ConfigService) private readonly config: ConfigService,
     @Inject(UnderstandingService) private readonly understanding: UnderstandingService,
     @Inject(WebResearchService) private readonly webResearch: WebResearchService,
+    @Inject(ReviewedCardRetrievalService)
+    private readonly reviewedCardRetrieval: ReviewedCardRetrievalService,
+    // CC-203 — obrigatório no Nest; o padrão (só regex) é para quem constrói à mão.
+    @Inject(DeidentificationService) private readonly deid: Deidentifier = REGEX_ONLY_DEIDENTIFIER,
   ) {
     this.sourceVerification = new SourceVerificationService(aiGateway, config);
   }
@@ -985,6 +1065,9 @@ export class OrchestratorService {
    *   entendimento ou sem resultado, segue como `model_only`;
    * - `verify`: a decisão roda exatamente como em `model_only`; a pesquisa
    *   vem depois dela, para conferir as condutas (`verifySources`).
+   *
+   * CC-408 — com `COPILOT_REVIEWED_CARDS`, os cartões revisados aplicáveis
+   * entram em qualquer fonte de conhecimento, buscados em paralelo.
    */
   private async gatherEvidence(
     caseText: string,
@@ -993,8 +1076,26 @@ export class OrchestratorService {
     pipeline: DecisionPipeline,
     logLabel: string,
   ): Promise<GatheredEvidence> {
+    // CC-019 — a instituição do caso só vale com vínculo ativo. Resolvida no
+    // máximo uma vez, e só quando a base interna ou os cartões são buscados.
+    let institution: Promise<string | null> | undefined;
+    const searchInstitution = () => (institution ??= this.retrievalInstitution(scope, logLabel));
+    const [base, reviewedCards] = await Promise.all([
+      this.gatherBaseEvidence(caseText, stage, searchInstitution, pipeline, logLabel),
+      this.reviewedCardsFor(stage, searchInstitution, pipeline, logLabel),
+    ]);
+    return { ...base, reviewedCards };
+  }
+
+  private async gatherBaseEvidence(
+    caseText: string,
+    stage: UnderstandingOutcome | null,
+    searchInstitution: () => Promise<string | null>,
+    pipeline: DecisionPipeline,
+    logLabel: string,
+  ): Promise<Omit<GatheredEvidence, 'reviewedCards'>> {
     if (pipeline.knowledgeSource === 'internal_kb') {
-      const institutionId = await this.retrievalInstitution(scope, logLabel);
+      const institutionId = await searchInstitution();
       return {
         retrievalResult: await this.retrieveEvidence(caseText, stage, institutionId, logLabel),
         research: null,
@@ -1014,6 +1115,56 @@ export class OrchestratorService {
       logLabel,
     });
     return { retrievalResult: NO_RETRIEVAL, research };
+  }
+
+  /**
+   * CC-408 (ADR-019) — cartões revisados aplicáveis a este turno.
+   *
+   * - flag desligada: `null`, nenhuma busca — prompt e saída iguais aos de antes;
+   * - decisão v1: `null` — o cartão só entra na decisão em etapas, que cita
+   *   por id e tem a regra da dose;
+   * - sem entendimento: nenhum cartão. A busca usa só o que a Etapa 1
+   *   entendeu (consultas, síndrome, hipóteses), nunca o texto do caso;
+   * - busca que falha: nenhum cartão, e o erro vai para o Sentry. A análise
+   *   nunca para por causa de um cartão.
+   */
+  private async reviewedCardsFor(
+    stage: UnderstandingOutcome | null,
+    searchInstitution: () => Promise<string | null>,
+    pipeline: DecisionPipeline,
+    logLabel: string,
+  ): Promise<ReviewedCardsOutcome | null> {
+    if (!isReviewedCardsEnabled(this.config)) return null;
+    if (!isStagedDecisionPrompt(pipeline.decisionPrompt)) {
+      this.logger.warn(
+        `REVIEWED_CARDS_SKIPPED${logLabel} reason=decision_v1: os cartões só entram na decisão em etapas (v2+)`,
+      );
+      return null;
+    }
+    const understanding = stage?.understanding;
+    if (!understanding) {
+      this.logger.warn(`REVIEWED_CARDS_SKIPPED${logLabel} reason=no_understanding`);
+      return { evidence: [], trace: { status: 'no_understanding', candidates: 0, accepted: 0 } };
+    }
+    try {
+      const { cards, trace } = await this.reviewedCardRetrieval.findApplicable({
+        queries: understanding.searchQueries,
+        institutionId: await searchInstitution(),
+        syndrome: understanding.syndrome,
+        hypotheses: [
+          ...understanding.cannotMiss.map((item) => item.hypothesis),
+          ...understanding.likely.map((item) => item.hypothesis),
+          ...(understanding.syndromeNote ? [understanding.syndromeNote] : []),
+        ],
+        problemRepresentation: understanding.problemRepresentation,
+      });
+      return { evidence: toCardEvidence(cards), trace };
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      this.logger.error(`REVIEWED_CARDS_FAILED${logLabel}: ${reason}`);
+      Sentry.captureMessage(`REVIEWED_CARDS_FAILED: ${reason}`, 'error');
+      return { evidence: [], trace: { status: 'retrieval_failed', candidates: 0, accepted: 0 } };
+    }
   }
 
   /**
@@ -1091,6 +1242,7 @@ export class OrchestratorService {
         officialChunks: evidence.officialChunks ?? [],
         physicianAttachments: input.attachments,
         webEvidence: input.evidence.research?.evidence ?? [],
+        reviewedCards: input.evidence.reviewedCards?.evidence ?? [],
         additionalInstructions,
         siteContext: input.siteContext,
       };
@@ -1423,12 +1575,13 @@ export class OrchestratorService {
     // Buscar encounter para obter patientRef — necessário para redação explícita (LGPD-005)
     const encounter = await this.encounters.findById(physicianId, encounterId);
 
-    // Camada 1: filtro geral de PII (CPF, CNPJ, telefone, email, CEP, datas, RG,
-    // prontuário e nome depois de tratamento/apelido — CC-201/CC-206)
-    const piiResult = maskPII(input.caseText);
+    // Camada 1: de-identificação — regex (CPF, telefone, prontuário, nome
+    // depois de tratamento; CC-201/CC-206) e, com DEID_MODE=model, o modelo
+    // local para nome solto, parente e endereço (CC-203).
+    const piiResult = await this.deid.deidentify(input.caseText, 'case');
     // Só a contagem por tipo: mostra regra disparando demais sem gravar o trecho.
     this.logger.debug(
-      `PII detection${logLabel}: ${piiResult.hasPII ? 'FOUND' : 'NONE'} (${piiResult.detections.length} items) ${JSON.stringify(countDetectionsByType(piiResult.detections))}`,
+      `PII detection${logLabel}: ${piiResult.hasPII ? 'FOUND' : 'NONE'} mode=${piiResult.mode} ${JSON.stringify(piiResult.counts)}`,
     );
 
     // Camada 2: redação explícita do patientRef (LGPD-005 defense-in-depth)
@@ -1540,6 +1693,7 @@ export class OrchestratorService {
       stage,
       decisionModel: this.decisionModel(stage, logLabel),
       research: evidence.research,
+      reviewedCards: evidence.reviewedCards,
     };
   }
 
@@ -1581,8 +1735,10 @@ export class OrchestratorService {
     const parentOutput = parentInteraction.rawOutput as unknown as EnrichedCopilotOutput;
     const clarifyingQuestions = parentOutput.clarifyingQuestions ?? [];
 
-    // Camada 1+2: PII mask + redação patientRef nas respostas do médico (LGPD-005)
-    const piiResults = input.answers.map((a) => maskPII(String(a.answer)));
+    // Camada 1+2: de-identificação + redação patientRef nas respostas do médico (LGPD-005)
+    const piiResults = await Promise.all(
+      input.answers.map((a) => this.deid.deidentify(String(a.answer), 'answer')),
+    );
     const piiDetected = piiResults.some((r) => r.hasPII);
     const redactedAnswers = piiResults.map((r) =>
       redactPatientRef(r.redacted, encounter.patientRef),
@@ -1713,6 +1869,7 @@ export class OrchestratorService {
       stage,
       decisionModel: this.decisionModel(stage, logLabel),
       research: evidence.research,
+      reviewedCards: evidence.reviewedCards,
     };
   }
 
@@ -1731,7 +1888,14 @@ export class OrchestratorService {
   }
 
   private validate(prepared: PreparedAnalysis, content: string): ValidationResult {
-    const decisionContext = { understanding: prepared.stage?.understanding ?? null };
+    const reviewedCards = prepared.reviewedCards?.evidence ?? [];
+    const decisionContext = {
+      understanding: prepared.stage?.understanding ?? null,
+      // CC-408 — só com cartão entregue: sem ele, a validação fica a de sempre.
+      ...(reviewedCards.length > 0
+        ? { reviewedCards: new Map(reviewedCards.map((item) => [item.citationId, item.card])) }
+        : {}),
+    };
     // A v4 muda as regras do prompt, não o contrato: valida como a v3.
     if (prepared.pipeline.decisionPrompt === 'v3' || prepared.pipeline.decisionPrompt === 'v4') {
       return validateOutputV3(content, prepared.prompt.retrievedChunkIds, {
@@ -1852,6 +2016,14 @@ export class OrchestratorService {
             ...(prepared.research
               ? {
                   webEvidence: prepared.research.evidence as unknown as Prisma.InputJsonValue,
+                }
+              : {}),
+            // CC-408 — que cartões a decisão recebeu, para triar a falha.
+            ...(prepared.reviewedCards
+              ? {
+                  reviewedCards: prepared.reviewedCards.evidence.map(
+                    toReviewedCardRecord,
+                  ) as unknown as Prisma.InputJsonValue,
                 }
               : {}),
           },
@@ -1990,6 +2162,10 @@ export class OrchestratorService {
         ...(prepared.pipeline.whyLine ? { whyLine: true } : {}),
         decisionRoute: prepared.decisionModel.route,
         ...(prepared.research ? { research: researchTrace(prepared.research) } : {}),
+        // CC-408 — o que a busca e o portão de cartões fizeram (sem texto).
+        ...(prepared.reviewedCards
+          ? { reviewedCards: { ...prepared.reviewedCards.trace } as Prisma.InputJsonObject }
+          : {}),
         // CC-603 — a análise viu o local de plantão e a regra de transferência.
         ...(prepared.siteContext ? { siteContext: true } : {}),
       },
@@ -2056,6 +2232,12 @@ export class OrchestratorService {
    * `links` (só em `verify`): os vínculos da verificação com fonte, pelo
    * índice da recomendação na saída da decisão — por isso entram antes da
    * ordenação.
+   *
+   * CC-408 — conduta que cita um cartão revisado e traz só doses da dose
+   * estruturada dele sai com origem `reviewed_card` e o "Revisado por". Se
+   * ainda traz dose que o cartão não dá (o retry não corrigiu), perde a
+   * citação: sai como conhecimento do modelo com `unverified_dose` — a
+   * autoria do médico nunca assina uma dose que o cartão não tem.
    */
   private enrichOutputV2(
     prepared: PreparedAnalysis,
@@ -2065,19 +2247,27 @@ export class OrchestratorService {
     const chunks = citableChunks(prepared.retrievalResult);
     const citableIds = new Set(prepared.prompt.retrievedChunkIds);
     const webEvidence = prepared.research?.evidence ?? [];
+    const reviewedCards = cardsByCitationId(prepared.reviewedCards);
     let demoted = 0;
+    let cardDoseDemoted = 0;
 
     const decided = output.recommendations.map((rec, index) => ({ rec, link: links.get(index) }));
     decided.sort((left, right) => compareRecommendations(left.rec, right.rec));
     const recommendations = decided.map(({ rec, link }): EnrichedRecommendation => {
       const cited = rec.citationChunkId !== null && citableIds.has(rec.citationChunkId);
-      const citationChunkId = rec.basis === 'source' && cited ? rec.citationChunkId : null;
+      let citationChunkId = rec.basis === 'source' && cited ? rec.citationChunkId : null;
       if (rec.basis === 'source' && citationChunkId === null) demoted += 1;
+      const card = citationChunkId ? reviewedCards.get(citationChunkId) : undefined;
+      if (card && unsupportedCardDoses(`${rec.action} ${rec.rationale}`, card.card).length > 0) {
+        citationChunkId = null;
+        cardDoseDemoted += 1;
+      }
       const resolved = resolveCitationSource(
         citationChunkId,
         chunks,
         prepared.attachments,
         webEvidence,
+        reviewedCards,
       );
       const preliminaryReason = preliminaryReasonForV2({
         // Inalcançável: o schema da v2 exige a camada. Na dúvida, o lado
@@ -2099,8 +2289,12 @@ export class OrchestratorService {
         sourceText: resolved.text,
         sourceUrl: resolved.sourceUrl,
         origin: resolved.origin,
+        ...(card && citationChunkId
+          ? { reviewedCard: toRecommendationReviewedCard(card.card) }
+          : {}),
       };
-      if (!link) return enriched;
+      // CC-408 — a verificação com fonte não troca um cartão revisado por uma página web.
+      if (!link || enriched.reviewedCard) return enriched;
       return withSourceLink(
         enriched,
         link,
@@ -2113,11 +2307,19 @@ export class OrchestratorService {
         `DECISION_V2_CITATION_DEMOTED${prepared.logLabel}: ${demoted} recomendação(ões) "source" sem id citável, mostradas como conhecimento geral do modelo`,
       );
     }
+    if (cardDoseDemoted > 0) {
+      this.logger.warn(
+        `REVIEWED_CARD_DOSE_DEMOTED${prepared.logLabel}: ${cardDoseDemoted} recomendação(ões) com dose fora do cartão citado, mostradas como conhecimento geral do modelo (unverified_dose)`,
+      );
+    }
 
     return {
       ...output,
       ...(prepared.stage ? { understanding: prepared.stage.understanding } : {}),
       ...(prepared.research ? { webEvidence } : {}),
+      ...(prepared.reviewedCards
+        ? { reviewedCards: prepared.reviewedCards.evidence.map(toReviewedCardRecord) }
+        : {}),
       recommendations,
     };
   }
@@ -2128,6 +2330,7 @@ export class OrchestratorService {
   ): OrchestratorResult['citations'] {
     const chunks = citableChunks(prepared.retrievalResult);
     const webEvidence = prepared.research?.evidence ?? [];
+    const reviewedCards = cardsByCitationId(prepared.reviewedCards);
     // F1 — conhecimento geral do modelo não tem fonte a citar.
     return output.recommendations.flatMap((rec) => {
       if (rec.chunkId === null) return [];
@@ -2136,6 +2339,7 @@ export class OrchestratorService {
         chunks,
         prepared.attachments,
         webEvidence,
+        reviewedCards,
       );
       return {
         chunkId: rec.chunkId,

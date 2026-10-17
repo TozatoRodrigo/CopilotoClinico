@@ -14,18 +14,30 @@ import { sha256Hex, toJsonValue } from '../audit/audit-hash';
 import { maskFreeText } from '../copilot/guardrails/pii-filter';
 import {
   KNOWLEDGE_CARD_DISPLAY_STATUSES,
+  type KnowledgeCardContentIssue,
   type KnowledgeCardDetail,
   type KnowledgeCardDisplayStatus,
   type KnowledgeCardListPage,
+  type PublishedKnowledgeCard,
 } from '../../shared/contracts/knowledge-cards';
-import { KnowledgeCardContentSchema } from './domain/card-content';
+import {
+  REVIEWED_CARD_SELECT,
+  toPublishedCard,
+  toReviewedCard,
+} from './card-retrieval/reviewed-card-view';
+import { crossReviewBucket, isSampledForCrossReview } from './domain/cross-review';
 import {
   DEFAULT_VALIDITY_MONTHS,
   transition,
   validUntilFrom,
   type KnowledgeCardAction,
 } from './domain/card-lifecycle';
-import { loadSourceChunks, prepareCardContent, requestedChunkIds } from './card-sources';
+import { CardIndexService } from './card-index/card-index.service';
+import {
+  activeInstitutionIds,
+  isVisibleToInstitutions,
+} from '../institutions/institution-visibility';
+import { prepareCorrection } from './card-sources';
 import { KNOWLEDGE_CARD_AUDIT_ACTIONS, KNOWLEDGE_CARD_AUDIT_ENTITY } from './knowledge-card-audit';
 import {
   CARD_DETAIL_SELECT,
@@ -52,15 +64,26 @@ const CARD_STATE_SELECT = {
   versions: {
     orderBy: { version: 'desc' },
     take: 1,
-    select: { id: true, version: true, contentSha256: true, content: true },
+    select: {
+      id: true,
+      version: true,
+      contentSha256: true,
+      content: true,
+      authorPhysicianId: true,
+    },
   },
 } as const satisfies Prisma.KnowledgeCardSelect;
 
 type CardState = Prisma.KnowledgeCardGetPayload<{ select: typeof CARD_STATE_SELECT }>;
 
 /** Texto livre vai mascarado para o banco e só como hash para a trilha (sem texto livre no payload). */
-function textSha256(text: string | null): string | null {
+export function textSha256(text: string | null): string | null {
   return text ? sha256Hex(text) : null;
+}
+
+/** 422 com os problemas por campo, que a tela de correção mostra no lugar certo. */
+export function contentRejected(issues: KnowledgeCardContentIssue[]): UnprocessableEntityException {
+  return new UnprocessableEntityException({ message: 'O conteúdo não pode ser gravado', issues });
 }
 
 function displayStatusWhere(
@@ -85,6 +108,10 @@ function displayStatusWhere(
  *
  * Toda transição recebe a versão que a pessoa viu: se outra versão entrou no
  * meio (ou outra pessoa decidiu antes), 409 — ninguém assina o que não leu.
+ *
+ * CC-406 — aprovar e arquivar atualizam o índice semântico, depois da trilha:
+ * são as duas transições que mudam a versão publicada ou tiram o cartão de
+ * uso. Corrigir e rejeitar não mexem na versão publicada.
  */
 @Injectable()
 export class KnowledgeCardsService {
@@ -93,6 +120,7 @@ export class KnowledgeCardsService {
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
     @Inject(AuditService) private readonly auditService: AuditService,
+    @Inject(CardIndexService) private readonly cardIndex: CardIndexService,
   ) {}
 
   async list(query: ListKnowledgeCardsQueryInput): Promise<KnowledgeCardListPage> {
@@ -144,6 +172,36 @@ export class KnowledgeCardsService {
   }
 
   /**
+   * CC-408 — o cartão publicado, aberto pelo "Revisado por" da tela do plano.
+   * Só a versão assinada por médico com CRM verificado; arquivado, sem versão
+   * publicada ou de outra instituição (ADR-009) é 404 — a existência do
+   * cartão de outra instituição não vaza. Vencido aparece como "revisar".
+   */
+  async getPublished(physicianId: string, cardId: string): Promise<PublishedKnowledgeCard> {
+    const row = await this.prisma.knowledgeCard.findUnique({
+      where: { id: cardId },
+      select: REVIEWED_CARD_SELECT,
+    });
+    const card = row ? toReviewedCard(row) : null;
+    if (!card || !(await this.belongsToInstitution(physicianId, card.institutionId))) {
+      throw new NotFoundException('Cartão não encontrado');
+    }
+    return toPublishedCard(card, new Date());
+  }
+
+  /** CC-019 — a regra das diretrizes: institucional só com vínculo ativo. */
+  private async belongsToInstitution(
+    physicianId: string,
+    institutionId: string | null,
+  ): Promise<boolean> {
+    if (!institutionId) return true;
+    return isVisibleToInstitutions(
+      institutionId,
+      await activeInstitutionIds(this.prisma, physicianId),
+    );
+  }
+
+  /**
    * "Corrigir" (CC-404): o conteúdo inteiro da versão nova, escrita pelo
    * médico. Passa pelas mesmas regras do rascunho da IA — formato, fonte
    * elegível e checagem de citação — e devolve 422 com os problemas. A versão
@@ -158,21 +216,11 @@ export class KnowledgeCardsService {
     const to = this.assertTransition(card, 'edit');
     const latest = this.assertLatestVersion(card, input.basedOnVersion);
 
-    const previous = KnowledgeCardContentSchema.safeParse(latest.content);
-    const alreadyCited = new Set(
-      previous.success ? previous.data.sources.map((source) => source.chunkId) : [],
-    );
-    const chunks = await loadSourceChunks(this.prisma, requestedChunkIds(input.content));
-    const prepared = prepareCardContent(input.content, chunks, {
+    const prepared = await prepareCorrection(this.prisma, input.content, {
       institutionId: card.institutionId,
-      alreadyCitedChunkIds: alreadyCited,
+      previousContent: latest.content,
     });
-    if (!prepared.ok) {
-      throw new UnprocessableEntityException({
-        message: 'O conteúdo não pode ser gravado',
-        issues: prepared.issues,
-      });
-    }
+    if (!prepared.ok) throw contentRejected(prepared.issues);
 
     const nextVersion = card.currentVersion + 1;
     await this.prisma.$transaction(async (tx) => {
@@ -226,6 +274,9 @@ export class KnowledgeCardsService {
    * CC-402, critérios 1 e 2 — aprovar exige CRM verificado (403 sem ele) e
    * grava revisor, data, versão, validade e o hash do conteúdo assinado. A
    * versão aprovada passa a ser a publicada.
+   *
+   * CC-411 — na mesma transação, a aprovação sorteada (10%, pelo hash do id
+   * da versão) ganha a revisão cruzada pendente, à espera de um segundo médico.
    */
   async approve(
     reviewerId: string,
@@ -240,6 +291,8 @@ export class KnowledgeCardsService {
     const reviewedAt = new Date();
     const validUntil = validUntilFrom(reviewedAt, input.validityMonths ?? DEFAULT_VALIDITY_MONTHS);
     const comment = maskFreeText(input.comment);
+    const sampleBucket = crossReviewBucket(latest.id);
+    const crossReviewSampled = isSampledForCrossReview(sampleBucket);
 
     await this.prisma.$transaction(async (tx) => {
       const reviewed = await tx.knowledgeCardVersion.updateMany({
@@ -258,7 +311,23 @@ export class KnowledgeCardsService {
         data: { status: to, publishedVersionId: latest.id },
       });
       if (reviewed.count !== 1 || published.count !== 1) throw this.concurrentChange();
+      if (crossReviewSampled) {
+        await tx.knowledgeCardCrossReview.create({
+          data: {
+            cardId,
+            versionId: latest.id,
+            firstReviewerId: reviewerId,
+            versionAuthorId: latest.authorPhysicianId,
+            sampleBucket,
+          },
+        });
+      }
     });
+    if (crossReviewSampled) {
+      this.logger.log(
+        `KNOWLEDGE_CARD_CROSS_REVIEW_SAMPLED card=${cardId} version=${latest.version} bucket=${sampleBucket}`,
+      );
+    }
 
     await this.audit(reviewerId, KNOWLEDGE_CARD_AUDIT_ACTIONS.approved, cardId, {
       version: latest.version,
@@ -267,7 +336,9 @@ export class KnowledgeCardsService {
       validUntil: validUntil.toISOString(),
       reviewDurationMs: input.reviewDurationMs ?? null,
       commentSha256: textSha256(comment),
+      crossReviewSampled,
     });
+    await this.cardIndex.syncCard(cardId);
     return this.get(cardId);
   }
 
@@ -333,6 +404,7 @@ export class KnowledgeCardsService {
       to,
       reasonSha256: textSha256(reason),
     });
+    await this.cardIndex.syncCard(cardId);
     return this.get(cardId);
   }
 

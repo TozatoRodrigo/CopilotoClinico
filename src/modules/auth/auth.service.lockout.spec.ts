@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
-import { HttpException, Logger, UnauthorizedException } from '@nestjs/common';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { HttpException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
@@ -16,15 +16,18 @@ vi.mock('bcryptjs', () => ({
 
 const PHYSICIAN_ID = '550e8400-e29b-41d4-a716-446655440000';
 const EMAIL = 'doctor@example.com';
+const IP = '203.0.113.7';
 
 async function build() {
   const prisma = {
     physician: { findUnique: vi.fn(), update: vi.fn() },
-    loginSecurityState: { findUnique: vi.fn(), upsert: vi.fn(), update: vi.fn() },
+    refreshToken: { create: vi.fn().mockResolvedValue({}) },
   };
   const lockout = {
     reserveAttempt: vi.fn().mockResolvedValue(undefined),
     clear: vi.fn().mockResolvedValue(undefined),
+    reserveLoginAttempt: vi.fn().mockResolvedValue(true),
+    clearLogin: vi.fn().mockResolvedValue(undefined),
   };
   const config = new ConfigService({
     JWT_ACCESS_SECRET: 'test-access-secret-at-least-32-characters-long',
@@ -46,46 +49,85 @@ async function build() {
     // também poupa este arquivo de mudar a cada dependência nova do AuthService.
     .useMocker(() => ({}))
     .compile();
-  return { service: moduleRef.get(AuthService), prisma, lockout };
+  return { service: moduleRef.get(AuthService), prisma, lockout, audit };
 }
 
-describe('CC-025 — AuthService: limite por conta', () => {
+describe('CC-025/CC-026 — AuthService: limite por conta', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  describe('login bloqueado', () => {
-    let warn: MockInstance<Logger['warn']>;
+  // CC-026 — o login usa a mesma reserva atômica, com o contador por e-mail.
+  // A atomicidade em si está no teste de integração (cc-026-*).
+  describe('login', () => {
+    const physician = {
+      id: PHYSICIAN_ID,
+      email: EMAIL,
+      passwordHash: 'hashed-password',
+      mfaEnabled: false,
+      role: 'PHYSICIAN',
+    };
 
-    beforeEach(() => {
-      warn = vi.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
-    });
+    it('reserva a tentativa antes de conferir a senha e não zera na senha errada', async () => {
+      const { service, prisma, lockout } = await build();
+      prisma.physician.findUnique.mockResolvedValue(physician);
+      vi.mocked(bcrypt.compare).mockResolvedValue(false as never);
 
-    afterEach(() => {
-      warn.mockRestore();
-    });
-
-    it('loga AUTH_RATE_LIMITED reason=account sem e-mail nem id em claro', async () => {
-      const { service, prisma } = await build();
-      prisma.loginSecurityState.findUnique.mockResolvedValue({
-        physicianId: PHYSICIAN_ID,
-        failedCount: 5,
-        lockedUntil: new Date(Date.now() + 60_000),
-        lastFailedAt: new Date(),
-      });
-
-      await expect(service.login({ email: EMAIL, password: 'whatever' })).rejects.toThrow(
+      await expect(service.login({ email: EMAIL, password: 'wrong' }, IP)).rejects.toThrow(
         UnauthorizedException,
       );
 
-      const lines = warn.mock.calls.map(([message]) => String(message));
-      expect(lines).toEqual([
-        expect.stringMatching(
-          /^AUTH_RATE_LIMITED reason=account scope=login subject=[0-9a-f]{12}$/,
-        ),
-      ]);
-      expect(lines[0]).not.toContain(EMAIL);
-      expect(lines[0]).not.toContain(PHYSICIAN_ID);
+      expect(lockout.reserveLoginAttempt).toHaveBeenCalledWith(EMAIL, PHYSICIAN_ID);
+      expect(vi.mocked(lockout.reserveLoginAttempt).mock.invocationCallOrder[0]).toBeLessThan(
+        vi.mocked(bcrypt.compare).mock.invocationCallOrder[0]!,
+      );
+      expect(lockout.clearLogin).not.toHaveBeenCalled();
+    });
+
+    it('e-mail sem cadastro também conta, sem dono na linha', async () => {
+      const { service, prisma, lockout } = await build();
+      prisma.physician.findUnique.mockResolvedValue(null);
+
+      await expect(service.login({ email: EMAIL, password: 'any' }, IP)).rejects.toThrow(
+        UnauthorizedException,
+      );
+
+      expect(lockout.reserveLoginAttempt).toHaveBeenCalledWith(EMAIL, null);
+      expect(bcrypt.compare).not.toHaveBeenCalled();
+    });
+
+    it('conta bloqueada: 401 igual a senha errada, sem conferir, e audita o motivo', async () => {
+      const { service, prisma, lockout, audit } = await build();
+      prisma.physician.findUnique.mockResolvedValue(physician);
+      lockout.reserveLoginAttempt.mockResolvedValue(false);
+
+      await expect(service.login({ email: EMAIL, password: 'right' }, IP)).rejects.toThrow(
+        new UnauthorizedException('Invalid credentials'),
+      );
+
+      expect(bcrypt.compare).not.toHaveBeenCalled();
+      expect(audit.log).toHaveBeenCalledWith({
+        actorId: PHYSICIAN_ID,
+        action: 'AUTH_LOGIN_FAILED',
+        entity: 'Physician',
+        entityId: PHYSICIAN_ID,
+        payload: { reason: 'account_locked' },
+        ip: IP,
+      });
+    });
+
+    it('senha certa zera só o contador do login, não o do MFA', async () => {
+      const { service, prisma, lockout } = await build();
+      prisma.physician.findUnique.mockResolvedValue({ ...physician, mfaEnabled: true });
+      vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
+
+      await expect(service.login({ email: EMAIL, password: 'right' }, IP)).resolves.toMatchObject({
+        mfaRequired: true,
+      });
+
+      expect(lockout.clearLogin).toHaveBeenCalledWith(EMAIL);
+      // Quem ataca o MFA já tem a senha: o login certo não pode zerar o MFA.
+      expect(lockout.clear).not.toHaveBeenCalled();
     });
   });
 

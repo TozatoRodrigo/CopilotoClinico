@@ -14,7 +14,7 @@ import { displayStatus } from './domain/card-lifecycle';
 
 /** Prisma → contrato. Seleções e conversões num lugar só, para lista e detalhe não divergirem. */
 
-const PHYSICIAN_REF_SELECT = {
+export const PHYSICIAN_REF_SELECT = {
   id: true,
   name: true,
   crmUf: true,
@@ -97,7 +97,7 @@ function toSyndrome(value: string | null): PsSyndrome | null {
   return parsed.success ? parsed.data : null;
 }
 
-function toPhysicianRef(row: PhysicianRow): KnowledgeCardPhysicianRef {
+export function toPhysicianRef(row: PhysicianRow): KnowledgeCardPhysicianRef {
   return { ...row };
 }
 
@@ -114,7 +114,7 @@ function parseStoredContent(content: Prisma.JsonValue, versionId: string) {
   return parsed.data;
 }
 
-function questionOf(content: Prisma.JsonValue | undefined): string {
+export function questionOf(content: Prisma.JsonValue | undefined): string {
   const parsed = z.object({ question: z.string() }).safeParse(content);
   return parsed.success ? parsed.data.question : '';
 }

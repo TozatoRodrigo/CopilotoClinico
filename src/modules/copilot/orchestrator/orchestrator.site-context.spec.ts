@@ -14,6 +14,7 @@ import type { EncounterContext } from '../../../shared/contracts/clinical';
 import { DECISION_V4_SYSTEM_PROMPT } from './decision-prompt-v4';
 import { FACILITY_TRANSFER_RULE_STAGED, FACILITY_TRANSFER_RULE_V1 } from './site-context-prompt';
 import { understandingFixture } from '../../../../tests/fixtures/case-understanding';
+import { cardRetrievalNeverCalled } from '../../../../tests/fixtures/reviewed-cards';
 
 /**
  * CC-602/CC-603 no orquestrador: `COPILOT_SITE_CONTEXT` decide, a cada
@@ -134,6 +135,7 @@ describe('OrchestratorService — local de plantão (COPILOT_SITE_CONTEXT)', () 
       config as unknown as ConfigService,
       { understand } as unknown as UnderstandingService,
       { research: vi.fn() } as unknown as WebResearchService,
+      cardRetrievalNeverCalled(),
     );
   });
 

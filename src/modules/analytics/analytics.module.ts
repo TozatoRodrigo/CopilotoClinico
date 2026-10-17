@@ -15,5 +15,7 @@ import { AiCallAlertsCronService } from '../../workers/ai-call-alerts-cron.servi
     AiCallReportService,
     AiCallAlertsCronService,
   ],
+  // CC-705 — o painel semanal do beta reaproveita a agregação de `ai_calls`.
+  exports: [AiCallReportService],
 })
 export class AnalyticsModule {}

@@ -18,11 +18,12 @@ import { Roles } from '../../shared/decorators/roles.decorator';
 import { ZodValidationPipe } from '../../shared/pipes/zod-validation.pipe';
 import { resolveVerificationSchema } from './schemas/crm-verification.schemas';
 import type { ResolveVerificationInput } from './schemas/crm-verification.schemas';
+import { clientIpForAudit } from '../../shared/http/client-ip';
 
 interface AuthedRequest {
   user: { physicianId: string; role: string };
   ip?: string;
-  headers: Record<string, string | undefined>;
+  headers: Record<string, string | string[] | undefined>;
 }
 
 @Controller()
@@ -38,7 +39,11 @@ export class CrmVerificationController {
   @Post('physicians/me/crm-verification')
   @UseGuards(JwtAuthGuard)
   async requestVerification(@Request() req: AuthedRequest) {
-    return this.crmVerificationService.requestVerification(req.user.physicianId, req.ip);
+    // CC-026 — `req.ip` é o Traefik; a trilha grava o IP do médico.
+    return this.crmVerificationService.requestVerification(
+      req.user.physicianId,
+      clientIpForAudit(req),
+    );
   }
 
   /**

@@ -9,7 +9,7 @@ import type { ShiftReviewView } from "@contracts/shift-review";
 /**
  * CC-801 — fim da revisão: acertos × o quanto o médico sabia. "Errou
  * marcando Sei" e "acertou chutando" são o que o método do Dr. Luiz quer
- * mostrar (o mapa por tema fica para a CC-802).
+ * mostrar (o mapa por tema é a aba "Seu mapa", CC-802).
  */
 export function ReviewSummary({ review }: { review: ShiftReviewView }) {
   const messages = useMessages();
