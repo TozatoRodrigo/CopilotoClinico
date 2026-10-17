@@ -13,6 +13,11 @@ import { createHash } from 'crypto';
 import { PrismaService } from '../../../config/prisma.service';
 import { AuditService } from '../../audit/audit.service';
 import {
+  DeidentificationService,
+  REGEX_ONLY_DEIDENTIFIER,
+  type Deidentifier,
+} from '../../deid/deidentification.service';
+import {
   UNDERSTANDING_CORRECTION_QUESTION_ID,
   type IntakeAnswer,
   type IntakePath,
@@ -143,6 +148,8 @@ export class IntakeService {
     @Inject(UnderstandingService) private readonly understanding: UnderstandingService,
     @Inject(AuditService) private readonly audit: AuditService,
     @Inject(ConfigService) private readonly config: ConfigService,
+    // CC-203 — obrigatório no Nest; o padrão (só regex) é para quem constrói à mão.
+    @Inject(DeidentificationService) private readonly deid: Deidentifier = REGEX_ONLY_DEIDENTIFIER,
   ) {}
 
   async start(physicianId: string, encounterId: string, input: AnalyzeInput): Promise<IntakeView> {
@@ -183,7 +190,10 @@ export class IntakeService {
     read: (caseText: string, redFlags: Record<string, boolean>) => Promise<ReadingResult>,
   ): Promise<CaseIntake> {
     const encounter = await this.loadEncounter(physicianId, encounterId);
-    const screened = screenClinicalText(input.caseText, encounter.patientRef);
+    const screened = screenClinicalText(
+      await this.deid.deidentify(input.caseText, 'case'),
+      encounter.patientRef,
+    );
     await rejectInjection(
       { audit: this.audit, logger: this.logger },
       { physicianId, encounterId, logLabel: LOG_LABEL },
@@ -265,7 +275,7 @@ export class IntakeService {
     }
 
     const text = intakeAnswerText(question, input.answer);
-    const screened = screenClinicalText(text, patientRef);
+    const screened = screenClinicalText(await this.deid.deidentify(text, 'answer'), patientRef);
     await rejectInjection(
       { audit: this.audit, logger: this.logger },
       { physicianId, encounterId, logLabel: LOG_LABEL },

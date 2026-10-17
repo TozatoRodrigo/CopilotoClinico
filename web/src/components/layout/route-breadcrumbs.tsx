@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation';
 import {
   BookOpen,
+  Cards,
   ChartBar,
   ChatCircleText,
   ClipboardText,
@@ -40,6 +41,7 @@ const STATIC: Record<string, BreadcrumbItem> = {
   'revise-seu-plantao': { label: 'Revisão do plantão', icon: GraduationCap },
   admin: { label: 'Console', icon: SquaresFour },
   mentoria: { label: 'Mentoria', icon: Stethoscope },
+  revisao: { label: 'Revisão de cartões', icon: Cards },
 };
 
 const ADMIN_CHILDREN: Record<string, BreadcrumbItem> = {
@@ -52,6 +54,11 @@ const ADMIN_CHILDREN: Record<string, BreadcrumbItem> = {
   mentoria: { label: 'Mentoria', icon: Stethoscope },
   users: { label: 'Usuários', icon: Users },
   sistema: { label: 'Sistema', icon: Gear },
+};
+
+/** CC-802 — abas da revisão do plantão que têm URL própria. */
+const SHIFT_REVIEW_CHILDREN: Record<string, BreadcrumbItem> = {
+  'seu-mapa': { label: 'Seu mapa' },
 };
 
 const CASE_CHILDREN: Record<string, string> = {
@@ -94,6 +101,10 @@ export function RouteBreadcrumbs() {
   if (first === 'encounters' && second && second !== 'new') {
     return <EncounterCrumbs segments={segments} />;
   }
+  // CC-408 — o cartão abre pelo "Revisado por" do plano; não há lista de cartões.
+  if (first === 'cartoes') {
+    return <Breadcrumb items={[{ label: 'Cartão revisado', icon: Cards }]} />;
+  }
 
   const root = STATIC[first];
   if (!root) return null;
@@ -101,8 +112,13 @@ export function RouteBreadcrumbs() {
   const items: BreadcrumbItem[] = [{ ...root, href: segments.length > 1 ? `/${first}` : undefined }];
   if (first === 'encounters' && second === 'new') items.push({ label: 'Novo caso' });
   if (first === 'mentoria' && second) items.push({ label: 'Pedido' });
+  if (first === 'revisao' && second === 'concordancia') items.push({ label: 'Concordância' });
   if (first === 'admin' && second) {
     const child = ADMIN_CHILDREN[second];
+    if (child) items.push({ ...child, href: undefined });
+  }
+  if (first === 'revise-seu-plantao' && second) {
+    const child = SHIFT_REVIEW_CHILDREN[second];
     if (child) items.push({ ...child, href: undefined });
   }
   return <Breadcrumb items={items} />;

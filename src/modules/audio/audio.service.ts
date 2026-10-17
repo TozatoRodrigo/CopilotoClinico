@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHash } from 'crypto';
 import { PrismaService } from '../../config/prisma.service';
@@ -7,7 +7,11 @@ import { AuditService } from '../audit/audit.service';
 import { InferenceQueueService } from '../queue/inference-queue.service';
 import { WhisperService } from './whisper.service';
 import { readWhisperModel } from './whisper.settings';
-import { maskPII } from '../copilot/guardrails/pii-filter';
+import {
+  DeidentificationService,
+  REGEX_ONLY_DEIDENTIFIER,
+  type Deidentifier,
+} from '../deid/deidentification.service';
 import type {
   UploadAudioInput,
   AudioUploadResponse,
@@ -21,13 +25,17 @@ const RETENTION_DAYS = 30;
 export class AudioService {
   private readonly logger = new Logger(AudioService.name);
 
+  // @Inject em todos: sem metadados de tipo (os e2e rodam com esbuild), o Nest
+  // só acha os parâmetros decorados, e o último (CC-203) é.
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly crypto: CryptoService,
-    private readonly audit: AuditService,
-    private readonly queue: InferenceQueueService,
-    private readonly whisper: WhisperService,
-    private readonly config: ConfigService,
+    @Inject(PrismaService) private readonly prisma: PrismaService,
+    @Inject(CryptoService) private readonly crypto: CryptoService,
+    @Inject(AuditService) private readonly audit: AuditService,
+    @Inject(InferenceQueueService) private readonly queue: InferenceQueueService,
+    @Inject(WhisperService) private readonly whisper: WhisperService,
+    @Inject(ConfigService) private readonly config: ConfigService,
+    // CC-203 — obrigatório no Nest; o padrão (só regex) é para quem constrói à mão.
+    @Inject(DeidentificationService) private readonly deid: Deidentifier = REGEX_ONLY_DEIDENTIFIER,
   ) {}
 
   async upload(
@@ -88,7 +96,7 @@ export class AudioService {
     mimeType: string,
   ): Promise<string> {
     const raw = await this.whisper.transcribe(buffer, mimeType, { filename: audioId });
-    const { redacted } = maskPII(raw);
+    const { redacted } = await this.deid.deidentify(raw, 'transcription');
     return redacted;
   }
 
@@ -116,7 +124,7 @@ export class AudioService {
     const model = readWhisperModel(this.config);
 
     const raw = await this.whisper.transcribe(audioBuffer, input.mimeType, { model });
-    const { redacted, hasPII } = maskPII(raw);
+    const { redacted, hasPII } = await this.deid.deidentify(raw, 'transcription');
 
     const audioHash = createHash('sha256').update(audioBuffer).digest('hex');
     const durationMs = Date.now() - start;

@@ -1,9 +1,7 @@
 import type { FastifyReply } from 'fastify';
+import { ClientIpRequest, clientIpForAudit } from '../../shared/http/client-ip';
 
-export interface RequestWithIp {
-  ip?: string;
-  ips?: string[];
-}
+export type RequestWithIp = ClientIpRequest;
 
 export const COOKIE_BASE = {
   httpOnly: true,
@@ -12,8 +10,10 @@ export const COOKIE_BASE = {
   secure: true,
 };
 
+// CC-026 — o IP da trilha é o mesmo do limite por IP (CC-025). `req.ips` só
+// vem preenchido com trustProxy, que a API não liga: gravava o IP do Traefik.
 export function extractIp(req: RequestWithIp): string | undefined {
-  return (req.ips?.[0] ?? req.ip) || undefined;
+  return clientIpForAudit(req);
 }
 
 /**

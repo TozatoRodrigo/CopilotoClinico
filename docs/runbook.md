@@ -322,6 +322,12 @@ Duas camadas, independentes:
   MFA, gerar novos códigos de backup) e senha atual na troca de senha. Login
   bloqueado responde 401, igual a senha errada; MFA e troca de senha
   respondem 429 "Muitas tentativas".
+- Os três contadores **reservam a tentativa antes** de conferir o segredo,
+  num `UPDATE` condicional: tentativas em paralelo não passam de 5. O login
+  passou a fazer isso no CC-026; antes lia o contador e gravava depois, e 50
+  logins simultâneos conferiam 50 senhas.
+- **Código de backup do MFA** (CC-026): gasto num `UPDATE … WHERE used_at IS
+  NULL`. Dois pedidos simultâneos com o mesmo código: só um entra.
 
 #### `TRUSTED_PROXY_HOPS` e o Traefik
 
@@ -349,6 +355,12 @@ internet e a API:
   dividem os mesmos 5 logins por minuto.
 - Valor inválido na env: a API usa 1 e loga `TRUSTED_PROXY_HOPS inválido`
   na subida.
+- **O IP gravado na trilha de auditoria** (`audit_log.ip`, CC-026) sai da
+  mesma regra. Antes do CC-026 os registros com IP (cadastro, login,
+  login com Google/Microsoft, refresh, logout, MFA, pedido de verificação de
+  CRM, lista de espera e aceite dos termos do beta) gravavam o IP do
+  Traefik; os antigos continuam assim. O log de acesso HTTP (`HttpAccess`)
+  não grava IP.
 
 Conferir na VPS (a configuração estática do Traefik não está neste repo):
 
@@ -381,7 +393,7 @@ done
 | `AUTH_RATE_LIMITED reason=ip route=AuthController.<rota> limit=… ttlMs=… blockedForS=…` | Um IP passou do limite numa rota de `/auth`. Uma linha por bloqueio, não por requisição recusada; sem o IP |
 | `RATE_LIMITED reason=ip route=…` | O mesmo fora de `/auth` |
 | `AUTH_RATE_LIMITED reason=account scope=login\|mfa\|password_change subject=<hash>` | Tentativa recusada porque a conta está bloqueada |
-| `AUTH_ACCOUNT_LOCKED scope=mfa\|password_change subject=<hash> durationMs=…` | Começo de um bloqueio por conta |
+| `AUTH_ACCOUNT_LOCKED scope=login\|mfa\|password_change subject=<hash> durationMs=…` | Começo de um bloqueio por conta |
 
 `subject` são os 12 primeiros hex do sha256 do id do médico (`unknown` no
 login de e-mail sem cadastro). Bloqueios seguidos de `scope=mfa` para o mesmo
@@ -797,6 +809,57 @@ SELECT batch_label, count(*) AS codigos, sum(uses_count) AS usos
 FROM beta_invites GROUP BY batch_label ORDER BY usos DESC;
 ```
 
+### Painel semanal do beta e reunião de sexta (CC-705, CC-706)
+
+Console → Beta → **Semana** (a aba abre por padrão; Admin e Compliance), ou
+`GET /v1/admin/beta/weekly?week=AAAA-MM-DD` (qualquer dia vale pela semana que
+o contém; sem `week`, a semana corrente; semana futura dá 400). A semana vai de
+segunda 00:00 a domingo 23:59 **no horário de Brasília** (fuso
+`America/Sao_Paulo`, não -03:00 fixo). Na semana em andamento, os números vão
+até agora e a semana anterior é cortada no mesmo dia e hora: sexta 13h contra
+sexta 13h, não meia semana contra uma inteira.
+
+| Número | Definição | Fonte |
+|---|---|---|
+| Médicos ativos | Papel `PHYSICIAN` com análise concluída ou pergunta do Copiloto respondida em caso real | `ai_interactions` (sem as falhas de validação), `case_intakes.answers[].answeredAt` e `ai_interactions.answered_questions` |
+| Análises por médico | Análises concluídas de caso real ÷ médicos ativos (média, mediana e faixas) | `ai_interactions` |
+| Feedback negativo / 100 análises | "Cenário errado", "faltou cobertura" e "conduta incorreta" de médicos em caso real | `copilot_feedback` |
+| Custo e latência por análise | Requisição com etapa `decision`; latência = soma das chamadas; p50/p95 entre análises | `ai_calls` (serviço da CC-004) |
+| Lacunas | "Não encontrei o que precisava", por síndrome de PS (top 5) | `knowledge_gaps` (CC-703) |
+| Ativação em 24 h | Coorte cadastrada na semana, por lote (mesma regra da CC-702) | `physicians`, `beta_invites` |
+
+Caso de exemplo do onboarding e contas de admin ficam fora de uso e feedback
+(o caso de exemplo aparece à parte). Custo e latência incluem tudo o que passou
+pela decisão, como o painel de `ai_calls`. Médico só aparece agregado: a API
+não devolve id, nome nem ranking, e nada do caso (nota e consultas da lacuna
+ficam no banco).
+
+**O que o painel ainda não tem ("sem dado").** Cada um tem a constante de
+extensão em `src/modules/beta/beta-weekly.service.ts`; a tela e a ata já
+mostram o número quando o serviço passar a devolvê-lo:
+
+- **% de análises com cartão aplicado**: a análise não registra cartão
+  aplicado até a CC-408 (cartões na decisão, sobre `knowledge_cards` da
+  CC-402). Ao entregar, gravar na análise quais cartões foram aplicados e
+  contar aqui.
+- **Uso de ferramentas**: a área Ferramentas (CC-304) não existe. Os eventos
+  `ferramenta_aberta` e `calculo_feito` da CC-704 vão para o Umami, não para
+  o banco; para entrar no painel (e na definição de médico ativo), o uso
+  precisa ser gravado no servidor ou lido da API do Umami.
+- **Pedidos de mentoria**: entram com a CC-707.
+
+Também ficam só no Umami: cartão aberto, pergunta rápida e a duração da
+montagem do plano. Para esses, abrir o Umami.
+
+**Ritual de sexta 13h (CC-706).** 15 min de números (esta aba), 30 min de
+decisões, 15 min de próximos passos. "Copiar resumo para a ata" copia o
+markdown da semana com as três seções (decisões e próximos passos em branco
+para preencher na reunião); colar na ata do **Meeting Tracker** do ClickUp.
+O mesmo texto vem em `markdown` na resposta da API.
+
+No log: `BETA_WEEKLY_REPORT week=... inProgress=... activePhysicians=...
+analyses=... durationMs=...` (só contagens).
+
 ### Calibrar o piso de relevância (KB-005/KB-006)
 
 O piso (`RETRIEVAL_MIN_SEMANTIC_SCORE`, default `0.3`) é o que permite ao
@@ -1020,13 +1083,21 @@ banco:
 UPDATE physicians SET is_curator = true WHERE email = 'curador@exemplo.com';
 ```
 
+A mesma flag autoriza escrever protocolo (CC-020): criar
+(`POST /v1/protocols`), publicar (`POST /v1/protocols/:id/publish`) e criar
+versão nova (`POST /v1/protocols/:id/revise`) são de curador ou ADMIN; os
+demais médicos recebem `403` e só leem e rodam. Vale na hora, sem novo login
+(a flag é lida do banco a cada pedido). Recusas aparecem no log como
+`PROTOCOL_WRITE_DENIED action=<create|publish|revise>`. Protocolo institucional
+exige, além do papel, vínculo ativo com a instituição (ADR-009, adendo CC-020).
+
 ### Cartões revisados (CC-402/CC-403/CC-412, ADR-019)
 
 Um cartão é uma situação clínica com pergunta e resposta curta, em que cada
 afirmação e cada dose citam um trecho literal de uma diretriz já ingerida
 (base curada `approved` ou base oficial `official_unreviewed`). A IA rascunha;
-um médico com **CRM verificado** aprova. Por ora os cartões só existem no
-console: a decisão do Copiloto ainda não os usa (CC-408).
+um médico com **CRM verificado** aprova. A decisão do Copiloto só os usa com
+`COPILOT_REVIEWED_CARDS` ligada (CC-408, abaixo).
 
 **Rascunho por IA** — desligado por padrão (`KNOWLEDGE_CARDS_DRAFT_ENABLED`):
 cada pedido é uma chamada ao modelo (estimativa do CC-403: US$ 0,20–0,30 por
@@ -1092,6 +1163,198 @@ origem de rascunho de um cartão (mesmo `draftId` ou mesmo
 ```bash
 pnpm cards:check-circularity   # só leitura; código 1 se houver caso circular
 ```
+
+**Revisão no celular (CC-404)** — os médicos revisores usam `/revisao` no web:
+um cartão por vez, com o texto integral das fontes e o trecho citado marcado,
+e três decisões (Aprovar com validade, Corrigir, Descartar com motivo). A tela
+cronometra cada cartão (só o tempo com a tela visível) e manda
+`reviewDurationMs` junto com a decisão.
+
+O acesso **não** é o do console: o revisor costuma ter papel `PHYSICIAN`, e a
+fila exige a flag `is_card_reviewer` **e** CRM verificado. A flag não dá
+acesso a `admin/knowledge-cards` (rascunho por IA, arquivar, lista completa).
+
+```sql
+-- Conceder (o médico sai e entra de novo para ver "Revisão de cartões" no menu)
+UPDATE physicians SET is_card_reviewer = true WHERE email = 'revisor@exemplo.com';
+-- Conferir quem pode revisar (sem CRM verificado a fila responde 403)
+SELECT email, role, crm_verified, is_card_reviewer FROM physicians WHERE is_card_reviewer;
+```
+
+| Endpoint (papel de revisor) | O que faz |
+|---|---|
+| `GET /v1/review/knowledge-cards/next?skip=<id>,<id>` | Próximo cartão `in_review` (o que espera há mais tempo), só globais e das instituições com que o revisor tem vínculo ativo (CC-019), com o texto das fontes e os trechos citados; `skip` = pulados na sessão |
+| `POST /v1/review/knowledge-cards/:id/versions` | Corrigir (mesma checagem de citação; 422 com os problemas por campo) |
+| `POST /v1/review/knowledge-cards/:id/approve` | Aprovar; `reviewDurationMs` obrigatório |
+| `POST /v1/review/knowledge-cards/:id/reject` | Descartar com `reason`; `reviewDurationMs` obrigatório |
+
+Cartão fora do escopo do revisor responde 404; cartão que outro revisor já
+decidiu, 409 (a tela avisa e passa ao próximo). No log, cada decisão sai como
+`KNOWLEDGE_CARD_REVIEW decision=approved|rejected|corrected card=<id>
+version=<n> durationMs=<ms>`, sem texto do cartão.
+
+**Revisão cruzada (CC-411)** — 10% das aprovações são lidas de novo por um
+segundo médico (nem quem aprovou, nem quem escreveu a versão; o banco recusa
+por CHECK). O sorteio é pelo SHA-256 de `cc-411:<id da versão aprovada>`
+(4 primeiros bytes, módulo 100; entra quem fica abaixo de 10) e acontece na
+transação da aprovação, que já cria a linha `pending` em
+`knowledge_card_cross_reviews` (log `KNOWLEDGE_CARD_CROSS_REVIEW_SAMPLED`,
+`crossReviewSampled` no `CARD_APPROVED`). Na fila do celular a revisão
+cruzada vem antes dos cartões em revisão: é cartão no ar.
+
+- **Concordar** mantém o cartão no ar (`CARD_CROSS_REVIEW_AGREED`).
+- **Divergir é corrigir**: motivo obrigatório e a correção (mesma checagem de
+  citação). A correção vira versão nova, o cartão **sai do ar**
+  (`published_version_id` nulo, status `in_review`) e volta para a fila com o
+  contexto da divergência, até outro médico aprovar ou descartar
+  (`CARD_CROSS_REVIEW_DIVERGED`, motivo só como hash).
+- Revisão cruzada de versão que saiu do ar antes (outra aprovação,
+  arquivamento) fica `pending` e não aparece mais na fila; o painel a conta
+  como "saíram do ar antes da revisão".
+
+| Endpoint (papel de revisor) | O que faz |
+|---|---|
+| `POST /v1/review/knowledge-cards/cross-reviews/:id/agree` | `{ reviewDurationMs, comment? }` |
+| `POST /v1/review/knowledge-cards/cross-reviews/:id/diverge` | `{ reason, reviewDurationMs, basedOnVersion, content }`; 422 com os problemas da correção |
+| `GET /v1/review/knowledge-cards/cross-reviews/summary` | Painel (`/revisao/concordancia` no web): concordância, divergência contra a meta de 5%, pendentes, tempo mediano de revisão e as divergências recentes |
+
+```sql
+-- Conferir o sorteio de uma aprovação (mesmo balde do código)
+SELECT id, ('x' || lpad(left(encode(sha256(convert_to('cc-411:' || id::text, 'UTF8')), 'hex'), 8), 16, '0'))::bit(64)::bigint % 100 AS bucket
+FROM knowledge_card_versions WHERE review_decision = 'approved';
+-- Taxa de divergência (métrica do CC-411: abaixo de 5%)
+SELECT status, count(*) FROM knowledge_card_cross_reviews GROUP BY 1;
+```
+
+```sql
+-- Tempo de revisão por decisão (meta do CC-404: até 6 minutos por cartão)
+SELECT review_decision, count(*) AS decisoes,
+       round(percentile_cont(0.5) WITHIN GROUP (ORDER BY review_duration_ms) / 1000) AS mediana_s,
+       round(percentile_cont(0.9) WITHIN GROUP (ORDER BY review_duration_ms) / 1000) AS p90_s
+FROM knowledge_card_versions WHERE review_duration_ms IS NOT NULL GROUP BY 1;
+```
+
+**Índice semântico (CC-406, emenda de 15/10/2026 à ADR-019)** — tabela
+`knowledge_card_index`, uma linha por cartão publicado, aprovado, válido e
+assinado por médico com CRM verificado. Aprovar indexa (ou reindexa a versão
+nova), arquivar tira, e a varredura diária das 04:00 UTC tira o vencido e
+completa o vetor que faltou. A busca confere tudo de novo na consulta: cartão
+vencido, arquivado ou de revisor que perdeu a verificação nunca volta, mesmo
+antes da varredura.
+
+O vetor vem do provedor de embedding configurado (`EMBEDDING_PROVIDER`,
+`AI_EMBEDDING_MODEL`, `EMBEDDING_BASE_URL` — os mesmos das diretrizes). Com
+`EMBEDDING_PROVIDER=none` (produção hoje), o cartão entra sem vetor e a busca
+não roda. A coluna não fixa dimensão: trocar provedor ou modelo é reindexar.
+
+```bash
+pnpm cards:reindex   # indexa o que falta, reembute o que mudou, tira o que venceu
+                     # código 1 se algum cartão ficou sem vetor com o provedor ligado
+```
+
+No log: `CARD_INDEX_SYNC` (com vetor novo, sem mudança, sem vetor, fora do
+índice por motivo, linhas apagadas), `CARD_SEARCH` (consultas, candidatos,
+melhor similaridade), `CARD_EMBEDDING_UNAVAILABLE` (provedor falhou — também
+no Sentry), `CARD_INDEX_SYNC_FAILED` e `CARD_INDEX_SWEEP_FAILED`. Nada do
+texto do cartão ou da consulta.
+
+```sql
+-- O que está no índice, por modelo; linhas sem vetor esperam o reindex
+SELECT coalesce(embedding_model, '(sem vetor)') AS model, count(*),
+       min(valid_until) AS vence_primeiro
+FROM knowledge_card_index GROUP BY 1;
+```
+
+**Escolher o provedor dos cartões** — `pnpm eval:card-retrieval` mede o
+acerto top-1/top-3, o MRR e a latência da consulta com o provedor do
+ambiente, embutindo em memória os cartões publicados e as perguntas de
+`evals/cards/retrieval-questions.json` (formato em
+`retrieval-questions.example.json`: `id`, `question`, `expected` = tema ou id
+do cartão). Só leitura; o índice não muda. Código 1 abaixo de 85% no top-3.
+
+```bash
+# Base: o provedor atual
+pnpm eval:card-retrieval --json openai.json
+# Voyage (formato compatível com a API da OpenAI)
+EMBEDDING_PROVIDER=openai EMBEDDING_BASE_URL=https://api.voyageai.com/v1 \
+  AI_EMBEDDING_MODEL=voyage-3.5 EMBEDDING_API_KEY=$VOYAGE_API_KEY \
+  pnpm eval:card-retrieval --json voyage.json
+# Qwen3-Embedding na DeepInfra; modelo local pelo text-embeddings-inference
+EMBEDDING_PROVIDER=openai EMBEDDING_BASE_URL=https://api.deepinfra.com/v1/openai \
+  AI_EMBEDDING_MODEL=Qwen/Qwen3-Embedding-8B EMBEDDING_API_KEY=$DEEPINFRA_API_KEY \
+  pnpm eval:card-retrieval --json qwen3.json
+EMBEDDING_PROVIDER=openai EMBEDDING_BASE_URL=http://localhost:8080/v1 \
+  AI_EMBEDDING_MODEL=BAAI/bge-m3 EMBEDDING_API_KEY=local pnpm eval:card-retrieval --json local.json
+```
+
+Escolhido o provedor (critério na ADR-019), ligue-o no ambiente e rode
+`pnpm cards:reindex`. Atenção: `EMBEDDING_PROVIDER`/`AI_EMBEDDING_MODEL` são os
+mesmos das diretrizes — trocar o modelo com a base interna em uso
+(`COPILOT_KNOWLEDGE_SOURCE=internal_kb`) exige reembutir os trechos
+(`vector(1536)`) também. Se só os cartões devem mudar, a troca é um
+`CardEmbedder` próprio (`CARD_EMBEDDER` no `KnowledgeCardIndexModule`).
+
+**Cartões na decisão (CC-408, `COPILOT_REVIEWED_CARDS`)** — desligada por
+padrão. Com ela desligada, nada muda: nenhuma busca de cartão, e prompt e
+saída da decisão byte a byte iguais. Ligada, só na decisão em etapas (v2, v3,
+v4) e em qualquer `COPILOT_KNOWLEDGE_SOURCE`:
+
+1. com o entendimento do caso, busca no índice pelas `searchQueries` (nunca o
+   texto do caso), na instituição do atendimento se o médico tem vínculo
+   ativo com ela (CC-019; senão, só nos globais) — **é uma chamada de
+   embedding a mais por análise**, inclusive em `model_only`;
+2. o portão de relevância aceita o cartão com similaridade ≥
+   `REVIEWED_CARDS_MIN_SIMILARITY` (padrão 0,50) e do mesmo tema (mesma
+   síndrome, ou o tema do cartão nas hipóteses do caso); até
+   `REVIEWED_CARDS_MAX` cartões (padrão 3, até 5);
+3. o cartão entra no prompt com "Revisado por Dr(a). X, CRM Y/UF, em data";
+   a conduta que o cita pode trazer **só a dose estruturada do cartão**, do
+   mesmo fármaco — outra dose vale um retry (`CARD DOSE NOT IN CARD`) e, se
+   sobrar, a conduta perde a citação e sai como conhecimento do modelo,
+   marcada "Dose sem fonte citada";
+4. na tela, a conduta mostra o rótulo verde "Cartão revisado por médico",
+   "Revisado por … · CRM … · em …" e "Ver cartão" (`/cartoes/:id`, que lê
+   `GET /v1/knowledge-cards/:id`).
+
+Pré-requisitos para ligar: cartões publicados, provedor de embedding ligado
+e índice com vetor (`pnpm cards:reindex` sai com código 0), e o gabarito com
+a variante de cartões sem aumento de erro crítico (abaixo). Sem embedding, a
+flag ligada não quebra nada: a busca não roda e a análise segue sem cartões.
+
+No log: `REVIEWED_CARDS` (status, portão, síndrome, candidatos, aceitos,
+rejeitados por motivo, `cardId:versão:similaridade`), `REVIEWED_CARDS_GAP`
+(nenhum cartão aplicável — a lacuna da CC-409), `REVIEWED_CARDS_SKIPPED`
+(decisão v1 ou sem entendimento), `REVIEWED_CARDS_FAILED` e
+`REVIEWED_CARDS_GATE_FAILED` (também no Sentry; a análise segue sem cartões)
+e `REVIEWED_CARD_DOSE_DEMOTED` (dose fora do cartão depois do retry). Na
+interação: `params.reviewedCards` (o que a busca fez) e
+`rawOutput.reviewedCards` (cartão, versão, hash assinado, revisor,
+similaridade).
+
+```sql
+-- Análises com a flag ligada que receberam cartão (métrica da CC-408)
+SELECT count(*) FILTER (WHERE jsonb_array_length(raw_output->'reviewedCards') > 0) AS com_cartao,
+       count(*) AS com_flag
+FROM ai_interactions WHERE raw_output ? 'reviewedCards';
+```
+
+**Medir antes de ligar (critério 3 da CC-408)** — sem chamada paga nos
+testes; a rodada é manual, com o banco do gabarito tendo os cartões
+publicados e o índice feito:
+
+```bash
+pnpm cards:reindex
+EMBEDDING_BASE_URL=https://api.openai.com/v1 AI_EMBEDDING_MODEL=text-embedding-3-small \
+  EMBEDDING_API_KEY=$OPENAI_API_KEY \
+  pnpm eval:clinical --variant claude-opus-5-5-v3-modelo --variant claude-opus-5-5-v3-modelo-cartoes \
+  --cases critical --judge anthropic
+# caso a caso: nenhum erro crítico novo com cartões
+pnpm eval:clinical:compare evals/clinical/runs/<v3-modelo> evals/clinical/runs/<v3-modelo-cartoes>
+```
+
+O relatório ganha "… citando cartão revisado (com a dose do cartão)" na
+seção "Base das condutas". O workspace da Anthropic é o da produção:
+confirme o limite antes de rodar.
 
 ### Sincronizar a base oficial da Conitec (ADR-010)
 
@@ -1200,6 +1463,94 @@ SELECT kind, care_setting, count(*), sum(chunk_count)
 FROM official_guideline_documents WHERE status = 'active'
 GROUP BY 1, 2 ORDER BY 1, 2;
 ```
+
+### De-identificação com o modelo local (CC-203, ADR-020)
+
+`DEID_MODE=model` soma à regex o serviço `copiloto-deid` (OpenMed PII 44M em
+ONNX, CPU): nome solto, parente e endereço saem do caso, das respostas, do
+anexo, da transcrição e da consulta de diretrizes antes da IA e do banco. O
+padrão é `regex`. Serviço fora do ar ou lento: o texto segue só com a regex e a
+API loga `DEID_FALLBACK stage=<etapa> reason=<timeout|unavailable|bad_status|bad_response>`
+(nunca o texto). A análise não falha por causa dele.
+
+**1. Construir a imagem fora da VPS.** O estágio que exporta o modelo passa de
+3 GB de RAM: na VPS compartilhada isso derruba os outros apps. Na máquina de
+desenvolvimento (Docker com ≥ 4 GB e ~3 GB de disco livres):
+
+```bash
+TAG=$(date +%Y%m%d)
+docker buildx build --platform linux/amd64 -f docker/Dockerfile.deid \
+  -t copiloto-deid:$TAG --load .
+docker save copiloto-deid:$TAG | gzip | ssh rodrigo@76.13.173.181 'gunzip | docker load'
+docker builder prune -f
+```
+
+O build confere o sha256 dos pesos baixados do Hugging Face (revisão fixa em
+`services/deid/export_onnx.py`) e para se o ONNX não concordar com o modelo
+original. Para medir em casa sem a imagem: `docker compose --profile deid up -d deid`
+(`docker/docker-compose.yml`, porta 8099).
+
+**2. Subir na VPS (ainda sem ligar).**
+
+```bash
+cd ~/apps/copiloto-clinico/docker
+TAG=<a mesma do passo 1>
+docker tag copiloto-deid:$TAG copiloto-deid:latest
+docker compose --env-file .env.production -f docker-compose.prod.yml --profile deid up -d copiloto-deid
+docker logs copiloto-deid 2>&1 | grep DEID_READY     # revisão do modelo e tempo de carga
+```
+
+O serviço só existe na rede `copiloto-net` (sem Traefik, sem porta no host),
+com `mem_limit: 400m` e `cpus: 2`. `--profile deid` é obrigatório: o `up -d`
+de sempre não o toca, nem o reconstrói.
+
+**3. Medir na VPS antes de ligar** (critério 3 da CC-203: p95 ≤ 300 ms e
+memória ≤ 400 MB). O corpus é sintético (`pnpm eval:deid` gera
+`evals/deid/out/corpus.jsonl` na máquina de desenvolvimento):
+
+```bash
+scp evals/deid/out/corpus.jsonl rodrigo@76.13.173.181:/tmp/deid-corpus.jsonl
+# na VPS
+docker cp /tmp/deid-corpus.jsonl copiloto-deid:/tmp/corpus.jsonl
+docker exec copiloto-deid python bench.py --url http://127.0.0.1:8000 --corpus /tmp/corpus.jsonl --count 100
+docker exec copiloto-deid python bench.py --url http://127.0.0.1:8000 --corpus /tmp/corpus.jsonl --count 100 --join 6
+docker stats --no-stream copiloto-deid
+```
+
+A segunda linha junta 6 relatos (~1.000 caracteres, um caso de plantão). Na
+máquina de desenvolvimento deu p95 de 25 ms e 180 ms com 2 CPUs, ~340 MB.
+Qualidade, com o mesmo modelo da VPS (a quantização muda com a CPU):
+
+```bash
+IP=$(ssh rodrigo@76.13.173.181 "docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' copiloto-deid")
+ssh -N -L 8099:$IP:8000 rodrigo@76.13.173.181 &
+pnpm eval:deid --deid-url http://127.0.0.1:8099
+```
+
+Meta: nomes ≥ 95% e termos clínicos 100% (ADR-020 tem a medição de referência).
+
+**4. Ligar e acompanhar.**
+
+```bash
+# docker/.env.production
+DEID_MODE=model
+DEID_TIMEOUT_MS=1000      # a cada 2.000 caracteres; anexo de 20 mil espera até 10 s
+
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d copiloto-api
+docker logs --since 1h copiloto-api 2>&1 | grep -cE "DEID stage="      # textos com o modelo
+docker logs --since 1h copiloto-api 2>&1 | grep -E "DEID_FALLBACK"     # quedas para a regex
+docker logs --since 1h copiloto-deid 2>&1 | grep -E "DEID_BUSY"        # fila cheia
+```
+
+`DEID stage=case ... latencyMs=… entities=… masked=…` diz quanto o modelo
+marcou e quanto sobrou depois dos epônimos protegidos. `DEID_FALLBACK
+reason=timeout` frequente: subir `DEID_TIMEOUT_MS` ou `DEID_THREADS` (serviço,
+padrão 2). `reason=unavailable`: o container caiu (`docker ps`, `docker inspect
+copiloto-deid --format '{{.State.OOMKilled}}'`).
+
+**Rollback:** `DEID_MODE=regex` e `up -d copiloto-api` (a regex é a de
+sempre). Para liberar a memória: `docker compose --env-file .env.production -f
+docker-compose.prod.yml --profile deid stop copiloto-deid`.
 
 ### Trocar o provider ou o modelo de IA
 
@@ -1716,6 +2067,49 @@ FROM shift_review_questions WHERE answered_at IS NOT NULL
 GROUP BY 1;
 ```
 
+#### Seu mapa (CC-802)
+
+Aba "Seu mapa" (`/revise-seu-plantao/seu-mapa`, API `GET /v1/shift-review/map`),
+atrás da mesma `COPILOT_SHIFT_REVIEW`. Mostra, por tema, acerto × o quanto o
+médico sabia (método de avaliação por grau de certeza do Dr. Luiz) e sugere o
+que estudar onde ele errou marcando "Sei". Só lê o que a CC-801 já grava: sem
+migration, sem chamada de IA.
+
+- **Quadrantes**: "Sei" e acertou = sabe e sabe que sabe; "Tenho dúvida" ou
+  "Chutei" e acertou = acerta chutando; "Sei" e errou = erra achando que sabe
+  (o perigoso, em vermelho, primeiro na lista); dúvida ou chute e errou = erra
+  e sabe que não sabe. Calibração = % de respostas na diagonal (sabia e
+  acertou, não sabia e errou).
+- **Tema**: a síndrome de PS da análise (lista fechada); sem síndrome, ou com
+  "outro", o tema escrito na pergunta, normalizado (acento, caixa, pontuação).
+- **Mínimos** (`shift-review.settings.ts`): o mapa sai com 20 respostas
+  (`CALIBRATION_MAP_MIN_ANSWERS`, critério da história); antes disso a tela
+  mostra quanto falta. Tema com menos de 3 respostas
+  (`CALIBRATION_THEME_MIN_ANSWERS`) aparece só como "poucos dados", sem
+  quadrantes. Lê as 200 respostas mais recentes (`CALIBRATION_MAP_MAX_ANSWERS`).
+- **Isolamento**: só as respostas do médico do token; não há agregado entre
+  médicos nem rota que receba outro médico.
+- **O que estudar**: `StudySuggestionSource` (study-suggestions.ts). Hoje
+  `CitedSourceSuggestions` devolve as fontes que as próprias perguntas do tema
+  citaram (as das respostas erradas com "Sei" primeiro, até 3, sem repetir
+  documento). Quando os cartões revisados (CC-402, PR #179) entrarem, um
+  provedor que busca os cartões publicados da síndrome/tema substitui o
+  padrão em `shift-review.module.ts` (`SHIFT_REVIEW_STUDY_SUGGESTIONS`),
+  devolvendo `knowledge_card`; contrato e tela já aceitam.
+- **Log**: `SHIFT_REVIEW_MAP answered=… calibrated=… themes=… mapped=… toStudy=…`
+  (só contagens). Falha do provedor de sugestões não derruba o mapa:
+  `SHIFT_REVIEW_MAP_SUGGESTIONS_ERROR error=<classe>` no log e no Sentry, e os
+  temas saem sem sugestão.
+
+```sql
+-- Métrica da CC-802 (uso recorrente): médicos com 20+ respostas, que já têm mapa
+SELECT count(*) AS medicos_com_mapa
+FROM (
+  SELECT physician_id FROM shift_review_questions
+  WHERE answered_at IS NOT NULL GROUP BY 1 HAVING count(*) >= 20
+) m;
+```
+
 ---
 
 ## Login com Google e Microsoft (CC-334)
@@ -1967,8 +2361,12 @@ regra das três FKs: não depende de código novo e entra pelo passo 2 de
 | `20261014180000_ai_calls_fallback_from` | `ai_calls.fallback_from` (perfil que caiu, na chamada feita no modelo de reserva) — CC-107; só adiciona coluna nula |
 | `20261014180000_cc_703_knowledge_gaps` | Tabela `knowledge_gaps` (registro de lacunas, CC-703); só cria tabela e tipo, sem tocar nas existentes |
 | `20261014200100_audio_capture_retention` | `audio_captures.encrypted_content` anulável + CHECK `deleted` ⇔ sem áudio (retenção de 30 dias). Só metadado de coluna e CHECK: a versão anterior da API roda sobre o schema novo |
+| `20261015120000_cc_404_card_reviewer` | `physicians.is_card_reviewer` (padrão `false`): acesso só à fila de revisão de cartões (CC-404); só adiciona coluna |
+| `20261015120000_cc_406_knowledge_card_index` | Índice semântico dos cartões (CC-406): `knowledge_card_index`, derivado (CASCADE a partir do cartão, GRANT com DELETE), `embedding vector` sem dimensão fixa; só cria tabela — depois do deploy, `pnpm cards:reindex` |
+| `20261015120100_cc_411_card_cross_reviews` | Revisão cruzada (CC-411): `knowledge_card_cross_reviews`, CHECK de segundo médico, trigger que congela sorteio e decisão, GRANT sem DELETE; só cria tabela |
 | `20261015130000_cc_801_shift_reviews` | Tabelas `shift_reviews` e `shift_review_questions` (CC-801, "Revise seu plantão"); só cria tabelas e enums, com GRANT de DML para `copiloto_app` |
 | `20261015180000_cc207_chief_complaint_text` | `encounters.chief_complaint` de `VARCHAR(140)` para `TEXT`, para caber o valor cifrado — CC-207/ADR-021; sem reescrever a tabela |
+| `20261016120000_cc_012_lgpd_erasure_privileges` | CC-012: `copiloto_app` ganha `UPDATE` só em `ai_calls.physician_id`/`encounter_id`/`request_id` e `DELETE` explícito em `mfa_backup_codes`, `crm_verification_requests`, `physician_institutions` e `login_security_states`. Só GRANT; sem ela, `POST /lgpd/erasure` falha com `permission denied for table ai_calls` e nada é apagado |
 
 ### Rollback de Migration
 
@@ -2015,7 +2413,7 @@ credencial vêm do PR #168 (seção "Sentry" em Monitoramento).
 |---|---|
 | `JWT_ACCESS_SECRET` | Todos os tokens são inválidos ou forjáveis |
 | `JWT_REFRESH_SECRET` | Refresh tokens inválidos |
-| `TRUSTED_PROXY_HOPS` | Proxies confiáveis à frente da API (padrão 1 = Traefik). Alto demais (2 sem Cloudflare) deixa o cliente escolher o IP do limite de tentativas; baixo demais (1 com Cloudflare) junta médicos no mesmo limite. Ver "Limite de tentativas" |
+| `TRUSTED_PROXY_HOPS` | Proxies confiáveis à frente da API (padrão 1 = Traefik). Define o IP do limite de tentativas e o gravado na trilha de auditoria. Alto demais (2 sem Cloudflare) deixa o cliente escolher esse IP; baixo demais (1 com Cloudflare) junta médicos no mesmo limite e grava o IP da Cloudflare. Ver "Limite de tentativas" |
 | `INTERNAL_SERVICE_TOKEN` | Endpoint `/audit/verify-chain` inacessível |
 | `BETA_INVITE_REQUIRED` | `on` fecha o cadastro para quem não tem convite do beta (CC-702): sem código válido, `403 BETA_INVITE_REQUIRED` e o web abre a lista de espera. `off` (padrão) = cadastro aberto, como antes. Ausente ou irreconhecível = `off`. Ver "Beta por convite (CC-702)". Exige a migration `20261015120000_cc702_beta_convites` |
 | `AI_API_KEY` | Análise clínica indisponível |
@@ -2026,6 +2424,7 @@ credencial vêm do PR #168 (seção "Sentry" em Monitoramento).
 | `FIELD_ENCRYPTION_KEY_PREVIOUS` | Só durante uma rotação: a chave anterior, para decifrar. Vazia = sem rotação |
 | `OFFICIAL_GUIDELINES_ENABLED` | `false` tira PCDT/DDT/DB/PU do retrieval (válvula de escape da ADR-010); ausente = ligada. Os limiares `OFFICIAL_*` estão em `.env.example` |
 | `KNOWLEDGE_CARDS_DRAFT_ENABLED` | `true` liga o rascunho de cartões por IA (CC-403: `pnpm cards:draft` e `POST /v1/admin/knowledge-cards/drafts`). Ausente ou irreconhecível = desligado (503). Modelo em `AI_CARD_DRAFT_MODEL` (vazio = `AI_MODEL`; aceita `perfil:modelo`). Não muda a análise do Copiloto |
+| `COPILOT_REVIEWED_CARDS` | CC-408: `on` põe os cartões revisados publicados na decisão em etapas (v2/v3/v4), com "Revisado por" e a dose estruturada do cartão liberada. Ausente ou irreconhecível = desligada: nenhuma busca de cartão, prompt e saída iguais. Ligada, uma chamada de embedding a mais por análise; sem embedding, segue sem cartões. Limiares em `REVIEWED_CARDS_MIN_SIMILARITY` (padrão 0,5) e `REVIEWED_CARDS_MAX` (padrão 3). Ver "Cartões na decisão" |
 | `UNREVIEWED_SOURCES_PRELIMINARY` | `false` desliga a contenção da ADR-012: PCDT e chunk curado sem assinatura voltam a embasar conduta definitiva. Ausente ou irreconhecível = ligada |
 | `COPILOT_REASONING` | `stages` liga o raciocínio em etapas da ADR-013 (entendimento do caso antes da busca, busca dirigida, card "O que eu entendi"); `legacy` (padrão) volta ao pipeline de sempre. Ausente ou irreconhecível = `legacy`. Etapa 1 com `AI_UNDERSTANDING_MODEL` (vazio = `AI_MODEL`) e `AI_UNDERSTANDING_EFFORT` (padrão `low`). Falha da Etapa 1 aparece como `UNDERSTANDING_FAILED`/`UNDERSTANDING_FALLBACK` no log e a análise segue pela busca de sempre |
 | `COPILOT_DECISION_PROMPT` | `v2` liga a decisão em duas camadas da ADR-013 ("Fazer agora" × "Depende de…", perguntas que separam hipóteses, conhecimento geral do modelo rotulado e sem dose); `v1` (padrão) é o prompt de sempre. Exige `COPILOT_REASONING=stages`: sem ele fica `v1` e o log mostra `DECISION_PIPELINE_DOWNGRADE`. Regra da v2 que sobra depois do retry vira `OUTPUT_VALIDATION_WARNING`, nunca bloqueio |
@@ -2034,10 +2433,11 @@ credencial vêm do PR #168 (seção "Sentry" em Monitoramento).
 | `AI_FALLBACK_MODEL` | CC-107: modelo de reserva quando o provedor de uma etapa fica fora do ar (prazo, rede, 5xx, 429, limite de uso); uma nova tentativa nele. Vazio = sem reserva. Por etapa: `AI_<ETAPA>_FALLBACK_MODEL` (`none` desliga). Ver "Reserva de provedor (CC-107)". No log: `AI_FALLBACK`, `AI_FALLBACK_SKIPPED`, `AI_FALLBACK_FAILED` |
 | `WHISPER_MODEL` | CC-205: modelo da transcrição do ditado, `whisper-large-v3` (padrão) ou `whisper-large-v3-turbo`. Ausente ou irreconhecível = `whisper-large-v3`. Ver "Modelo da transcrição" e docs/evals/transcricao.md |
 | `DEID_CONTEXT_RULES` | CC-201/CC-202/CC-206: `on` (padrão) faz a máscara de PII tirar também o número de prontuário pelo rótulo ("prontuário", "RH", "registro", "matrícula", "BE", "nº de atendimento" → `[REDACTED_RECORD]`) e o nome depois de tratamento ou apelido ("Seu Zé", "Dona Cida", "Sr. João", "Tião" → `[NOME]`), sem tocar a lista de epônimos protegidos (`src/modules/copilot/guardrails/protected-clinical-terms.list.ts`, revisão médica pendente). `off` volta à regex anterior, sem redeploy, se aparecer máscara indevida em texto clínico. Ausente ou irreconhecível = `on`. Vale para o caso, as respostas do afunilamento, áudio, anexos, busca de diretrizes e notas livres. No log (debug): `PII detection ... {"record":1,"name":2}`, só a contagem por tipo |
+| `DEID_MODE` / `DEID_TIMEOUT_MS` / `DEID_SERVICE_URL` | CC-203 / ADR-020: `model` soma à regex o modelo local (`copiloto-deid`, sobe com `--profile deid`) para nome solto, parente e endereço no caso, respostas, anexo, transcrição e consulta de diretrizes; `regex` (padrão) é só a regex. Ausente ou irreconhecível = `regex`. Serviço fora do ar ou mais lento que `DEID_TIMEOUT_MS` (padrão 1000, a cada 2.000 caracteres): segue só com a regex e loga `DEID_FALLBACK`. Ver "De-identificação com o modelo local" |
 | `COPILOT_MENTORING` | `on` liga "Discutir com um médico da equipe" (CC-707): o caso vai mascarado, com o plano da IA, para os médicos com `is_mentor`; a resposta aparece no caso. `off` (padrão): nada aparece e as rotas da mentoria respondem 404. Ausente ou irreconhecível = `off`. Termo provisório até o parecer (CC-708). No log: `MENTORING_REQUESTED`, `MENTORING_NOTIFY`, `MENTORING_NO_ELIGIBLE_MENTOR`, `MENTORING_NOTIFY_FAILED` e uma linha por transição. Ver "Mentoria em modo concierge (CC-707)" |
 | `AI_DECISION_MODEL` / `AI_DECISION_CRITICAL_MODEL` | ADR-016: modelo da decisão no caso comum e no caso grave (instável ou tempo-crítico pela Etapa 1, ou sem entendimento). Vazios = `AI_MODEL` nas duas rotas. Crítico vazio = o comum nas duas. Aceitam `perfil:modelo`. No log: `DECISION_MODEL route=critical\|standard model=...`; a interação grava `params.decisionRoute` |
 | `SMTP_HOST` e demais `SMTP_*`, `WEB_PUBLIC_URL` | Vazio: nenhum e-mail sai, cada envio vira `MAIL_LOGGED` no log e o fluxo segue. Preenchido com alguma variável errada: `MAIL_SMTP_CONFIG_INVALID` no boot e também nada sai. Ver "E-mail transacional (CC-015)" |
-| `COPILOT_SHIFT_REVIEW` | CC-801: `true` liga "Revise seu plantão" (perguntas sobre os próprios casos com grau de certeza). `false` (padrão) esconde a entrada e a API responde `disabled`; o job semanal não roda. Ausente ou irreconhecível = `false`. Modelo em `AI_SHIFT_REVIEW_MODEL` (vazio = `AI_MODEL`, aceita `perfil:modelo`) e esforço em `AI_SHIFT_REVIEW_EFFORT` (padrão `low`). No log: `SHIFT_REVIEW_READY`, `SHIFT_REVIEW_FAILED reason=...`, `SHIFT_REVIEW_ANSWERED`, `SHIFT_REVIEW_WEEKLY`, `REVIEW_QUESTIONS_RETRY`. Exige a migration `20261015130000_cc_801_shift_reviews`. Ver "Revise seu plantão (CC-801)" |
+| `COPILOT_SHIFT_REVIEW` | CC-801: `true` liga "Revise seu plantão" (perguntas sobre os próprios casos com grau de certeza). `false` (padrão) esconde a entrada e a API responde `disabled`; o job semanal não roda. Ausente ou irreconhecível = `false`. Modelo em `AI_SHIFT_REVIEW_MODEL` (vazio = `AI_MODEL`, aceita `perfil:modelo`) e esforço em `AI_SHIFT_REVIEW_EFFORT` (padrão `low`). No log: `SHIFT_REVIEW_READY`, `SHIFT_REVIEW_FAILED reason=...`, `SHIFT_REVIEW_ANSWERED`, `SHIFT_REVIEW_WEEKLY`, `REVIEW_QUESTIONS_RETRY`. Exige a migration `20261015130000_cc_801_shift_reviews`. Ver "Revise seu plantão (CC-801)". CC-802: a mesma flag liga a aba "Seu mapa" (mapa de calibração por tema, `GET /v1/shift-review/map`; desligada responde `disabled`); no log `SHIFT_REVIEW_MAP` e `SHIFT_REVIEW_MAP_SUGGESTIONS_ERROR`. Ver "Seu mapa (CC-802)" |
 | `COPILOT_KNOWLEDGE_SOURCE` | `internal_kb` (padrão) é a busca de sempre (embedding na OpenAI); `model_only` não busca nada; `web` pesquisa em fontes oficiais (`AI_RESEARCH_MODEL`, padrão `claude-sonnet-5-5`; `AI_RESEARCH_EFFORT`, padrão `low`; `WEB_RESEARCH_MAX_SEARCHES`, padrão 5; `WEB_RESEARCH_ALLOWED_DOMAINS`, vazio = 32 fontes padrão). `model_only` e `web` nunca chamam o provedor de embedding. `web` exige `stages` e `COPILOT_DECISION_PROMPT=v2` (sem eles vira `model_only`, com `DECISION_PIPELINE_DOWNGRADE` no log) e Anthropic como `AI_PROVIDER`; pesquisa que falha aparece como `WEB_RESEARCH_FALLBACK` e a análise segue só com o conhecimento do modelo |
 | `AI_DAILY_COST_ALERT_USD` / `AI_P95_ALERT_MS` | CC-005: teto do custo do dia (UTC, em USD) e meta do p95 da decisão na última hora (ms). Vazios ou inválidos = alerta desligado (inválido avisa `AI_CALL_ALERT_THRESHOLD_INVALID` no log). Ver "Alertas de custo e latência da IA" |
 | `COPILOT_SITE_CONTEXT` | CC-602/CC-603: `on` leva à decisão o local de plantão declarado no caso (porte, o que o serviço tem e **não** tem, especialistas, tempo até a referência) e a regra de transferência (destino, prioridade e conduta até a transferência; nada que exija recurso ausente no próprio serviço). Vale nos prompts v1 e v2/v3/v4. `off` (padrão), ou caso sem local declarado, mantém o prompt byte a byte igual. Ausente ou irreconhecível = `off`. No log: `SITE_CONTEXT facilityType=… missing=hasCT,hasICU specialists=n referenceMinutes=…` (sem texto do caso); a interação grava `params.siteContext: true`. Os locais do médico (Configurações → Locais de plantão) exigem a migration `20261014120000_cc_602_practice_sites`; o caso guarda uma cópia do local em `encounters.context.site` |
@@ -2072,6 +2472,9 @@ e nunca para a análise. Quando o provedor recusa por cota esgotada (limite de
 uso do workspace da Anthropic, falta de crédito, `insufficient_quota` da
 OpenAI), `error_type` termina em `:usage_limit` (ex.:
 `BadRequestError:400:usage_limit`); a mensagem do provedor não é gravada.
+A eliminação LGPD (CC-012) mantém as linhas no custo agregado, mas zera
+`physician_id`, `encounter_id` e `request_id`: depois dela o `x-request-id`
+daquele médico não acha mais nada.
 
 **Painel (CC-004).** `/admin/analytics`, aba "Etapas e modelos" (ADMIN e
 COMPLIANCE; o médico comum recebe 403 da API). Em 24 h, 7 ou 30 dias: por
@@ -2174,6 +2577,7 @@ aceita texto livre) e nesta tabela.
 | `AI_DAILY_COST_ALERT day=...` (também no Sentry) | Custo estimado do dia passou de `AI_DAILY_COST_ALERT_USD` | Abrir `/admin/analytics` → "Etapas e modelos" (24 h) e ver a etapa, o modelo e as requisições mais caras. Avaliação rodando com a chave de produção é o suspeito de sempre |
 | `AI_DECISION_P95_ALERT p95Ms=...` (também no Sentry) | A decisão está mais lenta que `AI_P95_ALERT_MS` na última hora | Ver p95 por modelo no painel (24 h) e o status do provedor; se persistir, trocar `AI_DECISION_MODEL` ou baixar o esforço |
 | `AI_CALL_ALERT_CHECK_FAILED check=...` | A verificação dos alertas falhou (banco fora, por exemplo) | Verificar conectividade com o banco; os outros alertas seguem |
+| `DEID_FALLBACK` (WARN, frequente) | Com `DEID_MODE=model`, o serviço `copiloto-deid` caiu, está lento ou respondeu fora do contrato; o texto seguiu só com a regex (nome solto passa) | Ver `reason=` e a seção "De-identificação com o modelo local"; se persistir, `DEID_MODE=regex` |
 
 ---
 

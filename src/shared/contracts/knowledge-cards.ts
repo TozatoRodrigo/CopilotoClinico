@@ -284,3 +284,45 @@ export interface RejectKnowledgeCardRequest {
 export interface ArchiveKnowledgeCardRequest {
   reason: string;
 }
+
+/**
+ * CC-408 — cartão publicado que a decisão (e a pergunta rápida da CC-501)
+ * pode usar: a versão assinada e quem assinou. Só servidor.
+ */
+export interface ReviewedCard {
+  cardId: string;
+  institutionId: string | null;
+  topic: string;
+  syndrome: PsSyndrome | null;
+  versionId: string;
+  version: number;
+  content: KnowledgeCardContent;
+  contentSha256: string;
+  reviewer: KnowledgeCardPhysicianRef;
+  reviewedAt: string;
+  validUntil: string;
+}
+
+/** Quem assinou, como o médico do plantão vê: nome e CRM, sem id interno. */
+export interface KnowledgeCardReviewerCredential {
+  name: string | null;
+  crmNumber: string;
+  crmUf: string;
+}
+
+/**
+ * GET /knowledge-cards/:id — o cartão publicado, aberto pelo "Revisado por"
+ * da tela do plano (CC-408). `displayStatus` `needs_review`: a aprovação
+ * venceu e o cartão não entra mais na decisão.
+ */
+export interface PublishedKnowledgeCard {
+  id: string;
+  topic: string;
+  syndrome: PsSyndrome | null;
+  displayStatus: Extract<KnowledgeCardDisplayStatus, 'published' | 'needs_review'>;
+  version: number;
+  content: KnowledgeCardContent;
+  reviewer: KnowledgeCardReviewerCredential;
+  reviewedAt: string;
+  validUntil: string;
+}

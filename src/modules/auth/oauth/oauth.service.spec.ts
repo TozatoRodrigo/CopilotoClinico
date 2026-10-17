@@ -156,11 +156,6 @@ function createFakePrisma() {
       }),
     },
     refreshToken: { create: vi.fn().mockResolvedValue({}) },
-    loginSecurityState: {
-      findUnique: vi.fn().mockResolvedValue(null),
-      upsert: vi.fn().mockResolvedValue({}),
-      update: vi.fn().mockResolvedValue({}),
-    },
   };
   return prisma;
 }
@@ -170,6 +165,12 @@ type FakePrisma = ReturnType<typeof createFakePrisma>;
 describe('OAuthService (CC-334)', () => {
   let prisma: FakePrisma;
   let audit: { log: ReturnType<typeof vi.fn> };
+  let lockout: {
+    reserveAttempt: ReturnType<typeof vi.fn>;
+    clear: ReturnType<typeof vi.fn>;
+    reserveLoginAttempt: ReturnType<typeof vi.fn>;
+    clearLogin: ReturnType<typeof vi.fn>;
+  };
   let mfa: { verifyMfaCode: ReturnType<typeof vi.fn> };
   let jwt: JwtService;
   let googleIdp: FakeOidcProvider;
@@ -186,6 +187,14 @@ describe('OAuthService (CC-334)', () => {
         : googleIdp.fetch(input, init);
     }) as typeof fetch;
 
+    // CC-025/CC-026 — os testes do limite por conta estão em
+    // account-lockout.service.spec.ts e auth.service.lockout.spec.ts.
+    lockout = {
+      reserveAttempt: vi.fn(),
+      clear: vi.fn(),
+      reserveLoginAttempt: vi.fn().mockResolvedValue(true),
+      clearLogin: vi.fn().mockResolvedValue(undefined),
+    };
     const externalIdentities = new ExternalIdentityService(
       prisma as unknown as PrismaService,
       audit as unknown as AuditService,
@@ -195,8 +204,7 @@ describe('OAuthService (CC-334)', () => {
       jwt,
       config,
       audit as unknown as AuditService,
-      // CC-025 — os testes do limite por conta estão em auth.service.lockout.spec.ts.
-      { reserveAttempt: vi.fn(), clear: vi.fn() } as never,
+      lockout as never,
       mfa as unknown as MfaService,
       // CC-702 — o beta só entra no cadastro por senha.
       { admit: vi.fn(), createAccount: vi.fn() } as never,
@@ -596,13 +604,36 @@ describe('OAuthService (CC-334)', () => {
       ).rejects.toThrow(UnauthorizedException);
 
       expect(prisma.identities).toHaveLength(0);
-      expect(prisma.loginSecurityState.upsert).toHaveBeenCalled();
+      expect(lockout.reserveLoginAttempt).toHaveBeenCalledWith(physician.email, physician.id);
+      expect(lockout.clearLogin).not.toHaveBeenCalled();
       expect(audit.log).toHaveBeenCalledWith({
         actorId: physician.id,
         action: 'AUTH_OAUTH_LINK_FAILED',
         entity: 'Physician',
         entityId: physician.id,
         payload: { provider: 'google', reason: 'invalid_password' },
+        ip: '10.0.0.1',
+      });
+    });
+
+    // CC-026 — o vínculo usa o mesmo contador atômico do login por senha.
+    it('does not link while the login counter is locked, even with the right password', async () => {
+      const physician = await seedPhysician();
+      const outcome = await signInWith('google');
+      lockout.reserveLoginAttempt.mockResolvedValueOnce(false);
+
+      await expect(oauth.confirmLink(pendingToken(outcome), PASSWORD, '10.0.0.1')).rejects.toThrow(
+        UnauthorizedException,
+      );
+
+      expect(prisma.identities).toHaveLength(0);
+      expect(lockout.clearLogin).not.toHaveBeenCalled();
+      expect(audit.log).toHaveBeenCalledWith({
+        actorId: physician.id,
+        action: 'AUTH_OAUTH_LINK_FAILED',
+        entity: 'Physician',
+        entityId: physician.id,
+        payload: { provider: 'google', reason: 'account_locked' },
         ip: '10.0.0.1',
       });
     });
@@ -614,6 +645,7 @@ describe('OAuthService (CC-334)', () => {
       const result = await oauth.confirmLink(pendingToken(outcome), PASSWORD, '10.0.0.1');
 
       expect(result.mfaRequired).toBe(false);
+      expect(lockout.clearLogin).toHaveBeenCalledWith(physician.email);
       expect(prisma.identities).toEqual([
         expect.objectContaining({
           physicianId: physician.id,

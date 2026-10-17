@@ -159,18 +159,21 @@ export class MfaService {
     throw new UnauthorizedException('Invalid MFA code');
   }
 
+  /**
+   * CC-026 — uso único de verdade: um UPDATE só, condicionado a `used_at IS
+   * NULL`. Dois pedidos simultâneos com o mesmo código se enfileiram na linha,
+   * e o segundo reavalia o WHERE já com `used_at` gravado: não atualiza nada e
+   * é recusado. Antes, ler e depois gravar deixava os dois passarem.
+   */
   private async consumeBackupCode(physicianId: string, code: string): Promise<boolean> {
     const codeHash = createHash('sha256').update(code).digest('hex');
-    const backupCode = await this.prisma.mfaBackupCode.findFirst({
+    const consumed = await this.prisma.mfaBackupCode.updateMany({
       where: { physicianId, codeHash, usedAt: null },
-    });
-    if (!backupCode) return false;
-
-    await this.prisma.mfaBackupCode.update({
-      where: { id: backupCode.id },
       data: { usedAt: new Date() },
     });
-    return true;
+    // > 0, não === 1: dois códigos iguais no mesmo lote (chance de ~1 em 10^8)
+    // seriam gastos juntos, mas o código continua valendo uma vez.
+    return consumed.count > 0;
   }
 
   /**

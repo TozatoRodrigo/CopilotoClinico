@@ -169,6 +169,27 @@
       }
     },
     {
+      "name": "claude-opus-5-5-v3-modelo-cartoes",
+      "description": "CC-408: claude-opus-5-5-v3-modelo com os cartões revisados na decisão (COPILOT_REVIEWED_CARDS=on). Igual à v3-modelo, mais a busca semântica nos cartões publicados do banco do gabarito (pnpm cards:reindex antes) com o provedor de embedding escolhido na CC-406 — EMBEDDING_BASE_URL e AI_EMBEDDING_MODEL vêm do ambiente. Critério de liberação: nenhum aumento de erro crítico contra a v3-modelo.",
+      "env": {
+        "AI_PROVIDER": "anthropic",
+        "AI_MODEL": "claude-opus-5-5",
+        "AI_BASE_URL": "https://api.anthropic.com",
+        "AI_API_KEY": "${ANTHROPIC_API_KEY}",
+        "AI_MAX_OUTPUT_TOKENS": "32000",
+        "AI_EFFORT": "high",
+        "COPILOT_REASONING": "stages",
+        "AI_UNDERSTANDING_EFFORT": "low",
+        "COPILOT_DECISION_PROMPT": "v3",
+        "COPILOT_KNOWLEDGE_SOURCE": "model_only",
+        "COPILOT_REVIEWED_CARDS": "on",
+        "EMBEDDING_PROVIDER": "openai",
+        "EMBEDDING_BASE_URL": "${EMBEDDING_BASE_URL}",
+        "EMBEDDING_API_KEY": "${EMBEDDING_API_KEY}",
+        "AI_EMBEDDING_MODEL": "${AI_EMBEDDING_MODEL}"
+      }
+    },
+    {
       "name": "claude-opus-5-5-v4-modelo",
       "description": "Decisão v4 (v3 com quatro regras novas: suporte ventilatório indicado é tempo-crítico, checagem rápida de segurança fica em \"agora\", \"depende\" só com dado que decide, sem alta antes do dado e transferência para recurso que falta já) só com o conhecimento do Opus 5.5.",
       "env": {

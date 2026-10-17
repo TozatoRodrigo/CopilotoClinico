@@ -1,5 +1,10 @@
-import { describe, expect, it } from 'vitest';
-import { ClientIpRequest, parseTrustedProxyHops, resolveClientIp } from './client-ip';
+import { afterEach, describe, expect, it } from 'vitest';
+import {
+  ClientIpRequest,
+  clientIpForAudit,
+  parseTrustedProxyHops,
+  resolveClientIp,
+} from './client-ip';
 
 const SOCKET_IP = '172.18.0.5'; // o Traefik, na rede docker
 const CLIENT_IP = '203.0.113.7';
@@ -102,5 +107,53 @@ describe('CC-025 — parseTrustedProxyHops', () => {
     for (const raw of ['abc', '-1', '1.5', '1e2', '2 saltos', '99999999999999999999']) {
       expect(parseTrustedProxyHops(raw)).toEqual({ hops: 1, rejected: raw });
     }
+  });
+});
+
+describe('CC-026 — clientIpForAudit', () => {
+  const originalHops = process.env.TRUSTED_PROXY_HOPS;
+
+  function withHops(hops: string | undefined) {
+    if (hops === undefined) delete process.env.TRUSTED_PROXY_HOPS;
+    else process.env.TRUSTED_PROXY_HOPS = hops;
+  }
+
+  afterEach(() => {
+    withHops(originalHops);
+  });
+
+  it('XFF forjado não muda o IP gravado: vale o que o Traefik acrescentou', () => {
+    withHops(undefined);
+    for (const forged of ['1.1.1.1', '10.0.0.1, ::1', 'lixo, ,']) {
+      expect(clientIpForAudit(request(`${forged}, ${CLIENT_IP}`))).toBe(CLIENT_IP);
+    }
+  });
+
+  it('segue TRUSTED_PROXY_HOPS, como o limite por IP', () => {
+    withHops('2');
+    expect(clientIpForAudit(request(`6.6.6.6, ${CLIENT_IP}, 172.70.1.1`))).toBe(CLIENT_IP);
+    withHops('0');
+    expect(clientIpForAudit(request(`6.6.6.6, ${CLIENT_IP}`))).toBe(SOCKET_IP);
+    withHops('dois');
+    expect(clientIpForAudit(request(`6.6.6.6, ${CLIENT_IP}`))).toBe(CLIENT_IP);
+  });
+
+  it('sem XFF grava o socket (API sem proxy na frente)', () => {
+    withHops(undefined);
+    expect(clientIpForAudit(request(undefined))).toBe(SOCKET_IP);
+  });
+
+  it('sem endereço nenhum grava NULL, não "unknown"', () => {
+    withHops(undefined);
+    expect(clientIpForAudit({ headers: {} })).toBeUndefined();
+  });
+
+  it('IP maior que a coluna (45) grava NULL em vez de derrubar a gravação', () => {
+    withHops(undefined);
+    const longIpv6 = 'fe80:0000:0000:0000:0000:0000:0000:0001%interface0';
+    expect(clientIpForAudit(request(undefined, longIpv6))).toBeUndefined();
+    const longest = 'ffff:ffff:ffff:ffff:ffff:ffff:255.255.255.255';
+    expect(longest).toHaveLength(45);
+    expect(clientIpForAudit(request(longest))).toBe(longest);
   });
 });

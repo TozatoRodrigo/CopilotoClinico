@@ -21,6 +21,7 @@ import type { AiGatewayService } from '../../src/modules/ai-gateway/ai-gateway.s
 import type { GuidelinesService } from '../../src/modules/guidelines/guidelines.service';
 import { KnowledgeCardsService } from '../../src/modules/knowledge-cards/knowledge-cards.service';
 import { KnowledgeCardDraftService } from '../../src/modules/knowledge-cards/drafting/card-draft.service';
+import { CardIndexService } from '../../src/modules/knowledge-cards/card-index/card-index.service';
 import {
   hashCardContent,
   KnowledgeCardContentSchema,
@@ -42,6 +43,11 @@ describe('CC-402 — cartões revisados (integration)', () => {
   let chunkIds: string[];
 
   async function cleanUp(): Promise<void> {
+    // CC-411 — a aprovação sorteada (10%) ganha revisão cruzada, que aponta a versão.
+    await prisma.$executeRawUnsafe(
+      `DELETE FROM knowledge_card_cross_reviews
+        WHERE card_id IN (SELECT id FROM knowledge_cards WHERE topic LIKE 'CC-402 %')`,
+    );
     // FKs com RESTRICT nos dois sentidos: solta a versão publicada antes de apagar.
     await prisma.$executeRawUnsafe(
       `UPDATE knowledge_cards SET status = 'archived', archived_at = now(), published_version_id = NULL
@@ -111,7 +117,14 @@ describe('CC-402 — cartões revisados (integration)', () => {
       }),
     };
     const audit = new AuditService(prisma as unknown as PrismaService);
-    cards = new KnowledgeCardsService(prisma as unknown as PrismaService, audit);
+    // CC-406 — índice de verdade, com o embedding desligado: aprovar grava a
+    // linha sem vetor, e nenhuma chamada de IA sai daqui.
+    const cardIndex = new CardIndexService(prisma as unknown as PrismaService, {
+      enabled: () => false,
+      identity: () => ({ provider: 'none', model: 'none' }),
+      embed: () => Promise.reject(new Error('embedding desligado')),
+    });
+    cards = new KnowledgeCardsService(prisma as unknown as PrismaService, audit, cardIndex);
     drafts = new KnowledgeCardDraftService(
       prisma as unknown as PrismaService,
       gateway as unknown as AiGatewayService,

@@ -15,7 +15,7 @@ import { Prisma } from '@prisma/client';
 import type { Physician } from '@prisma/client';
 import { z } from 'zod';
 import { PrismaService } from '../../config/prisma.service';
-import { AccountLockoutService, accountRateLimitedLog } from './account-lockout.service';
+import { AccountLockoutService } from './account-lockout.service';
 import { AuditService } from '../audit/audit.service';
 import {
   RegisterInput,
@@ -66,7 +66,15 @@ interface SignInContext {
 export function toSessionPhysician(
   physician: Pick<
     Physician,
-    'id' | 'email' | 'crmUf' | 'crmNumber' | 'name' | 'crmVerified' | 'role' | 'locale'
+    | 'id'
+    | 'email'
+    | 'crmUf'
+    | 'crmNumber'
+    | 'name'
+    | 'crmVerified'
+    | 'role'
+    | 'locale'
+    | 'isCardReviewer'
   > & { passwordHash: string | null },
 ) {
   return {
@@ -79,6 +87,8 @@ export function toSessionPhysician(
     role: physician.role,
     locale: physician.locale,
     hasPassword: physician.passwordHash !== null,
+    // CC-404 — o web mostra a fila de revisão de cartões só ao revisor.
+    isCardReviewer: physician.isCardReviewer,
   };
 }
 
@@ -105,10 +115,6 @@ export interface ExternalRegistrationInput {
 
 type JwtExpiry = NonNullable<JwtSignOptions['expiresIn']>;
 
-const DEFAULT_LOGIN_LOCKOUT_MAX_ATTEMPTS = 5;
-const DEFAULT_LOGIN_LOCKOUT_WINDOW_MS = 15 * 60 * 1000;
-const DEFAULT_LOGIN_LOCKOUT_DURATION_MS = 15 * 60 * 1000;
-
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -117,9 +123,6 @@ export class AuthService {
   private readonly mfaPendingSecret: string;
   private readonly accessExpiry: JwtExpiry;
   private readonly refreshExpiry: JwtExpiry;
-  private readonly loginLockoutMaxAttempts: number;
-  private readonly loginLockoutWindowMs: number;
-  private readonly loginLockoutDurationMs: number;
 
   constructor(
     @Inject(PrismaService) private readonly prisma: PrismaService,
@@ -153,18 +156,6 @@ export class AuthService {
       'JWT_REFRESH_EXPIRY',
       '7d',
     ) as unknown as JwtExpiry;
-    this.loginLockoutMaxAttempts = this.getPositiveNumberConfig(
-      'AUTH_LOCKOUT_MAX_ATTEMPTS',
-      DEFAULT_LOGIN_LOCKOUT_MAX_ATTEMPTS,
-    );
-    this.loginLockoutWindowMs = this.getPositiveNumberConfig(
-      'AUTH_LOCKOUT_WINDOW_MS',
-      DEFAULT_LOGIN_LOCKOUT_WINDOW_MS,
-    );
-    this.loginLockoutDurationMs = this.getPositiveNumberConfig(
-      'AUTH_LOCKOUT_DURATION_MS',
-      DEFAULT_LOGIN_LOCKOUT_DURATION_MS,
-    );
   }
 
   async register(input: RegisterInput, ip?: string) {
@@ -296,31 +287,27 @@ export class AuthService {
   }
 
   async login(input: LoginInput, ip?: string) {
-    const normalizedEmail = input.email.trim().toLowerCase();
-    const identifierHash = this.hashLoginIdentifier(normalizedEmail);
-    const securityState = await this.prisma.loginSecurityState.findUnique({
-      where: { identifierHash },
+    const physician = await this.prisma.physician.findUnique({
+      where: { email: input.email },
     });
 
-    if (securityState?.lockedUntil && securityState.lockedUntil > new Date()) {
-      this.logger.warn(accountRateLimitedLog('login', securityState.physicianId));
+    // CC-026 — a tentativa é reservada ANTES de conferir a senha, num UPDATE
+    // condicional: logins em paralelo não passam do limite. Lendo o contador
+    // antes e gravando depois, todos liam o mesmo valor e conferiam a senha.
+    // Bloqueada, a conta responde como senha errada (não revela o cadastro).
+    if (!(await this.lockout.reserveLoginAttempt(input.email, physician?.id ?? null))) {
       await this.auditSilently({
-        actorId: securityState.physicianId ?? 'unknown',
+        actorId: physician?.id ?? 'unknown',
         action: 'AUTH_LOGIN_FAILED',
         entity: 'Physician',
-        entityId: securityState.physicianId ?? 'unknown',
+        entityId: physician?.id ?? 'unknown',
         payload: { reason: 'account_locked' },
         ip,
       });
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const physician = await this.prisma.physician.findUnique({
-      where: { email: input.email },
-    });
-
     if (!physician) {
-      await this.recordFailedLogin(identifierHash, null, securityState);
       await this.auditSilently({
         actorId: 'unknown',
         action: 'AUTH_LOGIN_FAILED',
@@ -338,7 +325,6 @@ export class AuthService {
       physician.passwordHash !== null &&
       (await bcrypt.compare(input.password, physician.passwordHash));
     if (!passwordValid) {
-      await this.recordFailedLogin(identifierHash, physician.id, securityState);
       await this.auditSilently({
         actorId: physician.id,
         action: 'AUTH_LOGIN_FAILED',
@@ -350,17 +336,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    if (securityState) {
-      await this.prisma.loginSecurityState.update({
-        where: { identifierHash },
-        data: {
-          failedCount: 0,
-          lockedUntil: null,
-          lastFailedAt: null,
-          physicianId: physician.id,
-        },
-      });
-    }
+    await this.lockout.clearLogin(input.email);
 
     return this.completeSignIn(physician, ip, {});
   }
@@ -392,12 +368,9 @@ export class AuthService {
     const physician = await this.prisma.physician.findUnique({ where: { id: physicianId } });
     if (!physician) throw new UnauthorizedException('Invalid credentials');
 
-    const identifierHash = this.hashLoginIdentifier(physician.email.trim().toLowerCase());
-    const securityState = await this.prisma.loginSecurityState.findUnique({
-      where: { identifierHash },
-    });
-
-    if (securityState?.lockedUntil && securityState.lockedUntil > new Date()) {
+    // CC-026 — a mesma reserva atômica do login, no mesmo contador por e-mail:
+    // tentativas em paralelo pelo vínculo não conferem mais senhas que o teto.
+    if (!(await this.lockout.reserveLoginAttempt(physician.email, physician.id))) {
       await this.auditLinkFailure(physician.id, claim.provider, 'account_locked', ip);
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -405,17 +378,11 @@ export class AuthService {
     const passwordValid =
       physician.passwordHash !== null && (await bcrypt.compare(password, physician.passwordHash));
     if (!passwordValid) {
-      await this.recordFailedLogin(identifierHash, physician.id, securityState);
       await this.auditLinkFailure(physician.id, claim.provider, 'invalid_password', ip);
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    if (securityState) {
-      await this.prisma.loginSecurityState.update({
-        where: { identifierHash },
-        data: { failedCount: 0, lockedUntil: null, lastFailedAt: null, physicianId: physician.id },
-      });
-    }
+    await this.lockout.clearLogin(physician.email);
 
     return this.completeSignIn(physician, ip, { provider: claim.provider, oauthLink: claim });
   }
@@ -508,6 +475,7 @@ export class AuthService {
         crmVerified: true,
         role: true,
         locale: true,
+        isCardReviewer: true,
         passwordHash: true,
       },
     });
@@ -665,6 +633,7 @@ export class AuthService {
         mfaEnabled: true,
         subscriptionStatus: true,
         locale: true,
+        isCardReviewer: true,
         createdAt: true,
         passwordHash: true,
       },
@@ -717,53 +686,6 @@ export class AuthService {
 
   private hashToken(token: string): string {
     return createHash('sha256').update(token).digest('hex');
-  }
-
-  private hashLoginIdentifier(identifier: string): string {
-    return createHash('sha256').update(identifier).digest('hex');
-  }
-
-  private async recordFailedLogin(
-    identifierHash: string,
-    physicianId: string | null,
-    securityState: {
-      failedCount: number;
-      lastFailedAt: Date | null;
-    } | null,
-  ): Promise<void> {
-    const now = new Date();
-    const previousFailedAt = securityState?.lastFailedAt;
-    const withinWindow =
-      previousFailedAt !== null &&
-      previousFailedAt !== undefined &&
-      now.getTime() - previousFailedAt.getTime() <= this.loginLockoutWindowMs;
-    const failedCount = withinWindow ? (securityState?.failedCount ?? 0) + 1 : 1;
-    const lockedUntil =
-      failedCount >= this.loginLockoutMaxAttempts
-        ? new Date(now.getTime() + this.loginLockoutDurationMs)
-        : null;
-
-    await this.prisma.loginSecurityState.upsert({
-      where: { identifierHash },
-      create: {
-        identifierHash,
-        physicianId,
-        failedCount,
-        lockedUntil,
-        lastFailedAt: now,
-      },
-      update: {
-        physicianId,
-        failedCount,
-        lockedUntil,
-        lastFailedAt: now,
-      },
-    });
-  }
-
-  private getPositiveNumberConfig(key: string, fallback: number): number {
-    const value = Number(this.config.get<string | number>(key, fallback));
-    return Number.isFinite(value) && value > 0 ? value : fallback;
   }
 
   async changePassword(physicianId: string, currentPassword: string, newPassword: string) {

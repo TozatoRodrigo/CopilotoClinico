@@ -15,6 +15,8 @@ Entrou na `main` em 16/10/2026.
 
 ### Segurança
 
+- Só curador ou ADMIN cria, publica e revisa protocolo (CC-020) (#206)
+- IP real na trilha de auditoria; contador do login e código de backup do MFA atômicos (CC-026) (#209)
 - Limite de tentativas que o `X-Forwarded-For` não burla e bloqueio por conta no MFA (CC-025) (#203)
 - Diretriz e protocolo institucional só para quem tem vínculo ativo com a instituição (CC-019) (#197)
 - Apagar uma instituição não torna globais os protocolos e as diretrizes dela (CC-021) (#198)
@@ -26,6 +28,8 @@ Entrou na `main` em 16/10/2026.
 
 ### Privacidade e LGPD
 
+- Eliminação LGPD apaga também MFA, CRM, vínculos institucionais e estado de login, com inventário que barra coluna nova sem decisão (CC-012) (#212)
+- Modelo local de de-identificação no pipeline (regex → OpenMed → epônimos); `DEID_MODE`, só regex por padrão (CC-203, ADR-020) (#205)
 - Texto clínico cifrado em repouso, com leitura dupla e migração em lote; atrás de `CLINICAL_TEXT_ENCRYPTION`, desligada por padrão (CC-207, ADR-021) (#196)
 - Texto clínico fora do log, da URL e do Sentry; Groq no DPA (#168)
 - Texto livre e dado pessoal fora do payload da trilha de auditoria (#147)
@@ -39,6 +43,10 @@ Entrou na `main` em 16/10/2026.
 
 ### Funcionalidades (atrás de flag)
 
+- Cartões revisados na decisão, com dose liberada, "Revisado por" e índice semântico; `COPILOT_REVIEWED_CARDS` (CC-406, CC-408) (#211)
+- Revisão de cartões no celular e revisão cruzada de 10% por um segundo médico; revisor ligado por `is_card_reviewer` (CC-404, CC-411) (#207)
+- "Seu mapa": calibração por tema, acerto × o quanto o médico sabia (CC-802) (#208)
+- Painel semanal do beta e resumo para a ata de sexta (CC-705, CC-706) (#210)
 - Cartões revisados: modelo, rascunho por IA com citação literal e anti-circularidade; rascunho atrás de `KNOWLEDGE_CARDS_DRAFT_ENABLED` (CC-402, CC-403, CC-412) (#179)
 - Entrar com Google ou Microsoft; liga com as credenciais `OAUTH_*` (CC-334) (#183)
 - "Revise seu plantão": perguntas sobre os próprios casos, com grau de certeza; `COPILOT_SHIFT_REVIEW` (CC-801) (#191)
@@ -56,6 +64,7 @@ Entrou na `main` em 16/10/2026.
 
 ### Infra e CI
 
+- Repositório organizado: README, CONTRIBUTING, SECURITY, LICENSE, templates de PR e issue, CODEOWNERS, Dependabot, índices da documentação e das ADRs; CI na `main` (#213)
 - Imagem da API só com dependências de produção (CC-024) (#201)
 - Playwright e lint do web rodando de verdade e bloqueantes (CC-023) (#202)
 - CI recusa import de valor de `@contracts` no web, para a imagem do web não quebrar (#193)

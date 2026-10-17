@@ -14,9 +14,20 @@ import type {
  *
  * Corrigir cria versão nova e nunca derruba a versão publicada: ela segue
  * valendo até outra ser aprovada. Arquivado é final.
+ *
+ * CC-411 — a exceção é a revisão cruzada que diverge (`reopen`): o segundo
+ * médico discorda da versão publicada, a correção dele vira versão nova e o
+ * cartão sai do ar e volta para "em revisão" sem versão publicada.
  */
 
-export const KNOWLEDGE_CARD_ACTIONS = ['submit', 'approve', 'reject', 'archive', 'edit'] as const;
+export const KNOWLEDGE_CARD_ACTIONS = [
+  'submit',
+  'approve',
+  'reject',
+  'archive',
+  'edit',
+  'reopen',
+] as const;
 export type KnowledgeCardAction = (typeof KNOWLEDGE_CARD_ACTIONS)[number];
 
 export interface KnowledgeCardState {
@@ -35,6 +46,7 @@ const ACTION_LABEL: Record<KnowledgeCardAction, string> = {
   reject: 'rejeitar',
   archive: 'arquivar',
   edit: 'corrigir',
+  reopen: 'reabrir pela revisão cruzada',
 };
 
 const STATUS_LABEL: Record<KnowledgeCardStatus, string> = {
@@ -72,6 +84,8 @@ export function transition(
       if (status === 'archived') return refuse(action, status);
       // Corrigir o publicado abre revisão da versão nova; rascunho segue rascunho.
       return { ok: true, to: status === 'published' ? 'in_review' : status };
+    case 'reopen':
+      return status === 'published' ? { ok: true, to: 'in_review' } : refuse(action, status);
   }
 }
 

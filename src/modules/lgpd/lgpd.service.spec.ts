@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { describe, it, expect, expectTypeOf, beforeEach, vi } from 'vitest';
 import { LgpdService, type ExportedAudioCapture } from './lgpd.service';
 import { PrismaService } from '../../config/prisma.service';
@@ -92,6 +93,11 @@ describe('LgpdService', () => {
       findMany: ReturnType<typeof vi.fn>;
       deleteMany: ReturnType<typeof vi.fn>;
     };
+    aiCall: { updateMany: ReturnType<typeof vi.fn> };
+    mfaBackupCode: { deleteMany: ReturnType<typeof vi.fn> };
+    crmVerificationRequest: { deleteMany: ReturnType<typeof vi.fn> };
+    physicianInstitution: { deleteMany: ReturnType<typeof vi.fn> };
+    loginSecurityState: { deleteMany: ReturnType<typeof vi.fn> };
     $transaction: ReturnType<typeof vi.fn>;
   };
   let auditService: {
@@ -183,6 +189,11 @@ describe('LgpdService', () => {
         findMany: vi.fn().mockResolvedValue([]),
         deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
+      aiCall: { updateMany: vi.fn().mockResolvedValue({ count: 0 }) },
+      mfaBackupCode: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
+      crmVerificationRequest: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
+      physicianInstitution: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
+      loginSecurityState: { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
       $transaction: vi.fn(),
     };
     auditService = {
@@ -877,8 +888,8 @@ describe('LgpdService', () => {
       email: 'test@test.com',
       passwordHash: 'hash',
       name: 'Dr Test',
-      mfaEnabled: false,
-      mfaSecret: 'secret',
+      mfaEnabled: true,
+      mfaSecret: 'iv:tag:totp-secret',
       subscriptionStatus: 'trial',
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -886,6 +897,7 @@ describe('LgpdService', () => {
 
     beforeEach(() => {
       prisma.physician.findUnique.mockResolvedValue(physician);
+      prisma.encounter.findMany.mockResolvedValue([{ id: 'enc-1' }, { id: 'enc-2' }]);
       prisma.$transaction.mockImplementation(async (cb: (tx: typeof prisma) => Promise<void>) =>
         cb(prisma),
       );
@@ -936,6 +948,10 @@ describe('LgpdService', () => {
         consents: 1,
         legalAcceptances: 2,
         refreshTokens: 1,
+        mfaBackupCodes: 0,
+        crmVerificationRequests: 0,
+        physicianInstitutions: 0,
+        loginSecurityStates: 0,
         storageObjects: 0,
         externalIdentities: 2,
       });
@@ -968,13 +984,13 @@ describe('LgpdService', () => {
       });
       expect(prisma.physician.update).toHaveBeenCalledWith({
         where: { id: physicianId },
-        data: {
+        data: expect.objectContaining({
           name: 'ERASED',
           email: `erased-${physicianId}@erased.com`,
           passwordHash: `erased:${physicianId}`,
           specialty: null,
           erasedAt: expect.any(Date),
-        },
+        }),
       });
       // CC-018 — a sessão cai na hora nesta instância, sem esperar o cache.
       expect(erasureCheck.markErased).toHaveBeenCalledWith(physicianId);
@@ -986,6 +1002,97 @@ describe('LgpdService', () => {
         payload: {
           reason: 'LGPD Art. 18, VI - Data erasure request',
           erased: result.erased,
+          anonymized: result.anonymized,
+        },
+      });
+    });
+
+    it('deletes MFA backup codes, CRM requests, institution links and login state (CC-012)', async () => {
+      prisma.mfaBackupCode.deleteMany.mockResolvedValue({ count: 10 });
+      prisma.crmVerificationRequest.deleteMany.mockResolvedValue({ count: 2 });
+      prisma.physicianInstitution.deleteMany.mockResolvedValue({ count: 3 });
+      prisma.loginSecurityState.deleteMany.mockResolvedValue({ count: 1 });
+
+      const result = await service.requestErasure(physicianId);
+
+      expect(prisma.mfaBackupCode.deleteMany).toHaveBeenCalledWith({ where: { physicianId } });
+      expect(prisma.crmVerificationRequest.deleteMany).toHaveBeenCalledWith({
+        where: { physicianId },
+      });
+      expect(prisma.physicianInstitution.deleteMany).toHaveBeenCalledWith({
+        where: { physicianId },
+      });
+      expect(result.erased).toMatchObject({
+        mfaBackupCodes: 10,
+        crmVerificationRequests: 2,
+        physicianInstitutions: 3,
+        loginSecurityStates: 1,
+      });
+    });
+
+    it('finds the login state by the hash of the e-mail, even without physician_id', async () => {
+      await service.requestErasure(physicianId);
+
+      expect(prisma.loginSecurityState.deleteMany).toHaveBeenCalledWith({
+        where: {
+          OR: [
+            { physicianId },
+            { identifierHash: createHash('sha256').update('test@test.com').digest('hex') },
+          ],
+        },
+      });
+    });
+
+    it('wipes the MFA secret and the CRM from the physician record', async () => {
+      await service.requestErasure(physicianId);
+
+      expect(prisma.physician.update).toHaveBeenCalledWith({
+        where: { id: physicianId },
+        data: expect.objectContaining({
+          mfaEnabled: false,
+          mfaSecret: null,
+          crmUf: 'XX',
+          crmNumber: 'ERASED',
+          crmVerified: false,
+        }),
+      });
+    });
+
+    it('keeps AI call costs but unlinks them from the physician and the encounters', async () => {
+      prisma.aiCall.updateMany.mockResolvedValue({ count: 5 });
+
+      const result = await service.requestErasure(physicianId);
+
+      expect(prisma.aiCall.updateMany).toHaveBeenCalledWith({
+        where: { OR: [{ physicianId }, { encounterId: { in: ['enc-1', 'enc-2'] } }] },
+        data: { physicianId: null, encounterId: null, requestId: null },
+      });
+      // Antes de apagar os atendimentos: depois, os ids não existiriam mais.
+      expect(prisma.aiCall.updateMany.mock.invocationCallOrder[0]).toBeLessThan(
+        prisma.encounter.deleteMany.mock.invocationCallOrder[0] ?? 0,
+      );
+      expect(result.anonymized.aiCalls).toBe(5);
+    });
+
+    it('records the erasure in the audit trail without personal data', async () => {
+      prisma.mfaBackupCode.deleteMany.mockResolvedValue({ count: 10 });
+
+      await service.requestErasure(physicianId);
+
+      const [entry] = auditService.log.mock.calls.at(-1) as [{ payload: unknown }];
+      const payload = JSON.stringify(entry.payload);
+      for (const personalValue of [
+        physician.email,
+        physician.name,
+        physician.crmNumber,
+        physician.mfaSecret,
+      ]) {
+        expect(payload).not.toContain(personalValue);
+      }
+      expect(entry.payload).toMatchObject({
+        erased: { mfaBackupCodes: 10 },
+        anonymized: {
+          physicianColumns: expect.arrayContaining(['crmNumber', 'crmUf', 'mfaSecret', 'email']),
         },
       });
     });

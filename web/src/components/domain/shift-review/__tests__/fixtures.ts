@@ -1,5 +1,6 @@
 import type {
   ShiftReviewAnswerView,
+  ShiftReviewCalibrationMap,
   ShiftReviewConfidence,
   ShiftReviewQuestionView,
   ShiftReviewView,
@@ -88,5 +89,68 @@ export function reviewWith(questions: ShiftReviewQuestionView[]): ShiftReviewVie
     completedAt: answeredCount === questions.length ? "2026-10-15T15:00:00.000Z" : null,
     questions,
     summary: { total: questions.length, answered: answeredCount, correct, byConfidence },
+  };
+}
+
+/**
+ * CC-802 — mapa como a API devolve: cefaleia com erro marcando "Sei" (com o
+ * que estudar), dispneia acertando no chute e um tema com poucos dados.
+ */
+export function calibrationMap(
+  overrides: Partial<ShiftReviewCalibrationMap> = {},
+): ShiftReviewCalibrationMap {
+  return {
+    answered: 20,
+    correct: 13,
+    calibrated: 11,
+    quadrants: { knew_right: 8, guessed_right: 5, knew_wrong: 4, guessed_wrong: 3 },
+    minThemeAnswers: 3,
+    themes: [
+      {
+        key: "syndrome:cefaleia",
+        syndrome: "cefaleia",
+        topics: ["Cefaleia em trovoada", "Hemorragia subaracnóidea"],
+        answered: 10,
+        status: "mapped",
+        correct: 8,
+        calibrated: 8,
+        quadrants: { knew_right: 8, guessed_right: 0, knew_wrong: 2, guessed_wrong: 0 },
+        studySuggestions: [
+          {
+            kind: "cited_source",
+            title: "Diretriz de cefaleia na emergência",
+            version: "2024",
+            origin: "official_unreviewed",
+            url: "https://example.org/cefaleia.pdf",
+            excerpt: "Na cefaleia em trovoada, a TC sem contraste é o exame inicial.",
+          },
+          {
+            kind: "knowledge_card",
+            cardId: "70000000-0000-4000-8000-000000000001",
+            title: "Cefaleia em trovoada",
+            excerpt: "TC sem contraste nas primeiras 6 horas.",
+          },
+        ],
+      },
+      {
+        key: "syndrome:dispneia",
+        syndrome: "dispneia",
+        topics: ["Asma"],
+        answered: 8,
+        status: "mapped",
+        correct: 5,
+        calibrated: 3,
+        quadrants: { knew_right: 0, guessed_right: 5, knew_wrong: 0, guessed_wrong: 3 },
+        studySuggestions: [],
+      },
+      {
+        key: "topic:hipercalemia",
+        syndrome: null,
+        topics: ["Hipercalemia"],
+        answered: 2,
+        status: "few_answers",
+      },
+    ],
+    ...overrides,
   };
 }

@@ -20,11 +20,14 @@ const WRAP = "h-auto min-h-5 max-w-full whitespace-normal py-0.5 text-left leadi
  * - F1 (decisão v2): conhecimento geral do modelo em azul (IA, informação) e
  *   fonte oficial externa da pesquisa web em cinza, como a base oficial do MS:
  *   oficial, mas ninguém da equipe revisou.
+ * - CC-408: cartão revisado em verde — conteúdo assinado por médico com CRM
+ *   verificado (semântica "conduta confirmada/assinada" do design system).
  */
 const ORIGIN_BADGE: Record<
   SourceOrigin,
-  { variant: "gray" | "warning" | "purple" | "brown" | "blue"; wrap: boolean }
+  { variant: "gray" | "warning" | "purple" | "brown" | "blue" | "success"; wrap: boolean }
 > = {
+  reviewed_card: { variant: "success", wrap: true },
   official_unreviewed: { variant: "gray", wrap: true },
   curated_unsigned: { variant: "gray", wrap: true },
   physician_attachment: { variant: "warning", wrap: true },

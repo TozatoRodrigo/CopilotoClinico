@@ -6,6 +6,7 @@ import {
   type ValidationResult,
 } from './output-validator';
 import {
+  cardDoseNotInCard,
   CopilotOutputV2Schema,
   CopilotOutputV2WhySchema,
   dependsWithoutData,
@@ -91,6 +92,7 @@ export function validateOutputV3(
     ...sourceWithoutValidCitation(written, citableIds),
     ...modelKnowledgeWithCitation(written),
     ...modelKnowledgeWithDose(written),
+    ...(context.reviewedCards ? cardDoseNotInCard(written, context.reviewedCards) : []),
     ...questionsWithoutSeparates(written, removed),
   ];
   // A linha de "por quê" só pega carona num retry que já vai acontecer.
