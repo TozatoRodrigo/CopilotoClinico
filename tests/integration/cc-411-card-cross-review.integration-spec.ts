@@ -18,6 +18,7 @@ import { connectTestDb, disconnectTestDb } from './helpers/db';
 import { AuditService } from '../../src/modules/audit/audit.service';
 import type { PrismaService } from '../../src/config/prisma.service';
 import { KnowledgeCardsService } from '../../src/modules/knowledge-cards/knowledge-cards.service';
+import { CardIndexService } from '../../src/modules/knowledge-cards/card-index/card-index.service';
 import { CardReviewService } from '../../src/modules/knowledge-cards/review/card-review.service';
 import { CrossReviewService } from '../../src/modules/knowledge-cards/review/cross-review.service';
 import {
@@ -112,7 +113,14 @@ describe('CC-404/CC-411 — fila de revisão e revisão cruzada (integration)', 
     }
 
     const audit = new AuditService(prisma as unknown as PrismaService);
-    cards = new KnowledgeCardsService(prisma as unknown as PrismaService, audit);
+    // CC-406 — índice de verdade, com o embedding desligado: aprovar grava a
+    // linha sem vetor, e nenhuma chamada de IA sai daqui.
+    const cardIndex = new CardIndexService(prisma as unknown as PrismaService, {
+      enabled: () => false,
+      identity: () => ({ provider: 'none', model: 'none' }),
+      embed: () => Promise.reject(new Error('embedding desligado')),
+    });
+    cards = new KnowledgeCardsService(prisma as unknown as PrismaService, audit, cardIndex);
     review = new CardReviewService(prisma as unknown as PrismaService, cards);
     crossReview = new CrossReviewService(prisma as unknown as PrismaService, audit, cards);
   });

@@ -25,7 +25,6 @@ import {
   toPublishedCard,
   toReviewedCard,
 } from './card-retrieval/reviewed-card-view';
-import { KnowledgeCardContentSchema } from './domain/card-content';
 import { crossReviewBucket, isSampledForCrossReview } from './domain/cross-review';
 import {
   DEFAULT_VALIDITY_MONTHS,
@@ -33,7 +32,6 @@ import {
   validUntilFrom,
   type KnowledgeCardAction,
 } from './domain/card-lifecycle';
-import { loadSourceChunks, prepareCardContent, requestedChunkIds } from './card-sources';
 import { CardIndexService } from './card-index/card-index.service';
 import {
   activeInstitutionIds,
