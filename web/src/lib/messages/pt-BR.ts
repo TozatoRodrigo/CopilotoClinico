@@ -21,6 +21,10 @@
 import type { CitationOrigin, PreliminaryReason, PsSyndrome } from '@contracts/clinical';
 import type { KnowledgeCardClaimKind } from '@contracts/knowledge-cards';
 import type { ShiftReviewConfidence, ShiftReviewQuadrant } from '@contracts/shift-review';
+import type {
+  QuickQuestionRefusalReason,
+  WeightDoseNotComputedReason,
+} from '@contracts/quick-question';
 
 export interface Messages {
   common: {
@@ -155,6 +159,40 @@ export interface Messages {
     validUntil: (date: string) => string;
     version: (version: number) => string;
     claimKind: Record<KnowledgeCardClaimKind, string>;
+  };
+
+  /**
+   * CC-501 — pergunta rápida do Plantão: a resposta vem só de cartões
+   * revisados; sem cartão, diz que falta e oferece abrir um caso.
+   */
+  quickQuestion: {
+    title: string;
+    description: string;
+    label: string;
+    placeholder: string;
+    submit: string;
+    pending: string;
+    privacyHint: string;
+    error: string;
+    /** CC-010 — 403 `AI_CONSENT_REVOKED`: o médico revogou o processamento por IA. */
+    consentRevoked: { title: string; body: string; action: string };
+    cardAnswers: string;
+    population: string;
+    doses: string;
+    weight: {
+      computed: (weightKg: string, total: string, perKg: string) => string;
+      capped: (maxDose: string) => string;
+      computedNote: string;
+      needsWeight: string;
+      notComputed: Record<WeightDoseNotComputedReason, string>;
+    };
+    sources: string;
+    openCard: string;
+    noCard: { title: string; gapRecorded: string; body: string };
+    searchUnavailable: { title: string; body: string };
+    /** CC-503 — recusa educada, por motivo da guarda de escopo. */
+    refused: Record<QuickQuestionRefusalReason, { title: string; body: string }>;
+    openCase: string;
   };
 
   /** O plano de uma rodada da conversa: cabeçalho, pendências e rodapé. */
@@ -663,6 +701,75 @@ export const ptBR: Messages = {
       notification: 'Notificação',
       pitfall: 'Armadilha',
     },
+  },
+
+  quickQuestion: {
+    title: 'Pergunta rápida',
+    description:
+      'Uma dúvida do plantão, sem abrir caso. A resposta vem só de cartões revisados por médicos.',
+    label: 'Sua dúvida',
+    placeholder: 'Ex.: dose de adrenalina IM na anafilaxia em criança de 20 kg',
+    submit: 'Perguntar',
+    pending: 'Procurando nos cartões revisados…',
+    privacyHint:
+      'Não escreva nome nem documento do paciente. Para a dose por peso, inclua o peso (ex.: 20 kg).',
+    error: 'Não foi possível perguntar agora. Tente de novo.',
+    consentRevoked: {
+      title: 'Pergunta rápida pausada',
+      body: 'Você revogou o consentimento para processamento por IA, e a busca nos cartões usa IA. Para perguntar, conceda de novo em Configurações → Privacidade.',
+      action: 'Abrir Privacidade',
+    },
+    cardAnswers: 'O cartão responde',
+    population: 'Para quem',
+    doses: 'Dose do cartão',
+    weight: {
+      computed: (weightKg: string, total: string, perKg: string) =>
+        `Para ${weightKg} kg: ${total} (${perKg} × ${weightKg} kg)`,
+      capped: (maxDose: string) => `Limitada ao teto do cartão (${maxDose}).`,
+      computedNote:
+        'Conta feita pelo Copiloto sobre a dose do cartão. Confira antes de prescrever.',
+      needsWeight: 'Dose por peso: escreva o peso na pergunta para ver a conta.',
+      notComputed: {
+        unparsed_amount:
+          'A dose do cartão não é uma quantidade simples por kg: calcule pela dose acima.',
+        rate_or_daily: 'Dose por kg por dia, hora ou minuto: calcule pela dose acima.',
+        max_dose_not_comparable:
+          'O teto do cartão está em outra unidade ou base: calcule pela dose acima e respeite o teto.',
+        weight_out_of_range: 'Peso fora de 0,5–200 kg: confira o peso da pergunta.',
+        ambiguous_weight: 'Mais de um peso, ou peso ambíguo, na pergunta: escreva um peso só.',
+      },
+    },
+    sources: 'Fonte',
+    openCard: 'Ver cartão completo',
+    noCard: {
+      title: 'Ainda não temos um cartão revisado para isso.',
+      gapRecorded: 'Registramos a falta para a equipe médica escrever esse cartão.',
+      body:
+        'A pergunta rápida só responde com cartões revisados. Para o Copiloto analisar com o relato, abra um caso.',
+    },
+    searchUnavailable: {
+      title: 'A busca de cartões revisados está indisponível agora.',
+      body: 'Para o Copiloto analisar com o relato, abra um caso.',
+    },
+    refused: {
+      whole_case: {
+        title: 'Isso parece um caso inteiro.',
+        body: 'A pergunta rápida responde dúvidas pontuais. Para o Copiloto analisar o relato completo, abra um caso.',
+      },
+      administrative: {
+        title: 'Essa dúvida não é clínica.',
+        body: 'A pergunta rápida responde dúvidas clínicas do pronto-socorro. Conta, senha e preferências ficam em Configurações.',
+      },
+      not_clinical: {
+        title: 'Por aqui, só dúvidas clínicas.',
+        body: 'Pergunte sobre dose, conduta, critério, escore ou antídoto no pronto-socorro.',
+      },
+      injection: {
+        title: 'Não foi possível responder a esta pergunta.',
+        body: 'Escreva só a dúvida clínica, sem instruções para o sistema.',
+      },
+    },
+    openCase: 'Abrir um caso',
   },
 
   plan: {

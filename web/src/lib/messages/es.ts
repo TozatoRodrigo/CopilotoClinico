@@ -177,6 +177,75 @@ export const es: Messages = {
     },
   },
 
+  quickQuestion: {
+    title: 'Pregunta rápida',
+    description:
+      'Una duda de la guardia, sin abrir un caso. La respuesta viene solo de tarjetas revisadas por médicos.',
+    label: 'Su duda',
+    placeholder: 'Ej.: dosis de adrenalina IM en la anafilaxia en un niño de 20 kg',
+    submit: 'Preguntar',
+    pending: 'Buscando en las tarjetas revisadas…',
+    privacyHint:
+      'No escriba el nombre ni el documento del paciente. Para la dosis por peso, incluya el peso (ej.: 20 kg).',
+    error: 'No fue posible preguntar ahora. Intente de nuevo.',
+    consentRevoked: {
+      title: 'Pregunta rápida en pausa',
+      body: 'Usted revocó el consentimiento para el procesamiento por IA, y la búsqueda en las tarjetas usa IA. Para preguntar, vuelva a concederlo en Configuración → Privacidad.',
+      action: 'Abrir Privacidad',
+    },
+    cardAnswers: 'La tarjeta responde',
+    population: 'Para quién',
+    doses: 'Dosis de la tarjeta',
+    weight: {
+      computed: (weightKg: string, total: string, perKg: string) =>
+        `Para ${weightKg} kg: ${total} (${perKg} × ${weightKg} kg)`,
+      capped: (maxDose: string) => `Limitada al tope de la tarjeta (${maxDose}).`,
+      computedNote:
+        'Cálculo hecho por el Copiloto sobre la dosis de la tarjeta. Verifíquelo antes de prescribir.',
+      needsWeight: 'Dosis por peso: escriba el peso en la pregunta para ver el cálculo.',
+      notComputed: {
+        unparsed_amount:
+          'La dosis de la tarjeta no es una cantidad simple por kg: calcule con la dosis de arriba.',
+        rate_or_daily: 'Dosis por kg por día, hora o minuto: calcule con la dosis de arriba.',
+        max_dose_not_comparable:
+          'El tope de la tarjeta está en otra unidad o base: calcule con la dosis de arriba y respete el tope.',
+        weight_out_of_range: 'Peso fuera de 0,5–200 kg: revise el peso de la pregunta.',
+        ambiguous_weight: 'Más de un peso, o peso ambiguo, en la pregunta: escriba un solo peso.',
+      },
+    },
+    sources: 'Fuente',
+    openCard: 'Ver la tarjeta completa',
+    noCard: {
+      title: 'Todavía no tenemos una tarjeta revisada para esto.',
+      gapRecorded: 'Registramos la falta para que el equipo médico escriba esa tarjeta.',
+      body:
+        'La pregunta rápida solo responde con tarjetas revisadas. Para que el Copiloto analice con el relato, abra un caso.',
+    },
+    searchUnavailable: {
+      title: 'La búsqueda de tarjetas revisadas no está disponible ahora.',
+      body: 'Para que el Copiloto analice con el relato, abra un caso.',
+    },
+    refused: {
+      whole_case: {
+        title: 'Esto parece un caso completo.',
+        body: 'La pregunta rápida responde dudas puntuales. Para que el Copiloto analice el relato completo, abra un caso.',
+      },
+      administrative: {
+        title: 'Esta duda no es clínica.',
+        body: 'La pregunta rápida responde dudas clínicas de urgencias. Cuenta, contraseña y preferencias están en Configuración.',
+      },
+      not_clinical: {
+        title: 'Aquí, solo dudas clínicas.',
+        body: 'Pregunte sobre dosis, conducta, criterio, escala o antídoto en urgencias.',
+      },
+      injection: {
+        title: 'No fue posible responder a esta pregunta.',
+        body: 'Escriba solo la duda clínica, sin instrucciones para el sistema.',
+      },
+    },
+    openCase: 'Abrir un caso',
+  },
+
   plan: {
     mostLikely: 'Más probable',
     noHypothesis: 'Evaluación clínica en curso',

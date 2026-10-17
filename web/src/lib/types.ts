@@ -128,3 +128,13 @@ export type {
   OAuthProvidersResponse,
   OAuthSignupRequest,
 } from '@contracts/oauth';
+export type {
+  AskQuickQuestionRequest,
+  QuickQuestionAvailability,
+  QuickQuestionCardAnswer,
+  QuickQuestionDose,
+  QuickQuestionResponse,
+  QuickQuestionSource,
+  WeightBasedDose,
+  WeightDoseNotComputedReason,
+} from '@contracts/quick-question';

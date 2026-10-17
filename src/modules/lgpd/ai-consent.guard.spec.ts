@@ -7,6 +7,7 @@ import type { LgpdService } from './lgpd.service';
 import { CopilotController } from '../copilot/copilot.controller';
 import { IntakeController } from '../copilot/intake/intake.controller';
 import { AudioController } from '../audio/audio.controller';
+import { QuickQuestionController } from '../quick-question/quick-question.controller';
 
 function contextFor(user: { physicianId?: string } | undefined): ExecutionContext {
   return {
@@ -73,6 +74,8 @@ describe('rotas com IA exigem o consentimento ai_processing', () => {
       [IntakeController, 'stream'],
       [AudioController, 'upload'],
       [AudioController, 'transcribe'],
+      // CC-501 — a pergunta mascarada vai ao embedding (e ao Jev, na CC-503).
+      [QuickQuestionController, 'ask'],
     ]),
   )('%s', (_name, route) => {
     expect(guardsOf(route)).toContain(AiConsentGuard);
@@ -86,6 +89,7 @@ describe('rotas com IA exigem o consentimento ai_processing', () => {
       [IntakeController, 'getConversation'],
       [IntakeController, 'answer'],
       [IntakeController, 'skip'],
+      [QuickQuestionController, 'availability'],
     ]),
   )('%s fica aberta', (_name, route) => {
     expect(guardsOf(route)).not.toContain(AiConsentGuard);

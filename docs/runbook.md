@@ -1356,6 +1356,82 @@ O relatório ganha "… citando cartão revisado (com a dose do cartão)" na
 seção "Base das condutas". O workspace da Anthropic é o da produção:
 confirme o limite antes de rodar.
 
+**Pergunta rápida (CC-501, `COPILOT_QUICK_QUESTION`)** — desligada por
+padrão: o campo não aparece no Plantão e `POST /v1/quick-questions` responde
+404. Ligada, o médico escreve uma dúvida curta (até 300 caracteres) e a
+resposta vem **só** de cartões publicados — nenhum modelo de linguagem é
+chamado, só o embedding da busca:
+
+1. a pergunta passa pela de-identificação do servidor antes de tudo
+   (`DeidentificationService`, CC-203: a regex e, com `DEID_MODE=model`, o
+   modelo local); o texto bruto não vai para embedding, log, trilha nem
+   banco;
+2. a mesma busca e o mesmo portão da decisão (acima), com a pergunta
+   mascarada como consulta e hipótese, na instituição única do médico (ou só
+   cartões globais);
+3. com cartão: resposta, doses estruturadas (e a conta por peso quando a
+   dose é por kg e a pergunta traz o peso), fontes com o trecho citado e
+   "Revisado por"; sem cartão: "ainda não temos um cartão revisado para
+   isso", lacuna registrada e "Abrir um caso"; sem busca (embedding
+   desligado, portão fora): "busca indisponível", sem lacuna.
+
+Pré-requisitos para ligar: os mesmos dos cartões na decisão (cartões
+publicados, embedding ligado, `pnpm cards:reindex` com código 0), a revisão
+clínica da conta por peso (ADR-019, emenda da pergunta rápida). O PR #168,
+já na main, tira o corpo — a pergunta — da linha de erro do acesso HTTP.
+`GET /v1/quick-questions/availability` diz à tela se a flag está ligada.
+
+Consentimento (CC-010): a pergunta mascarada vai ao provedor de embedding,
+então quem revogou `ai_processing` recebe 403 `AI_CONSENT_REVOKED` antes de
+qualquer busca, e a tela diz onde conceder de novo. A disponibilidade fica
+aberta: ela não manda texto a lugar nenhum.
+
+No log: `QUICK_QUESTION` (id, desfecho, estado da busca, candidatos,
+`cardId:versão:similaridade`, PII detectada, latência — o p50 alvo é ≤ 5 s),
+`QUICK_QUESTION_GAP` (a lacuna, sem texto; com a tabela `knowledge_gaps` do
+PR #185 passa a gravar a pergunta mascarada), `QUICK_QUESTION_SEARCH_FAILED`,
+`QUICK_QUESTION_GAP_FAILED` e `QUICK_QUESTION_AUDIT_FAILED` (os três também
+no Sentry). Na trilha, `QUICK_QUESTION_ASKED` por pergunta, sem texto.
+
+**Guarda de escopo da pergunta rápida (CC-503, `QUICK_QUESTION_SCOPE_GUARD`)**
+— antes da busca, a pergunta mascarada passa por uma guarda que recusa com
+educação o caso inteiro, o assunto administrativo ou não clínico e a
+tentativa de dar instruções ao sistema (`outcome: refused`, sem busca, sem
+embedding, sem lacuna). `heuristic` (padrão; valor irreconhecível também) é
+determinística: a barreira de injeção do Copiloto e regras de texto. `jev`
+pergunta ao Jev da TypeSafe (classificação calibrada) e exige `JEV_API_KEY`;
+sem a chave, ou com o Jev fora, decide a heurística. Ligar `jev` só com o
+acesso antecipado confirmado, o contrato conferido na API de verdade e o DPA
+da TypeSafe (a pergunta mascarada vai para os EUA).
+
+| Variável | Padrão | O que faz |
+|---|---|---|
+| `QUICK_QUESTION_SCOPE_GUARD` | `heuristic` | `heuristic` ou `jev` |
+| `JEV_API_KEY` | — | chave da TypeSafe; sem ela o Jev não roda |
+| `JEV_BASE_URL` | `https://api.typesafe.ai` | base da API (`/v1/systemone`) |
+| `JEV_MODEL` | `jev-latest` | modelo pedido |
+| `JEV_TIMEOUT_MS` | `2000` | teto da chamada (100–10000) |
+| `JEV_SCOPE_MIN_CONFIDENCE` | `0.6` | confiança mínima para o Jev recusar; abaixo, a pergunta segue |
+
+No log: `QUICK_QUESTION` ganha `scope`, `guard` e `signals` (nomes de regra,
+sem texto); `JEV_SCOPE` (modelo, escolha, confiança, tokens de entrada,
+latência); `QUICK_QUESTION_SCOPE_JEV_UNCONFIGURED`,
+`QUICK_QUESTION_SCOPE_JEV_FAILED` (também no Sentry, só status e classe do
+erro) e `QUICK_QUESTION_SCOPE_FAILED`. Na trilha, `QUICK_QUESTION_ASKED`
+guarda `scope`, `refusalReason`, `scopeGuard`, `scopeConfidence` e
+`scopeSignals`.
+
+```sql
+-- Uso semanal (métrica da CC-501: ≥ 30% dos médicos ativos) e desfechos
+SELECT date_trunc('week', created_at) AS semana,
+       count(DISTINCT actor_id) AS medicos,
+       count(*) FILTER (WHERE payload->>'outcome' = 'answered') AS respondidas,
+       count(*) FILTER (WHERE payload->>'outcome' = 'no_card') AS sem_cartao,
+       count(*) FILTER (WHERE payload->>'outcome' = 'search_unavailable') AS sem_busca,
+       count(*) FILTER (WHERE payload->>'outcome' = 'refused') AS recusadas
+FROM audit_log WHERE action = 'QUICK_QUESTION_ASKED' GROUP BY 1 ORDER BY 1 DESC;
+```
+
 ### Sincronizar a base oficial da Conitec (ADR-010)
 
 PCDT, DDT, Diretrizes Brasileiras e Protocolos de Uso (~190 documentos) entram

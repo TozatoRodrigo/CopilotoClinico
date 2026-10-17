@@ -2,24 +2,15 @@
 
 import { ArrowSquareOut, Cards, SealCheck, WarningCircle } from '@phosphor-icons/react';
 import { useMessages } from '@/lib/messages/use-messages';
-import { formatReviewDate, reviewerCrm, reviewerName } from '@/lib/reviewed-card';
-import type { KnowledgeCardDose, PublishedKnowledgeCard } from '@/lib/types';
+import { formatDose, formatReviewDate, reviewerCrm, reviewerName } from '@/lib/reviewed-card';
+import type { PublishedKnowledgeCard } from '@/lib/types';
 import { PageHeader, SectionHeader } from '@/components/layout/page-header';
 import { Badge } from '@/components/ui/badge';
 import { Callout } from '@/components/ui/callout';
 import { SourceOriginBadge } from '@/components/domain/source-origin-badge';
 
-/** "Ceftriaxona 2 g · intravenosa · a cada 12 horas · máx. 4 g/dia" — a dose como o cartão a assina. */
-export function formatDose(dose: KnowledgeCardDose): string {
-  return [
-    `${dose.drug} ${dose.amount}`,
-    dose.route,
-    dose.frequency,
-    dose.maxDose ? `máx. ${dose.maxDose}` : null,
-  ]
-    .filter((part): part is string => Boolean(part))
-    .join(' · ');
-}
+/** CC-501 — a formatação da dose mora em `@/lib/reviewed-card`, compartilhada com a pergunta rápida. */
+export { formatDose };
 
 /**
  * CC-408 — o cartão revisado aberto pelo "Revisado por" da tela do plano: a

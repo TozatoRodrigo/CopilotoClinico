@@ -12,12 +12,17 @@ import {
   Microphone,
   SealCheck,
 } from '@phosphor-icons/react';
-import { useDashboardStats, useEncounterList } from '@/lib/clinical-queries';
+import {
+  useDashboardStats,
+  useEncounterList,
+  useQuickQuestionAvailability,
+} from '@/lib/clinical-queries';
 import { useAuth } from '@/lib/auth-store';
 import { StatCard, StatStrip } from '@/components/ui/stat-card';
 import { PlantaoQueue } from '@/components/domain/plantao-queue';
 import { MentoringAnswerNotice } from '@/components/domain/mentoring/mentoring-answer-notice';
 import { ShiftReviewEntry } from '@/components/domain/shift-review/shift-review-entry';
+import { QuickQuestion } from '@/components/domain/quick-question';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -58,6 +63,8 @@ export default function DashboardPage() {
   const statsQuery = useDashboardStats();
   const queueQuery = useEncounterList({ limit: 6 });
   const draftsQuery = useEncounterList({ status: 'draft', limit: 1 });
+  // CC-501 — o campo só aparece com COPILOT_QUICK_QUESTION ligada no servidor.
+  const quickQuestionEnabled = useQuickQuestionAvailability().data?.enabled === true;
 
   const loading = statsQuery.isPending || queueQuery.isPending;
   const error = statsQuery.error?.message ?? queueQuery.error?.message ?? null;
@@ -122,6 +129,9 @@ export default function DashboardPage() {
 
       {/* CC-707 — resposta de um médico da equipe que o médico ainda não abriu. */}
       <MentoringAnswerNotice />
+
+      {/* CC-501: pergunta rápida respondida por cartões revisados */}
+      {quickQuestionEnabled && <QuickQuestion />}
 
       {/* E2-S2: métricas */}
       {loading ? (

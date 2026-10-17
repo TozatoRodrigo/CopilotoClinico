@@ -1,6 +1,6 @@
 # ADR-019: Cartões revisados — modelo, rascunho com citação literal e anti-circularidade
 
-**Status:** Proposto — base implementada (CC-402, CC-403, CC-412), índice (CC-406) e cartões na decisão atrás de flag (CC-408), aguardando revisão clínica
+**Status:** Proposto — base implementada (CC-402, CC-403, CC-412), índice (CC-406), cartões na decisão (CC-408) e pergunta rápida com guarda de escopo (CC-501, CC-503) atrás de flag, aguardando revisão clínica
 **Data:** 2026-10-14
 **Relaciona:** ADR-002/ADR-015 (trilha de auditoria), ADR-009 (multi-tenancy),
 ADR-010/ADR-012 (fontes não revisadas)
@@ -283,3 +283,116 @@ e a mesma síndrome não garante o mesmo cenário (dor torácica: SCA ×
 dissecção) — por isso a camada `depends` e a nota do prompt ("só quando
 trata desta apresentação") continuam valendo, e a CC-407 calibra o portão
 com pares rotulados pelos médicos.
+
+## Emenda — 15/10/2026: pergunta rápida (CC-501)
+
+**Contexto.** O médico quer perguntar "dose de ceftriaxona na meningite?" e
+ter a resposta com fonte em segundos, sem abrir caso — para não abrir o
+ChatGPT. A CC-501 previa, sem cartão, uma resposta do modelo rotulada
+"conhecimento do modelo", sem dose.
+
+**Decisão.** Atrás de `COPILOT_QUICK_QUESTION` (padrão desligada), um campo
+no Plantão e `POST /v1/quick-questions`:
+
+1. **Só cartão.** A resposta é o cartão publicado, sem reescrita: resposta,
+   população, cada dose estruturada, as fontes com os trechos citados pela
+   resposta e pelas doses e "Revisado por Dr(a). X, CRM Y/UF, em data".
+   Nenhum modelo de linguagem neste fluxo — o único provedor chamado é o de
+   embedding, pela busca. Sem cartão, a tela diz "ainda não temos um cartão
+   revisado para isso" e oferece abrir um caso. A resposta do modelo
+   rotulada, prevista na história, fica de fora: resposta livre sem fonte é o
+   que o plano de confiabilidade tira, e a análise do caso já cobre esse
+   caminho com as regras de dose (ADR-013).
+2. **Mesma busca e mesmo portão da decisão.** `findApplicable` com a
+   pergunta mascarada como consulta e como hipótese, sem síndrome e sem
+   representação do problema: o `CardRelevanceGate` decide pelo tema do
+   cartão na pergunta. A instituição é a única do médico (regra do
+   atendimento, PROT-004); sem ela ou com mais de uma, só cartões globais.
+3. **Três desfechos.** `answered`; `no_card` só quando a busca rodou e o
+   portão julgou; `search_unavailable` quando não há busca (embedding
+   desligado ou fora, portão que falhou) — aí não se pode dizer que falta
+   cartão, e nada vai para a lacuna.
+4. **Dose por peso.** Dose estruturada por kg e um peso na pergunta ("criança
+   de 20 kg"): a tela mostra, ao lado da dose assinada, a conta
+   (quantidade × peso, limitada ao teto do cartão) marcada como conta do
+   Copiloto. Não calcula dose por tempo (mg/kg/dia, mcg/kg/min), faixa, teto
+   em outra unidade ou base, nem peso ambíguo ou fora de 0,5–200 kg — diz por
+   quê. O motor das ferramentas (ADR-017, PR #180) substitui esta conta
+   quando entrar.
+5. **Lacuna.** Ponto de extensão `KNOWLEDGE_GAP_RECORDER`. Hoje
+   `QUICK_QUESTION_GAP` no log, no formato do `REVIEWED_CARDS_GAP`
+   (contagens, sem texto). Com a tabela `knowledge_gaps` do PR #185, a
+   implementação grava `source = quick_question`, `interaction_id` nulo e a
+   pergunta mascarada em `search_queries`.
+6. **Trilha.** Uma linha `QUICK_QUESTION_ASKED` por pergunta: desfecho,
+   cartão, versão e hash assinado mostrados, estado da busca, tamanho da
+   pergunta e se a máscara achou PII. Falhar a trilha não tira a resposta
+   (vai para o Sentry).
+
+**Retenção da pergunta.** A de-identificação do servidor (CC-203: regex e,
+com `DEID_MODE=model`, o modelo local) é o primeiro passo; o texto bruto não
+sai da requisição. A rota exige o consentimento `ai_processing` (CC-010),
+como as outras que mandam texto a um provedor de IA.
+
+| Onde | O quê | Por quanto tempo |
+| --- | --- | --- |
+| Memória da API | texto bruto | só durante o pedido |
+| Provedor de embedding | pergunta mascarada | política do provedor (o mesmo das diretrizes) |
+| Log | id, desfecho, contagens, `cardId:versão:similaridade`, latência — nunca texto | retenção dos logs |
+| `audit_log` | `QUICK_QUESTION_ASKED` sem texto (item 6) | a da trilha (append-only) |
+| `knowledge_gaps` (com o #185) | pergunta mascarada, só quando falta cartão | a das lacunas, a definir na CC-409 |
+| Navegador | estado da tela | até sair da página: nada em URL, armazenamento local ou evento de uso |
+
+**Riscos.** O portão provisório com a pergunta como hipótese depende do tema
+do cartão aparecer na pergunta: sinônimo fora do radical deixa o cartão de
+fora (vira lacuna, não erro). A conta por peso é código novo sobre dose
+assinada — precisa da revisão clínica antes de ligar a flag. Até o PR #168
+entrar, a linha de erro do acesso HTTP leva o corpo da requisição: um 400 ou
+404 da pergunta rápida gravaria a pergunta no log. Ligar depois do #168.
+
+## Emenda — 15/10/2026: guarda de escopo da pergunta rápida (CC-503)
+
+**Contexto.** O campo aberto convida a pergunta que não é do produto: o caso
+inteiro colado ali, assunto administrativo ou não clínico e tentativa de dar
+instruções ao sistema. Sem modelo de linguagem no fluxo (emenda anterior), o
+custo de uma pergunta fora do escopo é uma chamada de embedding e uma lacuna
+falsa na fila de cartões — e o caso inteiro precisa ir para o fluxo do caso,
+onde a análise lê o relato todo.
+
+**Decisão.** Uma guarda antes da busca, pela interface
+`QuickQuestionScopeGuard` (`QUICK_QUESTION_SCOPE_GUARD`), com as classes da
+CC-503 — clínica, administrativa, fora de escopo — e o motivo da recusa
+(`whole_case`, `administrative`, `not_clinical`, `injection`). Recusa = 200
+com `outcome: refused` e texto educado por motivo na tela; nada de busca,
+embedding ou lacuna. A guarda recebe a pergunta já mascarada.
+
+1. **Determinística (padrão).** A barreira de injeção do Copiloto
+   (`scanForInjection`, inglês e português — os padrões em português são os
+   do PR #170, idênticos, para o merge dos dois não conflitar), pedido
+   explícito sobre um paciente ("o que ele tem", "analise este caso"), três
+   ou mais marcas de relato (idade, sinais vitais com valor, narrativa de
+   admissão, jargão de evolução, texto longo), vocabulário clínico (aceita),
+   termos administrativos e não clínicos. Sem sinal nenhum, aceita: recusar
+   uma dúvida clínica custa mais que uma busca.
+2. **Jev (TypeSafe), atrás de `QUICK_QUESTION_SCOPE_GUARD=jev`.** Uma
+   pergunta Choice com cinco opções (dúvida clínica, caso inteiro,
+   administrativo, não clínico, instrução ao sistema) sobre a pergunta
+   mascarada; recusa só com confiança ≥ `JEV_SCOPE_MIN_CONFIDENCE` (0,6,
+   provisório). A injeção óbvia é barrada antes, sem sair da VPS. Sem
+   `JEV_API_KEY`, com a API fora ou resposta fora do contrato, decide a
+   heurística (sinal `jev_unconfigured`/`jev_failed` no log e na trilha). O
+   cliente segue a documentação pública (`POST /v1/systemone`, Bearer,
+   `{ state, model, questions }`); o acesso antecipado não está confirmado e
+   o contrato precisa ser conferido na API de verdade antes de ligar.
+3. **Trilha.** `QUICK_QUESTION_ASKED` ganha a classe, o motivo, a guarda que
+   decidiu, a confiança e os sinais (nomes de regra) — sem texto.
+
+**Riscos.** A heurística por palavra erra: sinônimo fora da lista passa
+(custa uma busca e uma lacuna), e um termo administrativo numa dúvida sem
+nenhum termo clínico da lista recusa. As listas ficam no código, com testes
+de frases clínicas que não podem ser barradas. Com o Jev, a pergunta
+mascarada vai para a TypeSafe (EUA) — o Jev classifica, não escreve resposta,
+e a retenção do lado deles não está na documentação pública: exige termos de
+privacidade (DPA) antes de ligar. A chamada do Jev ainda não entra em `ai_calls` (sem preço na tabela
+nem etapa própria): o log `JEV_SCOPE` traz modelo, escolha, confiança, tokens
+de entrada e latência.
