@@ -66,7 +66,15 @@ interface SignInContext {
 export function toSessionPhysician(
   physician: Pick<
     Physician,
-    'id' | 'email' | 'crmUf' | 'crmNumber' | 'name' | 'crmVerified' | 'role' | 'locale'
+    | 'id'
+    | 'email'
+    | 'crmUf'
+    | 'crmNumber'
+    | 'name'
+    | 'crmVerified'
+    | 'role'
+    | 'locale'
+    | 'isCardReviewer'
   > & { passwordHash: string | null },
 ) {
   return {
@@ -79,6 +87,8 @@ export function toSessionPhysician(
     role: physician.role,
     locale: physician.locale,
     hasPassword: physician.passwordHash !== null,
+    // CC-404 — o web mostra a fila de revisão de cartões só ao revisor.
+    isCardReviewer: physician.isCardReviewer,
   };
 }
 
@@ -465,6 +475,7 @@ export class AuthService {
         crmVerified: true,
         role: true,
         locale: true,
+        isCardReviewer: true,
         passwordHash: true,
       },
     });
@@ -622,6 +633,7 @@ export class AuthService {
         mfaEnabled: true,
         subscriptionStatus: true,
         locale: true,
+        isCardReviewer: true,
         createdAt: true,
         passwordHash: true,
       },

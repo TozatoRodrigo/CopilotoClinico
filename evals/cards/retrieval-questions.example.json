@@ -1,0 +1,19 @@
+{
+  "questions": [
+    {
+      "id": "exemplo-meningite-antibiotico",
+      "question": "Qual antibiótico começar na suspeita de meningite bacteriana no adulto?",
+      "expected": ["Meningite bacteriana"]
+    },
+    {
+      "id": "exemplo-meningite-dose",
+      "question": "Dose de ceftriaxona na meningite?",
+      "expected": ["Meningite bacteriana"]
+    },
+    {
+      "id": "exemplo-meningite-notificacao",
+      "question": "Doença meningocócica precisa notificar?",
+      "expected": ["Meningite bacteriana"]
+    }
+  ]
+}

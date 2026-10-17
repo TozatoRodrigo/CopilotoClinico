@@ -7,6 +7,9 @@ import { AuditModule } from '../audit/audit.module';
 import { KnowledgeCardsModule } from './knowledge-cards.module';
 import { KnowledgeCardsService } from './knowledge-cards.service';
 import { KnowledgeCardDraftService } from './drafting/card-draft.service';
+import { KnowledgeCardRetrievalModule } from './card-retrieval/knowledge-card-retrieval.module';
+import { ReviewedCardRetrievalService } from './card-retrieval/reviewed-card-retrieval.service';
+import { CardIndexService } from './card-index/card-index.service';
 
 describe('KnowledgeCardsModule', () => {
   // O mesmo conjunto de módulos do `pnpm cards:draft` (scripts/cards/draft.ts).
@@ -28,11 +31,17 @@ describe('KnowledgeCardsModule', () => {
         PrismaModule,
         AuditModule,
         KnowledgeCardsModule,
+        // CC-408 — o que o CopilotModule importa para a decisão.
+        KnowledgeCardRetrievalModule,
       ],
     }).compile();
 
     expect(moduleRef.get(KnowledgeCardsService)).toBeInstanceOf(KnowledgeCardsService);
     expect(moduleRef.get(KnowledgeCardDraftService)).toBeInstanceOf(KnowledgeCardDraftService);
+    expect(moduleRef.get(ReviewedCardRetrievalService)).toBeInstanceOf(
+      ReviewedCardRetrievalService,
+    );
+    expect(moduleRef.get(CardIndexService)).toBeInstanceOf(CardIndexService);
     await moduleRef.close();
   });
 });

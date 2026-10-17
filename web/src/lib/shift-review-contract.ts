@@ -9,3 +9,14 @@
 
 /** "Sei", "tenho dúvida", "chutei", nesta ordem (a dos botões e do resumo). */
 export const SHIFT_REVIEW_CONFIDENCES = ['know', 'unsure', 'guessed'] as const;
+
+/**
+ * CC-802 — quadrantes do mapa de calibração, na ordem do quadro 2 × 2
+ * (acertou: sabia, chutou; errou: sabia, chutou).
+ */
+export const SHIFT_REVIEW_QUADRANTS = [
+  'knew_right',
+  'guessed_right',
+  'knew_wrong',
+  'guessed_wrong',
+] as const;

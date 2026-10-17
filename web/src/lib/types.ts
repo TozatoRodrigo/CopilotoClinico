@@ -76,6 +76,8 @@ export type {
   RecommendationCategory,
   RecommendationLayer,
   RecommendationDecisionRecord,
+  RecommendationReviewedCard,
+  ReviewedCardRecord,
   RecommendationDecisionValue,
   UpsertRecommendationDecisionRequest,
   RedFlag,
@@ -99,6 +101,12 @@ export type {
   MentoringTermsDocument,
   RateMentoringRequest,
 } from '@contracts/clinical';
+
+export type {
+  KnowledgeCardClaimKind,
+  KnowledgeCardDose,
+  PublishedKnowledgeCard,
+} from '@contracts/knowledge-cards';
 
 // CC-602 — locais de plantão do médico.
 export type {

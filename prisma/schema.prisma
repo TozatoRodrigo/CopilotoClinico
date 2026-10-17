@@ -134,22 +134,25 @@ model Physician {
   createdAt          DateTime           @default(now()) @map("created_at")
   updatedAt          DateTime           @updatedAt @map("updated_at")
 
-  isCurator Boolean   @default(false) @map("is_curator")
+  isCurator      Boolean   @default(false) @map("is_curator")
+  // CC-404 — acesso só à fila de revisão de cartões (ADR-019, adendo); não
+  // dá acesso ao console admin. A fila também exige CRM verificado.
+  isCardReviewer Boolean   @default(false) @map("is_card_reviewer")
   // PI-05 — preferência de idioma persistida na conta (não só localStorage
   // do dispositivo): o médico troca de terminal no hospital e a UI/análise
   // precisam seguir com ele. 'pt-BR' | 'es' — validado na aplicação, não
   // como enum do banco, para não exigir migração a cada novo idioma.
-  locale    String    @default("pt-BR")
+  locale         String    @default("pt-BR")
   // CC-018 — quando a eliminação LGPD anonimizou o cadastro. A estratégia JWT
   // e o refresh recusam sessão de quem tem esta data: o access token é
   // stateless e, sem isso, seguia valendo até expirar (15 min).
-  erasedAt  DateTime? @map("erased_at")
+  erasedAt       DateTime? @map("erased_at")
   // CC-014 — slug de physicianSpecialtyValues (src/shared/contracts/clinical.ts),
   // validado na aplicação pelo mesmo motivo do locale. Nulo até o médico escolher.
-  specialty String?   @db.VarChar(64)
+  specialty      String?   @db.VarChar(64)
   // CC-707 — médico da equipe que responde pedidos de mentoria. Flag
   // operacional, como `isCurator`: ligada por SQL (ver docs/runbook.md).
-  isMentor  Boolean   @default(false) @map("is_mentor")
+  isMentor       Boolean   @default(false) @map("is_mentor")
 
   encounters              Encounter[]
   documents               Document[]
@@ -163,13 +166,16 @@ model Physician {
   recommendationDecisions RecommendationDecision[]
   copilotFeedback         CopilotFeedback[]
   practiceSites           PracticeSite[]
-  mentoringRequests       MentoringRequest[]       @relation("MentoringRequester")
-  mentoringAnswers        MentoringRequest[]       @relation("MentoringMentor")
+  mentoringRequests       MentoringRequest[]         @relation("MentoringRequester")
+  mentoringAnswers        MentoringRequest[]         @relation("MentoringMentor")
   shiftReviews            ShiftReview[]
   shiftReviewQuestions    ShiftReviewQuestion[]
   externalIdentities      ExternalIdentity[]
-  knowledgeCardVersions   KnowledgeCardVersion[]   @relation("KnowledgeCardVersionAuthor")
-  knowledgeCardReviews    KnowledgeCardVersion[]   @relation("KnowledgeCardVersionReviewer")
+  knowledgeCardVersions   KnowledgeCardVersion[]     @relation("KnowledgeCardVersionAuthor")
+  knowledgeCardReviews    KnowledgeCardVersion[]     @relation("KnowledgeCardVersionReviewer")
+  crossReviewsAsFirst     KnowledgeCardCrossReview[] @relation("CrossReviewFirstReviewer")
+  crossReviewsAsAuthor    KnowledgeCardCrossReview[] @relation("CrossReviewVersionAuthor")
+  crossReviewsAsSecond    KnowledgeCardCrossReview[] @relation("CrossReviewReviewer")
 
   @@map("physicians")
 }
@@ -968,7 +974,8 @@ model KnowledgeCardDraft {
 ///
 /// O cartão é a identidade estável; o conteúdo vive nas versões. Editar cria
 /// versão nova e não mexe na versão publicada: `published_version_id` só muda
-/// quando outra versão é aprovada. Nunca é apagado: sai de uso por `archived`.
+/// quando outra versão é aprovada — ou volta a null quando a revisão cruzada
+/// diverge (CC-411). Nunca é apagado: sai de uso por `archived`.
 model KnowledgeCard {
   id                 String              @id @default(uuid()) @db.Uuid
   /// ADR-009 — null = cartão global; preenchido = só daquela instituição.
@@ -987,9 +994,11 @@ model KnowledgeCard {
   createdAt          DateTime            @default(now()) @map("created_at")
   updatedAt          DateTime            @updatedAt @map("updated_at")
 
-  institution      Institution?           @relation(fields: [institutionId], references: [id], onDelete: Restrict)
-  publishedVersion KnowledgeCardVersion?  @relation("KnowledgeCardPublishedVersion", fields: [publishedVersionId], references: [id], onDelete: Restrict)
-  versions         KnowledgeCardVersion[] @relation("KnowledgeCardVersions")
+  institution      Institution?               @relation(fields: [institutionId], references: [id], onDelete: Restrict)
+  publishedVersion KnowledgeCardVersion?      @relation("KnowledgeCardPublishedVersion", fields: [publishedVersionId], references: [id], onDelete: Restrict)
+  versions         KnowledgeCardVersion[]     @relation("KnowledgeCardVersions")
+  crossReviews     KnowledgeCardCrossReview[]
+  indexEntry       KnowledgeCardIndexEntry?
 
   @@index([status, updatedAt])
   @@index([institutionId])
@@ -1024,16 +1033,97 @@ model KnowledgeCardVersion {
   validUntil        DateTime?                    @map("valid_until")
   createdAt         DateTime                     @default(now()) @map("created_at")
 
-  card            KnowledgeCard       @relation("KnowledgeCardVersions", fields: [cardId], references: [id], onDelete: Restrict)
-  publishedOf     KnowledgeCard?      @relation("KnowledgeCardPublishedVersion")
-  draft           KnowledgeCardDraft? @relation(fields: [draftId], references: [id], onDelete: Restrict)
-  authorPhysician Physician?          @relation("KnowledgeCardVersionAuthor", fields: [authorPhysicianId], references: [id], onDelete: Restrict)
-  reviewer        Physician?          @relation("KnowledgeCardVersionReviewer", fields: [reviewerId], references: [id], onDelete: Restrict)
+  card            KnowledgeCard             @relation("KnowledgeCardVersions", fields: [cardId], references: [id], onDelete: Restrict)
+  publishedOf     KnowledgeCard?            @relation("KnowledgeCardPublishedVersion")
+  draft           KnowledgeCardDraft?       @relation(fields: [draftId], references: [id], onDelete: Restrict)
+  authorPhysician Physician?                @relation("KnowledgeCardVersionAuthor", fields: [authorPhysicianId], references: [id], onDelete: Restrict)
+  reviewer        Physician?                @relation("KnowledgeCardVersionReviewer", fields: [reviewerId], references: [id], onDelete: Restrict)
+  /// CC-411 — a revisão cruzada desta aprovação, quando sorteada.
+  crossReview     KnowledgeCardCrossReview? @relation("CrossReviewedVersion")
+  /// CC-411 — a revisão cruzada que divergiu e gerou esta versão.
+  crossReviewOf   KnowledgeCardCrossReview? @relation("CrossReviewCorrection")
+  indexEntry      KnowledgeCardIndexEntry?
 
   @@unique([cardId, version])
   @@index([draftId])
   @@index([reviewerId])
   @@map("knowledge_card_versions")
+}
+
+/// CC-406 (ADR-019) — índice semântico dos cartões: uma linha por cartão que
+/// pode ser usado agora (versão publicada, aprovada, válida, revisor com CRM
+/// verificado). Derivado dos cartões e refeito por `CardIndexService`
+/// (`pnpm cards:reindex`): a API pode apagar linhas daqui sem apagar nada
+/// assinado. `embedding` é `vector` sem dimensão fixa — trocar o provedor é
+/// reindexar, não migrar; a busca só compara vetores do modelo atual.
+model KnowledgeCardIndexEntry {
+  cardId            String                 @id @map("card_id") @db.Uuid
+  /// A versão publicada que o vetor representa.
+  versionId         String                 @unique @map("version_id") @db.Uuid
+  /// Cópia do cartão para o filtro de instituição (ADR-009).
+  institutionId     String?                @map("institution_id") @db.Uuid
+  syndrome          String?                @db.VarChar(40)
+  /// Validade da aprovação: a busca ignora a linha vencida mesmo antes da varredura.
+  validUntil        DateTime               @map("valid_until")
+  contentSha256     String                 @map("content_sha256") @db.Char(64)
+  /// SHA-256 do texto embutido (`cardEmbeddingText`): mudou, reembute.
+  textSha256        String                 @map("text_sha256") @db.Char(64)
+  embedding         Unsupported("vector")?
+  embeddingProvider String?                @map("embedding_provider") @db.VarChar(40)
+  embeddingModel    String?                @map("embedding_model") @db.VarChar(128)
+  indexedAt         DateTime               @default(now()) @map("indexed_at")
+
+  card    KnowledgeCard        @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  version KnowledgeCardVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@index([embeddingModel])
+  @@map("knowledge_card_index")
+}
+
+/// CC-411 — decisão do segundo médico sobre uma aprovação sorteada.
+enum KnowledgeCardCrossReviewStatus {
+  pending
+  agreed
+  /// Divergiu: a correção virou versão nova e o cartão voltou para a fila.
+  diverged
+}
+
+/// CC-411 (ADR-019, adendo) — revisão cruzada: 10% das aprovações, sorteadas
+/// pelo SHA-256 do id da versão aprovada (domain/cross-review-sampling.ts), são
+/// revistas por um segundo médico, diferente de quem aprovou e de quem escreveu
+/// a versão (CHECK na migration). Criada `pending` na transação da aprovação; o
+/// sorteio e a decisão não mudam depois de gravados (trigger).
+model KnowledgeCardCrossReview {
+  id                  String                         @id @default(uuid()) @db.Uuid
+  cardId              String                         @map("card_id") @db.Uuid
+  /// Versão aprovada que caiu no sorteio.
+  versionId           String                         @unique @map("version_id") @db.Uuid
+  /// Quem aprovou a versão sorteada.
+  firstReviewerId     String                         @map("first_reviewer_id") @db.Uuid
+  /// Médico que escreveu a versão (correção); null quando foi a IA.
+  versionAuthorId     String?                        @map("version_author_id") @db.Uuid
+  /// Balde do sorteio (0–99); entra quem fica abaixo da porcentagem.
+  sampleBucket        Int                            @map("sample_bucket") @db.SmallInt
+  status              KnowledgeCardCrossReviewStatus @default(pending)
+  reviewerId          String?                        @map("reviewer_id") @db.Uuid
+  reviewedAt          DateTime?                      @map("reviewed_at")
+  /// Motivo da divergência (obrigatório) ou comentário da concordância, já mascarado de PII.
+  comment             String?                        @db.Text
+  reviewDurationMs    Int?                           @map("review_duration_ms")
+  /// Versão nova que a divergência gerou.
+  correctionVersionId String?                        @unique @map("correction_version_id") @db.Uuid
+  createdAt           DateTime                       @default(now()) @map("created_at")
+
+  card              KnowledgeCard         @relation(fields: [cardId], references: [id], onDelete: Restrict)
+  version           KnowledgeCardVersion  @relation("CrossReviewedVersion", fields: [versionId], references: [id], onDelete: Restrict)
+  correctionVersion KnowledgeCardVersion? @relation("CrossReviewCorrection", fields: [correctionVersionId], references: [id], onDelete: Restrict)
+  firstReviewer     Physician             @relation("CrossReviewFirstReviewer", fields: [firstReviewerId], references: [id], onDelete: Restrict)
+  versionAuthor     Physician?            @relation("CrossReviewVersionAuthor", fields: [versionAuthorId], references: [id], onDelete: Restrict)
+  reviewer          Physician?            @relation("CrossReviewReviewer", fields: [reviewerId], references: [id], onDelete: Restrict)
+
+  @@index([status, createdAt])
+  @@index([cardId])
+  @@map("knowledge_card_cross_reviews")
 }
 
 model AuditLog {

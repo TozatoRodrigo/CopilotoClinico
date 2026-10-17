@@ -147,6 +147,34 @@ export const es: Messages = {
     dependsOnMissing: 'Depende de un dato aún no informado',
     why: 'Por qué',
     openSourcePage: 'Abrir la página de la fuente',
+    reviewedBy: (reviewer: string | null, crm: string, date: string) =>
+      `Revisado por ${reviewer ? `${reviewer} · ` : ''}CRM ${crm} · el ${date}`,
+    openCard: 'Ver tarjeta',
+  },
+
+  reviewedCard: {
+    title: 'Tarjeta revisada',
+    loading: 'Cargando la tarjeta…',
+    notFound: 'Tarjeta no encontrada o fuera de uso.',
+    needsReview:
+      'La aprobación de esta tarjeta venció: no entra en los análisis hasta que se revise de nuevo.',
+    population: 'Para quién',
+    answer: 'Respuesta',
+    claims: 'Qué hacer',
+    sources: 'Fuentes',
+    dose: 'Dosis',
+    reviewedBy: (reviewer: string | null, crm: string, date: string) =>
+      `Revisado por ${reviewer ? `${reviewer} · ` : ''}CRM ${crm} · el ${date}`,
+    validUntil: (date: string) => `Válida hasta ${date}`,
+    version: (version: number) => `Versión ${version}`,
+    claimKind: {
+      conduct: 'Conducta',
+      criterion: 'Criterio',
+      alarm_sign: 'Signo de alarma',
+      disposition: 'Destino',
+      notification: 'Notificación',
+      pitfall: 'Trampa',
+    },
   },
 
   plan: {
@@ -172,6 +200,7 @@ export const es: Messages = {
     curated_unsigned: 'Base curada · sin firma médica',
     model_knowledge: 'Conocimiento general del modelo — confirme en el protocolo local',
     web_official: 'Fuente oficial externa',
+    reviewed_card: 'Tarjeta revisada por médico',
   },
 
   redFlags: {
@@ -483,6 +512,67 @@ export const es: Messages = {
       guessedRight: 'Acertó adivinando: el acierto aún no es suyo, revise la fuente.',
       calibrated: 'Lo que marcó coincidió con el resultado.',
       done: 'Revisión de la semana concluida. La próxima sale el lunes.',
+    },
+    tabs: {
+      label: 'Secciones de la revisión',
+      review: 'Revisión de la semana',
+      map: 'Su mapa',
+    },
+    map: {
+      description:
+        'Por tema, dónde acierta sabiendo, acierta adivinando y falla creyendo que sabe. Solo con sus respuestas.',
+      loading: 'Cargando su mapa',
+      errorTitle: 'No fue posible cargar su mapa',
+      disabledTitle: 'Mapa no disponible',
+      disabledDescription: 'El mapa aparece junto con la revisión de la guardia.',
+      insufficientTitle: 'Su mapa todavía se está formando',
+      insufficientDescription: (required: number) =>
+        `El mapa aparece con ${required} respuestas: con menos, no se puede sacar conclusiones.`,
+      insufficientProgress: (answered: number, required: number) =>
+        `${answered} de ${required} respuestas`,
+      goToReview: 'Ir a la revisión de la semana',
+      overviewTitle: 'Todas las respuestas',
+      overviewDescription: (answered: number) =>
+        `Sus últimas ${answered} respuestas, de todos los temas.`,
+      quadrants: {
+        knew_right: 'Sabe y sabe que sabe',
+        guessed_right: 'Acierta adivinando',
+        knew_wrong: 'Falla creyendo que sabe',
+        guessed_wrong: 'Falla y sabe que no sabe',
+      },
+      quadrantHints: {
+        knew_right: 'Marcó "Lo sé" y acertó',
+        guessed_right: 'Marcó "Tengo dudas" o "Adiviné" y acertó',
+        knew_wrong: 'Marcó "Lo sé" y falló',
+        guessed_wrong: 'Marcó "Tengo dudas" o "Adiviné" y falló',
+      },
+      accuracy: (correct: number, answered: number) => `Acertó ${correct} de ${answered}`,
+      calibration: (percent: number) => `Calibración ${percent}%`,
+      calibrationHint: (calibrated: number, answered: number) =>
+        `En ${calibrated} de ${answered} respuestas, lo que marcó predijo el resultado.`,
+      answers: (count: number) => (count === 1 ? '1 respuesta' : `${count} respuestas`),
+      noneToStudy: 'Ningún fallo marcando "Lo sé" en los temas con respuestas suficientes.',
+      themesTitle: 'Por tema',
+      themesDescription:
+        'Los temas en que falló marcando "Lo sé" van primero, con lo que conviene estudiar.',
+      fewAnswersTitle: 'Pocos datos',
+      fewAnswersDescription: (min: number) =>
+        `Con menos de ${min} respuestas en el tema, todavía no se puede sacar conclusiones.`,
+      studyTitle: (misses: number) =>
+        misses === 1
+          ? 'Falló 1 vez marcando "Lo sé". Para estudiar:'
+          : `Falló ${misses} veces marcando "Lo sé". Para estudiar:`,
+      studyEmpty: 'Repase la explicación y la fuente de las preguntas de este tema.',
+      knowledgeCard: 'Tarjeta revisada',
+      openSource: 'Abrir la fuente',
+      tableToggle: 'Ver el mapa en tabla',
+      tableCaption: 'Respuestas por tema: acierto × cuánto sabía',
+      tableTheme: 'Tema',
+      tableAnswers: 'Respuestas',
+      tableCorrect: 'Aciertos',
+      tableCalibration: 'Calibración',
+      tableAll: 'Todos los temas',
+      fewAnswers: 'Pocos datos',
     },
   },
 

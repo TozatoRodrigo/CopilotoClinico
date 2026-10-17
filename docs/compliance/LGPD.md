@@ -220,6 +220,9 @@ As notas de verificação de CRM têm o admin como `actor_id`; filtre por
 - A fonte é copiada da análise (trecho da diretriz), nunca escrita pelo modelo
 - Exportação: `data.shiftReviews` (com as perguntas). Eliminação: apagadas
   explicitamente; as perguntas também saem em cascata com o encontro
+- CC-802 ("Seu mapa"): agregado calculado na hora a partir das respostas do
+  próprio médico (tema, certeza, acerto); nada novo é gravado e não há
+  agregado entre médicos
 
 ### Fora do banco
 
