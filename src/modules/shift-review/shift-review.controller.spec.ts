@@ -4,6 +4,7 @@ import { Test } from '@nestjs/testing';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
 import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
+import { CalibrationMapService } from './calibration-map.service';
 import { ShiftReviewController } from './shift-review.controller';
 import { ShiftReviewService } from './shift-review.service';
 
@@ -22,11 +23,15 @@ class FakeJwtGuard implements CanActivate {
 describe('ShiftReviewController (HTTP)', () => {
   let app: NestFastifyApplication;
   const service = { getCurrent: vi.fn(), start: vi.fn(), answer: vi.fn() };
+  const maps = { getMap: vi.fn() };
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [ShiftReviewController],
-      providers: [{ provide: ShiftReviewService, useValue: service }],
+      providers: [
+        { provide: ShiftReviewService, useValue: service },
+        { provide: CalibrationMapService, useValue: maps },
+      ],
     })
       .overrideGuard(JwtAuthGuard)
       .useClass(FakeJwtGuard)
@@ -45,6 +50,9 @@ describe('ShiftReviewController (HTTP)', () => {
     service.getCurrent.mockReset().mockResolvedValue({ status: 'available' });
     service.start.mockReset().mockResolvedValue({ status: 'generating' });
     service.answer.mockReset().mockResolvedValue({ status: 'ready', review: {} });
+    maps.getMap
+      .mockReset()
+      .mockResolvedValue({ status: 'insufficient', answered: 4, required: 20 });
   });
 
   it('keeps the JWT guard on the whole controller', () => {
@@ -65,6 +73,17 @@ describe('ShiftReviewController (HTTP)', () => {
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ status: 'generating' });
     expect(service.start).toHaveBeenCalledWith(physicianId);
+  });
+
+  it('GET /shift-review/map reads only the map of the authenticated physician', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/shift-review/map?physicianId=99999999-9999-4999-8999-999999999999',
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ status: 'insufficient', answered: 4, required: 20 });
+    expect(maps.getMap).toHaveBeenCalledWith(physicianId);
   });
 
   describe('POST /shift-review/questions/:questionId/answer', () => {

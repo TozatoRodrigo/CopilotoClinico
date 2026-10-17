@@ -220,6 +220,9 @@ As notas de verificação de CRM têm o admin como `actor_id`; filtre por
 - A fonte é copiada da análise (trecho da diretriz), nunca escrita pelo modelo
 - Exportação: `data.shiftReviews` (com as perguntas). Eliminação: apagadas
   explicitamente; as perguntas também saem em cascata com o encontro
+- CC-802 ("Seu mapa"): agregado calculado na hora a partir das respostas do
+  próprio médico (tema, certeza, acerto); nada novo é gravado e não há
+  agregado entre médicos
 
 ### Fora do banco
 
@@ -300,17 +303,21 @@ com instituições, refresh tokens, códigos de backup do MFA e `ai_calls`.
 1. Apaga do MinIO os PDFs dos documentos dos atendimentos do médico. Se o
    storage falhar, nada é apagado no banco e a resposta é 503 — o pedido pode
    ser repetido.
-2. Numa transação: apaga a entrada da lista de espera do beta com o e-mail da
-   conta e o termo e o perfil do participante do beta; decisões por
-   recomendação, reportes do copiloto, anexos, capturas de áudio, pedidos de
-   mentoria, revisões do plantão, atendimentos (e, em cascata, conversas do
-   copiloto guiado, documentos, interações de IA, "não encontrei" e execuções
-   de protocolo), locais de plantão, consentimentos, aceites dos termos,
-   refresh tokens e contas Google/Microsoft vinculadas; anonimiza o cadastro
-   (nome `ERASED`, e-mail `erased-<id>@erased.com`, senha inutilizada,
-   especialidade apagada) e grava `erased_at`, que derruba a sessão.
-3. Registra `DATA_ERASURE` na trilha com as contagens e responde
-   `{ status: "completed", erased: { … } }`.
+2. Numa transação: apaga decisões por recomendação, reportes do copiloto,
+   anexos, capturas de áudio, pedidos de mentoria que o médico fez, revisões
+   do plantão, atendimentos (e, em cascata, conversas do copiloto guiado,
+   documentos, interações de IA, lacunas apontadas e execuções de protocolo),
+   locais de plantão, consentimentos, aceites dos termos, refresh tokens,
+   contas Google/Microsoft vinculadas, códigos de backup do MFA, pedidos de
+   verificação de CRM, vínculos institucionais e os contadores do bloqueio por
+   tentativas; apaga a lista de espera do beta com o e-mail da conta e tira da
+   participação no beta o termo e o perfil; tira das chamadas de IA o vínculo
+   com o médico; anonimiza o cadastro (nome `ERASED`, e-mail
+   `erased-<id>@erased.com`, senha inutilizada, especialidade apagada) e grava
+   `erased_at`, que derruba a sessão.
+3. Registra `DATA_ERASURE` na trilha com as contagens e os nomes das colunas
+   anonimizadas, nenhum valor do cadastro, e responde
+   `{ status: "completed", erased: { … }, anonymized: { aiCalls, physicianColumns } }`.
 
 Continuam depois da eliminação:
 
@@ -318,13 +325,46 @@ Continuam depois da eliminação:
   (Art. 16, I). O payload não leva texto livre nem dado pessoal; entradas
   gravadas antes dessa regra podem levar e não mudam — ver "Trilha de
   auditoria" acima. O IP fica;
-- `ai_calls`, com os ids do médico e dos atendimentos;
-- as respostas que o médico deu como mentor, no caso de quem pediu, com o nome
-  anonimizado, e os ids da participação no beta, para a contagem do lote;
-- CRM e segredo de MFA no cadastro, códigos de backup, pedidos de verificação
-  de CRM, vínculos com instituições e o estado de bloqueio de login;
+- `ai_calls`, sem vínculo com o médico nem com os atendimentos (custo e
+  latência agregados);
+- as exceções da tabela abaixo, apontando para o cadastro anonimizado;
 - jobs da fila no Redis até expirarem (24 h ou 7 dias), só com ids;
 - linhas de log já escritas.
+
+#### Decisão por tabela (CC-012)
+
+A fonte é `src/modules/lgpd/erasure-policy.ts`, com o porquê de cada linha.
+O que precisa ficar para a trilha ou para obrigação legal fica anonimizado;
+o resto é apagado.
+
+| Dado | Decisão | Por quê |
+|---|---|---|
+| Cadastro (`physicians`) | anonimizado | Fica como referente do `actor_id` da trilha. Nome, e-mail, senha, CRM (UF, número, verificação), MFA (segredo e flag), idioma e especialidade são substituídos e `erased_at` é gravado; ficam id, papel, curador, mentor, assinatura e datas. |
+| Códigos de backup do MFA | apagados | Credencial, sem valor de auditoria. |
+| Pedidos de verificação de CRM | apagados | Fila do admin, com nota em texto livre. Quem pediu, quem decidiu e quando já estão na trilha (`CRM_VERIFICATION_*`). |
+| Vínculos institucionais | apagados | Onde o médico trabalha; o vínculo fica na trilha (`PHYSICIAN_LINKED_TO_INSTITUTION`). A instituição fica. |
+| Contadores do bloqueio por tentativas | apagados | Login, MFA e troca de senha; valem minutos. A chave do login é o SHA-256 sem sal do e-mail, reidentificável: sai também a linha sem `physician_id` achada pelo hash do e-mail. |
+| Contas Google/Microsoft (`external_identities`) | apagadas | Com o e-mail do vínculo. Sem apagar, o login social entraria na conta anonimizada. |
+| Aceites dos termos (`legal_acceptances`) | apagados | O evento fica na trilha (`LEGAL_DOCUMENT_ACCEPTED`). |
+| Locais de plantão, revisões do plantão, pedidos de mentoria feitos | apagados | Dados do médico; local e porte ajudam a reidentificá-lo. |
+| Lista de espera do beta | apagada | Achada pelo e-mail da conta, antes da anonimização. |
+| Chamadas de IA (`ai_calls`) | anonimizadas | Custo e latência agregados ficam; `physician_id`, `encounter_id` e `request_id` viram NULL. A API só pode alterar essas três colunas (migration `20261016120000_cc_012_lgpd_erasure_privileges`). |
+| Consentimentos | apagados | A prova do consentimento (Art. 8º, § 2º) fica na trilha. |
+| Participação no beta | exceção | Termo e perfil apagados; ficam os ids e a data de entrada, para a contagem do lote de convite. |
+| Respostas dadas como mentor | exceção | São parte do caso de quem pediu e ficam com ele; o mentor vira o cadastro anonimizado. |
+| Autoria e revisão de cartões revisados | exceção | Proveniência de conteúdo clínico em uso por outros médicos (ADR-019). Um trigger impede regravar a versão e a decisão do revisor. |
+
+Colunas de autoria em registros que não são do médico (`reviewed_by` da
+curadoria, `triaged_by`, `created_by` de protocolo, `resolved_by` de
+verificação) continuam com o id, agora de um cadastro anonimizado.
+
+**Tabela nova com dado do médico.** O teste
+`src/modules/lgpd/erasure-policy.spec.ts` lê o schema e falha se aparecer
+coluna `physician_id`, `user_id` ou FK para `physicians` fora da política e
+da lista de exceções justificadas. Coluna nova no cadastro do médico não
+compila até entrar em `anonymizedPhysician` ou em `PHYSICIAN_KEPT_COLUMNS`. O
+teste de integração `cc-012-lgpd-erasure-complete` semeia cada tabela da
+política e roda a eliminação com a role de runtime (`copiloto_app`).
 
 ### Consentimento
 

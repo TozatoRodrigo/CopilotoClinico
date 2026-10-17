@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from '../../src/config/prisma.module';
 import { AiGatewayService } from '../../src/modules/ai-gateway/ai-gateway.service';
 import { AuditModule } from '../../src/modules/audit/audit.module';
+import { DeidModule } from '../../src/modules/deid/deid.module';
 import { ConversationService } from '../../src/modules/copilot/intake/conversation.service';
 import { IntakeService } from '../../src/modules/copilot/intake/intake.service';
 import { OrchestratorService } from '../../src/modules/copilot/orchestrator/orchestrator.service';
@@ -14,6 +15,8 @@ import { EncountersService } from '../../src/modules/encounters/encounters.servi
 import { GuidelinesModule } from '../../src/modules/guidelines/guidelines.module';
 import { InstitutionsService } from '../../src/modules/institutions/institutions.service';
 import { RedisModule } from '../../src/modules/redis/redis.module';
+import { CARD_INDEX_PROVIDERS } from '../../src/modules/knowledge-cards/card-index/knowledge-card-index.module';
+import { REVIEWED_CARD_RETRIEVAL_PROVIDERS } from '../../src/modules/knowledge-cards/card-retrieval/knowledge-card-retrieval.module';
 import { CompletionRecorder, RecordingAiGatewayService } from './recorder';
 import { ENV_FILE_PATHS } from './variants';
 
@@ -45,6 +48,9 @@ export class EvalModule {
         PrismaModule,
         RedisModule,
         AuditModule,
+        // CC-203 — caso, respostas e anexos passam pela de-identificação de
+        // produção (DEID_MODE da variante; padrão regex).
+        DeidModule,
         GuidelinesModule,
       ],
       providers: [
@@ -56,6 +62,10 @@ export class EvalModule {
         RetrievalService,
         UnderstandingService,
         WebResearchService,
+        // CC-408 — cartões revisados (variantes com COPILOT_REVIEWED_CARDS),
+        // com o gateway que grava as chamadas: o embedding da busca entra no rastro.
+        ...CARD_INDEX_PROVIDERS,
+        ...REVIEWED_CARD_RETRIEVAL_PROVIDERS,
         OrchestratorService,
         // CC-106 — a conversa do Copiloto guiado, do jeito que a tela a usa.
         IntakeService,

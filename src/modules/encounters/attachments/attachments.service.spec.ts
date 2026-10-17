@@ -4,6 +4,7 @@ import { AttachmentsService } from './attachments.service';
 import { PrismaService } from '../../../config/prisma.service';
 import { AuditService } from '../../audit/audit.service';
 import { GuidelinesService } from '../../guidelines/guidelines.service';
+import { modelDeidentifier } from '../../../../tests/helpers/fake-deid';
 
 /**
  * F4 — referência anexada pelo médico a UM atendimento. Origem: o médico do
@@ -112,6 +113,46 @@ describe('AttachmentsService', () => {
     } & Record<string, unknown>;
     expect(persisted.text).not.toContain('123.456.789-09');
     expect(persisted).not.toHaveProperty('data');
+  });
+
+  // CC-203 — com DEID_MODE=model, o nome sem tratamento também sai do anexo.
+  it('mascara o nome achado pelo modelo local antes de gravar', async () => {
+    guidelines.extractDocumentText.mockResolvedValue({
+      text: 'Relato de caso: Maria da Silva, 54 anos, dengue grave.',
+      pages: 1,
+      truncated: false,
+    });
+    const deid = modelDeidentifier(['Maria da Silva']);
+    const withModel = new AttachmentsService(
+      prisma as unknown as PrismaService,
+      audit as unknown as AuditService,
+      guidelines as unknown as GuidelinesService,
+      deid,
+    );
+
+    await withModel.create(physicianId, encounterId, input);
+
+    const persisted = prisma.encounterAttachment.create.mock.calls[0]![0].data as { text: string };
+    expect(persisted.text).toBe('Relato de caso: [NOME], 54 anos, dengue grave.');
+  });
+
+  it('só o que cabe no prompt (com folga) vai ao modelo local', async () => {
+    guidelines.extractDocumentText.mockResolvedValue({
+      text: 'A'.repeat(AttachmentsService.MAX_TEXT_CHARS * 3),
+      pages: 150,
+      truncated: false,
+    });
+    const deid = modelDeidentifier([]);
+    const withModel = new AttachmentsService(
+      prisma as unknown as PrismaService,
+      audit as unknown as AuditService,
+      guidelines as unknown as GuidelinesService,
+      deid,
+    );
+
+    await withModel.create(physicianId, encounterId, input);
+
+    expect(deid.model.received[0]!.length).toBeLessThan(AttachmentsService.MAX_TEXT_CHARS * 1.2);
   });
 
   it('corta o texto no teto de contexto para o anexo não afogar o caso clínico', async () => {

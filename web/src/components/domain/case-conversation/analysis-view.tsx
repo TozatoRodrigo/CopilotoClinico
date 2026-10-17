@@ -1,7 +1,9 @@
 'use client';
 
 import { useId, useState, type ReactNode } from 'react';
+import Link from 'next/link';
 import { useGenerateDocument, useEncounterDetail } from '@/lib/clinical-queries';
+import { formatReviewDate, reviewedCardHref, reviewerCrm, reviewerName } from '@/lib/reviewed-card';
 import { QuickConsultBanner } from '@/components/domain/quick-consult-banner';
 import {
   useRecommendationDecisions,
@@ -948,6 +950,34 @@ export function RecommendationItem({
                 )}
               </>
             )}
+          </div>
+        )}
+
+        {/* CC-408 — conduta que segue um cartão revisado: quem assinou, com o
+            CRM, e o link do cartão. A dose da conduta é a do cartão. */}
+        {rec.origin === 'reviewed_card' && rec.reviewedCard && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+            <SourceOriginBadge origin="reviewed_card" />
+            <span className="inline-flex min-w-0 items-center gap-1">
+              <SealCheck
+                className="size-3.5 shrink-0 text-tone-green"
+                weight="fill"
+                aria-hidden="true"
+              />
+              <span>
+                {messages.recommendation.reviewedBy(
+                  reviewerName(rec.reviewedCard.reviewer.name),
+                  reviewerCrm(rec.reviewedCard.reviewer),
+                  formatReviewDate(rec.reviewedCard.reviewedAt),
+                )}
+              </span>
+            </span>
+            <Link
+              href={reviewedCardHref(rec.reviewedCard.cardId)}
+              className="text-link underline-offset-4 hover:underline"
+            >
+              {messages.recommendation.openCard}
+            </Link>
           </div>
         )}
 

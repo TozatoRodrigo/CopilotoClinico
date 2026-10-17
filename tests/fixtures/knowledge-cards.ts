@@ -1,5 +1,11 @@
-import type { KnowledgeCardContentInput } from '../../src/shared/contracts/knowledge-cards';
-import type { SourceChunk } from '../../src/modules/knowledge-cards/card-sources';
+import type {
+  KnowledgeCardContent,
+  KnowledgeCardContentInput,
+} from '../../src/shared/contracts/knowledge-cards';
+import {
+  prepareCardContent,
+  type SourceChunk,
+} from '../../src/modules/knowledge-cards/card-sources';
 
 /**
  * CC-402/CC-403 — trechos de diretriz e um cartão válido para os testes.
@@ -112,4 +118,14 @@ export function validSourceTexts(): Map<string, string> {
     ['S1', TREATMENT_TEXT],
     ['S2', DIAGNOSIS_TEXT],
   ]);
+}
+
+/**
+ * CC-406/CC-408 — o conteúdo do cartão válido como fica gravado na versão
+ * (fontes resolvidas a partir dos chunks), com o hash que o revisor assina.
+ */
+export function storedCardContent(): { content: KnowledgeCardContent; contentSha256: string } {
+  const prepared = prepareCardContent(validCardInput(), sourceChunks(), { institutionId: null });
+  if (!prepared.ok) throw new Error('fixture de cartão inválida');
+  return { content: prepared.content, contentSha256: prepared.contentSha256 };
 }

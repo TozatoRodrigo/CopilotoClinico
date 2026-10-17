@@ -347,4 +347,38 @@ describe('AiCallReportService', () => {
       });
     });
   });
+
+  describe('análises de uma semana (CC-705)', () => {
+    const from = new Date('2026-10-12T03:00:00.000Z');
+    const to = new Date('2026-10-16T16:00:00.000Z');
+
+    it('soma custo e latência por análise na janela fechada e tira os percentis entre análises', async () => {
+      const { rawCalls, service } = buildSubject(() => [
+        { analyses: 3, total_cost: 0.6000004, p50: 30_000.4, p95: 58_999.6 },
+      ]);
+
+      await expect(service.getAnalysisSummary(from, to)).resolves.toEqual({
+        count: 3,
+        totalCostUsd: 0.6,
+        avgCostUsd: 0.2,
+        latency: { p50Ms: 30_000, p95Ms: 59_000 },
+      });
+      expect(rawCalls[0]!.sql).toContain("HAVING bool_or(stage = 'decision')");
+      expect(rawCalls[0]!.sql).toContain('sum(latency_ms)');
+      expect(rawCalls[0]!.values).toEqual([from, to]);
+    });
+
+    it('semana sem análise: custo zero, média e latência nulas', async () => {
+      const { service } = buildSubject(() => [
+        { analyses: 0, total_cost: null, p50: null, p95: null },
+      ]);
+
+      await expect(service.getAnalysisSummary(from, to)).resolves.toEqual({
+        count: 0,
+        totalCostUsd: 0,
+        avgCostUsd: null,
+        latency: { p50Ms: null, p95Ms: null },
+      });
+    });
+  });
 });

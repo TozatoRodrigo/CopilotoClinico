@@ -1,0 +1,32 @@
+# ── Serviço de de-identificação (CC-203, ADR-020) ───────────────────────────
+# Estágio 1: baixa o OpenMed PII 44M numa revisão fixa, confere o sha256 dos
+# pesos, exporta para ONNX int8 e otimiza o grafo (o torch só existe aqui). O
+# runtime leva só onnxruntime, tokenizers e o modelo (~180 MB); o binário do
+# modelo nunca entra no git.
+#
+# ⚠️ O estágio 1 chega a ~3,1 GB de RAM (quantização). NÃO construa na VPS:
+# construa fora (linux/amd64) e carregue lá — ver runbook, "De-identificação
+# com o modelo local".
+FROM python:3.12-slim AS export
+ENV PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
+WORKDIR /build
+RUN pip install --index-url https://download.pytorch.org/whl/cpu torch==2.14.1
+COPY services/deid/requirements-export.txt ./
+RUN pip install -r requirements-export.txt
+COPY services/deid/export_onnx.py services/deid/ner.py services/deid/spans.py ./
+RUN python export_onnx.py --out /model
+
+FROM python:3.12-slim AS runtime
+ENV PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 \
+    DEID_MODEL_DIR=/model
+WORKDIR /app
+COPY services/deid/requirements.txt ./
+RUN pip install -r requirements.txt && useradd --system --uid 10001 deid
+COPY --from=export /model /model
+COPY services/deid/app.py services/deid/ner.py services/deid/spans.py services/deid/bench.py ./
+USER deid
+EXPOSE 8000
+HEALTHCHECK --interval=10s --timeout=3s --start-period=30s --retries=3 \
+  CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"]
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--no-access-log"]

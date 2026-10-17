@@ -1,5 +1,9 @@
 import type { CaseUnderstanding, WebEvidenceItem } from '../../../shared/contracts/clinical';
 import {
+  buildReviewedCardsBlock,
+  type ReviewedCardEvidence,
+} from '../reviewed-cards/reviewed-card-evidence';
+import {
   buildAttachmentsBlock,
   buildConfirmedRedFlagsBlock,
   buildContextBlock,
@@ -150,6 +154,11 @@ export interface DecisionV2PromptInput {
   officialChunks: RetrievedContext[];
   physicianAttachments: PhysicianAttachment[];
   webEvidence: WebEvidenceItem[];
+  /**
+   * CC-408 — cartões revisados aplicáveis (`COPILOT_REVIEWED_CARDS`). Vazio
+   * ou ausente: a mensagem fica byte a byte igual à de antes dos cartões.
+   */
+  reviewedCards?: readonly ReviewedCardEvidence[];
   additionalInstructions?: string;
   /**
    * CC-602/CC-603 — `COPILOT_SITE_CONTEXT`: com local declarado no caso, o
@@ -251,14 +260,18 @@ export function buildStagedDecisionPrompt(
   systemPrompt: string,
   input: DecisionV2PromptInput,
 ): BuiltPrompt {
+  const reviewedCards = input.reviewedCards ?? [];
   const retrievedChunkIds = [
     ...input.retrievedChunks.map((chunk) => chunk.chunkId),
     ...input.officialChunks.map((chunk) => chunk.chunkId),
     ...input.physicianAttachments.map((attachment) => attachment.citationId),
     ...input.webEvidence.map((item) => item.id),
+    ...reviewedCards.map((item) => item.citationId),
   ];
 
+  // CC-408 — o cartão revisado vem primeiro: é a evidência mais confiável.
   const evidence = [
+    buildReviewedCardsBlock(reviewedCards),
     buildCuratedBlock(input.retrievedChunks, input.coverage),
     input.officialChunks.length > 0
       ? `${OFFICIAL_NOTE}${buildOfficialBlock(input.officialChunks)}`

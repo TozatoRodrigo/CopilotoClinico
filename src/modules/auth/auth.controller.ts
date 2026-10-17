@@ -111,10 +111,8 @@ export class AuthController {
   @AllowWithoutLegalAcceptance()
   async logout(
     @Request()
-    req: {
+    req: RequestWithIp & {
       user: { physicianId: string };
-      ip?: string;
-      ips?: string[];
       cookies?: Record<string, string>;
     },
     @Body(new ZodValidationPipe(logoutSchema)) body: LogoutInput,

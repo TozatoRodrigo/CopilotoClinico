@@ -164,3 +164,25 @@ export function prepareCardContent(
   }
   return { ok: true, content: stored.data, contentSha256: hashCardContent(stored.data) };
 }
+
+/**
+ * Correção do médico sobre uma versão ("Corrigir" no console e na fila, e a
+ * divergência da revisão cruzada — CC-411): as mesmas regras do rascunho da
+ * IA, e as fontes que a versão anterior já citava podem continuar mesmo
+ * depois de substituídas.
+ */
+export async function prepareCorrection(
+  prisma: PrismaService,
+  input: unknown,
+  options: { institutionId: string | null; previousContent: Prisma.JsonValue },
+): Promise<PreparedContent> {
+  const previous = KnowledgeCardContentSchema.safeParse(options.previousContent);
+  const alreadyCitedChunkIds = new Set(
+    previous.success ? previous.data.sources.map((source) => source.chunkId) : [],
+  );
+  const chunks = await loadSourceChunks(prisma, requestedChunkIds(input));
+  return prepareCardContent(input, chunks, {
+    institutionId: options.institutionId,
+    alreadyCitedChunkIds,
+  });
+}
